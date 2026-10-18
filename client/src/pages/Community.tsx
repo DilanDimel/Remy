@@ -30,7 +30,7 @@ export default function Community() {
           {!w.contacts.some((x) => x.label === "Demo data") && <button className="btn btn-ghost" onClick={loadSamples} data-testid="button-sample-contacts">Load sample contacts</button>}
         </div>
       </div>
-      <div className="notice small"><StatusChip label="Demo data" /><div>Offer Ready has no access to a verified alumni directory, so it doesn't recommend real people. Add people you know (from LinkedIn, a career fair or class) or use clearly labeled sample contacts.</div></div>
+      <div className="notice small"><StatusChip label="Demo data" /><div>Remy has no access to a verified alumni directory, so it doesn't recommend real people. Add people you know (from LinkedIn, a career fair or class) or use clearly labeled sample contacts.</div></div>
       {w.contacts.length ? (
         <div className="grid-3">
           {w.contacts.map((p) => (
@@ -112,7 +112,7 @@ function ReviewModal({ draft, onClose }: { draft: OutreachDraft; onClose: () => 
   const gmail = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(d.to)}&su=${encodeURIComponent(d.subject)}&body=${encodeURIComponent(d.body)}`;
   return (
     <Modal title="Review before anything is sent" onClose={onClose} wide>
-      <div className="notice small"><Send size={16} style={{ color: "var(--plum)", marginTop: 2 }} /><div>Offer Ready doesn't send email. After you approve, it opens the message in <strong>your</strong> email so you send it yourself.</div></div>
+      <div className="notice small"><Send size={16} style={{ color: "var(--plum)", marginTop: 2 }} /><div>Remy doesn't send email. After you approve, it opens the message in <strong>your</strong> email so you send it yourself.</div></div>
       <dl className="kv"><dt>To</dt><dd data-testid="text-recipient">{p?.name} &lt;{d.to}&gt; {p?.label === "Demo data" && <StatusChip label="Demo data">Sample address — won't reach anyone</StatusChip>}</dd><dt>From</dt><dd>{w.profile.applicationEmail || "Your email account"}</dd></dl>
       <label className="field"><span>Subject</span><input className="input" value={d.subject} onChange={(e) => setD({ ...d, subject: e.target.value, status: "draft" })} data-testid="input-outreach-subject" /></label>
       <label className="field"><span>Full message</span><textarea className="textarea" style={{ minHeight: 220 }} value={d.body} onChange={(e) => setD({ ...d, body: e.target.value, status: "draft" })} data-testid="input-outreach-body" /></label>

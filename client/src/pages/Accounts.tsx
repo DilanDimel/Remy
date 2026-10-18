@@ -18,7 +18,7 @@ export default function Accounts({ query }: { query: URLSearchParams }) {
         <div>
           <span className="eyebrow">Accounts</span>
           <h1>Your profile, sources and memory.</h1>
-          <p>See exactly what Offer Ready knows, where it came from, and change or delete it.</p>
+          <p>See exactly what Remy knows, where it came from, and change or delete it.</p>
         </div>
       </div>
       <div className="tabs" role="tablist">
@@ -40,11 +40,11 @@ function Sources() {
   const w = ws!;
   const [open, setOpen] = useState("");
   const rows: { name: string; status: any; label: string; detail: string; importKind?: string }[] = [
-    { name: "Google account", status: me?.kind === "google" ? "Live" : config?.googleClientId ? "Live" : "Needs setup", label: me?.kind === "google" ? `Signed in as ${me.email}` : config?.googleClientId ? "Available — not signed in" : "Not configured on this server", detail: "Sign-in only (name, email, photo). Offer Ready doesn't request Gmail or Calendar access." },
+    { name: "Google account", status: me?.kind === "google" ? "Live" : config?.googleClientId ? "Live" : "Needs setup", label: me?.kind === "google" ? `Signed in as ${me.email}` : config?.googleClientId ? "Available — not signed in" : "Not configured on this server", detail: "Sign-in only (name, email, photo). Remy doesn't request Gmail or Calendar access." },
     { name: "AI model", status: config?.ai.available ? "Live" : "Needs setup", label: config?.ai.available ? `${config.ai.model} · ${config.ai.via}` : "Not configured", detail: "Used for resume reading, tailoring, plans, chat, outreach drafts and email classification." },
     { name: "Resume", status: w.resume ? "Student provided" : "Needs setup", label: w.resume ? `${w.resume.fileName} · ${fmtDate(w.resume.uploadedAt)}` : "Not uploaded", detail: "Your evidence base. Replace it anytime in Resume/CV." },
     { name: "LinkedIn", status: w.imports.some((i) => i.kind === "LinkedIn") ? "Student provided" : "Needs setup", label: "Upload your profile PDF or paste text", detail: "No direct LinkedIn connection — LinkedIn doesn't allow apps to read profiles this way.", importKind: "LinkedIn" },
-    { name: "Handshake", status: w.imports.some((i) => i.kind === "Handshake") ? "Student provided" : "Needs setup", label: "Paste profile or posting text", detail: "Handshake requires your login; Offer Ready never asks for it.", importKind: "Handshake" },
+    { name: "Handshake", status: w.imports.some((i) => i.kind === "Handshake") ? "Student provided" : "Needs setup", label: "Paste profile or posting text", detail: "Handshake requires your login; Remy never asks for it.", importKind: "Handshake" },
     { name: "Stellic / TCU academic", status: w.imports.some((i) => i.kind.startsWith("Stellic") || i.kind.startsWith("TCU")) ? "Student provided" : "Needs setup", label: "Paste your degree plan", detail: "No university integration. Requirements must come from your advisor and official tools.", importKind: "Stellic / degree plan" },
     { name: "Email inbox", status: "Needs setup", label: "Paste emails in Progress", detail: "Inbox reading isn't connected. Sample emails are labeled as demos." },
     { name: "Calendar", status: "Needs setup", label: "Export .ics or add per item", detail: "No automatic sync — you add items to your own calendar." },
@@ -133,7 +133,7 @@ function Settings() {
       </div>
       <div className="card card-pad stack">
         <h3>Reminders</h3>
-        <p className="xs muted">Shown inside Offer Ready. Email and push reminders aren't configured (Needs setup).</p>
+        <p className="xs muted">Shown inside Remy. Email and push reminders aren't configured (Needs setup).</p>
         {([["deadlines", "Upcoming deadlines"], ["statusChanges", "Status suggestions from emails"], ["weeklyPlan", "Weekly plan nudge"]] as const).map(([k, l]) => (
           <label key={k} className="row small"><input type="checkbox" checked={s.notify[k]} onChange={() => toggle(k)} data-testid={`toggle-${k}`} /> {l}</label>
         ))}
@@ -164,9 +164,9 @@ function Data() {
       </div>
       <div className="card card-pad stack">
         <h3>Your data</h3>
-        <p className="small muted">Your workspace is stored on the Offer Ready server and only returned to your own session. Other visitors can't see it.</p>
+        <p className="small muted">Your workspace is stored on the Remy server and only returned to your own session. Other visitors can't see it.</p>
         <div className="row">
-          <button className="btn btn-secondary btn-sm" onClick={() => download("/api/export/data", "offer-ready-my-data.json").catch((e) => toast(e.message, true))} data-testid="button-export-data"><Download size={14} /> Download my data</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => download("/api/export/data", "remy-my-data.json").catch((e) => toast(e.message, true))} data-testid="button-export-data"><Download size={14} /> Download my data</button>
           <button className="btn btn-danger btn-sm" onClick={() => setConfirm(true)} data-testid="button-delete-data"><Trash2 size={14} /> Delete everything</button>
         </div>
         <h3 style={{ marginTop: 8 }}>AI activity</h3>
@@ -176,7 +176,7 @@ function Data() {
       </div>
       {confirm && (
         <Modal title="Delete everything?" onClose={() => setConfirm(false)}>
-          <p className="small">This permanently deletes your resume, applications, approved versions, memory, tracker and calendar from Offer Ready. Downloaded files on your device aren't affected.</p>
+          <p className="small">This permanently deletes your resume, applications, approved versions, memory, tracker and calendar from Remy. Downloaded files on your device aren't affected.</p>
           <div className="row" style={{ justifyContent: "flex-end" }}>
             <button className="btn btn-ghost" onClick={() => setConfirm(false)}>Cancel</button>
             <button className="btn btn-danger" onClick={async () => { const r = await run(() => api<Workspace>("DELETE", "/api/ws"), "Deleted"); if (r) { setWs(r); setConfirm(false); } }} data-testid="button-confirm-delete">Delete permanently</button>

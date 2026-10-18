@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS workspaces (
   user_id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS ai_usage (user_id TEXT NOT NULL, at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS files (user_id TEXT NOT NULL, kind TEXT NOT NULL, name TEXT NOT NULL, mime TEXT NOT NULL, data BLOB NOT NULL, at TEXT NOT NULL, PRIMARY KEY (user_id, kind));
 `);
 
 export const nowIso = () => new Date().toISOString();
@@ -30,6 +31,7 @@ export function emptyWorkspace(): Workspace {
     profile: {
       name: "", preferredName: "", email: "", applicationEmail: "", school: "", major: "", classYear: "",
       graduation: "", location: "", targetRoles: "", goals: "", interests: "", workAuth: "", relocation: "",
+      regions: "", opportunityTypes: "",
     },
     imports: [],
     memory: [],
@@ -60,7 +62,7 @@ export function ensureUser(me: Me) {
     db.prepare("INSERT INTO users (id,kind,email,name,picture,created_at) VALUES (?,?,?,?,?,?)").run(
       me.id, me.kind, me.email, me.name, me.picture, nowIso(),
     );
-  } else if (me.kind === "google") {
+  } else if (me.kind === "google" || me.kind === "supabase") {
     db.prepare("UPDATE users SET email=?, name=?, picture=? WHERE id=?").run(me.email, me.name, me.picture, me.id);
   }
 }
@@ -91,7 +93,8 @@ export function loadWorkspace(userId: string): Workspace {
     const parsed = JSON.parse(r.data);
     if (parsed?.version !== 2) return emptyWorkspace();
     // forward-fill any keys added later
-    return { ...emptyWorkspace(), ...parsed, settings: { ...emptyWorkspace().settings, ...parsed.settings } };
+    const empty = emptyWorkspace();
+    return { ...empty, ...parsed, profile: { ...empty.profile, ...parsed.profile }, settings: { ...empty.settings, ...parsed.settings } };
   } catch {
     return emptyWorkspace();
   }
@@ -111,6 +114,7 @@ export function saveWorkspace(userId: string, ws: Workspace) {
 }
 export function deleteWorkspace(userId: string) {
   db.prepare("DELETE FROM workspaces WHERE user_id=?").run(userId);
+  db.prepare("DELETE FROM files WHERE user_id=?").run(userId);
 }
 
 export function aiAllowed(userId: string): { ok: boolean; message?: string } {
@@ -122,4 +126,16 @@ export function aiAllowed(userId: string): { ok: boolean; message?: string } {
   if (recent >= 12) return { ok: false, message: "That was a lot of AI requests at once. Please wait a minute and try again." };
   db.prepare("INSERT INTO ai_usage (user_id, at) VALUES (?,?)").run(userId, now);
   return { ok: true };
+}
+
+// Original uploaded files (the base resume), kept so students can preview and
+// download exactly what they uploaded. One per kind per user.
+export function saveFile(userId: string, kind: string, name: string, mime: string, data: Buffer) {
+  db.prepare("INSERT INTO files (user_id,kind,name,mime,data,at) VALUES (?,?,?,?,?,?) ON CONFLICT(user_id,kind) DO UPDATE SET name=excluded.name, mime=excluded.mime, data=excluded.data, at=excluded.at").run(userId, kind, name, mime, data, nowIso());
+}
+export function getFile(userId: string, kind: string): { name: string; mime: string; data: Buffer } | null {
+  return (db.prepare("SELECT name, mime, data FROM files WHERE user_id=? AND kind=?").get(userId, kind) as any) || null;
+}
+export function deleteFiles(userId: string) {
+  db.prepare("DELETE FROM files WHERE user_id=?").run(userId);
 }

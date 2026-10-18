@@ -126,7 +126,7 @@ function EmailUpdates() {
   };
   return (
     <div className="stack">
-      <div className="notice small"><StatusChip label="Needs setup">Inbox connection</StatusChip><div>Offer Ready doesn't read your inbox. Paste a recruiting email, or load <strong>sample emails</strong> (clearly labeled, not from real employers) to see how status suggestions work. Nothing changes until you confirm.</div></div>
+      <div className="notice small"><StatusChip label="Needs setup">Inbox connection</StatusChip><div>Remy doesn't read your inbox. Paste a recruiting email, or load <strong>sample emails</strong> (clearly labeled, not from real employers) to see how status suggestions work. Nothing changes until you confirm.</div></div>
       <div className="row">
         <button className="btn btn-primary btn-sm" onClick={() => setPaste(true)} data-testid="button-paste-email"><Mail size={14} /> Paste an email</button>
         {!w.inbox.some((x) => x.label === "Sample email") && <button className="btn btn-secondary btn-sm" onClick={loadSample} data-testid="button-sample-emails"><Inbox size={14} /> Load sample emails</button>}

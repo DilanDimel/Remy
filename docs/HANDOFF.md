@@ -35,6 +35,23 @@ The visual identity now integrates the Remy mockup: near-black `#161616` on warm
 | Mobile (375px) | Working | Bottom nav, docked Remy fox button, Remy minimized by default on small screens |
 | Hosting persistence | Limited | SQLite on the app's server. Fine for a demo; data may not survive a server rebuild. Ask users to download their documents |
 
+## Oct 18 update: feedback round
+- **Name:** the product is now **Remy** everywhere (Render service URL unchanged).
+- **Blank screens:** every page and the Remy panel are wrapped in an error boundary, so one broken screen shows a "Remy hit a snag" card instead of blanking the app. Browser errors are sent to the server log (`client error …` lines in Render logs) so the cause shows up next time. The tailoring 500 from the free model's broken JSON is fixed by tolerant parsing.
+- **Connect Your Accounts:** Resume and email are real. TCU, Stellic and Handshake are demo connections (connecting animation, labeled "demo connection"). LinkedIn is demo too until its Supabase provider is on, then it's a real LinkedIn consent (name, email, photo only; LinkedIn doesn't share work history).
+- **Sign-in:** the landing buttons use Supabase Auth when a provider is switched on (see setup below); otherwise they open a guest workspace and say so.
+- **Remy's questions:** a new onboarding step asks class year, graduation, regions, opportunity types and fields. Saved to the profile, editable in Accounts.
+- **Opportunities:** ranked by eligibility, fit, region and type. Openings that definitely rule the student out (class-year or graduation rules) are hidden, with "Show anyway". "Only where I want to work" filter. 3-5 keywords on every card. "Why it fits you" is written to the student. Re-check moved into Details. **Find more openings** pulls live early-career postings from employers' public Greenhouse, Lever and Ashby job boards.
+- **Resume:** class year and skills are extracted on upload. The original uploaded file is kept: PDF preview and download in Base resume, plus Export PDF/Word of the edited resume (Remy's clean one-column format; the original keeps its own layout).
+- **Tailoring:** openings are listed automatically across the top (best fit first). Remy asks questions in his side panel before tailoring (why this company, what you want to learn) and after (each [PERSONALIZE] spot), then writes the answers into the letter. **Override letter check** approves anyway, removes unfilled spots and logs the override.
+- **Calendar** is full width with taller days; Remy's chat box grows and takes Shift+Enter for new lines.
+
+### Supabase setup (needed for real sign-in)
+In the Supabase dashboard for "DilanDimel's Project":
+1. **Authentication → URL Configuration:** set Site URL to `https://offer-ready.onrender.com` and add `https://offer-ready.onrender.com/` to Redirect URLs (add `http://localhost:5000/` for local testing).
+2. **Authentication → Sign In / Providers:** Email is on by default (magic links; Supabase's built-in mailer allows only a few emails per hour, so add SMTP for real use). Turn on Google, LinkedIn (OIDC), Apple and Azure (Microsoft) as needed; each needs a client ID and secret from that provider's developer console, with the callback URL Supabase shows.
+3. Render already gets `SUPABASE_URL` and `SUPABASE_ANON_KEY` (the public publishable key) from `render.yaml`. A button starts working as soon as its provider is on; no redeploy needed.
+
 ## Remaining setup (team)
 1. **AI credits.** Add about $5–10 at openrouter.ai/settings/credits; the site switches back to OpenRouter automatically. Without credits it runs on Gemini's free daily limits. Both keys pasted in chat should be revoked and replaced, then re-entered through the secure form.
 2. **Google sign-in (optional but requested).** For the published site at https://remy.pplx.app:

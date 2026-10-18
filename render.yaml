@@ -17,6 +17,12 @@ services:
         value: /data/data.db
       - key: OR_AI_CHAIN
         value: openrouter:google/gemini-3.8-flash,openrouter:openai/gpt-5-mini,gemini:gemini-3.8-flash
+      # Supabase Auth (sign-in + LinkedIn connector). Both values are public:
+      # the publishable key is meant to ship to browsers. Never put the secret key here.
+      - key: SUPABASE_URL
+        value: https://vpfnawzbzxxkcylktbxn.supabase.co
+      - key: SUPABASE_ANON_KEY
+        value: sb_publishable_Fgz0suQY9cSbrVD7pKEsMA_5ximdZgj
       # Secrets: entered in the Render dashboard, never committed.
       - key: OPENROUTER_API_KEY
         sync: false

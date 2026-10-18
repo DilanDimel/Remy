@@ -7,6 +7,9 @@ import {
 import { StoreProvider, api, useStore } from "./lib/store";
 import { go, useRoute } from "./lib/router";
 import { Modal, Remy, Spinner, StatusChip } from "./components/common";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { TailorQuestions } from "./components/TailorQuestions";
+import { useJobs } from "./lib/jobs";
 import Welcome from "./pages/Welcome";
 import Onboarding from "./pages/Onboarding";
 import Home from "./pages/Home";
@@ -33,7 +36,9 @@ const NAV = [
 export default function App() {
   return (
     <StoreProvider>
-      <Root />
+      <ErrorBoundary where="app">
+        <Root />
+      </ErrorBoundary>
     </StoreProvider>
   );
 }
@@ -100,7 +105,7 @@ function Shell() {
     <div className={`shell ${collapsed ? "nav-collapsed" : ""} ${asstOpen ? "asst-open" : ""}`}>
       <aside className="sidebar" aria-label="Main navigation">
         <div className="brand">
-          <span className="logo"><Remy size={26} /><span className="logo-text">offer ready<b>.</b></span></span>
+          <span className="logo"><Remy size={26} /><span className="logo-text">remy<b>.</b></span></span>
           <button className="icon-btn" onClick={() => save("settings", { navCollapsed: !collapsed })} aria-label={collapsed ? "Expand navigation" : "Collapse navigation"} data-testid="button-toggle-nav">
             {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
           </button>
@@ -124,7 +129,7 @@ function Shell() {
 
       <main className="main" id="main">
         <div className="topbar">
-          <div className="crumb">Offer Ready › <b>{current.label}</b></div>
+          <div className="crumb">Remy › <b>{current.label}</b></div>
           <div style={{ marginLeft: "auto" }} className="row">
             {!asstOpen && (
               <button className="btn btn-secondary btn-sm hide-sm" onClick={() => setAsst(true)} data-testid="button-open-assistant">
@@ -133,10 +138,10 @@ function Shell() {
             )}
           </div>
         </div>
-        <div className="page fade-up" key={current.path}>{page}</div>
+        <div className="page fade-up" key={current.path}><ErrorBoundary where={`page:${current.path}`} resetKey={current.path}>{page}</ErrorBoundary></div>
       </main>
 
-      {asstOpen && <Assistant page={current.label} onMinimize={() => setAsst(false)} flyIn={flyIn} />}
+      {asstOpen && <aside className="assistant" aria-label="Remy assistant" data-testid="assistant-panel"><ErrorBoundary where="assistant" compact><Assistant page={current.label} onMinimize={() => setAsst(false)} flyIn={flyIn} /></ErrorBoundary></aside>}
 
       <nav className="mobile-nav" aria-label="Mobile navigation">
         {NAV.filter((n) => ["/", "/path", "/resume", "/opportunities", "/progress"].includes(n.path)).map((n) => (
@@ -184,6 +189,13 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   const [greeting, setGreeting] = useState(true);
   useEffect(() => { const t = setTimeout(() => setGreeting(false), 2800); return () => clearTimeout(t); }, []);
   const chat = ws!.chat;
+  // On the Resume page, Remy asks the questions for the application in view.
+  const { path, query } = useRoute();
+  const { jobs } = useJobs();
+  const tailorApp = path.startsWith("/resume") && query.get("tab") !== "base" && query.get("tab") !== "library"
+    ? ws!.applications.find((x) => x.id === query.get("app")) || ws!.applications[0]
+    : undefined;
+  const tailorJob = tailorApp && jobs?.find((j) => j.id === tailorApp.jobId);
   const lastAi = [...chat].reverse().find((m) => m.role !== "user")?.id;
   const [cheer, setCheer] = useState<string | undefined>(undefined);
   useEffect(() => {
@@ -207,7 +219,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   };
   const remembered = new Set(ws!.memory.map((m) => m.text));
   return (
-    <aside className="assistant" aria-label="Remy assistant" data-testid="assistant-panel">
+    <>
       <div className="asst-head">
         <Remy size={34} mood={mood} className={flyIn ? "fly-in" : ""} />
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -218,6 +230,9 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
         <button className="btn btn-secondary btn-sm" onClick={onMinimize} aria-label="Minimize Remy" title="Minimize Remy" data-testid="button-close-assistant"><Minus size={15} /><span className="hide-sm">Minimize</span></button>
       </div>
       <div className="asst-body">
+        {tailorApp && tailorJob && (!tailorApp.generatedAt || tailorApp.personalize.some((p) => !p.done)) && (
+          <div className="asst-card"><TailorQuestions a={tailorApp} job={tailorJob} compact /></div>
+        )}
         {chat.length === 0 && (
           <div className="bubble bubble-ai">
             Hi, I'm Remy! I can explain recommendations, help you think through choices, and suggest next steps. I only use what's in your approved profile — and I'll never send anything for you.
@@ -248,10 +263,20 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
         <div ref={end} />
       </div>
       <form className="asst-foot" onSubmit={(e) => { e.preventDefault(); send(msg); }}>
-        <input className="input" value={msg} onChange={(e) => setMsg(e.target.value)} placeholder={config?.ai.available ? "Ask Remy anything…" : "AI needs setup on this server"} disabled={!config?.ai.available} aria-label="Message Remy" data-testid="input-chat" />
+        <textarea
+          className="input asst-input"
+          rows={2}
+          value={msg}
+          onChange={(e) => { setMsg(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px"; }}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(msg); } }}
+          placeholder={config?.ai.available ? "Ask Remy anything… (Shift+Enter for a new line)" : "AI needs setup on this server"}
+          disabled={!config?.ai.available}
+          aria-label="Message Remy"
+          data-testid="input-chat"
+        />
         <button className="btn btn-primary" disabled={busy || !msg.trim()} aria-label="Send" data-testid="button-send-chat"><Send size={16} /></button>
       </form>
-    </aside>
+    </>
   );
 }
 

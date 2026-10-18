@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { AppConfig, Me, Workspace } from "@shared/types";
+import { finishSupabaseRedirect } from "./supabase";
 
 declare global {
   interface Window { __API_BASE__?: string; google?: any }
@@ -91,11 +92,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refresh = useCallback(async () => {
-    const [c, m] = await Promise.all([api<AppConfig>("GET", "/api/config"), api<{ me: Me | null; workspace: Workspace | null }>("GET", "/api/me")]);
+    const c = await api<AppConfig>("GET", "/api/config");
     setConfig(c);
+    // Coming back from a Supabase sign-in or connector consent screen.
+    try {
+      const back = await finishSupabaseRedirect(c);
+      if (back?.intent === "signin") await api("POST", "/api/auth/supabase", { accessToken: back.accessToken });
+      if (back?.intent === "connect-linkedin") {
+        await api("POST", "/api/connect/linkedin", { accessToken: back.accessToken });
+        toast("LinkedIn connected");
+      }
+    } catch (e: any) {
+      toast(e?.message || "Sign-in didn't finish.", true);
+    }
+    const m = await api<{ me: Me | null; workspace: Workspace | null }>("GET", "/api/me");
     setMe(m.me);
     setWsState(m.workspace);
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     refresh().catch((e) => toast(e.message, true)).finally(() => setLoading(false));

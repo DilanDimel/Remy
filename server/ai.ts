@@ -102,14 +102,24 @@ export class AiUnavailable extends Error {
   }
 }
 
+// Free models often return almost-JSON: trailing commas, comments, smart quotes.
+// Repair those before giving up, so one stray comma doesn't fail a whole request.
+function repairJson(s: string) {
+  return s
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/^\s*\/\/.*$/gm, "")
+    .replace(/,\s*([}\]])/g, "$1");
+}
 function extractJson(text: string): any {
   const cleaned = text.replace(/^```(?:json)?/im, "").replace(/```\s*$/m, "").trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch {}
   const s = cleaned.indexOf("{");
   const e = cleaned.lastIndexOf("}");
-  if (s >= 0 && e > s) return JSON.parse(cleaned.slice(s, e + 1));
+  const body = s >= 0 && e > s ? cleaned.slice(s, e + 1) : cleaned;
+  for (const candidate of [cleaned, body, repairJson(body)]) {
+    try {
+      return JSON.parse(candidate);
+    } catch {}
+  }
   throw new Error("AI response was not valid JSON");
 }
 

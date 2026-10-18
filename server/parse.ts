@@ -205,7 +205,7 @@ function validateUrl(raw: string | URL): URL {
   if (u.username || u.password) throw Object.assign(new Error("Links with embedded logins aren't supported."), { status: 400 });
   if (BLOCKED.some((r) => r.test(u.hostname)))
     throw Object.assign(
-      new Error("Offer Ready doesn't read pages behind a login (LinkedIn, Handshake, Stellic, my.tcu.edu). Paste the posting text instead."),
+      new Error("Remy doesn't read pages behind a login (LinkedIn, Handshake, Stellic, my.tcu.edu). Paste the posting text instead."),
       { status: 422, code: "login-wall" },
     );
   const h = u.hostname.replace(/^\[|\]$/g, "");
@@ -222,7 +222,7 @@ function getOnce(u: URL): Promise<{ status: number; location?: string; body: Buf
         method: "GET",
         lookup: safeLookup as any,
         timeout: 12000,
-        headers: { "User-Agent": "OfferReadyBot/1.0 (student-requested single page read)", Accept: "text/html,application/xhtml+xml", "Accept-Encoding": "gzip, deflate, br" },
+        headers: { "User-Agent": "RemyBot/1.0 (student-requested single page read)", Accept: "text/html,application/xhtml+xml", "Accept-Encoding": "gzip, deflate, br" },
       },
       (res) => {
         const status = res.statusCode || 0;
@@ -326,4 +326,25 @@ POSTING TEXT:
     summary: String(out.summary || ""),
     droppedQuotes: (out.requirements || []).length - reqs.length,
   };
+}
+
+// Skills and tools a resume shows: everything on a "Skills"-type line, plus
+// well-known tools mentioned anywhere. Used for matching, not shown as claims.
+const KNOWN_TOOLS = ["excel", "powerpoint", "python", "sql", "tableau", "power bi", "bloomberg", "factset", "capital iq", "salesforce", "hubspot", "mailchimp", "canva", "figma", "photoshop", "illustrator", "google analytics", "ga4", "hootsuite", "meta business suite", "quickbooks", "sap", "java", "javascript", "c++", "matlab", "spss", "stata", "vba", "financial modeling", "dcf", "valuation", "accounting", "market research", "seo", "copywriting", "public speaking", "spanish", "french", "mandarin"];
+export function extractSkills(doc: ResumeDoc, raw: string): string[] {
+  const found = new Map<string, string>();
+  const add = (x: string) => {
+    const t = x.replace(/^[\s•·\-–:]+|[\s.;:]+$/g, "").trim();
+    if (t.length > 1 && t.length < 40 && !/^(and|with|including|skills?|tools?|languages?|technical|interests?|certifications?)$/i.test(t)) found.set(t.toLowerCase(), t);
+  };
+  for (const sec of doc.sections) {
+    if (!/skill|tool|technical|language|certif|software|proficien/i.test(sec.heading)) continue;
+    for (const e of sec.entries) for (const line of [e.role, e.org, ...e.bullets.map((b) => b.text)]) {
+      (line || "").replace(/^[A-Za-z ]{2,30}:\s*/, "").split(/[,;|•·]| and /).forEach(add);
+    }
+  }
+  for (const g of doc.skills || []) (g.items || "").split(/[,;|•·]| and /).forEach(add);
+  const lower = ` ${raw.toLowerCase()} `;
+  for (const tool of KNOWN_TOOLS) if (new RegExp(`[^a-z]${tool.replace(/[+]/g, "\\+")}[^a-z]`).test(lower) && ![...found.keys()].includes(tool)) add(tool.replace(/\b\w/g, (c) => c.toUpperCase()));
+  return [...found.values()].slice(0, 40);
 }

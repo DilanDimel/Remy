@@ -101,7 +101,7 @@ function Skills({ plan }: { plan: PathPlan }) {
           ))}
         </tbody>
       </table>
-      <p className="xs muted" style={{ marginTop: 10 }}>Offer Ready doesn't invent official certifications or university requirements. Confirm costs, eligibility and credit with the provider and your advisor.</p>
+      <p className="xs muted" style={{ marginTop: 10 }}>Remy doesn't invent official certifications or university requirements. Confirm costs, eligibility and credit with the provider and your advisor.</p>
     </div>
   );
 }
@@ -113,7 +113,7 @@ function Academic({ plan }: { plan: PathPlan }) {
   const addTerm = () => run(() => save("plan", { ...plan, academic: [...plan.academic, { id: rid("ac"), term, items: items.split("\n").map((s) => s.trim()).filter(Boolean), note: "Entered by you" }] }), "Term added").then(() => { setTerm(""); setItems(""); });
   return (
     <div className="stack">
-      <div className="notice notice-warn"><div><strong>Not an official degree plan.</strong> Offer Ready can't see TCU's degree audit. Use Stellic and your academic advisor for requirements and graduation status — paste your plan here to keep it alongside your career steps.</div></div>
+      <div className="notice notice-warn"><div><strong>Not an official degree plan.</strong> Remy can't see TCU's degree audit. Use Stellic and your academic advisor for requirements and graduation status — paste your plan here to keep it alongside your career steps.</div></div>
       <div className="grid-2" style={{ alignItems: "start" }}>
         {plan.academic.map((a) => (
           <div key={a.id} className="card card-pad stack-sm">

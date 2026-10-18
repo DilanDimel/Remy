@@ -18,7 +18,7 @@ function gcalLink(c: CalItem) {
     const n = new Date(c.date + "T12:00:00"); n.setDate(n.getDate() + 1);
     dates = `${d}/${iso(n).replace(/-/g, "")}`;
   }
-  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(c.title)}&dates=${dates}&details=${encodeURIComponent(c.notes || "Added from Offer Ready")}`;
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(c.title)}&dates=${dates}&details=${encodeURIComponent(c.notes || "Added from Remy")}`;
 }
 
 export default function CalendarPage() {
@@ -39,7 +39,7 @@ export default function CalendarPage() {
     const exists = w.calendar.some((x) => x.id === c.id);
     const dupe = w.calendar.find((x) => x.id !== c.id && x.title.trim().toLowerCase() === c.title.trim().toLowerCase() && x.date === c.date);
     if (dupe) return toast("That item is already on your calendar.", true);
-    await run(() => save("calendar", exists ? w.calendar.map((x) => (x.id === c.id ? c : x)) : [...w.calendar, c]), "Saved to your Offer Ready calendar");
+    await run(() => save("calendar", exists ? w.calendar.map((x) => (x.id === c.id ? c : x)) : [...w.calendar, c]), "Saved to your Remy calendar");
     setEdit(null);
   };
   return (
@@ -51,12 +51,12 @@ export default function CalendarPage() {
           <p>Items you approve live here. Export them to your own calendar whenever you like.</p>
         </div>
         <div className="row">
-          <button className="btn btn-secondary" onClick={() => download("/api/calendar.ics", "offer-ready.ics").catch((e) => toast(e.message, true))} disabled={!w.calendar.length} data-testid="button-export-ics"><Download size={16} /> Export .ics</button>
+          <button className="btn btn-secondary" onClick={() => download("/api/calendar.ics", "remy.ics").catch((e) => toast(e.message, true))} disabled={!w.calendar.length} data-testid="button-export-ics"><Download size={16} /> Export .ics</button>
           <button className="btn btn-primary" onClick={() => setEdit({ id: rid("cal"), title: "", date: today, time: "", kind: "Event", source: "Added by you", notes: "" })} data-testid="button-add-event"><Plus size={16} /> Add</button>
         </div>
       </div>
       <div className="notice small"><StatusChip label="Needs setup">Google Calendar sync</StatusChip><div>Direct sync isn't connected. Use <strong>Export .ics</strong> or <strong>Add to Google Calendar</strong> on any item — you stay in control of your real calendar.</div></div>
-      <div className="split split-cal">
+      <div className="stack-lg">
         <div className="card card-pad stack">
           <div className="row-between">
             <h2>{month.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h2>
@@ -74,8 +74,8 @@ export default function CalendarPage() {
               return (
                 <div key={k} className={`cal-cell ${d.getMonth() !== month.getMonth() ? "out" : ""} ${k === today ? "today" : ""}`}>
                   <span className="muted">{d.getDate()}</span>
-                  {evs.slice(0, 3).map((e) => <button key={e.id} className={`cal-ev ${e.kind}`} onClick={() => setSel(e)} title={e.title}>{e.title}</button>)}
-                  {evs.length > 3 && <span className="faint">+{evs.length - 3}</span>}
+                  {evs.slice(0, 4).map((e) => <button key={e.id} className={`cal-ev ${e.kind}`} onClick={() => setSel(e)} title={e.title}>{e.title}</button>)}
+                  {evs.length > 4 && <span className="faint">+{evs.length - 4} more</span>}
                 </div>
               );
             })}
@@ -83,12 +83,12 @@ export default function CalendarPage() {
         </div>
         <div className="card card-pad stack-sm">
           <h3>Upcoming</h3>
-          {upcoming.length ? upcoming.map((i) => (
+          {upcoming.length ? <div className="upcoming-grid">{upcoming.map((i) => (
             <button key={i.id} className="pick" onClick={() => setSel(i)} data-testid="button-upcoming">
               <span className="xs muted">{fmtDate(i.date)}{i.time ? ` · ${i.time}` : ""} · {i.kind}</span>
               <strong className="small">{i.title}</strong>
             </button>
-          )) : <span className="small muted">Nothing scheduled. Add deadlines from Opportunities.</span>}
+          ))}</div> : <span className="small muted">Nothing scheduled. Add deadlines from Opportunities.</span>}
         </div>
       </div>
       {sel && (

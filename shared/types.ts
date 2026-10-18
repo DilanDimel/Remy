@@ -1,4 +1,4 @@
-// Offer Ready v2 shared data model. Everything a student owns lives in one
+// Remy v2 shared data model. Everything a student owns lives in one
 // per-account Workspace document stored on the server (SQLite).
 
 export type Label = "Live" | "Demo data" | "Needs setup" | "Needs verification" | "Student provided";
@@ -39,6 +39,10 @@ export interface BaseResume {
   parsedBy: "ai" | "rules";
   doc: ResumeDoc;
   confirmedAt?: string;
+  /** Skills and tools found on the resume, matched against posting requirements. */
+  skills?: string[];
+  /** The uploaded file itself is kept server-side for preview and download. */
+  original?: { name: string; mime: string; size: number };
 }
 
 export interface Profile {
@@ -56,6 +60,10 @@ export interface Profile {
   interests: string;
   workAuth: string;
   relocation: string;
+  /** Where the student wants opportunities, comma-separated ("Fort Worth, Dallas, Remote"). */
+  regions: string;
+  /** Kinds of opportunities they want, comma-separated ("Internships, Events"). */
+  opportunityTypes: string;
 }
 
 export interface MemoryFact {
@@ -110,6 +118,12 @@ export interface JobFit {
   matched: string[];
   gaps: string[];
   why: string;
+  /** The posting definitely rules this student out (e.g. "must be a current sophomore"). Hidden by default. */
+  excluded?: boolean;
+  /** Ranking: eligibility, requirement overlap, region and type preferences. */
+  score?: number;
+  regionMatch?: boolean | null;
+  typeMatch?: boolean | null;
 }
 
 export type ChangeStatus = "pending" | "accepted" | "edited" | "rejected";
@@ -272,7 +286,7 @@ export interface AiLogEntry {
 export interface SafeguardIncident {
   id: string;
   at: string;
-  kind: "AI overstatement caught" | "Safeguard test";
+  kind: "AI overstatement caught" | "Safeguard test" | "Letter check overridden by student";
   where: string;
   text: string;
   flags: ClaimFlag[];
@@ -316,13 +330,15 @@ export interface Workspace {
     assistantOpen: boolean;
     navCollapsed: boolean;
     notify: { deadlines: boolean; statusChanges: boolean; weeklyPlan: boolean };
+    /** Connectors shown as connected in the demo (no data is read from them yet). */
+    demoConnections?: string[];
   };
   updatedAt: string;
 }
 
 export interface Me {
   id: string;
-  kind: "google" | "guest" | "visitor" | "local";
+  kind: "google" | "supabase" | "guest" | "visitor" | "local";
   email: string;
   name: string;
   picture: string;
@@ -332,4 +348,6 @@ export interface AppConfig {
   ai: { available: boolean; model: string; via: string };
   hosting: "preview" | "published" | "local";
   today: string;
+  /** Supabase Auth, when configured: public URL + publishable key, and which sign-in providers are switched on. */
+  supabase: { url: string; anonKey: string; providers: Record<string, boolean> } | null;
 }
