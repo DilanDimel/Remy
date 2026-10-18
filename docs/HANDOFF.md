@@ -31,12 +31,11 @@ The visual identity is preserved: plum #4d2b6c, warm off-white, Satoshi + Cabine
 
 ## Remaining setup (team)
 1. **AI credits.** Add about $5–10 at openrouter.ai/settings/credits; the site switches back to OpenRouter automatically. Without credits it runs on Gemini's free daily limits. Both keys pasted in chat should be revoked and replaced, then re-entered through the secure form.
-2. **Google sign-in (optional but requested).** After the site is published to a `*.pplx.app` address:
+2. **Google sign-in (optional but requested).** For the published site at https://remy.pplx.app:
    - In Google Cloud Console, open APIs & Services → Credentials → Create OAuth client ID → Web application.
-   - Add the published URL under Authorized JavaScript origins.
+   - Add `https://remy.pplx.app` under Authorized JavaScript origins.
    - On the OAuth consent screen, use scopes openid, email and profile, and set it to In production so judges can sign in.
    - Send the Client ID (not secret).
-3. **Approval to publish**, plus a preferred subdomain (e.g. `offer-ready`).
 
 ## Competition evidence (in `docs/evidence/`)
 - `ai-error-log.md`: real AI errors from live runs, what caught or missed them, the fixes and the replay results.
