@@ -46,6 +46,13 @@ The visual identity now integrates the Remy mockup: near-black `#161616` on warm
 - **Tailoring:** openings are listed automatically across the top (best fit first). Remy asks questions in his side panel before tailoring (why this company, what you want to learn) and after (each [PERSONALIZE] spot), then writes the answers into the letter. **Override letter check** approves anyway, removes unfilled spots and logs the override.
 - **Calendar** is full width with taller days; Remy's chat box grows and takes Shift+Enter for new lines.
 
+### Oct 18, second round
+- **Sign-in fix:** Google and LinkedIn sign-ins succeeded at Supabase but the browser logged out of Supabase before our server checked the token, so Supabase answered "Session not found". The browser now logs out only after the server has verified it.
+- **Tailoring is a conversation:** "Tailor with AI" opens Remy's chat; he asks three questions one at a time (type "skip" to skip), tailors, asks about anything still only you know, and writes it into the letter. Approving never blocks on personalization: leftover spots are removed. Unsupported claims still need an edit or an override.
+- **ATS score:** a 0-100 score on Base resume (against your top openings) and on each application's Checks tab (base vs tailored), with a category breakdown and the fixes worth the most points.
+- **To-dos** strike through and fade out a few seconds after you check them.
+- **Account** moved out of the sidebar into the menu under your name (Profile, Settings, AI memory, Connected sources, Account & data, Sign out). The logo reads "Remy."
+
 ### Supabase setup (needed for real sign-in)
 In the Supabase dashboard for "DilanDimel's Project":
 1. **Authentication → URL Configuration:** set Site URL to `https://offer-ready.onrender.com` and add `https://offer-ready.onrender.com/` to Redirect URLs (add `http://localhost:5000/` for local testing).

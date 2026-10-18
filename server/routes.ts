@@ -13,6 +13,7 @@ import { endSession, googleClientId, identify, newGuest, startSession, supabaseC
 import { aiExtractPosting, aiParseResume, CLOSED_SIGNALS, extractSkills, fetchPublic, fileToText, htmlToText, norm, resumeToText, rulesParse } from "./parse";
 import { atsChecks, claimCheck } from "./claims";
 import { classYearOf, computeFit } from "./fit";
+import { atsScore, keywordsFrom } from "./ats";
 import { boardsFor, DEFAULT_BOARDS, discoverJobs } from "./sources";
 import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./docs";
 
@@ -110,6 +111,8 @@ function addFact(ws: Workspace, text: string, category: MemoryFact["category"], 
 const fitOf = (ws: Workspace, job: Job) => computeFit(ws, job, evidenceOf(ws));
 
 // ---------- tailoring helpers ----------
+const stripPlaceholders = (letter: string) =>
+  letter.replace(/[ \t]*\[PERSONALIZE:[^\]]*\][ \t]*/gi, " ").replace(/ +([.,;:!?])/g, "$1").replace(/[ \t]{2,}/g, " ").replace(/^[ \t]+|[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
 function composeResume(ws: Workspace, app: Application): ResumeDoc {
   const doc: ResumeDoc = JSON.parse(JSON.stringify(ws.resume!.doc));
   for (const c of app.changes) {
@@ -329,6 +332,28 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Content-Disposition", `${req.query.download ? "attachment" : "inline"}; filename="${f!.name.replace(/[^\w.\- ]+/g, "_").slice(0, 120)}"`);
     res.send(f!.data);
+  }));
+
+  // ATS readiness score with a breakdown. ?app=<id> scores that tailored version
+  // against its posting (and returns the base score for comparison).
+  app.get("/api/resume/ats", route((req, res, ctx) => {
+    if (!ctx.ws.resume) bad("Upload a resume first.");
+    const appId = String(req.query.app || "");
+    const a = appId ? ctx.ws.applications.find((x) => x.id === appId) : undefined;
+    const job = a ? findJob(ctx.ws, a.jobId) : undefined;
+    if (a && job) {
+      const kws = job.requirements.map((r) => r.keyword);
+      res.json({
+        tailored: atsScore(composeResume(ctx.ws, a), kws, `in the ${job.company} posting`),
+        base: atsScore(ctx.ws.resume!.doc, kws, `in the ${job.company} posting`),
+      });
+      return;
+    }
+    const top = allJobs(ctx.ws)
+      .filter((j) => !ctx.ws.fits[j.id]?.excluded)
+      .sort((x, y) => (ctx.ws.fits[y.id]?.score ?? 0) - (ctx.ws.fits[x.id]?.score ?? 0))
+      .slice(0, 5);
+    res.json({ base: atsScore(ctx.ws.resume!.doc, keywordsFrom(top), "from your top openings") });
   }));
 
   // The base resume as Remy reads it (including the student's edits), as a clean PDF or Word file.
@@ -634,7 +659,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
 - Do not add purpose or outcome clauses (e.g. "ensuring…", "to keep…", "resulting in…") unless the original bullet states that outcome.
 - Do not state the student's class standing (freshman/sophomore/first-year etc.) unless it is given in the profile.
 - Choose only material changes (at most 6). Leave strong bullets alone.
-- The cover letter may only use facts from the resume and approved facts. Put details only the student can supply in [PERSONALIZE: ...] placeholders (e.g. why this firm, a conversation they had, availability).`,
+- The cover letter may only use facts from the resume, approved facts and the student's own answers. Write it complete and ready to send: use the student's answers for motivation and personal details. Only if something essential is still unknown, put it in a [PERSONALIZE: ...] placeholder, and ask about it in "personalize".`,
         `OPENING: ${job.company} — ${job.title}
 LOCATION/FORMAT: ${job.location} · ${job.format}
 SUMMARY: ${job.summary}
@@ -659,7 +684,7 @@ Return JSON:
  "changes":[{"bulletId":"","revised":"","requirementId":"","reason":"why this change helps for this posting"}],
  "gaps":[{"requirementId":"","note":"honest gap and how to address it without exaggerating"}],
  "coverLetter":"3-4 short paragraphs separated by blank lines, under 330 words, starting 'Dear ${job.company} Recruiting Team,' and ending with a sign-off using the student's name",
- "personalize":["specific detail the student must add or confirm"]}`,
+ "personalize":["a short, friendly question to the student for each [PERSONALIZE] placeholder left in the letter, e.g. 'What's one thing about Evercore's M&A work that excites you?' — empty if none"]}`,
         4500,
       ),
     );
@@ -763,10 +788,9 @@ Return JSON:
     const answers = (Array.isArray(req.body?.answers) ? req.body.answers : [])
       .map((x: any) => ({ pid: String(x?.pid || ""), q: String(x?.q || "").slice(0, 300), a: String(x?.a || "").trim().slice(0, 800) }))
       .filter((x: any) => x.a);
-    if (!answers.length) bad("Answer at least one question first.");
     for (const x of answers) addFact(ctx.ws, `${x.q} — ${x.a}`, "goal", `Told Remy while tailoring for ${job.company}`, "approved");
     let letter = a.letter;
-    if (aiStatus().available) {
+    if (answers.length && aiStatus().available) {
       const out = await withAi(ctx, `Personalize ${job.company} letter`, () =>
         aiJson<{ letter: string }>(
           "You finish a student's cover letter. Replace each [PERSONALIZE: ...] placeholder using the student's own answers, faithfully and in their voice; smooth grammar only. If no answer covers a placeholder, leave it exactly as is. Change nothing else in the letter and add no new claims.",
@@ -779,9 +803,9 @@ Return JSON:
       // No AI: drop each answer into the next open placeholder, as written.
       for (const x of answers) letter = letter.replace(/\[PERSONALIZE:[^\]]*\]/i, x.a);
     }
-    a.letter = letter;
-    const answered = new Set(answers.map((x: any) => x.pid));
-    for (const p of a.personalize) if (answered.has(p.id)) p.done = true;
+    // Whatever the student skipped is left out rather than left as a gap to fix by hand.
+    a.letter = stripPlaceholders(letter);
+    for (const p of a.personalize) p.done = true;
     a.letterFlags = letterFlagsFor(ctx.ws, a, job);
     a.letterApproved = false;
     ctx.save();
@@ -797,15 +821,14 @@ Return JSON:
     for (const c of a.changes) c.flags = c.status === "rejected" ? [] : changeFlags(ctx.ws, c);
     const blocked = a.changes.filter((c) => (c.status === "accepted" || c.status === "edited") && c.flags.length);
     if (blocked.length) bad("Some accepted changes still contain unsupported claims. Edit, reject, or confirm them first.", 409);
+    // Unfilled personalization spots never block approval: they're removed.
+    a.letter = stripPlaceholders(a.letter);
+    for (const p of a.personalize) p.done = true;
     a.letterFlags = letterFlagsFor(ctx.ws, a, job);
-    // The student may override the letter check; Remy logs it and drops unfilled placeholders.
+    // Unsupported claims still need a decision; the student may override (logged).
     const override = req.body?.override === true && a.letterFlags.length > 0;
-    if (a.letterFlags.length && !override) bad("The cover letter still has unsupported claims or [PERSONALIZE] placeholders. Answer Remy's questions, edit it, or override the check.", 409);
-    if (override) {
-      ctx.ws.incidents.unshift({ id: uid("inc"), at: nowIso(), kind: "Letter check overridden by student", where: `${job.company} cover letter`, text: a.letter.slice(0, 600), flags: a.letterFlags });
-      a.letter = a.letter.replace(/\s*\[PERSONALIZE:[^\]]*\]/gi, "").replace(/\n{3,}/g, "\n\n").trim();
-      a.letterFlags = letterFlagsFor(ctx.ws, a, job);
-    }
+    if (a.letterFlags.length && !override) bad("The cover letter makes a claim Remy can't find in your resume or answers. Edit it, or override the check.", 409);
+    if (override) ctx.ws.incidents.unshift({ id: uid("inc"), at: nowIso(), kind: "Letter check overridden by student", where: `${job.company} cover letter`, text: a.letter.slice(0, 600), flags: a.letterFlags });
     a.letterApproved = true;
     refreshAts(ctx.ws, a);
     const doc = composeResume(ctx.ws, a);

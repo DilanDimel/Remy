@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronUp, MapPin } from "lucide-react";
 import type { Job, Task } from "@shared/types";
 import { daysUntil, fmtDate, useStore } from "../lib/store";
+import { useCompleting } from "../lib/completing";
 import { go } from "../lib/router";
 import { kindLabel, useJobs } from "../lib/jobs";
 import { StatusChip } from "../components/common";
@@ -37,11 +38,12 @@ export default function Home() {
     return { title: "Explore openings that fit you", why: "Save a few to compare deadlines and eligibility.", link: "/opportunities", cta: "Browse" };
   }, [w, jobs, fits]);
 
-  const todos = w.tasks.filter((t) => !t.done).sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999")).slice(0, 3);
+  const { isFading, mark } = useCompleting();
+  const todos = w.tasks.filter((t) => !t.done || isFading(t.id)).sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999")).slice(0, 3);
   const active = (jobs || []).filter((j) => !w.hiddenJobIds.includes(j.id) && (!j.deadline || (daysUntil(j.deadline) ?? 0) >= 0));
   const events = active.filter((j) => j.kind === "event").slice(0, 3);
   const opps = active.filter((j) => j.kind !== "event").sort((a, b) => (fits[b.id]?.matched.length || 0) - (fits[a.id]?.matched.length || 0)).slice(0, 3);
-  const toggleTask = (t: Task) => save("tasks", w.tasks.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x)));
+  const toggleTask = (t: Task) => { if (!t.done) mark(t.id); return save("tasks", w.tasks.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x))); };
   const moreLink = tab === "todos" ? "/progress?tab=todos" : tab === "events" ? "/opportunities?kind=event" : "/opportunities?kind=jobs";
 
   return (
@@ -86,7 +88,7 @@ export default function Home() {
           <a href={"#" + moreLink} className="btn btn-ghost btn-sm" data-testid="link-view-more">View more <ArrowUpRight size={14} /></a>
         </div>
         {tab === "todos" && (todos.length ? todos.map((t) => (
-          <div key={t.id} className="item">
+          <div key={t.id} className={"item" + (t.done ? " completing" : "")}>
             <button className="check" role="checkbox" aria-checked={t.done} onClick={() => toggleTask(t)} aria-label={`Mark ${t.title} done`} data-testid="checkbox-task">{t.done && <Check size={13} />}</button>
             <div className="item-main">
               <button style={{ textAlign: "left", padding: 0, fontWeight: 700 }} onClick={() => setOpen(open === t.id ? "" : t.id)}>{t.title}</button>

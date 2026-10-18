@@ -38,8 +38,10 @@ export async function sendMagicLink(config: AppConfig, email: string) {
 }
 
 /** Called on page load. If we just came back from Supabase (?code=… or ?error=…),
- * finishes the exchange and returns the access token plus what it was for. */
-export async function finishSupabaseRedirect(config: AppConfig | null): Promise<{ intent: Intent; accessToken: string } | null> {
+ * finishes the exchange and returns the access token plus what it was for.
+ * Call `done()` only after our server has verified the token: logging out of
+ * Supabase deletes the session, and a token for a deleted session is rejected. */
+export async function finishSupabaseRedirect(config: AppConfig | null): Promise<{ intent: Intent; accessToken: string; done: () => Promise<void> } | null> {
   const q = new URLSearchParams(location.search);
   const code = q.get("code");
   const err = q.get("error_description") || q.get("error");
@@ -55,9 +57,10 @@ export async function finishSupabaseRedirect(config: AppConfig | null): Promise<
     const { data, error } = await sb(config.supabase).auth.exchangeCodeForSession(code!);
     if (error || !data.session) throw error || new Error("Sign-in didn't return a session.");
     const accessToken = data.session.access_token;
-    // Remy keeps its own session from here; drop the local Supabase copy.
-    await sb(config.supabase).auth.signOut({ scope: "local" }).catch(() => {});
-    return { intent, accessToken };
+    const cfg = config.supabase;
+    // Remy keeps its own session from here; drop the Supabase copy once verified.
+    const done = async () => { await sb(cfg).auth.signOut({ scope: "local" }).catch(() => {}); };
+    return { intent, accessToken, done };
   } finally {
     clean();
   }
