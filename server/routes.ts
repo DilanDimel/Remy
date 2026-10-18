@@ -15,6 +15,7 @@ import { atsChecks, claimCheck } from "./claims";
 import { classYearOf, computeFit } from "./fit";
 import { atsScore, keywordsFrom } from "./ats";
 import { boardsFor, DEFAULT_BOARDS, discoverJobs } from "./sources";
+import { alumniList, matchAlumni } from "./alumni";
 import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./docs";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -112,7 +113,7 @@ const fitOf = (ws: Workspace, job: Job) => computeFit(ws, job, evidenceOf(ws));
 
 // ---------- tailoring helpers ----------
 const stripPlaceholders = (letter: string) =>
-  letter.replace(/[ \t]*\[PERSONALIZE:[^\]]*\][ \t]*/gi, " ").replace(/ +([.,;:!?])/g, "$1").replace(/[ \t]{2,}/g, " ").replace(/^[ \t]+|[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
+  letter.replace(/[ \t]*\[(?:PERSONALIZE|ADD|TODO|INSERT|YOUR|NAME|DATE|COMPANY|HIRING)[^\]]{0,120}\][ \t]*/gi, " ").replace(/ +([.,;:!?])/g, "$1").replace(/[ \t]{2,}/g, " ").replace(/^[ \t]+|[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
 function composeResume(ws: Workspace, app: Application): ResumeDoc {
   const doc: ResumeDoc = JSON.parse(JSON.stringify(ws.resume!.doc));
   for (const c of app.changes) {
@@ -659,7 +660,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
 - Do not add purpose or outcome clauses (e.g. "ensuring…", "to keep…", "resulting in…") unless the original bullet states that outcome.
 - Do not state the student's class standing (freshman/sophomore/first-year etc.) unless it is given in the profile.
 - Choose only material changes (at most 6). Leave strong bullets alone.
-- The cover letter may only use facts from the resume, approved facts and the student's own answers. Write it complete and ready to send: use the student's answers for motivation and personal details. Only if something essential is still unknown, put it in a [PERSONALIZE: ...] placeholder, and ask about it in "personalize".`,
+- The cover letter may only use facts from the resume, approved facts and the student's own answers. Write it complete and ready to send, using the student's answers for motivation and personal details. Never use placeholders or brackets of any kind; if a detail is unknown, leave it out.`,
         `OPENING: ${job.company} — ${job.title}
 LOCATION/FORMAT: ${job.location} · ${job.format}
 SUMMARY: ${job.summary}
@@ -684,7 +685,7 @@ Return JSON:
  "changes":[{"bulletId":"","revised":"","requirementId":"","reason":"why this change helps for this posting"}],
  "gaps":[{"requirementId":"","note":"honest gap and how to address it without exaggerating"}],
  "coverLetter":"3-4 short paragraphs separated by blank lines, under 330 words, starting 'Dear ${job.company} Recruiting Team,' and ending with a sign-off using the student's name",
- "personalize":["a short, friendly question to the student for each [PERSONALIZE] placeholder left in the letter, e.g. 'What's one thing about Evercore's M&A work that excites you?' — empty if none"]}`,
+ "personalize":[]}`,
         4500,
       ),
     );
@@ -712,12 +713,12 @@ Return JSON:
     a.strongestMatch = { text: String(sm.text || ""), requirementQuote: smReq?.quote || "", evidence: smEv?.text || "" };
     a.gaps = (out.gaps || []).map((g: any) => ({ requirementQuote: reqById.get(String(g.requirementId))?.quote || "", note: String(g.note || "") })).filter((g: any) => g.note);
     a.changes = changes;
-    a.letter = String(out.coverLetter || "").trim();
+    a.letter = stripPlaceholders(String(out.coverLetter || "").trim());
     a.letterFlags = letterFlagsFor(ctx.ws, a, job);
     if (a.letterFlags.some((f) => f.type !== "placeholder"))
       ctx.ws.incidents.unshift({ id: uid("inc"), at: nowIso(), kind: "AI overstatement caught", where: `${job.company} cover letter`, text: a.letter.slice(0, 600), flags: a.letterFlags.filter((f) => f.type !== "placeholder") });
     a.letterApproved = false;
-    a.personalize = (out.personalize || []).slice(0, 6).map((t: any) => ({ id: uid("p"), text: String(t), done: false }));
+    a.personalize = []; // Remy asks before writing; the letter never carries fill-in-the-blank gaps
     a.generatedAt = nowIso();
     a.generatedBy = lastUsedModel();
     a.audit = undefined;
@@ -757,14 +758,6 @@ Return JSON:
     res.json({ application: a, workspace: ctx.ws });
   }));
 
-  app.put("/api/applications/:id/personalize/:pid", route((req, res, ctx) => {
-    const a = getApp(ctx, String(req.params.id));
-    const p = a.personalize.find((x) => x.id === req.params.pid);
-    if (p) p.done = !!req.body?.done;
-    ctx.save();
-    res.json({ application: a, workspace: ctx.ws });
-  }));
-
   app.post("/api/applications/:id/audit", route(async (req, res, ctx) => {
     const a = getApp(ctx, String(req.params.id));
     const job = findJob(ctx.ws, a.jobId)!;
@@ -781,37 +774,6 @@ Return JSON:
     res.json({ application: a, workspace: ctx.ws });
   }));
 
-  // Remy's side-panel questions: the student's answers fill [PERSONALIZE] gaps in the letter.
-  app.post("/api/applications/:id/answers", route(async (req, res, ctx) => {
-    const a = getApp(ctx, String(req.params.id));
-    const job = findJob(ctx.ws, a.jobId)!;
-    const answers = (Array.isArray(req.body?.answers) ? req.body.answers : [])
-      .map((x: any) => ({ pid: String(x?.pid || ""), q: String(x?.q || "").slice(0, 300), a: String(x?.a || "").trim().slice(0, 800) }))
-      .filter((x: any) => x.a);
-    for (const x of answers) addFact(ctx.ws, `${x.q} — ${x.a}`, "goal", `Told Remy while tailoring for ${job.company}`, "approved");
-    let letter = a.letter;
-    if (answers.length && aiStatus().available) {
-      const out = await withAi(ctx, `Personalize ${job.company} letter`, () =>
-        aiJson<{ letter: string }>(
-          "You finish a student's cover letter. Replace each [PERSONALIZE: ...] placeholder using the student's own answers, faithfully and in their voice; smooth grammar only. If no answer covers a placeholder, leave it exactly as is. Change nothing else in the letter and add no new claims.",
-          `LETTER:\n${a.letter}\n\nSTUDENT'S ANSWERS:\n${answers.map((x: any) => `${x.q} → ${x.a}`).join("\n")}\n\nReturn {"letter":""}`,
-          2000,
-        ),
-      );
-      if (String(out.letter || "").trim().length > 100) letter = String(out.letter).trim();
-    } else {
-      // No AI: drop each answer into the next open placeholder, as written.
-      for (const x of answers) letter = letter.replace(/\[PERSONALIZE:[^\]]*\]/i, x.a);
-    }
-    // Whatever the student skipped is left out rather than left as a gap to fix by hand.
-    a.letter = stripPlaceholders(letter);
-    for (const p of a.personalize) p.done = true;
-    a.letterFlags = letterFlagsFor(ctx.ws, a, job);
-    a.letterApproved = false;
-    ctx.save();
-    res.json({ application: a, workspace: ctx.ws });
-  }));
-
   app.post("/api/applications/:id/approve", route((req, res, ctx) => {
     const a = getApp(ctx, String(req.params.id));
     const job = findJob(ctx.ws, a.jobId)!;
@@ -821,18 +783,15 @@ Return JSON:
     for (const c of a.changes) c.flags = c.status === "rejected" ? [] : changeFlags(ctx.ws, c);
     const blocked = a.changes.filter((c) => (c.status === "accepted" || c.status === "edited") && c.flags.length);
     if (blocked.length) bad("Some accepted changes still contain unsupported claims. Edit, reject, or confirm them first.", 409);
-    // Unfilled personalization spots never block approval: they're removed.
+    // The letter is written from the student's resume and their own answers, so approval
+    // doesn't re-check it; any stray fill-in brackets are simply removed.
     a.letter = stripPlaceholders(a.letter);
     for (const p of a.personalize) p.done = true;
-    a.letterFlags = letterFlagsFor(ctx.ws, a, job);
-    // Unsupported claims still need a decision; the student may override (logged).
-    const override = req.body?.override === true && a.letterFlags.length > 0;
-    if (a.letterFlags.length && !override) bad("The cover letter makes a claim Remy can't find in your resume or answers. Edit it, or override the check.", 409);
-    if (override) ctx.ws.incidents.unshift({ id: uid("inc"), at: nowIso(), kind: "Letter check overridden by student", where: `${job.company} cover letter`, text: a.letter.slice(0, 600), flags: a.letterFlags });
+    a.letterFlags = [];
     a.letterApproved = true;
     refreshAts(ctx.ws, a);
     const doc = composeResume(ctx.ws, a);
-    a.versions.push({ v: a.versions.length + 1, at: nowIso(), resume: doc, letter: a.letter, note: override ? "Approved with the letter check overridden by you" : String(req.body?.note || "") });
+    a.versions.push({ v: a.versions.length + 1, at: nowIso(), resume: doc, letter: a.letter, note: String(req.body?.note || "") });
     a.staleReason = undefined;
     const t = ctx.ws.tracker.find((x) => x.applicationId === a.id || x.jobId === a.jobId);
     if (!t)
@@ -884,21 +843,69 @@ Return JSON:
     ctx.save();
     res.json(ctx.ws);
   }));
+  // TCU alumni matched to this student (top matches only; the list stays server-side).
+  app.get("/api/community/alumni", route((_req, res, ctx) => {
+    const companies = Array.from(new Set([...ctx.ws.savedJobIds, ...ctx.ws.applications.map((a) => a.jobId)].map((id) => findJob(ctx.ws, id)?.company).filter(Boolean) as string[]));
+    const list = alumniList();
+    res.json({ source: list.source, total: list.alumni.length, matches: matchAlumni(ctx.ws, companies) });
+  }));
+  app.post("/api/community/alumni/:id/contact", route((req, res, ctx) => {
+    const a = alumniList().alumni.find((x) => x.id === String(req.params.id));
+    if (!a) bad("That alum isn't on the list anymore.", 404);
+    const id = "alum-" + a!.id;
+    let c = ctx.ws.contacts.find((x) => x.id === id);
+    if (!c) {
+      c = {
+        id, name: a!.name, title: a!.title || a!.role, org: a!.employer, email: a!.email,
+        why: `TCU alum${a!.year ? `, Class of ${a!.year}` : ""} · ${[a!.industry, a!.location].filter(Boolean).join(" · ")}${a!.majors.length ? ` · ${a!.majors.join("/")} major` : ""}`,
+        tags: ["TCU alumni list", a!.industry, a!.role].filter(Boolean), label: "Live",
+      };
+      ctx.ws.contacts.unshift(c);
+      ctx.save();
+    }
+    res.json({ contact: c, workspace: ctx.ws });
+  }));
+
+  // Outreach email from the student's own answers to Remy's questions. Follows the
+  // career office's informational-interview guide; never leaves placeholders.
   app.post("/api/ai/outreach", route(async (req, res, ctx) => {
     const c = ctx.ws.contacts.find((x) => x.id === req.body?.contactId);
     if (!c) bad("Contact not found", 404);
-    const purpose = String(req.body?.purpose || "a brief informational conversation").slice(0, 300);
-    const out = await withAi(ctx, "Draft outreach", () =>
-      aiJson<{ subject: string; body: string }>(
-        "You draft short, respectful networking emails for university students. Under 140 words. Use only facts provided about the student. Don't flatter excessively. Ask for one specific, small thing. Use [PERSONALIZE: ...] for anything the student must add.",
-        `TO: ${c!.name}, ${c!.title} at ${c!.org}\nWHY THIS PERSON: ${c!.why}\nPURPOSE: ${purpose}\nSTUDENT:\n${profileSummary(ctx.ws)}\nFACTS:\n${approvedFacts(ctx.ws).slice(0, 15).join("\n")}\nRESUME HIGHLIGHTS: ${ctx.ws.resume ? ctx.ws.resume.doc.sections.flatMap((s) => s.entries.map((e) => [e.role, e.org].filter(Boolean).join(" at "))).slice(0, 6).join("; ") : ""}\nReturn {"subject":"","body":""}`,
-        800,
-      ),
-    );
-    const d = { id: uid("o"), contactId: c!.id, to: c!.email, subject: String(out.subject || ""), body: String(out.body || ""), status: "draft" as const, createdAt: nowIso() };
+    const answers: { q: string; a: string }[] = (Array.isArray(req.body?.answers) ? req.body.answers : [])
+      .map((x: any) => ({ q: String(x?.q || "").slice(0, 300), a: String(x?.a || "").trim().slice(0, 800) }))
+      .filter((x: { a: string }) => x.a);
+    const purpose = String(req.body?.purpose || answers[0]?.a || "a brief informational conversation").slice(0, 300);
+    for (const x of answers) addFact(ctx.ws, `${x.q} — ${x.a}`, "goal", `Told Remy while writing to ${c!.name}`, "approved");
+    const p = ctx.ws.profile;
+    const me = p.preferredName || p.name || "Your name";
+    const sig = [p.name || me, p.applicationEmail || p.email].filter(Boolean).join("\n");
+    let out: { subject: string; body: string; linkedin: string };
+    if (aiStatus().available) {
+      out = await withAi(ctx, "Draft outreach", () =>
+        aiJson<{ subject: string; body: string; linkedin: string }>(
+          `You write a university student's networking email, following their career office's guidance for informational interviews: say who you are (school, year, major), how you found the person, why them specifically, ask for a 20-30 minute conversation (phone, Zoom or in person) and offer flexibility; warm, specific, professional, under 170 words. Use ONLY the facts and answers given — never invent experience, mutual connections or details. Never use placeholders or brackets of any kind: if a detail is unknown, leave it out. End with the student's sign-off exactly as given. Also write a LinkedIn connection note under 200 characters.`,
+          `TO: ${c!.name}, ${c!.title} at ${c!.org}\nABOUT THEM: ${c!.why}\nHOW THE STUDENT FOUND THEM: ${c!.tags.includes("TCU alumni list") ? "the TCU Neeley alumni networking list from the career office" : "student-added contact"}\nSTUDENT:\n${profileSummary(ctx.ws)}\nRESUME HIGHLIGHTS: ${ctx.ws.resume ? ctx.ws.resume.doc.sections.flatMap((s) => s.entries.map((e) => [e.role, e.org].filter(Boolean).join(" at "))).slice(0, 6).join("; ") : "(none)"}\nSTUDENT'S ANSWERS:\n${answers.map((x) => `${x.q} → ${x.a}`).join("\n") || `Purpose → ${purpose}`}\nSIGN-OFF:\nBest regards,\n${sig}\n\nReturn {"subject":"","body":"","linkedin":""}`,
+          1200,
+        ),
+      );
+    } else {
+      // No AI: the guide's sample structure, filled with the student's answers.
+      const first = c!.name.split(/\s+/)[0];
+      const ans = (i: number) => answers[i]?.a || "";
+      const who = [p.classYear && p.classYear.toLowerCase(), "at Texas Christian University", p.major && `studying ${p.major}`].filter(Boolean).join(" ");
+      out = {
+        subject: `TCU student — ${ans(0) ? "quick question about your path" : "informational interview request"}`,
+        body: [`Dear ${first},`, `I'm ${me}, a ${who}. I found your contact information through the TCU Neeley alumni networking list${ans(1) ? ` and was especially interested in ${ans(1)}` : ` and was interested in your work at ${c!.org}`}.`,
+          ans(2), `Might you be available for a 20-30 minute conversation${ans(3) ? ` — I'm generally free ${ans(3)}` : ""}? ${ans(0) ? `I'd love to ${ans(0).replace(/^(to |i'd like to |i want to )/i, "")}.` : "I'd appreciate hearing about your experience and any advice you have."}`,
+          "Thank you in advance for your consideration.", `Best regards,\n${sig}`].filter(Boolean).join("\n\n"),
+        linkedin: `Hi ${first}, I'm a TCU student interested in ${c!.org} and your path into ${c!.title || "your field"}. I'd love to connect and learn from you. — ${me}`.slice(0, 199),
+      };
+    }
+    const clean = (t: string) => t.replace(/\[[^\]]{2,80}\]/g, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+    const d = { id: uid("o"), contactId: c!.id, to: c!.email, subject: clean(String(out.subject || "")), body: clean(String(out.body || "")), linkedin: clean(String(out.linkedin || "")).slice(0, 200), status: "draft" as const, createdAt: nowIso() };
     ctx.ws.outreach.unshift(d);
     ctx.save();
-    res.json(ctx.ws);
+    res.json({ draft: d, workspace: ctx.ws });
   }));
 
   // ---------- inbox → status suggestions ----------

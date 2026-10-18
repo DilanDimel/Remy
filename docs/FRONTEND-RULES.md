@@ -19,7 +19,8 @@ Paste this into Muse as its standing instructions for the Offer Ready repo (`Dil
 
 ## Product rules that must survive redesigns
 - Every AI change is shown as original vs. proposed wording, with the posting quote and evidence, and the student must accept, edit or reject it.
-- Only approved versions can be exported, and `[PERSONALIZE]` markers must block approval.
+- Only approved versions can be exported.
+- No fill-in-the-blank placeholders anywhere: Remy asks the student questions in his panel (newest question at the bottom), then writes the letter or email from their answers.
 - Nothing is sent on the student's behalf: outreach opens in their own mail app, and status updates from emails wait for the student to confirm.
 - Keep honest source labels ("Student provided", "Sample", "Needs verification").
 - Keep the visual identity: near-black `#161616` on warm off-white with fox orange `#E86A2A` as the accent (use the tokens in `client/src/index.css`, not raw colours), Plus Jakarta Sans + JetBrains Mono, and Remy the animated fox (`<Remy />` in `client/src/components/common.tsx`).
