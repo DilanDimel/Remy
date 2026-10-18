@@ -23,7 +23,7 @@ export default function Community() {
         <div>
           <span className="eyebrow">Community</span>
           <h1>A few right people.</h1>
-          <p>Pip drafts outreach; you see exactly who it goes to and approve every word. Nothing is sent automatically.</p>
+          <p>Remy drafts outreach; you see exactly who it goes to and approve every word. Nothing is sent automatically.</p>
         </div>
         <div className="row">
           <button className="btn btn-secondary" onClick={() => setAdding(true)} data-testid="button-add-contact"><Plus size={16} /> Add a contact</button>

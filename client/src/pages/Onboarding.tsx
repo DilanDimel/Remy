@@ -1,17 +1,21 @@
 import { uiFlags } from "../lib/router";
-import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, FileText, GraduationCap, Linkedin, Mail, School, Trash2 } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { ArrowLeft, ArrowRight, Check, FileText, Trash2 } from "lucide-react";
+import { LinkedInMark, MailMark } from "./Welcome";
 import type { Profile, Workspace } from "@shared/types";
 import { api, useStore } from "../lib/store";
-import { AiUnavailableNote, Pip, Spinner, StatusChip } from "../components/common";
+import { AiUnavailableNote, Remy, Spinner, StatusChip } from "../components/common";
 import { ProfileImport, ResumeUpload } from "../components/Uploaders";
 
-const STEPS = ["Meet Pip", "Your sources", "Review", "A few questions", "Your plan"];
+// Step numbers are stored in the workspace; 0 and 1 both open Connect accounts
+// (the landing page now introduces Remy, so there is no separate intro step).
+const STEPS = ["Connect accounts", "Review", "A few questions", "Your plan"];
 
 export default function Onboarding() {
   const { ws, save, setWs, run, config } = useStore();
   const w = ws!;
   const step = w.onboarding.step;
+  const shown = Math.max(0, step - 1);
   const setStep = (s: number) => save("onboarding", { ...w.onboarding, step: s });
   const finish = async () => {
     uiFlags.flyIn = true;
@@ -19,16 +23,15 @@ export default function Onboarding() {
   };
   return (
     <div className="ob">
-      <div className="row-between" style={{ width: "100%", maxWidth: 720 }}>
-        <span className="logo">offer<b>ready.</b></span>
+      <div className="row-between" style={{ width: "100%", maxWidth: 740 }}>
+        <span className="logo"><Remy size={26} /><span>offer ready<b>.</b></span></span>
         <button className="btn btn-ghost btn-sm" onClick={finish} data-testid="button-skip-onboarding">Skip setup</button>
       </div>
-      <div className="ob-progress" aria-label={`Step ${step + 1} of ${STEPS.length}`}>
-        {STEPS.map((s, i) => <span key={s} className={i <= step ? "on" : ""} title={s} />)}
+      <div className="ob-progress" aria-label={`Step ${shown + 1} of ${STEPS.length}`}>
+        {STEPS.map((s, i) => <span key={s} className={i <= shown ? "on" : ""} title={s} />)}
       </div>
-      <div className="ob-card card card-pad fade-up" key={step}>
-        {step === 0 && <Intro onNext={() => setStep(1)} />}
-        {step === 1 && <Sources onBack={() => setStep(0)} onNext={() => setStep(2)} />}
+      <div className="ob-card card card-pad fade-up" key={shown}>
+        {step <= 1 && <Sources onNext={() => setStep(2)} />}
         {step === 2 && <Review onBack={() => setStep(1)} onNext={() => setStep(3)} />}
         {step === 3 && <Questions onBack={() => setStep(2)} onNext={() => setStep(4)} />}
         {step === 4 && <PlanStep onBack={() => setStep(3)} onFinish={finish} />}
@@ -38,94 +41,91 @@ export default function Onboarding() {
   );
 }
 
-function Intro({ onNext }: { onNext: () => void }) {
-  return (
-    <div className="stack-lg">
-      <div className="row" style={{ flexWrap: "nowrap", alignItems: "flex-start", gap: 16 }}>
-        <Pip size={76} mood="wave" />
-        <div className="stack-sm">
-          <h1>Hi, I'm Pip.</h1>
-          <p className="muted">I'll help you turn what you've already done into a clear plan and strong, honest applications. Setup takes about two minutes, and you can skip anything.</p>
-        </div>
-      </div>
-      <div className="grid-2">
-        {[
-          ["Understand you", "Read your resume and anything else you choose to share."],
-          ["Suggest a path", "Roles, skills and next steps tied to your real background."],
-          ["Find openings", "Relevant opportunities, with eligibility and deadlines."],
-          ["Apply truthfully", "Tailored resumes and letters — every change shows its evidence."],
-        ].map(([t, b]) => (
-          <div key={t} className="card card-pad" style={{ boxShadow: "none" }}>
-            <h3>{t}</h3>
-            <p className="small muted">{b}</p>
-          </div>
-        ))}
-      </div>
-      <div className="row-between">
-        <span className="xs muted">I only remember what you approve. You can see and delete it anytime in Accounts.</span>
-        <button className="btn btn-primary" onClick={onNext} data-testid="button-ob-start">Let's start <ArrowRight size={16} /></button>
-      </div>
-    </div>
-  );
+type ConnRow = { k: string; title: string; what: string; ico: ReactNode; icoClass: string; hint: string };
+const CONN_ROWS: ConnRow[] = [
+  { k: "TCU academic info", title: "TCU Student Account / SSO", what: "Enrollment, major, class standing", ico: "TCU", icoClass: "tcu", hint: "Paste details like major, minors, class standing, honors or planned coursework. Remy doesn't sign in to TCU systems." },
+  { k: "Stellic / degree plan", title: "Stellic Degree Audit", what: "Degree plan and semester roadmap", ico: "S", icoClass: "stellic", hint: "Upload or paste your degree audit or planned courses. Remy doesn't connect to Stellic directly." },
+  { k: "Handshake", title: "Handshake", what: "Saved jobs and career events", ico: "h", icoClass: "handshake", hint: "Copy the text from your Handshake profile (experience, skills, interests) and paste it here." },
+  { k: "LinkedIn", title: "LinkedIn", what: "Profile and experience", ico: <LinkedInMark />, icoClass: "linkedin", hint: "On LinkedIn, open your profile → More → Save to PDF, then upload it here. Remy doesn't log in to LinkedIn." },
+];
+
+/** One "Connect Your Accounts" row: Not connected → Connecting… (while the real
+ * upload or import runs) → Imported. Nothing is marked done unless data arrived. */
+function ConnStatus({ state, children }: { state: "none" | "busy" | "done"; children?: ReactNode }) {
+  if (state === "busy") return <span className="conn-badge busy"><Spinner /> Connecting…</span>;
+  if (state === "done") return <span className="conn-badge done fade-up"><Check size={13} /> {children || "Imported"}</span>;
+  return <span className="conn-badge">Not connected</span>;
 }
 
-function Sources({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
+function Sources({ onNext }: { onNext: () => void }) {
   const { ws, save } = useStore();
   const w = ws!;
-  const [open, setOpen] = useState<string>("");
+  const [open, setOpen] = useState<string>(w.resume ? "" : "resume");
+  const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [email, setEmail] = useState(w.profile.applicationEmail || w.profile.email);
   const imported = (k: string) => w.imports.find((i) => i.kind === k);
-  const rows = [
-    { k: "LinkedIn", icon: Linkedin, hint: "On LinkedIn, open your profile → More → Save to PDF, then upload it here. Offer Ready doesn't log in to LinkedIn." },
-    { k: "Handshake", icon: GraduationCap, hint: "Copy the text from your Handshake profile (experience, skills, interests) and paste it here." },
-    { k: "Stellic / degree plan", icon: School, hint: "Paste or upload your degree audit or planned courses. Offer Ready doesn't connect to Stellic directly." },
-    { k: "TCU academic info", icon: School, hint: "Paste details like major, minors, honors, or planned coursework." },
-  ];
+  const setRowBusy = (k: string) => (b: boolean) => setBusy((x) => (x[k] === b ? x : { ...x, [k]: b }));
+  const stateOf = (k: string, done: boolean) => (busy[k] ? "busy" : done ? "done" : "none");
+  const toggle = (k: string) => setOpen(open === k ? "" : k);
+  const connectBtn = (k: string, done: boolean, testid: string) => (
+    <button className="btn btn-secondary btn-sm" onClick={() => toggle(k)} disabled={busy[k]} aria-expanded={open === k} data-testid={testid}>
+      {open === k ? "Close" : done ? "Update" : "Connect"}
+    </button>
+  );
+  const connected = (w.resume ? 1 : 0) + CONN_ROWS.filter((r) => imported(r.k)).length + (w.profile.applicationEmail ? 1 : 0);
   return (
     <div className="stack-lg">
       <div className="stack-sm">
-        <span className="eyebrow">Step 2 · Your sources</span>
-        <h2>Start with your resume</h2>
-        <p className="small muted">This is the evidence everything else is built on. The rest is optional.</p>
+        <h2 className="conn-title">Connect Your Accounts</h2>
+        <p className="muted">The more you connect, the better. <span className="xs">({connected} of {CONN_ROWS.length + 2} connected)</span></p>
       </div>
-      {w.resume ? (
-        <div className="notice notice-good" data-testid="resume-loaded">
-          <Check size={16} />
-          <div><strong>{w.resume.fileName}</strong> was read ({w.resume.doc.sections.length} sections, parsed by {w.resume.parsedBy === "ai" ? "AI and verified against your file" : "rules"}). You'll review it next.</div>
-        </div>
-      ) : (
-        <ResumeUpload />
-      )}
-      {w.resume && <details><summary className="small" style={{ cursor: "pointer", color: "var(--plum)", fontWeight: 700 }}>Replace resume</summary><div style={{ marginTop: 10 }}><ResumeUpload compact /></div></details>}
+      <div className="remy-prompt">
+        <Remy size={40} mood={Object.values(busy).some(Boolean) ? "think" : "idle"} />
+        <p><b>Remy:</b> Please connect these accounts so that I can understand your background and goals better. Start with your resume — it's the evidence everything else is built on.</p>
+      </div>
 
-      <div className="stack-sm">
-        <h3>Optional: add more context</h3>
-        {rows.map((r) => (
-          <div key={r.k} className="stack-sm">
-            <div className="source-row">
-              <div className="source-icon"><r.icon size={18} /></div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="row"><strong className="small">{r.k}</strong>{imported(r.k) ? <StatusChip label="Student provided">Imported · {imported(r.k)!.factsAdded} facts</StatusChip> : <StatusChip label="Needs setup">No direct connection</StatusChip>}</div>
-                <div className="xs muted">Upload an export or paste text — never a password.</div>
-              </div>
-              <button className="btn btn-secondary btn-sm" onClick={() => setOpen(open === r.k ? "" : r.k)} data-testid={`button-source-${r.k.split(" ")[0].toLowerCase()}`}>{open === r.k ? "Close" : "Add"}</button>
-            </div>
-            {open === r.k && <div style={{ padding: "0 4px" }}><ProfileImport kind={r.k} hint={r.hint} onDone={() => setOpen("")} /></div>}
-          </div>
-        ))}
-        <div className="source-row">
-          <div className="source-icon"><Mail size={18} /></div>
-          <div style={{ flex: 1 }}>
-            <strong className="small">Application email</strong>
-            <div className="xs muted">Used on your documents and outreach drafts. Inbox reading isn't connected — you can paste emails in Progress.</div>
-            <input className="input" style={{ marginTop: 8 }} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@school.edu" aria-label="Application email" data-testid="input-app-email" />
-          </div>
+      <div className="stack-sm" id="connList">
+        <div className="conn-row">
+          <span className="conn-ico resume" aria-hidden><FileText size={18} /></span>
+          <div className="grow"><b>Resume / CV</b><span>{w.resume ? `${w.resume.fileName} · ${w.resume.doc.sections.length} sections, ${w.resume.parsedBy === "ai" ? "verified against your file" : "read by rules"}` : "Experience, skills and education — required for tailoring"}</span></div>
+          <ConnStatus state={stateOf("resume", !!w.resume)} />
+          {connectBtn("resume", !!w.resume, "button-source-resume")}
         </div>
+        {open === "resume" && <div className="conn-panel fade-up" data-testid={w.resume ? "resume-loaded" : undefined}><ResumeUpload compact={!!w.resume} onBusy={setRowBusy("resume")} onDone={() => setOpen("")} /></div>}
+
+        {CONN_ROWS.map((r) => {
+          const done = imported(r.k);
+          return (
+            <div key={r.k} className="stack-sm">
+              <div className="conn-row">
+                <span className={`conn-ico ${r.icoClass}`} aria-hidden>{r.ico}</span>
+                <div className="grow"><b>{r.title}</b><span>{r.what}</span></div>
+                <ConnStatus state={stateOf(r.k, !!done)}>{done ? `Imported · ${done.factsAdded} facts` : undefined}</ConnStatus>
+                {connectBtn(r.k, !!done, `button-source-${r.k.split(" ")[0].toLowerCase()}`)}
+              </div>
+              {open === r.k && <div className="conn-panel fade-up"><ProfileImport kind={r.k} hint={r.hint} onBusy={setRowBusy(r.k)} onDone={() => setOpen("")} /></div>}
+            </div>
+          );
+        })}
+
+        <div className="conn-row">
+          <span className="conn-ico email" aria-hidden><MailMark /></span>
+          <div className="grow"><b>Primary Work/School Email</b><span>Used on your documents and outreach drafts. Inbox reading isn't connected; paste emails in Progress.</span></div>
+          <ConnStatus state={stateOf("email", !!w.profile.applicationEmail)}>Saved</ConnStatus>
+          {connectBtn("email", !!w.profile.applicationEmail, "button-source-email")}
+        </div>
+        {open === "email" && (
+          <div className="conn-panel fade-up row">
+            <input className="input" style={{ flex: 1, minWidth: 200 }} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@tcu.edu" aria-label="Application email" data-testid="input-app-email" />
+            <button className="btn btn-primary btn-sm" disabled={!/.+@.+\..+/.test(email) || busy.email} onClick={async () => { setRowBusy("email")(true); await save("profile", { ...w.profile, applicationEmail: email }); setRowBusy("email")(false); setOpen(""); }} data-testid="button-save-app-email">Save</button>
+          </div>
+        )}
       </div>
+      <p className="xs muted">Remy never asks for passwords and doesn't log in to these sites. "Connect" reads a file or text you choose, and you approve every fact on the next step.</p>
       <div className="row-between">
-        <button className="btn btn-ghost" onClick={onBack}><ArrowLeft size={16} /> Back</button>
-        <button className="btn btn-primary" onClick={async () => { if (email !== w.profile.applicationEmail) await save("profile", { ...w.profile, applicationEmail: email }); onNext(); }} data-testid="button-ob-next-sources">
-          {w.resume ? "Review what we found" : "Continue without a resume"} <ArrowRight size={16} />
+        <span />
+        <button className="btn btn-primary" onClick={async () => { if (email && email !== w.profile.applicationEmail && /.+@.+\..+/.test(email)) await save("profile", { ...w.profile, applicationEmail: email }); onNext(); }} data-testid="button-ob-next-sources">
+          {w.resume ? "Continue" : "Continue without a resume"} <ArrowRight size={16} />
         </button>
       </div>
     </div>
@@ -133,7 +133,7 @@ function Sources({ onBack, onNext }: { onBack: () => void; onNext: () => void })
 }
 
 const PROFILE_FIELDS: [keyof Profile, string, string?][] = [
-  ["name", "Full name"], ["preferredName", "What should Pip call you?"], ["school", "School"], ["major", "Major(s)"],
+  ["name", "Full name"], ["preferredName", "What should Remy call you?"], ["school", "School"], ["major", "Major(s)"],
   ["classYear", "Class year"], ["graduation", "Expected graduation", "e.g. May 2029"], ["location", "Location"], ["targetRoles", "Roles you're curious about", "e.g. investment banking, fintech"],
 ];
 
@@ -178,7 +178,7 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
   return (
     <div className="stack-lg">
       <div className="stack-sm">
-        <span className="eyebrow">Step 3 · Review</span>
+        <span className="eyebrow">Step 2 · Review</span>
         <h2>Is this right?</h2>
         <p className="small muted">Correct anything that's off. Offer Ready only uses what you confirm here.</p>
       </div>
@@ -243,9 +243,9 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
   return (
     <div className="stack-lg">
       <div className="row" style={{ flexWrap: "nowrap", alignItems: "flex-start", gap: 14 }}>
-        <Pip size={52} mood={busy ? "think" : "idle"} />
+        <Remy size={52} mood={busy ? "think" : "idle"} />
         <div className="stack-sm">
-          <span className="eyebrow">Step 4 · {qs.length ? `Question ${Math.min(idx + 1, qs.length)} of ${qs.length}` : "A few questions"}</span>
+          <span className="eyebrow">Step 3 · {qs.length ? `Question ${Math.min(idx + 1, qs.length)} of ${qs.length}` : "A few questions"}</span>
           {busy ? <span className="row muted"><Spinner /> Thinking of a few useful questions…</span> : current ? <h2 data-testid="text-question">{current}</h2> : <h2>{qs.length ? "All done — thank you." : "Questions need AI"}</h2>}
         </div>
       </div>
@@ -284,9 +284,9 @@ function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: () => vo
   return (
     <div className="stack-lg">
       <div className="row" style={{ flexWrap: "nowrap", alignItems: "flex-start", gap: 14 }}>
-        <Pip size={52} mood={busy ? "think" : "wave"} />
+        <Remy size={52} mood={busy ? "think" : "wave"} />
         <div className="stack-sm">
-          <span className="eyebrow">Step 5 · Your starting plan</span>
+          <span className="eyebrow">Step 4 · Your starting plan</span>
           <h2>{busy ? "Putting your plan together…" : w.plan ? "Here's where I'd start" : "Your workspace is ready"}</h2>
           <p className="small muted">Suggestions, not requirements. You can change anything.</p>
         </div>

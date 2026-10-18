@@ -8,7 +8,13 @@ The old demo was a front-end prototype with preset data. This version has a real
 - ATS checks.
 - Real DOCX/PDF/TXT exports of approved versions only.
 
-The visual identity is preserved: plum #4d2b6c, warm off-white, Satoshi + Cabinet Grotesk, and the Pip mascot.
+The visual identity now integrates the Remy mockup: near-black `#161616` on warm off-white, fox orange `#E86A2A` as the accent, Plus Jakarta Sans + JetBrains Mono, and Remy the animated fox as the AI coach (replacing Pip).
+
+## Remy integration (Oct 18)
+- **Landing page:** Remy's "Don't Hunt for a Job Alone" card with five sign-in buttons. Google is the only real sign-in; LinkedIn, Apple, Microsoft and Work/School Email open a private guest workspace and say so.
+- **Connect Your Accounts:** Remy's connector list (Resume, TCU, Stellic, Handshake, LinkedIn, email) with the spinner and status badges. Each "Connect" runs a real upload or paste import, so a row only turns green ("Imported") when data actually arrived. Nothing logs in to those sites.
+- **Remy, the coach:** the fox from the mockup, animated (bob, blink, ear twitch, wave hello, head-tilt while thinking, hop on a new reply). Open on every page by default with a Minimize button; minimized, he docks as a fox button. On phones he starts minimized so he doesn't cover the page.
+- **Workspace:** same structure and features; only the styling changed. The mockup's intake questions were not ported, since onboarding already has its own questions step.
 
 ## Status checklist
 
@@ -26,7 +32,7 @@ The visual identity is preserved: plum #4d2b6c, warm off-white, Satoshi + Cabine
 | Progress / email updates | Working (paste-in) | Rules + AI classify receipt vs. interview vs. offer, with the evidence sentence highlighted. Student confirms. Duplicate prevention and manual correction included. Inbox connection: Needs setup |
 | Calendar | Working (export) | Month view, .ics export, per-item "Add to Google Calendar". No automatic sync |
 | Accounts | Working | Profile edits mark approved documents for review (never rewrite them). Sources with honest labels. Editable/deletable AI memory. Theme. Data export/delete |
-| Mobile (375px) | Working | Bottom nav, Pip button, assistant closed by default on small screens |
+| Mobile (375px) | Working | Bottom nav, docked Remy fox button, Remy minimized by default on small screens |
 | Hosting persistence | Limited | SQLite on the app's server. Fine for a demo; data may not survive a server rebuild. Ask users to download their documents |
 
 ## Remaining setup (team)
@@ -50,8 +56,8 @@ The visual identity is preserved: plum #4d2b6c, warm off-white, Satoshi + Cabine
 - Re-check every opening the day before the pitch. The Citi link is already broken.
 
 ## 3-minute demo script
-1. **Welcome (15s).** "Offer Ready turns a student's real experience into a plan, the right openings and truthful applications." Click Explore demo.
-2. **Onboarding (40s).** Use the sample resume (or upload one live). Show "Every bullet matches your original file word-for-word." Correct the class year, answer one AI question, and show the starting plan with real deadlines.
+1. **Welcome (15s).** On the "Don't Hunt for a Job Alone" landing page, Remy the fox waves. "Offer Ready turns a student's real experience into a plan, the right openings and truthful applications." Click "Or explore the demo without signing in".
+2. **Onboarding (40s).** On Connect Your Accounts, connect the resume with the sample student and show the row go from Connecting… to Imported. Show "Every bullet matches your original file word-for-word." Correct the class year, answer one AI question, and show the starting plan with real deadlines.
 3. **Home (15s).** One next step, plus To-Dos, Events and Opportunities. Show that "View more" opens the right filter.
 4. **Resume (75s).** Tailor for Evercore. Show the Strongest Match, a clean change with posting quote + evidence, and a flagged change ("adds detail that isn't in this entry"). Reject it. Show the [PERSONALIZE] gate blocking approval, fix it, approve, and download the PDF.
 5. **Safeguard (20s).** In Checks, type "Managed a $250,000 portfolio using Python" and show the flags. Mention the real AI error log.
