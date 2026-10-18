@@ -102,6 +102,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await api("POST", "/api/connect/linkedin", { accessToken: back.accessToken });
         toast("LinkedIn connected");
       }
+      await back?.done();
     } catch (e: any) {
       toast(e?.message || "Sign-in didn't finish.", true);
     }

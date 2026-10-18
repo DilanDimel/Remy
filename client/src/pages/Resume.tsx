@@ -9,8 +9,8 @@ import { go } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Empty, Remy, Spinner, StatusChip } from "../components/common";
 import { ResumeUpload } from "../components/Uploaders";
-import { preAnswers, TailorQuestions } from "../components/TailorQuestions";
-import { clearAnswers } from "../lib/tailorDraft";
+import { AtsCard } from "../components/AtsCard";
+import { startFollowUps, startTailor, useTailorSession } from "../lib/tailorChat";
 
 type Tab = "base" | "tailor" | "library";
 
@@ -97,6 +97,7 @@ function BaseResume() {
           </div>
         )}
       </div>
+      <AtsCard refreshKey={`${w.resume.uploadedAt}-${w.resume.confirmedAt || ""}-${JSON.stringify(w.resume.doc).length}`} />
       {showRaw && <pre className="card card-pad xs" style={{ whiteSpace: "pre-wrap", maxHeight: 320, overflow: "auto", margin: 0 }}>{w.resume.rawText}</pre>}
 
       <div className="card card-pad stack">
@@ -249,16 +250,16 @@ function AppEditor({ a, job }: { a: Application; job: Job }) {
     setBusy("");
     return r;
   };
-  const generate = async () => {
-    const r = await call("gen", () => api("POST", `/api/applications/${a.id}/generate`, { answers: preAnswers(a.id, job) }), "Tailored draft ready — review each change");
-    if (r) clearAnswers(a.id);
-  };
-  // Remy's questions show in his side panel when it's open; otherwise right here.
-  const panelVisible = w.settings.assistantOpen && !window.matchMedia("(max-width: 1020px)").matches;
+  // "Tailor with AI" starts a conversation in Remy's panel; he tailors once you've answered.
+  const tailor = useTailorSession();
+  const mine = tailor?.appId === a.id ? tailor : null;
+  const generate = () => startTailor(a, job);
   const pending = a.changes.filter((c) => c.status === "pending").length;
   const blocking = a.changes.filter((c) => (c.status === "accepted" || c.status === "edited") && c.flags.length).length;
   const approve = (override = false) => call("approve", () => api("POST", `/api/applications/${a.id}/approve`, { override }), override ? "Approved with the letter check overridden — downloads are ready" : "Approved — downloads are ready");
-  const onlyLetterBlocks = !pending && !blocking && a.letterFlags.length > 0;
+  // Placeholders are removed on approval; only unsupported claims need a decision.
+  const letterClaims = a.letterFlags.filter((f) => f.type !== "placeholder").length;
+  const onlyLetterBlocks = !pending && !blocking && letterClaims > 0;
 
   return (
     <div className="stack">
@@ -269,18 +270,18 @@ function AppEditor({ a, job }: { a: Application; job: Job }) {
             <h2 data-testid="text-app-title">{job.title}</h2>
             <span className="xs muted">{job.deadlineText || "No deadline listed"} · <a href={job.applyUrl || job.sourceUrl} target="_blank" rel="noreferrer" style={{ color: "var(--plum)", fontWeight: 700 }}>Posting <ArrowUpRight size={12} style={{ display: "inline" }} /></a></span>
           </div>
-          <button className="btn btn-primary" onClick={generate} disabled={!!busy || !config?.ai.available || !w.resume} data-testid="button-generate">
-            {busy === "gen" ? <Spinner /> : a.generatedAt ? <RotateCcw size={16} /> : <Sparkles size={16} />} {busy === "gen" ? "Tailoring…" : a.generatedAt ? "Regenerate" : "Tailor with AI"}
+          <button className="btn btn-primary" onClick={generate} disabled={!!busy || (!!mine && mine.stage !== "done") || !config?.ai.available || !w.resume} data-testid="button-generate">
+            {mine?.stage === "generating" ? <Spinner /> : a.generatedAt ? <RotateCcw size={16} /> : <Sparkles size={16} />} {mine?.stage === "generating" ? "Tailoring…" : mine?.stage === "pre" ? "Answering Remy…" : a.generatedAt ? "Regenerate" : "Tailor with AI"}
           </button>
         </div>
         {a.staleReason && <div className="notice notice-warn" style={{ marginTop: 12 }}><AlertTriangle size={16} /><div>{a.staleReason}</div></div>}
         {a.generatedAt && <p className="xs muted" style={{ marginTop: 10 }}>Draft generated {fmtDate(a.generatedAt)} by {a.generatedBy} · {a.versions.length ? `approved v${a.versions.length} on ${fmtDate(a.versions[a.versions.length - 1].at)}` : "not yet approved"}</p>}
       </div>
 
-      {!panelVisible && (busy === "gen" || !a.generatedAt || a.personalize.some((p) => !p.done)) && <div className="card card-pad"><TailorQuestions a={a} job={job} busy={busy === "gen"} /></div>}
-      {busy === "gen" && <div className="card card-pad stack"><div className="row"><Remy size={40} mood="think" /><span className="muted">Remy is matching your experience to {job.company}'s requirements. This usually takes about a minute.</span></div>{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 70 }} />)}</div>}
+      {mine?.stage === "pre" && <div className="card card-pad row" style={{ flexWrap: "nowrap" }} data-testid="tailor-asking"><Remy size={40} mood="wave" /><span className="small"><b>Remy is asking you a few questions in the chat.</b> Answer there (or type "skip") and he'll tailor as soon as you're done.</span></div>}
+      {mine?.stage === "generating" && <div className="card card-pad stack"><div className="row"><Remy size={40} mood="think" /><span className="muted">Remy is matching your experience to {job.company}'s requirements. This usually takes about a minute.</span></div>{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 70 }} />)}</div>}
 
-      {a.generatedAt && busy !== "gen" && (
+      {a.generatedAt && mine?.stage !== "generating" && (
         <>
           {a.strongestMatch?.text && (
             <div className="card card-pad stack-sm" style={{ borderColor: "var(--plum)" }} data-testid="card-strongest-match">
@@ -303,16 +304,16 @@ function AppEditor({ a, job }: { a: Application; job: Job }) {
           {sub === "export" && <ExportView a={a} job={job} />}
           <div className="card card-pad row-between approve-bar">
             <span className="small">
-              {pending ? `${pending} change(s) still need your decision.` : blocking ? `${blocking} accepted change(s) have unsupported claims.` : a.letterFlags.length ? "The cover letter still needs attention." : "Ready to approve."}
+              {pending ? `${pending} change(s) still need your decision.` : blocking ? `${blocking} accepted change(s) have unsupported claims.` : letterClaims ? "The cover letter makes a claim Remy can't find in your resume." : "Ready to approve."}
             </span>
             <div className="row">
-              {onlyLetterBlocks && <button className="btn btn-secondary" onClick={() => { if (confirm("Approve anyway? Remy will remove any unfilled [PERSONALIZE] spots and note in your safeguard log that you overrode the letter check.")) approve(true); }} disabled={!!busy} data-testid="button-override-letter"><ShieldAlert size={16} /> Override letter check</button>}
+              {onlyLetterBlocks && <button className="btn btn-secondary" onClick={() => { if (confirm("Approve anyway? Remy will note in your safeguard log that you overrode the letter check.")) approve(true); }} disabled={!!busy} data-testid="button-override-letter"><ShieldAlert size={16} /> Override letter check</button>}
               <button className="btn btn-primary" onClick={() => approve()} disabled={!!busy} data-testid="button-approve-app">{busy === "approve" ? <Spinner /> : <ShieldCheck size={16} />} Approve this version</button>
             </div>
           </div>
         </>
       )}
-      {!a.generatedAt && busy !== "gen" && (
+      {!a.generatedAt && !mine && (
         <div className="card"><Empty title="No tailored draft yet" body={w.resume ? `Remy will propose a few material changes for ${job.company}, write a cover letter draft, and check everything against your resume.` : "Upload your base resume first."} /></div>
       )}
     </div>
@@ -398,6 +399,8 @@ function ChangeCard({ a, c, n }: { a: Application; c: BulletChange; n: number })
 
 function Letter({ a }: { a: Application }) {
   const { setWs, run } = useStore();
+  const { jobs } = useJobs();
+  const job = jobs?.find((j) => j.id === a.jobId);
   const [text, setText] = useState(a.letter);
   const [busy, setBusy] = useState(false);
   useEffect(() => setText(a.letter), [a.letter]);
@@ -416,17 +419,18 @@ function Letter({ a }: { a: Application }) {
       <div className="card card-pad stack">
         <div className="row-between"><h3>Cover letter draft</h3>{a.letterApproved ? <span className="chip chip-live">Approved</span> : <span className="chip chip-plain">Draft</span>}</div>
         <textarea className="textarea" style={{ minHeight: 420, fontSize: 14 }} value={text} onChange={(e) => setText(e.target.value)} aria-label="Cover letter" data-testid="input-letter" />
-        <div className="row"><button className="btn btn-primary btn-sm" onClick={saveLetter} disabled={busy || text === a.letter} data-testid="button-save-letter">{busy && <Spinner />} Save & re-check</button><span className="xs muted">Replace every [PERSONALIZE: …] with your own words.</span></div>
+        <div className="row"><button className="btn btn-primary btn-sm" onClick={saveLetter} disabled={busy || text === a.letter} data-testid="button-save-letter">{busy && <Spinner />} Save & re-check</button><span className="xs muted">Edit anything you like — Remy re-checks it when you save.</span></div>
       </div>
       <div className="stack">
         <div className="card card-pad stack-sm">
-          <h3>Details only you can add</h3>
+          <div className="row-between"><h3>Details only you know</h3>
+            {a.personalize.some((p) => !p.done) && job && <button className="btn btn-primary btn-sm" onClick={() => startFollowUps(a, job)} data-testid="button-answer-with-remy">Answer with Remy</button>}</div>
           {a.personalize.length ? a.personalize.map((p) => (
             <div key={p.id} className="item" style={{ padding: "8px 0" }}>
               <button className="check" role="checkbox" aria-checked={p.done} onClick={() => toggle(p.id, !p.done)} aria-label="Mark done" data-testid="checkbox-personalize">{p.done && <Check size={13} />}</button>
               <span className="small" style={{ textDecoration: p.done ? "line-through" : undefined }}>{p.text}</span>
             </div>
-          )) : <span className="small muted">None suggested.</span>}
+          )) : <span className="small muted">Nothing left — Remy used your answers.</span>}
         </div>
         <div className="card card-pad stack-sm">
           <h3>Letter check</h3>
@@ -457,6 +461,7 @@ function Checks({ a }: { a: Application }) {
   };
   return (
     <div className="grid-2" style={{ alignItems: "start" }}>
+      <div style={{ gridColumn: "1 / -1" }}><AtsCard appId={a.id} refreshKey={a.changes.map((c) => c.status + (c.edited || "")).join("|")} /></div>
       <div className="stack">
         <div className="card card-pad stack-sm">
           <h3>Unsupported-claim check</h3>

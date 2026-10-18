@@ -155,12 +155,12 @@ function Data() {
       <div className="card card-pad stack">
         <h3>Account</h3>
         <dl className="kv">
-          <dt>Type</dt><dd>{me?.kind === "google" ? "Google account" : me?.kind === "visitor" ? "Private preview workspace (this browser)" : "Demo workspace (this browser)"}</dd>
+          <dt>Type</dt><dd>{me?.kind === "supabase" ? `Signed in (${me.email})` : me?.kind === "google" ? "Google account" : me?.kind === "visitor" ? "Private preview workspace (this browser)" : "Demo workspace (this browser)"}</dd>
           {me?.email && <><dt>Email</dt><dd>{me.email}</dd></>}
           <dt>Last saved</dt><dd>{new Date(ws!.updatedAt).toLocaleString()}</dd>
         </dl>
         {me?.kind !== "google" && (config?.googleClientId ? <div className="stack-sm"><span className="small">Sign in with Google to keep this workspace across devices:</span><div ref={google.ref} /></div> : <span className="row xs muted"><StatusChip label="Needs setup" /> Google sign-in isn't configured on this server.</span>)}
-        {(me?.kind === "google" || me?.kind === "guest") && <div><button className="btn btn-secondary btn-sm" onClick={signOut} data-testid="button-sign-out"><LogOut size={14} /> Sign out</button></div>}
+        {(me?.kind === "google" || me?.kind === "supabase" || me?.kind === "guest") && <div><button className="btn btn-secondary btn-sm" onClick={signOut} data-testid="button-sign-out"><LogOut size={14} /> Sign out</button></div>}
       </div>
       <div className="card card-pad stack">
         <h3>Your data</h3>

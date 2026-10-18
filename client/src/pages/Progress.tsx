@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Check, ChevronDown, ChevronUp, Inbox, Mail, Plus, Trash2, Wand2 } from "lucide-react";
 import type { Suggestion, Task, TrackItem, TrackStatus, Workspace } from "@shared/types";
 import { api, fmtDate, rid, useStore } from "../lib/store";
+import { useCompleting } from "../lib/completing";
 import { go, useRoute } from "../lib/router";
 import { Empty, Modal, Spinner, StatusChip } from "../components/common";
 
@@ -200,7 +201,10 @@ function Todos() {
   const [title, setTitle] = useState("");
   const [due, setDue] = useState("");
   const add = () => run(() => save("tasks", [{ id: rid("t"), title, why: "Added by you", due, category: "Prepare", done: false, source: "Added by you" } as Task, ...w.tasks]), "To-do added").then(() => { setTitle(""); setDue(""); });
-  const sorted = [...w.tasks].sort((a, b) => Number(a.done) - Number(b.done) || (a.due || "9999").localeCompare(b.due || "9999"));
+  const { isFading, mark } = useCompleting();
+  const [showDone, setShowDone] = useState(false);
+  const doneCount = w.tasks.filter((t) => t.done && !isFading(t.id)).length;
+  const sorted = [...w.tasks].filter((t) => !t.done || isFading(t.id) || showDone).sort((a, b) => Number(a.done && !isFading(a.id)) - Number(b.done && !isFading(b.id)) || (a.due || "9999").localeCompare(b.due || "9999"));
   return (
     <div className="card card-pad stack">
       <form className="row" onSubmit={(e) => { e.preventDefault(); if (title.trim()) add(); }}>
@@ -209,13 +213,14 @@ function Todos() {
         <button className="btn btn-primary" disabled={!title.trim()} data-testid="button-add-todo"><Plus size={16} /> Add</button>
       </form>
       {sorted.length ? sorted.map((t) => (
-        <div key={t.id} className="item" data-testid="row-todo">
-          <button className="check" role="checkbox" aria-checked={t.done} onClick={() => save("tasks", w.tasks.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x)))} aria-label="Toggle done">{t.done && <Check size={13} />}</button>
+        <div key={t.id} className={"item" + (t.done && isFading(t.id) ? " completing" : "")} data-testid="row-todo">
+          <button className="check" role="checkbox" aria-checked={t.done} onClick={() => { if (!t.done) mark(t.id); save("tasks", w.tasks.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x))); }} aria-label="Toggle done">{t.done && <Check size={13} />}</button>
           <div className="item-main"><strong className="small" style={{ textDecoration: t.done ? "line-through" : undefined }}>{t.title}</strong><div className="why">{t.why} · <span className="faint">{t.source}</span></div></div>
           {t.due && <span className="chip chip-plain">{fmtDate(t.due)}</span>}
           <button className="icon-btn" onClick={() => save("tasks", w.tasks.filter((x) => x.id !== t.id))} aria-label="Delete to-do"><Trash2 size={15} /></button>
         </div>
-      )) : <Empty title="No to-dos" body="Add one above, or build your path to get suggestions." />}
+      )) : <Empty title={doneCount ? "All caught up" : "No to-dos"} body={doneCount ? "Everything on your list is done." : "Add one above, or build your path to get suggestions."} />}
+      {doneCount > 0 && <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setShowDone((v) => !v)} data-testid="button-show-done">{showDone ? "Hide" : "Show"} completed ({doneCount})</button>}
     </div>
   );
 }

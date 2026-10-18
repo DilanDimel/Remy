@@ -8,8 +8,7 @@ import { StoreProvider, api, useStore } from "./lib/store";
 import { go, useRoute } from "./lib/router";
 import { Modal, Remy, Spinner, StatusChip } from "./components/common";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { TailorQuestions } from "./components/TailorQuestions";
-import { useJobs } from "./lib/jobs";
+import { answer as answerTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
 import Onboarding from "./pages/Onboarding";
 import Home from "./pages/Home";
@@ -30,8 +29,8 @@ const NAV = [
   { path: "/community", label: "Community", icon: Users },
   { path: "/calendar", label: "Calendar", icon: CalendarDays },
   { path: "/progress", label: "Progress", icon: BarChart3 },
-  { path: "/accounts", label: "Accounts", icon: UserCog },
 ];
+const ACCOUNTS = { path: "/accounts", label: "Account", icon: UserCog };
 
 export default function App() {
   return (
@@ -83,8 +82,10 @@ function Shell() {
     setAsstPage(open);
     if (!isMobile) save("settings", { assistantOpen: open });
   };
+  // A tailoring conversation opens Remy so the student can answer him.
+  useEffect(() => onOpenRequest(() => setAsstPage(true)), []);
   const collapsed = w.settings.navCollapsed;
-  const current = NAV.find((n) => (n.path === "/" ? path === "/" : path.startsWith(n.path))) || NAV[0];
+  const current = path.startsWith("/accounts") ? ACCOUNTS : NAV.find((n) => (n.path === "/" ? path === "/" : path.startsWith(n.path))) || NAV[0];
   const pendingReview = w.applications.reduce((s, a) => s + a.changes.filter((c) => c.status === "pending").length, 0);
   const openSuggestions = w.suggestions.filter((s) => s.state === "open").length;
   const page = (() => {
@@ -105,7 +106,7 @@ function Shell() {
     <div className={`shell ${collapsed ? "nav-collapsed" : ""} ${asstOpen ? "asst-open" : ""}`}>
       <aside className="sidebar" aria-label="Main navigation">
         <div className="brand">
-          <span className="logo"><Remy size={26} /><span className="logo-text">remy<b>.</b></span></span>
+          <span className="logo"><Remy size={26} /><span className="logo-text">Remy<b>.</b></span></span>
           <button className="icon-btn" onClick={() => save("settings", { navCollapsed: !collapsed })} aria-label={collapsed ? "Expand navigation" : "Collapse navigation"} data-testid="button-toggle-nav">
             {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
           </button>
@@ -118,13 +119,7 @@ function Shell() {
             {n.path === "/progress" && openSuggestions > 0 && <span className="count">{openSuggestions}</span>}
           </a>
         ))}
-        <div className="side-foot">
-          <div className="avatar">{me?.picture ? <img src={me.picture} alt="" referrerPolicy="no-referrer" /> : initials}</div>
-          <div className="side-foot-text" style={{ minWidth: 0 }}>
-            <div className="small" style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.profile.preferredName || w.profile.name || "Student"}</div>
-            <div className="xs muted">{me?.kind === "google" ? "Google account" : "Demo workspace"}</div>
-          </div>
-        </div>
+        <ProfileMenu initials={initials} active={path.startsWith("/accounts")} />
       </aside>
 
       <main className="main" id="main">
@@ -160,7 +155,7 @@ function Shell() {
       {more && (
         <Modal title="More" onClose={() => setMore(false)}>
           <div className="stack-sm">
-            {NAV.filter((n) => ["/community", "/calendar", "/accounts"].includes(n.path)).map((n) => (
+            {[...NAV.filter((n) => ["/community", "/calendar"].includes(n.path)), ACCOUNTS].map((n) => (
               <button key={n.path} className="nav-item" onClick={() => { setMore(false); go(n.path); }}><n.icon size={19} />{n.label}</button>
             ))}
           </div>
@@ -189,13 +184,11 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   const [greeting, setGreeting] = useState(true);
   useEffect(() => { const t = setTimeout(() => setGreeting(false), 2800); return () => clearTimeout(t); }, []);
   const chat = ws!.chat;
-  // On the Resume page, Remy asks the questions for the application in view.
-  const { path, query } = useRoute();
-  const { jobs } = useJobs();
-  const tailorApp = path.startsWith("/resume") && query.get("tab") !== "base" && query.get("tab") !== "library"
-    ? ws!.applications.find((x) => x.id === query.get("app")) || ws!.applications[0]
-    : undefined;
-  const tailorJob = tailorApp && jobs?.find((j) => j.id === tailorApp.jobId);
+  // A tailoring conversation (started by "Tailor with AI") takes over the chat box while Remy is asking.
+  const tailor = useTailorSession();
+  const asking = isAsking(tailor);
+  const tailorEnd = useRef<HTMLDivElement>(null);
+  useEffect(() => tailorEnd.current?.scrollIntoView({ block: "end" }), [tailor?.log.length]);
   const lastAi = [...chat].reverse().find((m) => m.role !== "user")?.id;
   const [cheer, setCheer] = useState<string | undefined>(undefined);
   useEffect(() => {
@@ -203,9 +196,10 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
     const t = setTimeout(() => setCheer(lastAi), 1300);
     return () => clearTimeout(t);
   }, [lastAi]);
-  const mood = busy ? "think" : greeting ? "wave" : lastAi && lastAi !== cheer ? "happy" : "idle";
+  const mood = busy || tailor?.stage === "generating" || tailor?.stage === "finishing" ? "think" : greeting || asking ? "wave" : lastAi && lastAi !== cheer ? "happy" : "idle";
   useEffect(() => end.current?.scrollIntoView({ block: "end" }), [chat.length, busy]);
   const send = async (text: string) => {
+    if (asking) { setMsg(""); await answerTailor(text, { setWs, run }); return; }
     if (!text.trim() || busy) return;
     setBusy(true);
     setMsg("");
@@ -230,8 +224,13 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
         <button className="btn btn-secondary btn-sm" onClick={onMinimize} aria-label="Minimize Remy" title="Minimize Remy" data-testid="button-close-assistant"><Minus size={15} /><span className="hide-sm">Minimize</span></button>
       </div>
       <div className="asst-body">
-        {tailorApp && tailorJob && (!tailorApp.generatedAt || tailorApp.personalize.some((p) => !p.done)) && (
-          <div className="asst-card"><TailorQuestions a={tailorApp} job={tailorJob} compact /></div>
+        {tailor && (
+          <div className="asst-card stack-sm" data-testid="tailor-chat">
+            <span className="eyebrow">Tailoring for {tailor.company}</span>
+            {tailor.log.map((m, i) => <div key={i} className={`bubble ${m.role === "me" ? "bubble-user" : "bubble-ai"}`}>{m.text}</div>)}
+            {(tailor.stage === "generating" || tailor.stage === "finishing") && <div className="bubble bubble-ai row"><Spinner /> Working on it…</div>}
+            <div ref={tailorEnd} />
+          </div>
         )}
         {chat.length === 0 && (
           <div className="bubble bubble-ai">
@@ -269,14 +268,53 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
           value={msg}
           onChange={(e) => { setMsg(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px"; }}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(msg); } }}
-          placeholder={config?.ai.available ? "Ask Remy anything… (Shift+Enter for a new line)" : "AI needs setup on this server"}
-          disabled={!config?.ai.available}
+          placeholder={asking ? "Answer Remy… (or type skip)" : config?.ai.available ? "Ask Remy anything… (Shift+Enter for a new line)" : "AI needs setup on this server"}
+          disabled={!config?.ai.available && !asking}
           aria-label="Message Remy"
           data-testid="input-chat"
         />
-        <button className="btn btn-primary" disabled={busy || !msg.trim()} aria-label="Send" data-testid="button-send-chat"><Send size={16} /></button>
+        <button className="btn btn-primary" disabled={(busy && !asking) || !msg.trim()} aria-label="Send" data-testid="button-send-chat"><Send size={16} /></button>
       </form>
     </>
   );
 }
 
+
+const MENU: [string, string][] = [["profile", "Profile"], ["settings", "Settings"], ["memory", "AI memory"], ["sources", "Connected sources"], ["data", "Account & data"]];
+
+/** The name at the bottom of the sidebar: opens Profile, Settings and the rest of Account. */
+function ProfileMenu({ initials, active }: { initials: string; active: boolean }) {
+  const { ws, me, run, refresh } = useStore();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc); };
+  }, [open]);
+  const kind = me?.kind === "google" || me?.kind === "supabase" ? (me.email || "Signed in") : "Guest workspace";
+  const signOut = async () => { setOpen(false); await run(() => api("POST", "/api/auth/logout")); await refresh(); };
+  return (
+    <div className="side-foot" ref={ref}>
+      <button className={"profile-btn" + (active ? " on" : "")} onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} data-testid="button-profile-menu">
+        <div className="avatar">{me?.picture ? <img src={me.picture} alt="" referrerPolicy="no-referrer" /> : initials}</div>
+        <div className="side-foot-text" style={{ minWidth: 0, textAlign: "left" }}>
+          <div className="small" style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ws!.profile.preferredName || ws!.profile.name || "Student"}</div>
+          <div className="xs muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{kind}</div>
+        </div>
+      </button>
+      {open && (
+        <div className="profile-menu fade-up" role="menu">
+          {MENU.map(([k, l]) => (
+            <button key={k} role="menuitem" onClick={() => { setOpen(false); go(`/accounts?tab=${k}`); }} data-testid={`menu-${k}`}>{l}</button>
+          ))}
+          <div className="divider" />
+          <button role="menuitem" onClick={signOut} data-testid="menu-sign-out">Sign out</button>
+        </div>
+      )}
+    </div>
+  );
+}

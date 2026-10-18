@@ -165,6 +165,14 @@ export interface AppVersion {
   letter: string;
   note: string;
 }
+export interface AtsScore {
+  score: number; // out of 100
+  categories: { name: string; max: number; score: number; items: { ok: boolean; earned: number; max: number; text: string }[] }[];
+  fixes: { category: string; text: string; gain: number }[];
+  keywords: { matched: string[]; missing: string[] };
+  against: string;
+  at: string;
+}
 export interface Application {
   id: string;
   jobId: string;

@@ -25,7 +25,7 @@ export default function Onboarding() {
   return (
     <div className="ob">
       <div className="row-between" style={{ width: "100%", maxWidth: 740 }}>
-        <span className="logo"><Remy size={26} /><span>remy<b>.</b></span></span>
+        <span className="logo"><Remy size={26} /><span>Remy<b>.</b></span></span>
         <button className="btn btn-ghost btn-sm" onClick={finish} data-testid="button-skip-onboarding">Skip setup</button>
       </div>
       <div className="ob-progress" aria-label={`Step ${shown + 1} of ${STEPS.length}`}>
