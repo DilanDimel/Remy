@@ -4,23 +4,24 @@ import type { Contact, OutreachDraft, Workspace } from "@shared/types";
 import { api, fmtDate, rid, useStore } from "../lib/store";
 import { Empty, Modal, Spinner, StatusChip } from "../components/common";
 import { startOutreach, useTailorSession } from "../lib/tailorChat";
+import { providerOn, startOAuth } from "../lib/supabase";
 
 type AlumMatch = { id: string; year: number | null; name: string; email: string; employer: string; industry: string; role: string; title: string; location: string; majors: string[]; score: number; why: string[] };
 
 export default function Community() {
-  const { ws, setWs, save, run, config } = useStore();
+  const { ws, me, setWs, save, run, config } = useStore();
   const w = ws!;
   const [adding, setAdding] = useState(false);
   const [c, setC] = useState({ name: "", title: "", org: "", email: "", why: "" });
   const [review, setReview] = useState<OutreachDraft | null>(null);
-  const [alumni, setAlumni] = useState<{ source: string; total: number; matches: AlumMatch[] } | null>(null);
+  const [alumni, setAlumni] = useState<{ source: string; total: number; matches: AlumMatch[]; signInRequired?: boolean } | null>(null);
   const [busyAlum, setBusyAlum] = useState("");
   const profileKey = [w.profile.major, w.profile.targetRoles, w.profile.regions, w.profile.interests, w.savedJobIds.length].join("|");
   useEffect(() => {
     let live = true;
-    api<{ source: string; total: number; matches: AlumMatch[] }>("GET", "/api/community/alumni").then((d) => { if (live) setAlumni(d); }, () => {});
+    api<{ source: string; total: number; matches: AlumMatch[]; signInRequired?: boolean }>("GET", "/api/community/alumni").then((d) => { if (live) setAlumni(d); }, () => {});
     return () => { live = false; };
-  }, [profileKey]);
+  }, [profileKey, me?.id]);
   // When Remy finishes writing an email, open it for review.
   // Remy's "done" can arrive a render before the workspace with the new draft, so
   // look again when the drafts change, and open each draft only once.
@@ -63,7 +64,14 @@ export default function Community() {
           <h2>TCU alumni matched to you</h2>
           {alumni && <span className="xs muted">From the {alumni.source || "TCU alumni list"} · {alumni.total} alumni</span>}
         </div>
-        {!alumni ? <div className="grid-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 150 }} />)}</div> : alumni.matches.length ? (
+        {alumni?.signInRequired ? (
+          <div className="card card-pad stack-sm" data-testid="alumni-sign-in">
+            <strong>Sign in to see your alumni matches</strong>
+            <p className="small muted">The alumni list has real names and email addresses, so it's only shown to signed-in students.</p>
+            {providerOn(config, "google") && <div><button className="btn btn-primary btn-sm" onClick={() => run(() => startOAuth(config!, "google"))} data-testid="button-alumni-sign-in">Sign in with Google</button></div>}
+            {!providerOn(config, "google") && <span className="xs muted">Sign out from the menu under your name, then sign in on the home page.</span>}
+          </div>
+        ) : !alumni ? <div className="grid-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 150 }} />)}</div> : alumni.matches.length ? (
           <div className="grid-3">
             {alumni.matches.map((a) => {
               const saved = w.contacts.some((c) => c.id === "alum-" + a.id);

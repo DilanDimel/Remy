@@ -58,7 +58,7 @@ The visual identity now integrates the Remy mockup: near-black `#161616` on warm
 - **Outreach is a conversation too:** Remy asks four questions (what you want, what interests you about their path, what to mention about you, availability) and writes the whole email following the informational-interviewing guide (who you are, how you found them, why them, a 20-30 minute ask), plus a LinkedIn note under 200 characters.
 - **No placeholders anywhere:** no `[PERSONALIZE]` markers in letters or emails; whatever the student didn't say is left out. Tailoring asks four questions up front, and approving the letter has no letter check. The Letter tab shows "What Remy used" with an "Answer again & rewrite" button.
 - **Questions sit at the bottom** of Remy's panel, right above the input.
-- Note: alumni emails are personal data. Right now a guest can see their 12 matches with emails; requiring sign-in for that section is a one-line change if the team wants it.
+- Alumni names and emails are personal data, so only signed-in students (Google or Supabase) see matches; guests get a "Sign in to see your alumni matches" card and the contact route refuses them.
 
 ### Supabase setup (needed for real sign-in)
 In the Supabase dashboard for "DilanDimel's Project":

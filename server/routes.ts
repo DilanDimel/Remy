@@ -844,12 +844,16 @@ Return JSON:
     res.json(ctx.ws);
   }));
   // TCU alumni matched to this student (top matches only; the list stays server-side).
+  // Alumni names and emails are personal data: only signed-in students see them.
+  const alumniOk = (me: Me) => me.kind === "google" || me.kind === "supabase" || me.kind === "local";
   app.get("/api/community/alumni", route((_req, res, ctx) => {
-    const companies = Array.from(new Set([...ctx.ws.savedJobIds, ...ctx.ws.applications.map((a) => a.jobId)].map((id) => findJob(ctx.ws, id)?.company).filter(Boolean) as string[]));
     const list = alumniList();
+    if (!alumniOk(ctx.me)) return res.json({ source: list.source, total: list.alumni.length, matches: [], signInRequired: true });
+    const companies = Array.from(new Set([...ctx.ws.savedJobIds, ...ctx.ws.applications.map((a) => a.jobId)].map((id) => findJob(ctx.ws, id)?.company).filter(Boolean) as string[]));
     res.json({ source: list.source, total: list.alumni.length, matches: matchAlumni(ctx.ws, companies) });
   }));
   app.post("/api/community/alumni/:id/contact", route((req, res, ctx) => {
+    if (!alumniOk(ctx.me)) bad("Sign in to see and contact TCU alumni.", 401);
     const a = alumniList().alumni.find((x) => x.id === String(req.params.id));
     if (!a) bad("That alum isn't on the list anymore.", 404);
     const id = "alum-" + a!.id;
