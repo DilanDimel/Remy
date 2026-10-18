@@ -1,0 +1,17 @@
+{
+  "checkedAt": "2026-10-17T19:42:58.156Z",
+  "results": [
+    "Visitor workspace isolation passed.",
+    "Export before approval rejected on server.",
+    "Unsupported claim approval rejected on server.",
+    "Reviewed application export passed.",
+    "Profile change invalidates approvals.",
+    "Chicago conflict checking and non-inviting ICS passed.",
+    "Cross-visitor meeting lookup rejected.",
+    "HTTP and duplicate import rejection passed.",
+    "Invalid settings and profile input rejected.",
+    "155-node coverage download passed.",
+    "Full product brief download passed.",
+    "Complete workspace export passed."
+  ]
+}

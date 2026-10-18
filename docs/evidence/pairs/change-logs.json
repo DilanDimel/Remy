@@ -1,0 +1,359 @@
+[
+ {
+  "job": "insight-inclusion-2027",
+  "generatedBy": "gpt_5_1",
+  "generatedAt": "2026-10-18T03:07:38.680Z",
+  "approvedVersions": 2,
+  "strongestMatch": {
+   "text": "Completed a J.P. Morgan Investment Banking Virtual Experience where I built a DCF model, conducted comparable company analysis, and created a client pitch deck evaluating M&A acquisition scenarios.",
+   "requirementQuote": "explore the Venture Capital, Private Equity, and tech investing space",
+   "evidence": "Built a DCF model in Excel and a comparable company analysis worksheet to evaluate M&A acquisition scenarios, producing a client pitch deck with strategic acquisition recommendations"
+  },
+  "changes": [
+   {
+    "original": "Conducted market research through IB workflow simulations covering valuation, deal screening, and pitch decks",
+    "revised": "Conducted market research through investment banking workflow simulations covering valuation, deal screening, and client pitch materials",
+    "edited": null,
+    "requirementQuote": "explore the Venture Capital, Private Equity, and tech investing space",
+    "status": "accepted",
+    "confirmedTrue": null,
+    "flags": []
+   },
+   {
+    "original": "Selected for an intensive leadership and entrepreneurship development program",
+    "revised": "Selected for an intensive leadership and entrepreneurship development program focused on collaboration with business and community partners",
+    "edited": null,
+    "requirementQuote": "explore the Venture Capital, Private Equity, and tech investing space",
+    "status": "rejected",
+    "confirmedTrue": null,
+    "flags": []
+   },
+   {
+    "original": "As Student Ambassador, raised $5,000 for first-generation college students' dorm supplies",
+    "revised": "As Student Ambassador, raised $5,000 for first-generation college students' dorm supplies through outreach to campus and community supporters",
+    "edited": null,
+    "requirementQuote": "A completed application entails submitting a copy of your resume, transcript and completing a HireVue Video",
+    "status": "rejected",
+    "confirmedTrue": null,
+    "flags": []
+   },
+   {
+    "original": "Oversee an estimated annual chapter budget of $5,000+, managing SGA funding allocations and corporate sponsorship packages to fund campus events and conduct financial planning and variance analysis",
+    "revised": "Oversee an estimated annual chapter budget of $5,000+, managing SGA funding allocations and corporate sponsorship packages to support campus events and perform financial planning and variance analysis",
+    "edited": null,
+    "requirementQuote": "explore the Venture Capital, Private Equity, and tech investing space",
+    "status": "accepted",
+    "confirmedTrue": null,
+    "flags": []
+   },
+   {
+    "original": "Lead planning and execution of alternative break service experiences; manage logistics, itineraries, and travel coordination",
+    "revised": "Lead planning and execution of alternative break service experiences, managing logistics, itineraries, and travel coordination with student participants and partner organizations",
+    "edited": null,
+    "requirementQuote": "A completed application entails submitting a copy of your resume, transcript and completing a HireVue Video",
+    "status": "rejected",
+    "confirmedTrue": null,
+    "flags": []
+   },
+   {
+    "original": "Founded club from concept to active organization and led effort for official TCU recognition; organized inaugural tournament with 24 participants across a 6-pool bracket; oversee an 8-member executive board",
+    "revised": "Founded UNO Club from concept to active organization and led effort for official TCU recognition; organized an inaugural tournament with 24 participants across a 6-pool bracket and oversee an 8-member executive board",
+    "edited": null,
+    "requirementQuote": "explore the Venture Capital, Private Equity, and tech investing space",
+    "status": "accepted",
+    "confirmedTrue": null,
+    "flags": []
+   }
+  ],
+  "ats": [
+   [
+    "Contact details at the top",
+    true,
+    "Name and email found."
+   ],
+   [
+    "Standard section headings",
+    true,
+    "ATS parsers look for Education and Experience-style headings."
+   ],
+   [
+    "Single column, no tables, images or text boxes",
+    true,
+    "Offer Ready exports a one-column document with real text only."
+   ],
+   [
+    "Readable standard font",
+    true,
+    "Exports use Calibri 10.5\u201311 pt (Word) / Helvetica (PDF)."
+   ],
+   [
+    "Every experience entry has dates",
+    true,
+    "All entries are dated."
+   ],
+   [
+    "Bullets are concise (under ~2 lines)",
+    true,
+    "All bullets are a scannable length."
+   ],
+   [
+    "Fits about one page for an undergraduate",
+    true,
+    "449 words."
+   ],
+   [
+    "Posting priorities reflected (only where true)",
+    false,
+    "1 of 2 posting priorities appear. Never add a keyword you can't support."
+   ],
+   [
+    "No unfinished placeholders",
+    true,
+    "None found."
+   ],
+   [
+    "Clear file name",
+    true,
+    "Dilandimel-Desman-Insight-Partners-Resume.docx"
+   ]
+  ]
+ },
+ {
+  "job": "db-develop-ib",
+  "generatedBy": "gpt_5_1",
+  "generatedAt": "2026-10-18T03:06:38.701Z",
+  "approvedVersions": 1,
+  "strongestMatch": {
+   "text": "Eligible sophomore (Class of 2029) Finance & BIS major actively pursuing investment banking insight opportunities aligned with the Class of 2029 IB track.",
+   "requirementQuote": "IB: Students in the fall of sophomore year, Class of 2029",
+   "evidence": "John V. Roach Honors College | Neeley School of Business"
+  },
+  "changes": [
+   {
+    "original": "Built a DCF model in Excel and a comparable company analysis worksheet to evaluate M&A acquisition scenarios, producing a client pitch deck with strategic acquisition recommendations",
+    "revised": "Built a DCF model in Excel and a comparable company analysis worksheet to evaluate M&A acquisition scenarios, creating a client pitch deck with strategic acquisition recommendations",
+    "edited": null,
+    "requirementQuote": "IB: Students in the fall of sophomore year, Class of 2029",
+    "status": "accepted",
+    "confirmedTrue": null,
+    "flags": []
+   },
+   {
+    "original": "Conducted market research through IB workflow simulations covering valuation, deal screening, and pitch decks",
+    "revised": "Conducted market research through investment banking workflow simulations covering valuation, deal screening, and pitch decks",
+    "edited": null,
+    "requirementQuote": "IB: Students in the fall of sophomore year, Class of 2029",
+    "status": "accepted",
+    "confirmedTrue": null,
+    "flags": []
+   },
+   {
+    "original": "Oversee an estimated annual chapter budget of $5,000+, managing SGA funding allocations and corporate sponsorship packages to fund campus events and conduct financial planning and variance analysis",
+    "revised": "Oversee an estimated annual chapter budget of $5,000+, managing SGA funding allocations and corporate sponsorship packages to fund campus events and perform financial planning and variance analysis",
+    "edited": null,
+    "requirementQuote": "IB: Students in the fall of sophomore year, Class of 2029",
+    "status": "accepted",
+    "confirmedTrue": null,
+    "flags": []
+   },
+   {
+    "original": "Selected for an intensive leadership and entrepreneurship development program",
+    "revised": "Selected for an intensive leadership and entrepreneurship development program focused on professional growth and business exposure",
+    "edited": null,
+    "requirementQuote": "Sophomore students who are diverse (for example, students who identify as women, Black, Hispanic/Latinx, LGBTQI, veterans, people with disabilities, and those who may be diverse in other ways) and/or students who can show a commitment to diversity.",
+    "status": "rejected",
+    "confirmedTrue": null,
+    "flags": []
+   },
+   {
+    "original": "Organized tabling events to promote civic engagement; facilitated voter registration for eligible students and citizens",
+    "revised": "Organized tabling events to promote civic engagement and facilitated voter registration for eligible students and citizens",
+    "edited": null,
+    "requirementQuote": "Sophomore students who are diverse (for example, students who identify as women, Black, Hispanic/Latinx, LGBTQI, veterans, people with disabilities, and those who may be diverse in other ways) and/or students who can show a commitment to diversity.",
+    "status": "accepted",
+    "confirmedTrue": null,
+    "flags": []
+   },
+   {
+    "original": "Assist in organizing and distributing essential community resources to local residents",
+    "revised": "Assist in organizing and distributing essential community resources to local residents in partnership with a community agency",
+    "edited": null,
+    "requirementQuote": "Sophomore students who are diverse (for example, students who identify as women, Black, Hispanic/Latinx, LGBTQI, veterans, people with disabilities, and those who may be diverse in other ways) and/or students who can show a commitment to diversity.",
+    "status": "accepted",
+    "confirmedTrue": null,
+    "flags": []
+   }
+  ],
+  "ats": [
+   [
+    "Contact details at the top",
+    true,
+    "Name and email found."
+   ],
+   [
+    "Standard section headings",
+    true,
+    "ATS parsers look for Education and Experience-style headings."
+   ],
+   [
+    "Single column, no tables, images or text boxes",
+    true,
+    "Offer Ready exports a one-column document with real text only."
+   ],
+   [
+    "Readable standard font",
+    true,
+    "Exports use Calibri 10.5\u201311 pt (Word) / Helvetica (PDF)."
+   ],
+   [
+    "Every experience entry has dates",
+    true,
+    "All entries are dated."
+   ],
+   [
+    "Bullets are concise (under ~2 lines)",
+    true,
+    "All bullets are a scannable length."
+   ],
+   [
+    "Fits about one page for an undergraduate",
+    true,
+    "452 words."
+   ],
+   [
+    "Posting priorities reflected (only where true)",
+    false,
+    "1 of 3 posting priorities appear. Never add a keyword you can't support."
+   ],
+   [
+    "No unfinished placeholders",
+    true,
+    "None found."
+   ],
+   [
+    "Clear file name",
+    true,
+    "Dilandimel-Desman-Deutsche-Bank-Resume.docx"
+   ]
+  ]
+ },
+ {
+  "job": "evercore-ma-2028",
+  "generatedBy": "gpt_5_1",
+  "generatedAt": "2026-10-18T02:56:49.590Z",
+  "approvedVersions": 1,
+  "strongestMatch": {
+   "text": "Maintaining a 3.8 GPA in Finance & BIS within the John V. Roach Honors College while pursuing a Fintech Certification demonstrates a strong academic record and diverse interests.",
+   "requirementQuote": "Strong academic record coupled with diverse interests",
+   "evidence": "John V. Roach Honors College | Neeley School of Business"
+  },
+  "changes": [
+   {
+    "original": "Built a DCF model in Excel and a comparable company analysis worksheet to evaluate M&A acquisition scenarios, producing a client pitch deck with strategic acquisition recommendations",
+    "revised": "Built a DCF model in Excel and a comparable company analysis worksheet to evaluate M&A acquisition scenarios, producing a client pitch deck with strategic recommendations on potential acquisition targets",
+    "edited": null,
+    "requirementQuote": "Demonstrated knowledge in investment banking and global markets",
+    "status": "accepted",
+    "confirmedTrue": null,
+    "flags": []
+   },
+   {
+    "original": "Conducted market research through IB workflow simulations covering valuation, deal screening, and pitch decks",
+    "revised": "Conducted market research through investment banking workflow simulations covering valuation exercises, M&A deal screening, and client pitch deck preparation",
+    "edited": null,
+    "requirementQuote": "Demonstrated knowledge in investment banking and global markets",
+    "status": "accepted",
+    "confirmedTrue": null,
+    "flags": []
+   },
+   {
+    "original": "Provide administrative and operational support to faculty and staff within the College of Education department",
+    "revised": "Provide administrative and operational support to faculty and staff within the College of Education, handling day-to-day tasks in a fast-paced office environment",
+    "edited": null,
+    "requirementQuote": "Enthusiastic, outgoing, and achievement-oriented character with a great work ethic",
+    "status": "rejected",
+    "confirmedTrue": null,
+    "flags": []
+   },
+   {
+    "original": "Manage office communications, assist with data entry, and help organize departmental resources for students",
+    "revised": "Manage office communications, assist with data entry, and help organize departmental resources for students, maintaining accuracy across multiple concurrent requests",
+    "edited": null,
+    "requirementQuote": "Quantitative and analytical talents combined with effective communication skills",
+    "status": "rejected",
+    "confirmedTrue": null,
+    "flags": []
+   },
+   {
+    "original": "Oversee an estimated annual chapter budget of $5,000+, managing SGA funding allocations and corporate sponsorship packages to fund campus events and conduct financial planning and variance analysis",
+    "revised": "Oversee an estimated annual chapter budget of $5,000+, managing SGA funding allocations and corporate sponsorship packages to fund campus events and performing financial planning and variance analysis",
+    "edited": null,
+    "requirementQuote": "Quantitative and analytical talents combined with effective communication skills",
+    "status": "accepted",
+    "confirmedTrue": null,
+    "flags": []
+   },
+   {
+    "original": "Founded club from concept to active organization and led effort for official TCU recognition; organized inaugural tournament with 24 participants across a 6-pool bracket; oversee an 8-member executive board",
+    "revised": "Founded UNO Club from concept to active organization and led effort for official TCU recognition; organized an inaugural tournament with 24 participants across a 6-pool bracket and oversee an 8-member executive board",
+    "edited": null,
+    "requirementQuote": "Enthusiastic, outgoing, and achievement-oriented character with a great work ethic",
+    "status": "accepted",
+    "confirmedTrue": null,
+    "flags": []
+   }
+  ],
+  "ats": [
+   [
+    "Contact details at the top",
+    true,
+    "Name and email found."
+   ],
+   [
+    "Standard section headings",
+    true,
+    "ATS parsers look for Education and Experience-style headings."
+   ],
+   [
+    "Single column, no tables, images or text boxes",
+    true,
+    "Offer Ready exports a one-column document with real text only."
+   ],
+   [
+    "Readable standard font",
+    true,
+    "Exports use Calibri 10.5\u201311 pt (Word) / Helvetica (PDF)."
+   ],
+   [
+    "Every experience entry has dates",
+    true,
+    "All entries are dated."
+   ],
+   [
+    "Bullets are concise (under ~2 lines)",
+    true,
+    "All bullets are a scannable length."
+   ],
+   [
+    "Fits about one page for an undergraduate",
+    true,
+    "455 words."
+   ],
+   [
+    "Posting priorities reflected (only where true)",
+    true,
+    "4 of 5 posting priorities appear. Never add a keyword you can't support."
+   ],
+   [
+    "No unfinished placeholders",
+    true,
+    "None found."
+   ],
+   [
+    "Clear file name",
+    true,
+    "Dilandimel-Desman-Evercore-Resume.docx"
+   ]
+  ]
+ }
+]

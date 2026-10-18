@@ -1,0 +1,2519 @@
+{
+  "root": {
+    "title": "Offer Ready",
+    "note": "A connected, proactive TCU student-to-career companion. Product concept, not an implemented integration.",
+    "status": "team",
+    "children": [
+      {
+        "title": "Understand the student",
+        "note": "Connect context, ask better questions, and keep the student in control.",
+        "status": "team",
+        "children": [
+          {
+            "title": "People & pain points",
+            "note": "Who the concept serves and the problems the team described.",
+            "status": "team",
+            "children": [
+              {
+                "title": "Current TCU students",
+                "note": "Students across years and majors; a freshman finance major is the recurring example. The initial pilot audience is still open.",
+                "status": "team",
+                "children": [],
+                "id": "n3",
+                "parent": "n2"
+              },
+              {
+                "title": "Unclear career direction",
+                "note": "Students may not know what jobs involve, what interests them, or how their current activities relate to future roles.",
+                "status": "team",
+                "children": [],
+                "id": "n4",
+                "parent": "n2"
+              },
+              {
+                "title": "Fragmented information",
+                "note": "Academic plans, career advice, job listings, campus opportunities, calendars, and application materials live in different places.",
+                "status": "team",
+                "children": [],
+                "id": "n5",
+                "parent": "n2"
+              },
+              {
+                "title": "Missing or unsuitable openings",
+                "note": "The user reports seeing about three Textron internships on Handshake but more on the employer website, and difficulty finding quant roles. These are student observations, not a verified market-wide comparison.",
+                "status": "team",
+                "children": [],
+                "id": "n6",
+                "parent": "n2"
+              },
+              {
+                "title": "Eligibility mismatches",
+                "note": "Students want to avoid spending time on roles they cannot take because of stated requirements, year, location, or authorization.",
+                "status": "team",
+                "children": [],
+                "id": "n7",
+                "parent": "n2"
+              },
+              {
+                "title": "Generic communication",
+                "note": "The team finds many existing recommendation emails irrelevant and wants a more useful, individualized experience.",
+                "status": "team",
+                "children": [],
+                "id": "n8",
+                "parent": "n2"
+              },
+              {
+                "title": "Application strain",
+                "note": "Repeated research and tailoring take time; the discussion links this burden to application burnout.",
+                "status": "team",
+                "children": [],
+                "id": "n9",
+                "parent": "n2"
+              },
+              {
+                "title": "Authenticity gap",
+                "note": "Students may write what they think employers want instead of communicating their actual experience honestly.",
+                "status": "team",
+                "children": [],
+                "id": "n10",
+                "parent": "n2"
+              }
+            ],
+            "id": "n2",
+            "parent": "n1"
+          },
+          {
+            "title": "Connected accounts",
+            "note": "Proposed authorized connections. No live API access or institutional agreement has been verified.",
+            "status": "team",
+            "children": [
+              {
+                "title": "TCU school profile",
+                "note": "Prefill major, year, academic context, and other approved student information rather than asking students to re-enter everything.",
+                "status": "team",
+                "children": [],
+                "id": "n12",
+                "parent": "n11"
+              },
+              {
+                "title": "Stellic & academic planning",
+                "note": "Use permitted degree progress, completed/planned courses, and relevant advising information where the connected system actually provides it. Do not assume Stellic owns all appointment records.",
+                "status": "team",
+                "children": [],
+                "id": "n13",
+                "parent": "n11"
+              },
+              {
+                "title": "Advising appointment records",
+                "note": "Connect the appropriate authorized school appointment system so the assistant can identify recorded past or upcoming meetings.",
+                "status": "team",
+                "children": [],
+                "id": "n14",
+                "parent": "n11"
+              },
+              {
+                "title": "Outlook calendar",
+                "note": "Use authorized class/calendar information to suggest suitable times and coordinate approved appointments and invites.",
+                "status": "team",
+                "children": [],
+                "id": "n15",
+                "parent": "n11"
+              },
+              {
+                "title": "LinkedIn & Handshake",
+                "note": "Proposed profile connections for career context. Public-job discovery and private-account access are separate; availability and permissions remain unverified.",
+                "status": "team",
+                "children": [],
+                "id": "n16",
+                "parent": "n11"
+              },
+              {
+                "title": "GitHub & other profiles",
+                "note": "Use student-approved projects and portfolio information where relevant to the goal.",
+                "status": "team",
+                "children": [],
+                "id": "n17",
+                "parent": "n11"
+              },
+              {
+                "title": "Connection health & fallback",
+                "note": "Show what is connected, when it was synced, and what could not be read. Offer uploads or manual correction if a connection is unavailable.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n18",
+                "parent": "n11"
+              },
+              {
+                "title": "Access is not completeness",
+                "note": "Connections reduce uncertainty, but a failed sync or unrecorded meeting is not proof an event never happened. Ask when coverage is incomplete.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n19",
+                "parent": "n11"
+              }
+            ],
+            "id": "n11",
+            "parent": "n1"
+          },
+          {
+            "title": "Contextual onboarding",
+            "note": "Start from available information, then ask questions that genuinely clarify the student.",
+            "status": "team",
+            "children": [
+              {
+                "title": "Import before interviewing",
+                "note": "Connect approved apps, extract available information, then ask personalized follow-up questions.",
+                "status": "team",
+                "children": [],
+                "id": "n21",
+                "parent": "n20"
+              },
+              {
+                "title": "Clarify the person",
+                "note": "Explore interests, aspirations, concerns, preferred work, and what the student enjoyed or disliked about past experiences.",
+                "status": "team",
+                "children": [],
+                "id": "n22",
+                "parent": "n20"
+              },
+              {
+                "title": "Confirm personal contribution",
+                "note": "Clarify what the student actually did in projects, clubs, volunteering, and work before turning it into application claims.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n23",
+                "parent": "n20"
+              },
+              {
+                "title": "Editable profile & goals",
+                "note": "Keep current goals, constraints, and confirmed experience on the profile; let the student correct them.",
+                "status": "team",
+                "children": [],
+                "id": "n24",
+                "parent": "n20"
+              },
+              {
+                "title": "No assumed answers",
+                "note": "Distinguish imported records, student-confirmed facts, AI interpretations, and missing information.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n25",
+                "parent": "n20"
+              }
+            ],
+            "id": "n20",
+            "parent": "n1"
+          },
+          {
+            "title": "Preferences & boundaries",
+            "note": "Make personalization explicit instead of opaque.",
+            "status": "team",
+            "children": [
+              {
+                "title": "Year, major & experience",
+                "note": "Adapt guidance for freshmen, sophomores, juniors, seniors, majors, and experience level.",
+                "status": "team",
+                "children": [],
+                "id": "n27",
+                "parent": "n26"
+              },
+              {
+                "title": "Hard constraints vs preferences",
+                "note": "Separate cannot-relocate or explicit role requirements from preferences such as remote work, industry, or commute.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n28",
+                "parent": "n26"
+              },
+              {
+                "title": "Weighting & customization",
+                "note": "Let students influence ranking and see why recommendations change; the board calls for strong filtering and weighting.",
+                "status": "team",
+                "children": [],
+                "id": "n29",
+                "parent": "n26"
+              },
+              {
+                "title": "Nationality wording",
+                "note": "The board mentions nationality. Recommended refinement: ask relevant optional work-authorization or sponsorship questions, not nationality-based judgments.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n30",
+                "parent": "n26"
+              },
+              {
+                "title": "Unknown eligibility",
+                "note": "Do not mark unclear requirements as confirmed eligibility or ineligibility; present the uncertainty and an official clarification route.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n31",
+                "parent": "n26"
+              }
+            ],
+            "id": "n26",
+            "parent": "n1"
+          }
+        ],
+        "id": "n1",
+        "parent": "n0"
+      },
+      {
+        "title": "Plan a personal path",
+        "note": "Connect academic choices, campus activity, skill-building, and career exploration.",
+        "status": "team",
+        "children": [
+          {
+            "title": "Career exploration",
+            "note": "Help students investigate possibilities without declaring a fixed life path.",
+            "status": "team",
+            "children": [
+              {
+                "title": "Questions before conclusions",
+                "note": "Use a series of questions to explore the student’s interests and possible directions.",
+                "status": "team",
+                "children": [],
+                "id": "n34",
+                "parent": "n33"
+              },
+              {
+                "title": "Explain roles plainly",
+                "note": "Show future job titles, what people do day to day, relevant industries, positions, possible paths, and source-supported pay information where available.",
+                "status": "team",
+                "children": [],
+                "id": "n35",
+                "parent": "n33"
+              },
+              {
+                "title": "Optional exploration tasks",
+                "note": "Suggest activities or small experiments students can try before committing to a direction.",
+                "status": "team",
+                "children": [],
+                "id": "n36",
+                "parent": "n33"
+              },
+              {
+                "title": "Forecasting & uncertainty",
+                "note": "Some forecasting was proposed. Label scenarios as exploratory rather than guarantees about future jobs, pay, or the student’s life.",
+                "status": "team",
+                "children": [],
+                "id": "n37",
+                "parent": "n33"
+              },
+              {
+                "title": "Human skills & curiosity",
+                "note": "Emphasize authentic experience, human judgment, curiosity, and willingness to test tools.",
+                "status": "team",
+                "children": [],
+                "id": "n38",
+                "parent": "n33"
+              },
+              {
+                "title": "JobsGPT inspiration",
+                "note": "Mentor reference: break careers into tasks and explore how AI may affect work; use this to discuss skills and future possibilities, not to guarantee outcomes.",
+                "status": "idea",
+                "children": [],
+                "id": "n39",
+                "parent": "n33"
+              }
+            ],
+            "id": "n33",
+            "parent": "n32"
+          },
+          {
+            "title": "Academic roadmap",
+            "note": "The team’s broader vision includes semester-level academic planning.",
+            "status": "team",
+            "children": [
+              {
+                "title": "Semester-by-semester classes",
+                "note": "For example, show a finance major which courses fit each semester, using appropriate requirements and available information.",
+                "status": "team",
+                "children": [],
+                "id": "n41",
+                "parent": "n40"
+              },
+              {
+                "title": "What each class teaches",
+                "note": "Explain course learning and how it could relate to skills, projects, and careers.",
+                "status": "team",
+                "children": [],
+                "id": "n42",
+                "parent": "n40"
+              },
+              {
+                "title": "Progress & dependencies",
+                "note": "Use completed/planned courses and check prerequisites, sequencing, requirements, and known offering information.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n43",
+                "parent": "n40"
+              },
+              {
+                "title": "Requirements vs suggestions",
+                "note": "Separate official graduation rules from elective or career recommendations; use current authoritative sources and catalog context.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n44",
+                "parent": "n40"
+              },
+              {
+                "title": "Academic advisor review",
+                "note": "Refer exceptions, substitutions, uncertain requirements, and official decisions to the appropriate advisor. Do not claim graduation clearance.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n45",
+                "parent": "n40"
+              },
+              {
+                "title": "Prototype vs full vision",
+                "note": "Decide how much academic planning belongs in the Offer Ready demonstration versus a later phase; it overlaps the separate advising case.",
+                "status": "open",
+                "children": [],
+                "id": "n46",
+                "parent": "n40"
+              }
+            ],
+            "id": "n40",
+            "parent": "n32"
+          },
+          {
+            "title": "Campus & skill opportunities",
+            "note": "Make better use of the student’s time at TCU.",
+            "status": "team",
+            "children": [
+              {
+                "title": "Relevant clubs",
+                "note": "Recommend campus organizations related to interests and career goals, including meaningful activities to try as a freshman.",
+                "status": "team",
+                "children": [],
+                "id": "n48",
+                "parent": "n47"
+              },
+              {
+                "title": "Certifications",
+                "note": "Suggest relevant certifications with a reason, effort/cost where known, and no assumption that every credential is worthwhile.",
+                "status": "team",
+                "children": [],
+                "id": "n49",
+                "parent": "n47"
+              },
+              {
+                "title": "Projects & portfolio",
+                "note": "Recommend practical experiences that build genuine evidence for a skill gap; never label an unfinished project as completed experience.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n50",
+                "parent": "n47"
+              },
+              {
+                "title": "Career fairs & networking",
+                "note": "The discussion proposes a dedicated calendar for fairs and networking events, with preparation time.",
+                "status": "team",
+                "children": [],
+                "id": "n51",
+                "parent": "n47"
+              },
+              {
+                "title": "Actionable details",
+                "note": "Explain what the opportunity offers, the next step, and whether information is current.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n52",
+                "parent": "n47"
+              },
+              {
+                "title": "Community connections",
+                "note": "The board proposes community finding/connections. Exact function and whether this is a directory, peer support, or networking remain open.",
+                "status": "idea",
+                "children": [],
+                "id": "n53",
+                "parent": "n47"
+              }
+            ],
+            "id": "n47",
+            "parent": "n32"
+          },
+          {
+            "title": "Goals & adaptive milestones",
+            "note": "Translate possibilities into actions the student can understand.",
+            "status": "team",
+            "children": [
+              {
+                "title": "Profile-based goals",
+                "note": "Show personal goals and next steps such as a career-advising conversation.",
+                "status": "team",
+                "children": [],
+                "id": "n55",
+                "parent": "n54"
+              },
+              {
+                "title": "Near and long-term steps",
+                "note": "The discussion proposes month-by-month or year-by-year milestones connected to a larger roadmap.",
+                "status": "team",
+                "children": [],
+                "id": "n56",
+                "parent": "n54"
+              },
+              {
+                "title": "Dynamic focus system",
+                "note": "A dynamic focus system is written on the board; exact behavior still needs definition.",
+                "status": "open",
+                "children": [],
+                "id": "n57",
+                "parent": "n54"
+              },
+              {
+                "title": "Revisit the path",
+                "note": "Adjust as classes, interests, constraints, advisor input, and experiences change.",
+                "status": "team",
+                "children": [],
+                "id": "n58",
+                "parent": "n54"
+              },
+              {
+                "title": "Student ownership",
+                "note": "Recommended: distinguish optional suggestions from student-approved commitments; allow changes without framing exploration as failure.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n59",
+                "parent": "n54"
+              }
+            ],
+            "id": "n54",
+            "parent": "n32"
+          }
+        ],
+        "id": "n32",
+        "parent": "n0"
+      },
+      {
+        "title": "Find & pursue opportunities",
+        "note": "Connect real openings to suitable students and complete the required application workflow.",
+        "status": "team",
+        "children": [
+          {
+            "title": "Discovery beyond one board",
+            "note": "Search suitable public sources rather than promise complete coverage.",
+            "status": "team",
+            "children": [
+              {
+                "title": "Employer career pages",
+                "note": "Find opportunities directly from companies, addressing the team’s Textron example.",
+                "status": "team",
+                "children": [],
+                "id": "n62",
+                "parent": "n61"
+              },
+              {
+                "title": "Specialized opportunities",
+                "note": "Support interests such as quantitative finance that the team feels are poorly served by its current search.",
+                "status": "team",
+                "children": [],
+                "id": "n63",
+                "parent": "n61"
+              },
+              {
+                "title": "Jobs, internships & campus work",
+                "note": "Cover roles, internships, and an identifiable TCU work-study category.",
+                "status": "team",
+                "children": [],
+                "id": "n64",
+                "parent": "n61"
+              },
+              {
+                "title": "Freshness & provenance",
+                "note": "Store source URLs and check times, deduplicate, and verify availability before calling a role current.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n65",
+                "parent": "n61"
+              },
+              {
+                "title": "Public access boundaries",
+                "note": "The case uses public postings; no unauthorized private Handshake, LinkedIn, or university scraping.",
+                "status": "required",
+                "children": [],
+                "id": "n66",
+                "parent": "n61"
+              },
+              {
+                "title": "Coverage honesty",
+                "note": "Say which sources and fields are supported; do not promise every job on the internet.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n67",
+                "parent": "n61"
+              }
+            ],
+            "id": "n61",
+            "parent": "n60"
+          },
+          {
+            "title": "Explainable matching",
+            "note": "Show what fits, what does not, and what still needs checking.",
+            "status": "team",
+            "children": [
+              {
+                "title": "Role & personal priorities",
+                "note": "Match interests, background, location, timing, compensation preferences, and other student-selected factors.",
+                "status": "team",
+                "children": [],
+                "id": "n69",
+                "parent": "n68"
+              },
+              {
+                "title": "Year & graduation requirements",
+                "note": "Respect clearly stated freshman/sophomore/junior/senior or graduation-window requirements.",
+                "status": "team",
+                "children": [],
+                "id": "n70",
+                "parent": "n68"
+              },
+              {
+                "title": "Authorization & sponsorship",
+                "note": "Use the actual posting and student-provided relevant information; distinguish work authorization, sponsorship, and citizenship requirements.",
+                "status": "team",
+                "children": [],
+                "id": "n71",
+                "parent": "n68"
+              },
+              {
+                "title": "Strongest Match",
+                "note": "For each shortlisted opening, identify the clearest fit between the student’s actual background and the posting.",
+                "status": "required",
+                "children": [],
+                "id": "n72",
+                "parent": "n68"
+              },
+              {
+                "title": "Fit reasons & gaps",
+                "note": "Separate required from preferred qualifications and explain important gaps instead of hiding them in a percentage.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n73",
+                "parent": "n68"
+              },
+              {
+                "title": "No hiring guarantees",
+                "note": "Internal fit scores are not employer ratings or probabilities of interviews/offers.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n74",
+                "parent": "n68"
+              }
+            ],
+            "id": "n68",
+            "parent": "n60"
+          },
+          {
+            "title": "Authentic applications",
+            "note": "Keep application preparation central to the selected case.",
+            "status": "team",
+            "children": [
+              {
+                "title": "Resume/CV personalization",
+                "note": "Tailor real experience to a role; the board includes ATS considerations.",
+                "status": "team",
+                "children": [],
+                "id": "n76",
+                "parent": "n75"
+              },
+              {
+                "title": "Three resume versions",
+                "note": "Use one sample student and base resume to produce at least three tailored resumes for three real openings.",
+                "status": "required",
+                "children": [],
+                "id": "n77",
+                "parent": "n75"
+              },
+              {
+                "title": "Three cover letters",
+                "note": "Create a genuinely tailored letter for each of the same three openings and flag student-specific details still needed.",
+                "status": "required",
+                "children": [],
+                "id": "n78",
+                "parent": "n75"
+              },
+              {
+                "title": "Visible change comparison",
+                "note": "Show original and revised wording, linked to the relevant line in each job posting.",
+                "status": "required",
+                "children": [],
+                "id": "n79",
+                "parent": "n75"
+              },
+              {
+                "title": "Unsupported-claim check",
+                "note": "Flag experience, tools, dates, accomplishments, or qualifications not supported by the resume or student input.",
+                "status": "required",
+                "children": [],
+                "id": "n80",
+                "parent": "n75"
+              },
+              {
+                "title": "Evidence & student voice",
+                "note": "Recommended: connect important wording to confirmed experience, preserve voice, and let the student approve/reject changes.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n81",
+                "parent": "n75"
+              },
+              {
+                "title": "ATS-readable output",
+                "note": "Use clear headings and standard formatting without problematic tables/graphics; no promise of an ATS pass.",
+                "status": "required",
+                "children": [],
+                "id": "n82",
+                "parent": "n75"
+              },
+              {
+                "title": "Interview defensibility",
+                "note": "Optional extension: help the student explain the experiences behind the strongest application claims.",
+                "status": "idea",
+                "children": [],
+                "id": "n83",
+                "parent": "n75"
+              }
+            ],
+            "id": "n75",
+            "parent": "n60"
+          },
+          {
+            "title": "Application bots & tracking",
+            "note": "Clarify what the automation actually does.",
+            "status": "team",
+            "children": [
+              {
+                "title": "“Bots sorting out TCU applications”",
+                "note": "User’s phrase retained. Define whether it means research, organization, tailoring, tracking, or something else.",
+                "status": "open",
+                "children": [],
+                "id": "n85",
+                "parent": "n84"
+              },
+              {
+                "title": "Organized status & follow-up",
+                "note": "A lightweight record of roles, document versions, deadlines, and next actions was discussed as useful.",
+                "status": "idea",
+                "children": [],
+                "id": "n86",
+                "parent": "n84"
+              },
+              {
+                "title": "Student approval boundary",
+                "note": "Recommended: preview and approve outbound messages, bookings, calendar invitations, and application submissions.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n87",
+                "parent": "n84"
+              },
+              {
+                "title": "No false submitted status",
+                "note": "Generating documents does not mean an application has been sent.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n88",
+                "parent": "n84"
+              }
+            ],
+            "id": "n84",
+            "parent": "n60"
+          }
+        ],
+        "id": "n60",
+        "parent": "n0"
+      },
+      {
+        "title": "Support, act & learn",
+        "note": "Proactive human support, connected records, and communication the student controls.",
+        "status": "team",
+        "children": [
+          {
+            "title": "Advisors & follow-through",
+            "note": "Support rather than replace career and academic professionals.",
+            "status": "team",
+            "children": [
+              {
+                "title": "Contextual advisor referral",
+                "note": "Suggest a career-advisor meeting when relevant to the student’s goals or uncertainty.",
+                "status": "team",
+                "children": [],
+                "id": "n91",
+                "parent": "n90"
+              },
+              {
+                "title": "Read recorded meetings",
+                "note": "Use authorized school appointment records and calendars to reduce repeated questions about past/upcoming meetings.",
+                "status": "team",
+                "children": [],
+                "id": "n92",
+                "parent": "n90"
+              },
+              {
+                "title": "Schedule-aware offer",
+                "note": "“Would you like me to help book a meeting around your class schedule?”",
+                "status": "team",
+                "children": [],
+                "id": "n93",
+                "parent": "n90"
+              },
+              {
+                "title": "Booking & calendar invite",
+                "note": "Proposed assistance with appointment selection and calendar invitations; access, availability, and approval remain implementation dependencies.",
+                "status": "team",
+                "children": [],
+                "id": "n94",
+                "parent": "n90"
+              },
+              {
+                "title": "Meeting log into action",
+                "note": "Use a permitted meeting log or student-approved summary to update goals and support decisions and optional tasks.",
+                "status": "team",
+                "children": [],
+                "id": "n95",
+                "parent": "n90"
+              },
+              {
+                "title": "Summary verification",
+                "note": "Recommended: confirm the summary with the student before treating interpreted advice as a commitment. Do not assume permission to record.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n96",
+                "parent": "n90"
+              }
+            ],
+            "id": "n90",
+            "parent": "n89"
+          },
+          {
+            "title": "Notification choices",
+            "note": "Latest user clarification: ask at account creation and explain the full proposed set.",
+            "status": "team",
+            "children": [
+              {
+                "title": "Choose at onboarding",
+                "note": "AI asks what notifications the student wants when the account is created.",
+                "status": "team",
+                "children": [],
+                "id": "n98",
+                "parent": "n97"
+              },
+              {
+                "title": "Transparent defaults",
+                "note": "Show all notification types the assistant proposes to send unless disabled; do not conceal categories behind vague personalization.",
+                "status": "team",
+                "children": [],
+                "id": "n99",
+                "parent": "n97"
+              },
+              {
+                "title": "Turn off or adjust",
+                "note": "Student can disable unwanted categories at setup or later.",
+                "status": "team",
+                "children": [],
+                "id": "n100",
+                "parent": "n97"
+              },
+              {
+                "title": "Tailored emails",
+                "note": "Messages should reflect that student’s relevant goals and situation, not generic or irrelevant job-email volume.",
+                "status": "team",
+                "children": [],
+                "id": "n101",
+                "parent": "n97"
+              },
+              {
+                "title": "Calendar & deadline reminders",
+                "note": "Potential categories include advisor meetings, roadmap tasks, applications, and campus events; the exact default list is not yet agreed.",
+                "status": "open",
+                "children": [],
+                "id": "n102",
+                "parent": "n97"
+              },
+              {
+                "title": "Advance event notice",
+                "note": "The audio proposes weeks of notice for fairs/networking rather than last-minute discovery.",
+                "status": "team",
+                "children": [],
+                "id": "n103",
+                "parent": "n97"
+              },
+              {
+                "title": "Frequency & channel settings",
+                "note": "Recommended extension: let students choose digest frequency, email/push/calendar channels, and quiet periods.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n104",
+                "parent": "n97"
+              }
+            ],
+            "id": "n97",
+            "parent": "n89"
+          },
+          {
+            "title": "Personal feedback loop",
+            "note": "Use corrections and progress to improve this student’s guidance.",
+            "status": "team",
+            "children": [
+              {
+                "title": "Store preferences & corrections",
+                "note": "Remember why the student rejected a job, changed a goal, or corrected an application claim.",
+                "status": "team",
+                "children": [],
+                "id": "n106",
+                "parent": "n105"
+              },
+              {
+                "title": "Learn from activity carefully",
+                "note": "Use completed tasks and confirmed advisor input to adjust next steps; do not assume clicks reveal a settled career goal.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n107",
+                "parent": "n105"
+              },
+              {
+                "title": "Qualitative feedback",
+                "note": "The board calls for qualitative feedback and continued testing with students.",
+                "status": "team",
+                "children": [],
+                "id": "n108",
+                "parent": "n105"
+              },
+              {
+                "title": "Not deterministic life advice",
+                "note": "Present options, trade-offs, and uncertainty while keeping student and advisor judgment involved.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n109",
+                "parent": "n105"
+              }
+            ],
+            "id": "n105",
+            "parent": "n89"
+          },
+          {
+            "title": "Efficient research reuse",
+            "note": "Preserve the board’s “inner feedback loop” idea without mixing private identities.",
+            "status": "team",
+            "children": [
+              {
+                "title": "Store past public pulls",
+                "note": "Save reusable public research and extractions so similar searches use less repeated work/tokens.",
+                "status": "team",
+                "children": [],
+                "id": "n111",
+                "parent": "n110"
+              },
+              {
+                "title": "Personalized finishing step",
+                "note": "Adapt current research to the individual student instead of blindly replaying a prior output.",
+                "status": "team",
+                "children": [],
+                "id": "n112",
+                "parent": "n110"
+              },
+              {
+                "title": "Cache vs learning",
+                "note": "Public caching saves effort; changing guidance from student feedback is a separate mechanism.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n113",
+                "parent": "n110"
+              },
+              {
+                "title": "Protect private information",
+                "note": "Keep resumes, personal constraints, advisor notes, and personalized drafts isolated with appropriate permissions.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n114",
+                "parent": "n110"
+              },
+              {
+                "title": "Refresh stale material",
+                "note": "Recheck job availability and time-sensitive campus information before recommending it.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n115",
+                "parent": "n110"
+              }
+            ],
+            "id": "n110",
+            "parent": "n89"
+          }
+        ],
+        "id": "n89",
+        "parent": "n0"
+      },
+      {
+        "title": "Purpose, proof & delivery",
+        "note": "Keep the full vision, the competition minimum, and unconfirmed ideas distinct.",
+        "status": "team",
+        "children": [
+          {
+            "title": "Draft purpose statements",
+            "note": "Consultant-written statements synthesized from the team’s direction; editable, not assumed approved.",
+            "status": "draft",
+            "children": [
+              {
+                "title": "Problem statement",
+                "note": "Students lack a connected, personalized view of how their academic choices, campus experiences, eligibility, and career opportunities fit together, leaving them unsure what to pursue and what to do next.",
+                "status": "draft",
+                "children": [],
+                "id": "n118",
+                "parent": "n117"
+              },
+              {
+                "title": "Mission statement",
+                "note": "Help TCU students turn their individual background, academic journey, and interests into informed career decisions and practical next steps through connected information, authentic AI guidance, and human support.",
+                "status": "draft",
+                "children": [],
+                "id": "n119",
+                "parent": "n117"
+              },
+              {
+                "title": "Vision statement",
+                "note": "Every student can understand their options, make purposeful use of their time at TCU, and adapt their path as their interests and opportunities change.",
+                "status": "draft",
+                "children": [],
+                "id": "n120",
+                "parent": "n117"
+              },
+              {
+                "title": "Product goal",
+                "note": "Create a student-controlled career companion that connects authorized academic and career information, asks relevant questions, and helps students explore, prepare for, and pursue suitable opportunities.",
+                "status": "draft",
+                "children": [],
+                "id": "n121",
+                "parent": "n117"
+              },
+              {
+                "title": "Student promise",
+                "note": "Know your options. Understand your next step. Build a path that is yours.",
+                "status": "draft",
+                "children": [],
+                "id": "n122",
+                "parent": "n117"
+              },
+              {
+                "title": "Positioning",
+                "note": "A connected student-to-career guide, not just another job feed: understand the student, connect preparation to opportunities, and support action and follow-through.",
+                "status": "draft",
+                "children": [],
+                "id": "n123",
+                "parent": "n117"
+              }
+            ],
+            "id": "n117",
+            "parent": "n116"
+          },
+          {
+            "title": "Values & intended outcomes",
+            "note": "What the experience should stand for.",
+            "status": "team",
+            "children": [
+              {
+                "title": "Authenticity",
+                "note": "Honest, specific representation of the student’s own experience.",
+                "status": "team",
+                "children": [],
+                "id": "n125",
+                "parent": "n124"
+              },
+              {
+                "title": "Human agency",
+                "note": "Help students decide, question, explore, and act; do not prescribe their life.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n126",
+                "parent": "n124"
+              },
+              {
+                "title": "Curiosity & experimentation",
+                "note": "Encourage learning by trying tools, tasks, and opportunities.",
+                "status": "team",
+                "children": [],
+                "id": "n127",
+                "parent": "n124"
+              },
+              {
+                "title": "Connected clarity",
+                "note": "Explain why a course, activity, advisor meeting, or role matters to the student.",
+                "status": "draft",
+                "children": [],
+                "id": "n128",
+                "parent": "n124"
+              },
+              {
+                "title": "Privacy & transparency",
+                "note": "Explain sources, permissions, uncertainties, and notification behavior.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n129",
+                "parent": "n124"
+              },
+              {
+                "title": "Useful progress",
+                "note": "Proposed north-star measure: students completing a self-approved, relevant career action with enough understanding to explain why it helps. Test application preparation time, unsupported claims, recommendation relevance, and student clarity; do not claim hiring gains without follow-up.",
+                "status": "draft",
+                "children": [],
+                "id": "n130",
+                "parent": "n124"
+              }
+            ],
+            "id": "n124",
+            "parent": "n116"
+          },
+          {
+            "title": "Competition deliverables",
+            "note": "The wider vision does not replace the Offer Ready minimum.",
+            "status": "required",
+            "children": [
+              {
+                "title": "One sample student",
+                "note": "Use a real permitted resume or realistic stand-in profile with a target role/field.",
+                "status": "required",
+                "children": [],
+                "id": "n132",
+                "parent": "n131"
+              },
+              {
+                "title": "Public current shortlist",
+                "note": "Capture title, company, location, 3–5 key qualifications/keywords, and Strongest Match.",
+                "status": "required",
+                "children": [],
+                "id": "n133",
+                "parent": "n131"
+              },
+              {
+                "title": "Three application pairs",
+                "note": "Three tailored resumes plus three matching cover letters, with posting-linked before/after comparisons.",
+                "status": "required",
+                "children": [],
+                "id": "n134",
+                "parent": "n131"
+              },
+              {
+                "title": "Honesty & ATS checks",
+                "note": "Flag unsupported claims, preserve truthful qualifications, and provide standard ATS-readable formats.",
+                "status": "required",
+                "children": [],
+                "id": "n135",
+                "parent": "n131"
+              },
+              {
+                "title": "Reusable AI build",
+                "note": "Prompt template, skill, custom assistant, no-code workflow, or another reusable build. A one-off conversation does not count.",
+                "status": "required",
+                "children": [],
+                "id": "n136",
+                "parent": "n131"
+              },
+              {
+                "title": "AI log & observed error",
+                "note": "Document tools, workflow, and an actual confidently wrong AI output caught and corrected by the team.",
+                "status": "required",
+                "children": [],
+                "id": "n137",
+                "parent": "n131"
+              },
+              {
+                "title": "Pitch deck & appendix",
+                "note": "Include shortlist, three pairs, comparisons, and AI log; confirm current demo-video and upload logistics with organizers.",
+                "status": "required",
+                "children": [],
+                "id": "n138",
+                "parent": "n131"
+              },
+              {
+                "title": "Judging rubric",
+                "note": "Seven equal categories: innovation, technical execution, responsible AI, completeness, usability, impact, presentation. Attached rubric totals 28; some cases inconsistently mention 100.",
+                "status": "required",
+                "children": [],
+                "id": "n139",
+                "parent": "n131"
+              }
+            ],
+            "id": "n131",
+            "parent": "n116"
+          },
+          {
+            "title": "Build, test & differentiate",
+            "note": "Keep hypotheses separate from demonstrated results.",
+            "status": "team",
+            "children": [
+              {
+                "title": "Working tool choice",
+                "note": "“Replit?” appears on the board as a possible build environment, not a confirmed choice.",
+                "status": "idea",
+                "children": [],
+                "id": "n141",
+                "parent": "n140"
+              },
+              {
+                "title": "Desktop & phone usability",
+                "note": "Good interface on computer and phone, with readable generated documents.",
+                "status": "team",
+                "children": [],
+                "id": "n142",
+                "parent": "n140"
+              },
+              {
+                "title": "Team roles & roadmap",
+                "note": "Board tasks include naming the product, assigning roles, defining the problem/audience, implementation roadmap, and feedback collection.",
+                "status": "team",
+                "children": [],
+                "id": "n143",
+                "parent": "n140"
+              },
+              {
+                "title": "Test one complete journey",
+                "note": "Recommended: demonstrate a student’s context → relevant next action → application → follow-through, rather than disconnected feature demos.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n144",
+                "parent": "n140"
+              },
+              {
+                "title": "Measure a useful improvement",
+                "note": "Proposed tests: relevance, student clarity, time including corrections, claim accuracy, and ability to explain application wording.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n145",
+                "parent": "n140"
+              },
+              {
+                "title": "No unsupported superiority claim",
+                "note": "Feature overlap with Handshake/LinkedIn does not prove equivalent experience. Claim better results only for the actual workflow and baseline tested.",
+                "status": "recommendation",
+                "children": [],
+                "id": "n146",
+                "parent": "n140"
+              },
+              {
+                "title": "Prioritization still open",
+                "note": "Select what is live, clearly simulated, or future vision. Preserve all ideas without pretending the entire ecosystem can be built in one sprint.",
+                "status": "open",
+                "children": [],
+                "id": "n147",
+                "parent": "n140"
+              }
+            ],
+            "id": "n140",
+            "parent": "n116"
+          },
+          {
+            "title": "Unresolved & parked ideas",
+            "note": "Retained for completeness, not silently converted into product commitments.",
+            "status": "open",
+            "children": [
+              {
+                "title": "Integration feasibility",
+                "note": "Confirm authorized data sources, APIs, institutional permission, sync completeness, and advisor availability.",
+                "status": "open",
+                "children": [],
+                "id": "n149",
+                "parent": "n148"
+              },
+              {
+                "title": "Forecasting evidence",
+                "note": "Decide what forecasts mean, what sources support them, and how uncertainty is explained.",
+                "status": "open",
+                "children": [],
+                "id": "n150",
+                "parent": "n148"
+              },
+              {
+                "title": "Task urgency & autonomy",
+                "note": "Define optional tasks, deadlines, approval requirements, and how strongly the assistant nudges.",
+                "status": "open",
+                "children": [],
+                "id": "n151",
+                "parent": "n148"
+              },
+              {
+                "title": "Community & dynamic focus",
+                "note": "Specify these board terms before treating them as build requirements.",
+                "status": "open",
+                "children": [],
+                "id": "n152",
+                "parent": "n148"
+              },
+              {
+                "title": "Employer-side marketplace",
+                "note": "Audio discussion considered employer recruitment features and pushed toward student-facing focus. Retained as a parked discussion, not a confirmed build requirement.",
+                "status": "parked",
+                "children": [],
+                "id": "n153",
+                "parent": "n148"
+              },
+              {
+                "title": "Aggregated-data monetization",
+                "note": "Audio discussion mentioned selling aggregated/anonymized demand/skill data. No approved business model, permissions, or privacy assessment was established. Do not implement from this note.",
+                "status": "parked",
+                "children": [],
+                "id": "n154",
+                "parent": "n148"
+              },
+              {
+                "title": "Naming & business model",
+                "note": "Offer Ready is the current case/working label. Final name and sustainable business model remain open.",
+                "status": "open",
+                "children": [],
+                "id": "n155",
+                "parent": "n148"
+              }
+            ],
+            "id": "n148",
+            "parent": "n116"
+          }
+        ],
+        "id": "n116",
+        "parent": "n0"
+      }
+    ],
+    "id": "n0",
+    "parent": null
+  },
+  "items": [
+    {
+      "id": "n1",
+      "parent_id": "n0",
+      "path": "Offer Ready / Understand the student",
+      "title": "Understand the student",
+      "status": "team",
+      "note": "Connect context, ask better questions, and keep the student in control."
+    },
+    {
+      "id": "n2",
+      "parent_id": "n1",
+      "path": "Offer Ready / Understand the student / People & pain points",
+      "title": "People & pain points",
+      "status": "team",
+      "note": "Who the concept serves and the problems the team described."
+    },
+    {
+      "id": "n3",
+      "parent_id": "n2",
+      "path": "Offer Ready / Understand the student / People & pain points / Current TCU students",
+      "title": "Current TCU students",
+      "status": "team",
+      "note": "Students across years and majors; a freshman finance major is the recurring example. The initial pilot audience is still open."
+    },
+    {
+      "id": "n4",
+      "parent_id": "n2",
+      "path": "Offer Ready / Understand the student / People & pain points / Unclear career direction",
+      "title": "Unclear career direction",
+      "status": "team",
+      "note": "Students may not know what jobs involve, what interests them, or how their current activities relate to future roles."
+    },
+    {
+      "id": "n5",
+      "parent_id": "n2",
+      "path": "Offer Ready / Understand the student / People & pain points / Fragmented information",
+      "title": "Fragmented information",
+      "status": "team",
+      "note": "Academic plans, career advice, job listings, campus opportunities, calendars, and application materials live in different places."
+    },
+    {
+      "id": "n6",
+      "parent_id": "n2",
+      "path": "Offer Ready / Understand the student / People & pain points / Missing or unsuitable openings",
+      "title": "Missing or unsuitable openings",
+      "status": "team",
+      "note": "The user reports seeing about three Textron internships on Handshake but more on the employer website, and difficulty finding quant roles. These are student observations, not a verified market-wide comparison."
+    },
+    {
+      "id": "n7",
+      "parent_id": "n2",
+      "path": "Offer Ready / Understand the student / People & pain points / Eligibility mismatches",
+      "title": "Eligibility mismatches",
+      "status": "team",
+      "note": "Students want to avoid spending time on roles they cannot take because of stated requirements, year, location, or authorization."
+    },
+    {
+      "id": "n8",
+      "parent_id": "n2",
+      "path": "Offer Ready / Understand the student / People & pain points / Generic communication",
+      "title": "Generic communication",
+      "status": "team",
+      "note": "The team finds many existing recommendation emails irrelevant and wants a more useful, individualized experience."
+    },
+    {
+      "id": "n9",
+      "parent_id": "n2",
+      "path": "Offer Ready / Understand the student / People & pain points / Application strain",
+      "title": "Application strain",
+      "status": "team",
+      "note": "Repeated research and tailoring take time; the discussion links this burden to application burnout."
+    },
+    {
+      "id": "n10",
+      "parent_id": "n2",
+      "path": "Offer Ready / Understand the student / People & pain points / Authenticity gap",
+      "title": "Authenticity gap",
+      "status": "team",
+      "note": "Students may write what they think employers want instead of communicating their actual experience honestly."
+    },
+    {
+      "id": "n11",
+      "parent_id": "n1",
+      "path": "Offer Ready / Understand the student / Connected accounts",
+      "title": "Connected accounts",
+      "status": "team",
+      "note": "Proposed authorized connections. No live API access or institutional agreement has been verified."
+    },
+    {
+      "id": "n12",
+      "parent_id": "n11",
+      "path": "Offer Ready / Understand the student / Connected accounts / TCU school profile",
+      "title": "TCU school profile",
+      "status": "team",
+      "note": "Prefill major, year, academic context, and other approved student information rather than asking students to re-enter everything."
+    },
+    {
+      "id": "n13",
+      "parent_id": "n11",
+      "path": "Offer Ready / Understand the student / Connected accounts / Stellic & academic planning",
+      "title": "Stellic & academic planning",
+      "status": "team",
+      "note": "Use permitted degree progress, completed/planned courses, and relevant advising information where the connected system actually provides it. Do not assume Stellic owns all appointment records."
+    },
+    {
+      "id": "n14",
+      "parent_id": "n11",
+      "path": "Offer Ready / Understand the student / Connected accounts / Advising appointment records",
+      "title": "Advising appointment records",
+      "status": "team",
+      "note": "Connect the appropriate authorized school appointment system so the assistant can identify recorded past or upcoming meetings."
+    },
+    {
+      "id": "n15",
+      "parent_id": "n11",
+      "path": "Offer Ready / Understand the student / Connected accounts / Outlook calendar",
+      "title": "Outlook calendar",
+      "status": "team",
+      "note": "Use authorized class/calendar information to suggest suitable times and coordinate approved appointments and invites."
+    },
+    {
+      "id": "n16",
+      "parent_id": "n11",
+      "path": "Offer Ready / Understand the student / Connected accounts / LinkedIn & Handshake",
+      "title": "LinkedIn & Handshake",
+      "status": "team",
+      "note": "Proposed profile connections for career context. Public-job discovery and private-account access are separate; availability and permissions remain unverified."
+    },
+    {
+      "id": "n17",
+      "parent_id": "n11",
+      "path": "Offer Ready / Understand the student / Connected accounts / GitHub & other profiles",
+      "title": "GitHub & other profiles",
+      "status": "team",
+      "note": "Use student-approved projects and portfolio information where relevant to the goal."
+    },
+    {
+      "id": "n18",
+      "parent_id": "n11",
+      "path": "Offer Ready / Understand the student / Connected accounts / Connection health & fallback",
+      "title": "Connection health & fallback",
+      "status": "recommendation",
+      "note": "Show what is connected, when it was synced, and what could not be read. Offer uploads or manual correction if a connection is unavailable."
+    },
+    {
+      "id": "n19",
+      "parent_id": "n11",
+      "path": "Offer Ready / Understand the student / Connected accounts / Access is not completeness",
+      "title": "Access is not completeness",
+      "status": "recommendation",
+      "note": "Connections reduce uncertainty, but a failed sync or unrecorded meeting is not proof an event never happened. Ask when coverage is incomplete."
+    },
+    {
+      "id": "n20",
+      "parent_id": "n1",
+      "path": "Offer Ready / Understand the student / Contextual onboarding",
+      "title": "Contextual onboarding",
+      "status": "team",
+      "note": "Start from available information, then ask questions that genuinely clarify the student."
+    },
+    {
+      "id": "n21",
+      "parent_id": "n20",
+      "path": "Offer Ready / Understand the student / Contextual onboarding / Import before interviewing",
+      "title": "Import before interviewing",
+      "status": "team",
+      "note": "Connect approved apps, extract available information, then ask personalized follow-up questions."
+    },
+    {
+      "id": "n22",
+      "parent_id": "n20",
+      "path": "Offer Ready / Understand the student / Contextual onboarding / Clarify the person",
+      "title": "Clarify the person",
+      "status": "team",
+      "note": "Explore interests, aspirations, concerns, preferred work, and what the student enjoyed or disliked about past experiences."
+    },
+    {
+      "id": "n23",
+      "parent_id": "n20",
+      "path": "Offer Ready / Understand the student / Contextual onboarding / Confirm personal contribution",
+      "title": "Confirm personal contribution",
+      "status": "recommendation",
+      "note": "Clarify what the student actually did in projects, clubs, volunteering, and work before turning it into application claims."
+    },
+    {
+      "id": "n24",
+      "parent_id": "n20",
+      "path": "Offer Ready / Understand the student / Contextual onboarding / Editable profile & goals",
+      "title": "Editable profile & goals",
+      "status": "team",
+      "note": "Keep current goals, constraints, and confirmed experience on the profile; let the student correct them."
+    },
+    {
+      "id": "n25",
+      "parent_id": "n20",
+      "path": "Offer Ready / Understand the student / Contextual onboarding / No assumed answers",
+      "title": "No assumed answers",
+      "status": "recommendation",
+      "note": "Distinguish imported records, student-confirmed facts, AI interpretations, and missing information."
+    },
+    {
+      "id": "n26",
+      "parent_id": "n1",
+      "path": "Offer Ready / Understand the student / Preferences & boundaries",
+      "title": "Preferences & boundaries",
+      "status": "team",
+      "note": "Make personalization explicit instead of opaque."
+    },
+    {
+      "id": "n27",
+      "parent_id": "n26",
+      "path": "Offer Ready / Understand the student / Preferences & boundaries / Year, major & experience",
+      "title": "Year, major & experience",
+      "status": "team",
+      "note": "Adapt guidance for freshmen, sophomores, juniors, seniors, majors, and experience level."
+    },
+    {
+      "id": "n28",
+      "parent_id": "n26",
+      "path": "Offer Ready / Understand the student / Preferences & boundaries / Hard constraints vs preferences",
+      "title": "Hard constraints vs preferences",
+      "status": "recommendation",
+      "note": "Separate cannot-relocate or explicit role requirements from preferences such as remote work, industry, or commute."
+    },
+    {
+      "id": "n29",
+      "parent_id": "n26",
+      "path": "Offer Ready / Understand the student / Preferences & boundaries / Weighting & customization",
+      "title": "Weighting & customization",
+      "status": "team",
+      "note": "Let students influence ranking and see why recommendations change; the board calls for strong filtering and weighting."
+    },
+    {
+      "id": "n30",
+      "parent_id": "n26",
+      "path": "Offer Ready / Understand the student / Preferences & boundaries / Nationality wording",
+      "title": "Nationality wording",
+      "status": "recommendation",
+      "note": "The board mentions nationality. Recommended refinement: ask relevant optional work-authorization or sponsorship questions, not nationality-based judgments."
+    },
+    {
+      "id": "n31",
+      "parent_id": "n26",
+      "path": "Offer Ready / Understand the student / Preferences & boundaries / Unknown eligibility",
+      "title": "Unknown eligibility",
+      "status": "recommendation",
+      "note": "Do not mark unclear requirements as confirmed eligibility or ineligibility; present the uncertainty and an official clarification route."
+    },
+    {
+      "id": "n32",
+      "parent_id": "n0",
+      "path": "Offer Ready / Plan a personal path",
+      "title": "Plan a personal path",
+      "status": "team",
+      "note": "Connect academic choices, campus activity, skill-building, and career exploration."
+    },
+    {
+      "id": "n33",
+      "parent_id": "n32",
+      "path": "Offer Ready / Plan a personal path / Career exploration",
+      "title": "Career exploration",
+      "status": "team",
+      "note": "Help students investigate possibilities without declaring a fixed life path."
+    },
+    {
+      "id": "n34",
+      "parent_id": "n33",
+      "path": "Offer Ready / Plan a personal path / Career exploration / Questions before conclusions",
+      "title": "Questions before conclusions",
+      "status": "team",
+      "note": "Use a series of questions to explore the student’s interests and possible directions."
+    },
+    {
+      "id": "n35",
+      "parent_id": "n33",
+      "path": "Offer Ready / Plan a personal path / Career exploration / Explain roles plainly",
+      "title": "Explain roles plainly",
+      "status": "team",
+      "note": "Show future job titles, what people do day to day, relevant industries, positions, possible paths, and source-supported pay information where available."
+    },
+    {
+      "id": "n36",
+      "parent_id": "n33",
+      "path": "Offer Ready / Plan a personal path / Career exploration / Optional exploration tasks",
+      "title": "Optional exploration tasks",
+      "status": "team",
+      "note": "Suggest activities or small experiments students can try before committing to a direction."
+    },
+    {
+      "id": "n37",
+      "parent_id": "n33",
+      "path": "Offer Ready / Plan a personal path / Career exploration / Forecasting & uncertainty",
+      "title": "Forecasting & uncertainty",
+      "status": "team",
+      "note": "Some forecasting was proposed. Label scenarios as exploratory rather than guarantees about future jobs, pay, or the student’s life."
+    },
+    {
+      "id": "n38",
+      "parent_id": "n33",
+      "path": "Offer Ready / Plan a personal path / Career exploration / Human skills & curiosity",
+      "title": "Human skills & curiosity",
+      "status": "team",
+      "note": "Emphasize authentic experience, human judgment, curiosity, and willingness to test tools."
+    },
+    {
+      "id": "n39",
+      "parent_id": "n33",
+      "path": "Offer Ready / Plan a personal path / Career exploration / JobsGPT inspiration",
+      "title": "JobsGPT inspiration",
+      "status": "idea",
+      "note": "Mentor reference: break careers into tasks and explore how AI may affect work; use this to discuss skills and future possibilities, not to guarantee outcomes."
+    },
+    {
+      "id": "n40",
+      "parent_id": "n32",
+      "path": "Offer Ready / Plan a personal path / Academic roadmap",
+      "title": "Academic roadmap",
+      "status": "team",
+      "note": "The team’s broader vision includes semester-level academic planning."
+    },
+    {
+      "id": "n41",
+      "parent_id": "n40",
+      "path": "Offer Ready / Plan a personal path / Academic roadmap / Semester-by-semester classes",
+      "title": "Semester-by-semester classes",
+      "status": "team",
+      "note": "For example, show a finance major which courses fit each semester, using appropriate requirements and available information."
+    },
+    {
+      "id": "n42",
+      "parent_id": "n40",
+      "path": "Offer Ready / Plan a personal path / Academic roadmap / What each class teaches",
+      "title": "What each class teaches",
+      "status": "team",
+      "note": "Explain course learning and how it could relate to skills, projects, and careers."
+    },
+    {
+      "id": "n43",
+      "parent_id": "n40",
+      "path": "Offer Ready / Plan a personal path / Academic roadmap / Progress & dependencies",
+      "title": "Progress & dependencies",
+      "status": "recommendation",
+      "note": "Use completed/planned courses and check prerequisites, sequencing, requirements, and known offering information."
+    },
+    {
+      "id": "n44",
+      "parent_id": "n40",
+      "path": "Offer Ready / Plan a personal path / Academic roadmap / Requirements vs suggestions",
+      "title": "Requirements vs suggestions",
+      "status": "recommendation",
+      "note": "Separate official graduation rules from elective or career recommendations; use current authoritative sources and catalog context."
+    },
+    {
+      "id": "n45",
+      "parent_id": "n40",
+      "path": "Offer Ready / Plan a personal path / Academic roadmap / Academic advisor review",
+      "title": "Academic advisor review",
+      "status": "recommendation",
+      "note": "Refer exceptions, substitutions, uncertain requirements, and official decisions to the appropriate advisor. Do not claim graduation clearance."
+    },
+    {
+      "id": "n46",
+      "parent_id": "n40",
+      "path": "Offer Ready / Plan a personal path / Academic roadmap / Prototype vs full vision",
+      "title": "Prototype vs full vision",
+      "status": "open",
+      "note": "Decide how much academic planning belongs in the Offer Ready demonstration versus a later phase; it overlaps the separate advising case."
+    },
+    {
+      "id": "n47",
+      "parent_id": "n32",
+      "path": "Offer Ready / Plan a personal path / Campus & skill opportunities",
+      "title": "Campus & skill opportunities",
+      "status": "team",
+      "note": "Make better use of the student’s time at TCU."
+    },
+    {
+      "id": "n48",
+      "parent_id": "n47",
+      "path": "Offer Ready / Plan a personal path / Campus & skill opportunities / Relevant clubs",
+      "title": "Relevant clubs",
+      "status": "team",
+      "note": "Recommend campus organizations related to interests and career goals, including meaningful activities to try as a freshman."
+    },
+    {
+      "id": "n49",
+      "parent_id": "n47",
+      "path": "Offer Ready / Plan a personal path / Campus & skill opportunities / Certifications",
+      "title": "Certifications",
+      "status": "team",
+      "note": "Suggest relevant certifications with a reason, effort/cost where known, and no assumption that every credential is worthwhile."
+    },
+    {
+      "id": "n50",
+      "parent_id": "n47",
+      "path": "Offer Ready / Plan a personal path / Campus & skill opportunities / Projects & portfolio",
+      "title": "Projects & portfolio",
+      "status": "recommendation",
+      "note": "Recommend practical experiences that build genuine evidence for a skill gap; never label an unfinished project as completed experience."
+    },
+    {
+      "id": "n51",
+      "parent_id": "n47",
+      "path": "Offer Ready / Plan a personal path / Campus & skill opportunities / Career fairs & networking",
+      "title": "Career fairs & networking",
+      "status": "team",
+      "note": "The discussion proposes a dedicated calendar for fairs and networking events, with preparation time."
+    },
+    {
+      "id": "n52",
+      "parent_id": "n47",
+      "path": "Offer Ready / Plan a personal path / Campus & skill opportunities / Actionable details",
+      "title": "Actionable details",
+      "status": "recommendation",
+      "note": "Explain what the opportunity offers, the next step, and whether information is current."
+    },
+    {
+      "id": "n53",
+      "parent_id": "n47",
+      "path": "Offer Ready / Plan a personal path / Campus & skill opportunities / Community connections",
+      "title": "Community connections",
+      "status": "idea",
+      "note": "The board proposes community finding/connections. Exact function and whether this is a directory, peer support, or networking remain open."
+    },
+    {
+      "id": "n54",
+      "parent_id": "n32",
+      "path": "Offer Ready / Plan a personal path / Goals & adaptive milestones",
+      "title": "Goals & adaptive milestones",
+      "status": "team",
+      "note": "Translate possibilities into actions the student can understand."
+    },
+    {
+      "id": "n55",
+      "parent_id": "n54",
+      "path": "Offer Ready / Plan a personal path / Goals & adaptive milestones / Profile-based goals",
+      "title": "Profile-based goals",
+      "status": "team",
+      "note": "Show personal goals and next steps such as a career-advising conversation."
+    },
+    {
+      "id": "n56",
+      "parent_id": "n54",
+      "path": "Offer Ready / Plan a personal path / Goals & adaptive milestones / Near and long-term steps",
+      "title": "Near and long-term steps",
+      "status": "team",
+      "note": "The discussion proposes month-by-month or year-by-year milestones connected to a larger roadmap."
+    },
+    {
+      "id": "n57",
+      "parent_id": "n54",
+      "path": "Offer Ready / Plan a personal path / Goals & adaptive milestones / Dynamic focus system",
+      "title": "Dynamic focus system",
+      "status": "open",
+      "note": "A dynamic focus system is written on the board; exact behavior still needs definition."
+    },
+    {
+      "id": "n58",
+      "parent_id": "n54",
+      "path": "Offer Ready / Plan a personal path / Goals & adaptive milestones / Revisit the path",
+      "title": "Revisit the path",
+      "status": "team",
+      "note": "Adjust as classes, interests, constraints, advisor input, and experiences change."
+    },
+    {
+      "id": "n59",
+      "parent_id": "n54",
+      "path": "Offer Ready / Plan a personal path / Goals & adaptive milestones / Student ownership",
+      "title": "Student ownership",
+      "status": "recommendation",
+      "note": "Recommended: distinguish optional suggestions from student-approved commitments; allow changes without framing exploration as failure."
+    },
+    {
+      "id": "n60",
+      "parent_id": "n0",
+      "path": "Offer Ready / Find & pursue opportunities",
+      "title": "Find & pursue opportunities",
+      "status": "team",
+      "note": "Connect real openings to suitable students and complete the required application workflow."
+    },
+    {
+      "id": "n61",
+      "parent_id": "n60",
+      "path": "Offer Ready / Find & pursue opportunities / Discovery beyond one board",
+      "title": "Discovery beyond one board",
+      "status": "team",
+      "note": "Search suitable public sources rather than promise complete coverage."
+    },
+    {
+      "id": "n62",
+      "parent_id": "n61",
+      "path": "Offer Ready / Find & pursue opportunities / Discovery beyond one board / Employer career pages",
+      "title": "Employer career pages",
+      "status": "team",
+      "note": "Find opportunities directly from companies, addressing the team’s Textron example."
+    },
+    {
+      "id": "n63",
+      "parent_id": "n61",
+      "path": "Offer Ready / Find & pursue opportunities / Discovery beyond one board / Specialized opportunities",
+      "title": "Specialized opportunities",
+      "status": "team",
+      "note": "Support interests such as quantitative finance that the team feels are poorly served by its current search."
+    },
+    {
+      "id": "n64",
+      "parent_id": "n61",
+      "path": "Offer Ready / Find & pursue opportunities / Discovery beyond one board / Jobs, internships & campus work",
+      "title": "Jobs, internships & campus work",
+      "status": "team",
+      "note": "Cover roles, internships, and an identifiable TCU work-study category."
+    },
+    {
+      "id": "n65",
+      "parent_id": "n61",
+      "path": "Offer Ready / Find & pursue opportunities / Discovery beyond one board / Freshness & provenance",
+      "title": "Freshness & provenance",
+      "status": "recommendation",
+      "note": "Store source URLs and check times, deduplicate, and verify availability before calling a role current."
+    },
+    {
+      "id": "n66",
+      "parent_id": "n61",
+      "path": "Offer Ready / Find & pursue opportunities / Discovery beyond one board / Public access boundaries",
+      "title": "Public access boundaries",
+      "status": "required",
+      "note": "The case uses public postings; no unauthorized private Handshake, LinkedIn, or university scraping."
+    },
+    {
+      "id": "n67",
+      "parent_id": "n61",
+      "path": "Offer Ready / Find & pursue opportunities / Discovery beyond one board / Coverage honesty",
+      "title": "Coverage honesty",
+      "status": "recommendation",
+      "note": "Say which sources and fields are supported; do not promise every job on the internet."
+    },
+    {
+      "id": "n68",
+      "parent_id": "n60",
+      "path": "Offer Ready / Find & pursue opportunities / Explainable matching",
+      "title": "Explainable matching",
+      "status": "team",
+      "note": "Show what fits, what does not, and what still needs checking."
+    },
+    {
+      "id": "n69",
+      "parent_id": "n68",
+      "path": "Offer Ready / Find & pursue opportunities / Explainable matching / Role & personal priorities",
+      "title": "Role & personal priorities",
+      "status": "team",
+      "note": "Match interests, background, location, timing, compensation preferences, and other student-selected factors."
+    },
+    {
+      "id": "n70",
+      "parent_id": "n68",
+      "path": "Offer Ready / Find & pursue opportunities / Explainable matching / Year & graduation requirements",
+      "title": "Year & graduation requirements",
+      "status": "team",
+      "note": "Respect clearly stated freshman/sophomore/junior/senior or graduation-window requirements."
+    },
+    {
+      "id": "n71",
+      "parent_id": "n68",
+      "path": "Offer Ready / Find & pursue opportunities / Explainable matching / Authorization & sponsorship",
+      "title": "Authorization & sponsorship",
+      "status": "team",
+      "note": "Use the actual posting and student-provided relevant information; distinguish work authorization, sponsorship, and citizenship requirements."
+    },
+    {
+      "id": "n72",
+      "parent_id": "n68",
+      "path": "Offer Ready / Find & pursue opportunities / Explainable matching / Strongest Match",
+      "title": "Strongest Match",
+      "status": "required",
+      "note": "For each shortlisted opening, identify the clearest fit between the student’s actual background and the posting."
+    },
+    {
+      "id": "n73",
+      "parent_id": "n68",
+      "path": "Offer Ready / Find & pursue opportunities / Explainable matching / Fit reasons & gaps",
+      "title": "Fit reasons & gaps",
+      "status": "recommendation",
+      "note": "Separate required from preferred qualifications and explain important gaps instead of hiding them in a percentage."
+    },
+    {
+      "id": "n74",
+      "parent_id": "n68",
+      "path": "Offer Ready / Find & pursue opportunities / Explainable matching / No hiring guarantees",
+      "title": "No hiring guarantees",
+      "status": "recommendation",
+      "note": "Internal fit scores are not employer ratings or probabilities of interviews/offers."
+    },
+    {
+      "id": "n75",
+      "parent_id": "n60",
+      "path": "Offer Ready / Find & pursue opportunities / Authentic applications",
+      "title": "Authentic applications",
+      "status": "team",
+      "note": "Keep application preparation central to the selected case."
+    },
+    {
+      "id": "n76",
+      "parent_id": "n75",
+      "path": "Offer Ready / Find & pursue opportunities / Authentic applications / Resume/CV personalization",
+      "title": "Resume/CV personalization",
+      "status": "team",
+      "note": "Tailor real experience to a role; the board includes ATS considerations."
+    },
+    {
+      "id": "n77",
+      "parent_id": "n75",
+      "path": "Offer Ready / Find & pursue opportunities / Authentic applications / Three resume versions",
+      "title": "Three resume versions",
+      "status": "required",
+      "note": "Use one sample student and base resume to produce at least three tailored resumes for three real openings."
+    },
+    {
+      "id": "n78",
+      "parent_id": "n75",
+      "path": "Offer Ready / Find & pursue opportunities / Authentic applications / Three cover letters",
+      "title": "Three cover letters",
+      "status": "required",
+      "note": "Create a genuinely tailored letter for each of the same three openings and flag student-specific details still needed."
+    },
+    {
+      "id": "n79",
+      "parent_id": "n75",
+      "path": "Offer Ready / Find & pursue opportunities / Authentic applications / Visible change comparison",
+      "title": "Visible change comparison",
+      "status": "required",
+      "note": "Show original and revised wording, linked to the relevant line in each job posting."
+    },
+    {
+      "id": "n80",
+      "parent_id": "n75",
+      "path": "Offer Ready / Find & pursue opportunities / Authentic applications / Unsupported-claim check",
+      "title": "Unsupported-claim check",
+      "status": "required",
+      "note": "Flag experience, tools, dates, accomplishments, or qualifications not supported by the resume or student input."
+    },
+    {
+      "id": "n81",
+      "parent_id": "n75",
+      "path": "Offer Ready / Find & pursue opportunities / Authentic applications / Evidence & student voice",
+      "title": "Evidence & student voice",
+      "status": "recommendation",
+      "note": "Recommended: connect important wording to confirmed experience, preserve voice, and let the student approve/reject changes."
+    },
+    {
+      "id": "n82",
+      "parent_id": "n75",
+      "path": "Offer Ready / Find & pursue opportunities / Authentic applications / ATS-readable output",
+      "title": "ATS-readable output",
+      "status": "required",
+      "note": "Use clear headings and standard formatting without problematic tables/graphics; no promise of an ATS pass."
+    },
+    {
+      "id": "n83",
+      "parent_id": "n75",
+      "path": "Offer Ready / Find & pursue opportunities / Authentic applications / Interview defensibility",
+      "title": "Interview defensibility",
+      "status": "idea",
+      "note": "Optional extension: help the student explain the experiences behind the strongest application claims."
+    },
+    {
+      "id": "n84",
+      "parent_id": "n60",
+      "path": "Offer Ready / Find & pursue opportunities / Application bots & tracking",
+      "title": "Application bots & tracking",
+      "status": "team",
+      "note": "Clarify what the automation actually does."
+    },
+    {
+      "id": "n85",
+      "parent_id": "n84",
+      "path": "Offer Ready / Find & pursue opportunities / Application bots & tracking / “Bots sorting out TCU applications”",
+      "title": "“Bots sorting out TCU applications”",
+      "status": "open",
+      "note": "User’s phrase retained. Define whether it means research, organization, tailoring, tracking, or something else."
+    },
+    {
+      "id": "n86",
+      "parent_id": "n84",
+      "path": "Offer Ready / Find & pursue opportunities / Application bots & tracking / Organized status & follow-up",
+      "title": "Organized status & follow-up",
+      "status": "idea",
+      "note": "A lightweight record of roles, document versions, deadlines, and next actions was discussed as useful."
+    },
+    {
+      "id": "n87",
+      "parent_id": "n84",
+      "path": "Offer Ready / Find & pursue opportunities / Application bots & tracking / Student approval boundary",
+      "title": "Student approval boundary",
+      "status": "recommendation",
+      "note": "Recommended: preview and approve outbound messages, bookings, calendar invitations, and application submissions."
+    },
+    {
+      "id": "n88",
+      "parent_id": "n84",
+      "path": "Offer Ready / Find & pursue opportunities / Application bots & tracking / No false submitted status",
+      "title": "No false submitted status",
+      "status": "recommendation",
+      "note": "Generating documents does not mean an application has been sent."
+    },
+    {
+      "id": "n89",
+      "parent_id": "n0",
+      "path": "Offer Ready / Support, act & learn",
+      "title": "Support, act & learn",
+      "status": "team",
+      "note": "Proactive human support, connected records, and communication the student controls."
+    },
+    {
+      "id": "n90",
+      "parent_id": "n89",
+      "path": "Offer Ready / Support, act & learn / Advisors & follow-through",
+      "title": "Advisors & follow-through",
+      "status": "team",
+      "note": "Support rather than replace career and academic professionals."
+    },
+    {
+      "id": "n91",
+      "parent_id": "n90",
+      "path": "Offer Ready / Support, act & learn / Advisors & follow-through / Contextual advisor referral",
+      "title": "Contextual advisor referral",
+      "status": "team",
+      "note": "Suggest a career-advisor meeting when relevant to the student’s goals or uncertainty."
+    },
+    {
+      "id": "n92",
+      "parent_id": "n90",
+      "path": "Offer Ready / Support, act & learn / Advisors & follow-through / Read recorded meetings",
+      "title": "Read recorded meetings",
+      "status": "team",
+      "note": "Use authorized school appointment records and calendars to reduce repeated questions about past/upcoming meetings."
+    },
+    {
+      "id": "n93",
+      "parent_id": "n90",
+      "path": "Offer Ready / Support, act & learn / Advisors & follow-through / Schedule-aware offer",
+      "title": "Schedule-aware offer",
+      "status": "team",
+      "note": "“Would you like me to help book a meeting around your class schedule?”"
+    },
+    {
+      "id": "n94",
+      "parent_id": "n90",
+      "path": "Offer Ready / Support, act & learn / Advisors & follow-through / Booking & calendar invite",
+      "title": "Booking & calendar invite",
+      "status": "team",
+      "note": "Proposed assistance with appointment selection and calendar invitations; access, availability, and approval remain implementation dependencies."
+    },
+    {
+      "id": "n95",
+      "parent_id": "n90",
+      "path": "Offer Ready / Support, act & learn / Advisors & follow-through / Meeting log into action",
+      "title": "Meeting log into action",
+      "status": "team",
+      "note": "Use a permitted meeting log or student-approved summary to update goals and support decisions and optional tasks."
+    },
+    {
+      "id": "n96",
+      "parent_id": "n90",
+      "path": "Offer Ready / Support, act & learn / Advisors & follow-through / Summary verification",
+      "title": "Summary verification",
+      "status": "recommendation",
+      "note": "Recommended: confirm the summary with the student before treating interpreted advice as a commitment. Do not assume permission to record."
+    },
+    {
+      "id": "n97",
+      "parent_id": "n89",
+      "path": "Offer Ready / Support, act & learn / Notification choices",
+      "title": "Notification choices",
+      "status": "team",
+      "note": "Latest user clarification: ask at account creation and explain the full proposed set."
+    },
+    {
+      "id": "n98",
+      "parent_id": "n97",
+      "path": "Offer Ready / Support, act & learn / Notification choices / Choose at onboarding",
+      "title": "Choose at onboarding",
+      "status": "team",
+      "note": "AI asks what notifications the student wants when the account is created."
+    },
+    {
+      "id": "n99",
+      "parent_id": "n97",
+      "path": "Offer Ready / Support, act & learn / Notification choices / Transparent defaults",
+      "title": "Transparent defaults",
+      "status": "team",
+      "note": "Show all notification types the assistant proposes to send unless disabled; do not conceal categories behind vague personalization."
+    },
+    {
+      "id": "n100",
+      "parent_id": "n97",
+      "path": "Offer Ready / Support, act & learn / Notification choices / Turn off or adjust",
+      "title": "Turn off or adjust",
+      "status": "team",
+      "note": "Student can disable unwanted categories at setup or later."
+    },
+    {
+      "id": "n101",
+      "parent_id": "n97",
+      "path": "Offer Ready / Support, act & learn / Notification choices / Tailored emails",
+      "title": "Tailored emails",
+      "status": "team",
+      "note": "Messages should reflect that student’s relevant goals and situation, not generic or irrelevant job-email volume."
+    },
+    {
+      "id": "n102",
+      "parent_id": "n97",
+      "path": "Offer Ready / Support, act & learn / Notification choices / Calendar & deadline reminders",
+      "title": "Calendar & deadline reminders",
+      "status": "open",
+      "note": "Potential categories include advisor meetings, roadmap tasks, applications, and campus events; the exact default list is not yet agreed."
+    },
+    {
+      "id": "n103",
+      "parent_id": "n97",
+      "path": "Offer Ready / Support, act & learn / Notification choices / Advance event notice",
+      "title": "Advance event notice",
+      "status": "team",
+      "note": "The audio proposes weeks of notice for fairs/networking rather than last-minute discovery."
+    },
+    {
+      "id": "n104",
+      "parent_id": "n97",
+      "path": "Offer Ready / Support, act & learn / Notification choices / Frequency & channel settings",
+      "title": "Frequency & channel settings",
+      "status": "recommendation",
+      "note": "Recommended extension: let students choose digest frequency, email/push/calendar channels, and quiet periods."
+    },
+    {
+      "id": "n105",
+      "parent_id": "n89",
+      "path": "Offer Ready / Support, act & learn / Personal feedback loop",
+      "title": "Personal feedback loop",
+      "status": "team",
+      "note": "Use corrections and progress to improve this student’s guidance."
+    },
+    {
+      "id": "n106",
+      "parent_id": "n105",
+      "path": "Offer Ready / Support, act & learn / Personal feedback loop / Store preferences & corrections",
+      "title": "Store preferences & corrections",
+      "status": "team",
+      "note": "Remember why the student rejected a job, changed a goal, or corrected an application claim."
+    },
+    {
+      "id": "n107",
+      "parent_id": "n105",
+      "path": "Offer Ready / Support, act & learn / Personal feedback loop / Learn from activity carefully",
+      "title": "Learn from activity carefully",
+      "status": "recommendation",
+      "note": "Use completed tasks and confirmed advisor input to adjust next steps; do not assume clicks reveal a settled career goal."
+    },
+    {
+      "id": "n108",
+      "parent_id": "n105",
+      "path": "Offer Ready / Support, act & learn / Personal feedback loop / Qualitative feedback",
+      "title": "Qualitative feedback",
+      "status": "team",
+      "note": "The board calls for qualitative feedback and continued testing with students."
+    },
+    {
+      "id": "n109",
+      "parent_id": "n105",
+      "path": "Offer Ready / Support, act & learn / Personal feedback loop / Not deterministic life advice",
+      "title": "Not deterministic life advice",
+      "status": "recommendation",
+      "note": "Present options, trade-offs, and uncertainty while keeping student and advisor judgment involved."
+    },
+    {
+      "id": "n110",
+      "parent_id": "n89",
+      "path": "Offer Ready / Support, act & learn / Efficient research reuse",
+      "title": "Efficient research reuse",
+      "status": "team",
+      "note": "Preserve the board’s “inner feedback loop” idea without mixing private identities."
+    },
+    {
+      "id": "n111",
+      "parent_id": "n110",
+      "path": "Offer Ready / Support, act & learn / Efficient research reuse / Store past public pulls",
+      "title": "Store past public pulls",
+      "status": "team",
+      "note": "Save reusable public research and extractions so similar searches use less repeated work/tokens."
+    },
+    {
+      "id": "n112",
+      "parent_id": "n110",
+      "path": "Offer Ready / Support, act & learn / Efficient research reuse / Personalized finishing step",
+      "title": "Personalized finishing step",
+      "status": "team",
+      "note": "Adapt current research to the individual student instead of blindly replaying a prior output."
+    },
+    {
+      "id": "n113",
+      "parent_id": "n110",
+      "path": "Offer Ready / Support, act & learn / Efficient research reuse / Cache vs learning",
+      "title": "Cache vs learning",
+      "status": "recommendation",
+      "note": "Public caching saves effort; changing guidance from student feedback is a separate mechanism."
+    },
+    {
+      "id": "n114",
+      "parent_id": "n110",
+      "path": "Offer Ready / Support, act & learn / Efficient research reuse / Protect private information",
+      "title": "Protect private information",
+      "status": "recommendation",
+      "note": "Keep resumes, personal constraints, advisor notes, and personalized drafts isolated with appropriate permissions."
+    },
+    {
+      "id": "n115",
+      "parent_id": "n110",
+      "path": "Offer Ready / Support, act & learn / Efficient research reuse / Refresh stale material",
+      "title": "Refresh stale material",
+      "status": "recommendation",
+      "note": "Recheck job availability and time-sensitive campus information before recommending it."
+    },
+    {
+      "id": "n116",
+      "parent_id": "n0",
+      "path": "Offer Ready / Purpose, proof & delivery",
+      "title": "Purpose, proof & delivery",
+      "status": "team",
+      "note": "Keep the full vision, the competition minimum, and unconfirmed ideas distinct."
+    },
+    {
+      "id": "n117",
+      "parent_id": "n116",
+      "path": "Offer Ready / Purpose, proof & delivery / Draft purpose statements",
+      "title": "Draft purpose statements",
+      "status": "draft",
+      "note": "Consultant-written statements synthesized from the team’s direction; editable, not assumed approved."
+    },
+    {
+      "id": "n118",
+      "parent_id": "n117",
+      "path": "Offer Ready / Purpose, proof & delivery / Draft purpose statements / Problem statement",
+      "title": "Problem statement",
+      "status": "draft",
+      "note": "Students lack a connected, personalized view of how their academic choices, campus experiences, eligibility, and career opportunities fit together, leaving them unsure what to pursue and what to do next."
+    },
+    {
+      "id": "n119",
+      "parent_id": "n117",
+      "path": "Offer Ready / Purpose, proof & delivery / Draft purpose statements / Mission statement",
+      "title": "Mission statement",
+      "status": "draft",
+      "note": "Help TCU students turn their individual background, academic journey, and interests into informed career decisions and practical next steps through connected information, authentic AI guidance, and human support."
+    },
+    {
+      "id": "n120",
+      "parent_id": "n117",
+      "path": "Offer Ready / Purpose, proof & delivery / Draft purpose statements / Vision statement",
+      "title": "Vision statement",
+      "status": "draft",
+      "note": "Every student can understand their options, make purposeful use of their time at TCU, and adapt their path as their interests and opportunities change."
+    },
+    {
+      "id": "n121",
+      "parent_id": "n117",
+      "path": "Offer Ready / Purpose, proof & delivery / Draft purpose statements / Product goal",
+      "title": "Product goal",
+      "status": "draft",
+      "note": "Create a student-controlled career companion that connects authorized academic and career information, asks relevant questions, and helps students explore, prepare for, and pursue suitable opportunities."
+    },
+    {
+      "id": "n122",
+      "parent_id": "n117",
+      "path": "Offer Ready / Purpose, proof & delivery / Draft purpose statements / Student promise",
+      "title": "Student promise",
+      "status": "draft",
+      "note": "Know your options. Understand your next step. Build a path that is yours."
+    },
+    {
+      "id": "n123",
+      "parent_id": "n117",
+      "path": "Offer Ready / Purpose, proof & delivery / Draft purpose statements / Positioning",
+      "title": "Positioning",
+      "status": "draft",
+      "note": "A connected student-to-career guide, not just another job feed: understand the student, connect preparation to opportunities, and support action and follow-through."
+    },
+    {
+      "id": "n124",
+      "parent_id": "n116",
+      "path": "Offer Ready / Purpose, proof & delivery / Values & intended outcomes",
+      "title": "Values & intended outcomes",
+      "status": "team",
+      "note": "What the experience should stand for."
+    },
+    {
+      "id": "n125",
+      "parent_id": "n124",
+      "path": "Offer Ready / Purpose, proof & delivery / Values & intended outcomes / Authenticity",
+      "title": "Authenticity",
+      "status": "team",
+      "note": "Honest, specific representation of the student’s own experience."
+    },
+    {
+      "id": "n126",
+      "parent_id": "n124",
+      "path": "Offer Ready / Purpose, proof & delivery / Values & intended outcomes / Human agency",
+      "title": "Human agency",
+      "status": "recommendation",
+      "note": "Help students decide, question, explore, and act; do not prescribe their life."
+    },
+    {
+      "id": "n127",
+      "parent_id": "n124",
+      "path": "Offer Ready / Purpose, proof & delivery / Values & intended outcomes / Curiosity & experimentation",
+      "title": "Curiosity & experimentation",
+      "status": "team",
+      "note": "Encourage learning by trying tools, tasks, and opportunities."
+    },
+    {
+      "id": "n128",
+      "parent_id": "n124",
+      "path": "Offer Ready / Purpose, proof & delivery / Values & intended outcomes / Connected clarity",
+      "title": "Connected clarity",
+      "status": "draft",
+      "note": "Explain why a course, activity, advisor meeting, or role matters to the student."
+    },
+    {
+      "id": "n129",
+      "parent_id": "n124",
+      "path": "Offer Ready / Purpose, proof & delivery / Values & intended outcomes / Privacy & transparency",
+      "title": "Privacy & transparency",
+      "status": "recommendation",
+      "note": "Explain sources, permissions, uncertainties, and notification behavior."
+    },
+    {
+      "id": "n130",
+      "parent_id": "n124",
+      "path": "Offer Ready / Purpose, proof & delivery / Values & intended outcomes / Useful progress",
+      "title": "Useful progress",
+      "status": "draft",
+      "note": "Proposed north-star measure: students completing a self-approved, relevant career action with enough understanding to explain why it helps. Test application preparation time, unsupported claims, recommendation relevance, and student clarity; do not claim hiring gains without follow-up."
+    },
+    {
+      "id": "n131",
+      "parent_id": "n116",
+      "path": "Offer Ready / Purpose, proof & delivery / Competition deliverables",
+      "title": "Competition deliverables",
+      "status": "required",
+      "note": "The wider vision does not replace the Offer Ready minimum."
+    },
+    {
+      "id": "n132",
+      "parent_id": "n131",
+      "path": "Offer Ready / Purpose, proof & delivery / Competition deliverables / One sample student",
+      "title": "One sample student",
+      "status": "required",
+      "note": "Use a real permitted resume or realistic stand-in profile with a target role/field."
+    },
+    {
+      "id": "n133",
+      "parent_id": "n131",
+      "path": "Offer Ready / Purpose, proof & delivery / Competition deliverables / Public current shortlist",
+      "title": "Public current shortlist",
+      "status": "required",
+      "note": "Capture title, company, location, 3–5 key qualifications/keywords, and Strongest Match."
+    },
+    {
+      "id": "n134",
+      "parent_id": "n131",
+      "path": "Offer Ready / Purpose, proof & delivery / Competition deliverables / Three application pairs",
+      "title": "Three application pairs",
+      "status": "required",
+      "note": "Three tailored resumes plus three matching cover letters, with posting-linked before/after comparisons."
+    },
+    {
+      "id": "n135",
+      "parent_id": "n131",
+      "path": "Offer Ready / Purpose, proof & delivery / Competition deliverables / Honesty & ATS checks",
+      "title": "Honesty & ATS checks",
+      "status": "required",
+      "note": "Flag unsupported claims, preserve truthful qualifications, and provide standard ATS-readable formats."
+    },
+    {
+      "id": "n136",
+      "parent_id": "n131",
+      "path": "Offer Ready / Purpose, proof & delivery / Competition deliverables / Reusable AI build",
+      "title": "Reusable AI build",
+      "status": "required",
+      "note": "Prompt template, skill, custom assistant, no-code workflow, or another reusable build. A one-off conversation does not count."
+    },
+    {
+      "id": "n137",
+      "parent_id": "n131",
+      "path": "Offer Ready / Purpose, proof & delivery / Competition deliverables / AI log & observed error",
+      "title": "AI log & observed error",
+      "status": "required",
+      "note": "Document tools, workflow, and an actual confidently wrong AI output caught and corrected by the team."
+    },
+    {
+      "id": "n138",
+      "parent_id": "n131",
+      "path": "Offer Ready / Purpose, proof & delivery / Competition deliverables / Pitch deck & appendix",
+      "title": "Pitch deck & appendix",
+      "status": "required",
+      "note": "Include shortlist, three pairs, comparisons, and AI log; confirm current demo-video and upload logistics with organizers."
+    },
+    {
+      "id": "n139",
+      "parent_id": "n131",
+      "path": "Offer Ready / Purpose, proof & delivery / Competition deliverables / Judging rubric",
+      "title": "Judging rubric",
+      "status": "required",
+      "note": "Seven equal categories: innovation, technical execution, responsible AI, completeness, usability, impact, presentation. Attached rubric totals 28; some cases inconsistently mention 100."
+    },
+    {
+      "id": "n140",
+      "parent_id": "n116",
+      "path": "Offer Ready / Purpose, proof & delivery / Build, test & differentiate",
+      "title": "Build, test & differentiate",
+      "status": "team",
+      "note": "Keep hypotheses separate from demonstrated results."
+    },
+    {
+      "id": "n141",
+      "parent_id": "n140",
+      "path": "Offer Ready / Purpose, proof & delivery / Build, test & differentiate / Working tool choice",
+      "title": "Working tool choice",
+      "status": "idea",
+      "note": "“Replit?” appears on the board as a possible build environment, not a confirmed choice."
+    },
+    {
+      "id": "n142",
+      "parent_id": "n140",
+      "path": "Offer Ready / Purpose, proof & delivery / Build, test & differentiate / Desktop & phone usability",
+      "title": "Desktop & phone usability",
+      "status": "team",
+      "note": "Good interface on computer and phone, with readable generated documents."
+    },
+    {
+      "id": "n143",
+      "parent_id": "n140",
+      "path": "Offer Ready / Purpose, proof & delivery / Build, test & differentiate / Team roles & roadmap",
+      "title": "Team roles & roadmap",
+      "status": "team",
+      "note": "Board tasks include naming the product, assigning roles, defining the problem/audience, implementation roadmap, and feedback collection."
+    },
+    {
+      "id": "n144",
+      "parent_id": "n140",
+      "path": "Offer Ready / Purpose, proof & delivery / Build, test & differentiate / Test one complete journey",
+      "title": "Test one complete journey",
+      "status": "recommendation",
+      "note": "Recommended: demonstrate a student’s context → relevant next action → application → follow-through, rather than disconnected feature demos."
+    },
+    {
+      "id": "n145",
+      "parent_id": "n140",
+      "path": "Offer Ready / Purpose, proof & delivery / Build, test & differentiate / Measure a useful improvement",
+      "title": "Measure a useful improvement",
+      "status": "recommendation",
+      "note": "Proposed tests: relevance, student clarity, time including corrections, claim accuracy, and ability to explain application wording."
+    },
+    {
+      "id": "n146",
+      "parent_id": "n140",
+      "path": "Offer Ready / Purpose, proof & delivery / Build, test & differentiate / No unsupported superiority claim",
+      "title": "No unsupported superiority claim",
+      "status": "recommendation",
+      "note": "Feature overlap with Handshake/LinkedIn does not prove equivalent experience. Claim better results only for the actual workflow and baseline tested."
+    },
+    {
+      "id": "n147",
+      "parent_id": "n140",
+      "path": "Offer Ready / Purpose, proof & delivery / Build, test & differentiate / Prioritization still open",
+      "title": "Prioritization still open",
+      "status": "open",
+      "note": "Select what is live, clearly simulated, or future vision. Preserve all ideas without pretending the entire ecosystem can be built in one sprint."
+    },
+    {
+      "id": "n148",
+      "parent_id": "n116",
+      "path": "Offer Ready / Purpose, proof & delivery / Unresolved & parked ideas",
+      "title": "Unresolved & parked ideas",
+      "status": "open",
+      "note": "Retained for completeness, not silently converted into product commitments."
+    },
+    {
+      "id": "n149",
+      "parent_id": "n148",
+      "path": "Offer Ready / Purpose, proof & delivery / Unresolved & parked ideas / Integration feasibility",
+      "title": "Integration feasibility",
+      "status": "open",
+      "note": "Confirm authorized data sources, APIs, institutional permission, sync completeness, and advisor availability."
+    },
+    {
+      "id": "n150",
+      "parent_id": "n148",
+      "path": "Offer Ready / Purpose, proof & delivery / Unresolved & parked ideas / Forecasting evidence",
+      "title": "Forecasting evidence",
+      "status": "open",
+      "note": "Decide what forecasts mean, what sources support them, and how uncertainty is explained."
+    },
+    {
+      "id": "n151",
+      "parent_id": "n148",
+      "path": "Offer Ready / Purpose, proof & delivery / Unresolved & parked ideas / Task urgency & autonomy",
+      "title": "Task urgency & autonomy",
+      "status": "open",
+      "note": "Define optional tasks, deadlines, approval requirements, and how strongly the assistant nudges."
+    },
+    {
+      "id": "n152",
+      "parent_id": "n148",
+      "path": "Offer Ready / Purpose, proof & delivery / Unresolved & parked ideas / Community & dynamic focus",
+      "title": "Community & dynamic focus",
+      "status": "open",
+      "note": "Specify these board terms before treating them as build requirements."
+    },
+    {
+      "id": "n153",
+      "parent_id": "n148",
+      "path": "Offer Ready / Purpose, proof & delivery / Unresolved & parked ideas / Employer-side marketplace",
+      "title": "Employer-side marketplace",
+      "status": "parked",
+      "note": "Audio discussion considered employer recruitment features and pushed toward student-facing focus. Retained as a parked discussion, not a confirmed build requirement."
+    },
+    {
+      "id": "n154",
+      "parent_id": "n148",
+      "path": "Offer Ready / Purpose, proof & delivery / Unresolved & parked ideas / Aggregated-data monetization",
+      "title": "Aggregated-data monetization",
+      "status": "parked",
+      "note": "Audio discussion mentioned selling aggregated/anonymized demand/skill data. No approved business model, permissions, or privacy assessment was established. Do not implement from this note."
+    },
+    {
+      "id": "n155",
+      "parent_id": "n148",
+      "path": "Offer Ready / Purpose, proof & delivery / Unresolved & parked ideas / Naming & business model",
+      "title": "Naming & business model",
+      "status": "open",
+      "note": "Offer Ready is the current case/working label. Final name and sustainable business model remain open."
+    }
+  ]
+}

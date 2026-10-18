@@ -1,0 +1,13 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Offer Ready//Tentative Demo//EN
+BEGIN:VEVENT
+UID:e9d53ace-995@offer-ready.demo
+DTSTAMP:20261017T193303Z
+DTSTART:20261019T200000Z
+DTEND:20261019T203000Z
+SUMMARY:Tentative: Career exploration conversation
+STATUS:TENTATIVE
+DESCRIPTION:Local planning reminder only. No advisor booking or invitation has been sent. Confirm availability separately.
+END:VEVENT
+END:VCALENDAR
