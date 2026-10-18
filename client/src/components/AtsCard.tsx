@@ -27,7 +27,8 @@ export function AtsCard({ appId, refreshKey }: { appId?: string; refreshKey?: st
   const [err, setErr] = useState("");
   useEffect(() => {
     let live = true;
-    api<{ base: AtsScore; tailored?: AtsScore }>("GET", `/api/resume/ats${appId ? `?app=${appId}` : ""}`).then((d) => live && setData(d), (e) => live && setErr(e.message));
+    const query = appId ? `?app=${encodeURIComponent(appId)}` : "";
+    api<{ base: AtsScore; tailored?: AtsScore }>("GET", "/api/resume/ats" + query).then((d) => live && setData(d), (e) => live && setErr(e.message));
     return () => { live = false; };
   }, [appId, refreshKey]);
   if (err) return null;
