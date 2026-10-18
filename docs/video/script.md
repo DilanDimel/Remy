@@ -17,7 +17,7 @@ Voice: ElevenLabs "Megan – Warm & Trusted Training Voice" (calm, clear, Americ
 | 5f | 1:18–1:25 | **Alumni.** TCU alumni matched by major and field (sample names); drafted email + LinkedIn note. | It connects you with TCU alumni in your field, and helps you write the first email. |
 | 5g | 1:25–1:31 | **Bento pullback:** tracker, calendar, checklist, deadlines. | Every application and deadline, in one place. |
 | 5h | 1:31–1:40 | **Honesty beat.** Letter line "…a fast-paced office" gets flagged red: "Not in your resume." | Once, our AI wrote "fast-paced office." The resume never said that. We caught it — and taught Remy to catch it every time. |
-| 6 | 1:40–1:46 | **Live proof.** Real screen recording of offer-ready.onrender.com. | It's live today. |
+| 6 | 1:40–1:46 | **Live proof.** Real screen recording of offer-ready.onrender.com. | And it's live today. |
 | 7 | 1:46–1:56 | **Coming next** (mind map, clearly labeled): academic roadmap · advisor meetings · interview prep · smart notifications · clubs & certifications. | And this is just the start. |
 | 8 | 1:56–2:08 | **Close.** Vision statement → "Don't Hunt for a Job Alone." → fox + offer-ready.onrender.com + team: Dilan Desman · Lincoln Yoo · Ashton Wisecarver · Demetre Dondoladze · Julio Renovato. | Every student should understand their options — and build a path that's theirs. Don't hunt for a job alone. |
 
