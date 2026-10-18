@@ -1,6 +1,6 @@
 # Remy — competition promo video script (~2:00)
 
-Voice: ElevenLabs "Megan – Warm & Trusted Training Voice" (calm, clear, American). Music: original 120 BPM track generated for this video (royalty-free). All on-screen data is sample data.
+Voice: ElevenLabs "Killian – Clear, Warm, Upbeat & Friendly" (multilingual v2 model, leveled to -14 LUFS). Music: original 120 BPM track generated for this video (royalty-free). All on-screen data is sample data.
 
 | # | Time | Scene (what you see) | Voiceover |
 |---|---|---|---|
