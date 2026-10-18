@@ -83,7 +83,7 @@ function Shell() {
     if (!isMobile) save("settings", { assistantOpen: open });
   };
   // A tailoring conversation opens Remy so the student can answer him.
-  useEffect(() => onOpenRequest(() => setAsstPage(true)), []);
+  useEffect(() => { return onOpenRequest(() => setAsstPage(true)); }, []);
   const collapsed = w.settings.navCollapsed;
   const current = path.startsWith("/accounts") ? ACCOUNTS : NAV.find((n) => (n.path === "/" ? path === "/" : path.startsWith(n.path))) || NAV[0];
   const pendingReview = w.applications.reduce((s, a) => s + a.changes.filter((c) => c.status === "pending").length, 0);
@@ -188,7 +188,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   const tailor = useTailorSession();
   const asking = isAsking(tailor);
   const tailorEnd = useRef<HTMLDivElement>(null);
-  useEffect(() => tailorEnd.current?.scrollIntoView({ block: "end" }), [tailor?.log.length]);
+  useEffect(() => { tailorEnd.current?.scrollIntoView({ block: "end" }); }, [tailor?.log.length]);
   const lastAi = [...chat].reverse().find((m) => m.role !== "user")?.id;
   const [cheer, setCheer] = useState<string | undefined>(undefined);
   useEffect(() => {
@@ -197,7 +197,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
     return () => clearTimeout(t);
   }, [lastAi]);
   const mood = busy || tailor?.stage === "generating" || tailor?.stage === "finishing" ? "think" : greeting || asking ? "wave" : lastAi && lastAi !== cheer ? "happy" : "idle";
-  useEffect(() => end.current?.scrollIntoView({ block: "end" }), [chat.length, busy]);
+  useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [chat.length, busy]);
   const send = async (text: string) => {
     if (asking) { setMsg(""); await answerTailor(text, { setWs, run }); return; }
     if (!text.trim() || busy) return;

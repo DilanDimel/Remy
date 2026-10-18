@@ -152,7 +152,7 @@ const PROFILE_FIELDS: [keyof Profile, string, string?][] = [
 export function ProfileForm({ onSaved }: { onSaved?: () => void }) {
   const { ws, save, run } = useStore();
   const [p, setP] = useState<Profile>(ws!.profile);
-  useEffect(() => setP(ws!.profile), [ws!.profile]);
+  useEffect(() => { setP(ws!.profile); }, [ws!.profile]);
   const dirty = JSON.stringify(p) !== JSON.stringify(ws!.profile);
   return (
     <div className="stack">
