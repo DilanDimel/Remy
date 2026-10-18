@@ -10,7 +10,7 @@ import { useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Empty, Remy, Spinner, StatusChip } from "../components/common";
 import { ResumeUpload } from "../components/Uploaders";
 import { AtsCard } from "../components/AtsCard";
-import { startFollowUps, startTailor, useTailorSession } from "../lib/tailorChat";
+import { startTailor, useTailorSession } from "../lib/tailorChat";
 
 type Tab = "base" | "tailor" | "library";
 
@@ -256,10 +256,7 @@ function AppEditor({ a, job }: { a: Application; job: Job }) {
   const generate = () => startTailor(a, job);
   const pending = a.changes.filter((c) => c.status === "pending").length;
   const blocking = a.changes.filter((c) => (c.status === "accepted" || c.status === "edited") && c.flags.length).length;
-  const approve = (override = false) => call("approve", () => api("POST", `/api/applications/${a.id}/approve`, { override }), override ? "Approved with the letter check overridden — downloads are ready" : "Approved — downloads are ready");
-  // Placeholders are removed on approval; only unsupported claims need a decision.
-  const letterClaims = a.letterFlags.filter((f) => f.type !== "placeholder").length;
-  const onlyLetterBlocks = !pending && !blocking && letterClaims > 0;
+  const approve = () => call("approve", () => api("POST", `/api/applications/${a.id}/approve`), "Approved — downloads are ready");
 
   return (
     <div className="stack">
@@ -271,17 +268,17 @@ function AppEditor({ a, job }: { a: Application; job: Job }) {
             <span className="xs muted">{job.deadlineText || "No deadline listed"} · <a href={job.applyUrl || job.sourceUrl} target="_blank" rel="noreferrer" style={{ color: "var(--plum)", fontWeight: 700 }}>Posting <ArrowUpRight size={12} style={{ display: "inline" }} /></a></span>
           </div>
           <button className="btn btn-primary" onClick={generate} disabled={!!busy || (!!mine && mine.stage !== "done") || !config?.ai.available || !w.resume} data-testid="button-generate">
-            {mine?.stage === "generating" ? <Spinner /> : a.generatedAt ? <RotateCcw size={16} /> : <Sparkles size={16} />} {mine?.stage === "generating" ? "Tailoring…" : mine?.stage === "pre" ? "Answering Remy…" : a.generatedAt ? "Regenerate" : "Tailor with AI"}
+            {mine?.stage === "working" ? <Spinner /> : a.generatedAt ? <RotateCcw size={16} /> : <Sparkles size={16} />} {mine?.stage === "working" ? "Tailoring…" : mine?.stage === "asking" ? "Answering Remy…" : a.generatedAt ? "Regenerate" : "Tailor with AI"}
           </button>
         </div>
         {a.staleReason && <div className="notice notice-warn" style={{ marginTop: 12 }}><AlertTriangle size={16} /><div>{a.staleReason}</div></div>}
         {a.generatedAt && <p className="xs muted" style={{ marginTop: 10 }}>Draft generated {fmtDate(a.generatedAt)} by {a.generatedBy} · {a.versions.length ? `approved v${a.versions.length} on ${fmtDate(a.versions[a.versions.length - 1].at)}` : "not yet approved"}</p>}
       </div>
 
-      {mine?.stage === "pre" && <div className="card card-pad row" style={{ flexWrap: "nowrap" }} data-testid="tailor-asking"><Remy size={40} mood="wave" /><span className="small"><b>Remy is asking you a few questions in the chat.</b> Answer there (or type "skip") and he'll tailor as soon as you're done.</span></div>}
-      {mine?.stage === "generating" && <div className="card card-pad stack"><div className="row"><Remy size={40} mood="think" /><span className="muted">Remy is matching your experience to {job.company}'s requirements. This usually takes about a minute.</span></div>{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 70 }} />)}</div>}
+      {mine?.stage === "asking" && <div className="card card-pad row" style={{ flexWrap: "nowrap" }} data-testid="tailor-asking"><Remy size={40} mood="wave" /><span className="small"><b>Remy is asking you a few questions in the chat.</b> Answer there (or type "skip") and he'll tailor as soon as you're done.</span></div>}
+      {mine?.stage === "working" && <div className="card card-pad stack"><div className="row"><Remy size={40} mood="think" /><span className="muted">Remy is matching your experience to {job.company}'s requirements. This usually takes about a minute.</span></div>{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 70 }} />)}</div>}
 
-      {a.generatedAt && mine?.stage !== "generating" && (
+      {a.generatedAt && mine?.stage !== "working" && (
         <>
           {a.strongestMatch?.text && (
             <div className="card card-pad stack-sm" style={{ borderColor: "var(--plum)" }} data-testid="card-strongest-match">
@@ -304,10 +301,9 @@ function AppEditor({ a, job }: { a: Application; job: Job }) {
           {sub === "export" && <ExportView a={a} job={job} />}
           <div className="card card-pad row-between approve-bar">
             <span className="small">
-              {pending ? `${pending} change(s) still need your decision.` : blocking ? `${blocking} accepted change(s) have unsupported claims.` : letterClaims ? "The cover letter makes a claim Remy can't find in your resume." : "Ready to approve."}
+              {pending ? `${pending} change(s) still need your decision.` : blocking ? `${blocking} accepted change(s) have unsupported claims.` : "Ready to approve."}
             </span>
             <div className="row">
-              {onlyLetterBlocks && <button className="btn btn-secondary" onClick={() => { if (confirm("Approve anyway? Remy will note in your safeguard log that you overrode the letter check.")) approve(true); }} disabled={!!busy} data-testid="button-override-letter"><ShieldAlert size={16} /> Override letter check</button>}
               <button className="btn btn-primary" onClick={() => approve()} disabled={!!busy} data-testid="button-approve-app">{busy === "approve" ? <Spinner /> : <ShieldCheck size={16} />} Approve this version</button>
             </div>
           </div>
@@ -398,9 +394,10 @@ function ChangeCard({ a, c, n }: { a: Application; c: BulletChange; n: number })
 }
 
 function Letter({ a }: { a: Application }) {
-  const { setWs, run } = useStore();
+  const { ws, setWs, run } = useStore();
   const { jobs } = useJobs();
   const job = jobs?.find((j) => j.id === a.jobId);
+  const used = ws!.memory.filter((m) => job && m.source === `Told Remy while tailoring for ${job.company}`);
   const [text, setText] = useState(a.letter);
   const [busy, setBusy] = useState(false);
   useEffect(() => { setText(a.letter); }, [a.letter]);
@@ -410,31 +407,19 @@ function Letter({ a }: { a: Application }) {
     if (r) setWs(r.workspace);
     setBusy(false);
   };
-  const toggle = async (pid: string, done: boolean) => {
-    const r = await run(() => api<{ workspace: Workspace }>("PUT", `/api/applications/${a.id}/personalize/${pid}`, { done }));
-    if (r) setWs(r.workspace);
-  };
   return (
     <div className="grid-2" style={{ alignItems: "start" }}>
       <div className="card card-pad stack">
         <div className="row-between"><h3>Cover letter draft</h3>{a.letterApproved ? <span className="chip chip-live">Approved</span> : <span className="chip chip-plain">Draft</span>}</div>
         <textarea className="textarea" style={{ minHeight: 420, fontSize: 14 }} value={text} onChange={(e) => setText(e.target.value)} aria-label="Cover letter" data-testid="input-letter" />
-        <div className="row"><button className="btn btn-primary btn-sm" onClick={saveLetter} disabled={busy || text === a.letter} data-testid="button-save-letter">{busy && <Spinner />} Save & re-check</button><span className="xs muted">Edit anything you like — Remy re-checks it when you save.</span></div>
+        <div className="row"><button className="btn btn-primary btn-sm" onClick={saveLetter} disabled={busy || text === a.letter} data-testid="button-save-letter">{busy && <Spinner />} Save changes</button><span className="xs muted">Edit anything you like.</span></div>
       </div>
       <div className="stack">
-        <div className="card card-pad stack-sm">
-          <div className="row-between"><h3>Details only you know</h3>
-            {a.personalize.some((p) => !p.done) && job && <button className="btn btn-primary btn-sm" onClick={() => startFollowUps(a, job)} data-testid="button-answer-with-remy">Answer with Remy</button>}</div>
-          {a.personalize.length ? a.personalize.map((p) => (
-            <div key={p.id} className="item" style={{ padding: "8px 0" }}>
-              <button className="check" role="checkbox" aria-checked={p.done} onClick={() => toggle(p.id, !p.done)} aria-label="Mark done" data-testid="checkbox-personalize">{p.done && <Check size={13} />}</button>
-              <span className="small" style={{ textDecoration: p.done ? "line-through" : undefined }}>{p.text}</span>
-            </div>
-          )) : <span className="small muted">Nothing left — Remy used your answers.</span>}
-        </div>
-        <div className="card card-pad stack-sm">
-          <h3>Letter check</h3>
-          {a.letterFlags.length ? <FlagList flags={a.letterFlags} /> : <span className="small row pass"><CheckCircle2 size={16} /> No unsupported claims or placeholders found.</span>}
+        <div className="card card-pad stack-sm" data-testid="card-letter-answers">
+          <h3>What Remy used</h3>
+          <p className="xs muted">Your letter is written from your resume and what you told Remy — nothing to fill in.</p>
+          {used.length ? used.map((m) => <div key={m.id} className="small" style={{ borderTop: "1px solid var(--line)", paddingTop: 8 }}>{m.text}</div>) : <span className="small muted">No answers yet.</span>}
+          {job && <button className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => startTailor(a, job)} data-testid="button-answer-again">Answer again &amp; rewrite</button>}
         </div>
       </div>
     </div>

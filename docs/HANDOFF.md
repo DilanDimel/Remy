@@ -53,6 +53,13 @@ The visual identity now integrates the Remy mockup: near-black `#161616` on warm
 - **To-dos** strike through and fade out a few seconds after you check them.
 - **Account** moved out of the sidebar into the menu under your name (Profile, Settings, AI memory, Connected sources, Account & data, Sign out). The logo reads "Remy."
 
+### Oct 18, third round
+- **TCU alumni in Community:** the career office's Fall 2026 alumni networking list (1,061 alumni) is in `server/data/alumni.json`. It stays on the server; `GET /api/community/alumni` sends each student only their top 12 matches (shared major, field, saved companies, region, recent grads), each with the reasons. "Save" adds one to Contacts; "Draft email" starts an outreach conversation.
+- **Outreach is a conversation too:** Remy asks four questions (what you want, what interests you about their path, what to mention about you, availability) and writes the whole email following the informational-interviewing guide (who you are, how you found them, why them, a 20-30 minute ask), plus a LinkedIn note under 200 characters.
+- **No placeholders anywhere:** no `[PERSONALIZE]` markers in letters or emails; whatever the student didn't say is left out. Tailoring asks four questions up front, and approving the letter has no letter check. The Letter tab shows "What Remy used" with an "Answer again & rewrite" button.
+- **Questions sit at the bottom** of Remy's panel, right above the input.
+- Alumni names and emails are personal data, so only signed-in students (Google or Supabase) see matches; guests get a "Sign in to see your alumni matches" card and the contact route refuses them.
+
 ### Supabase setup (needed for real sign-in)
 In the Supabase dashboard for "DilanDimel's Project":
 1. **Authentication → URL Configuration:** set Site URL to `https://offer-ready.onrender.com` and add `https://offer-ready.onrender.com/` to Redirect URLs (add `http://localhost:5000/` for local testing).

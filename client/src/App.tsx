@@ -196,7 +196,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
     const t = setTimeout(() => setCheer(lastAi), 1300);
     return () => clearTimeout(t);
   }, [lastAi]);
-  const mood = busy || tailor?.stage === "generating" || tailor?.stage === "finishing" ? "think" : greeting || asking ? "wave" : lastAi && lastAi !== cheer ? "happy" : "idle";
+  const mood = busy || tailor?.stage === "working" ? "think" : greeting || asking ? "wave" : lastAi && lastAi !== cheer ? "happy" : "idle";
   useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [chat.length, busy]);
   const send = async (text: string) => {
     if (asking) { setMsg(""); await answerTailor(text, { setWs, run }); return; }
@@ -224,14 +224,6 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
         <button className="btn btn-secondary btn-sm" onClick={onMinimize} aria-label="Minimize Remy" title="Minimize Remy" data-testid="button-close-assistant"><Minus size={15} /><span className="hide-sm">Minimize</span></button>
       </div>
       <div className="asst-body">
-        {tailor && (
-          <div className="asst-card stack-sm" data-testid="tailor-chat">
-            <span className="eyebrow">Tailoring for {tailor.company}</span>
-            {tailor.log.map((m, i) => <div key={i} className={`bubble ${m.role === "me" ? "bubble-user" : "bubble-ai"}`}>{m.text}</div>)}
-            {(tailor.stage === "generating" || tailor.stage === "finishing") && <div className="bubble bubble-ai row"><Spinner /> Working on it…</div>}
-            <div ref={tailorEnd} />
-          </div>
-        )}
         {chat.length === 0 && (
           <div className="bubble bubble-ai">
             Hi, I'm Remy! I can explain recommendations, help you think through choices, and suggest next steps. I only use what's in your approved profile — and I'll never send anything for you.
@@ -252,7 +244,15 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
           </div>
         ))}
         {busy && <div className="bubble bubble-ai row"><Spinner /> Thinking…</div>}
-        {chat.length < 2 && !busy && (
+        {tailor && (
+          <div className="asst-card stack-sm" data-testid="tailor-chat">
+            <span className="eyebrow">{tailor.title}</span>
+            {tailor.log.map((m, i) => <div key={i} className={`bubble ${m.role === "me" ? "bubble-user" : "bubble-ai"}`}>{m.text}</div>)}
+            {tailor.stage === "working" && <div className="bubble bubble-ai row"><Spinner /> Working on it…</div>}
+            <div ref={tailorEnd} />
+          </div>
+        )}
+        {chat.length < 2 && !busy && !tailor && (
           <div className="stack-sm">
             {(STARTERS[page] || STARTERS.Home).map((s) => (
               <button key={s} className="btn btn-secondary btn-sm" style={{ justifyContent: "flex-start", whiteSpace: "normal", textAlign: "left", height: "auto", padding: "8px 12px" }} onClick={() => send(s)}>{s}</button>

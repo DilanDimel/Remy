@@ -269,6 +269,8 @@ export interface OutreachDraft {
   to: string;
   subject: string;
   body: string;
+  /** Short LinkedIn connection note (under 200 characters). */
+  linkedin?: string;
   status: "draft" | "approved" | "handed-off";
   createdAt: string;
   approvedAt?: string;
