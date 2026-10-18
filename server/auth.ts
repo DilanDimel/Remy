@@ -87,3 +87,45 @@ export function endSession(req: Request, res: Response) {
   if (token) deleteSession(token);
   clearSessionCookie(res);
 }
+
+// ---------- Supabase Auth ----------
+// The browser does the OAuth / magic-link hop with Supabase and sends us the
+// resulting access token; we ask Supabase who it belongs to before trusting it.
+export function supabaseConfig() {
+  const url = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
+  const anonKey = process.env.SUPABASE_ANON_KEY || "";
+  return url && anonKey ? { url, anonKey } : null;
+}
+let providerCache: { at: number; providers: Record<string, boolean> } | null = null;
+export async function supabaseProviders(): Promise<Record<string, boolean>> {
+  const cfg = supabaseConfig();
+  if (!cfg) return {};
+  if (providerCache && Date.now() - providerCache.at < 5 * 60_000) return providerCache.providers;
+  try {
+    const r = await fetch(`${cfg.url}/auth/v1/settings`, { headers: { apikey: cfg.anonKey }, signal: AbortSignal.timeout(4000) });
+    const j: any = await r.json();
+    const ext = j?.external || {};
+    const providers = { google: !!ext.google, linkedin_oidc: !!ext.linkedin_oidc, apple: !!ext.apple, azure: !!ext.azure, email: !!ext.email && !j?.disable_signup };
+    providerCache = { at: Date.now(), providers };
+    return providers;
+  } catch {
+    return providerCache?.providers || {};
+  }
+}
+export type SupabaseUser = { id: string; email: string; name: string; picture: string; provider: string };
+export async function verifySupabase(accessToken: string): Promise<SupabaseUser> {
+  const cfg = supabaseConfig();
+  if (!cfg) throw Object.assign(new Error("Sign-in isn't configured on this server (Needs setup)."), { status: 503 });
+  if (!accessToken) throw Object.assign(new Error("Missing sign-in token."), { status: 400 });
+  const r = await fetch(`${cfg.url}/auth/v1/user`, { headers: { apikey: cfg.anonKey, Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(8000) });
+  if (!r.ok) throw Object.assign(new Error("Supabase couldn't verify this sign-in. Please try again."), { status: 401 });
+  const u: any = await r.json();
+  const meta = u.user_metadata || {};
+  return {
+    id: String(u.id),
+    email: String(u.email || meta.email || ""),
+    name: String(meta.full_name || meta.name || [meta.given_name, meta.family_name].filter(Boolean).join(" ") || ""),
+    picture: String(meta.avatar_url || meta.picture || ""),
+    provider: String(u.app_metadata?.provider || ""),
+  };
+}

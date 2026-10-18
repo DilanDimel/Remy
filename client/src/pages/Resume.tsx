@@ -4,11 +4,13 @@ import {
   Star, Trash2, X,
 } from "lucide-react";
 import type { Application, BulletChange, ClaimFlag, Job, ResumeDoc, Workspace } from "@shared/types";
-import { api, download, fmtDate, rid, useStore } from "../lib/store";
+import { API_BASE, api, download, fmtDate, rid, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Empty, Remy, Spinner, StatusChip } from "../components/common";
 import { ResumeUpload } from "../components/Uploaders";
+import { preAnswers, TailorQuestions } from "../components/TailorQuestions";
+import { clearAnswers } from "../lib/tailorDraft";
 
 type Tab = "base" | "tailor" | "library";
 
@@ -40,16 +42,17 @@ export default function Resume({ query }: { query: URLSearchParams }) {
 
 // ---------------------------------------------------------------- base resume
 function BaseResume() {
-  const { ws, setWs, run } = useStore();
+  const { ws, setWs, run, toast } = useStore();
   const w = ws!;
   const [doc, setDoc] = useState<ResumeDoc | null>(w.resume?.doc ? JSON.parse(JSON.stringify(w.resume.doc)) : null);
   const [showRaw, setShowRaw] = useState(false);
   const [replace, setReplace] = useState(false);
+  const [preview, setPreview] = useState(true);
   useEffect(() => { setDoc(w.resume?.doc ? JSON.parse(JSON.stringify(w.resume.doc)) : null); }, [w.resume?.uploadedAt]);
   if (!w.resume || !doc)
     return (
       <div className="card card-pad stack">
-        <div className="row" style={{ flexWrap: "nowrap", gap: 14 }}><Remy size={46} /><div><h2>Start with the resume you already have</h2><p className="small muted">Offer Ready reads it, then you confirm every line. Nothing is invented.</p></div></div>
+        <div className="row" style={{ flexWrap: "nowrap", gap: 14 }}><Remy size={46} /><div><h2>Start with the resume you already have</h2><p className="small muted">Remy reads it, then you confirm every line. Nothing is invented.</p></div></div>
         <ResumeUpload />
       </div>
     );
@@ -75,6 +78,25 @@ function BaseResume() {
         </div>
       </div>
       {replace && <div className="card card-pad"><ResumeUpload compact onDone={() => setReplace(false)} /></div>}
+      <div className="card card-pad stack" data-testid="card-resume-files">
+        <div className="row-between">
+          <div className="stack-sm">
+            <h3>Your resume, as a file</h3>
+            <span className="xs muted">{w.resume.original ? "Your original keeps your own layout. The export uses Remy's clean, ATS-friendly one-column format with your edits below." : "This resume was pasted or is the sample, so there's no original file. Export it as a clean PDF or Word file."}</span>
+          </div>
+          <div className="row">
+            {w.resume.original && <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/original?download=1", w.resume!.original!.name).catch((e) => toast(e.message, true))} data-testid="button-download-original"><Download size={14} /> Original</button>}
+            <button className="btn btn-primary btn-sm" onClick={() => download("/api/resume/export?format=pdf", "Resume.pdf").catch((e) => toast(e.message, true))} disabled={dirty} title={dirty ? "Save your edits first" : undefined} data-testid="button-export-base-pdf"><Download size={14} /> Export PDF</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/export?format=docx", "Resume.docx").catch((e) => toast(e.message, true))} disabled={dirty} data-testid="button-export-base-docx">Word</button>
+          </div>
+        </div>
+        {w.resume.original?.mime === "application/pdf" && (
+          <div className="stack-sm">
+            <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setPreview((p) => !p)} data-testid="button-toggle-preview">{preview ? "Hide" : "Show"} your original PDF</button>
+            {preview && <iframe className="pdf-preview" src={`${API_BASE}/api/resume/original#view=FitH`} title="Your original resume" data-testid="pdf-preview" />}
+          </div>
+        )}
+      </div>
       {showRaw && <pre className="card card-pad xs" style={{ whiteSpace: "pre-wrap", maxHeight: 320, overflow: "auto", margin: 0 }}>{w.resume.rawText}</pre>}
 
       <div className="card card-pad stack">
@@ -127,7 +149,7 @@ function BaseResume() {
         ))}
       </div>
       <div className="card card-pad row-between approve-bar">
-        <span className="small muted">{dirty ? "You have unsaved edits. Your edits become the evidence Offer Ready may use." : w.resume.confirmedAt ? "This is the evidence base for every tailored version." : "Confirm when every line is accurate."}</span>
+        <span className="small muted">{dirty ? "You have unsaved edits. Your edits become the evidence Remy may use." : w.resume.confirmedAt ? "This is the evidence base for every tailored version." : "Confirm when every line is accurate."}</span>
         <div className="row">
           <button className="btn btn-secondary" disabled={!dirty} onClick={() => saveDoc(false)} data-testid="button-save-resume">Save edits</button>
           <button className="btn btn-primary" onClick={() => saveDoc(true)} data-testid="button-confirm-resume"><CheckCircle2 size={16} /> {w.resume.confirmedAt && !dirty ? "Re-confirm" : "Save & confirm"}</button>
@@ -151,8 +173,7 @@ function composeClient(w: Workspace, a: Application): { doc: ResumeDoc; changed:
 function Tailor({ query }: { query: URLSearchParams }) {
   const { ws, setWs, run, config } = useStore();
   const w = ws!;
-  const { jobs } = useJobs();
-  const [picking, setPicking] = useState(false);
+  const { jobs, fits } = useJobs();
   const jobParam = query.get("job");
   const appParam = query.get("app");
   useEffect(() => {
@@ -166,15 +187,21 @@ function Tailor({ query }: { query: URLSearchParams }) {
   const selected = w.applications.find((a) => a.id === appParam) || w.applications[0];
   const jobOf = (a: Application) => jobs?.find((j) => j.id === a.jobId);
   const start = async (jobId: string) => {
-    setPicking(false);
     const r = await run(() => api<{ application: Application; workspace: Workspace }>("POST", "/api/applications", { jobId }));
     if (r) { setWs(r.workspace); go(`/resume?tab=tailor&app=${r.application.id}`); }
   };
+  // Openings you haven't started, best fit first; ones you're not eligible for are left out.
+  const notStarted = (jobs || [])
+    .filter((j) => j.kind !== "event" && !w.applications.some((a) => a.jobId === j.id) && !fits[j.id]?.excluded && !w.hiddenJobIds.includes(j.id))
+    .sort((x, y) => (fits[y.id]?.score ?? 0) - (fits[x.id]?.score ?? 0));
   return (
-    <div className="split">
-      <div className="stack">
-        <div className="row-between"><span className="eyebrow">Your applications · {w.applications.length}</span></div>
-        <div className="list-pick">
+    <div className="stack-lg">
+      <div className="stack-sm">
+        <div className="row-between">
+          <span className="eyebrow">Your applications · {w.applications.length} · {notStarted.length} more openings that fit you</span>
+          <button className="btn btn-ghost btn-sm" onClick={() => go("/opportunities?import=1")} data-testid="button-new-application"><Link2 size={14} /> Import a posting from a link or text</button>
+        </div>
+        <div className="opening-strip" data-testid="opening-strip">
           {w.applications.map((a) => {
             const j = jobOf(a);
             const pending = a.changes.filter((c) => c.status === "pending").length;
@@ -189,24 +216,19 @@ function Tailor({ query }: { query: URLSearchParams }) {
               </button>
             );
           })}
+          {notStarted.map((j) => (
+            <button key={j.id} className="pick pick-new" onClick={() => start(j.id)} data-testid="button-choose-job">
+              <span className="xs muted">{j.company}</span>
+              <strong className="small">{j.title}</strong>
+              <span className="row xs"><span className="chip chip-plain"><Plus size={11} /> Start tailoring</span>{fits[j.id]?.eligibility === "likely" && <span className="chip chip-live">Eligible</span>}</span>
+            </button>
+          ))}
         </div>
-        <button className="btn btn-secondary btn-block" onClick={() => setPicking((p) => !p)} data-testid="button-new-application"><Plus size={16} /> Tailor for another opening</button>
-        {picking && (
-          <div className="card card-pad stack-sm">
-            <span className="small" style={{ fontWeight: 700 }}>Choose an opening</span>
-            {(jobs || []).filter((j) => !w.applications.some((a) => a.jobId === j.id)).map((j) => (
-              <button key={j.id} className="pick" onClick={() => start(j.id)} data-testid="button-choose-job">
-                <span className="xs muted">{j.company}</span><span className="small" style={{ fontWeight: 700 }}>{j.title}</span>
-              </button>
-            ))}
-            <button className="btn btn-ghost btn-sm" onClick={() => go("/opportunities?import=1")}><Link2 size={14} /> Import a posting from a link or text</button>
-          </div>
-        )}
       </div>
       <div>
         {!config?.ai.available && <div style={{ marginBottom: 12 }}><AiUnavailableNote /></div>}
         {selected && jobOf(selected) ? <AppEditor key={selected.id} a={selected} job={jobOf(selected)!} /> : (
-          <div className="card"><Empty title="Pick an opening to tailor for" body="Choose a verified opening, or import any public posting. Offer Ready will propose truthful changes for you to review." action={<button className="btn btn-primary" onClick={() => setPicking(true)}>Choose an opening</button>} /></div>
+          <div className="card"><Empty title="Pick an opening to tailor for" body="Choose one of the openings above, or import any public posting. Remy will propose truthful changes for you to review." /></div>
         )}
       </div>
     </div>
@@ -227,10 +249,16 @@ function AppEditor({ a, job }: { a: Application; job: Job }) {
     setBusy("");
     return r;
   };
-  const generate = () => call("gen", () => api("POST", `/api/applications/${a.id}/generate`), "Tailored draft ready — review each change");
+  const generate = async () => {
+    const r = await call("gen", () => api("POST", `/api/applications/${a.id}/generate`, { answers: preAnswers(a.id, job) }), "Tailored draft ready — review each change");
+    if (r) clearAnswers(a.id);
+  };
+  // Remy's questions show in his side panel when it's open; otherwise right here.
+  const panelVisible = w.settings.assistantOpen && !window.matchMedia("(max-width: 1020px)").matches;
   const pending = a.changes.filter((c) => c.status === "pending").length;
   const blocking = a.changes.filter((c) => (c.status === "accepted" || c.status === "edited") && c.flags.length).length;
-  const approve = () => call("approve", () => api("POST", `/api/applications/${a.id}/approve`), "Approved — downloads are ready");
+  const approve = (override = false) => call("approve", () => api("POST", `/api/applications/${a.id}/approve`, { override }), override ? "Approved with the letter check overridden — downloads are ready" : "Approved — downloads are ready");
+  const onlyLetterBlocks = !pending && !blocking && a.letterFlags.length > 0;
 
   return (
     <div className="stack">
@@ -249,6 +277,7 @@ function AppEditor({ a, job }: { a: Application; job: Job }) {
         {a.generatedAt && <p className="xs muted" style={{ marginTop: 10 }}>Draft generated {fmtDate(a.generatedAt)} by {a.generatedBy} · {a.versions.length ? `approved v${a.versions.length} on ${fmtDate(a.versions[a.versions.length - 1].at)}` : "not yet approved"}</p>}
       </div>
 
+      {!panelVisible && (busy === "gen" || !a.generatedAt || a.personalize.some((p) => !p.done)) && <div className="card card-pad"><TailorQuestions a={a} job={job} busy={busy === "gen"} /></div>}
       {busy === "gen" && <div className="card card-pad stack"><div className="row"><Remy size={40} mood="think" /><span className="muted">Remy is matching your experience to {job.company}'s requirements. This usually takes about a minute.</span></div>{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 70 }} />)}</div>}
 
       {a.generatedAt && busy !== "gen" && (
@@ -276,7 +305,10 @@ function AppEditor({ a, job }: { a: Application; job: Job }) {
             <span className="small">
               {pending ? `${pending} change(s) still need your decision.` : blocking ? `${blocking} accepted change(s) have unsupported claims.` : a.letterFlags.length ? "The cover letter still needs attention." : "Ready to approve."}
             </span>
-            <button className="btn btn-primary" onClick={approve} disabled={!!busy} data-testid="button-approve-app">{busy === "approve" ? <Spinner /> : <ShieldCheck size={16} />} Approve this version</button>
+            <div className="row">
+              {onlyLetterBlocks && <button className="btn btn-secondary" onClick={() => { if (confirm("Approve anyway? Remy will remove any unfilled [PERSONALIZE] spots and note in your safeguard log that you overrode the letter check.")) approve(true); }} disabled={!!busy} data-testid="button-override-letter"><ShieldAlert size={16} /> Override letter check</button>}
+              <button className="btn btn-primary" onClick={() => approve()} disabled={!!busy} data-testid="button-approve-app">{busy === "approve" ? <Spinner /> : <ShieldCheck size={16} />} Approve this version</button>
+            </div>
           </div>
         </>
       )}
@@ -306,7 +338,7 @@ function Changes({ a }: { a: Application }) {
       {a.gaps.length > 0 && (
         <div className="card card-pad stack-sm">
           <h3>Honest gaps</h3>
-          <p className="xs muted">Requirements your resume doesn't show yet. Offer Ready won't paper over these.</p>
+          <p className="xs muted">Requirements your resume doesn't show yet. Remy won't paper over these.</p>
           {a.gaps.map((g, i) => <div key={i} className="small"><span className="muted">“{g.requirementQuote}”</span><div>{g.note}</div></div>)}
         </div>
       )}

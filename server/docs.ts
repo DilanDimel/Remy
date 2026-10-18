@@ -48,7 +48,7 @@ export async function resumeDocx(doc: ResumeDoc): Promise<Buffer> {
       kids.push(new Paragraph({ children: [new TextRun({ text: `${k.label}: `, bold: true, size: 21, font: FONT }), new TextRun({ text: k.items, size: 21, font: FONT })] }));
   }
   const d = new Document({
-    creator: "Offer Ready",
+    creator: "Remy",
     title: `${doc.contact.name} Resume`,
     sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 720, right: 720 } } }, children: kids }],
   });
@@ -61,13 +61,13 @@ export async function letterDocx(name: string, contact: string, letter: string):
     new Paragraph({ spacing: { after: 240 }, children: [new TextRun({ text: contact, size: 20, font: FONT })] }),
     ...letter.split(/\n\s*\n/).map((p) => new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: p.replace(/\n/g, " ").trim(), size: 22, font: FONT })] })),
   ];
-  const d = new Document({ creator: "Offer Ready", sections: [{ properties: { page: { margin: { top: 1080, bottom: 1080, left: 1080, right: 1080 } } }, children: kids }] });
+  const d = new Document({ creator: "Remy", sections: [{ properties: { page: { margin: { top: 1080, bottom: 1080, left: 1080, right: 1080 } } }, children: kids }] });
   return Packer.toBuffer(d);
 }
 
 function pdfBuffer(build: (pdf: PDFKit.PDFDocument) => void): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const pdf = new PDFDocument({ size: "LETTER", margins: { top: 40, bottom: 40, left: 46, right: 46 }, info: { Creator: "Offer Ready" } });
+    const pdf = new PDFDocument({ size: "LETTER", margins: { top: 40, bottom: 40, left: 46, right: 46 }, info: { Creator: "Remy" } });
     const chunks: Buffer[] = [];
     pdf.on("data", (c) => chunks.push(c));
     pdf.on("end", () => resolve(Buffer.concat(chunks)));

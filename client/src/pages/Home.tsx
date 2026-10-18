@@ -23,7 +23,7 @@ export default function Home() {
 
   const next = useMemo(() => {
     const pending = w.applications.find((a) => a.changes.some((c) => c.status === "pending"));
-    if (!w.resume) return { title: "Upload your resume", why: "Everything Offer Ready suggests is grounded in your real experience. It starts here.", link: "/resume", cta: "Upload resume" };
+    if (!w.resume) return { title: "Upload your resume", why: "Everything Remy suggests is grounded in your real experience. It starts here.", link: "/resume", cta: "Upload resume" };
     if (!w.resume.confirmedAt) return { title: "Confirm your base resume", why: "Check that every line was read correctly. Tailored versions are built only from what you confirm.", link: "/resume?tab=base", cta: "Review resume" };
     if (pending) {
       const j = jobs?.find((x) => x.id === pending.jobId);

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, useStore } from "../lib/store";
+import { Check } from "lucide-react";
 import { Remy, Spinner, StatusChip } from "../components/common";
+import { providerOn, sendMagicLink, startOAuth, type SupabaseProvider } from "../lib/supabase";
 
 export function useGoogleButton(onCredential: (cred: string) => void) {
   const { config } = useStore();
@@ -30,25 +32,44 @@ export function useGoogleButton(onCredential: (cred: string) => void) {
 }
 
 type Provider = "Google" | "LinkedIn" | "Apple" | "Microsoft" | "Work/School Email";
+const SB: Record<Exclude<Provider, "Work/School Email">, SupabaseProvider> = { Google: "google", LinkedIn: "linkedin_oidc", Apple: "apple", Microsoft: "azure" };
 
 export default function Welcome() {
-  const { setSession, run, config } = useStore();
+  const { setSession, run, config, toast } = useStore();
   const [busy, setBusy] = useState<"" | Provider | "demo" | "google">("");
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState("");
+  const gis = !!config?.googleClientId;
   const google = useGoogleButton(async (credential) => {
     setBusy("google");
     const r = await run(() => api("POST", "/api/auth/google", { credential }));
     if (r) setSession(r.me, r.workspace);
     setBusy("");
   });
-  // Only Google sign-in is real. The other buttons open the same private guest
-  // workspace as Explore demo, and say so, rather than pretending to sign in.
-  const enter = async (via: Provider | "demo") => {
+  // Buttons whose provider isn't switched on in Supabase open the same private
+  // guest workspace as the demo, and say so, rather than pretending to sign in.
+  const guest = async (via: Provider | "demo") => {
     setBusy(via);
     const r = await run(
       () => api("POST", "/api/auth/guest"),
-      via === "demo" ? undefined : `${via} sign-in isn't connected yet, so Remy opened a private guest workspace on this browser.`,
+      via === "demo" ? undefined : `${via} sign-in isn't switched on yet, so Remy opened a private guest workspace on this browser.`,
     );
     if (r) setSession(r.me, r.workspace);
+    setBusy("");
+  };
+  const enter = async (via: Provider) => {
+    if (via === "Work/School Email") return providerOn(config, "email") ? setEmailOpen((o) => !o) : guest(via);
+    const p = SB[via];
+    if (!providerOn(config, p)) return guest(via);
+    setBusy(via);
+    await run(() => startOAuth(config!, p)); // leaves the page on success
+    setBusy("");
+  };
+  const magic = async () => {
+    setBusy("Work/School Email");
+    const ok = await run(() => sendMagicLink(config!, email.trim()).then(() => true));
+    if (ok) { setSent(email.trim()); toast("Check your inbox for a sign-in link"); }
     setBusy("");
   };
   const sso = (via: Provider, icon: ReactNode) => (
@@ -56,6 +77,7 @@ export default function Welcome() {
       {busy === via ? <Spinner /> : icon} Continue with {via}
     </button>
   );
+  const anyReal = gis || ["google", "linkedin_oidc", "apple", "azure", "email"].some((p) => providerOn(config, p as SupabaseProvider));
   return (
     <div className="landing-screen">
       <div className="landing-card fade-up">
@@ -67,7 +89,7 @@ export default function Welcome() {
         </div>
         <div className="sso-list">
           <div data-testid="google-signin">
-            {config?.googleClientId && google.state !== "failed" ? (
+            {gis && google.state !== "failed" ? (
               <>
                 <div ref={google.ref} style={{ minHeight: 44, display: "flex", justifyContent: "center" }} />
                 {google.state === "loading" && <span className="xs muted row" style={{ justifyContent: "center" }}><Spinner /> Loading Google sign-in…</span>}
@@ -81,14 +103,24 @@ export default function Welcome() {
           {sso("Apple", <AppleMark />)}
           {sso("Microsoft", <MicrosoftMark />)}
           {sso("Work/School Email", <MailMark />)}
+          {emailOpen && (
+            sent ? (
+              <div className="notice notice-good fade-up" data-testid="magic-link-sent"><Check size={16} /><div>We sent a sign-in link to <strong>{sent}</strong>. Open it on this device to continue.</div></div>
+            ) : (
+              <form className="row fade-up" onSubmit={(e) => { e.preventDefault(); magic(); }}>
+                <input className="input" style={{ flex: 1, minWidth: 180 }} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@tcu.edu" aria-label="Email address" data-testid="input-magic-email" />
+                <button className="btn btn-primary btn-sm" disabled={!/.+@.+\..+/.test(email) || !!busy} data-testid="button-send-magic">{busy === "Work/School Email" ? <Spinner /> : null} Send link</button>
+              </form>
+            )
+          )}
         </div>
         <div className="landing-foot">
-          <button className="btn btn-ghost btn-sm" onClick={() => enter("demo")} disabled={!!busy} data-testid="button-explore-demo">
+          <button className="btn btn-ghost btn-sm" onClick={() => guest("demo")} disabled={!!busy} data-testid="button-explore-demo">
             {busy === "demo" ? <Spinner /> : null} Or explore the demo without signing in
           </button>
           <p className="xs muted">
-            {config?.googleClientId ? "Google sign-in keeps your workspace across devices. " : <><StatusChip label="Needs setup">Google sign-in</StatusChip>{" "}</>}
-            The other options open a private guest workspace on this browser for now. Remy never asks for your passwords.
+            {anyReal ? "Signing in keeps your workspace across devices. " : <><StatusChip label="Needs setup">Sign-in</StatusChip>{" "}</>}
+            Options that aren't switched on yet open a private guest workspace on this browser. Remy never asks for your passwords.
           </p>
         </div>
       </div>
