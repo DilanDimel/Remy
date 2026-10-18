@@ -403,7 +403,7 @@ function Letter({ a }: { a: Application }) {
   const job = jobs?.find((j) => j.id === a.jobId);
   const [text, setText] = useState(a.letter);
   const [busy, setBusy] = useState(false);
-  useEffect(() => setText(a.letter), [a.letter]);
+  useEffect(() => { setText(a.letter); }, [a.letter]);
   const saveLetter = async () => {
     setBusy(true);
     const r = await run(() => api<{ workspace: Workspace }>("PUT", `/api/applications/${a.id}/letter`, { letter: text }), "Letter saved and re-checked");

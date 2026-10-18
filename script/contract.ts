@@ -54,6 +54,18 @@ for (const file of walk(path.join(root, "client/src"))) {
   });
 }
 
+// An effect must return nothing or a cleanup function. `useEffect(() => expr, …)`
+// returns expr's value, and newer browsers return Promises from methods like
+// scrollIntoView(); React then calls that Promise as a cleanup and the screen blanks.
+const effectErrors: string[] = [];
+for (const file of walk(path.join(root, "client/src"))) {
+  const rel = path.relative(root, file);
+  fs.readFileSync(file, "utf8").split("\n").forEach((text, i) => {
+    if (/useEffect\(\s*\(\)\s*=>\s*(?![{(\s]|$)/.test(text) && !/useEffect\(\s*\(\)\s*=>\s*\(\)\s*=>/.test(text))
+      effectErrors.push(`${rel}:${i + 1}  useEffect(() => expression) — wrap the body in { } so the effect returns nothing`);
+  });
+}
+
 const normalize = (url: string) => url.split("?")[0].replace(/\$\{[^}]+\}/g, "x");
 const errors: string[] = [];
 const used = new Set<Route>();
@@ -74,6 +86,7 @@ console.log(`contract: ${calls.length} API calls and ${saves.length} section sav
 for (const u of unparsed) console.log(`  note: non-literal URL, not checked — ${u.file}:${u.line}  ${u.text}`);
 const unusedRoutes = routes.filter((r) => !used.has(r));
 if (unusedRoutes.length) console.log(`  info: server routes the client never calls: ${unusedRoutes.map((r) => `${r.method} ${r.path}`).join(", ")}`);
+errors.push(...effectErrors);
 if (errors.length) {
   console.error(`\ncontract FAILED (${errors.length}):`);
   for (const e of errors) console.error("  " + e);

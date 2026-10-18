@@ -7,7 +7,7 @@ import { Spinner } from "./common";
 export function ResumeUpload({ compact = false, onDone, onBusy }: { compact?: boolean; onDone?: () => void; onBusy?: (busy: boolean) => void }) {
   const { setWs, run, config } = useStore();
   const [busy, setBusy] = useState<"" | "file" | "text" | "sample">("");
-  useEffect(() => onBusy?.(!!busy), [busy]);
+  useEffect(() => { onBusy?.(!!busy); }, [busy]);
   useEffect(() => () => onBusy?.(false), []); // the panel can close before busy resets
   const [drag, setDrag] = useState(false);
   const [paste, setPaste] = useState(false);
@@ -72,7 +72,7 @@ export function ResumeUpload({ compact = false, onDone, onBusy }: { compact?: bo
 export function ProfileImport({ kind, hint, onDone, onBusy }: { kind: string; hint: string; onDone?: (added: number) => void; onBusy?: (busy: boolean) => void }) {
   const { setWs, run, config } = useStore();
   const [busy, setBusy] = useState(false);
-  useEffect(() => onBusy?.(busy), [busy]);
+  useEffect(() => { onBusy?.(busy); }, [busy]);
   useEffect(() => () => onBusy?.(false), []);
   const [text, setText] = useState("");
   const file = useRef<HTMLInputElement>(null);
