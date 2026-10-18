@@ -3,7 +3,7 @@ import { Check, Compass, Plus, RotateCcw, Sparkles, Trash2 } from "lucide-react"
 import type { PathPlan, Task, Workspace } from "@shared/types";
 import { api, fmtDate, rid, useStore } from "../lib/store";
 import { go } from "../lib/router";
-import { AiUnavailableNote, Empty, Pip, Spinner } from "../components/common";
+import { AiUnavailableNote, Empty, Remy, Spinner } from "../components/common";
 
 type Tab = "academic" | "career" | "skills";
 
@@ -34,9 +34,9 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
           <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => go(`/path?tab=${k}`)} data-testid={`tab-path-${k}`}>{l}</button>
         ))}
       </div>
-      {busy && <div className="card card-pad row"><Pip size={40} mood="think" /><span className="muted">Building suggestions from your resume and answers…</span></div>}
+      {busy && <div className="card card-pad row"><Remy size={40} mood="think" /><span className="muted">Building suggestions from your resume and answers…</span></div>}
       {!w.plan && !busy ? (
-        <div className="card"><Empty title="No path yet" body="Pip will suggest roles, skills and next steps based on your resume and goals." action={<button className="btn btn-primary" onClick={generate} disabled={!config?.ai.available}>Build my path</button>} /></div>
+        <div className="card"><Empty title="No path yet" body="Remy will suggest roles, skills and next steps based on your resume and goals." action={<button className="btn btn-primary" onClick={generate} disabled={!config?.ai.available}>Build my path</button>} /></div>
       ) : w.plan && !busy ? (
         <>
           <p className="xs muted">Generated {fmtDate(w.plan.generatedAt)} by {w.plan.generatedBy}. Changing your profile won't silently rewrite this — refresh when you're ready.</p>

@@ -22,7 +22,8 @@ Paste this into Muse as its standing instructions for the Offer Ready repo (`Dil
 - Only approved versions can be exported, and `[PERSONALIZE]` markers must block approval.
 - Nothing is sent on the student's behalf: outreach opens in their own mail app, and status updates from emails wait for the student to confirm.
 - Keep honest source labels ("Student provided", "Sample", "Needs verification").
-- Keep the visual identity: plum `#4d2b6c`, warm off-white, Satoshi + Cabinet Grotesk, and the Pip mascot.
+- Keep the visual identity: near-black `#161616` on warm off-white with fox orange `#E86A2A` as the accent (use the tokens in `client/src/index.css`, not raw colours), Plus Jakarta Sans + JetBrains Mono, and Remy the animated fox (`<Remy />` in `client/src/components/common.tsx`).
+- Remy stays open by default with a Minimize button; don't remove either.
 - Keep it working at 375px wide (bottom nav, assistant closed by default on small screens).
 - Keep existing `data-testid` attributes, and add one to each new button or input.
 

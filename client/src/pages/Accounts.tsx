@@ -85,7 +85,7 @@ function Memory() {
   const approved = w.memory.filter((m) => m.status === "approved");
   return (
     <div className="stack">
-      <div className="notice small"><div>Pip uses <strong>approved facts</strong> — not your chat history — when drafting and recommending. The unsupported-claim checker also treats approved facts as evidence, so only approve what's true.</div></div>
+      <div className="notice small"><div>Remy uses <strong>approved facts</strong> — not your chat history — when drafting and recommending. The unsupported-claim checker also treats approved facts as evidence, so only approve what's true.</div></div>
       {suggested.length > 0 && (
         <div className="card card-pad stack-sm">
           <h3>Waiting for your approval · {suggested.length}</h3>
@@ -106,7 +106,7 @@ function Memory() {
             <button className="icon-btn" onClick={() => setEdit(m)} aria-label="Edit"><Pencil size={15} /></button>
             <button className="icon-btn" onClick={() => put(w.memory.filter((x) => x.id !== m.id), "Forgotten")} aria-label="Delete" data-testid="button-delete-memory"><Trash2 size={15} /></button>
           </div>
-        )) : <span className="small muted">Nothing yet. Answers from onboarding, facts you approve from imports, and things you tell Pip to remember appear here.</span>}
+        )) : <span className="small muted">Nothing yet. Answers from onboarding, facts you approve from imports, and things you tell Remy to remember appear here.</span>}
       </div>
       {edit && (
         <Modal title={w.memory.some((x) => x.id === edit.id) ? "Edit fact" : "Add a fact"} onClose={() => setEdit(null)}>
@@ -129,7 +129,7 @@ function Settings() {
         <h3>Theme</h3>
         <div className="seg">{(["light", "dark"] as const).map((t) => <button key={t} aria-pressed={s.theme === t} onClick={() => save("settings", { theme: t })} data-testid={`button-theme-${t}`}>{t === "light" ? "Light" : "Dark"}</button>)}</div>
         <h3>Assistant</h3>
-        <label className="row small"><input type="checkbox" checked={s.assistantOpen} onChange={() => save("settings", { assistantOpen: !s.assistantOpen })} /> Open Pip by default (it stays hidden on Accounts)</label>
+        <label className="row small"><input type="checkbox" checked={s.assistantOpen} onChange={() => save("settings", { assistantOpen: !s.assistantOpen })} /> Keep Remy open (you can always minimize him from his panel)</label>
       </div>
       <div className="card card-pad stack">
         <h3>Reminders</h3>

@@ -1,12 +1,14 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Upload } from "lucide-react";
 import type { Workspace } from "@shared/types";
 import { api, useStore } from "../lib/store";
 import { Spinner } from "./common";
 
-export function ResumeUpload({ compact = false, onDone }: { compact?: boolean; onDone?: () => void }) {
+export function ResumeUpload({ compact = false, onDone, onBusy }: { compact?: boolean; onDone?: () => void; onBusy?: (busy: boolean) => void }) {
   const { setWs, run, config } = useStore();
   const [busy, setBusy] = useState<"" | "file" | "text" | "sample">("");
+  useEffect(() => onBusy?.(!!busy), [busy]);
+  useEffect(() => () => onBusy?.(false), []); // the panel can close before busy resets
   const [drag, setDrag] = useState(false);
   const [paste, setPaste] = useState(false);
   const [text, setText] = useState("");
@@ -67,9 +69,11 @@ export function ResumeUpload({ compact = false, onDone }: { compact?: boolean; o
   );
 }
 
-export function ProfileImport({ kind, hint, onDone }: { kind: string; hint: string; onDone?: (added: number) => void }) {
+export function ProfileImport({ kind, hint, onDone, onBusy }: { kind: string; hint: string; onDone?: (added: number) => void; onBusy?: (busy: boolean) => void }) {
   const { setWs, run, config } = useStore();
   const [busy, setBusy] = useState(false);
+  useEffect(() => onBusy?.(busy), [busy]);
+  useEffect(() => () => onBusy?.(false), []);
   const [text, setText] = useState("");
   const file = useRef<HTMLInputElement>(null);
   const send = async (f?: File | null) => {

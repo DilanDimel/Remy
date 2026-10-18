@@ -7,7 +7,7 @@ import type { Application, BulletChange, ClaimFlag, Job, ResumeDoc, Workspace } 
 import { api, download, fmtDate, rid, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { useJobs } from "../lib/jobs";
-import { AiUnavailableNote, Empty, Pip, Spinner, StatusChip } from "../components/common";
+import { AiUnavailableNote, Empty, Remy, Spinner, StatusChip } from "../components/common";
 import { ResumeUpload } from "../components/Uploaders";
 
 type Tab = "base" | "tailor" | "library";
@@ -49,7 +49,7 @@ function BaseResume() {
   if (!w.resume || !doc)
     return (
       <div className="card card-pad stack">
-        <div className="row" style={{ flexWrap: "nowrap", gap: 14 }}><Pip size={46} /><div><h2>Start with the resume you already have</h2><p className="small muted">Offer Ready reads it, then you confirm every line. Nothing is invented.</p></div></div>
+        <div className="row" style={{ flexWrap: "nowrap", gap: 14 }}><Remy size={46} /><div><h2>Start with the resume you already have</h2><p className="small muted">Offer Ready reads it, then you confirm every line. Nothing is invented.</p></div></div>
         <ResumeUpload />
       </div>
     );
@@ -249,7 +249,7 @@ function AppEditor({ a, job }: { a: Application; job: Job }) {
         {a.generatedAt && <p className="xs muted" style={{ marginTop: 10 }}>Draft generated {fmtDate(a.generatedAt)} by {a.generatedBy} · {a.versions.length ? `approved v${a.versions.length} on ${fmtDate(a.versions[a.versions.length - 1].at)}` : "not yet approved"}</p>}
       </div>
 
-      {busy === "gen" && <div className="card card-pad stack"><div className="row"><Pip size={40} mood="think" /><span className="muted">Pip is matching your experience to {job.company}'s requirements. This usually takes about a minute.</span></div>{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 70 }} />)}</div>}
+      {busy === "gen" && <div className="card card-pad stack"><div className="row"><Remy size={40} mood="think" /><span className="muted">Remy is matching your experience to {job.company}'s requirements. This usually takes about a minute.</span></div>{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 70 }} />)}</div>}
 
       {a.generatedAt && busy !== "gen" && (
         <>
@@ -281,7 +281,7 @@ function AppEditor({ a, job }: { a: Application; job: Job }) {
         </>
       )}
       {!a.generatedAt && busy !== "gen" && (
-        <div className="card"><Empty title="No tailored draft yet" body={w.resume ? `Pip will propose a few material changes for ${job.company}, write a cover letter draft, and check everything against your resume.` : "Upload your base resume first."} /></div>
+        <div className="card"><Empty title="No tailored draft yet" body={w.resume ? `Remy will propose a few material changes for ${job.company}, write a cover letter draft, and check everything against your resume.` : "Upload your base resume first."} /></div>
       )}
     </div>
   );
