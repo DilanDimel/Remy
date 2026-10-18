@@ -5,17 +5,40 @@ import { Spinner } from "./common";
 
 const tone = (pct: number) => (pct >= 80 ? "var(--sage)" : pct >= 60 ? "var(--amber)" : "var(--error)");
 
+const grade = (n: number) => (n >= 85 ? "Strong" : n >= 70 ? "Good" : n >= 55 ? "Fair" : "Needs work");
+
 function Ring({ score, label }: { score: number; label: string }) {
-  const r = 34;
+  const r = 38;
   const c = 2 * Math.PI * r;
   return (
     <div className="ats-ring" aria-label={`${label}: ${score} out of 100`}>
-      <svg width="88" height="88" viewBox="0 0 88 88" aria-hidden>
-        <circle cx="44" cy="44" r={r} fill="none" stroke="var(--line)" strokeWidth="8" />
-        <circle cx="44" cy="44" r={r} fill="none" stroke={tone(score)} strokeWidth="8" strokeLinecap="round" strokeDasharray={`${(c * score) / 100} ${c}`} transform="rotate(-90 44 44)" />
-      </svg>
-      <div><strong>{score}</strong><span>/100</span></div>
+      <div className="ats-ring-dial">
+        <svg width="96" height="96" viewBox="0 0 96 96" aria-hidden>
+          <circle cx="48" cy="48" r={r} fill="none" stroke="var(--line)" strokeWidth="8" />
+          <circle cx="48" cy="48" r={r} fill="none" stroke={tone(score)} strokeWidth="8" strokeLinecap="round" strokeDasharray={`${(c * score) / 100} ${c}`} transform="rotate(-90 48 48)" />
+        </svg>
+        <div className="ats-ring-num"><strong>{score}</strong><span>{grade(score)}</span></div>
+      </div>
       <small>{label}</small>
+    </div>
+  );
+}
+
+function Fix({ f }: { f: AtsScore["fixes"][number] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="ats-fix">
+      <span className="ats-gain">+{f.gain}</span>
+      <div className="stack-sm" style={{ gap: 4, minWidth: 0 }}>
+        <span className="xs muted">{f.category}</span>
+        <div className="small">{f.text}</div>
+        {!!f.examples?.length && (
+          <>
+            <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start", padding: 0, minHeight: 0 }} onClick={() => setOpen((o) => !o)}>{open ? "Hide" : "Show which"}</button>
+            {open && <ul className="ats-examples">{f.examples.map((x, i) => <li key={i}>{x}</li>)}</ul>}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -55,15 +78,13 @@ export function AtsCard({ appId, refreshKey }: { appId?: string; refreshKey?: st
       {main.fixes.length > 0 && (
         <div className="stack-sm">
           <span className="eyebrow">What to improve first</span>
-          {main.fixes.slice(0, 5).map((f, i) => (
-            <div key={i} className="ats-fix"><span className="ats-gain">+{f.gain}</span><div><span className="xs muted">{f.category}</span><div className="small">{f.text}</div></div></div>
-          ))}
+          {main.fixes.slice(0, 5).map((f, i) => <Fix key={i} f={f} />)}
         </div>
       )}
       {(main.keywords.matched.length > 0 || main.keywords.missing.length > 0) && (
-        <div className="row" style={{ gap: 6 }}>
-          {main.keywords.matched.map((k) => <span key={k} className="chip chip-live">✓ {k}</span>)}
-          {main.keywords.missing.map((k) => <span key={k} className="chip chip-bad">✕ {k}</span>)}
+        <div className="grid-2">
+          <div className="stack-sm"><span className="eyebrow">Skills you show</span><div className="row" style={{ gap: 6 }}>{main.keywords.matched.length ? main.keywords.matched.map((k) => <span key={k} className="chip chip-live">✓ {k}</span>) : <span className="xs muted">None yet</span>}</div></div>
+          <div className="stack-sm"><span className="eyebrow">Worth adding, if true</span><div className="row" style={{ gap: 6 }}>{main.keywords.missing.length ? main.keywords.missing.map((k) => <span key={k} className="chip chip-plain">+ {k}</span>) : <span className="xs muted">You cover them all</span>}</div></div>
         </div>
       )}
     </div>

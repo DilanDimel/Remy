@@ -278,12 +278,17 @@ p, li { max-width: 72ch; }
 .resume-paper ul { margin: 2px 0 4px 18px; padding: 0; }
 .resume-paper li { max-width: none; }
 .resume-paper .changed { background: #fde4d2; border-radius: 3px; }
-.ats-ring { position: relative; width: 88px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.ats-ring > div { position: absolute; top: 0; height: 88px; display: flex; align-items: baseline; justify-content: center; padding-top: 30px; }
-.ats-ring strong { font-size: 24px; font-weight: 800; }
-.ats-ring span { font-size: 11px; color: var(--muted-text); }
+.ats-ring { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: none; }
+.ats-ring-dial { position: relative; width: 96px; height: 96px; }
+.ats-ring-num { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+.ats-ring-num strong { font-size: 28px; font-weight: 800; }
+.ats-ring-num span { font-size: 10.5px; font-weight: 700; color: var(--muted-text); margin-top: 3px; }
 .ats-ring small { font-size: 11px; color: var(--muted-text); font-weight: 700; }
-.ats-cats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.ats-examples { margin: 0; padding-left: 18px; font-size: var(--text-xs); color: var(--muted-text); display: flex; flex-direction: column; gap: 3px; }
+.ats-examples li { max-width: none; }
+.ats-cats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px 16px; }
+.ats-cat .row-between { flex-wrap: nowrap; }
+.ats-cat .row-between span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ats-bar { height: 7px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; margin-top: 5px; }
 .ats-bar i { display: block; height: 100%; border-radius: 99px; }
 .ats-fix { display: flex; gap: 10px; align-items: flex-start; }

@@ -168,7 +168,7 @@ export interface AppVersion {
 export interface AtsScore {
   score: number; // out of 100
   categories: { name: string; max: number; score: number; items: { ok: boolean; earned: number; max: number; text: string }[] }[];
-  fixes: { category: string; text: string; gain: number }[];
+  fixes: { category: string; text: string; gain: number; examples?: string[] }[];
   keywords: { matched: string[]; missing: string[] };
   against: string;
   at: string;
