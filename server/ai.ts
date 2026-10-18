@@ -158,6 +158,8 @@ export async function aiText(system: string, user: string, maxTokens = 1200): Pr
         } catch (e: any) {
           lastErr = e;
           const st = Number(e?.status) || 0;
+          // Which provider/model failed and why, so quota or key problems show up in the host's logs.
+          console.warn(`AI ${p}:${m} failed — HTTP ${st || "?"}: ${String(e?.message || e).replace(/\s+/g, " ").slice(0, 220)}`);
           if (st === 400 && !ch0.length) throw e;
           if (st === 401 || st === 403 || st === 400) { exhausted.set(p + ":*", Date.now() + 10 * 60_000); break; }
           if (st === 402) { exhausted.set(p + ":*", Date.now() + 10 * 60_000); break; } // out of credits → next provider
