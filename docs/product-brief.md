@@ -1,4 +1,4 @@
-# Offer Ready: Replit MVP Build Brief
+# Remy: Replit MVP Build Brief
 
 This is the product and design contract for a working competition MVP, not a request to build an entire university ecosystem at production scale. The full 155-item inventory appended to the final brief preserves the source ideas, explanations, and status labels without deletion.
 
@@ -269,935 +269,935 @@ The annex retains exact titles, notes, source statuses, hierarchy, and IDs for a
 
 ## Lossless mind-map inventory: all 155 items
 
-**Original center node:** Offer Ready. A connected, proactive TCU student-to-career companion. Product concept, not an implemented integration.
+**Original center node:** Remy. A connected, proactive TCU student-to-career companion. Product concept, not an implemented integration.
 
 ### n1: Understand the student
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student
+- **Hierarchy:** Remy / Understand the student
 - **Full original note:** Connect context, ask better questions, and keep the student in control.
 
 ### n2: People & pain points
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / People & pain points
+- **Hierarchy:** Remy / Understand the student / People & pain points
 - **Full original note:** Who the concept serves and the problems the team described.
 
 ### n3: Current TCU students
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / People & pain points / Current TCU students
+- **Hierarchy:** Remy / Understand the student / People & pain points / Current TCU students
 - **Full original note:** Students across years and majors; a freshman finance major is the recurring example. The initial pilot audience is still open.
 
 ### n4: Unclear career direction
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / People & pain points / Unclear career direction
+- **Hierarchy:** Remy / Understand the student / People & pain points / Unclear career direction
 - **Full original note:** Students may not know what jobs involve, what interests them, or how their current activities relate to future roles.
 
 ### n5: Fragmented information
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / People & pain points / Fragmented information
+- **Hierarchy:** Remy / Understand the student / People & pain points / Fragmented information
 - **Full original note:** Academic plans, career advice, job listings, campus opportunities, calendars, and application materials live in different places.
 
 ### n6: Missing or unsuitable openings
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / People & pain points / Missing or unsuitable openings
+- **Hierarchy:** Remy / Understand the student / People & pain points / Missing or unsuitable openings
 - **Full original note:** The user reports seeing about three Textron internships on Handshake but more on the employer website, and difficulty finding quant roles. These are student observations, not a verified market-wide comparison.
 
 ### n7: Eligibility mismatches
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / People & pain points / Eligibility mismatches
+- **Hierarchy:** Remy / Understand the student / People & pain points / Eligibility mismatches
 - **Full original note:** Students want to avoid spending time on roles they cannot take because of stated requirements, year, location, or authorization.
 
 ### n8: Generic communication
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / People & pain points / Generic communication
+- **Hierarchy:** Remy / Understand the student / People & pain points / Generic communication
 - **Full original note:** The team finds many existing recommendation emails irrelevant and wants a more useful, individualized experience.
 
 ### n9: Application strain
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / People & pain points / Application strain
+- **Hierarchy:** Remy / Understand the student / People & pain points / Application strain
 - **Full original note:** Repeated research and tailoring take time; the discussion links this burden to application burnout.
 
 ### n10: Authenticity gap
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / People & pain points / Authenticity gap
+- **Hierarchy:** Remy / Understand the student / People & pain points / Authenticity gap
 - **Full original note:** Students may write what they think employers want instead of communicating their actual experience honestly.
 
 ### n11: Connected accounts
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / Connected accounts
+- **Hierarchy:** Remy / Understand the student / Connected accounts
 - **Full original note:** Proposed authorized connections. No live API access or institutional agreement has been verified.
 
 ### n12: TCU school profile
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / Connected accounts / TCU school profile
+- **Hierarchy:** Remy / Understand the student / Connected accounts / TCU school profile
 - **Full original note:** Prefill major, year, academic context, and other approved student information rather than asking students to re-enter everything.
 
 ### n13: Stellic & academic planning
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / Connected accounts / Stellic & academic planning
+- **Hierarchy:** Remy / Understand the student / Connected accounts / Stellic & academic planning
 - **Full original note:** Use permitted degree progress, completed/planned courses, and relevant advising information where the connected system actually provides it. Do not assume Stellic owns all appointment records.
 
 ### n14: Advising appointment records
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / Connected accounts / Advising appointment records
+- **Hierarchy:** Remy / Understand the student / Connected accounts / Advising appointment records
 - **Full original note:** Connect the appropriate authorized school appointment system so the assistant can identify recorded past or upcoming meetings.
 
 ### n15: Outlook calendar
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / Connected accounts / Outlook calendar
+- **Hierarchy:** Remy / Understand the student / Connected accounts / Outlook calendar
 - **Full original note:** Use authorized class/calendar information to suggest suitable times and coordinate approved appointments and invites.
 
 ### n16: LinkedIn & Handshake
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / Connected accounts / LinkedIn & Handshake
+- **Hierarchy:** Remy / Understand the student / Connected accounts / LinkedIn & Handshake
 - **Full original note:** Proposed profile connections for career context. Public-job discovery and private-account access are separate; availability and permissions remain unverified.
 
 ### n17: GitHub & other profiles
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / Connected accounts / GitHub & other profiles
+- **Hierarchy:** Remy / Understand the student / Connected accounts / GitHub & other profiles
 - **Full original note:** Use student-approved projects and portfolio information where relevant to the goal.
 
 ### n18: Connection health & fallback
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Understand the student / Connected accounts / Connection health & fallback
+- **Hierarchy:** Remy / Understand the student / Connected accounts / Connection health & fallback
 - **Full original note:** Show what is connected, when it was synced, and what could not be read. Offer uploads or manual correction if a connection is unavailable.
 
 ### n19: Access is not completeness
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Understand the student / Connected accounts / Access is not completeness
+- **Hierarchy:** Remy / Understand the student / Connected accounts / Access is not completeness
 - **Full original note:** Connections reduce uncertainty, but a failed sync or unrecorded meeting is not proof an event never happened. Ask when coverage is incomplete.
 
 ### n20: Contextual onboarding
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / Contextual onboarding
+- **Hierarchy:** Remy / Understand the student / Contextual onboarding
 - **Full original note:** Start from available information, then ask questions that genuinely clarify the student.
 
 ### n21: Import before interviewing
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / Contextual onboarding / Import before interviewing
+- **Hierarchy:** Remy / Understand the student / Contextual onboarding / Import before interviewing
 - **Full original note:** Connect approved apps, extract available information, then ask personalized follow-up questions.
 
 ### n22: Clarify the person
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / Contextual onboarding / Clarify the person
+- **Hierarchy:** Remy / Understand the student / Contextual onboarding / Clarify the person
 - **Full original note:** Explore interests, aspirations, concerns, preferred work, and what the student enjoyed or disliked about past experiences.
 
 ### n23: Confirm personal contribution
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Understand the student / Contextual onboarding / Confirm personal contribution
+- **Hierarchy:** Remy / Understand the student / Contextual onboarding / Confirm personal contribution
 - **Full original note:** Clarify what the student actually did in projects, clubs, volunteering, and work before turning it into application claims.
 
 ### n24: Editable profile & goals
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / Contextual onboarding / Editable profile & goals
+- **Hierarchy:** Remy / Understand the student / Contextual onboarding / Editable profile & goals
 - **Full original note:** Keep current goals, constraints, and confirmed experience on the profile; let the student correct them.
 
 ### n25: No assumed answers
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Understand the student / Contextual onboarding / No assumed answers
+- **Hierarchy:** Remy / Understand the student / Contextual onboarding / No assumed answers
 - **Full original note:** Distinguish imported records, student-confirmed facts, AI interpretations, and missing information.
 
 ### n26: Preferences & boundaries
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / Preferences & boundaries
+- **Hierarchy:** Remy / Understand the student / Preferences & boundaries
 - **Full original note:** Make personalization explicit instead of opaque.
 
 ### n27: Year, major & experience
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / Preferences & boundaries / Year, major & experience
+- **Hierarchy:** Remy / Understand the student / Preferences & boundaries / Year, major & experience
 - **Full original note:** Adapt guidance for freshmen, sophomores, juniors, seniors, majors, and experience level.
 
 ### n28: Hard constraints vs preferences
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Understand the student / Preferences & boundaries / Hard constraints vs preferences
+- **Hierarchy:** Remy / Understand the student / Preferences & boundaries / Hard constraints vs preferences
 - **Full original note:** Separate cannot-relocate or explicit role requirements from preferences such as remote work, industry, or commute.
 
 ### n29: Weighting & customization
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Understand the student / Preferences & boundaries / Weighting & customization
+- **Hierarchy:** Remy / Understand the student / Preferences & boundaries / Weighting & customization
 - **Full original note:** Let students influence ranking and see why recommendations change; the board calls for strong filtering and weighting.
 
 ### n30: Nationality wording
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Understand the student / Preferences & boundaries / Nationality wording
+- **Hierarchy:** Remy / Understand the student / Preferences & boundaries / Nationality wording
 - **Full original note:** The board mentions nationality. Recommended refinement: ask relevant optional work-authorization or sponsorship questions, not nationality-based judgments.
 
 ### n31: Unknown eligibility
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Understand the student / Preferences & boundaries / Unknown eligibility
+- **Hierarchy:** Remy / Understand the student / Preferences & boundaries / Unknown eligibility
 - **Full original note:** Do not mark unclear requirements as confirmed eligibility or ineligibility; present the uncertainty and an official clarification route.
 
 ### n32: Plan a personal path
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Plan a personal path
+- **Hierarchy:** Remy / Plan a personal path
 - **Full original note:** Connect academic choices, campus activity, skill-building, and career exploration.
 
 ### n33: Career exploration
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Plan a personal path / Career exploration
+- **Hierarchy:** Remy / Plan a personal path / Career exploration
 - **Full original note:** Help students investigate possibilities without declaring a fixed life path.
 
 ### n34: Questions before conclusions
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Plan a personal path / Career exploration / Questions before conclusions
+- **Hierarchy:** Remy / Plan a personal path / Career exploration / Questions before conclusions
 - **Full original note:** Use a series of questions to explore the student’s interests and possible directions.
 
 ### n35: Explain roles plainly
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Plan a personal path / Career exploration / Explain roles plainly
+- **Hierarchy:** Remy / Plan a personal path / Career exploration / Explain roles plainly
 - **Full original note:** Show future job titles, what people do day to day, relevant industries, positions, possible paths, and source-supported pay information where available.
 
 ### n36: Optional exploration tasks
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Plan a personal path / Career exploration / Optional exploration tasks
+- **Hierarchy:** Remy / Plan a personal path / Career exploration / Optional exploration tasks
 - **Full original note:** Suggest activities or small experiments students can try before committing to a direction.
 
 ### n37: Forecasting & uncertainty
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Plan a personal path / Career exploration / Forecasting & uncertainty
+- **Hierarchy:** Remy / Plan a personal path / Career exploration / Forecasting & uncertainty
 - **Full original note:** Some forecasting was proposed. Label scenarios as exploratory rather than guarantees about future jobs, pay, or the student’s life.
 
 ### n38: Human skills & curiosity
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Plan a personal path / Career exploration / Human skills & curiosity
+- **Hierarchy:** Remy / Plan a personal path / Career exploration / Human skills & curiosity
 - **Full original note:** Emphasize authentic experience, human judgment, curiosity, and willingness to test tools.
 
 ### n39: JobsGPT inspiration
 
 - **Original status:** Team idea
-- **Hierarchy:** Offer Ready / Plan a personal path / Career exploration / JobsGPT inspiration
+- **Hierarchy:** Remy / Plan a personal path / Career exploration / JobsGPT inspiration
 - **Full original note:** Mentor reference: break careers into tasks and explore how AI may affect work; use this to discuss skills and future possibilities, not to guarantee outcomes.
 
 ### n40: Academic roadmap
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Plan a personal path / Academic roadmap
+- **Hierarchy:** Remy / Plan a personal path / Academic roadmap
 - **Full original note:** The team’s broader vision includes semester-level academic planning.
 
 ### n41: Semester-by-semester classes
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Plan a personal path / Academic roadmap / Semester-by-semester classes
+- **Hierarchy:** Remy / Plan a personal path / Academic roadmap / Semester-by-semester classes
 - **Full original note:** For example, show a finance major which courses fit each semester, using appropriate requirements and available information.
 
 ### n42: What each class teaches
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Plan a personal path / Academic roadmap / What each class teaches
+- **Hierarchy:** Remy / Plan a personal path / Academic roadmap / What each class teaches
 - **Full original note:** Explain course learning and how it could relate to skills, projects, and careers.
 
 ### n43: Progress & dependencies
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Plan a personal path / Academic roadmap / Progress & dependencies
+- **Hierarchy:** Remy / Plan a personal path / Academic roadmap / Progress & dependencies
 - **Full original note:** Use completed/planned courses and check prerequisites, sequencing, requirements, and known offering information.
 
 ### n44: Requirements vs suggestions
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Plan a personal path / Academic roadmap / Requirements vs suggestions
+- **Hierarchy:** Remy / Plan a personal path / Academic roadmap / Requirements vs suggestions
 - **Full original note:** Separate official graduation rules from elective or career recommendations; use current authoritative sources and catalog context.
 
 ### n45: Academic advisor review
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Plan a personal path / Academic roadmap / Academic advisor review
+- **Hierarchy:** Remy / Plan a personal path / Academic roadmap / Academic advisor review
 - **Full original note:** Refer exceptions, substitutions, uncertain requirements, and official decisions to the appropriate advisor. Do not claim graduation clearance.
 
 ### n46: Prototype vs full vision
 
 - **Original status:** Open decision
-- **Hierarchy:** Offer Ready / Plan a personal path / Academic roadmap / Prototype vs full vision
-- **Full original note:** Decide how much academic planning belongs in the Offer Ready demonstration versus a later phase; it overlaps the separate advising case.
+- **Hierarchy:** Remy / Plan a personal path / Academic roadmap / Prototype vs full vision
+- **Full original note:** Decide how much academic planning belongs in the Remy demonstration versus a later phase; it overlaps the separate advising case.
 
 ### n47: Campus & skill opportunities
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Plan a personal path / Campus & skill opportunities
+- **Hierarchy:** Remy / Plan a personal path / Campus & skill opportunities
 - **Full original note:** Make better use of the student’s time at TCU.
 
 ### n48: Relevant clubs
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Plan a personal path / Campus & skill opportunities / Relevant clubs
+- **Hierarchy:** Remy / Plan a personal path / Campus & skill opportunities / Relevant clubs
 - **Full original note:** Recommend campus organizations related to interests and career goals, including meaningful activities to try as a freshman.
 
 ### n49: Certifications
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Plan a personal path / Campus & skill opportunities / Certifications
+- **Hierarchy:** Remy / Plan a personal path / Campus & skill opportunities / Certifications
 - **Full original note:** Suggest relevant certifications with a reason, effort/cost where known, and no assumption that every credential is worthwhile.
 
 ### n50: Projects & portfolio
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Plan a personal path / Campus & skill opportunities / Projects & portfolio
+- **Hierarchy:** Remy / Plan a personal path / Campus & skill opportunities / Projects & portfolio
 - **Full original note:** Recommend practical experiences that build genuine evidence for a skill gap; never label an unfinished project as completed experience.
 
 ### n51: Career fairs & networking
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Plan a personal path / Campus & skill opportunities / Career fairs & networking
+- **Hierarchy:** Remy / Plan a personal path / Campus & skill opportunities / Career fairs & networking
 - **Full original note:** The discussion proposes a dedicated calendar for fairs and networking events, with preparation time.
 
 ### n52: Actionable details
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Plan a personal path / Campus & skill opportunities / Actionable details
+- **Hierarchy:** Remy / Plan a personal path / Campus & skill opportunities / Actionable details
 - **Full original note:** Explain what the opportunity offers, the next step, and whether information is current.
 
 ### n53: Community connections
 
 - **Original status:** Team idea
-- **Hierarchy:** Offer Ready / Plan a personal path / Campus & skill opportunities / Community connections
+- **Hierarchy:** Remy / Plan a personal path / Campus & skill opportunities / Community connections
 - **Full original note:** The board proposes community finding/connections. Exact function and whether this is a directory, peer support, or networking remain open.
 
 ### n54: Goals & adaptive milestones
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Plan a personal path / Goals & adaptive milestones
+- **Hierarchy:** Remy / Plan a personal path / Goals & adaptive milestones
 - **Full original note:** Translate possibilities into actions the student can understand.
 
 ### n55: Profile-based goals
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Plan a personal path / Goals & adaptive milestones / Profile-based goals
+- **Hierarchy:** Remy / Plan a personal path / Goals & adaptive milestones / Profile-based goals
 - **Full original note:** Show personal goals and next steps such as a career-advising conversation.
 
 ### n56: Near and long-term steps
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Plan a personal path / Goals & adaptive milestones / Near and long-term steps
+- **Hierarchy:** Remy / Plan a personal path / Goals & adaptive milestones / Near and long-term steps
 - **Full original note:** The discussion proposes month-by-month or year-by-year milestones connected to a larger roadmap.
 
 ### n57: Dynamic focus system
 
 - **Original status:** Open decision
-- **Hierarchy:** Offer Ready / Plan a personal path / Goals & adaptive milestones / Dynamic focus system
+- **Hierarchy:** Remy / Plan a personal path / Goals & adaptive milestones / Dynamic focus system
 - **Full original note:** A dynamic focus system is written on the board; exact behavior still needs definition.
 
 ### n58: Revisit the path
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Plan a personal path / Goals & adaptive milestones / Revisit the path
+- **Hierarchy:** Remy / Plan a personal path / Goals & adaptive milestones / Revisit the path
 - **Full original note:** Adjust as classes, interests, constraints, advisor input, and experiences change.
 
 ### n59: Student ownership
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Plan a personal path / Goals & adaptive milestones / Student ownership
+- **Hierarchy:** Remy / Plan a personal path / Goals & adaptive milestones / Student ownership
 - **Full original note:** Recommended: distinguish optional suggestions from student-approved commitments; allow changes without framing exploration as failure.
 
 ### n60: Find & pursue opportunities
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Find & pursue opportunities
+- **Hierarchy:** Remy / Find & pursue opportunities
 - **Full original note:** Connect real openings to suitable students and complete the required application workflow.
 
 ### n61: Discovery beyond one board
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Discovery beyond one board
+- **Hierarchy:** Remy / Find & pursue opportunities / Discovery beyond one board
 - **Full original note:** Search suitable public sources rather than promise complete coverage.
 
 ### n62: Employer career pages
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Discovery beyond one board / Employer career pages
+- **Hierarchy:** Remy / Find & pursue opportunities / Discovery beyond one board / Employer career pages
 - **Full original note:** Find opportunities directly from companies, addressing the team’s Textron example.
 
 ### n63: Specialized opportunities
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Discovery beyond one board / Specialized opportunities
+- **Hierarchy:** Remy / Find & pursue opportunities / Discovery beyond one board / Specialized opportunities
 - **Full original note:** Support interests such as quantitative finance that the team feels are poorly served by its current search.
 
 ### n64: Jobs, internships & campus work
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Discovery beyond one board / Jobs, internships & campus work
+- **Hierarchy:** Remy / Find & pursue opportunities / Discovery beyond one board / Jobs, internships & campus work
 - **Full original note:** Cover roles, internships, and an identifiable TCU work-study category.
 
 ### n65: Freshness & provenance
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Discovery beyond one board / Freshness & provenance
+- **Hierarchy:** Remy / Find & pursue opportunities / Discovery beyond one board / Freshness & provenance
 - **Full original note:** Store source URLs and check times, deduplicate, and verify availability before calling a role current.
 
 ### n66: Public access boundaries
 
 - **Original status:** Case requirement
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Discovery beyond one board / Public access boundaries
+- **Hierarchy:** Remy / Find & pursue opportunities / Discovery beyond one board / Public access boundaries
 - **Full original note:** The case uses public postings; no unauthorized private Handshake, LinkedIn, or university scraping.
 
 ### n67: Coverage honesty
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Discovery beyond one board / Coverage honesty
+- **Hierarchy:** Remy / Find & pursue opportunities / Discovery beyond one board / Coverage honesty
 - **Full original note:** Say which sources and fields are supported; do not promise every job on the internet.
 
 ### n68: Explainable matching
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Explainable matching
+- **Hierarchy:** Remy / Find & pursue opportunities / Explainable matching
 - **Full original note:** Show what fits, what does not, and what still needs checking.
 
 ### n69: Role & personal priorities
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Explainable matching / Role & personal priorities
+- **Hierarchy:** Remy / Find & pursue opportunities / Explainable matching / Role & personal priorities
 - **Full original note:** Match interests, background, location, timing, compensation preferences, and other student-selected factors.
 
 ### n70: Year & graduation requirements
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Explainable matching / Year & graduation requirements
+- **Hierarchy:** Remy / Find & pursue opportunities / Explainable matching / Year & graduation requirements
 - **Full original note:** Respect clearly stated freshman/sophomore/junior/senior or graduation-window requirements.
 
 ### n71: Authorization & sponsorship
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Explainable matching / Authorization & sponsorship
+- **Hierarchy:** Remy / Find & pursue opportunities / Explainable matching / Authorization & sponsorship
 - **Full original note:** Use the actual posting and student-provided relevant information; distinguish work authorization, sponsorship, and citizenship requirements.
 
 ### n72: Strongest Match
 
 - **Original status:** Case requirement
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Explainable matching / Strongest Match
+- **Hierarchy:** Remy / Find & pursue opportunities / Explainable matching / Strongest Match
 - **Full original note:** For each shortlisted opening, identify the clearest fit between the student’s actual background and the posting.
 
 ### n73: Fit reasons & gaps
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Explainable matching / Fit reasons & gaps
+- **Hierarchy:** Remy / Find & pursue opportunities / Explainable matching / Fit reasons & gaps
 - **Full original note:** Separate required from preferred qualifications and explain important gaps instead of hiding them in a percentage.
 
 ### n74: No hiring guarantees
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Explainable matching / No hiring guarantees
+- **Hierarchy:** Remy / Find & pursue opportunities / Explainable matching / No hiring guarantees
 - **Full original note:** Internal fit scores are not employer ratings or probabilities of interviews/offers.
 
 ### n75: Authentic applications
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Authentic applications
+- **Hierarchy:** Remy / Find & pursue opportunities / Authentic applications
 - **Full original note:** Keep application preparation central to the selected case.
 
 ### n76: Resume/CV personalization
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Authentic applications / Resume/CV personalization
+- **Hierarchy:** Remy / Find & pursue opportunities / Authentic applications / Resume/CV personalization
 - **Full original note:** Tailor real experience to a role; the board includes ATS considerations.
 
 ### n77: Three resume versions
 
 - **Original status:** Case requirement
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Authentic applications / Three resume versions
+- **Hierarchy:** Remy / Find & pursue opportunities / Authentic applications / Three resume versions
 - **Full original note:** Use one sample student and base resume to produce at least three tailored resumes for three real openings.
 
 ### n78: Three cover letters
 
 - **Original status:** Case requirement
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Authentic applications / Three cover letters
+- **Hierarchy:** Remy / Find & pursue opportunities / Authentic applications / Three cover letters
 - **Full original note:** Create a genuinely tailored letter for each of the same three openings and flag student-specific details still needed.
 
 ### n79: Visible change comparison
 
 - **Original status:** Case requirement
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Authentic applications / Visible change comparison
+- **Hierarchy:** Remy / Find & pursue opportunities / Authentic applications / Visible change comparison
 - **Full original note:** Show original and revised wording, linked to the relevant line in each job posting.
 
 ### n80: Unsupported-claim check
 
 - **Original status:** Case requirement
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Authentic applications / Unsupported-claim check
+- **Hierarchy:** Remy / Find & pursue opportunities / Authentic applications / Unsupported-claim check
 - **Full original note:** Flag experience, tools, dates, accomplishments, or qualifications not supported by the resume or student input.
 
 ### n81: Evidence & student voice
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Authentic applications / Evidence & student voice
+- **Hierarchy:** Remy / Find & pursue opportunities / Authentic applications / Evidence & student voice
 - **Full original note:** Recommended: connect important wording to confirmed experience, preserve voice, and let the student approve/reject changes.
 
 ### n82: ATS-readable output
 
 - **Original status:** Case requirement
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Authentic applications / ATS-readable output
+- **Hierarchy:** Remy / Find & pursue opportunities / Authentic applications / ATS-readable output
 - **Full original note:** Use clear headings and standard formatting without problematic tables/graphics; no promise of an ATS pass.
 
 ### n83: Interview defensibility
 
 - **Original status:** Team idea
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Authentic applications / Interview defensibility
+- **Hierarchy:** Remy / Find & pursue opportunities / Authentic applications / Interview defensibility
 - **Full original note:** Optional extension: help the student explain the experiences behind the strongest application claims.
 
 ### n84: Application bots & tracking
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Application bots & tracking
+- **Hierarchy:** Remy / Find & pursue opportunities / Application bots & tracking
 - **Full original note:** Clarify what the automation actually does.
 
 ### n85: “Bots sorting out TCU applications”
 
 - **Original status:** Open decision
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Application bots & tracking / “Bots sorting out TCU applications”
+- **Hierarchy:** Remy / Find & pursue opportunities / Application bots & tracking / “Bots sorting out TCU applications”
 - **Full original note:** User’s phrase retained. Define whether it means research, organization, tailoring, tracking, or something else.
 
 ### n86: Organized status & follow-up
 
 - **Original status:** Team idea
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Application bots & tracking / Organized status & follow-up
+- **Hierarchy:** Remy / Find & pursue opportunities / Application bots & tracking / Organized status & follow-up
 - **Full original note:** A lightweight record of roles, document versions, deadlines, and next actions was discussed as useful.
 
 ### n87: Student approval boundary
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Application bots & tracking / Student approval boundary
+- **Hierarchy:** Remy / Find & pursue opportunities / Application bots & tracking / Student approval boundary
 - **Full original note:** Recommended: preview and approve outbound messages, bookings, calendar invitations, and application submissions.
 
 ### n88: No false submitted status
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Find & pursue opportunities / Application bots & tracking / No false submitted status
+- **Hierarchy:** Remy / Find & pursue opportunities / Application bots & tracking / No false submitted status
 - **Full original note:** Generating documents does not mean an application has been sent.
 
 ### n89: Support, act & learn
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Support, act & learn
+- **Hierarchy:** Remy / Support, act & learn
 - **Full original note:** Proactive human support, connected records, and communication the student controls.
 
 ### n90: Advisors & follow-through
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Support, act & learn / Advisors & follow-through
+- **Hierarchy:** Remy / Support, act & learn / Advisors & follow-through
 - **Full original note:** Support rather than replace career and academic professionals.
 
 ### n91: Contextual advisor referral
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Support, act & learn / Advisors & follow-through / Contextual advisor referral
+- **Hierarchy:** Remy / Support, act & learn / Advisors & follow-through / Contextual advisor referral
 - **Full original note:** Suggest a career-advisor meeting when relevant to the student’s goals or uncertainty.
 
 ### n92: Read recorded meetings
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Support, act & learn / Advisors & follow-through / Read recorded meetings
+- **Hierarchy:** Remy / Support, act & learn / Advisors & follow-through / Read recorded meetings
 - **Full original note:** Use authorized school appointment records and calendars to reduce repeated questions about past/upcoming meetings.
 
 ### n93: Schedule-aware offer
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Support, act & learn / Advisors & follow-through / Schedule-aware offer
+- **Hierarchy:** Remy / Support, act & learn / Advisors & follow-through / Schedule-aware offer
 - **Full original note:** “Would you like me to help book a meeting around your class schedule?”
 
 ### n94: Booking & calendar invite
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Support, act & learn / Advisors & follow-through / Booking & calendar invite
+- **Hierarchy:** Remy / Support, act & learn / Advisors & follow-through / Booking & calendar invite
 - **Full original note:** Proposed assistance with appointment selection and calendar invitations; access, availability, and approval remain implementation dependencies.
 
 ### n95: Meeting log into action
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Support, act & learn / Advisors & follow-through / Meeting log into action
+- **Hierarchy:** Remy / Support, act & learn / Advisors & follow-through / Meeting log into action
 - **Full original note:** Use a permitted meeting log or student-approved summary to update goals and support decisions and optional tasks.
 
 ### n96: Summary verification
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Support, act & learn / Advisors & follow-through / Summary verification
+- **Hierarchy:** Remy / Support, act & learn / Advisors & follow-through / Summary verification
 - **Full original note:** Recommended: confirm the summary with the student before treating interpreted advice as a commitment. Do not assume permission to record.
 
 ### n97: Notification choices
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Support, act & learn / Notification choices
+- **Hierarchy:** Remy / Support, act & learn / Notification choices
 - **Full original note:** Latest user clarification: ask at account creation and explain the full proposed set.
 
 ### n98: Choose at onboarding
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Support, act & learn / Notification choices / Choose at onboarding
+- **Hierarchy:** Remy / Support, act & learn / Notification choices / Choose at onboarding
 - **Full original note:** AI asks what notifications the student wants when the account is created.
 
 ### n99: Transparent defaults
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Support, act & learn / Notification choices / Transparent defaults
+- **Hierarchy:** Remy / Support, act & learn / Notification choices / Transparent defaults
 - **Full original note:** Show all notification types the assistant proposes to send unless disabled; do not conceal categories behind vague personalization.
 
 ### n100: Turn off or adjust
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Support, act & learn / Notification choices / Turn off or adjust
+- **Hierarchy:** Remy / Support, act & learn / Notification choices / Turn off or adjust
 - **Full original note:** Student can disable unwanted categories at setup or later.
 
 ### n101: Tailored emails
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Support, act & learn / Notification choices / Tailored emails
+- **Hierarchy:** Remy / Support, act & learn / Notification choices / Tailored emails
 - **Full original note:** Messages should reflect that student’s relevant goals and situation, not generic or irrelevant job-email volume.
 
 ### n102: Calendar & deadline reminders
 
 - **Original status:** Open decision
-- **Hierarchy:** Offer Ready / Support, act & learn / Notification choices / Calendar & deadline reminders
+- **Hierarchy:** Remy / Support, act & learn / Notification choices / Calendar & deadline reminders
 - **Full original note:** Potential categories include advisor meetings, roadmap tasks, applications, and campus events; the exact default list is not yet agreed.
 
 ### n103: Advance event notice
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Support, act & learn / Notification choices / Advance event notice
+- **Hierarchy:** Remy / Support, act & learn / Notification choices / Advance event notice
 - **Full original note:** The audio proposes weeks of notice for fairs/networking rather than last-minute discovery.
 
 ### n104: Frequency & channel settings
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Support, act & learn / Notification choices / Frequency & channel settings
+- **Hierarchy:** Remy / Support, act & learn / Notification choices / Frequency & channel settings
 - **Full original note:** Recommended extension: let students choose digest frequency, email/push/calendar channels, and quiet periods.
 
 ### n105: Personal feedback loop
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Support, act & learn / Personal feedback loop
+- **Hierarchy:** Remy / Support, act & learn / Personal feedback loop
 - **Full original note:** Use corrections and progress to improve this student’s guidance.
 
 ### n106: Store preferences & corrections
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Support, act & learn / Personal feedback loop / Store preferences & corrections
+- **Hierarchy:** Remy / Support, act & learn / Personal feedback loop / Store preferences & corrections
 - **Full original note:** Remember why the student rejected a job, changed a goal, or corrected an application claim.
 
 ### n107: Learn from activity carefully
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Support, act & learn / Personal feedback loop / Learn from activity carefully
+- **Hierarchy:** Remy / Support, act & learn / Personal feedback loop / Learn from activity carefully
 - **Full original note:** Use completed tasks and confirmed advisor input to adjust next steps; do not assume clicks reveal a settled career goal.
 
 ### n108: Qualitative feedback
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Support, act & learn / Personal feedback loop / Qualitative feedback
+- **Hierarchy:** Remy / Support, act & learn / Personal feedback loop / Qualitative feedback
 - **Full original note:** The board calls for qualitative feedback and continued testing with students.
 
 ### n109: Not deterministic life advice
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Support, act & learn / Personal feedback loop / Not deterministic life advice
+- **Hierarchy:** Remy / Support, act & learn / Personal feedback loop / Not deterministic life advice
 - **Full original note:** Present options, trade-offs, and uncertainty while keeping student and advisor judgment involved.
 
 ### n110: Efficient research reuse
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Support, act & learn / Efficient research reuse
+- **Hierarchy:** Remy / Support, act & learn / Efficient research reuse
 - **Full original note:** Preserve the board’s “inner feedback loop” idea without mixing private identities.
 
 ### n111: Store past public pulls
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Support, act & learn / Efficient research reuse / Store past public pulls
+- **Hierarchy:** Remy / Support, act & learn / Efficient research reuse / Store past public pulls
 - **Full original note:** Save reusable public research and extractions so similar searches use less repeated work/tokens.
 
 ### n112: Personalized finishing step
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Support, act & learn / Efficient research reuse / Personalized finishing step
+- **Hierarchy:** Remy / Support, act & learn / Efficient research reuse / Personalized finishing step
 - **Full original note:** Adapt current research to the individual student instead of blindly replaying a prior output.
 
 ### n113: Cache vs learning
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Support, act & learn / Efficient research reuse / Cache vs learning
+- **Hierarchy:** Remy / Support, act & learn / Efficient research reuse / Cache vs learning
 - **Full original note:** Public caching saves effort; changing guidance from student feedback is a separate mechanism.
 
 ### n114: Protect private information
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Support, act & learn / Efficient research reuse / Protect private information
+- **Hierarchy:** Remy / Support, act & learn / Efficient research reuse / Protect private information
 - **Full original note:** Keep resumes, personal constraints, advisor notes, and personalized drafts isolated with appropriate permissions.
 
 ### n115: Refresh stale material
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Support, act & learn / Efficient research reuse / Refresh stale material
+- **Hierarchy:** Remy / Support, act & learn / Efficient research reuse / Refresh stale material
 - **Full original note:** Recheck job availability and time-sensitive campus information before recommending it.
 
 ### n116: Purpose, proof & delivery
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery
+- **Hierarchy:** Remy / Purpose, proof & delivery
 - **Full original note:** Keep the full vision, the competition minimum, and unconfirmed ideas distinct.
 
 ### n117: Draft purpose statements
 
 - **Original status:** Draft statement
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Draft purpose statements
+- **Hierarchy:** Remy / Purpose, proof & delivery / Draft purpose statements
 - **Full original note:** Consultant-written statements synthesized from the team’s direction; editable, not assumed approved.
 
 ### n118: Problem statement
 
 - **Original status:** Draft statement
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Draft purpose statements / Problem statement
+- **Hierarchy:** Remy / Purpose, proof & delivery / Draft purpose statements / Problem statement
 - **Full original note:** Students lack a connected, personalized view of how their academic choices, campus experiences, eligibility, and career opportunities fit together, leaving them unsure what to pursue and what to do next.
 
 ### n119: Mission statement
 
 - **Original status:** Draft statement
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Draft purpose statements / Mission statement
+- **Hierarchy:** Remy / Purpose, proof & delivery / Draft purpose statements / Mission statement
 - **Full original note:** Help TCU students turn their individual background, academic journey, and interests into informed career decisions and practical next steps through connected information, authentic AI guidance, and human support.
 
 ### n120: Vision statement
 
 - **Original status:** Draft statement
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Draft purpose statements / Vision statement
+- **Hierarchy:** Remy / Purpose, proof & delivery / Draft purpose statements / Vision statement
 - **Full original note:** Every student can understand their options, make purposeful use of their time at TCU, and adapt their path as their interests and opportunities change.
 
 ### n121: Product goal
 
 - **Original status:** Draft statement
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Draft purpose statements / Product goal
+- **Hierarchy:** Remy / Purpose, proof & delivery / Draft purpose statements / Product goal
 - **Full original note:** Create a student-controlled career companion that connects authorized academic and career information, asks relevant questions, and helps students explore, prepare for, and pursue suitable opportunities.
 
 ### n122: Student promise
 
 - **Original status:** Draft statement
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Draft purpose statements / Student promise
+- **Hierarchy:** Remy / Purpose, proof & delivery / Draft purpose statements / Student promise
 - **Full original note:** Know your options. Understand your next step. Build a path that is yours.
 
 ### n123: Positioning
 
 - **Original status:** Draft statement
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Draft purpose statements / Positioning
+- **Hierarchy:** Remy / Purpose, proof & delivery / Draft purpose statements / Positioning
 - **Full original note:** A connected student-to-career guide, not just another job feed: understand the student, connect preparation to opportunities, and support action and follow-through.
 
 ### n124: Values & intended outcomes
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Values & intended outcomes
+- **Hierarchy:** Remy / Purpose, proof & delivery / Values & intended outcomes
 - **Full original note:** What the experience should stand for.
 
 ### n125: Authenticity
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Values & intended outcomes / Authenticity
+- **Hierarchy:** Remy / Purpose, proof & delivery / Values & intended outcomes / Authenticity
 - **Full original note:** Honest, specific representation of the student’s own experience.
 
 ### n126: Human agency
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Values & intended outcomes / Human agency
+- **Hierarchy:** Remy / Purpose, proof & delivery / Values & intended outcomes / Human agency
 - **Full original note:** Help students decide, question, explore, and act; do not prescribe their life.
 
 ### n127: Curiosity & experimentation
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Values & intended outcomes / Curiosity & experimentation
+- **Hierarchy:** Remy / Purpose, proof & delivery / Values & intended outcomes / Curiosity & experimentation
 - **Full original note:** Encourage learning by trying tools, tasks, and opportunities.
 
 ### n128: Connected clarity
 
 - **Original status:** Draft statement
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Values & intended outcomes / Connected clarity
+- **Hierarchy:** Remy / Purpose, proof & delivery / Values & intended outcomes / Connected clarity
 - **Full original note:** Explain why a course, activity, advisor meeting, or role matters to the student.
 
 ### n129: Privacy & transparency
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Values & intended outcomes / Privacy & transparency
+- **Hierarchy:** Remy / Purpose, proof & delivery / Values & intended outcomes / Privacy & transparency
 - **Full original note:** Explain sources, permissions, uncertainties, and notification behavior.
 
 ### n130: Useful progress
 
 - **Original status:** Draft statement
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Values & intended outcomes / Useful progress
+- **Hierarchy:** Remy / Purpose, proof & delivery / Values & intended outcomes / Useful progress
 - **Full original note:** Proposed north-star measure: students completing a self-approved, relevant career action with enough understanding to explain why it helps. Test application preparation time, unsupported claims, recommendation relevance, and student clarity; do not claim hiring gains without follow-up.
 
 ### n131: Competition deliverables
 
 - **Original status:** Case requirement
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Competition deliverables
-- **Full original note:** The wider vision does not replace the Offer Ready minimum.
+- **Hierarchy:** Remy / Purpose, proof & delivery / Competition deliverables
+- **Full original note:** The wider vision does not replace the Remy minimum.
 
 ### n132: One sample student
 
 - **Original status:** Case requirement
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Competition deliverables / One sample student
+- **Hierarchy:** Remy / Purpose, proof & delivery / Competition deliverables / One sample student
 - **Full original note:** Use a real permitted resume or realistic stand-in profile with a target role/field.
 
 ### n133: Public current shortlist
 
 - **Original status:** Case requirement
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Competition deliverables / Public current shortlist
+- **Hierarchy:** Remy / Purpose, proof & delivery / Competition deliverables / Public current shortlist
 - **Full original note:** Capture title, company, location, 3–5 key qualifications/keywords, and Strongest Match.
 
 ### n134: Three application pairs
 
 - **Original status:** Case requirement
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Competition deliverables / Three application pairs
+- **Hierarchy:** Remy / Purpose, proof & delivery / Competition deliverables / Three application pairs
 - **Full original note:** Three tailored resumes plus three matching cover letters, with posting-linked before/after comparisons.
 
 ### n135: Honesty & ATS checks
 
 - **Original status:** Case requirement
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Competition deliverables / Honesty & ATS checks
+- **Hierarchy:** Remy / Purpose, proof & delivery / Competition deliverables / Honesty & ATS checks
 - **Full original note:** Flag unsupported claims, preserve truthful qualifications, and provide standard ATS-readable formats.
 
 ### n136: Reusable AI build
 
 - **Original status:** Case requirement
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Competition deliverables / Reusable AI build
+- **Hierarchy:** Remy / Purpose, proof & delivery / Competition deliverables / Reusable AI build
 - **Full original note:** Prompt template, skill, custom assistant, no-code workflow, or another reusable build. A one-off conversation does not count.
 
 ### n137: AI log & observed error
 
 - **Original status:** Case requirement
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Competition deliverables / AI log & observed error
+- **Hierarchy:** Remy / Purpose, proof & delivery / Competition deliverables / AI log & observed error
 - **Full original note:** Document tools, workflow, and an actual confidently wrong AI output caught and corrected by the team.
 
 ### n138: Pitch deck & appendix
 
 - **Original status:** Case requirement
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Competition deliverables / Pitch deck & appendix
+- **Hierarchy:** Remy / Purpose, proof & delivery / Competition deliverables / Pitch deck & appendix
 - **Full original note:** Include shortlist, three pairs, comparisons, and AI log; confirm current demo-video and upload logistics with organizers.
 
 ### n139: Judging rubric
 
 - **Original status:** Case requirement
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Competition deliverables / Judging rubric
+- **Hierarchy:** Remy / Purpose, proof & delivery / Competition deliverables / Judging rubric
 - **Full original note:** Seven equal categories: innovation, technical execution, responsible AI, completeness, usability, impact, presentation. Attached rubric totals 28; some cases inconsistently mention 100.
 
 ### n140: Build, test & differentiate
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Build, test & differentiate
+- **Hierarchy:** Remy / Purpose, proof & delivery / Build, test & differentiate
 - **Full original note:** Keep hypotheses separate from demonstrated results.
 
 ### n141: Working tool choice
 
 - **Original status:** Team idea
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Build, test & differentiate / Working tool choice
+- **Hierarchy:** Remy / Purpose, proof & delivery / Build, test & differentiate / Working tool choice
 - **Full original note:** “Replit?” appears on the board as a possible build environment, not a confirmed choice.
 
 ### n142: Desktop & phone usability
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Build, test & differentiate / Desktop & phone usability
+- **Hierarchy:** Remy / Purpose, proof & delivery / Build, test & differentiate / Desktop & phone usability
 - **Full original note:** Good interface on computer and phone, with readable generated documents.
 
 ### n143: Team roles & roadmap
 
 - **Original status:** Team direction
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Build, test & differentiate / Team roles & roadmap
+- **Hierarchy:** Remy / Purpose, proof & delivery / Build, test & differentiate / Team roles & roadmap
 - **Full original note:** Board tasks include naming the product, assigning roles, defining the problem/audience, implementation roadmap, and feedback collection.
 
 ### n144: Test one complete journey
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Build, test & differentiate / Test one complete journey
+- **Hierarchy:** Remy / Purpose, proof & delivery / Build, test & differentiate / Test one complete journey
 - **Full original note:** Recommended: demonstrate a student’s context → relevant next action → application → follow-through, rather than disconnected feature demos.
 
 ### n145: Measure a useful improvement
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Build, test & differentiate / Measure a useful improvement
+- **Hierarchy:** Remy / Purpose, proof & delivery / Build, test & differentiate / Measure a useful improvement
 - **Full original note:** Proposed tests: relevance, student clarity, time including corrections, claim accuracy, and ability to explain application wording.
 
 ### n146: No unsupported superiority claim
 
 - **Original status:** Consultant recommendation
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Build, test & differentiate / No unsupported superiority claim
+- **Hierarchy:** Remy / Purpose, proof & delivery / Build, test & differentiate / No unsupported superiority claim
 - **Full original note:** Feature overlap with Handshake/LinkedIn does not prove equivalent experience. Claim better results only for the actual workflow and baseline tested.
 
 ### n147: Prioritization still open
 
 - **Original status:** Open decision
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Build, test & differentiate / Prioritization still open
+- **Hierarchy:** Remy / Purpose, proof & delivery / Build, test & differentiate / Prioritization still open
 - **Full original note:** Select what is live, clearly simulated, or future vision. Preserve all ideas without pretending the entire ecosystem can be built in one sprint.
 
 ### n148: Unresolved & parked ideas
 
 - **Original status:** Open decision
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Unresolved & parked ideas
+- **Hierarchy:** Remy / Purpose, proof & delivery / Unresolved & parked ideas
 - **Full original note:** Retained for completeness, not silently converted into product commitments.
 
 ### n149: Integration feasibility
 
 - **Original status:** Open decision
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Unresolved & parked ideas / Integration feasibility
+- **Hierarchy:** Remy / Purpose, proof & delivery / Unresolved & parked ideas / Integration feasibility
 - **Full original note:** Confirm authorized data sources, APIs, institutional permission, sync completeness, and advisor availability.
 
 ### n150: Forecasting evidence
 
 - **Original status:** Open decision
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Unresolved & parked ideas / Forecasting evidence
+- **Hierarchy:** Remy / Purpose, proof & delivery / Unresolved & parked ideas / Forecasting evidence
 - **Full original note:** Decide what forecasts mean, what sources support them, and how uncertainty is explained.
 
 ### n151: Task urgency & autonomy
 
 - **Original status:** Open decision
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Unresolved & parked ideas / Task urgency & autonomy
+- **Hierarchy:** Remy / Purpose, proof & delivery / Unresolved & parked ideas / Task urgency & autonomy
 - **Full original note:** Define optional tasks, deadlines, approval requirements, and how strongly the assistant nudges.
 
 ### n152: Community & dynamic focus
 
 - **Original status:** Open decision
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Unresolved & parked ideas / Community & dynamic focus
+- **Hierarchy:** Remy / Purpose, proof & delivery / Unresolved & parked ideas / Community & dynamic focus
 - **Full original note:** Specify these board terms before treating them as build requirements.
 
 ### n153: Employer-side marketplace
 
 - **Original status:** Parked discussion
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Unresolved & parked ideas / Employer-side marketplace
+- **Hierarchy:** Remy / Purpose, proof & delivery / Unresolved & parked ideas / Employer-side marketplace
 - **Full original note:** Audio discussion considered employer recruitment features and pushed toward student-facing focus. Retained as a parked discussion, not a confirmed build requirement.
 
 ### n154: Aggregated-data monetization
 
 - **Original status:** Parked discussion
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Unresolved & parked ideas / Aggregated-data monetization
+- **Hierarchy:** Remy / Purpose, proof & delivery / Unresolved & parked ideas / Aggregated-data monetization
 - **Full original note:** Audio discussion mentioned selling aggregated/anonymized demand/skill data. No approved business model, permissions, or privacy assessment was established. Do not implement from this note.
 
 ### n155: Naming & business model
 
 - **Original status:** Open decision
-- **Hierarchy:** Offer Ready / Purpose, proof & delivery / Unresolved & parked ideas / Naming & business model
-- **Full original note:** Offer Ready is the current case/working label. Final name and sustainable business model remain open.
+- **Hierarchy:** Remy / Purpose, proof & delivery / Unresolved & parked ideas / Naming & business model
+- **Full original note:** Remy is the current case/working label. Final name and sustainable business model remain open.
 

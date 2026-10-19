@@ -1,6 +1,6 @@
 > Superseded: this file describes QA of the original prototype. Current QA and status are in docs/HANDOFF.md (Oct 18, 2026).
 
-# Offer Ready demo QA
+# Remy demo QA
 
 ## Test contract
 

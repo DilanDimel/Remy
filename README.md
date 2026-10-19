@@ -1,6 +1,6 @@
-# Offer Ready
+# Remy
 
-A functional, private-preview student career demo for the Neeley AI Forward Offer Ready concept. The visual direction uses warm neutral surfaces, restrained purple, readable type and a clear student-centered hierarchy.
+A functional, private-preview student career demo for the Neeley AI Forward job search case. Its motto: "Don't Hunt for a Job Alone." The brand is black, orange and white, with Remy the fox as the guide.
 
 ## Run
 

@@ -1,4 +1,4 @@
-# Offer Ready: Build Handoff (Oct 18, 2026)
+# Remy: Build Handoff (Oct 18, 2026)
 
 ## What changed
 The old demo was a front-end prototype with preset data. This version has a real backend:
@@ -28,7 +28,7 @@ The visual identity now integrates the Remy mockup: near-black `#161616` on warm
 | Unsupported-claim safeguard | Working, not perfect | Catches invented numbers, skills, titles, class year, added outcomes and entry-level added detail. It missed 3 cases before fixes (see the AI error log). Human review is still required |
 | Opportunities | Working | 5 openings verified Oct 17. Live link re-check. Import any public posting by URL or pasted text. Fit/eligibility/gaps. Citi is flagged Needs verification (its posting page returned 404 on Oct 18) |
 | LinkedIn / Handshake / Stellic | Student provided (by design) | No direct connection: these sites require login and don't permit automated reading. Students upload a LinkedIn "Save to PDF" or paste text, and extracted facts wait for approval |
-| Community outreach | Working (handoff only) | Drafts with exact recipient + full message review. Opens in the student's Gmail/mail app. Offer Ready never sends. Contacts are sample or student-added |
+| Community outreach | Working (handoff only) | Drafts with exact recipient + full message review. Opens in the student's Gmail/mail app. Remy never sends. Contacts are sample or student-added |
 | Progress / email updates | Working (paste-in) | Rules + AI classify receipt vs. interview vs. offer, with the evidence sentence highlighted. Student confirms. Duplicate prevention and manual correction included. Inbox connection: Needs setup |
 | Calendar | Working (export) | Month view, .ics export, per-item "Add to Google Calendar". No automatic sync |
 | Accounts | Working | Profile edits mark approved documents for review (never rewrite them). Sources with honest labels. Editable/deletable AI memory. Theme. Data export/delete |
@@ -87,7 +87,7 @@ In the Supabase dashboard for "DilanDimel's Project":
 - Re-check every opening the day before the pitch. The Citi link is already broken.
 
 ## 3-minute demo script
-1. **Welcome (15s).** On the "Don't Hunt for a Job Alone" landing page, Remy the fox waves. "Offer Ready turns a student's real experience into a plan, the right openings and truthful applications." Click "Or explore the demo without signing in".
+1. **Welcome (15s).** On the "Don't Hunt for a Job Alone" landing page, Remy the fox waves. "Remy turns a student's real experience into a plan, the right openings and truthful applications." Click "Or explore the demo without signing in".
 2. **Onboarding (40s).** On Connect Your Accounts, connect the resume with the sample student and show the row go from Connecting… to Imported. Show "Every bullet matches your original file word-for-word." Correct the class year, answer one AI question, and show the starting plan with real deadlines.
 3. **Home (15s).** One next step, plus To-Dos, Events and Opportunities. Show that "View more" opens the right filter.
 4. **Resume (75s).** Tailor for Evercore. Show the Strongest Match, a clean change with posting quote + evidence, and a flagged change ("adds detail that isn't in this entry"). Reject it. Show the [PERSONALIZE] gate blocking approval, fix it, approve, and download the PDF.
