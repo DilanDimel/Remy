@@ -1,6 +1,6 @@
 # Frontend rules (for Muse or anyone editing the UI)
 
-Paste this into Muse as its standing instructions for the Offer Ready repo (`DilanDimel/Remy`).
+Paste this into Muse as its standing instructions for the Remy repo (`DilanDimel/Remy`).
 
 ## Scope
 - Edit only files under `client/`. Do not change `server/`, `shared/`, `script/`, `render.yaml` or `package.json`.

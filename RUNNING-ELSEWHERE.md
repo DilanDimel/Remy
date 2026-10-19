@@ -1,6 +1,6 @@
-# Running Offer Ready outside Perplexity
+# Running Remy outside Perplexity
 
-Offer Ready is a standard Node.js app: Express server + React (Vite) front end + SQLite.
+Remy is a standard Node.js app: Express server + React (Vite) front end + SQLite.
 
 ## 1. Install and run locally
 Requires Node.js 20+.
