@@ -1,18 +1,23 @@
+import fs from "node:fs";
+import path from "node:path";
 import type { Job, Requirement, Workspace } from "@shared/types";
 import { htmlToText } from "./parse";
 import { uid } from "./db";
-import { FIELD_TITLES, regionMatch } from "./fit";
+import { abroad, FIELD_SEARCH, FIELD_TITLES, regionMatch } from "./fit";
 
-// Live openings from employers' public job-board APIs (Greenhouse, Lever, Ashby).
+// Live openings from employers' own career sites (Greenhouse, Lever, Ashby, Workday).
 // These are the boards companies use to publish their own careers pages, so each
 // posting links straight back to the employer. No login, no scraping of
 // third-party aggregators.
 
-type Board = { ats: "greenhouse" | "lever" | "ashby"; slug: string; company: string };
+type Board = { ats: "greenhouse" | "lever" | "ashby" | "workday"; slug: string; company: string; fields?: string[] };
 
-// A starting set of employers that hire students and publish on these boards.
-// Remy also tries any company the student (or the AI) names; misses are skipped.
-export const DEFAULT_BOARDS: Board[] = [
+// Employers whose career sites Remy reads, with the fields they hire for (server/data/employers.json).
+export const EMPLOYERS: Board[] = (JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "server", "data", "employers.json"), "utf8")).employers as { company: string; ats: Board["ats"]; board: string; fields: string[] }[])
+  .map((e) => ({ ats: e.ats, slug: e.board, company: e.company, fields: e.fields }));
+
+// Fallback when the directory can't be read is the original starting set.
+export const DEFAULT_BOARDS: Board[] = EMPLOYERS.length ? EMPLOYERS : [
   { ats: "greenhouse", slug: "point72", company: "Point72" },
   { ats: "greenhouse", slug: "robinhood", company: "Robinhood" },
   { ats: "greenhouse", slug: "stripe", company: "Stripe" },
@@ -32,7 +37,7 @@ export const DEFAULT_BOARDS: Board[] = [
 const EARLY = /\b(intern(ship)?s?|co-?op|new grad(uate)?|early career|entry[- ]level|campus|university|student|summer analyst|analyst program|rotational|apprentice|fellow(ship)?|insight|externship)\b/i;
 const SENIOR = /\b(senior|sr\.?|staff|principal|lead|manager|director|head of|vp|vice president|ii|iii|iv)\b/i;
 // Roles meant for graduate students, skipped for undergraduates.
-const GRAD_LEVEL = /\b(mba|ph\.?\s?d|doctoral|postdoc|post-doc|master'?s|graduate student|j\.?d\.?)\b/i;
+const GRAD_LEVEL = /\b(graduate intern(ship)?|mba|ph\.?\s?d|doctoral|postdoc|post-doc|master'?s|graduate student|j\.?d\.?)\b/i;
 const KEYWORDS = [
   "Excel", "PowerPoint", "Python", "SQL", "R ", "Tableau", "Power BI", "financial modeling", "valuation", "accounting", "data analysis", "analytics",
   "market research", "communication", "written communication", "presentation", "teamwork", "leadership", "problem solving", "attention to detail",
@@ -62,13 +67,59 @@ function kindOf(title: string): Job["kind"] {
   return /intern|co-?op|summer analyst|externship/i.test(title) ? "internship" : /program|fellow|insight|rotational/i.test(title) ? "program" : "job";
 }
 
-type Raw = { title: string; location: string; url: string; text: string; posted?: string };
+type Raw = { title: string; location: string; url: string; text: string; posted?: string; detail?: () => Promise<{ text: string; location?: string }> };
 async function getJson(url: string): Promise<any> {
   const r = await fetch(url, { headers: { Accept: "application/json", "User-Agent": "RemyBot/1.0 (student career assistant)" }, signal: AbortSignal.timeout(5000) });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
-async function fetchBoard(b: Board): Promise<Raw[]> {
+// Workday's public career-site search (the same request the career page makes; approach from
+// the open-source career-ops project, MIT). Board = "tenant|wdN|site".
+const BROWSER_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36";
+// Workday sites tag postings "Intern", "Student", "Early Careers"...; filtering on that beats keyword search,
+// which matches loosely and sorts newest-first (so "finance intern" returns mostly senior roles).
+const EARLY_FACET = /\bintern|student|early career|universit|campus|co-?op|new college grad/i;
+const NOT_EARLY_FACET = /internal|non-intern|pharmacy|non-usa/i;
+function earlyFacets(facets: any[], param = "", out: Record<string, string[]> = {}) {
+  for (const f of facets || []) {
+    const p = f.facetParameter || param;
+    if (f.values) earlyFacets(f.values, p, out);
+    else if (f.id && !/location/i.test(p) && EARLY_FACET.test(f.descriptor || "") && !NOT_EARLY_FACET.test(f.descriptor || "")) (out[p] ||= []).push(f.id);
+  }
+  return out;
+}
+async function workday(b: Board, field: string): Promise<Raw[]> {
+  const [tenant, wd, site] = b.slug.split("|");
+  const origin = `https://${tenant}.${wd}.myworkdayjobs.com`, cxs = `${origin}/wday/cxs/${tenant}/${site}`;
+  const list = async (appliedFacets: Record<string, string[]>, searchText: string, offset: number) => {
+    const r = await fetch(`${cxs}/jobs`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json", "user-agent": BROWSER_UA }, body: JSON.stringify({ appliedFacets, limit: 20, offset, searchText }), signal: AbortSignal.timeout(5000) });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  };
+  const facets = earlyFacets((await list({}, "", 0)).facets);
+  // Only one facet group at a time: Workday ANDs groups, and the same postings are usually tagged in each.
+  const [param] = Object.keys(facets).sort((a, z) => Number(/subtype/i.test(z)) - Number(/subtype/i.test(a)));
+  const applied = param ? { [param]: facets[param] } : {};
+  let query = param ? field : `${field} intern`.trim();
+  const out: Raw[] = [];
+  for (const offset of [0, 20]) {
+    let page = (await list(applied, query, offset)).jobPostings || [];
+    // Nothing for "finance" among this employer's internships: show its internships and let the title checks decide.
+    if (!page.length && !offset && param && query) page = (await list(applied, (query = ""), 0)).jobPostings || [];
+    for (const x of page) out.push({
+      title: String(x.title || ""), location: String(x.locationsText || ""), url: `${origin}/${site}${x.externalPath}`, text: "", posted: x.postedOn,
+      detail: async () => {
+        const d = await (await fetch(`${cxs}${x.externalPath}`, { headers: { accept: "application/json", "user-agent": BROWSER_UA }, signal: AbortSignal.timeout(5000) })).json();
+        const info = d.jobPostingInfo || {};
+        return { text: htmlToText(String(info.jobDescription || "")), location: [info.location, ...(info.additionalLocations || [])].filter(Boolean).join("; ") };
+      },
+    });
+    if (page.length < 20) break;
+  }
+  return out;
+}
+async function fetchBoard(b: Board, field: string): Promise<Raw[]> {
+  if (b.ats === "workday") return workday(b, field);
   if (b.ats === "greenhouse") {
     const j = await getJson(`https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(b.slug)}/jobs?content=true`);
     return (j.jobs || []).map((x: any) => ({ title: String(x.title || ""), location: String(x.location?.name || ""), url: String(x.absolute_url || ""), text: htmlToText(decodeEntities(String(x.content || ""))), posted: x.updated_at }));
@@ -98,6 +149,8 @@ export function boardsFor(company: string): Board[] {
 export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25): Promise<{ jobs: Job[]; scanned: number; reached: string[] }> {
   const fields = (ws.profile.targetRoles + "," + ws.profile.major + "," + ws.profile.interests).toLowerCase().split(/[,;/]+/).map((x) => x.trim()).filter((x) => x.length > 2);
   const titleFits = FIELD_TITLES.filter(([field]) => field.test(fields.join(" "))).map(([, title]) => title);
+  // Workday needs a search word; use the student's first field ("finance").
+  const field = FIELD_SEARCH.find((_, k) => FIELD_TITLES[k][0].test(fields.join(" "))) || "";
   const undergrad = !/grad/i.test(ws.profile.classYear);
   const known = new Set([...ws.jobs.map((j) => j.applyUrl), ...ws.jobs.map((j) => j.sourceUrl)]);
   const reached: string[] = [];
@@ -107,14 +160,26 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25): 
     while (i < boards.length) {
       const b = boards[i++];
       let raws: Raw[] = [];
-      try { raws = await fetchBoard(b); } catch { continue; }
+      try { raws = await fetchBoard(b, field); } catch { continue; }
       if (!raws.length) continue;
       reached.push(b.company);
+      let details = 0;
       for (const r of raws) {
         if (!r.url || known.has(r.url) || !EARLY.test(r.title) || (SENIOR.test(r.title) && !/intern|co-?op|new grad|student/i.test(r.title))) continue;
         if (undergrad && GRAD_LEVEL.test(r.title)) continue;
         if (titleFits.length && !titleFits.some((t) => t.test(r.title))) continue;
-        if (regionMatch(ws, { location: r.location, format: /remote/i.test(r.location) ? "Remote" : "" } as Job) === false) continue;
+        // Skip places the student didn't ask for before spending a detail read on them.
+        const where = (location: string) => { const m = regionMatch(ws, { location, format: /remote/i.test(location) ? "Remote" : "" } as Job); return m ?? !abroad(location); };
+        if (!/^\d+ locations?$/i.test(r.location) && !where(r.location)) continue;
+        // Workday lists only titles; read the full posting for the few that pass the title checks.
+        if (r.detail && !r.text) {
+          if (details++ >= 6) continue;
+          try { const d = await r.detail(); r.text = d.text; if (d.location) r.location = d.location; } catch { continue; }
+        }
+        if (!where(r.location)) continue;
+        const same = `${b.company}|${r.title}|${r.location}`.toLowerCase();
+        if (known.has(same)) continue;
+        known.add(same);
         const hay = `${r.title} ${r.text.slice(0, 3000)}`.toLowerCase();
         const rel = fields.filter((f) => hay.includes(f)).length;
         const job: Job = {

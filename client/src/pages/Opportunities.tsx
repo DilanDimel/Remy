@@ -30,7 +30,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
     if (r) {
       setWs(r.workspace);
       await reloadJobs();
-      toast(r.added ? `Found ${r.added} new opening${r.added > 1 ? "s" : ""} from ${r.reached.length} employer job boards` : `Checked ${r.reached.length} employer job boards — nothing new that fits you right now`);
+      toast(r.added ? `Found ${r.added} new opening${r.added > 1 ? "s" : ""} from ${r.reached.length} employer job boards` : `Checked ${r.reached.length} employer job boards — nothing new that fits you right now${r.workspace.profile.regions?.trim() ? `. Few openings in ${r.workspace.profile.regions} at the moment: adding more places in Account → Profile will show more` : ""}`);
     }
     setFinding(false);
   };

@@ -13,9 +13,9 @@ import { aiJson, aiStatus, AiUnavailable, lastUsedModel, markAiAuthFailure, mode
 import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase } from "./auth";
 import { aiExtractPosting, aiParseResume, CLOSED_SIGNALS, extractSkills, fetchPublic, fileToText, htmlToText, norm, resumeToText, rulesParse } from "./parse";
 import { atsChecks, claimCheck } from "./claims";
-import { classYearOf, computeFit } from "./fit";
+import { classYearOf, computeFit, FIELD_TITLES } from "./fit";
 import { atsScore, keywordsFrom } from "./ats";
-import { boardsFor, DEFAULT_BOARDS, discoverJobs } from "./sources";
+import { boardsFor, discoverJobs, EMPLOYERS } from "./sources";
 import { alumniList, matchAlumni } from "./alumni";
 import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./docs";
 
@@ -669,23 +669,31 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE, 409);
     fetchAllowed(ctx);
     const named: string[] = (Array.isArray(req.body?.companies) ? req.body.companies : []).map(String).map((x: string) => x.trim()).filter(Boolean).slice(0, 10);
-    let suggested: string[] = [];
+    // Which employers to read: the AI picks from the directory for this student's profile;
+    // without AI, employers whose fields match the student's are used.
+    const p = ctx.ws.profile;
+    const wants = [p.targetRoles, p.major, p.interests].join(" ").toLowerCase();
+    let picked = EMPLOYERS.filter((e) => (e.fields || []).some((f) => wants.includes(f) || FIELD_TITLES.some(([field, title]) => field.test(wants) && title.test(f))));
     if (!named.length && aiStatus().available) {
       try {
-        const out = await withAi(ctx, "Suggest companies", () =>
+        const out = await withAi(ctx, "Pick employers", () =>
           aiJson<{ companies: string[] }>(
-            "You suggest real employers for a university student's internship search. Prefer companies known to hire students and to post openings on Greenhouse, Lever or Ashby job boards.",
-            `STUDENT:\n${profileSummary(ctx.ws)}\n\nReturn {"companies":["Company name", ...]} with 10 companies that fit the student's fields and regions.`,
-            500,
+            "You pick employers for a university student's early-career search, only from the list given. Choose employers that hire for the student's fields and are realistic for their level and location.",
+            `STUDENT:\n${profileSummary(ctx.ws)}\n\nEMPLOYERS (name — fields):\n${EMPLOYERS.map((e) => `${e.company} — ${(e.fields || []).join(", ")}`).join("\n")}\n\nReturn {"companies":["exact name from the list", ...]} with up to 15 names.`,
+            600,
           ),
         );
-        suggested = (out.companies || []).map(String).slice(0, 10);
+        const names = new Set((out.companies || []).map((x) => String(x).toLowerCase()));
+        const ai = EMPLOYERS.filter((e) => names.has(e.company.toLowerCase()));
+        if (ai.length) picked = ai;
       } catch {}
     }
-    const boards = [...named.flatMap(boardsFor), ...suggested.flatMap(boardsFor), ...DEFAULT_BOARDS];
+    if (!picked.length) picked = EMPLOYERS;
+    const boards = [...named.flatMap(boardsFor), ...picked.slice(0, 15)];
     const seen = new Set<string>();
     const unique = boards.filter((b) => { const k = b.ats + ":" + b.slug; if (seen.has(k)) return false; seen.add(k); return true; });
     const r = await discoverJobs(ctx.ws, unique);
+    console.log(`discover: read ${r.reached}/${unique.length} (${unique.map((b) => b.company).join(", ")}), added ${r.jobs.length}`);
     ctx.ws.jobs.unshift(...r.jobs);
     for (const j of r.jobs) ctx.ws.fits[j.id] = fitOf(ctx.ws, j);
     ctx.save();
