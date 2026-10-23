@@ -28,6 +28,7 @@ const madeUp: [string, string, object?][] = [
   ["degree inflation", "Completed a master's-level valuation course"],
   ["dropped hedge (seen on a real resume)", "Oversee chapter budget of $5,000+, managing SGA funding allocations and corporate sponsorships", { original: budget }],
   ["letter drops 'estimated' (seen on a real letter)", "As Treasurer, I manage an annual chapter budget exceeding $5,000."],
+  ["letter drops 'estimated' before a comma (McKesson letter, Oct 23)", "As Treasurer, I oversee an annual budget of over $5,000, handling SGA funding allocations."],
   ["dropped co-", "Founded and led the investment club", { original: "Co-founded the investment club" }],
 ];
 for (const [name, text, opts] of madeUp) test(`flags: ${name}`, () => assert.ok(flagged(text, opts), text));
@@ -39,6 +40,7 @@ const truthful: [string, string, object?][] = [
   ["hedge kept", "Oversee an estimated annual chapter budget of $5,000+ and manage SGA funding allocations", { original: budget }],
   ["'led' kept from the original (accepted in the Evercore pair)", "Founded UNO Club from concept to active organization and led effort for official TCU recognition; organized an inaugural tournament with 24 participants across a 6-pool bracket and oversee an 8-member executive board", { original: "Founded club from concept to active organization and led effort for official TCU recognition; organized inaugural tournament with 24 participants across a 6-pool bracket; oversee an 8-member executive board", entryContext: "UNO Club Founder & President" }],
   ["'graduate' as a verb in a letter", "As I graduate in 2029, I hope to build on my finance coursework."],
+  ["possessive of a name on the resume", "As Treasurer for TCU's chapter of NABA, I keep the books."],
   ["posting figure in a letter", "I am excited about the 10-week program.", { postingText: "This 10-week program runs each summer.", postingNumbersOk: true }],
 ];
 for (const [name, text, opts] of truthful) test(`clean: ${name}`, () => assert.deepEqual(claimCheck(text, evidence, opts || {}), [], text));

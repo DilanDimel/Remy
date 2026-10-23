@@ -75,7 +75,7 @@ export function atsScore(doc: ResumeDoc, keywords: string[], against: string): A
   ]);
 
   const kws = Array.from(new Set(keywords.map((k) => k.trim()).filter((k) => k && isSkillKeyword(k)))).slice(0, 15);
-  const hit = kws.filter((k) => k.split(/[\s/+]+/).filter((w) => w.length > 3).some((w) => low.includes(lc(w))));
+  const hit = kws.filter((k) => hasKeyword(low, k));
   const missing = kws.filter((k) => !hit.includes(k));
   const keywordCat = cat("Keyword match", 25, [
     kws.length
@@ -88,6 +88,15 @@ export function atsScore(doc: ResumeDoc, keywords: string[], against: string): A
   const fixes = categories.flatMap((c) => c.items.filter((i) => !i.ok).map((i) => ({ category: c.name, text: i.text, gain: Math.round(i.max - i.earned), examples: (i as Item).examples })))
     .filter((f) => f.gain > 0).sort((a, b) => b.gain - a.gain);
   return { score, categories, fixes, keywords: { matched: hit, missing }, against, at: new Date().toISOString() };
+}
+
+/** True when every word of the keyword is in the text as a whole word ("Power BI" isn't "PowerPoint");
+ *  longer words match on their first 5 letters so "modeling" finds "models". Filler like "strong" is ignored. */
+export function hasKeyword(text: string, keyword: string) {
+  const low = lc(text);
+  const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const words = lc(keyword).split(/[\s/]+/).filter((w) => w && !/^(strong|solid|record|knowledge|interest|ability|skills?|experience|proficiency|with|and|or|of|in|the|a|an)$/.test(w));
+  return words.length > 0 && words.every((w) => new RegExp(w.length > 5 ? `\\b${esc(w.slice(0, 5))}` : `(^|[^a-z0-9])${esc(w)}($|[^a-z0-9])`).test(low));
 }
 
 /** Skills and qualities an ATS can match — not eligibility rules (class year, GPA,

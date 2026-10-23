@@ -1,4 +1,5 @@
 import type { AtsCheck, ClaimFlag, Job, ResumeDoc } from "@shared/types";
+import { hasKeyword } from "./ats";
 
 // Deterministic unsupported-claim checker. It does not trust the AI: any
 // number, tool/skill, credential, title, or organization name that appears in
@@ -122,7 +123,8 @@ export function claimCheck(
   }
   // Letters have no original bullet: a figure the resume hedges ("an estimated $5,000+") must keep a hedge nearby.
   if (opts.original === undefined) {
-    for (const m of body.matchAll(/\$?\d[\d,]*/g)) {
+    // Thousands separators only, so "$5,000," at a clause end still matches the resume's "$5,000+".
+    for (const m of body.matchAll(/\$?\d+(?:,\d{3})*/g)) {
       const near = lc(body.slice(Math.max(0, m.index! - 60), m.index! + 60));
       if (/\b(estimated|approximately|roughly|nearly|about|up to|around)\b/.test(near)) continue;
       // The same figure can appear twice on a resume; only the occurrence the letter is talking about counts.
@@ -204,7 +206,8 @@ export function claimCheck(
       if (!meaningful.length) continue;
       const pl = lc(phrase);
       if (ev.includes(pl) || allowed.some((a) => a.includes(pl) || pl.includes(a))) continue;
-      if (meaningful.every((w) => ev.includes(lc(w)) || allowed.some((a) => a.includes(lc(w))))) continue;
+      // "TCU's" is the resume's "TCU".
+      if (meaningful.map((w) => lc(w).replace(/['’]s$/, "")).every((w) => ev.includes(w) || allowed.some((a) => a.includes(w)))) continue;
       add({ type: "name", term: phrase, message: `“${phrase}” is not mentioned in your resume or approved facts.` });
     }
   }
@@ -225,7 +228,7 @@ export function atsChecks(doc: ResumeDoc, job: Job, fileBase: string): AtsCheck[
     .filter((s) => !/cert|skill|award|honor/i.test(s.heading))
     .flatMap((s) => s.entries)
     .filter((e) => (e.role || e.bullets.length) && !e.dates.trim());
-  const reqHits = job.requirements.filter((r) => lc(text).includes(lc(r.keyword)) || r.keyword.split(/\s+/).filter((w) => w.length > 3).some((w) => lc(text).includes(lc(w))));
+  const reqHits = job.requirements.filter((r) => hasKeyword(text, r.keyword));
   const placeholders = /\[(PERSONALIZE|ADD|TODO)/i.test(text);
   return [
     { id: "contact", label: "Contact details at the top", pass: !!doc.contact.name && !!doc.contact.email, detail: doc.contact.email ? "Name and email found." : "Add an email address to the contact line." },

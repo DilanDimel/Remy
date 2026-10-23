@@ -1,5 +1,5 @@
 import type { Job, JobFit, Workspace } from "@shared/types";
-import { norm } from "./parse";
+import { hasKeyword } from "./ats";
 
 // Deterministic fit: eligibility (graduation window, class year), where the
 // student wants to work, what kinds of opportunities they asked for, and which
@@ -172,12 +172,10 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
     note = "No class-year or graduation rule stated — skim the posting's eligibility section.";
   }
 
-  const ev = norm(evidence);
   const matched: string[] = [];
   const gaps: string[] = [];
   for (const r of job.requirements) {
-    const words = r.keyword.split(/[\s+/]+/).filter((w) => w.length > 3 && !/^(strong|record|knowledge|interest|ability)$/i.test(w));
-    if (words.some((w) => ev.includes(norm(w)))) matched.push(r.keyword);
+    if (hasKeyword(evidence, r.keyword)) matched.push(r.keyword);
     else gaps.push(r.keyword);
   }
   const why = matched.length
