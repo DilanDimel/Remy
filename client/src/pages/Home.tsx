@@ -20,7 +20,7 @@ export default function Home() {
   const { jobs, fits } = useJobs();
   const [tab, setTab] = useState<Tab>("todos");
   const [open, setOpen] = useState<string>("");
-  const name = w.profile.preferredName || w.profile.name.split(" ")[0] || "there";
+  const name = w.profile.preferredName || w.profile.name.split(" ")[0];
 
   const next = useMemo(() => {
     const pending = w.applications.find((a) => a.changes.some((c) => c.status === "pending"));
@@ -51,7 +51,7 @@ export default function Home() {
       <div className="page-head">
         <div>
           <span className="eyebrow">Home</span>
-          <h1 data-testid="text-greeting">{greeting()}, {name}.</h1>
+          <h1 data-testid="text-greeting">{greeting()}{name ? `, ${name}` : ""}.</h1>
           <p>Here's the one thing worth doing next, and a few things that matter this week.</p>
         </div>
       </div>

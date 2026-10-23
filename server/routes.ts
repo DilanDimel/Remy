@@ -20,6 +20,13 @@ import { alumniList, matchAlumni } from "./alumni";
 import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./docs";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+// Turns upload errors into messages a student can act on instead of a generic 500.
+const uploadFile = (req: Request, res: Response, next: NextFunction) =>
+  upload.single("file")(req, res, (err: any) => {
+    if (!err) return next();
+    const tooBig = err?.code === "LIMIT_FILE_SIZE";
+    res.status(tooBig ? 413 : 400).json({ message: tooBig ? "That file is over 5 MB. Export a smaller PDF, or upload a Word (.docx) file." : "That upload didn't come through. Please try again." });
+  });
 
 type Ctx = { me: Me; ws: Workspace; save: () => void; ip: string };
 type H = (req: Request, res: Response, ctx: Ctx) => Promise<unknown> | unknown;
@@ -413,7 +420,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     ctx.save();
   }
 
-  app.post("/api/resume/upload", upload.single("file"), route(async (req, res, ctx) => {
+  app.post("/api/resume/upload", uploadFile, route(async (req, res, ctx) => {
     const f = (req as any).file as Express.Multer.File | undefined;
     if (!f) bad("Choose a file to upload.");
     const raw = await fileToText(f!.buffer, f!.originalname, f!.mimetype);
@@ -499,7 +506,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   }));
 
   // ---------- other profile imports (LinkedIn PDF, Handshake/Stellic text, etc.) ----------
-  app.post("/api/import/profile", upload.single("file"), route(async (req, res, ctx) => {
+  app.post("/api/import/profile", uploadFile, route(async (req, res, ctx) => {
     const kind = String(req.body?.kind || "Other");
     const f = (req as any).file as Express.Multer.File | undefined;
     const raw = f ? await fileToText(f.buffer, f.originalname, f.mimetype) : String(req.body?.text || "");
@@ -1134,7 +1141,7 @@ Return JSON:
   app.get("/api/calendar.ics", route((req, res, ctx) => {
     const id = req.query.id ? String(req.query.id) : null;
     const items = ctx.ws.calendar.filter((c) => !id || c.id === id);
-    const esc = (s: string) => s.replace(/[,;\\]/g, (m) => "\\" + m).replace(/\n/g, "\\n");
+    const esc = (s: string) => s.replace(/[,;\\]/g, (m) => "\\" + m).replace(/\r\n|\r|\n/g, "\\n");
     const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Remy//EN", "CALSCALE:GREGORIAN"];
     for (const c of items) {
       const d = c.date.replace(/-/g, "");

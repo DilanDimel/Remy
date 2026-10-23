@@ -72,7 +72,8 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      log(logLine);
+      // Flag slow requests so a repeat of the 40 s stall seen in load testing stands out in the Render logs.
+      log(duration > 5000 ? `SLOW ${logLine}` : logLine);
     }
   });
 

@@ -8,7 +8,7 @@ import { StoreProvider, api, useStore } from "./lib/store";
 import { go, useRoute } from "./lib/router";
 import { Modal, Remy, Spinner, StatusChip } from "./components/common";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { answer as answerTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
+import { answer as answerTailor, endSession as endTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
 import Onboarding from "./pages/Onboarding";
 import Home from "./pages/Home";
@@ -149,7 +149,7 @@ function Shell() {
       </nav>
       {!asstOpen && (
         <button className="asst-fab fade-up" onClick={() => setAsst(true)} data-testid="button-fab-assistant" aria-label="Open Remy">
-          <Remy size={30} mood="wave" /> <span>Remy</span>
+          <Remy size={30} mood="wave" /> <span className="hide-sm">Remy</span>
         </button>
       )}
       {more && (
@@ -201,6 +201,9 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   const send = async (text: string) => {
     if (asking) { setMsg(""); await answerTailor(text, { setWs, run }); return; }
     if (!text.trim() || busy) return;
+    // A finished tailoring or outreach conversation is closed when the student starts chatting,
+    // so the reply appears at the bottom instead of above it, out of view.
+    if (tailor?.stage === "done") endTailor();
     setBusy(true);
     setMsg("");
     const w = await run(() => api<Workspace>("POST", "/api/ai/chat", { message: text, page }));

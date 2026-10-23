@@ -11,15 +11,23 @@ import { uid } from "./db";
 export async function fileToText(buf: Buffer, name: string, mime: string): Promise<string> {
   const lower = name.toLowerCase();
   if (mime === "application/pdf" || lower.endsWith(".pdf")) {
-    const { getDocumentProxy, extractText } = await import("unpdf");
-    const pdf = await getDocumentProxy(new Uint8Array(buf));
-    const { text } = await extractText(pdf, { mergePages: true });
-    return String(text);
+    try {
+      const { getDocumentProxy, extractText } = await import("unpdf");
+      const pdf = await getDocumentProxy(new Uint8Array(buf));
+      const { text } = await extractText(pdf, { mergePages: true });
+      return String(text);
+    } catch {
+      throw Object.assign(new Error("We couldn't open this PDF. It may be damaged or password-protected — export it again, or upload a Word (.docx) file."), { status: 422 });
+    }
   }
   if (lower.endsWith(".docx") || mime.includes("wordprocessingml")) {
-    const mammoth = await import("mammoth");
-    const r = await mammoth.extractRawText({ buffer: buf });
-    return r.value;
+    try {
+      const mammoth = await import("mammoth");
+      const r = await mammoth.extractRawText({ buffer: buf });
+      return r.value;
+    } catch {
+      throw Object.assign(new Error("We couldn't open this Word file. Save it again as .docx, or upload a PDF."), { status: 422 });
+    }
   }
   if (lower.endsWith(".txt") || lower.endsWith(".md") || mime.startsWith("text/")) return buf.toString("utf8");
   throw Object.assign(new Error("Please upload a PDF, Word (.docx) or plain-text file."), { status: 415 });
