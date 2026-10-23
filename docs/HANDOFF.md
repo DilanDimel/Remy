@@ -23,7 +23,7 @@ The visual identity now integrates the Remy mockup: near-black `#161616` on warm
 | Explore demo / guest workspace | Working | Private per browser; a server-side workspace keyed to a secure cookie (or the preview visitor ID) |
 | Continue with Google | Needs setup (Client ID) | Code is complete (Google Identity Services + server-side ID-token verification). It needs a Google OAuth Client ID for the published domain |
 | Resume upload (PDF/DOCX/TXT/paste) | Working | Text extraction runs on the server. AI structures it, and every bullet is verified word-for-word against the file. There's a rules-based fallback |
-| AI (all features) | Working (live) | Published at https://remy.pplx.app. AI tries OpenRouter first (Gemini 3.8 Flash, then GPT-5 mini) and falls back to the team's Google Gemini key (free tier, about 20 requests per model per day across 6 models). The OpenRouter account is currently out of credits |
+| AI (all features) | Working (live) | Live at https://offer-ready.onrender.com. AI tries OpenRouter first (Gemini 3.8 Flash, then GPT-5 mini) and falls back to the team's Google Gemini key (free tier, about 20 requests per model per day across 6 models). As of Oct 22, 2026 OpenRouter is working (live tests ran on Gemini 3.8 Flash through it). |
 | Tailored resume + cover letter | Working | Strongest Match, original vs. proposed wording, posting quote, evidence, flags, accept/edit/reject/confirm-true, personalize list, ATS checks, approval gate, versioned exports |
 | Unsupported-claim safeguard | Working, not perfect | Catches invented numbers, skills, titles, class year, added outcomes and entry-level added detail. It missed 3 cases before fixes (see the AI error log). Human review is still required |
 | Opportunities | Working | 5 openings verified Oct 17. Live link re-check. Import any public posting by URL or pasted text. Fit/eligibility/gaps. Citi is flagged Needs verification (its posting page returned 404 on Oct 18) |
@@ -68,9 +68,9 @@ In the Supabase dashboard for "DilanDimel's Project":
 
 ## Remaining setup (team)
 1. **AI credits.** Add about $5–10 at openrouter.ai/settings/credits; the site switches back to OpenRouter automatically. Without credits it runs on Gemini's free daily limits. Both keys pasted in chat should be revoked and replaced, then re-entered through the secure form.
-2. **Google sign-in (optional but requested).** For the published site at https://remy.pplx.app:
+2. **Google sign-in (optional but requested).** For the published site at https://offer-ready.onrender.com:
    - In Google Cloud Console, open APIs & Services → Credentials → Create OAuth client ID → Web application.
-   - Add `https://remy.pplx.app` under Authorized JavaScript origins.
+   - Add `https://offer-ready.onrender.com` under Authorized JavaScript origins.
    - On the OAuth consent screen, use scopes openid, email and profile, and set it to In production so judges can sign in.
    - Send the Client ID (not secret).
 

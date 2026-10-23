@@ -2,19 +2,33 @@
 
 A functional, private-preview student career demo for the Neeley AI Forward job search case. Its motto: "Don't Hunt for a Job Alone." The brand is black, orange and white, with Remy the fox as the guide.
 
+Live at https://offer-ready.onrender.com (Render deploys `main`; see `render.yaml`).
+
 ## Run
 
 - `npm ci`
 - `npm run dev` starts Express and Vite on port 5000.
-- `npm run check` runs TypeScript checks.
+- `npm run check` runs TypeScript checks; `npm run check:contract` checks every client API call hits a real server route.
+- `npm test` runs the claim-checker and eligibility tests (`server/*.test.ts`). GitHub Actions runs all three on every push and pull request.
+- `npm run build` builds `dist/public` and the Node server; `NODE_ENV=production node dist/index.cjs` runs it.
+- `npm run check:persist` restarts a production build on a throwaway database and confirms a session keeps its workspace.
 - `npx tsx script/coverage.ts` rebuilds the 155-node coverage inventory.
-- `npm run build` builds `dist/public` and the Node server.
-- `NODE_ENV=production node dist/index.cjs` runs the production bundle.
-- `npx tsx script/regression.ts` runs local API regression tests using isolated QA identities.
 
-The private hosted preview requires the trusted visitor identity header supplied by its hosting proxy. Direct production API requests without that header are rejected. A production deployment elsewhere needs its own authenticated identity layer and durable database; never trust a visitor header from arbitrary clients.
+Sign-in: a guest workspace (secure cookie), or Google / LinkedIn / email link through Supabase Auth (the server verifies the Supabase token, then keeps its own session). TCU alumni matches are only shown to students signed in with a school email.
 
-Live AI uses the OpenAI SDK Responses API on the server. Credentials are injected into the running private preview and are not part of the source. Public republishing needs a separately configured, authorized AI provider; this source bundle does not include one. Requests are limited to 5 per minute and 30 per rolling day per visitor.
+## Configuration (environment variables)
+
+| Variable | What it does |
+|---|---|
+| `OR_AI_CHAIN` | AI providers to try in order, e.g. `openrouter:google/gemini-3.8-flash,openrouter:openai/gpt-5-mini,gemini:gemini-3.8-flash`. Keys come from `OPENROUTER_API_KEY` / `GEMINI_API_KEY` (Render secrets, never committed). With no provider, AI features say "needs setup" and everything else works. |
+| `OR_AI_TAILOR_CHAIN` | Optional: a different (stronger) chain for resume tailoring only. Unset = use `OR_AI_CHAIN`. |
+| `OR_AI_DAILY_BUDGET` | AI requests allowed per 24 hours for the whole site (default 1500). Guests also get 40/day each, signed-in students 120/day, and each network 60/hour. |
+| `OR_ALUMNI_EMAIL_DOMAINS` | Email domains that may see TCU alumni matches (default `tcu.edu`). |
+| `OR_DB_PATH` | SQLite file (Render: `/data/data.db` on the persistent disk). |
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Supabase Auth project (the publishable key is public by design). |
+| `GOOGLE_CLIENT_ID` | Optional Google Identity button (Google sign-in also works through Supabase without it). |
+
+Rate limits that protect the shared AI budget (guest creation, AI per network, link fetching) are kept in memory: they reset on restart and assume one server process.
 
 ## Implemented experience
 
@@ -32,7 +46,7 @@ No real TCU, Stellic, Outlook, LinkedIn, Handshake or GitHub account is connecte
 
 Application checks are conservative rules plus mandatory student review, not a guarantee of truth. A real test draft introduced an unsupported reporting detail; the UI allows it to be flagged, logged and corrected. Constructed tests are separately labeled and must not be presented as actual AI errors.
 
-Workspace edits are stored in SQLite, partitioned by trusted visitor identity. This is not university SSO, a FERPA-reviewed service or production storage. Use synthetic information only. Demo data is excluded from source backups.
+Workspace edits are stored in SQLite, one row per account. This is not university SSO, a FERPA-reviewed service or production storage; see `docs/database-plan.md` before opening Remy to more students. "Delete everything" removes the workspace, files, AI usage, sessions and account record; guest accounts idle for 30 days are removed automatically.
 
 ## Scope preservation
 
