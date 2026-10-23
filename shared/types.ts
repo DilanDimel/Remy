@@ -106,7 +106,7 @@ export interface Job {
   label: Label;
   checkedAt: string;
   checks: JobCheck[];
-  origin: "verified-catalog" | "imported" | "manual";
+  origin: "imported" | "manual";
   postingText?: string;
 }
 
@@ -322,7 +322,6 @@ export interface Workspace {
   memory: MemoryFact[];
   jobs: Job[]; // imported + manual (catalog lives server-side)
   savedJobIds: string[];
-  jobChecks: Record<string, JobCheck[]>;
   fits: Record<string, JobFit>;
   hiddenJobIds: string[];
   applications: Application[];

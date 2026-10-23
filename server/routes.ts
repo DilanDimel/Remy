@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import multer from "multer";
 import { z } from "zod";
-import { CATALOG, SAMPLE_CONTACTS, SAMPLE_INBOX } from "@shared/catalog";
+import { SAMPLE_CONTACTS, SAMPLE_INBOX } from "@shared/catalog";
 import type {
   Application, AppConfig, BulletChange, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace,
 } from "@shared/types";
@@ -122,7 +122,7 @@ async function withAi<T>(ctx: Ctx, purpose: string, fn: () => Promise<T>): Promi
 const approvedFacts = (ws: Workspace) => ws.memory.filter((m) => m.status === "approved").map((m) => m.text);
 const evidenceOf = (ws: Workspace) =>
   [ws.resume?.rawText || "", ws.resume ? resumeToText(ws.resume.doc) : "", ws.profile.classYear ? `Class year: ${ws.profile.classYear}` : "", ...approvedFacts(ws)].join("\n");
-const allJobs = (ws: Workspace): Job[] => [...CATALOG.map((j) => ({ ...j, checks: ws.jobChecks[j.id] || [] })), ...ws.jobs];
+const allJobs = (ws: Workspace): Job[] => ws.jobs;
 const findJob = (ws: Workspace, id: string) => allJobs(ws).find((j) => j.id === id);
 
 function profileSummary(ws: Workspace) {
@@ -147,23 +147,9 @@ const fitOf = (ws: Workspace, job: Job) => computeFit(ws, job, evidenceOf(ws));
 // Openings that can't be applied to anymore. Checked on every read rather than cached in
 // fits, because a deadline passes and a link breaks without the student doing anything.
 const centralToday = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
-const catalogHealth = new Map<string, JobCheck>();
-async function checkCatalogLinks() {
-  for (const j of CATALOG) {
-    const url = j.sourceUrl || j.applyUrl;
-    if (!url) continue;
-    try {
-      const r = await fetchPublic(url);
-      const closed = CLOSED_SIGNALS.test(htmlToText(r.html));
-      catalogHealth.set(j.id, { at: nowIso(), httpStatus: r.status, result: r.status >= 400 ? "unreachable" : closed ? "closed-signal" : "reachable", note: `Checked automatically: HTTP ${r.status}` });
-    } catch {
-      // network hiccup: keep the previous result rather than calling a posting dead
-    }
-  }
-}
 function closedReason(ws: Workspace, job: Job): string | undefined {
   if (job.deadline && job.deadline < centralToday()) return `The deadline passed on ${job.deadline}.`;
-  const latest = (ws.jobChecks[job.id] || job.checks || [])[0] || catalogHealth.get(job.id);
+  const latest = job.checks[0];
   if (latest?.result === "closed-signal") return "The posting page says applications are closed.";
   if (latest?.result === "unreachable" && (latest.httpStatus === 404 || latest.httpStatus === 410)) return `The posting link is gone (HTTP ${latest.httpStatus}).`;
   return undefined;
@@ -214,8 +200,6 @@ export async function registerRoutes(_server: Server, app: Express) {
   // Expired sessions and guest workspaces idle for 30 days are removed at start-up and every 6 hours.
   const sweep = () => { try { const n = cleanupOld(30); if (n) console.log(`cleanup: removed ${n} idle guest accounts`); } catch (e: any) { console.error("cleanup failed", e?.message); } };
   sweep();
-  checkCatalogLinks().catch(() => {});
-  setInterval(() => checkCatalogLinks().catch(() => {}), 12 * 60 * 60_000).unref();
   setInterval(sweep, 6 * 60 * 60_000).unref();
 
   // ---------- config + identity ----------
@@ -719,8 +703,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     } catch (e: any) {
       check = { at: nowIso(), httpStatus: null, result: "unreachable" as const, note: e?.message || "Could not reach the page." };
     }
-    if (job!.origin === "verified-catalog") (ctx.ws.jobChecks[job!.id] ||= []).unshift(check);
-    else {
+    {
       const j = ctx.ws.jobs.find((x) => x.id === job!.id)!;
       j.checks.unshift(check);
     }

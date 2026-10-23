@@ -52,11 +52,6 @@ test("fields: postings outside the student's chosen fields are left out", () => 
   const marketing = student({ major: "Marketing", targetRoles: "brand marketing", classYear: "Junior" });
   assert.equal(computeFit(marketing, job({ title: "Investment Banking Summer Analyst" }), "").excluded, true);
 });
-test("hand-picked postings also count their summary", () => {
-  const finance = student({ targetRoles: "venture capital investing" });
-  const summit = job({ title: "2027 Inclusion by Insight Virtual Summit", origin: "verified-catalog", summary: "Explore the venture capital, private equity and tech investing space." } as Partial<Job>);
-  assert.equal(fieldMatch(finance, summit), true);
-});
 test("kinds: an internships-only student doesn't see full-time jobs", () => {
   const s = student({ opportunityTypes: "Internships", targetRoles: "finance" });
   assert.equal(computeFit(s, job({ kind: "job", title: "Financial Analyst" }), "").excluded, true);

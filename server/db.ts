@@ -37,7 +37,6 @@ export function emptyWorkspace(): Workspace {
     memory: [],
     jobs: [],
     savedJobIds: [],
-    jobChecks: {},
     fits: {},
     hiddenJobIds: [],
     applications: [],

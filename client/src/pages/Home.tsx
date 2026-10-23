@@ -118,7 +118,7 @@ function JobRow({ j, why, open, onToggle }: { j: Job; why?: string; open: boolea
   return (
     <div className="item">
       <div className="item-main">
-        <div className="row"><span className="xs muted">{j.company} · {kindLabel[j.kind]}</span>{j.origin === "verified-catalog" ? <span className="chip chip-plain" title="Picked by the Remy team and checked by hand on Oct 17, 2026">Hand-picked</span> : <StatusChip label={j.label} />}</div>
+        <div className="row"><span className="xs muted">{j.company} · {kindLabel[j.kind]}</span><StatusChip label={j.label} /></div>
         <button style={{ textAlign: "left", padding: 0, fontWeight: 700 }} onClick={onToggle}>{j.title}</button>
         <div className="why">{why}</div>
         {open && (

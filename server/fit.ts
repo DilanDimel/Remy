@@ -108,14 +108,12 @@ export const FIELD_SEARCH = ["finance", "marketing", "data", "software", "operat
 
 /** Postings the student pasted in themselves are never hidden by field or type: they chose them. */
 const studentAdded = (job: Job) => job.origin === "imported" && !/job board/i.test(job.sourceName || "");
-/** true / false when the student named fields Remy recognizes; null when not. Hand-picked
- * postings also count their summary, since their titles can be program names. */
+/** true / false when the student named fields Remy recognizes; null when not. */
 export function fieldMatch(ws: Workspace, job: Job): boolean | null {
   const p = ws.profile;
   const wanted = FIELD_TITLES.filter(([field]) => field.test([p.targetRoles, p.major, p.interests].join(" "))).map(([, title]) => title);
   if (!wanted.length) return null;
-  const text = job.origin === "verified-catalog" ? `${job.title} ${job.summary}` : job.title;
-  return wanted.some((t) => t.test(text));
+  return wanted.some((t) => t.test(job.title));
 }
 
 const TYPE_OF: Record<Job["kind"], string> = { internship: "internship", job: "full-time", program: "program", campus: "campus", event: "event" };

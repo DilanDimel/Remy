@@ -80,8 +80,20 @@ try {
   ws = (await call(cookie, "PUT", "/api/ws/tasks", { value: [...ws.tasks, { id: "t-persist", title: "Persistence task", why: "check", due: "2026-11-01", category: "Prepare", done: true, source: "Student" }] })).json;
   ws = (await call(cookie, "PUT", "/api/ws/calendar", { value: [...ws.calendar, { id: "c-persist", title: "Persistence event", date: "2026-11-02", time: "10:00", kind: "Event", source: "Student", notes: "" }] })).json;
   ws = (await call(cookie, "PUT", "/api/ws/settings", { value: { theme: "dark" } })).json;
+  // Remy has no built-in postings, so add two the way the live search would, with the server stopped.
+  await stop();
+  process.env.OR_DB_PATH = dbPath;
+  const db = await import("../server/db");
+  const seeded = db.loadWorkspace(me.id);
+  for (const n of [1, 2]) seeded.jobs.push({
+    id: `job-persist-${n}`, kind: "internship", title: `Finance Intern ${n}`, company: "Example Co", location: "Dallas, TX", format: "", dates: "",
+    deadline: "", deadlineText: "", eligibility: [], requirements: [], summary: "", applyUrl: `https://example.com/${n}`, sourceUrl: `https://example.com/${n}`,
+    sourceName: "Example Co careers", label: "Live", checkedAt: "2026-10-23", checks: [], origin: "imported",
+  });
+  db.saveWorkspace(me.id, seeded);
+  await start();
   const jobs = (await call(cookie, "GET", "/api/jobs")).json.jobs;
-  assert(jobs.length, "opportunities catalog should not be empty");
+  assert.equal(jobs.length, 2, "the seeded openings should be listed");
   await call(cookie, "POST", "/api/applications", { jobId: jobs[0].id });
   ws = (await call(cookie, "PUT", "/api/ws/hiddenJobIds", { value: [jobs.at(-1).id] })).json;
   ws = (await call(cookie, "POST", "/api/memory/remember", { text: "Prefers roles in New York" })).json;
