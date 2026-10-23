@@ -12,6 +12,8 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
   const w = ws!;
   const tab = (query.get("tab") as Tab) || "career";
   const [busy, setBusy] = useState(false);
+  // Same rule as the server: no path until Remy knows something about the student.
+  const knows = !!(w.resume || w.profile.major.trim() || w.profile.targetRoles.trim());
   const generate = async () => {
     setBusy(true);
     const r = await run(() => api<Workspace>("POST", "/api/ai/plan"), "Your path was refreshed");
@@ -26,7 +28,7 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
           <h1>Explore. Prepare. Pursue.</h1>
           <p>Suggestions grounded in your background — with clear labels for what's sourced and what's illustrative.</p>
         </div>
-        <button className="btn btn-secondary" onClick={generate} disabled={busy || !config?.ai.available} data-testid="button-refresh-path">{busy ? <Spinner /> : w.plan ? <RotateCcw size={16} /> : <Sparkles size={16} />} {w.plan ? "Refresh suggestions" : "Build my path"}</button>
+        {knows && <button className="btn btn-secondary" onClick={generate} disabled={busy || !config?.ai.available} data-testid="button-refresh-path">{busy ? <Spinner /> : w.plan ? <RotateCcw size={16} /> : <Sparkles size={16} />} {w.plan ? "Refresh suggestions" : "Build my path"}</button>}
       </div>
       {!config?.ai.available && <AiUnavailableNote />}
       <div className="tabs" role="tablist">
@@ -36,7 +38,9 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
       </div>
       {busy && <div className="card card-pad row"><Remy size={40} mood="think" /><span className="muted">Building suggestions from your resume and answers…</span></div>}
       {!w.plan && !busy ? (
-        <div className="card"><Empty title="No path yet" body="Remy will suggest roles, skills and next steps based on your resume and goals." action={<button className="btn btn-primary" onClick={generate} disabled={!config?.ai.available}>Build my path</button>} /></div>
+        <div className="card">{knows
+          ? <Empty title="No path yet" body="Remy will suggest roles, skills and next steps based on your resume and goals." action={<button className="btn btn-primary" onClick={generate} disabled={!config?.ai.available}>Build my path</button>} />
+          : <Empty title="Tell Remy about yourself first" body="Your path is built from your resume and goals. Upload your resume, or add your major and the roles you want, and Remy will suggest roles, skills and next steps." action={<a className="btn btn-primary" href="#/resume">Upload your resume</a>} />}</div>
       ) : w.plan && !busy ? (
         <>
           <p className="xs muted">Generated {fmtDate(w.plan.generatedAt)} by {w.plan.generatedBy}. Changing your profile won't silently rewrite this — refresh when you're ready.</p>

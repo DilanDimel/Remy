@@ -76,6 +76,31 @@ export function regionMatch(ws: Workspace, job: Job): boolean | null {
   });
 }
 
+// The student's fields (target roles, major, interests) → job titles that belong to them.
+// A title must match one of the student's fields; fields that map to nothing don't filter.
+export const FIELD_TITLES: [RegExp, RegExp][] = [
+  [/financ|bank|invest|m&a|capital|fintech|account|econ|wealth/i, /financ|bank|invest|m&a|merger|capital|equity|credit|analyst|account|treasury|fp&a|valuation|trading|risk|wealth|asset|corporate development|strategy|business/i],
+  [/market|brand|advertis|social media|communication/i, /market|brand|growth|content|social|communication|advertis|creative/i],
+  [/data|analytic|statistic/i, /data|analytic|insight|intelligence|research|quant/i],
+  [/software|computer science|\bcs\b|engineer|developer|\btech\b|programming/i, /engineer|developer|software|technical|machine learning|data/i],
+  [/supply chain|operations|logistics/i, /operations|supply|logistics|procurement|planning/i],
+  [/consult/i, /consult|strategy|analyst/i],
+  [/sales|business development/i, /sales|business development|account (executive|manager)|partnerships/i],
+  [/quant|math|physics/i, /quant|research|trading|analyst|data/i],
+];
+
+/** Postings the student pasted in themselves are never hidden by field or type: they chose them. */
+const studentAdded = (job: Job) => job.origin === "imported" && !/job board/i.test(job.sourceName || "");
+/** true / false when the student named fields Remy recognizes; null when not. Hand-picked
+ * postings also count their summary, since their titles can be program names. */
+export function fieldMatch(ws: Workspace, job: Job): boolean | null {
+  const p = ws.profile;
+  const wanted = FIELD_TITLES.filter(([field]) => field.test([p.targetRoles, p.major, p.interests].join(" "))).map(([, title]) => title);
+  if (!wanted.length) return null;
+  const text = job.origin === "verified-catalog" ? `${job.title} ${job.summary}` : job.title;
+  return wanted.some((t) => t.test(text));
+}
+
 const TYPE_OF: Record<Job["kind"], string> = { internship: "internship", job: "full-time", program: "program", campus: "campus", event: "event" };
 export function typeMatch(ws: Workspace, job: Job): boolean | null {
   const t = (ws.profile.opportunityTypes || "").toLowerCase();
@@ -85,7 +110,8 @@ export function typeMatch(ws: Workspace, job: Job): boolean | null {
   if (k === "full-time") return /full|job/.test(t);
   if (k === "program") return /program|insight|intern/.test(t);
   if (k === "campus") return /part|campus/.test(t);
-  return /event|competition|career fair|network/.test(t) || /competition/i.test(job.title) && /competition/.test(t);
+  // Summits and insight events are what "Programs & insight days" means in practice.
+  return /event|competition|career fair|network|insight/.test(t) || /competition/i.test(job.title) && /competition/.test(t);
 }
 
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
@@ -145,6 +171,12 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
 
   const region = regionMatch(ws, job);
   const type = typeMatch(ws, job);
+  const field = fieldMatch(ws, job);
+  // Leave out what the student said they don't want (wrong field or kind of opportunity).
+  if (!studentAdded(job) && (field === false || type === false)) {
+    excluded = true;
+    note = field === false ? "This isn't in the fields you chose." : "This isn't the kind of opportunity you chose.";
+  }
   const req = job.requirements.length || 1;
   const score = Math.round(
     ({ likely: 40, check: 22, unknown: 18, unlikely: 0 } as const)[eligibility] +

@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Job, Workspace } from "@shared/types";
-import { classYearOf, computeFit, regionMatch } from "./fit";
+import { classYearOf, computeFit, fieldMatch, regionMatch } from "./fit";
 
 const fall2026 = new Date("2026-10-22T12:00:00");
 const student = (profile: Partial<Workspace["profile"]>) =>
@@ -43,4 +43,27 @@ test("regions: DFW suburbs match Dallas, Europe doesn't, 'anywhere' doesn't filt
   assert.equal(regionMatch(student({ regions: "anywhere" }), job({ location: "Brussels, Belgium" })), null);
   assert.equal(regionMatch(student({ regions: "Remote" }), job({ location: "New York, NY", format: "Remote" })), true);
   assert.equal(regionMatch(student({ regions: "Dallas, Fort Worth" }), job({ location: "New York, NY / virtual" })), true, "virtual programs count everywhere");
+});
+
+test("fields: postings outside the student's chosen fields are left out", () => {
+  const finance = student({ targetRoles: "investment banking", classYear: "Sophomore" });
+  assert.equal(computeFit(finance, job({ title: "Brand Marketing Intern" }), "").excluded, true);
+  assert.ok(!computeFit(finance, job({ title: "M&A Summer Analyst" }), "").excluded);
+  const marketing = student({ major: "Marketing", targetRoles: "brand marketing", classYear: "Junior" });
+  assert.equal(computeFit(marketing, job({ title: "Investment Banking Summer Analyst" }), "").excluded, true);
+});
+test("hand-picked postings also count their summary", () => {
+  const finance = student({ targetRoles: "venture capital investing" });
+  const summit = job({ title: "2027 Inclusion by Insight Virtual Summit", origin: "verified-catalog", summary: "Explore the venture capital, private equity and tech investing space." } as Partial<Job>);
+  assert.equal(fieldMatch(finance, summit), true);
+});
+test("kinds: an internships-only student doesn't see full-time jobs", () => {
+  const s = student({ opportunityTypes: "Internships", targetRoles: "finance" });
+  assert.equal(computeFit(s, job({ kind: "job", title: "Financial Analyst" }), "").excluded, true);
+  assert.ok(!computeFit(s, job({ kind: "internship", title: "Financial Analyst Intern" }), "").excluded);
+});
+test("postings the student pasted in are never hidden by field or kind", () => {
+  const s = student({ targetRoles: "investment banking", opportunityTypes: "Internships" });
+  const pasted = job({ kind: "job", title: "Brand Marketing Coordinator", origin: "imported", sourceName: "Pasted by student" } as Partial<Job>);
+  assert.ok(!computeFit(s, pasted, "").excluded);
 });

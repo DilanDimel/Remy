@@ -171,7 +171,7 @@ function closedReason(ws: Workspace, job: Job): string | undefined {
 // Remy only recommends once it knows something about the student (resume, major or target roles).
 const knowsStudent = (ws: Workspace) => !!(ws.resume || ws.profile.major.trim() || ws.profile.targetRoles.trim());
 const NEEDS_PROFILE = "Tell Remy about yourself first: upload your resume or add your major and the roles you want (Account → Profile).";
-const openJobs = (ws: Workspace) => allJobs(ws).filter((j) => !closedReason(ws, j));
+const openJobs = (ws: Workspace) => allJobs(ws).filter((j) => !closedReason(ws, j) && !fitOf(ws, j).excluded);
 
 // ---------- tailoring helpers ----------
 const stripPlaceholders = (letter: string) =>

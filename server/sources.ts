@@ -1,7 +1,7 @@
 import type { Job, Requirement, Workspace } from "@shared/types";
 import { htmlToText } from "./parse";
 import { uid } from "./db";
-import { regionMatch } from "./fit";
+import { FIELD_TITLES, regionMatch } from "./fit";
 
 // Live openings from employers' public job-board APIs (Greenhouse, Lever, Ashby).
 // These are the boards companies use to publish their own careers pages, so each
@@ -33,19 +33,6 @@ const EARLY = /\b(intern(ship)?s?|co-?op|new grad(uate)?|early career|entry[- ]l
 const SENIOR = /\b(senior|sr\.?|staff|principal|lead|manager|director|head of|vp|vice president|ii|iii|iv)\b/i;
 // Roles meant for graduate students, skipped for undergraduates.
 const GRAD_LEVEL = /\b(mba|ph\.?\s?d|doctoral|postdoc|post-doc|master'?s|graduate student|j\.?d\.?)\b/i;
-// The student's fields (target roles, major, interests) → job titles that belong to them.
-// A title must match one of the student's fields; fields that map to nothing don't filter.
-const FIELD_TITLES: [RegExp, RegExp][] = [
-  [/financ|bank|invest|m&a|capital|fintech|account|econ|wealth/i, /financ|bank|invest|m&a|merger|capital|equity|credit|analyst|account|treasury|fp&a|valuation|trading|risk|wealth|asset|corporate development|strategy|business/i],
-  [/market|brand|advertis|social media|communication/i, /market|brand|growth|content|social|communication|advertis|creative/i],
-  [/data|analytic|statistic/i, /data|analytic|insight|intelligence|research|quant/i],
-  [/software|computer science|\bcs\b|engineer|developer|\btech\b|programming/i, /engineer|developer|software|technical|machine learning|data/i],
-  [/supply chain|operations|logistics/i, /operations|supply|logistics|procurement|planning/i],
-  [/consult/i, /consult|strategy|analyst/i],
-  [/sales|business development/i, /sales|business development|account (executive|manager)|partnerships/i],
-  [/quant|math|physics/i, /quant|research|trading|analyst|data/i],
-];
-
 const KEYWORDS = [
   "Excel", "PowerPoint", "Python", "SQL", "R ", "Tableau", "Power BI", "financial modeling", "valuation", "accounting", "data analysis", "analytics",
   "market research", "communication", "written communication", "presentation", "teamwork", "leadership", "problem solving", "attention to detail",
