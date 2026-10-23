@@ -196,6 +196,51 @@ function refreshAts(ws: Workspace, app: Application) {
   if (job && ws.resume) app.ats = atsChecks(composeResume(ws, app), job, fileBase(ws, job, "Resume"));
 }
 
+// Live openings from employers' public job boards, picked for this student. Runs from the
+// "Find openings" button and by itself when the student opens Remy (see GET /api/jobs).
+async function findOpenings(ctx: Ctx, named: string[] = []) {
+  // Which employers to read: the AI picks from the directory for this student's profile;
+  // without AI, employers whose fields match the student's are used.
+  const p = ctx.ws.profile;
+  const wants = [p.targetRoles, p.major, p.interests].join(" ").toLowerCase();
+  let picked = EMPLOYERS.filter((e) => (e.fields || []).some((f) => wants.includes(f) || FIELD_TITLES.some(([field, title]) => field.test(wants) && title.test(f))));
+  if (!named.length && aiStatus().available) {
+    try {
+      const out = await withAi(ctx, "Pick employers", () =>
+        aiJson<{ companies: string[] }>(
+          "You pick employers for a university student's early-career search, only from the list given. Choose employers that hire for the student's fields and are realistic for their level and location.",
+          `STUDENT:\n${profileSummary(ctx.ws)}\n\nEMPLOYERS (name — fields):\n${EMPLOYERS.map((e) => `${e.company} — ${(e.fields || []).join(", ")}`).join("\n")}\n\nReturn {"companies":["exact name from the list", ...]} with up to 15 names.`,
+          600,
+        ),
+      );
+      const names = new Set((out.companies || []).map((x) => String(x).toLowerCase()));
+      const ai = EMPLOYERS.filter((e) => names.has(e.company.toLowerCase()));
+      if (ai.length) picked = ai;
+    } catch {}
+  }
+  if (!picked.length) picked = EMPLOYERS;
+  const boards = [...named.flatMap(boardsFor), ...picked.slice(0, 15)];
+  const seen = new Set<string>();
+  const unique = boards.filter((b) => { const k = b.ats + ":" + b.slug; if (seen.has(k)) return false; seen.add(k); return true; });
+  const r = await discoverJobs(ctx.ws, unique);
+  console.log(`discover: read ${r.reached}/${unique.length} (${unique.map((b) => b.company).join(", ")}), added ${r.jobs.length}`);
+  // Add to the latest saved list, so a posting the student imported meanwhile isn't overwritten.
+  const fresh = loadWorkspace(ctx.me.id);
+  const have = new Set(fresh.jobs.map((j) => j.applyUrl));
+  const added = r.jobs.filter((j) => !have.has(j.applyUrl));
+  ctx.ws.jobs = [...added, ...fresh.jobs];
+  ctx.ws.fits = { ...fresh.fits };
+  for (const j of added) ctx.ws.fits[j.id] = fitOf(ctx.ws, j);
+  ctx.ws.openingsCheckedAt = nowIso();
+  ctx.save();
+  return { added: added.length, reached: r.reached, scanned: unique.length };
+}
+
+// Openings refresh by themselves: opening Remy starts a new search when the last one is this old.
+// shortcut: refreshes when the student visits, not on a timer (the free host sleeps when idle); add a scheduled sweep on an always-on host.
+const OPENINGS_EVERY = 6 * 60 * 60_000;
+const searching = new Set<string>();
+
 export async function registerRoutes(_server: Server, app: Express) {
   // Expired sessions and guest workspaces idle for 30 days are removed at start-up and every 6 hours.
   const sweep = () => { try { const n = cleanupOld(30); if (n) console.log(`cleanup: removed ${n} idle guest accounts`); } catch (e: any) { console.error("cleanup failed", e?.message); } };
@@ -605,12 +650,24 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       return j;
     });
     if (changed) ctx.save();
+    const last = Date.parse(ctx.ws.openingsCheckedAt || "");
+    if (!(Date.now() - last < OPENINGS_EVERY) && !searching.has(ctx.me.id)) {
+      let ok = true;
+      try { fetchAllowed(ctx); } catch { ok = false; }
+      if (ok) {
+        const id = ctx.me.id;
+        searching.add(id);
+        ctx.ws.openingsCheckedAt = nowIso(); // a failed search waits for the next window instead of retrying on every visit
+        ctx.save();
+        findOpenings(ctx).catch((e) => console.error("auto openings", e?.message)).finally(() => searching.delete(id));
+      }
+    }
     const fits: Record<string, JobFit> = {};
     for (const j of jobs) {
       const closed = closedReason(ctx.ws, j);
       fits[j.id] = closed ? { ...ctx.ws.fits[j.id], closed, excluded: true, score: 0, eligibilityNote: closed } : ctx.ws.fits[j.id];
     }
-    res.json({ jobs, fits });
+    res.json({ jobs, fits, refreshing: searching.has(ctx.me.id) });
   }));
 
   app.post("/api/jobs/import", route(async (req, res, ctx) => {
@@ -653,35 +710,8 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE, 409);
     fetchAllowed(ctx);
     const named: string[] = (Array.isArray(req.body?.companies) ? req.body.companies : []).map(String).map((x: string) => x.trim()).filter(Boolean).slice(0, 10);
-    // Which employers to read: the AI picks from the directory for this student's profile;
-    // without AI, employers whose fields match the student's are used.
-    const p = ctx.ws.profile;
-    const wants = [p.targetRoles, p.major, p.interests].join(" ").toLowerCase();
-    let picked = EMPLOYERS.filter((e) => (e.fields || []).some((f) => wants.includes(f) || FIELD_TITLES.some(([field, title]) => field.test(wants) && title.test(f))));
-    if (!named.length && aiStatus().available) {
-      try {
-        const out = await withAi(ctx, "Pick employers", () =>
-          aiJson<{ companies: string[] }>(
-            "You pick employers for a university student's early-career search, only from the list given. Choose employers that hire for the student's fields and are realistic for their level and location.",
-            `STUDENT:\n${profileSummary(ctx.ws)}\n\nEMPLOYERS (name — fields):\n${EMPLOYERS.map((e) => `${e.company} — ${(e.fields || []).join(", ")}`).join("\n")}\n\nReturn {"companies":["exact name from the list", ...]} with up to 15 names.`,
-            600,
-          ),
-        );
-        const names = new Set((out.companies || []).map((x) => String(x).toLowerCase()));
-        const ai = EMPLOYERS.filter((e) => names.has(e.company.toLowerCase()));
-        if (ai.length) picked = ai;
-      } catch {}
-    }
-    if (!picked.length) picked = EMPLOYERS;
-    const boards = [...named.flatMap(boardsFor), ...picked.slice(0, 15)];
-    const seen = new Set<string>();
-    const unique = boards.filter((b) => { const k = b.ats + ":" + b.slug; if (seen.has(k)) return false; seen.add(k); return true; });
-    const r = await discoverJobs(ctx.ws, unique);
-    console.log(`discover: read ${r.reached}/${unique.length} (${unique.map((b) => b.company).join(", ")}), added ${r.jobs.length}`);
-    ctx.ws.jobs.unshift(...r.jobs);
-    for (const j of r.jobs) ctx.ws.fits[j.id] = fitOf(ctx.ws, j);
-    ctx.save();
-    res.json({ added: r.jobs.length, reached: r.reached, scanned: unique.length, workspace: ctx.ws });
+    const r = await findOpenings(ctx, named);
+    res.json({ ...r, workspace: ctx.ws });
   }));
 
   app.post("/api/jobs/:id/check", route(async (req, res, ctx) => {

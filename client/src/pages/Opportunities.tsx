@@ -12,7 +12,7 @@ const matchKind = (j: Job, k: Kind) => k === "all" || (k === "event" ? j.kind ==
 export default function Opportunities({ query }: { query: URLSearchParams }) {
   const { ws, setWs, run, toast } = useStore();
   const w = ws!;
-  const { jobs, fits, needsProfile } = useJobs();
+  const { jobs, fits, needsProfile, refreshing } = useJobs();
   const kind = (query.get("kind") as Kind) || "all";
   const focus = query.get("id");
   const [savedOnly, setSavedOnly] = useState(false);
@@ -49,6 +49,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   return (
     <>
       {needsProfile && <div className="notice" data-testid="needs-profile">{needsProfile}</div>}
+      {refreshing && <div className="notice" data-testid="openings-refreshing"><Spinner /> Remy is checking employers' career sites for new openings that fit you. They'll appear here in a moment.</div>}
       <div className="page-head">
         <div>
           <span className="eyebrow">Opportunities</span>

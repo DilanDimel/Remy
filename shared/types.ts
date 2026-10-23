@@ -320,7 +320,9 @@ export interface Workspace {
   resume?: BaseResume;
   imports: { id: string; kind: string; fileName: string; at: string; label: Label; factsAdded: number }[];
   memory: MemoryFact[];
-  jobs: Job[]; // imported + manual (catalog lives server-side)
+  jobs: Job[]; // found by the live search, imported or added by the student
+  /** When Remy last searched employers' career sites for this student (it re-searches every few hours). */
+  openingsCheckedAt?: string;
   savedJobIds: string[];
   fits: Record<string, JobFit>;
   hiddenJobIds: string[];
