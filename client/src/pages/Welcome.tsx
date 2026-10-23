@@ -72,7 +72,8 @@ export default function Welcome() {
     if (ok) { setSent(email.trim()); toast("Check your inbox for a sign-in link"); }
     setBusy("");
   };
-  const sso = (via: Provider, icon: ReactNode) => (
+  // Only offer sign-in options that are switched on in Supabase.
+  const sso = (via: Provider, icon: ReactNode) => !providerOn(config, via === "Work/School Email" ? "email" : SB[via]) ? null : (
     <button className="gbtn" type="button" onClick={() => enter(via)} disabled={!!busy} data-testid={`button-sso-${via.split(/\W/)[0].toLowerCase()}`}>
       {busy === via ? <Spinner /> : icon} Continue with {via}
     </button>
@@ -120,7 +121,7 @@ export default function Welcome() {
           </button>
           <p className="xs muted">
             {anyReal ? "Signing in keeps your workspace across devices. " : <><StatusChip label="Needs setup">Sign-in</StatusChip>{" "}</>}
-            Options that aren't switched on yet open a private guest workspace on this browser. Remy never asks for your passwords.
+            Remy never asks for your passwords.
           </p>
         </div>
       </div>

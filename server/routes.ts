@@ -797,7 +797,7 @@ ${answers.map((x: any) => `${x.q} → ${x.a}`).join("\n") || "(none)"}
 Return JSON:
 {"strongestMatch":{"text":"one sentence: the single strongest truthful connection","requirementId":"r1","evidenceBulletId":"b..."},
  "changes":[{"bulletId":"","revised":"","requirementId":"","reason":"why this change helps for this posting"}],
- "gaps":[{"requirementId":"","note":"honest gap and how to address it without exaggerating"}],
+ "gaps":[{"requirementId":"","note":"honest gap and how to address it without exaggerating, written to the student as you"}],
  "coverLetter":"3-4 short paragraphs separated by blank lines, under 330 words, starting 'Dear ${job.company} Recruiting Team,' and ending with a sign-off using the student's name",
  "personalize":[]}`,
         4500,

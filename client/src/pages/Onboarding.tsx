@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Check, FileText, Trash2 } from "lucide-react";
 import { LinkedInMark, MailMark } from "./Welcome";
 import type { Profile, Workspace } from "@shared/types";
 import { api, useStore } from "../lib/store";
+import { reloadJobs } from "../lib/jobs";
 import { AiUnavailableNote, Remy, Spinner, StatusChip } from "../components/common";
 import { ResumeUpload } from "../components/Uploaders";
 import { providerOn, startOAuth } from "../lib/supabase";
@@ -21,6 +22,8 @@ export default function Onboarding() {
   const finish = async () => {
     uiFlags.flyIn = true;
     await save("onboarding", { ...w.onboarding, done: true });
+    // Start with real, current openings for this student, not only the hand-picked ones.
+    api("POST", "/api/jobs/discover", {}).then(() => reloadJobs()).catch(() => {});
   };
   return (
     <div className="ob">
@@ -64,33 +67,27 @@ function Sources({ onNext }: { onNext: () => void }) {
   const [open, setOpen] = useState<string>(w.resume ? "" : "resume");
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [email, setEmail] = useState(w.profile.applicationEmail || w.profile.email);
-  const demo = w.settings.demoConnections || [];
   const linkedinLive = w.imports.some((i) => i.kind === "LinkedIn (connected)");
   const linkedinReal = providerOn(config, "linkedin_oidc");
   const setRowBusy = (k: string) => (b: boolean) => setBusy((x) => (x[k] === b ? x : { ...x, [k]: b }));
   const stateOf = (k: string, done: boolean) => (busy[k] ? "busy" : done ? "done" : "none");
-  const isDone = (k: string) => (k === "linkedin" && linkedinLive) || demo.includes(k);
-  // Placeholder connectors: TCU, Stellic, Handshake (and LinkedIn until its Supabase
-  // provider is on) only play the connecting animation. Nothing is read from them yet.
-  const connectDemo = async (k: string) => {
-    if (k === "linkedin" && linkedinReal) {
-      setRowBusy(k)(true);
-      await run(() => startOAuth(config!, "linkedin_oidc", "connect-linkedin"));
-      setRowBusy(k)(false);
-      return;
-    }
-    setRowBusy(k)(true);
-    await new Promise((r) => setTimeout(r, 2200 + Math.random() * 1800));
-    await run(() => save("settings", { demoConnections: Array.from(new Set([...(ws!.settings.demoConnections || []), k])) }));
-    setRowBusy(k)(false);
+  const isDone = (k: string) => k === "linkedin" && linkedinLive;
+  // TCU, Stellic and Handshake (and LinkedIn until its Supabase provider is on) aren't
+  // connected to anything yet, so they say "Coming soon" instead of pretending to connect.
+  const canConnect = (k: string) => k === "linkedin" && linkedinReal;
+  const connectLinkedIn = async () => {
+    setRowBusy("linkedin")(true);
+    await run(() => startOAuth(config!, "linkedin_oidc", "connect-linkedin"));
+    setRowBusy("linkedin")(false);
   };
   const toggle = (k: string) => setOpen(open === k ? "" : k);
   const connected = (w.resume ? 1 : 0) + DEMO_ROWS.filter((r) => isDone(r.k)).length + (w.profile.applicationEmail ? 1 : 0);
+  const connectable = 2 + DEMO_ROWS.filter((r) => canConnect(r.k)).length;
   return (
     <div className="stack-lg">
       <div className="stack-sm">
         <h2 className="conn-title">Connect Your Accounts</h2>
-        <p className="muted">The more you connect, the better. <span className="xs">({connected} of {DEMO_ROWS.length + 2} connected)</span></p>
+        <p className="muted">The more you connect, the better. <span className="xs">({connected} of {connectable} connected)</span></p>
       </div>
       <div className="remy-prompt">
         <Remy size={40} mood={Object.values(busy).some(Boolean) ? "think" : "idle"} />
@@ -112,9 +109,9 @@ function Sources({ onNext }: { onNext: () => void }) {
           return (
             <div key={r.k} className="conn-row">
               <span className={`conn-ico ${r.icoClass}`} aria-hidden>{r.ico}</span>
-              <div className="grow"><b>{r.title}</b><span>{live ? `Connected as ${w.imports.find((i) => i.kind === "LinkedIn (connected)")!.fileName}` : done ? `${r.what} · demo connection` : r.what}</span></div>
-              <ConnStatus state={stateOf(r.k, done)} />
-              {!done && <button className="btn btn-secondary btn-sm" onClick={() => connectDemo(r.k)} disabled={busy[r.k]} data-testid={`button-source-${r.k}`}>Connect</button>}
+              <div className="grow"><b>{r.title}</b><span>{live ? `Connected as ${w.imports.find((i) => i.kind === "LinkedIn (connected)")!.fileName}` : r.what}</span></div>
+              {canConnect(r.k) || done ? <ConnStatus state={stateOf(r.k, done)} /> : <span className="conn-badge">Coming soon</span>}
+              {!done && canConnect(r.k) && <button className="btn btn-secondary btn-sm" onClick={connectLinkedIn} disabled={busy[r.k]} data-testid={`button-source-${r.k}`}>Connect</button>}
             </div>
           );
         })}
@@ -132,7 +129,7 @@ function Sources({ onNext }: { onNext: () => void }) {
           </div>
         )}
       </div>
-      <p className="xs muted">Remy never asks for your passwords. TCU, Stellic and Handshake are demo connections for now{linkedinReal ? "; LinkedIn asks for your permission on LinkedIn's own site" : " (LinkedIn too)"}.</p>
+      <p className="xs muted">Remy never asks for your passwords. TCU, Stellic and Handshake connections are coming soon{linkedinReal ? "; LinkedIn asks for your permission on LinkedIn's own site" : " (LinkedIn too)"}.</p>
       <div className="row-between">
         <span />
         <button className="btn btn-primary" onClick={async () => { if (email && email !== w.profile.applicationEmail && /.+@.+\..+/.test(email)) await save("profile", { ...w.profile, applicationEmail: email }); onNext(); }} data-testid="button-ob-next-sources">
@@ -149,7 +146,9 @@ const PROFILE_FIELDS: [keyof Profile, string, string?][] = [
   ["regions", "Where should Remy look?", "e.g. Fort Worth, Dallas, Remote"], ["opportunityTypes", "Kinds of opportunities", "e.g. Internships, Events"],
 ];
 
-export function ProfileForm({ onSaved }: { onSaved?: () => void }) {
+// Onboarding asks roles, regions and opportunity types on its own preferences step, so its review step leaves them out.
+const PREF_KEYS: (keyof Profile)[] = ["targetRoles", "regions", "opportunityTypes"];
+export function ProfileForm({ onSaved, hidePrefs }: { onSaved?: () => void; hidePrefs?: boolean }) {
   const { ws, save, run } = useStore();
   const [p, setP] = useState<Profile>(ws!.profile);
   useEffect(() => { setP(ws!.profile); }, [ws!.profile]);
@@ -157,7 +156,7 @@ export function ProfileForm({ onSaved }: { onSaved?: () => void }) {
   return (
     <div className="stack">
       <div className="grid-2">
-        {PROFILE_FIELDS.map(([k, label, ph]) => (
+        {PROFILE_FIELDS.filter(([k]) => !(hidePrefs && PREF_KEYS.includes(k))).map(([k, label, ph]) => (
           <label key={k} className="field">
             <span>{label}</span>
             {k === "classYear" ? (
@@ -265,7 +264,7 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
         <h2>Is this right?</h2>
         <p className="small muted">Correct anything that's off. Remy only uses what you confirm here.</p>
       </div>
-      <ProfileForm />
+      <ProfileForm hidePrefs />
       {w.resume && (
         <div className="stack-sm">
           <h3>From your resume</h3>

@@ -120,6 +120,22 @@ export function claimCheck(
       if (m && !h.test(body)) add({ type: "scope", term: m[0], message: `Your original says “${m[0]}”. Dropping it makes the claim sound more certain than your resume does; keep it.` });
     }
   }
+  // Letters have no original bullet: a figure the resume hedges ("an estimated $5,000+") must keep a hedge nearby.
+  if (opts.original === undefined) {
+    for (const m of body.matchAll(/\$?\d[\d,]*/g)) {
+      const near = lc(body.slice(Math.max(0, m.index! - 60), m.index! + 60));
+      if (/\b(estimated|approximately|roughly|nearly|about|up to|around)\b/.test(near)) continue;
+      // The same figure can appear twice on a resume; only the occurrence the letter is talking about counts.
+      for (let at = evidence.indexOf(m[0]); at >= 0; at = evidence.indexOf(m[0], at + 1)) {
+        const ctx = lc(evidence.slice(Math.max(0, at - 45), at));
+        const hedge = ctx.match(/\b(estimated|approximately|roughly|nearly|about|up to)\b/);
+        if (hedge && (ctx.match(/[a-z]{5,}/g) || []).some((w) => w !== hedge[1] && near.includes(w))) {
+          add({ type: "scope", term: hedge[1], message: `Your resume says “${hedge[1]}” about ${m[0]}. Keep that word so the letter isn't more certain than your resume.` });
+          break;
+        }
+      }
+    }
+  }
   for (const term of CLASS_YEAR) {
     if (hasTerm(t, term) && !hasTerm(ev, term)) {
       add({ type: "title", term, message: `Class standing “${term}” is not stated in your resume or profile. Set your class year in Accounts or remove it.` });

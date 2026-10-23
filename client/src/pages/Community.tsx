@@ -4,7 +4,6 @@ import type { Contact, OutreachDraft, Workspace } from "@shared/types";
 import { api, fmtDate, rid, useStore } from "../lib/store";
 import { Empty, Modal, Spinner, StatusChip } from "../components/common";
 import { startOutreach, useTailorSession } from "../lib/tailorChat";
-import { providerOn, startOAuth } from "../lib/supabase";
 
 type AlumMatch = { id: string; year: number | null; name: string; employer: string; industry: string; role: string; title: string; location: string; majors: string[]; score: number; why: string[] };
 
@@ -59,23 +58,16 @@ export default function Community() {
           {!w.contacts.some((x) => x.label === "Demo data") && <button className="btn btn-ghost" onClick={loadSamples} data-testid="button-sample-contacts">Load sample contacts</button>}
         </div>
       </div>
-      <section className="stack" data-testid="section-alumni">
+      {/* Alumni are only for TCU accounts, so other signed-in accounts don't see this section at all. */}
+      {!alumni?.schoolEmailRequired && <section className="stack" data-testid="section-alumni">
         <div className="row-between">
           <h2>TCU alumni matched to you</h2>
           {alumni && <span className="xs muted">From the {alumni.source || "TCU alumni list"} · {alumni.total} alumni</span>}
         </div>
         {alumni?.signInRequired ? (
           <div className="card card-pad stack-sm" data-testid="alumni-sign-in">
-            <strong>Sign in to see your alumni matches</strong>
-            <p className="small muted">The alumni list has real names and email addresses, so it's only shown to signed-in students.</p>
-            {providerOn(config, "google") && <div><button className="btn btn-primary btn-sm" onClick={() => run(() => startOAuth(config!, "google"))} data-testid="button-alumni-sign-in">Sign in with Google</button></div>}
-            {!providerOn(config, "google") && <span className="xs muted">Sign out from the menu under your name, then sign in on the home page.</span>}
-          </div>
-        ) : alumni?.schoolEmailRequired ? (
-          <div className="card card-pad stack-sm" data-testid="alumni-school-email">
-            <strong>Alumni matches are for TCU students</strong>
-            <p className="small muted">The alumni list has real names and email addresses, so it's only shown to students signed in with a {(alumni.domains || ["tcu.edu"]).map((d) => "@" + d).join(" or ")} email.</p>
-            <span className="xs muted">Sign out from the menu under your name, then choose Continue with Work/School Email and use your TCU address.</span>
+            <strong>TCU students: sign in to see alumni in your field</strong>
+            <p className="small muted">Sign out from the menu under your name, then choose Continue with Work/School Email and use your @tcu.edu address.</p>
           </div>
         ) : !alumni ? <div className="grid-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 150 }} />)}</div> : alumni.matches.length ? (
           <div className="grid-3">
@@ -97,7 +89,7 @@ export default function Community() {
             })}
           </div>
         ) : <div className="card"><Empty title="No strong matches yet" body="Add your major, the fields you're interested in and where you want to work (Account → Profile), and Remy will match you with TCU alumni." /></div>}
-      </section>
+      </section>}
       <h2>Your contacts</h2>
       {w.contacts.length ? (
         <div className="grid-3">

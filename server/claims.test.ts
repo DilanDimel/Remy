@@ -27,6 +27,7 @@ const madeUp: [string, string, object?][] = [
   ["fake certification", "Earned a bloomberg market concepts certificate"],
   ["degree inflation", "Completed a master's-level valuation course"],
   ["dropped hedge (seen on a real resume)", "Oversee chapter budget of $5,000+, managing SGA funding allocations and corporate sponsorships", { original: budget }],
+  ["letter drops 'estimated' (seen on a real letter)", "As Treasurer, I manage an annual chapter budget exceeding $5,000."],
   ["dropped co-", "Founded and led the investment club", { original: "Co-founded the investment club" }],
 ];
 for (const [name, text, opts] of madeUp) test(`flags: ${name}`, () => assert.ok(flagged(text, opts), text));

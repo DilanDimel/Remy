@@ -75,9 +75,8 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
         </div>
       </div>
       <div className="notice small">
-        <StatusChip label="Live" />
         <div>
-          <strong>Verified public openings</strong> come from official firm pages (or the firm's posting on a university career board), checked Oct 17, 2026. Open <em>Details</em> to re-check a posting before applying. Postings you import are labeled <strong>Needs verification</strong>.
+          <strong>Hand-picked</strong> openings were chosen by the Remy team and checked on Oct 17, 2026. <strong>Find more openings</strong> searches employers' live job boards for you; those results are marked <strong>Live</strong>. Open <em>Details</em> to re-check a posting before applying.
         </div>
       </div>
       {(ineligible.length > 0 || (myRegions && elsewhere.length > 0)) && (
@@ -174,7 +173,7 @@ function JobCard({ j, fit, defaultOpen }: { j: Job; fit?: JobFit; defaultOpen: b
     <article id={"job-" + j.id} className="card card-pad stack-sm" style={defaultOpen ? { borderColor: "var(--plum)" } : undefined} data-testid="card-job">
       <div className="row-between" style={{ alignItems: "flex-start" }}>
         <div className="stack-sm" style={{ minWidth: 0, flex: 1 }}>
-          <div className="row"><span className="xs muted">{j.company} · {kindLabel[j.kind]}</span><StatusChip label={j.label} />{eligChip(fit)}</div>
+          <div className="row"><span className="xs muted">{j.company} · {kindLabel[j.kind]}</span>{j.origin === "verified-catalog" ? <span className="chip chip-plain" title="Picked by the Remy team and checked by hand on Oct 17, 2026">Hand-picked</span> : <StatusChip label={j.label} />}{eligChip(fit)}</div>
           <h3>{j.title}</h3>
           <div className="row small muted"><span className="row" style={{ gap: 4 }}><MapPin size={14} />{j.location || "Location not stated"}</span>{j.dates && <span>· {j.dates}</span>}</div>
         </div>

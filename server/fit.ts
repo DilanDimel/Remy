@@ -68,7 +68,8 @@ export function regionMatch(ws: Workspace, job: Job): boolean | null {
   const wants = (ws.profile.regions || "").toLowerCase().split(/[,;/]+/).map((x) => x.trim()).filter(Boolean);
   if (!wants.length || wants.some((w) => /anywhere|open to (any|all)|united states|^us$|usa/.test(w))) return null;
   const loc = ` ${job.location} ${job.format} `.toLowerCase();
-  if (/remote|virtual|online/.test(loc) && wants.some((w) => /remote|virtual/.test(w))) return true;
+  // Virtual and remote postings can be done from anywhere, so they match every region.
+  if (/remote|virtual|online/.test(loc)) return true;
   return wants.some((w) => {
     const key = Object.keys(METRO).find((k) => w.includes(k));
     return (key ? METRO[key] : [w]).some((needle) => loc.includes(needle));
