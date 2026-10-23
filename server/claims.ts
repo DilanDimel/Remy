@@ -28,6 +28,20 @@ const STOP_CAPS = new Set([
   "Having", "Building", "Working", "Leading", "Managing", "Serving", "Before", "After", "Today", "Overall",
 ]);
 
+// [pattern, root that must appear in the student's own words, what it claims]
+const LEADERSHIP: [RegExp, string, string][] = [
+  [/\b(led|leads|leading)\b/i, "lead", "led something"],
+  [/\bsupervis(e|ed|es|ing|or)\b/i, "supervis", "supervised people"],
+  [/\bmanag(e|ed|es|ing)\b/i, "manag", "managed something"],
+  [/\b(oversaw|oversee|oversees|overseeing)\b/i, "overs", "oversaw something"],
+  [/\bdirect(ed|s|ing)\b/i, "direct", "directed something"],
+  [/\bspearhead(ed|s|ing)?\b/i, "spearhead", "spearheaded something"],
+  [/\bheaded\b/i, "head", "headed something"],
+];
+const NUMBER_WORDS = /\b(two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|hundred|hundreds|thousand|thousands|million|millions|dozen|dozens)\b/gi;
+// "graduate" alone is left out ("as I graduate in 2029" is not a credential claim).
+const CREDENTIALS = /\b(master'?s|mba|ph\.?\s?d|doctoral|doctorate)(?:[- ](?:level|degree|course|program))?\b|\b(graduate)[- ](?:level|degree|course|program)\b|\b(certifi)ed\b|\b(licens)ed\b|\b(accredit)ed\b/gi;
+const HEDGES = [/\bestimated\b/i, /\bapproximately\b/i, /\bapprox\.?(?=\s)/i, /\broughly\b/i, /\bnearly\b/i, /\balmost\b/i, /\bup to\b/i, /\bmore than\b/i, /\bat least\b/i, /\bco-(?:founded|led|organized|created|authored|chaired)\b/i, /\bhelped\b/i, /\bassisted\b/i, /\bcontributed\b/i, /\bparticipated\b/i];
 const CLASS_YEAR = ["first-year", "first year", "freshman", "sophomore", "second-year", "second year", "junior", "third-year", "senior", "fourth-year"];
 const STOP = new Set("about above across after again against among because before being below between both during each from further having into itself more most other over same some such than that their them then there these they this those through under until very what when where which while with within would your yours ours also just only onto upon".split(/\s+/));
 const LIGHT = new Set("using including various multiple several across within helped worked support supported perform performed create created creating materials".split(" "));
@@ -79,6 +93,31 @@ export function claimCheck(
   for (const term of ["fast-paced", "high-volume", "high-pressure", "high-stakes", "demanding", "rigorous", "deadline-driven"]) {
     if (hasTerm(t, term) && !hasTerm(ev, term) && !(opts.postingText && hasTerm(lc(opts.postingText), term) && !opts.original)) {
       add({ type: "scope", term, message: `“${term}” describes your experience in a way your resume doesn't support. Remove it or add evidence.` });
+    }
+  }
+  // Leadership verbs the student's own words don't support ("Led", "supervised", "managed").
+  // A rewrite is compared to its own entry; a letter to the whole resume.
+  const own = lc(opts.original !== undefined ? opts.original + " " + (opts.entryContext || "") : evidence);
+  for (const [re, root, word] of LEADERSHIP) {
+    const m = body.match(re);
+    if (m && !own.includes(root) && !re.test(own)) add({ type: "title", term: m[0], message: `“${m[0]}” claims you ${word}, which your ${opts.original !== undefined ? "original bullet" : "resume"} doesn't say. Keep it only if it's true.` });
+  }
+  // Numbers written as words ("a team of five", "thirty percent").
+  for (const m of body.matchAll(NUMBER_WORDS)) {
+    const w = lc(m[0]);
+    if (hasTerm(ev, w) || (opts.postingNumbersOk && opts.postingText && hasTerm(lc(opts.postingText), w))) continue;
+    add({ type: "number", term: m[0], message: `The amount “${m[0]}” is not in your resume or approved facts.` });
+  }
+  // Degrees and credentials ("master's-level", "MBA", "certified").
+  for (const m of body.matchAll(CREDENTIALS)) {
+    const root = lc(m.slice(1).find(Boolean) || m[0]);
+    if (!ev.includes(root.replace(/'/g, ""))  && !ev.includes(root)) add({ type: "title", term: m[0], message: `“${m[0]}” describes a degree or credential your resume doesn't show.` });
+  }
+  // Hedges dropped from the original ("an estimated budget" → "a budget") make a claim sound more certain.
+  if (opts.original !== undefined) {
+    for (const h of HEDGES) {
+      const m = opts.original.match(h);
+      if (m && !h.test(body)) add({ type: "scope", term: m[0], message: `Your original says “${m[0]}”. Dropping it makes the claim sound more certain than your resume does; keep it.` });
     }
   }
   for (const term of CLASS_YEAR) {

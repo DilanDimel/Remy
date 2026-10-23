@@ -41,8 +41,8 @@ function chainClient(p: string) {
   chainClients.set(p, c);
   return c;
 }
-function chain(): { p: string; m: string; c: OpenAI }[] {
-  return (process.env.OR_AI_CHAIN || "")
+function chain(spec = process.env.OR_AI_CHAIN): { p: string; m: string; c: OpenAI }[] {
+  return (spec || "")
     .split(",")
     .map((x) => x.trim())
     .filter(Boolean)
@@ -123,10 +123,11 @@ function extractJson(text: string): any {
   throw new Error("AI response was not valid JSON");
 }
 
-export async function aiText(system: string, user: string, maxTokens = 1200): Promise<string> {
+/** `chainSpec` overrides OR_AI_CHAIN for one call (e.g. a stronger model just for tailoring); if none of its providers is configured, the default chain is used. */
+export async function aiText(system: string, user: string, maxTokens = 1200, chainSpec?: string): Promise<string> {
   const c = init();
   if (!c) throw new AiUnavailable();
-  const ch0 = chain();
+  const ch0 = (chainSpec && chain(chainSpec).length && chain(chainSpec)) || chain();
   if (ch0.length || provider() === "gemini" || provider() === "openrouter") {
     // Free-tier Gemini quotas are per model per day, and models sometimes return 503 "high demand".
     // Walk a chain of models: skip any that are out of quota (until the time Google reports), retry 503s once.
@@ -190,12 +191,12 @@ export async function aiText(system: string, user: string, maxTokens = 1200): Pr
   return out;
 }
 
-export async function aiJson<T = any>(system: string, user: string, maxTokens = 3000): Promise<T> {
+export async function aiJson<T = any>(system: string, user: string, maxTokens = 3000, chainSpec?: string): Promise<T> {
   const sys = system + "\n\nRespond with a single JSON object only. No markdown, no commentary.";
   let last: unknown;
   for (let i = 0; i < 2; i++) {
     try {
-      const text = await aiText(sys, i === 0 ? user : user + "\n\nYour previous reply was not valid JSON. Return only the JSON object.", maxTokens);
+      const text = await aiText(sys, i === 0 ? user : user + "\n\nYour previous reply was not valid JSON. Return only the JSON object.", maxTokens, chainSpec);
       return extractJson(text) as T;
     } catch (e) {
       if (e instanceof AiUnavailable) throw e;

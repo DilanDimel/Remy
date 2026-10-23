@@ -794,6 +794,7 @@ Return JSON:
  "coverLetter":"3-4 short paragraphs separated by blank lines, under 330 words, starting 'Dear ${job.company} Recruiting Team,' and ending with a sign-off using the student's name",
  "personalize":[]}`,
         4500,
+        process.env.OR_AI_TAILOR_CHAIN, // optional stronger model for tailoring only (see render.yaml)
       ),
     );
     const byId = new Map(bullets.map((b) => [b.id, b]));
