@@ -83,7 +83,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
       {(ineligible.length > 0 || (myRegions && elsewhere.length > 0)) && (
         <div className="notice small" data-testid="notice-filtered">
           <div>
-            {ineligible.length > 0 && <>{showIneligible ? "Showing" : "Hiding"} <strong>{ineligible.length}</strong> opening{ineligible.length > 1 ? "s" : ""} the posting says you're not eligible for (for example, a class-year rule). <button className="btn btn-ghost btn-sm" onClick={() => setShowIneligible((v) => !v)} data-testid="button-toggle-ineligible">{showIneligible ? "Hide them" : "Show anyway"}</button></>}
+            {ineligible.length > 0 && <>{showIneligible ? "Showing" : "Hiding"} <strong>{ineligible.length}</strong> opening{ineligible.length > 1 ? "s" : ""} that {ineligible.length > 1 ? "are" : "is"} closed or that the posting says you're not eligible for (for example, a passed deadline or a class-year rule). <button className="btn btn-ghost btn-sm" onClick={() => setShowIneligible((v) => !v)} data-testid="button-toggle-ineligible">{showIneligible ? "Hide them" : "Show anyway"}</button></>}
             {myRegions && elsewhere.length > 0 && <div>{elsewhere.length} more {elsewhere.length > 1 ? "are" : "is"} outside {regions}. <button className="btn btn-ghost btn-sm" onClick={() => setMyRegions(false)}>Show all locations</button></div>}
             {!w.profile.classYear && !w.profile.graduation && <div>Tell Remy your class year in <a href="#/accounts" style={{ fontWeight: 700 }}>Accounts</a> so eligibility can be checked.</div>}
           </div>
@@ -140,6 +140,7 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
 
 function eligChip(f?: JobFit) {
   if (!f) return null;
+  if (f.closed) return <span className="chip chip-bad" title={f.closed}>Closed</span>;
   const map = { likely: ["chip-live", "Likely eligible"], check: ["chip-setup", "Check eligibility"], unlikely: ["chip-bad", "Likely not eligible"], unknown: ["chip-plain", "Eligibility unknown"] } as const;
   const [c, l] = map[f.eligibility];
   return <span className={"chip " + c} title={f.eligibilityNote}>{l}</span>;

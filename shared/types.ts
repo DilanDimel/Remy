@@ -120,6 +120,8 @@ export interface JobFit {
   why: string;
   /** The posting definitely rules this student out (e.g. "must be a current sophomore"). Hidden by default. */
   excluded?: boolean;
+  /** Why the opening can't be applied to anymore (deadline passed, link gone, page says closed). Also hidden by default. */
+  closed?: string;
   /** Ranking: eligibility, requirement overlap, region and type preferences. */
   score?: number;
   regionMatch?: boolean | null;

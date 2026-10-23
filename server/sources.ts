@@ -1,6 +1,7 @@
 import type { Job, Requirement, Workspace } from "@shared/types";
 import { htmlToText } from "./parse";
 import { uid } from "./db";
+import { regionMatch } from "./fit";
 
 // Live openings from employers' public job-board APIs (Greenhouse, Lever, Ashby).
 // These are the boards companies use to publish their own careers pages, so each
@@ -30,6 +31,20 @@ export const DEFAULT_BOARDS: Board[] = [
 
 const EARLY = /\b(intern(ship)?s?|co-?op|new grad(uate)?|early career|entry[- ]level|campus|university|student|summer analyst|analyst program|rotational|apprentice|fellow(ship)?|insight|externship)\b/i;
 const SENIOR = /\b(senior|sr\.?|staff|principal|lead|manager|director|head of|vp|vice president|ii|iii|iv)\b/i;
+// Roles meant for graduate students, skipped for undergraduates.
+const GRAD_LEVEL = /\b(mba|ph\.?\s?d|doctoral|postdoc|post-doc|master'?s|graduate student|j\.?d\.?)\b/i;
+// The student's fields (target roles, major, interests) → job titles that belong to them.
+// A title must match one of the student's fields; fields that map to nothing don't filter.
+const FIELD_TITLES: [RegExp, RegExp][] = [
+  [/financ|bank|invest|m&a|capital|fintech|account|econ|wealth/i, /financ|bank|invest|m&a|merger|capital|equity|credit|analyst|account|treasury|fp&a|valuation|trading|risk|wealth|asset|corporate development|strategy|business/i],
+  [/market|brand|advertis|social media|communication/i, /market|brand|growth|content|social|communication|advertis|creative/i],
+  [/data|analytic|statistic/i, /data|analytic|insight|intelligence|research|quant/i],
+  [/software|computer science|\bcs\b|engineer|developer|\btech\b|programming/i, /engineer|developer|software|technical|machine learning|data/i],
+  [/supply chain|operations|logistics/i, /operations|supply|logistics|procurement|planning/i],
+  [/consult/i, /consult|strategy|analyst/i],
+  [/sales|business development/i, /sales|business development|account (executive|manager)|partnerships/i],
+  [/quant|math|physics/i, /quant|research|trading|analyst|data/i],
+];
 
 const KEYWORDS = [
   "Excel", "PowerPoint", "Python", "SQL", "R ", "Tableau", "Power BI", "financial modeling", "valuation", "accounting", "data analysis", "analytics",
@@ -62,7 +77,7 @@ function kindOf(title: string): Job["kind"] {
 
 type Raw = { title: string; location: string; url: string; text: string; posted?: string };
 async function getJson(url: string): Promise<any> {
-  const r = await fetch(url, { headers: { Accept: "application/json", "User-Agent": "RemyBot/1.0 (student career assistant)" }, signal: AbortSignal.timeout(7000) });
+  const r = await fetch(url, { headers: { Accept: "application/json", "User-Agent": "RemyBot/1.0 (student career assistant)" }, signal: AbortSignal.timeout(5000) });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
@@ -95,6 +110,8 @@ export function boardsFor(company: string): Board[] {
 /** Scans boards in parallel and returns early-career postings that suit the student. */
 export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25): Promise<{ jobs: Job[]; scanned: number; reached: string[] }> {
   const fields = (ws.profile.targetRoles + "," + ws.profile.major + "," + ws.profile.interests).toLowerCase().split(/[,;/]+/).map((x) => x.trim()).filter((x) => x.length > 2);
+  const titleFits = FIELD_TITLES.filter(([field]) => field.test(fields.join(" "))).map(([, title]) => title);
+  const undergrad = !/grad/i.test(ws.profile.classYear);
   const known = new Set([...ws.jobs.map((j) => j.applyUrl), ...ws.jobs.map((j) => j.sourceUrl)]);
   const reached: string[] = [];
   const found: { job: Job; rel: number }[] = [];
@@ -108,6 +125,9 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25): 
       reached.push(b.company);
       for (const r of raws) {
         if (!r.url || known.has(r.url) || !EARLY.test(r.title) || (SENIOR.test(r.title) && !/intern|co-?op|new grad|student/i.test(r.title))) continue;
+        if (undergrad && GRAD_LEVEL.test(r.title)) continue;
+        if (titleFits.length && !titleFits.some((t) => t.test(r.title))) continue;
+        if (regionMatch(ws, { location: r.location, format: /remote/i.test(r.location) ? "Remote" : "" } as Job) === false) continue;
         const hay = `${r.title} ${r.text.slice(0, 3000)}`.toLowerCase();
         const rel = fields.filter((f) => hay.includes(f)).length;
         const job: Job = {
@@ -122,7 +142,7 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25): 
       }
     }
   };
-  await Promise.all(Array.from({ length: 6 }, worker));
+  await Promise.all(Array.from({ length: 12 }, worker));
   // Most relevant to the student's fields first; keep a few from each company.
   found.sort((a, b) => b.rel - a.rel);
   const perCompany = new Map<string, number>();

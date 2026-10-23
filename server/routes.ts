@@ -6,7 +6,7 @@ import multer from "multer";
 import { z } from "zod";
 import { CATALOG, SAMPLE_CONTACTS, SAMPLE_INBOX } from "@shared/catalog";
 import type {
-  Application, AppConfig, BulletChange, ClaimFlag, Job, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace,
+  Application, AppConfig, BulletChange, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace,
 } from "@shared/types";
 import { aiAllowed, cleanupOld, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, markAiAuthFailure, model } from "./ai";
@@ -137,6 +137,32 @@ function addFact(ws: Workspace, text: string, category: MemoryFact["category"], 
 // ---------- deterministic fit (server/fit.ts) ----------
 const fitOf = (ws: Workspace, job: Job) => computeFit(ws, job, evidenceOf(ws));
 
+// Openings that can't be applied to anymore. Checked on every read rather than cached in
+// fits, because a deadline passes and a link breaks without the student doing anything.
+const centralToday = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+const catalogHealth = new Map<string, JobCheck>();
+async function checkCatalogLinks() {
+  for (const j of CATALOG) {
+    const url = j.sourceUrl || j.applyUrl;
+    if (!url) continue;
+    try {
+      const r = await fetchPublic(url);
+      const closed = CLOSED_SIGNALS.test(htmlToText(r.html));
+      catalogHealth.set(j.id, { at: nowIso(), httpStatus: r.status, result: r.status >= 400 ? "unreachable" : closed ? "closed-signal" : "reachable", note: `Checked automatically: HTTP ${r.status}` });
+    } catch {
+      // network hiccup: keep the previous result rather than calling a posting dead
+    }
+  }
+}
+function closedReason(ws: Workspace, job: Job): string | undefined {
+  if (job.deadline && job.deadline < centralToday()) return `The deadline passed on ${job.deadline}.`;
+  const latest = (ws.jobChecks[job.id] || job.checks || [])[0] || catalogHealth.get(job.id);
+  if (latest?.result === "closed-signal") return "The posting page says applications are closed.";
+  if (latest?.result === "unreachable" && (latest.httpStatus === 404 || latest.httpStatus === 410)) return `The posting link is gone (HTTP ${latest.httpStatus}).`;
+  return undefined;
+}
+const openJobs = (ws: Workspace) => allJobs(ws).filter((j) => !closedReason(ws, j));
+
 // ---------- tailoring helpers ----------
 const stripPlaceholders = (letter: string) =>
   letter.replace(/[ \t]*\[(?:PERSONALIZE|ADD|TODO|INSERT|YOUR|NAME|DATE|COMPANY|HIRING)[^\]]{0,120}\][ \t]*/gi, " ").replace(/ +([.,;:!?])/g, "$1").replace(/[ \t]{2,}/g, " ").replace(/^[ \t]+|[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
@@ -178,6 +204,8 @@ export async function registerRoutes(_server: Server, app: Express) {
   // Expired sessions and guest workspaces idle for 30 days are removed at start-up and every 6 hours.
   const sweep = () => { try { const n = cleanupOld(30); if (n) console.log(`cleanup: removed ${n} idle guest accounts`); } catch (e: any) { console.error("cleanup failed", e?.message); } };
   sweep();
+  checkCatalogLinks().catch(() => {});
+  setInterval(() => checkCatalogLinks().catch(() => {}), 12 * 60 * 60_000).unref();
   setInterval(sweep, 6 * 60 * 60_000).unref();
 
   // ---------- config + identity ----------
@@ -422,7 +450,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       });
       return;
     }
-    const top = allJobs(ctx.ws)
+    const top = openJobs(ctx.ws)
       .filter((j) => !ctx.ws.fits[j.id]?.excluded)
       .sort((x, y) => (ctx.ws.fits[y.id]?.score ?? 0) - (ctx.ws.fits[x.id]?.score ?? 0))
       .slice(0, 5);
@@ -509,7 +537,7 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   app.post("/api/ai/plan", route(async (_req, res, ctx) => {
     const today = new Date().toISOString().slice(0, 10);
-    const jobs = allJobs(ctx.ws).map((j) => `${j.id}: ${j.company} — ${j.title} (deadline ${j.deadline || "n/a"})`).join("\n");
+    const jobs = openJobs(ctx.ws).map((j) => `${j.id}: ${j.company} — ${j.title} (deadline ${j.deadline || "n/a"})`).join("\n");
     const out = await withAi(ctx, "Initial plan", () =>
       aiJson<any>(
         `You are Remy, a truthful career companion for a university student. Base every suggestion on the student's real background. Never invent university requirements, official certifications, or guarantees. Mark anything the student must verify (with an advisor, the registrar, or the official catalog) in "verify". Today is ${today}.`,
@@ -581,7 +609,12 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       return j;
     });
     if (changed) ctx.save();
-    res.json({ jobs, fits: ctx.ws.fits });
+    const fits: Record<string, JobFit> = {};
+    for (const j of jobs) {
+      const closed = closedReason(ctx.ws, j);
+      fits[j.id] = closed ? { ...ctx.ws.fits[j.id], closed, excluded: true, score: 0, eligibilityNote: closed } : ctx.ws.fits[j.id];
+    }
+    res.json({ jobs, fits });
   }));
 
   app.post("/api/jobs/import", route(async (req, res, ctx) => {
