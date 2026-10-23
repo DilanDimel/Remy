@@ -25,6 +25,34 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
+// Standard browser security headers. The resume PDF preview is framed by our own
+// page, so framing is limited to this site rather than blocked outright.
+const supabaseOrigin = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' https://accounts.google.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https:",
+  `connect-src 'self' https://accounts.google.com ${supabaseOrigin}`.trim(),
+  "frame-src 'self' https://accounts.google.com",
+  "frame-ancestors 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join("; ");
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  if (process.env.NODE_ENV === "production") {
+    res.setHeader("Content-Security-Policy", CSP);
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  next();
+});
+
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",

@@ -20,19 +20,34 @@ import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./docs"
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
-type Ctx = { me: Me; ws: Workspace; save: () => void };
+type Ctx = { me: Me; ws: Workspace; save: () => void; ip: string };
 type H = (req: Request, res: Response, ctx: Ctx) => Promise<unknown> | unknown;
+
+// shortcut: in-memory counters reset on restart and assume one server process; move to the DB if we ever run more than one.
+const hits = new Map<string, number[]>();
+function allow(key: string, max: number, windowMs: number) {
+  const now = Date.now();
+  const list = (hits.get(key) || []).filter((t) => now - t < windowMs);
+  if (list.length >= max) return false;
+  list.push(now);
+  hits.set(key, list);
+  return true;
+}
+// Render sits behind Cloudflare, which sets the real visitor address.
+const clientIp = (req: Request) => String(req.headers["cf-connecting-ip"] || String(req.headers["x-forwarded-for"] || "").split(",")[0] || req.socket.remoteAddress || "").trim();
 
 function route(fn: H, opts: { create?: boolean } = {}) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const ip = clientIp(req);
       let me = identify(req);
       if (!me) {
         if (!opts.create) return res.status(401).json({ message: "Please sign in or choose Explore demo." });
+        if (!allow("guest:" + ip, 10, 60 * 60_000)) return res.status(429).json({ message: "Too many new guest workspaces from this network. Please try again in an hour, or sign in." });
         me = newGuest(res);
       }
       const ws = loadWorkspace(me.id);
-      const ctx: Ctx = { me, ws, save: () => saveWorkspace(me!.id, ws) };
+      const ctx: Ctx = { me, ws, ip, save: () => saveWorkspace(me!.id, ws) };
       await fn(req, res, ctx);
     } catch (e: any) {
       if (e instanceof AiUnavailable) return res.status(503).json({ message: e.message, code: "ai-unavailable" });
@@ -46,14 +61,10 @@ function route(fn: H, opts: { create?: boolean } = {}) {
   };
 }
 
-// Outbound page reads (posting import + link re-checks): 20 per user per 10 minutes.
-const fetchHits = new Map<string, number[]>();
-function fetchAllowed(userId: string) {
-  const now = Date.now();
-  const hits = (fetchHits.get(userId) || []).filter((t) => now - t < 10 * 60_000);
-  if (hits.length >= 20) bad("You've checked a lot of links in a short time. Please wait a few minutes.", 429);
-  hits.push(now);
-  fetchHits.set(userId, hits);
+// Outbound page reads (posting import, link re-checks, job-board scans): 20 per user and 40 per network per 10 minutes.
+function fetchAllowed(ctx: Ctx) {
+  if (!allow("fetch:" + ctx.me.id, 20, 10 * 60_000) || !allow("fetch-ip:" + ctx.ip, 40, 10 * 60_000))
+    bad("You've checked a lot of links in a short time. Please wait a few minutes.", 429);
 }
 
 function bad(msg: string, status = 400): never {
@@ -64,7 +75,8 @@ function logAi(ws: Workspace, purpose: string, started: number, ok: boolean, not
   ws.aiLog.push({ id: uid("ai"), at: nowIso(), purpose, model: lastUsedModel(), ok, ms: Date.now() - started, note });
 }
 async function withAi<T>(ctx: Ctx, purpose: string, fn: () => Promise<T>): Promise<T> {
-  const lim = aiAllowed(ctx.me.id);
+  if (!allow("ai-ip:" + ctx.ip, 60, 60 * 60_000)) bad("Lots of AI requests are coming from this network. Please wait a bit and try again.", 429);
+  const lim = aiAllowed(ctx.me.id, ctx.me.kind === "guest" || ctx.me.kind === "visitor");
   if (!lim.ok) bad(lim.message!, 429);
   const t = Date.now();
   try {
@@ -167,7 +179,8 @@ export async function registerRoutes(_server: Server, app: Express) {
   // site show up in the host's logs. Capped per process to keep logs readable.
   let clientErrors = 0;
   app.post("/api/client-error", (req, res) => {
-    if (clientErrors++ < 500) {
+    // Per-network limit so one visitor can't flood the log and bury real errors.
+    if (allow("client-error:" + clientIp(req), 20, 10 * 60_000) && clientErrors++ < 500) {
       const b = req.body || {};
       console.error("client error", JSON.stringify({ where: String(b.where || "").slice(0, 80), message: String(b.message || "").slice(0, 500), url: String(b.url || "").slice(0, 200), stack: String(b.stack || "").slice(0, 1500) }));
     }
@@ -517,7 +530,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     let status: number | null = null;
     if (!text) {
       if (!url) bad("Paste a public posting link or the posting text.");
-      fetchAllowed(ctx.me.id);
+      fetchAllowed(ctx);
       const r = await fetchPublic(url);
       status = r.status;
       finalUrl = r.finalUrl || url;
@@ -547,7 +560,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
 
   // Live openings from employers' public job boards, picked for this student.
   app.post("/api/jobs/discover", route(async (req, res, ctx) => {
-    fetchAllowed(ctx.me.id);
+    fetchAllowed(ctx);
     const named: string[] = (Array.isArray(req.body?.companies) ? req.body.companies : []).map(String).map((x: string) => x.trim()).filter(Boolean).slice(0, 10);
     let suggested: string[] = [];
     if (!named.length && aiStatus().available) {
@@ -579,7 +592,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     if (!url) bad("This opening has no link to check.");
     let check;
     try {
-      fetchAllowed(ctx.me.id);
+      fetchAllowed(ctx);
       const r = await fetchPublic(url);
       const text = htmlToText(r.html);
       const closed = CLOSED_SIGNALS.test(text);
@@ -844,18 +857,31 @@ Return JSON:
     res.json(ctx.ws);
   }));
   // TCU alumni matched to this student (top matches only; the list stays server-side).
-  // Alumni names and emails are personal data: only signed-in students see them.
-  const alumniOk = (me: Me) => me.kind === "google" || me.kind === "supabase" || me.kind === "local";
+  // Alumni names and emails are personal data: only students signed in with a school
+  // email see matches, the match list carries no emails, and a student can only save
+  // alumni from their own current matches.
+  const ALUMNI_DOMAINS = (process.env.OR_ALUMNI_EMAIL_DOMAINS || "tcu.edu").split(",").map((d) => d.trim().toLowerCase()).filter(Boolean);
+  const schoolEmail = (me: Me) => ALUMNI_DOMAINS.some((d) => me.email.toLowerCase().endsWith("@" + d));
+  const signedIn = (me: Me) => me.kind === "google" || me.kind === "supabase" || me.kind === "local";
+  const alumniOk = (me: Me) => me.kind === "local" || (signedIn(me) && schoolEmail(me));
+  const myMatches = (ctx: Ctx) => {
+    const companies = Array.from(new Set([...ctx.ws.savedJobIds, ...ctx.ws.applications.map((a) => a.jobId)].map((id) => findJob(ctx.ws, id)?.company).filter(Boolean) as string[]));
+    return matchAlumni(ctx.ws, companies);
+  };
   app.get("/api/community/alumni", route((_req, res, ctx) => {
     const list = alumniList();
-    if (!alumniOk(ctx.me)) return res.json({ source: list.source, total: list.alumni.length, matches: [], signInRequired: true });
-    const companies = Array.from(new Set([...ctx.ws.savedJobIds, ...ctx.ws.applications.map((a) => a.jobId)].map((id) => findJob(ctx.ws, id)?.company).filter(Boolean) as string[]));
-    res.json({ source: list.source, total: list.alumni.length, matches: matchAlumni(ctx.ws, companies) });
+    const base = { source: list.source, total: list.alumni.length, matches: [] };
+    if (!signedIn(ctx.me)) return res.json({ ...base, signInRequired: true });
+    if (!alumniOk(ctx.me)) return res.json({ ...base, schoolEmailRequired: true, domains: ALUMNI_DOMAINS });
+    if (!allow("alumni:" + ctx.me.id, 30, 60 * 60_000)) bad("You've refreshed your alumni matches a lot. Please try again in an hour.", 429);
+    res.json({ ...base, matches: myMatches(ctx).map(({ email, ...rest }) => rest) });
   }));
   app.post("/api/community/alumni/:id/contact", route((req, res, ctx) => {
-    if (!alumniOk(ctx.me)) bad("Sign in to see and contact TCU alumni.", 401);
-    const a = alumniList().alumni.find((x) => x.id === String(req.params.id));
-    if (!a) bad("That alum isn't on the list anymore.", 404);
+    if (!alumniOk(ctx.me)) bad(`Sign in with your ${ALUMNI_DOMAINS.map((d) => "@" + d).join(" or ")} email to contact TCU alumni.`, 403);
+    const a = myMatches(ctx).find((x) => x.id === String(req.params.id));
+    if (!a) bad("That alum isn't in your current matches.", 404);
+    if (!ctx.ws.contacts.some((x) => x.id === "alum-" + a!.id) && !allow("alumni-contact:" + ctx.me.id, 25, 24 * 60 * 60_000))
+      bad("You've saved 25 alumni today. Reach out to those first, then come back tomorrow.", 429);
     const id = "alum-" + a!.id;
     let c = ctx.ws.contacts.find((x) => x.id === id);
     if (!c) {

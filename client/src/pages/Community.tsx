@@ -6,7 +6,7 @@ import { Empty, Modal, Spinner, StatusChip } from "../components/common";
 import { startOutreach, useTailorSession } from "../lib/tailorChat";
 import { providerOn, startOAuth } from "../lib/supabase";
 
-type AlumMatch = { id: string; year: number | null; name: string; email: string; employer: string; industry: string; role: string; title: string; location: string; majors: string[]; score: number; why: string[] };
+type AlumMatch = { id: string; year: number | null; name: string; employer: string; industry: string; role: string; title: string; location: string; majors: string[]; score: number; why: string[] };
 
 export default function Community() {
   const { ws, me, setWs, save, run, config } = useStore();
@@ -14,12 +14,12 @@ export default function Community() {
   const [adding, setAdding] = useState(false);
   const [c, setC] = useState({ name: "", title: "", org: "", email: "", why: "" });
   const [review, setReview] = useState<OutreachDraft | null>(null);
-  const [alumni, setAlumni] = useState<{ source: string; total: number; matches: AlumMatch[]; signInRequired?: boolean } | null>(null);
+  const [alumni, setAlumni] = useState<{ source: string; total: number; matches: AlumMatch[]; signInRequired?: boolean; schoolEmailRequired?: boolean; domains?: string[] } | null>(null);
   const [busyAlum, setBusyAlum] = useState("");
   const profileKey = [w.profile.major, w.profile.targetRoles, w.profile.regions, w.profile.interests, w.savedJobIds.length].join("|");
   useEffect(() => {
     let live = true;
-    api<{ source: string; total: number; matches: AlumMatch[]; signInRequired?: boolean }>("GET", "/api/community/alumni").then((d) => { if (live) setAlumni(d); }, () => {});
+    api<{ source: string; total: number; matches: AlumMatch[]; signInRequired?: boolean; schoolEmailRequired?: boolean; domains?: string[] }>("GET", "/api/community/alumni").then((d) => { if (live) setAlumni(d); }, () => {});
     return () => { live = false; };
   }, [profileKey, me?.id]);
   // When Remy finishes writing an email, open it for review.
@@ -70,6 +70,12 @@ export default function Community() {
             <p className="small muted">The alumni list has real names and email addresses, so it's only shown to signed-in students.</p>
             {providerOn(config, "google") && <div><button className="btn btn-primary btn-sm" onClick={() => run(() => startOAuth(config!, "google"))} data-testid="button-alumni-sign-in">Sign in with Google</button></div>}
             {!providerOn(config, "google") && <span className="xs muted">Sign out from the menu under your name, then sign in on the home page.</span>}
+          </div>
+        ) : alumni?.schoolEmailRequired ? (
+          <div className="card card-pad stack-sm" data-testid="alumni-school-email">
+            <strong>Alumni matches are for TCU students</strong>
+            <p className="small muted">The alumni list has real names and email addresses, so it's only shown to students signed in with a {(alumni.domains || ["tcu.edu"]).map((d) => "@" + d).join(" or ")} email.</p>
+            <span className="xs muted">Sign out from the menu under your name, then choose Continue with Work/School Email and use your TCU address.</span>
           </div>
         ) : !alumni ? <div className="grid-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 150 }} />)}</div> : alumni.matches.length ? (
           <div className="grid-3">

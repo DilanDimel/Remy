@@ -117,12 +117,18 @@ export function deleteWorkspace(userId: string) {
   db.prepare("DELETE FROM files WHERE user_id=?").run(userId);
 }
 
-export function aiAllowed(userId: string): { ok: boolean; message?: string } {
+// Guests are free to create, so they get a smaller daily allowance, and the whole
+// site has a daily budget so scripted accounts can't drain the shared AI quota.
+const SITE_DAILY_AI = Number(process.env.OR_AI_DAILY_BUDGET) || 1500;
+export function aiAllowed(userId: string, guest = false): { ok: boolean; message?: string } {
   const now = Date.now();
   db.prepare("DELETE FROM ai_usage WHERE at < ?").run(now - 86_400_000);
+  const site = (db.prepare("SELECT COUNT(*) c FROM ai_usage").get() as any).c;
+  if (site >= SITE_DAILY_AI) return { ok: false, message: "Remy's AI has reached today's limit for the whole site. It resets within 24 hours; everything else still works." };
   const day = (db.prepare("SELECT COUNT(*) c FROM ai_usage WHERE user_id=?").get(userId) as any).c;
   const recent = (db.prepare("SELECT COUNT(*) c FROM ai_usage WHERE user_id=? AND at > ?").get(userId, now - 60_000) as any).c;
-  if (day >= 120) return { ok: false, message: "Daily AI limit reached for this account (120 requests per 24 hours)." };
+  const dayMax = guest ? 40 : 120;
+  if (day >= dayMax) return { ok: false, message: guest ? "Guest workspaces get 40 AI requests a day. Sign in to get more." : "Daily AI limit reached for this account (120 requests per 24 hours)." };
   if (recent >= 12) return { ok: false, message: "That was a lot of AI requests at once. Please wait a minute and try again." };
   db.prepare("INSERT INTO ai_usage (user_id, at) VALUES (?,?)").run(userId, now);
   return { ok: true };
