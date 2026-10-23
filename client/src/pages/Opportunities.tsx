@@ -12,7 +12,7 @@ const matchKind = (j: Job, k: Kind) => k === "all" || (k === "event" ? j.kind ==
 export default function Opportunities({ query }: { query: URLSearchParams }) {
   const { ws, setWs, run, toast } = useStore();
   const w = ws!;
-  const { jobs, fits } = useJobs();
+  const { jobs, fits, needsProfile } = useJobs();
   const kind = (query.get("kind") as Kind) || "all";
   const focus = query.get("id");
   const [savedOnly, setSavedOnly] = useState(false);
@@ -48,6 +48,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
     .sort((a, b) => (fits[b.id]?.score ?? 0) - (fits[a.id]?.score ?? 0) || (a.deadline || "9999").localeCompare(b.deadline || "9999"));
   return (
     <>
+      {needsProfile && <div className="notice" data-testid="needs-profile">{needsProfile}</div>}
       <div className="page-head">
         <div>
           <span className="eyebrow">Opportunities</span>

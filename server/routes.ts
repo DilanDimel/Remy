@@ -168,6 +168,9 @@ function closedReason(ws: Workspace, job: Job): string | undefined {
   if (latest?.result === "unreachable" && (latest.httpStatus === 404 || latest.httpStatus === 410)) return `The posting link is gone (HTTP ${latest.httpStatus}).`;
   return undefined;
 }
+// Remy only recommends once it knows something about the student (resume, major or target roles).
+const knowsStudent = (ws: Workspace) => !!(ws.resume || ws.profile.major.trim() || ws.profile.targetRoles.trim());
+const NEEDS_PROFILE = "Tell Remy about yourself first: upload your resume or add your major and the roles you want (Account → Profile).";
 const openJobs = (ws: Workspace) => allJobs(ws).filter((j) => !closedReason(ws, j));
 
 // ---------- tailoring helpers ----------
@@ -543,6 +546,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   }));
 
   app.post("/api/ai/plan", route(async (_req, res, ctx) => {
+    if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE, 409);
     const today = new Date().toISOString().slice(0, 10);
     const jobs = openJobs(ctx.ws).map((j) => `${j.id}: ${j.company} — ${j.title} (deadline ${j.deadline || "n/a"})`).join("\n");
     const out = await withAi(ctx, "Initial plan", () =>
@@ -606,6 +610,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
 
   // ---------- opportunities ----------
   app.get("/api/jobs", route((_req, res, ctx) => {
+    if (!knowsStudent(ctx.ws)) return res.json({ jobs: [], fits: {}, needsProfile: NEEDS_PROFILE });
     let changed = false;
     const jobs = allJobs(ctx.ws).map((j) => {
       const f = ctx.ws.fits[j.id];
@@ -647,7 +652,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       id: uid("job"), kind: x.kind as Job["kind"], title: x.title, company: x.company, location: x.location, format: x.format, dates: x.dates,
       deadline: x.deadline, deadlineText: x.deadlineText, eligibility: x.eligibility, requirements: x.requirements, summary: x.summary,
       applyUrl: url ? finalUrl : "", sourceUrl: url ? finalUrl : "", sourceName: url ? new URL(finalUrl).hostname : "Pasted by student",
-      label: "Needs verification", checkedAt: nowIso().slice(0, 10),
+      label: url ? "Live" : "Student provided", checkedAt: nowIso().slice(0, 10),
       checks: url ? [{ at: nowIso(), httpStatus: status, result: closed ? "closed-signal" : "reachable", note: closed ? "Page text suggests applications are closed." : "Page was readable when imported." }] : [],
       origin: "imported", postingText: text.slice(0, 15000),
     };
@@ -661,6 +666,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
 
   // Live openings from employers' public job boards, picked for this student.
   app.post("/api/jobs/discover", route(async (req, res, ctx) => {
+    if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE, 409);
     fetchAllowed(ctx);
     const named: string[] = (Array.isArray(req.body?.companies) ? req.body.companies : []).map(String).map((x: string) => x.trim()).filter(Boolean).slice(0, 10);
     let suggested: string[] = [];

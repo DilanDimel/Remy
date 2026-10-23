@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Job, JobFit } from "@shared/types";
 import { api, useStore } from "./store";
 
-let cache: { jobs: Job[]; fits: Record<string, JobFit> } | null = null;
+let cache: { jobs: Job[]; fits: Record<string, JobFit>; needsProfile?: string } | null = null;
 const subs = new Set<() => void>();
 
 export async function reloadJobs() {
@@ -22,7 +22,7 @@ export function useJobs() {
   const key = `${ws?.jobs.length}-${ws?.resume?.uploadedAt}-${ws?.profile.graduation}-${ws?.profile.classYear}-${Object.keys(ws?.fits || {}).length}`;
   useEffect(() => { reloadJobs().catch(() => {}); }, [key]);
   const refresh = useCallback(() => reloadJobs(), []);
-  return { jobs: cache?.jobs || null, fits: cache?.fits || {}, refresh };
+  return { jobs: cache?.jobs || null, fits: cache?.fits || {}, needsProfile: cache?.needsProfile, refresh };
 }
 
 export const kindLabel: Record<Job["kind"], string> = {
