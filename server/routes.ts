@@ -3,11 +3,12 @@ import type { Server } from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import multer from "multer";
+import { z } from "zod";
 import { CATALOG, SAMPLE_CONTACTS, SAMPLE_INBOX } from "@shared/catalog";
 import type {
   Application, AppConfig, BulletChange, ClaimFlag, Job, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace,
 } from "@shared/types";
-import { aiAllowed, deleteWorkspace, emptyWorkspace, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveWorkspace, uid } from "./db";
+import { aiAllowed, cleanupOld, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, markAiAuthFailure, model } from "./ai";
 import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase } from "./auth";
 import { aiExtractPosting, aiParseResume, CLOSED_SIGNALS, extractSkills, fetchPublic, fileToText, htmlToText, norm, resumeToText, rulesParse } from "./parse";
@@ -47,7 +48,20 @@ function route(fn: H, opts: { create?: boolean } = {}) {
         me = newGuest(res);
       }
       const ws = loadWorkspace(me.id);
-      const ctx: Ctx = { me, ws, ip, save: () => saveWorkspace(me!.id, ws) };
+      // A request can run for seconds (AI calls). On save, re-read the stored
+      // workspace and write back only the sections this request changed, so a
+      // slow request never erases edits saved meanwhile by another one.
+      // shortcut: merges per top-level section; two requests editing the same section still last-write-wins.
+      const before = new Map(Object.entries(ws).map(([k, v]) => [k, JSON.stringify(v)]));
+      const save = () => {
+        const fresh = loadWorkspace(me!.id) as unknown as Record<string, unknown>;
+        const mine = ws as unknown as Record<string, unknown>;
+        for (const k of Object.keys(mine)) if (k !== "updatedAt" && JSON.stringify(mine[k]) !== before.get(k)) fresh[k] = mine[k];
+        saveWorkspace(me!.id, fresh as unknown as Workspace);
+        Object.assign(ws, fresh);
+        for (const [k, v] of Object.entries(fresh)) before.set(k, JSON.stringify(v));
+      };
+      const ctx: Ctx = { me, ws, ip, save };
       await fn(req, res, ctx);
     } catch (e: any) {
       if (e instanceof AiUnavailable) return res.status(503).json({ message: e.message, code: "ai-unavailable" });
@@ -161,6 +175,11 @@ function refreshAts(ws: Workspace, app: Application) {
 }
 
 export async function registerRoutes(_server: Server, app: Express) {
+  // Expired sessions and guest workspaces idle for 30 days are removed at start-up and every 6 hours.
+  const sweep = () => { try { const n = cleanupOld(30); if (n) console.log(`cleanup: removed ${n} idle guest accounts`); } catch (e: any) { console.error("cleanup failed", e?.message); } };
+  sweep();
+  setInterval(sweep, 6 * 60 * 60_000).unref();
+
   // ---------- config + identity ----------
   app.get("/api/config", async (req, res) => {
     const host = String(req.headers.host || "");
@@ -262,12 +281,42 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   // ---------- simple app-owned sections ----------
   const SECTIONS = ["profile", "settings", "tasks", "calendar", "tracker", "savedJobIds", "hiddenJobIds", "memory", "outreach", "onboarding", "started", "plan", "contacts"] as const;
+  // The shape each section must have, so one malformed save can't break later requests.
+  // Objects keep unknown extra fields (loose) but every field the server relies on is checked.
+  const str = (max = 600) => z.string().max(max);
+  const ids = z.array(str(120)).max(1000);
+  const TRACK = z.enum(["Saved", "Applied", "Received", "Interview", "Offer", "Rejected", "Withdrawn"]);
+  const SHAPES: Partial<Record<(typeof SECTIONS)[number], z.ZodType>> = {
+    profile: z.looseObject({}),
+    settings: z.object({
+      theme: z.enum(["light", "dark"]).optional(), assistantOpen: z.boolean().optional(), navCollapsed: z.boolean().optional(),
+      notify: z.object({ deadlines: z.boolean(), statusChanges: z.boolean(), weeklyPlan: z.boolean() }).partial().optional(),
+      demoConnections: z.array(str(80)).max(20).optional(),
+    }),
+    tasks: z.array(z.looseObject({ id: str(120), title: str(300), why: str(2000), due: str(10), category: z.enum(["Explore", "Prepare", "Apply", "Connect", "Academic"]), done: z.boolean(), source: str(200), link: str(500).optional() })).max(500),
+    calendar: z.array(z.looseObject({ id: str(120), title: str(300), date: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/), time: z.string().regex(/^(\d{2}:\d{2})?$/), kind: z.enum(["Deadline", "Event", "Task", "Interview", "Advising"]), source: str(200), linkedId: str(120).optional(), notes: str(4000).optional() })).max(1000),
+    tracker: z.array(z.looseObject({ id: str(120), company: str(200), role: str(300), jobId: str(120).optional(), applicationId: str(120).optional(), status: TRACK, notes: str(4000), events: z.array(z.looseObject({ id: str(120), at: str(40), status: TRACK, source: str(300), evidence: str(2000).optional() })).max(200) })).max(500),
+    savedJobIds: ids,
+    hiddenJobIds: ids,
+    memory: z.array(z.looseObject({ id: str(120).optional(), text: str(2000) })).max(300),
+    outreach: z.array(z.looseObject({ id: str(120), contactId: str(120), to: str(320), subject: str(300), body: str(8000), linkedin: str(400).optional(), status: z.enum(["draft", "approved", "handed-off"]), createdAt: str(40) })).max(500),
+    onboarding: z.object({ step: z.number().int().min(0).max(50), done: z.boolean(), answers: z.array(z.object({ q: str(500), a: str(2000) })).max(50), questions: z.array(str(500)).max(20) }),
+    started: z.boolean(),
+    plan: z.looseObject({ nextAction: z.looseObject({ title: str(300), why: str(2000), link: str(300) }), careers: z.array(z.looseObject({ id: str(120), title: str(300) })).max(20), skills: z.array(z.looseObject({ id: str(120), name: str(300) })).max(30), academic: z.array(z.looseObject({ id: str(120), term: str(100) })).max(20) }),
+    contacts: z.array(z.looseObject({ id: str(120), name: str(200), title: str(300), org: str(300), email: str(320), why: str(2000), tags: z.array(str(120)).max(30), label: str(40) })).max(1000),
+  };
   app.put("/api/ws/:section", route((req, res, ctx) => {
     const section = req.params.section as (typeof SECTIONS)[number];
     if (!SECTIONS.includes(section)) bad("Unknown section");
-    const value = req.body?.value;
+    let value = req.body?.value;
     if (value === undefined) bad("Missing value");
     if (JSON.stringify(value).length > 400_000) bad("That's too much data for one update.", 413);
+    const checked = SHAPES[section]!.safeParse(value);
+    if (!checked.success) {
+      const i = checked.error.issues[0];
+      bad(`That ${section} update wasn't saved: ${[section, ...i.path].join(".")} — ${i.message}.`);
+    }
+    value = checked.data;
     if (section === "profile") {
       const before = JSON.stringify(ctx.ws.profile);
       const p = { ...ctx.ws.profile };
@@ -289,6 +338,16 @@ export async function registerRoutes(_server: Server, app: Express) {
     } else {
       (ctx.ws as any)[section] = value;
     }
+    ctx.save();
+    res.json(ctx.ws);
+  }));
+
+  // One to-do at a time, so two quick clicks can't undo each other.
+  app.patch("/api/tasks/:id", route((req, res, ctx) => {
+    const t = ctx.ws.tasks.find((x) => x.id === req.params.id);
+    if (!t) bad("That to-do isn't there anymore.", 404);
+    if (typeof req.body?.done !== "boolean") bad("Send done: true or false.");
+    t!.done = req.body.done;
     ctx.save();
     res.json(ctx.ws);
   }));
@@ -402,8 +461,10 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!d || !Array.isArray(d.sections)) bad("Invalid resume");
     ctx.ws.resume!.doc = d;
     ctx.ws.resume!.confirmedAt = req.body?.confirm ? nowIso() : ctx.ws.resume!.confirmedAt;
-    // student edits are the student's own words → they become evidence
-    ctx.ws.resume!.rawText = ctx.ws.resume!.rawText + "\n" + resumeToText(d);
+    // Student edits are the student's own words and already count as evidence through
+    // the edited doc (evidenceOf), so the original upload text stays as it was. The
+    // slice also shrinks accounts that grew under the old append-on-every-save code.
+    ctx.ws.resume!.rawText = ctx.ws.resume!.rawText.slice(0, 30000);
     ctx.ws.fits = {};
     ctx.save();
     res.json(ctx.ws);
@@ -1061,9 +1122,12 @@ Return JSON:
     res.setHeader("Content-Disposition", 'attachment; filename="remy-my-data.json"');
     res.json({ exportedAt: nowIso(), account: ctx.me, workspace: ctx.ws });
   }));
-  app.delete("/api/ws", route((_req, res, ctx) => {
-    deleteWorkspace(ctx.me.id);
-    const fresh = emptyWorkspace();
-    res.json(fresh);
+  // Deletes everything Remy stores about the student — workspace, files, AI usage,
+  // sessions and the account record — and signs them out.
+  // shortcut: a Supabase sign-in account itself is not deleted (that needs the Supabase service key); say so in the UI.
+  app.delete("/api/ws", route((req, res, ctx) => {
+    deleteAccount(ctx.me.id);
+    endSession(req, res);
+    res.json({ deleted: true });
   }));
 }

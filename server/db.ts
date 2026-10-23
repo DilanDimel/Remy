@@ -116,6 +116,25 @@ export function deleteWorkspace(userId: string) {
   db.prepare("DELETE FROM workspaces WHERE user_id=?").run(userId);
   db.prepare("DELETE FROM files WHERE user_id=?").run(userId);
 }
+/** Everything stored about a user: workspace, files, AI usage, sessions and the account row. */
+export function deleteAccount(userId: string) {
+  db.transaction(() => {
+    deleteWorkspace(userId);
+    db.prepare("DELETE FROM ai_usage WHERE user_id=?").run(userId);
+    db.prepare("DELETE FROM sessions WHERE user_id=?").run(userId);
+    db.prepare("DELETE FROM users WHERE id=?").run(userId);
+  })();
+}
+/** Removes expired sessions and guest accounts untouched for `days` days. Returns how many guests were removed. */
+export function cleanupOld(days = 30) {
+  const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
+  db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(Date.now());
+  const stale = db.prepare(
+    "SELECT u.id FROM users u LEFT JOIN workspaces w ON w.user_id = u.id WHERE u.kind = 'guest' AND COALESCE(w.updated_at, u.created_at) < ?",
+  ).all(cutoff) as { id: string }[];
+  for (const { id } of stale) deleteAccount(id);
+  return stale.length;
+}
 
 // Guests are free to create, so they get a smaller daily allowance, and the whole
 // site has a daily budget so scripted accounts can't drain the shared AI quota.

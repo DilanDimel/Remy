@@ -176,10 +176,11 @@ function Data() {
       </div>
       {confirm && (
         <Modal title="Delete everything?" onClose={() => setConfirm(false)}>
-          <p className="small">This permanently deletes your resume, applications, approved versions, memory, tracker and calendar from Remy. Downloaded files on your device aren't affected.</p>
+          <p className="small">This permanently deletes your resume, applications, approved versions, memory, tracker, calendar and your Remy account record (name, email, photo), then signs you out. Downloaded files on your device aren't affected.</p>
+          {me?.kind === "supabase" && <p className="xs muted">Your sign-in with Google, LinkedIn or email is managed by our sign-in provider; to remove that too, email the Remy team.</p>}
           <div className="row" style={{ justifyContent: "flex-end" }}>
             <button className="btn btn-ghost" onClick={() => setConfirm(false)}>Cancel</button>
-            <button className="btn btn-danger" onClick={async () => { const r = await run(() => api<Workspace>("DELETE", "/api/ws"), "Deleted"); if (r) { setWs(r); setConfirm(false); } }} data-testid="button-confirm-delete">Delete permanently</button>
+            <button className="btn btn-danger" onClick={async () => { const r = await run(() => api<{ deleted: boolean }>("DELETE", "/api/ws"), "Everything was deleted and you're signed out"); if (r) { setConfirm(false); setSession(null, null); } }} data-testid="button-confirm-delete">Delete permanently</button>
           </div>
         </Modal>
       )}

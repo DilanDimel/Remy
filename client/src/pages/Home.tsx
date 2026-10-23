@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronUp, MapPin } from "lucide-react";
-import type { Job, Task } from "@shared/types";
-import { daysUntil, fmtDate, useStore } from "../lib/store";
+import type { Job, Task, Workspace } from "@shared/types";
+import { api, daysUntil, fmtDate, useStore } from "../lib/store";
 import { useCompleting } from "../lib/completing";
 import { go } from "../lib/router";
 import { kindLabel, useJobs } from "../lib/jobs";
@@ -15,7 +15,7 @@ function greeting() {
 }
 
 export default function Home() {
-  const { ws, save } = useStore();
+  const { ws, save, run, setWs } = useStore();
   const w = ws!;
   const { jobs, fits } = useJobs();
   const [tab, setTab] = useState<Tab>("todos");
@@ -43,7 +43,7 @@ export default function Home() {
   const active = (jobs || []).filter((j) => !w.hiddenJobIds.includes(j.id) && (!j.deadline || (daysUntil(j.deadline) ?? 0) >= 0));
   const events = active.filter((j) => j.kind === "event").slice(0, 3);
   const opps = active.filter((j) => j.kind !== "event").sort((a, b) => (fits[b.id]?.matched.length || 0) - (fits[a.id]?.matched.length || 0)).slice(0, 3);
-  const toggleTask = (t: Task) => { if (!t.done) mark(t.id); return save("tasks", w.tasks.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x))); };
+  const toggleTask = (t: Task) => { if (!t.done) mark(t.id); return run(() => api<Workspace>("PATCH", `/api/tasks/${t.id}`, { done: !t.done }).then(setWs)); };
   const moreLink = tab === "todos" ? "/progress?tab=todos" : tab === "events" ? "/opportunities?kind=event" : "/opportunities?kind=jobs";
 
   return (
