@@ -22,7 +22,7 @@ export default function Onboarding() {
   const finish = async () => {
     uiFlags.flyIn = true;
     await save("onboarding", { ...w.onboarding, done: true });
-    // Start with real, current openings for this student, not only the hand-picked ones.
+    // Start with real, current openings for this student.
     api("POST", "/api/jobs/discover", {}).then(() => reloadJobs()).catch(() => {});
   };
   return (

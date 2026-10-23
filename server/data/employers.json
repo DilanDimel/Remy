@@ -1,0 +1,574 @@
+{
+ "note": "Employers whose own career sites Remy reads live. Workday boards are tenant|wdN|site. Seeded from the open-source career-ops (MIT) and ever-jobs (MIT) lists plus Texas/TCU recruiters; every board answered a live check on 2026-10-23.",
+ "employers": [
+  {
+   "company": "Morgan Stanley",
+   "ats": "workday",
+   "board": "ms|wd5|External",
+   "fields": [
+    "finance"
+   ]
+  },
+  {
+   "company": "Bank of America",
+   "ats": "workday",
+   "board": "ghr|wd1|Lateral-US",
+   "fields": [
+    "finance"
+   ]
+  },
+  {
+   "company": "Citi",
+   "ats": "workday",
+   "board": "citi|wd5|2",
+   "fields": [
+    "finance"
+   ]
+  },
+  {
+   "company": "Wells Fargo",
+   "ats": "workday",
+   "board": "wf|wd1|WellsFargoJobs",
+   "fields": [
+    "finance"
+   ]
+  },
+  {
+   "company": "Capital One",
+   "ats": "workday",
+   "board": "capitalone|wd12|Capital_One",
+   "fields": [
+    "finance",
+    "tech",
+    "data"
+   ]
+  },
+  {
+   "company": "Fidelity Investments",
+   "ats": "workday",
+   "board": "fmr|wd1|FidelityCareers",
+   "fields": [
+    "finance",
+    "tech"
+   ]
+  },
+  {
+   "company": "BlackRock",
+   "ats": "workday",
+   "board": "blackrock|wd1|BlackRock_Professional",
+   "fields": [
+    "finance"
+   ]
+  },
+  {
+   "company": "State Street",
+   "ats": "workday",
+   "board": "statestreet|wd1|Global",
+   "fields": [
+    "finance"
+   ]
+  },
+  {
+   "company": "S&P Global",
+   "ats": "workday",
+   "board": "spgi|wd5|spgi_careers",
+   "fields": [
+    "finance",
+    "data"
+   ]
+  },
+  {
+   "company": "Arrowstreet Capital",
+   "ats": "workday",
+   "board": "arrowstreetcapital|wd5|Arrowstreet",
+   "fields": [
+    "finance",
+    "quant"
+   ]
+  },
+  {
+   "company": "G-Research",
+   "ats": "workday",
+   "board": "gresearch|wd103|G-Research",
+   "fields": [
+    "quant",
+    "tech"
+   ]
+  },
+  {
+   "company": "Visa",
+   "ats": "workday",
+   "board": "visa|wd5|Visa_Early_Careers",
+   "fields": [
+    "finance",
+    "tech",
+    "marketing"
+   ]
+  },
+  {
+   "company": "Mastercard",
+   "ats": "workday",
+   "board": "mastercard|wd1|CorporateCareers",
+   "fields": [
+    "finance",
+    "tech",
+    "marketing"
+   ]
+  },
+  {
+   "company": "PayPal",
+   "ats": "workday",
+   "board": "paypal|wd1|jobs",
+   "fields": [
+    "finance",
+    "tech"
+   ]
+  },
+  {
+   "company": "PwC",
+   "ats": "workday",
+   "board": "pwc|wd3|US_Entry_Level_Careers",
+   "fields": [
+    "accounting",
+    "consulting"
+   ]
+  },
+  {
+   "company": "Booz Allen Hamilton",
+   "ats": "workday",
+   "board": "bah|wd1|BAH_Jobs",
+   "fields": [
+    "consulting",
+    "tech"
+   ]
+  },
+  {
+   "company": "JLL",
+   "ats": "workday",
+   "board": "jll|wd1|jllcareers",
+   "fields": [
+    "real estate",
+    "finance"
+   ]
+  },
+  {
+   "company": "AT&T",
+   "ats": "workday",
+   "board": "att|wd1|ATTGeneral",
+   "fields": [
+    "tech",
+    "marketing",
+    "sales"
+   ]
+  },
+  {
+   "company": "Southwest Airlines",
+   "ats": "workday",
+   "board": "swa|wd1|External",
+   "fields": [
+    "operations",
+    "marketing",
+    "finance"
+   ]
+  },
+  {
+   "company": "Kimberly-Clark",
+   "ats": "workday",
+   "board": "kimberlyclark|wd1|GLOBAL",
+   "fields": [
+    "marketing",
+    "supply chain",
+    "finance"
+   ]
+  },
+  {
+   "company": "Alcon",
+   "ats": "workday",
+   "board": "alcon|wd5|careers_alcon",
+   "fields": [
+    "healthcare",
+    "marketing",
+    "sales",
+    "finance"
+   ]
+  },
+  {
+   "company": "McKesson",
+   "ats": "workday",
+   "board": "mckesson|wd3|External_Careers",
+   "fields": [
+    "healthcare",
+    "supply chain",
+    "finance",
+    "tech"
+   ]
+  },
+  {
+   "company": "Chevron",
+   "ats": "workday",
+   "board": "chevron|wd5|jobs",
+   "fields": [
+    "energy",
+    "finance",
+    "engineering"
+   ]
+  },
+  {
+   "company": "Target",
+   "ats": "workday",
+   "board": "target|wd5|targetcareers",
+   "fields": [
+    "marketing",
+    "supply chain",
+    "retail"
+   ]
+  },
+  {
+   "company": "Nike",
+   "ats": "workday",
+   "board": "nike|wd1|nke",
+   "fields": [
+    "marketing",
+    "retail"
+   ]
+  },
+  {
+   "company": "Disney",
+   "ats": "workday",
+   "board": "disney|wd5|disneycareer",
+   "fields": [
+    "marketing",
+    "media"
+   ]
+  },
+  {
+   "company": "Warner Bros. Discovery",
+   "ats": "workday",
+   "board": "warnerbros|wd5|global",
+   "fields": [
+    "marketing",
+    "media"
+   ]
+  },
+  {
+   "company": "Comcast",
+   "ats": "workday",
+   "board": "comcast|wd115|Comcast_Careers",
+   "fields": [
+    "marketing",
+    "tech",
+    "sales"
+   ]
+  },
+  {
+   "company": "T-Mobile",
+   "ats": "workday",
+   "board": "tmobile|wd1|External",
+   "fields": [
+    "marketing",
+    "sales",
+    "tech"
+   ]
+  },
+  {
+   "company": "Salesforce",
+   "ats": "workday",
+   "board": "salesforce|wd12|External_Career_Site",
+   "fields": [
+    "sales",
+    "tech",
+    "marketing"
+   ]
+  },
+  {
+   "company": "Adobe",
+   "ats": "workday",
+   "board": "adobe|wd5|external_experienced",
+   "fields": [
+    "tech",
+    "marketing"
+   ]
+  },
+  {
+   "company": "Workday",
+   "ats": "workday",
+   "board": "workday|wd5|Workday",
+   "fields": [
+    "tech",
+    "sales",
+    "finance"
+   ]
+  },
+  {
+   "company": "Humana",
+   "ats": "workday",
+   "board": "humana|wd5|Humana_External_Career_Site",
+   "fields": [
+    "healthcare",
+    "data",
+    "finance"
+   ]
+  },
+  {
+   "company": "CVS Health",
+   "ats": "workday",
+   "board": "cvshealth|wd1|CVS_Health_Careers",
+   "fields": [
+    "healthcare",
+    "finance",
+    "data"
+   ]
+  },
+  {
+   "company": "Johnson & Johnson",
+   "ats": "workday",
+   "board": "jj|wd5|JJ",
+   "fields": [
+    "healthcare",
+    "marketing",
+    "finance"
+   ]
+  },
+  {
+   "company": "Pfizer",
+   "ats": "workday",
+   "board": "pfizer|wd1|PfizerCareers",
+   "fields": [
+    "healthcare",
+    "marketing"
+   ]
+  },
+  {
+   "company": "Stryker",
+   "ats": "workday",
+   "board": "stryker|wd1|StrykerCareers",
+   "fields": [
+    "healthcare",
+    "sales"
+   ]
+  },
+  {
+   "company": "General Motors",
+   "ats": "workday",
+   "board": "generalmotors|wd5|Careers_GM",
+   "fields": [
+    "engineering",
+    "finance",
+    "supply chain"
+   ]
+  },
+  {
+   "company": "Northrop Grumman",
+   "ats": "workday",
+   "board": "ngc|wd1|Northrop_Grumman_External_Site",
+   "fields": [
+    "engineering",
+    "finance",
+    "supply chain"
+   ]
+  },
+  {
+   "company": "RTX (Raytheon)",
+   "ats": "workday",
+   "board": "globalhr|wd5|REC_RTX_Ext_Gateway",
+   "fields": [
+    "engineering",
+    "finance",
+    "supply chain"
+   ]
+  },
+  {
+   "company": "GE Aerospace",
+   "ats": "workday",
+   "board": "geaerospace|wd5|GE_ExternalSite",
+   "fields": [
+    "engineering",
+    "finance"
+   ]
+  },
+  {
+   "company": "Intel",
+   "ats": "workday",
+   "board": "intel|wd1|External",
+   "fields": [
+    "tech",
+    "engineering",
+    "finance"
+   ]
+  },
+  {
+   "company": "NVIDIA",
+   "ats": "workday",
+   "board": "nvidia|wd5|NVIDIAExternalCareerSite",
+   "fields": [
+    "tech",
+    "engineering"
+   ]
+  },
+  {
+   "company": "Hewlett Packard Enterprise",
+   "ats": "workday",
+   "board": "hpe|wd5|Jobsathpe",
+   "fields": [
+    "tech",
+    "sales"
+   ]
+  },
+  {
+   "company": "Zillow",
+   "ats": "workday",
+   "board": "zillow|wd5|Zillow_Group_External",
+   "fields": [
+    "real estate",
+    "tech",
+    "marketing"
+   ]
+  },
+  {
+   "company": "Expedia",
+   "ats": "workday",
+   "board": "expedia|wd108|search",
+   "fields": [
+    "tech",
+    "marketing",
+    "data"
+   ]
+  },
+  {
+   "company": "CrowdStrike",
+   "ats": "workday",
+   "board": "crowdstrike|wd5|crowdstrikecareers",
+   "fields": [
+    "tech",
+    "sales"
+   ]
+  },
+  {
+   "company": "Point72",
+   "ats": "greenhouse",
+   "board": "point72",
+   "fields": [
+    "finance",
+    "quant"
+   ]
+  },
+  {
+   "company": "Robinhood",
+   "ats": "greenhouse",
+   "board": "robinhood",
+   "fields": [
+    "finance",
+    "tech"
+   ]
+  },
+  {
+   "company": "Stripe",
+   "ats": "greenhouse",
+   "board": "stripe",
+   "fields": [
+    "finance",
+    "tech"
+   ]
+  },
+  {
+   "company": "Coinbase",
+   "ats": "greenhouse",
+   "board": "coinbase",
+   "fields": [
+    "finance",
+    "tech"
+   ]
+  },
+  {
+   "company": "Duolingo",
+   "ats": "greenhouse",
+   "board": "duolingo",
+   "fields": [
+    "tech",
+    "marketing"
+   ]
+  },
+  {
+   "company": "Affirm",
+   "ats": "greenhouse",
+   "board": "affirm",
+   "fields": [
+    "finance",
+    "tech"
+   ]
+  },
+  {
+   "company": "SoFi",
+   "ats": "greenhouse",
+   "board": "sofi",
+   "fields": [
+    "finance",
+    "tech",
+    "marketing"
+   ]
+  },
+  {
+   "company": "Chime",
+   "ats": "greenhouse",
+   "board": "chime",
+   "fields": [
+    "finance",
+    "tech"
+   ]
+  },
+  {
+   "company": "Toast",
+   "ats": "greenhouse",
+   "board": "toast",
+   "fields": [
+    "tech",
+    "sales"
+   ]
+  },
+  {
+   "company": "Squarespace",
+   "ats": "greenhouse",
+   "board": "squarespace",
+   "fields": [
+    "tech",
+    "marketing"
+   ]
+  },
+  {
+   "company": "Palantir",
+   "ats": "lever",
+   "board": "palantir",
+   "fields": [
+    "tech",
+    "data"
+   ]
+  },
+  {
+   "company": "Plaid",
+   "ats": "lever",
+   "board": "plaid",
+   "fields": [
+    "finance",
+    "tech"
+   ]
+  },
+  {
+   "company": "Ramp",
+   "ats": "ashby",
+   "board": "ramp",
+   "fields": [
+    "finance",
+    "tech"
+   ]
+  },
+  {
+   "company": "Mercury",
+   "ats": "ashby",
+   "board": "mercury",
+   "fields": [
+    "finance",
+    "tech"
+   ]
+  }
+ ]
+}

@@ -30,7 +30,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
     if (r) {
       setWs(r.workspace);
       await reloadJobs();
-      toast(r.added ? `Found ${r.added} new opening${r.added > 1 ? "s" : ""} from ${r.reached.length} employer job boards` : `Checked ${r.reached.length} employer job boards — nothing new that fits you right now`);
+      toast(r.added ? `Found ${r.added} new opening${r.added > 1 ? "s" : ""} from ${r.reached.length} employer job boards` : `Checked ${r.reached.length} employer job boards — nothing new that fits you right now${r.workspace.profile.regions?.trim() ? `. Few openings in ${r.workspace.profile.regions} at the moment: adding more places in Account → Profile will show more` : ""}`);
     }
     setFinding(false);
   };
@@ -77,7 +77,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
       </div>
       <div className="notice small">
         <div>
-          <strong>Hand-picked</strong> openings were chosen by the Remy team and checked on Oct 17, 2026. <strong>Find more openings</strong> searches employers' live job boards for you; those results are marked <strong>Live</strong>. Open <em>Details</em> to re-check a posting before applying.
+          <strong>Find more openings</strong> searches employers' own career sites for openings that fit your profile; those results are marked <strong>Live</strong>. Open <em>Details</em> to re-check a posting before applying.
         </div>
       </div>
       {(ineligible.length > 0 || (myRegions && elsewhere.length > 0)) && (
@@ -94,9 +94,9 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
       ) : (
         <div className="card">
           <Empty
-            title={kind === "campus" ? "No campus jobs added yet" : "Nothing matches"}
-            body={kind === "campus" ? "Campus jobs at TCU are posted on Handshake, which requires your login. Copy a posting's text and import it here — Remy will pull out the requirements." : "Try another filter, or import a posting."}
-            action={<button className="btn btn-secondary" onClick={() => setShowImport(true)}>Import a posting</button>}
+            title={kind === "campus" ? "No campus jobs added yet" : jobs.length ? "Nothing matches" : "No openings yet"}
+            body={kind === "campus" ? "Campus jobs at TCU are posted on Handshake, which requires your login. Copy a posting's text and import it here — Remy will pull out the requirements." : jobs.length ? "Try another filter, or import a posting." : "Remy searches employers' own career sites for openings that fit you. Run a search, or import a posting you found."}
+            action={kind !== "campus" && !jobs.length ? <button className="btn btn-primary" onClick={discover} disabled={finding}>{finding ? <Spinner /> : <Search size={16} />} {finding ? "Remy is checking job boards…" : "Find openings"}</button> : <button className="btn btn-secondary" onClick={() => setShowImport(true)}>Import a posting</button>}
           />
         </div>
       )}
@@ -174,7 +174,7 @@ function JobCard({ j, fit, defaultOpen }: { j: Job; fit?: JobFit; defaultOpen: b
     <article id={"job-" + j.id} className="card card-pad stack-sm" style={defaultOpen ? { borderColor: "var(--plum)" } : undefined} data-testid="card-job">
       <div className="row-between" style={{ alignItems: "flex-start" }}>
         <div className="stack-sm" style={{ minWidth: 0, flex: 1 }}>
-          <div className="row"><span className="xs muted">{j.company} · {kindLabel[j.kind]}</span>{j.origin === "verified-catalog" ? <span className="chip chip-plain" title="Picked by the Remy team and checked by hand on Oct 17, 2026">Hand-picked</span> : <StatusChip label={j.label} />}{eligChip(fit)}</div>
+          <div className="row"><span className="xs muted">{j.company} · {kindLabel[j.kind]}</span><StatusChip label={j.label} />{eligChip(fit)}</div>
           <h3>{j.title}</h3>
           <div className="row small muted"><span className="row" style={{ gap: 4 }}><MapPin size={14} />{j.location || "Location not stated"}</span>{j.dates && <span>· {j.dates}</span>}</div>
         </div>
@@ -213,7 +213,7 @@ function JobCard({ j, fit, defaultOpen }: { j: Job; fit?: JobFit; defaultOpen: b
         {j.deadline && <button className="btn btn-ghost btn-sm" onClick={addCal} disabled={onCal} data-testid="button-add-calendar"><CalendarPlus size={14} /> {onCal ? "On calendar" : "Add to calendar"}</button>}
         <button className="btn btn-ghost btn-sm" onClick={explain} disabled={!!busy || !config?.ai.available || !w.resume}>{busy === "fit" ? <Spinner /> : <Sparkles size={14} />} Explain fit</button>
         <button className="btn btn-ghost btn-sm" onClick={() => save("hiddenJobIds", hidden ? w.hiddenJobIds.filter((x) => x !== j.id) : [...w.hiddenJobIds, j.id])}><EyeOff size={14} /> {hidden ? "Unhide" : "Hide"}</button>
-        {j.origin !== "verified-catalog" && <button className="btn btn-ghost btn-sm" style={{ color: "var(--error)" }} onClick={async () => { const r = await run(() => api<Workspace>("DELETE", `/api/jobs/${j.id}`)); if (r) { setWs(r); reloadJobs(); } }}><Trash2 size={14} /> Remove</button>}
+        <button className="btn btn-ghost btn-sm" style={{ color: "var(--error)" }} onClick={async () => { const r = await run(() => api<Workspace>("DELETE", `/api/jobs/${j.id}`)); if (r) { setWs(r); reloadJobs(); } }}><Trash2 size={14} /> Remove</button>
         <button className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={() => setOpen((o) => !o)} data-testid="button-job-details">{open ? <ChevronUp size={14} /> : <ChevronDown size={14} />} Details</button>
       </div>
       {last && <span className={"xs " + (last.result === "reachable" ? "pass" : "fail")} data-testid="text-last-check">Last re-check {new Date(last.at).toLocaleString()}: {last.result === "reachable" ? "reachable" : last.result === "closed-signal" ? "page suggests it's closed" : "couldn't reach"}{last.httpStatus ? ` (HTTP ${last.httpStatus})` : ""}</span>}

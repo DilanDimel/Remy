@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import multer from "multer";
 import { z } from "zod";
-import { CATALOG, SAMPLE_CONTACTS, SAMPLE_INBOX } from "@shared/catalog";
+import { SAMPLE_CONTACTS, SAMPLE_INBOX } from "@shared/catalog";
 import type {
   Application, AppConfig, BulletChange, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace,
 } from "@shared/types";
@@ -13,9 +13,9 @@ import { aiJson, aiStatus, AiUnavailable, lastUsedModel, markAiAuthFailure, mode
 import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase } from "./auth";
 import { aiExtractPosting, aiParseResume, CLOSED_SIGNALS, extractSkills, fetchPublic, fileToText, htmlToText, norm, resumeToText, rulesParse } from "./parse";
 import { atsChecks, claimCheck } from "./claims";
-import { classYearOf, computeFit } from "./fit";
+import { classYearOf, computeFit, FIELD_TITLES } from "./fit";
 import { atsScore, keywordsFrom } from "./ats";
-import { boardsFor, DEFAULT_BOARDS, discoverJobs } from "./sources";
+import { boardsFor, discoverJobs, EMPLOYERS } from "./sources";
 import { alumniList, matchAlumni } from "./alumni";
 import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./docs";
 
@@ -122,7 +122,7 @@ async function withAi<T>(ctx: Ctx, purpose: string, fn: () => Promise<T>): Promi
 const approvedFacts = (ws: Workspace) => ws.memory.filter((m) => m.status === "approved").map((m) => m.text);
 const evidenceOf = (ws: Workspace) =>
   [ws.resume?.rawText || "", ws.resume ? resumeToText(ws.resume.doc) : "", ws.profile.classYear ? `Class year: ${ws.profile.classYear}` : "", ...approvedFacts(ws)].join("\n");
-const allJobs = (ws: Workspace): Job[] => [...CATALOG.map((j) => ({ ...j, checks: ws.jobChecks[j.id] || [] })), ...ws.jobs];
+const allJobs = (ws: Workspace): Job[] => ws.jobs;
 const findJob = (ws: Workspace, id: string) => allJobs(ws).find((j) => j.id === id);
 
 function profileSummary(ws: Workspace) {
@@ -147,23 +147,9 @@ const fitOf = (ws: Workspace, job: Job) => computeFit(ws, job, evidenceOf(ws));
 // Openings that can't be applied to anymore. Checked on every read rather than cached in
 // fits, because a deadline passes and a link breaks without the student doing anything.
 const centralToday = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
-const catalogHealth = new Map<string, JobCheck>();
-async function checkCatalogLinks() {
-  for (const j of CATALOG) {
-    const url = j.sourceUrl || j.applyUrl;
-    if (!url) continue;
-    try {
-      const r = await fetchPublic(url);
-      const closed = CLOSED_SIGNALS.test(htmlToText(r.html));
-      catalogHealth.set(j.id, { at: nowIso(), httpStatus: r.status, result: r.status >= 400 ? "unreachable" : closed ? "closed-signal" : "reachable", note: `Checked automatically: HTTP ${r.status}` });
-    } catch {
-      // network hiccup: keep the previous result rather than calling a posting dead
-    }
-  }
-}
 function closedReason(ws: Workspace, job: Job): string | undefined {
   if (job.deadline && job.deadline < centralToday()) return `The deadline passed on ${job.deadline}.`;
-  const latest = (ws.jobChecks[job.id] || job.checks || [])[0] || catalogHealth.get(job.id);
+  const latest = job.checks[0];
   if (latest?.result === "closed-signal") return "The posting page says applications are closed.";
   if (latest?.result === "unreachable" && (latest.httpStatus === 404 || latest.httpStatus === 410)) return `The posting link is gone (HTTP ${latest.httpStatus}).`;
   return undefined;
@@ -214,8 +200,6 @@ export async function registerRoutes(_server: Server, app: Express) {
   // Expired sessions and guest workspaces idle for 30 days are removed at start-up and every 6 hours.
   const sweep = () => { try { const n = cleanupOld(30); if (n) console.log(`cleanup: removed ${n} idle guest accounts`); } catch (e: any) { console.error("cleanup failed", e?.message); } };
   sweep();
-  checkCatalogLinks().catch(() => {});
-  setInterval(() => checkCatalogLinks().catch(() => {}), 12 * 60 * 60_000).unref();
   setInterval(sweep, 6 * 60 * 60_000).unref();
 
   // ---------- config + identity ----------
@@ -669,23 +653,31 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE, 409);
     fetchAllowed(ctx);
     const named: string[] = (Array.isArray(req.body?.companies) ? req.body.companies : []).map(String).map((x: string) => x.trim()).filter(Boolean).slice(0, 10);
-    let suggested: string[] = [];
+    // Which employers to read: the AI picks from the directory for this student's profile;
+    // without AI, employers whose fields match the student's are used.
+    const p = ctx.ws.profile;
+    const wants = [p.targetRoles, p.major, p.interests].join(" ").toLowerCase();
+    let picked = EMPLOYERS.filter((e) => (e.fields || []).some((f) => wants.includes(f) || FIELD_TITLES.some(([field, title]) => field.test(wants) && title.test(f))));
     if (!named.length && aiStatus().available) {
       try {
-        const out = await withAi(ctx, "Suggest companies", () =>
+        const out = await withAi(ctx, "Pick employers", () =>
           aiJson<{ companies: string[] }>(
-            "You suggest real employers for a university student's internship search. Prefer companies known to hire students and to post openings on Greenhouse, Lever or Ashby job boards.",
-            `STUDENT:\n${profileSummary(ctx.ws)}\n\nReturn {"companies":["Company name", ...]} with 10 companies that fit the student's fields and regions.`,
-            500,
+            "You pick employers for a university student's early-career search, only from the list given. Choose employers that hire for the student's fields and are realistic for their level and location.",
+            `STUDENT:\n${profileSummary(ctx.ws)}\n\nEMPLOYERS (name — fields):\n${EMPLOYERS.map((e) => `${e.company} — ${(e.fields || []).join(", ")}`).join("\n")}\n\nReturn {"companies":["exact name from the list", ...]} with up to 15 names.`,
+            600,
           ),
         );
-        suggested = (out.companies || []).map(String).slice(0, 10);
+        const names = new Set((out.companies || []).map((x) => String(x).toLowerCase()));
+        const ai = EMPLOYERS.filter((e) => names.has(e.company.toLowerCase()));
+        if (ai.length) picked = ai;
       } catch {}
     }
-    const boards = [...named.flatMap(boardsFor), ...suggested.flatMap(boardsFor), ...DEFAULT_BOARDS];
+    if (!picked.length) picked = EMPLOYERS;
+    const boards = [...named.flatMap(boardsFor), ...picked.slice(0, 15)];
     const seen = new Set<string>();
     const unique = boards.filter((b) => { const k = b.ats + ":" + b.slug; if (seen.has(k)) return false; seen.add(k); return true; });
     const r = await discoverJobs(ctx.ws, unique);
+    console.log(`discover: read ${r.reached}/${unique.length} (${unique.map((b) => b.company).join(", ")}), added ${r.jobs.length}`);
     ctx.ws.jobs.unshift(...r.jobs);
     for (const j of r.jobs) ctx.ws.fits[j.id] = fitOf(ctx.ws, j);
     ctx.save();
@@ -711,8 +703,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     } catch (e: any) {
       check = { at: nowIso(), httpStatus: null, result: "unreachable" as const, note: e?.message || "Could not reach the page." };
     }
-    if (job!.origin === "verified-catalog") (ctx.ws.jobChecks[job!.id] ||= []).unshift(check);
-    else {
+    {
       const j = ctx.ws.jobs.find((x) => x.id === job!.id)!;
       j.checks.unshift(check);
     }

@@ -63,23 +63,38 @@ const METRO: Record<string, string[]> = {
   texas: ["texas", ", tx", " tx", "dallas", "fort worth", "houston", "austin", "san antonio", "irving", "plano"],
   remote: ["remote", "virtual", "online", "anywhere"],
 };
+// Same order as STATE.
+const STATE_NAMES = "alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|district of columbia|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming".split("|");
+const STATE = "AL|AK|AZ|AR|CA|CO|CT|DE|DC|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY";
+const FOREIGN = new RegExp(
+  `\\b(brazil|canada|india|mexico|united kingdom|england|scotland|ireland|germany|france|spain|ital(y|ia)|milan|madrid|poland|philippines|singapore|china|hong kong|japan|korea|taiwan|vietnam|australia|morocco|guatemala|ukraine|turkey|türkiye|portugal|saudi|emirates|netherlands|switzerland|sweden|hungary|costa rica|argentina|colombia|chile|israel|egypt|romania|czech|belgium|denmark|norway|luxembourg|london|paris|berlin|frankfurt|munich|zurich|dublin|amsterdam|warsaw|stockholm|lisbon|istanbul|dubai|riyadh|tokyo|seoul|shanghai|beijing|sydney|s[aã]o paulo|toronto|bengaluru|bangalore|hyderabad|mumbai|taguig|manila)\\b|,\\s*(br|uk|mx|sg|ph|cn|jp|au|hk|eng|ita)\\b`, "i");
+/** True when a posting's location is outside the US ("Sao Paulo Brazil", "ES - MADRID"). Unknown places count as US.
+ *  shortcut: a word list, not geocoding; misses unlisted countries, upgrade if students see foreign postings. */
+export function abroad(location: string): boolean {
+  const prefix = /^([A-Z]{2})\s?-\s/.exec(location.trim());
+  return FOREIGN.test(location) || !!(prefix && prefix[1] !== "US" && !new RegExp(`^(${STATE})$`).test(prefix[1]));
+}
+
 /** true / false when the student named regions; null when they didn't (or "anywhere"). */
 export function regionMatch(ws: Workspace, job: Job): boolean | null {
   const wants = (ws.profile.regions || "").toLowerCase().split(/[,;/]+/).map((x) => x.trim()).filter(Boolean);
   if (!wants.length || wants.some((w) => /anywhere|open to (any|all)|united states|^us$|usa/.test(w))) return null;
   const loc = ` ${job.location} ${job.format} `.toLowerCase();
   // Virtual and remote postings can be done from anywhere, so they match every region.
-  if (/remote|virtual|online/.test(loc)) return true;
+  // ...unless the posting names another country ("Virtual, BR", "Remote - Canada").
+  if (/remote|virtual|online/.test(loc) && !abroad(job.location)) return true;
   return wants.some((w) => {
     const key = Object.keys(METRO).find((k) => w.includes(k));
-    return (key ? METRO[key] : [w]).some((needle) => loc.includes(needle));
+    // A state name also matches its abbreviation ("California" → "Glendale, CA").
+    const a = STATE.split("|")[STATE_NAMES.indexOf(w)]?.toLowerCase();
+    return (key ? METRO[key] : a ? [w, `, ${a},`, `, ${a} `, `,${a} `] : [w]).some((needle) => loc.includes(needle));
   });
 }
 
 // The student's fields (target roles, major, interests) → job titles that belong to them.
 // A title must match one of the student's fields; fields that map to nothing don't filter.
 export const FIELD_TITLES: [RegExp, RegExp][] = [
-  [/financ|bank|invest|m&a|capital|fintech|account|econ|wealth/i, /financ|bank|invest|m&a|merger|capital|equity|credit|analyst|account|treasury|fp&a|valuation|trading|risk|wealth|asset|corporate development|strategy|business/i],
+  [/financ|bank|invest|m&a|capital|fintech|account|econ|wealth/i, /financ|bank|invest|m&a|merger|capital|equity|credit|analyst|account|treasury|fp&a|valuation|trading|risk|wealth|asset|corporate development|strategy|\bbusiness/i],
   [/market|brand|advertis|social media|communication/i, /market|brand|growth|content|social|communication|advertis|creative/i],
   [/data|analytic|statistic/i, /data|analytic|insight|intelligence|research|quant/i],
   [/software|computer science|\bcs\b|engineer|developer|\btech\b|programming/i, /engineer|developer|software|technical|machine learning|data/i],
@@ -88,17 +103,17 @@ export const FIELD_TITLES: [RegExp, RegExp][] = [
   [/sales|business development/i, /sales|business development|account (executive|manager)|partnerships/i],
   [/quant|math|physics/i, /quant|research|trading|analyst|data/i],
 ];
+// The search word for each FIELD_TITLES row, in the same order.
+export const FIELD_SEARCH = ["finance", "marketing", "data", "software", "operations", "consulting", "sales", "quantitative"];
 
 /** Postings the student pasted in themselves are never hidden by field or type: they chose them. */
 const studentAdded = (job: Job) => job.origin === "imported" && !/job board/i.test(job.sourceName || "");
-/** true / false when the student named fields Remy recognizes; null when not. Hand-picked
- * postings also count their summary, since their titles can be program names. */
+/** true / false when the student named fields Remy recognizes; null when not. */
 export function fieldMatch(ws: Workspace, job: Job): boolean | null {
   const p = ws.profile;
   const wanted = FIELD_TITLES.filter(([field]) => field.test([p.targetRoles, p.major, p.interests].join(" "))).map(([, title]) => title);
   if (!wanted.length) return null;
-  const text = job.origin === "verified-catalog" ? `${job.title} ${job.summary}` : job.title;
-  return wanted.some((t) => t.test(text));
+  return wanted.some((t) => t.test(job.title));
 }
 
 const TYPE_OF: Record<Job["kind"], string> = { internship: "internship", job: "full-time", program: "program", campus: "campus", event: "event" };

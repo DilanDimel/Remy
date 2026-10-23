@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Job, Workspace } from "@shared/types";
-import { classYearOf, computeFit, fieldMatch, regionMatch } from "./fit";
+import { abroad, classYearOf, computeFit, fieldMatch, regionMatch } from "./fit";
 
 const fall2026 = new Date("2026-10-22T12:00:00");
 const student = (profile: Partial<Workspace["profile"]>) =>
@@ -52,11 +52,6 @@ test("fields: postings outside the student's chosen fields are left out", () => 
   const marketing = student({ major: "Marketing", targetRoles: "brand marketing", classYear: "Junior" });
   assert.equal(computeFit(marketing, job({ title: "Investment Banking Summer Analyst" }), "").excluded, true);
 });
-test("hand-picked postings also count their summary", () => {
-  const finance = student({ targetRoles: "venture capital investing" });
-  const summit = job({ title: "2027 Inclusion by Insight Virtual Summit", origin: "verified-catalog", summary: "Explore the venture capital, private equity and tech investing space." } as Partial<Job>);
-  assert.equal(fieldMatch(finance, summit), true);
-});
 test("kinds: an internships-only student doesn't see full-time jobs", () => {
   const s = student({ opportunityTypes: "Internships", targetRoles: "finance" });
   assert.equal(computeFit(s, job({ kind: "job", title: "Financial Analyst" }), "").excluded, true);
@@ -66,4 +61,15 @@ test("postings the student pasted in are never hidden by field or kind", () => {
   const s = student({ targetRoles: "investment banking", opportunityTypes: "Internships" });
   const pasted = job({ kind: "job", title: "Brand Marketing Coordinator", origin: "imported", sourceName: "Pasted by student" } as Partial<Job>);
   assert.ok(!computeFit(s, pasted, "").excluded);
+});
+
+test("abroad: foreign postings are spotted, US ones are not", () => {
+  for (const l of ["Sao Paulo Sao Paulo Brazil", "ES - MADRID PASEO DE LA CASTELLANA 7", "Milano, ITA", "Nottingham,  Eng", "MA - Casablanca, Morocco", "Hong Kong", "Virtual, BR", "DE - FRANKFURT, BOCKENHEIMER", "Central, HK"]) assert.equal(abroad(l), true, l);
+  for (const l of ["USA, TX, Irving", "Dallas, TX", "IL-Rosemont", "FL - Plantation", "Beaverton, Oregon", "Indianapolis, Indiana", "Remote", "2 Locations", ""]) assert.equal(abroad(l), false, l);
+});
+
+test("regionMatch: a state name matches its abbreviation", () => {
+  const w = { profile: { regions: "California" } } as Workspace;
+  assert.equal(regionMatch(w, { location: "Glendale, CA, USA", format: "" } as Job), true);
+  assert.equal(regionMatch(w, { location: "Toronto, Canada", format: "" } as Job), false);
 });
