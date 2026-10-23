@@ -147,7 +147,7 @@ const PROFILE_FIELDS: [keyof Profile, string, string?][] = [
 ];
 
 // Onboarding asks roles, regions and opportunity types on its own preferences step, so its review step leaves them out.
-const PREF_KEYS: (keyof Profile)[] = ["targetRoles", "regions", "opportunityTypes"];
+const PREF_KEYS: (keyof Profile)[] = ["classYear", "graduation", "targetRoles", "regions", "opportunityTypes"];
 export function ProfileForm({ onSaved, hidePrefs }: { onSaved?: () => void; hidePrefs?: boolean }) {
   const { ws, save, run } = useStore();
   const [p, setP] = useState<Profile>(ws!.profile);

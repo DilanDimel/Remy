@@ -51,7 +51,7 @@ export default function Community() {
         <div>
           <span className="eyebrow">Community</span>
           <h1>A few right people.</h1>
-          <p>TCU alumni who match your major, interests and where you want to work. Remy asks you a few questions, then writes the email — you approve every word and send it yourself.</p>
+          <p>{alumni?.schoolEmailRequired ? "People you've met who can help with your career" : "TCU alumni who match your major, interests and where you want to work"}. Remy asks you a few questions, then writes the email — you approve every word and send it yourself.</p>
         </div>
         <div className="row">
           <button className="btn btn-secondary" onClick={() => setAdding(true)} data-testid="button-add-contact"><Plus size={16} /> Add a contact</button>
