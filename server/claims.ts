@@ -139,7 +139,9 @@ export function claimCheck(
     }
   }
   for (const term of CLASS_YEAR) {
-    if (hasTerm(t, term) && !hasTerm(ev, term)) {
+    // Only when it describes the student ("as a senior", "junior year"), not "senior finance leaders".
+    const aboutStudent = new RegExp(`\\b(a|an|as a|i am a|i'm a|rising|current)\\s+${term}\\b|\\b${term}\\s+(year|student|at|in|majoring|studying)\\b`, "i");
+    if (aboutStudent.test(t) && !hasTerm(ev, term)) {
       add({ type: "title", term, message: `Class standing “${term}” is not stated in your resume or profile. Set your class year in Accounts or remove it.` });
     }
   }
