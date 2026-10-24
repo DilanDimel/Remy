@@ -135,6 +135,7 @@ function profileSummary(ws: Workspace) {
   return [
     `Name: ${p.preferredName || p.name}`, `School: ${p.school}`, `Major: ${p.major}`, `Minor: ${p.minors || ""}`, `GPA: ${p.gpa || ""}`, `Class year: ${p.classYear || classYearOf(ws)}`, `Graduation: ${p.graduation}`,
     `Location: ${p.location}`, `Wants opportunities in: ${p.regions}`, `Opportunity types wanted: ${p.opportunityTypes}`, `Target roles: ${p.targetRoles}`, `Goals: ${p.goals}`, `Interests: ${p.interests}`,
+    `Work authorization: ${p.workAuth}`, `Open to relocating: ${p.relocation}`, `When they want to start: ${p.timeline || ""}`, `Dream employers: ${p.dreamEmployers || ""}`, `Wants to avoid: ${p.avoid || ""}`,
     `Skills found on resume: ${(ws.resume?.skills || []).join(", ")}`,
   ].filter((l) => !/:\s*$/.test(l)).join("\n");
 }
@@ -224,7 +225,11 @@ async function findOpenings(ctx: Ctx, named: string[] = []) {
     } catch {}
   }
   if (!picked.length) picked = EMPLOYERS;
-  const boards = [...named.flatMap(boardsFor), ...picked.slice(0, 15)];
+  // Employers the student named as dream employers are always read first: from the directory when
+  // Remy knows their career site, otherwise by guessing their Greenhouse/Lever/Ashby board.
+  const dream = (p.dreamEmployers || "").split(/[,;]+/).map((x) => x.trim()).filter((x) => x.length > 1).slice(0, 5);
+  const dreamBoards = dream.flatMap((d) => { const hit = EMPLOYERS.filter((e) => e.company.toLowerCase().includes(d.toLowerCase())); return hit.length ? hit : boardsFor(d); });
+  const boards = [...named.flatMap(boardsFor), ...dreamBoards, ...picked.slice(0, 15)];
   const seen = new Set<string>();
   const unique = boards.filter((b) => { const k = b.ats + ":" + b.slug; if (seen.has(k)) return false; seen.add(k); return true; });
   const r = await discoverJobs(ctx.ws, unique);
@@ -236,7 +241,10 @@ async function findOpenings(ctx: Ctx, named: string[] = []) {
   ctx.ws.jobs = [...added, ...fresh.jobs];
   ctx.ws.fits = { ...fresh.fits };
   for (const j of added) ctx.ws.fits[j.id] = fitOf(ctx.ws, j);
-  ctx.ws.openingsCheckedAt = nowIso();
+  // When most employer sites didn't answer (Workday maintenance, outages), try again in 30 minutes instead of 6 hours.
+  const mostlyDown = r.reached.length < unique.length / 2;
+  ctx.ws.openingsCheckedAt = new Date(Date.now() - (mostlyDown ? OPENINGS_EVERY - 30 * 60_000 : 0)).toISOString();
+  ctx.ws.lastSearch = { at: nowIso(), reached: r.reached.length, scanned: unique.length };
   ctx.save();
   return { added: added.length, reached: r.reached, scanned: unique.length };
 }
@@ -372,7 +380,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     hiddenJobIds: ids,
     memory: z.array(z.looseObject({ id: str(120).optional(), text: str(2000) })).max(300),
     outreach: z.array(z.looseObject({ id: str(120), contactId: str(120), to: str(320), subject: str(300), body: str(8000), linkedin: str(400).optional(), status: z.enum(["draft", "approved", "handed-off"]), createdAt: str(40) })).max(500),
-    onboarding: z.object({ step: z.number().int().min(0).max(50), done: z.boolean(), answers: z.array(z.object({ q: str(500), a: str(2000) })).max(50), questions: z.array(str(500)).max(20) }),
+    onboarding: z.object({ step: z.number().int().min(0).max(50), done: z.boolean(), answers: z.array(z.object({ q: str(500), a: str(2000) })).max(50), questions: z.array(str(500)).max(20), targets: z.array(str(40)).max(20).optional() }),
     started: z.boolean(),
     plan: z.looseObject({ nextAction: z.looseObject({ title: str(300), why: str(2000), link: str(300) }), careers: z.array(z.looseObject({ id: str(120), title: str(300) })).max(20), skills: z.array(z.looseObject({ id: str(120), name: str(300) })).max(30), academic: z.array(z.looseObject({ id: str(120), term: str(100) })).max(20) }),
     contacts: z.array(z.looseObject({ id: str(120), name: str(200), title: str(300), org: str(300), email: str(320), why: str(2000), tags: z.array(str(120)).max(30), label: str(40) })).max(1000),
@@ -584,13 +592,20 @@ export async function registerRoutes(_server: Server, app: Express) {
   // ---------- AI: onboarding questions + plan ----------
   app.post("/api/ai/questions", route(async (_req, res, ctx) => {
     const out = await withAi(ctx, "Onboarding questions", () =>
-      aiJson<{ questions: string[] }>(
-        "You are Remy, a friendly career companion for university students. Ask short, warm, specific follow-up questions that fill the most important gaps for planning. One idea per question. No yes/no questions.",
-        `Student profile:\n${profileSummary(ctx.ws)}\n\nResume headings and roles:\n${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => e.role || e.org).join("; ")).join("\n") : "(no resume yet)"}\n\nApproved facts:\n${approvedFacts(ctx.ws).join("\n") || "(none)"}\n\nReturn {"questions":["","",""]} with exactly 3 questions.`,
+      aiJson<{ questions: { q: string; saveTo: string }[] }>(
+        `You are Remy, a career coach for university students. Remy uses the answers to choose which job and internship openings to show this student and how to present them. Ask exactly 3 short, warm questions that each fill a gap that would CHANGE which openings Remy shows or how it writes their applications. Rules:
+- Never ask anything the profile or resume already answers (school, major, class year, regions, kinds of opportunities, fields are already known).
+- One idea per question, answerable in a sentence. No yes/no questions. Speak to the student as "you".
+- Prefer, in order: the specific roles or industries they're most excited about (if fields are broad), what they enjoyed or did best in a past role on their resume (name it), employers they'd love to work for, when they want to start, industries or kinds of work they'd rule out, and the one goal they want this year.
+- saveTo says where the answer goes: "targetRoles" (roles/industries to search), "interests" (what they enjoy and are good at), "dreamEmployers" (company names), "timeline" (when to start), "avoid" (industries or companies to leave out), "goals" (their goal this year).`,
+        `STUDENT PROFILE:\n${profileSummary(ctx.ws)}\nTimeline: ${ctx.ws.profile.timeline || "(not given)"}\nDream employers: ${ctx.ws.profile.dreamEmployers || "(not given)"}\nAvoid: ${ctx.ws.profile.avoid || "(not given)"}\n\nRESUME (headings and roles):\n${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org].filter(Boolean).join(", ")).join("; ")).join("\n") : "(no resume yet)"}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).join("\n") || "(none)"}\n\nReturn {"questions":[{"q":"","saveTo":""},{"q":"","saveTo":""},{"q":"","saveTo":""}]}.`,
         800,
       ),
     );
-    ctx.ws.onboarding.questions = (out.questions || []).slice(0, 3).map(String);
+    const TARGETS = ["targetRoles", "interests", "dreamEmployers", "timeline", "avoid", "goals"];
+    const qs = (out.questions || []).filter((x: any) => x && (typeof x === "string" || x.q)).slice(0, 3);
+    ctx.ws.onboarding.questions = qs.map((x: any) => String(typeof x === "string" ? x : x.q));
+    ctx.ws.onboarding.targets = qs.map((x: any) => (TARGETS.includes(x?.saveTo) ? x.saveTo : "goals"));
     ctx.save();
     res.json(ctx.ws);
   }));
@@ -731,8 +746,13 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE, 409);
     fetchAllowed(ctx);
     const named: string[] = (Array.isArray(req.body?.companies) ? req.body.companies : []).map(String).map((x: string) => x.trim()).filter(Boolean).slice(0, 10);
-    const r = await findOpenings(ctx, named);
-    res.json({ ...r, workspace: ctx.ws });
+    searching.add(ctx.me.id);
+    try {
+      const r = await findOpenings(ctx, named);
+      res.json({ ...r, workspace: ctx.ws });
+    } finally {
+      searching.delete(ctx.me.id);
+    }
   }));
 
   app.post("/api/jobs/:id/check", route(async (req, res, ctx) => {

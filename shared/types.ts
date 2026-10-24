@@ -79,6 +79,12 @@ export interface Profile {
   /** On a 4-point scale, only as written on the resume. Postings often require a minimum. */
   gpa?: string;
   minors?: string;
+  /** When they want to start, e.g. "Summer 2027, Fall 2026". Postings naming another summer are left out. */
+  timeline?: string;
+  /** Industries, companies or kinds of work they don't want, comma-separated. */
+  avoid?: string;
+  /** Employers they'd love to work for, comma-separated. Searched first. */
+  dreamEmployers?: string;
 }
 
 export interface MemoryFact {
@@ -330,7 +336,7 @@ export interface ChatMsg {
 export interface Workspace {
   version: 2;
   started: boolean;
-  onboarding: { step: number; done: boolean; answers: { q: string; a: string }[]; questions: string[] };
+  onboarding: { step: number; done: boolean; answers: { q: string; a: string }[]; questions: string[]; targets?: string[] };
   profile: Profile;
   resume?: BaseResume;
   imports: { id: string; kind: string; fileName: string; at: string; label: Label; factsAdded: number }[];
@@ -338,6 +344,8 @@ export interface Workspace {
   jobs: Job[]; // found by the live search, imported or added by the student
   /** When Remy last searched employers' career sites for this student (it re-searches every few hours). */
   openingsCheckedAt?: string;
+  /** How the last search went: employer sites reached out of those tried. */
+  lastSearch?: { at: string; reached: number; scanned: number };
   savedJobIds: string[];
   fits: Record<string, JobFit>;
   hiddenJobIds: string[];

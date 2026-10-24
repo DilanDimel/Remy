@@ -120,9 +120,12 @@ export const FIELD_TITLES: [RegExp, RegExp][] = [
   [/consult/i, /consult|strategy|analyst/i],
   [/sales|business development/i, /sales|business development|account (executive|manager)|partnerships/i],
   [/quant|math|physics/i, /quant|research|trading|analyst|data/i],
+  [/real estate|property/i, /real estate|property|leasing|appraisal|acquisitions|capital markets|valuation/i],
+  [/human resources|\bhr\b|people|talent|recruit/i, /human resources|\bhr\b|people|talent|recruit/i],
+  [/health|pharma|biotech|medical/i, /health|clinical|pharma|patient|medical|biotech/i],
 ];
 // The search word for each FIELD_TITLES row, in the same order.
-export const FIELD_SEARCH = ["finance", "marketing", "data", "software", "operations", "consulting", "sales", "quantitative"];
+export const FIELD_SEARCH = ["finance", "marketing", "data", "software", "operations", "consulting", "sales", "quantitative", "real estate", "human resources", "healthcare"];
 
 /** Postings the student pasted in themselves are never hidden by field or type: they chose them. */
 const studentAdded = (job: Job) => job.origin === "imported" && !/job board/i.test(job.sourceName || "");
@@ -145,6 +148,25 @@ export function typeMatch(ws: Workspace, job: Job): boolean | null {
   if (k === "campus") return /part|campus/.test(t);
   // Summits and insight events are what "Programs & insight days" means in practice.
   return /event|competition|career fair|network|insight/.test(t) || /competition/i.test(job.title) && /competition/.test(t);
+}
+
+/** Why a posting is ruled out by something the student told Remy, or "" if nothing does:
+ *  they need visa sponsorship and the posting won't sponsor; it's for MBA/graduate students and they're
+ *  an undergraduate; it's in something they said to avoid; or it names a summer they didn't pick. */
+export function dealbreaker(ws: Workspace, job: Job, today = new Date()): string {
+  const p = ws.profile;
+  const text = `${job.title} ${job.eligibility.join(" ")} ${job.summary} ${job.postingText || ""}`;
+  if (/sponsor|visa|f-?1|opt\b|h-?1b/i.test(p.workAuth || "") && /\b(?:no|not|unable to|cannot|will not|won't|does not)\b[^.]{0,40}\bsponsor|without (?:the need for )?(?:current or future |now or in the future )?(?:visa |employment )?sponsorship|not eligible for (?:visa )?sponsorship/i.test(text))
+    return "This posting says it won't sponsor a work visa, and you told Remy you'll need sponsorship.";
+  if (classYearOf(ws, today) !== "Graduate student" && /\bMBA\b(?! or undergraduate)|(?:currently )?(?:enrolled in|pursuing) an? (?:master'?s|graduate|ph\.?d)/i.test(`${job.title} ${job.eligibility.join(" ")} ${job.summary} ${job.requirements.map((r) => `${r.keyword} ${r.quote}`).join(" ")}`))
+    return "This one is for MBA or graduate students.";
+  for (const a of (p.avoid || "").split(/[,;]+/).map((x) => x.trim().toLowerCase()).filter((x) => x.length > 2))
+    if (`${job.company} ${job.title}`.toLowerCase().includes(a)) return `You told Remy to avoid "${a}".`;
+  const want = [...(p.timeline || "").matchAll(/summer\s*(20\d\d)/gi)].map((m) => m[1]);
+  const named = job.title.match(/summer\s*(20\d\d)|(20\d\d)\s*summer/i);
+  const y = named && (named[1] || named[2]);
+  if (want.length && y && !want.includes(y)) return `This is for Summer ${y}; you're looking for ${want.map((w) => "Summer " + w).join(" or ")}.`;
+  return "";
 }
 
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
@@ -208,6 +230,8 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
     excluded = true;
     note = field === false ? "This isn't in the fields you chose." : "This isn't the kind of opportunity you chose.";
   }
+  const ruledOut = studentAdded(job) ? "" : dealbreaker(ws, job);
+  if (ruledOut) { excluded = true; note = ruledOut; }
   const req = job.requirements.length || 1;
   const score = Math.round(
     ({ likely: 40, check: 22, unknown: 18, unlikely: 0 } as const)[eligibility] +

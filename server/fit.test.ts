@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Job, Workspace } from "@shared/types";
-import { abroad, classYearOf, computeFit, fieldMatch, regionMatch } from "./fit";
+import { abroad, classYearOf, computeFit, dealbreaker, fieldMatch, regionMatch } from "./fit";
 
 const fall2026 = new Date("2026-10-22T12:00:00");
 const student = (profile: Partial<Workspace["profile"]>) =>
@@ -72,4 +72,16 @@ test("regionMatch: a state name matches its abbreviation", () => {
   const w = { profile: { regions: "California" } } as Workspace;
   assert.equal(regionMatch(w, { location: "Glendale, CA, USA", format: "" } as Job), true);
   assert.equal(regionMatch(w, { location: "Toronto, Canada", format: "" } as Job), false);
+});
+
+test("dealbreakers: sponsorship, graduate-only, avoid list and the wrong summer are left out", () => {
+  const intl = student({ workAuth: "Will need visa sponsorship (F-1)", classYear: "Sophomore" });
+  assert.match(dealbreaker(intl, job({ summary: "Candidates must be authorized to work in the U.S. without the need for current or future sponsorship." })), /sponsor/);
+  assert.equal(dealbreaker(student({ workAuth: "U.S. citizen" }), job({ summary: "We do not offer visa sponsorship." })), "");
+  const undergrad = student({ classYear: "Sophomore" });
+  assert.match(dealbreaker(undergrad, job({ title: "Finance Leadership Program Intern", requirements: [{ id: "r1", keyword: "MBA enrollment", quote: "Currently enrolled in an MBA program" }] as Job["requirements"] })), /MBA/);
+  assert.equal(dealbreaker(student({ classYear: "Graduate student" }), job({ title: "MBA Summer Associate" })), "");
+  assert.match(dealbreaker(student({ avoid: "tobacco, Wells Fargo" }), job({ company: "Wells Fargo", title: "Analyst Intern" })), /avoid/);
+  assert.match(dealbreaker(student({ timeline: "Summer 2027" }), job({ title: "Summer 2028 Analyst Intern" })), /Summer 2028/);
+  assert.equal(dealbreaker(student({ timeline: "Summer 2027" }), job({ title: "2027 Summer Analyst" })), "");
 });

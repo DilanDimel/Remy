@@ -1,147 +1,140 @@
 import { uiFlags } from "../lib/router";
 import { useEffect, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Check, FileText, Trash2 } from "lucide-react";
-import { LinkedInMark, MailMark } from "./Welcome";
 import type { Profile, Workspace } from "@shared/types";
 import { api, useStore } from "../lib/store";
-import { reloadJobs } from "../lib/jobs";
+import { reloadJobs, useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Remy, Spinner, StatusChip } from "../components/common";
-import { ResumeUpload } from "../components/Uploaders";
-import { providerOn, startOAuth } from "../lib/supabase";
+import { ProfileImport, ResumeUpload } from "../components/Uploaders";
 
-// Step numbers are stored in the workspace; 0 and 1 both open Connect accounts
-// (the landing page now introduces Remy, so there is no separate intro step).
-const STEPS = ["Connect accounts", "Review", "Your preferences", "A few questions", "Your plan"];
+// Step numbers are stored in the workspace; 0 and 1 both open the resume step.
+const STEPS = ["Your resume", "Review", "Your preferences", "A few questions", "Your plan"];
 
 export default function Onboarding() {
-  const { ws, save, setWs, run, config } = useStore();
+  const { ws, save, config } = useStore();
   const w = ws!;
   const step = w.onboarding.step;
   const shown = Math.max(0, step - 1);
+  // Coming back partway through: say so and let the student choose, instead of dropping them mid-step.
+  const [welcomeBack, setWelcomeBack] = useState(() => step > 1);
   const setStep = (s: number) => save("onboarding", { ...w.onboarding, step: s });
   const finish = async () => {
     uiFlags.flyIn = true;
     await save("onboarding", { ...w.onboarding, done: true });
-    // Start with real, current openings for this student.
-    api("POST", "/api/jobs/discover", {}).then(() => reloadJobs()).catch(() => {});
   };
   return (
     <div className="ob">
       <div className="row-between" style={{ width: "100%", maxWidth: 740 }}>
         <span className="logo"><Remy size={26} /><span>Remy<b>.</b></span></span>
-        <button className="btn btn-ghost btn-sm" onClick={finish} data-testid="button-skip-onboarding">Skip setup</button>
       </div>
-      <div className="ob-progress" aria-label={`Step ${shown + 1} of ${STEPS.length}`}>
-        {STEPS.map((s, i) => <span key={s} className={i <= shown ? "on" : ""} title={s} />)}
-      </div>
-      <div className="ob-card card card-pad fade-up" key={shown}>
-        {step <= 1 && <Sources onNext={() => setStep(2)} />}
-        {step === 2 && <Review onBack={() => setStep(1)} onNext={() => setStep(3)} />}
-        {step === 3 && <Preferences onBack={() => setStep(2)} onNext={() => setStep(4)} />}
-        {step === 4 && <Questions onBack={() => setStep(3)} onNext={() => setStep(5)} />}
-        {step === 5 && <PlanStep onBack={() => setStep(4)} onFinish={finish} />}
+      {!welcomeBack && (
+        <div className="ob-progress" aria-label={`Step ${shown + 1} of ${STEPS.length}`}>
+          {STEPS.map((s, i) => <span key={s} className={i <= shown ? "on" : ""} title={s} />)}
+        </div>
+      )}
+      <div className="ob-card card card-pad fade-up" key={welcomeBack ? "back" : shown}>
+        {welcomeBack ? (
+          <WelcomeBack onContinue={() => setWelcomeBack(false)} onRestart={async () => { await save("onboarding", { ...w.onboarding, step: 1, answers: [], questions: [], targets: [] }); setWelcomeBack(false); }} />
+        ) : (
+          <>
+            {step <= 1 && <ResumeStep onNext={() => setStep(2)} />}
+            {step === 2 && <Review onBack={() => setStep(1)} onNext={() => setStep(3)} />}
+            {step === 3 && <Preferences onBack={() => setStep(2)} onNext={() => setStep(4)} />}
+            {step === 4 && <Questions onBack={() => setStep(3)} onNext={() => setStep(5)} />}
+            {step === 5 && <PlanStep onBack={() => setStep(4)} onFinish={finish} />}
+          </>
+        )}
       </div>
       {!config?.ai.available && <div style={{ maxWidth: 720, width: "100%" }}><AiUnavailableNote /></div>}
     </div>
   );
 }
 
-type ConnRow = { k: string; title: string; what: string; ico: ReactNode; icoClass: string };
-const DEMO_ROWS: ConnRow[] = [
-  { k: "tcu", title: "TCU Student Account / SSO", what: "Enrollment, major, class standing", ico: "TCU", icoClass: "tcu" },
-  { k: "stellic", title: "Stellic Degree Audit", what: "Degree plan and semester roadmap", ico: "S", icoClass: "stellic" },
-  { k: "handshake", title: "Handshake", what: "Saved jobs and career events", ico: "h", icoClass: "handshake" },
-  { k: "linkedin", title: "LinkedIn", what: "Profile and experience", ico: <LinkedInMark />, icoClass: "linkedin" },
-];
-
-/** One "Connect Your Accounts" row status: Not connected → Connecting… → Connected. */
-function ConnStatus({ state, children }: { state: "none" | "busy" | "done"; children?: ReactNode }) {
-  if (state === "busy") return <span className="conn-badge busy"><Spinner /> Connecting…</span>;
-  if (state === "done") return <span className="conn-badge done fade-up"><Check size={13} /> {children || "Connected"}</span>;
-  return <span className="conn-badge">Not connected</span>;
+function WelcomeBack({ onContinue, onRestart }: { onContinue: () => void; onRestart: () => void }) {
+  const { ws } = useStore();
+  const w = ws!;
+  const step = w.onboarding.step;
+  const first = (w.profile.preferredName || w.profile.name).split(/\s+/)[0];
+  const done: [string, boolean, string][] = [
+    ["Your resume", !!w.resume, w.resume ? w.resume.fileName : "Not uploaded yet"],
+    ["Profile reviewed", step > 2, step > 2 ? "School, major and graduation confirmed" : "Next up"],
+    ["Your preferences", step > 3, step > 3 ? [w.profile.opportunityTypes, w.profile.regions].filter(Boolean).join(" · ") : "Still to do"],
+    ["A few questions", step > 4, `${w.onboarding.answers.length} of ${w.onboarding.questions.length || 3} answered`],
+  ];
+  return (
+    <div className="stack-lg" data-testid="welcome-back">
+      <div className="remy-prompt">
+        <Remy size={44} mood="wave" />
+        <div className="stack-sm">
+          <h2>Welcome back{first ? `, ${first}` : ""}!</h2>
+          <p className="muted">You're partway through setting up Remy. Here's what you've done so far.</p>
+        </div>
+      </div>
+      <div className="stack-sm">
+        {done.map(([label, ok, detail]) => (
+          <div key={label} className="conn-row">
+            <span className={`conn-badge ${ok ? "done" : ""}`}>{ok ? <><Check size={13} /> Done</> : "To do"}</span>
+            <div className="grow"><b>{label}</b><span>{detail}</span></div>
+          </div>
+        ))}
+      </div>
+      <div className="row-between">
+        <button className="btn btn-ghost" onClick={onRestart} data-testid="button-start-over">Start over</button>
+        <button className="btn btn-primary" onClick={onContinue} data-testid="button-continue-setup">Continue where I left off <ArrowRight size={16} /></button>
+      </div>
+      <p className="xs muted">Start over keeps your resume and profile; it takes you back to the first step to check everything again.</p>
+    </div>
+  );
 }
 
-function Sources({ onNext }: { onNext: () => void }) {
-  const { ws, save, run, config } = useStore();
+/** Step 1: the resume (or a LinkedIn profile PDF when there's no resume yet), plus LinkedIn as an optional extra. */
+function ResumeStep({ onNext }: { onNext: () => void }) {
+  const { ws } = useStore();
   const w = ws!;
-  const [open, setOpen] = useState<string>(w.resume ? "" : "resume");
-  const [busy, setBusy] = useState<Record<string, boolean>>({});
-  const [email, setEmail] = useState(w.profile.applicationEmail || w.profile.email);
-  const linkedinLive = w.imports.some((i) => i.kind === "LinkedIn (connected)");
-  const linkedinReal = providerOn(config, "linkedin_oidc");
-  const setRowBusy = (k: string) => (b: boolean) => setBusy((x) => (x[k] === b ? x : { ...x, [k]: b }));
-  const stateOf = (k: string, done: boolean) => (busy[k] ? "busy" : done ? "done" : "none");
-  const isDone = (k: string) => k === "linkedin" && linkedinLive;
-  // TCU, Stellic and Handshake (and LinkedIn until its Supabase provider is on) aren't
-  // connected to anything yet, so they say "Coming soon" instead of pretending to connect.
-  const canConnect = (k: string) => k === "linkedin" && linkedinReal;
-  const connectLinkedIn = async () => {
-    setRowBusy("linkedin")(true);
-    await run(() => startOAuth(config!, "linkedin_oidc", "connect-linkedin"));
-    setRowBusy("linkedin")(false);
-  };
-  const toggle = (k: string) => setOpen(open === k ? "" : k);
-  const connected = (w.resume ? 1 : 0) + DEMO_ROWS.filter((r) => isDone(r.k)).length + (w.profile.applicationEmail ? 1 : 0);
-  const connectable = 2 + DEMO_ROWS.filter((r) => canConnect(r.k)).length;
+  const [replace, setReplace] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [added, setAdded] = useState<number | null>(null);
+  const linkedin = w.imports.find((i) => /linkedin/i.test(i.kind));
   return (
     <div className="stack-lg">
-      <div className="stack-sm">
-        <h2 className="conn-title">Connect Your Accounts</h2>
-        <p className="muted">The more you connect, the better. <span className="xs">({connected} of {connectable} connected)</span></p>
-      </div>
       <div className="remy-prompt">
-        <Remy size={40} mood={Object.values(busy).some(Boolean) ? "think" : "idle"} />
-        <p><b>Remy:</b> Please connect these accounts so that I can understand your background and goals better. Start with your resume — it's the evidence everything else is built on.</p>
+        <Remy size={44} mood={busy ? "think" : "wave"} />
+        <div className="stack-sm">
+          <span className="eyebrow">Step 1 · Your resume</span>
+          <p><b>Remy:</b> Start with your resume. I read it to build your profile, find openings that fit you and tailor your applications. I only ever use what's on it.</p>
+        </div>
       </div>
-
-      <div className="stack-sm" id="connList">
-        <div className="conn-row">
+      {w.resume && !replace ? (
+        <div className="conn-row" data-testid="resume-loaded">
           <span className="conn-ico resume" aria-hidden><FileText size={18} /></span>
-          <div className="grow"><b>Resume / CV</b><span>{w.resume ? `${w.resume.fileName} · ${w.resume.doc.sections.length} sections, ${w.resume.parsedBy === "ai" ? "verified against your file" : "read by rules"}` : "Experience, skills and education — required for tailoring"}</span></div>
-          <ConnStatus state={stateOf("resume", !!w.resume)}>Imported</ConnStatus>
-          <button className="btn btn-secondary btn-sm" onClick={() => toggle("resume")} disabled={busy.resume} aria-expanded={open === "resume"} data-testid="button-source-resume">{open === "resume" ? "Close" : w.resume ? "Update" : "Connect"}</button>
+          <div className="grow"><b>{w.resume.fileName}</b><span>{w.resume.doc.sections.length} sections read{w.resume.parsedBy === "ai" ? ", checked against your file" : ""}</span></div>
+          <span className="conn-badge done"><Check size={13} /> Uploaded</span>
+          <button className="btn btn-secondary btn-sm" onClick={() => setReplace(true)} data-testid="button-replace-resume">Replace</button>
         </div>
-        {open === "resume" && <div className="conn-panel fade-up" data-testid={w.resume ? "resume-loaded" : undefined}><ResumeUpload compact={!!w.resume} onBusy={setRowBusy("resume")} onDone={() => setOpen("")} /></div>}
-
-        {DEMO_ROWS.map((r) => {
-          const done = isDone(r.k);
-          const live = r.k === "linkedin" && linkedinLive;
-          return (
-            <div key={r.k} className="conn-row">
-              <span className={`conn-ico ${r.icoClass}`} aria-hidden>{r.ico}</span>
-              <div className="grow"><b>{r.title}</b><span>{live ? `Connected as ${w.imports.find((i) => i.kind === "LinkedIn (connected)")!.fileName}` : r.what}</span></div>
-              {canConnect(r.k) || done ? <ConnStatus state={stateOf(r.k, done)} /> : <span className="conn-badge">Coming soon</span>}
-              {!done && canConnect(r.k) && <button className="btn btn-secondary btn-sm" onClick={connectLinkedIn} disabled={busy[r.k]} data-testid={`button-source-${r.k}`}>Connect</button>}
-            </div>
-          );
-        })}
-
-        <div className="conn-row">
-          <span className="conn-ico email" aria-hidden><MailMark /></span>
-          <div className="grow"><b>Primary Work/School Email</b><span>{w.profile.applicationEmail ? `${w.profile.applicationEmail} · used on your documents and outreach drafts` : "Used on your documents and outreach drafts"}</span></div>
-          <ConnStatus state={stateOf("email", !!w.profile.applicationEmail)}>Saved</ConnStatus>
-          <button className="btn btn-secondary btn-sm" onClick={() => toggle("email")} disabled={busy.email} aria-expanded={open === "email"} data-testid="button-source-email">{open === "email" ? "Close" : w.profile.applicationEmail ? "Update" : "Connect"}</button>
+      ) : (
+        <div className="stack-sm">
+          <ResumeUpload onBusy={setBusy} onDone={() => setReplace(false)} />
+          {!w.resume && <p className="xs muted">No resume yet? Upload your LinkedIn profile as a PDF instead (see below for how to get it).</p>}
         </div>
-        {open === "email" && (
-          <div className="conn-panel fade-up row">
-            <input className="input" style={{ flex: 1, minWidth: 200 }} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@tcu.edu" aria-label="Application email" data-testid="input-app-email" />
-            <button className="btn btn-primary btn-sm" disabled={!/.+@.+\..+/.test(email) || busy.email} onClick={async () => { setRowBusy("email")(true); await save("profile", { ...w.profile, applicationEmail: email }); setRowBusy("email")(false); setOpen(""); }} data-testid="button-save-app-email">Save</button>
-          </div>
-        )}
+      )}
+      <div className="card card-pad stack-sm" style={{ background: "var(--surface-2, transparent)" }}>
+        <b>Add your LinkedIn too <span className="muted xs">(optional)</span></b>
+        <p className="small muted">On LinkedIn, open your profile, click <b>Resources</b> (or <b>More</b>) → <b>Save to PDF</b>, then upload that file. Remy adds anything that isn't on your resume as facts you can approve on the next step.</p>
+        {linkedin && <span className="xs muted row"><Check size={14} /> Added {linkedin.fileName}{linkedin.factsAdded ? ` · ${linkedin.factsAdded} facts to review` : ""}</span>}
+        {w.resume ? <ProfileImport kind="LinkedIn profile (PDF)" hint="Facts found here show up on the next step for you to keep or remove." onBusy={setBusy} onDone={(n) => setAdded(n)} /> : <p className="xs muted">Upload your resume (or your LinkedIn PDF) above first.</p>}
+        {added !== null && <span className="xs" data-testid="linkedin-added">Found {added} new fact{added === 1 ? "" : "s"} from LinkedIn.</span>}
       </div>
-      <p className="xs muted">Remy never asks for your passwords. TCU, Stellic and Handshake connections are coming soon{linkedinReal ? "; LinkedIn asks for your permission on LinkedIn's own site" : " (LinkedIn too)"}.</p>
+      <p className="xs muted">Coming soon: TCU student account, Stellic degree audit and Handshake. Remy never asks for your passwords.</p>
       <div className="row-between">
         <span />
-        <button className="btn btn-primary" onClick={async () => { if (email && email !== w.profile.applicationEmail && /.+@.+\..+/.test(email)) await save("profile", { ...w.profile, applicationEmail: email }); onNext(); }} data-testid="button-ob-next-sources">
-          {w.resume ? "Continue" : "Continue without a resume"} <ArrowRight size={16} />
-        </button>
+        <button className="btn btn-primary" onClick={onNext} disabled={!w.resume || busy} data-testid="button-ob-next-sources">Continue <ArrowRight size={16} /></button>
       </div>
     </div>
   );
 }
 
 const PROFILE_FIELDS: [keyof Profile, string, string?][] = [
-  ["name", "Full name"], ["preferredName", "What should Remy call you?"], ["school", "School"], ["major", "Major(s)"], ["minors", "Minor(s)"], ["gpa", "GPA", "e.g. 3.6 (optional)"],
+  ["name", "Full name"], ["preferredName", "What should Remy call you?"], ["applicationEmail", "Email for applications", "e.g. you@tcu.edu"], ["school", "School"], ["major", "Major(s)"], ["minors", "Minor(s)"], ["gpa", "GPA", "e.g. 3.6 (optional)"],
   ["classYear", "Class year"], ["graduation", "Expected graduation", "e.g. May 2029"], ["location", "Location"], ["targetRoles", "Roles you're curious about", "e.g. investment banking, fintech"],
   ["regions", "Where should Remy look?", "e.g. Fort Worth, Dallas, Remote"], ["opportunityTypes", "Kinds of opportunities", "e.g. Internships, Events"],
 ];
@@ -182,7 +175,15 @@ export function ProfileForm({ onSaved, hidePrefs }: { onSaved?: () => void; hide
 const YEAR_OPTS = ["First-year", "Sophomore", "Junior", "Senior", "Graduate student"];
 const REGION_OPTS = ["Fort Worth", "Dallas", "DFW area", "Houston", "Austin", "Anywhere in Texas", "Remote", "Anywhere in the US"];
 const TYPE_OPTS = ["Internships", "Full-time jobs", "Part-time / campus jobs", "Programs & insight days", "Events & networking", "Competitions"];
-const FIELD_OPTS = ["Finance", "Investment banking", "Accounting", "Consulting", "Marketing", "Sales", "Data & analytics", "Tech", "Supply chain", "Real estate"];
+const FIELD_OPTS = ["Finance", "Investment banking", "Accounting", "Consulting", "Marketing", "Sales", "Data & analytics", "Tech", "Supply chain", "Real estate", "Human resources", "Healthcare"];
+const AUTH_OPTS = ["U.S. citizen or permanent resident", "I'll need visa sponsorship (F-1 / OPT)"];
+const RELOC_OPTS = ["Yes", "For the right role", "No"];
+/** The next few terms a student could start something, e.g. Spring 2027, Summer 2027, Fall 2027, Summer 2028. */
+function timelineOptions(today = new Date()) {
+  const y = today.getFullYear(), late = today.getMonth() >= 6;
+  const s1 = late ? y + 1 : y;
+  return [late ? `Spring ${y + 1}` : `Fall ${y}`, `Summer ${s1}`, `Fall ${s1}`, `Summer ${s1 + 1}`, "Full-time after graduation"];
+}
 const splitList = (v: string) => v.split(/[,;]+/).map((x) => x.trim()).filter(Boolean);
 
 function Chips({ options, value, onChange, multi = true, testid }: { options: string[]; value: string[]; onChange: (v: string[]) => void; multi?: boolean; testid: string }) {
@@ -205,25 +206,40 @@ function Q({ n, children }: { n: number; children: ReactNode }) {
 /** Remy's quick questions: class year, where to look, what kinds of
  * opportunities and fields. Saved to the profile; Opportunities filters by them. */
 function Preferences({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
-  const { ws, save, run } = useStore();
+  const { ws, save, run, setWs } = useStore();
   const p = ws!.profile;
   const [year, setYear] = useState(p.classYear ? [p.classYear] : []);
   const [grad, setGrad] = useState(p.graduation);
+  const [timeline, setTimeline] = useState(splitList(p.timeline || ""));
   const [regions, setRegions] = useState(splitList(p.regions));
   const [otherRegion, setOtherRegion] = useState("");
   const [types, setTypes] = useState(p.opportunityTypes ? splitList(p.opportunityTypes) : ["Internships"]);
   const [fields, setFields] = useState(splitList(p.targetRoles));
   const [otherField, setOtherField] = useState("");
+  const [auth, setAuth] = useState(p.workAuth ? [AUTH_OPTS.find((o) => /sponsor/i.test(o) === /sponsor|visa/i.test(p.workAuth))!] : []);
+  const [reloc, setReloc] = useState(p.relocation ? [p.relocation] : []);
+  const [dream, setDream] = useState(p.dreamEmployers || "");
+  const [avoid, setAvoid] = useState(p.avoid || "");
+  const allFields = [...fields, ...splitList(otherField)];
+  const missing = [!year.length && "your year", !types.length && "what kinds of opportunities", !allFields.length && "at least one field", !auth.length && "work authorization"].filter(Boolean);
   const submit = async () => {
     const r = await run(() => save("profile", {
       ...p,
       classYear: year[0] || "",
       graduation: grad.trim(),
+      timeline: timeline.join(", "),
       regions: [...regions, ...splitList(otherRegion)].join(", "),
       opportunityTypes: types.join(", "),
-      targetRoles: [...fields, ...splitList(otherField)].join(", "),
-    }), "Got it — Remy will tailor your openings to this");
-    if (r) onNext();
+      targetRoles: allFields.join(", "),
+      workAuth: auth[0] || "",
+      relocation: reloc[0] || "",
+      dreamEmployers: dream.trim(),
+      avoid: avoid.trim(),
+    }), "Got it — Remy is searching for openings that fit");
+    if (!r) return;
+    // Start the search now so results are ready by the last step.
+    api<{ workspace: Workspace }>("POST", "/api/jobs/discover", {}).then((d) => { setWs(d.workspace); return reloadJobs(); }).catch(() => {});
+    onNext();
   };
   return (
     <div className="stack-lg">
@@ -231,20 +247,30 @@ function Preferences({ onBack, onNext }: { onBack: () => void; onNext: () => voi
         <Remy size={44} mood="wave" />
         <div className="stack-sm">
           <span className="eyebrow">Step 3 · Your preferences</span>
-          <p><b>Remy:</b> A few quick questions so I only show you openings you can actually go for, in places you actually want to be.</p>
+          <p><b>Remy:</b> These decide which openings I show you. Anything that rules you out (wrong year, field, place, start date, or no visa sponsorship) stays hidden, so you only see what you can actually go for.</p>
         </div>
       </div>
       <Q n={1}><strong>What year are you in?</strong><Chips options={YEAR_OPTS} value={year} onChange={setYear} multi={false} testid="pref-year" />
         <label className="field" style={{ maxWidth: 260 }}><span className="xs muted">Expected graduation</span><input className="input" value={grad} onChange={(e) => setGrad(e.target.value)} placeholder="e.g. May 2029" data-testid="input-pref-grad" /></label></Q>
-      <Q n={2}><strong>Where should I look for you?</strong><Chips options={REGION_OPTS} value={regions} onChange={setRegions} testid="pref-region" />
-        <input className="input" value={otherRegion} onChange={(e) => setOtherRegion(e.target.value)} placeholder="Somewhere else? e.g. New York, Chicago" aria-label="Other regions" data-testid="input-pref-region" /></Q>
-      <Q n={3}><strong>What kinds of opportunities do you want?</strong><Chips options={TYPE_OPTS} value={types} onChange={setTypes} testid="pref-type" /></Q>
-      <Q n={4}><strong>Which fields or roles interest you?</strong><Chips options={FIELD_OPTS} value={fields} onChange={setFields} testid="pref-field" />
+      <Q n={2}><strong>Which fields or roles interest you?</strong><Chips options={FIELD_OPTS} value={fields} onChange={setFields} testid="pref-field" />
         <input className="input" value={otherField} onChange={(e) => setOtherField(e.target.value)} placeholder="Anything else? e.g. sports marketing, fintech" aria-label="Other fields" data-testid="input-pref-field" /></Q>
-      <p className="xs muted">You can change these anytime in Accounts. Openings that clearly rule you out (like "must be a current sophomore") are hidden; anything unclear stays, labeled.</p>
+      <Q n={3}><strong>What kinds of opportunities do you want?</strong><Chips options={TYPE_OPTS} value={types} onChange={setTypes} testid="pref-type" /></Q>
+      <Q n={4}><strong>When do you want to start?</strong><Chips options={timelineOptions()} value={timeline} onChange={setTimeline} testid="pref-when" />
+        <span className="xs muted">Pick all that work. Leave empty if you're open to anything.</span></Q>
+      <Q n={5}><strong>Where should I look for you?</strong><Chips options={REGION_OPTS} value={regions} onChange={setRegions} testid="pref-region" />
+        <input className="input" value={otherRegion} onChange={(e) => setOtherRegion(e.target.value)} placeholder="Somewhere else? e.g. New York, Chicago" aria-label="Other regions" data-testid="input-pref-region" />
+        <span className="xs muted">Open to relocating?</span><Chips options={RELOC_OPTS} value={reloc} onChange={setReloc} multi={false} testid="pref-reloc" /></Q>
+      <Q n={6}><strong>Work authorization</strong><Chips options={AUTH_OPTS} value={auth} onChange={setAuth} multi={false} testid="pref-auth" />
+        <span className="xs muted">If you'll need sponsorship, Remy hides postings that say they won't sponsor.</span></Q>
+      <Q n={7}><strong>Dream employers <span className="muted xs">(optional)</span></strong>
+        <input className="input" value={dream} onChange={(e) => setDream(e.target.value)} placeholder="e.g. Goldman Sachs, American Airlines" aria-label="Dream employers" data-testid="input-pref-dream" />
+        <span className="xs muted">Remy checks their career sites first.</span></Q>
+      <Q n={8}><strong>Anything to leave out? <span className="muted xs">(optional)</span></strong>
+        <input className="input" value={avoid} onChange={(e) => setAvoid(e.target.value)} placeholder="e.g. tobacco, cold calling, a company name" aria-label="Things to avoid" data-testid="input-pref-avoid" /></Q>
+      {missing.length > 0 && <p className="xs muted" data-testid="prefs-missing">To continue, choose {missing.join(", ")}.</p>}
       <div className="row-between">
         <button className="btn btn-ghost" onClick={onBack}><ArrowLeft size={16} /> Back</button>
-        <button className="btn btn-primary" onClick={submit} data-testid="button-ob-next-prefs">Save and continue <ArrowRight size={16} /></button>
+        <button className="btn btn-primary" onClick={submit} disabled={missing.length > 0} data-testid="button-ob-next-prefs">Save and continue <ArrowRight size={16} /></button>
       </div>
     </div>
   );
@@ -315,6 +341,12 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
   const submit = async (skip = false) => {
     const answers = [...w.onboarding.answers, { q: current, a: skip ? "" : answer.trim() }];
     await save("onboarding", { ...w.onboarding, answers });
+    // Each question says which profile field its answer feeds (roles, dream employers, start date…), so it changes the matches.
+    const target = w.onboarding.targets?.[idx] as keyof Profile | undefined;
+    if (!skip && answer.trim() && target && target in w.profile) {
+      const before = String(w.profile[target] || "").trim();
+      await save("profile", { ...w.profile, [target]: before ? `${before}, ${answer.trim()}` : answer.trim() });
+    }
     if (!skip && answer.trim()) {
       const fact = { id: "f" + Date.now(), text: `${current} — ${answer.trim()}`, category: "goal", source: "Onboarding answer", status: "approved", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
       await save("memory", [...w.memory, fact]);
@@ -353,6 +385,8 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
 function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: () => void }) {
   const { ws, setWs, run, config } = useStore();
   const w = ws!;
+  const { jobs, fits, refreshing } = useJobs();
+  const matches = (jobs || []).filter((j) => !fits[j.id]?.excluded);
   const [busy, setBusy] = useState(false);
   const make = async () => {
     setBusy(true);
@@ -374,6 +408,13 @@ function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: () => vo
         </div>
       </div>
       {busy && <div className="stack-sm">{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 44 }} />)}</div>}
+      <div className="notice" data-testid="plan-matches">
+        {refreshing || !jobs ? <span className="row"><Spinner /> Remy is checking employers' career sites for openings that fit you…</span>
+          : matches.length ? <div><strong>Remy found {matches.length} opening{matches.length === 1 ? "" : "s"} that fit you</strong><div className="small muted">{matches.slice(0, 3).map((j) => `${j.title} · ${j.company}`).join("  ·  ")}</div></div>
+          : w.lastSearch && w.lastSearch.reached < w.lastSearch.scanned / 2
+            ? <div><strong>Most employer career sites didn't answer just now</strong><div className="small muted">Remy reached {w.lastSearch.reached} of {w.lastSearch.scanned} (they may be down for maintenance). It will try again in about 30 minutes, and your openings will be waiting in Opportunities.</div></div>
+            : <div><strong>No openings fit all your choices right now</strong><div className="small muted">Remy keeps checking every few hours. Adding more places or fields shows more.</div></div>}
+      </div>
       {w.plan && !busy && (
         <div className="stack">
           <div className="notice"><FileText size={16} style={{ color: "var(--plum)", marginTop: 3 }} /><div><strong>{w.plan.nextAction.title}</strong><div className="small muted">{w.plan.nextAction.why}</div></div></div>
