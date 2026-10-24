@@ -40,7 +40,7 @@ async function readSource(): Promise<Record<(typeof TABLES)[number], Row[]>> {
 }
 
 const INSERT: Record<(typeof TABLES)[number], [string, (r: Row) => unknown[]]> = {
-  users: ["INSERT INTO users (id, kind, email, name, picture, created_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING", (r) => [r.id, r.kind, r.email ?? "", r.name ?? "", r.picture ?? "", r.created_at]],
+  users: ["INSERT INTO users (id, kind, email, name, picture, created_at, school_email, school_email_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING", (r) => [r.id, r.kind, r.email ?? "", r.name ?? "", r.picture ?? "", r.created_at, r.school_email ?? null, r.school_email_at ?? null]],
   sessions: ["INSERT INTO sessions (token_hash, user_id, expires_at) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING", (r) => [r.token_hash, r.user_id, r.expires_at]],
   workspaces: ["INSERT INTO workspaces (user_id, data, updated_at) VALUES ($1,$2::jsonb,$3) ON CONFLICT DO NOTHING", (r) => [r.user_id, typeof r.data === "string" ? r.data : JSON.stringify(r.data), r.updated_at]],
   files: ["INSERT INTO files (user_id, kind, name, mime, data, at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING", (r) => [r.user_id, r.kind, r.name, r.mime, Buffer.from(r.data), r.at]],

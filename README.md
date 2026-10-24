@@ -25,6 +25,7 @@ Sign-in: a guest workspace (secure cookie), or Google / LinkedIn / email link th
 | `OR_AI_TAILOR_CHAIN` | Optional: a different (stronger) chain for resume tailoring only. Unset = use `OR_AI_CHAIN`. |
 | `OR_AI_DAILY_BUDGET` | AI requests allowed per 24 hours for the whole site (default 1500). Guests also get 40/day each, signed-in students 120/day, and each network 60/hour. |
 | `OR_ALUMNI_EMAIL_DOMAINS` | Email domains that may see TCU alumni matches (default `tcu.edu`). |
+| `SMTP_URL` | Sender for school-email verification codes, e.g. `smtps://remy.account%40gmail.com:<app-password>@smtp.gmail.com:465`. Unset: verification shows "coming soon" (local dev prints codes to the server log). `MAIL_FROM` optionally overrides the From line. |
 | `OR_DB_PATH` | SQLite file (Render: `/data/data.db` on the persistent disk). |
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Supabase Auth project (the publishable key is public by design). |
 | `GOOGLE_CLIENT_ID` | Optional Google Identity button (Google sign-in also works through Supabase without it). |

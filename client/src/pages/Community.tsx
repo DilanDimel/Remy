@@ -3,6 +3,7 @@ import { Copy, GraduationCap, Mail, MapPin, Plus, Send, Sparkles, Trash2, UserPl
 import type { Contact, OutreachDraft, Workspace } from "@shared/types";
 import { api, fmtDate, rid, useStore } from "../lib/store";
 import { Empty, Modal, Spinner, StatusChip } from "../components/common";
+import { atAlumniSchool, SchoolVerify } from "../components/SchoolVerify";
 import { startOutreach, useTailorSession } from "../lib/tailorChat";
 
 type AlumMatch = { id: string; year: number | null; name: string; employer: string; industry: string; role: string; title: string; location: string; majors: string[]; score: number; why: string[] };
@@ -20,7 +21,7 @@ export default function Community() {
     let live = true;
     api<{ source: string; total: number; matches: AlumMatch[]; signInRequired?: boolean; schoolEmailRequired?: boolean; domains?: string[] }>("GET", "/api/community/alumni").then((d) => { if (live) setAlumni(d); }, () => {});
     return () => { live = false; };
-  }, [profileKey, me?.id]);
+  }, [profileKey, me?.id, me?.schoolEmail]);
   // When Remy finishes writing an email, open it for review.
   // Remy's "done" can arrive a render before the workspace with the new draft, so
   // look again when the drafts change, and open each draft only once.
@@ -59,6 +60,7 @@ export default function Community() {
         </div>
       </div>
       {/* Alumni are only for TCU accounts, so other signed-in accounts don't see this section at all. */}
+      {alumni?.schoolEmailRequired && atAlumniSchool(w) && <SchoolVerify />}
       {!alumni?.schoolEmailRequired && <section className="stack" data-testid="section-alumni">
         <div className="row-between">
           <h2>TCU alumni matched to you</h2>

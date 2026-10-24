@@ -1,7 +1,7 @@
 // The storage layer against real Postgres (PGlite in memory). Run with `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aiAllowed, cleanupOld, createSession, deleteAccount, ensureUser, getFile, getUser, loadWorkspace, saveFile, saveSections, saveWorkspace, sessionUser } from "./db";
+import { aiAllowed, checkSchoolCode, cleanupOld, newSchoolCode, removeSchoolEmail, schoolEmailOwner, createSession, deleteAccount, ensureUser, getFile, getUser, loadWorkspace, saveFile, saveSections, saveWorkspace, sessionUser } from "./db";
 import { q } from "./sql";
 
 const me = (id: string, kind = "guest") => ({ id, kind, email: `${id}@example.com`, name: id, picture: "" }) as any;
@@ -67,4 +67,35 @@ test("analysis views turn workspaces into rows", async () => {
   assert.deepEqual([p.school, p.major], ["Texas Christian University", "Finance"]);
   const a = (await q("SELECT company, status, status_changes FROM tracked_applications WHERE user_id='u5'"))[0];
   assert.deepEqual([a.company, a.status, a.status_changes], ["McKesson", "Applied", 2]);
+});
+
+test("school email: the right code verifies once; wrong, expired and too many tries don't", async () => {
+  await ensureUser(me("s1", "google"));
+  const code = await newSchoolCode("s1", "Frog@TCU.edu");
+  assert.match(code, /^\d{6}$/);
+  const wrong = code === "000000" ? "111111" : "000000";
+  assert.equal((await checkSchoolCode("s1", wrong)).result, "wrong");
+  assert.deepEqual(await checkSchoolCode("s1", code), { result: "ok", email: "frog@tcu.edu" });
+  assert.equal((await getUser("s1"))!.schoolEmail, "frog@tcu.edu");
+  assert.equal((await checkSchoolCode("s1", code)).result, "none"); // used up
+  // Expired code
+  const c2 = await newSchoolCode("s1", "frog@tcu.edu");
+  await q("UPDATE school_email_codes SET expires_at = now() - interval '1 minute'");
+  assert.equal((await checkSchoolCode("s1", c2)).result, "expired");
+  // Five wrong tries lock the code, even if the sixth is right
+  const c3 = await newSchoolCode("s1", "frog@tcu.edu");
+  const bad = c3 === "000000" ? "111111" : "000000";
+  for (let i = 0; i < 5; i++) assert.equal((await checkSchoolCode("s1", bad)).result, "wrong");
+  assert.equal((await checkSchoolCode("s1", c3)).result, "expired");
+  await removeSchoolEmail("s1");
+  assert.equal((await getUser("s1"))!.schoolEmail, undefined);
+});
+
+test("school email: one address verifies only one account", async () => {
+  await ensureUser(me("s2", "google"));
+  await ensureUser(me("s3", "supabase"));
+  assert.equal((await checkSchoolCode("s2", await newSchoolCode("s2", "horned@tcu.edu"))).result, "ok");
+  assert.equal(await schoolEmailOwner("HORNED@tcu.edu"), "s2");
+  assert.equal((await checkSchoolCode("s3", await newSchoolCode("s3", "horned@tcu.edu"))).result, "taken");
+  assert.equal((await getUser("s3"))!.schoolEmail, undefined);
 });

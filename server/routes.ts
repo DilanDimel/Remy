@@ -8,7 +8,7 @@ import { SAMPLE_CONTACTS, SAMPLE_INBOX } from "@shared/catalog";
 import type {
   Application, AppConfig, BulletChange, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace,
 } from "@shared/types";
-import { aiAllowed, cleanupOld, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
+import { aiAllowed, checkSchoolCode, cleanupOld, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, markAiAuthFailure, model } from "./ai";
 import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase } from "./auth";
 import { aiExtractPosting, CLOSED_SIGNALS, fetchPublic, fileToText, htmlToText, norm } from "./parse";
@@ -21,7 +21,13 @@ import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES } from "./fit";
 import { atsScore, keywordsFrom } from "./ats";
 import { boardsFor, discoverJobs, EMPLOYERS } from "./sources";
 import { alumniList, matchAlumni } from "./alumni";
+import { emailReady, sendEmail } from "./email";
 import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./docs";
+
+// Email domains whose owners count as students of the school with the alumni list.
+const ALUMNI_DOMAINS = (process.env.OR_ALUMNI_EMAIL_DOMAINS || "tcu.edu").split(",").map((d) => d.trim().toLowerCase()).filter(Boolean);
+// Without an email sender, local runs print the code to the server log so the flow can be tested.
+const devCodes = () => !emailReady() && process.env.NODE_ENV !== "production";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 // Turns upload errors into messages a student can act on instead of a generic 500.
@@ -272,6 +278,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       hosting: /localhost|127\.0\.0\.1/.test(host) ? "local" : req.header("x-visitor-id") ? "preview" : "published",
       today: new Date().toISOString().slice(0, 10),
       supabase: sb ? { ...sb, providers: await supabaseProviders() } : null,
+      schoolEmail: { ready: emailReady() || devCodes(), domains: ALUMNI_DOMAINS },
     };
     res.json(cfg);
   });
@@ -1029,6 +1036,38 @@ Return JSON:
     res.json({ flags, workspace: ctx.ws });
   }));
 
+  // ---------- school email verification (unlocks alumni) ----------
+  app.post("/api/school-email/start", route(async (req, res, ctx) => {
+    if (!signedIn(ctx.me)) bad("Sign in first, so the verification stays with your account.", 401);
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+$/.test(email) || !ALUMNI_DOMAINS.some((d) => email.endsWith("@" + d))) bad(`Enter your ${ALUMNI_DOMAINS.map((d) => "@" + d).join(" or ")} email address.`);
+    if (!emailReady() && !devCodes()) bad("Verifying your school email is coming soon.", 503);
+    const owner = await schoolEmailOwner(email);
+    if (owner && owner !== ctx.me.id) bad("This school email is already linked to another Remy account. Sign in with that one.", 409);
+    // Limits keep Remy from being used to flood school inboxes.
+    if (!allow("school-code:" + ctx.me.id, 3, 60 * 60_000)) bad("You've asked for several codes. Please try again in an hour.", 429);
+    if (!allow("school-code-to:" + email, 3, 24 * 60 * 60_000)) bad("Several codes were already sent to this address today. Please try again tomorrow.", 429);
+    const code = await newSchoolCode(ctx.me.id, email);
+    if (devCodes()) console.log(`[dev] school email code for ${email}: ${code}`);
+    else await sendEmail(email, `Your Remy code: ${code}`, `Your Remy verification code is ${code}.\n\nIt expires in 10 minutes. If you didn't ask for this, you can ignore this email.`);
+    res.json({ sent: true, email });
+  }));
+  app.post("/api/school-email/verify", route(async (req, res, ctx) => {
+    if (!signedIn(ctx.me)) bad("Sign in first.", 401);
+    const code = String(req.body?.code || "").replace(/\D/g, "");
+    if (code.length !== 6) bad("Enter the 6-digit code from the email.");
+    const r = await checkSchoolCode(ctx.me.id, code);
+    if (r.result === "wrong") bad("That code isn't right. Check the email and try again.");
+    if (r.result === "expired" || r.result === "none") bad("That code has expired. Send a new one.", 410);
+    if (r.result === "taken") bad("This school email is already linked to another Remy account. Sign in with that one.", 409);
+    res.json({ me: { ...ctx.me, schoolEmail: r.email } });
+  }));
+  app.delete("/api/school-email", route(async (_req, res, ctx) => {
+    await removeSchoolEmail(ctx.me.id);
+    const { schoolEmail: _, ...me } = ctx.me;
+    res.json({ me });
+  }));
+
   // ---------- community outreach ----------
   app.post("/api/community/sample", route(async (_req, res, ctx) => {
     for (const c of SAMPLE_CONTACTS) if (!ctx.ws.contacts.some((x) => x.id === c.id)) ctx.ws.contacts.push(c);
@@ -1039,10 +1078,9 @@ Return JSON:
   // Alumni names and emails are personal data: only students signed in with a school
   // email see matches, the match list carries no emails, and a student can only save
   // alumni from their own current matches.
-  const ALUMNI_DOMAINS = (process.env.OR_ALUMNI_EMAIL_DOMAINS || "tcu.edu").split(",").map((d) => d.trim().toLowerCase()).filter(Boolean);
   const schoolEmail = (me: Me) => ALUMNI_DOMAINS.some((d) => me.email.toLowerCase().endsWith("@" + d));
   const signedIn = (me: Me) => me.kind === "google" || me.kind === "supabase" || me.kind === "local";
-  const alumniOk = (me: Me) => me.kind === "local" || (signedIn(me) && schoolEmail(me));
+  const alumniOk = (me: Me) => me.kind === "local" || (signedIn(me) && (schoolEmail(me) || !!me.schoolEmail));
   const myMatches = (ctx: Ctx) => {
     const companies = Array.from(new Set([...ctx.ws.savedJobIds, ...ctx.ws.applications.map((a) => a.jobId)].map((id) => findJob(ctx.ws, id)?.company).filter(Boolean) as string[]));
     return matchAlumni(ctx.ws, companies);

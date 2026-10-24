@@ -48,8 +48,52 @@ export async function ensureUser(me: Me) {
   );
 }
 export async function getUser(id: string): Promise<Me | null> {
-  const r = await q1("SELECT id, kind, email, name, picture FROM users WHERE id=$1", [id]);
-  return r ? { id: r.id, kind: r.kind, email: r.email, name: r.name, picture: r.picture } : null;
+  const r = await q1("SELECT id, kind, email, name, picture, school_email FROM users WHERE id=$1", [id]);
+  return r ? { id: r.id, kind: r.kind, email: r.email, name: r.name, picture: r.picture, ...(r.school_email ? { schoolEmail: r.school_email } : {}) } : null;
+}
+
+// ---------- school email verification ----------
+const CODE_MINUTES = 10;
+const MAX_TRIES = 5;
+const codeHash = (userId: string, code: string) => sha(userId + ":" + code);
+
+/** Who already verified this school email, if anyone. */
+export async function schoolEmailOwner(email: string): Promise<string | null> {
+  const r = await q1("SELECT id FROM users WHERE lower(school_email) = lower($1)", [email]);
+  return r ? r.id : null;
+}
+/** Stores a new code (replacing any pending one) and returns it to be emailed. */
+export async function newSchoolCode(userId: string, email: string): Promise<string> {
+  const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+  await q(
+    `INSERT INTO school_email_codes (user_id, email, code_hash, expires_at, tries) VALUES ($1,$2,$3,$4,0)
+     ON CONFLICT (user_id) DO UPDATE SET email = EXCLUDED.email, code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at, tries = 0`,
+    [userId, email.toLowerCase(), codeHash(userId, code), new Date(Date.now() + CODE_MINUTES * 60_000)],
+  );
+  return code;
+}
+/** Checks a code. "ok" marks the school email verified and uses the code up. */
+export async function checkSchoolCode(userId: string, code: string): Promise<{ result: "ok" | "wrong" | "expired" | "none" | "taken"; email?: string }> {
+  return tx(async (run) => {
+    const r = (await run("SELECT email, code_hash, expires_at, tries FROM school_email_codes WHERE user_id=$1 FOR UPDATE", [userId]))[0];
+    if (!r) return { result: "none" };
+    if (new Date(r.expires_at).getTime() < Date.now() || r.tries >= MAX_TRIES) {
+      await run("DELETE FROM school_email_codes WHERE user_id=$1", [userId]);
+      return { result: "expired" };
+    }
+    if (codeHash(userId, code) !== r.code_hash) {
+      await run("UPDATE school_email_codes SET tries = tries + 1 WHERE user_id=$1", [userId]);
+      return { result: "wrong" };
+    }
+    const owner = (await run("SELECT id FROM users WHERE lower(school_email) = lower($1) AND id <> $2", [r.email, userId]))[0];
+    if (owner) return { result: "taken" };
+    await run("UPDATE users SET school_email=$2, school_email_at=now() WHERE id=$1", [userId, r.email]);
+    await run("DELETE FROM school_email_codes WHERE user_id=$1", [userId]);
+    return { result: "ok", email: r.email };
+  });
+}
+export async function removeSchoolEmail(userId: string) {
+  await q("UPDATE users SET school_email=NULL, school_email_at=NULL WHERE id=$1", [userId]);
 }
 
 export async function createSession(userId: string) {

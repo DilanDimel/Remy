@@ -6,6 +6,7 @@ import { api, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Remy, Spinner, StatusChip } from "../components/common";
 import { ProfileImport, ResumeUpload } from "../components/Uploaders";
+import { atAlumniSchool, SchoolVerify } from "../components/SchoolVerify";
 
 // Step numbers are stored in the workspace; 0 and 1 both open the resume step.
 const STEPS = ["Your resume", "Review", "Your preferences", "A few questions", "Your plan"];
@@ -283,6 +284,7 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
   const suggested = w.memory.filter((m) => m.status === "suggested");
   const setFact = (id: string, patch: any) => save("memory", w.memory.map((m) => (m.id === id ? { ...m, ...patch } : m)));
   const removeFact = (id: string) => save("memory", w.memory.filter((m) => m.id !== id));
+  const [skipVerify, setSkipVerify] = useState(false);
   return (
     <div className="stack-lg">
       <div className="stack-sm">
@@ -291,6 +293,7 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
         <p className="small muted">Correct anything that's off. Remy only uses what you confirm here.</p>
       </div>
       <ProfileForm hidePrefs />
+      {atAlumniSchool(w) && !skipVerify && <SchoolVerify onSkip={() => setSkipVerify(true)} />}
       {w.resume && (
         <div className="stack-sm">
           <h3>From your resume</h3>

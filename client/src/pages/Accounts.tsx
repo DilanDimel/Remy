@@ -7,6 +7,7 @@ import { Modal, StatusChip } from "../components/common";
 import { ProfileForm } from "./Onboarding";
 import { useGoogleButton } from "./Welcome";
 import { ProfileImport } from "../components/Uploaders";
+import { atAlumniSchool, SchoolVerify, schoolVerified } from "../components/SchoolVerify";
 
 type Tab = "profile" | "sources" | "memory" | "settings" | "data";
 
@@ -51,6 +52,7 @@ function Sources() {
   ];
   return (
     <div className="stack">
+      {(atAlumniSchool(w) || schoolVerified(me, config?.schoolEmail.domains || [])) && <SchoolVerify />}
       {rows.map((r) => (
         <div key={r.name} className="stack-sm">
           <div className="source-row" data-testid="row-source">

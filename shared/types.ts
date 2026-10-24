@@ -378,6 +378,8 @@ export interface Me {
   email: string;
   name: string;
   picture: string;
+  /** A school email the student verified with a code (unlocks alumni). */
+  schoolEmail?: string;
 }
 export interface AppConfig {
   googleClientId: string | null;
@@ -386,4 +388,6 @@ export interface AppConfig {
   today: string;
   /** Supabase Auth, when configured: public URL + publishable key, and which sign-in providers are switched on. */
   supabase: { url: string; anonKey: string; providers: Record<string, boolean> } | null;
+  /** School email verification: whether codes can be sent, and which domains count (e.g. tcu.edu). */
+  schoolEmail: { ready: boolean; domains: string[] };
 }
