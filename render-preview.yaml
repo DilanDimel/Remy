@@ -13,10 +13,8 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
-      # Free OpenRouter models first (1,000 free requests a day on this account); the paid Gemini Flash
-      # only runs if every free model is down or busy. Free models change often: re-check at openrouter.ai/models?q=free.
       - key: OR_AI_CHAIN
-        value: openrouter:nvidia/nemotron-3-ultra-550b-a55b:free,openrouter:google/gemma-4-31b-it:free,openrouter:dots-studio/dots-3-note-preview:free,openrouter:google/gemini-3.8-flash
+        value: openrouter:google/gemini-3.8-flash,openrouter:openai/gpt-5-mini
       - key: SUPABASE_URL
         value: https://vpfnawzbzxxkcylktbxn.supabase.co
       - key: SUPABASE_ANON_KEY
