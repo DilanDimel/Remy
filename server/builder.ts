@@ -85,7 +85,9 @@ export async function aiDraft(b: ResumeBuilder): Promise<Record<string, BuilderB
 For each item write 1-3 bullets (up to 4 for a job or internship). Each bullet starts with a strong action verb, past tense unless it's ongoing, no "I", under 25 words.
 Give 2-3 "options": different wordings of the SAME facts. "source" is the exact words from the student's answer the bullet is based on (copied, not paraphrased).
 If a number would make a bullet stronger but the student didn't give one, put a blank in square brackets for them to fill, like "[how many customers a shift?]". Never guess the number.
-Do not say "led", "managed" or "supervised" unless the student did. Plain, specific words beat buzzwords.`,
+Do not say "led", "managed" or "supervised" unless the student did. Plain, specific words beat buzzwords.
+Do not add WHEN, WHERE, WHO or WHY details they didn't say: no "summers", "to the class", "to help the community", "for clients", "to improve efficiency".
+A shorter true bullet is always better than a longer padded one.`,
     `Student: ${b.basics.classYear || "college student"}, major ${b.basics.major || "undecided"}.\nItems:\n${JSON.stringify(ABOUT_ITEMS(b.items))}\nReturn {"items":[{"id":"","bullets":[{"options":["",""],"source":""}]}]}`,
     3500,
   );
@@ -115,7 +117,8 @@ export function skillSuggestions(b: ResumeBuilder): string[] {
   const said = b.items.map(evidenceOf).join("\n").toLowerCase();
   const mentioned = ["Excel", "PowerPoint", "Word", "Google Sheets", "Google Docs", "Canva", "Photoshop", "Python", "Java", "SQL", "Tableau", "Quickbooks", "Square POS", "Social media"]
     .filter((s) => said.includes(s.toLowerCase()));
-  return Array.from(new Set([...mentioned, "Microsoft Excel", "Microsoft PowerPoint", "Microsoft Word", "Google Workspace", "Canva"]));
+  const everyday = ["Microsoft Excel", "Microsoft PowerPoint", "Microsoft Word", "Google Workspace", "Canva"];
+  return [...mentioned.filter((m) => !everyday.some((e) => e.toLowerCase().includes(m.toLowerCase()))), ...everyday];
 }
 
 /** The finished resume: education first, sections in a fixed order, high school only when it belongs. */
