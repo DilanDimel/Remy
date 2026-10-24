@@ -9,6 +9,7 @@
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
     "check:contract": "tsx script/contract.ts",
+    "check:resume": "tsx script/resume-check.ts",
     "check:persist": "npm run build && tsx script/persist.ts",
     "test": "tsx --test server/*.test.ts"
   },

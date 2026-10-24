@@ -141,7 +141,7 @@ function Sources({ onNext }: { onNext: () => void }) {
 }
 
 const PROFILE_FIELDS: [keyof Profile, string, string?][] = [
-  ["name", "Full name"], ["preferredName", "What should Remy call you?"], ["school", "School"], ["major", "Major(s)"],
+  ["name", "Full name"], ["preferredName", "What should Remy call you?"], ["school", "School"], ["major", "Major(s)"], ["minors", "Minor(s)"], ["gpa", "GPA", "e.g. 3.6 (optional)"],
   ["classYear", "Class year"], ["graduation", "Expected graduation", "e.g. May 2029"], ["location", "Location"], ["targetRoles", "Roles you're curious about", "e.g. investment banking, fintech"],
   ["regions", "Where should Remy look?", "e.g. Fort Worth, Dallas, Remote"], ["opportunityTypes", "Kinds of opportunities", "e.g. Internships, Events"],
 ];
@@ -165,7 +165,7 @@ export function ProfileForm({ onSaved, hidePrefs }: { onSaved?: () => void; hide
                 {["First-year", "Sophomore", "Junior", "Senior", "Graduate student"].map((o) => <option key={o}>{o}</option>)}
               </select>
             ) : (
-              <input className="input" value={p[k]} placeholder={ph} onChange={(e) => setP({ ...p, [k]: e.target.value })} data-testid={`input-profile-${k}`} />
+              <input className="input" value={p[k] ?? ""} placeholder={ph} onChange={(e) => setP({ ...p, [k]: e.target.value })} data-testid={`input-profile-${k}`} />
             )}
           </label>
         ))}

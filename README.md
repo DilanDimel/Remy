@@ -13,6 +13,7 @@ Live at https://offer-ready.onrender.com (Render deploys `main`; see `render.yam
 - `npm run build` builds `dist/public` and the Node server; `NODE_ENV=production node dist/index.cjs` runs it.
 - `npm run check:persist` restarts a production build on a throwaway database and confirms a session keeps its workspace.
 - `npx tsx script/coverage.ts` rebuilds the 155-node coverage inventory.
+- `npm run check:resume` checks resume reading (PDF/Word/text extraction, the rules reader, the checks on AI output and profile prefill) against synthetic fixtures. No server, database or AI key needed.
 
 Sign-in: a guest workspace (secure cookie), or Google / LinkedIn / email link through Supabase Auth (the server verifies the Supabase token, then keeps its own session). TCU alumni matches are only shown to students signed in with a school email.
 

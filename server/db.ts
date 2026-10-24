@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS files (user_id TEXT NOT NULL, kind TEXT NOT NULL, nam
 `);
 
 export const nowIso = () => new Date().toISOString();
-export const uid = (p = "") => p + crypto.randomBytes(6).toString("hex");
+export { uid } from "./ids";
 export const sha = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
 
 export function emptyWorkspace(): Workspace {
@@ -31,7 +31,7 @@ export function emptyWorkspace(): Workspace {
     profile: {
       name: "", preferredName: "", email: "", applicationEmail: "", school: "", major: "", classYear: "",
       graduation: "", location: "", targetRoles: "", goals: "", interests: "", workAuth: "", relocation: "",
-      regions: "", opportunityTypes: "",
+      regions: "", opportunityTypes: "", gpa: "", minors: "",
     },
     imports: [],
     memory: [],

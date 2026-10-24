@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Job, Requirement, Workspace } from "@shared/types";
 import { htmlToText } from "./parse";
-import { uid } from "./db";
+import { uid } from "./ids";
 import { abroad, FIELD_SEARCH, FIELD_TITLES, regionMatch } from "./fit";
 
 // Live openings from employers' own career sites (Greenhouse, Lever, Ashby, Workday).

@@ -1,7 +1,7 @@
 import { AlignmentType, BorderStyle, Document, Packer, Paragraph, TabStopType, TextRun } from "docx";
 import PDFDocument from "pdfkit";
 import type { ResumeDoc } from "@shared/types";
-import { resumeToText } from "./parse";
+import { resumeToText } from "./resume";
 
 const FONT = "Calibri";
 

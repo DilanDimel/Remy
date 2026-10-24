@@ -16,6 +16,8 @@ export interface Entry {
   location: string;
   dates: string;
   bullets: Bullet[];
+  /** Fields the AI reader filled in with words that aren't in the uploaded file. */
+  unverified?: ("org" | "role")[];
 }
 export interface Section {
   id: string;
@@ -32,6 +34,15 @@ export interface ResumeDoc {
   sections: Section[];
   skills: SkillLine[];
 }
+/** How completely the structured resume reflects the uploaded file. */
+export interface ResumeQuality {
+  /** Share of the file's words that made it into the structured resume (0–1). */
+  coverage: number;
+  /** Lines from the file that didn't land anywhere in the structured resume. */
+  missingLines: string[];
+  /** Plain-language notes for the student about how the file was read. */
+  warnings: string[];
+}
 export interface BaseResume {
   fileName: string;
   uploadedAt: string;
@@ -43,6 +54,7 @@ export interface BaseResume {
   skills?: string[];
   /** The uploaded file itself is kept server-side for preview and download. */
   original?: { name: string; mime: string; size: number };
+  quality?: ResumeQuality;
 }
 
 export interface Profile {
@@ -64,6 +76,9 @@ export interface Profile {
   regions: string;
   /** Kinds of opportunities they want, comma-separated ("Internships, Events"). */
   opportunityTypes: string;
+  /** On a 4-point scale, only as written on the resume. Postings often require a minimum. */
+  gpa?: string;
+  minors?: string;
 }
 
 export interface MemoryFact {

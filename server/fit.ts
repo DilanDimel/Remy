@@ -1,21 +1,38 @@
 import type { Job, JobFit, Workspace } from "@shared/types";
 import { hasKeyword } from "./ats";
+import { norm } from "./parse";
+import { graduationOf, primaryEducation } from "./resume";
 
 // Deterministic fit: eligibility (graduation window, class year), where the
 // student wants to work, what kinds of opportunities they asked for, and which
 // posting requirements their materials already show. No AI needed.
 
-const MONTHS: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+const MONTHS: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12, spr: 5, sum: 8, fal: 12, win: 12 };
 const YEARS = ["First-year", "Sophomore", "Junior", "Senior"] as const;
 type Year = (typeof YEARS)[number];
 
 export function gradDate(ws: Workspace): { y: number; m: number } | null {
-  const src = ws.profile.graduation || ws.resume?.doc.sections.find((s) => /educ/i.test(s.heading))?.entries[0]?.dates || "";
-  const m = src.match(/([A-Za-z]{3})[a-z]*\.?\s+(\d{4})/);
+  const src = ws.profile.graduation || graduationOf(primaryEducation(ws.resume?.doc)?.dates || "");
+  // The last month and year: a range ("Aug 2025 – May 2029") ends at graduation.
+  const m = [...src.matchAll(/([A-Za-z]{3})[a-z]*\.?\s+(\d{4})/g)].pop();
   if (m) return { y: +m[2], m: MONTHS[m[1].toLowerCase()] || 5 };
-  const y = src.match(/(20\d\d)/);
-  return y ? { y: +y[1], m: 5 } : null;
+  const y = src.match(/20\d\d/g)?.pop();
+  return y ? { y: +y, m: 5 } : null;
 }
+
+/** When the student started college: four years before graduation, else from the class year. Used to tell college from high-school entries. */
+export function collegeStartOf(ws: Workspace, today = new Date()): { y: number; m: number } | undefined {
+  const g = gradDate(ws);
+  if (g) return { y: g.y - 4, m: 8 };
+  const k = ["First-year", "Sophomore", "Junior", "Senior"].indexOf(classYearOf(ws, today));
+  if (k < 0) return undefined;
+  const fallStart = today.getMonth() >= 7 ? today.getFullYear() : today.getFullYear() - 1;
+  return { y: fallStart - k, m: 8 };
+}
+
+// Class standing stated as such ("Class: Junior", "Sophomore standing", "(Senior)"), not a
+// title that happens to contain the word ("Senior Analyst", "Junior Achievement").
+const STANDING = /\b(?:class(?:ification)?|standing|year in school)\s*[:–-]\s*(freshman|first[- ]year|sophomore|junior|senior)\b|\b(freshman|first[- ]year|sophomore|junior|senior)\s+(?:student|standing)\b|\((freshman|first[- ]year|sophomore|junior|senior)\)/i;
 
 /** Class standing from what the student said, else from the resume text, else
  * from the expected graduation date (a May 2030 graduate is a first-year in fall 2026). */
@@ -27,7 +44,8 @@ export function classYearOf(ws: Workspace, today = new Date()): Year | "Graduate
   if (/junior/.test(said)) return "Junior";
   if (/senior/.test(said)) return "Senior";
   const text = ws.resume?.rawText || "";
-  const named = text.match(/\b(freshman|first-year|sophomore|junior|senior)\b/i)?.[1].toLowerCase();
+  const s = text.match(STANDING);
+  const named = (s?.[1] || s?.[2] || s?.[3])?.toLowerCase();
   if (named) return named.startsWith("f") ? "First-year" : (named[0].toUpperCase() + named.slice(1)) as Year;
   const g = gradDate(ws);
   if (!g) return "";

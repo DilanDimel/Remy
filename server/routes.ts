@@ -11,9 +11,13 @@ import type {
 import { aiAllowed, cleanupOld, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, markAiAuthFailure, model } from "./ai";
 import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase } from "./auth";
-import { aiExtractPosting, aiParseResume, CLOSED_SIGNALS, extractSkills, fetchPublic, fileToText, htmlToText, norm, resumeToText, rulesParse } from "./parse";
+import { aiExtractPosting, CLOSED_SIGNALS, fetchPublic, fileToText, htmlToText, norm } from "./parse";
+import {
+  aiParseResume, chooseReading, extractSkills, graduationOf, gpaOf, majorsOf, minorsOf, preCollegeIds, normalizeResumeText, parseQuality, primaryEducation, resumeToText, rulesParse, schoolName,
+  stillMissing,
+} from "./resume";
 import { atsChecks, claimCheck } from "./claims";
-import { classYearOf, computeFit, FIELD_TITLES } from "./fit";
+import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES } from "./fit";
 import { atsScore, keywordsFrom } from "./ats";
 import { boardsFor, discoverJobs, EMPLOYERS } from "./sources";
 import { alumniList, matchAlumni } from "./alumni";
@@ -120,15 +124,16 @@ async function withAi<T>(ctx: Ctx, purpose: string, fn: () => Promise<T>): Promi
 }
 
 const approvedFacts = (ws: Workspace) => ws.memory.filter((m) => m.status === "approved").map((m) => m.text);
+// AI-read text that isn't in the file doesn't count as evidence until the student saves the resume as theirs.
 const evidenceOf = (ws: Workspace) =>
-  [ws.resume?.rawText || "", ws.resume ? resumeToText(ws.resume.doc) : "", ws.profile.classYear ? `Class year: ${ws.profile.classYear}` : "", ...approvedFacts(ws)].join("\n");
+  [ws.resume?.rawText || "", ws.resume ? resumeToText(ws.resume.doc, { verifiedOnly: true }) : "", ws.profile.classYear ? `Class year: ${ws.profile.classYear}` : "", ...approvedFacts(ws)].join("\n");
 const allJobs = (ws: Workspace): Job[] => ws.jobs;
 const findJob = (ws: Workspace, id: string) => allJobs(ws).find((j) => j.id === id);
 
 function profileSummary(ws: Workspace) {
   const p = ws.profile;
   return [
-    `Name: ${p.preferredName || p.name}`, `School: ${p.school}`, `Major: ${p.major}`, `Class year: ${p.classYear || classYearOf(ws)}`, `Graduation: ${p.graduation}`,
+    `Name: ${p.preferredName || p.name}`, `School: ${p.school}`, `Major: ${p.major}`, `Minor: ${p.minors || ""}`, `GPA: ${p.gpa || ""}`, `Class year: ${p.classYear || classYearOf(ws)}`, `Graduation: ${p.graduation}`,
     `Location: ${p.location}`, `Wants opportunities in: ${p.regions}`, `Opportunity types wanted: ${p.opportunityTypes}`, `Target roles: ${p.targetRoles}`, `Goals: ${p.goals}`, `Interests: ${p.interests}`,
     `Skills found on resume: ${(ws.resume?.skills || []).join(", ")}`,
   ].filter((l) => !/:\s*$/.test(l)).join("\n");
@@ -420,30 +425,37 @@ export async function registerRoutes(_server: Server, app: Express) {
   }));
 
   // ---------- resume ----------
-  async function ingestResume(ctx: Ctx, raw: string, fileName: string) {
+  async function ingestResume(ctx: Ctx, text: string, fileName: string) {
+    const raw = normalizeResumeText(text);
     if (raw.replace(/\s/g, "").length < 200) bad("We couldn't read enough text from that file. If it's a scanned image, export a text-based PDF or upload a .docx.");
-    let doc: ResumeDoc;
+    // The rules reading is always made: it's the fallback, and the yardstick for how much the AI reading kept.
+    const rules = rulesParse(raw);
+    let doc: ResumeDoc = rules;
     let parsedBy: "ai" | "rules" = "rules";
+    const notes: string[] = [];
     if (aiStatus().available) {
       try {
-        doc = await withAi(ctx, "Parse resume", () => aiParseResume(raw));
-        parsedBy = "ai";
+        const chosen = chooseReading(raw, rules, await withAi(ctx, "Parse resume", () => aiParseResume(raw)));
+        ({ doc, parsedBy } = chosen);
+        notes.push(...chosen.notes);
       } catch {
-        doc = rulesParse(raw);
+        notes.push("The AI reader wasn't available, so Remy's built-in reader structured this file. Check each section against your original.");
       }
-    } else doc = rulesParse(raw);
-    ctx.ws.resume = { fileName, uploadedAt: nowIso(), rawText: raw.slice(0, 30000), parsedBy, doc, skills: extractSkills(doc, raw) };
+    }
+    ctx.ws.resume = { fileName, uploadedAt: nowIso(), rawText: raw.slice(0, 30000), parsedBy, doc, skills: extractSkills(doc, raw), quality: parseQuality(raw, doc, notes) };
     ctx.ws.imports.unshift({ id: uid("i"), kind: "Resume", fileName, at: nowIso(), label: "Student provided", factsAdded: 0 });
     // prefill only empty profile fields
     const p = ctx.ws.profile;
-    const edu = doc.sections.find((s) => /educ/i.test(s.heading))?.entries[0];
+    const edu = primaryEducation(doc);
     if (!p.name && doc.contact.name) p.name = doc.contact.name;
     if (!p.email && doc.contact.email && !/example\.com/.test(doc.contact.email)) p.email = doc.contact.email;
     if (!p.location && doc.contact.location) p.location = doc.contact.location;
     if (edu) {
-      if (!p.school) p.school = edu.org;
-      if (!p.major) p.major = edu.role.split("|")[0].trim();
-      if (!p.graduation) p.graduation = edu.dates.replace(/expected( graduation)?:?\s*/i, "").trim();
+      if (!p.school && !edu.unverified?.includes("org")) p.school = schoolName(edu.org);
+      if (!p.major && !edu.unverified?.includes("role")) p.major = majorsOf(edu);
+      if (!p.minors) p.minors = minorsOf(edu);
+      if (!p.gpa) p.gpa = gpaOf(edu);
+      if (!p.graduation) p.graduation = graduationOf(edu.dates);
     }
     // Class standing: stated on the resume, or worked out from the graduation date.
     if (!p.classYear) p.classYear = classYearOf(ctx.ws);
@@ -526,7 +538,16 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!ctx.ws.resume) bad("Upload a resume first.");
     const d = req.body?.doc as ResumeDoc;
     if (!d || !Array.isArray(d.sections)) bad("Invalid resume");
+    // A field the student retyped is theirs now; untouched AI-read text stays marked.
+    const before = new Map(ctx.ws.resume!.doc.sections.flatMap((s) => s.entries).map((e) => [e.id, e]));
+    for (const e of d.sections.flatMap((s) => s.entries || [])) {
+      if (!e.unverified?.length) continue;
+      e.unverified = e.unverified.filter((f) => before.get(e.id)?.[f] === e[f]);
+      if (!e.unverified.length) delete e.unverified;
+    }
     ctx.ws.resume!.doc = d;
+    const q = ctx.ws.resume!.quality;
+    if (q) q.missingLines = stillMissing(q.missingLines, d);
     ctx.ws.resume!.confirmedAt = req.body?.confirm ? nowIso() : ctx.ws.resume!.confirmedAt;
     // Student edits are the student's own words and already count as evidence through
     // the edited doc (evidenceOf), so the original upload text stays as it was. The
@@ -791,7 +812,9 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     // so the letter can use them and the claim checker treats them as evidence.
     const answers = (Array.isArray(req.body?.answers) ? req.body.answers : []).map((x: any) => ({ q: String(x?.q || "").slice(0, 200), a: String(x?.a || "").trim().slice(0, 800) })).filter((x: any) => x.a);
     for (const x of answers) addFact(ctx.ws, `${x.q} — ${x.a}`, "goal", `Told Remy while tailoring for ${job.company}`, "approved");
-    const bullets = ctx.ws.resume!.doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => ({ id: b.id, where: `${s.heading} › ${[e.role, e.org].filter(Boolean).join(", ")}`, text: b.text }))));
+    // High-school and other pre-college entries stay on the resume but aren't tailored or used in the letter.
+    const early = preCollegeIds(ctx.ws.resume!.doc, collegeStartOf(ctx.ws));
+    const bullets = ctx.ws.resume!.doc.sections.flatMap((s) => s.entries.filter((e) => !early.has(e.id)).flatMap((e) => e.bullets.map((b) => ({ id: b.id, where: `${s.heading} › ${[e.role, e.org].filter(Boolean).join(", ")}`, text: b.text }))));
     const out = await withAi(ctx, `Tailor for ${job.company}`, () =>
       aiJson<any>(
         `You tailor a student's EXISTING resume and write a cover letter for one opening. ABSOLUTE RULES:
@@ -799,6 +822,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
 - A revised bullet may only reword, reorder or emphasize facts already in THAT bullet. You may adopt the posting's vocabulary only when it truthfully describes the same activity.
 - Do not add numbers that are not in the original bullet.
 - Do not add purpose or outcome clauses (e.g. "ensuring…", "to keep…", "resulting in…") unless the original bullet states that outcome.
+- This is a college student's application: never mention high school, SAT/ACT/TOEFL scores or other pre-college activities.
 - Do not state the student's class standing (freshman/sophomore/first-year etc.) unless it is given in the profile.
 - Choose only material changes (at most 6). Leave strong bullets alone.
 - The cover letter may only use facts from the resume, approved facts and the student's own answers. Write it complete and ready to send, using the student's answers for motivation and personal details. Never use placeholders or brackets of any kind; if a detail is unknown, leave it out.`,
