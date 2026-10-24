@@ -43,14 +43,14 @@ export default function App() {
 }
 
 function Root() {
-  const { loading, ws, me } = useStore();
+  const { loading, ws, me, signInAgain } = useStore();
   if (loading)
     return (
       <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
         <div className="stack" style={{ alignItems: "center" }}><Remy size={64} mood="think" /><span className="muted small">Remy is getting things ready…</span></div>
       </div>
     );
-  if (!me || !ws || !ws.started) return <Welcome />;
+  if (!me || !ws || !ws.started || signInAgain) return <Welcome />;
   if (!ws.onboarding.done) return <Onboarding />;
   return <Shell />;
 }

@@ -2,7 +2,7 @@ import { uiFlags } from "../lib/router";
 import { useEffect, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Check, FileText, Trash2 } from "lucide-react";
 import type { Profile, Workspace } from "@shared/types";
-import { api, useStore } from "../lib/store";
+import { api, FAR_ENOUGH_STEP, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Remy, Spinner, StatusChip } from "../components/common";
 import { ProfileImport, ResumeUpload } from "../components/Uploaders";
@@ -18,7 +18,7 @@ export default function Onboarding() {
   const step = w.onboarding.step;
   const shown = Math.max(0, step - 1);
   // Coming back partway through: say so and let the student choose, instead of dropping them mid-step.
-  const [welcomeBack, setWelcomeBack] = useState(() => step > 1);
+  const [welcomeBack, setWelcomeBack] = useState(() => step >= FAR_ENOUGH_STEP);
   const setStep = (s: number) => save("onboarding", { ...w.onboarding, step: s });
   const finish = async () => {
     uiFlags.flyIn = true;
