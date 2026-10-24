@@ -8,6 +8,7 @@ import { API_BASE, api, download, fmtDate, rid, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Empty, Remy, Spinner, StatusChip } from "../components/common";
+import { ResumeBuilder } from "../components/ResumeBuilder";
 import { ResumeUpload } from "../components/Uploaders";
 import { AtsCard } from "../components/AtsCard";
 import { startTailor, useTailorSession } from "../lib/tailorChat";
@@ -48,12 +49,15 @@ function BaseResume() {
   const [showRaw, setShowRaw] = useState(false);
   const [replace, setReplace] = useState(false);
   const [preview, setPreview] = useState(true);
+  const [building, setBuilding] = useState(false);
   useEffect(() => { setDoc(w.resume?.doc ? JSON.parse(JSON.stringify(w.resume.doc)) : null); }, [w.resume?.uploadedAt]);
+  if ((!w.resume || !doc) && building) return <div className="card card-pad"><ResumeBuilder onDone={() => setBuilding(false)} onCancel={() => setBuilding(false)} /></div>;
   if (!w.resume || !doc)
     return (
       <div className="card card-pad stack">
         <div className="row" style={{ flexWrap: "nowrap", gap: 14 }}><Remy size={46} /><div><h2>Start with the resume you already have</h2><p className="small muted">Remy reads it, then you confirm every line. Nothing is invented.</p></div></div>
         <ResumeUpload />
+        <div><button className="btn btn-secondary btn-sm" onClick={() => setBuilding(true)} data-testid="button-build-resume">{w.builder ? "Continue building your resume with Remy" : "No resume yet? Build one with Remy (about 10 minutes)"}</button></div>
       </div>
     );
   const dirty = JSON.stringify(doc) !== JSON.stringify(w.resume.doc);
@@ -70,7 +74,7 @@ function BaseResume() {
           <div className="row"><FileText size={18} style={{ color: "var(--plum)" }} /><strong data-testid="text-resume-file">{w.resume.fileName}</strong>
             {w.resume.confirmedAt ? <span className="chip chip-live"><Check size={12} /> Confirmed {fmtDate(w.resume.confirmedAt)}</span> : <span className="chip chip-setup">Needs your review</span>}
           </div>
-          <span className="xs muted">Uploaded {fmtDate(w.resume.uploadedAt)} · read by {w.resume.parsedBy === "ai" ? "AI, then checked word-for-word against your file" : "the built-in parser"}{unverified ? ` · ${unverified} line(s) need a look` : ""}</span>
+          <span className="xs muted">{w.resume.parsedBy === "builder" ? "Made" : "Uploaded"} {fmtDate(w.resume.uploadedAt)} · {w.resume.parsedBy === "builder" ? "built with Remy from your answers" : `read by ${w.resume.parsedBy === "ai" ? "AI, then checked word-for-word against your file" : "the built-in parser"}`}{unverified ? ` · ${unverified} line(s) need a look` : ""}</span>
         </div>
         <div className="row">
           <button className="btn btn-ghost btn-sm" onClick={() => setShowRaw((s) => !s)}>{showRaw ? "Hide" : "Show"} original text</button>

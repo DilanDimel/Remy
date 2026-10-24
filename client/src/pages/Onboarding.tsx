@@ -7,6 +7,7 @@ import { reloadJobs, useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Remy, Spinner, StatusChip } from "../components/common";
 import { ProfileImport, ResumeUpload } from "../components/Uploaders";
 import { atAlumniSchool, SchoolVerify } from "../components/SchoolVerify";
+import { ResumeBuilder } from "../components/ResumeBuilder";
 
 // Step numbers are stored in the workspace; 0 and 1 both open the resume step.
 const STEPS = ["Your resume", "Review", "Your preferences", "A few questions", "Your plan"];
@@ -95,7 +96,9 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
   const [replace, setReplace] = useState(false);
   const [busy, setBusy] = useState(false);
   const [added, setAdded] = useState<number | null>(null);
+  const [building, setBuilding] = useState(false);
   const linkedin = w.imports.find((i) => /linkedin/i.test(i.kind));
+  if (building && !w.resume) return <ResumeBuilder onDone={onNext} onCancel={() => setBuilding(false)} />;
   return (
     <div className="stack-lg">
       <div className="remy-prompt">
@@ -115,7 +118,12 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
       ) : (
         <div className="stack-sm">
           <ResumeUpload onBusy={setBusy} onDone={() => setReplace(false)} />
-          {!w.resume && <p className="xs muted">No resume yet? Upload your LinkedIn profile as a PDF instead (see below for how to get it).</p>}
+          {!w.resume && (
+            <div className="card card-pad row-between" style={{ gap: 12 }}>
+              <div><b>No resume yet?</b><div className="small muted">Most freshmen don't have one. Remy builds one with you from a few taps and short answers, using only what you say.</div></div>
+              <button className="btn btn-secondary" onClick={() => setBuilding(true)} data-testid="button-build-resume">{w.builder ? "Continue building" : "Build one with Remy"} <span className="xs muted">(~10 min)</span></button>
+            </div>
+          )}
         </div>
       )}
       <div className="card card-pad stack-sm" style={{ background: "var(--surface-2, transparent)" }}>
@@ -300,7 +308,9 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
           <div className="row">
             {w.resume.doc.sections.map((s) => <span key={s.id} className="chip chip-plain">{s.heading} · {s.entries.length}</span>)}
           </div>
-          {unverified.length > 0 ? (
+          {w.resume.parsedBy === "builder" ? (
+            <span className="xs muted row"><Check size={14} style={{ color: "var(--sage)" }} /> Built with Remy from your own answers. Edit any line in Resume/CV.</span>
+          ) : unverified.length > 0 ? (
             <div className="notice notice-warn"><div>{unverified.length} line(s) couldn't be matched word-for-word to your file. You can fix them in Resume/CV.</div></div>
           ) : (
             <span className="xs muted row"><Check size={14} style={{ color: "var(--sage)" }} /> Every bullet matches your original file word-for-word.</span>

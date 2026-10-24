@@ -17,6 +17,7 @@ import {
   stillMissing,
 } from "./resume";
 import { atsChecks, claimCheck } from "./claims";
+import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, skillSuggestions } from "./builder";
 import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES } from "./fit";
 import { atsScore, keywordsFrom } from "./ats";
 import { boardsFor, discoverJobs, EMPLOYERS } from "./sources";
@@ -373,7 +374,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   });
 
   // ---------- simple app-owned sections ----------
-  const SECTIONS = ["profile", "settings", "tasks", "calendar", "tracker", "savedJobIds", "hiddenJobIds", "memory", "outreach", "onboarding", "started", "plan", "contacts"] as const;
+  const SECTIONS = ["profile", "settings", "tasks", "calendar", "tracker", "savedJobIds", "hiddenJobIds", "memory", "outreach", "onboarding", "started", "plan", "contacts", "builder"] as const;
   // The shape each section must have, so one malformed save can't break later requests.
   // Objects keep unknown extra fields (loose) but every field the server relies on is checked.
   const str = (max = 600) => z.string().max(max);
@@ -397,6 +398,13 @@ export async function registerRoutes(_server: Server, app: Express) {
     started: z.boolean(),
     plan: z.looseObject({ nextAction: z.looseObject({ title: str(300), why: str(2000), link: str(300) }), careers: z.array(z.looseObject({ id: str(120), title: str(300) })).max(20), skills: z.array(z.looseObject({ id: str(120), name: str(300) })).max(30), academic: z.array(z.looseObject({ id: str(120), term: str(100) })).max(20) }),
     contacts: z.array(z.looseObject({ id: str(120), name: str(200), title: str(300), org: str(300), email: str(320), why: str(2000), tags: z.array(str(120)).max(30), label: str(40) })).max(1000),
+    builder: z.looseObject({
+      step: z.number().int().min(0).max(20),
+      basics: z.object(Object.fromEntries(["name", "email", "phone", "city", "school", "major", "graduation", "classYear", "gpa", "highSchool", "highSchoolYear"].map((k) => [k, str(200)]))),
+      items: z.array(z.looseObject({ id: str(120), kind: str(40), stage: z.enum(["high school", "college"]), org: str(200), role: str(200), start: str(40), end: str(40), city: str(120), about: str(2000), followups: z.array(z.object({ q: str(300), a: str(1000) })).max(4) })).max(30),
+      skills: z.array(str(80)).max(40),
+      draft: z.record(z.string(), z.array(z.looseObject({ id: str(120), text: str(400), options: z.array(str(400)).max(4), source: str(2000) })).max(6)).optional(),
+    }),
   };
   app.put("/api/ws/:section", route(async (req, res, ctx) => {
     const section = req.params.section as (typeof SECTIONS)[number];
@@ -552,6 +560,62 @@ export async function registerRoutes(_server: Server, app: Express) {
     const raw = fs.existsSync(p) ? fs.readFileSync(p, "utf8") : "";
     if (!raw) bad("Sample resume is missing on this server.", 500);
     await ingestResume(ctx, raw, "Sample: Dilandimel Desman (shared with consent, contact details removed)");
+    res.json(ctx.ws);
+  }));
+
+  // ---------- build my resume with Remy (no resume yet) ----------
+  const needBuilder = (ctx: Ctx) => {
+    const b = ctx.ws.builder;
+    if (!b || !b.items.length) bad("Tell Remy about at least one thing you've done first.");
+    return b!;
+  };
+  app.post("/api/builder/followups", route(async (_req, res, ctx) => {
+    const b = needBuilder(ctx);
+    let qs: { itemId: string; q: string }[];
+    try { qs = aiStatus().available ? await withAi(ctx, "Resume builder questions", () => aiFollowups(b)) : ruleFollowups(b.items); }
+    catch (e) { if ((e as any)?.status === 429) throw e; qs = ruleFollowups(b.items); }
+    // Keep answers the student already gave to the same question.
+    for (const item of b.items) {
+      const mine = qs.filter((x) => x.itemId === item.id).map((x) => x.q);
+      item.followups = mine.map((q) => ({ q, a: item.followups.find((f) => f.q === q)?.a || "" }));
+    }
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
+  app.post("/api/builder/draft", route(async (_req, res, ctx) => {
+    const b = needBuilder(ctx);
+    try {
+      if (!aiStatus().available) throw new AiUnavailable();
+      b.draft = await withAi(ctx, "Resume builder draft", () => aiDraft(b));
+      b.draftedBy = "ai";
+    } catch (e) {
+      if ((e as any)?.status === 429) throw e;
+      b.draft = ruleDraft(b);
+      b.draftedBy = "rules";
+    }
+    b.skillSuggestions = skillSuggestions(b);
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
+  app.post("/api/builder/save", route(async (_req, res, ctx) => {
+    const b = needBuilder(ctx);
+    if (!b.basics.name.trim() || !b.basics.school.trim()) bad("Add your name and school first.");
+    if (Object.values(b.draft || {}).flat().some((x) => hasBlank(x.text))) bad("Fill in or delete the highlighted blanks first, like [how many?].");
+    const doc = buildDoc(b);
+    const raw = resumeToText(doc);
+    ctx.ws.resume = { fileName: "Built with Remy", uploadedAt: nowIso(), confirmedAt: nowIso(), rawText: raw, parsedBy: "builder", doc, skills: extractSkills(doc, raw) };
+    ctx.ws.imports.unshift({ id: uid("i"), kind: "Resume", fileName: "Built with Remy", at: nowIso(), label: "Student provided", factsAdded: 0 });
+    // The student typed these in the builder, so they're the profile.
+    const p = ctx.ws.profile, bb = b.basics;
+    p.name ||= bb.name; p.email ||= bb.email; p.location ||= bb.city;
+    if (bb.school) p.school = bb.school;
+    if (bb.major) p.major = bb.major;
+    if (bb.graduation) p.graduation = bb.graduation;
+    if (bb.classYear) p.classYear = bb.classYear;
+    if (bb.gpa) p.gpa = bb.gpa;
+    for (const a of ctx.ws.applications) if (a.versions.length) a.staleReason = "You made a new base resume. Approved versions were kept as they were — regenerate if you want them to use the new resume.";
+    ctx.ws.fits = {};
+    await ctx.save();
     res.json(ctx.ws);
   }));
 

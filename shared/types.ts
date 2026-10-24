@@ -47,7 +47,7 @@ export interface BaseResume {
   fileName: string;
   uploadedAt: string;
   rawText: string;
-  parsedBy: "ai" | "rules";
+  parsedBy: "ai" | "rules" | "builder";
   doc: ResumeDoc;
   confirmedAt?: string;
   /** Skills and tools found on the resume, matched against posting requirements. */
@@ -55,6 +55,45 @@ export interface BaseResume {
   /** The uploaded file itself is kept server-side for preview and download. */
   original?: { name: string; mime: string; size: number };
   quality?: ResumeQuality;
+}
+
+/** "Build my resume with Remy": everything the student told the builder, kept so they can come back and add to it. */
+export interface BuilderItem {
+  id: string;
+  /** Which button they tapped: job, internship, care, family, hustle, project, research, award, club, sports, faith, volunteer, arts, greek, language, certificate. */
+  kind: string;
+  stage: "high school" | "college";
+  org: string;
+  role: string;
+  start: string;
+  end: string;
+  city: string;
+  about: string;
+  followups: { q: string; a: string }[];
+}
+export interface BuilderBullet {
+  id: string;
+  /** The wording the student picked or wrote. Blanks look like "[how many customers?]" until filled or removed. */
+  text: string;
+  /** Other wordings of the same facts. */
+  options: string[];
+  /** The student's own words this bullet came from. */
+  source: string;
+}
+export interface ResumeBuilder {
+  step: number;
+  basics: {
+    name: string; email: string; phone: string; city: string; school: string; major: string; graduation: string;
+    classYear: string; gpa: string; highSchool: string; highSchoolYear: string;
+  };
+  items: BuilderItem[];
+  /** Keep high school entries for juniors and up (left out by default). */
+  keepHighSchool?: boolean;
+  skills: string[];
+  skillSuggestions?: string[];
+  /** Bullets per item id, once drafted. */
+  draft?: Record<string, BuilderBullet[]>;
+  draftedBy?: "ai" | "rules";
 }
 
 export interface Profile {
@@ -339,6 +378,7 @@ export interface Workspace {
   onboarding: { step: number; done: boolean; answers: { q: string; a: string }[]; questions: string[]; targets?: string[] };
   profile: Profile;
   resume?: BaseResume;
+  builder?: ResumeBuilder;
   imports: { id: string; kind: string; fileName: string; at: string; label: Label; factsAdded: number }[];
   memory: MemoryFact[];
   jobs: Job[]; // found by the live search, imported or added by the student
