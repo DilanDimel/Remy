@@ -82,7 +82,7 @@ function BaseResume() {
         <div className="row-between">
           <div className="stack-sm">
             <h3>Your resume, as a file</h3>
-            <span className="xs muted">{w.resume.original ? "Your original keeps your own layout. The export uses Remy's clean, ATS-friendly one-column format with your edits below." : "This resume was pasted or is the sample, so there's no original file. Export it as a clean PDF or Word file."}</span>
+            <span className="xs muted">{w.resume.original ? "Your original keeps your own layout. The export uses Remy's clean, ATS-friendly one-column format with your edits below." : "This resume was pasted, so there's no original file. Export it as a clean PDF or Word file."}</span>
           </div>
           <div className="row">
             {w.resume.original && <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/original?download=1", w.resume!.original!.name).catch((e) => toast(e.message, true))} data-testid="button-download-original"><Download size={14} /> Original</button>}
