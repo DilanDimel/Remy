@@ -87,6 +87,7 @@ Give 2-3 "options": different wordings of the SAME facts. "source" is the exact 
 If a number would make a bullet stronger but the student didn't give one, put a blank in square brackets for them to fill, like "[how many customers a shift?]". Never guess the number.
 Do not say "led", "managed" or "supervised" unless the student did. Plain, specific words beat buzzwords.
 Do not add WHEN, WHERE, WHO or WHY details they didn't say: no "summers", "to the class", "to help the community", "for clients", "to improve efficiency".
+Keep the student's hedge words with their numbers ("about 6", "around 200"): never make a number sound more exact than they said it.
 A shorter true bullet is always better than a longer padded one.`,
     `Student: ${b.basics.classYear || "college student"}, major ${b.basics.major || "undecided"}.\nItems:\n${JSON.stringify(ABOUT_ITEMS(b.items))}\nReturn {"items":[{"id":"","bullets":[{"options":["",""],"source":""}]}]}`,
     3500,
