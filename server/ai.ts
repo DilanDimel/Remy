@@ -25,6 +25,9 @@ const PROVIDERS: Record<string, { url: string; token: string; path: string; labe
   muse: { url: "", token: "", path: "", label: "Meta Muse", directKey: "META_API_KEY", directBase: process.env.META_API_BASE || "" },
 };
 const chainClients = new Map<string, OpenAI>();
+// Free models can stall or queue for minutes; give each model 75 s, then move to the next one in the chain.
+// The SDK's own retries are off because the loop in aiText already retries and falls back.
+const CALL_LIMITS = { timeout: 75_000, maxRetries: 0 };
 function chainClient(p: string) {
   if (chainClients.has(p)) return chainClients.get(p)!;
   const cfg = PROVIDERS[p];
@@ -32,12 +35,12 @@ function chainClient(p: string) {
   // Outside Perplexity hosting: plain API keys from environment variables.
   if (!(cfg.url && process.env[cfg.url] && process.env[cfg.token])) {
     if (!process.env[cfg.directKey] || !cfg.directBase) return null;
-    const c = new OpenAI({ baseURL: cfg.directBase, apiKey: process.env[cfg.directKey]! });
+    const c = new OpenAI({ baseURL: cfg.directBase, apiKey: process.env[cfg.directKey]!, ...CALL_LIMITS });
     chainClients.set(p, c);
     return c;
   }
   const base = process.env[cfg.url]!.replace(/\/$/, "");
-  const c = new OpenAI({ baseURL: base.includes(cfg.path) ? base : base + cfg.path, apiKey: "proxy-injected", defaultHeaders: { "x-api-key": process.env[cfg.token]! } });
+  const c = new OpenAI({ baseURL: base.includes(cfg.path) ? base : base + cfg.path, apiKey: "proxy-injected", defaultHeaders: { "x-api-key": process.env[cfg.token]! }, ...CALL_LIMITS });
   chainClients.set(p, c);
   return c;
 }
@@ -172,11 +175,13 @@ export async function aiText(system: string, user: string, maxTokens = 1200, cha
             break;
           }
           if (st === 404) { exhausted.set(key, Date.now() + 24 * 3600_000); break; }
+          if (/timed? ?out/i.test(String(e?.name) + String(e?.message))) break; // too slow today: next model, no second wait
           await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
         }
       }
     }
-    throw lastErr || Object.assign(new Error("All AI models are at their daily limit."), { status: 429 });
+    // Every model was skipped as busy or out of quota; report it as busy so students aren't told the day is over.
+    throw lastErr || Object.assign(new Error("Every AI model is busy right now."), { status: 429 });
   }
   const res: any = await c.responses.create({
     model: model(),
