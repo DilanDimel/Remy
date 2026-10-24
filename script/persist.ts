@@ -15,7 +15,7 @@ if (!fs.existsSync(entry)) {
   process.exit(1);
 }
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "or-persist-"));
-const dbPath = path.join(dir, "data.db");
+const dbPath = path.join(dir, "pgdata"); // a PGlite folder: real Postgres, no server needed
 const port = 5000 + Math.floor(Math.random() * 900) + 100;
 const host = `http://127.0.0.1:${port}`;
 
@@ -84,13 +84,14 @@ try {
   await stop();
   process.env.OR_DB_PATH = dbPath;
   const db = await import("../server/db");
-  const seeded = db.loadWorkspace(me.id);
+  const seeded = await db.loadWorkspace(me.id);
   for (const n of [1, 2]) seeded.jobs.push({
     id: `job-persist-${n}`, kind: "internship", title: `Finance Intern ${n}`, company: "Example Co", location: "Dallas, TX", format: "", dates: "",
     deadline: "", deadlineText: "", eligibility: [], requirements: [], summary: "", applyUrl: `https://example.com/${n}`, sourceUrl: `https://example.com/${n}`,
     sourceName: "Example Co careers", label: "Live", checkedAt: "2026-10-23", checks: [], origin: "imported",
   });
-  db.saveWorkspace(me.id, seeded);
+  await db.saveWorkspace(me.id, seeded);
+  await (await import("../server/sql")).closeDb(); // PGlite allows one process per folder
   await start();
   const jobs = (await call(cookie, "GET", "/api/jobs")).json.jobs;
   assert.equal(jobs.length, 2, "the seeded openings should be listed");

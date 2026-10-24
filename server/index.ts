@@ -2,6 +2,7 @@ import "dotenv/config";
 import express, { Response, NextFunction } from 'express';
 import type { Request } from 'express';
 import { registerRoutes } from "./routes";
+import { dbKind, dbReady } from "./sql";
 import { serveStatic } from "./static";
 import { createServer } from "node:http";
 
@@ -81,6 +82,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Connect and apply server/migrations before taking requests, so a bad DATABASE_URL fails at startup.
+  await dbReady();
+  log(`database: ${dbKind}`);
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

@@ -8,7 +8,7 @@ import { SAMPLE_CONTACTS, SAMPLE_INBOX } from "@shared/catalog";
 import type {
   Application, AppConfig, BulletChange, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace,
 } from "@shared/types";
-import { aiAllowed, cleanupOld, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveWorkspace, uid } from "./db";
+import { aiAllowed, cleanupOld, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, markAiAuthFailure, model } from "./ai";
 import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase } from "./auth";
 import { aiExtractPosting, CLOSED_SIGNALS, fetchPublic, fileToText, htmlToText, norm } from "./parse";
@@ -32,7 +32,7 @@ const uploadFile = (req: Request, res: Response, next: NextFunction) =>
     res.status(tooBig ? 413 : 400).json({ message: tooBig ? "That file is over 5 MB. Export a smaller PDF, or upload a Word (.docx) file." : "That upload didn't come through. Please try again." });
   });
 
-type Ctx = { me: Me; ws: Workspace; save: () => void; ip: string };
+type Ctx = { me: Me; ws: Workspace; save: () => Promise<void>; ip: string };
 type H = (req: Request, res: Response, ctx: Ctx) => Promise<unknown> | unknown;
 
 // shortcut: in-memory counters reset on restart and assume one server process; move to the DB if we ever run more than one.
@@ -52,23 +52,25 @@ function route(fn: H, opts: { create?: boolean } = {}) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const ip = clientIp(req);
-      let me = identify(req);
+      let me = await identify(req);
       if (!me) {
         if (!opts.create) return res.status(401).json({ message: "Please sign in or choose Explore demo." });
         if (!allow("guest:" + ip, 10, 60 * 60_000)) return res.status(429).json({ message: "Too many new guest workspaces from this network. Please try again in an hour, or sign in." });
-        me = newGuest(res);
+        me = await newGuest(res);
       }
-      const ws = loadWorkspace(me.id);
+      const ws = await loadWorkspace(me.id);
       // A request can run for seconds (AI calls). On save, re-read the stored
       // workspace and write back only the sections this request changed, so a
       // slow request never erases edits saved meanwhile by another one.
       // shortcut: merges per top-level section; two requests editing the same section still last-write-wins.
       const before = new Map(Object.entries(ws).map(([k, v]) => [k, JSON.stringify(v)]));
-      const save = () => {
-        const fresh = loadWorkspace(me!.id) as unknown as Record<string, unknown>;
+      const save = async () => {
         const mine = ws as unknown as Record<string, unknown>;
-        for (const k of Object.keys(mine)) if (k !== "updatedAt" && JSON.stringify(mine[k]) !== before.get(k)) fresh[k] = mine[k];
-        saveWorkspace(me!.id, fresh as unknown as Workspace);
+        const changed: Record<string, unknown> = {};
+        for (const k of Object.keys(mine)) if (k !== "updatedAt" && JSON.stringify(mine[k]) !== before.get(k)) changed[k] = mine[k];
+        if (!Object.keys(changed).length) return;
+        // The database merges just these sections into what's stored, in one statement.
+        const fresh = await saveSections(me!.id, changed as Partial<Workspace>);
         Object.assign(ws, fresh);
         for (const [k, v] of Object.entries(fresh)) before.set(k, JSON.stringify(v));
       };
@@ -101,7 +103,7 @@ function logAi(ws: Workspace, purpose: string, started: number, ok: boolean, not
 }
 async function withAi<T>(ctx: Ctx, purpose: string, fn: () => Promise<T>): Promise<T> {
   if (!allow("ai-ip:" + ctx.ip, 60, 60 * 60_000)) bad("Lots of AI requests are coming from this network. Please wait a bit and try again.", 429);
-  const lim = aiAllowed(ctx.me.id, ctx.me.kind === "guest" || ctx.me.kind === "visitor");
+  const lim = await aiAllowed(ctx.me.id, ctx.me.kind === "guest" || ctx.me.kind === "visitor");
   if (!lim.ok) bad(lim.message!, 429);
   const t = Date.now();
   try {
@@ -111,7 +113,7 @@ async function withAi<T>(ctx: Ctx, purpose: string, fn: () => Promise<T>): Promi
     return r;
   } catch (e: any) {
     logAi(ctx.ws, purpose, t, false, String(e?.message || e).slice(0, 160));
-    ctx.save();
+    await ctx.save();
     if (e instanceof AiUnavailable) throw e;
     const st = Number(e?.status) || 0;
     if (st === 401 || st === 403) markAiAuthFailure(true);
@@ -235,7 +237,7 @@ async function findOpenings(ctx: Ctx, named: string[] = []) {
   const r = await discoverJobs(ctx.ws, unique);
   console.log(`discover: read ${r.reached}/${unique.length} (${unique.map((b) => b.company).join(", ")}), added ${r.jobs.length}`);
   // Add to the latest saved list, so a posting the student imported meanwhile isn't overwritten.
-  const fresh = loadWorkspace(ctx.me.id);
+  const fresh = await loadWorkspace(ctx.me.id);
   const have = new Set(fresh.jobs.map((j) => j.applyUrl));
   const added = r.jobs.filter((j) => !have.has(j.applyUrl));
   ctx.ws.jobs = [...added, ...fresh.jobs];
@@ -245,7 +247,7 @@ async function findOpenings(ctx: Ctx, named: string[] = []) {
   const mostlyDown = r.reached.length < unique.length / 2;
   ctx.ws.openingsCheckedAt = new Date(Date.now() - (mostlyDown ? OPENINGS_EVERY - 30 * 60_000 : 0)).toISOString();
   ctx.ws.lastSearch = { at: nowIso(), reached: r.reached.length, scanned: unique.length };
-  ctx.save();
+  await ctx.save();
   return { added: added.length, reached: r.reached, scanned: unique.length };
 }
 
@@ -256,7 +258,7 @@ const searching = new Set<string>();
 
 export async function registerRoutes(_server: Server, app: Express) {
   // Expired sessions and guest workspaces idle for 30 days are removed at start-up and every 6 hours.
-  const sweep = () => { try { const n = cleanupOld(30); if (n) console.log(`cleanup: removed ${n} idle guest accounts`); } catch (e: any) { console.error("cleanup failed", e?.message); } };
+  const sweep = () => cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message));
   sweep();
   setInterval(sweep, 6 * 60 * 60_000).unref();
 
@@ -286,35 +288,37 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.json({ ok: true });
   });
 
-  app.get("/api/me", (req, res) => {
-    const me = identify(req);
-    if (!me) return res.json({ me: null, workspace: null });
-    res.json({ me, workspace: loadWorkspace(me.id) });
+  app.get("/api/me", async (req, res, next) => {
+    try {
+      const me = await identify(req);
+      if (!me) return res.json({ me: null, workspace: null });
+      res.json({ me, workspace: await loadWorkspace(me.id) });
+    } catch (e) { next(e); }
   });
 
   app.post("/api/auth/guest", route(async (_req, res, ctx) => {
     if (!ctx.ws.started) {
       ctx.ws.started = true;
-      ctx.save();
+      await ctx.save();
     }
     res.json({ me: ctx.me, workspace: ctx.ws });
   }, { create: true }));
 
   app.post("/api/auth/google", async (req, res) => {
     try {
-      const prev = identify(req);
+      const prev = await identify(req);
       const me = await verifyGoogle(String(req.body?.credential || ""));
       // carry an in-progress demo workspace into a brand-new Google account
-      if (!hasWorkspace(me.id) && prev && prev.id !== me.id && hasWorkspace(prev.id)) {
-        saveWorkspace(me.id, loadWorkspace(prev.id));
+      if (!(await hasWorkspace(me.id)) && prev && prev.id !== me.id && (await hasWorkspace(prev.id))) {
+        await saveWorkspace(me.id, await loadWorkspace(prev.id));
       }
-      const ws = loadWorkspace(me.id);
+      const ws = await loadWorkspace(me.id);
       ws.started = true;
       if (!ws.profile.name) ws.profile.name = me.name;
       if (!ws.profile.email) ws.profile.email = me.email;
       if (!ws.profile.applicationEmail) ws.profile.applicationEmail = me.email;
-      saveWorkspace(me.id, ws);
-      startSession(res, me.id);
+      await saveWorkspace(me.id, ws);
+      await startSession(res, me.id);
       res.json({ me, workspace: ws });
     } catch (e: any) {
       res.status(e?.status || 401).json({ message: e?.message || "Google sign-in failed." });
@@ -323,19 +327,19 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   app.post("/api/auth/supabase", async (req, res) => {
     try {
-      const prev = identify(req);
+      const prev = await identify(req);
       const u = await verifySupabase(String(req.body?.accessToken || ""));
       const me: Me = { id: "sb:" + u.id, kind: "supabase", email: u.email, name: u.name, picture: u.picture };
-      ensureUser(me);
+      await ensureUser(me);
       // carry an in-progress guest workspace into a brand-new account
-      if (!hasWorkspace(me.id) && prev && prev.id !== me.id && hasWorkspace(prev.id)) saveWorkspace(me.id, loadWorkspace(prev.id));
-      const ws = loadWorkspace(me.id);
+      if (!(await hasWorkspace(me.id)) && prev && prev.id !== me.id && (await hasWorkspace(prev.id))) await saveWorkspace(me.id, await loadWorkspace(prev.id));
+      const ws = await loadWorkspace(me.id);
       ws.started = true;
       if (!ws.profile.name) ws.profile.name = u.name;
       if (!ws.profile.email) ws.profile.email = u.email;
       if (!ws.profile.applicationEmail) ws.profile.applicationEmail = u.email;
-      saveWorkspace(me.id, ws);
-      startSession(res, me.id);
+      await saveWorkspace(me.id, ws);
+      await startSession(res, me.id);
       res.json({ me, workspace: ws });
     } catch (e: any) {
       res.status(e?.status || 401).json({ message: e?.message || "Sign-in failed." });
@@ -350,13 +354,15 @@ export async function registerRoutes(_server: Server, app: Express) {
     ctx.ws.imports = ctx.ws.imports.filter((i) => i.kind !== "LinkedIn (connected)");
     ctx.ws.imports.unshift({ id: uid("i"), kind: "LinkedIn (connected)", fileName: [u.name, u.email].filter(Boolean).join(" · ") || "LinkedIn account", at: nowIso(), label: "Live", factsAdded: 0 });
     if (!ctx.ws.profile.name && u.name) ctx.ws.profile.name = u.name;
-    ctx.save();
+    await ctx.save();
     res.json(ctx.ws);
   }));
 
-  app.post("/api/auth/logout", (req, res) => {
-    endSession(req, res);
-    res.json({ ok: true });
+  app.post("/api/auth/logout", async (req, res, next) => {
+    try {
+      await endSession(req, res);
+      res.json({ ok: true });
+    } catch (e) { next(e); }
   });
 
   // ---------- simple app-owned sections ----------
@@ -385,7 +391,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     plan: z.looseObject({ nextAction: z.looseObject({ title: str(300), why: str(2000), link: str(300) }), careers: z.array(z.looseObject({ id: str(120), title: str(300) })).max(20), skills: z.array(z.looseObject({ id: str(120), name: str(300) })).max(30), academic: z.array(z.looseObject({ id: str(120), term: str(100) })).max(20) }),
     contacts: z.array(z.looseObject({ id: str(120), name: str(200), title: str(300), org: str(300), email: str(320), why: str(2000), tags: z.array(str(120)).max(30), label: str(40) })).max(1000),
   };
-  app.put("/api/ws/:section", route((req, res, ctx) => {
+  app.put("/api/ws/:section", route(async (req, res, ctx) => {
     const section = req.params.section as (typeof SECTIONS)[number];
     if (!SECTIONS.includes(section)) bad("Unknown section");
     let value = req.body?.value;
@@ -418,17 +424,17 @@ export async function registerRoutes(_server: Server, app: Express) {
     } else {
       (ctx.ws as any)[section] = value;
     }
-    ctx.save();
+    await ctx.save();
     res.json(ctx.ws);
   }));
 
   // One to-do at a time, so two quick clicks can't undo each other.
-  app.patch("/api/tasks/:id", route((req, res, ctx) => {
+  app.patch("/api/tasks/:id", route(async (req, res, ctx) => {
     const t = ctx.ws.tasks.find((x) => x.id === req.params.id);
     if (!t) bad("That to-do isn't there anymore.", 404);
     if (typeof req.body?.done !== "boolean") bad("Send done: true or false.");
     t!.done = req.body.done;
-    ctx.save();
+    await ctx.save();
     res.json(ctx.ws);
   }));
 
@@ -469,7 +475,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!p.classYear) p.classYear = classYearOf(ctx.ws);
     for (const a of ctx.ws.applications) if (a.versions.length) a.staleReason = "You uploaded a new base resume. Approved versions were kept as they were — regenerate if you want them to use the new resume.";
     ctx.ws.fits = {};
-    ctx.save();
+    await ctx.save();
   }
 
   app.post("/api/resume/upload", uploadFile, route(async (req, res, ctx) => {
@@ -478,15 +484,15 @@ export async function registerRoutes(_server: Server, app: Express) {
     const raw = await fileToText(f!.buffer, f!.originalname, f!.mimetype);
     await ingestResume(ctx, raw, f!.originalname);
     const mime = /\.pdf$/i.test(f!.originalname) ? "application/pdf" : /\.docx$/i.test(f!.originalname) ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "text/plain; charset=utf-8";
-    saveFile(ctx.me.id, "resume", f!.originalname, mime, f!.buffer);
+    await saveFile(ctx.me.id, "resume", f!.originalname, mime, f!.buffer);
     ctx.ws.resume!.original = { name: f!.originalname, mime, size: f!.size };
-    ctx.save();
+    await ctx.save();
     res.json(ctx.ws);
   }));
 
   // The exact file the student uploaded (inline, so a PDF previews in the browser).
-  app.get("/api/resume/original", route((req, res, ctx) => {
-    const f = getFile(ctx.me.id, "resume");
+  app.get("/api/resume/original", route(async (req, res, ctx) => {
+    const f = await getFile(ctx.me.id, "resume");
     if (!f || !ctx.ws.resume?.original) bad("No uploaded file is stored — this resume was pasted or is the sample.", 404);
     res.setHeader("Content-Type", f!.mime);
     res.setHeader("X-Content-Type-Options", "nosniff");
@@ -496,7 +502,7 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   // ATS readiness score with a breakdown. ?app=<id> scores that tailored version
   // against its posting (and returns the base score for comparison).
-  app.get("/api/resume/ats", route((req, res, ctx) => {
+  app.get("/api/resume/ats", route(async (req, res, ctx) => {
     if (!ctx.ws.resume) bad("Upload a resume first.");
     const appId = String(req.query.app || "");
     const a = appId ? ctx.ws.applications.find((x) => x.id === appId) : undefined;
@@ -542,7 +548,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.json(ctx.ws);
   }));
 
-  app.put("/api/resume/doc", route((req, res, ctx) => {
+  app.put("/api/resume/doc", route(async (req, res, ctx) => {
     if (!ctx.ws.resume) bad("Upload a resume first.");
     const d = req.body?.doc as ResumeDoc;
     if (!d || !Array.isArray(d.sections)) bad("Invalid resume");
@@ -562,7 +568,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     // slice also shrinks accounts that grew under the old append-on-every-save code.
     ctx.ws.resume!.rawText = ctx.ws.resume!.rawText.slice(0, 30000);
     ctx.ws.fits = {};
-    ctx.save();
+    await ctx.save();
     res.json(ctx.ws);
   }));
 
@@ -585,7 +591,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       if (addFact(ctx.ws, f2.text, f2.category || "other", `${kind} import`, "suggested")) added++;
     }
     ctx.ws.imports.unshift({ id: uid("i"), kind, fileName: f?.originalname || "Pasted text", at: nowIso(), label: "Student provided", factsAdded: added });
-    ctx.save();
+    await ctx.save();
     res.json({ workspace: ctx.ws, added });
   }));
 
@@ -606,7 +612,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const qs = (out.questions || []).filter((x: any) => x && (typeof x === "string" || x.q)).slice(0, 3);
     ctx.ws.onboarding.questions = qs.map((x: any) => String(typeof x === "string" ? x : x.q));
     ctx.ws.onboarding.targets = qs.map((x: any) => (TARGETS.includes(x?.saveTo) ? x.saveTo : "goals"));
-    ctx.save();
+    await ctx.save();
     res.json(ctx.ws);
   }));
 
@@ -642,7 +648,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       academic: (out.academic || []).slice(0, 4).map((a: any) => ({ id: uid("ac"), term: String(a.term), items: (a.items || []).map(String), note: String(a.note || "Illustrative — confirm with your academic advisor.") })),
       chosenCareerId: ctx.ws.plan?.chosenCareerId,
     };
-    ctx.save();
+    await ctx.save();
     res.json(ctx.ws);
   }));
 
@@ -662,19 +668,19 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     );
     ctx.ws.chat.push({ id: uid("m"), role: "user", text: message, at: nowIso(), page });
     ctx.ws.chat.push({ id: uid("m"), role: "assistant", text: String(out.reply || "Sorry — I couldn't form a reply."), at: nowIso(), page, memorySuggestions: (out.remember || []).slice(0, 3).map(String) });
-    ctx.save();
+    await ctx.save();
     res.json(ctx.ws);
   }));
 
-  app.post("/api/memory/remember", route((req, res, ctx) => {
+  app.post("/api/memory/remember", route(async (req, res, ctx) => {
     const text = String(req.body?.text || "");
     addFact(ctx.ws, text, "other", "Assistant chat (approved by student)", "approved");
-    ctx.save();
+    await ctx.save();
     res.json(ctx.ws);
   }));
 
   // ---------- opportunities ----------
-  app.get("/api/jobs", route((_req, res, ctx) => {
+  app.get("/api/jobs", route(async (_req, res, ctx) => {
     if (!knowsStudent(ctx.ws)) return res.json({ jobs: [], fits: {}, needsProfile: NEEDS_PROFILE });
     let changed = false;
     const jobs = allJobs(ctx.ws).map((j) => {
@@ -685,7 +691,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       }
       return j;
     });
-    if (changed) ctx.save();
+    if (changed) await ctx.save();
     const last = Date.parse(ctx.ws.openingsCheckedAt || "");
     if (!(Date.now() - last < OPENINGS_EVERY) && !searching.has(ctx.me.id)) {
       let ok = true;
@@ -694,7 +700,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
         const id = ctx.me.id;
         searching.add(id);
         ctx.ws.openingsCheckedAt = nowIso(); // a failed search waits for the next window instead of retrying on every visit
-        ctx.save();
+        await ctx.save();
         findOpenings(ctx).catch((e) => console.error("auto openings", e?.message)).finally(() => searching.delete(id));
       }
     }
@@ -737,7 +743,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     ctx.ws.jobs.unshift(job);
     ctx.ws.fits[job.id] = fitOf(ctx.ws, job);
     if (!ctx.ws.savedJobIds.includes(job.id)) ctx.ws.savedJobIds.push(job.id);
-    ctx.save();
+    await ctx.save();
     res.json({ job, workspace: ctx.ws, droppedQuotes: x.droppedQuotes });
   }));
 
@@ -778,7 +784,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       const j = ctx.ws.jobs.find((x) => x.id === job!.id)!;
       j.checks.unshift(check);
     }
-    ctx.save();
+    await ctx.save();
     res.json({ check, workspace: ctx.ws });
   }));
 
@@ -794,18 +800,18 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       ),
     );
     ctx.ws.fits[job!.id] = { ...base, by: "ai", why: String(out.why || base.why), matched: (out.matched || []).map(String), gaps: (out.gaps || []).map(String) };
-    ctx.save();
+    await ctx.save();
     res.json(ctx.ws.fits[job!.id]);
   }));
 
-  app.delete("/api/jobs/:id", route((req, res, ctx) => {
+  app.delete("/api/jobs/:id", route(async (req, res, ctx) => {
     ctx.ws.jobs = ctx.ws.jobs.filter((j) => j.id !== req.params.id);
-    ctx.save();
+    await ctx.save();
     res.json(ctx.ws);
   }));
 
   // ---------- applications (tailored resume + cover letter) ----------
-  app.post("/api/applications", route((req, res, ctx) => {
+  app.post("/api/applications", route(async (req, res, ctx) => {
     const jobId = String(req.body?.jobId || "");
     if (!findJob(ctx.ws, jobId)) bad("Opening not found", 404);
     let a = ctx.ws.applications.find((x) => x.jobId === jobId);
@@ -813,7 +819,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       a = { id: uid("app"), jobId, createdAt: nowIso(), gaps: [], changes: [], letter: "", letterFlags: [], letterApproved: false, personalize: [], ats: [], versions: [] };
       ctx.ws.applications.unshift(a);
       if (!ctx.ws.savedJobIds.includes(jobId)) ctx.ws.savedJobIds.push(jobId);
-      ctx.save();
+      await ctx.save();
     }
     res.json({ application: a, workspace: ctx.ws });
   }));
@@ -909,11 +915,11 @@ Return JSON:
     a.generatedBy = lastUsedModel();
     a.audit = undefined;
     refreshAts(ctx.ws, a);
-    ctx.save();
+    await ctx.save();
     res.json({ application: a, workspace: ctx.ws });
   }));
 
-  app.put("/api/applications/:id/change/:cid", route((req, res, ctx) => {
+  app.put("/api/applications/:id/change/:cid", route(async (req, res, ctx) => {
     const a = getApp(ctx, String(req.params.id));
     const c = a.changes.find((x) => x.id === req.params.cid);
     if (!c) bad("Change not found", 404);
@@ -930,17 +936,17 @@ Return JSON:
     }
     c!.flags = changeFlags(ctx.ws, c!);
     refreshAts(ctx.ws, a);
-    ctx.save();
+    await ctx.save();
     res.json({ application: a, workspace: ctx.ws });
   }));
 
-  app.put("/api/applications/:id/letter", route((req, res, ctx) => {
+  app.put("/api/applications/:id/letter", route(async (req, res, ctx) => {
     const a = getApp(ctx, String(req.params.id));
     const job = findJob(ctx.ws, a.jobId)!;
     a.letter = String(req.body?.letter || "").slice(0, 8000);
     a.letterApproved = false;
     a.letterFlags = letterFlagsFor(ctx.ws, a, job);
-    ctx.save();
+    await ctx.save();
     res.json({ application: a, workspace: ctx.ws });
   }));
 
@@ -956,11 +962,11 @@ Return JSON:
       ),
     );
     a.audit = { at: nowIso(), findings: (out.findings || []).slice(0, 12).map((f) => ({ claim: String(f.claim), why: String(f.why) })) };
-    ctx.save();
+    await ctx.save();
     res.json({ application: a, workspace: ctx.ws });
   }));
 
-  app.post("/api/applications/:id/approve", route((req, res, ctx) => {
+  app.post("/api/applications/:id/approve", route(async (req, res, ctx) => {
     const a = getApp(ctx, String(req.params.id));
     const job = findJob(ctx.ws, a.jobId)!;
     if (!a.generatedAt) bad("Generate a tailored draft first.");
@@ -987,7 +993,7 @@ Return JSON:
       });
     if (job.deadline && !ctx.ws.calendar.some((c) => c.linkedId === job.id))
       ctx.ws.calendar.push({ id: uid("cal"), title: `${job.company} deadline`, date: job.deadline, time: "", kind: "Deadline", source: "From verified posting", linkedId: job.id, notes: job.deadlineText });
-    ctx.save();
+    await ctx.save();
     res.json({ application: a, workspace: ctx.ws });
   }));
 
@@ -1009,24 +1015,24 @@ Return JSON:
     res.send(buf);
   }));
 
-  app.delete("/api/applications/:id", route((req, res, ctx) => {
+  app.delete("/api/applications/:id", route(async (req, res, ctx) => {
     ctx.ws.applications = ctx.ws.applications.filter((a) => a.id !== req.params.id);
-    ctx.save();
+    await ctx.save();
     res.json(ctx.ws);
   }));
 
-  app.post("/api/safeguard/test", route((req, res, ctx) => {
+  app.post("/api/safeguard/test", route(async (req, res, ctx) => {
     const text = String(req.body?.text || "Managed a $250,000 student investment fund using Python and Bloomberg Terminal as Investment Committee Chair.");
     const flags = claimCheck(text, evidenceOf(ctx.ws));
     ctx.ws.incidents.unshift({ id: uid("inc"), at: nowIso(), kind: "Safeguard test", where: "Deliberate false-claim test", text, flags });
-    ctx.save();
+    await ctx.save();
     res.json({ flags, workspace: ctx.ws });
   }));
 
   // ---------- community outreach ----------
-  app.post("/api/community/sample", route((_req, res, ctx) => {
+  app.post("/api/community/sample", route(async (_req, res, ctx) => {
     for (const c of SAMPLE_CONTACTS) if (!ctx.ws.contacts.some((x) => x.id === c.id)) ctx.ws.contacts.push(c);
-    ctx.save();
+    await ctx.save();
     res.json(ctx.ws);
   }));
   // TCU alumni matched to this student (top matches only; the list stays server-side).
@@ -1041,7 +1047,7 @@ Return JSON:
     const companies = Array.from(new Set([...ctx.ws.savedJobIds, ...ctx.ws.applications.map((a) => a.jobId)].map((id) => findJob(ctx.ws, id)?.company).filter(Boolean) as string[]));
     return matchAlumni(ctx.ws, companies);
   };
-  app.get("/api/community/alumni", route((_req, res, ctx) => {
+  app.get("/api/community/alumni", route(async (_req, res, ctx) => {
     const list = alumniList();
     const base = { source: list.source, total: list.alumni.length, matches: [] };
     if (!signedIn(ctx.me)) return res.json({ ...base, signInRequired: true });
@@ -1049,7 +1055,7 @@ Return JSON:
     if (!allow("alumni:" + ctx.me.id, 30, 60 * 60_000)) bad("You've refreshed your alumni matches a lot. Please try again in an hour.", 429);
     res.json({ ...base, matches: myMatches(ctx).map(({ email, ...rest }) => rest) });
   }));
-  app.post("/api/community/alumni/:id/contact", route((req, res, ctx) => {
+  app.post("/api/community/alumni/:id/contact", route(async (req, res, ctx) => {
     if (!alumniOk(ctx.me)) bad(`Sign in with your ${ALUMNI_DOMAINS.map((d) => "@" + d).join(" or ")} email to contact TCU alumni.`, 403);
     const a = myMatches(ctx).find((x) => x.id === String(req.params.id));
     if (!a) bad("That alum isn't in your current matches.", 404);
@@ -1064,7 +1070,7 @@ Return JSON:
         tags: ["TCU alumni list", a!.industry, a!.role].filter(Boolean), label: "Live",
       };
       ctx.ws.contacts.unshift(c);
-      ctx.save();
+      await ctx.save();
     }
     res.json({ contact: c, workspace: ctx.ws });
   }));
@@ -1107,21 +1113,21 @@ Return JSON:
     const clean = (t: string) => t.replace(/\[[^\]]{2,80}\]/g, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
     const d = { id: uid("o"), contactId: c!.id, to: c!.email, subject: clean(String(out.subject || "")), body: clean(String(out.body || "")), linkedin: clean(String(out.linkedin || "")).slice(0, 200), status: "draft" as const, createdAt: nowIso() };
     ctx.ws.outreach.unshift(d);
-    ctx.save();
+    await ctx.save();
     res.json({ draft: d, workspace: ctx.ws });
   }));
 
   // ---------- inbox → status suggestions ----------
-  app.post("/api/inbox/sample", route((_req, res, ctx) => {
+  app.post("/api/inbox/sample", route(async (_req, res, ctx) => {
     for (const m of SAMPLE_INBOX) if (!ctx.ws.inbox.some((x) => x.id === m.id)) ctx.ws.inbox.push(m);
-    ctx.save();
+    await ctx.save();
     res.json(ctx.ws);
   }));
-  app.post("/api/inbox/paste", route((req, res, ctx) => {
+  app.post("/api/inbox/paste", route(async (req, res, ctx) => {
     const body = String(req.body?.body || "").slice(0, 8000);
     if (body.trim().length < 30) bad("Paste the full email text.");
     ctx.ws.inbox.unshift({ id: uid("m"), from: String(req.body?.from || "").slice(0, 200), subject: String(req.body?.subject || "(no subject)").slice(0, 200), date: new Date().toISOString().slice(0, 10), body, label: "Pasted by student" });
-    ctx.save();
+    await ctx.save();
     res.json(ctx.ws);
   }));
 
@@ -1172,11 +1178,11 @@ Return JSON:
       evidence, rulesSay: rules.status, aiSays: aiStatusVal, createdAt: nowIso(), state: "open",
     };
     ctx.ws.suggestions = [s, ...ctx.ws.suggestions.filter((x) => !(x.messageId === m!.id && x.state === "open"))];
-    ctx.save();
+    await ctx.save();
     res.json({ suggestion: s, workspace: ctx.ws });
   }));
 
-  app.post("/api/suggestions/:id/resolve", route((req, res, ctx) => {
+  app.post("/api/suggestions/:id/resolve", route(async (req, res, ctx) => {
     const s = ctx.ws.suggestions.find((x) => x.id === req.params.id);
     if (!s) bad("Suggestion not found", 404);
     if (req.body?.action === "dismiss") {
@@ -1204,12 +1210,12 @@ Return JSON:
       if (status === "Interview" && !ctx.ws.tasks.some((x) => x.title === `Prepare for ${t!.company} interview`))
         ctx.ws.tasks.unshift({ id: uid("t"), title: `Prepare for ${t.company} interview`, why: "An interview invitation was confirmed from an email you reviewed.", due: "", category: "Prepare", done: false, source: "Status update" });
     }
-    ctx.save();
+    await ctx.save();
     res.json(ctx.ws);
   }));
 
   // ---------- calendar export ----------
-  app.get("/api/calendar.ics", route((req, res, ctx) => {
+  app.get("/api/calendar.ics", route(async (req, res, ctx) => {
     const id = req.query.id ? String(req.query.id) : null;
     const items = ctx.ws.calendar.filter((c) => !id || c.id === id);
     const esc = (s: string) => s.replace(/[,;\\]/g, (m) => "\\" + m).replace(/\r\n|\r|\n/g, "\\n");
@@ -1230,16 +1236,16 @@ Return JSON:
   }));
 
   // ---------- data controls ----------
-  app.get("/api/export/data", route((_req, res, ctx) => {
+  app.get("/api/export/data", route(async (_req, res, ctx) => {
     res.setHeader("Content-Disposition", 'attachment; filename="remy-my-data.json"');
     res.json({ exportedAt: nowIso(), account: ctx.me, workspace: ctx.ws });
   }));
   // Deletes everything Remy stores about the student — workspace, files, AI usage,
   // sessions and the account record — and signs them out.
   // shortcut: a Supabase sign-in account itself is not deleted (that needs the Supabase service key); say so in the UI.
-  app.delete("/api/ws", route((req, res, ctx) => {
-    deleteAccount(ctx.me.id);
-    endSession(req, res);
+  app.delete("/api/ws", route(async (req, res, ctx) => {
+    await deleteAccount(ctx.me.id);
+    await endSession(req, res);
     res.json({ deleted: true });
   }));
 }

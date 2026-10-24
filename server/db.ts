@@ -1,23 +1,6 @@
-import Database from "better-sqlite3";
 import crypto from "node:crypto";
 import type { Me, Workspace } from "@shared/types";
-
-const db = new Database(process.env.OR_DB_PATH || "data.db");
-db.pragma("journal_mode = WAL");
-db.exec(`
-CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY, kind TEXT NOT NULL, email TEXT DEFAULT '', name TEXT DEFAULT '',
-  picture TEXT DEFAULT '', created_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS sessions (
-  token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at INTEGER NOT NULL
-);
-CREATE TABLE IF NOT EXISTS workspaces (
-  user_id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS ai_usage (user_id TEXT NOT NULL, at INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS files (user_id TEXT NOT NULL, kind TEXT NOT NULL, name TEXT NOT NULL, mime TEXT NOT NULL, data BLOB NOT NULL, at TEXT NOT NULL, PRIMARY KEY (user_id, kind));
-`);
+import { q, q1, tx } from "./sql";
 
 export const nowIso = () => new Date().toISOString();
 export { uid } from "./ids";
@@ -55,111 +38,141 @@ export function emptyWorkspace(): Workspace {
   };
 }
 
-export function ensureUser(me: Me) {
-  const row = db.prepare("SELECT id FROM users WHERE id=?").get(me.id);
-  if (!row) {
-    db.prepare("INSERT INTO users (id,kind,email,name,picture,created_at) VALUES (?,?,?,?,?,?)").run(
-      me.id, me.kind, me.email, me.name, me.picture, nowIso(),
-    );
-  } else if (me.kind === "google" || me.kind === "supabase") {
-    db.prepare("UPDATE users SET email=?, name=?, picture=? WHERE id=?").run(me.email, me.name, me.picture, me.id);
-  }
+export async function ensureUser(me: Me) {
+  // New user: insert. Signed-in user: keep name, email and photo current. Guests never change.
+  await q(
+    `INSERT INTO users (id, kind, email, name, picture) VALUES ($1,$2,$3,$4,$5)
+     ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, name = EXCLUDED.name, picture = EXCLUDED.picture
+     WHERE users.kind IN ('google','supabase')`,
+    [me.id, me.kind, me.email, me.name, me.picture],
+  );
 }
-export function getUser(id: string): Me | null {
-  const r = db.prepare("SELECT * FROM users WHERE id=?").get(id) as any;
+export async function getUser(id: string): Promise<Me | null> {
+  const r = await q1("SELECT id, kind, email, name, picture FROM users WHERE id=$1", [id]);
   return r ? { id: r.id, kind: r.kind, email: r.email, name: r.name, picture: r.picture } : null;
 }
 
-export function createSession(userId: string) {
+export async function createSession(userId: string) {
   const token = crypto.randomBytes(32).toString("base64url");
   const expires = Date.now() + 1000 * 60 * 60 * 24 * 30;
-  db.prepare("INSERT INTO sessions (token_hash,user_id,expires_at) VALUES (?,?,?)").run(sha(token), userId, expires);
+  await q("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES ($1,$2,$3)", [sha(token), userId, new Date(expires)]);
   return { token, expires };
 }
-export function sessionUser(token: string): string | null {
-  const r = db.prepare("SELECT user_id, expires_at FROM sessions WHERE token_hash=?").get(sha(token)) as any;
-  if (!r || r.expires_at < Date.now()) return null;
-  return r.user_id;
+export async function sessionUser(token: string): Promise<string | null> {
+  const r = await q1("SELECT user_id FROM sessions WHERE token_hash=$1 AND expires_at > now()", [sha(token)]);
+  return r ? r.user_id : null;
 }
-export function deleteSession(token: string) {
-  db.prepare("DELETE FROM sessions WHERE token_hash=?").run(sha(token));
+export async function deleteSession(token: string) {
+  await q("DELETE FROM sessions WHERE token_hash=$1", [sha(token)]);
 }
 
-export function loadWorkspace(userId: string): Workspace {
-  const r = db.prepare("SELECT data FROM workspaces WHERE user_id=?").get(userId) as any;
-  if (!r) return emptyWorkspace();
-  try {
-    const parsed = JSON.parse(r.data);
-    if (parsed?.version !== 2) return emptyWorkspace();
-    // forward-fill any keys added later
-    const empty = emptyWorkspace();
-    return { ...empty, ...parsed, profile: { ...empty.profile, ...parsed.profile }, settings: { ...empty.settings, ...parsed.settings } };
-  } catch {
-    return emptyWorkspace();
-  }
+function fromStored(data: any): Workspace {
+  if (!data || data.version !== 2) return emptyWorkspace();
+  // forward-fill any keys added later
+  const empty = emptyWorkspace();
+  return { ...empty, ...data, profile: { ...empty.profile, ...data.profile }, settings: { ...empty.settings, ...data.settings } };
 }
-export function hasWorkspace(userId: string) {
-  return !!db.prepare("SELECT 1 FROM workspaces WHERE user_id=?").get(userId);
+export async function loadWorkspace(userId: string): Promise<Workspace> {
+  const r = await q1("SELECT data FROM workspaces WHERE user_id=$1", [userId]);
+  return fromStored(r && (typeof r.data === "string" ? JSON.parse(r.data) : r.data));
 }
-export function saveWorkspace(userId: string, ws: Workspace) {
+export async function hasWorkspace(userId: string) {
+  return !!(await q1("SELECT 1 FROM workspaces WHERE user_id=$1", [userId]));
+}
+function trimForSave(ws: Partial<Workspace>) {
+  if (ws.aiLog && ws.aiLog.length > 300) ws.aiLog = ws.aiLog.slice(-300);
+  if (ws.chat && ws.chat.length > 200) ws.chat = ws.chat.slice(-200);
+}
+/** Replaces the whole stored workspace. */
+export async function saveWorkspace(userId: string, ws: Workspace) {
   ws.updatedAt = nowIso();
-  if (ws.aiLog.length > 300) ws.aiLog = ws.aiLog.slice(-300);
-  if (ws.chat.length > 200) ws.chat = ws.chat.slice(-200);
+  trimForSave(ws);
   const data = JSON.stringify(ws);
   if (data.length > 4_000_000) throw Object.assign(new Error("Workspace is too large."), { status: 413 });
-  db.prepare(
-    "INSERT INTO workspaces (user_id,data,updated_at) VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data, updated_at=excluded.updated_at",
-  ).run(userId, data, ws.updatedAt);
+  await q(
+    `INSERT INTO workspaces (user_id, data, updated_at) VALUES ($1, $2::jsonb, now())
+     ON CONFLICT (user_id) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`,
+    [userId, data],
+  );
 }
-export function deleteWorkspace(userId: string) {
-  db.prepare("DELETE FROM workspaces WHERE user_id=?").run(userId);
-  db.prepare("DELETE FROM files WHERE user_id=?").run(userId);
+/** Writes only the given top-level sections, merged into what's stored in one statement,
+ *  so two requests saving different sections at the same moment both keep their changes.
+ *  Returns the full stored workspace after the merge. */
+export async function saveSections(userId: string, sections: Partial<Workspace>): Promise<Workspace> {
+  const patch = { ...sections, updatedAt: nowIso() } as Partial<Workspace>;
+  trimForSave(patch);
+  const json = JSON.stringify(patch);
+  if (json.length > 4_000_000) throw Object.assign(new Error("Workspace is too large."), { status: 413 });
+  const base = JSON.stringify({ ...emptyWorkspace(), ...patch });
+  const r = await q1(
+    `INSERT INTO workspaces (user_id, data, updated_at) VALUES ($1, $2::jsonb, now())
+     ON CONFLICT (user_id) DO UPDATE SET data = workspaces.data || $3::jsonb, updated_at = now()
+     RETURNING data`,
+    [userId, base, json],
+  );
+  const stored = typeof r!.data === "string" ? JSON.parse(r!.data) : r!.data;
+  if (JSON.stringify(stored).length > 4_000_000) throw Object.assign(new Error("Workspace is too large."), { status: 413 });
+  return fromStored(stored);
+}
+export async function deleteWorkspace(userId: string) {
+  await q("DELETE FROM workspaces WHERE user_id=$1", [userId]);
+  await q("DELETE FROM files WHERE user_id=$1", [userId]);
 }
 /** Everything stored about a user: workspace, files, AI usage, sessions and the account row. */
-export function deleteAccount(userId: string) {
-  db.transaction(() => {
-    deleteWorkspace(userId);
-    db.prepare("DELETE FROM ai_usage WHERE user_id=?").run(userId);
-    db.prepare("DELETE FROM sessions WHERE user_id=?").run(userId);
-    db.prepare("DELETE FROM users WHERE id=?").run(userId);
-  })();
+export async function deleteAccount(userId: string) {
+  await tx(async (run) => {
+    await run("DELETE FROM workspaces WHERE user_id=$1", [userId]);
+    await run("DELETE FROM files WHERE user_id=$1", [userId]);
+    await run("DELETE FROM ai_usage WHERE user_id=$1", [userId]);
+    await run("DELETE FROM sessions WHERE user_id=$1", [userId]);
+    await run("DELETE FROM users WHERE id=$1", [userId]);
+  });
 }
 /** Removes expired sessions and guest accounts untouched for `days` days. Returns how many guests were removed. */
-export function cleanupOld(days = 30) {
-  const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
-  db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(Date.now());
-  const stale = db.prepare(
-    "SELECT u.id FROM users u LEFT JOIN workspaces w ON w.user_id = u.id WHERE u.kind = 'guest' AND COALESCE(w.updated_at, u.created_at) < ?",
-  ).all(cutoff) as { id: string }[];
-  for (const { id } of stale) deleteAccount(id);
+export async function cleanupOld(days = 30) {
+  await q("DELETE FROM sessions WHERE expires_at < now()");
+  const stale = await q(
+    `SELECT u.id FROM users u LEFT JOIN workspaces w ON w.user_id = u.id
+     WHERE u.kind = 'guest' AND COALESCE(w.updated_at, u.created_at) < now() - make_interval(days => $1::int)`,
+    [days],
+  );
+  for (const { id } of stale) await deleteAccount(id);
   return stale.length;
 }
 
 // Guests are free to create, so they get a smaller daily allowance, and the whole
 // site has a daily budget so scripted accounts can't drain the shared AI quota.
 const SITE_DAILY_AI = Number(process.env.OR_AI_DAILY_BUDGET) || 1500;
-export function aiAllowed(userId: string, guest = false): { ok: boolean; message?: string } {
-  const now = Date.now();
-  db.prepare("DELETE FROM ai_usage WHERE at < ?").run(now - 86_400_000);
-  const site = (db.prepare("SELECT COUNT(*) c FROM ai_usage").get() as any).c;
-  if (site >= SITE_DAILY_AI) return { ok: false, message: "Remy's AI has reached today's limit for the whole site. It resets within 24 hours; everything else still works." };
-  const day = (db.prepare("SELECT COUNT(*) c FROM ai_usage WHERE user_id=?").get(userId) as any).c;
-  const recent = (db.prepare("SELECT COUNT(*) c FROM ai_usage WHERE user_id=? AND at > ?").get(userId, now - 60_000) as any).c;
+export async function aiAllowed(userId: string, guest = false): Promise<{ ok: boolean; message?: string }> {
+  await q("DELETE FROM ai_usage WHERE at < now() - interval '1 day'");
+  const r = await q1(
+    `SELECT COUNT(*)::int AS site,
+            COUNT(*) FILTER (WHERE user_id = $1)::int AS day,
+            COUNT(*) FILTER (WHERE user_id = $1 AND at > now() - interval '1 minute')::int AS recent
+     FROM ai_usage`,
+    [userId],
+  );
+  if (r!.site >= SITE_DAILY_AI) return { ok: false, message: "Remy's AI has reached today's limit for the whole site. It resets within 24 hours; everything else still works." };
   const dayMax = guest ? 40 : 120;
-  if (day >= dayMax) return { ok: false, message: guest ? "Guest workspaces get 40 AI requests a day. Sign in to get more." : "Daily AI limit reached for this account (120 requests per 24 hours)." };
-  if (recent >= 12) return { ok: false, message: "That was a lot of AI requests at once. Please wait a minute and try again." };
-  db.prepare("INSERT INTO ai_usage (user_id, at) VALUES (?,?)").run(userId, now);
+  if (r!.day >= dayMax) return { ok: false, message: guest ? "Guest workspaces get 40 AI requests a day. Sign in to get more." : "Daily AI limit reached for this account (120 requests per 24 hours)." };
+  if (r!.recent >= 12) return { ok: false, message: "That was a lot of AI requests at once. Please wait a minute and try again." };
+  await q("INSERT INTO ai_usage (user_id) VALUES ($1)", [userId]);
   return { ok: true };
 }
 
 // Original uploaded files (the base resume), kept so students can preview and
 // download exactly what they uploaded. One per kind per user.
-export function saveFile(userId: string, kind: string, name: string, mime: string, data: Buffer) {
-  db.prepare("INSERT INTO files (user_id,kind,name,mime,data,at) VALUES (?,?,?,?,?,?) ON CONFLICT(user_id,kind) DO UPDATE SET name=excluded.name, mime=excluded.mime, data=excluded.data, at=excluded.at").run(userId, kind, name, mime, data, nowIso());
+export async function saveFile(userId: string, kind: string, name: string, mime: string, data: Buffer) {
+  await q(
+    `INSERT INTO files (user_id, kind, name, mime, data) VALUES ($1,$2,$3,$4,$5)
+     ON CONFLICT (user_id, kind) DO UPDATE SET name = EXCLUDED.name, mime = EXCLUDED.mime, data = EXCLUDED.data, at = now()`,
+    [userId, kind, name, mime, data],
+  );
 }
-export function getFile(userId: string, kind: string): { name: string; mime: string; data: Buffer } | null {
-  return (db.prepare("SELECT name, mime, data FROM files WHERE user_id=? AND kind=?").get(userId, kind) as any) || null;
+export async function getFile(userId: string, kind: string): Promise<{ name: string; mime: string; data: Buffer } | null> {
+  const r = await q1("SELECT name, mime, data FROM files WHERE user_id=$1 AND kind=$2", [userId, kind]);
+  return r ? { name: r.name, mime: r.mime, data: Buffer.from(r.data) } : null;
 }
-export function deleteFiles(userId: string) {
-  db.prepare("DELETE FROM files WHERE user_id=?").run(userId);
+export async function deleteFiles(userId: string) {
+  await q("DELETE FROM files WHERE user_id=$1", [userId]);
 }

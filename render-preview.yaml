@@ -1,6 +1,6 @@
 # Preview of the private fixes branch, separate from the live offer-ready service.
 # Render: New → Blueprint → repo Remy-dilan → Blueprint path: render-preview.yaml.
-# Free plan: no persistent disk, so data resets when the service sleeps or redeploys.
+# Data lives in Supabase Postgres (DATABASE_URL), so accounts survive sleeps and redeploys.
 services:
   - type: web
     name: remy-preview
@@ -22,3 +22,11 @@ services:
       # Secret: Render asks for it when you create the Blueprint. Never committed.
       - key: OPENROUTER_API_KEY
         sync: false
+      # Database: Supabase Postgres, private schema remy_preview, its own least-privilege login.
+      # DATABASE_URL is secret (in Dilan's ~/Remy/.env as PREVIEW_DATABASE_URL). Any Postgres works here.
+      - key: DATABASE_URL
+        sync: false
+      - key: DB_SCHEMA
+        value: remy_preview
+      - key: DB_SSL_CA_FILE
+        value: server/certs/supabase-prod-ca-2021.crt

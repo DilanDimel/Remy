@@ -31,33 +31,33 @@ function isLocal(req: Request) {
 
 /** Resolve the caller. Session cookie first (Google or guest), then the
  * preview host's per-browser X-Visitor-Id header, then local test identities. */
-export function identify(req: Request): Me | null {
+export async function identify(req: Request): Promise<Me | null> {
   const token = readCookie(req, COOKIE);
   if (token) {
-    const id = sessionUser(token);
-    const u = id ? getUser(id) : null;
+    const id = await sessionUser(token);
+    const u = id ? await getUser(id) : null;
     if (u) return u;
   }
   // The preview host injects X-Visitor-Id; published sites use the session cookie only.
   const v = process.env.NODE_ENV !== "production" || process.env.OR_TRUST_VISITOR_HEADER === "1" ? req.header("x-visitor-id") : undefined;
   if (v) {
     const me: Me = { id: "v:" + sha(v).slice(0, 32), kind: "visitor", email: "", name: "", picture: "" };
-    ensureUser(me);
+    await ensureUser(me);
     return me;
   }
   const t = req.header("x-or-test-user");
   if (t && isLocal(req)) {
     const me: Me = { id: "local:" + t.slice(0, 40), kind: "local", email: "", name: "", picture: "" };
-    ensureUser(me);
+    await ensureUser(me);
     return me;
   }
   return null;
 }
 
-export function newGuest(res: Response): Me {
+export async function newGuest(res: Response): Promise<Me> {
   const me: Me = { id: uid("guest:"), kind: "guest", email: "", name: "", picture: "" };
-  ensureUser(me);
-  const s = createSession(me.id);
+  await ensureUser(me);
+  const s = await createSession(me.id);
   setSessionCookie(res, s.token, s.expires);
   return me;
 }
@@ -74,17 +74,17 @@ export async function verifyGoogle(credential: string): Promise<Me> {
   const p = ticket.getPayload();
   if (!p?.sub || !p.email_verified) throw Object.assign(new Error("Google could not verify this account."), { status: 401 });
   const me: Me = { id: "g:" + p.sub, kind: "google", email: p.email || "", name: p.name || "", picture: p.picture || "" };
-  ensureUser(me);
+  await ensureUser(me);
   return me;
 }
 
-export function startSession(res: Response, userId: string) {
-  const s = createSession(userId);
+export async function startSession(res: Response, userId: string) {
+  const s = await createSession(userId);
   setSessionCookie(res, s.token, s.expires);
 }
-export function endSession(req: Request, res: Response) {
+export async function endSession(req: Request, res: Response) {
   const token = readCookie(req, COOKIE);
-  if (token) deleteSession(token);
+  if (token) await deleteSession(token);
   clearSessionCookie(res);
 }
 
