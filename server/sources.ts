@@ -6,12 +6,12 @@ import { uid } from "./ids";
 import { abroad, FIELD_SEARCH, FIELD_TITLES, regionMatch } from "./fit";
 
 // Live openings from employers' own career sites (Greenhouse, Lever, Ashby, Workday, SmartRecruiters,
-// Oracle Cloud and Eightfold).
+// Oracle Cloud, Eightfold and Phenom).
 // These are the boards companies use to publish their own careers pages, so each
 // posting links straight back to the employer. No login, no scraping of
 // third-party aggregators.
 
-type Board = { ats: "greenhouse" | "lever" | "ashby" | "workday" | "smartrecruiters" | "oracle" | "eightfold"; slug: string; company: string; fields?: string[] };
+type Board = { ats: "greenhouse" | "lever" | "ashby" | "workday" | "smartrecruiters" | "oracle" | "eightfold" | "phenom"; slug: string; company: string; fields?: string[] };
 
 // Employers whose career sites Remy reads, with the fields they hire for (server/data/employers.json).
 export const EMPLOYERS: Board[] = (JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "server", "data", "employers.json"), "utf8")).employers as { company: string; ats: Board["ats"]; board: string; fields: string[] }[])
@@ -35,7 +35,7 @@ export const DEFAULT_BOARDS: Board[] = EMPLOYERS.length ? EMPLOYERS : [
   { ats: "ashby", slug: "mercury", company: "Mercury" },
 ];
 
-const EARLY = /\b(intern(ship)?s?|co-?op|new grad(uate)?|early career|entry[- ]level|campus|university|student|summer analyst|analyst program|rotational|apprentice|fellow(ship)?|insight|extern(ship)?s?|nurse residen\w*|graduate nurse|nurse intern|new grad rn)\b/i;
+const EARLY = /\b(intern(ship)?s?|co-?op|new grad(uate)?|early career|entry[- ]level|campus|university|student|summer analyst|analyst program|rotational|apprentice|fellow(ship)?|insight|extern(ship)?s?|nurse residen\w*|graduate nurse|nurse intern|new grad rn|freshm[ae]n|sophomores?|first[- ]year|discover\w*|explore|launch|ambassadors?|leadership program|diversity program)\b/i;
 const SENIOR = /\b(senior|sr\.?|staff|principal|lead|manager|director|head of|vp|vice president|ii|iii|iv)\b/i;
 // Roles meant for graduate students, skipped for undergraduates.
 const GRAD_LEVEL = /\b(graduate intern(ship)?|intern,?\s*graduate|mba|ph\.?\s?d|doctoral|postdoc|post-doc|master'?s|graduate student|j\.?d\.?)\b/i;
@@ -175,7 +175,23 @@ async function eightfoldQ(b: Board, q: string): Promise<Raw[]> {
     },
   }));
 }
+// Phenom career sites' search widget (the request their own search page makes). Board = the career site host.
+async function phenom(b: Board, field: string): Promise<Raw[]> {
+  const widgets = (body: object) => fetch(`https://${b.slug}/widgets`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json", "user-agent": BROWSER_UA }, body: JSON.stringify({ lang: "en_us", deviceType: "desktop", country: "us", global: true, ...body }), signal: AbortSignal.timeout(6000) })
+    .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); });
+  return each(field, async (q) => {
+    const j = await widgets({ pageName: "search-results", ddoKey: "refineSearch", from: 0, jobs: true, counts: false, size: 50, keywords: q, selected_fields: {} });
+    return (j.refineSearch?.data?.jobs || []).map((x: any) => ({
+      title: String(x.title || ""), location: String(x.location || x.cityStateCountry || ""), url: `https://${b.slug}/us/en/job/${encodeURIComponent(x.jobId)}`, text: "", posted: x.postedDate,
+      detail: async () => {
+        const d = await widgets({ pageName: "job", ddoKey: "jobDetail", jobSeqNo: x.jobSeqNo });
+        return { text: htmlToText(String(d.jobDetail?.data?.job?.description || x.descriptionTeaser || "")), location: "" };
+      },
+    }));
+  });
+}
 export async function fetchBoard(b: Board, field: string): Promise<Raw[]> {
+  if (b.ats === "phenom") return phenom(b, field);
   if (b.ats === "workday") return workday(b, field);
   if (b.ats === "smartrecruiters") return smartrecruiters(b, field);
   if (b.ats === "oracle") return oracle(b, field);

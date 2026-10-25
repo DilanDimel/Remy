@@ -7,6 +7,7 @@ import { Modal, StatusChip } from "../components/common";
 import { ProfileForm } from "./Onboarding";
 import { useGoogleButton } from "./Welcome";
 import { ProfileImport } from "../components/Uploaders";
+import { GoogleCalendarCard } from "../components/GoogleCalendar";
 import { atAlumniSchool, SchoolVerify, schoolVerified } from "../components/SchoolVerify";
 
 type Tab = "profile" | "sources" | "memory" | "settings" | "data";
@@ -40,24 +41,30 @@ function Sources() {
   const { ws, config, me } = useStore();
   const w = ws!;
   const [open, setOpen] = useState("");
-  const rows: { name: string; status: any; label: string; detail: string; importKind?: string }[] = [
-    { name: "Google account", status: me?.kind === "google" ? "Live" : config?.googleClientId ? "Live" : "Needs setup", label: me?.kind === "google" ? `Signed in as ${me.email}` : config?.googleClientId ? "Available — not signed in" : "Not configured on this server", detail: "Sign-in only (name, email, photo). Remy doesn't request Gmail or Calendar access." },
-    { name: "AI assistant", status: config?.ai.available ? "Live" : "Needs setup", label: config?.ai.available ? "On" : "Not set up on this server", detail: "Used for resume reading, tailoring, plans, chat, outreach drafts and email classification." },
-    { name: "Resume", status: w.resume ? "Student provided" : "Needs setup", label: w.resume ? `${w.resume.fileName} · ${fmtDate(w.resume.uploadedAt)}` : "Not uploaded", detail: "Your evidence base. Replace it anytime in Resume/CV." },
-    { name: "LinkedIn", status: w.imports.some((i) => i.kind === "LinkedIn") ? "Student provided" : "Needs setup", label: "Upload your profile PDF or paste text", detail: "No direct LinkedIn connection — LinkedIn doesn't allow apps to read profiles this way.", importKind: "LinkedIn" },
-    { name: "Handshake", status: w.imports.some((i) => i.kind === "Handshake") ? "Student provided" : "Needs setup", label: "Paste profile or posting text", detail: "Handshake requires your login; Remy never asks for it.", importKind: "Handshake" },
-    { name: "Stellic / TCU academic", status: w.imports.some((i) => i.kind.startsWith("Stellic") || i.kind.startsWith("TCU")) ? "Student provided" : "Needs setup", label: "Paste your degree plan", detail: "No university integration. Requirements must come from your advisor and official tools.", importKind: "Stellic / degree plan" },
-    { name: "Email inbox", status: "Needs setup", label: "Paste emails in Progress", detail: "Inbox reading isn't connected. Sample emails are labeled as demos." },
-    { name: "Calendar", status: "Needs setup", label: "Export .ics or add per item", detail: "No automatic sync — you add items to your own calendar." },
+  const signedIn = me?.kind === "google" || me?.kind === "supabase";
+  const linkedin = w.imports.find((i) => /linkedin/i.test(i.kind));
+  const handshake = w.imports.find((i) => /handshake/i.test(i.kind));
+  const stellic = w.imports.find((i) => /stellic|tcu|degree/i.test(i.kind));
+  // Each row says what's actually connected right now; "chip" overrides the status wording.
+  const rows: { name: string; status: any; chip?: string; label: string; detail: string; importKind?: string }[] = [
+    { name: "Sign-in", status: signedIn ? "Live" : "Needs setup", chip: signedIn ? "Signed in" : "Demo account", label: signedIn ? `Signed in as ${me!.email}` : "You're using a demo account", detail: signedIn ? "Sign-in only (name, email, photo). Remy doesn't read your Gmail or calendar." : "Sign in with Google or email to keep your work across devices." },
+    { name: "AI assistant", status: config?.ai.available ? "Live" : "Needs setup", chip: config?.ai.available ? "On" : "Off", label: config?.ai.available ? "On" : "Not set up on this server", detail: "Used for resume reading, tailoring, plans, chat, outreach drafts and email classification." },
+    { name: "Resume", status: w.resume ? "Student provided" : "Needs setup", chip: w.resume ? "Added" : "Not added", label: w.resume ? `${w.resume.fileName} · ${fmtDate(w.resume.uploadedAt)}` : "Not uploaded yet", detail: "Your evidence base. Replace it anytime in Resume/CV." },
+    { name: "LinkedIn", status: linkedin ? "Student provided" : "Needs setup", chip: linkedin ? "Added" : "Not added", label: linkedin ? `${linkedin.fileName} · ${fmtDate(linkedin.at)}` : "Upload your profile PDF (Resources → Save to PDF on LinkedIn)", detail: "LinkedIn doesn't let apps read profiles directly, so Remy uses the PDF you download.", importKind: "LinkedIn profile (PDF)" },
+    { name: "Handshake", status: handshake ? "Student provided" : "Needs setup", chip: handshake ? "Added" : "Coming soon", label: handshake ? `${handshake.fileName} · ${fmtDate(handshake.at)}` : "Direct connection coming soon · you can paste profile or posting text now", detail: "Handshake requires your login; Remy never asks for it.", importKind: "Handshake" },
+    { name: "Stellic / TCU academic", status: stellic ? "Student provided" : "Needs setup", chip: stellic ? "Added" : "Coming soon", label: stellic ? `${stellic.fileName} · ${fmtDate(stellic.at)}` : "Direct connection coming soon · you can paste your degree plan now", detail: "Requirements must come from your advisor and official tools.", importKind: "Stellic / degree plan" },
+    { name: "Email inbox", status: "Needs setup", chip: "Coming soon", label: "Paste recruiting emails in Progress for now", detail: "Remy doesn't read your inbox. Sample emails are labeled as demos." },
   ];
+
   return (
     <div className="stack">
+      <GoogleCalendarCard />
       {(atAlumniSchool(w) || schoolVerified(me, config?.schoolEmail.domains || [])) && <SchoolVerify />}
       {rows.map((r) => (
         <div key={r.name} className="stack-sm">
           <div className="source-row" data-testid="row-source">
             <div style={{ flex: 1 }}>
-              <div className="row"><strong className="small">{r.name}</strong><StatusChip label={r.status} /></div>
+              <div className="row"><strong className="small">{r.name}</strong><StatusChip label={r.status}>{r.chip}</StatusChip></div>
               <div className="small">{r.label}</div>
               <div className="xs muted">{r.detail}</div>
             </div>
@@ -135,7 +142,7 @@ function Settings() {
       </div>
       <div className="card card-pad stack">
         <h3>Reminders</h3>
-        <p className="xs muted">Shown inside Remy. Email and push reminders aren't configured (Needs setup).</p>
+        <p className="xs muted">Shown inside Remy. Email reminders are coming soon.</p>
         {([["deadlines", "Upcoming deadlines"], ["statusChanges", "Status suggestions from emails"], ["weeklyPlan", "Weekly plan nudge"]] as const).map(([k, l]) => (
           <label key={k} className="row small"><input type="checkbox" checked={s.notify[k]} onChange={() => toggle(k)} data-testid={`toggle-${k}`} /> {l}</label>
         ))}
@@ -161,7 +168,7 @@ function Data() {
           {me?.email && <><dt>Email</dt><dd>{me.email}</dd></>}
           <dt>Last saved</dt><dd>{new Date(ws!.updatedAt).toLocaleString()}</dd>
         </dl>
-        {me?.kind !== "google" && (config?.googleClientId ? <div className="stack-sm"><span className="small">Sign in with Google to keep this workspace across devices:</span><div ref={google.ref} /></div> : <span className="row xs muted"><StatusChip label="Needs setup" /> Google sign-in isn't configured on this server.</span>)}
+        {(me?.kind === "guest" || me?.kind === "visitor") && <span className="small muted">You're using a demo account. Sign out, then sign in with Google or email on the home page to keep your work across devices.</span>}
         {(me?.kind === "google" || me?.kind === "supabase" || me?.kind === "guest") && <div><button className="btn btn-secondary btn-sm" onClick={signOut} data-testid="button-sign-out"><LogOut size={14} /> Sign out</button></div>}
       </div>
       <div className="card card-pad stack">

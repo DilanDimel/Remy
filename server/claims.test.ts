@@ -58,3 +58,8 @@ test("claims: simulations stay simulations, team work stays team work, recommend
   assert.ok(claimCheck("Increased a local coffee shop's social media reach with a new strategy", rec, { original: rec }).some((f) => /recommended/.test(f.message)));
   assert.ok(!claimCheck("Recommended a new social media strategy for a local coffee shop", rec, { original: rec }).some((f) => /recommended/.test(f.message)));
 });
+test("claims: rewording an entry with action verbs isn't flagged as added detail", () => {
+  const orig = "Designed a rear upright in SolidWorks with a team of four and ran FEA to check stress under braking loads";
+  const f = claimCheck("Collaborated with a team of four to model a rear upright in SolidWorks and run FEA to analyze stress under braking loads", orig, { original: orig, entryContext: "Formula SAE Racing Team Suspension Subteam Member" });
+  assert.ok(!f.some((x) => /adds detail/.test(x.message)), JSON.stringify(f));
+});

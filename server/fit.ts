@@ -115,25 +115,41 @@ export function regionMatch(ws: Workspace, job: Job): boolean | null {
 
 // The student's fields (target roles, major, interests) → job titles that belong to them.
 // A title must match one of the student's fields; fields that map to nothing don't filter.
-export const FIELD_TITLES: [RegExp, RegExp][] = [
-  [/financ|bank|invest|m&a|capital|fintech|account|econ|wealth/i, /financ|bank|invest|m&a|merger|capital|equity|credit|analyst|account|audit|tax|assurance|advisory|treasury|fp&a|valuation|trading|risk|wealth|asset|corporate development|strategy|\bbusiness/i],
-  [/market|brand|advertis|social media|communication/i, /market|brand|growth|content|social|communication|advertis|creative/i],
-  [/data|analytic|statistic/i, /data|analytic|insight|intelligence|research|quant/i],
-  [/software|computer science|computer engineering|\bcs\b|developer|\btech\b|programming|information technology/i, /engineer|developer|software|technical|machine learning|data/i],
-  [/supply chain|operations|logistics/i, /operations|supply|logistics|procurement|planning/i],
-  [/consult/i, /consult|strategy|analyst/i],
-  [/sales|business development/i, /sales|business development|account (executive|manager)|partnerships/i],
-  [/quant|math|physics/i, /quant|research|trading|analyst|data/i],
-  [/real estate|property/i, /real estate|property|leasing|appraisal|acquisitions|capital markets|valuation/i],
-  [/human resources|\bhr\b|people|talent|recruit/i, /human resources|\bhr\b|people|talent|recruit/i],
-  [/health|pharma|biotech|medical|pre-?med|kinesiolog|nutrition|public health/i, /health|clinical|pharma|patient|medical|biotech|hospital/i],
-  [/nurs|\brn\b|\bbsn\b/i, /nurs|\brn\b|patient care|care (tech|assistant)|extern|clinical|\bcna\b|hospital/i],
-  // Engineering other than software: mechanical, civil, electrical… Software titles are left to the software row.
-  [/mechanical|civil|electrical|industrial|aerospace|chemical|biomedical|manufacturing|petroleum|structural|\bengineering\b/i, /^(?!.*software).*(engineer|engineering|manufacturing|design|process|quality|field|technician|project)/i],
-  [/educat|teach/i, /teach|education|tutor|instruct|classroom/i],
+// Fields follow the National Career Clusters (Advance CTE, 2024), split where college students commonly go.
+// Each row: [what the student says (major, roles, interests), job titles that belong to it, Workday search word].
+const FIELDS: [RegExp, RegExp, string][] = [
+  [/financ|bank|invest|m&a|capital|fintech|account|econ|wealth|cpa/i, /financ|bank|invest|m&a|merger|capital|equity|credit|analyst|account|audit|tax|assurance|advisory|treasury|fp&a|valuation|trading|risk|wealth|asset|corporate development|strategy|\bbusiness/i, "finance"],
+  [/quant|math|statistic|actuar|physics/i, /quant|research|trading|analyst|data|actuar|statistic|model/i, "quantitative"],
+  [/market|brand|advertis|social media|public relations|\bpr\b/i, /market|brand|growth|content|social|communication|advertis|creative|public relations|\bpr\b|digital|campaign/i, "marketing"],
+  [/sales|business development/i, /sales|business development|account (executive|manager)|partnerships|customer success/i, "sales"],
+  [/management|entrepreneur|business admin|\bbba\b|general business|startup/i, /business|operations|management|associate|analyst|strategy|project|program|leadership|rotational/i, "business"],
+  [/consult/i, /consult|strategy|analyst|advisory/i, "consulting"],
+  [/human resources|\bhr\b|people|talent|recruit/i, /human resources|\bhr\b|people|talent|recruit/i, "human resources"],
+  [/data|analytic|statistic/i, /data|analytic|insight|intelligence|research|quant/i, "data"],
+  [/software|computer science|computer engineering|\bcs\b|developer|\btech\b|programming|information technology|cyber|information systems|\bbis\b|\bmis\b/i, /engineer|developer|software|technical|machine learning|data|cyber|security|network|systems|\bit\b|technology|cloud/i, "software"],
+  [/mechanical|civil|electrical|industrial|aerospace|chemical|biomedical|manufacturing|petroleum|structural|\bengineering\b/i, /^(?!.*software).*(engineer|engineering|manufacturing|design|process|quality|field|technician|project)/i, "engineering"],
+  [/architect|construction|interior design|urban planning|landscape/i, /architect|construction|project|design|planning|estimat|field|site/i, "construction"],
+  [/supply chain|operations|logistics|transportation/i, /operations|supply|logistics|procurement|planning|transportation|warehouse|distribution/i, "operations"],
+  [/aviation|pilot|flight|aerospace|air traffic/i, /aviation|pilot|flight|airport|aircraft|aerospace|air operations|maintenance/i, "aviation"],
+  [/real estate|property/i, /real estate|property|leasing|appraisal|acquisitions|capital markets|valuation/i, "real estate"],
+  [/health|pharma|biotech|medical|pre-?med|medicine|doctor|physician|dental|dentist|pharmacy|physical therapy|occupational therapy|\bpa\b|physician assistant|kinesiolog|nutrition|public health|pre-?health/i, /health|clinical|pharma|patient|medical|biotech|hospital|scribe|research assistant|lab|therapy|dental|pharmacy|care/i, "healthcare"],
+  [/nurs|\brn\b|\bbsn\b/i, /nurs|\brn\b|patient care|care (tech|assistant)|extern|clinical|\bcna\b|hospital/i, "nursing"],
+  [/psycholog|social work|counsel|human services|sociolog|child development|family studies/i, /social work|case manag|counsel|mental health|behavior|psych|advocate|family|youth|human services|community/i, "social work"],
+  [/biology|chemistry|physics|neuroscience|environmental science|geology|research|lab science|biochem/i, /research|lab|scientist|chemist|biolog|science|technician|field/i, "research"],
+  [/environment|sustainab|agricultur|ranch|conservation|energy|natural resources|wildlife|forestry/i, /environment|sustainab|energy|conservation|agricultur|ranch|wildlife|park|field|natural resources/i, "sustainability"],
+  [/educat|teach/i, /teach|education|tutor|instruct|classroom|school|camp|youth/i, "education"],
+  [/\blaw\b|legal|pre-?law|paralegal|political science|government|public policy|international relations/i, /legal|\blaw\b|paralegal|clerk|policy|government|legislative|public affairs|compliance|court|advocacy/i, "legal"],
+  [/police|criminal justice|criminology|firefight|fire science|\bemt\b|paramedic|public safety|military|homeland security|corrections/i, /police|officer|fire|firefighter|emt|paramedic|dispatch|cadet|corrections|public safety|emergency|security|investigat/i, "public safety"],
+  [/\bart\b|\barts\b|studio art|graphic design|design|fashion|photograph|animation|illustrat|museum|art history/i, /design|designer|creative|\bart\b|artist|studio|fashion|photograph|animation|illustrat|museum|gallery|visual/i, "design"],
+  [/film|theat(er|re)|acting|actor|actress|perform|music|dance|entertainment|cinema/i, /film|production|theat|acting|music|dance|entertainment|performance|stage|studio|talent|video|audio/i, "entertainment"],
+  [/journalis|english|creative writing|writing|communication|broadcast|media/i, /journalis|reporter|editor|writer|writing|content|media|broadcast|news|communications|copy/i, "communications"],
+  [/hospitality|hotel|event|tourism|culinary|restaurant/i, /hospitality|hotel|event|guest|tourism|culinary|restaurant|food|venue|front desk/i, "hospitality"],
+  [/sport|athletic|recreation|exercise science|coaching/i, /sport|athletic|recreation|fitness|coach|team operations|ticket|stadium/i, "sports"],
+  [/nonprofit|non-profit|ministry|religio|social impact|philanthrop/i, /nonprofit|program|volunteer|community|outreach|development|ministry|advocacy/i, "nonprofit"],
 ];
+export const FIELD_TITLES: [RegExp, RegExp][] = FIELDS.map(([who, title]) => [who, title]);
 // The search word for each FIELD_TITLES row, in the same order.
-export const FIELD_SEARCH = ["finance", "marketing", "data", "software", "operations", "consulting", "sales", "quantitative", "real estate", "human resources", "healthcare", "nursing", "engineering", "education"];
+export const FIELD_SEARCH = FIELDS.map(([, , word]) => word);
 
 /** Postings the student pasted in themselves are never hidden by field or type: they chose them. */
 const studentAdded = (job: Job) => job.origin === "imported" && !/job board/i.test(job.sourceName || "");

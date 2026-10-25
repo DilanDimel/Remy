@@ -24,7 +24,7 @@ import { atsScore } from "./ats";
 import { boardsFor, discoverJobs, EMPLOYERS } from "./sources";
 import { alumniList, matchAlumni } from "./alumni";
 import { emailReady, sendEmail } from "./email";
-import { editDocx } from "./docxEdit";
+import { docxStyle, editDocx } from "./docxEdit";
 import * as gcal from "./gcal";
 import { q, schema } from "./sql";
 import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./docs";
@@ -512,7 +512,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     await saveFile(ctx.me.id, "resume", f!.originalname, mime, f!.buffer);
     ctx.ws.resume!.original = { name: f!.originalname, mime, size: f!.size };
     // So downloads can match the student's look (font, size, margins, length).
-    if (mime === "application/pdf") ctx.ws.resume!.style = (await pdfStyle(f!.buffer).catch(() => null)) || undefined;
+    ctx.ws.resume!.style = (await (mime === "application/pdf" ? pdfStyle(f!.buffer) : mime.includes("wordprocessingml") ? docxStyle(f!.buffer) : Promise.resolve(null)).catch(() => null)) || undefined;
     await ctx.save();
     res.json(ctx.ws);
   }));

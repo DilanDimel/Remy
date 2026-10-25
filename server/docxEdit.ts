@@ -50,3 +50,20 @@ export async function editDocx(buf: Buffer, edits: { from: string; to: string }[
   zip.file("word/document.xml", xml);
   return { buf: await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }), missed };
 }
+
+const SERIF = /times|georgia|garamond|cambria|book antiqua|palatino|baskerville|bodoni|century schoolbook|didot|minion|constantia|bookman|caslon/i;
+/** How the student's Word file looks (font family, body size, left margin, pages), so Remy's PDF can match it. */
+export async function docxStyle(buf: Buffer): Promise<{ serif: boolean; size: number; margin: number; pages: number } | null> {
+  const zip = await JSZip.loadAsync(buf);
+  const doc = await zip.file("word/document.xml")?.async("string");
+  if (!doc) return null;
+  const styles = (await zip.file("word/styles.xml")?.async("string")) || "";
+  const app = (await zip.file("docProps/app.xml")?.async("string")) || "";
+  const tally = (xml: string, re: RegExp) => { const m = new Map<string, number>(); for (const x of xml.matchAll(re)) m.set(x[1], (m.get(x[1]) || 0) + 1); return [...m].sort((a, b) => b[1] - a[1])[0]?.[0]; };
+  const font = tally(doc, /w:ascii="([^"]+)"/g) || tally(styles, /w:ascii="([^"]+)"/g) || "";
+  const normal = styles.match(/<w:style\b[^>]*w:styleId="Normal"[\s\S]*?<\/w:style>/)?.[0] || "";
+  const half = Number(tally(doc, /<w:sz w:val="(\d+)"/g) || normal.match(/<w:sz w:val="(\d+)"/)?.[1] || styles.match(/<w:docDefaults>[\s\S]*?<w:sz w:val="(\d+)"/)?.[1] || 21);
+  const left = Number(doc.match(/<w:pgMar[^>]*w:left="(\d+)"/)?.[1] || 1440);
+  const pages = Number(app.match(/<Pages>(\d+)<\/Pages>/)?.[1] || 1);
+  return { serif: SERIF.test(font), size: Math.min(12, Math.max(9, half / 2)), margin: Math.min(72, Math.max(28, Math.round(left / 20))), pages: Math.max(1, pages) };
+}

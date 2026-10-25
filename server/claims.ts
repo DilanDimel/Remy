@@ -45,6 +45,7 @@ const CREDENTIALS = /\b(master'?s|mba|ph\.?\s?d|doctoral|doctorate)(?:[- ](?:lev
 const HEDGES = [/\bestimated\b/i, /\bapproximately\b/i, /\bapprox\.?(?=\s)/i, /\broughly\b/i, /\bnearly\b/i, /\balmost\b/i, /\bup to\b/i, /\bmore than\b/i, /\bat least\b/i, /\bco-(?:founded|led|organized|created|authored|chaired)\b/i, /\bhelped\b/i, /\bassisted\b/i, /\bcontributed\b/i, /\bparticipated\b/i];
 const CLASS_YEAR = ["first-year", "first year", "freshman", "sophomore", "second-year", "second year", "junior", "third-year", "senior", "fourth-year"];
 const STOP = new Set("about above across after again against among because before being below between both during each from further having into itself more most other over same some such than that their them then there these they this those through under until very what when where which while with within would your yours ours also just only onto upon".split(/\s+/));
+const REWORD = /^(collaborat|cooperat|partner|model|analy[sz]|assess|evaluat|review|examin|design|develop|build|built|construct|conduct|coordinat|organiz|arrang|assist|aid|run|ran|operat|fabricat|machin|prepar|creat|produc|perform|complet|execut|deliver|handl|process|apply|appli|test|measur|calculat|research|investigat|present|communicat|explain|document|record|maintain|manag(?!er)|track|monitor|serv|help|support|contribut|participat|work|utiliz|employ|leverag)/;
 const LIGHT = new Set("using including various multiple several across within helped worked support supported perform performed create created creating materials".split(" "));
 const OUTCOME = /\b(ensuring|ensure|resulting in|leading to|which (improved|increased|reduced)|improv(ed|ing)|increas(ed|ing)|reduc(ed|ing)|driv(ed|ing)|streamlin(ed|ing)|optimiz(ed|ing)|boost(ed|ing)|to keep|enabl(ed|ing)|that emphasizes|emphasizing|demonstrating|showcasing)\b/i;
 
@@ -175,7 +176,8 @@ export function claimCheck(
     // Words that exist elsewhere in the resume don't make an added clause true here.
     const local = lc(opts.original + " " + (opts.entryContext || "")).replace(/\bib\b/g, "investment banking");
     const localStems = new Set((local.match(/[a-z][a-z-]{3,}/g) || []).map(stem));
-    const added = Array.from(new Set((t.match(/[a-z][a-z-]{3,}/g) || []).filter((w) => !STOP.has(w) && !LIGHT.has(w) && !localStems.has(stem(w)))));
+    // Rewording verbs ("collaborated", "modeled", "analyzed") restate what the student did; they aren't new facts.
+    const added = Array.from(new Set((t.match(/[a-z][a-z-]{3,}/g) || []).filter((w) => !STOP.has(w) && !LIGHT.has(w) && !REWORD.test(w) && !localStems.has(stem(w)))));
     if (added.length >= 3 && novel.length < 3 && !newOutcome) {
       add({
         type: "scope",
