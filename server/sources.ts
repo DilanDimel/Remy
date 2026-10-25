@@ -11,7 +11,7 @@ import { abroad, FIELD_SEARCH, FIELD_TITLES, regionMatch } from "./fit";
 // posting links straight back to the employer. No login, no scraping of
 // third-party aggregators.
 
-type Board = { ats: "greenhouse" | "lever" | "ashby" | "workday" | "smartrecruiters" | "oracle" | "eightfold" | "phenom"; slug: string; company: string; fields?: string[] };
+type Board = { ats: "greenhouse" | "lever" | "ashby" | "workday" | "smartrecruiters" | "oracle" | "eightfold" | "phenom" | "usajobs"; slug: string; company: string; fields?: string[] };
 
 // Employers whose career sites Remy reads, with the fields they hire for (server/data/employers.json).
 export const EMPLOYERS: Board[] = (JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "server", "data", "employers.json"), "utf8")).employers as { company: string; ats: Board["ats"]; board: string; fields: string[] }[])
@@ -35,10 +35,10 @@ export const DEFAULT_BOARDS: Board[] = EMPLOYERS.length ? EMPLOYERS : [
   { ats: "ashby", slug: "mercury", company: "Mercury" },
 ];
 
-const EARLY = /\b(intern(ship)?s?|co-?op|new grad(uate)?|early career|entry[- ]level|campus|university|student|summer analyst|analyst program|rotational|apprentice|fellow(ship)?|insight|extern(ship)?s?|nurse residen\w*|graduate nurse|nurse intern|new grad rn|freshm[ae]n|sophomores?|first[- ]year|discover\w*|explore|launch|ambassadors?|leadership program|diversity program)\b/i;
+const EARLY = /\b(intern(ship)?s?|co-?op|new grad(uate)?|early career|entry[- ]level|campus|university|student|summer analyst|analyst program|rotational|apprentice|fellow(ship)?|insight|extern(ship)?s?|nurse residen\w*|graduate nurse|nurse intern|new grad rn|freshm[ae]n|sophomores?|first[- ]year|discover\w*|explore|launch|ambassadors?|leadership program|diversity program|pathways|recent graduate|trainee)\b/i;
 const SENIOR = /\b(senior|sr\.?|staff|principal|lead|manager|director|head of|vp|vice president|ii|iii|iv)\b/i;
 // Roles meant for graduate students, skipped for undergraduates.
-const GRAD_LEVEL = /\b(graduate intern(ship)?|intern,?\s*graduate|mba|ph\.?\s?d|doctoral|postdoc|post-doc|master'?s|graduate student|j\.?d\.?)\b/i;
+const GRAD_LEVEL = /\b(graduate intern(ship)?|intern,?\s*graduate|mba|ph\.?\s?d|doctoral|postdoc|post-doc|master'?s|graduate student|j\.?d\.?|law student|law clerk|medical student|residency program)\b/i;
 const KEYWORDS = [
   "Excel", "PowerPoint", "Python", "SQL", "R ", "Tableau", "Power BI", "financial modeling", "valuation", "accounting", "data analysis", "analytics",
   "market research", "communication", "written communication", "presentation", "teamwork", "leadership", "problem solving", "attention to detail",
@@ -68,7 +68,7 @@ function kindOf(title: string): Job["kind"] {
   return /intern|extern|co-?op|summer analyst/i.test(title) ? "internship" : /program|fellow|insight|rotational|residen/i.test(title) ? "program" : "job";
 }
 
-type Raw = { title: string; location: string; url: string; text: string; posted?: string; detail?: () => Promise<{ text: string; location?: string }> };
+type Raw = { title: string; location: string; url: string; text: string; posted?: string; company?: string; deadline?: string; student?: boolean; nearby?: boolean; detail?: () => Promise<{ text: string; location?: string }> };
 async function getJson(url: string): Promise<any> {
   const r = await fetch(url, { headers: { Accept: "application/json", "User-Agent": "RemyBot/1.0 (student career assistant)" }, signal: AbortSignal.timeout(5000) });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -190,7 +190,31 @@ async function phenom(b: Board, field: string): Promise<Raw[]> {
     }));
   });
 }
-export async function fetchBoard(b: Board, field: string): Promise<Raw[]> {
+// USAJOBS, the federal government's official job API (free key; USAJOBS_KEY + USAJOBS_EMAIL). Searches
+// student and recent-graduate roles (Pathways) near the student's region, plus remote ones.
+export const USAJOBS: Board = { ats: "usajobs", slug: "usajobs", company: "U.S. federal government", fields: [] };
+async function usajobs(field: string, region: string): Promise<Raw[]> {
+  const key = process.env.USAJOBS_KEY, email = process.env.USAJOBS_EMAIL;
+  if (!key || !email) return [];
+  const where = /dallas|fort worth|dfw/i.test(region) ? "Dallas, Texas" : region.split(/[;/]/)[0].trim();
+  const search = async (extra: string) => {
+    // No keyword: there are few federal student roles in any one area, and Remy's own title checks pick the student's field.
+    const r = await fetch(`https://data.usajobs.gov/api/search?HiringPath=student;graduates&ResultsPerPage=250${extra}`, { headers: { Host: "data.usajobs.gov", "User-Agent": email, "Authorization-Key": key }, signal: AbortSignal.timeout(8000) });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return ((await r.json()).SearchResult?.SearchResultItems || []).map((i: any) => i.MatchedObjectDescriptor);
+  };
+  const lists = await Promise.all([where ? search(`&LocationName=${encodeURIComponent(where)}&Radius=60`) : Promise.resolve([]), search("&RemoteIndicator=True")].map((p) => p.catch(() => [] as any[])));
+  const seen = new Set<string>();
+  return lists.flat().filter((x: any) => x?.PositionURI && !seen.has(x.PositionURI) && seen.add(x.PositionURI)).map((x: any) => ({
+    // Every result is a student or recent-graduate role, found near the student or remote.
+    student: true, nearby: true,
+    title: String(x.PositionTitle || ""), company: String(x.OrganizationName || x.DepartmentName || "U.S. federal government"),
+    location: String(x.PositionLocationDisplay || ""), url: String(x.PositionURI), posted: x.PublicationStartDate, deadline: String(x.ApplicationCloseDate || "").slice(0, 10),
+    text: [x.UserArea?.Details?.JobSummary, x.QualificationSummary, x.UserArea?.Details?.Education, x.UserArea?.Details?.Requirements].filter(Boolean).join("\n"),
+  }));
+}
+export async function fetchBoard(b: Board, field: string, region = ""): Promise<Raw[]> {
+  if (b.ats === "usajobs") return usajobs(field, region);
   if (b.ats === "phenom") return phenom(b, field);
   if (b.ats === "workday") return workday(b, field);
   if (b.ats === "smartrecruiters") return smartrecruiters(b, field);
@@ -236,16 +260,16 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25): 
     while (i < boards.length) {
       const b = boards[i++];
       let raws: Raw[] = [];
-      try { raws = await fetchBoard(b, field); } catch { continue; }
+      try { raws = await fetchBoard(b, field, ws.profile.regions || ws.profile.location || ""); } catch { continue; }
       if (!raws.length) continue;
       reached.push(b.company);
       let details = 0;
       for (const r of raws) {
-        if (!r.url || known.has(r.url) || !EARLY.test(r.title) || (SENIOR.test(r.title) && !/intern|co-?op|new grad|student/i.test(r.title))) continue;
+        if (!r.url || known.has(r.url) || (!r.student && (!EARLY.test(r.title) || (SENIOR.test(r.title) && !/intern|co-?op|new grad|student/i.test(r.title))))) continue;
         if (undergrad && GRAD_LEVEL.test(r.title)) continue;
         if (titleFits.length && !titleFits.some((t) => t.test(r.title))) continue;
         // Skip places the student didn't ask for before spending a detail read on them.
-        const where = (location: string) => { const m = regionMatch(ws, { location, format: /remote/i.test(location) ? "Remote" : "" } as Job); return m ?? !abroad(location); };
+        const where = (location: string) => { if (r.nearby) return true; const m = regionMatch(ws, { location, format: /remote/i.test(location) ? "Remote" : "" } as Job); return m ?? !abroad(location); };
         if (!/^\d+ locations?$/i.test(r.location) && !where(r.location)) continue;
         // Workday lists only titles; read the full posting for the few that pass the title checks.
         if (r.detail && !r.text) {
@@ -259,8 +283,8 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25): 
         const hay = `${r.title} ${r.text.slice(0, 3000)}`.toLowerCase();
         const rel = fields.filter((f) => hay.includes(f)).length;
         const job: Job = {
-          id: uid("j"), kind: kindOf(r.title), title: r.title, company: b.company, location: r.location || "Not stated",
-          format: /remote/i.test(r.location) ? "Remote" : "", dates: "", deadline: "", deadlineText: "Not stated on the board — check the posting",
+          id: uid("j"), kind: kindOf(r.title), title: r.title, company: r.company || b.company, location: r.location || "Not stated",
+          format: /remote/i.test(r.location) ? "Remote" : "", dates: "", deadline: r.deadline || "", deadlineText: r.deadline ? `Closes ${r.deadline}` : "Not stated on the board — check the posting",
           eligibility: eligibilityFrom(r.text), requirements: requirementsFrom(r.text), summary: r.text.replace(/\s+/g, " ").slice(0, 420),
           applyUrl: r.url, sourceUrl: r.url, sourceName: `${b.company} careers (${b.ats[0].toUpperCase() + b.ats.slice(1)} job board)`,
           label: "Live", checkedAt: new Date().toISOString(), checks: [], origin: "imported", postingText: r.text.slice(0, 12000),
