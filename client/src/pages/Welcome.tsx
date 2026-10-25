@@ -123,6 +123,7 @@ export default function Welcome() {
             {anyReal ? "Signing in keeps your workspace across devices. " : <><StatusChip label="Needs setup">Sign-in</StatusChip>{" "}</>}
             Remy never asks for your passwords.
           </p>
+          <p className="xs muted"><a href="#/about">About</a> · <a href="#/policies">Privacy & terms</a></p>
         </div>
       </div>
     </div>

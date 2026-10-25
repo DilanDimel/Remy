@@ -19,6 +19,7 @@ import Community from "./pages/Community";
 import CalendarPage from "./pages/Calendar";
 import Progress from "./pages/Progress";
 import Accounts from "./pages/Accounts";
+import { About, Policies } from "./pages/Info";
 import type { Workspace } from "@shared/types";
 
 const NAV = [
@@ -44,6 +45,10 @@ export default function App() {
 
 function Root() {
   const { loading, ws, me, signInAgain } = useStore();
+  const { path } = useRoute();
+  // Public pages: readable without signing in.
+  if (path === "/about") return <About />;
+  if (path === "/policies" || path === "/privacy" || path === "/terms") return <Policies />;
   if (loading)
     return (
       <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
