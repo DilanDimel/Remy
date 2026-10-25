@@ -72,6 +72,7 @@ export function Policies() {
         <ul className="stack-sm" style={{ paddingLeft: 18 }}>
           <li>Remy never asks for or stores your passwords.</li>
           <li>Remy doesn't read your email, calendar, LinkedIn, Handshake or school accounts. It only uses the files and text you choose to give it.</li>
+          <li>If you connect Google Calendar, Remy creates one separate calendar called “Remy” and only ever touches that one. It can't see your other calendars or events.</li>
           <li>Remy doesn't sell your information or show you ads.</li>
         </ul>
       </Section>
@@ -84,10 +85,10 @@ export function Policies() {
         <p>Alumni matches come from the TCU Neeley alumni networking list. They're shown only to students who've verified a TCU email, and an alum's email address is shown only when you choose to contact them. Please use it only to ask for career advice, never to spam or share the list.</p>
       </Section>
       <Section title="Where it's stored">
-        <p>Your information is stored in a Supabase database and served from Render, both in the United States. Sign-in is handled by Supabase (with Google, LinkedIn or an email link) or Google.</p>
+        <p>Your information is stored in a Supabase database and served from Render, both in the United States. Sign-in is handled by Supabase (with Google, LinkedIn or an email link) or Google. If you connect Google Calendar, Remy keeps an encrypted Google access key so it can update and delete its “Remy” calendar; disconnecting deletes the calendar and the key.</p>
       </Section>
       <Section title="Deleting your information">
-        <p>Go to <b>Account → Account & data → Delete everything</b>. Your resume, files, profile, applications, calendar, contacts, chat, verified school email, sign-in record and account are deleted immediately, and you're signed out. Remy keeps nothing that identifies you. Combined statistics, if any, can't be traced back to you.</p>
+        <p>Go to <b>Account → Account & data → Delete everything</b>. Your resume, files, profile, applications, calendar, contacts, chat, verified school email, sign-in record and account are deleted immediately, the “Remy” calendar is deleted from your Google Calendar if you connected it, and you're signed out. Remy keeps nothing that identifies you. Combined statistics, if any, can't be traced back to you.</p>
         <p>You can also <b>download all your data</b> from the same page at any time. Guest (demo) accounts are deleted automatically after 30 days without use. Copies in our hosting providers' routine backups expire on their own schedule.</p>
       </Section>
 

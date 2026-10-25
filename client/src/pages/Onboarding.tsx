@@ -9,6 +9,7 @@ import { ProfileImport, ResumeUpload } from "../components/Uploaders";
 import { atAlumniSchool, SchoolVerify } from "../components/SchoolVerify";
 import { ResumeBuilder } from "../components/ResumeBuilder";
 import { LinkedInGuide } from "../components/LinkedInGuide";
+import { useGoogleCalendar } from "../components/GoogleCalendar";
 import { LinkedInMark } from "./Welcome";
 
 // Step numbers are stored in the workspace; 0 and 1 both open the resume step.
@@ -108,6 +109,7 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
   const [busy, setBusy] = useState(false);
   const [page, setPage] = useState<"" | "build" | "linkedin">("");
   const linkedin = w.imports.find((i) => /linkedin/i.test(i.kind));
+  const gc = useGoogleCalendar();
   if (page === "build" && !w.resume) return <ResumeBuilder onDone={onNext} onCancel={() => setPage("")} />;
   if (page === "linkedin") return <LinkedInGuide onDone={() => setPage("")} />;
   const soon: [string, string, string, ReactNode][] = [
@@ -163,8 +165,11 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
         )}
         <div className="conn-row">
           <span className="conn-ico gcal" aria-hidden><CalendarMark /></span>
-          <div className="grow"><b>Google Calendar</b><span>Your deadlines and interviews in your own calendar. Removed the moment you delete your account.</span></div>
-          <span className="conn-badge">Coming soon</span>
+          <div className="grow"><b>Google Calendar</b><span>Your deadlines and interviews in a separate “Remy” calendar. Remy can't see your other calendars, and deletes it the moment you delete your account.</span></div>
+          {!gc.available ? <span className="conn-badge">Coming soon</span>
+            : gc.connected ? <span className="conn-badge done"><Check size={13} /> Connected</span>
+            : gc.signedIn ? <button className="btn btn-secondary btn-sm" onClick={() => gc.connect("setup")} data-testid="button-source-gcal">Connect</button>
+            : <span className="conn-badge">Sign in to connect</span>}
         </div>
         {soon.map(([k, title, what, ico]) => (
           <div key={k} className="conn-row">

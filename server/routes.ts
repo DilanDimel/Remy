@@ -1,5 +1,6 @@
 import type { Express, NextFunction, Request, Response } from "express";
 import type { Server } from "node:http";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import multer from "multer";
@@ -23,6 +24,7 @@ import { atsScore } from "./ats";
 import { boardsFor, discoverJobs, EMPLOYERS } from "./sources";
 import { alumniList, matchAlumni } from "./alumni";
 import { emailReady, sendEmail } from "./email";
+import * as gcal from "./gcal";
 import { q, schema } from "./sql";
 import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./docs";
 
@@ -80,6 +82,10 @@ function route(fn: H, opts: { create?: boolean } = {}) {
         // The database merges just these sections into what's stored, in one statement.
         const fresh = await saveSections(me!.id, changed as Partial<Workspace>);
         Object.assign(ws, fresh);
+        if ("calendar" in changed && gcal.gcalReady()) {
+          const id = me!.id;
+          gcal.connected(id).then((on) => on && gcal.syncSoon(id, async () => (await loadWorkspace(id)).calendar)).catch(() => {});
+        }
         for (const [k, v] of Object.entries(fresh)) before.set(k, JSON.stringify(v));
       };
       const ctx: Ctx = { me, ws, ip, save };
@@ -281,6 +287,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       today: new Date().toISOString().slice(0, 10),
       supabase: sb ? { ...sb, providers: await supabaseProviders() } : null,
       schoolEmail: { ready: emailReady() || devCodes(), domains: ALUMNI_DOMAINS },
+      googleCalendar: gcal.gcalReady(),
     };
     res.json(cfg);
   });
@@ -1130,6 +1137,40 @@ Return JSON:
     res.json({ me });
   }));
 
+  // ---------- Google Calendar (Remy's own calendar in the student's Google account) ----------
+  // shortcut: pending consent states live in memory (10 minutes, one server process); move to the DB if we run more than one.
+  const gcalStates = new Map<string, { userId: string; back: string; tz: string; exp: number }>();
+  const gcalRedirect = (req: Request) => process.env.GCAL_REDIRECT || `https://${req.headers.host}/api/calendar/callback`;
+  app.get("/api/calendar/google", route(async (_req, res, ctx) => {
+    res.json({ available: gcal.gcalReady(), connected: gcal.gcalReady() && (await gcal.connected(ctx.me.id)) });
+  }));
+  app.get("/api/calendar/connect", route(async (req, res, ctx) => {
+    if (!gcal.gcalReady()) bad("Google Calendar isn't set up on this server yet.", 503);
+    // Guest accounts expire, so the calendar stays tied to a real account that can always delete it.
+    if (!signedIn(ctx.me)) bad("Sign in with Google or email first, then connect your calendar.", 401);
+    const state = crypto.randomBytes(24).toString("base64url");
+    const tz = /^[A-Za-z_]+\/[A-Za-z_\/-]+$/.test(String(req.query.tz || "")) ? String(req.query.tz) : "America/Chicago";
+    gcalStates.set(state, { userId: ctx.me.id, back: req.query.back === "setup" ? "/#/" : "/#/calendar", tz, exp: Date.now() + 10 * 60_000 });
+    res.redirect(gcal.authUrl(state, gcalRedirect(req)));
+  }));
+  app.get("/api/calendar/callback", route(async (req, res, ctx) => {
+    const st = gcalStates.get(String(req.query.state || ""));
+    gcalStates.delete(String(req.query.state || ""));
+    if (!st || st.exp < Date.now() || st.userId !== ctx.me.id) return res.redirect("/#/calendar?gcal=expired");
+    if (req.query.error || !req.query.code) return res.redirect(st.back + (st.back.includes("?") ? "&" : "?") + "gcal=cancelled");
+    try {
+      await gcal.connect(ctx.me.id, String(req.query.code), gcalRedirect(req), st.tz);
+      await gcal.sync(ctx.me.id, ctx.ws.calendar).catch((e) => console.error("first Google Calendar sync failed:", e?.message));
+      res.redirect(st.back + (st.back.includes("?") ? "&" : "?") + "gcal=connected");
+    } catch (e: any) {
+      console.error("Google Calendar connect failed:", e?.message);
+      res.redirect(st.back + (st.back.includes("?") ? "&" : "?") + "gcal=failed");
+    }
+  }));
+  app.delete("/api/calendar/google", route(async (_req, res, ctx) => {
+    res.json({ removed: await gcal.disconnect(ctx.me.id) });
+  }));
+
   // ---------- community outreach ----------
   app.post("/api/community/sample", route(async (_req, res, ctx) => {
     for (const c of SAMPLE_CONTACTS) if (!ctx.ws.contacts.some((x) => x.id === c.id)) ctx.ws.contacts.push(c);
@@ -1345,6 +1386,8 @@ Return JSON:
   // Supabase sign-ins also have a login record (email, name, Google id) in Supabase Auth; a narrow database
   // function (<schema>.delete_login, set up in Supabase) removes it too.
   app.delete("/api/ws", route(async (req, res, ctx) => {
+    // The Remy calendar in their Google account goes first, while Remy still has access to delete it.
+    const calendarRemoved = await gcal.disconnect(ctx.me.id);
     await deleteAccount(ctx.me.id);
     let loginRemoved = ctx.me.kind !== "supabase";
     if (!loginRemoved) {
@@ -1352,6 +1395,6 @@ Return JSON:
       catch (e: any) { console.error("Couldn't remove the Supabase login record:", e?.message); }
     }
     await endSession(req, res);
-    res.json({ deleted: true, loginRemoved });
+    res.json({ deleted: true, loginRemoved, calendarRemoved });
   }));
 }

@@ -16,7 +16,7 @@ if (!from || from === process.argv[1]) {
 
 type Row = Record<string, any>;
 // ai_usage isn't copied: it's a rolling 24-hour counter that refills by itself.
-const TABLES = ["users", "sessions", "workspaces", "files"] as const;
+const TABLES = ["users", "sessions", "workspaces", "files", "google_calendar"] as const;
 
 async function readSource(): Promise<Record<(typeof TABLES)[number], Row[]>> {
   if (from.startsWith("sqlite:")) {
@@ -27,6 +27,7 @@ async function readSource(): Promise<Record<(typeof TABLES)[number], Row[]>> {
       sessions: all("sessions").map((s) => ({ ...s, expires_at: new Date(Number(s.expires_at)) })),
       workspaces: all("workspaces").map((w) => ({ ...w, updated_at: new Date(w.updated_at) })),
       files: all("files").map((f) => ({ ...f, at: new Date(f.at) })),
+      google_calendar: [] as Row[], // the old SQLite site never had calendar connections
     };
     db.close();
     return out;
@@ -44,6 +45,8 @@ const INSERT: Record<(typeof TABLES)[number], [string, (r: Row) => unknown[]]> =
   sessions: ["INSERT INTO sessions (token_hash, user_id, expires_at) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING", (r) => [r.token_hash, r.user_id, r.expires_at]],
   workspaces: ["INSERT INTO workspaces (user_id, data, updated_at) VALUES ($1,$2::jsonb,$3) ON CONFLICT DO NOTHING", (r) => [r.user_id, typeof r.data === "string" ? r.data : JSON.stringify(r.data), r.updated_at]],
   files: ["INSERT INTO files (user_id, kind, name, mime, data, at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING", (r) => [r.user_id, r.kind, r.name, r.mime, Buffer.from(r.data), r.at]],
+  // Tokens are encrypted with GCAL_CLIENT_SECRET: the new host needs the same secret.
+  google_calendar: ["INSERT INTO google_calendar (user_id, refresh, calendar_id, tz, connected_at) VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING", (r) => [r.user_id, r.refresh, r.calendar_id, r.tz, r.connected_at]],
 };
 
 const source = await readSource();
