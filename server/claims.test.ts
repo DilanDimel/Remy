@@ -46,3 +46,15 @@ const truthful: [string, string, object?][] = [
   ["posting figure in a letter", "I am excited about the 10-week program.", { postingText: "This 10-week program runs each summer.", postingNumbersOk: true }],
 ];
 for (const [name, text, opts] of truthful) test(`clean: ${name}`, () => assert.deepEqual(claimCheck(text, evidence, opts || {}), [], text));
+
+test("claims: simulations stay simulations, team work stays team work, recommendations aren't results", () => {
+  const sim = "Built a DCF model in Excel during the J.P. Morgan Investment Banking Job Simulation (Forage)";
+  assert.ok(claimCheck("Built a DCF model as an investment banking analyst at J.P. Morgan", sim, { original: sim }).some((f) => /simulation/.test(f.message)));
+  assert.ok(!claimCheck("Built a DCF model in Excel in a J.P. Morgan job simulation", sim, { original: sim }).some((f) => /simulation/.test(f.message)));
+  const team = "Worked with a team of classmates to build a marketing plan";
+  assert.ok(claimCheck("Built a marketing plan for a local business", team, { original: team }).some((f) => f.term === "team"));
+  assert.ok(!claimCheck("Collaborated with classmates to build a marketing plan", team, { original: team }).some((f) => f.term === "team"));
+  const rec = "Recommended a social media strategy for a local coffee shop in a class project";
+  assert.ok(claimCheck("Increased a local coffee shop's social media reach with a new strategy", rec, { original: rec }).some((f) => /recommended/.test(f.message)));
+  assert.ok(!claimCheck("Recommended a new social media strategy for a local coffee shop", rec, { original: rec }).some((f) => /recommended/.test(f.message)));
+});

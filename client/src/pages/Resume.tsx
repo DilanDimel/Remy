@@ -257,7 +257,8 @@ function AppEditor({ a, job }: { a: Application; job: Job }) {
   // "Tailor with AI" starts a conversation in Remy's panel; he tailors once you've answered.
   const tailor = useTailorSession();
   const mine = tailor?.appId === a.id ? tailor : null;
-  const generate = () => startTailor(a, job);
+  const conflict = ws!.fits[job.id]?.eligibility === "unlikely" ? ws!.fits[job.id]!.eligibilityNote : undefined;
+  const generate = () => startTailor(a, job, conflict);
   const pending = a.changes.filter((c) => c.status === "pending").length;
   const blocking = a.changes.filter((c) => (c.status === "accepted" || c.status === "edited") && c.flags.length).length;
   const approve = () => call("approve", () => api("POST", `/api/applications/${a.id}/approve`), "Approved — downloads are ready");
@@ -423,7 +424,7 @@ function Letter({ a }: { a: Application }) {
           <h3>What Remy used</h3>
           <p className="xs muted">Your letter is written from your resume and what you told Remy — nothing to fill in.</p>
           {used.length ? used.map((m) => <div key={m.id} className="small" style={{ borderTop: "1px solid var(--line)", paddingTop: 8 }}>{m.text}</div>) : <span className="small muted">No answers yet.</span>}
-          {job && <button className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => startTailor(a, job)} data-testid="button-answer-again">Answer again &amp; rewrite</button>}
+          {job && <button className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => startTailor(a, job, ws!.fits[job.id]?.eligibility === "unlikely" ? ws!.fits[job.id]!.eligibilityNote : undefined)} data-testid="button-answer-again">Answer again &amp; rewrite</button>}
         </div>
       </div>
     </div>

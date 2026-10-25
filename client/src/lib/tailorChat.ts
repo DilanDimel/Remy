@@ -47,11 +47,13 @@ function begin(s: Omit<TailorSession, "stage" | "idx" | "answers" | "log">, intr
   openers.forEach((o) => o());
 }
 
-export function startTailor(a: Application, job: Job) {
+/** `conflict`: the eligibility note when Remy found a clear conflict; the student confirms before any work. */
+export function startTailor(a: Application, job: Job, conflict?: string) {
   begin(
     {
       kind: "tailor", targetId: a.id, appId: a.id, title: `Tailoring for ${job.company}`,
       qs: [
+        ...(conflict ? [{ key: "_ok", q: `Heads up before we start: ${conflict} Do you still want to tailor for this one? (yes / no)` }] : []),
         { key: "why", q: `What draws you to ${job.company}? Even one specific reason helps.` },
         { key: "learn", q: "What do you most want to do or learn in this role?" },
         { key: "proud", q: "Which experience of yours are you proudest of for this kind of work — and what did you do there?" },
@@ -86,6 +88,12 @@ export async function answer(text: string, deps: Deps) {
   const q = s.qs[s.idx];
   say(text.trim() || "skip", "me");
   s.answers[q.key] = SKIP.test(text) ? "" : text.trim();
+  if (q.key === "_ok" && !/^\s*(y|yes|yeah|yep|sure|ok|okay)\b/i.test(text)) {
+    s.stage = "done";
+    say("Okay, I won't tailor for this one. Your time is better spent on openings you qualify for.");
+    emit();
+    return;
+  }
   s.idx += 1;
   if (s.idx < s.qs.length) {
     say(s.qs[s.idx].q);
@@ -93,11 +101,11 @@ export async function answer(text: string, deps: Deps) {
     return;
   }
   s.stage = "working";
-  const answers = s.qs.map((x) => ({ q: x.q, a: s.answers[x.key] || "" })).filter((x) => x.a);
+  const answers = s.qs.filter((x) => x.key !== "_ok").map((x) => ({ q: x.q, a: s.answers[x.key] || "" })).filter((x) => x.a);
   if (s.kind === "tailor") {
     say("Thanks! Tailoring your resume and writing your letter now — this can take a minute.");
     emit();
-    const r = await deps.run(() => api<{ application: Application; workspace: Workspace }>("POST", `/api/applications/${s.targetId}/generate`, { answers }));
+    const r = await deps.run(() => api<{ application: Application; workspace: Workspace }>("POST", `/api/applications/${s.targetId}/generate`, { answers, confirmEligible: !!s.answers._ok }));
     if (session !== s) return;
     if (r) deps.setWs(r.workspace);
     s.stage = "done";

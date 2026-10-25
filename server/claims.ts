@@ -121,6 +121,20 @@ export function claimCheck(
       if (m && !h.test(body)) add({ type: "scope", term: m[0], message: `Your original says “${m[0]}”. Dropping it makes the claim sound more certain than your resume does; keep it.` });
     }
   }
+  if (opts.original !== undefined) {
+    const orig = lc(opts.original), ctxt = lc(opts.entryContext || "");
+    // A job simulation (Forage, "virtual experience") must stay labeled as one.
+    if (/\b(simulat\w*|virtual (experience|internship|program)|forage)\b/.test(orig + " " + ctxt) && !/\b(simulat\w*|virtual|forage)\b/i.test(body) && /\b(intern(ship)?|analyst|worked (at|for)|employed|at (j\.?p\.? ?morgan|goldman|deloitte|pwc|ey|kpmg|citi|bank of america))\b/i.test(body))
+      add({ type: "title", term: "simulation", message: "This was a job simulation. Keep it clearly labeled as one; don't make it read like a job or internship." });
+    // Team work presented as solo work.
+    if (/\b(team|group|we|collaborat\w*|with (my|our|a|the) (team|group|classmates|peers))\b/.test(orig) && !/\b(team|group|collaborat\w*|with|helped|contributed|co-|jointly|alongside|partnered)\b/i.test(body))
+      add({ type: "scope", term: "team", message: "Your original describes team work. Say it was a team effort (for example \"with a team of classmates\")." });
+    // A recommendation or plan presented as an achieved result.
+    if (/\b(recommend\w*|propos\w*|suggest\w*|plann?ed|pitch\w*|designed a (plan|proposal|strategy))\b/.test(orig)) {
+      const m = body.match(/\b(increas\w*|grew|grow\w*|boost\w*|reduc\w*|sav(ed|ing)|cut|improv\w*|generat\w*|drove|driving|delivered|achiev\w*|implement\w*|launch\w*)\b/i);
+      if (m && !new RegExp(`\\b${m[1].slice(0, 5)}`, "i").test(orig)) add({ type: "scope", term: m[0], message: `Your original says you recommended or proposed this. \u201c${m[0]}\u201d makes it sound like it happened; keep it as a recommendation.` });
+    }
+  }
   // Letters have no original bullet: a figure the resume hedges ("an estimated $5,000+") must keep a hedge nearby.
   if (opts.original === undefined) {
     // Thousands separators only, so "$5,000," at a clause end still matches the resume's "$5,000+".
