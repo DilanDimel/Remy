@@ -85,3 +85,11 @@ test("dealbreakers: sponsorship, graduate-only, avoid list and the wrong summer 
   assert.match(dealbreaker(student({ timeline: "Summer 2027" }), job({ title: "Summer 2028 Analyst Intern" })), /Summer 2028/);
   assert.equal(dealbreaker(student({ timeline: "Summer 2027" }), job({ title: "2027 Summer Analyst" })), "");
 });
+
+test("fields: nursing students match nursing roles; mechanical engineers aren't sent software jobs", () => {
+  const nurse = student({ major: "Nursing (BSN)", targetRoles: "", interests: "" });
+  assert.equal(fieldMatch(nurse, job({ title: "Student Nurse Extern - Summer 2027", origin: "verified-catalog" } as Partial<Job>)), true);
+  const mech = student({ major: "Mechanical Engineering", targetRoles: "", interests: "" });
+  assert.equal(fieldMatch(mech, job({ title: "Manufacturing Engineering Intern", origin: "verified-catalog" } as Partial<Job>)), true);
+  assert.equal(fieldMatch(mech, job({ title: "Software Engineer Intern", origin: "verified-catalog" } as Partial<Job>)), false);
+});

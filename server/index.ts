@@ -7,6 +7,7 @@ import { serveStatic } from "./static";
 import { createServer } from "node:http";
 
 const app = express();
+app.disable("x-powered-by"); // don't advertise the server software
 const httpServer = createServer(app);
 
 declare module "http" {

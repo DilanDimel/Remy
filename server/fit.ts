@@ -115,17 +115,21 @@ export const FIELD_TITLES: [RegExp, RegExp][] = [
   [/financ|bank|invest|m&a|capital|fintech|account|econ|wealth/i, /financ|bank|invest|m&a|merger|capital|equity|credit|analyst|account|treasury|fp&a|valuation|trading|risk|wealth|asset|corporate development|strategy|\bbusiness/i],
   [/market|brand|advertis|social media|communication/i, /market|brand|growth|content|social|communication|advertis|creative/i],
   [/data|analytic|statistic/i, /data|analytic|insight|intelligence|research|quant/i],
-  [/software|computer science|\bcs\b|engineer|developer|\btech\b|programming/i, /engineer|developer|software|technical|machine learning|data/i],
+  [/software|computer science|computer engineering|\bcs\b|developer|\btech\b|programming|information technology/i, /engineer|developer|software|technical|machine learning|data/i],
   [/supply chain|operations|logistics/i, /operations|supply|logistics|procurement|planning/i],
   [/consult/i, /consult|strategy|analyst/i],
   [/sales|business development/i, /sales|business development|account (executive|manager)|partnerships/i],
   [/quant|math|physics/i, /quant|research|trading|analyst|data/i],
   [/real estate|property/i, /real estate|property|leasing|appraisal|acquisitions|capital markets|valuation/i],
   [/human resources|\bhr\b|people|talent|recruit/i, /human resources|\bhr\b|people|talent|recruit/i],
-  [/health|pharma|biotech|medical/i, /health|clinical|pharma|patient|medical|biotech/i],
+  [/health|pharma|biotech|medical|pre-?med|kinesiolog|nutrition|public health/i, /health|clinical|pharma|patient|medical|biotech|hospital/i],
+  [/nurs|\brn\b|\bbsn\b/i, /nurs|\brn\b|patient care|care (tech|assistant)|extern|clinical|\bcna\b|hospital/i],
+  // Engineering other than software: mechanical, civil, electrical… Software titles are left to the software row.
+  [/mechanical|civil|electrical|industrial|aerospace|chemical|biomedical|manufacturing|petroleum|structural|\bengineering\b/i, /^(?!.*software).*(engineer|engineering|manufacturing|design|process|quality|field|technician|project)/i],
+  [/educat|teach/i, /teach|education|tutor|instruct|classroom/i],
 ];
 // The search word for each FIELD_TITLES row, in the same order.
-export const FIELD_SEARCH = ["finance", "marketing", "data", "software", "operations", "consulting", "sales", "quantitative", "real estate", "human resources", "healthcare"];
+export const FIELD_SEARCH = ["finance", "marketing", "data", "software", "operations", "consulting", "sales", "quantitative", "real estate", "human resources", "healthcare", "nursing", "engineering", "education"];
 
 /** Postings the student pasted in themselves are never hidden by field or type: they chose them. */
 const studentAdded = (job: Job) => job.origin === "imported" && !/job board/i.test(job.sourceName || "");
