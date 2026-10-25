@@ -19,3 +19,12 @@ test("keywords: word endings still match (modeling ↔ models), so a tailored bu
   const r = atsScore(doc(["Conducted financial models in Excel for M&A scenarios"]), ["financial modeling", "Excel"], "in the posting");
   assert.deepEqual(r.keywords.missing, []);
 });
+
+test("base resume score ignores openings: same resume, same score, scaled to 100", () => {
+  const d = doc(["Built a DCF model in Excel and presented it in PowerPoint to 12 classmates"]);
+  const a = atsScore(d, null, ""), b = atsScore(d, null, "");
+  assert.equal(a.score, b.score);
+  assert.ok(!a.categories.some((c) => c.name === "Keyword match"));
+  assert.equal(a.categories.reduce((n, c) => n + c.max, 0), 75);
+  assert.ok(a.score <= 100 && a.score >= Math.round(a.categories.reduce((n, c) => n + c.score, 0)));
+});

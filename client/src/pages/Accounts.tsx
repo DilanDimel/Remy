@@ -42,7 +42,7 @@ function Sources() {
   const [open, setOpen] = useState("");
   const rows: { name: string; status: any; label: string; detail: string; importKind?: string }[] = [
     { name: "Google account", status: me?.kind === "google" ? "Live" : config?.googleClientId ? "Live" : "Needs setup", label: me?.kind === "google" ? `Signed in as ${me.email}` : config?.googleClientId ? "Available — not signed in" : "Not configured on this server", detail: "Sign-in only (name, email, photo). Remy doesn't request Gmail or Calendar access." },
-    { name: "AI model", status: config?.ai.available ? "Live" : "Needs setup", label: config?.ai.available ? `${config.ai.model} · ${config.ai.via}` : "Not configured", detail: "Used for resume reading, tailoring, plans, chat, outreach drafts and email classification." },
+    { name: "AI assistant", status: config?.ai.available ? "Live" : "Needs setup", label: config?.ai.available ? "On" : "Not set up on this server", detail: "Used for resume reading, tailoring, plans, chat, outreach drafts and email classification." },
     { name: "Resume", status: w.resume ? "Student provided" : "Needs setup", label: w.resume ? `${w.resume.fileName} · ${fmtDate(w.resume.uploadedAt)}` : "Not uploaded", detail: "Your evidence base. Replace it anytime in Resume/CV." },
     { name: "LinkedIn", status: w.imports.some((i) => i.kind === "LinkedIn") ? "Student provided" : "Needs setup", label: "Upload your profile PDF or paste text", detail: "No direct LinkedIn connection — LinkedIn doesn't allow apps to read profiles this way.", importKind: "LinkedIn" },
     { name: "Handshake", status: w.imports.some((i) => i.kind === "Handshake") ? "Student provided" : "Needs setup", label: "Paste profile or posting text", detail: "Handshake requires your login; Remy never asks for it.", importKind: "Handshake" },
@@ -173,7 +173,7 @@ function Data() {
         </div>
         <h3 style={{ marginTop: 8 }}>AI activity</h3>
         <div className="stack-sm" style={{ maxHeight: 240, overflow: "auto" }}>
-          {ws!.aiLog.length ? [...ws!.aiLog].reverse().slice(0, 40).map((l) => <div key={l.id} className="xs"><span className={l.ok ? "pass" : "fail"}>●</span> {new Date(l.at).toLocaleString()} · {l.purpose} · {l.model} · {(l.ms / 1000).toFixed(1)}s{l.note ? ` · ${l.note}` : ""}</div>) : <span className="xs muted">No AI calls yet.</span>}
+          {ws!.aiLog.length ? [...ws!.aiLog].reverse().slice(0, 40).map((l) => <div key={l.id} className="xs"><span className={l.ok ? "pass" : "fail"}>●</span> {new Date(l.at).toLocaleString()} · {l.purpose} · {(l.ms / 1000).toFixed(1)}s{l.note ? ` · ${l.note}` : ""}</div>) : <span className="xs muted">No AI calls yet.</span>}
         </div>
       </div>
       {confirm && (

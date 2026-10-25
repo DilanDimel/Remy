@@ -43,7 +43,7 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
           : <Empty title="Tell Remy about yourself first" body="Your path is built from your resume and goals. Upload your resume, or add your major and the roles you want, and Remy will suggest roles, skills and next steps." action={<a className="btn btn-primary" href="#/resume">Upload your resume</a>} />}</div>
       ) : w.plan && !busy ? (
         <>
-          <p className="xs muted">Generated {fmtDate(w.plan.generatedAt)} by {w.plan.generatedBy}. Changing your profile won't silently rewrite this — refresh when you're ready.</p>
+          <p className="xs muted">Made {fmtDate(w.plan.generatedAt)}. Changing your profile won't silently rewrite this — refresh when you're ready.</p>
           {tab === "career" && <Careers plan={w.plan} />}
           {tab === "skills" && <Skills plan={w.plan} />}
           {tab === "academic" && <Academic plan={w.plan} />}

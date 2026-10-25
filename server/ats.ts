@@ -18,7 +18,9 @@ function textOf(doc: ResumeDoc) {
   return [doc.contact.name, ...doc.sections.flatMap((s) => [s.heading, ...s.entries.flatMap((e) => [e.org, e.role, e.dates, ...e.bullets.map((b) => b.text)])]), ...doc.skills.map((k) => k.label + " " + k.items)].join("\n");
 }
 
-export function atsScore(doc: ResumeDoc, keywords: string[], against: string): AtsScore {
+/** `keywords: null` scores the resume on its own (the base resume): no keyword category, scaled to 100,
+ *  so it doesn't change when the student's openings change. Keywords are checked per posting. */
+export function atsScore(doc: ResumeDoc, keywords: string[] | null, against: string): AtsScore {
   const text = textOf(doc);
   const low = lc(text);
   // Coursework, honors and skills lines aren't achievement bullets; judge the rest.
@@ -74,7 +76,7 @@ export function atsScore(doc: ResumeDoc, keywords: string[], against: string): A
     item(new Set(entries.map((e) => (/[a-z]{3}\s+\d{4}/i.test(e.dates) ? "word" : /\d{1,2}\/\d{4}/.test(e.dates) ? "num" : "other"))).size <= 1, 3, "Dates use one consistent format.", "Use one date format everywhere (e.g. \"Jun 2026 – Aug 2026\")."),
   ]);
 
-  const kws = Array.from(new Set(keywords.map((k) => k.trim()).filter((k) => k && isSkillKeyword(k)))).slice(0, 15);
+  const kws = Array.from(new Set((keywords || []).map((k) => k.trim()).filter((k) => k && isSkillKeyword(k)))).slice(0, 15);
   const hit = kws.filter((k) => hasKeyword(low, k));
   const missing = kws.filter((k) => !hit.includes(k));
   const keywordCat = cat("Keyword match", 25, [
@@ -83,8 +85,9 @@ export function atsScore(doc: ResumeDoc, keywords: string[], against: string): A
       : item(false, 25, "", "Pick or save an opening so Remy can check your keywords against it.", 0.5),
   ]);
 
-  const categories = [contact, structure, bulletsCat, format, keywordCat];
-  const score = categories.reduce((s, c) => s + c.score, 0);
+  const categories = keywords ? [contact, structure, bulletsCat, format, keywordCat] : [contact, structure, bulletsCat, format];
+  const raw = categories.reduce((s, c) => s + c.score, 0);
+  const score = keywords ? raw : Math.round((raw * 100) / categories.reduce((s, c) => s + c.max, 0));
   const fixes = categories.flatMap((c) => c.items.filter((i) => !i.ok).map((i) => ({ category: c.name, text: i.text, gain: Math.round(i.max - i.earned), examples: (i as Item).examples })))
     .filter((f) => f.gain > 0).sort((a, b) => b.gain - a.gain);
   return { score, categories, fixes, keywords: { matched: hit, missing }, against, at: new Date().toISOString() };
@@ -103,9 +106,4 @@ export function hasKeyword(text: string, keyword: string) {
  * work authorization) or hiring steps (assessments, HireVue, "resume + transcript"). */
 export function isSkillKeyword(k: string) {
   return !/\b(?:freshm|first-year|sophom|junior|senior|class of|gpa|graduat|enrolled|authoriz|sponsor|citizen|applica|apply|assessment|hirevue|predictive index|transcript|resume|cv\b|cover letter|interview|deadline|diversity|interest|motivat|curious|passion|work ethic|eligib|academic record|degree in progress)/i.test(k);
-}
-
-/** Keywords for the base resume: the student's best-fit openings' requirements. */
-export function keywordsFrom(jobs: Job[]) {
-  return jobs.flatMap((j) => j.requirements.map((r) => r.keyword));
 }

@@ -19,7 +19,7 @@ import {
 import { atsChecks, claimCheck } from "./claims";
 import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, skillSuggestions } from "./builder";
 import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES } from "./fit";
-import { atsScore, keywordsFrom } from "./ats";
+import { atsScore } from "./ats";
 import { boardsFor, discoverJobs, EMPLOYERS } from "./sources";
 import { alumniList, matchAlumni } from "./alumni";
 import { emailReady, sendEmail } from "./email";
@@ -530,11 +530,8 @@ export async function registerRoutes(_server: Server, app: Express) {
       });
       return;
     }
-    const top = openJobs(ctx.ws)
-      .filter((j) => !ctx.ws.fits[j.id]?.excluded)
-      .sort((x, y) => (ctx.ws.fits[y.id]?.score ?? 0) - (ctx.ws.fits[x.id]?.score ?? 0))
-      .slice(0, 5);
-    res.json({ base: atsScore(ctx.ws.resume!.doc, keywordsFrom(top), "from your top openings") });
+    // The base resume is scored on its own; keywords depend on the posting, so they're checked per opening.
+    res.json({ base: atsScore(ctx.ws.resume!.doc, null, "") });
   }));
 
   // The base resume as Remy reads it (including the student's edits), as a clean PDF or Word file.

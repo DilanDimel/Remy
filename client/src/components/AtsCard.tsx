@@ -64,7 +64,9 @@ export function AtsCard({ appId, refreshKey }: { appId?: string; refreshKey?: st
         <Ring score={main.score} label={data.tailored ? "Tailored" : "ATS readiness"} />
         <div className="stack-sm" style={{ flex: 1, minWidth: 220 }}>
           <h3>ATS screening score{data.tailored ? ` · ${data.tailored.score - data.base.score >= 0 ? "+" : ""}${data.tailored.score - data.base.score} from tailoring` : ""}</h3>
-          <p className="xs muted">How well an applicant tracking system can read your resume and match it to {main.against.replace(/^in the |^from /, "")}. Calculated from your resume itself, so the same resume always gets the same score.</p>
+          <p className="xs muted">{data.tailored
+            ? `How well an applicant tracking system can read your resume and match it to ${main.against.replace(/^in the /, "the ")}.`
+            : "How easily applicant tracking systems can read your resume: contact info, sections, bullets and format. Keywords are checked against each posting when you tailor."} The same resume always gets the same score.</p>
         </div>
       </div>
       <div className="ats-cats">

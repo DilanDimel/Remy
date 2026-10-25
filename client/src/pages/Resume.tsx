@@ -153,7 +153,7 @@ function BaseResume() {
           </div>
         ))}
       </div>
-      <div className="card card-pad row-between approve-bar">
+      <div className={"card card-pad row-between approve-bar" + (dirty ? " floating" : "")}>
         <span className="small muted">{dirty ? "You have unsaved edits. Your edits become the evidence Remy may use." : w.resume.confirmedAt ? "This is the evidence base for every tailored version." : "Confirm when every line is accurate."}</span>
         <div className="row">
           <button className="btn btn-secondary" disabled={!dirty} onClick={() => saveDoc(false)} data-testid="button-save-resume">Save edits</button>
@@ -276,7 +276,7 @@ function AppEditor({ a, job }: { a: Application; job: Job }) {
           </button>
         </div>
         {a.staleReason && <div className="notice notice-warn" style={{ marginTop: 12 }}><AlertTriangle size={16} /><div>{a.staleReason}</div></div>}
-        {a.generatedAt && <p className="xs muted" style={{ marginTop: 10 }}>Draft generated {fmtDate(a.generatedAt)} by {a.generatedBy} · {a.versions.length ? `approved v${a.versions.length} on ${fmtDate(a.versions[a.versions.length - 1].at)}` : "not yet approved"}</p>}
+        {a.generatedAt && <p className="xs muted" style={{ marginTop: 10 }}>Draft made {fmtDate(a.generatedAt)} · {a.versions.length ? `approved v${a.versions.length} on ${fmtDate(a.versions[a.versions.length - 1].at)}` : "not yet approved"}</p>}
       </div>
 
       {mine?.stage === "asking" && <div className="card card-pad row" style={{ flexWrap: "nowrap" }} data-testid="tailor-asking"><Remy size={40} mood="wave" /><span className="small"><b>Remy is asking you a few questions in the chat.</b> Answer there (or type "skip") and he'll tailor as soon as you're done.</span></div>}

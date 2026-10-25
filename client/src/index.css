@@ -297,7 +297,8 @@ p, li { max-width: 72ch; }
 .ats-gain { flex: none; min-width: 38px; text-align: center; font-size: 12px; font-weight: 800; color: var(--fox-deep); background: var(--fox-soft); border-radius: 999px; padding: 2px 8px; margin-top: 2px; }
 .pdf-preview { width: 100%; height: min(80vh, 1000px); border: 1px solid var(--line); border-radius: 12px; background: #fff; }
 .list-pick { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.approve-bar { position: sticky; bottom: 12px; z-index: 3; }
+/* Sits at the end of the page; floats only while there are unsaved edits. */
+.approve-bar.floating { position: sticky; bottom: 12px; z-index: 3; }
 .split-cal { grid-template-columns: minmax(0, 1fr) 300px; }
 .split > * { min-width: 0; }
 .pick { min-width: 0; overflow-wrap: anywhere; text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
@@ -440,7 +441,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
   .page { padding-bottom: 150px; }
   /* Tab rows scroll sideways on phones; fade the edge so it's clear there's more. */
   .tabs { padding-right: 28px; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent); }
-  .approve-bar { bottom: 70px; padding-right: 130px; }
+  .approve-bar.floating { bottom: 70px; padding-right: 130px; }
   .resume-paper { padding: 18px 16px; font-size: 11.5px; }
   .hide-sm { display: none !important; }
 }
