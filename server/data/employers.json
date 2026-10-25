@@ -1,5 +1,5 @@
 {
- "note": "Employers whose own career sites Remy reads live. Workday boards are tenant|wdN|site. Seeded from the open-source career-ops (MIT) and ever-jobs (MIT) lists plus Texas/TCU recruiters; every board answered a live check on 2026-10-23.",
+ "note": "Employers whose own career sites Remy reads live (Workday boards are tenant|wdN|site; Oracle host|site). Seeded from the open-source career-ops (MIT) and ever-jobs (MIT) lists, then Dallas-Fort Worth employers found from their careers pages on 2026-10-25; every board answered a live check.",
  "employers": [
   {
    "company": "Morgan Stanley",
@@ -568,6 +568,784 @@
    "fields": [
     "finance",
     "tech"
+   ]
+  },
+  {
+   "company": "Tenet Healthcare",
+   "ats": "oracle",
+   "board": "eodr.fa.us2.oraclecloud.com|CX_1001",
+   "fields": [
+    "healthcare",
+    "nursing",
+    "finance"
+   ]
+  },
+  {
+   "company": "Fluor",
+   "ats": "eightfold",
+   "board": "fluor.eightfold.ai",
+   "fields": [
+    "engineering",
+    "construction",
+    "supply chain"
+   ]
+  },
+  {
+   "company": "Toyota North America",
+   "ats": "workday",
+   "board": "toyota|wd503|TMNA",
+   "fields": [
+    "engineering",
+    "finance",
+    "marketing",
+    "supply chain",
+    "data"
+   ]
+  },
+  {
+   "company": "Vistra",
+   "ats": "workday",
+   "board": "vst|wd5|vistra_careers",
+   "fields": [
+    "energy",
+    "engineering",
+    "finance"
+   ]
+  },
+  {
+   "company": "Builders FirstSource",
+   "ats": "smartrecruiters",
+   "board": "BuildersFirstSource",
+   "fields": [
+    "supply chain",
+    "sales",
+    "operations"
+   ]
+  },
+  {
+   "company": "Atmos Energy",
+   "ats": "workday",
+   "board": "atmosenergy|wd108|External_Career_Site",
+   "fields": [
+    "energy",
+    "engineering",
+    "finance"
+   ]
+  },
+  {
+   "company": "Caterpillar",
+   "ats": "workday",
+   "board": "cat|wd5|CaterpillarCareers",
+   "fields": [
+    "engineering",
+    "finance",
+    "supply chain"
+   ]
+  },
+  {
+   "company": "Celanese",
+   "ats": "smartrecruiters",
+   "board": "Celanese",
+   "fields": [
+    "engineering",
+    "supply chain",
+    "finance"
+   ]
+  },
+  {
+   "company": "Topgolf",
+   "ats": "workday",
+   "board": "topgolf|wd501|TopgolfCareers",
+   "fields": [
+    "marketing",
+    "operations",
+    "hospitality"
+   ]
+  },
+  {
+   "company": "Match Group",
+   "ats": "lever",
+   "board": "matchgroup",
+   "fields": [
+    "tech",
+    "marketing",
+    "data"
+   ]
+  },
+  {
+   "company": "Texas Capital",
+   "ats": "workday",
+   "board": "texascapitalbank|wd12|Careers",
+   "fields": [
+    "finance"
+   ]
+  },
+  {
+   "company": "Sabre",
+   "ats": "workday",
+   "board": "sabre|wd1|SabreJobs",
+   "fields": [
+    "tech",
+    "data"
+   ]
+  },
+  {
+   "company": "Frost Bank",
+   "ats": "workday",
+   "board": "frostbank|wd5|external",
+   "fields": [
+    "finance"
+   ]
+  },
+  {
+   "company": "Liberty Mutual",
+   "ats": "eightfold",
+   "board": "libertymutual.eightfold.ai",
+   "fields": [
+    "finance",
+    "insurance",
+    "tech",
+    "data"
+   ]
+  },
+  {
+   "company": "Grant Thornton",
+   "ats": "oracle",
+   "board": "ehzq.fa.us2.oraclecloud.com|CX_1",
+   "fields": [
+    "accounting",
+    "consulting"
+   ]
+  },
+  {
+   "company": "Deloitte",
+   "ats": "workday",
+   "board": "deloitteie|wd3|Experienced_Professionals",
+   "fields": [
+    "accounting",
+    "consulting",
+    "tech"
+   ]
+  },
+  {
+   "company": "BDO",
+   "ats": "oracle",
+   "board": "ebqb.fa.us2.oraclecloud.com|BDOExperiencedCareers",
+   "fields": [
+    "accounting",
+    "consulting"
+   ]
+  },
+  {
+   "company": "Forvis Mazars",
+   "ats": "greenhouse",
+   "board": "forvismazars",
+   "fields": [
+    "accounting"
+   ]
+  },
+  {
+   "company": "RSM",
+   "ats": "workday",
+   "board": "rsm|wd1|RSMCareers",
+   "fields": [
+    "accounting",
+    "consulting"
+   ]
+  },
+  {
+   "company": "CLA (CliftonLarsonAllen)",
+   "ats": "workday",
+   "board": "cliftonlarsonallen|wd115|CLA",
+   "fields": [
+    "accounting"
+   ]
+  },
+  {
+   "company": "Protiviti",
+   "ats": "workday",
+   "board": "roberthalf|wd1|ProtivitiNA",
+   "fields": [
+    "consulting",
+    "accounting"
+   ]
+  },
+  {
+   "company": "Huron Consulting",
+   "ats": "workday",
+   "board": "huron|wd1|huroncareers",
+   "fields": [
+    "consulting",
+    "healthcare"
+   ]
+  },
+  {
+   "company": "Accenture",
+   "ats": "workday",
+   "board": "accenture|wd103|AccentureCareers",
+   "fields": [
+    "consulting",
+    "tech"
+   ]
+  },
+  {
+   "company": "Texas Health Resources",
+   "ats": "smartrecruiters",
+   "board": "TexasHealthResources",
+   "fields": [
+    "healthcare",
+    "nursing"
+   ]
+  },
+  {
+   "company": "Cook Children's",
+   "ats": "workday",
+   "board": "cookchildrens|wd1|Cook_Childrens_Careers",
+   "fields": [
+    "healthcare",
+    "nursing"
+   ]
+  },
+  {
+   "company": "Samsung Electronics America",
+   "ats": "workday",
+   "board": "sec|wd3|Samsung_Careers",
+   "fields": [
+    "tech",
+    "engineering",
+    "marketing"
+   ]
+  },
+  {
+   "company": "Cencora",
+   "ats": "smartrecruiters",
+   "board": "Cencora",
+   "fields": [
+    "healthcare",
+    "supply chain"
+   ]
+  },
+  {
+   "company": "HP Inc",
+   "ats": "greenhouse",
+   "board": "hp",
+   "fields": [
+    "tech",
+    "engineering"
+   ]
+  },
+  {
+   "company": "Hilton",
+   "ats": "oracle",
+   "board": "efet.fa.us2.oraclecloud.com|CX_1",
+   "fields": [
+    "hospitality",
+    "finance",
+    "marketing"
+   ]
+  },
+  {
+   "company": "Marriott",
+   "ats": "oracle",
+   "board": "ejwl.fa.us2.oraclecloud.com|CX",
+   "fields": [
+    "hospitality"
+   ]
+  },
+  {
+   "company": "Dave & Buster's",
+   "ats": "workday",
+   "board": "daveandbusters|wd1|Dave_and_Busters_Careers",
+   "fields": [
+    "marketing",
+    "hospitality"
+   ]
+  },
+  {
+   "company": "Torchy's Tacos",
+   "ats": "smartrecruiters",
+   "board": "TorchysTacos",
+   "fields": [
+    "marketing",
+    "hospitality"
+   ]
+  },
+  {
+   "company": "Chuck E. Cheese",
+   "ats": "workday",
+   "board": "cecentertainment|wd5|CEC_Careers",
+   "fields": [
+    "marketing"
+   ]
+  },
+  {
+   "company": "At Home",
+   "ats": "oracle",
+   "board": "hdiy.fa.us2.oraclecloud.com|CX",
+   "fields": [
+    "retail",
+    "merchandising"
+   ]
+  },
+  {
+   "company": "Home Depot",
+   "ats": "workday",
+   "board": "homedepot|wd5|CareerDepot",
+   "fields": [
+    "retail",
+    "supply chain"
+   ]
+  },
+  {
+   "company": "TPG Global",
+   "ats": "greenhouse",
+   "board": "tpgcareers",
+   "fields": [
+    "finance"
+   ]
+  },
+  {
+   "company": "Hunt Consolidated",
+   "ats": "oracle",
+   "board": "fa-eqcd-saasfaprod1.fa.ocs.oraclecloud.com|CX_1",
+   "fields": [
+    "energy",
+    "real estate",
+    "finance"
+   ]
+  },
+  {
+   "company": "Lincoln Property Company",
+   "ats": "greenhouse",
+   "board": "lpc",
+   "fields": [
+    "real estate"
+   ]
+  },
+  {
+   "company": "Stream Realty",
+   "ats": "smartrecruiters",
+   "board": "StreamRealty",
+   "fields": [
+    "real estate"
+   ]
+  },
+  {
+   "company": "Invitation Homes",
+   "ats": "workday",
+   "board": "invitationhomes|wd503|INVH",
+   "fields": [
+    "real estate"
+   ]
+  },
+  {
+   "company": "Transwestern",
+   "ats": "workday",
+   "board": "transwestern|wd1|TWCareers",
+   "fields": [
+    "real estate"
+   ]
+  },
+  {
+   "company": "Greystar",
+   "ats": "workday",
+   "board": "greystar|wd1|External",
+   "fields": [
+    "real estate"
+   ]
+  },
+  {
+   "company": "Colliers",
+   "ats": "smartrecruiters",
+   "board": "Colliers",
+   "fields": [
+    "real estate"
+   ]
+  },
+  {
+   "company": "HNTB",
+   "ats": "workday",
+   "board": "hntb|wd5|HNTB_Careers",
+   "fields": [
+    "engineering"
+   ]
+  },
+  {
+   "company": "Honeywell",
+   "ats": "oracle",
+   "board": "ibqbjb.fa.ocs.oraclecloud.com|Honeywell",
+   "fields": [
+    "engineering"
+   ]
+  },
+  {
+   "company": "Emerson",
+   "ats": "oracle",
+   "board": "hdjq.fa.us2.oraclecloud.com|CX_1",
+   "fields": [
+    "engineering"
+   ]
+  },
+  {
+   "company": "Flowserve",
+   "ats": "workday",
+   "board": "flowserve|wd1|applied",
+   "fields": [
+    "engineering"
+   ]
+  },
+  {
+   "company": "Ryder",
+   "ats": "workday",
+   "board": "ryder|wd5|RyderCareers",
+   "fields": [
+    "supply chain",
+    "operations"
+   ]
+  },
+  {
+   "company": "J.B. Hunt",
+   "ats": "workday",
+   "board": "jbhunt|wd501|Careers",
+   "fields": [
+    "supply chain",
+    "tech"
+   ]
+  },
+  {
+   "company": "Ally Financial",
+   "ats": "workday",
+   "board": "ally|wd1|Ally",
+   "fields": [
+    "finance"
+   ]
+  },
+  {
+   "company": "U.S. Bank",
+   "ats": "workday",
+   "board": "usbank|wd1|US_Bank_Careers",
+   "fields": [
+    "finance"
+   ]
+  },
+  {
+   "company": "Ameriprise",
+   "ats": "workday",
+   "board": "ameriprise|wd5|Ameriprise",
+   "fields": [
+    "finance"
+   ]
+  },
+  {
+   "company": "Northwestern Mutual",
+   "ats": "smartrecruiters",
+   "board": "NorthwesternMutual",
+   "fields": [
+    "finance",
+    "insurance"
+   ]
+  },
+  {
+   "company": "Allstate",
+   "ats": "workday",
+   "board": "allstate|wd5|allstate_careers",
+   "fields": [
+    "insurance"
+   ]
+  },
+  {
+   "company": "Travelers",
+   "ats": "workday",
+   "board": "travelers|wd5|External",
+   "fields": [
+    "insurance"
+   ]
+  },
+  {
+   "company": "Chubb",
+   "ats": "oracle",
+   "board": "fa-ewgu-saasfaprod1.fa.ocs.oraclecloud.com|CX_2001",
+   "fields": [
+    "insurance"
+   ]
+  },
+  {
+   "company": "Primerica",
+   "ats": "workday",
+   "board": "primerica|wd1|PRI",
+   "fields": [
+    "finance"
+   ]
+  },
+  {
+   "company": "MetLife",
+   "ats": "lever",
+   "board": "metlife",
+   "fields": [
+    "insurance",
+    "finance"
+   ]
+  },
+  {
+   "company": "Raymond James",
+   "ats": "workday",
+   "board": "raymondjames|wd1|RaymondJamesCareers",
+   "fields": [
+    "finance"
+   ]
+  },
+  {
+   "company": "PlainsCapital Bank",
+   "ats": "oracle",
+   "board": "ejlu.fa.us2.oraclecloud.com|HilltopHoldingsAllJobs",
+   "fields": [
+    "finance"
+   ]
+  },
+  {
+   "company": "Origin Bank",
+   "ats": "workday",
+   "board": "originbank|wd1|Careers",
+   "fields": [
+    "finance"
+   ]
+  },
+  {
+   "company": "CoreLogic",
+   "ats": "workday",
+   "board": "cotality|wd115|Global",
+   "fields": [
+    "tech",
+    "data"
+   ]
+  },
+  {
+   "company": "Alkami Technology",
+   "ats": "workday",
+   "board": "alkami|wd12|Alkami",
+   "fields": [
+    "tech"
+   ]
+  },
+  {
+   "company": "Rackspace",
+   "ats": "workday",
+   "board": "rackspace|wd1|External",
+   "fields": [
+    "tech"
+   ]
+  },
+  {
+   "company": "Elevance Health",
+   "ats": "workday",
+   "board": "elevancehealth|wd1|ANT",
+   "fields": [
+    "healthcare"
+   ]
+  },
+  {
+   "company": "Cigna",
+   "ats": "workday",
+   "board": "cigna|wd5|cignacareers",
+   "fields": [
+    "healthcare",
+    "insurance"
+   ]
+  },
+  {
+   "company": "Tuesday Health",
+   "ats": "greenhouse",
+   "board": "tuesdayhealth",
+   "fields": [
+    "healthcare"
+   ]
+  },
+  {
+   "company": "ServiceNow",
+   "ats": "smartrecruiters",
+   "board": "ServiceNow",
+   "fields": [
+    "tech",
+    "sales"
+   ]
+  },
+  {
+   "company": "Netflix",
+   "ats": "eightfold",
+   "board": "netflix.eightfold.ai",
+   "fields": [
+    "tech"
+   ]
+  },
+  {
+   "company": "LinkedIn",
+   "ats": "lever",
+   "board": "linkedin",
+   "fields": [
+    "tech"
+   ]
+  },
+  {
+   "company": "iHeartMedia",
+   "ats": "workday",
+   "board": "iheartmedia|wd5|External_iHM",
+   "fields": [
+    "media",
+    "marketing"
+   ]
+  },
+  {
+   "company": "Nexstar Media",
+   "ats": "workday",
+   "board": "nexstar|wd5|nexstar",
+   "fields": [
+    "media"
+   ]
+  },
+  {
+   "company": "Spotify",
+   "ats": "lever",
+   "board": "spotify",
+   "fields": [
+    "tech"
+   ]
+  },
+  {
+   "company": "TEGNA (WFAA)",
+   "ats": "greenhouse",
+   "board": "tegnainc",
+   "fields": [
+    "media"
+   ]
+  },
+  {
+   "company": "Dallas College",
+   "ats": "workday",
+   "board": "dallascollege|wd1|WorkStudy",
+   "fields": [
+    "education"
+   ]
+  },
+  {
+   "company": "City of Fort Worth",
+   "ats": "greenhouse",
+   "board": "cityoffortworth",
+   "fields": [
+    "government"
+   ]
+  },
+  {
+   "company": "Federal Reserve Bank of Dallas",
+   "ats": "workday",
+   "board": "rb|wd5|FRS",
+   "fields": [
+    "finance",
+    "economics"
+   ]
+  },
+  {
+   "company": "Dallas Area Rapid Transit",
+   "ats": "workday",
+   "board": "dart|wd1|DART",
+   "fields": [
+    "government",
+    "engineering"
+   ]
+  },
+  {
+   "company": "Teach For America",
+   "ats": "workday",
+   "board": "teachforamerica|wd1|TFA_Careers",
+   "fields": [
+    "education"
+   ]
+  },
+  {
+   "company": "City of Dallas",
+   "ats": "workday",
+   "board": "dallascityhall|wd5|CODCareers",
+   "fields": [
+    "government"
+   ]
+  },
+  {
+   "company": "Aya Healthcare",
+   "ats": "greenhouse",
+   "board": "ayahealthcare",
+   "fields": [
+    "healthcare",
+    "nursing"
+   ]
+  },
+  {
+   "company": "Quest Diagnostics",
+   "ats": "oracle",
+   "board": "hdox.fa.us6.oraclecloud.com|CX_1",
+   "fields": [
+    "healthcare"
+   ]
+  },
+  {
+   "company": "Medtronic",
+   "ats": "workday",
+   "board": "medtronic|wd1|MedtronicCareers",
+   "fields": [
+    "healthcare",
+    "engineering"
+   ]
+  },
+  {
+   "company": "Abbott",
+   "ats": "workday",
+   "board": "abbott|wd5|abbottcareers",
+   "fields": [
+    "healthcare",
+    "engineering"
+   ]
+  },
+  {
+   "company": "Siemens Healthineers",
+   "ats": "workday",
+   "board": "onehealthineers|wd3|SHSJB",
+   "fields": [
+    "healthcare",
+    "engineering"
+   ]
+  },
+  {
+   "company": "Reata Pharmaceuticals",
+   "ats": "workday",
+   "board": "biibhr|wd3|external",
+   "fields": [
+    "healthcare",
+    "research"
+   ]
+  },
+  {
+   "company": "Peloton",
+   "ats": "greenhouse",
+   "board": "peloton",
+   "fields": [
+    "marketing",
+    "tech"
+   ]
+  },
+  {
+   "company": "Smith & Nephew",
+   "ats": "workday",
+   "board": "smithnephew|wd5|External",
+   "fields": [
+    "healthcare"
+   ]
+  },
+  {
+   "company": "JPMorgan Chase",
+   "ats": "oracle",
+   "board": "jpmc.fa.oraclecloud.com|CX_1001",
+   "fields": [
+    "finance",
+    "tech",
+    "data"
    ]
   }
  ]

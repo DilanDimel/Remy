@@ -5,12 +5,13 @@ import { htmlToText } from "./parse";
 import { uid } from "./ids";
 import { abroad, FIELD_SEARCH, FIELD_TITLES, regionMatch } from "./fit";
 
-// Live openings from employers' own career sites (Greenhouse, Lever, Ashby, Workday).
+// Live openings from employers' own career sites (Greenhouse, Lever, Ashby, Workday, SmartRecruiters,
+// Oracle Cloud and Eightfold).
 // These are the boards companies use to publish their own careers pages, so each
 // posting links straight back to the employer. No login, no scraping of
 // third-party aggregators.
 
-type Board = { ats: "greenhouse" | "lever" | "ashby" | "workday"; slug: string; company: string; fields?: string[] };
+type Board = { ats: "greenhouse" | "lever" | "ashby" | "workday" | "smartrecruiters" | "oracle" | "eightfold"; slug: string; company: string; fields?: string[] };
 
 // Employers whose career sites Remy reads, with the fields they hire for (server/data/employers.json).
 export const EMPLOYERS: Board[] = (JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "server", "data", "employers.json"), "utf8")).employers as { company: string; ats: Board["ats"]; board: string; fields: string[] }[])
@@ -34,7 +35,7 @@ export const DEFAULT_BOARDS: Board[] = EMPLOYERS.length ? EMPLOYERS : [
   { ats: "ashby", slug: "mercury", company: "Mercury" },
 ];
 
-const EARLY = /\b(intern(ship)?s?|co-?op|new grad(uate)?|early career|entry[- ]level|campus|university|student|summer analyst|analyst program|rotational|apprentice|fellow(ship)?|insight|externship)\b/i;
+const EARLY = /\b(intern(ship)?s?|co-?op|new grad(uate)?|early career|entry[- ]level|campus|university|student|summer analyst|analyst program|rotational|apprentice|fellow(ship)?|insight|extern(ship)?s?|nurse residen\w*|graduate nurse|nurse intern|new grad rn)\b/i;
 const SENIOR = /\b(senior|sr\.?|staff|principal|lead|manager|director|head of|vp|vice president|ii|iii|iv)\b/i;
 // Roles meant for graduate students, skipped for undergraduates.
 const GRAD_LEVEL = /\b(graduate intern(ship)?|mba|ph\.?\s?d|doctoral|postdoc|post-doc|master'?s|graduate student|j\.?d\.?)\b/i;
@@ -118,8 +119,67 @@ async function workday(b: Board, field: string): Promise<Raw[]> {
   }
   return out;
 }
-async function fetchBoard(b: Board, field: string): Promise<Raw[]> {
+// Search words for boards that need one: hospitals post "Nurse Residency" and "Extern", not "Intern".
+const queries = (field: string) => (field === "nursing" ? ["nurse residency", "extern", "graduate nurse"] : ["intern"]);
+async function each(field: string, read: (q: string) => Promise<Raw[]>): Promise<Raw[]> {
+  const seen = new Set<string>();
+  return (await Promise.all(queries(field).map((q) => read(q).catch(() => [] as Raw[])))).flat().filter((r) => !seen.has(r.url) && seen.add(r.url));
+}
+// SmartRecruiters' public postings API. Board = company identifier (e.g. "Colliers").
+async function smartrecruiters(b: Board, field: string): Promise<Raw[]> {
+  return each(field, (q) => smartrecruitersQ(b, q));
+}
+async function smartrecruitersQ(b: Board, q: string): Promise<Raw[]> {
+  const j = await getJson(`https://api.smartrecruiters.com/v1/companies/${encodeURIComponent(b.slug)}/postings?limit=100&q=${encodeURIComponent(q)}`);
+  return (j.content || []).map((x: any) => ({
+    title: String(x.name || ""), location: [x.location?.city, x.location?.region, x.location?.remote ? "Remote" : ""].filter(Boolean).join(", "),
+    url: `https://jobs.smartrecruiters.com/${encodeURIComponent(b.slug)}/${x.id}`, text: "", posted: x.releasedDate,
+    detail: async () => {
+      const d = await getJson(String(x.ref));
+      const sec = d.jobAd?.sections || {};
+      return { text: htmlToText([sec.jobDescription?.text, sec.qualifications?.text, sec.additionalInformation?.text].filter(Boolean).join("\n")), location: "" };
+    },
+  }));
+}
+// Oracle Cloud Recruiting's public candidate API (the requests its career site makes). Board = "host|siteNumber".
+async function oracle(b: Board, field: string): Promise<Raw[]> {
+  return each(field, (q) => oracleQ(b, q));
+}
+async function oracleQ(b: Board, q: string): Promise<Raw[]> {
+  const [host, site] = b.slug.split("|");
+  const api = `https://${host}/hcmRestApi/resources/latest`;
+  const j = await getJson(`${api}/recruitingCEJobRequisitions?onlyData=true&expand=requisitionList.secondaryLocations&finder=findReqs;siteNumber=${encodeURIComponent(site)},limit=50,keyword=${encodeURIComponent(q)},sortBy=POSTING_DATES_DESC`);
+  return (j.items?.[0]?.requisitionList || []).map((x: any) => ({
+    title: String(x.Title || ""), location: [x.PrimaryLocation, ...(x.secondaryLocations || []).map((l: any) => l.Name)].filter(Boolean).join("; "),
+    url: `https://${host}/hcmUI/CandidateExperience/en/sites/${site}/job/${x.Id}`, text: "", posted: x.PostedDate,
+    detail: async () => {
+      const d = await getJson(`${api}/recruitingCEJobRequisitionDetails?expand=all&onlyData=true&finder=ById;Id=%22${x.Id}%22,siteNumber=${encodeURIComponent(site)}`);
+      const it = d.items?.[0] || {};
+      return { text: htmlToText([it.ExternalDescriptionStr, it.ExternalQualificationsStr, it.ExternalResponsibilitiesStr].filter(Boolean).join("\n")), location: "" };
+    },
+  }));
+}
+// Eightfold career sites' public search API. Board = "<company>.eightfold.ai".
+async function eightfold(b: Board, field: string): Promise<Raw[]> {
+  return each(field, (q) => eightfoldQ(b, q));
+}
+async function eightfoldQ(b: Board, q: string): Promise<Raw[]> {
+  const domain = `${b.slug.split(".")[0]}.com`;
+  const j = await getJson(`https://${b.slug}/api/apply/v2/jobs?domain=${domain}&query=${encodeURIComponent(q)}&num=50`);
+  return (j.positions || []).map((x: any) => ({
+    title: String(x.name || ""), location: String(x.location || (x.locations || []).join("; ") || ""),
+    url: String(x.canonicalPositionUrl || `https://${b.slug}/careers/job/${x.id}`), text: "", posted: x.t_create ? new Date(x.t_create * 1000).toISOString() : undefined,
+    detail: async () => {
+      const d = await getJson(`https://${b.slug}/api/apply/v2/jobs/${x.id}?domain=${domain}`);
+      return { text: htmlToText(String(d.job_description || "")), location: "" };
+    },
+  }));
+}
+export async function fetchBoard(b: Board, field: string): Promise<Raw[]> {
   if (b.ats === "workday") return workday(b, field);
+  if (b.ats === "smartrecruiters") return smartrecruiters(b, field);
+  if (b.ats === "oracle") return oracle(b, field);
+  if (b.ats === "eightfold") return eightfold(b, field);
   if (b.ats === "greenhouse") {
     const j = await getJson(`https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(b.slug)}/jobs?content=true`);
     return (j.jobs || []).map((x: any) => ({ title: String(x.title || ""), location: String(x.location?.name || ""), url: String(x.absolute_url || ""), text: htmlToText(decodeEntities(String(x.content || ""))), posted: x.updated_at }));

@@ -112,7 +112,7 @@ export function regionMatch(ws: Workspace, job: Job): boolean | null {
 // The student's fields (target roles, major, interests) → job titles that belong to them.
 // A title must match one of the student's fields; fields that map to nothing don't filter.
 export const FIELD_TITLES: [RegExp, RegExp][] = [
-  [/financ|bank|invest|m&a|capital|fintech|account|econ|wealth/i, /financ|bank|invest|m&a|merger|capital|equity|credit|analyst|account|treasury|fp&a|valuation|trading|risk|wealth|asset|corporate development|strategy|\bbusiness/i],
+  [/financ|bank|invest|m&a|capital|fintech|account|econ|wealth/i, /financ|bank|invest|m&a|merger|capital|equity|credit|analyst|account|audit|tax|assurance|advisory|treasury|fp&a|valuation|trading|risk|wealth|asset|corporate development|strategy|\bbusiness/i],
   [/market|brand|advertis|social media|communication/i, /market|brand|growth|content|social|communication|advertis|creative/i],
   [/data|analytic|statistic/i, /data|analytic|insight|intelligence|research|quant/i],
   [/software|computer science|computer engineering|\bcs\b|developer|\btech\b|programming|information technology/i, /engineer|developer|software|technical|machine learning|data/i],
