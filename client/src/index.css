@@ -350,6 +350,23 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .conn-ico.linkedin svg rect { fill: transparent; }
 .conn-ico.email { background: #262626; border-color: #262626; color: #fff; }
 .conn-ico.resume { background: var(--fox); border-color: var(--fox); color: #fff; }
+.conn-ico.gcal { background: #1a73e8; border-color: #1a73e8; color: #fff; }
+/* LinkedIn guide: drawn mock-ups of LinkedIn's profile page */
+.li-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.li-step { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 18px; align-items: center; border: 1px solid var(--line); border-radius: 14px; padding: 16px; background: var(--bg); }
+.li-shot { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); font-size: 11px; }
+.li-bar { display: flex; align-items: center; gap: 5px; padding: 6px 8px; background: var(--surface-2); border-bottom: 1px solid var(--line); }
+.li-bar i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.li-bar span { margin-left: 8px; color: var(--muted-text); }
+.li-body { position: relative; padding: 0 12px 12px; }
+.li-cover { height: 34px; margin: 0 -12px; background: linear-gradient(90deg, #a0b4c8, #c7d3df); }
+.li-avatar { width: 44px; height: 44px; border-radius: 50%; background: #dfe5ea; border: 3px solid var(--surface); margin-top: -22px; }
+.li-line { height: 7px; border-radius: 4px; background: var(--line); margin-top: 6px; }
+.li-btn { padding: 4px 9px; border-radius: 999px; border: 1px solid #0a66c2; color: #0a66c2; font-weight: 700; white-space: nowrap; }
+.li-btn.primary { background: #0a66c2; color: #fff; }
+.li-menu { position: absolute; right: 12px; bottom: -4px; display: flex; flex-direction: column; gap: 2px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.12); }
+.li-menu span { display: flex; align-items: center; gap: 5px; padding: 4px 8px; white-space: nowrap; }
+@media (max-width: 720px) { .li-step { grid-template-columns: 1fr; } }
 .conn-badge { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 800; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); color: var(--muted-text); border: 1px solid var(--line); white-space: nowrap; }
 .conn-badge.busy { background: var(--fox-soft); color: var(--fox-deep); border-color: transparent; }
 .conn-badge.busy .spinner { width: 12px; height: 12px; }

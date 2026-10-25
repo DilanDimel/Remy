@@ -1,6 +1,6 @@
 import { uiFlags } from "../lib/router";
 import { useEffect, useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Check, FileText, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, FileText, Sparkles, Trash2 } from "lucide-react";
 import type { Profile, Workspace } from "@shared/types";
 import { api, FAR_ENOUGH_STEP, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
@@ -8,6 +8,8 @@ import { AiUnavailableNote, Remy, Spinner, StatusChip } from "../components/comm
 import { ProfileImport, ResumeUpload } from "../components/Uploaders";
 import { atAlumniSchool, SchoolVerify } from "../components/SchoolVerify";
 import { ResumeBuilder } from "../components/ResumeBuilder";
+import { LinkedInGuide } from "../components/LinkedInGuide";
+import { LinkedInMark } from "./Welcome";
 
 // Step numbers are stored in the workspace; 0 and 1 both open the resume step.
 const STEPS = ["Your resume", "Review", "Your preferences", "A few questions", "Your plan"];
@@ -89,51 +91,90 @@ function WelcomeBack({ onContinue, onRestart }: { onContinue: () => void; onRest
   );
 }
 
-/** Step 1: the resume (or a LinkedIn profile PDF when there's no resume yet), plus LinkedIn as an optional extra. */
+/** Brand-coloured calendar tile for the Google Calendar connector (a generic calendar glyph, not Google's logo). */
+function CalendarMark() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4.5" width="18" height="16" rx="2.5" /><path d="M3 9.5h18M8 2.5v4M16 2.5v4" /><text x="12" y="18.2" textAnchor="middle" fontSize="7.5" fontWeight="800" fill="currentColor" stroke="none">31</text>
+    </svg>
+  );
+}
+
+/** Step 1: resume first (upload or build one), then the other accounts, each with its own row. */
 function ResumeStep({ onNext }: { onNext: () => void }) {
   const { ws } = useStore();
   const w = ws!;
-  const [replace, setReplace] = useState(false);
+  const [open, setOpen] = useState<"" | "resume" | "school">(w.resume ? "" : "resume");
   const [busy, setBusy] = useState(false);
-  const [added, setAdded] = useState<number | null>(null);
-  const [building, setBuilding] = useState(false);
+  const [page, setPage] = useState<"" | "build" | "linkedin">("");
   const linkedin = w.imports.find((i) => /linkedin/i.test(i.kind));
-  if (building && !w.resume) return <ResumeBuilder onDone={onNext} onCancel={() => setBuilding(false)} />;
+  if (page === "build" && !w.resume) return <ResumeBuilder onDone={onNext} onCancel={() => setPage("")} />;
+  if (page === "linkedin") return <LinkedInGuide onDone={() => setPage("")} />;
+  const soon: [string, string, string, ReactNode][] = [
+    ["tcu", "TCU Student Account", "Enrollment, major and class standing", "TCU"],
+    ["stellic", "Stellic Degree Audit", "Degree plan and semester roadmap", "S"],
+    ["handshake", "Handshake", "Saved jobs and career events", "h"],
+  ];
   return (
     <div className="stack-lg">
+      <div className="stack-sm">
+        <span className="eyebrow">Step 1 · Connect your accounts</span>
+        <h2 className="conn-title">Start with your resume</h2>
+      </div>
       <div className="remy-prompt">
-        <Remy size={44} mood={busy ? "think" : "wave"} />
-        <div className="stack-sm">
-          <span className="eyebrow">Step 1 · Your resume</span>
-          <p><b>Remy:</b> Start with your resume. I read it to build your profile, find openings that fit you and tailor your applications. I only ever use what's on it.</p>
-        </div>
+        <Remy size={40} mood={busy ? "think" : "wave"} />
+        <p><b>Remy:</b> Your resume is what I build everything on: your profile, the openings I find and every application I help with. I only ever use what's on it. Add your other accounts below if you have them.</p>
       </div>
-      {w.resume && !replace ? (
-        <div className="conn-row" data-testid="resume-loaded">
+
+      <div className="stack-sm">
+        <div className="conn-row">
           <span className="conn-ico resume" aria-hidden><FileText size={18} /></span>
-          <div className="grow"><b>{w.resume.fileName}</b><span>{w.resume.doc.sections.length} sections read{w.resume.parsedBy === "ai" ? ", checked against your file" : ""}</span></div>
-          <span className="conn-badge done"><Check size={13} /> Uploaded</span>
-          <button className="btn btn-secondary btn-sm" onClick={() => setReplace(true)} data-testid="button-replace-resume">Replace</button>
+          <div className="grow"><b>Resume / CV</b><span>{w.resume ? `${w.resume.fileName} · ${w.resume.doc.sections.length} sections${w.resume.parsedBy === "ai" ? ", checked against your file" : w.resume.parsedBy === "builder" ? ", built with Remy" : ""}` : "Required. PDF, Word or text"}</span></div>
+          {w.resume ? <span className="conn-badge done"><Check size={13} /> Added</span> : <span className="conn-badge">Needed</span>}
+          <button className="btn btn-secondary btn-sm" onClick={() => setOpen(open === "resume" ? "" : "resume")} disabled={busy} aria-expanded={open === "resume"} data-testid="button-source-resume">{open === "resume" ? "Close" : w.resume ? "Replace" : "Upload"}</button>
         </div>
-      ) : (
-        <div className="stack-sm">
-          <ResumeUpload onBusy={setBusy} onDone={() => setReplace(false)} />
-          {!w.resume && (
-            <div className="card card-pad row-between" style={{ gap: 12 }}>
-              <div><b>No resume yet?</b><div className="small muted">Most freshmen don't have one. Remy builds one with you from a few taps and short answers, using only what you say.</div></div>
-              <button className="btn btn-secondary" onClick={() => setBuilding(true)} data-testid="button-build-resume">{w.builder ? "Continue building" : "Build one with Remy"} <span className="xs muted">(~10 min)</span></button>
-            </div>
-          )}
-        </div>
-      )}
-      <div className="card card-pad stack-sm" style={{ background: "var(--surface-2, transparent)" }}>
-        <b>Add your LinkedIn too <span className="muted xs">(optional)</span></b>
-        <p className="small muted">On LinkedIn, open your profile, click <b>Resources</b> (or <b>More</b>) → <b>Save to PDF</b>, then upload that file. Remy adds anything that isn't on your resume as facts you can approve on the next step.</p>
-        {linkedin && <span className="xs muted row"><Check size={14} /> Added {linkedin.fileName}{linkedin.factsAdded ? ` · ${linkedin.factsAdded} facts to review` : ""}</span>}
-        {w.resume ? <ProfileImport kind="LinkedIn profile (PDF)" hint="Facts found here show up on the next step for you to keep or remove." onBusy={setBusy} onDone={(n) => setAdded(n)} /> : <p className="xs muted">Upload your resume (or your LinkedIn PDF) above first.</p>}
-        {added !== null && <span className="xs" data-testid="linkedin-added">Found {added} new fact{added === 1 ? "" : "s"} from LinkedIn.</span>}
+        {open === "resume" && <div className="conn-panel fade-up" data-testid={w.resume ? "resume-loaded" : undefined}><ResumeUpload compact={!!w.resume} onBusy={setBusy} onDone={() => setOpen("")} /></div>}
+        {!w.resume && (
+          <div className="conn-row" style={{ background: "var(--fox-soft)", borderColor: "transparent" }}>
+            <span className="conn-ico" aria-hidden><Sparkles size={18} /></span>
+            <div className="grow"><b>No resume yet? Build one with Remy</b><span>Most freshmen start here. A few taps and short answers, about 10 minutes. Only what you say goes on it.</span></div>
+            <button className="btn btn-primary btn-sm" onClick={() => setPage("build")} data-testid="button-build-resume">{w.builder ? "Continue building" : "Build my resume"}</button>
+          </div>
+        )}
       </div>
-      <p className="xs muted">Coming soon: TCU student account, Stellic degree audit and Handshake. Remy never asks for your passwords.</p>
+
+      <div className="stack-sm">
+        <span className="eyebrow">Other accounts · optional</span>
+        <div className="conn-row">
+          <span className="conn-ico linkedin" aria-hidden><LinkedInMark /></span>
+          <div className="grow"><b>LinkedIn</b><span>{linkedin ? `${linkedin.fileName} · ${linkedin.factsAdded} fact${linkedin.factsAdded === 1 ? "" : "s"} to review on the next step` : "Adds experience that isn't on your resume"}</span></div>
+          {linkedin ? <span className="conn-badge done"><Check size={13} /> Added</span> : <span className="conn-badge">Not added</span>}
+          <button className="btn btn-secondary btn-sm" onClick={() => setPage("linkedin")} data-testid="button-source-linkedin">{linkedin ? "Add again" : "Connect"}</button>
+        </div>
+        {atAlumniSchool(w) && (
+          <>
+            <div className="conn-row">
+              <span className="conn-ico tcu" aria-hidden>TCU</span>
+              <div className="grow"><b>TCU student email</b><span>Verify your @tcu.edu email to see TCU alumni who match you</span></div>
+              <button className="btn btn-secondary btn-sm" onClick={() => setOpen(open === "school" ? "" : "school")} data-testid="button-source-school">{open === "school" ? "Close" : "Verify"}</button>
+            </div>
+            {open === "school" && <div className="fade-up"><SchoolVerify /></div>}
+          </>
+        )}
+        <div className="conn-row">
+          <span className="conn-ico gcal" aria-hidden><CalendarMark /></span>
+          <div className="grow"><b>Google Calendar</b><span>Your deadlines and interviews in your own calendar. Removed the moment you delete your account.</span></div>
+          <span className="conn-badge">Coming soon</span>
+        </div>
+        {soon.map(([k, title, what, ico]) => (
+          <div key={k} className="conn-row">
+            <span className={`conn-ico ${k}`} aria-hidden>{ico}</span>
+            <div className="grow"><b>{title}</b><span>{what}</span></div>
+            <span className="conn-badge">Coming soon</span>
+          </div>
+        ))}
+      </div>
+      <p className="xs muted">Remy never asks for your passwords.</p>
       <div className="row-between">
         <span />
         <button className="btn btn-primary" onClick={onNext} disabled={!w.resume || busy} data-testid="button-ob-next-sources">Continue <ArrowRight size={16} /></button>
