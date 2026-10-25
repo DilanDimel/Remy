@@ -33,7 +33,11 @@ export interface ResumeDoc {
   contact: { name: string; email: string; phone: string; location: string; links: string };
   sections: Section[];
   skills: SkillLine[];
+  /** Where the Skills block sat in the original: after this many sections (end when unset). */
+  skillsIndex?: number;
 }
+/** The look of the student's uploaded PDF, so downloads match it. */
+export interface ResumeStyle { serif: boolean; size: number; margin: number; pages: number }
 /** How completely the structured resume reflects the uploaded file. */
 export interface ResumeQuality {
   /** Share of the file's words that made it into the structured resume (0–1). */
@@ -54,6 +58,7 @@ export interface BaseResume {
   skills?: string[];
   /** The uploaded file itself is kept server-side for preview and download. */
   original?: { name: string; mime: string; size: number };
+  style?: ResumeStyle;
   quality?: ResumeQuality;
 }
 

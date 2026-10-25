@@ -818,3 +818,11 @@ export function extractSkills(doc: ResumeDoc, raw: string): string[] {
   for (const tool of KNOWN_TOOLS) if (new RegExp(`[^a-z]${tool.replace(/[+]/g, "\\+")}[^a-z]`).test(lower) && ![...found.keys()].includes(tool)) add(tool.replace(/\b\w/g, (c) => c.toUpperCase()));
   return [...found.values()].slice(0, 40);
 }
+
+/** How many sections came before the Skills block in the original file, so downloads keep it in place. */
+export function skillsPosition(raw: string, doc: ResumeDoc): number | undefined {
+  const lines = raw.split("\n").map((l) => l.trim().toLowerCase());
+  const skillsAt = lines.findIndex((l) => /^(technical |core |key |relevant )?skills\b.{0,30}$/.test(l) && !l.includes(":"));
+  if (skillsAt < 0 || !doc.skills.length) return undefined;
+  return doc.sections.filter((s) => { const i = lines.indexOf(s.heading.trim().toLowerCase()); return i >= 0 && i < skillsAt; }).length;
+}

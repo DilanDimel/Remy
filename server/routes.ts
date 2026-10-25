@@ -12,9 +12,9 @@ import type {
 import { aiAllowed, checkSchoolCode, cleanupOld, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, markAiAuthFailure, model } from "./ai";
 import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase } from "./auth";
-import { aiExtractPosting, CLOSED_SIGNALS, fetchPublic, fileToText, htmlToText, norm } from "./parse";
+import { aiExtractPosting, CLOSED_SIGNALS, fetchPublic, fileToText, htmlToText, norm, pdfStyle } from "./parse";
 import {
-  aiParseResume, chooseReading, extractSkills, graduationOf, gpaOf, majorsOf, minorsOf, preCollegeIds, normalizeResumeText, parseQuality, primaryEducation, resumeToText, rulesParse, schoolName,
+  aiParseResume, chooseReading, extractSkills, skillsPosition, graduationOf, gpaOf, majorsOf, minorsOf, preCollegeIds, normalizeResumeText, parseQuality, primaryEducation, resumeToText, rulesParse, schoolName,
   stillMissing,
 } from "./resume";
 import { atsChecks, claimCheck } from "./claims";
@@ -24,6 +24,7 @@ import { atsScore } from "./ats";
 import { boardsFor, discoverJobs, EMPLOYERS } from "./sources";
 import { alumniList, matchAlumni } from "./alumni";
 import { emailReady, sendEmail } from "./email";
+import { editDocx } from "./docxEdit";
 import * as gcal from "./gcal";
 import { q, schema } from "./sql";
 import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./docs";
@@ -479,6 +480,7 @@ export async function registerRoutes(_server: Server, app: Express) {
         notes.push("The AI reader wasn't available, so Remy's built-in reader structured this file. Check each section against your original.");
       }
     }
+    doc.skillsIndex = skillsPosition(raw, doc);
     ctx.ws.resume = { fileName, uploadedAt: nowIso(), rawText: raw.slice(0, 30000), parsedBy, doc, skills: extractSkills(doc, raw), quality: parseQuality(raw, doc, notes) };
     ctx.ws.imports.unshift({ id: uid("i"), kind: "Resume", fileName, at: nowIso(), label: "Student provided", factsAdded: 0 });
     // prefill only empty profile fields
@@ -509,6 +511,8 @@ export async function registerRoutes(_server: Server, app: Express) {
     const mime = /\.pdf$/i.test(f!.originalname) ? "application/pdf" : /\.docx$/i.test(f!.originalname) ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "text/plain; charset=utf-8";
     await saveFile(ctx.me.id, "resume", f!.originalname, mime, f!.buffer);
     ctx.ws.resume!.original = { name: f!.originalname, mime, size: f!.size };
+    // So downloads can match the student's look (font, size, margins, length).
+    if (mime === "application/pdf") ctx.ws.resume!.style = (await pdfStyle(f!.buffer).catch(() => null)) || undefined;
     await ctx.save();
     res.json(ctx.ws);
   }));
@@ -547,7 +551,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!ctx.ws.resume) bad("Upload a resume first.");
     const fmt = req.query.format === "docx" ? "docx" : "pdf";
     const doc = ctx.ws.resume!.doc;
-    const buf = fmt === "pdf" ? await resumePdf(doc) : await resumeDocx(doc);
+    const buf = fmt === "pdf" ? await resumePdf(doc, ctx.ws.resume!.style) : await resumeDocx(doc, ctx.ws.resume!.style);
     const name = (ctx.ws.profile.name || doc.contact.name || "Resume").replace(/[^A-Za-z]+/g, "-") + "-Resume";
     res.setHeader("Content-Type", fmt === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
     res.setHeader("Content-Disposition", `attachment; filename="${name}.${fmt}"`);
@@ -1083,7 +1087,17 @@ Return JSON:
     const base = fileBase(ctx.ws, job, kind === "letter" ? "Cover-Letter" : "Resume") + `-v${v!.v}`;
     const contact = [v!.resume.contact.location, v!.resume.contact.email, v!.resume.contact.phone].filter(Boolean).join(" | ");
     let buf: Buffer;
-    if (kind === "resume") buf = fmt === "docx" ? await resumeDocx(v!.resume) : fmt === "pdf" ? await resumePdf(v!.resume) : Buffer.from(resumeTxt(v!.resume));
+    const style = ctx.ws.resume?.style;
+    if (kind === "resume" && fmt === "docx" && ctx.ws.resume?.original?.mime.includes("wordprocessingml")) {
+      // They uploaded Word: edit their own file so it keeps their exact formatting.
+      const f = await getFile(ctx.me.id, "resume");
+      const before = new Map(ctx.ws.resume.doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => [b.id, b.text] as const))));
+      const edits = v!.resume.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets)).filter((b) => before.has(b.id) && before.get(b.id) !== b.text).map((b) => ({ from: before.get(b.id)!, to: b.text }));
+      const out = f ? await editDocx(f.data, edits).catch(() => null) : null;
+      if (out && !out.missed.length) buf = out.buf;
+      else buf = await resumeDocx(v!.resume, style); // a change couldn't be placed in their file: use Remy's clean layout rather than ship a half-edited file
+      res.setHeader("X-Remy-Layout", out && !out.missed.length ? "original" : "remy");
+    } else if (kind === "resume") buf = fmt === "docx" ? await resumeDocx(v!.resume, style) : fmt === "pdf" ? await resumePdf(v!.resume, style) : Buffer.from(resumeTxt(v!.resume));
     else buf = fmt === "docx" ? await letterDocx(v!.resume.contact.name, contact, v!.letter) : fmt === "pdf" ? await letterPdf(v!.resume.contact.name, contact, v!.letter) : Buffer.from(v!.letter);
     const mime = fmt === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : fmt === "pdf" ? "application/pdf" : "text/plain; charset=utf-8";
     res.setHeader("Content-Type", mime);

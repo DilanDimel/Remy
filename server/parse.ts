@@ -47,6 +47,31 @@ async function pdfText(buf: Buffer): Promise<string> {
   return dropRunningLines(pages).map((lines) => lines.join("\n")).join("\n");
 }
 
+/** How the student's PDF looks, so Remy's download can match it: serif or sans font, body text size,
+ *  left margin and page count. Read from pdf.js text items; null when the file has no readable text. */
+export async function pdfStyle(buf: Buffer): Promise<{ serif: boolean; size: number; margin: number; pages: number } | null> {
+  const { getDocumentProxy } = await import("unpdf");
+  const pdf = await getDocumentProxy(new Uint8Array(buf));
+  const sizes = new Map<number, number>();
+  let serif = 0, sans = 0, margin = Infinity;
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const { items, styles } = (await page.getTextContent()) as unknown as { items: (PdfTextItem & { fontName?: string })[]; styles: Record<string, { fontFamily?: string }> };
+    for (const it of items) {
+      const n = (it.str || "").trim().length;
+      if (!n || !it.transform) continue;
+      const size = Math.round(Math.abs(it.transform[3]) * 2) / 2;
+      sizes.set(size, (sizes.get(size) || 0) + n);
+      const fam = (styles[it.fontName || ""]?.fontFamily || "") + " " + (it.fontName || "");
+      if (/serif/i.test(fam) && !/sans/i.test(fam)) serif += n; else sans += n;
+      margin = Math.min(margin, it.transform[4]);
+    }
+  }
+  if (!sizes.size) return null;
+  const size = [...sizes].sort((a, b) => b[1] - a[1])[0][0];
+  return { serif: serif > sans, size: Math.min(12, Math.max(9, size)), margin: Math.min(72, Math.max(28, Math.round(margin))), pages: pdf.numPages };
+}
+
 /** Removes a header or footer printed on every page ("Jane Doe · Résumé | 2", "John Doe – 1/2").
  * Page 1 keeps its first lines: the name at the top is the resume's own heading. */
 export function dropRunningLines(pages: string[][]): string[][] {
