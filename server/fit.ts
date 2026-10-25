@@ -72,10 +72,12 @@ function requiredYears(text: string): { years: Set<Year>; definite: boolean; byC
   return { years, definite, byCredits };
 }
 
+const DFW_CITIES = ["dallas", "fort worth", "arlington", "irving", "plano", "frisco", "richardson", "addison", "dfw", "las colinas", "grand prairie", "mckinney", "allen", "denton", "carrollton", "lewisville", "southlake", "westlake", "coppell", "garland", "mesquite", "grapevine", "flower mound", "euless", "bedford", "keller", "mansfield", "the colony", "prosper", "rockwall", "farmers branch", "north richland hills", "hurst", "haltom city", "cedar hill", "duncanville", "desoto", "lancaster", "wylie", "little elm"];
 const METRO: Record<string, string[]> = {
-  "fort worth": ["fort worth", "arlington", "dfw"],
-  dallas: ["dallas", "irving", "plano", "frisco", "richardson", "addison", "dfw"],
-  dfw: ["dallas", "fort worth", "arlington", "irving", "plano", "frisco", "richardson", "addison", "dfw", "las colinas"],
+  // Students who say Dallas or Fort Worth mean the whole metro.
+  "fort worth": DFW_CITIES,
+  dallas: DFW_CITIES,
+  dfw: DFW_CITIES,
   houston: ["houston"],
   austin: ["austin"],
   texas: ["texas", ", tx", " tx", "dallas", "fort worth", "houston", "austin", "san antonio", "irving", "plano"],
@@ -95,8 +97,10 @@ export function abroad(location: string): boolean {
 
 /** true / false when the student named regions; null when they didn't (or "anywhere"). */
 export function regionMatch(ws: Workspace, job: Job): boolean | null {
-  const wants = (ws.profile.regions || "").toLowerCase().split(/[,;/]+/).map((x) => x.trim()).filter(Boolean);
+  let wants = (ws.profile.regions || "").toLowerCase().split(/[,;/]+/).map((x) => x.trim()).filter(Boolean);
   if (!wants.length || wants.some((w) => /anywhere|open to (any|all)|united states|^us$|usa/.test(w))) return null;
+  // "Dallas-Fort Worth, Texas": the state labels the metro; it doesn't mean anywhere in Texas.
+  if (wants.some((w) => Object.keys(METRO).some((k) => !STATE_NAMES.includes(k) && k !== "remote" && w.includes(k)))) wants = wants.filter((w) => !STATE_NAMES.includes(w));
   const loc = ` ${job.location} ${job.format} `.toLowerCase();
   // Virtual and remote postings can be done from anywhere, so they match every region.
   // ...unless the posting names another country ("Virtual, BR", "Remote - Canada").

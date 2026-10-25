@@ -49,7 +49,7 @@ const WEAK = new Set(
 const MODIFIER = new Set(
   ("additional other others relevant related selected professional technical computer academic campus community personal key core work " +
     "laboral profesional academica academico adicional adicionales otros otras test extra career industry international athletic artistic " +
-    "artisticas musical creative military teaching summer class college customer graduate undergraduate student and of y e de del la las los en para").split(" "),
+    "artisticas musical creative military teaching summer class college customer graduate undergraduate student clinical healthcare nursing medical research lab laboratory engineering design and of y e de del la las los en para").split(" "),
 );
 const headingWords = (s: string) => fold(s).split(/[\s&/+,]+/).map((w) => w.replace(/[^a-z]/g, "")).filter(Boolean);
 function isHeadingPhrase(s: string, caps: boolean) {
@@ -736,7 +736,7 @@ export function majorsOf(e?: Entry): string {
   const all = [e.role, ...e.bullets.map((b) => b.text)].join("\n");
   const listed = all.match(/\bmajors?\s*:\s*([^\n]+)/i)?.[1];
   const parts = (listed ? listed.replace(/\bGPA\b.*$/i, "").split(/\s*[|;\/]\s*|,\s+(?=\p{Lu})/u) : e.role.split(/\s*[|;]\s*/))
-    .map((p) => p.replace(/\bGPA\b.*$/i, "").replace(/,?\s*\bminors?\b.*$/i, "").replace(DEGREE_WORDS, "").replace(/\bwith\b.*$/i, (m) => (/certific|concentration|minor/i.test(m) ? m : "")).replace(/[\s,.]+$/, "").trim())
+    .map((p) => p.replace(/\bGPA\b.*$/i, "").replace(/,?\s*\bminors?\b.*$/i, "").replace(DEGREE_WORDS, "").replace(/\bwith\b.*$/i, (m) => (/certific|concentration|minor/i.test(m) ? m : "")).replace(/[\s,.]+$/, "").replace(/^[\s,.;:|–-]+/, "").trim())
     .filter((p) => p && !NOT_A_MAJOR.test(p) && !/^minors?\b/i.test(p));
   if (!parts.length) return listed ? "" : DEGREE_WORDS.test(e.role) ? e.role.replace(/\bGPA\b.*$/i, "").split(/[|;]/)[0].trim() : "";
   // "ENTREPRENEURSHIP AND INNOVATION NEELEY SCHOOL OF BUSINESS" → "Entrepreneurship and Innovation".

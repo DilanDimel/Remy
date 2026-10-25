@@ -38,7 +38,7 @@ export const DEFAULT_BOARDS: Board[] = EMPLOYERS.length ? EMPLOYERS : [
 const EARLY = /\b(intern(ship)?s?|co-?op|new grad(uate)?|early career|entry[- ]level|campus|university|student|summer analyst|analyst program|rotational|apprentice|fellow(ship)?|insight|extern(ship)?s?|nurse residen\w*|graduate nurse|nurse intern|new grad rn)\b/i;
 const SENIOR = /\b(senior|sr\.?|staff|principal|lead|manager|director|head of|vp|vice president|ii|iii|iv)\b/i;
 // Roles meant for graduate students, skipped for undergraduates.
-const GRAD_LEVEL = /\b(graduate intern(ship)?|mba|ph\.?\s?d|doctoral|postdoc|post-doc|master'?s|graduate student|j\.?d\.?)\b/i;
+const GRAD_LEVEL = /\b(graduate intern(ship)?|intern,?\s*graduate|mba|ph\.?\s?d|doctoral|postdoc|post-doc|master'?s|graduate student|j\.?d\.?)\b/i;
 const KEYWORDS = [
   "Excel", "PowerPoint", "Python", "SQL", "R ", "Tableau", "Power BI", "financial modeling", "valuation", "accounting", "data analysis", "analytics",
   "market research", "communication", "written communication", "presentation", "teamwork", "leadership", "problem solving", "attention to detail",
@@ -65,7 +65,7 @@ function eligibilityFrom(text: string) {
   return sentences(text).filter((s) => /graduat|class of|enrolled|sophomore|junior|senior|freshm|first-year|degree|work authori|sponsor|gpa/i.test(s)).slice(0, 4);
 }
 function kindOf(title: string): Job["kind"] {
-  return /intern|co-?op|summer analyst|externship/i.test(title) ? "internship" : /program|fellow|insight|rotational/i.test(title) ? "program" : "job";
+  return /intern|extern|co-?op|summer analyst/i.test(title) ? "internship" : /program|fellow|insight|rotational|residen/i.test(title) ? "program" : "job";
 }
 
 type Raw = { title: string; location: string; url: string; text: string; posted?: string; detail?: () => Promise<{ text: string; location?: string }> };

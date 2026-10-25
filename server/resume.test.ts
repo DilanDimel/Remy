@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Entry, ResumeDoc } from "@shared/types";
-import { gpaOf, graduationOf, majorsOf, minorsOf, preCollegeIds, primaryEducation } from "./resume";
+import { gpaOf, graduationOf, majorsOf, minorsOf, preCollegeIds, primaryEducation, rulesParse } from "./resume";
 
 let n = 0;
 const entry = (org: string, role = "", dates = "", bullets: string[] = []): Entry =>
@@ -46,4 +46,12 @@ test("pre-college: high school, its activities, and entries that ended before co
   const job = entry("College of Education", "Work Study Student", "Oct 2025 – Present");
   const ids = preCollegeIds(doc([["Education", [hs, tcu]], ["Activities", [mun, guard, olympiad, job]]]), { y: 2025, m: 8 });
   assert.deepEqual([hs, tcu, mun, guard, olympiad, job].map((e) => ids.has(e.id)), [true, false, true, true, false, false]);
+});
+
+test("nursing resumes: 'CLINICAL EXPERIENCE' is its own section; 'B.S. Computer Science' reads as Computer Science", () => {
+  const nurse = rulesParse("Aaliyah Brooks\naaliyah@example.com\nEDUCATION\nTexas Christian University\nBachelor of Science in Nursing (BSN)\nCLINICAL EXPERIENCE\nCook Children's Medical Center\nPediatric Clinical Rotation, Student Nurse\n• Provided care for pediatric patients under RN supervision\nWORK EXPERIENCE\nBrookdale Senior Living\nCertified Nursing Assistant\n• Help residents with daily activities");
+  assert.deepEqual(nurse.sections.map((s) => s.heading), ["Education", "Clinical Experience", "Work Experience"]);
+});
+test("'B.S. Computer Science' reads as Computer Science", () => {
+  assert.equal(majorsOf({ id: "e", org: "UT Dallas", role: "B.S. Computer Science", location: "", dates: "", bullets: [] }), "Computer Science");
 });
