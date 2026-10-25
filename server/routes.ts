@@ -23,6 +23,7 @@ import { atsScore } from "./ats";
 import { boardsFor, discoverJobs, EMPLOYERS } from "./sources";
 import { alumniList, matchAlumni } from "./alumni";
 import { emailReady, sendEmail } from "./email";
+import { q, schema } from "./sql";
 import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./docs";
 
 // Email domains whose owners count as students of the school with the alumni list.
@@ -1341,10 +1342,16 @@ Return JSON:
   }));
   // Deletes everything Remy stores about the student — workspace, files, AI usage,
   // sessions and the account record — and signs them out.
-  // shortcut: a Supabase sign-in account itself is not deleted (that needs the Supabase service key); say so in the UI.
+  // Supabase sign-ins also have a login record (email, name, Google id) in Supabase Auth; a narrow database
+  // function (<schema>.delete_login, set up in Supabase) removes it too.
   app.delete("/api/ws", route(async (req, res, ctx) => {
     await deleteAccount(ctx.me.id);
+    let loginRemoved = ctx.me.kind !== "supabase";
+    if (!loginRemoved) {
+      try { await q(`SELECT ${schema}.delete_login($1::uuid)`, [ctx.me.id.slice(3)]); loginRemoved = true; }
+      catch (e: any) { console.error("Couldn't remove the Supabase login record:", e?.message); }
+    }
     await endSession(req, res);
-    res.json({ deleted: true });
+    res.json({ deleted: true, loginRemoved });
   }));
 }

@@ -178,11 +178,10 @@ function Data() {
       </div>
       {confirm && (
         <Modal title="Delete everything?" onClose={() => setConfirm(false)}>
-          <p className="small">This permanently deletes your resume, applications, approved versions, memory, tracker, calendar and your Remy account record (name, email, photo), then signs you out. Downloaded files on your device aren't affected.</p>
-          {me?.kind === "supabase" && <p className="xs muted">Your sign-in with Google, LinkedIn or email is managed by our sign-in provider; to remove that too, email the Remy team.</p>}
+          <p className="small">This permanently deletes your resume, applications, approved versions, memory, tracker, calendar, verified school email, your sign-in record and your Remy account (name, email, photo), then signs you out. Remy keeps nothing that identifies you. Downloaded files on your device aren't affected.</p>
           <div className="row" style={{ justifyContent: "flex-end" }}>
             <button className="btn btn-ghost" onClick={() => setConfirm(false)}>Cancel</button>
-            <button className="btn btn-danger" onClick={async () => { const r = await run(() => api<{ deleted: boolean }>("DELETE", "/api/ws"), "Everything was deleted and you're signed out"); if (r) { setConfirm(false); setSession(null, null); } }} data-testid="button-confirm-delete">Delete permanently</button>
+            <button className="btn btn-danger" onClick={async () => { const r = await run(() => api<{ deleted: boolean; loginRemoved: boolean }>("DELETE", "/api/ws")); if (r) { toast(r.loginRemoved ? "Everything was deleted and you're signed out" : "Your Remy data was deleted. Your sign-in record couldn't be removed automatically; email the Remy team and we'll remove it.", !r.loginRemoved); setConfirm(false); setSession(null, null); } }} data-testid="button-confirm-delete">Delete permanently</button>
           </div>
         </Modal>
       )}
