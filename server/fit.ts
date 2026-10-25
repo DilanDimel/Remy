@@ -199,22 +199,35 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   } else if (years) {
     const list = [...years.years].join(" or ");
     if (!year) {
-      eligibility = "check";
-      note = `This posting is for ${list.toLowerCase()} students — tell Remy your class year to check.`;
+      eligibility = "unknown";
+      note = `This posting is for ${list.toLowerCase()} students. Add your class year and Remy will check it for you.`;
     } else if (year !== "Graduate student" && years.years.has(year)) {
       eligibility = "likely";
       note = `This posting is for ${list.toLowerCase()} students, and you're a ${year.toLowerCase()}.`;
     } else {
-      eligibility = years.byCredits ? "check" : "unlikely";
+      // Standing by credit hours can differ from class year, so that case stays open rather than hidden.
+      eligibility = years.byCredits ? "likely" : "unlikely";
       excluded = years.definite && !years.byCredits;
       note = years.byCredits
-        ? `This posting counts standing by credits (${list.toLowerCase()}). Check your credit hours before applying.`
+        ? `This posting counts ${list.toLowerCase()} standing by credit hours; you may qualify if your credits put you there.`
         : `This posting is for ${list.toLowerCase()} students, and you're a ${year.toLowerCase()}.`;
     }
   } else if (g || year) {
-    eligibility = "check";
-    note = "No class-year or graduation rule stated — skim the posting's eligibility section.";
+    // No class-year or graduation rule in the posting: nothing rules the student out.
+    eligibility = "likely";
+    note = "This posting doesn't limit class year or graduation date.";
   }
+  // A stated GPA minimum, checked against the student's GPA when Remy knows it.
+  const gpaText = `${job.eligibility.join(" ")} ${job.postingText || ""}`;
+  const minGpa = gpaText.match(/(?:minimum|min\.?|at least|cumulative|overall)?\s*(?:gpa|grade point average)\s*(?:of|:)?\s*(?:at least\s*)?([2-3]\.\d{1,2})/i) || gpaText.match(/\b([2-3]\.\d{1,2})\s*(?:\/\s*4\.0\s*)?(?:or (?:higher|above|better)\s*)?(?:cumulative\s*)?gpa\b/i);
+  const myGpa = parseFloat(ws.profile.gpa || "");
+  if (minGpa && eligibility !== "unlikely") {
+    if (myGpa && myGpa < +minGpa[1]) { eligibility = "unlikely"; note = `This posting asks for a ${minGpa[1]} GPA; yours is ${ws.profile.gpa}.`; }
+    else if (myGpa) note += ` It asks for a ${minGpa[1]} GPA, and yours is ${ws.profile.gpa}.`;
+    else note += ` It asks for a ${minGpa[1]} GPA; add yours in your profile and Remy will check it.`;
+  }
+  // Remy doesn't show what the student clearly can't apply for (they can still choose "Show anyway").
+  if (eligibility === "unlikely") excluded = true;
 
   const matched: string[] = [];
   const gaps: string[] = [];

@@ -86,7 +86,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
           <div>
             {ineligible.length > 0 && <>{showIneligible ? "Showing" : "Hiding"} <strong>{ineligible.length}</strong> opening{ineligible.length > 1 ? "s" : ""} that {ineligible.length > 1 ? "don't" : "doesn't"} fit what you chose, {ineligible.length > 1 ? "are" : "is"} closed, or you're not eligible for (for example, another field, a passed deadline or a class-year rule). <button className="btn btn-ghost btn-sm" onClick={() => setShowIneligible((v) => !v)} data-testid="button-toggle-ineligible">{showIneligible ? "Hide them" : "Show anyway"}</button></>}
             {myRegions && elsewhere.length > 0 && <div>{elsewhere.length} more {elsewhere.length > 1 ? "are" : "is"} outside {regions}. <button className="btn btn-ghost btn-sm" onClick={() => setMyRegions(false)}>Show all locations</button></div>}
-            {!w.profile.classYear && !w.profile.graduation && <div>Tell Remy your class year in <a href="#/accounts" style={{ fontWeight: 700 }}>Accounts</a> so eligibility can be checked.</div>}
+            {!w.profile.classYear && !w.profile.graduation && <div>Add your class year in <a href="#/accounts" style={{ fontWeight: 700 }}>Accounts</a> and Remy will check every opening's eligibility for you.</div>}
           </div>
         </div>
       )}
@@ -142,9 +142,10 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
 function eligChip(f?: JobFit) {
   if (!f) return null;
   if (f.closed) return <span className="chip chip-bad" title={f.closed}>Closed</span>;
-  const map = { likely: ["chip-live", "Likely eligible"], check: ["chip-setup", "Check eligibility"], unlikely: ["chip-bad", "Likely not eligible"], unknown: ["chip-plain", "Eligibility unknown"] } as const;
-  const [c, l] = map[f.eligibility];
-  return <span className={"chip " + c} title={f.eligibilityNote}>{l}</span>;
+  // Remy decides eligibility itself; students only see the outcome. Unknown shows nothing (the page asks once for what's missing).
+  if (f.eligibility === "unknown") return null;
+  if (f.eligibility === "unlikely") return <span className="chip chip-bad" title={f.eligibilityNote}>Not eligible</span>;
+  return <span className="chip chip-live" title={f.eligibilityNote}>You qualify</span>;
 }
 
 function JobCard({ j, fit, defaultOpen }: { j: Job; fit?: JobFit; defaultOpen: boolean }) {
@@ -188,7 +189,7 @@ function JobCard({ j, fit, defaultOpen }: { j: Job; fit?: JobFit; defaultOpen: b
         </div>
       )}
       {fit && <p className="small"><strong>Why it fits you: </strong>{fit.why}</p>}
-      {fit && fit.eligibility !== "likely" && fit.eligibility !== "unknown" && <p className="xs muted"><strong>Eligibility: </strong>{fit.eligibilityNote}</p>}
+      {fit && fit.eligibility !== "unknown" && <p className="xs muted"><strong>{fit.eligibility === "unlikely" ? "Why not: " : "Why you qualify: "}</strong>{fit.eligibilityNote}</p>}
       {fit && fit.gaps.length > 0 && <p className="small muted"><strong>Gaps: </strong>{fit.gaps.slice(0, 3).join("; ")}</p>}
       {open && (
         <div className="stack" style={{ borderTop: "1px solid var(--line)", paddingTop: 12, marginTop: 4 }}>

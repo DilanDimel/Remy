@@ -28,10 +28,19 @@ test("'must be a current sophomore' rules out a junior", () => {
   const f = computeFit(student({ classYear: "Junior" }), job({ eligibility: ["Applicants must be current sophomores."] }), "");
   assert.equal(f.excluded, true);
 });
-test("standing by credit hours is left for the student to check, not hidden", () => {
+test("standing by credit hours stays visible, with the reason", () => {
   const f = computeFit(student({ classYear: "First-year" }), job({ eligibility: ["Open to sophomores (by credit hours)."] }), "");
-  assert.equal(f.eligibility, "check");
+  assert.equal(f.eligibility, "likely");
   assert.ok(!f.excluded);
+  assert.match(f.eligibilityNote, /credit hours/);
+});
+test("eligibility: no class-year rule means eligible; a GPA minimum is checked against the student's GPA", () => {
+  assert.equal(computeFit(student({ classYear: "Junior" }), job({ eligibility: [] }), "").eligibility, "likely");
+  const strict = job({ eligibility: ["Minimum GPA of 3.5 required."] });
+  const low = computeFit(student({ classYear: "Junior", gpa: "3.2" } as any), strict, "");
+  assert.equal(low.eligibility, "unlikely");
+  assert.ok(low.excluded);
+  assert.equal(computeFit(student({ classYear: "Junior", gpa: "3.8" } as any), strict, "").eligibility, "likely");
 });
 test("'rising sophomores' means current first-years", () => {
   const f = computeFit(student({ classYear: "First-year" }), job({ eligibility: ["This program is for rising sophomores."] }), "");
