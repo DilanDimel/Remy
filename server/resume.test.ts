@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Entry, ResumeDoc } from "@shared/types";
-import { gpaOf, graduationOf, majorsOf, minorsOf, preCollegeIds, primaryEducation, rulesParse } from "./resume";
+import { gpaOf, graduationOf, majorsOf, minorsOf, nameCase, preCollegeIds, primaryEducation, rulesParse } from "./resume";
 
 let n = 0;
 const entry = (org: string, role = "", dates = "", bullets: string[] = []): Entry =>
@@ -54,4 +54,11 @@ test("nursing resumes: 'CLINICAL EXPERIENCE' is its own section; 'B.S. Computer 
 });
 test("'B.S. Computer Science' reads as Computer Science", () => {
   assert.equal(majorsOf({ id: "e", org: "UT Dallas", role: "B.S. Computer Science", location: "", dates: "", bullets: [] }), "Computer Science");
+});
+
+test("profile name: all-caps resume names become name case; mixed case is kept", () => {
+  assert.equal(nameCase("DEMETRE DONDOLADZE"), "Demetre Dondoladze");
+  assert.equal(nameCase("MARY-KATE O'NEIL"), "Mary-Kate O'Neil");
+  assert.equal(nameCase("Julio Cesar Renovato Rios"), "Julio Cesar Renovato Rios");
+  assert.equal(nameCase("Dilandimel McDesman"), "Dilandimel McDesman");
 });

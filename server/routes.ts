@@ -17,7 +17,7 @@ import { endSession, googleClientId, identify, newGuest, startSession, supabaseC
 import { aiExtractPosting, CLOSED_SIGNALS, fetchPublic, fileToText, htmlToText, norm, pdfStyle } from "./parse";
 import {
   aiParseResume, chooseReading, extractSkills, skillsPosition, graduationOf, gpaOf, majorsOf, minorsOf, preCollegeIds, normalizeResumeText, parseQuality, primaryEducation, resumeToText, rulesParse, schoolName,
-  stillMissing,
+  stillMissing, nameCase,
 } from "./resume";
 import { atsChecks, claimCheck } from "./claims";
 import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, skillSuggestions } from "./builder";
@@ -489,7 +489,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     // prefill only empty profile fields
     const p = ctx.ws.profile;
     const edu = primaryEducation(doc);
-    if (!p.name && doc.contact.name) p.name = doc.contact.name;
+    if (!p.name && doc.contact.name) p.name = nameCase(doc.contact.name);
     if (!p.email && doc.contact.email && !/example\.com/.test(doc.contact.email)) p.email = doc.contact.email;
     if (!p.location && doc.contact.location) p.location = doc.contact.location;
     if (edu) {
@@ -670,10 +670,14 @@ export async function registerRoutes(_server: Server, app: Express) {
     const n = norm(raw);
     let added = 0;
     const missing: string[] = [];
+    // Organizations named in a claim that conflicts with the resume ("…Intern at TBC Bank"): other facts about
+    // them belong to that disputed claim, so they aren't suggested as resume additions. The school is excluded.
+    const disputed = (out.facts || []).filter((f2) => f2.conflict).map((f2) => f2.text.match(/\bat ([A-Z][\w&.'-]*(?:\s+[A-Z][\w&.'-]*)*)/)?.[1] || "")
+      .filter((org) => org && !norm(ctx.ws.profile.school || "").includes(norm(org)) && !norm(org).includes(norm(ctx.ws.profile.school || "x")));
     for (const f2 of out.facts || []) {
       if (f2.quote && !n.includes(norm(f2.quote).slice(0, 80))) continue; // drop anything not grounded in the text
       if (addFact(ctx.ws, f2.text, f2.category || "other", `${kind} import`, "suggested", String(f2.conflict || ""))) added++;
-      if (f2.notOnResume && !f2.conflict && ctx.ws.resume) missing.push(f2.text.trim());
+      if (f2.notOnResume && !f2.conflict && ctx.ws.resume && !disputed.some((org) => f2.text.includes(org))) missing.push(f2.text.trim());
     }
     // The student decides what belongs on the resume; Remy only makes the gap visible as a to-do.
     const source = kind.replace(/\s*\(.*\)$/, "");
@@ -763,8 +767,8 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     const apps = ctx.ws.applications.map((a) => { const j = findJob(ctx.ws, a.jobId); return `${j?.company} ${j?.title}: ${a.versions.length ? "approved v" + a.versions.length : a.generatedAt ? "draft" : "not started"}`; }).join("; ");
     const out = await withAi(ctx, "Assistant chat", () =>
       aiJson<{ reply: string; remember: string[] }>(
-        `You are Remy, a friendly fox career coach for university students. Be concise (under 140 words), warm, practical and honest. Use only facts you are given; if you don't know something (like a specific university rule), say so and suggest who to ask. Never claim to have sent emails, applied, or changed calendars — you can only suggest. If the student shares a durable fact or preference worth remembering, propose it in "remember" (short third-person statements); otherwise return an empty list.\n\n${CHAT_RULES}`,
-        `Current page: ${page}\nPROFILE:\n${profileSummary(ctx.ws)}\nAPPROVED MEMORY:\n${approvedFacts(ctx.ws).slice(0, 40).join("\n") || "(none)"}\nRESUME: ${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org].filter(Boolean).join(" at ")).join("; ")).join(" | ") : "(not uploaded)"}\nAPPLICATIONS: ${apps || "(none)"}\nSAVED OPENINGS: ${ctx.ws.savedJobIds.map((id) => findJob(ctx.ws, id)?.title).filter(Boolean).join("; ") || "(none)"}\nOPENINGS REMY FOUND THAT FIT (best first): ${found || "(none yet)"}\nRESUME VS OTHER PROFILES, NOT YET RESOLVED (ask the student which is right; never treat these as true): ${ctx.ws.memory.filter((m) => m.conflict).map((m) => `${m.text} (${m.conflict})`).join("; ") || "(none)"}\n\nRECENT CHAT:\n${history}\n\nStudent: ${message}\n\nReturn {"reply":"","remember":[]}`,
+        `You are Remy, a friendly fox career coach for university students. Be concise (under 140 words), warm, practical and honest. Use only facts you are given; if you don't know something (like a specific university rule), say so and suggest who to ask. Never claim to have sent emails, applied, or changed calendars — you can only suggest. If the student shares a durable fact or preference worth remembering, propose it in "remember" (short third-person statements); otherwise return an empty list. Today is ${centralToday()}; the student's class standing is ${classYearOf(ctx.ws) || "unknown"}. Don't question dates that fit that standing.\n\n${CHAT_RULES}`,
+        `Current page: ${page}\nPROFILE:\n${profileSummary(ctx.ws)}\nAPPROVED MEMORY:\n${approvedFacts(ctx.ws).slice(0, 40).join("\n") || "(none)"}\nRESUME: ${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org].filter(Boolean).join(" at ")).join("; ")).join(" | ") : "(not uploaded)"}\nAPPLICATIONS: ${apps || "(none)"}\nSAVED OPENINGS: ${ctx.ws.savedJobIds.map((id) => findJob(ctx.ws, id)?.title).filter(Boolean).join("; ") || "(none)"}\nOPENINGS REMY FOUND THAT FIT (best first): ${found || "(none yet)"}\nFROM THEIR OTHER PROFILES, NOT YET CONFIRMED BY THE STUDENT (mention, don't rely on): ${ctx.ws.memory.filter((m) => m.status === "suggested" && !m.conflict).slice(0, 15).map((m) => m.text).join("; ") || "(none)"}\nRESUME VS OTHER PROFILES, NOT YET RESOLVED (ask the student which is right; never treat these as true): ${ctx.ws.memory.filter((m) => m.conflict).map((m) => `${m.text} (${m.conflict})`).join("; ") || "(none)"}\n\nRECENT CHAT:\n${history}\n\nStudent: ${message}\n\nReturn {"reply":"","remember":[]}`,
         900,
       ),
     );

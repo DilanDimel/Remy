@@ -96,13 +96,23 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
         <div className="card">
           <Empty
             title={kind === "campus" ? "No campus jobs added yet" : jobs.length ? "Nothing matches" : "No openings yet"}
-            body={kind === "campus" ? "Campus jobs are posted on your school's career site (often Handshake), which requires your login. Copy a posting's text and import it here — Remy will pull out the requirements." : jobs.length ? "Try another filter, or import a posting." : "Remy searches employers' own career sites for openings that fit you. Run a search, or import a posting you found."}
+            body={kind === "campus" ? "Campus jobs are posted on your school's career site (often Handshake), which requires your login. Copy a posting's text and import it here — Remy will pull out the requirements." : jobs.length ? nothingFits(w.profile) : "Remy searches employers' own career sites for openings that fit you. Run a search, or import a posting you found."}
             action={kind !== "campus" && !jobs.length ? <button className="btn btn-primary" onClick={discover} disabled={finding}>{finding ? <Spinner /> : <Search size={16} />} {finding ? "Remy is checking job boards…" : "Find openings"}</button> : <button className="btn btn-secondary" onClick={() => setShowImport(true)}>Import a posting</button>}
           />
         </div>
       )}
     </>
   );
+}
+
+/** Why a student might see nothing, from what they told Remy, and what to try next. */
+function nothingFits(p: Workspace["profile"]) {
+  const tips = [
+    /first|fresh|soph/i.test(p.classYear) && !/program|insight/i.test(p.opportunityTypes) && "Internships that take first-years and sophomores are rare; add \"Programs & insight days\" to what you're looking for.",
+    /sponsor|visa/i.test(p.workAuth) && "Fewer postings work when you need sponsorship. Your school's international student office can tell you which roles you can take.",
+    p.regions && !/remote|anywhere/i.test(p.regions) && "Widening where you'll look (Remote or Anywhere in the US) usually finds more.",
+  ].filter(Boolean);
+  return [...(tips.length ? tips : ["Try another filter."]), "You can also import a posting you found yourself, or change these choices in Accounts → Profile."].join(" ");
 }
 
 function ImportPanel({ onDone }: { onDone: () => void }) {

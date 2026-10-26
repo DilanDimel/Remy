@@ -826,3 +826,6 @@ export function skillsPosition(raw: string, doc: ResumeDoc): number | undefined 
   if (skillsAt < 0 || !doc.skills.length) return undefined;
   return doc.sections.filter((s) => { const i = lines.indexOf(s.heading.trim().toLowerCase()); return i >= 0 && i < skillsAt; }).length;
 }
+
+/** "DEMETRE DONDOLADZE" → "Demetre Dondoladze"; names already in mixed case are left alone. */
+export const nameCase = (name: string) => (/[a-z]/.test(name) ? name : name.toLowerCase().replace(/(^|[\s'-])([a-z])/g, (_, sep, c) => sep + c.toUpperCase()));
