@@ -6,12 +6,12 @@ import { uid } from "./ids";
 import { abroad, FIELD_SEARCH, FIELD_TITLES, regionMatch } from "./fit";
 
 // Live openings from employers' own career sites (Greenhouse, Lever, Ashby, Workday, SmartRecruiters,
-// Oracle Cloud, Eightfold and Phenom).
+// Oracle Cloud, Eightfold, Phenom and AppliTrack school-district boards).
 // These are the boards companies use to publish their own careers pages, so each
 // posting links straight back to the employer. No login, no scraping of
 // third-party aggregators.
 
-type Board = { ats: "greenhouse" | "lever" | "ashby" | "workday" | "smartrecruiters" | "oracle" | "eightfold" | "phenom" | "usajobs"; slug: string; company: string; fields?: string[] };
+type Board = { ats: "greenhouse" | "lever" | "ashby" | "workday" | "smartrecruiters" | "oracle" | "eightfold" | "phenom" | "usajobs" | "applitrack"; slug: string; company: string; fields?: string[] };
 
 // Employers whose career sites Remy reads, with the fields they hire for (server/data/employers.json).
 export const EMPLOYERS: Board[] = (JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "server", "data", "employers.json"), "utf8")).employers as { company: string; ats: Board["ats"]; board: string; fields: string[] }[])
@@ -35,10 +35,10 @@ export const DEFAULT_BOARDS: Board[] = EMPLOYERS.length ? EMPLOYERS : [
   { ats: "ashby", slug: "mercury", company: "Mercury" },
 ];
 
-const EARLY = /\b(intern(ship)?s?|co-?op|new grad(uate)?|early career|entry[- ]level|campus|university|student|summer analyst|analyst program|rotational|apprentice|fellow(ship)?|insight|extern(ship)?s?|nurse residen\w*|graduate nurse|nurse intern|new grad rn|freshm[ae]n|sophomores?|first[- ]year|discover\w*|explore|launch|ambassadors?|leadership program|diversity program|pathways|recent graduate|trainee)\b/i;
+const EARLY = /\b(intern(ship)?s?|co-?op|new grad(uate)?|early career|entry[- ]level|campus|university|student|summer analyst|analyst program|rotational|apprentice|fellow(ship)?|insight|cadets?|recruits?|extern(ship)?s?|nurse residen\w*|graduate nurse|nurse intern|new grad rn|freshm[ae]n|sophomores?|first[- ]year|discover\w*|explore|launch|ambassadors?|leadership program|diversity program|pathways|recent graduate|trainee)\b/i;
 const SENIOR = /\b(senior|sr\.?|staff|principal|lead|manager|director|head of|vp|vice president|ii|iii|iv)\b/i;
 // Roles meant for graduate students, skipped for undergraduates.
-const GRAD_LEVEL = /\b(graduate intern(ship)?|intern,?\s*graduate|mba|ph\.?\s?d|doctoral|postdoc|post-doc|master'?s|graduate student|j\.?d\.?|law student|law clerk|medical student|residency program)\b/i;
+const GRAD_LEVEL = /\b(graduate intern(ship)?|intern,?\s*graduate|mba|ph\.?\s?d|doctoral|postdoc|post-doc|master'?s|graduate student|j\.?d\.?|law student|law clerk|medical student|residency program|school psycholog\w*|diagnostician|licensed specialist)\b/i;
 const KEYWORDS = [
   "Excel", "PowerPoint", "Python", "SQL", "R ", "Tableau", "Power BI", "financial modeling", "valuation", "accounting", "data analysis", "analytics",
   "market research", "communication", "written communication", "presentation", "teamwork", "leadership", "problem solving", "attention to detail",
@@ -213,8 +213,34 @@ async function usajobs(field: string, region: string): Promise<Raw[]> {
     text: [x.UserArea?.Details?.JobSummary, x.QualificationSummary, x.UserArea?.Details?.Education, x.UserArea?.Details?.Requirements].filter(Boolean).join("\n"),
   }));
 }
+// Frontline AppliTrack, the job board many Texas school districts use. Board = "district|City, ST".
+// The listing is one page of every opening; only the roles a college student can hold are kept.
+const SCHOOL_STUDENT = /\b(tutors?|student (worker|observer)s?|interns?(hip)?|summer|lifeguards?|water safety|after[- ]?school|substitute teachers?|guest teachers?|camp)\b/i;
+export function applitrackPostings(js: string, slug: string, city: string): Raw[] {
+  const html = js.replace(/\\'/g, "'").replace(/\\"/g, '"');
+  return html.split("<ul class='postingsList' id='p").slice(1).flatMap((chunk) => {
+    const id = chunk.match(/^(\d+)_/)?.[1];
+    // Districts prefix titles with pool codes ("35770* ", "Generic - ").
+    const title = htmlToText(chunk.match(/id='wrapword'[^>]*>([\s\S]*?)<\/td>/)?.[1] || "").trim().replace(/^(\d+\*?\s+|generic\s*-\s*)+/i, "");
+    if (!id || !SCHOOL_STUDENT.test(title)) return [];
+    const field = (label: string) => htmlToText(chunk.match(new RegExp(`${label}\\s*:\\s*</span><br/>(?:&nbsp;)*<span class=["']normal["']>([^<]*)`))?.[1] || "").trim();
+    const [m, d, y] = field("Closing Date").split("/");
+    return [{
+      student: true, title, location: [field("Location"), city].filter(Boolean).join(", "),
+      url: `https://www.applitrack.com/${slug}/onlineapp/default.aspx?AppliTrackJobId=${id}&AppliTrackLayoutMode=detail&AppliTrackViewPosting=1`,
+      text: htmlToText(chunk.replace(/^\d+_'>/, "")), posted: field("Date Posted"), deadline: y ? `${y.slice(0, 4)}-${m.padStart(2, "0")}-${d.padStart(2, "0")}` : "",
+    }];
+  });
+}
+async function applitrack(b: Board): Promise<Raw[]> {
+  const [slug, city] = b.slug.split("|");
+  const r = await fetch(`https://www.applitrack.com/${encodeURIComponent(slug)}/onlineapp/jobpostings/Output.asp?all=1`, { headers: { "user-agent": BROWSER_UA }, signal: AbortSignal.timeout(10000) });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return applitrackPostings(new TextDecoder("windows-1252").decode(await r.arrayBuffer()), slug, city || "");
+}
 export async function fetchBoard(b: Board, field: string, region = ""): Promise<Raw[]> {
   if (b.ats === "usajobs") return usajobs(field, region);
+  if (b.ats === "applitrack") return applitrack(b);
   if (b.ats === "phenom") return phenom(b, field);
   if (b.ats === "workday") return workday(b, field);
   if (b.ats === "smartrecruiters") return smartrecruiters(b, field);

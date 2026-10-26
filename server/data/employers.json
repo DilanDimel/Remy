@@ -1,5 +1,5 @@
 {
- "note": "Employers whose own career sites Remy reads live (Workday boards are tenant|wdN|site; Oracle host|site). Seeded from the open-source career-ops (MIT) and ever-jobs (MIT) lists, then Dallas-Fort Worth employers found from their careers pages on 2026-10-25; every board answered a live check.",
+ "note": "Employers whose own career sites Remy reads live (Workday boards are tenant|wdN|site; Oracle host|site). Seeded from the open-source career-ops (MIT) and ever-jobs (MIT) lists, then Dallas-Fort Worth employers found from their careers pages on 2026-10-25; every board answered a live check; Texas school districts on Frontline AppliTrack added 2026-10-25.",
  "employers": [
   {
    "company": "Morgan Stanley",
@@ -1275,7 +1275,8 @@
    "ats": "greenhouse",
    "board": "cityoffortworth",
    "fields": [
-    "government"
+    "government",
+    "public safety"
    ]
   },
   {
@@ -1293,7 +1294,8 @@
    "board": "dart|wd1|DART",
    "fields": [
     "government",
-    "engineering"
+    "engineering",
+    "public safety"
    ]
   },
   {
@@ -1309,7 +1311,8 @@
    "ats": "workday",
    "board": "dallascityhall|wd5|CODCareers",
    "fields": [
-    "government"
+    "government",
+    "public safety"
    ]
   },
   {
@@ -1583,6 +1586,63 @@
     "healthcare",
     "nursing",
     "social work"
+   ]
+  },
+  {
+   "company": "Plano ISD",
+   "ats": "applitrack",
+   "board": "pisd|Plano, TX",
+   "fields": [
+    "education"
+   ]
+  },
+  {
+   "company": "Richardson ISD",
+   "ats": "applitrack",
+   "board": "risd|Richardson, TX",
+   "fields": [
+    "education"
+   ]
+  },
+  {
+   "company": "Lewisville ISD",
+   "ats": "applitrack",
+   "board": "lewisvilleisd|Lewisville, TX",
+   "fields": [
+    "education"
+   ]
+  },
+  {
+   "company": "Garland ISD",
+   "ats": "applitrack",
+   "board": "garlandisd|Garland, TX",
+   "fields": [
+    "education"
+   ]
+  },
+  {
+   "company": "Mesquite ISD",
+   "ats": "applitrack",
+   "board": "mesquiteisd|Mesquite, TX",
+   "fields": [
+    "education"
+   ]
+  },
+  {
+   "company": "Carrollton-Farmers Branch ISD",
+   "ats": "applitrack",
+   "board": "cfbisd|Carrollton, TX",
+   "fields": [
+    "education"
+   ]
+  },
+  {
+   "company": "City of Arlington",
+   "ats": "workday",
+   "board": "arlingtontx|wd503|cityofarlingtoncareers",
+   "fields": [
+    "government",
+    "public safety"
    ]
   }
  ]
