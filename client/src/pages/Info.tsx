@@ -26,6 +26,15 @@ function Page({ title, lead, children }: { title: string; lead: string; children
   );
 }
 
+// Photos go in client/public/team/ (e.g. "/team/dilan.jpg"); until then each shows initials.
+const TEAM: { name: string; role: string; photo: string }[] = [
+  { name: "Dilan Desman", role: "Technology lead", photo: "" },
+  { name: "Ashton Wisecarver", role: "Brand, marketing & finance", photo: "" },
+  { name: "Lincoln Yoo", role: "Operations & partnerships", photo: "" },
+  { name: "Demetre Dondoladze", role: "Data & databases", photo: "" },
+  { name: "Julio Renovato", role: "Research & analytics", photo: "" },
+];
+
 export function About() {
   return (
     <Page title="About Remy" lead="Remy is a career coach for college students: it finds real openings that fit you and helps you apply honestly.">
@@ -49,7 +58,17 @@ export function About() {
         </ul>
       </Section>
       <Section title="Who we are">
-        <p>Remy was started by five TCU students: Dilan Desman, Ashton Wisecarver, Lincoln Yoo, Demetre Dondoladze and Julio Renovato. It won first place at TCU Neeley's AI Forward competition in October 2026, and we've kept building it since.</p>
+        <p>Remy was started by five TCU students. It won first place at TCU Neeley's AI Forward competition in October 2026, and we've kept building it since.</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(118px, 1fr))", gap: 12 }}>
+          {TEAM.map((m) => (
+            <figure key={m.name} className="stack-sm" style={{ margin: 0, alignItems: "center", textAlign: "center" }}>
+              {m.photo
+                ? <img src={m.photo} alt={m.name} width={96} height={96} style={{ borderRadius: "50%", objectFit: "cover" }} />
+                : <div aria-hidden style={{ width: 96, height: 96, borderRadius: "50%", display: "grid", placeItems: "center", background: "var(--fox-soft)", color: "var(--fox)", fontWeight: 800, fontSize: 28 }}>{m.name.split(" ").map((w) => w[0]).join("")}</div>}
+              <figcaption className="stack-sm" style={{ gap: 2 }}><b>{m.name}</b><span className="xs muted">{m.role}</span></figcaption>
+            </figure>
+          ))}
+        </div>
         <p className="small muted">Remy is a student project. It isn't run by or affiliated with TCU's administration.</p>
       </Section>
     </Page>
