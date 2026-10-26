@@ -2,7 +2,7 @@ import { uiFlags } from "./lib/router";
 import { useEffect, useRef, useState } from "react";
 import {
   BarChart3, Briefcase, CalendarDays, ChevronsLeft, ChevronsRight, Compass, FileText, Home as HomeIcon, Menu, Send,
-  Minus, UserCog, Users,
+  Info, Minus, ShieldCheck, UserCog, Users,
 } from "lucide-react";
 import { StoreProvider, api, useStore } from "./lib/store";
 import { go, useRoute } from "./lib/router";
@@ -163,6 +163,8 @@ function Shell() {
             {[...NAV.filter((n) => ["/community", "/calendar"].includes(n.path)), ACCOUNTS].map((n) => (
               <button key={n.path} className="nav-item" onClick={() => { setMore(false); go(n.path); }}><n.icon size={19} />{n.label}</button>
             ))}
+            <button className="nav-item" onClick={() => { setMore(false); go("/about"); }}><Info size={19} />About Remy</button>
+            <button className="nav-item" onClick={() => { setMore(false); go("/policies"); }}><ShieldCheck size={19} />Privacy & terms</button>
           </div>
         </Modal>
       )}
@@ -319,6 +321,9 @@ function ProfileMenu({ initials, active }: { initials: string; active: boolean }
           {MENU.map(([k, l]) => (
             <button key={k} role="menuitem" onClick={() => { setOpen(false); go(`/accounts?tab=${k}`); }} data-testid={`menu-${k}`}>{l}</button>
           ))}
+          <div className="divider" />
+          <button role="menuitem" onClick={() => { setOpen(false); go("/about"); }} data-testid="menu-about">About Remy</button>
+          <button role="menuitem" onClick={() => { setOpen(false); go("/policies"); }} data-testid="menu-policies">Privacy & terms</button>
           <div className="divider" />
           <button role="menuitem" onClick={signOut} data-testid="menu-sign-out">Sign out</button>
         </div>

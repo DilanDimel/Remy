@@ -49,7 +49,7 @@ export function About() {
         </ul>
       </Section>
       <Section title="Who we are">
-        <p>Remy was started by five TCU students: Dilan Desman, Ashton Wisecarver, Lincoln Yoo, Demetre Dondoladze and Julio Renovato. It won first place in the Offer Ready case at TCU Neeley's AI Forward competition in October 2026, and we've kept building it since.</p>
+        <p>Remy was started by five TCU students: Dilan Desman, Ashton Wisecarver, Lincoln Yoo, Demetre Dondoladze and Julio Renovato. It won first place at TCU Neeley's AI Forward competition in October 2026, and we've kept building it since.</p>
         <p className="small muted">Remy is a student project. It isn't run by or affiliated with TCU's administration.</p>
       </Section>
     </Page>

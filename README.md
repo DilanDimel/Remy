@@ -1,8 +1,8 @@
 # Remy
 
-A functional, private-preview student career demo for the Neeley AI Forward job search case. Its motto: "Don't Hunt for a Job Alone." The brand is black, orange and white, with Remy the fox as the guide.
+Remy is an AI career coach for college students. It reads your resume into a profile, finds real openings from employers' own career sites, checks your resume the way hiring software does, tailors resumes and cover letters without inventing anything, and keeps track of every application. Remy the fox is the guide; the brand is black, orange and white.
 
-Live at https://offer-ready.onrender.com (Render deploys `main`; see `render.yaml`).
+Render deploys `main` (see `render.yaml`).
 
 ## Run
 
@@ -15,7 +15,7 @@ Live at https://offer-ready.onrender.com (Render deploys `main`; see `render.yam
 - `npx tsx script/coverage.ts` rebuilds the 155-node coverage inventory.
 - `npm run check:resume` checks resume reading (PDF/Word/text extraction, the rules reader, the checks on AI output and profile prefill) against synthetic fixtures. No server, database or AI key needed.
 
-Sign-in: a guest workspace (secure cookie), or Google / LinkedIn / email link through Supabase Auth (the server verifies the Supabase token, then keeps its own session). TCU alumni matches are only shown to students signed in with a school email.
+Sign-in: a guest workspace (secure cookie), or Google / LinkedIn / email link through Supabase Auth (the server verifies the Supabase token, then keeps its own session). Alumni matches are only shown to students who verify a school email.
 
 ## Configuration (environment variables)
 
@@ -26,36 +26,28 @@ Sign-in: a guest workspace (secure cookie), or Google / LinkedIn / email link th
 | `OR_AI_DAILY_BUDGET` | AI requests allowed per 24 hours for the whole site (default 1500). Guests also get 40/day each, signed-in students 120/day, and each network 60/hour. |
 | `OR_ALUMNI_EMAIL_DOMAINS` | Email domains that may see TCU alumni matches (default `tcu.edu`). |
 | `SMTP_URL` | Sender for school-email verification codes, e.g. `smtps://remy.account%40gmail.com:<app-password>@smtp.gmail.com:465`. Unset: verification shows "coming soon" (local dev prints codes to the server log). `MAIL_FROM` optionally overrides the From line. |
-| `OR_DB_PATH` | SQLite file (Render: `/data/data.db` on the persistent disk). |
+| `DATABASE_URL` | Postgres connection string (Supabase today). `DB_SCHEMA` picks the schema (default `remy`); `DB_SSL_CA_FILE` the certificate. Unset: PGlite (Postgres inside Node) in the `OR_DB_PATH` folder, or in memory for tests. |
+| `USAJOBS_KEY`, `USAJOBS_EMAIL` | Free USAJOBS API key for federal student and recent-graduate roles. Unset: federal roles are skipped. |
+| `GCAL_CLIENT_ID`, `GCAL_CLIENT_SECRET` | Google Calendar connection (adds deadlines and interviews to a calendar Remy creates). Unset: shows "coming soon". |
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Supabase Auth project (the publishable key is public by design). |
 | `GOOGLE_CLIENT_ID` | Optional Google Identity button (Google sign-in also works through Supabase without it). |
 
 Rate limits that protect the shared AI budget (guest creation, AI per network, link fetching) are kept in memory: they reset on restart and assume one server process.
 
-## Implemented experience
+## What Remy does
 
-- Editable synthetic Finance and Marketing profiles, plain-text resume import, confirmed experience and personal preferences.
-- Demo connection choices; optional live contextual onboarding questions; notification category opt-outs.
-- Semester tasks, role exploration, learning examples, campus activities and optional experiments.
-- Explained opportunity ranking, known conflicts versus unknown eligibility, saved roles, dated public snapshots and manual public URL/text import.
-- Three initial application pairs, live tailoring, original-versus-proposed statements, requirement evidence, human flags, corrections, review, plain-text and DOCX export, status and version history.
-- Tentative advising plans, sample class-conflict checks, Central-time ICS download, manual notes, live summaries and approved tasks.
-- Contextual live AI guide, workspace data export, activity log and full scope documentation.
+- **Profile from your resume:** reads a PDF or Word resume (or LinkedIn's Save-to-PDF) into a profile you confirm; first-year students can build one by tapping through a guided builder instead.
+- **Openings:** reads live student roles from about 180 employers' own career sites (Workday, Greenhouse, Lever, Ashby, SmartRecruiters, Oracle, Eightfold, Phenom, school districts on Frontline AppliTrack) plus federal roles from USAJOBS, and says whether you qualify and why.
+- **Resume check:** an ATS-readiness score based on how hiring software reads resumes, with the keywords for each posting.
+- **Tailoring and cover letters:** suggested changes you approve one by one; every claim must come from your own resume, and downloads keep your Word file's fonts and layout.
+- **Path, community and progress:** semester plan, alumni matches for verified school emails, Google Calendar deadlines and an application tracker.
 
 ## Honest boundaries
 
-No real TCU, Stellic, Outlook, LinkedIn, Handshake or GitHub account is connected. No job application, message, email, appointment or invitation is sent. All academic and campus examples are illustrative, not an official degree audit or verified activity directory. Public job snapshots were researched on October 17, 2026; the demo is not a live or exhaustive feed.
+Remy never asks for passwords and never sends an application, email or message for you. Handshake, Stellic and similar school systems aren't connected: you upload or paste from them. Tailoring checks are rules plus your own review, not a guarantee. Job sites such as GovernmentJobs (NEOGOV) and Handshake don't allow automated reading, so their postings only appear when you import them.
 
-Application checks are conservative rules plus mandatory student review, not a guarantee of truth. A real test draft introduced an unsupported reporting detail; the UI allows it to be flagged, logged and corrected. Constructed tests are separately labeled and must not be presented as actual AI errors.
+Deleting your account removes your workspace, files, AI usage, sessions and sign-in. Guest workspaces idle for 30 days are removed automatically. See `docs/database-plan.md` for how data is stored.
 
-Workspace edits are stored in SQLite, one row per account. This is not university SSO, a FERPA-reviewed service or production storage; see `docs/database-plan.md` before opening Remy to more students. "Delete everything" removes the workspace, files, AI usage, sessions and account record; guest accounts idle for 30 days are removed automatically.
+## Checks
 
-## Scope preservation
-
-`docs/idea-inventory.json` retains all 155 original mind-map nodes. `docs/mindmap-coverage.csv` maps every node to a screen and an honest working, partial, simulated, context or parked status. `docs/product-brief.md` preserves the full specification; both the brief and coverage CSV can be downloaded from the app’s product-scope screen.
-
-The application does not replace the competition pitch deck, final source re-verification, team validation or judging submission.
-
-## Verification and production follow-up
-
-See `docs/qa.md` and `docs/regression-results.json`. A dependency audit still reports issues in the inherited Tailwind/build-tool dependency tree with no non-breaking fix; do not represent this demo as production-hardened. Before production, resolve the tooling dependencies, establish institutional permissions, add authentication and monitoring, validate accessibility comprehensively and migrate to durable storage.
+`npm run check`, `npm run check:contract` and `npm test` run on every push (GitHub Actions). Design notes live in `docs/superpowers/specs/`.
