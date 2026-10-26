@@ -120,6 +120,9 @@ export async function verifySupabase(accessToken: string): Promise<SupabaseUser>
   const r = await fetch(`${cfg.url}/auth/v1/user`, { headers: { apikey: cfg.anonKey, Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(8000) });
   if (!r.ok) throw Object.assign(new Error("Supabase couldn't verify this sign-in. Please try again."), { status: 401 });
   const u: any = await r.json();
+  // Google, LinkedIn and email links all confirm the address; an unconfirmed one (e.g. a password
+  // sign-up made straight against Supabase's API) could claim someone else's email.
+  if (u.email && !u.email_confirmed_at && !u.confirmed_at) throw Object.assign(new Error("Please confirm your email address, then sign in again."), { status: 401 });
   const meta = u.user_metadata || {};
   return {
     id: String(u.id),

@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { AI_SAFETY } from "./safety";
 
 // AI provider resolution, in order:
 // 1. A user-supplied OpenAI key routed through the hosting credential proxy
@@ -192,7 +193,7 @@ export async function aiText(system: string, user: string, maxTokens = 1200, cha
 }
 
 export async function aiJson<T = any>(system: string, user: string, maxTokens = 3000, chainSpec?: string): Promise<T> {
-  const sys = system + "\n\nRespond with a single JSON object only. No markdown, no commentary.";
+  const sys = system + "\n\n" + AI_SAFETY + "\n\nRespond with a single JSON object only. No markdown, no commentary.";
   let last: unknown;
   for (let i = 0; i < 2; i++) {
     try {
