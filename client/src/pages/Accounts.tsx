@@ -8,7 +8,7 @@ import { ProfileForm } from "./Onboarding";
 import { useGoogleButton } from "./Welcome";
 import { ProfileImport } from "../components/Uploaders";
 import { GoogleCalendarCard } from "../components/GoogleCalendar";
-import { atAlumniSchool, SchoolVerify, schoolVerified } from "../components/SchoolVerify";
+import { atAlumniSchool, atTcu, SchoolVerify, schoolVerified } from "../components/SchoolVerify";
 
 type Tab = "profile" | "sources" | "memory" | "settings" | "data";
 
@@ -52,7 +52,10 @@ function Sources() {
     { name: "Resume", status: w.resume ? "Student provided" : "Needs setup", chip: w.resume ? "Added" : "Not added", label: w.resume ? `${w.resume.fileName} · ${fmtDate(w.resume.uploadedAt)}` : "Not uploaded yet", detail: "Your evidence base. Replace it anytime in Resume/CV." },
     { name: "LinkedIn", status: linkedin ? "Student provided" : "Needs setup", chip: linkedin ? "Added" : "Not added", label: linkedin ? `${linkedin.fileName} · ${fmtDate(linkedin.at)}` : "Upload your profile PDF (Resources → Save to PDF on LinkedIn)", detail: "LinkedIn doesn't let apps read profiles directly, so Remy uses the PDF you download.", importKind: "LinkedIn profile (PDF)" },
     { name: "Handshake", status: handshake ? "Student provided" : "Needs setup", chip: handshake ? "Added" : "Coming soon", label: handshake ? `${handshake.fileName} · ${fmtDate(handshake.at)}` : "Direct connection coming soon · you can paste profile or posting text now", detail: "Handshake requires your login; Remy never asks for it.", importKind: "Handshake" },
-    { name: "Stellic / TCU academic", status: stellic ? "Student provided" : "Needs setup", chip: stellic ? "Added" : "Coming soon", label: stellic ? `${stellic.fileName} · ${fmtDate(stellic.at)}` : "Direct connection coming soon · you can paste your degree plan now", detail: "Requirements must come from your advisor and official tools.", importKind: "Stellic / degree plan" },
+    // Stellic is TCU's degree-planning tool; everyone else pastes their plan from their own school's tool.
+    atTcu(w, me)
+      ? { name: "Stellic / TCU academic", status: stellic ? "Student provided" : "Needs setup", chip: stellic ? "Added" : "Coming soon", label: stellic ? `${stellic.fileName} · ${fmtDate(stellic.at)}` : "Direct connection coming soon · you can paste your degree plan now", detail: "Requirements must come from your advisor and official tools.", importKind: "Stellic / degree plan" }
+      : { name: "Degree plan", status: stellic ? "Student provided" : "Needs setup", chip: stellic ? "Added" : "Not added", label: stellic ? `${stellic.fileName} · ${fmtDate(stellic.at)}` : "Paste your plan from your school's degree-planning tool", detail: "Requirements must come from your advisor and official tools.", importKind: "Degree plan" },
     { name: "Email inbox", status: "Needs setup", chip: "Coming soon", label: "Paste recruiting emails in Progress for now", detail: "Remy doesn't read your inbox. Sample emails are labeled as demos." },
   ];
 

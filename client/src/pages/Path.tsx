@@ -4,6 +4,7 @@ import type { PathPlan, Task, Workspace } from "@shared/types";
 import { api, fmtDate, rid, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { AiUnavailableNote, Empty, Remy, Spinner } from "../components/common";
+import { atTcu } from "../components/SchoolVerify";
 
 type Tab = "academic" | "career" | "skills" | "future";
 
@@ -111,13 +112,13 @@ function Skills({ plan }: { plan: PathPlan }) {
 }
 
 function Academic({ plan }: { plan: PathPlan }) {
-  const { save, run } = useStore();
+  const { save, run, ws, me } = useStore();
   const [term, setTerm] = useState("");
   const [items, setItems] = useState("");
   const addTerm = () => run(() => save("plan", { ...plan, academic: [...plan.academic, { id: rid("ac"), term, items: items.split("\n").map((s) => s.trim()).filter(Boolean), note: "Entered by you" }] }), "Term added").then(() => { setTerm(""); setItems(""); });
   return (
     <div className="stack">
-      <div className="notice notice-warn"><div><strong>Not an official degree plan.</strong> Remy can't see TCU's degree audit. Use Stellic and your academic advisor for requirements and graduation status — paste your plan here to keep it alongside your career steps.</div></div>
+      <div className="notice notice-warn"><div><strong>Not an official degree plan.</strong> Remy can't see your school's degree audit. Use {atTcu(ws!, me) ? "Stellic" : "your school's degree-planning tool"} and your academic advisor for requirements and graduation status — paste your plan here to keep it alongside your career steps.</div></div>
       <div className="grid-2" style={{ alignItems: "start" }}>
         {plan.academic.map((a) => (
           <div key={a.id} className="card card-pad stack-sm">

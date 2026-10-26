@@ -86,7 +86,7 @@ export default function Welcome() {
           <Remy size={84} mood="wave" />
           <p className="landing-name">Remy</p>
           <h1 className="motto">Don&rsquo;t Hunt for a Job Alone</h1>
-          <p className="sub">Your career companion for TCU students — connecting what you study and can demonstrate to your path, opportunities, and applications.</p>
+          <p className="sub">Your career companion for college students — connecting what you study and can demonstrate to your path, opportunities, and applications.</p>
         </div>
         <div className="sso-list">
           <div data-testid="google-signin">

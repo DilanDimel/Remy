@@ -6,7 +6,7 @@ import { api, FAR_ENOUGH_STEP, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Remy, Spinner, StatusChip } from "../components/common";
 import { ProfileImport, ResumeUpload } from "../components/Uploaders";
-import { atAlumniSchool, SchoolVerify } from "../components/SchoolVerify";
+import { atAlumniSchool, atTcu, SchoolVerify } from "../components/SchoolVerify";
 import { ResumeBuilder } from "../components/ResumeBuilder";
 import { LinkedInGuide } from "../components/LinkedInGuide";
 import { useGoogleCalendar } from "../components/GoogleCalendar";
@@ -103,7 +103,7 @@ function CalendarMark() {
 
 /** Step 1: resume first (upload or build one), then the other accounts, each with its own row. */
 function ResumeStep({ onNext }: { onNext: () => void }) {
-  const { ws } = useStore();
+  const { ws, me } = useStore();
   const w = ws!;
   const [open, setOpen] = useState<"" | "resume" | "school">(w.resume ? "" : "resume");
   const [busy, setBusy] = useState(false);
@@ -112,10 +112,10 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
   const gc = useGoogleCalendar();
   if (page === "build" && !w.resume) return <ResumeBuilder onDone={onNext} onCancel={() => setPage("")} />;
   if (page === "linkedin") return <LinkedInGuide onDone={() => setPage("")} />;
+  // Handshake is used by most colleges; the TCU account and Stellic only exist at TCU.
   const soon: [string, string, string, ReactNode][] = [
-    ["tcu", "TCU Student Account", "Enrollment, major and class standing", "TCU"],
-    ["stellic", "Stellic Degree Audit", "Degree plan and semester roadmap", "S"],
-    ["handshake", "Handshake", "Saved jobs and career events", "h"],
+    ...(atTcu(w, me) ? [["tcu", "TCU Student Account", "Enrollment, major and class standing", "TCU"], ["stellic", "Stellic Degree Audit", "Degree plan and semester roadmap", "S"]] as [string, string, string, ReactNode][] : []),
+    ["handshake", "Handshake", "Saved jobs and career events, if your school uses it", "h"],
   ];
   return (
     <div className="stack-lg">

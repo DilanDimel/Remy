@@ -6,6 +6,8 @@ import { Spinner } from "./common";
 
 /** The school with the alumni list, as students write it on a resume or profile. */
 export const atAlumniSchool = (w: Workspace) => /\bTCU\b|texas christian/i.test(w.profile.school);
+/** A TCU student by profile, sign-in email or verified school email: shows TCU-only tools (Stellic, TCU account). */
+export const atTcu = (w: Workspace, me: Me | null) => atAlumniSchool(w) || /@tcu\.edu$/i.test(me?.email || "") || /@tcu\.edu$/i.test(me?.schoolEmail || "");
 
 /** Verified = signed in with a school address, or proved one with a code. */
 export function schoolVerified(me: Me | null, domains: string[]) {

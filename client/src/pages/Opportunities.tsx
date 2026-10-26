@@ -96,7 +96,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
         <div className="card">
           <Empty
             title={kind === "campus" ? "No campus jobs added yet" : jobs.length ? "Nothing matches" : "No openings yet"}
-            body={kind === "campus" ? "Campus jobs at TCU are posted on Handshake, which requires your login. Copy a posting's text and import it here — Remy will pull out the requirements." : jobs.length ? "Try another filter, or import a posting." : "Remy searches employers' own career sites for openings that fit you. Run a search, or import a posting you found."}
+            body={kind === "campus" ? "Campus jobs are posted on your school's career site (often Handshake), which requires your login. Copy a posting's text and import it here — Remy will pull out the requirements." : jobs.length ? "Try another filter, or import a posting." : "Remy searches employers' own career sites for openings that fit you. Run a search, or import a posting you found."}
             action={kind !== "campus" && !jobs.length ? <button className="btn btn-primary" onClick={discover} disabled={finding}>{finding ? <Spinner /> : <Search size={16} />} {finding ? "Remy is checking job boards…" : "Find openings"}</button> : <button className="btn btn-secondary" onClick={() => setShowImport(true)}>Import a posting</button>}
           />
         </div>

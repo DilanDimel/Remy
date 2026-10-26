@@ -1284,13 +1284,15 @@ Return JSON:
       // No AI: the guide's sample structure, filled with the student's answers.
       const first = c!.name.split(/\s+/)[0];
       const ans = (i: number) => answers[i]?.a || "";
-      const who = [p.classYear && p.classYear.toLowerCase(), "at Texas Christian University", p.major && `studying ${p.major}`].filter(Boolean).join(" ");
+      const alum = c!.tags.includes("TCU alumni list");
+      const school = p.school.trim() || (alum ? "TCU" : "");
+      const who = [p.classYear && p.classYear.toLowerCase(), "student", school && `at ${school}`, p.major && `studying ${p.major}`].filter(Boolean).join(" ");
       out = {
-        subject: `TCU student — ${ans(0) ? "quick question about your path" : "informational interview request"}`,
-        body: [`Dear ${first},`, `I'm ${me}, a ${who}. I found your contact information through the TCU Neeley alumni networking list${ans(1) ? ` and was especially interested in ${ans(1)}` : ` and was interested in your work at ${c!.org}`}.`,
+        subject: `${school ? school + " student" : "Student"} — ${ans(0) ? "quick question about your path" : "informational interview request"}`,
+        body: [`Dear ${first},`, `I'm ${me}, a ${who}. ${alum ? "I found your contact information through the TCU Neeley alumni networking list" : `I'm reaching out about your work at ${c!.org}`}${ans(1) ? ` and was especially interested in ${ans(1)}` : alum ? ` and was interested in your work at ${c!.org}` : ""}.`,
           ans(2), `Might you be available for a 20-30 minute conversation${ans(3) ? ` — I'm generally free ${ans(3)}` : ""}? ${ans(0) ? `I'd love to ${ans(0).replace(/^(to |i'd like to |i want to )/i, "")}.` : "I'd appreciate hearing about your experience and any advice you have."}`,
           "Thank you in advance for your consideration.", `Best regards,\n${sig}`].filter(Boolean).join("\n\n"),
-        linkedin: `Hi ${first}, I'm a TCU student interested in ${c!.org} and your path into ${c!.title || "your field"}. I'd love to connect and learn from you. — ${me}`.slice(0, 199),
+        linkedin: `Hi ${first}, I'm ${school ? `a ${school}` : "a"} student interested in ${c!.org} and your path into ${c!.title || "your field"}. I'd love to connect and learn from you. — ${me}`.slice(0, 199),
       };
     }
     const clean = (t: string) => t.replace(/\[[^\]]{2,80}\]/g, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
