@@ -23,7 +23,7 @@ import { atsChecks, claimCheck } from "./claims";
 import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, skillSuggestions } from "./builder";
 import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES } from "./fit";
 import { atsScore } from "./ats";
-import { boardsFor, discoverJobs, EMPLOYERS, USAJOBS } from "./sources";
+import { boardsFor, CAREERONESTOP, discoverJobs, EMPLOYERS, USAJOBS } from "./sources";
 import { alumniList, matchAlumni } from "./alumni";
 import { emailReady, sendEmail } from "./email";
 import { docxStyle, editDocx } from "./docxEdit";
@@ -248,8 +248,8 @@ async function findOpenings(ctx: Ctx, named: string[] = []) {
   // Remy knows their career site, otherwise by guessing their Greenhouse/Lever/Ashby board.
   const dream = (p.dreamEmployers || "").split(/[,;]+/).map((x) => x.trim()).filter((x) => x.length > 1).slice(0, 5);
   const dreamBoards = dream.flatMap((d) => { const hit = EMPLOYERS.filter((e) => e.company.toLowerCase().includes(d.toLowerCase())); return hit.length ? hit : boardsFor(d); });
-  // Federal student roles (USAJOBS) are one cheap search that fits every field, so they're always included.
-  const boards = [...named.flatMap(boardsFor), ...dreamBoards, ...picked.slice(0, 15), ...(process.env.USAJOBS_KEY ? [USAJOBS] : [])];
+  // Federal student roles (USAJOBS) and the Labor Department's job search (CareerOneStop) fit every field, so they're always included.
+  const boards = [...named.flatMap(boardsFor), ...dreamBoards, ...picked.slice(0, 15), ...(process.env.USAJOBS_KEY ? [USAJOBS] : []), ...(process.env.COS_TOKEN ? [CAREERONESTOP] : [])];
   const seen = new Set<string>();
   const unique = boards.filter((b) => { const k = b.ats + ":" + b.slug; if (seen.has(k)) return false; seen.add(k); return true; });
   const r = await discoverJobs(ctx.ws, unique);

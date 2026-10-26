@@ -28,6 +28,7 @@ Sign-in: a guest workspace (secure cookie), or Google / LinkedIn / email link th
 | `SMTP_URL` | Sender for school-email verification codes, e.g. `smtps://remy.account%40gmail.com:<app-password>@smtp.gmail.com:465`. Unset: verification shows "coming soon" (local dev prints codes to the server log). `MAIL_FROM` optionally overrides the From line. |
 | `DATABASE_URL` | Postgres connection string (Supabase today). `DB_SCHEMA` picks the schema (default `remy`); `DB_SSL_CA_FILE` the certificate. Unset: PGlite (Postgres inside Node) in the `OR_DB_PATH` folder, or in memory for tests. |
 | `USAJOBS_KEY`, `USAJOBS_EMAIL` | Free USAJOBS API key for federal student and recent-graduate roles. Unset: federal roles are skipped. |
+| `COS_USER_ID`, `COS_TOKEN` | Free CareerOneStop (U.S. Department of Labor) key: city, county, state and other jobs from the National Labor Exchange. Unset: skipped. |
 | `GCAL_CLIENT_ID`, `GCAL_CLIENT_SECRET` | Google Calendar connection (adds deadlines and interviews to a calendar Remy creates). Unset: shows "coming soon". |
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Supabase Auth project (the publishable key is public by design). |
 | `GOOGLE_CLIENT_ID` | Optional Google Identity button (Google sign-in also works through Supabase without it). |
@@ -37,7 +38,7 @@ Rate limits that protect the shared AI budget (guest creation, AI per network, l
 ## What Remy does
 
 - **Profile from your resume:** reads a PDF or Word resume (or LinkedIn's Save-to-PDF) into a profile you confirm; first-year students can build one by tapping through a guided builder instead.
-- **Openings:** reads live student roles from about 180 employers' own career sites (Workday, Greenhouse, Lever, Ashby, SmartRecruiters, Oracle, Eightfold, Phenom, school districts on Frontline AppliTrack) plus federal roles from USAJOBS, and says whether you qualify and why.
+- **Openings:** reads live student roles from about 180 employers' own career sites (Workday, Greenhouse, Lever, Ashby, SmartRecruiters, Oracle, Eightfold, Phenom, and school districts on Frontline AppliTrack, Taleo and SchoolSpring) plus federal roles from USAJOBS and, with a key, the Labor Department's CareerOneStop job search, and says whether you qualify and why.
 - **Resume check:** an ATS-readiness score based on how hiring software reads resumes, with the keywords for each posting.
 - **Tailoring and cover letters:** suggested changes you approve one by one; every claim must come from your own resume, and downloads keep your Word file's fonts and layout.
 - **Path, community and progress:** semester plan, alumni matches for verified school emails, Google Calendar deadlines and an application tracker.

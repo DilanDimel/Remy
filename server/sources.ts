@@ -11,7 +11,7 @@ import { abroad, FIELD_SEARCH, FIELD_TITLES, regionMatch } from "./fit";
 // posting links straight back to the employer. No login, no scraping of
 // third-party aggregators.
 
-type Board = { ats: "greenhouse" | "lever" | "ashby" | "workday" | "smartrecruiters" | "oracle" | "eightfold" | "phenom" | "usajobs" | "applitrack"; slug: string; company: string; fields?: string[] };
+type Board = { ats: "greenhouse" | "lever" | "ashby" | "workday" | "smartrecruiters" | "oracle" | "eightfold" | "phenom" | "usajobs" | "applitrack" | "schoolspring" | "taleo" | "careeronestop"; slug: string; company: string; fields?: string[] };
 
 // Employers whose career sites Remy reads, with the fields they hire for (server/data/employers.json).
 export const EMPLOYERS: Board[] = (JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "server", "data", "employers.json"), "utf8")).employers as { company: string; ats: Board["ats"]; board: string; fields: string[] }[])
@@ -216,13 +216,16 @@ async function usajobs(field: string, region: string): Promise<Raw[]> {
 // Frontline AppliTrack, the job board many Texas school districts use. Board = "district|City, ST".
 // The listing is one page of every opening; only the roles a college student can hold are kept.
 const SCHOOL_STUDENT = /\b(tutors?|student (worker|observer)s?|interns?(hip)?|summer|lifeguards?|water safety|after[- ]?school|substitute teachers?|guest teachers?|camp)\b/i;
+// Districts also post internships for their own high schoolers.
+const HIGH_SCHOOLER = /\b(for )?high school students?\b|\bhs students?\b/i;
+const collegeRole = (title: string) => SCHOOL_STUDENT.test(title) && !HIGH_SCHOOLER.test(title);
 export function applitrackPostings(js: string, slug: string, city: string): Raw[] {
   const html = js.replace(/\\'/g, "'").replace(/\\"/g, '"').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
   return html.split("<ul class='postingsList' id='p").slice(1).flatMap((chunk) => {
     const id = chunk.match(/^(\d+)_/)?.[1];
     // Districts prefix titles with pool codes ("35770* ", "Generic - ").
     const title = htmlToText(chunk.match(/id='wrapword'[^>]*>([\s\S]*?)<\/td>/)?.[1] || "").trim().replace(/^(\d+\*?\s+|generic\s*-\s*)+/i, "");
-    if (!id || !SCHOOL_STUDENT.test(title)) return [];
+    if (!id || !collegeRole(title)) return [];
     const field = (label: string) => htmlToText(chunk.match(new RegExp(`${label}\\s*:\\s*</span><br/>(?:&nbsp;)*<span class=["']normal["']>([^<]*)`))?.[1] || "").trim();
     const [m, d, y] = field("Closing Date").split("/");
     return [{
@@ -238,7 +241,84 @@ async function applitrack(b: Board): Promise<Raw[]> {
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return applitrackPostings(new TextDecoder("windows-1252").decode(await r.arrayBuffer()), slug, city || "");
 }
+// School-district search words: student roles are rare, so search for them instead of paging every opening.
+const SCHOOL_QUERIES = ["tutor", "intern", "student", "substitute", "summer", "lifeguard", "after school"];
+async function eachQuery(queries: string[], read: (q: string) => Promise<Raw[]>): Promise<Raw[]> {
+  const seen = new Set<string>();
+  return (await Promise.all(queries.map((q) => read(q).catch(() => [] as Raw[])))).flat().filter((r) => !seen.has(r.url) && seen.add(r.url));
+}
+// SchoolSpring (PowerSchool), used by districts such as Irving and Keller ISD: its public JSON API.
+// Board = the district's SchoolSpring host ("irvingisd.schoolspring.com").
+async function schoolspring(b: Board): Promise<Raw[]> {
+  const raws = await eachQuery(SCHOOL_QUERIES, async (q) => {
+    const qs = new URLSearchParams({ domainName: b.slug, keyword: q, location: "", category: "", gradelevel: "", jobtype: "", organization: "", swLat: "", swLon: "", neLat: "", neLon: "", page: "1", size: "50", sortDateAscending: "false" });
+    const j = await getJson(`https://api.schoolspring.com/api/Jobs/GetPagedJobsWithSearch?${qs}`);
+    return (j.value?.jobsList || []).map((x: any): Raw => ({
+      student: true, title: decodeEntities(String(x.title || "")), location: [decodeEntities(String(x.employer || "")), String(x.location || "")].filter(Boolean).join(", "),
+      url: `https://${b.slug}/?jobid=${x.jobId}`, text: "", posted: x.displayDate,
+      detail: async () => {
+        const d = (await getJson(`https://api.schoolspring.com/api/Jobs/${encodeURIComponent(x.jobId)}`)).value?.jobInfo || {};
+        const pay = d.payMin && d.payMax ? `Pay: $${d.payMin}–$${d.payMax} ${d.salaryCode || ""}` : "";
+        return { text: [htmlToText(String(d.jobDescription || "")), d.requirements && d.requirements !== "None" ? htmlToText(String(d.requirements)) : "", pay, d.shiftType ? `Schedule: ${d.shiftType}` : ""].filter(Boolean).join("\n") };
+      },
+    }));
+  });
+  return raws.filter((r) => collegeRole(r.title));
+}
+// Oracle Taleo career sections (Dallas ISD): the anonymous search request the career page makes.
+// Board = "host|section|City, ST". The portal id is read from the career page each time, since it can change.
+export function taleoDescription(html: string): string {
+  const v = html.match(/id="initialHistory" value="([^"]*)"/)?.[1] || "";
+  // The page state is "!|!"-separated, URL-encoded; the long pieces are the description and requirements.
+  const parts = v.split("!|!").map((s) => { try { return decodeURIComponent(s); } catch { return s; } }).map((s) => s.replace(/\\/g, "").replace(/^!\*!/, ""));
+  return [...new Set(parts.filter((s) => s.length > 200))].map((s) => htmlToText(decodeEntities(s))).join("\n").slice(0, 12000);
+}
+async function taleo(b: Board): Promise<Raw[]> {
+  const [host, section, city] = b.slug.split("|");
+  const page = await (await fetch(`https://${host}/careersection/${section}/jobsearch.ftl`, { headers: { "user-agent": BROWSER_UA }, signal: AbortSignal.timeout(8000) })).text();
+  const portal = page.match(/[?&]portal=(\d+)/)?.[1];
+  if (!portal) throw new Error("no public portal");
+  const raws = await eachQuery(SCHOOL_QUERIES, async (q) => {
+    const r = await fetch(`https://${host}/careersection/rest/jobboard/searchjobs?lang=en&portal=${portal}`, {
+      method: "POST", headers: { "content-type": "application/json", tz: "GMT-06:00", "user-agent": BROWSER_UA }, signal: AbortSignal.timeout(8000),
+      body: JSON.stringify({ multilineEnabled: false, sortingSelection: { sortBySelectionParam: "3", ascendingSortingOrder: "false" }, fieldData: { fields: { KEYWORD: q, LOCATION: "" }, valid: true }, filterSelectionParam: { searchFilterSelections: [] }, advancedSearchFiltersSelectionParam: { searchFilterSelections: [] }, pageNo: 1 }),
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return ((await r.json()).requisitionList || []).map((x: any): Raw => {
+      const [title, loc] = (x.column || []).map(String);
+      let where = loc || "";
+      try { where = (JSON.parse(loc) as string[]).join("; "); } catch {}
+      const url = `https://${host}/careersection/${section}/jobdetail.ftl?job=${encodeURIComponent(x.contestNo || x.jobId)}&lang=en`;
+      return {
+        student: true, title: title || "", location: [where, city].filter(Boolean).join(", "), url, text: "",
+        detail: async () => ({ text: taleoDescription(await (await fetch(url, { headers: { "user-agent": BROWSER_UA }, signal: AbortSignal.timeout(8000) })).text()) }),
+      };
+    });
+  });
+  return raws.filter((r) => collegeRole(r.title));
+}
+// CareerOneStop (U.S. Department of Labor), whose job search draws on the National Labor Exchange: city,
+// county, state and school jobs that aren't on the boards above. Free key: COS_USER_ID + COS_TOKEN.
+export const CAREERONESTOP: Board = { ats: "careeronestop", slug: "careeronestop", company: "CareerOneStop (U.S. Dept. of Labor)", fields: [] };
+async function careeronestop(field: string, region: string): Promise<Raw[]> {
+  const user = process.env.COS_USER_ID, token = process.env.COS_TOKEN;
+  if (!user || !token) return [];
+  const where = /dallas|fort worth|dfw/i.test(region) ? "Dallas, TX" : region.split(/[;/]/)[0].trim() || "US";
+  const search = async (keyword: string) => {
+    // Path: keyword / location / radius / sort column / sort order / start row / page size / days back.
+    const r = await fetch(`https://api.careeronestop.org/v1/jobsearch/${encodeURIComponent(user)}/${encodeURIComponent(keyword)}/${encodeURIComponent(where)}/50/0/0/0/100/30`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, signal: AbortSignal.timeout(8000) });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return ((await r.json()).Jobs || []).map((x: any): Raw => ({
+      nearby: where !== "US", title: String(x.JobTitle || ""), company: String(x.Company || ""), location: String(x.Location || ""),
+      url: String(x.URL || ""), text: String(x.DescriptionSnippet || ""), posted: x.AcquisitionDate,
+    }));
+  };
+  return eachQuery([field ? `${field} intern` : "intern", "student", "trainee"], search);
+}
 export async function fetchBoard(b: Board, field: string, region = ""): Promise<Raw[]> {
+  if (b.ats === "schoolspring") return schoolspring(b);
+  if (b.ats === "taleo") return taleo(b);
+  if (b.ats === "careeronestop") return careeronestop(field, region);
   if (b.ats === "usajobs") return usajobs(field, region);
   if (b.ats === "applitrack") return applitrack(b);
   if (b.ats === "phenom") return phenom(b, field);

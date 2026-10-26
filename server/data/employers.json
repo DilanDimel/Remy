@@ -1,5 +1,5 @@
 {
- "note": "Employers whose own career sites Remy reads live (Workday boards are tenant|wdN|site; Oracle host|site). Seeded from the open-source career-ops (MIT) and ever-jobs (MIT) lists, then Dallas-Fort Worth employers found from their careers pages on 2026-10-25; every board answered a live check; Texas school districts on Frontline AppliTrack added 2026-10-25.",
+ "note": "Employers whose own career sites Remy reads live (Workday boards are tenant|wdN|site; Oracle host|site). Seeded from the open-source career-ops (MIT) and ever-jobs (MIT) lists, then Dallas-Fort Worth employers found from their careers pages on 2026-10-25; every board answered a live check; Texas school districts on Frontline AppliTrack added 2026-10-25; Dallas ISD (Taleo), Irving and Keller ISD (SchoolSpring) added 2026-10-26.",
  "employers": [
   {
    "company": "Morgan Stanley",
@@ -1649,6 +1649,30 @@
    "company": "Fort Worth ISD",
    "ats": "applitrack",
    "board": "fortworth|Fort Worth, TX",
+   "fields": [
+    "education"
+   ]
+  },
+  {
+   "company": "Dallas ISD",
+   "ats": "taleo",
+   "board": "aa142.taleo.net|ext|Dallas, TX",
+   "fields": [
+    "education"
+   ]
+  },
+  {
+   "company": "Irving ISD",
+   "ats": "schoolspring",
+   "board": "irvingisd.schoolspring.com",
+   "fields": [
+    "education"
+   ]
+  },
+  {
+   "company": "Keller ISD",
+   "ats": "schoolspring",
+   "board": "kellerisd.schoolspring.com",
    "fields": [
     "education"
    ]
