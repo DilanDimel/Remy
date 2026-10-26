@@ -118,15 +118,19 @@ export function regionMatch(ws: Workspace, job: Job): boolean | null {
 // Fields follow the National Career Clusters (Advance CTE, 2024), split where college students commonly go.
 // Each row: [what the student says (major, roles, interests), job titles that belong to it, Workday search word].
 const FIELDS: [RegExp, RegExp, string][] = [
-  [/financ|bank|invest|m&a|capital|fintech|account|econ|wealth|cpa/i, /financ|bank|invest|m&a|merger|capital|equity|credit|analyst|account|audit|tax|assurance|advisory|treasury|fp&a|valuation|trading|risk|wealth|asset|corporate development|strategy|\bbusiness/i, "finance"],
+  [/financ|bank|invest|m&a|capital|fintech|account|econ|wealth|cpa/i, /financ|bank|invest|m&a|merger|capital|equity|credit|analyst|account|audit|(?<!non-)tax|assurance|advisory|treasury|fp&a|valuation|trading|risk|wealth|asset|corporate development|strategy|\bbusiness/i, "finance"],
   [/quant|math|statistic|actuar|physics/i, /quant|research|trading|analyst|data|actuar|statistic|model/i, "quantitative"],
-  [/market|brand|advertis|social media|public relations|\bpr\b/i, /market|brand|growth|content|social|communication|advertis|creative|public relations|\bpr\b|digital|campaign/i, "marketing"],
+  // "marketing", not bare "market": "middle-market" and "capital markets" are finance words.
+  [/marketing|market research|brand|advertis|social media|public relations|\bpr\b/i, /marketing|market research|brand|growth|content|social|communication|advertis|creative|public relations|\bpr\b|digital|campaign/i, "marketing"],
   [/sales|business development/i, /sales|business development|account (executive|manager)|partnerships|customer success/i, "sales"],
   [/management|entrepreneur|business admin|\bbba\b|general business|startup/i, /business|operations|management|associate|analyst|strategy|project|program|leadership|rotational/i, "business"],
   [/consult/i, /consult|strategy|analyst|advisory/i, "consulting"],
   [/human resources|\bhr\b|people|talent|recruit/i, /human resources|\bhr\b|people|talent|recruit/i, "human resources"],
   [/data|analytic|statistic/i, /data|analytic|insight|intelligence|research|quant/i, "data"],
-  [/software|computer science|computer engineering|\bcs\b|developer|\btech\b|programming|information technology|cyber|information systems|\bbis\b|\bmis\b/i, /engineer|developer|software|technical|machine learning|data|cyber|security|network|systems|\bit\b|technology|cloud/i, "software"],
+  // Business information systems sits between business and tech: analyst, IT and fintech roles, not engineering.
+  [/information systems|\bbis\b|\bmis\b|business analytics|fintech/i, /business analyst|systems analyst|information systems|\bit\b|information technology|technology|data analy\w*|data science|database|analytics|business intelligence|fintech|product|erp|\bsap\b|cyber|security analyst|digital|software/i, "information systems"],
+  // "Engineer" only with software context, so petroleum, safety or field engineering isn't read as software.
+  [/software|computer science|computer engineering|\bcs\b|developer|\btech\b|programming|information technology|cyber/i, /software|developer|programmer|(data|ml|machine learning|cloud|platform|back[- ]?end|front[- ]?end|full[- ]?stack|devops|security|network|systems|site reliability|qa|test|web|mobile|ai) engineer|machine learning|data|cyber|security|network|systems (analyst|administrator)|\bit\b|technology|cloud|technical/i, "software"],
   [/mechanical|civil|electrical|industrial|aerospace|chemical|biomedical|manufacturing|petroleum|structural|\bengineering\b/i, /^(?!.*software).*(engineer|engineering|manufacturing|design|process|quality|field|technician|project)/i, "engineering"],
   [/architect|construction|interior design|urban planning|landscape/i, /architect|construction|project|design|planning|estimat|field|site/i, "construction"],
   [/supply chain|operations|logistics|transportation/i, /operations|supply|logistics|procurement|planning|transportation|warehouse|distribution/i, "operations"],

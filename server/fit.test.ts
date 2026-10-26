@@ -107,3 +107,23 @@ test("regions: 'Dallas-Fort Worth, Texas' means DFW, not anywhere in Texas; 'Tex
   assert.equal(regionMatch(student({ regions: "Dallas-Fort Worth, Texas" }), job({ location: "Irving, TX" })), true);
   assert.equal(regionMatch(student({ regions: "Texas" }), job({ location: "El Paso, TX, United States" })), true);
 });
+
+// Stress test, Oct 26: a Finance & BIS student targeting M&A was shown petroleum and safety engineering roles.
+const dilan = student({ major: "Finance & BIS with Fintech Certification", targetRoles: "Investment banking, M&A, especially sell-side advisory for middle-market companies" });
+test("field: a Finance & BIS student doesn't match engineering roles outside software", () => {
+  for (const title of ["Reservoir Engineer Intern - Summer 2027", "Drilling & Completions Engineer Intern - Summer 2027", "Public Notice for Safety Engineer (Direct Hire)", "Cryogenic Data Systems Architect", "Summer Intern (Legal Administrative Specialist) (Non-Tax)"])
+    assert.equal(fieldMatch(dilan, job({ title })), false, title);
+});
+test("field: a Finance & BIS student still matches finance, risk and business-technology roles", () => {
+  for (const title of ["Financial Institution Intern (Risk Management)", "2027 Intern - Technology Risk", "Summer Analyst - Investment Banking", "Business Analyst Intern", "IT Audit Intern"])
+    assert.equal(fieldMatch(dilan, job({ title })), true, title);
+});
+test("field: a CS student still matches software engineering roles", () => {
+  const cs = student({ major: "Computer Science" });
+  for (const title of ["Software Engineer Intern", "Data Engineer Intern", "Backend Engineer, New Grad"]) assert.equal(fieldMatch(cs, job({ title })), true, title);
+  assert.equal(fieldMatch(cs, job({ title: "Reservoir Engineer Intern" })), false);
+});
+test("field: 'middle-market' and 'capital markets' don't make a student a marketing student", () => {
+  assert.equal(fieldMatch(student({ targetRoles: "middle-market M&A" }), job({ title: "Brand Marketing Intern" })), false);
+  assert.equal(fieldMatch(student({ major: "Marketing" }), job({ title: "Brand Marketing Intern" })), true);
+});
