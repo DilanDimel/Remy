@@ -662,16 +662,24 @@ export async function registerRoutes(_server: Server, app: Express) {
     const raw = f ? await fileToText(f.buffer, f.originalname, f.mimetype) : String(req.body?.text || "");
     if (raw.trim().length < 40) bad("Add a file or paste at least a few lines of profile text.");
     const out = await withAi(ctx, `Import ${kind}`, () =>
-      aiJson<{ facts: { text: string; category: MemoryFact["category"]; quote: string; conflict?: string }[] }>(
-        "You extract factual statements about a student from their own exported profile text. Only include facts stated in the text. Keep each fact short and specific. Include a verbatim supporting quote. If a fact disagrees with the student's resume or profile (a different major, school, title, employer or dates), say how in \"conflict\" in plain words, e.g. \"Your resume says Finance & BIS\"; otherwise leave it empty. Something missing from the resume is not a conflict.",
-        `Source: ${kind}\nRESUME AND PROFILE (for spotting disagreements only):\n${profileSummary(ctx.ws)}\n${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org, e.dates].filter(Boolean).join(", ")).join("; ")).join("\n") : "(no resume)"}\n\nReturn {"facts":[{"text":"","category":"background|goal|preference|skill|experience|constraint|other","quote":"exact words","conflict":""}]} with at most 15 facts.\n\nTEXT:\n"""${raw.slice(0, 12000)}"""`,
+      aiJson<{ facts: { text: string; category: MemoryFact["category"]; quote: string; conflict?: string; notOnResume?: boolean }[] }>(
+        "You extract factual statements about a student from their own exported profile text. Only include facts stated in the text. Keep each fact short and specific. Include a verbatim supporting quote. If a fact disagrees with the student's resume or profile (a different major, school, title, employer or dates), say how in \"conflict\" in plain words, e.g. \"Your resume says Finance & BIS\"; otherwise leave it empty. Something missing from the resume is not a conflict: instead set \"notOnResume\": true for experience, skills, certifications, awards or activities the resume doesn't mention.",
+        `Source: ${kind}\nRESUME AND PROFILE (for spotting disagreements only):\n${profileSummary(ctx.ws)}\n${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org, e.dates].filter(Boolean).join(", ")).join("; ")).join("\n") : "(no resume)"}\n\nReturn {"facts":[{"text":"","category":"background|goal|preference|skill|experience|constraint|other","quote":"exact words","conflict":"","notOnResume":false}]} with at most 15 facts.\n\nTEXT:\n"""${raw.slice(0, 12000)}"""`,
       ),
     );
     const n = norm(raw);
     let added = 0;
+    const missing: string[] = [];
     for (const f2 of out.facts || []) {
       if (f2.quote && !n.includes(norm(f2.quote).slice(0, 80))) continue; // drop anything not grounded in the text
       if (addFact(ctx.ws, f2.text, f2.category || "other", `${kind} import`, "suggested", String(f2.conflict || ""))) added++;
+      if (f2.notOnResume && !f2.conflict && ctx.ws.resume) missing.push(f2.text.trim());
+    }
+    // The student decides what belongs on the resume; Remy only makes the gap visible as a to-do.
+    const source = kind.replace(/\s*\(.*\)$/, "");
+    if (missing.length) {
+      ctx.ws.tasks = ctx.ws.tasks.filter((t) => !(t.source === `${source} check` && !t.done && t.title.startsWith("Decide what to add")));
+      ctx.ws.tasks.unshift({ id: uid("t"), title: `Decide what to add to your resume from ${source}`, why: `Your ${source} lists ${missing.length} thing${missing.length === 1 ? "" : "s"} your resume doesn't: ${missing.slice(0, 6).join("; ")}${missing.length > 6 ? "; …" : ""}. Add the ones that still apply and are true, so employers see the same story everywhere.`, due: "", category: "Prepare", done: false, source: `${source} check`, link: "/resume" });
     }
     ctx.ws.imports.unshift({ id: uid("i"), kind, fileName: f?.originalname || "Pasted text", at: nowIso(), label: "Student provided", factsAdded: added });
     await ctx.save();
@@ -756,12 +764,33 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     const out = await withAi(ctx, "Assistant chat", () =>
       aiJson<{ reply: string; remember: string[] }>(
         `You are Remy, a friendly fox career coach for university students. Be concise (under 140 words), warm, practical and honest. Use only facts you are given; if you don't know something (like a specific university rule), say so and suggest who to ask. Never claim to have sent emails, applied, or changed calendars — you can only suggest. If the student shares a durable fact or preference worth remembering, propose it in "remember" (short third-person statements); otherwise return an empty list.\n\n${CHAT_RULES}`,
-        `Current page: ${page}\nPROFILE:\n${profileSummary(ctx.ws)}\nAPPROVED MEMORY:\n${approvedFacts(ctx.ws).slice(0, 40).join("\n") || "(none)"}\nRESUME: ${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org].filter(Boolean).join(" at ")).join("; ")).join(" | ") : "(not uploaded)"}\nAPPLICATIONS: ${apps || "(none)"}\nSAVED OPENINGS: ${ctx.ws.savedJobIds.map((id) => findJob(ctx.ws, id)?.title).filter(Boolean).join("; ") || "(none)"}\nOPENINGS REMY FOUND THAT FIT (best first): ${found || "(none yet)"}\n\nRECENT CHAT:\n${history}\n\nStudent: ${message}\n\nReturn {"reply":"","remember":[]}`,
+        `Current page: ${page}\nPROFILE:\n${profileSummary(ctx.ws)}\nAPPROVED MEMORY:\n${approvedFacts(ctx.ws).slice(0, 40).join("\n") || "(none)"}\nRESUME: ${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org].filter(Boolean).join(" at ")).join("; ")).join(" | ") : "(not uploaded)"}\nAPPLICATIONS: ${apps || "(none)"}\nSAVED OPENINGS: ${ctx.ws.savedJobIds.map((id) => findJob(ctx.ws, id)?.title).filter(Boolean).join("; ") || "(none)"}\nOPENINGS REMY FOUND THAT FIT (best first): ${found || "(none yet)"}\nRESUME VS OTHER PROFILES, NOT YET RESOLVED (ask the student which is right; never treat these as true): ${ctx.ws.memory.filter((m) => m.conflict).map((m) => `${m.text} (${m.conflict})`).join("; ") || "(none)"}\n\nRECENT CHAT:\n${history}\n\nStudent: ${message}\n\nReturn {"reply":"","remember":[]}`,
         900,
       ),
     );
     ctx.ws.chat.push({ id: uid("m"), role: "user", text: message, at: nowIso(), page });
     ctx.ws.chat.push({ id: uid("m"), role: "assistant", text: String(out.reply || "Sorry — I couldn't form a reply."), at: nowIso(), page, memorySuggestions: (out.remember || []).slice(0, 3).map(String) });
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
+
+  // An imported fact that disagrees with the resume: the student says which is right, and Remy
+  // adds a to-do to fix the other one. Until then the fact isn't evidence for anything Remy writes.
+  app.post("/api/memory/:id/resolve", route(async (req, res, ctx) => {
+    const m = ctx.ws.memory.find((x) => x.id === req.params.id);
+    if (!m || !m.conflict) bad("That fact has nothing to resolve.", 404);
+    const right = req.body?.right === "source" ? "source" : "resume";
+    const source = m!.source.replace(/\s*\(.*$/, "").replace(/ import$/, "");
+    if (right === "resume") {
+      ctx.ws.memory = ctx.ws.memory.filter((x) => x.id !== m!.id);
+      ctx.ws.tasks.unshift({ id: uid("t"), title: `Update your ${source} to match your resume`, why: `${source} says: "${m!.text}". ${m!.conflict}. Recruiters often check both, so fix ${source}.`, due: "", category: "Prepare", done: false, source: `${source} check` });
+    } else {
+      m!.status = "approved";
+      m!.updatedAt = nowIso();
+      const was = m!.conflict;
+      delete m!.conflict;
+      ctx.ws.tasks.unshift({ id: uid("t"), title: "Update your resume to match", why: `You said ${source} is right: "${m!.text}". ${was}. Change your resume so they match.`, due: "", category: "Prepare", done: false, source: `${source} check`, link: "/resume" });
+    }
     await ctx.save();
     res.json(ctx.ws);
   }));
