@@ -368,7 +368,7 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
           <h3>Facts from your other sources</h3>
           {suggested.map((m) => (
             <div key={m.id} className="source-row" style={{ padding: 10 }}>
-              <div style={{ flex: 1 }}><div className="small">{m.text}</div><div className="xs muted">{m.source}</div></div>
+              <div style={{ flex: 1 }}><div className="small">{m.text}</div><div className="xs muted">{m.source}</div>{m.conflict && <div className="xs" style={{ color: "var(--amber)" }}>Doesn't match: {m.conflict}</div>}</div>
               <button className="btn btn-secondary btn-sm" onClick={() => run(() => setFact(m.id, { status: "approved" }))} data-testid="button-approve-fact">Keep</button>
               <button className="icon-btn" onClick={() => run(() => removeFact(m.id))} aria-label="Remove fact"><Trash2 size={16} /></button>
             </div>

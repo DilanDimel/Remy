@@ -137,6 +137,8 @@ export interface MemoryFact {
   category: "background" | "goal" | "preference" | "skill" | "experience" | "constraint" | "other";
   source: string; // e.g. "Resume upload", "LinkedIn PDF", "Assistant chat", "Onboarding answer"
   status: "approved" | "suggested";
+  /** How an imported fact disagrees with the resume or profile, e.g. a different major. */
+  conflict?: string;
   createdAt: string;
   updatedAt: string;
 }

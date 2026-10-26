@@ -252,7 +252,7 @@ export function atsChecks(doc: ResumeDoc, job: Job, fileBase: string): AtsCheck[
     { id: "contact", label: "Contact details at the top", pass: !!doc.contact.name && !!doc.contact.email, detail: doc.contact.email ? "Name and email found." : "Add an email address to the contact line." },
     { id: "headings", label: "Standard section headings", pass: headings.some((h) => h.includes("education")) && headings.some((h) => /experience|projects|leadership/.test(h)), detail: "ATS parsers look for Education and Experience-style headings." },
     { id: "layout", label: "Single column, no tables, images or text boxes", pass: true, detail: "Remy exports a one-column document with real text only." },
-    { id: "font", label: "Readable standard font", pass: true, detail: "Exports use Calibri 10.5–11 pt (Word) / Helvetica (PDF)." },
+    { id: "font", label: "Readable standard font", pass: true, detail: "Downloads keep your own resume's font, size and margins." },
     { id: "dates", label: "Every experience entry has dates", pass: undated.length === 0, detail: undated.length ? `Missing dates: ${undated.map((e) => e.org || e.role).join(", ")}` : "All entries are dated." },
     { id: "bullets", label: "Bullets are concise (under ~2 lines)", pass: longBullets.length === 0, detail: longBullets.length ? `${longBullets.length} bullet(s) run long.` : "All bullets are a scannable length." },
     { id: "length", label: "Fits about one page for an undergraduate", pass: words <= 700, detail: `${words} words.` },

@@ -103,7 +103,7 @@ function Memory() {
           <h3>Waiting for your approval · {suggested.length}</h3>
           {suggested.map((m) => (
             <div key={m.id} className="item">
-              <div className="item-main"><span className="small">{m.text}</span><div className="why">{m.source}</div></div>
+              <div className="item-main"><span className="small">{m.text}</span><div className="why">{m.source}</div>{m.conflict && <div className="xs" style={{ color: "var(--amber)" }}>Doesn't match: {m.conflict}</div>}</div>
               <button className="btn btn-primary btn-sm" onClick={() => put(w.memory.map((x) => (x.id === m.id ? { ...x, status: "approved" } : x)), "Approved")} data-testid="button-approve-memory"><Check size={14} /> Approve</button>
               <button className="icon-btn" onClick={() => put(w.memory.filter((x) => x.id !== m.id), "Removed")} aria-label="Delete"><Trash2 size={15} /></button>
             </div>

@@ -159,10 +159,10 @@ function profileSummary(ws: Workspace) {
   ].filter((l) => !/:\s*$/.test(l)).join("\n");
 }
 
-function addFact(ws: Workspace, text: string, category: MemoryFact["category"], source: string, status: MemoryFact["status"]) {
+function addFact(ws: Workspace, text: string, category: MemoryFact["category"], source: string, status: MemoryFact["status"], conflict = "") {
   const t = text.trim();
   if (!t || ws.memory.some((m) => norm(m.text) === norm(t))) return false;
-  ws.memory.push({ id: uid("f"), text: t.slice(0, 400), category, source, status, createdAt: nowIso(), updatedAt: nowIso() });
+  ws.memory.push({ id: uid("f"), text: t.slice(0, 400), category, source, status, ...(conflict.trim() ? { conflict: conflict.trim().slice(0, 300) } : {}), createdAt: nowIso(), updatedAt: nowIso() });
   return true;
 }
 
@@ -444,7 +444,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       if (!Array.isArray(value)) bad("Memory must be a list");
       ctx.ws.memory = value.slice(0, 300).map((m: any): MemoryFact => ({
         id: String(m.id || uid("f")), text: String(m.text || "").slice(0, 400), category: m.category || "other", source: String(m.source || "Edited by student"),
-        status: (m.status === "suggested" ? "suggested" : "approved") as MemoryFact["status"], createdAt: m.createdAt || nowIso(), updatedAt: nowIso(),
+        status: (m.status === "suggested" ? "suggested" : "approved") as MemoryFact["status"], ...(m.conflict ? { conflict: String(m.conflict).slice(0, 300) } : {}), createdAt: m.createdAt || nowIso(), updatedAt: nowIso(),
       })).filter((m: MemoryFact) => m.text.trim());
     } else if (section === "settings") {
       ctx.ws.settings = { ...ctx.ws.settings, ...value, notify: { ...ctx.ws.settings.notify, ...(value.notify || {}) } };
@@ -662,16 +662,16 @@ export async function registerRoutes(_server: Server, app: Express) {
     const raw = f ? await fileToText(f.buffer, f.originalname, f.mimetype) : String(req.body?.text || "");
     if (raw.trim().length < 40) bad("Add a file or paste at least a few lines of profile text.");
     const out = await withAi(ctx, `Import ${kind}`, () =>
-      aiJson<{ facts: { text: string; category: MemoryFact["category"]; quote: string }[] }>(
-        "You extract factual statements about a student from their own exported profile text. Only include facts stated in the text. Keep each fact short and specific. Include a verbatim supporting quote.",
-        `Source: ${kind}\nReturn {"facts":[{"text":"","category":"background|goal|preference|skill|experience|constraint|other","quote":"exact words"}]} with at most 15 facts.\n\nTEXT:\n"""${raw.slice(0, 12000)}"""`,
+      aiJson<{ facts: { text: string; category: MemoryFact["category"]; quote: string; conflict?: string }[] }>(
+        "You extract factual statements about a student from their own exported profile text. Only include facts stated in the text. Keep each fact short and specific. Include a verbatim supporting quote. If a fact disagrees with the student's resume or profile (a different major, school, title, employer or dates), say how in \"conflict\" in plain words, e.g. \"Your resume says Finance & BIS\"; otherwise leave it empty. Something missing from the resume is not a conflict.",
+        `Source: ${kind}\nRESUME AND PROFILE (for spotting disagreements only):\n${profileSummary(ctx.ws)}\n${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org, e.dates].filter(Boolean).join(", ")).join("; ")).join("\n") : "(no resume)"}\n\nReturn {"facts":[{"text":"","category":"background|goal|preference|skill|experience|constraint|other","quote":"exact words","conflict":""}]} with at most 15 facts.\n\nTEXT:\n"""${raw.slice(0, 12000)}"""`,
       ),
     );
     const n = norm(raw);
     let added = 0;
     for (const f2 of out.facts || []) {
       if (f2.quote && !n.includes(norm(f2.quote).slice(0, 80))) continue; // drop anything not grounded in the text
-      if (addFact(ctx.ws, f2.text, f2.category || "other", `${kind} import`, "suggested")) added++;
+      if (addFact(ctx.ws, f2.text, f2.category || "other", `${kind} import`, "suggested", String(f2.conflict || ""))) added++;
     }
     ctx.ws.imports.unshift({ id: uid("i"), kind, fileName: f?.originalname || "Pasted text", at: nowIso(), label: "Student provided", factsAdded: added });
     await ctx.save();
@@ -749,11 +749,14 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       return res.json(ctx.ws);
     }
     const history = ctx.ws.chat.slice(-8).map((m) => `${m.role === "user" ? "Student" : "Assistant"}: ${m.text}`).join("\n");
+    // The openings shown on Opportunities (not hidden as a poor fit), so Remy can answer "which should I apply to?".
+    const found = allJobs(ctx.ws).map((j) => ({ j, f: ctx.ws.fits[j.id] })).filter(({ f }) => f && !f.excluded).sort((a, b) => (b.f.score ?? 0) - (a.f.score ?? 0)).slice(0, 8)
+      .map(({ j, f }) => `${j.title} — ${j.company} (${j.location}${j.deadline ? `, closes ${j.deadline}` : ""}; ${f.eligibility === "likely" ? "student qualifies" : "check eligibility"})`).join("; ");
     const apps = ctx.ws.applications.map((a) => { const j = findJob(ctx.ws, a.jobId); return `${j?.company} ${j?.title}: ${a.versions.length ? "approved v" + a.versions.length : a.generatedAt ? "draft" : "not started"}`; }).join("; ");
     const out = await withAi(ctx, "Assistant chat", () =>
       aiJson<{ reply: string; remember: string[] }>(
         `You are Remy, a friendly fox career coach for university students. Be concise (under 140 words), warm, practical and honest. Use only facts you are given; if you don't know something (like a specific university rule), say so and suggest who to ask. Never claim to have sent emails, applied, or changed calendars — you can only suggest. If the student shares a durable fact or preference worth remembering, propose it in "remember" (short third-person statements); otherwise return an empty list.\n\n${CHAT_RULES}`,
-        `Current page: ${page}\nPROFILE:\n${profileSummary(ctx.ws)}\nAPPROVED MEMORY:\n${approvedFacts(ctx.ws).slice(0, 40).join("\n") || "(none)"}\nRESUME: ${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org].filter(Boolean).join(" at ")).join("; ")).join(" | ") : "(not uploaded)"}\nAPPLICATIONS: ${apps || "(none)"}\nSAVED OPENINGS: ${ctx.ws.savedJobIds.map((id) => findJob(ctx.ws, id)?.title).filter(Boolean).join("; ") || "(none)"}\n\nRECENT CHAT:\n${history}\n\nStudent: ${message}\n\nReturn {"reply":"","remember":[]}`,
+        `Current page: ${page}\nPROFILE:\n${profileSummary(ctx.ws)}\nAPPROVED MEMORY:\n${approvedFacts(ctx.ws).slice(0, 40).join("\n") || "(none)"}\nRESUME: ${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org].filter(Boolean).join(" at ")).join("; ")).join(" | ") : "(not uploaded)"}\nAPPLICATIONS: ${apps || "(none)"}\nSAVED OPENINGS: ${ctx.ws.savedJobIds.map((id) => findJob(ctx.ws, id)?.title).filter(Boolean).join("; ") || "(none)"}\nOPENINGS REMY FOUND THAT FIT (best first): ${found || "(none yet)"}\n\nRECENT CHAT:\n${history}\n\nStudent: ${message}\n\nReturn {"reply":"","remember":[]}`,
         900,
       ),
     );
