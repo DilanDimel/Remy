@@ -12,6 +12,7 @@ import type {
 import { aiAllowed, checkSchoolCode, cleanupOld, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, markAiAuthFailure, model } from "./ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY } from "./safety";
+import { futureFor } from "./future";
 import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase } from "./auth";
 import { aiExtractPosting, CLOSED_SIGNALS, fetchPublic, fileToText, htmlToText, norm, pdfStyle } from "./parse";
 import {
@@ -698,6 +699,8 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.json(ctx.ws);
   }));
 
+  // Official job projections for the student's fields (no AI call).
+  app.get("/api/future", route(async (_req, res, ctx) => { res.json(futureFor(ctx.ws)); }));
   app.post("/api/ai/plan", route(async (_req, res, ctx) => {
     if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE, 409);
     const today = new Date().toISOString().slice(0, 10);

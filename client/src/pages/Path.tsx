@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { Check, Compass, Plus, RotateCcw, Sparkles, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Check, Compass, Plus, RotateCcw, Sparkles, Trash2, TrendingDown, TrendingUp } from "lucide-react";
 import type { PathPlan, Task, Workspace } from "@shared/types";
 import { api, fmtDate, rid, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { AiUnavailableNote, Empty, Remy, Spinner } from "../components/common";
 
-type Tab = "academic" | "career" | "skills";
+type Tab = "academic" | "career" | "skills" | "future";
 
 export default function PathPage({ query }: { query: URLSearchParams }) {
   const { ws, setWs, run, config } = useStore();
@@ -32,12 +32,12 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
       </div>
       {!config?.ai.available && <AiUnavailableNote />}
       <div className="tabs" role="tablist">
-        {([["career", "Career exploration"], ["skills", "Skills & certifications"], ["academic", "Academic plan"]] as [Tab, string][]).map(([k, l]) => (
+        {([["career", "Career exploration"], ["future", "Future of your field"], ["skills", "Skills & certifications"], ["academic", "Academic plan"]] as [Tab, string][]).map(([k, l]) => (
           <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => go(`/path?tab=${k}`)} data-testid={`tab-path-${k}`}>{l}</button>
         ))}
       </div>
       {busy && <div className="card card-pad row"><Remy size={40} mood="think" /><span className="muted">Building suggestions from your resume and answers…</span></div>}
-      {!w.plan && !busy ? (
+      {tab === "future" ? <Future /> : !w.plan && !busy ? (
         <div className="card">{knows
           ? <Empty title="No path yet" body="Remy will suggest roles, skills and next steps based on your resume and goals." action={<button className="btn btn-primary" onClick={generate} disabled={!config?.ai.available}>Build my path</button>} />
           : <Empty title="Tell Remy about yourself first" body="Your path is built from your resume and goals. Upload your resume, or add your major and the roles you want, and Remy will suggest roles, skills and next steps." action={<a className="btn btn-primary" href="#/resume">Upload your resume</a>} />}</div>
@@ -133,6 +133,50 @@ function Academic({ plan }: { plan: PathPlan }) {
           <div><button className="btn btn-secondary btn-sm" onClick={addTerm} disabled={!term.trim()}>Add term</button></div>
         </div>
       </div>
+    </div>
+  );
+}
+
+type FutureOcc = { title: string; change: number; openings: number | null; wage: number | null; education: string; aiShare: number | null; link: string };
+type FutureData = { source: string; allJobsGrowth: number; fields: { field: string; growing: FutureOcc[]; shrinking: FutureOcc[]; total: number; fasterThanAverage: number }[] };
+
+/** Official 10-year projections for the student's fields, with how much of each job AI can speed up. */
+function Future() {
+  const { ws } = useStore();
+  const p = ws!.profile;
+  const [data, setData] = useState<FutureData | null>(null);
+  useEffect(() => {
+    let live = true;
+    api<FutureData>("GET", "/api/future").then((d) => { if (live) setData(d); }, () => {});
+    return () => { live = false; };
+  }, [p.major, p.targetRoles, p.interests]);
+  if (!data) return <div className="card card-pad row"><Spinner /> <span className="muted">Loading projections…</span></div>;
+  if (!data.fields.length) return <div className="card"><Empty title="Add your major or the roles you want" body="Remy shows how jobs in your field are expected to change over the next ten years, from official U.S. government projections." action={<a className="btn btn-primary" href="#/accounts?tab=profile">Add to your profile</a>} /></div>;
+  const row = (o: FutureOcc) => (
+    <li key={o.title} style={{ display: "grid", gap: 3, padding: "10px 0", borderTop: "1px solid var(--line)" }}>
+      <div className="row-between" style={{ gap: 8 }}>
+        <b>{o.link ? <a href={o.link} target="_blank" rel="noreferrer">{o.title}</a> : o.title}</b>
+        <span className={"chip " + (o.change > 0 ? "chip-live" : "chip-bad")} style={{ flex: "none" }}>{o.change > 0 ? "+" : ""}{o.change}% by 2035</span>
+      </div>
+      <span className="xs muted">
+        {[o.wage ? `$${o.wage.toLocaleString("en-US")} median pay` : "", o.openings ? `about ${Math.round(o.openings * 1000).toLocaleString("en-US")} openings a year` : "", o.education].filter(Boolean).join(" · ")}
+        {o.aiShare != null && <> · AI tools can speed up about {Math.round(o.aiShare * 100)}% of its tasks</>}
+      </span>
+    </li>
+  );
+  return (
+    <div className="stack">
+      <p className="small muted">How jobs in your field are expected to change from 2025 to 2035. All U.S. jobs are projected to grow {data.allJobsGrowth}%.</p>
+      {data.fields.map((f) => (
+        <div key={f.field} className="card card-pad stack-sm" data-testid="card-future">
+          <h3 style={{ textTransform: "capitalize" }}>{f.field}</h3>
+          <p className="small muted">{f.fasterThanAverage} of {f.total} {f.field} jobs are expected to grow faster than average.</p>
+          {f.growing.length > 0 && <><b className="row small"><TrendingUp size={15} /> Growing</b><ul style={{ margin: 0, padding: 0, listStyle: "none" }}>{f.growing.map(row)}</ul></>}
+          {f.shrinking.length > 0 && <><b className="row small"><TrendingDown size={15} /> Shrinking</b><ul style={{ margin: 0, padding: 0, listStyle: "none" }}>{f.shrinking.map(row)}</ul></>}
+        </div>
+      ))}
+      <div className="notice"><div className="small"><b>What "AI tools can speed up" means:</b> the share of a job's tasks where AI could cut the time in half or more, from research by Eloundou, Manning, Mishkin and Rock (2023). It doesn't mean the job goes away. It means people in that job who use AI well will have an edge, so it's worth learning those tools now.</div></div>
+      <p className="xs muted">Source: {data.source}. Click a job for the government's full guide to it.</p>
     </div>
   );
 }
