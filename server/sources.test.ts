@@ -11,7 +11,7 @@ const posting = (id: number, title: string, closing: string) =>
   `<span id=\\'DescriptionText${id}_\\'><p>Supports students in <strong>math</strong>.</p></span></ul>`;
 
 test("AppliTrack: keeps student-friendly roles with campus, city, deadline and link", () => {
-  const js = `var x = 1;\ndocument.write('${posting(1041, "Teacher CTE - Auto Tech", "Until Filled ")}${posting(2001, "35770* Generic - AVID Tutor", "11/5/2026")}');`;
+  const js = `var x = 1;\ndocument.write('${posting(1041, "Teacher CTE - Auto Tech", "Until Filled ")}${posting(2001, "35770* Generic - AVID Tutor&#160;&#160;", "11/5/2026")}');`;
   const out = applitrackPostings(js, "pisd", "Plano, TX");
   assert.equal(out.length, 1);
   assert.equal(out[0].title, "AVID Tutor");

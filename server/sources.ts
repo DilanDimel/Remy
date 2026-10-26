@@ -217,7 +217,7 @@ async function usajobs(field: string, region: string): Promise<Raw[]> {
 // The listing is one page of every opening; only the roles a college student can hold are kept.
 const SCHOOL_STUDENT = /\b(tutors?|student (worker|observer)s?|interns?(hip)?|summer|lifeguards?|water safety|after[- ]?school|substitute teachers?|guest teachers?|camp)\b/i;
 export function applitrackPostings(js: string, slug: string, city: string): Raw[] {
-  const html = js.replace(/\\'/g, "'").replace(/\\"/g, '"');
+  const html = js.replace(/\\'/g, "'").replace(/\\"/g, '"').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
   return html.split("<ul class='postingsList' id='p").slice(1).flatMap((chunk) => {
     const id = chunk.match(/^(\d+)_/)?.[1];
     // Districts prefix titles with pool codes ("35770* ", "Generic - ").

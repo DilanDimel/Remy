@@ -1644,6 +1644,14 @@
     "government",
     "public safety"
    ]
+  },
+  {
+   "company": "Fort Worth ISD",
+   "ats": "applitrack",
+   "board": "fortworth|Fort Worth, TX",
+   "fields": [
+    "education"
+   ]
   }
  ]
 }
