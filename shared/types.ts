@@ -178,6 +178,8 @@ export interface Job {
 export interface JobFit {
   at: string;
   by: "rules" | "ai";
+  /** Version of the fit rules this verdict came from (server/fit.ts FIT_RULES_VERSION). */
+  v?: number;
   eligibility: "likely" | "check" | "unlikely" | "unknown";
   eligibilityNote: string;
   matched: string[];

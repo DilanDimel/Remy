@@ -21,7 +21,7 @@ import {
 } from "./resume";
 import { atsChecks, claimCheck } from "./claims";
 import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, skillSuggestions } from "./builder";
-import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES } from "./fit";
+import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSION } from "./fit";
 import { atsScore } from "./ats";
 import { boardsFor, CAREERONESTOP, discoverJobs, EMPLOYERS, USAJOBS } from "./sources";
 import { alumniList, matchAlumni } from "./alumni";
@@ -776,7 +776,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     let changed = false;
     const jobs = allJobs(ctx.ws).map((j) => {
       const f = ctx.ws.fits[j.id];
-      if (!f || (f.by === "rules" && f.score === undefined)) {
+      if (!f || (f.by === "rules" && f.score === undefined) || f.v !== FIT_RULES_VERSION) {
         ctx.ws.fits[j.id] = fitOf(ctx.ws, j);
         changed = true;
       }
@@ -930,7 +930,8 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     const job = findJob(ctx.ws, a.jobId)!;
     if (!ctx.ws.resume) bad("Upload your base resume first.");
     // Eligibility comes before polish: a clear conflict needs the student's OK first.
-    const fit = ctx.ws.fits[job.id] || computeFit(ctx.ws, job, evidenceOf(ctx.ws));
+    const saved = ctx.ws.fits[job.id];
+    const fit = saved?.v === FIT_RULES_VERSION ? saved : computeFit(ctx.ws, job, evidenceOf(ctx.ws));
     if (fit.eligibility === "unlikely" && !req.body?.confirmEligible) {
       return res.status(409).json({ message: `Remy found an eligibility conflict: ${fit.eligibilityNote}`, code: "eligibility-conflict" });
     }

@@ -197,6 +197,8 @@ export function dealbreaker(ws: Workspace, job: Job, today = new Date()): string
   return "";
 }
 
+// Bump when the fit rules change, so verdicts saved under older rules are worked out again.
+export const FIT_RULES_VERSION = 2;
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const g = gradDate(ws);
   const year = classYearOf(ws);
@@ -281,5 +283,5 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
       (type === true ? 10 : type === false ? -10 : 0) +
       (job.label === "Live" ? 5 : 0),
   );
-  return { at: new Date().toISOString(), by: "rules", eligibility, eligibilityNote: note, matched, gaps, why, excluded, score, regionMatch: region, typeMatch: type };
+  return { at: new Date().toISOString(), by: "rules", v: FIT_RULES_VERSION, eligibility, eligibilityNote: note, matched, gaps, why, excluded, score, regionMatch: region, typeMatch: type };
 }
