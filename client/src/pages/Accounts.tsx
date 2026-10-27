@@ -8,7 +8,7 @@ import { ProfileForm } from "./Onboarding";
 import { useGoogleButton } from "./Welcome";
 import { ProfileImport } from "../components/Uploaders";
 import { GoogleCalendarCard } from "../components/GoogleCalendar";
-import { atAlumniSchool, atTcu, SchoolVerify, schoolVerified } from "../components/SchoolVerify";
+import { atTcu, SchoolVerify } from "../components/SchoolVerify";
 import { ConflictChoice } from "../components/ConflictChoice";
 
 type Tab = "profile" | "sources" | "memory" | "settings" | "data";
@@ -54,7 +54,7 @@ function Sources() {
     { name: "LinkedIn", status: linkedin ? "Student provided" : "Needs setup", chip: linkedin ? "Added" : "Not added", label: linkedin ? `${linkedin.fileName} · ${fmtDate(linkedin.at)}` : "Upload your profile PDF (Resources → Save to PDF on LinkedIn)", detail: "LinkedIn doesn't let apps read profiles directly, so Remy uses the PDF you download.", importKind: "LinkedIn profile (PDF)" },
     { name: "Handshake", status: handshake ? "Student provided" : "Needs setup", chip: handshake ? "Added" : "Coming soon", label: handshake ? `${handshake.fileName} · ${fmtDate(handshake.at)}` : "Direct connection coming soon · you can paste profile or posting text now", detail: "Handshake requires your login; Remy never asks for it.", importKind: "Handshake" },
     // Stellic is TCU's degree-planning tool; everyone else pastes their plan from their own school's tool.
-    atTcu(w, me)
+    atTcu(me)
       ? { name: "Stellic / TCU academic", status: stellic ? "Student provided" : "Needs setup", chip: stellic ? "Added" : "Coming soon", label: stellic ? `${stellic.fileName} · ${fmtDate(stellic.at)}` : "Direct connection coming soon · you can paste your degree plan now", detail: "Requirements must come from your advisor and official tools.", importKind: "Stellic / degree plan" }
       : { name: "Degree plan", status: stellic ? "Student provided" : "Needs setup", chip: stellic ? "Added" : "Not added", label: stellic ? `${stellic.fileName} · ${fmtDate(stellic.at)}` : "Paste your plan from your school's degree-planning tool", detail: "Requirements must come from your advisor and official tools.", importKind: "Degree plan" },
     { name: "Email inbox", status: "Needs setup", chip: "Coming soon", label: "Paste recruiting emails in Progress for now", detail: "Remy doesn't read your inbox. Sample emails are labeled as demos." },
@@ -63,7 +63,7 @@ function Sources() {
   return (
     <div className="stack">
       <GoogleCalendarCard />
-      {(atAlumniSchool(w) || schoolVerified(me, config?.schoolEmail.domains || [])) && <SchoolVerify />}
+      <SchoolVerify />
       {rows.map((r) => (
         <div key={r.name} className="stack-sm">
           <div className="source-row" data-testid="row-source">

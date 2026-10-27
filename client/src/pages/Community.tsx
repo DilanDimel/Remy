@@ -52,7 +52,7 @@ export default function Community() {
         <div>
           <span className="eyebrow">Community</span>
           <h1>A few right people.</h1>
-          <p>{alumni?.schoolEmailRequired ? "People you've met who can help with your career" : "TCU alumni who match your major, interests and where you want to work"}. Remy asks you a few questions, then writes the email — you approve every word and send it yourself.</p>
+          <p>{alumni && !alumni.schoolEmailRequired ? "TCU alumni who match your major, interests and where you want to work" : "People you've met who can help with your career"}. Remy asks you a few questions, then writes the email — you approve every word and send it yourself.</p>
         </div>
         <div className="row">
           <button className="btn btn-secondary" onClick={() => setAdding(true)} data-testid="button-add-contact"><Plus size={16} /> Add a contact</button>
@@ -61,7 +61,7 @@ export default function Community() {
       </div>
       {/* Alumni are only for TCU accounts, so other signed-in accounts don't see this section at all. */}
       {alumni?.schoolEmailRequired && atAlumniSchool(w) && <SchoolVerify />}
-      {!alumni?.schoolEmailRequired && <section className="stack" data-testid="section-alumni">
+      {alumni && !alumni.schoolEmailRequired && <section className="stack" data-testid="section-alumni">
         <div className="row-between">
           <h2>TCU alumni matched to you</h2>
           {alumni && <span className="xs muted">From the {alumni.source || "TCU alumni list"} · {alumni.total} alumni</span>}

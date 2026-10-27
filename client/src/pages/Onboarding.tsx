@@ -1,6 +1,6 @@
 import { uiFlags } from "../lib/router";
 import { useEffect, useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Check, FileText, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, FileText, Mail, Sparkles, Trash2 } from "lucide-react";
 import type { Profile, Workspace } from "@shared/types";
 import { api, FAR_ENOUGH_STEP, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
@@ -115,7 +115,7 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
   if (page === "linkedin") return <LinkedInGuide onDone={() => setPage("")} />;
   // Handshake is used by most colleges; the TCU account and Stellic only exist at TCU.
   const soon: [string, string, string, ReactNode][] = [
-    ...(atTcu(w, me) ? [["tcu", "TCU Student Account", "Enrollment, major and class standing", "TCU"], ["stellic", "Stellic Degree Audit", "Degree plan and semester roadmap", "S"]] as [string, string, string, ReactNode][] : []),
+    ...(atTcu(me) ? [["tcu", "TCU Student Account", "Enrollment, major and class standing", "TCU"], ["stellic", "Stellic Degree Audit", "Degree plan and semester roadmap", "S"]] as [string, string, string, ReactNode][] : []),
     ["handshake", "Handshake", "Saved jobs and career events, if your school uses it", "h"],
   ];
   return (
@@ -154,11 +154,12 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
           {linkedin ? <span className="conn-badge done"><Check size={13} /> Added</span> : <span className="conn-badge">Not added</span>}
           <button className="btn btn-secondary btn-sm" onClick={() => setPage("linkedin")} data-testid="button-source-linkedin">{linkedin ? "Add again" : "Connect"}</button>
         </div>
-        {atAlumniSchool(w) && (
+        {/* Shown to everyone from the start; school-only tools appear below once the email is verified. */}
+        {atTcu(me) ? <SchoolVerify /> : (
           <>
             <div className="conn-row">
-              <span className="conn-ico tcu" aria-hidden>TCU</span>
-              <div className="grow"><b>TCU student email</b><span>Verify your @tcu.edu email to see TCU alumni who match you</span></div>
+              <span className="conn-ico" aria-hidden><Mail size={18} /></span>
+              <div className="grow"><b>School email</b><span>Verify your student email to unlock your school's tools and alumni</span></div>
               <button className="btn btn-secondary btn-sm" onClick={() => setOpen(open === "school" ? "" : "school")} data-testid="button-source-school">{open === "school" ? "Close" : "Verify"}</button>
             </div>
             {open === "school" && <div className="fade-up"><SchoolVerify /></div>}
