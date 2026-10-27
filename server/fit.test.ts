@@ -2,7 +2,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Job, Workspace } from "@shared/types";
-import { abroad, classYearOf, computeFit, dealbreaker, fieldMatch, regionMatch } from "./fit";
+import { abroad, classYearOf, computeFit, dealbreaker, FIELD_TITLES, fieldMatch, regionMatch } from "./fit";
+import { FIELD_GROUPS } from "@shared/fields";
 
 const fall2026 = new Date("2026-10-22T12:00:00");
 const student = (profile: Partial<Workspace["profile"]>) =>
@@ -126,4 +127,14 @@ test("field: a CS student still matches software engineering roles", () => {
 test("field: 'middle-market' and 'capital markets' don't make a student a marketing student", () => {
   assert.equal(fieldMatch(student({ targetRoles: "middle-market M&A" }), job({ title: "Brand Marketing Intern" })), false);
   assert.equal(fieldMatch(student({ major: "Marketing" }), job({ title: "Brand Marketing Intern" })), true);
+});
+
+test("setup field chips: every chip a student can tap matches a field Remy searches", () => {
+  for (const label of FIELD_GROUPS.flatMap(([, opts]) => opts))
+    assert.ok(FIELD_TITLES.some(([field]) => field.test(label)), label);
+});
+test("setup field chips: 'Engineering' is engineering, not software", () => {
+  const eng = student({ targetRoles: "Engineering" });
+  assert.equal(fieldMatch(eng, job({ title: "Mechanical Engineering Intern" })), true);
+  assert.equal(fieldMatch(eng, job({ title: "Software Engineer Intern" })), false);
 });

@@ -2,6 +2,7 @@ import { uiFlags } from "../lib/router";
 import { useEffect, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Check, FileText, Mail, Sparkles, Trash2 } from "lucide-react";
 import type { Profile, Workspace } from "@shared/types";
+import { FIELD_GROUPS } from "@shared/fields";
 import { api, FAR_ENOUGH_STEP, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Remy, Spinner, StatusChip } from "../components/common";
@@ -232,7 +233,6 @@ export function ProfileForm({ onSaved, hidePrefs }: { onSaved?: () => void; hide
 const YEAR_OPTS = ["First-year", "Sophomore", "Junior", "Senior", "Graduate student"];
 const REGION_OPTS = ["Fort Worth", "Dallas", "DFW area", "Houston", "Austin", "Anywhere in Texas", "Remote", "Anywhere in the US"];
 const TYPE_OPTS = ["Internships", "Full-time jobs", "Part-time / campus jobs", "Programs & insight days", "Events & networking", "Competitions"];
-const FIELD_OPTS = ["Finance", "Investment banking", "Accounting", "Consulting", "Marketing", "Sales", "Data & analytics", "Tech", "Supply chain", "Real estate", "Human resources", "Healthcare"];
 const AUTH_OPTS = ["U.S. citizen or permanent resident", "I'll need visa sponsorship (F-1 / OPT)"];
 const RELOC_OPTS = ["Yes", "For the right role", "No"];
 /** The next few terms a student could start something, e.g. Spring 2027, Summer 2027, Fall 2027, Summer 2028. */
@@ -309,8 +309,10 @@ function Preferences({ onBack, onNext }: { onBack: () => void; onNext: () => voi
       </div>
       <Q n={1}><strong>What year are you in?</strong><Chips options={YEAR_OPTS} value={year} onChange={setYear} multi={false} testid="pref-year" />
         <label className="field" style={{ maxWidth: 260 }}><span className="xs muted">Expected graduation</span><input className="input" value={grad} onChange={(e) => setGrad(e.target.value)} placeholder="e.g. May 2029" data-testid="input-pref-grad" /></label></Q>
-      <Q n={2}><strong>Which fields or roles interest you?</strong><Chips options={FIELD_OPTS} value={fields} onChange={setFields} testid="pref-field" />
-        <input className="input" value={otherField} onChange={(e) => setOtherField(e.target.value)} placeholder="Anything else? e.g. sports marketing, fintech" aria-label="Other fields" data-testid="input-pref-field" /></Q>
+      <Q n={2}><strong>Which fields or roles interest you?</strong>{FIELD_GROUPS.map(([group, opts]) => (
+          <div key={group} className="stack-sm" style={{ gap: 4 }}><span className="xs muted" style={{ fontWeight: 700 }}>{group}</span><Chips options={opts} value={fields} onChange={setFields} testid="pref-field" /></div>
+        ))}
+        <input className="input" value={otherField} onChange={(e) => setOtherField(e.target.value)} placeholder="Something more specific? e.g. mechanical engineering, pre-med, sports marketing" aria-label="Other fields" data-testid="input-pref-field" /></Q>
       <Q n={3}><strong>What kinds of opportunities do you want?</strong><Chips options={TYPE_OPTS} value={types} onChange={setTypes} testid="pref-type" /></Q>
       <Q n={4}><strong>When do you want to start?</strong><Chips options={timelineOptions()} value={timeline} onChange={setTimeline} testid="pref-when" />
         <span className="xs muted">Pick all that work. Leave empty if you're open to anything.</span></Q>
