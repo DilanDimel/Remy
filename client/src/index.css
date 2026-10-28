@@ -458,11 +458,27 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .pref-chip { border: 1.5px solid var(--line); background: var(--bg); border-radius: 999px; padding: 7px 14px; font-weight: 600; font-size: 13.5px; color: var(--ink); }
 .pref-chip:hover { border-color: var(--ink); }
 .pref-chip[aria-pressed="true"] { border-color: var(--fox); background: var(--fox-soft); color: var(--fox-deep); }
+.pref-chip { transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.1s; }
+.pref-chip:active { transform: scale(0.97); }
+.ob-thread { display: grid; gap: 10px; }
+.ob-thread .stack-sm { display: grid; gap: 8px; }
+.ob-thread .bubble-ai { justify-self: start; }
+.ob-thread .bubble-user { justify-self: end; }
+.ob-thread .ob-q { font-size: var(--text-lg); font-weight: 700; line-height: 1.35; padding: 14px 16px; }
+.ob-react { color: var(--muted-text); }
+.pref-chip:disabled { opacity: 0.5; }
+.pref-unsure { align-self: flex-start; border-style: dashed; }
+.pref-unsure[aria-pressed="true"] { border-style: solid; }
 .ob { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 32px 20px 60px; gap: 20px; }
 .ob-card { width: 100%; max-width: 740px; border-radius: 20px; }
-.ob-progress { display: flex; gap: 6px; width: 100%; max-width: 740px; }
-.ob-progress span { height: 4px; flex: 1; border-radius: 4px; background: var(--line); }
-.ob-progress span.on { background: var(--fox); }
+.ob-progress { display: flex; gap: 6px; width: 100%; max-width: 740px; list-style: none; margin: 0; padding: 0; }
+.ob-progress li { flex: 1; display: grid; gap: 6px; }
+.ob-progress span { height: 4px; border-radius: 4px; background: var(--line); transition: background 0.4s ease; }
+.ob-progress li.on span { background: var(--fox); }
+.ob-progress em { font-style: normal; font-size: 12px; color: var(--faint); }
+.ob-progress li.on em { color: var(--muted-text); }
+.ob-progress li[aria-current] em { color: var(--ink); font-weight: 700; }
+@media (max-width: 600px) { .ob-progress li:not([aria-current]) em { visibility: hidden; } }
 .source-row { display: flex; align-items: center; gap: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .source-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--lav); color: var(--plum); display: grid; place-items: center; flex-shrink: 0; }
 .dropzone { border: 1.5px dashed var(--faint); border-radius: 14px; padding: 26px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; background: var(--surface-2); cursor: pointer; }
@@ -499,7 +515,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .modal-back { position: fixed; inset: 0; background: rgba(23, 18, 30, 0.45); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .modal { width: 100%; max-width: 640px; max-height: 90vh; overflow-y: auto; background: var(--surface); border-radius: 18px; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
 .toast-wrap { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 60; display: flex; flex-direction: column; gap: 8px; align-items: center; }
-.toast { background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: var(--text-sm); box-shadow: var(--shadow); max-width: 92vw; }
+.toast { background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: var(--text-sm); box-shadow: var(--shadow); max-width: 92vw; animation: fade-up 0.25s ease both; }
 .toast.err { background: var(--error); color: #fff; }
 
 .mobile-nav { display: none; }

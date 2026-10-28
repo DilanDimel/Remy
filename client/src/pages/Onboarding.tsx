@@ -1,5 +1,5 @@
 import { uiFlags } from "../lib/router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Check, FileText, Mail, Sparkles, Trash2 } from "lucide-react";
 import type { Profile, Workspace } from "@shared/types";
 import { FIELD_GROUPS } from "@shared/fields";
@@ -15,7 +15,7 @@ import { useGoogleCalendar } from "../components/GoogleCalendar";
 import { LinkedInMark } from "./Welcome";
 
 // Step numbers are stored in the workspace; 0 and 1 both open the resume step.
-const STEPS = ["Your resume", "Review", "Your preferences", "A few questions", "Your plan"];
+const STEPS = ["Your resume", "Review", "Preferences", "Questions", "Your plan"];
 
 export default function Onboarding() {
   const { ws, save, config } = useStore();
@@ -35,9 +35,9 @@ export default function Onboarding() {
         <span className="logo"><Remy size={26} /><span>Remy<b>.</b></span></span>
       </div>
       {!welcomeBack && (
-        <div className="ob-progress" aria-label={`Step ${shown + 1} of ${STEPS.length}`}>
-          {STEPS.map((s, i) => <span key={s} className={i <= shown ? "on" : ""} title={s} />)}
-        </div>
+        <ol className="ob-progress" aria-label={`Step ${shown + 1} of ${STEPS.length}: ${STEPS[shown]}`}>
+          {STEPS.map((s, i) => <li key={s} className={i <= shown ? "on" : ""} aria-current={i === shown ? "step" : undefined}><span /><em>{s}</em></li>)}
+        </ol>
       )}
       <div className="ob-card card card-pad fade-up" key={welcomeBack ? "back" : shown}>
         {welcomeBack ? (
@@ -46,7 +46,7 @@ export default function Onboarding() {
           <>
             {step <= 1 && <ResumeStep onNext={() => setStep(2)} />}
             {step === 2 && <Review onBack={() => setStep(1)} onNext={() => setStep(3)} />}
-            {step === 3 && <Preferences onBack={() => setStep(2)} onNext={() => setStep(4)} />}
+            {step === 3 && <Preferences onBack={() => setStep(2)} />}
             {step === 4 && <Questions onBack={() => setStep(3)} onNext={() => setStep(5)} />}
             {step === 5 && <PlanStep onBack={() => setStep(4)} onFinish={finish} />}
           </>
@@ -106,6 +106,7 @@ function CalendarMark() {
 /** Step 1: resume first (upload or build one), then the other accounts, each with its own row. */
 function ResumeStep({ onNext }: { onNext: () => void }) {
   const { ws, me } = useStore();
+  const first = (ws!.profile.preferredName || me?.name || "").trim().split(/\s+/)[0];
   const w = ws!;
   const [open, setOpen] = useState<"" | "resume" | "school">(w.resume ? "" : "resume");
   const [busy, setBusy] = useState(false);
@@ -127,7 +128,7 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
       </div>
       <div className="remy-prompt">
         <Remy size={40} mood={busy ? "think" : "wave"} />
-        <p><b>Remy:</b> Your resume is what I build everything on: your profile, the openings I find and every application I help with. I only ever use what's on it. Add your other accounts below if you have them.</p>
+        <p><b>Hi{first ? `, ${first}` : ""}! I'm Remy.</b> Setup takes about 5 minutes. Your resume is what I build everything on: your profile, the openings I find and every application I help with, and I only use what's on it. No resume yet? We can build one together.</p>
       </div>
 
       <div className="stack-sm">
@@ -135,9 +136,9 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
           <span className="conn-ico resume" aria-hidden><FileText size={18} /></span>
           <div className="grow"><b>Resume / CV</b><span>{w.resume ? `${w.resume.fileName} · ${w.resume.doc.sections.length} sections${w.resume.parsedBy === "ai" ? ", checked against your file" : w.resume.parsedBy === "builder" ? ", built with Remy" : ""}` : "Required. PDF, Word or text"}</span></div>
           {w.resume ? <span className="conn-badge done"><Check size={13} /> Added</span> : <span className="conn-badge">Needed</span>}
-          <button className="btn btn-secondary btn-sm" onClick={() => setOpen(open === "resume" ? "" : "resume")} disabled={busy} aria-expanded={open === "resume"} data-testid="button-source-resume">{open === "resume" ? "Close" : w.resume ? "Replace" : "Upload"}</button>
+          {w.resume && <button className="btn btn-secondary btn-sm" onClick={() => setOpen(open === "resume" ? "" : "resume")} disabled={busy} aria-expanded={open === "resume"} data-testid="button-source-resume">{open === "resume" ? "Cancel" : "Replace"}</button>}
         </div>
-        {open === "resume" && <div className="conn-panel fade-up" data-testid={w.resume ? "resume-loaded" : undefined}><ResumeUpload compact={!!w.resume} onBusy={setBusy} onDone={() => setOpen("")} /></div>}
+        {(open === "resume" || !w.resume) && <div className="conn-panel fade-up" data-testid={w.resume ? "resume-loaded" : undefined}><ResumeUpload compact={!!w.resume} onBusy={setBusy} onDone={() => setOpen("")} /></div>}
         {!w.resume && (
           <div className="conn-row" style={{ background: "var(--fox-soft)", borderColor: "transparent" }}>
             <span className="conn-ico" aria-hidden><Sparkles size={18} /></span>
@@ -184,7 +185,7 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
       </div>
       <p className="xs muted">Remy never asks for your passwords. <a href="/policies">How Remy handles your information</a></p>
       <div className="row-between">
-        <span />
+        <span className="xs muted">{!w.resume && "Add your resume, or build one, to continue."}</span>
         <button className="btn btn-primary" onClick={onNext} disabled={!w.resume || busy} data-testid="button-ob-next-sources">Continue <ArrowRight size={16} /></button>
       </div>
     </div>
@@ -262,7 +263,7 @@ function Q({ n, children }: { n: number; children: ReactNode }) {
 
 /** Remy's quick questions: class year, where to look, what kinds of
  * opportunities and fields. Saved to the profile; Opportunities filters by them. */
-function Preferences({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
+function Preferences({ onBack }: { onBack: () => void }) {
   const { ws, save, run, setWs } = useStore();
   const p = ws!.profile;
   const [year, setYear] = useState(p.classYear ? [p.classYear] : []);
@@ -273,13 +274,18 @@ function Preferences({ onBack, onNext }: { onBack: () => void; onNext: () => voi
   const [types, setTypes] = useState(p.opportunityTypes ? splitList(p.opportunityTypes) : ["Internships"]);
   const [fields, setFields] = useState(splitList(p.targetRoles));
   const [otherField, setOtherField] = useState("");
-  const [unsure, setUnsure] = useState(false);
+  const [unsure, setUnsure] = useState(!!ws!.onboarding.exploring);
+  const [page, setPage] = useState(0);
   const [auth, setAuth] = useState(p.workAuth ? [AUTH_OPTS.find((o) => /sponsor/i.test(o) === /sponsor|visa/i.test(p.workAuth))!] : []);
   const [reloc, setReloc] = useState(p.relocation ? [p.relocation] : []);
   const [dream, setDream] = useState(p.dreamEmployers || "");
   const [avoid, setAvoid] = useState(p.avoid || "");
   const allFields = [...fields, ...splitList(otherField)];
-  const missing = [!year.length && "your year", !types.length && "what kinds of opportunities", !allFields.length && !unsure && "at least one field (or \"I'm not sure yet\")", !auth.length && "work authorization"].filter(Boolean);
+  // Two short screens: what you want, then where and the practical bits.
+  const missing = (page === 0
+    ? [!year.length && "your year", !allFields.length && !unsure && "at least one field (or \"I'm not sure yet\")", !types.length && "what kinds of opportunities"]
+    : [!auth.length && "work authorization"]).filter(Boolean);
+  const toPage = (n: number) => { setPage(n); window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); };
   const submit = async () => {
     const r = await run(() => save("profile", {
       ...p,
@@ -299,41 +305,55 @@ function Preferences({ onBack, onNext }: { onBack: () => void; onNext: () => voi
       await save("tasks", [{ id: rid("t"), title: "Explore the jobs your major leads to", why: "You said you're not sure yet. My Path lists the jobs people with your major go into, what each one is really like, and lets you add the ones you like to your search.", due: "", category: "Explore", done: false, source: "Setup", link: "/path?tab=career" }, ...ws!.tasks]);
     // Start the search now so results are ready by the last step.
     api<{ workspace: Workspace }>("POST", "/api/jobs/discover", {}).then((d) => { setWs(d.workspace); return reloadJobs(); }).catch(() => {});
-    onNext();
+    // "Not sure yet" and the move to the next step in one save (two saves would let the older copy win).
+    await save("onboarding", { ...ws!.onboarding, exploring: unsure, step: 4 });
   };
   return (
     <div className="stack-lg">
       <div className="remy-prompt">
         <Remy size={44} mood="wave" />
         <div className="stack-sm">
-          <span className="eyebrow">Step 3 · Your preferences</span>
-          <p><b>Remy:</b> These decide which openings I show you. Anything that rules you out (wrong year, field, place, start date, or no visa sponsorship) stays hidden, so you only see what you can actually go for.</p>
+          <span className="eyebrow">Step 3 · Preferences, {page + 1} of 2</span>
+          <p>{page === 0
+            ? <><b>Remy:</b> What are you looking for? This decides which openings I show you, and anything that rules you out stays hidden.</>
+            : <><b>Remy:</b> Almost there. Where should I look, and is there anything that would rule an opening out?</>}</p>
         </div>
       </div>
-      <Q n={1}><strong>What year are you in?</strong><Chips options={YEAR_OPTS} value={year} onChange={setYear} multi={false} testid="pref-year" />
-        <label className="field" style={{ maxWidth: 260 }}><span className="xs muted">Expected graduation</span><input className="input" value={grad} onChange={(e) => setGrad(e.target.value)} placeholder="e.g. May 2029" data-testid="input-pref-grad" /></label></Q>
-      <Q n={2}><strong>Which fields or roles interest you?</strong>{FIELD_GROUPS.map(([group, opts]) => (
-          <div key={group} className="stack-sm" style={{ gap: 4 }}><span className="xs muted" style={{ fontWeight: 700 }}>{group}</span><Chips options={opts} value={fields} onChange={setFields} testid="pref-field" /></div>
-        ))}
-        <input className="input" value={otherField} onChange={(e) => setOtherField(e.target.value)} placeholder="Something more specific? e.g. mechanical engineering, pre-med, sports marketing" aria-label="Other fields" data-testid="input-pref-field" />
-        <label className="row xs" style={{ gap: 6 }}><input type="checkbox" checked={unsure} onChange={(e) => setUnsure(e.target.checked)} data-testid="pref-unsure" /> I'm not sure yet. Remy will search by my major and help me explore on My Path.</label></Q>
-      <Q n={3}><strong>What kinds of opportunities do you want?</strong><Chips options={TYPE_OPTS} value={types} onChange={setTypes} testid="pref-type" /></Q>
-      <Q n={4}><strong>When do you want to start?</strong><Chips options={timelineOptions()} value={timeline} onChange={setTimeline} testid="pref-when" />
-        <span className="xs muted">Pick all that work. Leave empty if you're open to anything.</span></Q>
-      <Q n={5}><strong>Where should I look for you?</strong><Chips options={REGION_OPTS} value={regions} onChange={setRegions} testid="pref-region" />
-        <input className="input" value={otherRegion} onChange={(e) => setOtherRegion(e.target.value)} placeholder="Somewhere else? e.g. New York, Chicago" aria-label="Other regions" data-testid="input-pref-region" />
-        <span className="xs muted">Open to relocating?</span><Chips options={RELOC_OPTS} value={reloc} onChange={setReloc} multi={false} testid="pref-reloc" /></Q>
-      <Q n={6}><strong>Work authorization</strong><Chips options={AUTH_OPTS} value={auth} onChange={setAuth} multi={false} testid="pref-auth" />
-        <span className="xs muted">If you'll need sponsorship, Remy hides postings that say they won't sponsor.</span></Q>
-      <Q n={7}><strong>Dream employers <span className="muted xs">(optional)</span></strong>
-        <input className="input" value={dream} onChange={(e) => setDream(e.target.value)} placeholder="e.g. Goldman Sachs, American Airlines" aria-label="Dream employers" data-testid="input-pref-dream" />
-        <span className="xs muted">Remy checks their career sites first.</span></Q>
-      <Q n={8}><strong>Anything to leave out? <span className="muted xs">(optional)</span></strong>
-        <input className="input" value={avoid} onChange={(e) => setAvoid(e.target.value)} placeholder="e.g. tobacco, cold calling, a company name" aria-label="Things to avoid" data-testid="input-pref-avoid" /></Q>
+      <div className="stack-lg fade-up" key={page}>
+        {page === 0 ? <>
+          <Q n={1}><strong>What year are you in?</strong><Chips options={YEAR_OPTS} value={year} onChange={setYear} multi={false} testid="pref-year" />
+            <label className="field" style={{ maxWidth: 260 }}><span className="xs muted">Expected graduation</span><input className="input" value={grad} onChange={(e) => setGrad(e.target.value)} placeholder="e.g. May 2029" data-testid="input-pref-grad" /></label></Q>
+          <Q n={2}><strong>Which fields or roles interest you?</strong>
+            <div className="stack-sm" style={{ gap: 6 }}>
+              <button type="button" className="pref-chip pref-unsure" aria-pressed={unsure} onClick={() => setUnsure(!unsure)} data-testid="pref-unsure">I'm not sure yet</button>
+              {unsure && <span className="xs muted fade-up">No problem. Pick any that sound interesting, or none. Remy will search by your major and show you where it leads on My Path.</span>}
+            </div>
+            {FIELD_GROUPS.map(([group, opts]) => (
+              <div key={group} className="stack-sm" style={{ gap: 4 }}><span className="xs muted" style={{ fontWeight: 700 }}>{group}</span><Chips options={opts} value={fields} onChange={setFields} testid="pref-field" /></div>
+            ))}
+            <input className="input" value={otherField} onChange={(e) => setOtherField(e.target.value)} placeholder="Something more specific? e.g. mechanical engineering, pre-med, sports marketing" aria-label="Other fields" data-testid="input-pref-field" /></Q>
+          <Q n={3}><strong>What kinds of opportunities do you want?</strong><Chips options={TYPE_OPTS} value={types} onChange={setTypes} testid="pref-type" /></Q>
+          <Q n={4}><strong>When do you want to start?</strong><Chips options={timelineOptions()} value={timeline} onChange={setTimeline} testid="pref-when" />
+            <span className="xs muted">Pick all that work. Leave empty if you're open to anything.</span></Q>
+        </> : <>
+          <Q n={5}><strong>Where should I look for you?</strong><Chips options={REGION_OPTS} value={regions} onChange={setRegions} testid="pref-region" />
+            <input className="input" value={otherRegion} onChange={(e) => setOtherRegion(e.target.value)} placeholder="Somewhere else? e.g. New York, Chicago" aria-label="Other regions" data-testid="input-pref-region" />
+            <span className="xs muted">Open to relocating?</span><Chips options={RELOC_OPTS} value={reloc} onChange={setReloc} multi={false} testid="pref-reloc" /></Q>
+          <Q n={6}><strong>Work authorization</strong><Chips options={AUTH_OPTS} value={auth} onChange={setAuth} multi={false} testid="pref-auth" />
+            <span className="xs muted">If you'll need sponsorship, Remy hides postings that say they won't sponsor.</span></Q>
+          <Q n={7}><strong>Dream employers <span className="muted xs">(optional)</span></strong>
+            <input className="input" value={dream} onChange={(e) => setDream(e.target.value)} placeholder="e.g. Goldman Sachs, American Airlines" aria-label="Dream employers" data-testid="input-pref-dream" />
+            <span className="xs muted">Remy checks their career sites first.</span></Q>
+          <Q n={8}><strong>Anything to leave out? <span className="muted xs">(optional)</span></strong>
+            <input className="input" value={avoid} onChange={(e) => setAvoid(e.target.value)} placeholder="e.g. tobacco, cold calling, a company name" aria-label="Things to avoid" data-testid="input-pref-avoid" /></Q>
+        </>}
+      </div>
       {missing.length > 0 && <p className="xs muted" data-testid="prefs-missing">To continue, choose {missing.join(", ")}.</p>}
       <div className="row-between">
-        <button className="btn btn-ghost" onClick={onBack}><ArrowLeft size={16} /> Back</button>
-        <button className="btn btn-primary" onClick={submit} disabled={missing.length > 0} data-testid="button-ob-next-prefs">Save and continue <ArrowRight size={16} /></button>
+        <button className="btn btn-ghost" onClick={() => (page ? toPage(0) : onBack())}><ArrowLeft size={16} /> Back</button>
+        {page === 0
+          ? <button className="btn btn-primary" onClick={() => toPage(1)} disabled={missing.length > 0} data-testid="button-ob-prefs-page">Next <ArrowRight size={16} /></button>
+          : <button className="btn btn-primary" onClick={submit} disabled={missing.length > 0} data-testid="button-ob-next-prefs">Save and continue <ArrowRight size={16} /></button>}
       </div>
     </div>
   );
@@ -395,59 +415,110 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
   );
 }
 
+// Remy's one-line reply to each answer: says what Remy will actually do with it (no AI call, nothing invented).
+const UNSURE = /\b(not sure|no idea|idk|don'?t know|unsure|no clue)\b/i;
+function reaction(a: string, target: string | undefined, i: number) {
+  if (!a) return "No problem, we can come back to that.";
+  if (UNSURE.test(a)) return "That's completely normal. I'll show you where your major can lead on My Path, and we'll figure it out together.";
+  const by: Record<string, string[]> = {
+    targetRoles: ["Great, I'll look for openings in those.", "Nice, I'll add those to your search."],
+    dreamEmployers: ["Noted. I'll check their career sites first.", "Good picks. They go to the top of my search."],
+    avoid: ["Got it, I'll leave those out.", "Understood, those stay hidden."],
+    timeline: ["Got it. I'll focus on openings that start then.", "Perfect, I'll match openings to that timing."],
+    interests: ["Love that. I'll use it when I suggest paths for you.", "That tells me a lot. I'll keep it in mind for your path."],
+    goals: ["Good goal. I'll build your plan around it.", "Got it. Your plan will aim right at that."],
+  };
+  const lines = (target && by[target]) || ["Got it, that helps.", "Good to know.", "Thanks, that's useful."];
+  return lines[i % lines.length];
+}
+
 function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
   const { ws, setWs, save, run, config } = useStore();
   const w = ws!;
   const [busy, setBusy] = useState(false);
   const [answer, setAnswer] = useState("");
+  // The answer being saved shows right away, so Next feels instant.
+  const [pending, setPending] = useState<{ q: string; a: string } | null>(null);
   const qs = w.onboarding.questions;
-  const idx = w.onboarding.answers.length;
+  const targets = w.onboarding.targets || [];
+  const answered = pending ? [...w.onboarding.answers, pending] : w.onboarding.answers;
+  const idx = answered.length;
+  const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!qs.length && config?.ai.available && !busy) {
       setBusy(true);
       run(() => api<Workspace>("POST", "/api/ai/questions")).then((r) => r && setWs(r)).finally(() => setBusy(false));
     }
   }, []);
+  useEffect(() => { end.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, [idx, busy]);
   const current = qs[idx];
-  const submit = async (skip = false) => {
-    const a = skip ? "" : answer.trim();
+  const submit = async (text: string) => {
+    if (pending || !current) return;
+    const a = text.trim();
+    const i = idx;
+    setPending({ q: current, a });
+    setAnswer("");
     const answers = [...w.onboarding.answers, { q: current, a }];
     // Each question says which profile field its answer feeds (roles, dream employers, start date…), so it changes the matches.
     // Search fields only take short answers that name things; a sentence ("I don't know yet…") stays in Remy's memory instead.
-    const target = w.onboarding.targets?.[idx] as keyof Profile | undefined;
+    const target = targets[i] as keyof Profile | undefined;
     const searchField = target === "targetRoles" || target === "dreamEmployers" || target === "avoid";
     const fitsField = !searchField || (a.length <= 60 && !/\b(i|i'm|im|don'?t|not sure|no idea|idk|maybe)\b/i.test(a));
-    if (a && target && target in w.profile && fitsField) {
-      const before = String(w.profile[target] || "").trim();
-      await save("profile", { ...w.profile, [target]: before ? `${before}, ${a}` : a });
+    try {
+      if (a && target && target in w.profile && fitsField) {
+        const before = String(w.profile[target] || "").trim();
+        await save("profile", { ...w.profile, [target]: before ? `${before}, ${a}` : a });
+      }
+      if (a) {
+        const fact = { id: "f" + Date.now(), text: `${current} — ${a}`, category: "goal", source: "Onboarding answer", status: "approved", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+        await save("memory", [...w.memory, fact]);
+      }
+      const last = answers.length >= qs.length;
+      if (last) await new Promise((r) => setTimeout(r, 900)); // let Remy's last reply land before the next step
+      // The answers and the move to the next step go in one save, so the last answer can't be overwritten.
+      await save("onboarding", { ...w.onboarding, answers, ...(last ? { step: 5 } : {}) });
+    } finally {
+      setPending(null);
     }
-    if (a) {
-      const fact = { id: "f" + Date.now(), text: `${current} — ${a}`, category: "goal", source: "Onboarding answer", status: "approved", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-      await save("memory", [...w.memory, fact]);
-    }
-    // The answers and the move to the next step go in one save, so the last answer can't be overwritten.
-    await save("onboarding", { ...w.onboarding, answers, ...(answers.length >= qs.length ? { step: 5 } : {}) });
-    setAnswer("");
   };
+  const options = [...(w.onboarding.options?.[idx] || []), "I'm not sure yet"];
   return (
     <div className="stack-lg">
-      <div className="row" style={{ flexWrap: "nowrap", alignItems: "flex-start", gap: 14 }}>
-        <Remy size={52} mood={busy ? "think" : "idle"} />
-        <div className="stack-sm">
+      <div className="row" style={{ flexWrap: "nowrap", alignItems: "center", gap: 12 }}>
+        <Remy size={44} mood={busy ? "think" : pending ? "happy" : "idle"} />
+        <div className="stack-sm" style={{ gap: 2 }}>
           <span className="eyebrow">Step 4 · {qs.length ? `Question ${Math.min(idx + 1, qs.length)} of ${qs.length}` : "A few questions"}</span>
-          {busy ? <span className="row muted"><Spinner /> Thinking of a few useful questions…</span> : current ? <h2 data-testid="text-question">{current}</h2> : <h2>{qs.length ? "All done — thank you." : "Questions need AI"}</h2>}
+          <span className="small muted">Three quick questions so I can pick better openings for you.</span>
         </div>
       </div>
-      {current && !busy && (
-        <>
-          <textarea className="textarea" autoFocus value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="A sentence or two is plenty" aria-label="Your answer" data-testid="input-answer" />
-          <div className="row-between">
-            <button className="btn btn-ghost" onClick={() => submit(true)} data-testid="button-skip-question">Skip</button>
-            <button className="btn btn-primary" disabled={!answer.trim()} onClick={() => submit(false)} data-testid="button-answer">Next <ArrowRight size={16} /></button>
+      <div className="ob-thread" aria-live="polite">
+        {answered.map((x, i) => (
+          <div key={i} className="stack-sm">
+            <div className="bubble bubble-ai">{x.q}</div>
+            <div className="bubble bubble-user fade-up">{x.a || "Skipped"}</div>
+            <div className="bubble bubble-ai ob-react fade-up">{reaction(x.a, targets[i], i)}</div>
           </div>
-        </>
+        ))}
+        {busy && <div className="bubble bubble-ai row"><Spinner /> Thinking of a few useful questions…</div>}
+        {current && !busy && <div key={idx} className="bubble bubble-ai ob-q fade-up" data-testid="text-question">{current}</div>}
+        {!current && !busy && !qs.length && <div className="bubble bubble-ai">Questions need AI, which isn't available right now. You can continue without them.</div>}
+        <div ref={end} />
+      </div>
+      {current && !busy && (
+        <div className="stack-sm fade-up" key={"a" + idx}>
+          <div className="row" style={{ gap: 6 }}>
+            {options.map((o) => <button key={o} type="button" className={"pref-chip" + (o === "I'm not sure yet" ? " pref-unsure" : "")} disabled={!!pending} onClick={() => submit(o)} data-testid="button-answer-option">{o}</button>)}
+          </div>
+          <textarea className="textarea" autoFocus value={answer} onChange={(e) => setAnswer(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && answer.trim()) { e.preventDefault(); submit(answer); } }}
+            placeholder="Or type your own answer" aria-label="Your answer" data-testid="input-answer" style={{ minHeight: 70 }} />
+          <div className="row-between">
+            <button className="btn btn-ghost" disabled={!!pending} onClick={() => submit("")} data-testid="button-skip-question">Skip</button>
+            <button className="btn btn-primary" disabled={!answer.trim() || !!pending} onClick={() => submit(answer)} data-testid="button-answer">Next <ArrowRight size={16} /></button>
+          </div>
+        </div>
       )}
-      {(!current || !qs.length) && !busy && (
+      {(!current || !qs.length) && !busy && !pending && (
         <div className="row-between">
           <button className="btn btn-ghost" onClick={onBack}><ArrowLeft size={16} /> Back</button>
           <button className="btn btn-primary" onClick={onNext} data-testid="button-ob-next-questions">Continue <ArrowRight size={16} /></button>

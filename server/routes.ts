@@ -453,7 +453,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     hiddenJobIds: ids,
     memory: z.array(z.looseObject({ id: str(120).optional(), text: str(2000) })).max(300),
     outreach: z.array(z.looseObject({ id: str(120), contactId: str(120), to: str(320), subject: str(300), body: str(8000), linkedin: str(400).optional(), status: z.enum(["draft", "approved", "handed-off"]), createdAt: str(40) })).max(500),
-    onboarding: z.object({ step: z.number().int().min(0).max(50), done: z.boolean(), answers: z.array(z.object({ q: str(500), a: str(2000) })).max(50), questions: z.array(str(500)).max(20), targets: z.array(str(40)).max(20).optional() }),
+    onboarding: z.object({ step: z.number().int().min(0).max(50), done: z.boolean(), answers: z.array(z.object({ q: str(500), a: str(2000) })).max(50), questions: z.array(str(500)).max(20), targets: z.array(str(40)).max(20).optional(), options: z.array(z.array(str(80)).max(4)).max(20).optional(), exploring: z.boolean().optional() }),
     started: z.boolean(),
     plan: z.looseObject({ nextAction: z.looseObject({ title: str(300), why: str(2000), link: str(300) }), careers: z.array(z.looseObject({ id: str(120), title: str(300) })).max(20), skills: z.array(z.looseObject({ id: str(120), name: str(300) })).max(30), academic: z.array(z.looseObject({ id: str(120), term: str(100) })).max(20) }),
     contacts: z.array(z.looseObject({ id: str(120), name: str(200), title: str(300), org: str(300), email: str(320), why: str(2000), tags: z.array(str(120)).max(30), label: str(40) })).max(1000),
@@ -754,13 +754,15 @@ export async function registerRoutes(_server: Server, app: Express) {
   // ---------- AI: onboarding questions + plan ----------
   app.post("/api/ai/questions", route(async (_req, res, ctx) => {
     const out = await withAi(ctx, "Onboarding questions", () =>
-      aiJson<{ questions: { q: string; saveTo: string }[] }>(
+      aiJson<{ questions: { q: string; saveTo: string; options?: string[] }[] }>(
         `You are Remy, a career coach for university students. Remy uses the answers to choose which job and internship openings to show this student and how to present them. Ask exactly 3 short, warm questions that each fill a gap that would CHANGE which openings Remy shows or how it writes their applications. Rules:
 - Never ask anything the profile or resume already answers (school, major, class year, regions, kinds of opportunities, fields are already known).
 - One idea per question, answerable in a sentence. No yes/no questions. Speak to the student as "you".
 - Prefer, in order: the specific roles or industries they're most excited about (if fields are broad), what they enjoyed or did best in a past role on their resume (name it), employers they'd love to work for, when they want to start, industries or kinds of work they'd rule out, and the one goal they want this year.
-- saveTo says where the answer goes: "targetRoles" (roles/industries to search), "interests" (what they enjoy and are good at), "dreamEmployers" (company names), "timeline" (when to start), "avoid" (industries or companies to leave out), "goals" (their goal this year).`,
-        `STUDENT PROFILE:\n${profileSummary(ctx.ws)}\nTimeline: ${ctx.ws.profile.timeline || "(not given)"}\nDream employers: ${ctx.ws.profile.dreamEmployers || "(not given)"}\nAvoid: ${ctx.ws.profile.avoid || "(not given)"}\n\nRESUME (headings and roles):\n${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org].filter(Boolean).join(", ")).join("; ")).join("\n") : "(no resume yet)"}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).join("\n") || "(none)"}\n\nReturn {"questions":[{"q":"","saveTo":""},{"q":"","saveTo":""},{"q":"","saveTo":""}]}.`,
+- saveTo says where the answer goes: "targetRoles" (roles/industries to search), "interests" (what they enjoy and are good at), "dreamEmployers" (company names), "timeline" (when to start), "avoid" (industries or companies to leave out), "goals" (their goal this year).
+- If the student is still exploring (marked below, or no target roles), don't ask them to name roles or employers. Ask what they enjoyed most in an experience on their resume (name it), which classes or topics they like, and whether they'd rather work with people, numbers or ideas; save those to "interests" or "goals".
+- options: 2 or 3 short answers (under 6 words each) a student like this might tap, drawn from their profile or resume. Never "I'm not sure", the app adds that.`,
+        `STUDENT PROFILE:\n${profileSummary(ctx.ws)}\nTimeline: ${ctx.ws.profile.timeline || "(not given)"}\nDream employers: ${ctx.ws.profile.dreamEmployers || "(not given)"}\nAvoid: ${ctx.ws.profile.avoid || "(not given)"}\nStill exploring: ${ctx.ws.onboarding.exploring || !ctx.ws.profile.targetRoles.trim() ? "yes, the student isn't sure what career they want" : "no"}\n\nRESUME (headings and roles):\n${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org].filter(Boolean).join(", ")).join("; ")).join("\n") : "(no resume yet)"}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).join("\n") || "(none)"}\n\nReturn {"questions":[{"q":"","saveTo":"","options":["",""]},{"q":"","saveTo":"","options":["",""]},{"q":"","saveTo":"","options":["",""]}]}.`,
         800,
       ),
     );
@@ -768,6 +770,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const qs = (out.questions || []).filter((x: any) => x && (typeof x === "string" || x.q)).slice(0, 3);
     ctx.ws.onboarding.questions = qs.map((x: any) => String(typeof x === "string" ? x : x.q));
     ctx.ws.onboarding.targets = qs.map((x: any) => (TARGETS.includes(x?.saveTo) ? x.saveTo : "goals"));
+    ctx.ws.onboarding.options = qs.map((x: any) => (Array.isArray(x?.options) ? x.options : []).map((o: unknown) => String(o).trim().slice(0, 60)).filter((o: string) => o && !/not sure/i.test(o)).slice(0, 3));
     await ctx.save();
     res.json(ctx.ws);
   }));

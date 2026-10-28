@@ -389,7 +389,8 @@ export type ChatAction = { kind: "task"; title: string; why: string } | { kind: 
 export interface Workspace {
   version: 2;
   started: boolean;
-  onboarding: { step: number; done: boolean; answers: { q: string; a: string }[]; questions: string[]; targets?: string[] };
+  /** options: tap-to-answer suggestions per question; exploring: the student said they're not sure what they want yet. */
+  onboarding: { step: number; done: boolean; answers: { q: string; a: string }[]; questions: string[]; targets?: string[]; options?: string[][]; exploring?: boolean };
   profile: Profile;
   resume?: BaseResume;
   builder?: ResumeBuilder;
