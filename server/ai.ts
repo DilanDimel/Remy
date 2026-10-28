@@ -15,6 +15,10 @@ let lastVia = "";
 const exhausted = new Map<string, number>();
 const GEMINI_FALLBACKS = "gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-flash-latest,gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-flash-lite-latest,gemini-2.5-flash-lite";
 export const lastUsedModel = () => lastModel || model();
+// What the last AI call cost in US dollars, as OpenRouter reports it (other providers don't say).
+// shortcut: one value for the whole process, so two calls finishing together can swap costs; per-request tracking if exact billing matters.
+let lastSpend: number | undefined;
+export const lastCost = () => lastSpend;
 // "gemini" uses Google's OpenAI-compatible Chat Completions endpoint.
 const provider = () => (process.env.OR_AI_PROVIDER || "openai").toLowerCase();
 
@@ -150,12 +154,13 @@ export async function aiText(system: string, user: string, maxTokens = 1200, cha
             ],
             // Thinking tokens count toward the limit; keep reasoning light and leave headroom.
             max_tokens: orr ? Math.max(1500, maxTokens * 2) : Math.max(2048, maxTokens * 3),
-            ...(orr ? { reasoning: { effort: "low" } } : { reasoning_effort: "low" }),
+            ...(orr ? { reasoning: { effort: "low" }, usage: { include: true } } : { reasoning_effort: "low" }),
           } as any);
           const out = r.choices?.[0]?.message?.content ?? "";
           if (!out) throw Object.assign(new Error("The AI returned an empty response."), { status: 502 });
           lastModel = m;
           lastVia = PROVIDERS[p]?.label || "";
+          lastSpend = typeof r.usage?.cost === "number" ? r.usage.cost : undefined;
           return out;
         } catch (e: any) {
           lastErr = e;

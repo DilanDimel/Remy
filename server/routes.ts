@@ -10,7 +10,7 @@ import type {
   Application, AppConfig, BulletChange, ChatAction, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace,
 } from "@shared/types";
 import { aiAllowed, checkSchoolCode, cleanupOld, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
-import { aiJson, aiStatus, AiUnavailable, lastUsedModel, markAiAuthFailure, model } from "./ai";
+import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./safety";
 import * as admin from "./admin";
 import { recordError } from "./admin";
@@ -130,7 +130,8 @@ function bad(msg: string, status = 400): never {
 }
 
 function logAi(ws: Workspace, purpose: string, started: number, ok: boolean, note?: string) {
-  ws.aiLog.push({ id: uid("ai"), at: nowIso(), purpose, model: lastUsedModel(), ok, ms: Date.now() - started, note });
+  const cost = ok ? lastCost() : undefined;
+  ws.aiLog.push({ id: uid("ai"), at: nowIso(), purpose, model: lastUsedModel(), ok, ms: Date.now() - started, note, ...(cost != null ? { cost } : {}) });
 }
 async function withAi<T>(ctx: Ctx, purpose: string, fn: () => Promise<T>): Promise<T> {
   if (!allow("ai-ip:" + ctx.ip, 60, 60 * 60_000)) bad("Lots of AI requests are coming from this network. Please wait a bit and try again.", 429);
@@ -350,9 +351,12 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.get("/api/admin/errors", route(async (_req, res, ctx) => { owner(ctx); res.json(await admin.errors()); }));
   app.get("/api/admin/team", route(async (_req, res, ctx) => { res.json(await admin.team(owner(ctx))); }));
   app.post("/api/admin/tasks", route(async (req, res, ctx) => { const me = owner(ctx); await admin.saveTask(me, req.body || {}); res.json(await admin.team(me)); }));
-  app.delete("/api/admin/tasks/:id", route(async (req, res, ctx) => { const me = owner(ctx); await admin.deleteTask(String(req.params.id)); res.json(await admin.team(me)); }));
+  app.delete("/api/admin/tasks/:id", route(async (req, res, ctx) => { const me = owner(ctx); await admin.deleteTask(me, String(req.params.id)); res.json(await admin.team(me)); }));
+  app.post("/api/admin/members", route(async (req, res, ctx) => { const me = owner(ctx); await admin.addMember(me, req.body || {}); res.json(await admin.team(me)); }));
+  app.delete("/api/admin/members/:email", route(async (req, res, ctx) => { const me = owner(ctx); await admin.removeMember(me, String(req.params.email)); res.json(await admin.team(me)); }));
+  app.post("/api/admin/errors/fix", route(async (req, res, ctx) => { const me = owner(ctx); await admin.fixError(me, String(req.body?.message || ""), String(req.body?.kind || "")); res.json(await admin.errors()); }));
   app.post("/api/admin/events", route(async (req, res, ctx) => { const me = owner(ctx); await admin.addEvent(me, req.body || {}); res.json(await admin.team(me)); }));
-  app.delete("/api/admin/events/:id", route(async (req, res, ctx) => { const me = owner(ctx); await admin.deleteEvent(String(req.params.id)); res.json(await admin.team(me)); }));
+  app.delete("/api/admin/events/:id", route(async (req, res, ctx) => { const me = owner(ctx); await admin.deleteEvent(me, String(req.params.id)); res.json(await admin.team(me)); }));
   app.post("/api/admin/clock", route(async (req, res, ctx) => { const me = owner(ctx); await admin.clock(me, req.body?.action === "out" ? "out" : "in", String(req.body?.note || "")); res.json(await admin.team(me)); }));
 
   app.get("/api/me", async (req, res, next) => {

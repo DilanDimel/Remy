@@ -1,18 +1,32 @@
 // The owners' dashboard: how Remy is used, the errors students hit, and the team's own
-// to-dos, meetings and hours. Students' resumes, chats and files are never shown here.
+// to-dos, meetings, hours and a log of who did what. Students' resumes, chats and files are never shown here.
 import type { Me } from "@shared/types";
 import { q, q1 } from "./sql";
 import { uid } from "./ids";
 
-/** Owners are the signed-in accounts whose email is in OWNER_EMAILS (comma-separated). Guests never are. */
-export function isOwner(me: Pick<Me, "kind" | "email">) {
-  const list = (process.env.OWNER_EMAILS || "").toLowerCase().split(/[,\s]+/).filter(Boolean);
-  return (me.kind === "google" || me.kind === "supabase") && !!me.email && list.includes(me.email.toLowerCase());
+const cut = (v: unknown, n: number) => String(v ?? "").slice(0, n);
+const bad = (message: string, status = 400) => Object.assign(new Error(message), { status });
+
+// ---------- who is an owner ----------
+// OWNER_EMAILS (set on the server) are the founders; they add the rest of the team from the dashboard.
+const envOwners = () => (process.env.OWNER_EMAILS || "").toLowerCase().split(/[,\s]+/).filter(Boolean);
+let members: { at: number; set: Set<string> } = { at: 0, set: new Set() };
+async function memberEmails() {
+  if (Date.now() - members.at > 30_000) members = { at: Date.now(), set: new Set((await q("SELECT email FROM team_members")).map((r) => String(r.email))) };
+  return members.set;
+}
+/** Owners are signed-in accounts (never guests) whose email is in OWNER_EMAILS or was added in the dashboard. */
+export async function isOwner(me: Pick<Me, "kind" | "email">) {
+  if ((me.kind !== "google" && me.kind !== "supabase") || !me.email) return false;
+  const e = me.email.toLowerCase();
+  return envOwners().includes(e) || (await memberEmails()).has(e);
 }
 
-const cut = (v: unknown, n: number) => String(v ?? "").slice(0, n);
+async function log(actor: string, action: string, detail = "") {
+  await q("INSERT INTO team_activity (actor, action, detail) VALUES ($1, $2, $3)", [actor, cut(action, 200), cut(detail, 500)]);
+}
 
-/** Saves an error a student hit. Kept 60 days; at most a few thousand rows. */
+/** Saves an error a student hit. Kept 60 days. */
 export async function recordError(kind: "browser" | "server", place: string, message: string, detail = "", userId = "") {
   try {
     await q("INSERT INTO error_reports (kind, place, message, detail, user_id) VALUES ($1, $2, $3, $4, $5)", [kind, cut(place, 200), cut(message, 500), cut(detail, 2000), cut(userId, 80)]);
@@ -22,100 +36,187 @@ export async function recordError(kind: "browser" | "server", place: string, mes
   }
 }
 
-const n = (r?: Record<string, any>) => Number(r?.n ?? 0);
+// ---------- overview ----------
+const SIGNED_IN = "u.kind IN ('google','supabase')";
+// AI log purposes → the feature a student was using.
+const FEATURES: [string, string][] = [
+  ["Reading a resume", "e->>'purpose' = 'Parse resume'"],
+  ["Building a resume", "e->>'purpose' LIKE 'Resume builder%'"],
+  ["Importing LinkedIn or other profiles", "e->>'purpose' LIKE 'Import %'"],
+  ["Remy chat", "e->>'purpose' = 'Assistant chat'"],
+  ["Tailoring a resume and letter", "e->>'purpose' LIKE 'Tailor for %'"],
+  ["Career explainer", "e->>'purpose' = 'Explain a career'"],
+  ["Starting plan", "e->>'purpose' = 'Initial plan'"],
+  ["Finding openings", "e->>'purpose' = 'Pick employers'"],
+  ["Alumni outreach drafts", "e->>'purpose' = 'Draft outreach'"],
+];
 
 export async function overview() {
-  const users = await q("SELECT kind, COUNT(*)::int AS n FROM users GROUP BY kind");
-  const daily = await q(
-    `SELECT to_char(date_trunc('day', created_at AT TIME ZONE 'America/Chicago'), 'YYYY-MM-DD') AS day,
-            COUNT(*) FILTER (WHERE kind IN ('google','supabase'))::int AS signed_in, COUNT(*) FILTER (WHERE kind = 'guest')::int AS guests
-     FROM users WHERE created_at > now() - interval '14 days' GROUP BY 1 ORDER BY 1`,
+  const totals = await q1(
+    `SELECT COUNT(*) FILTER (WHERE ${SIGNED_IN})::int AS students,
+            COUNT(*) FILTER (WHERE ${SIGNED_IN} AND u.created_at > now() - interval '7 days')::int AS new_week,
+            COUNT(*) FILTER (WHERE ${SIGNED_IN} AND u.created_at <= now() - interval '7 days' AND u.created_at > now() - interval '14 days')::int AS new_prev
+     FROM users u`,
   );
   const active = await q1(
-    `SELECT COUNT(*) FILTER (WHERE updated_at > now() - interval '1 day')::int AS d1,
-            COUNT(*) FILTER (WHERE updated_at > now() - interval '7 days')::int AS d7,
-            COUNT(*) FILTER (WHERE updated_at > now() - interval '30 days')::int AS d30
-     FROM workspaces w JOIN users u ON u.id = w.user_id WHERE u.kind IN ('google','supabase')`,
+    `SELECT COUNT(*) FILTER (WHERE w.updated_at > now() - interval '7 days')::int AS week,
+            COUNT(*) FILTER (WHERE w.updated_at <= now() - interval '7 days' AND w.updated_at > now() - interval '14 days')::int AS prev,
+            COUNT(*) FILTER (WHERE w.updated_at > now() - interval '1 day')::int AS today
+     FROM workspaces w JOIN users u ON u.id = w.user_id WHERE ${SIGNED_IN}`,
+  );
+  const daily = await q(
+    `SELECT to_char(date_trunc('day', u.created_at AT TIME ZONE 'America/Chicago'), 'YYYY-MM-DD') AS day, COUNT(*)::int AS n
+     FROM users u WHERE ${SIGNED_IN} AND u.created_at > now() - interval '14 days' GROUP BY 1 ORDER BY 1`,
   );
   // How far signed-in students get. Counts only; nothing a student wrote is read out.
   const funnel = await q1(
     `SELECT COUNT(*)::int AS accounts,
-            COUNT(*) FILTER (WHERE (data->>'started')::boolean)::int AS started,
-            COUNT(*) FILTER (WHERE data ? 'resume' AND data->'resume' IS NOT NULL AND data->'resume' <> 'null'::jsonb)::int AS resume,
-            COUNT(*) FILTER (WHERE (data->'onboarding'->>'done')::boolean)::int AS setup_done,
-            COUNT(*) FILTER (WHERE jsonb_array_length(COALESCE(data->'applications', '[]'::jsonb)) > 0)::int AS applied,
-            COUNT(*) FILTER (WHERE jsonb_array_length(COALESCE(data->'chat', '[]'::jsonb)) > 0)::int AS chatted
-     FROM workspaces w JOIN users u ON u.id = w.user_id WHERE u.kind IN ('google','supabase')`,
+            COUNT(*) FILTER (WHERE w.data->'resume' IS NOT NULL AND w.data->'resume' <> 'null'::jsonb)::int AS resume,
+            COUNT(*) FILTER (WHERE (w.data->'onboarding'->>'step')::int >= 3 OR (w.data->'onboarding'->>'done')::boolean)::int AS prefs,
+            COUNT(*) FILTER (WHERE (w.data->'onboarding'->>'done')::boolean)::int AS setup_done,
+            COUNT(*) FILTER (WHERE jsonb_array_length(COALESCE(w.data->'chat', '[]'::jsonb)) > 0)::int AS chatted,
+            COUNT(*) FILTER (WHERE jsonb_array_length(COALESCE(w.data->'applications', '[]'::jsonb)) > 0)::int AS applied
+     FROM workspaces w JOIN users u ON u.id = w.user_id WHERE ${SIGNED_IN}`,
   );
-  // AI calls in the last 7 days, from each workspace's AI log (purpose, success, speed; no content).
-  const ai = await q(
-    `SELECT e->>'purpose' AS purpose, COUNT(*)::int AS calls, COUNT(*) FILTER (WHERE (e->>'ok')::boolean IS NOT TRUE)::int AS failed,
+  const since = "(e->>'at') > to_char(now() - interval '7 days', 'YYYY-MM-DD\"T\"HH24:MI:SS')";
+  const features = await Promise.all(FEATURES.map(async ([name, where]) => {
+    const r = await q1(`SELECT COUNT(DISTINCT w.user_id)::int AS students, COUNT(*)::int AS uses FROM workspaces w JOIN users u ON u.id = w.user_id, jsonb_array_elements(COALESCE(w.data->'aiLog', '[]'::jsonb)) e WHERE ${SIGNED_IN} AND ${since} AND ${where}`);
+    return { name, students: r?.students ?? 0, uses: r?.uses ?? 0 };
+  }));
+  // AI spend comes from the cost OpenRouter reports per call (logged since 2026-10-28).
+  const ai = await q1(
+    `SELECT COUNT(*)::int AS calls, COUNT(*) FILTER (WHERE (e->>'ok')::boolean IS NOT TRUE)::int AS failed,
+            COALESCE(SUM((e->>'cost')::numeric), 0)::float AS cost, COUNT(e->'cost')::int AS priced,
             COALESCE(ROUND(AVG((e->>'ms')::numeric)), 0)::int AS avg_ms
-     FROM workspaces, jsonb_array_elements(COALESCE(data->'aiLog', '[]'::jsonb)) e
-     WHERE (e->>'at') > to_char(now() - interval '7 days', 'YYYY-MM-DD"T"HH24:MI:SS') GROUP BY 1 ORDER BY 2 DESC LIMIT 20`,
+     FROM workspaces, jsonb_array_elements(COALESCE(data->'aiLog', '[]'::jsonb)) e WHERE ${since}`,
   );
-  const errors7 = await q1("SELECT COUNT(*)::int AS n FROM error_reports WHERE at > now() - interval '7 days'");
+  const openErrors = await q1("SELECT COUNT(DISTINCT message)::int AS n FROM error_reports WHERE fixed_at IS NULL AND at > now() - interval '30 days'");
   return {
-    users: Object.fromEntries(users.map((r) => [r.kind, r.n])),
-    daily,
-    active: { day: active?.d1 ?? 0, week: active?.d7 ?? 0, month: active?.d30 ?? 0 },
-    funnel,
-    ai,
-    errorsThisWeek: n(errors7),
+    students: totals?.students ?? 0, newWeek: totals?.new_week ?? 0, newPrev: totals?.new_prev ?? 0,
+    activeWeek: active?.week ?? 0, activePrev: active?.prev ?? 0, activeToday: active?.today ?? 0,
+    daily, funnel, features: features.filter((f) => f.uses).sort((a, b) => b.students - a.students || b.uses - a.uses),
+    ai: { calls: ai?.calls ?? 0, failed: ai?.failed ?? 0, cost: ai?.cost ?? 0, priced: ai?.priced ?? 0, avgMs: ai?.avg_ms ?? 0 },
+    openErrors: openErrors?.n ?? 0,
   };
 }
 
+// ---------- errors ----------
 export async function errors() {
-  const recent = await q("SELECT id, at, kind, place, message, detail FROM error_reports ORDER BY at DESC LIMIT 100");
-  const top = await q(
-    `SELECT message, kind, MIN(place) AS place, COUNT(*)::int AS times, COUNT(DISTINCT NULLIF(user_id, ''))::int AS students, MAX(at) AS last
-     FROM error_reports WHERE at > now() - interval '30 days' GROUP BY message, kind ORDER BY times DESC LIMIT 15`,
+  const open = await q(
+    `SELECT message, kind, MIN(place) AS place, COUNT(*)::int AS times, COUNT(DISTINCT NULLIF(user_id, ''))::int AS students, MAX(at) AS last, MIN(at) AS first,
+            (SELECT detail FROM error_reports d WHERE d.message = e.message AND d.kind = e.kind ORDER BY at DESC LIMIT 1) AS detail
+     FROM error_reports e WHERE fixed_at IS NULL AND at > now() - interval '30 days' GROUP BY message, kind ORDER BY MAX(at) DESC LIMIT 30`,
   );
-  return { recent, top };
+  const fixed = await q(
+    `SELECT message, kind, MAX(fixed_at) AS fixed_at, MAX(fixed_by) AS fixed_by, COUNT(*)::int AS times
+     FROM error_reports WHERE fixed_at > now() - interval '30 days' GROUP BY message, kind ORDER BY MAX(fixed_at) DESC LIMIT 15`,
+  );
+  return { open, fixed };
+}
+/** Marks every open report of one error as fixed. If it happens again, it shows up as open again. */
+export async function fixError(me: string, message: string, kind: string) {
+  const r = await q1("WITH u AS (UPDATE error_reports SET fixed_at = now(), fixed_by = $3 WHERE message = $1 AND kind = $2 AND fixed_at IS NULL RETURNING 1) SELECT COUNT(*)::int AS n FROM u", [cut(message, 500), cut(kind, 20), me]);
+  if (r?.n) await log(me, "Marked an error fixed", message);
 }
 
-// ---------- the team's own workspace ----------
+// ---------- the team ----------
+async function people() {
+  const added = await q("SELECT email, name, added_by, added_at FROM team_members ORDER BY added_at");
+  const env = envOwners();
+  const all = [...new Set([...env, ...added.map((m) => String(m.email))])];
+  const names = new Map((await q("SELECT lower(email) AS email, name FROM users WHERE lower(email) = ANY($1)", [all])).map((r) => [r.email, r.name]));
+  return all.map((email) => {
+    const row = added.find((m) => m.email === email);
+    return { email, name: String(row?.name || names.get(email) || email.split("@")[0]), founder: env.includes(email), addedBy: row?.added_by || "", addedAt: row?.added_at || null };
+  });
+}
+
 export async function team(me: string) {
-  const [tasks, events, hours, open] = await Promise.all([
-    q("SELECT * FROM team_tasks ORDER BY done, (due = ''), due, created_at"),
+  const [members, tasks, events, hours, entries, activity] = await Promise.all([
+    people(),
+    q("SELECT * FROM team_tasks ORDER BY (due = ''), due, created_at"),
     q("SELECT * FROM team_events WHERE date >= to_char(now() - interval '30 days', 'YYYY-MM-DD') ORDER BY date, time"),
     q(
-      `SELECT member, ROUND(SUM(EXTRACT(EPOCH FROM (COALESCE(end_at, now()) - start_at)) / 3600)::numeric, 1)::float AS hours,
-              ROUND(SUM(EXTRACT(EPOCH FROM (COALESCE(end_at, now()) - start_at)) / 3600) FILTER (WHERE start_at > now() - interval '7 days')::numeric, 1)::float AS week
+      `SELECT member, ROUND((SUM(EXTRACT(EPOCH FROM (COALESCE(end_at, now()) - start_at))) / 3600)::numeric, 1)::float AS hours,
+              ROUND((COALESCE(SUM(EXTRACT(EPOCH FROM (COALESCE(end_at, now()) - start_at))) FILTER (WHERE start_at > now() - interval '7 days'), 0) / 3600)::numeric, 1)::float AS week
        FROM time_entries GROUP BY member ORDER BY member`,
     ),
-    q("SELECT * FROM time_entries ORDER BY start_at DESC LIMIT 40"),
+    q("SELECT * FROM time_entries ORDER BY start_at DESC LIMIT 60"),
+    q("SELECT * FROM team_activity ORDER BY at DESC LIMIT 80"),
   ]);
-  const mine = open.find((e) => e.member === me && !e.end_at);
-  return { tasks, events, hours, entries: open, clockedIn: mine ? mine.start_at : null };
+  const mine = entries.find((e) => e.member === me && !e.end_at);
+  return { me, members, tasks, events, hours, entries, activity, clockedIn: mine ? mine.start_at : null };
+}
+
+export async function addMember(me: string, b: any) {
+  const email = cut(b.email, 200).trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw bad("Enter the email your teammate signs in to Remy with.");
+  await q("INSERT INTO team_members (email, name, added_by) VALUES ($1, $2, $3) ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name", [email, cut(b.name, 80).trim(), me]);
+  members.at = 0;
+  await log(me, "Added a teammate", `${cut(b.name, 80) || email} (${email})`);
+}
+export async function removeMember(me: string, email: string) {
+  const e = email.toLowerCase();
+  if (e === me) throw bad("You can't remove yourself.");
+  if (envOwners().includes(e)) throw bad("Founders are set on the server (OWNER_EMAILS) and can't be removed here.");
+  await q("DELETE FROM team_members WHERE email = $1", [e]);
+  members.at = 0;
+  await log(me, "Removed a teammate", e);
 }
 
 export async function saveTask(me: string, b: any) {
   if (b.id) {
-    await q("UPDATE team_tasks SET title = COALESCE($2, title), owner = COALESCE($3, owner), due = COALESCE($4, due), notes = COALESCE($5, notes), done = COALESCE($6, done) WHERE id = $1",
-      [cut(b.id, 60), b.title == null ? null : cut(b.title, 300), b.owner == null ? null : cut(b.owner, 120), b.due == null ? null : cut(b.due, 10), b.notes == null ? null : cut(b.notes, 2000), typeof b.done === "boolean" ? b.done : null]);
+    const before = await q1("SELECT * FROM team_tasks WHERE id = $1", [cut(b.id, 60)]);
+    if (!before) throw bad("That to-do isn't there anymore.", 404);
+    // A column move (status) or the old done checkbox; done always matches the Done column.
+    const status = ["todo", "doing", "done"].includes(b.status) ? b.status : typeof b.done === "boolean" ? (b.done ? "done" : "todo") : null;
+    const done = status ? status === "done" : null;
+    await q(
+      `UPDATE team_tasks SET title = COALESCE($2, title), assignee = COALESCE($3, assignee), due = COALESCE($4, due), notes = COALESCE($5, notes),
+              done = COALESCE($6, done), status = COALESCE($8, status),
+              done_by = CASE WHEN $6 IS TRUE AND NOT done THEN $7 WHEN $6 IS FALSE THEN '' ELSE done_by END,
+              done_at = CASE WHEN $6 IS TRUE AND NOT done THEN now() WHEN $6 IS FALSE THEN NULL ELSE done_at END
+       WHERE id = $1`,
+      [before.id, b.title == null ? null : cut(b.title, 300), b.assignee == null ? null : cut(b.assignee, 200).toLowerCase(), b.due == null ? null : cut(b.due, 10), b.notes == null ? null : cut(b.notes, 2000), done, me, status],
+    );
+    if (done === true && !before.done) await log(me, "Finished a to-do", before.title);
+    else if (status === "doing" && before.status !== "doing") await log(me, "Started a to-do", before.title);
+    else if (done === false && before.done) await log(me, "Reopened a to-do", before.title);
+    else if (b.assignee != null && b.assignee !== before.assignee) await log(me, "Assigned a to-do", `${before.title} → ${b.assignee || "nobody"}`);
   } else {
-    if (!cut(b.title, 300).trim()) throw Object.assign(new Error("Give the to-do a title."), { status: 400 });
-    await q("INSERT INTO team_tasks (id, title, owner, due, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6)", [uid("tt"), cut(b.title, 300), cut(b.owner, 120), cut(b.due, 10), cut(b.notes, 2000), me]);
+    const title = cut(b.title, 300).trim();
+    if (!title) throw bad("Give the to-do a title.");
+    await q("INSERT INTO team_tasks (id, title, assignee, due, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6)", [uid("tt"), title, cut(b.assignee, 200).toLowerCase(), cut(b.due, 10), cut(b.notes, 2000), me]);
+    await log(me, "Added a to-do", b.assignee ? `${title} → ${b.assignee}` : title);
   }
 }
-export const deleteTask = (id: string) => q("DELETE FROM team_tasks WHERE id = $1", [cut(id, 60)]);
+export async function deleteTask(me: string, id: string) {
+  const t = await q1("DELETE FROM team_tasks WHERE id = $1 RETURNING title", [cut(id, 60)]);
+  if (t) await log(me, "Deleted a to-do", t.title);
+}
 
 export async function addEvent(me: string, b: any) {
-  if (!cut(b.title, 300).trim() || !/^\d{4}-\d{2}-\d{2}$/.test(String(b.date))) throw Object.assign(new Error("Give the meeting a title and a date."), { status: 400 });
+  if (!cut(b.title, 300).trim() || !/^\d{4}-\d{2}-\d{2}$/.test(String(b.date))) throw bad("Give the meeting a title and a date.");
   await q("INSERT INTO team_events (id, title, date, time, who, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7)",
     [uid("te"), cut(b.title, 300), b.date, /^\d{2}:\d{2}$/.test(String(b.time)) ? b.time : "", cut(b.who, 300), cut(b.notes, 2000), me]);
+  await log(me, "Added a meeting", `${cut(b.title, 300)} on ${b.date}`);
 }
-export const deleteEvent = (id: string) => q("DELETE FROM team_events WHERE id = $1", [cut(id, 60)]);
+export async function deleteEvent(me: string, id: string) {
+  const e = await q1("DELETE FROM team_events WHERE id = $1 RETURNING title, date", [cut(id, 60)]);
+  if (e) await log(me, "Removed a meeting", `${e.title} on ${e.date}`);
+}
 
 /** Clock in starts an entry; clock out ends the open one. Each owner clocks only themselves. */
 export async function clock(me: string, action: "in" | "out", note = "") {
-  const open = await q1("SELECT id FROM time_entries WHERE member = $1 AND end_at IS NULL", [me]);
+  const open = await q1("SELECT id, start_at FROM time_entries WHERE member = $1 AND end_at IS NULL", [me]);
   if (action === "in") {
-    if (open) throw Object.assign(new Error("You're already clocked in."), { status: 409 });
+    if (open) throw bad("You're already clocked in.", 409);
     await q("INSERT INTO time_entries (id, member, note) VALUES ($1, $2, $3)", [uid("tm"), me, cut(note, 300)]);
+    await log(me, "Clocked in", note);
   } else {
-    if (!open) throw Object.assign(new Error("You're not clocked in."), { status: 409 });
+    if (!open) throw bad("You're not clocked in.", 409);
     await q("UPDATE time_entries SET end_at = now(), note = CASE WHEN $2 = '' THEN note ELSE $2 END WHERE id = $1", [open.id, cut(note, 300)]);
+    const h = (Date.now() - new Date(open.start_at).getTime()) / 3600_000;
+    await log(me, "Clocked out", `${h.toFixed(1)} h${note ? `: ${note}` : ""}`);
   }
 }

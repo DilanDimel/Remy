@@ -365,6 +365,8 @@ export interface AiLogEntry {
   ok: boolean;
   ms: number;
   note?: string;
+  /** US dollars, when the provider reports it (OpenRouter). */
+  cost?: number;
 }
 export interface SafeguardIncident {
   id: string;
