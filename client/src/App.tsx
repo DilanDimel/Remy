@@ -80,6 +80,7 @@ function Shell() {
   const { path, query } = useRoute();
   const [asstPage, setAsstPage] = useState<boolean | null>(null);
   const [more, setMore] = useState(false);
+  const [feedback, setFeedback] = useState(false);
   const [flyIn, setFlyIn] = useState(() => uiFlags.flyIn);
   useEffect(() => {
     if (flyIn) {
@@ -176,9 +177,11 @@ function Shell() {
             ))}
             <button className="nav-item" onClick={() => { setMore(false); go("/about"); }}><Info size={19} />About Remy</button>
             <button className="nav-item" onClick={() => { setMore(false); go("/policies"); }}><ShieldCheck size={19} />Privacy & terms</button>
+            <button className="nav-item" onClick={() => { setMore(false); setFeedback(true); }}><Send size={19} />Send feedback</button>
           </div>
         </Modal>
       )}
+      {feedback && <FeedbackModal onClose={() => setFeedback(false)} />}
     </div>
   );
 }
@@ -338,6 +341,7 @@ const MENU: [string, string][] = [["profile", "Profile"], ["settings", "Settings
 function ProfileMenu({ initials, active }: { initials: string; active: boolean }) {
   const { ws, me, run, refresh } = useStore();
   const [open, setOpen] = useState(false);
+  const [feedback, setFeedback] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -366,11 +370,36 @@ function ProfileMenu({ initials, active }: { initials: string; active: boolean }
           <div className="divider" />
           <button role="menuitem" onClick={() => { setOpen(false); go("/about"); }} data-testid="menu-about">About Remy</button>
           <button role="menuitem" onClick={() => { setOpen(false); go("/policies"); }} data-testid="menu-policies">Privacy & terms</button>
+          <button role="menuitem" onClick={() => { setOpen(false); setFeedback(true); }} data-testid="menu-feedback">Send feedback</button>
           {me?.owner && <button role="menuitem" onClick={() => { setOpen(false); go("/admin"); }} data-testid="menu-admin">Owners' dashboard</button>}
           <div className="divider" />
           <button role="menuitem" onClick={signOut} data-testid="menu-sign-out">Sign out</button>
         </div>
       )}
+      {feedback && <FeedbackModal onClose={() => setFeedback(false)} />}
     </div>
+  );
+}
+
+/** "Send feedback": a few words about what's confusing or broken; it lands in the owners' dashboard. */
+function FeedbackModal({ onClose }: { onClose: () => void }) {
+  const { run } = useStore();
+  const { path } = useRoute();
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const send = async () => {
+    setBusy(true);
+    const ok = await run(() => api("POST", "/api/feedback", { message: text, page: path }), "Thanks! The Remy team reads every note.");
+    setBusy(false);
+    if (ok) onClose();
+  };
+  return (
+    <Modal title="Send feedback" onClose={onClose}>
+      <div className="stack-sm">
+        <p className="small muted">Something confusing, broken, or missing? Tell the Remy team in a sentence or two. It's sent with the page you're on, not your resume or chats.</p>
+        <textarea className="textarea" autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. I couldn't find where to change my graduation date" aria-label="Your feedback" style={{ minHeight: 110 }} data-testid="input-feedback" />
+        <div className="row-between"><button className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button><button className="btn btn-primary btn-sm" onClick={send} disabled={busy || text.trim().length < 3} data-testid="button-send-feedback">{busy ? <Spinner /> : null} Send</button></div>
+      </div>
+    </Modal>
   );
 }

@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import type { Application, BulletChange, ClaimFlag, Job, ResumeDoc, Workspace } from "@shared/types";
 import { API_BASE, api, download, fmtDate, rid, useStore } from "../lib/store";
-import { go } from "../lib/router";
+import { go, replaceRoute } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Empty, Remy, Spinner, StatusChip } from "../components/common";
 import { ResumeBuilder } from "../components/ResumeBuilder";
@@ -181,12 +181,15 @@ function Tailor({ query }: { query: URLSearchParams }) {
   const { jobs, fits } = useJobs();
   const jobParam = query.get("job");
   const appParam = query.get("app");
+  // ?go=1 (from "Tailor resume" on an opening): start tailoring right away, one click instead of two.
+  const autoStart = query.get("go") === "1";
   useEffect(() => {
     if (!jobParam) return;
     const existing = w.applications.find((a) => a.jobId === jobParam);
-    if (existing) { go(`/resume?tab=tailor&app=${existing.id}`); return; }
+    const goOn = autoStart ? "&go=1" : "";
+    if (existing) { replaceRoute(`/resume?tab=tailor&app=${existing.id}${goOn}`); return; }
     run(() => api<{ application: Application; workspace: Workspace }>("POST", "/api/applications", { jobId: jobParam })).then((r) => {
-      if (r) { setWs(r.workspace); go(`/resume?tab=tailor&app=${r.application.id}`); }
+      if (r) { setWs(r.workspace); replaceRoute(`/resume?tab=tailor&app=${r.application.id}${goOn}`); }
     });
   }, [jobParam]);
   const selected = w.applications.find((a) => a.id === appParam) || w.applications[0];
@@ -232,7 +235,7 @@ function Tailor({ query }: { query: URLSearchParams }) {
       </div>
       <div>
         {!config?.ai.available && <div style={{ marginBottom: 12 }}><AiUnavailableNote /></div>}
-        {selected && jobOf(selected) ? <AppEditor key={selected.id} a={selected} job={jobOf(selected)!} /> : (
+        {selected && jobOf(selected) ? <AppEditor key={selected.id} a={selected} job={jobOf(selected)!} autoStart={autoStart && selected.id === appParam} /> : (
           <div className="card"><Empty title="Pick an opening to tailor for" body="Choose one of the openings above, or import any public posting. Remy will propose truthful changes for you to review." /></div>
         )}
       </div>
@@ -242,7 +245,7 @@ function Tailor({ query }: { query: URLSearchParams }) {
 
 type Sub = "changes" | "letter" | "checks" | "export";
 
-function AppEditor({ a, job }: { a: Application; job: Job }) {
+function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; autoStart?: boolean }) {
   const { ws, setWs, run, config } = useStore();
   const w = ws!;
   const [sub, setSub] = useState<Sub>("changes");
@@ -259,6 +262,11 @@ function AppEditor({ a, job }: { a: Application; job: Job }) {
   const mine = tailor?.appId === a.id ? tailor : null;
   const conflict = ws!.fits[job.id]?.eligibility === "unlikely" ? ws!.fits[job.id]!.eligibilityNote : undefined;
   const generate = () => startTailor(a, job, conflict);
+  useEffect(() => {
+    if (!autoStart) return;
+    replaceRoute(`/resume?tab=tailor&app=${a.id}`); // so a reload doesn't start it again
+    if (!a.generatedAt && !mine && config?.ai.available) generate();
+  }, []);
   const pending = a.changes.filter((c) => c.status === "pending").length;
   const blocking = a.changes.filter((c) => (c.status === "accepted" || c.status === "edited") && c.flags.length).length;
   const approve = () => call("approve", () => api("POST", `/api/applications/${a.id}/approve`), "Approved — downloads are ready");

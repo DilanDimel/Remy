@@ -145,25 +145,14 @@ function Landing() {
       <section className="lp-hero">
         <div className="lp-hero-copy">
           <h1>Don&rsquo;t hunt for a job alone.</h1>
-          <p className="lp-lede">Remy is a career coach for college students. Bring your resume, or build your first one, and Remy finds openings you can actually get, fits your resume to each one without making anything up, and tells you what to do this week.</p>
+          <p className="lp-lede">Stop scrolling job boards for roles you can't apply to, rewriting your resume for every posting, and guessing what your major leads to. Remy is a free career coach for college students that does the searching, keeps your applications honest, and tells you what to do this week.</p>
           <div className="row" style={{ gap: 10 }}>
             <a className="btn btn-primary" href="/signin" data-testid="button-lp-start">Create your free account</a>
             <button className="btn btn-secondary" onClick={toTour}>See what you get</button>
           </div>
           <p className="xs muted">For every major and every year, freshmen included. Built by students at TCU.</p>
         </div>
-        <div className="lp-chat" aria-label="Example conversation with Remy">
-          <div className="lp-msg me">I&rsquo;m a sophomore in nursing. What should I do this semester?</div>
-          <div className="lp-msg remy">
-            <Remy size={30} mood="happy" />
-            <div className="stack-sm">
-              <span>Three things, based on your resume:</span>
-              <div className="lp-item"><Search size={15} /><span><b>Summer Nurse Extern</b>, a Fort Worth hospital. You qualify: it asks for students finishing year two.</span></div>
-              <div className="lp-item"><CalendarClock size={15} /><span><b>Applications close Feb 15.</b> It&rsquo;s on your calendar.</span></div>
-              <div className="lp-item"><FileText size={15} /><span><b>To-do:</b> add your Walgreens pharmacy work to your resume. Your LinkedIn has it; your resume doesn&rsquo;t.</span></div>
-            </div>
-          </div>
-        </div>
+        <HeroExample />
       </section>
 
       <section className="lp-gets" ref={tour} aria-label="What you get">
@@ -201,13 +190,7 @@ function Landing() {
             <h3>Help when you don&rsquo;t know what you want yet</h3>
             <p>Pick a major and see the jobs it leads to, with real pay and growth numbers from the U.S. Bureau of Labor Statistics. Heard of a job but not sure what it is? Ask, and Remy explains a normal day, the hard parts and how to try it out this year.</p>
           </div>
-          <div className="lp-shot" aria-hidden>
-            <span className="xs muted">Jobs people with a marketing major go into</span>
-            <div className="lp-occ"><b>Market research analysts</b><span>$78,760 median pay · 82,000 openings a year · +7% by 2035</span></div>
-            <div className="lp-occ"><b>Marketing managers</b><span>$166,790 median pay · 34,000 openings a year · +6.9% by 2035</span></div>
-            <div className="lp-occ"><b>Public relations specialists</b><span>$74,750 median pay · 23,000 openings a year · +1.8% by 2035</span></div>
-            <span className="btn btn-secondary btn-sm" style={{ justifySelf: "start" }}>What&rsquo;s it like?</span>
-          </div>
+          <FieldBrowser />
         </div>
 
         <div className="lp-get flip">
@@ -248,10 +231,79 @@ function Landing() {
       <section className="lp-cta">
         <Remy size={56} mood="wave" />
         <h2>Ready when you are.</h2>
-        <p className="muted">Free for students. About 5 minutes to set up.</p>
+        <p className="muted">Free for students. No credit card. About 5 minutes to set up.</p>
         <a className="btn btn-primary" href="/signin">Create your free account</a>
       </section>
       <footer className="lp-foot xs muted"><span>Remy, made by students at Texas Christian University.</span><span><a href="/about">About the team</a> &nbsp; <a href="/policies">Privacy and terms</a></span></footer>
+    </div>
+  );
+}
+
+// The hero's example conversation, one per kind of student (fictional students; job numbers are real BLS figures).
+const EXAMPLES: { tab: string; ask: string; items: [ReactNode, string, ReactNode][] }[] = [
+  { tab: "Finance", ask: "I'm a sophomore in finance with no internship yet. Where do I start?", items: [
+    [<Search size={15} />, "Accounting Summer Intern", <>at a Fort Worth railroad. You qualify: it's open to any class year and asks for a 2.75 GPA.</>],
+    [<CalendarClock size={15} />, "Applications close Jan 31.", <>It's on your calendar.</>],
+    [<FileText size={15} />, "To-do:", <>your treasurer bullet has no number. Add the budget you managed.</>],
+  ] },
+  { tab: "Nursing", ask: "I'm a sophomore in nursing. What should I do this semester?", items: [
+    [<Search size={15} />, "Summer Nurse Extern", <>at a Fort Worth hospital. You qualify: it asks for students finishing year two.</>],
+    [<CalendarClock size={15} />, "Applications close Feb 15.", <>It's on your calendar.</>],
+    [<FileText size={15} />, "To-do:", <>add your Walgreens pharmacy work to your resume. Your LinkedIn has it; your resume doesn't.</>],
+  ] },
+  { tab: "Not sure yet", ask: "I'm a psychology major and I have no idea what jobs I can get.", items: [
+    [<Search size={15} />, "Social and human service assistants", <>hire about 48,900 people a year. Your crisis-line volunteering fits.</>],
+    [<Search size={15} />, "School and career counselors", <>earn a $64,330 median and need a master's. Want to see what a day looks like?</>],
+    [<FileText size={15} />, "To-do:", <>ask one alum in counseling for a 15-minute chat.</>],
+  ] },
+];
+function HeroExample() {
+  const [i, setI] = useState(0);
+  const ex = EXAMPLES[i];
+  return (
+    <div className="lp-hero-ex">
+      <div className="row" role="tablist" aria-label="Example student" style={{ gap: 6 }}>
+        {EXAMPLES.map((e, k) => <button key={e.tab} role="tab" aria-selected={k === i} className="pref-chip" aria-pressed={k === i} onClick={() => setI(k)}>{e.tab}</button>)}
+      </div>
+      <div className="lp-chat" aria-label="Example conversation with Remy" aria-live="polite">
+        <div key={"q" + i} className="lp-msg me fade-up">{ex.ask}</div>
+        <div key={"a" + i} className="lp-msg remy fade-up">
+          <Remy size={30} mood="happy" />
+          <div className="stack-sm">
+            <span>Three things, based on your resume:</span>
+            {ex.items.map(([icon, b, rest], k) => <div key={k} className="lp-item">{icon}<span><b>{b}</b> {rest}</span></div>)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// "What does my major lead to?" with real BLS numbers, before signing up (public data only).
+const BROWSE = ["Finance", "Accounting", "Marketing", "Nursing", "Software & computer science", "Education & teaching", "Psychology & social work", "Engineering", "Journalism & communications", "Entrepreneurship"];
+type Occ = { title: string; change: number; openings: number | null; wage: number | null; education: string };
+function FieldBrowser() {
+  const [field, setField] = useState(BROWSE[2]);
+  const [jobs, setJobs] = useState<Occ[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    setJobs(null);
+    fetch("/api/public/careers?field=" + encodeURIComponent(field)).then((r) => r.json()).then((d) => { if (live) setJobs(d?.[0]?.jobs?.slice(0, 3) || []); }).catch(() => live && setJobs([]));
+    return () => { live = false; };
+  }, [field]);
+  return (
+    <div className="lp-shot lp-live">
+      <div className="row" style={{ gap: 6 }}>
+        {BROWSE.map((f) => <button key={f} className="pref-chip" aria-pressed={f === field} onClick={() => setField(f)}>{f}</button>)}
+      </div>
+      <span className="xs muted">Jobs people in {field.toLowerCase()} go into, the ones that hire the most first</span>
+      <div aria-live="polite" style={{ minHeight: 170 }}>
+        {!jobs ? <span className="row xs muted"><Spinner /> Loading…</span> : jobs.map((o) => (
+          <div key={o.title} className="lp-occ fade-up"><b>{o.title}</b><span>{[o.wage ? `$${o.wage.toLocaleString("en-US")} median pay` : "", o.openings ? `${Math.round(o.openings * 1000).toLocaleString("en-US")} openings a year` : "", o.change ? `${o.change > 0 ? "+" : ""}${o.change}% by 2035` : ""].filter(Boolean).join(" · ")}</span></div>
+        ))}
+      </div>
+      <a className="btn btn-secondary btn-sm" href="/signin" style={{ justifySelf: "start" }}>Ask Remy what any of these is like</a>
+      <span className="xs muted">Source: U.S. Bureau of Labor Statistics, 2025–35 projections.</span>
     </div>
   );
 }

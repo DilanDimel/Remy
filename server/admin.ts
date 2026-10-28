@@ -27,7 +27,7 @@ async function log(actor: string, action: string, detail = "") {
 }
 
 /** Saves an error a student hit. Kept 60 days. */
-export async function recordError(kind: "browser" | "server", place: string, message: string, detail = "", userId = "") {
+export async function recordError(kind: "browser" | "server" | "feedback", place: string, message: string, detail = "", userId = "") {
   try {
     await q("INSERT INTO error_reports (kind, place, message, detail, user_id) VALUES ($1, $2, $3, $4, $5)", [kind, cut(place, 200), cut(message, 500), cut(detail, 2000), cut(userId, 80)]);
     if (Math.random() < 0.02) await q("DELETE FROM error_reports WHERE at < now() - interval '60 days'");
@@ -90,13 +90,13 @@ export async function overview() {
             COALESCE(ROUND(AVG((e->>'ms')::numeric)), 0)::int AS avg_ms
      FROM workspaces, jsonb_array_elements(COALESCE(data->'aiLog', '[]'::jsonb)) e WHERE ${since}`,
   );
-  const openErrors = await q1("SELECT COUNT(DISTINCT message)::int AS n FROM error_reports WHERE fixed_at IS NULL AND at > now() - interval '30 days'");
+  const openErrors = await q1("SELECT COUNT(DISTINCT message) FILTER (WHERE kind <> 'feedback')::int AS n, COUNT(*) FILTER (WHERE kind = 'feedback')::int AS feedback FROM error_reports WHERE fixed_at IS NULL AND at > now() - interval '30 days'");
   return {
     students: totals?.students ?? 0, newWeek: totals?.new_week ?? 0, newPrev: totals?.new_prev ?? 0,
     activeWeek: active?.week ?? 0, activePrev: active?.prev ?? 0, activeToday: active?.today ?? 0,
     daily, funnel, features: features.filter((f) => f.uses).sort((a, b) => b.students - a.students || b.uses - a.uses),
     ai: { calls: ai?.calls ?? 0, failed: ai?.failed ?? 0, cost: ai?.cost ?? 0, priced: ai?.priced ?? 0, avgMs: ai?.avg_ms ?? 0 },
-    openErrors: openErrors?.n ?? 0,
+    openErrors: openErrors?.n ?? 0, feedback: openErrors?.feedback ?? 0,
   };
 }
 
@@ -105,18 +105,20 @@ export async function errors() {
   const open = await q(
     `SELECT message, kind, MIN(place) AS place, COUNT(*)::int AS times, COUNT(DISTINCT NULLIF(user_id, ''))::int AS students, MAX(at) AS last, MIN(at) AS first,
             (SELECT detail FROM error_reports d WHERE d.message = e.message AND d.kind = e.kind ORDER BY at DESC LIMIT 1) AS detail
-     FROM error_reports e WHERE fixed_at IS NULL AND at > now() - interval '30 days' GROUP BY message, kind ORDER BY MAX(at) DESC LIMIT 30`,
+     FROM error_reports e WHERE fixed_at IS NULL AND kind <> 'feedback' AND at > now() - interval '30 days' GROUP BY message, kind ORDER BY MAX(at) DESC LIMIT 30`,
   );
+  // What students wrote with "Send feedback": one row each, until someone marks it handled.
+  const feedback = await q("SELECT id, at, place, message, detail AS email FROM error_reports WHERE kind = 'feedback' AND fixed_at IS NULL ORDER BY at DESC LIMIT 50");
   const fixed = await q(
     `SELECT message, kind, MAX(fixed_at) AS fixed_at, MAX(fixed_by) AS fixed_by, COUNT(*)::int AS times
      FROM error_reports WHERE fixed_at > now() - interval '30 days' GROUP BY message, kind ORDER BY MAX(fixed_at) DESC LIMIT 15`,
   );
-  return { open, fixed };
+  return { open, fixed, feedback };
 }
 /** Marks every open report of one error as fixed. If it happens again, it shows up as open again. */
 export async function fixError(me: string, message: string, kind: string) {
   const r = await q1("WITH u AS (UPDATE error_reports SET fixed_at = now(), fixed_by = $3 WHERE message = $1 AND kind = $2 AND fixed_at IS NULL RETURNING 1) SELECT COUNT(*)::int AS n FROM u", [cut(message, 500), cut(kind, 20), me]);
-  if (r?.n) await log(me, "Marked an error fixed", message);
+  if (r?.n) await log(me, kind === "feedback" ? "Handled feedback" : "Marked an error fixed", message);
 }
 
 // ---------- the team ----------

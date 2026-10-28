@@ -11,10 +11,10 @@ type Overview = {
   daily: { day: string; n: number }[];
   funnel: { accounts: number; resume: number; prefs: number; setup_done: number; chatted: number; applied: number };
   features: { name: string; students: number; uses: number }[];
-  ai: { calls: number; failed: number; cost: number; priced: number; avgMs: number }; openErrors: number;
+  ai: { calls: number; failed: number; cost: number; priced: number; avgMs: number }; openErrors: number; feedback: number;
 };
 type OpenError = { message: string; kind: string; place: string; times: number; students: number; last: string; first: string; detail: string };
-type Errors = { open: OpenError[]; fixed: { message: string; kind: string; fixed_at: string; fixed_by: string; times: number }[] };
+type Errors = { open: OpenError[]; fixed: { message: string; kind: string; fixed_at: string; fixed_by: string; times: number }[]; feedback: { id: number; at: string; place: string; message: string; email: string }[] };
 type Status = "todo" | "doing" | "done";
 type TeamTask = { id: string; title: string; assignee: string; due: string; notes: string; done: boolean; status: Status; done_by: string; done_at: string | null; created_by: string };
 type TeamEvent = { id: string; title: string; date: string; time: string; who: string; notes: string; created_by: string };
@@ -25,7 +25,7 @@ type Team = {
   entries: Entry[]; activity: { id: number; at: string; actor: string; action: string; detail: string }[]; clockedIn: string | null;
 };
 
-const TABS = [["overview", "Overview", BarChart3], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity], ["errors", "Errors", AlertTriangle]] as const;
+const TABS = [["overview", "Overview", BarChart3], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity], ["errors", "Errors & feedback", AlertTriangle]] as const;
 type Tab = (typeof TABS)[number][0];
 const COLS: [Status, string][] = [["todo", "To do"], ["doing", "In progress"], ["done", "Done"]];
 const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -103,7 +103,7 @@ function OverviewTab() {
         <Kpi n={d.newWeek} label="New sign-ups this week" prev={d.newPrev} />
         <Kpi n={d.students} label="Students in total" note={`${d.activeToday} active today`} />
         <Kpi n={`$${d.ai.cost.toFixed(2)}`} label="AI spend this week" note={d.ai.priced < d.ai.calls ? `${d.ai.calls} calls, ${d.ai.calls - d.ai.priced} without a price` : `${d.ai.calls} calls`} />
-        <Kpi n={d.openErrors} label="Open errors" note={d.openErrors ? "see Errors" : "all clear"} />
+        <Kpi n={d.openErrors} label="Open errors" note={d.feedback ? `${d.feedback} new feedback` : d.openErrors ? "see Errors" : "all clear"} />
       </div>
       <section className="adm-card">
         <h3>New sign-ups, last 14 days</h3>
@@ -157,8 +157,22 @@ function ErrorsTab() {
   const fix = async (e: OpenError) => { const r = await run(() => api<Errors>("POST", "/api/admin/errors/fix", { message: e.message, kind: e.kind }), "Marked fixed. If it happens again, it comes back here."); if (r) setD(r); };
   return (
     <div className="stack-lg">
-      <Head title="Errors" sub="What students hit in their browser and on the server, last 30 days. Mark one fixed after the fix ships." action={<button className="btn btn-ghost btn-sm" onClick={reload}><RotateCcw size={14} /> Refresh</button>} />
+      <Head title="Errors & feedback" sub="What students wrote with Send feedback, and the errors they hit in the last 30 days. Mark an error fixed after the fix ships." action={<button className="btn btn-ghost btn-sm" onClick={reload}><RotateCcw size={14} /> Refresh</button>} />
       <section className="adm-card adm-list">
+        <h3>Student feedback</h3>
+        {d.feedback.map((f) => (
+          <div key={f.id} className="adm-err">
+            <div className="grow stack-sm" style={{ gap: 4 }}>
+              <span className="small">{f.message}</span>
+              <span className="xs muted">{f.email || "a student"} · {f.place || "somewhere in Remy"} · {ago(f.at)}</span>
+            </div>
+            <button className="btn btn-secondary btn-sm" onClick={async () => { const r = await run(() => api<Errors>("POST", "/api/admin/errors/fix", { message: f.message, kind: "feedback" }), "Marked handled"); if (r) setD(r); }}><Check size={14} /> Handled</button>
+          </div>
+        ))}
+        {!d.feedback.length && <p className="small muted">No new feedback.</p>}
+      </section>
+      <section className="adm-card adm-list">
+        <h3>Errors</h3>
         {d.open.map((e) => {
           const k = e.kind + e.message;
           return (

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Check, FileText, Mail, Sparkles, Trash2 } from "lucide-react";
 import type { Profile, Workspace } from "@shared/types";
 import { FIELD_GROUPS } from "@shared/fields";
-import { api, FAR_ENOUGH_STEP, rid, useStore } from "../lib/store";
+import { api, FAR_ENOUGH_STEP, fmtDate, rid, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Remy, Spinner, StatusChip } from "../components/common";
 import { ProfileImport, ResumeUpload } from "../components/Uploaders";
@@ -380,7 +380,7 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
         <div className="stack-sm">
           <h3>From your resume</h3>
           <div className="row">
-            {w.resume.doc.sections.map((s) => <span key={s.id} className="chip chip-plain">{s.heading} · {s.entries.length}</span>)}
+            {w.resume.doc.sections.map((s) => <span key={s.id} className="chip chip-plain">{s.heading === s.heading.toUpperCase() ? s.heading.toLowerCase().replace(/^\w/, (c) => c.toUpperCase()) : s.heading} · {s.entries.length}</span>)}
           </div>
           {w.resume.parsedBy === "builder" ? (
             <span className="xs muted row"><Check size={14} style={{ color: "var(--sage)" }} /> Built with Remy from your own answers. Edit any line in Resume/CV.</span>
@@ -556,7 +556,7 @@ function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: () => vo
       {busy && <div className="stack-sm">{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 44 }} />)}</div>}
       <div className="notice" data-testid="plan-matches">
         {refreshing || !jobs ? <span className="row"><Spinner /> Remy is checking employers' career sites for openings that fit you…</span>
-          : matches.length ? <div><strong>Remy found {matches.length} opening{matches.length === 1 ? "" : "s"} that fit you</strong><div className="small muted">{matches.slice(0, 3).map((j) => `${j.title} · ${j.company}`).join("  ·  ")}</div></div>
+          : matches.length ? <div><strong>Remy found {matches.length} opening{matches.length === 1 ? "" : "s"} that fit you</strong><ul className="plan-matches">{matches.slice(0, 3).map((j) => <li key={j.id} className="small"><b>{j.title}</b> <span className="muted">at {j.company}</span></li>)}</ul></div>
           : w.lastSearch && w.lastSearch.reached < w.lastSearch.scanned / 2
             ? <div><strong>Most employer career sites didn't answer just now</strong><div className="small muted">Remy reached {w.lastSearch.reached} of {w.lastSearch.scanned} (they may be down for maintenance). It will try again in about 30 minutes, and your openings will be waiting in Opportunities.</div></div>
             : <div><strong>No openings fit all your choices right now</strong><div className="small muted">Remy keeps checking every few hours. Adding more places or fields shows more.</div></div>}
@@ -566,7 +566,7 @@ function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: () => vo
           <div className="notice"><FileText size={16} style={{ color: "var(--plum)", marginTop: 3 }} /><div><strong>{w.plan.nextAction.title}</strong><div className="small muted">{w.plan.nextAction.why}</div></div></div>
           <div className="stack-sm">
             {w.tasks.filter((t) => !t.done).slice(0, 4).map((t) => (
-              <div key={t.id} className="item" style={{ padding: "8px 0" }}><div className="item-main"><strong className="small">{t.title}</strong><div className="why">{t.why}</div></div>{t.due && <span className="chip chip-plain">{t.due}</span>}</div>
+              <div key={t.id} className="item" style={{ padding: "8px 0" }}><div className="item-main"><strong className="small">{t.title}</strong><div className="why">{t.why}</div></div>{t.due && <span className="chip chip-plain">{fmtDate(t.due)}</span>}</div>
             ))}
           </div>
         </div>

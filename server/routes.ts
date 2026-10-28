@@ -781,6 +781,20 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   // Official job projections for the student's fields (no AI call).
   app.get("/api/future", route(async (_req, res, ctx) => { res.json(futureFor(ctx.ws)); }));
+  // The front page's "browse by field": public government numbers only, no student data, no sign-in.
+  app.get("/api/public/careers", (req, res) => {
+    if (!allow("public:" + clientIp(req), 120, 10 * 60_000)) return res.status(429).json({ message: "Too many requests. Please wait a minute." });
+    const field = String(req.query.field || "").slice(0, 80);
+    res.json(field ? careersFor({ profile: { major: "", minors: "", targetRoles: "", interests: "" } } as Workspace, field).slice(0, 1) : []);
+  });
+  // "Send feedback" from anywhere in Remy; it lands in the owners' dashboard next to errors.
+  app.post("/api/feedback", route(async (req, res, ctx) => {
+    const message = String(req.body?.message || "").replace(/\s+/g, " ").trim().slice(0, 1000);
+    if (message.length < 3) bad("Write a few words first.");
+    if (!allow("feedback:" + ctx.me.id, 10, 60 * 60_000)) bad("Thanks! That's a lot of feedback at once; please wait a bit.", 429);
+    await recordError("feedback", String(req.body?.page || "").slice(0, 120), message, ctx.me.email || "", ctx.me.id);
+    res.json({ ok: true });
+  }));
   // "What can I do with my major?" — the jobs that hire most in their fields, or a field they browse.
   app.get("/api/careers", route(async (req, res, ctx) => { res.json(careersFor(ctx.ws, String(req.query.field || "").slice(0, 80))); }));
   // "What does a ___ actually do?" in plain words, with the government's numbers when the job is one it tracks.

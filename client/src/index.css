@@ -134,7 +134,7 @@ p, li { max-width: 72ch; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
 .card-pad { padding: 20px; }
 .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-.eyebrow { font-size: var(--text-xs); font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fox-deep); }
+.eyebrow { font-size: var(--text-sm); font-weight: 700; letter-spacing: 0; color: var(--fox-deep); }
 .muted { color: var(--muted-text); }
 .faint { color: var(--faint); }
 .small { font-size: var(--text-sm); }
@@ -343,7 +343,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .lp-hero h1 { font-size: clamp(2.4rem, 1.6rem + 3.4vw, 4.4rem); line-height: 1.02; letter-spacing: -0.035em; font-weight: 800; }
 .lp-hero-copy { display: grid; gap: 20px; justify-items: start; }
 .lp-lede { font-size: var(--text-lg); color: var(--muted-text); max-width: 46ch; line-height: 1.5; }
-.lp-chat { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 22px; display: grid; gap: 14px; box-shadow: 0 30px 60px -30px rgba(232, 106, 42, 0.45); transform: rotate(-1deg); }
+.lp-chat { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 22px; display: grid; gap: 14px; box-shadow: 0 30px 60px -30px rgba(232, 106, 42, 0.45); }
 .lp-msg { font-size: 15px; line-height: 1.45; }
 .lp-msg.me { justify-self: end; background: var(--ink); color: var(--surface); padding: 10px 14px; border-radius: 16px 16px 4px 16px; max-width: 85%; }
 .lp-msg.remy { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; }
@@ -364,6 +364,8 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .lp-get-copy h3 { font-size: clamp(1.3rem, 1.1rem + 0.8vw, 1.75rem); font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
 .lp-get-copy p { color: var(--muted-text); line-height: 1.6; max-width: 48ch; }
 /* previews drawn with the app's own chips and buttons, so the page shows the real thing */
+.lp-hero-ex { display: grid; gap: 12px; }
+.lp-shot.lp-live { pointer-events: auto; }
 .lp-shot { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px; display: grid; gap: 10px; box-shadow: 0 18px 40px -28px rgba(0, 0, 0, 0.35); pointer-events: none; }
 .lp-job { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
 .lp-job > div { display: grid; gap: 2px; font-size: 14px; }
@@ -388,7 +390,6 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .lp-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding-top: 20px; padding-bottom: 28px; border-top: 1px solid var(--line); }
 @media (max-width: 820px) {
   .lp-hero { grid-template-columns: 1fr; gap: 32px; padding-top: 20px; padding-bottom: 48px; }
-  .lp-chat { transform: none; }
   .lp-steps { grid-template-columns: 1fr; }
   .lp-get, .lp-get.flip { grid-template-columns: 1fr; gap: 20px; }
   .lp-get.flip .lp-get-copy { order: 0; }
@@ -508,6 +509,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .pref-chip[aria-pressed="true"] { border-color: var(--fox); background: var(--fox-soft); color: var(--fox-deep); }
 .pref-chip { transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.1s; }
 .pref-chip:active { transform: scale(0.97); }
+.plan-matches { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 2px; list-style: disc; }
 .ob-thread { display: grid; gap: 10px; }
 .ob-thread .stack-sm { display: grid; gap: 8px; }
 .ob-thread .bubble-ai { justify-self: start; }
