@@ -69,8 +69,6 @@ interface Store {
   loading: boolean;
   setWs: (w: Workspace) => void;
   setSession: (me: Me | null, ws: Workspace | null) => void;
-  /** Came back in a new tab before getting far in setup: show the homepage so they sign in again. */
-  signInAgain: boolean;
   save: <K extends string>(section: K, value: unknown) => Promise<Workspace>;
   refresh: () => Promise<void>;
   toast: (text: string, err?: boolean) => void;
@@ -79,10 +77,6 @@ interface Store {
 const Ctx = createContext<Store>(null as any);
 export const useStore = () => useContext(Ctx);
 
-// Set for the life of a browser tab (survives refresh, not closing the tab).
-const TAB_KEY = "remy-tab";
-const markTab = () => { try { sessionStorage.setItem(TAB_KEY, "1"); } catch {} };
-const tabSeen = () => { try { return !!sessionStorage.getItem(TAB_KEY); } catch { return true; } };
 /** Setup steps 1–2 (resume, review) are "not far yet"; from step 3 on, they get the welcome-back screen instead. */
 export const FAR_ENOUGH_STEP = 3;
 
@@ -91,7 +85,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const [ws, setWsState] = useState<Workspace | null>(null);
   const [loading, setLoading] = useState(true);
-  const [signInAgain, setSignInAgain] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const n = useRef(0);
 
@@ -107,7 +100,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Coming back from a Supabase sign-in or connector consent screen.
     try {
       const back = await finishSupabaseRedirect(c);
-      if (back?.intent === "signin") { await api("POST", "/api/auth/supabase", { accessToken: back.accessToken }); markTab(); }
+      if (back?.intent === "signin") await api("POST", "/api/auth/supabase", { accessToken: back.accessToken });
       if (back?.intent === "connect-linkedin") {
         await api("POST", "/api/connect/linkedin", { accessToken: back.accessToken });
         toast("LinkedIn connected");
@@ -119,9 +112,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const m = await api<{ me: Me | null; workspace: Workspace | null }>("GET", "/api/me");
     setMe(m.me);
     setWsState(m.workspace);
-    const o = m.workspace?.onboarding;
-    if (!tabSeen() && m.me && m.me.kind !== "local" && o && !o.done && o.step < FAR_ENOUGH_STEP) setSignInAgain(true);
-    else markTab();
   }, [toast]);
 
   useEffect(() => {
@@ -152,9 +142,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Store>(() => ({
     config, me, ws, loading, toast, refresh, save, run,
     setWs: setWsState,
-    setSession: (m, w) => { setMe(m); setWsState(w); markTab(); setSignInAgain(false); },
-    signInAgain,
-  }), [config, me, ws, loading, toast, refresh, save, run, signInAgain]);
+    setSession: (m, w) => { setMe(m); setWsState(w); },
+  }), [config, me, ws, loading, toast, refresh, save, run]);
 
   return (
     <Ctx.Provider value={value}>

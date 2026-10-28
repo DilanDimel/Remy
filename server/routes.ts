@@ -80,7 +80,7 @@ function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: 
       const ip = clientIp(req);
       let me = await identify(req);
       if (!me) {
-        if (!opts.create) return res.status(401).json({ message: "Please sign in or choose Explore demo." });
+        if (!opts.create) return res.status(401).json({ message: "Please sign in to continue." });
         if (!allow("guest:" + ip, 10, 60 * 60_000)) return res.status(429).json({ message: "Too many new guest workspaces from this network. Please try again in an hour, or sign in." });
         me = await newGuest(res);
       }
@@ -151,6 +151,7 @@ async function withAi<T>(ctx: Ctx, purpose: string, fn: () => Promise<T>): Promi
     if (st === 401 || st === 403) throw Object.assign(new Error("The AI service rejected this server's credentials. AI features are temporarily unavailable — everything else still works."), { status: 503, code: "ai-unavailable" });
     if (st === 402 || (st === 429 && /quota|daily limit|credits/i.test(String(e?.message)))) throw Object.assign(new Error("Today's AI allowance on this demo is used up. AI features come back automatically; everything else still works."), { status: 503, code: "ai-quota" });
     if (st === 429) throw Object.assign(new Error("The AI service is busy. Please try again in a minute."), { status: 503, code: "ai-busy" });
+    if (/connection error|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|socket hang up/i.test(String(e?.message))) throw Object.assign(new Error("Remy's AI can't be reached right now. Everything else still works; try again in a minute."), { status: 503, code: "ai-unreachable" });
     if (st >= 400 || /timeout|ECONN|fetch failed/i.test(String(e?.message))) throw Object.assign(new Error("The AI request didn't complete. Please try again."), { status: 502 });
     throw e;
   }
@@ -858,7 +859,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     const answers = ctx.ws.onboarding.answers.map((a) => `${a.q} → ${a.a}`).join("\n");
     const out = await withAi(ctx, "Assistant chat", () =>
       aiJson<{ reply: string; remember: string[]; actions?: ChatAction[] }>(
-        `You are Remy, a friendly fox career coach for university students. Be concise (under 140 words), warm, practical and honest. Use only facts you are given; if you don't know something (like a specific university rule), say so and suggest who to ask. Never claim to have sent emails, applied, or changed calendars — you can only suggest. If the student shares a durable fact or preference worth remembering, propose it in "remember" (short third-person statements); otherwise return an empty list. Today is ${centralToday()}; the student's class standing is ${classYearOf(ctx.ws) || "unknown"}. Don't question dates that fit that standing. You know everything below about the student; use it so they never have to repeat themselves, and refer to their real experience by name.\n\nWhen a concrete next step would help, offer up to 2 buttons in "actions" (the student taps to do it; you never do it yourself): {"kind":"task","title":"short to-do","why":"one sentence"} adds a to-do; {"kind":"role","title":"job title"} adds a job to the roles Remy searches openings for; {"kind":"open","link":"/resume|/opportunities|/path?tab=career|/path?tab=future|/community|/calendar|/progress|/accounts?tab=memory","label":"button text"} opens a page. Otherwise return an empty list.\n\n${CHAT_RULES}`,
+        `You are Remy, a friendly fox career coach for university students. Be concise: under 110 words, at most 3 short bullet lines starting with "• ", and **bold** only for a few key words. Warm, practical and honest. Use only facts you are given; if you don't know something (like a specific university rule), say so and suggest who to ask. Never claim to have sent emails, applied, or changed calendars — you can only suggest. If the student shares a durable fact or preference worth remembering, propose it in "remember" (short third-person statements); otherwise return an empty list. Today is ${centralToday()}; the student's class standing is ${classYearOf(ctx.ws) || "unknown"}. Don't question dates that fit that standing. You know everything below about the student; use it so they never have to repeat themselves, and refer to their real experience by name.\n\nWhen a concrete next step would help, offer up to 2 buttons in "actions" (the student taps to do it; you never do it yourself): {"kind":"task","title":"short to-do","why":"one sentence"} adds a to-do; {"kind":"role","title":"job title"} adds a job to the roles Remy searches openings for; {"kind":"open","link":"/resume|/opportunities|/path?tab=career|/path?tab=future|/community|/calendar|/progress|/accounts?tab=memory","label":"button text"} opens a page. Otherwise return an empty list.\n\n${CHAT_RULES}`,
         `Current page: ${page}\nPROFILE:\n${profileSummary(ctx.ws)}\nAPPROVED MEMORY:\n${approvedFacts(ctx.ws).slice(0, 40).join("\n") || "(none)"}\nRESUME:\n${ctx.ws.resume ? resumeToText(ctx.ws.resume.doc, { verifiedOnly: true }).slice(0, 5000) : "(not uploaded)"}\nSETUP ANSWERS:\n${answers || "(none)"}\nOPEN TO-DOS: ${todos || "(none)"}\nNEXT 3 WEEKS ON THEIR CALENDAR: ${dates || "(nothing)"}\nAPPLICATIONS THEY'RE TRACKING: ${tracking || "(none)"}\nCAREER DIRECTIONS FROM MY PATH: ${direction || "(not built yet)"}\nJOBS THEIR FIELDS LEAD TO MOST OFTEN (U.S. Bureau of Labor Statistics; for "what can I do with my major" questions): ${careersFor(ctx.ws).flatMap((f) => f.jobs.slice(0, 4).map((j) => j.title)).join("; ") || "(no major or field yet)"}\nAPPLICATIONS: ${apps || "(none)"}\nSAVED OPENINGS: ${ctx.ws.savedJobIds.map((id) => findJob(ctx.ws, id)?.title).filter(Boolean).join("; ") || "(none)"}\nOPENINGS REMY FOUND THAT FIT (best first): ${found || "(none yet)"}\nFROM THEIR OTHER PROFILES, NOT YET CONFIRMED BY THE STUDENT (mention, don't rely on): ${ctx.ws.memory.filter((m) => m.status === "suggested" && !m.conflict).slice(0, 15).map((m) => m.text).join("; ") || "(none)"}\nRESUME VS OTHER PROFILES, NOT YET RESOLVED (ask the student which is right; never treat these as true): ${ctx.ws.memory.filter((m) => m.conflict).map((m) => `${m.text} (${m.conflict})`).join("; ") || "(none)"}\n\nRECENT CHAT:\n${history}\n\nStudent: ${message}\n\nReturn {"reply":"","remember":[],"actions":[]}`,
         1100,
       ),
@@ -1569,4 +1570,7 @@ Return JSON:
     await endSession(req, res);
     res.json({ deleted: true, loginRemoved, calendarRemoved });
   }));
+
+  // An /api address that doesn't exist answers "not found", not the web page.
+  app.use("/api", (_req, res) => res.status(404).json({ message: "Not found." }));
 }

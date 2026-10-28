@@ -392,6 +392,9 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
   .lp-get, .lp-get.flip { grid-template-columns: 1fr; gap: 20px; }
   .lp-get.flip .lp-get-copy { order: 0; }
 }
+.bubble p { margin: 0; }
+.bubble p + p, .bubble p + .bubble-list, .bubble-list + p { margin-top: 8px; }
+.bubble-list { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; list-style: disc; }
 /* owners' dashboard */
 .admin { max-width: 1080px; margin: 0 auto; padding: 16px; display: grid; gap: 18px; }
 .admin-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }

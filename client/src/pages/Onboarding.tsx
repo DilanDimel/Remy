@@ -340,7 +340,7 @@ function Preferences({ onBack, onNext }: { onBack: () => void; onNext: () => voi
 }
 
 function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
-  const { ws, save, run } = useStore();
+  const { ws, save, run, setWs } = useStore();
   const w = ws!;
   const unverified = w.resume?.doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets)).filter((b) => b.verified === false) || [];
   const suggested = w.memory.filter((m) => m.status === "suggested");
@@ -385,7 +385,11 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
       )}
       <div className="row-between">
         <button className="btn btn-ghost" onClick={onBack}><ArrowLeft size={16} /> Back</button>
-        <button className="btn btn-primary" onClick={onNext} data-testid="button-ob-next-review">Looks right <ArrowRight size={16} /></button>
+        <button className="btn btn-primary" onClick={async () => {
+          // Every line matched the file word for word and the student says it's right: that's a confirmed resume.
+          if (w.resume && !w.resume.confirmedAt && !unverified.length) await run(() => api<Workspace>("PUT", "/api/resume/doc", { doc: w.resume!.doc, confirm: true }).then(setWs));
+          onNext();
+        }} data-testid="button-ob-next-review">Looks right <ArrowRight size={16} /></button>
       </div>
     </div>
   );
@@ -406,20 +410,24 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
   }, []);
   const current = qs[idx];
   const submit = async (skip = false) => {
-    const answers = [...w.onboarding.answers, { q: current, a: skip ? "" : answer.trim() }];
-    await save("onboarding", { ...w.onboarding, answers });
+    const a = skip ? "" : answer.trim();
+    const answers = [...w.onboarding.answers, { q: current, a }];
     // Each question says which profile field its answer feeds (roles, dream employers, start date…), so it changes the matches.
+    // Search fields only take short answers that name things; a sentence ("I don't know yet…") stays in Remy's memory instead.
     const target = w.onboarding.targets?.[idx] as keyof Profile | undefined;
-    if (!skip && answer.trim() && target && target in w.profile) {
+    const searchField = target === "targetRoles" || target === "dreamEmployers" || target === "avoid";
+    const fitsField = !searchField || (a.length <= 60 && !/\b(i|i'm|im|don'?t|not sure|no idea|idk|maybe)\b/i.test(a));
+    if (a && target && target in w.profile && fitsField) {
       const before = String(w.profile[target] || "").trim();
-      await save("profile", { ...w.profile, [target]: before ? `${before}, ${answer.trim()}` : answer.trim() });
+      await save("profile", { ...w.profile, [target]: before ? `${before}, ${a}` : a });
     }
-    if (!skip && answer.trim()) {
-      const fact = { id: "f" + Date.now(), text: `${current} — ${answer.trim()}`, category: "goal", source: "Onboarding answer", status: "approved", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    if (a) {
+      const fact = { id: "f" + Date.now(), text: `${current} — ${a}`, category: "goal", source: "Onboarding answer", status: "approved", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
       await save("memory", [...w.memory, fact]);
     }
+    // The answers and the move to the next step go in one save, so the last answer can't be overwritten.
+    await save("onboarding", { ...w.onboarding, answers, ...(answers.length >= qs.length ? { step: 5 } : {}) });
     setAnswer("");
-    if (answers.length >= qs.length) onNext();
   };
   return (
     <div className="stack-lg">

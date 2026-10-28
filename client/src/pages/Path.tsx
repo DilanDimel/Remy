@@ -218,7 +218,7 @@ function Explore() {
       </div>
       <form className="row" onSubmit={(e) => { e.preventDefault(); if (typed.trim().length > 2) explain(typed.trim()); }}>
         <input className="input grow" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Heard of a job but not sure what it is? e.g. actuary, UX researcher" aria-label="Job title to explain" data-testid="input-explain" />
-        <button className="btn btn-secondary btn-sm" disabled={typed.trim().length < 3 || !!asking || !config?.ai.available}>{asking === typed.trim() ? <Spinner /> : <Search size={15} />} What is it?</button>
+        <button className="btn btn-secondary btn-sm" disabled={typed.trim().length < 3 || !!asking || !config?.ai.available}>{asking && asking === typed.trim() ? <Spinner /> : <Search size={15} />} What is it?</button>
       </form>
       {open && (
         <div className="notice stack-sm" data-testid="career-explained">
