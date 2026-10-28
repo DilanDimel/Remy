@@ -123,6 +123,8 @@ export async function loadWorkspace(userId: string): Promise<Workspace> {
 export async function hasWorkspace(userId: string) {
   return !!(await q1("SELECT 1 FROM workspaces WHERE user_id=$1", [userId]));
 }
+// Postgres can't store the NUL character in JSON, and pasted or uploaded text sometimes contains it.
+const noNul = (_k: string, v: unknown) => (typeof v === "string" && v.includes("\u0000") ? v.replace(/\u0000/g, "") : v);
 function trimForSave(ws: Partial<Workspace>) {
   if (ws.aiLog && ws.aiLog.length > 300) ws.aiLog = ws.aiLog.slice(-300);
   if (ws.chat && ws.chat.length > 200) ws.chat = ws.chat.slice(-200);
@@ -131,7 +133,7 @@ function trimForSave(ws: Partial<Workspace>) {
 export async function saveWorkspace(userId: string, ws: Workspace) {
   ws.updatedAt = nowIso();
   trimForSave(ws);
-  const data = JSON.stringify(ws);
+  const data = JSON.stringify(ws, noNul);
   if (data.length > 4_000_000) throw Object.assign(new Error("Workspace is too large."), { status: 413 });
   await q(
     `INSERT INTO workspaces (user_id, data, updated_at) VALUES ($1, $2::jsonb, now())
@@ -145,9 +147,9 @@ export async function saveWorkspace(userId: string, ws: Workspace) {
 export async function saveSections(userId: string, sections: Partial<Workspace>): Promise<Workspace> {
   const patch = { ...sections, updatedAt: nowIso() } as Partial<Workspace>;
   trimForSave(patch);
-  const json = JSON.stringify(patch);
+  const json = JSON.stringify(patch, noNul);
   if (json.length > 4_000_000) throw Object.assign(new Error("Workspace is too large."), { status: 413 });
-  const base = JSON.stringify({ ...emptyWorkspace(), ...patch });
+  const base = JSON.stringify({ ...emptyWorkspace(), ...patch }, noNul);
   const r = await q1(
     `INSERT INTO workspaces (user_id, data, updated_at) VALUES ($1, $2::jsonb, now())
      ON CONFLICT (user_id) DO UPDATE SET data = workspaces.data || $3::jsonb, updated_at = now()

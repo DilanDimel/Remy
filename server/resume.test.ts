@@ -2,7 +2,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Entry, ResumeDoc } from "@shared/types";
-import { gpaOf, graduationOf, majorsOf, minorsOf, nameCase, preCollegeIds, primaryEducation, rulesParse } from "./resume";
+import { gpaOf, graduationOf, majorsOf, minorsOf, nameCase, preCollegeIds, primaryEducation, rulesParse, verifyAiDoc } from "./resume";
+import { normalizeResumeText } from "./resume";
 
 let n = 0;
 const entry = (org: string, role = "", dates = "", bullets: string[] = []): Entry =>
@@ -61,4 +62,24 @@ test("profile name: all-caps resume names become name case; mixed case is kept",
   assert.equal(nameCase("MARY-KATE O'NEIL"), "Mary-Kate O'Neil");
   assert.equal(nameCase("Julio Cesar Renovato Rios"), "Julio Cesar Renovato Rios");
   assert.equal(nameCase("Dilandimel McDesman"), "Dilandimel McDesman");
+});
+
+test("reader: control characters from symbol fonts become spaces", () => {
+  assert.equal(normalizeResumeText("Seesaw\u0000CPR\u0003First Aid"), "Seesaw CPR First Aid");
+});
+
+test("profile: a casual heading like 'school stuff:' still gives the school and major", () => {
+  const doc = { contact: { name: "jaylen carter" }, skills: [], sections: [
+    { id: "s1", heading: "school stuff:", entries: [entry("Texas Christian University", "B.S. Undeclared (exploring Business)", "Expected May 2030"), entry("Paschal High School", "High School Diploma, GPA 3.8", "May 2026")] },
+    { id: "s2", heading: "jobs + things ive done:", entries: [entry("Chick-fil-A", "Team Member", "Jun 2024 – Aug 2026")] },
+  ] } as unknown as ResumeDoc;
+  assert.equal(primaryEducation(doc)?.org, "Texas Christian University");
+  assert.equal(nameCase("jaylen carter"), "Jaylen Carter");
+  assert.equal(nameCase("DeShawn McAllister"), "DeShawn McAllister");
+});
+test("AI reading: 'Role @ Org' with no role is split", () => {
+  const raw = "Jaylen Carter\njobs\nTeam Member @ Chick-fil-A Jun 2024 – Aug 2026\n- Took orders";
+  const { doc } = verifyAiDoc(raw, { contact: { name: "Jaylen Carter" }, sections: [{ heading: "jobs", entries: [{ org: "Team Member @ Chick-fil-A", role: "", dates: "Jun 2024 – Aug 2026", bullets: ["Took orders"] }] }] });
+  assert.equal(doc.sections[0].entries[0].role, "Team Member");
+  assert.equal(doc.sections[0].entries[0].org, "Chick-fil-A");
 });

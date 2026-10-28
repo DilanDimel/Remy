@@ -182,6 +182,22 @@ function addFact(ws: Workspace, text: string, category: MemoryFact["category"], 
   return true;
 }
 
+// What a resume puts into the profile.
+function fromResume(doc: ResumeDoc) {
+  const edu = primaryEducation(doc);
+  const sure = (f: "org" | "role") => !!edu && !edu.unverified?.includes(f);
+  return {
+    name: doc.contact.name ? nameCase(doc.contact.name) : "",
+    email: doc.contact.email && !/example\.com/.test(doc.contact.email) ? doc.contact.email : "",
+    location: doc.contact.location || "",
+    school: sure("org") ? schoolName(edu!.org) : "",
+    major: sure("role") ? majorsOf(edu!) : "",
+    minors: edu ? minorsOf(edu) : "",
+    gpa: edu ? gpaOf(edu) : "",
+    graduation: edu ? graduationOf(edu.dates) : "",
+  };
+}
+
 // ---------- deterministic fit (server/fit.ts) ----------
 const fitOf = (ws: Workspace, job: Job) => computeFit(ws, job, evidenceOf(ws));
 
@@ -484,7 +500,11 @@ export async function registerRoutes(_server: Server, app: Express) {
   // ---------- resume ----------
   async function ingestResume(ctx: Ctx, text: string, fileName: string, from?: "LinkedIn") {
     const raw = normalizeResumeText(text);
-    if (raw.replace(/\s/g, "").length < 200) bad("We couldn't read enough text from that file. If it's a scanned image, export a text-based PDF or upload a .docx.");
+    if (raw.replace(/\s/g, "").length < 200) bad("Remy couldn't find text in that file. It may be a scan or a photo, which Remy can't read yet. Upload the Word or Google Docs version (or a PDF saved from it), paste the text instead, or build your resume with Remy.");
+    // Profile fields the old resume filled in, so a replacement (maybe the old one was the wrong file) can update them.
+    const prev = ctx.ws.resume && ctx.ws.resume.parsedBy !== "builder" ? ctx.ws.resume : undefined;
+    const was = prev ? fromResume(prev.doc) : null;
+    const yearWas = prev ? classYearOf({ ...ctx.ws, profile: { ...ctx.ws.profile, classYear: "" } }) : "";
     // The rules reading is always made: it's the fallback, and the yardstick for how much the AI reading kept.
     const rules = rulesParse(raw);
     let doc: ResumeDoc = rules;
@@ -502,21 +522,12 @@ export async function registerRoutes(_server: Server, app: Express) {
     doc.skillsIndex = skillsPosition(raw, doc);
     ctx.ws.resume = { fileName, uploadedAt: nowIso(), rawText: raw.slice(0, 30000), parsedBy, doc, skills: extractSkills(doc, raw), quality: parseQuality(raw, doc, notes), ...(from ? { from } : {}) };
     ctx.ws.imports.unshift({ id: uid("i"), kind: from ? LINKEDIN : "Resume", fileName, at: nowIso(), label: "Student provided", factsAdded: 0 });
-    // prefill only empty profile fields
+    // Fill empty profile fields, and fields still holding what the replaced resume said. What the student typed stays.
     const p = ctx.ws.profile;
-    const edu = primaryEducation(doc);
-    if (!p.name && doc.contact.name) p.name = nameCase(doc.contact.name);
-    if (!p.email && doc.contact.email && !/example\.com/.test(doc.contact.email)) p.email = doc.contact.email;
-    if (!p.location && doc.contact.location) p.location = doc.contact.location;
-    if (edu) {
-      if (!p.school && !edu.unverified?.includes("org")) p.school = schoolName(edu.org);
-      if (!p.major && !edu.unverified?.includes("role")) p.major = majorsOf(edu);
-      if (!p.minors) p.minors = minorsOf(edu);
-      if (!p.gpa) p.gpa = gpaOf(edu);
-      if (!p.graduation) p.graduation = graduationOf(edu.dates);
-    }
+    const now = fromResume(doc);
+    for (const k of Object.keys(now) as (keyof typeof now)[]) if (!p[k] || (was && p[k] === was[k])) p[k] = now[k];
     // Class standing: stated on the resume, or worked out from the graduation date.
-    if (!p.classYear) p.classYear = classYearOf(ctx.ws);
+    if (!p.classYear || (was && p.classYear === yearWas)) p.classYear = classYearOf({ ...ctx.ws, profile: { ...p, classYear: "" } });
     for (const a of ctx.ws.applications) if (a.versions.length) a.staleReason = "You uploaded a new base resume. Approved versions were kept as they were — regenerate if you want them to use the new resume.";
     ctx.ws.fits = {};
     await ctx.save();

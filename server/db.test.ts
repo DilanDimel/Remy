@@ -30,6 +30,11 @@ test("saveSections merges only the sections it's given, so parallel saves don't 
   assert.equal((await loadWorkspace("u2")).tasks.length, 1);
 });
 
+test("text with a NUL character (from some PDFs) still saves", async () => {
+  await ensureUser(me("u-nul"));
+  const after = await saveSections("u-nul", { tasks: [{ id: "t1", title: "Seesaw\u0000CPR" }] as any });
+  assert.equal(after.tasks[0].title, "SeesawCPR");
+});
 test("files keep their exact bytes; deleting an account removes everything", async () => {
   await ensureUser(me("u3"));
   const bytes = Buffer.from([0x25, 0x50, 0x44, 0x46, 0x00, 0xff]);

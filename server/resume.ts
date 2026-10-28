@@ -21,6 +21,7 @@ export function normalizeResumeText(raw: string): string {
     .replace(/[\uff01-\uff5e]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)) // full-width forms
     .normalize("NFC") // "e" + combining accent → "é"
     .replace(/\r\n?|[\u2028\u2029\f\v]/g, "\n")
+    .replace(/[\u0000-\u0008\u000e-\u001f\u007f\ufffd]/g, " ") // control characters some PDF fonts emit for symbols like ✦
     .replace(/[\u200b-\u200d\u2060\ufeff\u00ad]/g, "")
     .replace(/[\u00a0\u2000-\u200a\u202f\u205f\u3000]/g, " ")
     .replace(/(?<=\p{L})[´`](?=\p{L})/gu, "’") // "team´s" typed with the accent key
@@ -116,7 +117,7 @@ function kindOf(heading: string): Kind {
   const w = fold(heading);
   if (/\b(skills?|habilidades|competenc\w*|proficienc\w*|aptitudes|languages?|idiomas)\b/.test(w)) return "skills";
   if (/\b(summary|resumen|profile|perfil|objective|objetivo|introduction|about)\b/.test(w)) return "summary";
-  if (/\b(education|educacion|formacion|academics)\b|academic (background|history)/.test(w)) return "education";
+  if (/\b(education|educacion|formacion|academics|schooling)\b|academic (background|history)|^school\b/.test(w)) return "education";
   return "entries";
 }
 
@@ -564,6 +565,8 @@ const tokens = (s: string) => (fold(s).match(/[a-z]+|\d+/g) || []).map((t) => MO
 const supported = (field: string, have: Set<string>) => tokens(field).every((t) => have.has(t));
 
 /** Builds the ResumeDoc from the AI's JSON, keeping only what the file supports. */
+// "Team Member @ Chick-fil-A" put whole into org, with no role.
+const atSplit = (org: string, role: string) => { const m = !role && org.match(/^(.+?)\s+@\s+(.+)$/); return m ? { role: m[1], org: m[2] } : { org, role }; };
 export function verifyAiDoc(raw: string, out: any): { doc: ResumeDoc; notes: string[] } {
   const n = norm(raw);
   const have = new Set(tokens(raw));
@@ -592,7 +595,7 @@ export function verifyAiDoc(raw: string, out: any): { doc: ResumeDoc; notes: str
     const section: Section = { id: uid("s"), heading: str(s?.heading) || "Section", entries: [] };
     for (const e of Array.isArray(s?.entries) ? s.entries : []) {
       const entry: Entry = {
-        id: uid("e"), org: str(e?.org), role: str(e?.role), location: keep(e?.location), dates: keep(e?.dates),
+        id: uid("e"), ...atSplit(str(e?.org), str(e?.role)), location: keep(e?.location), dates: keep(e?.dates),
         bullets: (Array.isArray(e?.bullets) ? e.bullets : typeof e?.bullets === "string" ? [e.bullets] : [])
           .map((b: unknown) => str(typeof b === "object" && b ? (b as { text?: unknown }).text : b))
           .filter(Boolean)
@@ -714,8 +717,11 @@ const HIGH_SCHOOL = /high school|secondary school|preparatoria|\bprepa\b|bachill
 export function primaryEducation(doc?: ResumeDoc): Entry | undefined {
   const entries = (doc?.sections || []).filter((s) => kindOf(s.heading) === "education").flatMap((s) => s.entries);
   const text = (e: Entry) => `${e.org} ${e.role}`;
-  return entries.find((e) => UNIVERSITY.test(text(e)) && !HIGH_SCHOOL.test(text(e)));
+  const college = (e: Entry) => UNIVERSITY.test(text(e)) && !HIGH_SCHOOL.test(text(e));
+  // A heading Remy didn't recognize ("school stuff:"): a college entry with a degree word anywhere still counts.
+  return entries.find(college) || (doc?.sections || []).flatMap((s) => s.entries).find((e) => college(e) && DEGREE_WORD.test(e.role));
 }
+const DEGREE_WORD = /\b(b\.?[sa]\.?|bachelor|bba|bfa|bsn|bsw|b\.?m\.?|associate|master|m\.?[sa]\.?|mba|major|undeclared|degree)\b/i;
 
 /** "TEXAS CHRISTIAN UNIVERSITY (TCU) - FULL RIDE SCHOLARSHIP" → "Texas Christian University (TCU)". */
 export function schoolName(org: string): string {
@@ -828,4 +834,4 @@ export function skillsPosition(raw: string, doc: ResumeDoc): number | undefined 
 }
 
 /** "DEMETRE DONDOLADZE" → "Demetre Dondoladze"; names already in mixed case are left alone. */
-export const nameCase = (name: string) => (/[a-z]/.test(name) ? name : name.toLowerCase().replace(/(^|[\s'-])([a-z])/g, (_, sep, c) => sep + c.toUpperCase()));
+export const nameCase = (name: string) => (/[a-z]/.test(name) && /[A-Z]/.test(name) ? name : name.toLowerCase().replace(/(^|[\s'-])([a-z])/g, (_, sep, c) => sep + c.toUpperCase()));
