@@ -182,7 +182,7 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
           </div>
         ))}
       </div>
-      <p className="xs muted">Remy never asks for your passwords. <a href="#/policies">How Remy handles your information</a></p>
+      <p className="xs muted">Remy never asks for your passwords. <a href="/policies">How Remy handles your information</a></p>
       <div className="row-between">
         <span />
         <button className="btn btn-primary" onClick={onNext} disabled={!w.resume || busy} data-testid="button-ob-next-sources">Continue <ArrowRight size={16} /></button>

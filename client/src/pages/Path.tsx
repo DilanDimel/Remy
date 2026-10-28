@@ -43,7 +43,7 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
       {tab === "future" ? <Future /> : !w.plan && !busy ? (
         <div className="card">{knows
           ? <Empty title="No path yet" body="Remy will suggest roles that fit your resume and goals, with skills and next steps for each." action={<button className="btn btn-primary" onClick={generate} disabled={!config?.ai.available}>Build my path</button>} />
-          : <Empty title="Tell Remy about yourself first" body="Your path is built from your resume and goals. Upload your resume, or add your major and the roles you want, and Remy will suggest roles, skills and next steps." action={<a className="btn btn-primary" href="#/resume">Upload your resume</a>} />}</div>
+          : <Empty title="Tell Remy about yourself first" body="Your path is built from your resume and goals. Upload your resume, or add your major and the roles you want, and Remy will suggest roles, skills and next steps." action={<a className="btn btn-primary" href="/resume">Upload your resume</a>} />}</div>
       ) : w.plan && !busy ? (
         <>
           <p className="xs muted">Made {fmtDate(w.plan.generatedAt)}. Changing your profile won't silently rewrite this — refresh when you're ready.</p>
@@ -154,7 +154,7 @@ function Future() {
     return () => { live = false; };
   }, [p.major, p.targetRoles, p.interests]);
   if (!data) return <div className="card card-pad row"><Spinner /> <span className="muted">Loading projections…</span></div>;
-  if (!data.fields.length) return <div className="card"><Empty title="Add your major or the roles you want" body="Remy shows how jobs in your field are expected to change over the next ten years, from official U.S. government projections." action={<a className="btn btn-primary" href="#/accounts?tab=profile">Add to your profile</a>} /></div>;
+  if (!data.fields.length) return <div className="card"><Empty title="Add your major or the roles you want" body="Remy shows how jobs in your field are expected to change over the next ten years, from official U.S. government projections." action={<a className="btn btn-primary" href="/accounts?tab=profile">Add to your profile</a>} /></div>;
   const row = (o: FutureOcc) => (
     <li key={o.title} style={{ display: "grid", gap: 3, padding: "10px 0", borderTop: "1px solid var(--line)" }}>
       <div className="row-between" style={{ gap: 8 }}>

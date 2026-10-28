@@ -182,7 +182,7 @@ function Data() {
           <button className="btn btn-secondary btn-sm" onClick={() => download("/api/export/data", "remy-my-data.json").catch((e) => toast(e.message, true))} data-testid="button-export-data"><Download size={14} /> Download my data</button>
           <button className="btn btn-danger btn-sm" onClick={() => setConfirm(true)} data-testid="button-delete-data"><Trash2 size={14} /> Delete everything</button>
         </div>
-        <p className="xs muted"><a href="#/policies">Privacy & terms</a> · <a href="#/about">About Remy</a></p>
+        <p className="xs muted"><a href="/policies">Privacy & terms</a> · <a href="/about">About Remy</a></p>
         <h3 style={{ marginTop: 8 }}>AI activity</h3>
         <div className="stack-sm" style={{ maxHeight: 240, overflow: "auto" }}>
           {ws!.aiLog.length ? [...ws!.aiLog].reverse().slice(0, 40).map((l) => <div key={l.id} className="xs"><span className={l.ok ? "pass" : "fail"}>●</span> {new Date(l.at).toLocaleString()} · {l.purpose} · {(l.ms / 1000).toFixed(1)}s{l.note ? ` · ${l.note}` : ""}</div>) : <span className="xs muted">No AI calls yet.</span>}

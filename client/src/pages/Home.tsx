@@ -85,7 +85,7 @@ export default function Home() {
               <button key={k} aria-pressed={tab === k} onClick={() => { setTab(k); setOpen(""); }} data-testid={`tab-home-${k}`}>{l}</button>
             ))}
           </div>
-          <a href={"#" + moreLink} className="btn btn-ghost btn-sm" data-testid="link-view-more">View more <ArrowUpRight size={14} /></a>
+          <a href={moreLink} className="btn btn-ghost btn-sm" data-testid="link-view-more">View more <ArrowUpRight size={14} /></a>
         </div>
         {tab === "todos" && (todos.length ? todos.map((t) => (
           <div key={t.id} className={"item" + (t.done ? " completing" : "")}>

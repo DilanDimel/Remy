@@ -13,11 +13,11 @@ function Page({ title, lead, children }: { title: string; lead: string; children
   return (
     <div className="ob">
       <div className="row-between" style={{ width: "100%", maxWidth: 740 }}>
-        <a className="logo" href="#/"><Remy size={26} /><span>Remy<b>.</b></span></a>
-        <nav className="row small"><a href="#/about">About</a><a href="#/policies">Policies</a></nav>
+        <a className="logo" href="/"><Remy size={26} /><span>Remy<b>.</b></span></a>
+        <nav className="row small"><a href="/about">About</a><a href="/policies">Policies</a></nav>
       </div>
       <article className="ob-card card card-pad stack-lg" style={{ lineHeight: 1.6 }}>
-        <a className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start", padding: 0 }} href="#/"><ArrowLeft size={14} /> Back to Remy</a>
+        <a className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start", padding: 0 }} href="/"><ArrowLeft size={14} /> Back to Remy</a>
         <div className="stack-sm"><h1 className="conn-title">{title}</h1><p className="muted">{lead}</p></div>
         {children}
         <p className="xs muted">Questions? Email <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.</p>

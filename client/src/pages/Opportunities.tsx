@@ -86,7 +86,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
           <div>
             {ineligible.length > 0 && <>{showIneligible ? "Showing" : "Hiding"} <strong>{ineligible.length}</strong> opening{ineligible.length > 1 ? "s" : ""} that {ineligible.length > 1 ? "don't" : "doesn't"} fit what you chose, {ineligible.length > 1 ? "are" : "is"} closed, or you're not eligible for (for example, another field, a passed deadline or a class-year rule). <button className="btn btn-ghost btn-sm" onClick={() => setShowIneligible((v) => !v)} data-testid="button-toggle-ineligible">{showIneligible ? "Hide them" : "Show anyway"}</button></>}
             {myRegions && elsewhere.length > 0 && <div>{elsewhere.length} more {elsewhere.length > 1 ? "are" : "is"} outside {regions}. <button className="btn btn-ghost btn-sm" onClick={() => setMyRegions(false)}>Show all locations</button></div>}
-            {!w.profile.classYear && !w.profile.graduation && <div>Add your class year in <a href="#/accounts" style={{ fontWeight: 700 }}>Accounts</a> and Remy will check every opening's eligibility for you.</div>}
+            {!w.profile.classYear && !w.profile.graduation && <div>Add your class year in <a href="/accounts" style={{ fontWeight: 700 }}>Accounts</a> and Remy will check every opening's eligibility for you.</div>}
           </div>
         </div>
       )}

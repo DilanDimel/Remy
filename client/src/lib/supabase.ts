@@ -46,7 +46,7 @@ export async function finishSupabaseRedirect(config: AppConfig | null): Promise<
   const code = q.get("code");
   const err = q.get("error_description") || q.get("error");
   if (!code && !err) return null;
-  const clean = () => history.replaceState(null, "", `${location.pathname}${location.hash || "#/"}`);
+  const clean = () => history.replaceState(null, "", location.pathname);
   let intent: Intent = "signin";
   try { intent = (localStorage.getItem(INTENT_KEY) as Intent) || "signin"; localStorage.removeItem(INTENT_KEY); } catch {}
   if (err || !config?.supabase) {

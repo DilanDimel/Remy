@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, useStore } from "../lib/store";
-import { BookOpen, CalendarClock, Check, Compass, FileText, Search, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CalendarClock, Check, FileText, Search, ShieldCheck } from "lucide-react";
+import { useRoute } from "../lib/router";
 import { Remy, Spinner, StatusChip } from "../components/common";
 import { providerOn, sendMagicLink, startOAuth, type SupabaseProvider } from "../lib/supabase";
 
@@ -34,9 +35,15 @@ export function useGoogleButton(onCredential: (cred: string) => void) {
 type Provider = "Google" | "LinkedIn" | "Apple" | "Microsoft" | "Work/School Email";
 const SB: Record<Exclude<Provider, "Work/School Email">, SupabaseProvider> = { Google: "google", LinkedIn: "linkedin_oidc", Apple: "apple", Microsoft: "azure" };
 
+/** Signed out: the landing page at /, the sign-in page at /signin. */
 export default function Welcome() {
+  const { path } = useRoute();
+  return path === "/signin" ? <SignIn /> : <Landing />;
+}
+
+function SignIn() {
   const { setSession, run, config, toast } = useStore();
-  const [busy, setBusy] = useState<"" | Provider | "demo" | "google">("");
+  const [busy, setBusy] = useState<"" | Provider | "google">("");
   const [emailOpen, setEmailOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState("");
@@ -47,14 +54,11 @@ export default function Welcome() {
     if (r) setSession(r.me, r.workspace);
     setBusy("");
   });
-  // Buttons whose provider isn't switched on in Supabase open the same private
-  // guest workspace as the demo, and say so, rather than pretending to sign in.
-  const guest = async (via: Provider | "demo") => {
+  // A button whose provider isn't switched on in Supabase opens a private guest workspace and says so,
+  // rather than pretending to sign in. Only switched-on providers are shown, so this is a fallback.
+  const guest = async (via: Provider) => {
     setBusy(via);
-    const r = await run(
-      () => api("POST", "/api/auth/guest"),
-      via === "demo" ? undefined : `${via} sign-in isn't switched on yet, so Remy opened a private guest workspace on this browser.`,
-    );
+    const r = await run(() => api("POST", "/api/auth/guest"), `${via} sign-in isn't switched on yet, so Remy opened a private guest workspace on this browser.`);
     if (r) setSession(r.me, r.workspace);
     setBusy("");
   };
@@ -72,83 +76,20 @@ export default function Welcome() {
     if (ok) { setSent(email.trim()); toast("Check your inbox for a sign-in link"); }
     setBusy("");
   };
-  // Only offer sign-in options that are switched on in Supabase.
   const sso = (via: Provider, icon: ReactNode) => !providerOn(config, via === "Work/School Email" ? "email" : SB[via]) ? null : (
     <button className="gbtn" type="button" onClick={() => enter(via)} disabled={!!busy} data-testid={`button-sso-${via.split(/\W/)[0].toLowerCase()}`}>
       {busy === via ? <Spinner /> : icon} Continue with {via}
     </button>
   );
   const anyReal = gis || ["google", "linkedin_oidc", "apple", "azure", "email"].some((p) => providerOn(config, p as SupabaseProvider));
-  const startRef = useRef<HTMLElement>(null);
-  const toStart = () => startRef.current?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
   return (
-    <div className="lp">
-      <header className="lp-top">
-        <span className="logo"><Remy size={30} mood="idle" /> Remy</span>
-        <nav className="row" style={{ gap: 4 }}>
-          <a className="btn btn-ghost btn-sm hide-sm" href="#/about">About</a>
-          <button className="btn btn-primary btn-sm" onClick={toStart} data-testid="button-lp-signin">Sign in</button>
-        </nav>
-      </header>
-
-      <section className="lp-hero">
-        <div className="lp-hero-copy">
-          <h1>Don&rsquo;t hunt for a job alone.</h1>
-          <p className="lp-lede">Remy is a career coach for college students. Give it your resume, or build one with it, and it finds internships and jobs you can actually apply to, helps you fit your resume to each one without making anything up, and keeps your deadlines in one place.</p>
-          <div className="row" style={{ gap: 10 }}>
-            <button className="btn btn-primary" onClick={toStart} data-testid="button-lp-start">Get started free</button>
-            <button className="btn btn-secondary" onClick={() => guest("demo")} disabled={!!busy}>{busy === "demo" ? <Spinner /> : null} Look around first</button>
-          </div>
-          <p className="xs muted">For every major and every year, freshmen included. Built by students at TCU.</p>
-        </div>
-        <div className="lp-chat" aria-label="Example conversation with Remy">
-          <div className="lp-msg me">I&rsquo;m a sophomore in nursing. What should I do this semester?</div>
-          <div className="lp-msg remy">
-            <Remy size={30} mood="happy" />
-            <div className="stack-sm">
-              <span>Three things, based on your resume:</span>
-              <div className="lp-item"><Search size={15} /><span><b>Summer Nurse Extern</b>, a Fort Worth hospital. You qualify: it asks for students finishing year two.</span></div>
-              <div className="lp-item"><CalendarClock size={15} /><span><b>Applications close Feb 15.</b> It&rsquo;s on your calendar.</span></div>
-              <div className="lp-item"><FileText size={15} /><span><b>To-do:</b> add your Walgreens pharmacy work to your resume. Your LinkedIn has it; your resume doesn&rsquo;t.</span></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="lp-band">
-        <h2>How it works</h2>
-        <ol className="lp-steps">
-          <li><b>Add your resume.</b> Upload it, add your LinkedIn, or answer a few questions and Remy builds your first one.</li>
-          <li><b>Say what you want, or that you don&rsquo;t know yet.</b> Pick fields, places and dates. Not sure? Remy shows the jobs your major leads to and what each one is really like.</li>
-          <li><b>Get openings and a plan.</b> Remy reads employers&rsquo; career sites, hides what you can&rsquo;t apply to, and turns the rest into to-dos and deadlines.</li>
-        </ol>
-      </section>
-
-      <section className="lp-what">
-        <div><Search size={20} /><h3>Openings you qualify for</h3><p>From more than 180 employers&rsquo; own career sites, including Texas companies, school districts and cities. Wrong year, wrong field or no visa sponsorship? It stays hidden.</p></div>
-        <div><FileText size={20} /><h3>Applications that stay true</h3><p>Remy suggests changes to fit each posting and flags any line your resume can&rsquo;t back up. You approve every word.</p></div>
-        <div><Compass size={20} /><h3>Help when you&rsquo;re undecided</h3><p>See the jobs your major leads to, with pay and growth from the U.S. Bureau of Labor Statistics, and ask Remy what any job is like day to day.</p></div>
-        <div><BookOpen size={20} /><h3>A coach that knows you</h3><p>Ask Remy anything. It already knows your resume, your to-dos and your deadlines, so you never start from zero.</p></div>
-      </section>
-
-      <section className="lp-promise">
-        <ShieldCheck size={22} />
-        <div className="stack-sm">
-          <h2>What Remy will never do</h2>
-          <ul>
-            <li>Make up experience, numbers or skills you don&rsquo;t have.</li>
-            <li>Apply, email or message anyone for you. You send everything yourself.</li>
-            <li>Ask for your passwords or sell your data. You can download or delete everything at any time.</li>
-          </ul>
-        </div>
-      </section>
-
-      <section className="lp-start" ref={startRef}>
-      <div className="landing-card">
+    <div className="landing-screen">
+      <div className="landing-card fade-up">
+        <a className="btn btn-ghost btn-sm" href="/" style={{ padding: 0 }}><ArrowLeft size={14} /> What Remy does</a>
         <div className="landing">
-          <Remy size={64} mood="wave" />
-          <h2 className="motto">Start with Remy</h2>
-          <p className="sub">Free for students. Sign in to keep your workspace on every device.</p>
+          <Remy size={72} mood="wave" />
+          <h1 className="motto">Sign in to Remy</h1>
+          <p className="sub">Free for students. New here? Signing in creates your account; setup takes about 5 minutes.</p>
         </div>
         <div className="sso-list">
           <div data-testid="google-signin">
@@ -176,19 +117,141 @@ export default function Welcome() {
               </form>
             )
           )}
+          {!anyReal && <p className="small muted" style={{ textAlign: "center" }}><StatusChip label="Needs setup">Sign-in</StatusChip> No sign-in method is switched on for this server yet.</p>}
         </div>
         <div className="landing-foot">
-          <button className="btn btn-ghost btn-sm" onClick={() => guest("demo")} disabled={!!busy} data-testid="button-explore-demo">
-            {busy === "demo" ? <Spinner /> : null} Or explore the demo without signing in
-          </button>
-          <p className="xs muted">
-            {anyReal ? "Signing in keeps your workspace across devices. " : <><StatusChip label="Needs setup">Sign-in</StatusChip>{" "}</>}
-            Remy never asks for your passwords.
-          </p>
+          <p className="xs muted">Remy never asks for your passwords. <a href="/policies">Privacy and terms</a></p>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** The front page: what a student gets, shown with previews built from Remy's real screens. */
+function Landing() {
+  const tour = useRef<HTMLElement>(null);
+  const toTour = () => tour.current?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  return (
+    <div className="lp">
+      <header className="lp-top">
+        <span className="logo"><Remy size={30} mood="idle" /> Remy</span>
+        <nav className="row" style={{ gap: 4 }}>
+          <button className="btn btn-ghost btn-sm hide-sm" onClick={toTour}>What you get</button>
+          <a className="btn btn-ghost btn-sm hide-sm" href="/about">About</a>
+          <a className="btn btn-primary btn-sm" href="/signin" data-testid="button-lp-signin">Sign in</a>
+        </nav>
+      </header>
+
+      <section className="lp-hero">
+        <div className="lp-hero-copy">
+          <h1>Don&rsquo;t hunt for a job alone.</h1>
+          <p className="lp-lede">Remy is a career coach for college students. Bring your resume, or build your first one, and Remy finds openings you can actually get, fits your resume to each one without making anything up, and tells you what to do this week.</p>
+          <div className="row" style={{ gap: 10 }}>
+            <a className="btn btn-primary" href="/signin" data-testid="button-lp-start">Create your free account</a>
+            <button className="btn btn-secondary" onClick={toTour}>See what you get</button>
+          </div>
+          <p className="xs muted">For every major and every year, freshmen included. Built by students at TCU.</p>
+        </div>
+        <div className="lp-chat" aria-label="Example conversation with Remy">
+          <div className="lp-msg me">I&rsquo;m a sophomore in nursing. What should I do this semester?</div>
+          <div className="lp-msg remy">
+            <Remy size={30} mood="happy" />
+            <div className="stack-sm">
+              <span>Three things, based on your resume:</span>
+              <div className="lp-item"><Search size={15} /><span><b>Summer Nurse Extern</b>, a Fort Worth hospital. You qualify: it asks for students finishing year two.</span></div>
+              <div className="lp-item"><CalendarClock size={15} /><span><b>Applications close Feb 15.</b> It&rsquo;s on your calendar.</span></div>
+              <div className="lp-item"><FileText size={15} /><span><b>To-do:</b> add your Walgreens pharmacy work to your resume. Your LinkedIn has it; your resume doesn&rsquo;t.</span></div>
+            </div>
+          </div>
+        </div>
       </section>
-      <footer className="lp-foot xs muted"><span>Remy, made by students at Texas Christian University.</span><span><a href="#/about">About the team</a> &nbsp; <a href="#/policies">Privacy and terms</a></span></footer>
+
+      <section className="lp-gets" ref={tour} aria-label="What you get">
+        <h2>What you get</h2>
+
+        <div className="lp-get">
+          <div className="lp-get-copy">
+            <h3>Openings you can actually get</h3>
+            <p>Remy reads more than 180 employers&rsquo; own career sites, from Texas companies to school districts and cities, and checks every posting against you: your year, field, location, start date and visa needs. If you can&rsquo;t apply, you don&rsquo;t see it. If you can, it tells you why.</p>
+          </div>
+          <div className="lp-shot" aria-hidden>
+            <div className="lp-job"><div><b>Marketing Intern, Summer 2027</b><span>American retailer · Dallas, TX · closes Jan 31</span></div><span className="chip chip-live">You qualify</span></div>
+            <p className="lp-why">It asks for sophomores or juniors in marketing or business. You&rsquo;re a sophomore in marketing.</p>
+            <div className="lp-job"><div><b>Brand Analyst Co-op</b><span>Consumer goods · Plano, TX · closes Feb 14</span></div><span className="chip chip-live">You qualify</span></div>
+            <div className="lp-job lp-hidden"><div><b>Senior Marketing Associate</b><span>Hidden: needs 3 years of experience</span></div></div>
+          </div>
+        </div>
+
+        <div className="lp-get flip">
+          <div className="lp-get-copy">
+            <h3>A resume that fits each job and stays true</h3>
+            <p>For each opening, Remy suggests changes line by line and writes a cover letter draft. Anything your own resume can&rsquo;t back up gets flagged before you accept it. You approve every word, and you send everything yourself.</p>
+          </div>
+          <div className="lp-shot" aria-hidden>
+            <span className="xs muted">Suggested change</span>
+            <p className="lp-old">Posted on the club&rsquo;s Instagram</p>
+            <p className="lp-new">Grew the club&rsquo;s Instagram by planning a weekly posting calendar</p>
+            <div className="row" style={{ gap: 6 }}><span className="btn btn-primary btn-sm">Accept</span><span className="btn btn-secondary btn-sm">Edit</span></div>
+            <div className="lp-flag"><ShieldCheck size={15} /><span><b>Flagged:</b> &ldquo;increased followers 40%&rdquo; isn&rsquo;t on your resume. Add it only if it&rsquo;s true.</span></div>
+          </div>
+        </div>
+
+        <div className="lp-get">
+          <div className="lp-get-copy">
+            <h3>Help when you don&rsquo;t know what you want yet</h3>
+            <p>Pick a major and see the jobs it leads to, with real pay and growth numbers from the U.S. Bureau of Labor Statistics. Heard of a job but not sure what it is? Ask, and Remy explains a normal day, the hard parts and how to try it out this year.</p>
+          </div>
+          <div className="lp-shot" aria-hidden>
+            <span className="xs muted">Jobs people with a marketing major go into</span>
+            <div className="lp-occ"><b>Market research analysts</b><span>$78,760 median pay · 82,000 openings a year · +7% by 2035</span></div>
+            <div className="lp-occ"><b>Marketing managers</b><span>$166,790 median pay · 34,000 openings a year · +6.9% by 2035</span></div>
+            <div className="lp-occ"><b>Public relations specialists</b><span>$74,750 median pay · 23,000 openings a year · +1.8% by 2035</span></div>
+            <span className="btn btn-secondary btn-sm" style={{ justifySelf: "start" }}>What&rsquo;s it like?</span>
+          </div>
+        </div>
+
+        <div className="lp-get flip">
+          <div className="lp-get-copy">
+            <h3>A plan for this week, not just a list</h3>
+            <p>Deadlines, next steps and the gaps Remy spots become to-dos with dates. Connect Google Calendar and they show up in a separate &ldquo;Remy&rdquo; calendar. Ask Remy anything, and it already knows your resume, your to-dos and your deadlines.</p>
+          </div>
+          <div className="lp-shot" aria-hidden>
+            <div className="lp-todo"><span className="lp-box" /><span><b>Apply: Marketing Intern</b><span className="xs muted"> · due Jan 31</span></span></div>
+            <div className="lp-todo"><span className="lp-box" /><span><b>Ask your club advisor for a reference</b><span className="xs muted"> · this week</span></span></div>
+            <div className="lp-todo done"><span className="lp-box"><Check size={12} /></span><span>Add your LinkedIn</span></div>
+            <div className="lp-todo"><span className="lp-box" /><span><b>Update LinkedIn: it says a different major</b></span></div>
+          </div>
+        </div>
+      </section>
+
+      <section className="lp-band">
+        <h2>How it works</h2>
+        <ol className="lp-steps">
+          <li><b>Add your resume.</b> Upload it, add your LinkedIn, or answer a few questions and Remy builds your first one.</li>
+          <li><b>Say what you want, or that you don&rsquo;t know yet.</b> Pick fields, places and dates, or let Remy show you where your major leads.</li>
+          <li><b>Get openings and a plan.</b> Remy keeps looking every few hours and turns what it finds into to-dos and deadlines.</li>
+        </ol>
+      </section>
+
+      <section className="lp-promise">
+        <ShieldCheck size={22} />
+        <div className="stack-sm">
+          <h2>What Remy will never do</h2>
+          <ul>
+            <li>Make up experience, numbers or skills you don&rsquo;t have.</li>
+            <li>Apply, email or message anyone for you. You send everything yourself.</li>
+            <li>Ask for your passwords or sell your data. You can download or delete everything at any time.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="lp-cta">
+        <Remy size={56} mood="wave" />
+        <h2>Ready when you are.</h2>
+        <p className="muted">Free for students. About 5 minutes to set up.</p>
+        <a className="btn btn-primary" href="/signin">Create your free account</a>
+      </section>
+      <footer className="lp-foot xs muted"><span>Remy, made by students at Texas Christian University.</span><span><a href="/about">About the team</a> &nbsp; <a href="/policies">Privacy and terms</a></span></footer>
     </div>
   );
 }

@@ -1320,13 +1320,13 @@ Return JSON:
     if (!signedIn(ctx.me)) bad("Sign in with Google or email first, then connect your calendar.", 401);
     const state = crypto.randomBytes(24).toString("base64url");
     const tz = /^[A-Za-z_]+\/[A-Za-z_\/-]+$/.test(String(req.query.tz || "")) ? String(req.query.tz) : "America/Chicago";
-    gcalStates.set(state, { userId: ctx.me.id, back: req.query.back === "setup" ? "/#/" : "/#/calendar", tz, exp: Date.now() + 10 * 60_000 });
+    gcalStates.set(state, { userId: ctx.me.id, back: req.query.back === "setup" ? "/" : "/calendar", tz, exp: Date.now() + 10 * 60_000 });
     res.redirect(gcal.authUrl(state, gcalRedirect(req)));
   }));
   app.get("/api/calendar/callback", route(async (req, res, ctx) => {
     const st = gcalStates.get(String(req.query.state || ""));
     gcalStates.delete(String(req.query.state || ""));
-    if (!st || st.exp < Date.now() || st.userId !== ctx.me.id) return res.redirect("/#/calendar?gcal=expired");
+    if (!st || st.exp < Date.now() || st.userId !== ctx.me.id) return res.redirect("/calendar?gcal=expired");
     if (req.query.error || !req.query.code) return res.redirect(st.back + (st.back.includes("?") ? "&" : "?") + "gcal=cancelled");
     try {
       await gcal.connect(ctx.me.id, String(req.query.code), gcalRedirect(req), st.tz);

@@ -355,20 +355,42 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .lp-steps li { counter-increment: s; display: grid; gap: 6px; color: var(--muted-text); line-height: 1.5; }
 .lp-steps li::before { content: counter(s); font-size: 2.6rem; font-weight: 800; color: var(--fox); line-height: 1; }
 .lp-steps b { color: var(--ink); display: block; }
-.lp-what { display: grid; grid-template-columns: repeat(2, 1fr); gap: 36px 48px; padding-top: 56px; padding-bottom: 56px; border-top: 1px solid var(--line); }
-.lp-what > div { display: grid; gap: 6px; align-content: start; }
-.lp-what svg { color: var(--fox-deep); }
-.lp-what h3 { font-size: var(--text-lg); font-weight: 800; }
-.lp-what p { color: var(--muted-text); line-height: 1.55; max-width: 52ch; }
+.lp-gets { padding-top: 56px; padding-bottom: 24px; border-top: 1px solid var(--line); scroll-margin-top: 12px; }
+.lp-gets > h2, .lp-cta h2 { font-size: var(--text-xl); font-weight: 800; letter-spacing: -0.02em; }
+.lp-get { display: grid; grid-template-columns: 1fr 1.1fr; gap: 56px; align-items: center; padding: 40px 0; }
+.lp-get.flip .lp-get-copy { order: 2; }
+.lp-get-copy { display: grid; gap: 10px; }
+.lp-get-copy h3 { font-size: clamp(1.3rem, 1.1rem + 0.8vw, 1.75rem); font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+.lp-get-copy p { color: var(--muted-text); line-height: 1.6; max-width: 48ch; }
+/* previews drawn with the app's own chips and buttons, so the page shows the real thing */
+.lp-shot { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px; display: grid; gap: 10px; box-shadow: 0 18px 40px -28px rgba(0, 0, 0, 0.35); pointer-events: none; }
+.lp-job { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
+.lp-job > div { display: grid; gap: 2px; font-size: 14px; }
+.lp-job span:not(.chip) { font-size: 12.5px; color: var(--muted-text); }
+.lp-job.lp-hidden { opacity: 0.45; border-style: dashed; }
+.lp-why { font-size: 13px; color: var(--sage); margin: -4px 4px 2px; }
+.lp-old { font-size: 14px; text-decoration: line-through; color: var(--faint); }
+.lp-new { font-size: 14px; background: var(--sage-bg); color: #14532d; padding: 8px 10px; border-radius: 10px; }
+.lp-flag { display: grid; grid-template-columns: auto 1fr; gap: 8px; font-size: 13px; background: var(--amber-bg); color: var(--amber); padding: 10px 12px; border-radius: 10px; }
+.lp-flag svg { margin-top: 2px; }
+.lp-occ { display: grid; gap: 2px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.lp-occ span { font-size: 12.5px; color: var(--muted-text); }
+.lp-todo { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; font-size: 14px; padding: 8px 4px; border-top: 1px solid var(--line); }
+.lp-todo:first-child { border-top: 0; }
+.lp-todo.done { color: var(--faint); text-decoration: line-through; }
+.lp-box { width: 18px; height: 18px; border: 1.5px solid var(--ink); border-radius: 5px; display: grid; place-items: center; }
+.lp-todo.done .lp-box { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.lp-cta { display: grid; justify-items: center; gap: 10px; text-align: center; padding-top: 56px; padding-bottom: 64px; border-top: 1px solid var(--line); }
 .lp-promise { display: grid; grid-template-columns: auto 1fr; gap: 16px; padding-top: 40px; padding-bottom: 40px; border-top: 1px solid var(--line); }
 .lp-promise svg { color: var(--sage); margin-top: 6px; }
 .lp-promise ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; line-height: 1.5; }
-.lp-start { padding-top: 40px; padding-bottom: 56px; display: flex; justify-content: center; scroll-margin-top: 16px; }
 .lp-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding-top: 20px; padding-bottom: 28px; border-top: 1px solid var(--line); }
 @media (max-width: 820px) {
   .lp-hero { grid-template-columns: 1fr; gap: 32px; padding-top: 20px; padding-bottom: 48px; }
   .lp-chat { transform: none; }
-  .lp-steps, .lp-what { grid-template-columns: 1fr; }
+  .lp-steps { grid-template-columns: 1fr; }
+  .lp-get, .lp-get.flip { grid-template-columns: 1fr; gap: 20px; }
+  .lp-get.flip .lp-get-copy { order: 0; }
 }
 /* owners' dashboard */
 .admin { max-width: 1080px; margin: 0 auto; padding: 16px; display: grid; gap: 18px; }

@@ -27,7 +27,7 @@ export default function Admin() {
   const { query } = useRoute();
   const tab = (query.get("tab") as Tab) || "overview";
   if (!me?.owner) return (
-    <div className="landing-screen"><div className="landing-card"><Empty title="Only for Remy's owners" body="Sign in with an owner's email to see this page." action={<a className="btn btn-primary" href="#/">Back to Remy</a>} /></div></div>
+    <div className="landing-screen"><div className="landing-card"><Empty title="Only for Remy's owners" body="Sign in with an owner's email to see this page." action={<a className="btn btn-primary" href="/">Back to Remy</a>} /></div></div>
   );
   return (
     <div className="admin">

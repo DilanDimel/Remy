@@ -5,7 +5,8 @@ import {
   Check, Info, Minus, ShieldCheck, UserCog, Users,
 } from "lucide-react";
 import { StoreProvider, api, rid, useStore } from "./lib/store";
-import { go, useRoute } from "./lib/router";
+import { go, replaceRoute, useRoute } from "./lib/router";
+const PUBLIC = new Set(["/", "/signin", "/about", "/policies", "/privacy", "/terms"]);
 import { Modal, Remy, Spinner, StatusChip } from "./components/common";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { answer as answerTailor, endSession as endTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
@@ -47,6 +48,14 @@ export default function App() {
 function Root() {
   const { loading, ws, me, signInAgain } = useStore();
   const { path } = useRoute();
+  // Keep the address honest: signed out, only the front page and sign-in page exist (so deleting an account or
+  // signing out doesn't leave /accounts in the bar for the next account); signed in, /signin goes home.
+  const signedOut = !me || !ws || !ws.started || !!signInAgain;
+  useEffect(() => {
+    if (loading) return;
+    if (signedOut && !PUBLIC.has(path)) replaceRoute("/");
+    if (!signedOut && path === "/signin") replaceRoute("/");
+  }, [loading, signedOut, path]);
   // Public pages: readable without signing in.
   if (path === "/about") return <About />;
   if (path === "/policies" || path === "/privacy" || path === "/terms") return <Policies />;
@@ -57,7 +66,7 @@ function Root() {
       </div>
     );
   if (path === "/admin" && me) return <Admin />;
-  if (!me || !ws || !ws.started || signInAgain) return <Welcome />;
+  if (signedOut) return <Welcome />;
   if (!ws.onboarding.done) return <Onboarding />;
   return <Shell />;
 }
@@ -119,7 +128,7 @@ function Shell() {
           </button>
         </div>
         {NAV.map((n) => (
-          <a key={n.path} href={"#" + n.path} className="nav-item" aria-current={current.path === n.path ? "page" : undefined} title={n.label} data-testid={`nav-${n.label.toLowerCase().replace(/[^a-z]/g, "")}`}>
+          <a key={n.path} href={n.path} className="nav-item" aria-current={current.path === n.path ? "page" : undefined} title={n.label} data-testid={`nav-${n.label.toLowerCase().replace(/[^a-z]/g, "")}`}>
             <n.icon size={19} />
             <span className="nav-label">{n.label}</span>
             {n.path === "/resume" && pendingReview > 0 && <span className="count">{pendingReview}</span>}
@@ -147,7 +156,7 @@ function Shell() {
 
       <nav className="mobile-nav" aria-label="Mobile navigation">
         {NAV.filter((n) => ["/", "/path", "/resume", "/opportunities", "/progress"].includes(n.path)).map((n) => (
-          <a key={n.path} href={"#" + n.path} aria-current={current.path === n.path ? "page" : undefined}>
+          <a key={n.path} href={n.path} aria-current={current.path === n.path ? "page" : undefined}>
             <n.icon size={19} />
             {n.label === "Opportunities" ? "Jobs" : n.label === "Resume/CV" ? "Resume" : n.label}
           </a>

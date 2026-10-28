@@ -21,10 +21,10 @@ export function useGoogleCalendar() {
     if (!available || !me) return;
     api<{ connected: boolean }>("GET", "/api/calendar/google").then((r) => setConnected(r.connected), () => setConnected(false));
     // Coming back from Google's consent screen: say how it went, then tidy the address bar.
-    const m = location.hash.match(/[?&]gcal=(\w+)/);
+    const m = location.search.match(/[?&]gcal=(\w+)/);
     if (m && RESULT[m[1]]) {
       toast(...RESULT[m[1]]);
-      history.replaceState(null, "", location.hash.replace(/[?&]gcal=\w+/, "").replace(/\?$/, "") || "#/");
+      history.replaceState(null, "", location.pathname + location.search.replace(/[?&]gcal=\w+/, "").replace(/^&/, "?").replace(/\?$/, ""));
     }
   }, [available, me?.id]);
   const connect = (back: "setup" | "calendar") => {
