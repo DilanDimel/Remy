@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, useStore } from "../lib/store";
-import { Check } from "lucide-react";
+import { BookOpen, CalendarClock, Check, Compass, FileText, Search, ShieldCheck } from "lucide-react";
 import { Remy, Spinner, StatusChip } from "../components/common";
 import { providerOn, sendMagicLink, startOAuth, type SupabaseProvider } from "../lib/supabase";
 
@@ -79,14 +79,76 @@ export default function Welcome() {
     </button>
   );
   const anyReal = gis || ["google", "linkedin_oidc", "apple", "azure", "email"].some((p) => providerOn(config, p as SupabaseProvider));
+  const startRef = useRef<HTMLElement>(null);
+  const toStart = () => startRef.current?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
   return (
-    <div className="landing-screen">
-      <div className="landing-card fade-up">
+    <div className="lp">
+      <header className="lp-top">
+        <span className="logo"><Remy size={30} mood="idle" /> Remy</span>
+        <nav className="row" style={{ gap: 4 }}>
+          <a className="btn btn-ghost btn-sm hide-sm" href="#/about">About</a>
+          <button className="btn btn-primary btn-sm" onClick={toStart} data-testid="button-lp-signin">Sign in</button>
+        </nav>
+      </header>
+
+      <section className="lp-hero">
+        <div className="lp-hero-copy">
+          <h1>Don&rsquo;t hunt for a job alone.</h1>
+          <p className="lp-lede">Remy is a career coach for college students. Give it your resume, or build one with it, and it finds internships and jobs you can actually apply to, helps you fit your resume to each one without making anything up, and keeps your deadlines in one place.</p>
+          <div className="row" style={{ gap: 10 }}>
+            <button className="btn btn-primary" onClick={toStart} data-testid="button-lp-start">Get started free</button>
+            <button className="btn btn-secondary" onClick={() => guest("demo")} disabled={!!busy}>{busy === "demo" ? <Spinner /> : null} Look around first</button>
+          </div>
+          <p className="xs muted">For every major and every year, freshmen included. Built by students at TCU.</p>
+        </div>
+        <div className="lp-chat" aria-label="Example conversation with Remy">
+          <div className="lp-msg me">I&rsquo;m a sophomore in nursing. What should I do this semester?</div>
+          <div className="lp-msg remy">
+            <Remy size={30} mood="happy" />
+            <div className="stack-sm">
+              <span>Three things, based on your resume:</span>
+              <div className="lp-item"><Search size={15} /><span><b>Summer Nurse Extern</b>, a Fort Worth hospital. You qualify: it asks for students finishing year two.</span></div>
+              <div className="lp-item"><CalendarClock size={15} /><span><b>Applications close Feb 15.</b> It&rsquo;s on your calendar.</span></div>
+              <div className="lp-item"><FileText size={15} /><span><b>To-do:</b> add your Walgreens pharmacy work to your resume. Your LinkedIn has it; your resume doesn&rsquo;t.</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="lp-band">
+        <h2>How it works</h2>
+        <ol className="lp-steps">
+          <li><b>Add your resume.</b> Upload it, add your LinkedIn, or answer a few questions and Remy builds your first one.</li>
+          <li><b>Say what you want, or that you don&rsquo;t know yet.</b> Pick fields, places and dates. Not sure? Remy shows the jobs your major leads to and what each one is really like.</li>
+          <li><b>Get openings and a plan.</b> Remy reads employers&rsquo; career sites, hides what you can&rsquo;t apply to, and turns the rest into to-dos and deadlines.</li>
+        </ol>
+      </section>
+
+      <section className="lp-what">
+        <div><Search size={20} /><h3>Openings you qualify for</h3><p>From more than 180 employers&rsquo; own career sites, including Texas companies, school districts and cities. Wrong year, wrong field or no visa sponsorship? It stays hidden.</p></div>
+        <div><FileText size={20} /><h3>Applications that stay true</h3><p>Remy suggests changes to fit each posting and flags any line your resume can&rsquo;t back up. You approve every word.</p></div>
+        <div><Compass size={20} /><h3>Help when you&rsquo;re undecided</h3><p>See the jobs your major leads to, with pay and growth from the U.S. Bureau of Labor Statistics, and ask Remy what any job is like day to day.</p></div>
+        <div><BookOpen size={20} /><h3>A coach that knows you</h3><p>Ask Remy anything. It already knows your resume, your to-dos and your deadlines, so you never start from zero.</p></div>
+      </section>
+
+      <section className="lp-promise">
+        <ShieldCheck size={22} />
+        <div className="stack-sm">
+          <h2>What Remy will never do</h2>
+          <ul>
+            <li>Make up experience, numbers or skills you don&rsquo;t have.</li>
+            <li>Apply, email or message anyone for you. You send everything yourself.</li>
+            <li>Ask for your passwords or sell your data. You can download or delete everything at any time.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="lp-start" ref={startRef}>
+      <div className="landing-card">
         <div className="landing">
-          <Remy size={84} mood="wave" />
-          <p className="landing-name">Remy</p>
-          <h1 className="motto">Don&rsquo;t Hunt for a Job Alone</h1>
-          <p className="sub">Your career companion for college students — connecting what you study and can demonstrate to your path, opportunities, and applications.</p>
+          <Remy size={64} mood="wave" />
+          <h2 className="motto">Start with Remy</h2>
+          <p className="sub">Free for students. Sign in to keep your workspace on every device.</p>
         </div>
         <div className="sso-list">
           <div data-testid="google-signin">
@@ -123,9 +185,10 @@ export default function Welcome() {
             {anyReal ? "Signing in keeps your workspace across devices. " : <><StatusChip label="Needs setup">Sign-in</StatusChip>{" "}</>}
             Remy never asks for your passwords.
           </p>
-          <p className="xs muted"><a href="#/about">About</a> · <a href="#/policies">Privacy & terms</a></p>
         </div>
       </div>
+      </section>
+      <footer className="lp-foot xs muted"><span>Remy, made by students at Texas Christian University.</span><span><a href="#/about">About the team</a> &nbsp; <a href="#/policies">Privacy and terms</a></span></footer>
     </div>
   );
 }

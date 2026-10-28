@@ -334,6 +334,42 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .gbtn:hover:not(:disabled) { border-color: var(--ink); background: var(--surface-2); }
 .landing-foot { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 14px; text-align: center; }
 .landing-foot p { max-width: 52ch; }
+/* landing page (before sign-in): one bold moment, the example conversation; everything else quiet */
+.lp { background: var(--bg); min-height: 100dvh; }
+.lp > * { max-width: 1080px; margin-left: auto; margin-right: auto; padding-left: 16px; padding-right: 16px; }
+.lp-top { display: flex; justify-content: space-between; align-items: center; padding-top: 14px; padding-bottom: 14px; }
+.lp-hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 48px; align-items: center; padding-top: 48px; padding-bottom: 72px; }
+.lp-hero h1 { font-size: clamp(2.4rem, 1.6rem + 3.4vw, 4.4rem); line-height: 1.02; letter-spacing: -0.035em; font-weight: 800; }
+.lp-hero-copy { display: grid; gap: 20px; justify-items: start; }
+.lp-lede { font-size: var(--text-lg); color: var(--muted-text); max-width: 46ch; line-height: 1.5; }
+.lp-chat { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 22px; display: grid; gap: 14px; box-shadow: 0 30px 60px -30px rgba(232, 106, 42, 0.45); transform: rotate(-1deg); }
+.lp-msg { font-size: 15px; line-height: 1.45; }
+.lp-msg.me { justify-self: end; background: var(--ink); color: var(--surface); padding: 10px 14px; border-radius: 16px 16px 4px 16px; max-width: 85%; }
+.lp-msg.remy { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; }
+.lp-msg.remy > .stack-sm { background: var(--fox-soft); padding: 12px 14px; border-radius: 4px 16px 16px 16px; color: #3a1d0b; }
+.lp-item { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: start; font-size: 14px; }
+.lp-item svg { margin-top: 3px; color: var(--fox-deep); }
+.lp-band { padding-top: 56px; padding-bottom: 56px; border-top: 1px solid var(--line); }
+.lp-band h2, .lp-promise h2 { font-size: var(--text-xl); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 20px; }
+.lp-steps { list-style: none; counter-reset: s; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; padding: 0; margin: 0; }
+.lp-steps li { counter-increment: s; display: grid; gap: 6px; color: var(--muted-text); line-height: 1.5; }
+.lp-steps li::before { content: counter(s); font-size: 2.6rem; font-weight: 800; color: var(--fox); line-height: 1; }
+.lp-steps b { color: var(--ink); display: block; }
+.lp-what { display: grid; grid-template-columns: repeat(2, 1fr); gap: 36px 48px; padding-top: 56px; padding-bottom: 56px; border-top: 1px solid var(--line); }
+.lp-what > div { display: grid; gap: 6px; align-content: start; }
+.lp-what svg { color: var(--fox-deep); }
+.lp-what h3 { font-size: var(--text-lg); font-weight: 800; }
+.lp-what p { color: var(--muted-text); line-height: 1.55; max-width: 52ch; }
+.lp-promise { display: grid; grid-template-columns: auto 1fr; gap: 16px; padding-top: 40px; padding-bottom: 40px; border-top: 1px solid var(--line); }
+.lp-promise svg { color: var(--sage); margin-top: 6px; }
+.lp-promise ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; line-height: 1.5; }
+.lp-start { padding-top: 40px; padding-bottom: 56px; display: flex; justify-content: center; scroll-margin-top: 16px; }
+.lp-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding-top: 20px; padding-bottom: 28px; border-top: 1px solid var(--line); }
+@media (max-width: 820px) {
+  .lp-hero { grid-template-columns: 1fr; gap: 32px; padding-top: 20px; padding-bottom: 48px; }
+  .lp-chat { transform: none; }
+  .lp-steps, .lp-what { grid-template-columns: 1fr; }
+}
 /* connect your accounts */
 .conn-title { font-size: clamp(1.5rem, 1.2rem + 1vw, 2.1rem); font-weight: 800; letter-spacing: -0.02em; }
 .remy-prompt { display: flex; gap: 12px; align-items: flex-start; background: var(--surface-2); border-radius: 14px; padding: 14px 16px; font-size: 15px; }
