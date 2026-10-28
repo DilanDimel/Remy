@@ -2,9 +2,9 @@ import { uiFlags } from "./lib/router";
 import { useEffect, useRef, useState } from "react";
 import {
   BarChart3, Briefcase, CalendarDays, ChevronsLeft, ChevronsRight, Compass, FileText, Home as HomeIcon, Menu, Send,
-  Info, Minus, ShieldCheck, UserCog, Users,
+  Check, Info, Minus, ShieldCheck, UserCog, Users,
 } from "lucide-react";
-import { StoreProvider, api, useStore } from "./lib/store";
+import { StoreProvider, api, rid, useStore } from "./lib/store";
 import { go, useRoute } from "./lib/router";
 import { Modal, Remy, Spinner, StatusChip } from "./components/common";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -20,7 +20,7 @@ import CalendarPage from "./pages/Calendar";
 import Progress from "./pages/Progress";
 import Accounts from "./pages/Accounts";
 import { About, Policies } from "./pages/Info";
-import type { Workspace } from "@shared/types";
+import type { ChatAction, Workspace } from "@shared/types";
 
 const NAV = [
   { path: "/", label: "Home", icon: HomeIcon },
@@ -173,10 +173,10 @@ function Shell() {
 }
 
 const STARTERS: Record<string, string[]> = {
-  Home: ["What should I focus on this week?", "Which opening fits me best right now?"],
-  "My Path": ["What roles connect finance and information systems?", "What skill gap matters most for me?"],
-  "Resume/CV": ["Which of my experiences is strongest for banking?", "How should I explain my club leadership?"],
-  Opportunities: ["Which deadlines are closest?", "Am I eligible for sophomore programs?"],
+  Home: ["What should I focus on this week?", "Which opening fits me best right now?", "I'm not sure what career I want. Where do I start?"],
+  "My Path": ["What jobs does my major lead to?", "What skill gap matters most for me?"],
+  "Resume/CV": ["Which of my experiences is strongest?", "What's missing from my resume?"],
+  Opportunities: ["Which deadlines are closest?", "Which of these do I actually qualify for?"],
   Community: ["How do I ask an alum for a 15-minute chat?"],
   Calendar: ["Help me plan around my deadlines"],
   Progress: ["What should I do after an interview invite?"],
@@ -184,7 +184,7 @@ const STARTERS: Record<string, string[]> = {
 };
 
 function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () => void; flyIn: boolean }) {
-  const { ws, setWs, run, config } = useStore();
+  const { ws, setWs, run, save, config } = useStore();
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
@@ -222,6 +222,14 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
     if (w) setWs(w);
   };
   const remembered = new Set(ws!.memory.map((m) => m.text));
+  // A button Remy offered under a reply. Already-done ones show as done, so a second tap can't add it twice.
+  const roles = ws!.profile.targetRoles.split(/,\s*/).filter(Boolean);
+  const isDone = (a: ChatAction) => a.kind === "task" ? ws!.tasks.some((t) => t.title === a.title) : a.kind === "role" ? roles.some((r) => r.toLowerCase() === a.title.toLowerCase()) : false;
+  const act = (a: ChatAction) => {
+    if (a.kind === "open") return go(a.link);
+    if (a.kind === "task") return run(() => save("tasks", [{ id: rid("t"), title: a.title, why: a.why, due: "", category: "Prepare", done: false, source: "Remy chat" }, ...ws!.tasks]), "Added to your to-dos");
+    return run(() => save("profile", { ...ws!.profile, targetRoles: [...roles, a.title].join(", ") }), `Remy will look for ${a.title} openings too`);
+  };
   return (
     <>
       <div className="asst-head">
@@ -242,6 +250,13 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
         {chat.slice(-30).map((m) => (
           <div key={m.id} className="stack-sm" style={{ alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
             <div className={`bubble ${m.role === "user" ? "bubble-user" : "bubble-ai"}`}>{m.text}</div>
+            {!!m.actions?.length && (
+              <div className="row" style={{ gap: 6, maxWidth: "92%" }}>
+                {m.actions.map((a, i) => isDone(a)
+                  ? <span key={i} className="chip"><Check size={12} /> {a.kind === "task" ? "On your to-dos" : "In your search"}</span>
+                  : <button key={i} className="btn btn-secondary btn-sm" style={{ whiteSpace: "normal", height: "auto", textAlign: "left" }} onClick={() => act(a)} data-testid="button-chat-action">{a.kind === "task" ? <>Add to-do: {a.title}</> : a.kind === "role" ? <>Look for {a.title} openings</> : a.label}</button>)}
+              </div>
+            )}
             {m.memorySuggestions?.filter((s) => !remembered.has(s)).map((s) => (
               <div key={s} className="notice" style={{ maxWidth: "92%" }}>
                 <div className="stack-sm">

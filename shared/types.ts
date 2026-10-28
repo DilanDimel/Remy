@@ -381,7 +381,10 @@ export interface ChatMsg {
   at: string;
   page?: string;
   memorySuggestions?: string[];
+  /** Buttons under a reply; nothing happens until the student taps one. */
+  actions?: ChatAction[];
 }
+export type ChatAction = { kind: "task"; title: string; why: string } | { kind: "role"; title: string } | { kind: "open"; link: string; label: string };
 
 export interface Workspace {
   version: 2;

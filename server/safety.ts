@@ -1,3 +1,4 @@
+import type { ChatAction } from "@shared/types";
 // Safeguards shared by every AI call, plus a crisis check that doesn't depend on the AI at all.
 
 /** Added to every AI system prompt (server/ai.ts aiJson). */
@@ -18,3 +19,16 @@ export const CHAT_RULES = `SCOPE AND CARE:
 - If the student mentions self-harm, suicide, abuse, or being in danger, stop coaching: respond with care, give the 988 Suicide & Crisis Lifeline (call or text 988), 911 for immediate danger, and their school's counseling center. Don't propose anything to remember.
 - If they're stressed or discouraged (rejections, burnout), acknowledge it briefly and kindly, then offer one small next step; suggest campus counseling if it sounds heavy.
 - Decline requests to lie on applications, cheat, or harass someone, and offer an honest alternative.`;
+
+// Buttons Remy offers under a chat reply. Only these three kinds, and links only to Remy's own pages.
+const PAGE_LINK = /^\/(resume|opportunities|path|community|calendar|progress|accounts)(\?tab=[a-z]+)?$/;
+export function chatActions(raw: unknown): ChatAction[] {
+  if (!Array.isArray(raw)) return [];
+  const clean = (v: unknown, n: number) => String(v || "").replace(/\s+/g, " ").trim().slice(0, n);
+  return raw.flatMap((a: any): ChatAction[] => {
+    if (a?.kind === "task" && clean(a.title, 120)) return [{ kind: "task", title: clean(a.title, 120), why: clean(a.why, 300) }];
+    if (a?.kind === "role" && clean(a.title, 60)) return [{ kind: "role", title: clean(a.title, 60) }];
+    if (a?.kind === "open" && PAGE_LINK.test(String(a.link))) return [{ kind: "open", link: String(a.link), label: clean(a.label, 40) || "Open" }];
+    return [];
+  }).slice(0, 2);
+}

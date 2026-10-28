@@ -69,3 +69,32 @@ export function futureFor(ws: Workspace): { source: string; allJobsGrowth: numbe
     }),
   };
 }
+
+// "Not sure what to do with my major": the jobs that hire the most people in each of the student's
+// fields (or a field they browse), from the same official projections. No AI call.
+export type CareerOptions = { field: string; jobs: FutureOcc[] }[];
+const fieldsIn = (text: string) => FIELD_SEARCH.filter((_, k) => FIELD_TITLES[k][0].test(text));
+export function careersFor(ws: Workspace, browse = ""): CareerOptions {
+  const fields = fieldsIn(browse || [ws.profile.major, ws.profile.minors, ws.profile.targetRoles, ws.profile.interests].join(" ")).slice(0, 4);
+  return fields.map((field) => {
+    const prefixes = FIELD_SOC[field] || [];
+    const occs = DATA.occupations.filter((o) => (o.emp ?? 0) >= 5 && o.open != null && prefixes.some((p) => o.soc.startsWith(p)));
+    return { field, jobs: occs.sort((a, b) => (b.open ?? 0) - (a.open ?? 0)).slice(0, 6).map(view) };
+  }).filter((f) => f.jobs.length);
+}
+
+/** The official occupation a job title the student typed most likely means, if there is a clear one. */
+export function officialFor(title: string): FutureOcc | null {
+  const words = (s: string) => s.toLowerCase().replace(/[^a-z ]+/g, " ").split(/\s+/).filter((w) => w.length > 2).map((w) => w.replace(/ies$/, "y").replace(/s$/, ""));
+  const want = words(title);
+  if (!want.length) return null;
+  let best: Occ | null = null, bestScore = 0;
+  for (const o of DATA.occupations) {
+    const have = new Set(words(o.t));
+    const hit = want.filter((w) => have.has(w)).length;
+    // Every word the student typed has to appear, and fewer extra words is a closer match.
+    const score = hit === want.length ? 10 - Math.min(9, have.size - hit) : 0;
+    if (score > bestScore) { best = o; bestScore = score; }
+  }
+  return best ? view(best) : null;
+}

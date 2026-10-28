@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Check, FileText, Mail, Sparkles, Trash2 } from "lucide-react";
 import type { Profile, Workspace } from "@shared/types";
 import { FIELD_GROUPS } from "@shared/fields";
-import { api, FAR_ENOUGH_STEP, useStore } from "../lib/store";
+import { api, FAR_ENOUGH_STEP, rid, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Remy, Spinner, StatusChip } from "../components/common";
 import { ProfileImport, ResumeUpload } from "../components/Uploaders";
@@ -273,12 +273,13 @@ function Preferences({ onBack, onNext }: { onBack: () => void; onNext: () => voi
   const [types, setTypes] = useState(p.opportunityTypes ? splitList(p.opportunityTypes) : ["Internships"]);
   const [fields, setFields] = useState(splitList(p.targetRoles));
   const [otherField, setOtherField] = useState("");
+  const [unsure, setUnsure] = useState(false);
   const [auth, setAuth] = useState(p.workAuth ? [AUTH_OPTS.find((o) => /sponsor/i.test(o) === /sponsor|visa/i.test(p.workAuth))!] : []);
   const [reloc, setReloc] = useState(p.relocation ? [p.relocation] : []);
   const [dream, setDream] = useState(p.dreamEmployers || "");
   const [avoid, setAvoid] = useState(p.avoid || "");
   const allFields = [...fields, ...splitList(otherField)];
-  const missing = [!year.length && "your year", !types.length && "what kinds of opportunities", !allFields.length && "at least one field", !auth.length && "work authorization"].filter(Boolean);
+  const missing = [!year.length && "your year", !types.length && "what kinds of opportunities", !allFields.length && !unsure && "at least one field (or \"I'm not sure yet\")", !auth.length && "work authorization"].filter(Boolean);
   const submit = async () => {
     const r = await run(() => save("profile", {
       ...p,
@@ -294,6 +295,8 @@ function Preferences({ onBack, onNext }: { onBack: () => void; onNext: () => voi
       avoid: avoid.trim(),
     }), "Got it — Remy is searching for openings that fit");
     if (!r) return;
+    if (unsure && !allFields.length && !ws!.tasks.some((t) => t.link === "/path?tab=career" && !t.done))
+      await save("tasks", [{ id: rid("t"), title: "Explore the jobs your major leads to", why: "You said you're not sure yet. My Path lists the jobs people with your major go into, what each one is really like, and lets you add the ones you like to your search.", due: "", category: "Explore", done: false, source: "Setup", link: "/path?tab=career" }, ...ws!.tasks]);
     // Start the search now so results are ready by the last step.
     api<{ workspace: Workspace }>("POST", "/api/jobs/discover", {}).then((d) => { setWs(d.workspace); return reloadJobs(); }).catch(() => {});
     onNext();
@@ -312,7 +315,8 @@ function Preferences({ onBack, onNext }: { onBack: () => void; onNext: () => voi
       <Q n={2}><strong>Which fields or roles interest you?</strong>{FIELD_GROUPS.map(([group, opts]) => (
           <div key={group} className="stack-sm" style={{ gap: 4 }}><span className="xs muted" style={{ fontWeight: 700 }}>{group}</span><Chips options={opts} value={fields} onChange={setFields} testid="pref-field" /></div>
         ))}
-        <input className="input" value={otherField} onChange={(e) => setOtherField(e.target.value)} placeholder="Something more specific? e.g. mechanical engineering, pre-med, sports marketing" aria-label="Other fields" data-testid="input-pref-field" /></Q>
+        <input className="input" value={otherField} onChange={(e) => setOtherField(e.target.value)} placeholder="Something more specific? e.g. mechanical engineering, pre-med, sports marketing" aria-label="Other fields" data-testid="input-pref-field" />
+        <label className="row xs" style={{ gap: 6 }}><input type="checkbox" checked={unsure} onChange={(e) => setUnsure(e.target.checked)} data-testid="pref-unsure" /> I'm not sure yet. Remy will search by my major and help me explore on My Path.</label></Q>
       <Q n={3}><strong>What kinds of opportunities do you want?</strong><Chips options={TYPE_OPTS} value={types} onChange={setTypes} testid="pref-type" /></Q>
       <Q n={4}><strong>When do you want to start?</strong><Chips options={timelineOptions()} value={timeline} onChange={setTimeline} testid="pref-when" />
         <span className="xs muted">Pick all that work. Leave empty if you're open to anything.</span></Q>
