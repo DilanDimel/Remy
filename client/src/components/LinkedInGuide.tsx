@@ -85,7 +85,7 @@ export function LinkedInGuide({ onDone }: { onDone: () => void }) {
           <div className="stack-sm">
             {w.resume
               ? <ProfileImport kind="LinkedIn profile (PDF)" hint="Choose Upload PDF and pick Profile.pdf." onBusy={setBusy} onDone={onDone} />
-              : <ResumeUpload compact onBusy={setBusy} onDone={onDone} />}
+              : <ResumeUpload compact source="linkedin" onBusy={setBusy} onDone={onDone} />}
             <span className="xs muted"><FileText size={12} style={{ verticalAlign: -2 }} /> Only the PDF you upload is used. Remy never signs in to LinkedIn for you.</span>
           </div>
         </li>

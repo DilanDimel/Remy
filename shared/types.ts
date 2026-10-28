@@ -52,6 +52,8 @@ export interface BaseResume {
   uploadedAt: string;
   rawText: string;
   parsedBy: "ai" | "rules" | "builder";
+  /** Set when the LinkedIn PDF stands in for a resume the student hasn't uploaded yet. */
+  from?: "LinkedIn";
   doc: ResumeDoc;
   confirmedAt?: string;
   /** Skills and tools found on the resume, matched against posting requirements. */

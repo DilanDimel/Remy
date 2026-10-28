@@ -61,7 +61,18 @@ function allow(key: string, max: number, windowMs: number) {
 // Render sits behind Cloudflare, which sets the real visitor address.
 const clientIp = (req: Request) => String(req.headers["cf-connecting-ip"] || String(req.headers["x-forwarded-for"] || "").split(",")[0] || req.socket.remoteAddress || "").trim();
 
-function route(fn: H, opts: { create?: boolean } = {}) {
+// Uploads and imports for one student run one after another, so a resume and a LinkedIn PDF sent
+// at the same moment are each read against what the other already saved.
+// shortcut: in-process queue, fine on one server; use a database lock if Remy ever runs several.
+const queues = new Map<string, Promise<unknown>>();
+function serially<T>(userId: string, fn: () => Promise<T>): Promise<T> {
+  const run = (queues.get(userId) || Promise.resolve()).catch(() => {}).then(fn);
+  queues.set(userId, run);
+  run.finally(() => queues.get(userId) === run && queues.delete(userId)).catch(() => {});
+  return run;
+}
+
+function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: Request, res: Response, next: NextFunction) => Promise<unknown> {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const ip = clientIp(req);
@@ -71,6 +82,7 @@ function route(fn: H, opts: { create?: boolean } = {}) {
         if (!allow("guest:" + ip, 10, 60 * 60_000)) return res.status(429).json({ message: "Too many new guest workspaces from this network. Please try again in an hour, or sign in." });
         me = await newGuest(res);
       }
+      if (opts.serial) { const id = me.id; return await serially(id, () => route(fn)(req, res, next)); }
       const ws = await loadWorkspace(me.id);
       // A request can run for seconds (AI calls). On save, re-read the stored
       // workspace and write back only the sections this request changed, so a
@@ -142,6 +154,7 @@ async function withAi<T>(ctx: Ctx, purpose: string, fn: () => Promise<T>): Promi
   }
 }
 
+const LINKEDIN = "LinkedIn profile (PDF)";
 const approvedFacts = (ws: Workspace) => ws.memory.filter((m) => m.status === "approved").map((m) => m.text);
 // AI-read text that isn't in the file doesn't count as evidence until the student saves the resume as theirs.
 const evidenceOf = (ws: Workspace) =>
@@ -466,7 +479,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   }));
 
   // ---------- resume ----------
-  async function ingestResume(ctx: Ctx, text: string, fileName: string) {
+  async function ingestResume(ctx: Ctx, text: string, fileName: string, from?: "LinkedIn") {
     const raw = normalizeResumeText(text);
     if (raw.replace(/\s/g, "").length < 200) bad("We couldn't read enough text from that file. If it's a scanned image, export a text-based PDF or upload a .docx.");
     // The rules reading is always made: it's the fallback, and the yardstick for how much the AI reading kept.
@@ -484,8 +497,8 @@ export async function registerRoutes(_server: Server, app: Express) {
       }
     }
     doc.skillsIndex = skillsPosition(raw, doc);
-    ctx.ws.resume = { fileName, uploadedAt: nowIso(), rawText: raw.slice(0, 30000), parsedBy, doc, skills: extractSkills(doc, raw), quality: parseQuality(raw, doc, notes) };
-    ctx.ws.imports.unshift({ id: uid("i"), kind: "Resume", fileName, at: nowIso(), label: "Student provided", factsAdded: 0 });
+    ctx.ws.resume = { fileName, uploadedAt: nowIso(), rawText: raw.slice(0, 30000), parsedBy, doc, skills: extractSkills(doc, raw), quality: parseQuality(raw, doc, notes), ...(from ? { from } : {}) };
+    ctx.ws.imports.unshift({ id: uid("i"), kind: from ? LINKEDIN : "Resume", fileName, at: nowIso(), label: "Student provided", factsAdded: 0 });
     // prefill only empty profile fields
     const p = ctx.ws.profile;
     const edu = primaryEducation(doc);
@@ -506,11 +519,21 @@ export async function registerRoutes(_server: Server, app: Express) {
     await ctx.save();
   }
 
+  // source=linkedin: the LinkedIn page, used as the resume while there's none. If a real resume
+  // arrived first, the PDF is read as a LinkedIn import instead; if the real resume comes after,
+  // the LinkedIn text is re-read as an import so its extra facts aren't lost.
   app.post("/api/resume/upload", uploadFile, route(async (req, res, ctx) => {
     const f = (req as any).file as Express.Multer.File | undefined;
     if (!f) bad("Choose a file to upload.");
     const raw = await fileToText(f!.buffer, f!.originalname, f!.mimetype);
-    await ingestResume(ctx, raw, f!.originalname);
+    const fromLinkedIn = req.body?.source === "linkedin";
+    const prev = ctx.ws.resume;
+    if (fromLinkedIn && prev && prev.from !== "LinkedIn") {
+      await importProfile(ctx, LINKEDIN, raw, f!.originalname);
+      return res.json(ctx.ws);
+    }
+    await ingestResume(ctx, raw, f!.originalname, fromLinkedIn ? "LinkedIn" : undefined);
+    if (!fromLinkedIn && prev?.from === "LinkedIn") await importProfile(ctx, LINKEDIN, prev.rawText, prev.fileName).catch(() => {}); // the resume itself is saved either way
     const mime = /\.pdf$/i.test(f!.originalname) ? "application/pdf" : /\.docx$/i.test(f!.originalname) ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "text/plain; charset=utf-8";
     await saveFile(ctx.me.id, "resume", f!.originalname, mime, f!.buffer);
     ctx.ws.resume!.original = { name: f!.originalname, mime, size: f!.size };
@@ -518,7 +541,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     ctx.ws.resume!.style = (await (mime === "application/pdf" ? pdfStyle(f!.buffer) : mime.includes("wordprocessingml") ? docxStyle(f!.buffer) : Promise.resolve(null)).catch(() => null)) || undefined;
     await ctx.save();
     res.json(ctx.ws);
-  }));
+  }, { serial: true }));
 
   // The exact file the student uploaded (inline, so a PDF previews in the browser).
   app.get("/api/resume/original", route(async (req, res, ctx) => {
@@ -565,7 +588,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const raw = String(req.body?.text || "");
     await ingestResume(ctx, raw, "Pasted resume text");
     res.json(ctx.ws);
-  }));
+  }, { serial: true }));
 
   app.post("/api/resume/sample", route(async (_req, res, ctx) => {
     const p = path.resolve(process.cwd(), "server", "sample-resume.txt");
@@ -656,17 +679,19 @@ export async function registerRoutes(_server: Server, app: Express) {
   }));
 
   // ---------- other profile imports (LinkedIn PDF, Handshake/Stellic text, etc.) ----------
-  app.post("/api/import/profile", uploadFile, route(async (req, res, ctx) => {
-    const kind = String(req.body?.kind || "Other");
-    const f = (req as any).file as Express.Multer.File | undefined;
-    const raw = f ? await fileToText(f.buffer, f.originalname, f.mimetype) : String(req.body?.text || "");
-    if (raw.trim().length < 40) bad("Add a file or paste at least a few lines of profile text.");
+  async function importProfile(ctx: Ctx, kind: string, raw: string, fileName: string) {
     const out = await withAi(ctx, `Import ${kind}`, () =>
       aiJson<{ facts: { text: string; category: MemoryFact["category"]; quote: string; conflict?: string; notOnResume?: boolean }[] }>(
         "You extract factual statements about a student from their own exported profile text. Only include facts stated in the text. Keep each fact short and specific. Include a verbatim supporting quote. If a fact disagrees with the student's resume or profile (a different major, school, title, employer or dates), say how in \"conflict\" in plain words, e.g. \"Your resume says Finance & BIS\"; otherwise leave it empty. Something missing from the resume is not a conflict: instead set \"notOnResume\": true for experience, skills, certifications, awards or activities the resume doesn't mention.",
         `Source: ${kind}\nRESUME AND PROFILE (for spotting disagreements only):\n${profileSummary(ctx.ws)}\n${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org, e.dates].filter(Boolean).join(", ")).join("; ")).join("\n") : "(no resume)"}\n\nReturn {"facts":[{"text":"","category":"background|goal|preference|skill|experience|constraint|other","quote":"exact words","conflict":"","notOnResume":false}]} with at most 15 facts.\n\nTEXT:\n"""${raw.slice(0, 12000)}"""`,
       ),
     );
+    // Adding the same account again replaces what the last copy said (it may have been the wrong file).
+    // Facts the student already approved stay approved if the new copy says them too.
+    const source = kind.replace(/\s*\(.*\)$/, "");
+    const wasApproved = new Set(ctx.ws.memory.filter((m) => m.source === `${kind} import` && m.status === "approved").map((m) => norm(m.text)));
+    ctx.ws.memory = ctx.ws.memory.filter((m) => m.source !== `${kind} import`);
+    ctx.ws.tasks = ctx.ws.tasks.filter((t) => t.done || t.source !== `${source} check`);
     const n = norm(raw);
     let added = 0;
     const missing: string[] = [];
@@ -676,19 +701,26 @@ export async function registerRoutes(_server: Server, app: Express) {
       .filter((org) => org && !norm(ctx.ws.profile.school || "").includes(norm(org)) && !norm(org).includes(norm(ctx.ws.profile.school || "x")));
     for (const f2 of out.facts || []) {
       if (f2.quote && !n.includes(norm(f2.quote).slice(0, 80))) continue; // drop anything not grounded in the text
-      if (addFact(ctx.ws, f2.text, f2.category || "other", `${kind} import`, "suggested", String(f2.conflict || ""))) added++;
+      const ok = !f2.conflict && wasApproved.has(norm(f2.text.trim()));
+      if (addFact(ctx.ws, f2.text, f2.category || "other", `${kind} import`, ok ? "approved" : "suggested", String(f2.conflict || ""))) added++;
       if (f2.notOnResume && !f2.conflict && ctx.ws.resume && !disputed.some((org) => f2.text.includes(org))) missing.push(f2.text.trim());
     }
     // The student decides what belongs on the resume; Remy only makes the gap visible as a to-do.
-    const source = kind.replace(/\s*\(.*\)$/, "");
     if (missing.length) {
-      ctx.ws.tasks = ctx.ws.tasks.filter((t) => !(t.source === `${source} check` && !t.done && t.title.startsWith("Decide what to add")));
       ctx.ws.tasks.unshift({ id: uid("t"), title: `Decide what to add to your resume from ${source}`, why: `Your ${source} lists ${missing.length} thing${missing.length === 1 ? "" : "s"} your resume doesn't: ${missing.slice(0, 6).join("; ")}${missing.length > 6 ? "; …" : ""}. Add the ones that still apply and are true, so employers see the same story everywhere.`, due: "", category: "Prepare", done: false, source: `${source} check`, link: "/resume" });
     }
-    ctx.ws.imports.unshift({ id: uid("i"), kind, fileName: f?.originalname || "Pasted text", at: nowIso(), label: "Student provided", factsAdded: added });
+    ctx.ws.imports.unshift({ id: uid("i"), kind, fileName, at: nowIso(), label: "Student provided", factsAdded: added });
     await ctx.save();
+    return added;
+  }
+  app.post("/api/import/profile", uploadFile, route(async (req, res, ctx) => {
+    const kind = String(req.body?.kind || "Other");
+    const f = (req as any).file as Express.Multer.File | undefined;
+    const raw = f ? await fileToText(f.buffer, f.originalname, f.mimetype) : String(req.body?.text || "");
+    if (raw.trim().length < 40) bad("Add a file or paste at least a few lines of profile text.");
+    const added = await importProfile(ctx, kind, raw, f?.originalname || "Pasted text");
     res.json({ workspace: ctx.ws, added });
-  }));
+  }, { serial: true }));
 
   // ---------- AI: onboarding questions + plan ----------
   app.post("/api/ai/questions", route(async (_req, res, ctx) => {

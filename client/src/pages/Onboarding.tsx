@@ -153,7 +153,7 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
           <span className="conn-ico linkedin" aria-hidden><LinkedInMark /></span>
           <div className="grow"><b>LinkedIn</b><span>{linkedin ? `${linkedin.fileName} · ${linkedin.factsAdded} fact${linkedin.factsAdded === 1 ? "" : "s"} to review on the next step` : "Adds experience that isn't on your resume"}</span></div>
           {linkedin ? <span className="conn-badge done"><Check size={13} /> Added</span> : <span className="conn-badge">Not added</span>}
-          <button className="btn btn-secondary btn-sm" onClick={() => setPage("linkedin")} data-testid="button-source-linkedin">{linkedin ? "Add again" : "Connect"}</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setPage("linkedin")} disabled={busy} title={busy ? "Wait for your resume to finish reading" : undefined} data-testid="button-source-linkedin">{linkedin ? "Add again" : "Connect"}</button>
         </div>
         {/* Shown to everyone from the start; school-only tools appear below once the email is verified. */}
         {atTcu(me) ? <SchoolVerify /> : (

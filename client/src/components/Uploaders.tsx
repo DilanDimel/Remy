@@ -4,7 +4,7 @@ import type { Workspace } from "@shared/types";
 import { api, useStore } from "../lib/store";
 import { Spinner } from "./common";
 
-export function ResumeUpload({ compact = false, onDone, onBusy }: { compact?: boolean; onDone?: () => void; onBusy?: (busy: boolean) => void }) {
+export function ResumeUpload({ compact = false, onDone, onBusy, source }: { compact?: boolean; onDone?: () => void; onBusy?: (busy: boolean) => void; source?: "linkedin" }) {
   const { setWs, run, config } = useStore();
   const [busy, setBusy] = useState<"" | "file" | "text">("");
   useEffect(() => { onBusy?.(!!busy); }, [busy]);
@@ -18,7 +18,8 @@ export function ResumeUpload({ compact = false, onDone, onBusy }: { compact?: bo
     setBusy("file");
     const fd = new FormData();
     fd.append("file", f);
-    const w = await run(() => api<Workspace>("POST", "/api/resume/upload", fd), "Resume read — please review it");
+    if (source) fd.append("source", source);
+    const w = await run(() => api<Workspace>("POST", "/api/resume/upload", fd), source ? "LinkedIn read" : "Resume read — please review it");
     if (w) { setWs(w); onDone?.(); }
     setBusy("");
   };
