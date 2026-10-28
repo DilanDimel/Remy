@@ -20,6 +20,7 @@ import CalendarPage from "./pages/Calendar";
 import Progress from "./pages/Progress";
 import Accounts from "./pages/Accounts";
 import { About, Policies } from "./pages/Info";
+import Admin from "./pages/Admin";
 import type { ChatAction, Workspace } from "@shared/types";
 
 const NAV = [
@@ -55,6 +56,7 @@ function Root() {
         <div className="stack" style={{ alignItems: "center" }}><Remy size={64} mood="think" /><span className="muted small">Remy is getting things ready…</span></div>
       </div>
     );
+  if (path === "/admin" && me) return <Admin />;
   if (!me || !ws || !ws.started || signInAgain) return <Welcome />;
   if (!ws.onboarding.done) return <Onboarding />;
   return <Shell />;
@@ -339,6 +341,7 @@ function ProfileMenu({ initials, active }: { initials: string; active: boolean }
           <div className="divider" />
           <button role="menuitem" onClick={() => { setOpen(false); go("/about"); }} data-testid="menu-about">About Remy</button>
           <button role="menuitem" onClick={() => { setOpen(false); go("/policies"); }} data-testid="menu-policies">Privacy & terms</button>
+          {me?.owner && <button role="menuitem" onClick={() => { setOpen(false); go("/admin"); }} data-testid="menu-admin">Owners' dashboard</button>}
           <div className="divider" />
           <button role="menuitem" onClick={signOut} data-testid="menu-sign-out">Sign out</button>
         </div>

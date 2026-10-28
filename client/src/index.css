@@ -370,6 +370,23 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
   .lp-chat { transform: none; }
   .lp-steps, .lp-what { grid-template-columns: 1fr; }
 }
+/* owners' dashboard */
+.admin { max-width: 1080px; margin: 0 auto; padding: 16px; display: grid; gap: 18px; }
+.admin-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.admin-stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 2px; }
+.admin-stat strong { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.02em; }
+.admin-bars { display: flex; align-items: flex-end; gap: 6px; height: 140px; }
+.admin-bar { flex: 1; max-width: 48px; display: flex; flex-direction: column-reverse; align-items: stretch; height: 100%; gap: 0; min-width: 0; }
+.admin-bar > div { border-radius: 3px 3px 0 0; min-height: 0; }
+.admin-bar span { text-align: center; padding-top: 4px; order: -1; }
+.admin-funnel { display: grid; grid-template-columns: 180px 1fr 40px; gap: 10px; align-items: center; }
+.admin-funnel > div { background: var(--surface-2); border-radius: 6px; height: 12px; overflow: hidden; }
+.admin-funnel > div > div { background: var(--fox); height: 100%; }
+.admin-form { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; align-items: center; }
+.admin-row { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-top: 1px solid var(--line); }
+.admin-date { width: 64px; display: grid; flex: none; }
+.admin-pre { white-space: pre-wrap; font-size: 11px; background: var(--surface-2); padding: 10px; border-radius: 8px; overflow-x: auto; max-height: 260px; }
+@media (max-width: 720px) { .admin-form { grid-template-columns: 1fr; } .admin-funnel { grid-template-columns: 1fr 1fr 32px; } }
 /* connect your accounts */
 .conn-title { font-size: clamp(1.5rem, 1.2rem + 1vw, 2.1rem); font-weight: 800; letter-spacing: -0.02em; }
 .remy-prompt { display: flex; gap: 12px; align-items: flex-start; background: var(--surface-2); border-radius: 14px; padding: 14px 16px; font-size: 15px; }

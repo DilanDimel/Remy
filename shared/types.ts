@@ -434,6 +434,8 @@ export interface Me {
   picture: string;
   /** A school email the student verified with a code (unlocks alumni). */
   schoolEmail?: string;
+  /** One of Remy's owners (OWNER_EMAILS): can open the admin dashboard. */
+  owner?: boolean;
 }
 export interface AppConfig {
   googleClientId: string | null;

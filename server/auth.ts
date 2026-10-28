@@ -1,3 +1,4 @@
+import { isOwner } from "./admin";
 import type { Request, Response } from "express";
 import { OAuth2Client } from "google-auth-library";
 import type { Me } from "@shared/types";
@@ -36,7 +37,7 @@ export async function identify(req: Request): Promise<Me | null> {
   if (token) {
     const id = await sessionUser(token);
     const u = id ? await getUser(id) : null;
-    if (u) return u;
+    if (u) return isOwner(u) ? { ...u, owner: true } : u;
   }
   // The preview host injects X-Visitor-Id; published sites use the session cookie only.
   const v = process.env.NODE_ENV !== "production" || process.env.OR_TRUST_VISITOR_HEADER === "1" ? req.header("x-visitor-id") : undefined;

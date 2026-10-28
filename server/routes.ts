@@ -12,6 +12,8 @@ import type {
 import { aiAllowed, checkSchoolCode, cleanupOld, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, markAiAuthFailure, model } from "./ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./safety";
+import * as admin from "./admin";
+import { recordError } from "./admin";
 import { careersFor, futureFor, officialFor } from "./future";
 import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase } from "./auth";
 import { aiExtractPosting, CLOSED_SIGNALS, fetchPublic, fileToText, htmlToText, norm, pdfStyle } from "./parse";
@@ -108,7 +110,7 @@ function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: 
     } catch (e: any) {
       if (e instanceof AiUnavailable) return res.status(503).json({ message: e.message, code: "ai-unavailable" });
       const status = e?.status || 500;
-      if (status >= 500) console.error("route error", e?.message);
+      if (status >= 500) { console.error("route error", e?.message); recordError("server", `${req.method} ${req.path}`, String(e?.message || e), String(e?.code || "")); }
       // Errors we raised on purpose carry a status and a user-facing message; anything else stays generic.
       const message = e?.status ? e.message : "Something went wrong. Please try again.";
       if (!res.headersSent) res.status(status).json({ message, code: e?.code });
@@ -336,9 +338,21 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (allow("client-error:" + clientIp(req), 20, 10 * 60_000) && clientErrors++ < 500) {
       const b = req.body || {};
       console.error("client error", JSON.stringify({ where: String(b.where || "").slice(0, 80), message: String(b.message || "").slice(0, 500), url: String(b.url || "").slice(0, 200), stack: String(b.stack || "").slice(0, 1500) }));
+      recordError("browser", String(b.url || b.where || ""), String(b.message || "Unknown error"), String(b.stack || ""));
     }
     res.json({ ok: true });
   });
+
+  // ---------- owners' dashboard (server/admin.ts) ----------
+  const owner = (ctx: Ctx) => { if (!ctx.me.owner) bad("This page is only for Remy's owners.", 403); return ctx.me.email.toLowerCase(); };
+  app.get("/api/admin/overview", route(async (_req, res, ctx) => { owner(ctx); res.json(await admin.overview()); }));
+  app.get("/api/admin/errors", route(async (_req, res, ctx) => { owner(ctx); res.json(await admin.errors()); }));
+  app.get("/api/admin/team", route(async (_req, res, ctx) => { res.json(await admin.team(owner(ctx))); }));
+  app.post("/api/admin/tasks", route(async (req, res, ctx) => { const me = owner(ctx); await admin.saveTask(me, req.body || {}); res.json(await admin.team(me)); }));
+  app.delete("/api/admin/tasks/:id", route(async (req, res, ctx) => { const me = owner(ctx); await admin.deleteTask(String(req.params.id)); res.json(await admin.team(me)); }));
+  app.post("/api/admin/events", route(async (req, res, ctx) => { const me = owner(ctx); await admin.addEvent(me, req.body || {}); res.json(await admin.team(me)); }));
+  app.delete("/api/admin/events/:id", route(async (req, res, ctx) => { const me = owner(ctx); await admin.deleteEvent(String(req.params.id)); res.json(await admin.team(me)); }));
+  app.post("/api/admin/clock", route(async (req, res, ctx) => { const me = owner(ctx); await admin.clock(me, req.body?.action === "out" ? "out" : "in", String(req.body?.note || "")); res.json(await admin.team(me)); }));
 
   app.get("/api/me", async (req, res, next) => {
     try {
