@@ -99,8 +99,7 @@ try {
   ws = (await call(cookie, "PUT", "/api/ws/hiddenJobIds", { value: [jobs.at(-1).id] })).json;
   ws = (await call(cookie, "POST", "/api/memory/remember", { text: "Prefers roles in New York" })).json;
   ws = (await call(cookie, "POST", "/api/safeguard/test", {})).json.workspace;
-  ws = (await call(cookie, "POST", "/api/community/sample")).json;
-  ws = (await call(cookie, "POST", "/api/inbox/sample")).json;
+  ws = (await call(cookie, "PUT", "/api/ws/contacts", { value: [{ id: "c-test", name: "Pat Lee", title: "Analyst", org: "Example Co", email: "pat@example.com", why: "Met at the career fair", tags: [], label: "Student provided" }] })).json;
   ws = (await call(cookie, "POST", "/api/inbox/paste", { from: "recruiting@example.com", subject: "Thanks for applying", body: "Thank you for applying. We have received your application and will be in touch." })).json;
   const before = (await call(cookie, "GET", "/api/me")).json.workspace;
   ok("used resume, profile, tasks, calendar, settings, opportunities, applications, memory, safeguard, community and inbox");

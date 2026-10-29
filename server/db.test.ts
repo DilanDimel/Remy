@@ -30,6 +30,19 @@ test("saveSections merges only the sections it's given, so parallel saves don't 
   assert.equal((await loadWorkspace("u2")).tasks.length, 1);
 });
 
+test("saved alumni and sample contacts/emails are dropped on load; student-added ones stay", async () => {
+  await ensureUser(me("u9"));
+  const ws = await loadWorkspace("u9");
+  ws.contacts = [{ id: "alum-al1", label: "Live" }, { id: "c-sample-1", label: "Demo data" }, { id: "c1", label: "Student provided" }] as any;
+  ws.outreach = [{ id: "o1", contactId: "alum-al1" }, { id: "o2", contactId: "c1" }] as any;
+  ws.inbox = [{ id: "m1", label: "Sample email" }, { id: "m2", label: "Pasted by student" }] as any;
+  await saveWorkspace("u9", ws);
+  const after = await loadWorkspace("u9");
+  assert.deepEqual(after.contacts.map((c) => c.id), ["c1"]);
+  assert.deepEqual(after.outreach.map((o) => o.id), ["o2"]);
+  assert.deepEqual(after.inbox.map((m) => m.id), ["m2"]);
+});
+
 test("text with a NUL character (from some PDFs) still saves", async () => {
   await ensureUser(me("u-nul"));
   const after = await saveSections("u-nul", { tasks: [{ id: "t1", title: "Seesaw\u0000CPR" }] as any });

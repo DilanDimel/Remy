@@ -414,6 +414,8 @@ export interface Workspace {
   calendar: CalItem[];
   contacts: Contact[];
   outreach: OutreachDraft[];
+  /** The beta terms version the student agreed to, and when (server time). */
+  betaAgreed?: { version: string; at: string };
   plan?: PathPlan;
   chat: ChatMsg[];
   aiLog: AiLogEntry[];
@@ -435,7 +437,7 @@ export interface Me {
   email: string;
   name: string;
   picture: string;
-  /** A school email the student verified with a code (unlocks alumni). */
+  /** A school email the student verified with a code (unlocks school-specific tools). */
   schoolEmail?: string;
   /** One of Remy's owners (OWNER_EMAILS): can open the admin dashboard. */
   owner?: boolean;

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, useStore } from "../lib/store";
 import { ArrowLeft, CalendarClock, Check, FileText, Search, ShieldCheck } from "lucide-react";
 import { useRoute } from "../lib/router";
-import { Remy, Spinner, StatusChip } from "../components/common";
+import { BetaBadge, Remy, Spinner, StatusChip } from "../components/common";
 import { providerOn, sendMagicLink, startOAuth, type SupabaseProvider } from "../lib/supabase";
 
 export function useGoogleButton(onCredential: (cred: string) => void) {
@@ -89,7 +89,7 @@ function SignIn() {
         <div className="landing">
           <Remy size={72} mood="wave" />
           <h1 className="motto">Sign in to Remy</h1>
-          <p className="sub">Free for students. New here? Signing in creates your account; setup takes about 5 minutes.</p>
+          <p className="sub">Free for students while Remy is in beta. New here? Signing in creates your account; setup takes about 5 minutes.</p>
         </div>
         <div className="sso-list">
           <div data-testid="google-signin">
@@ -134,7 +134,7 @@ function Landing() {
   return (
     <div className="lp">
       <header className="lp-top">
-        <span className="logo"><Remy size={30} mood="idle" /> Remy</span>
+        <span className="logo"><Remy size={30} mood="idle" /> Remy <BetaBadge /></span>
         <nav className="row" style={{ gap: 4 }}>
           <button className="btn btn-ghost btn-sm hide-sm" onClick={toTour}>What you get</button>
           <a className="btn btn-ghost btn-sm hide-sm" href="/about">About</a>
@@ -150,7 +150,7 @@ function Landing() {
             <a className="btn btn-primary" href="/signin" data-testid="button-lp-start">Create your free account</a>
             <button className="btn btn-secondary" onClick={toTour}>See what you get</button>
           </div>
-          <p className="xs muted">For every major and every year, freshmen included. Built by students at TCU.</p>
+          <p className="xs muted">For every major and every year, freshmen included. Built by students at TCU. Remy is in beta: it&rsquo;s still in development, and unfinished features are marked &ldquo;Coming soon&rdquo;.</p>
         </div>
         <HeroExample />
       </section>

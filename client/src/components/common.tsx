@@ -90,3 +90,6 @@ export function AiUnavailableNote() {
     </div>
   );
 }
+
+/** Remy is still in development; shown beside the logo everywhere. */
+export const BetaBadge = () => <span className="beta-badge" title="Remy is in development: features may change or be unfinished">Beta</span>;

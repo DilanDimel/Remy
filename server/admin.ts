@@ -50,7 +50,7 @@ const FEATURES: [string, string][] = [
   ["Career explainer", "e->>'purpose' = 'Explain a career'"],
   ["Starting plan", "e->>'purpose' = 'Initial plan'"],
   ["Finding openings", "e->>'purpose' = 'Pick employers'"],
-  ["Alumni outreach drafts", "e->>'purpose' = 'Draft outreach'"],
+  ["Outreach drafts", "e->>'purpose' = 'Draft outreach'"],
 ];
 
 export async function overview() {

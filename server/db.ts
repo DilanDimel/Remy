@@ -114,7 +114,13 @@ function fromStored(data: any): Workspace {
   if (!data || data.version !== 2) return emptyWorkspace();
   // forward-fill any keys added later
   const empty = emptyWorkspace();
-  return { ...empty, ...data, profile: { ...empty.profile, ...data.profile }, settings: { ...empty.settings, ...data.settings } };
+  const ws: Workspace = { ...empty, ...data, profile: { ...empty.profile, ...data.profile }, settings: { ...empty.settings, ...data.settings } };
+  // Sample contacts/emails and the old TCU alumni list (no permission to use it) were removed; drop any saved copies.
+  const gone = (c: { id: string; label?: string }) => c.id.startsWith("alum-") || c.label === "Demo data";
+  ws.outreach = ws.outreach.filter((o) => !ws.contacts.some((c) => c.id === o.contactId && gone(c)));
+  ws.contacts = ws.contacts.filter((c) => !gone(c));
+  ws.inbox = ws.inbox.filter((m) => m.label !== "Sample email");
+  return ws;
 }
 export async function loadWorkspace(userId: string): Promise<Workspace> {
   const r = await q1("SELECT data FROM workspaces WHERE user_id=$1", [userId]);

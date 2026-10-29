@@ -57,7 +57,7 @@ function Sources() {
     atTcu(me)
       ? { name: "Stellic / TCU academic", status: stellic ? "Student provided" : "Needs setup", chip: stellic ? "Added" : "Coming soon", label: stellic ? `${stellic.fileName} · ${fmtDate(stellic.at)}` : "Direct connection coming soon · you can paste your degree plan now", detail: "Requirements must come from your advisor and official tools.", importKind: "Stellic / degree plan" }
       : { name: "Degree plan", status: stellic ? "Student provided" : "Needs setup", chip: stellic ? "Added" : "Not added", label: stellic ? `${stellic.fileName} · ${fmtDate(stellic.at)}` : "Paste your plan from your school's degree-planning tool", detail: "Requirements must come from your advisor and official tools.", importKind: "Degree plan" },
-    { name: "Email inbox", status: "Needs setup", chip: "Coming soon", label: "Paste recruiting emails in Progress for now", detail: "Remy doesn't read your inbox. Sample emails are labeled as demos." },
+    { name: "Email inbox", status: "Needs setup", chip: "Coming soon", label: "Paste recruiting emails in Progress for now", detail: "Remy doesn't read your inbox." },
   ];
 
   return (

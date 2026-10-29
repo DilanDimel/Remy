@@ -5,10 +5,10 @@ import fs from "node:fs";
 import path from "node:path";
 import multer from "multer";
 import { z } from "zod";
-import { SAMPLE_CONTACTS, SAMPLE_INBOX } from "@shared/catalog";
 import type {
   Application, AppConfig, BulletChange, ChatAction, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace,
 } from "@shared/types";
+import { BETA_TERMS_VERSION } from "@shared/beta";
 import { aiAllowed, checkSchoolCode, cleanupOld, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./safety";
@@ -26,14 +26,13 @@ import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, ski
 import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSION } from "./fit";
 import { atsScore } from "./ats";
 import { boardsFor, CAREERONESTOP, discoverJobs, EMPLOYERS, USAJOBS } from "./sources";
-import { alumniList, matchAlumni } from "./alumni";
 import { emailReady, sendEmail } from "./email";
 import { docxStyle, editDocx } from "./docxEdit";
 import * as gcal from "./gcal";
 import { q, schema } from "./sql";
 import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./docs";
 
-// Email domains whose owners count as students of the school with the alumni list.
+// Email domains whose owners count as students of the partner school (TCU).
 const ALUMNI_DOMAINS = (process.env.OR_ALUMNI_EMAIL_DOMAINS || "tcu.edu").split(",").map((d) => d.trim().toLowerCase()).filter(Boolean);
 // Without an email sender, local runs print the code to the server log so the flow can be tested.
 const devCodes = () => !emailReady() && process.env.NODE_ENV !== "production";
@@ -476,6 +475,13 @@ export async function registerRoutes(_server: Server, app: Express) {
       draft: z.record(z.string(), z.array(z.looseObject({ id: str(120), text: str(400), options: z.array(str(400)).max(4), source: str(2000) })).max(6)).optional(),
     }),
   };
+  // Beta terms: recorded with the server's time and the exact version shown.
+  app.post("/api/beta/agree", route(async (req, res, ctx) => {
+    if (req.body?.version !== BETA_TERMS_VERSION) bad("These terms changed. Reload the page to see the latest version.", 409);
+    ctx.ws.betaAgreed = { version: BETA_TERMS_VERSION, at: nowIso() };
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
   app.put("/api/ws/:section", route(async (req, res, ctx) => {
     const section = req.params.section as (typeof SECTIONS)[number];
     if (!SECTIONS.includes(section)) bad("Unknown section");
@@ -1311,7 +1317,8 @@ Return JSON:
     res.json({ flags, workspace: ctx.ws });
   }));
 
-  // ---------- school email verification (unlocks alumni) ----------
+  // ---------- school email verification (unlocks school-specific tools) ----------
+  const signedIn = (me: Me) => me.kind === "google" || me.kind === "supabase" || me.kind === "local";
   app.post("/api/school-email/start", route(async (req, res, ctx) => {
     if (!signedIn(ctx.me)) bad("Sign in first, so the verification stays with your account.", 401);
     const email = String(req.body?.email || "").trim().toLowerCase();
@@ -1386,50 +1393,6 @@ Return JSON:
   }));
 
   // ---------- community outreach ----------
-  app.post("/api/community/sample", route(async (_req, res, ctx) => {
-    for (const c of SAMPLE_CONTACTS) if (!ctx.ws.contacts.some((x) => x.id === c.id)) ctx.ws.contacts.push(c);
-    await ctx.save();
-    res.json(ctx.ws);
-  }));
-  // TCU alumni matched to this student (top matches only; the list stays server-side).
-  // Alumni names and emails are personal data: only students signed in with a school
-  // email see matches, the match list carries no emails, and a student can only save
-  // alumni from their own current matches.
-  const schoolEmail = (me: Me) => ALUMNI_DOMAINS.some((d) => me.email.toLowerCase().endsWith("@" + d));
-  const signedIn = (me: Me) => me.kind === "google" || me.kind === "supabase" || me.kind === "local";
-  const alumniOk = (me: Me) => me.kind === "local" || (signedIn(me) && (schoolEmail(me) || !!me.schoolEmail));
-  const myMatches = (ctx: Ctx) => {
-    const companies = Array.from(new Set([...ctx.ws.savedJobIds, ...ctx.ws.applications.map((a) => a.jobId)].map((id) => findJob(ctx.ws, id)?.company).filter(Boolean) as string[]));
-    return matchAlumni(ctx.ws, companies);
-  };
-  app.get("/api/community/alumni", route(async (_req, res, ctx) => {
-    const list = alumniList();
-    const base = { source: list.source, total: list.alumni.length, matches: [] };
-    if (!signedIn(ctx.me)) return res.json({ ...base, signInRequired: true });
-    if (!alumniOk(ctx.me)) return res.json({ ...base, schoolEmailRequired: true, domains: ALUMNI_DOMAINS });
-    if (!allow("alumni:" + ctx.me.id, 30, 60 * 60_000)) bad("You've refreshed your alumni matches a lot. Please try again in an hour.", 429);
-    res.json({ ...base, matches: myMatches(ctx).map(({ email, ...rest }) => rest) });
-  }));
-  app.post("/api/community/alumni/:id/contact", route(async (req, res, ctx) => {
-    if (!alumniOk(ctx.me)) bad(`Sign in with your ${ALUMNI_DOMAINS.map((d) => "@" + d).join(" or ")} email to contact TCU alumni.`, 403);
-    const a = myMatches(ctx).find((x) => x.id === String(req.params.id));
-    if (!a) bad("That alum isn't in your current matches.", 404);
-    if (!ctx.ws.contacts.some((x) => x.id === "alum-" + a!.id) && !allow("alumni-contact:" + ctx.me.id, 25, 24 * 60 * 60_000))
-      bad("You've saved 25 alumni today. Reach out to those first, then come back tomorrow.", 429);
-    const id = "alum-" + a!.id;
-    let c = ctx.ws.contacts.find((x) => x.id === id);
-    if (!c) {
-      c = {
-        id, name: a!.name, title: a!.title || a!.role, org: a!.employer, email: a!.email,
-        why: `TCU alum${a!.year ? `, Class of ${a!.year}` : ""} · ${[a!.industry, a!.location].filter(Boolean).join(" · ")}${a!.majors.length ? ` · ${a!.majors.join("/")} major` : ""}`,
-        tags: ["TCU alumni list", a!.industry, a!.role].filter(Boolean), label: "Live",
-      };
-      ctx.ws.contacts.unshift(c);
-      await ctx.save();
-    }
-    res.json({ contact: c, workspace: ctx.ws });
-  }));
-
   // Outreach email from the student's own answers to Remy's questions. Follows the
   // career office's informational-interview guide; never leaves placeholders.
   app.post("/api/ai/outreach", route(async (req, res, ctx) => {
@@ -1448,7 +1411,7 @@ Return JSON:
       out = await withAi(ctx, "Draft outreach", () =>
         aiJson<{ subject: string; body: string; linkedin: string }>(
           `You write a university student's networking email, following their career office's guidance for informational interviews: say who you are (school, year, major), how you found the person, why them specifically, ask for a 20-30 minute conversation (phone, Zoom or in person) and offer flexibility; warm, specific, professional, under 170 words. Use ONLY the facts and answers given — never invent experience, mutual connections or details. Never use placeholders or brackets of any kind: if a detail is unknown, leave it out. End with the student's sign-off exactly as given. Also write a LinkedIn connection note under 200 characters.`,
-          `TO: ${c!.name}, ${c!.title} at ${c!.org}\nABOUT THEM: ${c!.why}\nHOW THE STUDENT FOUND THEM: ${c!.tags.includes("TCU alumni list") ? "the TCU Neeley alumni networking list from the career office" : "student-added contact"}\nSTUDENT:\n${profileSummary(ctx.ws)}\nRESUME HIGHLIGHTS: ${ctx.ws.resume ? ctx.ws.resume.doc.sections.flatMap((s) => s.entries.map((e) => [e.role, e.org].filter(Boolean).join(" at "))).slice(0, 6).join("; ") : "(none)"}\nSTUDENT'S ANSWERS:\n${answers.map((x) => `${x.q} → ${x.a}`).join("\n") || `Purpose → ${purpose}`}\nSIGN-OFF:\nBest regards,\n${sig}\n\nReturn {"subject":"","body":"","linkedin":""}`,
+          `TO: ${c!.name}, ${c!.title} at ${c!.org}\nABOUT THEM: ${c!.why}\nHOW THE STUDENT FOUND THEM: student-added contact\nSTUDENT:\n${profileSummary(ctx.ws)}\nRESUME HIGHLIGHTS: ${ctx.ws.resume ? ctx.ws.resume.doc.sections.flatMap((s) => s.entries.map((e) => [e.role, e.org].filter(Boolean).join(" at "))).slice(0, 6).join("; ") : "(none)"}\nSTUDENT'S ANSWERS:\n${answers.map((x) => `${x.q} → ${x.a}`).join("\n") || `Purpose → ${purpose}`}\nSIGN-OFF:\nBest regards,\n${sig}\n\nReturn {"subject":"","body":"","linkedin":""}`,
           1200,
         ),
       );
@@ -1456,12 +1419,11 @@ Return JSON:
       // No AI: the guide's sample structure, filled with the student's answers.
       const first = c!.name.split(/\s+/)[0];
       const ans = (i: number) => answers[i]?.a || "";
-      const alum = c!.tags.includes("TCU alumni list");
-      const school = p.school.trim() || (alum ? "TCU" : "");
+      const school = p.school.trim();
       const who = [p.classYear && p.classYear.toLowerCase(), "student", school && `at ${school}`, p.major && `studying ${p.major}`].filter(Boolean).join(" ");
       out = {
         subject: `${school ? school + " student" : "Student"} — ${ans(0) ? "quick question about your path" : "informational interview request"}`,
-        body: [`Dear ${first},`, `I'm ${me}, a ${who}. ${alum ? "I found your contact information through the TCU Neeley alumni networking list" : `I'm reaching out about your work at ${c!.org}`}${ans(1) ? ` and was especially interested in ${ans(1)}` : alum ? ` and was interested in your work at ${c!.org}` : ""}.`,
+        body: [`Dear ${first},`, `I'm ${me}, a ${who}. I'm reaching out about your work at ${c!.org}${ans(1) ? ` and was especially interested in ${ans(1)}` : ""}.`,
           ans(2), `Might you be available for a 20-30 minute conversation${ans(3) ? ` — I'm generally free ${ans(3)}` : ""}? ${ans(0) ? `I'd love to ${ans(0).replace(/^(to |i'd like to |i want to )/i, "")}.` : "I'd appreciate hearing about your experience and any advice you have."}`,
           "Thank you in advance for your consideration.", `Best regards,\n${sig}`].filter(Boolean).join("\n\n"),
         linkedin: `Hi ${first}, I'm ${school ? `a ${school}` : "a"} student interested in ${c!.org} and your path into ${c!.title || "your field"}. I'd love to connect and learn from you. — ${me}`.slice(0, 199),
@@ -1475,11 +1437,6 @@ Return JSON:
   }));
 
   // ---------- inbox → status suggestions ----------
-  app.post("/api/inbox/sample", route(async (_req, res, ctx) => {
-    for (const m of SAMPLE_INBOX) if (!ctx.ws.inbox.some((x) => x.id === m.id)) ctx.ws.inbox.push(m);
-    await ctx.save();
-    res.json(ctx.ws);
-  }));
   app.post("/api/inbox/paste", route(async (req, res, ctx) => {
     const body = String(req.body?.body || "").slice(0, 8000);
     if (body.trim().length < 30) bad("Paste the full email text.");

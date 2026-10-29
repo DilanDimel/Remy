@@ -197,6 +197,8 @@ p, li { max-width: 72ch; }
 .brand { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px 14px; gap: 8px; }
 .logo { font-family: var(--font-display); font-weight: 800; font-size: 1.4rem; letter-spacing: -0.03em; color: var(--ink); white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; }
 .logo b { color: var(--fox); }
+.beta-badge { font-family: var(--font-body, inherit); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--blue); background: var(--blue-bg); border-radius: 999px; padding: 2px 7px; line-height: 1.4; }
+.nav-collapsed .beta-badge { display: none; }
 .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; font-weight: 500; color: var(--ink); white-space: nowrap; font-size: var(--text-sm); position: relative; }
 .nav-item:hover { background: var(--lav-2); }
 .nav-item[aria-current="page"] { background: var(--lav); color: var(--plum); font-weight: 700; }

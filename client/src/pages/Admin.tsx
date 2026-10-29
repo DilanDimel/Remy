@@ -2,7 +2,7 @@ import { useEffect, useState, type DragEvent, type ReactNode } from "react";
 import { Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, CalendarDays, Check, Clock, KanbanSquare, Plus, RotateCcw, Trash2, Users } from "lucide-react";
 import { api, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
-import { Empty, Remy, Spinner } from "../components/common";
+import { BetaBadge, Empty, Remy, Spinner } from "../components/common";
 
 // The owners' dashboard (server/admin.ts). Numbers about use, errors students hit, and the team's
 // own board, meetings, hours and activity. Never anything a student wrote.
@@ -62,7 +62,7 @@ export default function Admin() {
   return (
     <div className="adm">
       <aside className="adm-nav">
-        <span className="logo"><Remy size={26} /> Remy</span>
+        <span className="logo"><Remy size={26} /> Remy <BetaBadge /></span>
         <span className="xs muted adm-role">Owners</span>
         <nav>
           {TABS.map(([k, l, Icon]) => <a key={k} href={`/admin?tab=${k}`} aria-current={tab === k ? "page" : undefined}><Icon size={17} /> {l}</a>)}

@@ -7,7 +7,7 @@ import {
 import { StoreProvider, api, rid, useStore } from "./lib/store";
 import { go, replaceRoute, useRoute } from "./lib/router";
 const PUBLIC = new Set(["/", "/signin", "/about", "/policies", "/privacy", "/terms"]);
-import { Modal, Remy, Spinner, StatusChip } from "./components/common";
+import { BetaBadge, Modal, Remy, Spinner, StatusChip } from "./components/common";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { answer as answerTailor, endSession as endTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
@@ -23,6 +23,7 @@ import Accounts from "./pages/Accounts";
 import { About, Policies } from "./pages/Info";
 import Admin from "./pages/Admin";
 import type { ChatAction, Workspace } from "@shared/types";
+import { BETA_TERMS, BETA_TERMS_LEAD, BETA_TERMS_VERSION } from "@shared/beta";
 
 const NAV = [
   { path: "/", label: "Home", icon: HomeIcon },
@@ -63,8 +64,37 @@ function Root() {
     return <SlowLoading />;
   if (path === "/admin" && me) return <Admin />;
   if (signedOut) return <Welcome />;
+  if (ws.betaAgreed?.version !== BETA_TERMS_VERSION) return <BetaAgreement />;
   if (!ws.onboarding.done) return <Onboarding />;
   return <Shell />;
+}
+
+/** Every student agrees to the beta terms once (and again when they change) before using Remy. */
+function BetaAgreement() {
+  const { setWs, run } = useStore();
+  const [ok, setOk] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const agree = async () => {
+    setBusy(true);
+    const r = await run(() => api<Workspace>("POST", "/api/beta/agree", { version: BETA_TERMS_VERSION }));
+    if (r) setWs(r);
+    setBusy(false);
+  };
+  return (
+    <div className="landing-screen">
+      <div className="landing-card fade-up stack" data-testid="beta-agreement">
+        <div className="row" style={{ gap: 10 }}><Remy size={44} mood="wave" /><h1 style={{ fontSize: "1.4rem" }}>Before you start <BetaBadge /></h1></div>
+        <p>{BETA_TERMS_LEAD}</p>
+        <ul className="stack-sm small" style={{ paddingLeft: 18 }}>{BETA_TERMS.map((t) => <li key={t}>{t}</li>)}</ul>
+        <p className="xs muted">Read the full <a href="/policies" target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>privacy policy and terms</a>.</p>
+        <label className="row small" style={{ gap: 8, alignItems: "flex-start", flexWrap: "nowrap" }}>
+          <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} data-testid="checkbox-beta-agree" style={{ marginTop: 3 }} />
+          <span>I understand Remy is in beta and I agree to these terms.</span>
+        </label>
+        <button className="btn btn-primary" disabled={!ok || busy} onClick={agree} data-testid="button-beta-agree">{busy ? <Spinner /> : null} Agree and continue</button>
+      </div>
+    </div>
+  );
 }
 
 // A reload checks the session in well under a second; showing Remy's loading screen for that long reads as a
@@ -132,7 +162,7 @@ function Shell() {
     <div className={`shell ${collapsed ? "nav-collapsed" : ""} ${asstOpen ? "asst-open" : ""}`}>
       <aside className="sidebar" aria-label="Main navigation">
         <div className="brand">
-          <span className="logo"><Remy size={26} /><span className="logo-text">Remy<b>.</b></span></span>
+          <span className="logo"><Remy size={26} /><span className="logo-text">Remy<b>.</b></span><BetaBadge /></span>
           <button className="icon-btn" onClick={() => save("settings", { navCollapsed: !collapsed })} aria-label={collapsed ? "Expand navigation" : "Collapse navigation"} data-testid="button-toggle-nav">
             {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
           </button>

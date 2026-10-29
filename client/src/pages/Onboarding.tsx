@@ -5,7 +5,7 @@ import type { Profile, Workspace } from "@shared/types";
 import { FIELD_GROUPS } from "@shared/fields";
 import { api, FAR_ENOUGH_STEP, fmtDate, rid, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
-import { AiUnavailableNote, Remy, Spinner, StatusChip } from "../components/common";
+import { AiUnavailableNote, BetaBadge, Remy, Spinner, StatusChip } from "../components/common";
 import { ProfileImport, ResumeUpload } from "../components/Uploaders";
 import { atAlumniSchool, atTcu, SchoolVerify } from "../components/SchoolVerify";
 import { ConflictChoice } from "../components/ConflictChoice";
@@ -32,7 +32,7 @@ export default function Onboarding() {
   return (
     <div className="ob">
       <div className="row-between" style={{ width: "100%", maxWidth: 740 }}>
-        <span className="logo"><Remy size={26} /><span>Remy<b>.</b></span></span>
+        <span className="logo"><Remy size={26} /><span>Remy<b>.</b></span><BetaBadge /></span>
       </div>
       {!welcomeBack && (
         <ol className="ob-progress" aria-label={`Step ${shown + 1} of ${STEPS.length}: ${STEPS[shown]}`}>
