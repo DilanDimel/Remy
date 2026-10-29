@@ -146,6 +146,19 @@ async function docxText(buf: Buffer): Promise<string> {
   return [...header, body].join("\n");
 }
 
+/** A Word resume as a standalone page for the Resume screen's preview (browsers can't show .docx).
+ *  shortcut: mammoth keeps text, bold, lists and tables but not exact fonts/columns; a real render needs LibreOffice. */
+export async function docxPreviewHtml(buf: Buffer): Promise<string> {
+  const mammoth = await import("mammoth");
+  const { value } = await mammoth.convertToHtml({ buffer: buf });
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const header = [...new Set(docxParts(buf, /^word\/header\d*\.xml$/).flatMap(wordXmlLines))].map((l) => `<p class="hdr">${esc(l)}</p>`).join("");
+  const css = "body{font:11pt/1.35 Calibri,Carlito,Arial,sans-serif;color:#111;background:#fff;max-width:7.5in;margin:0 auto;padding:.5in .6in}"
+    + "h1,h2,h3{margin:.6em 0 .2em}h1{font-size:16pt}h2,h3{font-size:12pt;border-bottom:1px solid #bbb}p{margin:.15em 0}ul{margin:.2em 0;padding-left:1.3em}"
+    + "table{border-collapse:collapse;width:100%}td{vertical-align:top;padding:0 .3em}.hdr{text-align:center}a{color:inherit}";
+  return `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body>${header}${value}</body></html>`;
+}
+
 /** Paragraphs of a WordprocessingML part, with tabs kept. */
 function wordXmlLines(xml: string): string[] {
   return xml

@@ -1,6 +1,7 @@
 // The owners' dashboard: how Remy is used, the errors students hit, and the team's own
 // to-dos, meetings, hours and a log of who did what. Students' resumes, chats and files are never shown here.
-import type { Me } from "@shared/types";
+import type { CalItem, Me } from "@shared/types";
+import * as gcal from "./gcal";
 import { q, q1 } from "./sql";
 import { uid } from "./ids";
 
@@ -22,6 +23,7 @@ export async function isOwner(me: Pick<Me, "kind" | "email">) {
   return envOwners().includes(e) || (await memberEmails()).has(e);
 }
 
+export async function logAction(actor: string, action: string, detail = "") { await log(actor, action, detail); }
 async function log(actor: string, action: string, detail = "") {
   await q("INSERT INTO team_activity (actor, action, detail) VALUES ($1, $2, $3)", [actor, cut(action, 200), cut(detail, 500)]);
 }
@@ -134,7 +136,7 @@ async function people() {
 }
 
 export async function team(me: string) {
-  const [members, tasks, events, hours, entries, activity] = await Promise.all([
+  const [members, tasks, events, hours, entries, activity, rsvps, calendar] = await Promise.all([
     people(),
     q("SELECT * FROM team_tasks ORDER BY (due = ''), due, created_at"),
     q("SELECT * FROM team_events WHERE date >= to_char(now() - interval '30 days', 'YYYY-MM-DD') ORDER BY date, time"),
@@ -145,9 +147,12 @@ export async function team(me: string) {
     ),
     q("SELECT * FROM time_entries ORDER BY start_at DESC LIMIT 60"),
     q("SELECT * FROM team_activity ORDER BY at DESC LIMIT 80"),
+    q("SELECT event_id, member, answer FROM team_event_rsvps"),
+    gcal.teamStatus(),
   ]);
   const mine = entries.find((e) => e.member === me && !e.end_at);
-  return { me, members, tasks, events, hours, entries, activity, clockedIn: mine ? mine.start_at : null };
+  for (const e of events) e.rsvps = Object.fromEntries(rsvps.filter((r) => r.event_id === e.id).map((r) => [r.member, r.answer]));
+  return { me, members, tasks, events, hours, entries, activity, calendar, clockedIn: mine ? mine.start_at : null };
 }
 
 export async function addMember(me: string, b: any) {
@@ -199,14 +204,49 @@ export async function deleteTask(me: string, id: string) {
 
 export async function addEvent(me: string, b: any) {
   if (!cut(b.title, 300).trim() || !/^\d{4}-\d{2}-\d{2}$/.test(String(b.date))) throw bad("Give the meeting a title and a date.");
+  const id = uid("te");
   await q("INSERT INTO team_events (id, title, date, time, who, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-    [uid("te"), cut(b.title, 300), b.date, /^\d{2}:\d{2}$/.test(String(b.time)) ? b.time : "", cut(b.who, 300), cut(b.notes, 2000), me]);
+    [id, cut(b.title, 300), b.date, /^\d{2}:\d{2}$/.test(String(b.time)) ? b.time : "", cut(b.who, 300), cut(b.notes, 2000), me]);
+  // Whoever adds a meeting is going, unless they say otherwise.
+  await q("INSERT INTO team_event_rsvps (event_id, member, answer) VALUES ($1, $2, 'yes')", [id, me]);
   await log(me, "Added a meeting", `${cut(b.title, 300)} on ${b.date}`);
+  syncTeamCalendar();
 }
 export async function deleteEvent(me: string, id: string) {
   const e = await q1("DELETE FROM team_events WHERE id = $1 RETURNING title, date", [cut(id, 60)]);
   if (e) await log(me, "Removed a meeting", `${e.title} on ${e.date}`);
+  syncTeamCalendar();
 }
+const ANSWERS: Record<string, string> = { yes: "Going", maybe: "Maybe", no: "Can't go" };
+/** A teammate's answer for a meeting: yes | maybe | no, or "" to take it back. */
+export async function rsvp(me: string, id: string, answer: string) {
+  const e = await q1("SELECT title, date FROM team_events WHERE id = $1", [cut(id, 60)]);
+  if (!e) throw bad("That meeting isn't there anymore.", 404);
+  if (!answer) await q("DELETE FROM team_event_rsvps WHERE event_id = $1 AND member = $2", [cut(id, 60), me]);
+  else if (ANSWERS[answer]) await q(
+    `INSERT INTO team_event_rsvps (event_id, member, answer) VALUES ($1, $2, $3)
+     ON CONFLICT (event_id, member) DO UPDATE SET answer = EXCLUDED.answer, at = now()`, [cut(id, 60), me, answer]);
+  else throw bad("Answer going, maybe or can't go.");
+  await log(me, answer ? `${ANSWERS[answer]}: a meeting` : "Took back a meeting answer", `${e.title} on ${e.date}`);
+  syncTeamCalendar();
+}
+
+/** The dashboard's meetings as calendar items, each with who's going in its notes. */
+export async function teamCalendarItems(): Promise<CalItem[]> {
+  const [events, rsvps, ppl] = await Promise.all([
+    q("SELECT * FROM team_events WHERE date >= to_char(now() - interval '30 days', 'YYYY-MM-DD')"),
+    q("SELECT event_id, member, answer FROM team_event_rsvps"),
+    people(),
+  ]);
+  const name = (email: string) => ppl.find((p) => p.email === email)?.name || email.split("@")[0];
+  return events.map((e) => {
+    const said = (a: string) => rsvps.filter((r) => r.event_id === e.id && r.answer === a).map((r) => name(r.member));
+    const lines = Object.entries(ANSWERS).map(([a, label]) => { const n = said(a); return n.length ? `${label} (${n.length}): ${n.join(", ")}` : ""; }).filter(Boolean);
+    return { id: e.id, title: e.title, date: e.date, time: e.time, kind: "Event", source: "Owners' dashboard",
+      notes: [e.who && `With ${e.who}`, e.notes, lines.join("\n"), "Answer in Remy's owners' dashboard → Calendar."].filter(Boolean).join("\n") } as CalItem;
+  });
+}
+export const syncTeamCalendar = () => { if (gcal.gcalReady()) gcal.syncTeamSoon(teamCalendarItems); };
 
 /** Clock in starts an entry; clock out ends the open one. Each owner clocks only themselves. */
 export async function clock(me: string, action: "in" | "out", note = "") {
