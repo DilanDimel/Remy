@@ -339,7 +339,8 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .landing-foot p { max-width: 52ch; }
 /* landing page (before sign-in): one bold moment, the example conversation; everything else quiet */
 .lp { background: var(--bg); min-height: 100dvh; }
-.lp > * { max-width: 1080px; margin-left: auto; margin-right: auto; padding-left: 16px; padding-right: 16px; }
+/* Each section spans the full width (so its background reaches the edges); its content stays in a 1080px column. */
+.lp > * { padding-left: max(16px, calc((100% - 1080px) / 2)); padding-right: max(16px, calc((100% - 1080px) / 2)); }
 .lp-top { display: flex; justify-content: space-between; align-items: center; padding-top: 14px; padding-bottom: 14px; }
 .lp-hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 48px; align-items: center; padding-top: 48px; padding-bottom: 72px; }
 .lp-hero h1 { font-size: clamp(2.4rem, 1.6rem + 3.4vw, 4.4rem); line-height: 1.02; letter-spacing: -0.035em; font-weight: 800; }
@@ -389,7 +390,33 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .lp-promise { display: grid; grid-template-columns: auto 1fr; gap: 16px; padding-top: 40px; padding-bottom: 40px; border-top: 1px solid var(--line); }
 .lp-promise svg { color: var(--sage); margin-top: 6px; }
 .lp-promise ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; line-height: 1.5; }
-.lp-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding-top: 20px; padding-bottom: 28px; border-top: 1px solid var(--line); }
+.lp-top { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid transparent; }
+.lp-hero { background: radial-gradient(60% 70% at 85% 30%, var(--fox-soft), transparent 70%), radial-gradient(40% 50% at 0% 100%, var(--lav-2, var(--surface-2)), transparent 70%); }
+.lp-kicker { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fox-deep); }
+.lp-gets { padding-bottom: 40px; }
+.lp-gets-head { display: grid; gap: 10px; justify-items: start; }
+.lp-gets-head h2, .lp-band h2 { font-size: clamp(1.6rem, 1.2rem + 1.4vw, 2.4rem); }
+.lp-jump { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.lp-jump a { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px 8px 8px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-weight: 600; font-size: 14px; color: var(--ink); }
+.lp-jump a:hover { border-color: var(--fox); }
+.lp-jump b { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--fox-soft); color: var(--fox-deep); font-size: 12px; }
+.lp-get-band { padding-top: 24px; padding-bottom: 24px; scroll-margin-top: 64px; }
+.lp-get-band.alt { background: var(--surface-2); }
+.lp-num { font-size: 13px; font-weight: 800; color: var(--fox); letter-spacing: 0.06em; }
+.lp-band { background: var(--fox-soft); border-top: 0; }
+.lp-band .lp-steps li { background: var(--surface); border-radius: 18px; padding: 22px; box-shadow: 0 10px 30px -24px rgba(0, 0, 0, 0.4); }
+.lp-cta { background: #161616; color: #f5f5f3; border-top: 0; }
+.lp-cta .btn-primary { background: var(--fox); border-color: var(--fox); color: #fff; }
+.lp-cta p { color: #c9c9c4; }
+.lp-foot { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 28px; padding-top: 44px; padding-bottom: 28px; background: var(--surface-2); border-top: 1px solid var(--line); }
+.lp-foot nav { display: grid; gap: 8px; align-content: start; font-size: 14px; }
+.lp-foot nav b { font-size: 13px; }
+.lp-foot nav a { color: var(--muted-text); }
+.lp-foot nav a:hover { color: var(--ink); }
+.lp-foot-brand { display: grid; gap: 10px; align-content: start; }
+.lp-foot-brand p { color: var(--muted-text); max-width: 34ch; }
+.lp-foot-bottom { grid-column: 1 / -1; color: var(--faint); border-top: 1px solid var(--line); padding-top: 16px; }
+@media (max-width: 820px) { .lp-foot { grid-template-columns: 1fr 1fr; } .lp-foot-brand { grid-column: 1 / -1; } }
 @media (max-width: 820px) {
   .lp-hero { grid-template-columns: 1fr; gap: 32px; padding-top: 20px; padding-bottom: 48px; }
   .lp-steps { grid-template-columns: 1fr; }
