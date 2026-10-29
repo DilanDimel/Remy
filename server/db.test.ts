@@ -117,3 +117,16 @@ test("school email: one address verifies only one account", async () => {
   assert.equal((await checkSchoolCode("s3", await newSchoolCode("s3", "horned@tcu.edu"))).result, "taken");
   assert.equal((await getUser("s3"))!.schoolEmail, undefined);
 });
+
+// Updates must never lose students' or the team's data: migrations only add. A migration that truly needs to
+// remove something must say so on a line containing "allow-destructive: <reason>", reviewed by a person.
+test("migrations never drop, truncate or delete data", async () => {
+  const fs = await import("node:fs");
+  const dir = new URL("./migrations/", import.meta.url);
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".sql"))) {
+    const sql = fs.readFileSync(new URL(f, dir), "utf8");
+    if (/allow-destructive:/i.test(sql)) continue;
+    const code = sql.replace(/--.*$/gm, "").replace(/ON DELETE CASCADE/gi, "");
+    assert.doesNotMatch(code, /\b(DROP\s+(TABLE|COLUMN|SCHEMA)|TRUNCATE|DELETE\s+FROM|ALTER\s+TABLE\s+\S+\s+RENAME)\b/i, `${f} would remove or rename data`);
+  }
+});

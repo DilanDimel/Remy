@@ -9,6 +9,7 @@ import type {
   Application, AppConfig, BulletChange, ChatAction, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace,
 } from "@shared/types";
 import { BETA_TERMS_VERSION } from "@shared/beta";
+import { latestNewsId } from "@shared/news";
 import { aiAllowed, checkSchoolCode, cleanupOld, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./safety";
@@ -377,6 +378,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.post("/api/auth/guest", route(async (_req, res, ctx) => {
     if (!ctx.ws.started) {
       ctx.ws.started = true;
+      ctx.ws.settings.newsSeen = latestNewsId(); // new accounts start caught up on "What's new"
       await ctx.save();
     }
     res.json({ me: ctx.me, workspace: ctx.ws });
@@ -392,6 +394,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       }
       const ws = await loadWorkspace(me.id);
       ws.started = true;
+      ws.settings.newsSeen = latestNewsId(); // new accounts start caught up on "What's new"
       if (!ws.profile.name) ws.profile.name = me.name;
       if (!ws.profile.email) ws.profile.email = me.email;
       if (!ws.profile.applicationEmail) ws.profile.applicationEmail = me.email;
@@ -413,6 +416,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       if (!(await hasWorkspace(me.id)) && prev && prev.id !== me.id && (await hasWorkspace(prev.id))) await saveWorkspace(me.id, await loadWorkspace(prev.id));
       const ws = await loadWorkspace(me.id);
       ws.started = true;
+      ws.settings.newsSeen = latestNewsId(); // new accounts start caught up on "What's new"
       if (!ws.profile.name) ws.profile.name = u.name;
       if (!ws.profile.email) ws.profile.email = u.email;
       if (!ws.profile.applicationEmail) ws.profile.applicationEmail = u.email;
@@ -455,7 +459,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     settings: z.object({
       theme: z.enum(["light", "dark"]).optional(), assistantOpen: z.boolean().optional(), navCollapsed: z.boolean().optional(),
       notify: z.object({ deadlines: z.boolean(), statusChanges: z.boolean(), weeklyPlan: z.boolean() }).partial().optional(),
-      demoConnections: z.array(str(80)).max(20).optional(),
+      demoConnections: z.array(str(80)).max(20).optional(), newsSeen: str(40).optional(),
     }),
     tasks: z.array(z.looseObject({ id: str(120), title: str(300), why: str(2000), due: str(10), category: z.enum(["Explore", "Prepare", "Apply", "Connect", "Academic"]), done: z.boolean(), source: str(200), link: str(500).optional() })).max(500),
     calendar: z.array(z.looseObject({ id: str(120), title: str(300), date: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/), time: z.string().regex(/^(\d{2}:\d{2})?$/), kind: z.enum(["Deadline", "Event", "Task", "Interview", "Advising"]), source: str(200), linkedId: str(120).optional(), notes: str(4000).optional() })).max(1000),

@@ -3,6 +3,7 @@ import { Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, CalendarDays
 import { api, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
 import { BetaBadge, Empty, Remy, Spinner } from "../components/common";
+import { WhatsNew } from "../components/WhatsNew";
 
 // The owners' dashboard (server/admin.ts). Numbers about use, errors students hit, and the team's
 // own board, meetings, hours and activity. Never anything a student wrote.
@@ -31,6 +32,7 @@ const ANSWERS: [Answer, string][] = [["yes", "Going"], ["maybe", "Maybe"], ["no"
 
 const TABS = [["overview", "Overview", BarChart3], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity], ["errors", "Errors & feedback", AlertTriangle]] as const;
 type Tab = (typeof TABS)[number][0];
+const HISTORY_AFTER = 3 * 86400_000;
 const COLS: [Status, string][] = [["todo", "To do"], ["doing", "In progress"], ["done", "Done"]];
 const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const day = (d: string) => new Date(d + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
@@ -70,6 +72,7 @@ export default function Admin() {
         <nav>
           {TABS.map(([k, l, Icon]) => <a key={k} href={`/admin?tab=${k}`} aria-current={tab === k ? "page" : undefined}><Icon size={17} /> {l}</a>)}
         </nav>
+        <WhatsNew className="btn btn-ghost btn-sm adm-news" />
         <a className="btn btn-ghost btn-sm adm-back" href="/"><ArrowLeft size={14} /> Back to Remy</a>
       </aside>
       <main className="adm-main">
@@ -303,7 +306,11 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
   };
 
   if (tab === "board") {
-    const shown = person ? d.tasks.filter((t) => list(t.assignee).includes(person)) : d.tasks;
+    const mine = person ? d.tasks.filter((t) => list(t.assignee).includes(person)) : d.tasks;
+    // Finished to-dos stay in Done for 3 days, then move to History so the board stays short.
+    const old = (t: TeamTask) => t.status === "done" && !!t.done_at && Date.now() - new Date(t.done_at).getTime() > HISTORY_AFTER;
+    const shown = mine.filter((t) => !old(t));
+    const history = mine.filter(old).sort((a, b) => (b.done_at! > a.done_at! ? 1 : -1));
     return (
       <div className="stack-lg">
         <Head title="Board" sub="Drag a card to another column, or use its arrows. Everyone on the team sees the same board." />
@@ -329,6 +336,21 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
             );
           })}
         </div>
+        {history.length > 0 && (
+          <details className="adm-card" data-testid="task-history">
+            <summary className="row-between" style={{ cursor: "pointer" }}><h3>History</h3><span className="xs muted">{history.length} finished more than 3 days ago</span></summary>
+            <div className="stack-sm" style={{ marginTop: 10 }}>
+              {history.map((t) => (
+                <div key={t.id} className="adm-row small" style={{ alignItems: "center" }}>
+                  <Check size={14} className="pass" />
+                  <span className="grow">{t.title}</span>
+                  <span className="xs muted">Done by {nameOf(t.done_by)}, {day(t.done_at!.slice(0, 10))}</span>
+                  <button className="btn btn-ghost btn-sm" onClick={() => move(t, "todo")}>Reopen</button>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
       </div>
     );
   }

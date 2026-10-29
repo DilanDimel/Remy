@@ -9,6 +9,7 @@ import { go, replaceRoute, useRoute } from "./lib/router";
 const PUBLIC = new Set(["/", "/signin", "/about", "/policies", "/privacy", "/terms"]);
 import { BetaBadge, Modal, Remy, Spinner, StatusChip } from "./components/common";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { WhatsNew } from "./components/WhatsNew";
 import { answer as answerTailor, endSession as endTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
 import Onboarding from "./pages/Onboarding";
@@ -175,6 +176,7 @@ function Shell() {
             {n.path === "/progress" && openSuggestions > 0 && <span className="count">{openSuggestions}</span>}
           </a>
         ))}
+        <div className="side-news"><WhatsNew /></div>
         <ProfileMenu initials={initials} active={path.startsWith("/accounts")} />
       </aside>
 
@@ -217,6 +219,7 @@ function Shell() {
             <button className="nav-item" onClick={() => { setMore(false); go("/about"); }}><Info size={19} />About Remy</button>
             <button className="nav-item" onClick={() => { setMore(false); go("/policies"); }}><ShieldCheck size={19} />Privacy & terms</button>
             <button className="nav-item" onClick={() => { setMore(false); setFeedback(true); }}><Send size={19} />Send feedback</button>
+            <WhatsNew />
           </div>
         </Modal>
       )}

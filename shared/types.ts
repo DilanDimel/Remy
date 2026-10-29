@@ -427,6 +427,8 @@ export interface Workspace {
     notify: { deadlines: boolean; statusChanges: boolean; weeklyPlan: boolean };
     /** Connectors shown as connected in the demo (no data is read from them yet). */
     demoConnections?: string[];
+    /** Newest "What's new" item the student has opened. */
+    newsSeen?: string;
   };
   updatedAt: string;
 }
