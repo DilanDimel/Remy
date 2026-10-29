@@ -92,3 +92,16 @@ test("feedback loop: liked employers first, twice-dismissed left out, then the o
   const out = orderEmployers(list, new Set(["d"]), new Map([["c", 2]]), { A: "2026-10-29T10:00:00Z" });
   assert.deepEqual(out.map((e) => e.company), ["D", "B", "A"]);
 });
+
+test("the specific words of a goal rank first: Mechanical Engineering Intern above Electrical for a mechanical student", async () => {
+  const { discoverJobs, specificWords } = await import("./sources");
+  const { emptyWorkspace } = await import("./db");
+  const { q } = await import("./sql");
+  const raws = [["Electrical Engineer Intern", 0], ["Mechanical Engineering Intern", 1]].map(([title, i]) => ({ title, location: "Dallas, TX", url: `https://x.test/spec/${i}`, text: "Design and test hardware." }));
+  await q("INSERT INTO board_cache (key, raws) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET raws = EXCLUDED.raws, fetched_at = now()", ["greenhouse|spec-test||", JSON.stringify(raws)]);
+  const ws = emptyWorkspace();
+  Object.assign(ws.profile, { targetRoles: "mechanical engineering intern", major: "Mechanical Engineering", classYear: "Junior", regions: "Dallas, TX" });
+  assert.deepEqual(specificWords(ws), ["mechanical"]);
+  const jobs = (await discoverJobs(ws, [{ company: "Spec", ats: "greenhouse", slug: "spec-test" } as any], 10)).jobs;
+  assert.equal(jobs[0].title, "Mechanical Engineering Intern");
+});

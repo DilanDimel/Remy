@@ -372,6 +372,12 @@ export async function cachedBoard(b: Board, field: string, region: string, fetch
 }
 export const pruneBoardCache = () => q("DELETE FROM board_cache WHERE fetched_at < now() - interval '3 days'");
 
+/** The words that make a student's goal specific ("mechanical" in "mechanical engineering intern"), so a
+ *  Mechanical Engineering Intern ranks above an Electrical one for them. */
+const GENERIC = /^(intern|interns|internship|internships|student|students|engineer|engineering|analyst|associate|assistant|summer|entry|level|role|roles|jobs?|work|program|career|careers|position|and|the|for|with)$/i;
+export const specificWords = (ws: Workspace) =>
+  [...new Set(`${ws.profile.targetRoles} ${ws.profile.major}`.toLowerCase().split(/[^a-z&]+/).filter((w) => w.length > 3 && !GENERIC.test(w)))].slice(0, 8);
+
 /** Which employers to read next: liked ones first, dismissed ones (2+ "Not interested") left out, then least recently read. */
 export function orderEmployers<T extends { company: string }>(list: T[], liked: Set<string | undefined>, hides: Map<string, number>, lastRead: Record<string, string>): T[] {
   const like = (e: T) => (liked.has(e.company.toLowerCase()) ? 1 : 0);
@@ -427,7 +433,8 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25): 
         known.add(same);
         const hay = `${r.title} ${r.text.slice(0, 3000)}`.toLowerCase();
         // Passing the field check counts: a "Brand Intern" is marketing even if the word "marketing" never appears.
-        const rel = fields.filter((f) => hay.includes(f)).length + (titleFits.some((t) => t.test(r.title)) ? 2 : titleFits.some((t) => t.test(duties(r.text))) ? 1 : 0);
+        const rel = fields.filter((f) => hay.includes(f)).length + (titleFits.some((t) => t.test(r.title)) ? 2 : titleFits.some((t) => t.test(duties(r.text))) ? 1 : 0)
+          + 3 * specificWords(ws).filter((w) => new RegExp(`\\b${w}`, "i").test(r.title)).length;
         const job: Job = {
           id: uid("j"), kind: kindOf(r.title), title: r.title, company: r.company || b.company, location: r.location || "Not stated",
           format: /remote/i.test(r.location) ? "Remote" : "", dates: "", deadline: r.deadline || "", deadlineText: r.deadline ? `Closes ${r.deadline}` : "Not stated on the board — check the posting",

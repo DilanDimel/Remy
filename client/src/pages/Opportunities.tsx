@@ -39,7 +39,11 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const liked = new Set([...w.savedJobIds, ...w.applications.map((a) => a.jobId)].map(companyOf));
   const hiddenBy = new Map<string | undefined, number>();
   for (const id of w.hiddenJobIds) hiddenBy.set(companyOf(id), (hiddenBy.get(companyOf(id)) || 0) + 1);
-  const rank = (j: Job) => (fits[j.id]?.score ?? 0) + (liked.has(j.company) ? 8 : 0) - Math.min(3, hiddenBy.get(j.company) || 0) * 5;
+  // The specific words of their goal ("mechanical") in a title outrank a same-field but different job ("electrical").
+  const GENERIC = /^(intern|interns|internship|internships|student|students|engineer|engineering|analyst|associate|assistant|summer|entry|level|role|roles|jobs?|work|program|career|careers|position|and|the|for|with)$/i;
+  const specific = [...new Set(`${w.profile.targetRoles} ${w.profile.major}`.toLowerCase().split(/[^a-z&]+/).filter((x) => x.length > 3 && !GENERIC.test(x)))];
+  const rank = (j: Job) => (fits[j.id]?.score ?? 0) + (liked.has(j.company) ? 8 : 0) - Math.min(3, hiddenBy.get(j.company) || 0) * 5
+    + 10 * specific.filter((x) => new RegExp(`\\b${x}`, "i").test(j.title)).length;
   const base = (jobs || [])
     .filter((j) => matchKind(j, kind))
     .filter((j) => (showHidden ? true : !w.hiddenJobIds.includes(j.id)))
