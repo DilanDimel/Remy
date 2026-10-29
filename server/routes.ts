@@ -26,7 +26,7 @@ import { atsChecks, claimCheck } from "./claims";
 import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, skillSuggestions } from "./builder";
 import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSION } from "./fit";
 import { atsScore } from "./ats";
-import { boardsFor, CAREERONESTOP, discoverJobs, EMPLOYERS, USAJOBS } from "./sources";
+import { boardsFor, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
 import { docxStyle, editDocx } from "./docxEdit";
 import * as gcal from "./gcal";
@@ -312,7 +312,7 @@ const searching = new Set<string>();
 
 export async function registerRoutes(_server: Server, app: Express) {
   // Expired sessions and guest workspaces idle for 30 days are removed at start-up and every 6 hours.
-  const sweep = () => cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message));
+  const sweep = () => { pruneBoardCache().catch(() => {}); return cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)); };
   sweep();
   setInterval(sweep, 6 * 60 * 60_000).unref();
 

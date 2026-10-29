@@ -53,3 +53,35 @@ test("CareerOneStop: sends the bearer token and a DFW search, reads the jobs", a
     globalThis.fetch = real; delete process.env.COS_USER_ID; delete process.env.COS_TOKEN;
   }
 });
+
+test("shared catalog: one site read serves the next student; a failed or empty read keeps the last good copy", async () => {
+  const { cachedBoard } = await import("./sources");
+  const { q } = await import("./sql");
+  const b = { company: "Acme", ats: "greenhouse", slug: "acme-cache-test" } as any;
+  let calls = 0;
+  const ok = async () => { calls++; return [{ title: "Finance Intern", location: "Dallas, TX", url: "https://x.test/1", text: "" }]; };
+  assert.equal((await cachedBoard(b, "", "", ok)).length, 1);
+  assert.equal((await cachedBoard(b, "", "", ok)).length, 1);
+  assert.equal(calls, 1, "the second student reuses the saved copy");
+  await q("UPDATE board_cache SET fetched_at = now() - interval '7 hours' WHERE key LIKE '%acme-cache-test%'");
+  assert.equal((await cachedBoard(b, "", "", async () => { throw new Error("down"); })).length, 1, "site down: last good copy");
+  assert.equal((await cachedBoard(b, "", "", async () => [])).length, 1, "empty answer: last good copy");
+});
+
+test("Julio's 48 labeled postings: every relevant one is found, no unrelated or senior one is shown", async () => {
+  const { RELEVANCE_CASES } = await import("./fixtures/job-relevance");
+  const { discoverJobs } = await import("./sources");
+  const { emptyWorkspace } = await import("./db");
+  const { q } = await import("./sql");
+  const wrong: string[] = [];
+  for (const g of RELEVANCE_CASES as any[]) {
+    const slug = "julio-" + g.sector;
+    const raws = g.cases.map(([title, text]: any, i: number) => ({ title, location: "Dallas, TX", url: `https://x.test/${slug}/${i}`, text }));
+    await q("INSERT INTO board_cache (key, raws) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET raws = EXCLUDED.raws, fetched_at = now()", [`greenhouse|${slug}||`, JSON.stringify(raws)]);
+    const ws = emptyWorkspace();
+    Object.assign(ws.profile, { targetRoles: g.target, classYear: "Sophomore", regions: "Dallas, TX" });
+    const kept = new Set((await discoverJobs(ws, [{ company: "Synthetic", ats: "greenhouse", slug } as any], 50)).jobs.map((j) => j.title));
+    for (const [title, , want] of g.cases) if (kept.has(title) !== want) wrong.push(`${g.sector}: ${title} (${want ? "missed" : "wrongly shown"})`);
+  }
+  assert.deepEqual(wrong, []);
+});

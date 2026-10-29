@@ -4,6 +4,7 @@ import type { Job, Requirement, Workspace } from "@shared/types";
 import { htmlToText } from "./parse";
 import { uid } from "./ids";
 import { abroad, FIELD_SEARCH, FIELD_TITLES, regionMatch } from "./fit";
+import { q, q1 } from "./sql";
 
 // Live openings from employers' own career sites (Greenhouse, Lever, Ashby, Workday, SmartRecruiters,
 // Oracle Cloud, Eightfold, Phenom and AppliTrack school-district boards).
@@ -35,8 +36,12 @@ export const DEFAULT_BOARDS: Board[] = EMPLOYERS.length ? EMPLOYERS : [
   { ats: "ashby", slug: "mercury", company: "Mercury" },
 ];
 
-const EARLY = /\b(intern(ship)?s?|co-?op|new grad(uate)?|early career|entry[- ]level|campus|university|student|summer analyst|analyst program|rotational|apprentice|fellow(ship)?|insight|cadets?|recruits?|extern(ship)?s?|nurse residen\w*|graduate nurse|nurse intern|new grad rn|freshm[ae]n|sophomores?|first[- ]year|discover\w*|explore|launch|ambassadors?|leadership program|diversity program|pathways|recent graduate|trainee)\b/i;
-const SENIOR = /\b(senior|sr\.?|staff|principal|lead|manager|director|head of|vp|vice president|ii|iii|iv)\b/i;
+const EARLY = /\b(junior|trainee|(?:teaching|research|marketing|legal|administrative) assistant|intern(ship)?s?|co-?op|new grad(uate)?|early career|entry[- ]level|campus|university|student|summer analyst|analyst program|rotational|apprentice|fellow(ship)?|insight|cadets?|recruits?|extern(ship)?s?|nurse residen\w*|graduate nurse|nurse intern|new grad rn|freshm[ae]n|sophomores?|first[- ]year|discover\w*|explore|launch|ambassadors?|leadership program|diversity program|pathways|recent graduate|trainee)\b/i;
+const SENIOR = /\b(senior|sr\.?|staff|principal|lead|manager|director|head of|vp|vice president|professor|ii|iii|iv)\b/i;
+// What the job itself involves: a posting's sentences minus benefits, "about us", equal-opportunity and
+// "any major" lines, which mention fields without being about the work (from Julio's relevance design).
+const NOT_DUTIES = /benefit|insurance|wellness|discount|equal opportunity|protected by law|about us|our (company|platform|mission)|any major|qualifications:|we provide|perks/i;
+export const duties = (text: string) => text.split(/(?<=[.!?])\s+|\n+/).filter((x) => !NOT_DUTIES.test(x)).join(" ");
 // Roles meant for graduate students, skipped for undergraduates.
 const GRAD_LEVEL = /\b(graduate intern(ship)?|intern,?\s*graduate|mba|ph\.?\s?d|doctoral|postdoc|post-doc|master'?s|graduate student|j\.?d\.?|law student|law clerk|medical student|residency program|school psycholog\w*|diagnostician|licensed specialist)\b/i;
 const KEYWORDS = [
@@ -344,6 +349,29 @@ function decodeEntities(s: string) {
   return s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
 }
 
+// Shared catalog: one employer site's results serve every student for BOARD_FRESH. If the site fails, the last good
+// copy (up to BOARD_STALE old) is used instead, because a failed read never means "no openings".
+const BOARD_FRESH = 6 * 60 * 60_000;
+const BOARD_STALE = 3 * 24 * 60 * 60_000;
+export async function cachedBoard(b: Board, field: string, region: string, fetch = fetchBoard): Promise<Raw[]> {
+  // Sources that search by field or place get one entry per search; whole-board sources get one entry.
+  const key = [b.ats, b.slug, ["workday", "phenom", "smartrecruiters", "oracle", "eightfold", "usajobs", "careeronestop"].includes(b.ats) ? field : "", ["usajobs", "careeronestop"].includes(b.ats) ? region : ""].join("|").toLowerCase();
+  const hit = await q1("SELECT raws, fetched_at FROM board_cache WHERE key = $1", [key]).catch(() => undefined);
+  const age = hit ? Date.now() - new Date(hit.fetched_at).getTime() : Infinity;
+  if (hit && age < BOARD_FRESH) return hit.raws as Raw[];
+  try {
+    const raws = await fetch(b, field, region);
+    // Empty answers aren't saved (a site under maintenance often answers with nothing); huge boards aren't either.
+    if (raws.length && JSON.stringify(raws).length < 3_000_000)
+      await q("INSERT INTO board_cache (key, raws) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET raws = EXCLUDED.raws, fetched_at = now()", [key, JSON.stringify(raws)]).catch(() => {});
+    if (raws.length || !hit || age > BOARD_STALE) return raws;
+  } catch (e) {
+    if (!hit || age > BOARD_STALE) throw e;
+  }
+  return hit.raws as Raw[];
+}
+export const pruneBoardCache = () => q("DELETE FROM board_cache WHERE fetched_at < now() - interval '3 days'");
+
 /** Turns a company name into board guesses on all three ATSs. */
 export function boardsFor(company: string): Board[] {
   const base = company.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "");
@@ -366,14 +394,16 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25): 
     while (i < boards.length) {
       const b = boards[i++];
       let raws: Raw[] = [];
-      try { raws = await fetchBoard(b, field, ws.profile.regions || ws.profile.location || ""); } catch { continue; }
+      try { raws = await cachedBoard(b, field, ws.profile.regions || ws.profile.location || ""); } catch { continue; }
       if (!raws.length) continue;
       reached.push(b.company);
       let details = 0;
       for (const r of raws) {
         if (!r.url || known.has(r.url) || (!r.student && (!EARLY.test(r.title) || (SENIOR.test(r.title) && !/intern|co-?op|new grad|student/i.test(r.title))))) continue;
         if (undergrad && GRAD_LEVEL.test(r.title)) continue;
-        if (titleFits.length && !titleFits.some((t) => t.test(r.title))) continue;
+        // A title in another field is skipped; a generic one ("Summer Intern") is judged by its duties below.
+        const generic = !FIELD_TITLES.some(([, t]) => t.test(r.title));
+        if (titleFits.length && !titleFits.some((t) => t.test(r.title)) && !generic) continue;
         // Skip places the student didn't ask for before spending a detail read on them.
         const where = (location: string) => { if (r.nearby) return true; const m = regionMatch(ws, { location, format: /remote/i.test(location) ? "Remote" : "" } as Job); return m ?? !abroad(location); };
         if (!/^\d+ locations?$/i.test(r.location) && !where(r.location)) continue;
@@ -383,11 +413,13 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25): 
           try { const d = await r.detail(); r.text = d.text; if (d.location) r.location = d.location; } catch { continue; }
         }
         if (!where(r.location)) continue;
+        if (titleFits.length && !titleFits.some((t) => t.test(r.title)) && !titleFits.some((t) => t.test(duties(r.text)))) continue;
         const same = `${b.company}|${r.title}|${r.location}`.toLowerCase();
         if (known.has(same)) continue;
         known.add(same);
         const hay = `${r.title} ${r.text.slice(0, 3000)}`.toLowerCase();
-        const rel = fields.filter((f) => hay.includes(f)).length;
+        // Passing the field check counts: a "Brand Intern" is marketing even if the word "marketing" never appears.
+        const rel = fields.filter((f) => hay.includes(f)).length + (titleFits.some((t) => t.test(r.title)) ? 2 : titleFits.some((t) => t.test(duties(r.text))) ? 1 : 0);
         const job: Job = {
           id: uid("j"), kind: kindOf(r.title), title: r.title, company: r.company || b.company, location: r.location || "Not stated",
           format: /remote/i.test(r.location) ? "Remote" : "", dates: "", deadline: r.deadline || "", deadlineText: r.deadline ? `Closes ${r.deadline}` : "Not stated on the board — check the posting",

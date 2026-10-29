@@ -131,7 +131,7 @@ const FIELDS: [RegExp, RegExp, string][] = [
   [/information systems|\bbis\b|\bmis\b|business analytics|fintech/i, /business analyst|systems analyst|information systems|\bit\b|information technology|technology|data analy\w*|data science|database|analytics|business intelligence|fintech|product|erp|\bsap\b|cyber|security analyst|digital|software/i, "information systems"],
   // "Engineer" only with software context, so petroleum, safety or field engineering isn't read as software.
   [/software|computer science|computer engineering|\bcs\b|developer|\btech\b|programming|information technology|cyber/i, /software|developer|programmer|(data|ml|machine learning|cloud|platform|back[- ]?end|front[- ]?end|full[- ]?stack|devops|security|network|systems|site reliability|qa|test|web|mobile|ai) engineer|machine learning|data|cyber|security|network|systems (analyst|administrator)|\bit\b|technology|cloud|technical/i, "software"],
-  [/mechanical|civil|electrical|industrial|aerospace|chemical|biomedical|manufacturing|petroleum|structural|\bengineering\b/i, /^(?!.*software).*(engineer|engineering|manufacturing|design|process|quality|field|technician|project)/i, "engineering"],
+  [/mechanical|civil|electrical|industrial|aerospace|chemical|biomedical|manufacturing|petroleum|structural|\bengineering\b/i, /^(?!.*software).*(engineer|engineering|manufacturing|design|process|quality|field|technician|project|mechanical|\bcad\b|prototyp)/i, "engineering"],
   [/architect|construction|interior design|urban planning|landscape/i, /architect|construction|project|design|planning|estimat|field|site/i, "construction"],
   [/supply chain|operations|logistics|transportation/i, /operations|supply|logistics|procurement|planning|transportation|warehouse|distribution/i, "operations"],
   [/aviation|pilot|flight|aerospace|air traffic/i, /aviation|pilot|flight|airport|aircraft|aerospace|air operations|maintenance/i, "aviation"],
@@ -198,7 +198,7 @@ export function dealbreaker(ws: Workspace, job: Job, today = new Date()): string
 }
 
 // Bump when the fit rules change, so verdicts saved under older rules are worked out again.
-export const FIT_RULES_VERSION = 2;
+export const FIT_RULES_VERSION = 3; // 3: engineering titles include mechanical/CAD/prototype work
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const g = gradDate(ws);
   const year = classYearOf(ws);
