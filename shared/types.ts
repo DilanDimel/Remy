@@ -37,7 +37,11 @@ export interface ResumeDoc {
   skillsIndex?: number;
 }
 /** The look of the student's uploaded PDF, so downloads match it. */
-export interface ResumeStyle { serif: boolean; size: number; margin: number; pages: number }
+export interface ResumeStyle {
+  serif: boolean; size: number; margin: number; pages: number;
+  /** The file's main font as named there ("Garamond", "Courier", "LiberationSans"), monospace, and whether it uses italics at all. */
+  font?: string; mono?: boolean; italic?: boolean;
+}
 /** How completely the structured resume reflects the uploaded file. */
 export interface ResumeQuality {
   /** Share of the file's words that made it into the structured resume (0–1). */

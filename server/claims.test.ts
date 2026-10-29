@@ -63,3 +63,14 @@ test("claims: rewording an entry with action verbs isn't flagged as added detail
   const f = claimCheck("Collaborated with a team of four to model a rear upright in SolidWorks and run FEA to analyze stress under braking loads", orig, { original: orig, entryContext: "Formula SAE Racing Team Suspension Subteam Member" });
   assert.ok(!f.some((x) => /adds detail/.test(x.message)), JSON.stringify(f));
 });
+
+test("clean: spelled-out abbreviations, same-credit verbs, plain rewording and tools that manage", () => {
+  const ev = "Student nurse. Cared for 3 adult patients per shift under RN supervision. Built an Excel tracker for the team's PBC requests. Assisted officers with traffic control. Wrote incident reports used by store leadership.";
+  const ok = (text: string, original: string) => assert.deepEqual(claimCheck(text, ev, { original }), [], text);
+  ok("Cared for 3 adult patients per shift under registered nurse supervision", "Cared for 3 adult patients per shift under RN supervision");
+  ok("Built an Excel tracker to manage the team's PBC (Provided by Client) requests", "Built an Excel tracker for the team's PBC requests");
+  ok("Supported officers with traffic control", "Assisted officers with traffic control");
+  ok("Assisted RNs with care for 3 adult patients per shift", "Cared for 3 adult patients per shift under RN supervision");
+  ok("Authored incident reports utilized by store leadership", "Wrote incident reports used by store leadership");
+  assert.ok(claimCheck("Directed officers with traffic control", ev, { original: "Assisted officers with traffic control" }).length > 0, "dropping the hedge entirely still flags");
+});

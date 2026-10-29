@@ -45,7 +45,7 @@ const CREDENTIALS = /\b(master'?s|mba|ph\.?\s?d|doctoral|doctorate)(?:[- ](?:lev
 const HEDGES = [/\bestimated\b/i, /\bapproximately\b/i, /\bapprox\.?(?=\s)/i, /\broughly\b/i, /\bnearly\b/i, /\balmost\b/i, /\bup to\b/i, /\bmore than\b/i, /\bat least\b/i, /\bco-(?:founded|led|organized|created|authored|chaired)\b/i, /\bhelped\b/i, /\bassisted\b/i, /\bcontributed\b/i, /\bparticipated\b/i];
 const CLASS_YEAR = ["first-year", "first year", "freshman", "sophomore", "second-year", "second year", "junior", "third-year", "senior", "fourth-year"];
 const STOP = new Set("about above across after again against among because before being below between both during each from further having into itself more most other over same some such than that their them then there these they this those through under until very what when where which while with within would your yours ours also just only onto upon".split(/\s+/));
-const REWORD = /^(collaborat|cooperat|partner|model|analy[sz]|assess|evaluat|review|examin|design|develop|build|built|construct|conduct|coordinat|organiz|arrang|assist|aid|run|ran|operat|fabricat|machin|prepar|creat|produc|perform|complet|execut|deliver|handl|process|apply|appli|test|measur|calculat|research|investigat|present|communicat|explain|document|record|maintain|manag(?!er)|track|monitor|serv|help|support|contribut|participat|work|utiliz|employ|leverag)/;
+const REWORD = /^(author|writ|wrote|draft|compos|collaborat|cooperat|partner|model|analy[sz]|assess|evaluat|review|examin|design|develop|build|built|construct|conduct|coordinat|organiz|arrang|assist|aid|run|ran|operat|fabricat|machin|prepar|creat|produc|perform|complet|execut|deliver|handl|process|apply|appli|test|measur|calculat|research|investigat|present|communicat|explain|document|record|maintain|manag(?!er)|track|monitor|serv|help|support|contribut|participat|work|utiliz|employ|leverag)/;
 const LIGHT = new Set("using including various multiple several across within helped worked support supported perform performed create created creating materials".split(" "));
 const OUTCOME = /\b(ensuring|ensure|resulting in|leading to|which (improved|increased|reduced)|improv(ed|ing)|increas(ed|ing)|reduc(ed|ing)|driv(ed|ing)|streamlin(ed|ing)|optimiz(ed|ing)|boost(ed|ing)|to keep|enabl(ed|ing)|that emphasizes|emphasizing|demonstrating|showcasing)\b/i;
 
@@ -57,11 +57,29 @@ function hasTerm(hay: string, term: string) {
   return new RegExp(`(^|[^a-z0-9])${esc}([^a-z0-9]|$)`, "i").test(hay);
 }
 
+/** Words in `text` that spell out an abbreviation the student used ("RN" → "registered nurses", "PBC" → "Provided by Client"). */
+export function spelledOut(text: string, own: string): string {
+  // Small words may or may not count toward an abbreviation ("PBC" = Provided by Client; "EHR" = electronic health records).
+  const all = text.split(/[^A-Za-z]+/).filter((w) => w.length > 1);
+  const lists = [all, all.filter((w) => !/^(of|and|the|for|by|to|in|on)$/i.test(w))];
+  const out: string[] = [];
+  for (const a of new Set((own.match(/\b[A-Z]{2,5}(?=s?\b)/g) || []).map((x) => x.toLowerCase())))
+    for (const words of lists)
+      for (let i = 0; i + a.length <= words.length; i++) {
+        const run = words.slice(i, i + a.length);
+        if (run.map((w) => w[0].toLowerCase()).join("") === a) out.push(...run);
+      }
+  return out.join(" ");
+}
+
 export function claimCheck(
   text: string,
   evidence: string,
   opts: { allowedNames?: string[]; postingText?: string; original?: string; postingNumbersOk?: boolean; entryContext?: string } = {},
 ): ClaimFlag[] {
+  // An abbreviation spelled out is the same claim, not new detail.
+  const spelled = spelledOut(text, evidence + " " + (opts.original || ""));
+  if (spelled) { evidence += " " + spelled; if (opts.original !== undefined) opts = { ...opts, original: opts.original + " " + spelled }; }
   const flags: ClaimFlag[] = [];
   const ev = lc(evidence);
   const evNums = new Set((evidence.match(/\$?\d+(?:[.,]\d+)*\+?(?:[kKmM%](?![A-Za-z]))?/g) || []).map(normNum));
@@ -102,7 +120,9 @@ export function claimCheck(
   const own = lc(opts.original !== undefined ? opts.original + " " + (opts.entryContext || "") : evidence);
   for (const [re, root, word] of LEADERSHIP) {
     const m = body.match(re);
-    if (m && !own.includes(root) && !re.test(own)) add({ type: "title", term: m[0], message: `“${m[0]}” claims you ${word}, which your ${opts.original !== undefined ? "original bullet" : "resume"} doesn't say. Keep it only if it's true.` });
+    // "a tracker to manage requests": the tool manages, not the student.
+    const toolDoes = new RegExp(`\\b(tool|tracker|system|spreadsheet|dashboard|database|template|app|process|workflow)s?\\s+(to|that|for)\\s+${m?.[0] || "x"}`, "i").test(body);
+    if (m && !own.includes(root) && !re.test(own) && !toolDoes) add({ type: "title", term: m[0], message: `“${m[0]}” claims you ${word}, which your ${opts.original !== undefined ? "original bullet" : "resume"} doesn't say. Keep it only if it's true.` });
   }
   // Numbers written as words ("a team of five", "thirty percent").
   for (const m of body.matchAll(NUMBER_WORDS)) {
@@ -119,7 +139,9 @@ export function claimCheck(
   if (opts.original !== undefined) {
     for (const h of HEDGES) {
       const m = opts.original.match(h);
-      if (m && !h.test(body)) add({ type: "scope", term: m[0], message: `Your original says “${m[0]}”. Dropping it makes the claim sound more certain than your resume does; keep it.` });
+      // "Assisted" → "supported" gives the same credit; only dropping the hedge altogether overstates.
+      const sameCredit = /^(helped|assisted|contributed|participated)$/i.test(m?.[0] || "") && /\b(help\w*|assist\w*|support\w*|aid(ed|ing)?|contribut\w*|participat\w*)\b/i.test(body);
+      if (m && !h.test(body) && !sameCredit) add({ type: "scope", term: m[0], message: `Your original says “${m[0]}”. Dropping it makes the claim sound more certain than your resume does; keep it.` });
     }
   }
   if (opts.original !== undefined) {
@@ -169,7 +191,7 @@ export function claimCheck(
       return x.slice(0, 6);
     };
     const evStems = new Set((lc(evidence + " " + (opts.postingText || "")).match(/[a-z][a-z-]{3,}/g) || []).map(stem));
-    const novel = Array.from(new Set((t.match(/[a-z][a-z-]{4,}/g) || []).filter((w) => !STOP.has(w) && !evStems.has(stem(w)))));
+    const novel = Array.from(new Set((t.match(/[a-z][a-z-]{4,}/g) || []).filter((w) => !STOP.has(w) && !LIGHT.has(w) && !REWORD.test(w) && !evStems.has(stem(w)))));
     const outcome = body.match(OUTCOME);
     const newOutcome = outcome && !lc(opts.original).includes(lc(outcome[0]));
     // Detail added relative to THIS entry (the bullet, its siblings, role and org).
@@ -224,8 +246,8 @@ export function claimCheck(
       if (!meaningful.length) continue;
       const pl = lc(phrase);
       if (ev.includes(pl) || allowed.some((a) => a.includes(pl) || pl.includes(a))) continue;
-      // "TCU's" is the resume's "TCU".
-      if (meaningful.map((w) => lc(w).replace(/['’]s$/, "")).every((w) => ev.includes(w) || allowed.some((a) => a.includes(w)))) continue;
+      // "TCU's" is the resume's "TCU", and "RNs" its "RN".
+      if (meaningful.map((w) => lc(w.replace(/^([A-Z]{2,5})s$/, "$1")).replace(/['’]s$/, "")).every((w) => ev.includes(w) || allowed.some((a) => a.includes(w)))) continue;
       add({ type: "name", term: phrase, message: `“${phrase}” is not mentioned in your resume or approved facts.` });
     }
   }

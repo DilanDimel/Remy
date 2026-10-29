@@ -35,3 +35,25 @@ test("tailored Word download: a bullet it can't find is reported, not guessed", 
   const { missed } = await editDocx(await studentDocx(), [{ from: "Managed a team of lifeguards at the city pool", to: "x" }]);
   assert.equal(missed.length, 1);
 });
+
+test("Word downloads use the student's font: PDF metric twins map to the familiar name, monospace stays monospace", async () => {
+  const { wordFont } = await import("./docs");
+  assert.equal(wordFont({ serif: false, size: 10, margin: 40, pages: 1, font: "LiberationSans" }), "Arial");
+  assert.equal(wordFont({ serif: true, size: 10, margin: 40, pages: 1, font: "LiberationSerif" }), "Times New Roman");
+  assert.equal(wordFont({ serif: false, size: 10, margin: 40, pages: 1, font: "Courier", mono: true }), "Courier New");
+  assert.equal(wordFont({ serif: true, size: 10, margin: 40, pages: 1, font: "Garamond" }), "Garamond");
+  assert.equal(wordFont(undefined), "Calibri");
+});
+
+test("a bullet inside a paragraph of line breaks is edited in its own run; nothing else changes", async () => {
+  const JSZip = (await import("jszip")).default;
+  const { editDocx } = await import("./docxEdit");
+  const zip = new JSZip();
+  zip.file("word/document.xml", `<w:document><w:body><w:p><w:r><w:rPr><w:rFonts w:ascii="Courier"/></w:rPr><w:t>• Monitored store cameras</w:t><w:br/><w:t>• Wrote incident reports used by store leadership</w:t></w:r></w:p></w:body></w:document>`);
+  const out = await editDocx(await zip.generateAsync({ type: "nodebuffer" }), [{ from: "Wrote incident reports used by store leadership", to: "Wrote detailed incident reports for store leadership" }]);
+  assert.deepEqual(out.missed, []);
+  const xml = await (await JSZip.loadAsync(out.buf)).file("word/document.xml")!.async("string");
+  assert.match(xml, /• Wrote detailed incident reports for store leadership/);
+  assert.match(xml, /• Monitored store cameras/);
+  assert.match(xml, /w:ascii="Courier"/);
+});
