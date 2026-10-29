@@ -17,13 +17,16 @@ type OpenError = { message: string; kind: string; place: string; times: number; 
 type Errors = { open: OpenError[]; fixed: { message: string; kind: string; fixed_at: string; fixed_by: string; times: number }[]; feedback: { id: number; at: string; place: string; message: string; email: string }[] };
 type Status = "todo" | "doing" | "done";
 type TeamTask = { id: string; title: string; assignee: string; due: string; notes: string; done: boolean; status: Status; done_by: string; done_at: string | null; created_by: string };
-type TeamEvent = { id: string; title: string; date: string; time: string; who: string; notes: string; created_by: string };
+type Answer = "yes" | "maybe" | "no";
+type TeamEvent = { id: string; title: string; date: string; time: string; who: string; notes: string; created_by: string; rsvps: Record<string, Answer> };
 type Member = { email: string; name: string; founder: boolean; addedBy: string; addedAt: string | null };
 type Entry = { id: string; member: string; start_at: string; end_at: string | null; note: string };
 type Team = {
   me: string; members: Member[]; tasks: TeamTask[]; events: TeamEvent[]; hours: { member: string; hours: number; week: number }[];
   entries: Entry[]; activity: { id: number; at: string; actor: string; action: string; detail: string }[]; clockedIn: string | null;
+  calendar: { available: boolean; connectedBy: string; connectedAt: string | null };
 };
+const ANSWERS: [Answer, string][] = [["yes", "Going"], ["maybe", "Maybe"], ["no", "Can't go"]];
 
 const TABS = [["overview", "Overview", BarChart3], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity], ["errors", "Errors & feedback", AlertTriangle]] as const;
 type Tab = (typeof TABS)[number][0];
@@ -36,10 +39,23 @@ const ago = (iso: string) => {
 };
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
 
+const GCAL_RESULT: Record<string, [string, boolean]> = {
+  connected: ["Team Google Calendar connected. Meetings now appear on the “Remy team” calendar.", false],
+  cancelled: ["Google Calendar wasn't connected.", true],
+  failed: ["Google Calendar couldn't be connected. Please try again.", true],
+};
+
 export default function Admin() {
-  const { me } = useStore();
+  const { me, toast } = useStore();
   const { query } = useRoute();
   const tab = (query.get("tab") as Tab) || "overview";
+  // Back from Google's consent screen (team calendar): say how it went, then tidy the address bar.
+  useEffect(() => {
+    const r = GCAL_RESULT[query.get("gcal") || ""];
+    if (!r) return;
+    toast(...r);
+    history.replaceState(null, "", "/admin?tab=calendar");
+  }, []);
   if (!me?.owner) return (
     <div className="landing-screen"><div className="landing-card"><Empty title="Only for Remy's owners" body="Sign in with an owner's email to see this page." action={<a className="btn btn-primary" href="/">Back to Remy</a>} /></div></div>
   );
@@ -315,6 +331,8 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
                   <div><strong>{h?.week ?? 0} h</strong><span className="xs muted">worked, 7 days</span></div>
                 </div>
                 {open.slice(0, 3).map((t) => <span key={t.id} className="small adm-ellipsis">• {t.title}</span>)}
+                {(() => { const next = d.events.find((e) => e.date >= today()); if (!next) return null; const a = ANSWERS.find(([k]) => k === next.rsvps[m.email]);
+                  return <span className="xs muted adm-ellipsis">Next meeting ({next.title}): {a ? a[1].toLowerCase() : "hasn't answered"}</span>; })()}
                 <span className="xs muted">{last ? `Last: ${last.action.toLowerCase()}, ${ago(last.at)}` : "No activity yet"}</span>
                 <div className="row-between">
                   <a className="btn btn-ghost btn-sm" href={`/admin?tab=board&person=${encodeURIComponent(m.email)}`}>See their to-dos</a>
@@ -335,16 +353,50 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
 
   if (tab === "calendar") {
     const t0 = today(), upcoming = d.events.filter((e) => e.date >= t0), past = d.events.filter((e) => e.date < t0).reverse();
-    const row = (e: TeamEvent) => (
-      <div key={e.id} className="adm-row">
-        <div className="adm-date"><b>{new Date(e.date + "T12:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</b><span className="xs muted">{e.time}</span></div>
-        <div className="grow stack-sm" style={{ gap: 2 }}><b className="small">{e.title}</b><span className="xs muted">{[e.who && `With ${e.who}`, `added by ${nameOf(e.created_by)}`].filter(Boolean).join(", ")}</span></div>
-        <button className="icon-btn" onClick={() => send("DELETE", `/api/admin/events/${e.id}`)} aria-label="Delete meeting"><Trash2 size={15} /></button>
-      </div>
-    );
+    const row = (e: TeamEvent, upcoming: boolean) => {
+      const count = (a: Answer) => Object.values(e.rsvps).filter((x) => x === a).length;
+      const said = (a: Answer) => d.members.filter((m) => e.rsvps[m.email] === a);
+      const waiting = d.members.filter((m) => !e.rsvps[m.email]);
+      return (
+        <div key={e.id} className="adm-row" style={{ alignItems: "flex-start", flexWrap: "wrap" }}>
+          <div className="adm-date"><b>{new Date(e.date + "T12:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</b><span className="xs muted">{e.time}</span></div>
+          <div className="grow stack-sm" style={{ gap: 4, minWidth: 200 }}>
+            <b className="small">{e.title}</b>
+            <span className="xs muted">{[e.who && `With ${e.who}`, `added by ${nameOf(e.created_by)}`].filter(Boolean).join(", ")}</span>
+            <span className="xs" data-testid="rsvp-headcount">
+              <b>{count("yes")} going</b>{count("maybe") ? `, ${count("maybe")} maybe` : ""}{count("no") ? `, ${count("no")} can't go` : ""}{waiting.length ? <span className="muted">, {waiting.length} haven't answered</span> : ""}
+            </span>
+            <div className="row" style={{ gap: 4 }}>
+              {ANSWERS.map(([a, label]) => said(a).map((m) => <span key={m.email + a} title={`${m.name}: ${label}`} style={{ opacity: a === "yes" ? 1 : a === "maybe" ? 0.7 : 0.35 }}><Avatar m={m} size={22} /></span>))}
+            </div>
+            {upcoming && (
+              <div className="row" style={{ gap: 6 }} role="group" aria-label={`Your answer for ${e.title}`}>
+                {ANSWERS.map(([a, label]) => (
+                  <button key={a} className="pref-chip" aria-pressed={e.rsvps[d.me] === a} data-testid={`rsvp-${a}`}
+                    onClick={() => send("POST", `/api/admin/events/${e.id}/rsvp`, { answer: e.rsvps[d.me] === a ? "" : a })}>{label}</button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button className="icon-btn" onClick={() => send("DELETE", `/api/admin/events/${e.id}`)} aria-label="Delete meeting"><Trash2 size={15} /></button>
+        </div>
+      );
+    };
+    const cal = d.calendar;
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     return (
       <div className="stack-lg">
-        <Head title="Calendar" sub="Meetings with professors, the career center, partners and each other." />
+        <Head title="Calendar" sub="Meetings with professors, the career center, partners and each other. Tap Going, Maybe or Can't go so everyone sees the headcount." />
+        {cal.available && (
+          <div className="adm-card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }} data-testid="team-gcal">
+            {cal.connectedBy
+              ? <span className="small"><Check size={14} /> Meetings go to the <b>Remy team</b> Google Calendar automatically, with who's going. Connected by {nameOf(cal.connectedBy)}.</span>
+              : <span className="small">Connect the team's shared Google account and every meeting here appears on its <b>Remy team</b> calendar, with the headcount.</span>}
+            {cal.connectedBy
+              ? <button className="btn btn-ghost btn-sm" onClick={async () => { if (!confirm("Disconnect the team Google Calendar? The Remy team calendar will be deleted from that Google account.")) return; const r = await run(() => api<{ team: Team }>("DELETE", "/api/admin/calendar"), "Disconnected"); if (r) setD(r.team); }}>Disconnect</button>
+              : <a className="btn btn-primary btn-sm" href={`/api/calendar/connect?team=1&tz=${encodeURIComponent(tz)}`} data-testid="button-team-gcal">Connect Google Calendar</a>}
+          </div>
+        )}
         <form className="adm-card adm-form adm-form-5" onSubmit={async (e) => { e.preventDefault(); if (await send("POST", "/api/admin/events", ev, "Meeting added")) setEv({ title: "", date: "", time: "", who: "" }); }}>
           <input className="input" value={ev.title} onChange={(e) => setEv({ ...ev, title: e.target.value })} placeholder="Meeting, e.g. Career Center partnership" aria-label="Meeting" />
           <input className="input" value={ev.who} onChange={(e) => setEv({ ...ev, who: e.target.value })} placeholder="With whom" aria-label="With whom" />
@@ -352,8 +404,8 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
           <input className="input" type="time" value={ev.time} onChange={(e) => setEv({ ...ev, time: e.target.value })} aria-label="Time" />
           <button className="btn btn-primary btn-sm" disabled={!ev.title.trim() || !ev.date}><Plus size={15} /> Add</button>
         </form>
-        <section className="adm-card adm-list"><h3>Coming up</h3>{upcoming.map(row)}{!upcoming.length && <p className="small muted">Nothing scheduled.</p>}</section>
-        {past.length > 0 && <section className="adm-card adm-list"><h3>Last 30 days</h3>{past.map(row)}</section>}
+        <section className="adm-card adm-list"><h3>Coming up</h3>{upcoming.map((e) => row(e, true))}{!upcoming.length && <p className="small muted">Nothing scheduled.</p>}</section>
+        {past.length > 0 && <section className="adm-card adm-list"><h3>Last 30 days</h3>{past.map((e) => row(e, false))}</section>}
       </div>
     );
   }

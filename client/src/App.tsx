@@ -60,15 +60,24 @@ function Root() {
   if (path === "/about") return <About />;
   if (path === "/policies" || path === "/privacy" || path === "/terms") return <Policies />;
   if (loading)
-    return (
-      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
-        <div className="stack" style={{ alignItems: "center" }}><Remy size={64} mood="think" /><span className="muted small">Remy is getting things ready…</span></div>
-      </div>
-    );
+    return <SlowLoading />;
   if (path === "/admin" && me) return <Admin />;
   if (signedOut) return <Welcome />;
   if (!ws.onboarding.done) return <Onboarding />;
   return <Shell />;
+}
+
+// A reload checks the session in well under a second; showing Remy's loading screen for that long reads as a
+// different page flashing by, so the screen stays blank unless loading is actually slow.
+function SlowLoading() {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setSlow(true), 800); return () => clearTimeout(t); }, []);
+  if (!slow) return null;
+  return (
+    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+      <div className="stack" style={{ alignItems: "center" }}><Remy size={64} mood="think" /><span className="muted small">Remy is getting things ready…</span></div>
+    </div>
+  );
 }
 
 function isMobileNow() {

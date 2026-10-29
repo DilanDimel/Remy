@@ -54,16 +54,22 @@ const cal = (r: Row) => `/calendars/${encodeURIComponent(r.calendar_id)}`;
 
 export const connected = async (userId: string) => !!(await row(userId));
 
-/** Finishes Google's consent: creates the "Remy" calendar and remembers it (replacing an older connection). */
-export async function connect(userId: string, code: string, redirect: string, tz: string) {
+/** Google's consent → a new calendar of Remy's own in that account. */
+async function createCalendar(code: string, redirect: string, tz: string, summary: string, description: string) {
   const t = await token({ code, redirect_uri: redirect, grant_type: "authorization_code" });
   if (!t.refresh_token || !(t.scope || "").includes(SCOPE)) throw Object.assign(new Error("Google didn't give Remy calendar access. Try again and allow it."), { status: 400 });
+  const c = await api(t.access_token, "POST", "/calendars", { summary, description, timeZone: tz });
+  return { refresh: seal(t.refresh_token), calendar_id: c.id as string, tz };
+}
+
+/** Finishes Google's consent: creates the "Remy" calendar and remembers it (replacing an older connection). */
+export async function connect(userId: string, code: string, redirect: string, tz: string) {
+  const r = await createCalendar(code, redirect, tz, "Remy", "Deadlines, interviews and events from Remy. Deleted automatically if you disconnect or delete your Remy account.");
   await disconnect(userId);
-  const c = await api(t.access_token, "POST", "/calendars", { summary: "Remy", description: "Deadlines, interviews and events from Remy. Deleted automatically if you disconnect or delete your Remy account.", timeZone: tz });
   await q(
     `INSERT INTO google_calendar (user_id, refresh, calendar_id, tz) VALUES ($1,$2,$3,$4)
      ON CONFLICT (user_id) DO UPDATE SET refresh=EXCLUDED.refresh, calendar_id=EXCLUDED.calendar_id, tz=EXCLUDED.tz, connected_at=now()`,
-    [userId, seal(t.refresh_token), c.id, tz],
+    [userId, r.refresh, r.calendar_id, r.tz],
   );
 }
 
@@ -72,6 +78,11 @@ export async function connect(userId: string, code: string, redirect: string, tz
 export async function disconnect(userId: string): Promise<boolean> {
   const r = await row(userId);
   if (!r) return true;
+  const removed = await removeCalendar(r);
+  await q("DELETE FROM google_calendar WHERE user_id=$1", [userId]);
+  return removed;
+}
+async function removeCalendar(r: Row): Promise<boolean> {
   let removed = true;
   try {
     const tok = await access(r);
@@ -81,7 +92,6 @@ export async function disconnect(userId: string): Promise<boolean> {
     console.error("Couldn't delete the Remy Google calendar:", e?.message);
   }
   await fetch("https://oauth2.googleapis.com/revoke?token=" + encodeURIComponent(unseal(r.refresh)), { method: "POST" }).catch(() => {});
-  await q("DELETE FROM google_calendar WHERE user_id=$1", [userId]);
   return removed;
 }
 
@@ -101,7 +111,9 @@ export function toEvent(it: CalItem, tz: string) {
 /** Makes the Remy calendar match the student's Remy calendar items exactly. */
 export async function sync(userId: string, items: CalItem[]) {
   const r = await row(userId);
-  if (!r) return;
+  if (r) await mirror(r, items);
+}
+async function mirror(r: Row, items: CalItem[]) {
   const tok = await access(r);
   const want = new Map(items.filter((i) => /^\d{4}-\d{2}-\d{2}$/.test(i.date)).map((i) => [eventId(i.id), toEvent(i, r.tz)]));
   const have = new Set<string>();
@@ -126,4 +138,34 @@ export function syncSoon(userId: string, load: () => Promise<CalItem[]>) {
     timers.delete(userId);
     load().then((items) => sync(userId, items)).catch((e) => console.error("Google Calendar sync failed:", e?.message));
   }, 1500));
+}
+
+// ---------- the team's calendar (owners' dashboard) ----------
+// One "Remy team" calendar in the team's shared Google account, mirroring the dashboard's meetings.
+const teamRow = async () => (await q1("SELECT refresh, calendar_id, tz, connected_by, connected_at FROM team_calendar WHERE id='team'")) as (Row & { connected_by: string; connected_at: string }) | undefined;
+export async function teamStatus() {
+  const r = gcalReady() ? await teamRow() : undefined;
+  return { available: gcalReady(), connectedBy: r?.connected_by || "", connectedAt: r?.connected_at || null };
+}
+export async function connectTeam(by: string, code: string, redirect: string, tz: string) {
+  const r = await createCalendar(code, redirect, tz, "Remy team", "Team meetings from Remy's owners' dashboard, with who's going. Deleted if the dashboard disconnects it.");
+  await disconnectTeam();
+  await q("INSERT INTO team_calendar (id, refresh, calendar_id, tz, connected_by) VALUES ('team',$1,$2,$3,$4)", [r.refresh, r.calendar_id, r.tz, by]);
+}
+export async function disconnectTeam(): Promise<boolean> {
+  const r = await teamRow();
+  if (!r) return true;
+  const removed = await removeCalendar(r);
+  await q("DELETE FROM team_calendar WHERE id='team'");
+  return removed;
+}
+let teamTimer: NodeJS.Timeout | undefined;
+export function syncTeamSoon(load: () => Promise<CalItem[]>) {
+  clearTimeout(teamTimer);
+  teamTimer = setTimeout(async () => {
+    try {
+      const r = await teamRow();
+      if (r) await mirror(r, await load());
+    } catch (e: any) { console.error("Team Google Calendar sync failed:", e?.message); }
+  }, 1500);
 }

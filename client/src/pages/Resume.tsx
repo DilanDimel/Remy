@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, ArrowUpRight, Check, CheckCircle2, Download, FileText, Link2, Pencil, Plus, RotateCcw, ShieldAlert, ShieldCheck, Sparkles,
+  AlertTriangle, ArrowUpRight, Check, CheckCircle2, ChevronDown, ChevronUp, Download, FileText, Link2, Pencil, Plus, RotateCcw, ShieldAlert, ShieldCheck, Sparkles,
   Star, Trash2, X,
 } from "lucide-react";
 import type { Application, BulletChange, ClaimFlag, Job, ResumeDoc, Workspace } from "@shared/types";
@@ -48,7 +48,9 @@ function BaseResume() {
   const [doc, setDoc] = useState<ResumeDoc | null>(w.resume?.doc ? JSON.parse(JSON.stringify(w.resume.doc)) : null);
   const [showRaw, setShowRaw] = useState(false);
   const [replace, setReplace] = useState(false);
-  const [preview, setPreview] = useState(true);
+  // Students who'd rather not see their file can minimize it; the choice is remembered on this device.
+  const [preview, setPreviewState] = useState(() => { try { return localStorage.getItem("remy.resumePreview") !== "hidden"; } catch { return true; } });
+  const setPreview = (fn: (p: boolean) => boolean) => setPreviewState((p) => { const n = fn(p); try { localStorage.setItem("remy.resumePreview", n ? "shown" : "hidden"); } catch { /* private mode */ } return n; });
   const [building, setBuilding] = useState(false);
   useEffect(() => { setDoc(w.resume?.doc ? JSON.parse(JSON.stringify(w.resume.doc)) : null); }, [w.resume?.uploadedAt]);
   if ((!w.resume || !doc) && building) return <div className="card card-pad"><ResumeBuilder onDone={() => setBuilding(false)} onCancel={() => setBuilding(false)} /></div>;
@@ -94,10 +96,17 @@ function BaseResume() {
             <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/export?format=docx", "Resume.docx").catch((e) => toast(e.message, true))} disabled={dirty} data-testid="button-export-base-docx">Word</button>
           </div>
         </div>
-        {w.resume.original?.mime === "application/pdf" && (
+        {(w.resume.original?.mime === "application/pdf" || w.resume.original?.mime.includes("wordprocessingml")) && (
           <div className="stack-sm">
-            <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setPreview((p) => !p)} data-testid="button-toggle-preview">{preview ? "Hide" : "Show"} your original PDF</button>
-            {preview && <iframe className="pdf-preview" src={`${API_BASE}/api/resume/original#view=FitH`} title="Your original resume" data-testid="pdf-preview" />}
+            <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setPreview((p) => !p)} aria-expanded={preview} data-testid="button-toggle-preview">
+              {preview ? <><ChevronUp size={14} /> Minimize your resume</> : <><ChevronDown size={14} /> Show your resume</>}
+            </button>
+            {preview && (w.resume.original.mime === "application/pdf"
+              ? <iframe className="pdf-preview" src={`${API_BASE}/api/resume/original#view=FitH`} title="Your original resume" data-testid="pdf-preview" />
+              : <>
+                  <span className="xs muted">A preview of your Word file. Fonts and spacing may look slightly different from Word.</span>
+                  <iframe className="pdf-preview" sandbox="" src={`${API_BASE}/api/resume/original?view=html&v=${encodeURIComponent(w.resume.uploadedAt)}`} title="Your original resume" data-testid="pdf-preview" />
+                </>)}
           </div>
         )}
       </div>

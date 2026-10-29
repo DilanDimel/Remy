@@ -1,7 +1,7 @@
 // The owners' dashboard: who is an owner, the board, and errors marked fixed. Run with `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { addMember, errors, fixError, isOwner, recordError, removeMember, saveTask, team } from "./admin";
+import { addEvent, addMember, errors, fixError, isOwner, recordError, removeMember, rsvp, saveTask, team, teamCalendarItems } from "./admin";
 
 process.env.OWNER_EMAILS = "founder@test.edu";
 const user = (email: string, kind: any = "supabase") => ({ kind, email });
@@ -41,4 +41,23 @@ test("errors: marked fixed leaves the open list, and comes back if it happens ag
   assert.ok(!(await errors()).open.some((e: any) => e.message === "Boom"));
   await recordError("browser", "/opportunities", "Boom", "stack");
   assert.ok((await errors()).open.some((e: any) => e.message === "Boom"));
+});
+
+test("meetings: the adder is going, teammates answer, and the team calendar notes carry the headcount", async () => {
+  await addMember("founder@test.edu", { email: "mate@test.edu", name: "Mate" });
+  await addEvent("founder@test.edu", { title: "Career Center meeting", date: "2099-01-15", time: "14:00" });
+  let e = (await team("founder@test.edu")).events.find((x: any) => x.title === "Career Center meeting")!;
+  assert.deepEqual(e.rsvps, { "founder@test.edu": "yes" });
+  await rsvp("mate@test.edu", e.id, "maybe");
+  await rsvp("mate@test.edu", e.id, "no");
+  e = (await team("founder@test.edu")).events.find((x: any) => x.id === e.id)!;
+  assert.equal(e.rsvps["mate@test.edu"], "no");
+  await assert.rejects(rsvp("mate@test.edu", e.id, "sure"), /going, maybe/);
+  const item = (await teamCalendarItems()).find((x) => x.id === e.id)!;
+  assert.match(item.notes, /Going \(1\): founder/);
+  assert.match(item.notes, /Can't go \(1\): Mate/);
+  await rsvp("mate@test.edu", e.id, "");
+  e = (await team("founder@test.edu")).events.find((x: any) => x.id === e.id)!;
+  assert.equal(e.rsvps["mate@test.edu"], undefined);
+  await removeMember("founder@test.edu", "mate@test.edu");
 });

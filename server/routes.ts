@@ -16,7 +16,7 @@ import * as admin from "./admin";
 import { recordError } from "./admin";
 import { careersFor, futureFor, officialFor } from "./future";
 import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase } from "./auth";
-import { aiExtractPosting, CLOSED_SIGNALS, fetchPublic, fileToText, htmlToText, norm, pdfStyle } from "./parse";
+import { aiExtractPosting, CLOSED_SIGNALS, docxPreviewHtml, fetchPublic, fileToText, htmlToText, norm, pdfStyle } from "./parse";
 import {
   aiParseResume, chooseReading, extractSkills, skillsPosition, graduationOf, gpaOf, majorsOf, minorsOf, preCollegeIds, normalizeResumeText, parseQuality, primaryEducation, resumeToText, rulesParse, schoolName,
   stillMissing, nameCase,
@@ -357,6 +357,13 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.post("/api/admin/errors/fix", route(async (req, res, ctx) => { const me = owner(ctx); await admin.fixError(me, String(req.body?.message || ""), String(req.body?.kind || "")); res.json(await admin.errors()); }));
   app.post("/api/admin/events", route(async (req, res, ctx) => { const me = owner(ctx); await admin.addEvent(me, req.body || {}); res.json(await admin.team(me)); }));
   app.delete("/api/admin/events/:id", route(async (req, res, ctx) => { const me = owner(ctx); await admin.deleteEvent(me, String(req.params.id)); res.json(await admin.team(me)); }));
+  app.post("/api/admin/events/:id/rsvp", route(async (req, res, ctx) => { const me = owner(ctx); await admin.rsvp(me, String(req.params.id), String(req.body?.answer || "")); res.json(await admin.team(me)); }));
+  app.delete("/api/admin/calendar", route(async (_req, res, ctx) => {
+    const me = owner(ctx);
+    const removed = await gcal.disconnectTeam();
+    await admin.logAction(me, "Disconnected the team Google Calendar");
+    res.json({ removed, team: await admin.team(me) });
+  }));
   app.post("/api/admin/clock", route(async (req, res, ctx) => { const me = owner(ctx); await admin.clock(me, req.body?.action === "out" ? "out" : "in", String(req.body?.note || "")); res.json(await admin.team(me)); }));
 
   app.get("/api/me", async (req, res, next) => {
@@ -580,6 +587,13 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.get("/api/resume/original", route(async (req, res, ctx) => {
     const f = await getFile(ctx.me.id, "resume");
     if (!f || !ctx.ws.resume?.original) bad("No uploaded file is stored — this resume was pasted or is the sample.", 404);
+    if (req.query.view === "html" && f!.mime.includes("wordprocessingml")) {
+      // The student's own file turned into a page: sandboxed so nothing in it can run or load.
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Content-Security-Policy", "sandbox; default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'self'");
+      res.send(await docxPreviewHtml(f!.data));
+      return;
+    }
     res.setHeader("Content-Type", f!.mime);
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Content-Disposition", `${req.query.download ? "attachment" : "inline"}; filename="${f!.name.replace(/[^\w.\- ]+/g, "_").slice(0, 120)}"`);
@@ -1331,7 +1345,7 @@ Return JSON:
 
   // ---------- Google Calendar (Remy's own calendar in the student's Google account) ----------
   // shortcut: pending consent states live in memory (10 minutes, one server process); move to the DB if we run more than one.
-  const gcalStates = new Map<string, { userId: string; back: string; tz: string; exp: number }>();
+  const gcalStates = new Map<string, { userId: string; back: string; tz: string; exp: number; team?: string }>();
   const gcalRedirect = (req: Request) => process.env.GCAL_REDIRECT || `https://${req.headers.host}/api/calendar/callback`;
   app.get("/api/calendar/google", route(async (_req, res, ctx) => {
     res.json({ available: gcal.gcalReady(), connected: gcal.gcalReady() && (await gcal.connected(ctx.me.id)) });
@@ -1342,7 +1356,9 @@ Return JSON:
     if (!signedIn(ctx.me)) bad("Sign in with Google or email first, then connect your calendar.", 401);
     const state = crypto.randomBytes(24).toString("base64url");
     const tz = /^[A-Za-z_]+\/[A-Za-z_\/-]+$/.test(String(req.query.tz || "")) ? String(req.query.tz) : "America/Chicago";
-    gcalStates.set(state, { userId: ctx.me.id, back: req.query.back === "setup" ? "/" : "/calendar", tz, exp: Date.now() + 10 * 60_000 });
+    // ?team=1: an owner connects the team's shared Google account for the dashboard's meetings.
+    const team = req.query.team === "1" ? (ctx.me.owner ? ctx.me.email.toLowerCase() : bad("Only Remy's owners can connect the team calendar.", 403)) : undefined;
+    gcalStates.set(state, { userId: ctx.me.id, back: team ? "/admin?tab=calendar" : req.query.back === "setup" ? "/" : "/calendar", tz, exp: Date.now() + 10 * 60_000, team });
     res.redirect(gcal.authUrl(state, gcalRedirect(req)));
   }));
   app.get("/api/calendar/callback", route(async (req, res, ctx) => {
@@ -1351,8 +1367,14 @@ Return JSON:
     if (!st || st.exp < Date.now() || st.userId !== ctx.me.id) return res.redirect("/calendar?gcal=expired");
     if (req.query.error || !req.query.code) return res.redirect(st.back + (st.back.includes("?") ? "&" : "?") + "gcal=cancelled");
     try {
-      await gcal.connect(ctx.me.id, String(req.query.code), gcalRedirect(req), st.tz);
-      await gcal.sync(ctx.me.id, ctx.ws.calendar).catch((e) => console.error("first Google Calendar sync failed:", e?.message));
+      if (st.team) {
+        await gcal.connectTeam(st.team, String(req.query.code), gcalRedirect(req), st.tz);
+        await admin.logAction(st.team, "Connected the team Google Calendar");
+        admin.syncTeamCalendar();
+      } else {
+        await gcal.connect(ctx.me.id, String(req.query.code), gcalRedirect(req), st.tz);
+        await gcal.sync(ctx.me.id, ctx.ws.calendar).catch((e) => console.error("first Google Calendar sync failed:", e?.message));
+      }
       res.redirect(st.back + (st.back.includes("?") ? "&" : "?") + "gcal=connected");
     } catch (e: any) {
       console.error("Google Calendar connect failed:", e?.message);
