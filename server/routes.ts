@@ -355,6 +355,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.delete("/api/admin/members/:email", route(async (req, res, ctx) => { const me = owner(ctx); await admin.removeMember(me, String(req.params.email)); res.json(await admin.team(me)); }));
   app.post("/api/admin/errors/fix", route(async (req, res, ctx) => { const me = owner(ctx); await admin.fixError(me, String(req.body?.message || ""), String(req.body?.kind || "")); res.json(await admin.errors()); }));
   app.post("/api/admin/events", route(async (req, res, ctx) => { const me = owner(ctx); await admin.addEvent(me, req.body || {}); res.json(await admin.team(me)); }));
+  app.post("/api/admin/events/:id/people", route(async (req, res, ctx) => { const me = owner(ctx); await admin.setEventPeople(me, String(req.params.id), req.body?.assignees); res.json(await admin.team(me)); }));
   app.delete("/api/admin/events/:id", route(async (req, res, ctx) => { const me = owner(ctx); await admin.deleteEvent(me, String(req.params.id)); res.json(await admin.team(me)); }));
   app.post("/api/admin/events/:id/rsvp", route(async (req, res, ctx) => { const me = owner(ctx); await admin.rsvp(me, String(req.params.id), String(req.body?.answer || "")); res.json(await admin.team(me)); }));
   app.delete("/api/admin/calendar", route(async (_req, res, ctx) => {

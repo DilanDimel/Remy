@@ -92,9 +92,24 @@ export async function overview() {
             COALESCE(ROUND(AVG((e->>'ms')::numeric)), 0)::int AS avg_ms
      FROM workspaces, jsonb_array_elements(COALESCE(data->'aiLog', '[]'::jsonb)) e WHERE ${since}`,
   );
+  // North star: students who did a real career step (not just chatting) — started an application,
+  // tailored a resume, drafted outreach or worked on their resume — in each of the last two weeks.
+  const ts = (days: number) => `to_char(now() - interval '${days} days', 'YYYY-MM-DD"T"HH24:MI:SS')`;
+  const stepIn = (from: number, to: number) => `EXISTS (
+      SELECT 1 FROM jsonb_array_elements(COALESCE(w.data->'applications', '[]'::jsonb) || COALESCE(w.data->'outreach', '[]'::jsonb)) x
+      WHERE (x->>'createdAt') > ${ts(from)} AND (x->>'createdAt') <= ${ts(to)}
+    ) OR EXISTS (
+      SELECT 1 FROM jsonb_array_elements(COALESCE(w.data->'aiLog', '[]'::jsonb)) e
+      WHERE (e->>'purpose' LIKE 'Tailor for %' OR e->>'purpose' LIKE 'Resume builder%') AND (e->>'at') > ${ts(from)} AND (e->>'at') <= ${ts(to)}
+    )`;
+  const north = await q1(
+    `SELECT COUNT(*) FILTER (WHERE ${stepIn(7, 0)})::int AS week, COUNT(*) FILTER (WHERE ${stepIn(14, 7)})::int AS prev
+     FROM workspaces w JOIN users u ON u.id = w.user_id WHERE ${SIGNED_IN}`,
+  );
   const openErrors = await q1("SELECT COUNT(DISTINCT message) FILTER (WHERE kind <> 'feedback')::int AS n, COUNT(*) FILTER (WHERE kind = 'feedback')::int AS feedback FROM error_reports WHERE fixed_at IS NULL AND at > now() - interval '30 days'");
   return {
     students: totals?.students ?? 0, newWeek: totals?.new_week ?? 0, newPrev: totals?.new_prev ?? 0,
+    northWeek: north?.week ?? 0, northPrev: north?.prev ?? 0,
     activeWeek: active?.week ?? 0, activePrev: active?.prev ?? 0, activeToday: active?.today ?? 0,
     daily, funnel, features: features.filter((f) => f.uses).sort((a, b) => b.students - a.students || b.uses - a.uses),
     ai: { calls: ai?.calls ?? 0, failed: ai?.failed ?? 0, cost: ai?.cost ?? 0, priced: ai?.priced ?? 0, avgMs: ai?.avg_ms ?? 0 },
@@ -171,6 +186,9 @@ export async function removeMember(me: string, email: string) {
   await log(me, "Removed a teammate", e);
 }
 
+/** Assigned teammates as stored: lowercase emails, comma-separated (one column, no migration for to-dos). */
+export const emails = (v: unknown) => [...new Set((Array.isArray(v) ? v : String(v ?? "").split(",")).map((x) => cut(x, 200).trim().toLowerCase()).filter((x) => x.includes("@")))].slice(0, 12).join(",");
+
 export async function saveTask(me: string, b: any) {
   if (b.id) {
     const before = await q1("SELECT * FROM team_tasks WHERE id = $1", [cut(b.id, 60)]);
@@ -184,17 +202,17 @@ export async function saveTask(me: string, b: any) {
               done_by = CASE WHEN $6 IS TRUE AND NOT done THEN $7 WHEN $6 IS FALSE THEN '' ELSE done_by END,
               done_at = CASE WHEN $6 IS TRUE AND NOT done THEN now() WHEN $6 IS FALSE THEN NULL ELSE done_at END
        WHERE id = $1`,
-      [before.id, b.title == null ? null : cut(b.title, 300), b.assignee == null ? null : cut(b.assignee, 200).toLowerCase(), b.due == null ? null : cut(b.due, 10), b.notes == null ? null : cut(b.notes, 2000), done, me, status],
+      [before.id, b.title == null ? null : cut(b.title, 300), b.assignee == null ? null : emails(b.assignee), b.due == null ? null : cut(b.due, 10), b.notes == null ? null : cut(b.notes, 2000), done, me, status],
     );
     if (done === true && !before.done) await log(me, "Finished a to-do", before.title);
     else if (status === "doing" && before.status !== "doing") await log(me, "Started a to-do", before.title);
     else if (done === false && before.done) await log(me, "Reopened a to-do", before.title);
-    else if (b.assignee != null && b.assignee !== before.assignee) await log(me, "Assigned a to-do", `${before.title} → ${b.assignee || "nobody"}`);
+    else if (b.assignee != null && emails(b.assignee) !== before.assignee) await log(me, "Assigned a to-do", `${before.title} → ${emails(b.assignee).replace(/,/g, ", ") || "nobody"}`);
   } else {
     const title = cut(b.title, 300).trim();
     if (!title) throw bad("Give the to-do a title.");
-    await q("INSERT INTO team_tasks (id, title, assignee, due, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6)", [uid("tt"), title, cut(b.assignee, 200).toLowerCase(), cut(b.due, 10), cut(b.notes, 2000), me]);
-    await log(me, "Added a to-do", b.assignee ? `${title} → ${b.assignee}` : title);
+    await q("INSERT INTO team_tasks (id, title, assignee, due, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6)", [uid("tt"), title, emails(b.assignee), cut(b.due, 10), cut(b.notes, 2000), me]);
+    await log(me, "Added a to-do", emails(b.assignee) ? `${title} → ${emails(b.assignee).replace(/,/g, ", ")}` : title);
   }
 }
 export async function deleteTask(me: string, id: string) {
@@ -205,11 +223,18 @@ export async function deleteTask(me: string, id: string) {
 export async function addEvent(me: string, b: any) {
   if (!cut(b.title, 300).trim() || !/^\d{4}-\d{2}-\d{2}$/.test(String(b.date))) throw bad("Give the meeting a title and a date.");
   const id = uid("te");
-  await q("INSERT INTO team_events (id, title, date, time, who, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-    [id, cut(b.title, 300), b.date, /^\d{2}:\d{2}$/.test(String(b.time)) ? b.time : "", cut(b.who, 300), cut(b.notes, 2000), me]);
+  await q("INSERT INTO team_events (id, title, date, time, who, notes, created_by, assignees) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+    [id, cut(b.title, 300), b.date, /^\d{2}:\d{2}$/.test(String(b.time)) ? b.time : "", cut(b.who, 300), cut(b.notes, 2000), me, emails(b.assignees)]);
   // Whoever adds a meeting is going, unless they say otherwise.
   await q("INSERT INTO team_event_rsvps (event_id, member, answer) VALUES ($1, $2, 'yes')", [id, me]);
   await log(me, "Added a meeting", `${cut(b.title, 300)} on ${b.date}`);
+  syncTeamCalendar();
+}
+/** Changes which teammates are on a meeting. */
+export async function setEventPeople(me: string, id: string, assignees: unknown) {
+  const e = await q1("UPDATE team_events SET assignees = $2 WHERE id = $1 RETURNING title, date, assignees", [cut(id, 60), emails(assignees)]);
+  if (!e) throw bad("That meeting isn't there anymore.", 404);
+  await log(me, "Set who's on a meeting", `${e.title} on ${e.date} → ${e.assignees.replace(/,/g, ", ") || "nobody"}`);
   syncTeamCalendar();
 }
 export async function deleteEvent(me: string, id: string) {
@@ -243,7 +268,7 @@ export async function teamCalendarItems(): Promise<CalItem[]> {
     const said = (a: string) => rsvps.filter((r) => r.event_id === e.id && r.answer === a).map((r) => name(r.member));
     const lines = Object.entries(ANSWERS).map(([a, label]) => { const n = said(a); return n.length ? `${label} (${n.length}): ${n.join(", ")}` : ""; }).filter(Boolean);
     return { id: e.id, title: e.title, date: e.date, time: e.time, kind: "Event", source: "Owners' dashboard",
-      notes: [e.who && `With ${e.who}`, e.notes, lines.join("\n"), "Answer in Remy's owners' dashboard → Calendar."].filter(Boolean).join("\n") } as CalItem;
+      notes: [e.assignees && `Team: ${String(e.assignees).split(",").map(name).join(", ")}`, e.who && `With ${e.who}`, e.notes, lines.join("\n"), "Answer in Remy's owners' dashboard → Calendar."].filter(Boolean).join("\n") } as CalItem;
   });
 }
 export const syncTeamCalendar = () => { if (gcal.gcalReady()) gcal.syncTeamSoon(teamCalendarItems); };

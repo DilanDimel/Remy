@@ -433,7 +433,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .adm-fixed { display: flex; gap: 8px; align-items: center; padding: 6px 0; }
 .adm-date { width: 64px; display: grid; flex: none; }
 .adm-form { grid-template-columns: 2fr 1fr 1fr auto; align-items: center; gap: 8px; }
-.adm-form-5 { grid-template-columns: 2fr 1.2fr 1fr 0.8fr auto; }
+.adm-form-5 { grid-template-columns: 2fr 1.2fr auto 1fr 0.8fr auto; }
 .adm-av { display: inline-grid; place-items: center; flex: none; border-radius: 50%; background: var(--fox-soft); color: var(--fox-deep); font-weight: 800; letter-spacing: 0.02em; }
 .adm-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
 .adm-col { background: var(--surface-2); border-radius: 14px; padding: 12px; display: grid; gap: 10px; min-height: 160px; align-content: start; }
@@ -446,6 +446,14 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .adm-task:hover .adm-task-actions, .adm-task:focus-within .adm-task-actions { opacity: 1; }
 .adm-assign { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .adm-assign select { border: 0; background: transparent; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink); max-width: 140px; padding: 2px 0; cursor: pointer; }
+.adm-col-over { outline: 2px dashed var(--fox); outline-offset: -4px; background: var(--fox-soft); }
+.adm-people-pick { position: relative; }
+.adm-people-pick > summary { list-style: none; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; padding: 3px 8px 3px 3px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+.adm-people-pick > summary::-webkit-details-marker { display: none; }
+.adm-people-pick > summary:hover { background: var(--lav-2); }
+.adm-people-menu { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; min-width: 190px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 8px; display: grid; gap: 6px; }
+.adm-stack { display: inline-flex; }
+.adm-stack > * + * { margin-left: -7px; box-shadow: 0 0 0 2px var(--surface); }
 .adm-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
 .adm-person-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .adm-person-stats div { display: grid; }
