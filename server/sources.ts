@@ -372,6 +372,14 @@ export async function cachedBoard(b: Board, field: string, region: string, fetch
 }
 export const pruneBoardCache = () => q("DELETE FROM board_cache WHERE fetched_at < now() - interval '3 days'");
 
+/** Which employers to read next: liked ones first, dismissed ones (2+ "Not interested") left out, then least recently read. */
+export function orderEmployers<T extends { company: string }>(list: T[], liked: Set<string | undefined>, hides: Map<string, number>, lastRead: Record<string, string>): T[] {
+  const like = (e: T) => (liked.has(e.company.toLowerCase()) ? 1 : 0);
+  return list
+    .filter((e, i) => list.findIndex((x) => x.company === e.company) === i && (hides.get(e.company.toLowerCase()) || 0) < 2)
+    .sort((a, b) => like(b) - like(a) || (lastRead[a.company] || "").localeCompare(lastRead[b.company] || ""));
+}
+
 /** Turns a company name into board guesses on all three ATSs. */
 export function boardsFor(company: string): Board[] {
   const base = company.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "");

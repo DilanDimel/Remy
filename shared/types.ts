@@ -401,6 +401,8 @@ export interface Workspace {
   jobs: Job[]; // found by the live search, imported or added by the student
   /** When Remy last searched employers' career sites for this student (it re-searches every few hours). */
   openingsCheckedAt?: string;
+  /** When Remy last read each employer's career site for this student (so "Find more" reaches new ones). */
+  employersRead?: Record<string, string>;
   /** How the last search went: employer sites reached out of those tried. */
   lastSearch?: { at: string; reached: number; scanned: number };
   savedJobIds: string[];

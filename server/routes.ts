@@ -26,7 +26,7 @@ import { atsChecks, claimCheck } from "./claims";
 import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, skillSuggestions } from "./builder";
 import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSION } from "./fit";
 import { atsScore } from "./ats";
-import { boardsFor, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, USAJOBS } from "./sources";
+import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
 import { docxStyle, editDocx } from "./docxEdit";
 import * as gcal from "./gcal";
@@ -280,6 +280,16 @@ async function findOpenings(ctx: Ctx, named: string[] = []) {
     } catch {}
   }
   if (!picked.length) picked = EMPLOYERS;
+  // Feedback loop: employers the student saved or applied to are read every time; ones they marked
+  // "Not interested" twice (and never saved) are skipped. Then employers read least recently for this
+  // student come first, so "Find more openings" reaches new employers instead of re-reading the same ones.
+  const companyOf = (id: string) => findJob(ctx.ws, id)?.company.toLowerCase();
+  const liked = new Set([...ctx.ws.savedJobIds, ...ctx.ws.applications.map((a) => a.jobId)].map(companyOf).filter(Boolean));
+  const hides = new Map<string, number>();
+  for (const id of ctx.ws.hiddenJobIds) { const c = companyOf(id); if (c && !liked.has(c)) hides.set(c, (hides.get(c) || 0) + 1); }
+  const lastRead = ctx.ws.employersRead || {};
+  const fieldMatched = EMPLOYERS.filter((e) => (e.fields || []).some((f) => wants.includes(f) || FIELD_TITLES.some(([field, title]) => field.test(wants) && title.test(f))));
+  picked = orderEmployers([...EMPLOYERS.filter((e) => liked.has(e.company.toLowerCase())), ...picked, ...fieldMatched], liked, hides, lastRead);
   // Employers the student named as dream employers are always read first: from the directory when
   // Remy knows their career site, otherwise by guessing their Greenhouse/Lever/Ashby board.
   const dream = (p.dreamEmployers || "").split(/[,;]+/).map((x) => x.trim()).filter((x) => x.length > 1).slice(0, 5);
@@ -289,6 +299,8 @@ async function findOpenings(ctx: Ctx, named: string[] = []) {
   const seen = new Set<string>();
   const unique = boards.filter((b) => { const k = b.ats + ":" + b.slug; if (seen.has(k)) return false; seen.add(k); return true; });
   const r = await discoverJobs(ctx.ws, unique);
+  const readAt = nowIso();
+  ctx.ws.employersRead = Object.fromEntries([...Object.entries(ctx.ws.employersRead || {}), ...unique.map((b) => [b.company, readAt])].slice(-400));
   console.log(`discover: read ${r.reached}/${unique.length} (${unique.map((b) => b.company).join(", ")}), added ${r.jobs.length}`);
   // Add to the latest saved list, so a posting the student imported meanwhile isn't overwritten.
   const fresh = await loadWorkspace(ctx.me.id);

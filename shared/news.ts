@@ -3,6 +3,7 @@
 export type NewsItem = { id: string; date: string; kind: "New" | "Improved" | "Fixed" | "Changed"; title: string; body: string; owners?: boolean };
 
 export const NEWS: NewsItem[] = [
+  { id: "2026-10-29-07", date: "2026-10-29", kind: "Improved", title: "Remy learns what you like", body: "Employers you save or apply to come first, ones you keep marking “Not interested” fade out, and “Find more openings” now checks employers it hasn't looked at yet." },
   { id: "2026-10-29-06", date: "2026-10-29", kind: "Improved", title: "More openings that fit you", body: "Remy now reads what a job actually involves, so postings with plain titles like “Summer Intern” show up when the work matches your field. Openings also load faster." },
   { id: "2026-10-29-04", date: "2026-10-29", kind: "Improved", title: "A clearer front page", body: "The front page now shows one thing at a time, with a footer for privacy, beta terms and contact." },
   { id: "2026-10-29-03", date: "2026-10-29", kind: "Changed", title: "Remy is officially in beta", body: "You'll see a Beta label and a one-time agreement. Unfinished features say “Coming soon” so you always know what works today." },

@@ -85,3 +85,10 @@ test("Julio's 48 labeled postings: every relevant one is found, no unrelated or 
   }
   assert.deepEqual(wrong, []);
 });
+
+test("feedback loop: liked employers first, twice-dismissed left out, then the ones not read yet", async () => {
+  const { orderEmployers } = await import("./sources");
+  const list = ["A", "B", "C", "D", "A"].map((company) => ({ company }));
+  const out = orderEmployers(list, new Set(["d"]), new Map([["c", 2]]), { A: "2026-10-29T10:00:00Z" });
+  assert.deepEqual(out.map((e) => e.company), ["D", "B", "A"]);
+});

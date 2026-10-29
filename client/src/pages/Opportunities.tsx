@@ -34,6 +34,12 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
     }
     setFinding(false);
   };
+  // Feedback loop: employers the student saved or applied to rise; ones they keep marking "Not interested" sink.
+  const companyOf = (id: string) => (jobs || []).find((j) => j.id === id)?.company;
+  const liked = new Set([...w.savedJobIds, ...w.applications.map((a) => a.jobId)].map(companyOf));
+  const hiddenBy = new Map<string | undefined, number>();
+  for (const id of w.hiddenJobIds) hiddenBy.set(companyOf(id), (hiddenBy.get(companyOf(id)) || 0) + 1);
+  const rank = (j: Job) => (fits[j.id]?.score ?? 0) + (liked.has(j.company) ? 8 : 0) - Math.min(3, hiddenBy.get(j.company) || 0) * 5;
   const base = (jobs || [])
     .filter((j) => matchKind(j, kind))
     .filter((j) => (showHidden ? true : !w.hiddenJobIds.includes(j.id)))
@@ -45,7 +51,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const list = base
     .filter((j) => showIneligible || !fits[j.id]?.excluded)
     .filter((j) => !myRegions || fits[j.id]?.regionMatch !== false)
-    .sort((a, b) => (fits[b.id]?.score ?? 0) - (fits[a.id]?.score ?? 0) || (a.deadline || "9999").localeCompare(b.deadline || "9999"));
+    .sort((a, b) => rank(b) - rank(a) || (a.deadline || "9999").localeCompare(b.deadline || "9999"));
   return (
     <>
       {needsProfile && <div className="notice" data-testid="needs-profile">{needsProfile}</div>}
