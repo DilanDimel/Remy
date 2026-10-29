@@ -28,3 +28,14 @@ test("base resume score ignores openings: same resume, same score, scaled to 100
   assert.equal(a.categories.reduce((n, c) => n + c.max, 0), 75);
   assert.ok(a.score <= 100 && a.score >= Math.round(a.categories.reduce((n, c) => n + c.score, 0)));
 });
+
+test("keywords match what the resume shows, not just the posting's exact phrase", async () => {
+  const { hasKeyword, isSkillKeyword } = await import("./ats");
+  const r = "B.S. Mechanical Engineering, Expected May 2027. Led 5 students designing a steel tube frame in SolidWorks.";
+  assert.ok(hasKeyword(r, "Pursuing Mechanical Engineering"));
+  assert.ok(hasKeyword(r, "CAD experience"));
+  assert.ok(hasKeyword(r, "Bachelor's Degree Pursuit"));
+  assert.ok(!hasKeyword(r, "Python"));
+  assert.ok(!hasKeyword(r, "Teamwork and communication"), "nothing shows communication");
+  assert.ok(!isSkillKeyword("Background Check"));
+});
