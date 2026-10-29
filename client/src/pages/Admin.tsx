@@ -1,0 +1,407 @@
+import { useEffect, useState, type DragEvent, type ReactNode } from "react";
+import { Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, CalendarDays, Check, Clock, KanbanSquare, Plus, RotateCcw, Trash2, Users } from "lucide-react";
+import { api, useStore } from "../lib/store";
+import { useRoute } from "../lib/router";
+import { Empty, Remy, Spinner } from "../components/common";
+
+// The owners' dashboard (server/admin.ts). Numbers about use, errors students hit, and the team's
+// own board, meetings, hours and activity. Never anything a student wrote.
+type Overview = {
+  students: number; newWeek: number; newPrev: number; activeWeek: number; activePrev: number; activeToday: number;
+  daily: { day: string; n: number }[];
+  funnel: { accounts: number; resume: number; prefs: number; setup_done: number; chatted: number; applied: number };
+  features: { name: string; students: number; uses: number }[];
+  ai: { calls: number; failed: number; cost: number; priced: number; avgMs: number }; openErrors: number; feedback: number;
+};
+type OpenError = { message: string; kind: string; place: string; times: number; students: number; last: string; first: string; detail: string };
+type Errors = { open: OpenError[]; fixed: { message: string; kind: string; fixed_at: string; fixed_by: string; times: number }[]; feedback: { id: number; at: string; place: string; message: string; email: string }[] };
+type Status = "todo" | "doing" | "done";
+type TeamTask = { id: string; title: string; assignee: string; due: string; notes: string; done: boolean; status: Status; done_by: string; done_at: string | null; created_by: string };
+type TeamEvent = { id: string; title: string; date: string; time: string; who: string; notes: string; created_by: string };
+type Member = { email: string; name: string; founder: boolean; addedBy: string; addedAt: string | null };
+type Entry = { id: string; member: string; start_at: string; end_at: string | null; note: string };
+type Team = {
+  me: string; members: Member[]; tasks: TeamTask[]; events: TeamEvent[]; hours: { member: string; hours: number; week: number }[];
+  entries: Entry[]; activity: { id: number; at: string; actor: string; action: string; detail: string }[]; clockedIn: string | null;
+};
+
+const TABS = [["overview", "Overview", BarChart3], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity], ["errors", "Errors & feedback", AlertTriangle]] as const;
+type Tab = (typeof TABS)[number][0];
+const COLS: [Status, string][] = [["todo", "To do"], ["doing", "In progress"], ["done", "Done"]];
+const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const day = (d: string) => new Date(d + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+const ago = (iso: string) => {
+  const m = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
+  return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
+};
+const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+
+export default function Admin() {
+  const { me } = useStore();
+  const { query } = useRoute();
+  const tab = (query.get("tab") as Tab) || "overview";
+  if (!me?.owner) return (
+    <div className="landing-screen"><div className="landing-card"><Empty title="Only for Remy's owners" body="Sign in with an owner's email to see this page." action={<a className="btn btn-primary" href="/">Back to Remy</a>} /></div></div>
+  );
+  return (
+    <div className="adm">
+      <aside className="adm-nav">
+        <span className="logo"><Remy size={26} /> Remy</span>
+        <span className="xs muted adm-role">Owners</span>
+        <nav>
+          {TABS.map(([k, l, Icon]) => <a key={k} href={`/admin?tab=${k}`} aria-current={tab === k ? "page" : undefined}><Icon size={17} /> {l}</a>)}
+        </nav>
+        <a className="btn btn-ghost btn-sm adm-back" href="/"><ArrowLeft size={14} /> Back to Remy</a>
+      </aside>
+      <main className="adm-main">
+        {tab === "overview" && <OverviewTab />}
+        {tab === "errors" && <ErrorsTab />}
+        {tab !== "overview" && tab !== "errors" && <TeamTab tab={tab} />}
+      </main>
+    </div>
+  );
+}
+
+function Head({ title, sub, action }: { title: string; sub?: string; action?: ReactNode }) {
+  return <div className="adm-head"><div><h1>{title}</h1>{sub && <p className="small muted">{sub}</p>}</div>{action}</div>;
+}
+
+function useLoad<T>(path: string): [T | null, () => void, (t: T) => void] {
+  const { run } = useStore();
+  const [data, setData] = useState<T | null>(null);
+  const load = () => { run(() => api<T>("GET", path)).then((d) => d && setData(d)); };
+  useEffect(load, [path]);
+  return [data, load, setData];
+}
+
+/** A number with its change against the week before. */
+function Kpi({ n, label, prev, note }: { n: number | string; label: string; prev?: number; note?: string }) {
+  const diff = typeof n === "number" && prev != null ? n - prev : null;
+  return (
+    <div className="adm-kpi">
+      <span className="small muted">{label}</span>
+      <strong>{n}</strong>
+      {diff != null ? <span className={"xs " + (diff > 0 ? "pass" : diff < 0 ? "bad" : "muted")}>{diff > 0 ? "▲" : diff < 0 ? "▼" : "="} {Math.abs(diff)} vs last week</span> : <span className="xs muted">{note || " "}</span>}
+    </div>
+  );
+}
+
+function OverviewTab() {
+  const [d, reload] = useLoad<Overview>("/api/admin/overview");
+  if (!d) return <div className="row"><Spinner /> Loading…</div>;
+  const f = d.funnel;
+  const steps: [string, number][] = [["Signed up", f.accounts], ["Added a resume", f.resume], ["Reached preferences", f.prefs], ["Finished setup", f.setup_done], ["Asked Remy something", f.chatted], ["Started an application", f.applied]];
+  // 14 days, including days with no sign-ups, so gaps read as gaps.
+  const days = Array.from({ length: 14 }, (_, i) => new Date(Date.now() - (13 - i) * 86400_000).toLocaleDateString("en-CA", { timeZone: "America/Chicago" }));
+  const byDay = new Map(d.daily.map((x) => [x.day, x.n]));
+  const max = Math.max(1, ...days.map((x) => byDay.get(x) || 0));
+  return (
+    <div className="stack-lg">
+      <Head title="Overview" sub="Signed-in students only. Counts, never anything a student wrote." action={<button className="btn btn-ghost btn-sm" onClick={reload}><RotateCcw size={14} /> Refresh</button>} />
+      <div className="adm-kpis">
+        <Kpi n={d.activeWeek} label="Active students this week" prev={d.activePrev} />
+        <Kpi n={d.newWeek} label="New sign-ups this week" prev={d.newPrev} />
+        <Kpi n={d.students} label="Students in total" note={`${d.activeToday} active today`} />
+        <Kpi n={`$${d.ai.cost.toFixed(2)}`} label="AI spend this week" note={d.ai.priced < d.ai.calls ? `${d.ai.calls} calls, ${d.ai.calls - d.ai.priced} without a price` : `${d.ai.calls} calls`} />
+        <Kpi n={d.openErrors} label="Open errors" note={d.feedback ? `${d.feedback} new feedback` : d.openErrors ? "see Errors" : "all clear"} />
+      </div>
+      <section className="adm-card">
+        <h3>New sign-ups, last 14 days</h3>
+        <div className="adm-bars" role="img" aria-label={`New sign-ups per day for the last 14 days, ${days.reduce((s, x) => s + (byDay.get(x) || 0), 0)} in total`}>
+          {days.map((x) => {
+            const n = byDay.get(x) || 0;
+            return (
+              <div key={x} className="adm-bar" tabIndex={0} aria-label={`${day(x)}: ${n}`}>
+                <span className="adm-tip">{day(x)}: {n}</span>
+                <div className="adm-bar-track"><div style={{ height: `${(n / max) * 100}%` }} /></div>
+                <span className="xs muted">{Number(x.slice(8))}</span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+      <div className="adm-grid2">
+        <section className="adm-card">
+          <h3>Where students drop off</h3>
+          {steps.map(([l, v], i) => {
+            const prev = i ? steps[i - 1][1] : v;
+            const lost = i && prev ? Math.round(((prev - v) / prev) * 100) : 0;
+            return (
+              <div key={l} className="adm-funnel">
+                <span className="small">{l}</span>
+                <div><div style={{ width: `${f.accounts ? (v / f.accounts) * 100 : 0}%` }} /></div>
+                <b className="small">{v}</b>
+                <span className="xs muted">{i && lost > 0 ? `−${lost}%` : ""}</span>
+              </div>
+            );
+          })}
+        </section>
+        <section className="adm-card">
+          <h3>What students used this week</h3>
+          {d.features.length ? (
+            <table className="table"><thead><tr><th>Feature</th><th>Students</th><th>Times</th></tr></thead>
+              <tbody>{d.features.map((x) => <tr key={x.name}><td>{x.name}</td><td>{x.students}</td><td>{x.uses}</td></tr>)}</tbody></table>
+          ) : <p className="small muted">Nothing yet this week.</p>}
+          <p className="xs muted">AI calls: {d.ai.calls}, {d.ai.failed} failed, {(d.ai.avgMs / 1000).toFixed(1)} s on average.</p>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function ErrorsTab() {
+  const { run } = useStore();
+  const [d, reload, setD] = useLoad<Errors>("/api/admin/errors");
+  const [open, setOpen] = useState<string | null>(null);
+  if (!d) return <div className="row"><Spinner /> Loading…</div>;
+  const fix = async (e: OpenError) => { const r = await run(() => api<Errors>("POST", "/api/admin/errors/fix", { message: e.message, kind: e.kind }), "Marked fixed. If it happens again, it comes back here."); if (r) setD(r); };
+  return (
+    <div className="stack-lg">
+      <Head title="Errors & feedback" sub="What students wrote with Send feedback, and the errors they hit in the last 30 days. Mark an error fixed after the fix ships." action={<button className="btn btn-ghost btn-sm" onClick={reload}><RotateCcw size={14} /> Refresh</button>} />
+      <section className="adm-card adm-list">
+        <h3>Student feedback</h3>
+        {d.feedback.map((f) => (
+          <div key={f.id} className="adm-err">
+            <div className="grow stack-sm" style={{ gap: 4 }}>
+              <span className="small">{f.message}</span>
+              <span className="xs muted">{f.email || "a student"} · {f.place || "somewhere in Remy"} · {ago(f.at)}</span>
+            </div>
+            <button className="btn btn-secondary btn-sm" onClick={async () => { const r = await run(() => api<Errors>("POST", "/api/admin/errors/fix", { message: f.message, kind: "feedback" }), "Marked handled"); if (r) setD(r); }}><Check size={14} /> Handled</button>
+          </div>
+        ))}
+        {!d.feedback.length && <p className="small muted">No new feedback.</p>}
+      </section>
+      <section className="adm-card adm-list">
+        <h3>Errors</h3>
+        {d.open.map((e) => {
+          const k = e.kind + e.message;
+          return (
+            <div key={k} className="adm-err">
+              <div className="grow stack-sm" style={{ gap: 4 }}>
+                <b className="small">{e.message}</b>
+                <span className="xs muted">{e.kind === "browser" ? "Browser" : "Server"} · {e.place || "unknown page"} · {e.times} time{e.times === 1 ? "" : "s"}{e.students ? `, ${e.students} student${e.students === 1 ? "" : "s"}` : ""} · last {ago(e.last)}</span>
+                {e.detail && <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start", padding: 0 }} onClick={() => setOpen(open === k ? null : k)}>{open === k ? "Hide details" : "Show details"}</button>}
+                {open === k && <pre className="admin-pre">{e.detail}</pre>}
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={() => fix(e)}><Check size={14} /> Mark fixed</button>
+            </div>
+          );
+        })}
+        {!d.open.length && <Empty title="No open errors" body="Nothing students hit in the last 30 days is waiting on a fix." />}
+      </section>
+      {d.fixed.length > 0 && (
+        <section className="adm-card">
+          <h3>Fixed recently</h3>
+          {d.fixed.map((e) => <div key={e.kind + e.message} className="small adm-fixed"><Check size={14} className="pass" /> <span className="grow">{e.message}</span><span className="xs muted">{e.fixed_by.split("@")[0]}, {ago(e.fixed_at)}</span></div>)}
+        </section>
+      )}
+    </div>
+  );
+}
+
+function Avatar({ m, size = 26 }: { m?: Member; size?: number }) {
+  const text = m ? m.name.split(/\s+/).map((x) => x[0]).slice(0, 2).join("").toUpperCase() : "?";
+  return <span className="adm-av" style={{ width: size, height: size, fontSize: size * 0.4 }} title={m ? `${m.name} (${m.email})` : "Nobody yet"} aria-hidden>{text}</span>;
+}
+
+function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "activity" }) {
+  const { run } = useStore();
+  const { query } = useRoute();
+  const [d, , setD] = useLoad<Team>("/api/admin/team");
+  const [task, setTask] = useState({ title: "", assignee: "", due: "" });
+  const [ev, setEv] = useState({ title: "", date: "", time: "", who: "" });
+  const [member, setMember] = useState({ name: "", email: "" });
+  const [note, setNote] = useState("");
+  const [drag, setDrag] = useState<string | null>(null);
+  const send = async (method: "POST" | "DELETE", path: string, body?: unknown, done?: string) => {
+    const r = await run(() => api<Team>(method, path, body), done);
+    if (r) setD(r);
+    return !!r;
+  };
+  if (!d) return <div className="row"><Spinner /> Loading…</div>;
+  const who = (email: string) => d.members.find((m) => m.email === email);
+  const nameOf = (email: string) => who(email)?.name || email.split("@")[0];
+  // Activity details are stored with emails and ISO dates; show names and readable dates.
+  const pretty = (t: string) => t.replace(/[^\s()]+@[^\s()]+\.[a-z]+/gi, (e) => nameOf(e.toLowerCase())).replace(/\b\d{4}-\d{2}-\d{2}\b/g, (x) => day(x));
+  const move = (t: TeamTask, status: Status) => t.status !== status && send("POST", "/api/admin/tasks", { id: t.id, status });
+  const person = query.get("person") || "";
+
+  const card = (t: TeamTask) => {
+    const i = COLS.findIndex(([s]) => s === t.status);
+    const late = t.due && t.status !== "done" && t.due < today();
+    return (
+      <div key={t.id} className={"adm-task" + (drag === t.id ? " dragging" : "")} draggable onDragStart={(e: DragEvent) => { e.dataTransfer.setData("text/plain", t.id); setDrag(t.id); }} onDragEnd={() => setDrag(null)}>
+        <b className="small">{t.title}</b>
+        {t.notes && <span className="xs muted">{t.notes}</span>}
+        <div className="row-between" style={{ gap: 6 }}>
+          <label className="adm-assign" title="Assigned to">
+            <Avatar m={who(t.assignee)} size={22} />
+            <select value={t.assignee} onChange={(e) => send("POST", "/api/admin/tasks", { id: t.id, assignee: e.target.value })} aria-label={`Who does: ${t.title}`}>
+              <option value="">Unassigned</option>
+              {d.members.map((m) => <option key={m.email} value={m.email}>{m.name}</option>)}
+            </select>
+          </label>
+          {t.due && <span className={"xs " + (late ? "bad" : "muted")}>{late ? "Late, " : "Due "}{day(t.due)}</span>}
+        </div>
+        {t.status === "done" && t.done_by && <span className="xs pass adm-inline"><Check size={12} /> Done by {nameOf(t.done_by)}{t.done_at ? `, ${ago(t.done_at)}` : ""}</span>}
+        <div className="adm-task-actions">
+          <button className="icon-btn" disabled={i === 0} onClick={() => move(t, COLS[i - 1][0])} aria-label={`Move "${t.title}" left`}><ArrowLeft size={14} /></button>
+          <button className="icon-btn" disabled={i === COLS.length - 1} onClick={() => move(t, COLS[i + 1][0])} aria-label={`Move "${t.title}" right`}><ArrowRight size={14} /></button>
+          <button className="icon-btn" onClick={() => send("DELETE", `/api/admin/tasks/${t.id}`)} aria-label={`Delete "${t.title}"`}><Trash2 size={14} /></button>
+        </div>
+      </div>
+    );
+  };
+
+  if (tab === "board") {
+    const shown = person ? d.tasks.filter((t) => t.assignee === person) : d.tasks;
+    return (
+      <div className="stack-lg">
+        <Head title="Board" sub="Drag a card to another column, or use its arrows. Everyone on the team sees the same board." />
+        <form className="adm-card adm-form" onSubmit={async (e) => { e.preventDefault(); if (await send("POST", "/api/admin/tasks", task, "To-do added")) setTask({ title: "", assignee: "", due: "" }); }}>
+          <input className="input" value={task.title} onChange={(e) => setTask({ ...task, title: e.target.value })} placeholder="What needs doing?" aria-label="To-do" />
+          <select className="input" value={task.assignee} onChange={(e) => setTask({ ...task, assignee: e.target.value })} aria-label="Who does it">
+            <option value="">Unassigned</option>
+            {d.members.map((m) => <option key={m.email} value={m.email}>{m.name}</option>)}
+          </select>
+          <input className="input" type="date" value={task.due} onChange={(e) => setTask({ ...task, due: e.target.value })} aria-label="Due date" />
+          <button className="btn btn-primary btn-sm" disabled={!task.title.trim()}><Plus size={15} /> Add</button>
+        </form>
+        <div className="row" style={{ gap: 6 }}>
+          <a className="pref-chip" aria-pressed={!person} href="/admin?tab=board">Everyone</a>
+          {d.members.map((m) => <a key={m.email} className="pref-chip" aria-pressed={person === m.email} href={`/admin?tab=board&person=${encodeURIComponent(m.email)}`}>{m.name}</a>)}
+        </div>
+        <div className="adm-board">
+          {COLS.map(([s, label]) => {
+            const list = shown.filter((t) => t.status === s);
+            return (
+              <section key={s} className="adm-col" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const t = d.tasks.find((x) => x.id === e.dataTransfer.getData("text/plain")); if (t) move(t, s); setDrag(null); }} aria-label={label}>
+                <h3>{label} <span className="muted small">{list.length}</span></h3>
+                {list.map(card)}
+                {!list.length && <p className="xs muted adm-drop">{s === "done" ? "Finished to-dos land here." : "Drop a card here."}</p>}
+              </section>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  if (tab === "people") {
+    const weekAgo = Date.now() - 7 * 86400_000;
+    return (
+      <div className="stack-lg">
+        <Head title="People" sub="Everyone here can open this dashboard and sees the same board, calendar, hours and activity." />
+        <div className="adm-people">
+          {d.members.map((m) => {
+            const open = d.tasks.filter((t) => t.assignee === m.email && t.status !== "done");
+            const doneWeek = d.tasks.filter((t) => t.done_by === m.email && t.done_at && new Date(t.done_at).getTime() > weekAgo).length;
+            const h = d.hours.find((x) => x.member === m.email);
+            const working = d.entries.some((e) => e.member === m.email && !e.end_at);
+            const last = d.activity.find((a) => a.actor === m.email);
+            return (
+              <section key={m.email} className="adm-card adm-person">
+                <div className="row" style={{ gap: 10, flexWrap: "nowrap" }}>
+                  <Avatar m={m} size={40} />
+                  <div className="grow stack-sm" style={{ gap: 2, minWidth: 0 }}>
+                    <b className="adm-ellipsis">{m.name}{m.email === d.me && <span className="xs muted"> (you)</span>}</b>
+                    <span className="xs muted adm-ellipsis">{m.email}</span>
+                    {working && <span className="chip chip-live" style={{ justifySelf: "start" }}>Working now</span>}
+                  </div>
+                </div>
+                <div className="adm-person-stats" aria-label="This week">
+                  <div><strong>{open.length}</strong><span className="xs muted">open</span></div>
+                  <div><strong>{doneWeek}</strong><span className="xs muted">done, 7 days</span></div>
+                  <div><strong>{h?.week ?? 0} h</strong><span className="xs muted">worked, 7 days</span></div>
+                </div>
+                {open.slice(0, 3).map((t) => <span key={t.id} className="small adm-ellipsis">• {t.title}</span>)}
+                <span className="xs muted">{last ? `Last: ${last.action.toLowerCase()}, ${ago(last.at)}` : "No activity yet"}</span>
+                <div className="row-between">
+                  <a className="btn btn-ghost btn-sm" href={`/admin?tab=board&person=${encodeURIComponent(m.email)}`}>See their to-dos</a>
+                  {!m.founder && m.email !== d.me && <button className="btn btn-ghost btn-sm" onClick={() => confirm(`Remove ${m.name} from the owners' dashboard?`) && send("DELETE", `/api/admin/members/${encodeURIComponent(m.email)}`, undefined, "Removed")}>Remove</button>}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+        <form className="adm-card adm-form" onSubmit={async (e) => { e.preventDefault(); if (await send("POST", "/api/admin/members", member, "Teammate added. They see this page next time they sign in.")) setMember({ name: "", email: "" }); }}>
+          <input className="input" value={member.name} onChange={(e) => setMember({ ...member, name: e.target.value })} placeholder="Name" aria-label="Teammate name" />
+          <input className="input" type="email" value={member.email} onChange={(e) => setMember({ ...member, email: e.target.value })} placeholder="Email they sign in with" aria-label="Teammate email" />
+          <button className="btn btn-primary btn-sm" disabled={!member.email.includes("@")}><Plus size={15} /> Add teammate</button>
+        </form>
+      </div>
+    );
+  }
+
+  if (tab === "calendar") {
+    const t0 = today(), upcoming = d.events.filter((e) => e.date >= t0), past = d.events.filter((e) => e.date < t0).reverse();
+    const row = (e: TeamEvent) => (
+      <div key={e.id} className="adm-row">
+        <div className="adm-date"><b>{new Date(e.date + "T12:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</b><span className="xs muted">{e.time}</span></div>
+        <div className="grow stack-sm" style={{ gap: 2 }}><b className="small">{e.title}</b><span className="xs muted">{[e.who && `With ${e.who}`, `added by ${nameOf(e.created_by)}`].filter(Boolean).join(", ")}</span></div>
+        <button className="icon-btn" onClick={() => send("DELETE", `/api/admin/events/${e.id}`)} aria-label="Delete meeting"><Trash2 size={15} /></button>
+      </div>
+    );
+    return (
+      <div className="stack-lg">
+        <Head title="Calendar" sub="Meetings with professors, the career center, partners and each other." />
+        <form className="adm-card adm-form adm-form-5" onSubmit={async (e) => { e.preventDefault(); if (await send("POST", "/api/admin/events", ev, "Meeting added")) setEv({ title: "", date: "", time: "", who: "" }); }}>
+          <input className="input" value={ev.title} onChange={(e) => setEv({ ...ev, title: e.target.value })} placeholder="Meeting, e.g. Career Center partnership" aria-label="Meeting" />
+          <input className="input" value={ev.who} onChange={(e) => setEv({ ...ev, who: e.target.value })} placeholder="With whom" aria-label="With whom" />
+          <input className="input" type="date" value={ev.date} onChange={(e) => setEv({ ...ev, date: e.target.value })} aria-label="Date" />
+          <input className="input" type="time" value={ev.time} onChange={(e) => setEv({ ...ev, time: e.target.value })} aria-label="Time" />
+          <button className="btn btn-primary btn-sm" disabled={!ev.title.trim() || !ev.date}><Plus size={15} /> Add</button>
+        </form>
+        <section className="adm-card adm-list"><h3>Coming up</h3>{upcoming.map(row)}{!upcoming.length && <p className="small muted">Nothing scheduled.</p>}</section>
+        {past.length > 0 && <section className="adm-card adm-list"><h3>Last 30 days</h3>{past.map(row)}</section>}
+      </div>
+    );
+  }
+
+  if (tab === "activity") {
+    return (
+      <div className="stack-lg">
+        <Head title="Activity" sub="Who did what on the team, newest first." />
+        <section className="adm-card adm-list">
+          {d.activity.map((a) => (
+            <div key={a.id} className="adm-row">
+              <Avatar m={who(a.actor)} size={30} />
+              <div className="grow stack-sm" style={{ gap: 2 }}><span className="small"><b>{nameOf(a.actor)}</b> {a.action.toLowerCase()}{a.detail ? <>: <span className="muted">{pretty(a.detail)}</span></> : null}</span><span className="xs muted">{ago(a.at)}</span></div>
+            </div>
+          ))}
+          {!d.activity.length && <Empty title="No activity yet" body="Adding to-dos, finishing them, meetings and hours all show up here." />}
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="stack-lg">
+      <Head title="Hours" sub="Clock in when you start working on Remy and out when you stop. Each person clocks only themselves." />
+      <section className="adm-card stack-sm">
+        <h3 className="row"><Clock size={18} /> {d.clockedIn ? `You're clocked in since ${when(d.clockedIn)}` : "You're clocked out"}</h3>
+        <div className="row">
+          <input className="input grow" value={note} onChange={(e) => setNote(e.target.value)} placeholder={d.clockedIn ? "What did you work on? (optional)" : "What are you working on? (optional)"} aria-label="Note" />
+          <button className={"btn btn-sm " + (d.clockedIn ? "btn-secondary" : "btn-primary")} onClick={async () => { if (await send("POST", "/api/admin/clock", { action: d.clockedIn ? "out" : "in", note }, d.clockedIn ? "Clocked out" : "Clocked in")) setNote(""); }} data-testid="button-clock">{d.clockedIn ? "Clock out" : "Clock in"}</button>
+        </div>
+      </section>
+      <section className="adm-card">
+        <table className="table"><thead><tr><th>Who</th><th>This week</th><th>All time</th></tr></thead>
+          <tbody>{d.hours.map((h) => <tr key={h.member}><td><span className="row" style={{ gap: 8 }}><Avatar m={who(h.member)} size={24} /> {nameOf(h.member)}</span></td><td>{h.week} h</td><td>{h.hours} h</td></tr>)}</tbody></table>
+        {!d.hours.length && <p className="small muted">No hours logged yet.</p>}
+      </section>
+      <section className="adm-card adm-list">
+        <h3>Recent entries</h3>
+        {d.entries.map((e) => (
+          <div key={e.id} className="adm-row">
+            <Avatar m={who(e.member)} size={26} />
+            <div className="grow stack-sm" style={{ gap: 2 }}>
+              <span className="small"><b>{nameOf(e.member)}</b>: {when(e.start_at)} to {e.end_at ? when(e.end_at) : <span className="pass">still working</span>}</span>
+              {e.note && <span className="xs muted">{e.note}</span>}
+            </div>
+          </div>
+        ))}
+      </section>
+    </div>
+  );
+}

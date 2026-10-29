@@ -11,7 +11,7 @@ export function reportClientError(where: string, error: unknown) {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ where, message: String(e?.message || error).slice(0, 500), stack: String(e?.stack || "").slice(0, 2000), url: location.hash }),
+      body: JSON.stringify({ where, message: String(e?.message || error).slice(0, 500), stack: String(e?.stack || "").slice(0, 2000), url: location.pathname + location.search }),
     }).catch(() => {});
   } catch {}
 }

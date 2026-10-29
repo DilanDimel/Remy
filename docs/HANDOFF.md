@@ -23,7 +23,7 @@ The visual identity now integrates the Remy mockup: near-black `#161616` on warm
 | Explore demo / guest workspace | Working | Private per browser; a server-side workspace keyed to a secure cookie (or the preview visitor ID) |
 | Continue with Google | Needs setup (Client ID) | Code is complete (Google Identity Services + server-side ID-token verification). It needs a Google OAuth Client ID for the published domain |
 | Resume upload (PDF/DOCX/TXT/paste) | Working | Text extraction runs on the server. AI structures it, and every bullet is verified word-for-word against the file. There's a rules-based fallback |
-| AI (all features) | Working (live) | Published at https://remy.pplx.app. AI tries OpenRouter first (Gemini 3.8 Flash, then GPT-5 mini) and falls back to the team's Google Gemini key (free tier, about 20 requests per model per day across 6 models). The OpenRouter account is currently out of credits |
+| AI (all features) | Working (live) | Live at https://offer-ready.onrender.com. AI tries OpenRouter first (Gemini 3.8 Flash, then GPT-5 mini) and falls back to the team's Google Gemini key (free tier, about 20 requests per model per day across 6 models). As of Oct 22, 2026 OpenRouter is working (live tests ran on Gemini 3.8 Flash through it). |
 | Tailored resume + cover letter | Working | Strongest Match, original vs. proposed wording, posting quote, evidence, flags, accept/edit/reject/confirm-true, personalize list, ATS checks, approval gate, versioned exports |
 | Unsupported-claim safeguard | Working, not perfect | Catches invented numbers, skills, titles, class year, added outcomes and entry-level added detail. It missed 3 cases before fixes (see the AI error log). Human review is still required |
 | Opportunities | Working | 5 openings verified Oct 17. Live link re-check. Import any public posting by URL or pasted text. Fit/eligibility/gaps. Citi is flagged Needs verification (its posting page returned 404 on Oct 18) |
@@ -60,6 +60,16 @@ The visual identity now integrates the Remy mockup: near-black `#161616` on warm
 - **Questions sit at the bottom** of Remy's panel, right above the input.
 - Alumni names and emails are personal data, so only signed-in students (Google or Supabase) see matches; guests get a "Sign in to see your alumni matches" card and the contact route refuses them.
 
+### Oct 23: resume reading
+Resume parsing moved to `server/resume.ts` and was hardened against the layouts that broke it (all-caps-only headings, one-line activities like `Captain (Aug 2024 - Present) HPW:4`, dates on the organization line, high school listed before the university, Word bullet lists).
+- **Extraction:** PDFs are rebuilt line by line from pdf.js positions, with a tab where a column gap is (right-aligned dates and locations), and a header or footer repeated on every page is dropped. Word files go through HTML, so bullet lists keep their bullets, and the page header (where many templates keep the name and contact details) is read too. The file type is read from the file's first bytes, and damaged PDFs or old `.doc` files get a clear message instead of a server error.
+- **Rules reader:** headings in capitals or Title Case (English and Spanish), headings with text after them (`SCHOLARSHIPS: Full ride`) or in a left-hand column (`EDUCATION ⇥ …`, including ones split over two or three lines), dates in parentheses, at the end of a line, without a dash (`Sep. 2023 Mar. 2024`) or as `7/09-Present`, `Org ⇥ Dates` / `Role ⇥ City` in either order, `Title, Dates` followed by `Company, City`, several roles at one organization, wrapped bullets and paragraph descriptions, and dates or places printed after an entry's bullets (RenderCV). In Education, a school starts an entry and the degree, GPA, Dean's List or a second major become its details. Street addresses with ZIP codes are read as the location. A place must end in a state code or a known state, province or country, so author lists aren't read as places. Text above the first heading that isn't contact information is kept as a Summary.
+- **Tested against real resumes:** 26 public samples (Saint Louis University, University of Baltimore, UTSA, Nazareth, Binghamton's Word templates, Awesome-CV, Deedy, sb2nov and RenderCV). These stay out of the repo; `script/fixtures/resumes` has synthetic resumes with the same layouts.
+- **AI reader:** bullets are still checked word-for-word. Now organization and role names that aren't in the file are marked `unverified`, invented dates, places, contact details and skills are dropped, and the AI reading is replaced by the rules reading when it leaves out more than 15% of the file. Unverified AI text no longer counts as evidence for the claim checker until the student saves the resume.
+- **Profile prefill:** school, major and graduation come from the university entry rather than the first education line, the graduation is the end of a date range (never "Present"), and class standing is only read when it's stated as such, so "Senior Analyst" no longer makes a student a senior.
+- **Checks:** `npm run check:resume` (no server, database or AI key needed).
+- **Frontend follow-up (Muse):** the backend now returns `resume.quality` (`coverage`, `missingLines`, `warnings`) and `entry.unverified` on the base resume. Resume/CV could show the warnings, list `missingLines` so students can add them back, and flag unverified organization or role fields the same way it flags unverified bullets.
+
 ### Supabase setup (needed for real sign-in)
 In the Supabase dashboard for "DilanDimel's Project":
 1. **Authentication → URL Configuration:** set Site URL to `https://offer-ready.onrender.com` and add `https://offer-ready.onrender.com/` to Redirect URLs (add `http://localhost:5000/` for local testing).
@@ -68,9 +78,9 @@ In the Supabase dashboard for "DilanDimel's Project":
 
 ## Remaining setup (team)
 1. **AI credits.** Add about $5–10 at openrouter.ai/settings/credits; the site switches back to OpenRouter automatically. Without credits it runs on Gemini's free daily limits. Both keys pasted in chat should be revoked and replaced, then re-entered through the secure form.
-2. **Google sign-in (optional but requested).** For the published site at https://remy.pplx.app:
+2. **Google sign-in (optional but requested).** For the published site at https://offer-ready.onrender.com:
    - In Google Cloud Console, open APIs & Services → Credentials → Create OAuth client ID → Web application.
-   - Add `https://remy.pplx.app` under Authorized JavaScript origins.
+   - Add `https://offer-ready.onrender.com` under Authorized JavaScript origins.
    - On the OAuth consent screen, use scopes openid, email and profile, and set it to In production so judges can sign in.
    - Send the Client ID (not secret).
 

@@ -4,9 +4,9 @@ import type { Workspace } from "@shared/types";
 import { api, useStore } from "../lib/store";
 import { Spinner } from "./common";
 
-export function ResumeUpload({ compact = false, onDone, onBusy }: { compact?: boolean; onDone?: () => void; onBusy?: (busy: boolean) => void }) {
+export function ResumeUpload({ compact = false, onDone, onBusy, source }: { compact?: boolean; onDone?: () => void; onBusy?: (busy: boolean) => void; source?: "linkedin" }) {
   const { setWs, run, config } = useStore();
-  const [busy, setBusy] = useState<"" | "file" | "text" | "sample">("");
+  const [busy, setBusy] = useState<"" | "file" | "text">("");
   useEffect(() => { onBusy?.(!!busy); }, [busy]);
   useEffect(() => () => onBusy?.(false), []); // the panel can close before busy resets
   const [drag, setDrag] = useState(false);
@@ -18,7 +18,8 @@ export function ResumeUpload({ compact = false, onDone, onBusy }: { compact?: bo
     setBusy("file");
     const fd = new FormData();
     fd.append("file", f);
-    const w = await run(() => api<Workspace>("POST", "/api/resume/upload", fd), "Resume read — please review it");
+    if (source) fd.append("source", source);
+    const w = await run(() => api<Workspace>("POST", "/api/resume/upload", fd), source ? "LinkedIn read" : "Resume read — please review it");
     if (w) { setWs(w); onDone?.(); }
     setBusy("");
   };
@@ -26,12 +27,6 @@ export function ResumeUpload({ compact = false, onDone, onBusy }: { compact?: bo
     setBusy("text");
     const w = await run(() => api<Workspace>("POST", "/api/resume/text", { text }), "Resume read — please review it");
     if (w) { setWs(w); onDone?.(); setPaste(false); }
-    setBusy("");
-  };
-  const sample = async () => {
-    setBusy("sample");
-    const w = await run(() => api<Workspace>("POST", "/api/resume/sample"), "Sample student loaded");
-    if (w) { setWs(w); onDone?.(); }
     setBusy("");
   };
   return (
@@ -55,9 +50,6 @@ export function ResumeUpload({ compact = false, onDone, onBusy }: { compact?: bo
       </div>
       <div className="row">
         <button className="btn btn-ghost btn-sm" onClick={() => setPaste((p) => !p)} disabled={!!busy} data-testid="button-paste-resume">Paste text instead</button>
-        <button className="btn btn-ghost btn-sm" onClick={sample} disabled={!!busy} data-testid="button-sample-resume">
-          {busy === "sample" && <Spinner />} Use the sample student (Dilan, shared with consent)
-        </button>
       </div>
       {paste && (
         <div className="stack-sm">

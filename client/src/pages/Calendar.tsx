@@ -1,3 +1,4 @@
+import { GoogleCalendarCard } from "../components/GoogleCalendar";
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Download, ExternalLink, Plus, Trash2 } from "lucide-react";
 import type { CalItem } from "@shared/types";
@@ -55,7 +56,7 @@ export default function CalendarPage() {
           <button className="btn btn-primary" onClick={() => setEdit({ id: rid("cal"), title: "", date: today, time: "", kind: "Event", source: "Added by you", notes: "" })} data-testid="button-add-event"><Plus size={16} /> Add</button>
         </div>
       </div>
-      <div className="notice small"><StatusChip label="Needs setup">Google Calendar sync</StatusChip><div>Direct sync isn't connected. Use <strong>Export .ics</strong> or <strong>Add to Google Calendar</strong> on any item — you stay in control of your real calendar.</div></div>
+      <GoogleCalendarCard />
       <div className="stack-lg">
         <div className="card card-pad stack">
           <div className="row-between">

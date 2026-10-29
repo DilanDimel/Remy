@@ -127,7 +127,7 @@ function EmailUpdates() {
   };
   return (
     <div className="stack">
-      <div className="notice small"><StatusChip label="Needs setup">Inbox connection</StatusChip><div>Remy doesn't read your inbox. Paste a recruiting email, or load <strong>sample emails</strong> (clearly labeled, not from real employers) to see how status suggestions work. Nothing changes until you confirm.</div></div>
+      <div className="notice small"><StatusChip label="Needs setup">Inbox: coming soon</StatusChip><div>Remy doesn't read your inbox. Paste a recruiting email, or load <strong>sample emails</strong> (clearly labeled, not from real employers) to see how status suggestions work. Nothing changes until you confirm.</div></div>
       <div className="row">
         <button className="btn btn-primary btn-sm" onClick={() => setPaste(true)} data-testid="button-paste-email"><Mail size={14} /> Paste an email</button>
         {!w.inbox.some((x) => x.label === "Sample email") && <button className="btn btn-secondary btn-sm" onClick={loadSample} data-testid="button-sample-emails"><Inbox size={14} /> Load sample emails</button>}
@@ -196,7 +196,7 @@ function SuggestionBox({ s }: { s: Suggestion }) {
 }
 
 function Todos() {
-  const { ws, save, run } = useStore();
+  const { ws, save, run, setWs } = useStore();
   const w = ws!;
   const [title, setTitle] = useState("");
   const [due, setDue] = useState("");
@@ -214,7 +214,7 @@ function Todos() {
       </form>
       {sorted.length ? sorted.map((t) => (
         <div key={t.id} className={"item" + (t.done && isFading(t.id) ? " completing" : "")} data-testid="row-todo">
-          <button className="check" role="checkbox" aria-checked={t.done} onClick={() => { if (!t.done) mark(t.id); save("tasks", w.tasks.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x))); }} aria-label="Toggle done">{t.done && <Check size={13} />}</button>
+          <button className="check" role="checkbox" aria-checked={t.done} onClick={() => { if (!t.done) mark(t.id); run(() => api<Workspace>("PATCH", `/api/tasks/${t.id}`, { done: !t.done }).then(setWs)); }} aria-label="Toggle done">{t.done && <Check size={13} />}</button>
           <div className="item-main"><strong className="small" style={{ textDecoration: t.done ? "line-through" : undefined }}>{t.title}</strong><div className="why">{t.why} · <span className="faint">{t.source}</span></div></div>
           {t.due && <span className="chip chip-plain">{fmtDate(t.due)}</span>}
           <button className="icon-btn" onClick={() => save("tasks", w.tasks.filter((x) => x.id !== t.id))} aria-label="Delete to-do"><Trash2 size={15} /></button>

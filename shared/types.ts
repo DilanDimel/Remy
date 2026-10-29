@@ -16,6 +16,8 @@ export interface Entry {
   location: string;
   dates: string;
   bullets: Bullet[];
+  /** Fields the AI reader filled in with words that aren't in the uploaded file. */
+  unverified?: ("org" | "role")[];
 }
 export interface Section {
   id: string;
@@ -31,18 +33,74 @@ export interface ResumeDoc {
   contact: { name: string; email: string; phone: string; location: string; links: string };
   sections: Section[];
   skills: SkillLine[];
+  /** Where the Skills block sat in the original: after this many sections (end when unset). */
+  skillsIndex?: number;
+}
+/** The look of the student's uploaded PDF, so downloads match it. */
+export interface ResumeStyle { serif: boolean; size: number; margin: number; pages: number }
+/** How completely the structured resume reflects the uploaded file. */
+export interface ResumeQuality {
+  /** Share of the file's words that made it into the structured resume (0–1). */
+  coverage: number;
+  /** Lines from the file that didn't land anywhere in the structured resume. */
+  missingLines: string[];
+  /** Plain-language notes for the student about how the file was read. */
+  warnings: string[];
 }
 export interface BaseResume {
   fileName: string;
   uploadedAt: string;
   rawText: string;
-  parsedBy: "ai" | "rules";
+  parsedBy: "ai" | "rules" | "builder";
+  /** Set when the LinkedIn PDF stands in for a resume the student hasn't uploaded yet. */
+  from?: "LinkedIn";
   doc: ResumeDoc;
   confirmedAt?: string;
   /** Skills and tools found on the resume, matched against posting requirements. */
   skills?: string[];
   /** The uploaded file itself is kept server-side for preview and download. */
   original?: { name: string; mime: string; size: number };
+  style?: ResumeStyle;
+  quality?: ResumeQuality;
+}
+
+/** "Build my resume with Remy": everything the student told the builder, kept so they can come back and add to it. */
+export interface BuilderItem {
+  id: string;
+  /** Which button they tapped: job, internship, care, family, hustle, project, research, award, club, sports, faith, volunteer, arts, greek, language, certificate. */
+  kind: string;
+  stage: "high school" | "college";
+  org: string;
+  role: string;
+  start: string;
+  end: string;
+  city: string;
+  about: string;
+  followups: { q: string; a: string }[];
+}
+export interface BuilderBullet {
+  id: string;
+  /** The wording the student picked or wrote. Blanks look like "[how many customers?]" until filled or removed. */
+  text: string;
+  /** Other wordings of the same facts. */
+  options: string[];
+  /** The student's own words this bullet came from. */
+  source: string;
+}
+export interface ResumeBuilder {
+  step: number;
+  basics: {
+    name: string; email: string; phone: string; city: string; school: string; major: string; graduation: string;
+    classYear: string; gpa: string; highSchool: string; highSchoolYear: string;
+  };
+  items: BuilderItem[];
+  /** Keep high school entries for juniors and up (left out by default). */
+  keepHighSchool?: boolean;
+  skills: string[];
+  skillSuggestions?: string[];
+  /** Bullets per item id, once drafted. */
+  draft?: Record<string, BuilderBullet[]>;
+  draftedBy?: "ai" | "rules";
 }
 
 export interface Profile {
@@ -64,6 +122,15 @@ export interface Profile {
   regions: string;
   /** Kinds of opportunities they want, comma-separated ("Internships, Events"). */
   opportunityTypes: string;
+  /** On a 4-point scale, only as written on the resume. Postings often require a minimum. */
+  gpa?: string;
+  minors?: string;
+  /** When they want to start, e.g. "Summer 2027, Fall 2026". Postings naming another summer are left out. */
+  timeline?: string;
+  /** Industries, companies or kinds of work they don't want, comma-separated. */
+  avoid?: string;
+  /** Employers they'd love to work for, comma-separated. Searched first. */
+  dreamEmployers?: string;
 }
 
 export interface MemoryFact {
@@ -72,6 +139,8 @@ export interface MemoryFact {
   category: "background" | "goal" | "preference" | "skill" | "experience" | "constraint" | "other";
   source: string; // e.g. "Resume upload", "LinkedIn PDF", "Assistant chat", "Onboarding answer"
   status: "approved" | "suggested";
+  /** How an imported fact disagrees with the resume or profile, e.g. a different major. */
+  conflict?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -106,13 +175,15 @@ export interface Job {
   label: Label;
   checkedAt: string;
   checks: JobCheck[];
-  origin: "verified-catalog" | "imported" | "manual";
+  origin: "imported" | "manual";
   postingText?: string;
 }
 
 export interface JobFit {
   at: string;
   by: "rules" | "ai";
+  /** Version of the fit rules this verdict came from (server/fit.ts FIT_RULES_VERSION). */
+  v?: number;
   eligibility: "likely" | "check" | "unlikely" | "unknown";
   eligibilityNote: string;
   matched: string[];
@@ -120,6 +191,8 @@ export interface JobFit {
   why: string;
   /** The posting definitely rules this student out (e.g. "must be a current sophomore"). Hidden by default. */
   excluded?: boolean;
+  /** Why the opening can't be applied to anymore (deadline passed, link gone, page says closed). Also hidden by default. */
+  closed?: string;
   /** Ranking: eligibility, requirement overlap, region and type preferences. */
   score?: number;
   regionMatch?: boolean | null;
@@ -292,6 +365,8 @@ export interface AiLogEntry {
   ok: boolean;
   ms: number;
   note?: string;
+  /** US dollars, when the provider reports it (OpenRouter). */
+  cost?: number;
 }
 export interface SafeguardIncident {
   id: string;
@@ -308,19 +383,27 @@ export interface ChatMsg {
   at: string;
   page?: string;
   memorySuggestions?: string[];
+  /** Buttons under a reply; nothing happens until the student taps one. */
+  actions?: ChatAction[];
 }
+export type ChatAction = { kind: "task"; title: string; why: string } | { kind: "role"; title: string } | { kind: "open"; link: string; label: string };
 
 export interface Workspace {
   version: 2;
   started: boolean;
-  onboarding: { step: number; done: boolean; answers: { q: string; a: string }[]; questions: string[] };
+  /** options: tap-to-answer suggestions per question; exploring: the student said they're not sure what they want yet. */
+  onboarding: { step: number; done: boolean; answers: { q: string; a: string }[]; questions: string[]; targets?: string[]; options?: string[][]; exploring?: boolean };
   profile: Profile;
   resume?: BaseResume;
+  builder?: ResumeBuilder;
   imports: { id: string; kind: string; fileName: string; at: string; label: Label; factsAdded: number }[];
   memory: MemoryFact[];
-  jobs: Job[]; // imported + manual (catalog lives server-side)
+  jobs: Job[]; // found by the live search, imported or added by the student
+  /** When Remy last searched employers' career sites for this student (it re-searches every few hours). */
+  openingsCheckedAt?: string;
+  /** How the last search went: employer sites reached out of those tried. */
+  lastSearch?: { at: string; reached: number; scanned: number };
   savedJobIds: string[];
-  jobChecks: Record<string, JobCheck[]>;
   fits: Record<string, JobFit>;
   hiddenJobIds: string[];
   applications: Application[];
@@ -352,6 +435,10 @@ export interface Me {
   email: string;
   name: string;
   picture: string;
+  /** A school email the student verified with a code (unlocks alumni). */
+  schoolEmail?: string;
+  /** One of Remy's owners (OWNER_EMAILS): can open the admin dashboard. */
+  owner?: boolean;
 }
 export interface AppConfig {
   googleClientId: string | null;
@@ -360,4 +447,8 @@ export interface AppConfig {
   today: string;
   /** Supabase Auth, when configured: public URL + publishable key, and which sign-in providers are switched on. */
   supabase: { url: string; anonKey: string; providers: Record<string, boolean> } | null;
+  /** School email verification: whether codes can be sent, and which domains count (e.g. tcu.edu). */
+  schoolEmail: { ready: boolean; domains: string[] };
+  /** Google Calendar connection is set up on this server. */
+  googleCalendar: boolean;
 }

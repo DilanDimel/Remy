@@ -1,0 +1,26 @@
+Riley Example ⇥ Email: riley@example.com
+rileyexample.dev ⇥ Mobile: +1-555-010-0177
+Education
+• Example Institute of Technology ⇥ Atlanta, GA
+Master of Science in Computer Science; GPA: 3.9 ⇥ Aug 2024 – May 2026
+Experience
+• Example Cloud ⇥ Seattle, WA
+Software Engineer ⇥ Sep. 2026 Mar. 2027
+• Built a service that sends 2M notifications a day with retries and tracking. Reduced
+failures by 40%.
+• Example Labs ⇥ Austin, TX
+Data Science Intern ⇥ Summer 2025 and 2026
+• Migrated the training pipeline from scheduled scripts to a workflow engine and cut run time by 30%.
+Documented every job so new teammates could run it alone.
+• Trained models to forecast demand for 300 stores.
+Projects
+Example Search Engine, Lead Developer
+• Indexed 1M documents with a custom ranking function
+San Francisco, CA
+June 2025 – Aug 2025
+3 months
+Awards
+2024 ⇥ 1st Place, Example Coding Competition
+Publications
+Fast Example Indexing for Large Collections
+Riley Example, Sarah Williams, David Park

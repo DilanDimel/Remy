@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronUp, MapPin } from "lucide-react";
-import type { Job, Task } from "@shared/types";
-import { daysUntil, fmtDate, useStore } from "../lib/store";
+import type { Job, Task, Workspace } from "@shared/types";
+import { api, daysUntil, fmtDate, useStore } from "../lib/store";
 import { useCompleting } from "../lib/completing";
 import { go } from "../lib/router";
 import { kindLabel, useJobs } from "../lib/jobs";
@@ -15,12 +15,12 @@ function greeting() {
 }
 
 export default function Home() {
-  const { ws, save } = useStore();
+  const { ws, save, run, setWs } = useStore();
   const w = ws!;
   const { jobs, fits } = useJobs();
   const [tab, setTab] = useState<Tab>("todos");
   const [open, setOpen] = useState<string>("");
-  const name = w.profile.preferredName || w.profile.name.split(" ")[0] || "there";
+  const name = w.profile.preferredName || w.profile.name.split(" ")[0];
 
   const next = useMemo(() => {
     const pending = w.applications.find((a) => a.changes.some((c) => c.status === "pending"));
@@ -43,7 +43,7 @@ export default function Home() {
   const active = (jobs || []).filter((j) => !w.hiddenJobIds.includes(j.id) && (!j.deadline || (daysUntil(j.deadline) ?? 0) >= 0));
   const events = active.filter((j) => j.kind === "event").slice(0, 3);
   const opps = active.filter((j) => j.kind !== "event").sort((a, b) => (fits[b.id]?.matched.length || 0) - (fits[a.id]?.matched.length || 0)).slice(0, 3);
-  const toggleTask = (t: Task) => { if (!t.done) mark(t.id); return save("tasks", w.tasks.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x))); };
+  const toggleTask = (t: Task) => { if (!t.done) mark(t.id); return run(() => api<Workspace>("PATCH", `/api/tasks/${t.id}`, { done: !t.done }).then(setWs)); };
   const moreLink = tab === "todos" ? "/progress?tab=todos" : tab === "events" ? "/opportunities?kind=event" : "/opportunities?kind=jobs";
 
   return (
@@ -51,7 +51,7 @@ export default function Home() {
       <div className="page-head">
         <div>
           <span className="eyebrow">Home</span>
-          <h1 data-testid="text-greeting">{greeting()}, {name}.</h1>
+          <h1 data-testid="text-greeting">{greeting()}{name ? `, ${name}` : ""}.</h1>
           <p>Here's the one thing worth doing next, and a few things that matter this week.</p>
         </div>
       </div>
@@ -85,7 +85,7 @@ export default function Home() {
               <button key={k} aria-pressed={tab === k} onClick={() => { setTab(k); setOpen(""); }} data-testid={`tab-home-${k}`}>{l}</button>
             ))}
           </div>
-          <a href={"#" + moreLink} className="btn btn-ghost btn-sm" data-testid="link-view-more">View more <ArrowUpRight size={14} /></a>
+          <a href={moreLink} className="btn btn-ghost btn-sm" data-testid="link-view-more">View more <ArrowUpRight size={14} /></a>
         </div>
         {tab === "todos" && (todos.length ? todos.map((t) => (
           <div key={t.id} className={"item" + (t.done ? " completing" : "")}>

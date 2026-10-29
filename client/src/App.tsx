@@ -2,13 +2,14 @@ import { uiFlags } from "./lib/router";
 import { useEffect, useRef, useState } from "react";
 import {
   BarChart3, Briefcase, CalendarDays, ChevronsLeft, ChevronsRight, Compass, FileText, Home as HomeIcon, Menu, Send,
-  Minus, UserCog, Users,
+  Check, Info, Minus, ShieldCheck, UserCog, Users,
 } from "lucide-react";
-import { StoreProvider, api, useStore } from "./lib/store";
-import { go, useRoute } from "./lib/router";
+import { StoreProvider, api, rid, useStore } from "./lib/store";
+import { go, replaceRoute, useRoute } from "./lib/router";
+const PUBLIC = new Set(["/", "/signin", "/about", "/policies", "/privacy", "/terms"]);
 import { Modal, Remy, Spinner, StatusChip } from "./components/common";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { answer as answerTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
+import { answer as answerTailor, endSession as endTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
 import Onboarding from "./pages/Onboarding";
 import Home from "./pages/Home";
@@ -19,7 +20,9 @@ import Community from "./pages/Community";
 import CalendarPage from "./pages/Calendar";
 import Progress from "./pages/Progress";
 import Accounts from "./pages/Accounts";
-import type { Workspace } from "@shared/types";
+import { About, Policies } from "./pages/Info";
+import Admin from "./pages/Admin";
+import type { ChatAction, Workspace } from "@shared/types";
 
 const NAV = [
   { path: "/", label: "Home", icon: HomeIcon },
@@ -44,13 +47,26 @@ export default function App() {
 
 function Root() {
   const { loading, ws, me } = useStore();
+  const { path } = useRoute();
+  // Keep the address honest: signed out, only the front page and sign-in page exist (so deleting an account or
+  // signing out doesn't leave /accounts in the bar for the next account); signed in, /signin goes home.
+  const signedOut = !me || !ws || !ws.started;
+  useEffect(() => {
+    if (loading) return;
+    if (signedOut && !PUBLIC.has(path) && !(path === "/admin" && me)) replaceRoute("/");
+    if (!signedOut && path === "/signin") replaceRoute("/");
+  }, [loading, signedOut, path]);
+  // Public pages: readable without signing in.
+  if (path === "/about") return <About />;
+  if (path === "/policies" || path === "/privacy" || path === "/terms") return <Policies />;
   if (loading)
     return (
       <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
         <div className="stack" style={{ alignItems: "center" }}><Remy size={64} mood="think" /><span className="muted small">Remy is getting things ready…</span></div>
       </div>
     );
-  if (!me || !ws || !ws.started) return <Welcome />;
+  if (path === "/admin" && me) return <Admin />;
+  if (signedOut) return <Welcome />;
   if (!ws.onboarding.done) return <Onboarding />;
   return <Shell />;
 }
@@ -64,6 +80,7 @@ function Shell() {
   const { path, query } = useRoute();
   const [asstPage, setAsstPage] = useState<boolean | null>(null);
   const [more, setMore] = useState(false);
+  const [feedback, setFeedback] = useState(false);
   const [flyIn, setFlyIn] = useState(() => uiFlags.flyIn);
   useEffect(() => {
     if (flyIn) {
@@ -112,7 +129,7 @@ function Shell() {
           </button>
         </div>
         {NAV.map((n) => (
-          <a key={n.path} href={"#" + n.path} className="nav-item" aria-current={current.path === n.path ? "page" : undefined} title={n.label} data-testid={`nav-${n.label.toLowerCase().replace(/[^a-z]/g, "")}`}>
+          <a key={n.path} href={n.path} className="nav-item" aria-current={current.path === n.path ? "page" : undefined} title={n.label} data-testid={`nav-${n.label.toLowerCase().replace(/[^a-z]/g, "")}`}>
             <n.icon size={19} />
             <span className="nav-label">{n.label}</span>
             {n.path === "/resume" && pendingReview > 0 && <span className="count">{pendingReview}</span>}
@@ -140,7 +157,7 @@ function Shell() {
 
       <nav className="mobile-nav" aria-label="Mobile navigation">
         {NAV.filter((n) => ["/", "/path", "/resume", "/opportunities", "/progress"].includes(n.path)).map((n) => (
-          <a key={n.path} href={"#" + n.path} aria-current={current.path === n.path ? "page" : undefined}>
+          <a key={n.path} href={n.path} aria-current={current.path === n.path ? "page" : undefined}>
             <n.icon size={19} />
             {n.label === "Opportunities" ? "Jobs" : n.label === "Resume/CV" ? "Resume" : n.label}
           </a>
@@ -149,7 +166,7 @@ function Shell() {
       </nav>
       {!asstOpen && (
         <button className="asst-fab fade-up" onClick={() => setAsst(true)} data-testid="button-fab-assistant" aria-label="Open Remy">
-          <Remy size={30} mood="wave" /> <span>Remy</span>
+          <Remy size={30} mood="wave" /> <span className="hide-sm">Remy</span>
         </button>
       )}
       {more && (
@@ -158,18 +175,22 @@ function Shell() {
             {[...NAV.filter((n) => ["/community", "/calendar"].includes(n.path)), ACCOUNTS].map((n) => (
               <button key={n.path} className="nav-item" onClick={() => { setMore(false); go(n.path); }}><n.icon size={19} />{n.label}</button>
             ))}
+            <button className="nav-item" onClick={() => { setMore(false); go("/about"); }}><Info size={19} />About Remy</button>
+            <button className="nav-item" onClick={() => { setMore(false); go("/policies"); }}><ShieldCheck size={19} />Privacy & terms</button>
+            <button className="nav-item" onClick={() => { setMore(false); setFeedback(true); }}><Send size={19} />Send feedback</button>
           </div>
         </Modal>
       )}
+      {feedback && <FeedbackModal onClose={() => setFeedback(false)} />}
     </div>
   );
 }
 
 const STARTERS: Record<string, string[]> = {
-  Home: ["What should I focus on this week?", "Which opening fits me best right now?"],
-  "My Path": ["What roles connect finance and information systems?", "What skill gap matters most for me?"],
-  "Resume/CV": ["Which of my experiences is strongest for banking?", "How should I explain my club leadership?"],
-  Opportunities: ["Which deadlines are closest?", "Am I eligible for sophomore programs?"],
+  Home: ["What should I focus on this week?", "Which opening fits me best right now?", "I'm not sure what career I want. Where do I start?"],
+  "My Path": ["What jobs does my major lead to?", "What skill gap matters most for me?"],
+  "Resume/CV": ["Which of my experiences is strongest?", "What's missing from my resume?"],
+  Opportunities: ["Which deadlines are closest?", "Which of these do I actually qualify for?"],
   Community: ["How do I ask an alum for a 15-minute chat?"],
   Calendar: ["Help me plan around my deadlines"],
   Progress: ["What should I do after an interview invite?"],
@@ -177,7 +198,7 @@ const STARTERS: Record<string, string[]> = {
 };
 
 function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () => void; flyIn: boolean }) {
-  const { ws, setWs, run, config } = useStore();
+  const { ws, setWs, run, save, config } = useStore();
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
@@ -201,6 +222,9 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   const send = async (text: string) => {
     if (asking) { setMsg(""); await answerTailor(text, { setWs, run }); return; }
     if (!text.trim() || busy) return;
+    // A finished tailoring or outreach conversation is closed when the student starts chatting,
+    // so the reply appears at the bottom instead of above it, out of view.
+    if (tailor?.stage === "done") endTailor();
     setBusy(true);
     setMsg("");
     const w = await run(() => api<Workspace>("POST", "/api/ai/chat", { message: text, page }));
@@ -212,6 +236,14 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
     if (w) setWs(w);
   };
   const remembered = new Set(ws!.memory.map((m) => m.text));
+  // A button Remy offered under a reply. Already-done ones show as done, so a second tap can't add it twice.
+  const roles = ws!.profile.targetRoles.split(/,\s*/).filter(Boolean);
+  const isDone = (a: ChatAction) => a.kind === "task" ? ws!.tasks.some((t) => t.title === a.title) : a.kind === "role" ? roles.some((r) => r.toLowerCase() === a.title.toLowerCase()) : false;
+  const act = (a: ChatAction) => {
+    if (a.kind === "open") return go(a.link);
+    if (a.kind === "task") return run(() => save("tasks", [{ id: rid("t"), title: a.title, why: a.why, due: "", category: "Prepare", done: false, source: "Remy chat" }, ...ws!.tasks]), "Added to your to-dos");
+    return run(() => save("profile", { ...ws!.profile, targetRoles: [...roles, a.title].join(", ") }), `Remy will look for ${a.title} openings too`);
+  };
   return (
     <>
       <div className="asst-head">
@@ -231,7 +263,14 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
         )}
         {chat.slice(-30).map((m) => (
           <div key={m.id} className="stack-sm" style={{ alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
-            <div className={`bubble ${m.role === "user" ? "bubble-user" : "bubble-ai"}`}>{m.text}</div>
+            <div className={`bubble ${m.role === "user" ? "bubble-user" : "bubble-ai"}`}>{m.role === "user" ? m.text : <Rich text={m.text} />}</div>
+            {!!m.actions?.length && (
+              <div className="row" style={{ gap: 6, maxWidth: "92%" }}>
+                {m.actions.map((a, i) => isDone(a)
+                  ? <span key={i} className="chip"><Check size={12} /> {a.kind === "task" ? "On your to-dos" : "In your search"}</span>
+                  : <button key={i} className="btn btn-secondary btn-sm" style={{ whiteSpace: "normal", height: "auto", textAlign: "left" }} onClick={() => act(a)} data-testid="button-chat-action">{a.kind === "task" ? <>Add to-do: {a.title}</> : a.kind === "role" ? <>Look for {a.title} openings</> : a.label}</button>)}
+              </div>
+            )}
             {m.memorySuggestions?.filter((s) => !remembered.has(s)).map((s) => (
               <div key={s} className="notice" style={{ maxWidth: "92%" }}>
                 <div className="stack-sm">
@@ -280,12 +319,29 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
 }
 
 
+/** Remy's replies: **bold** and "•"/"-" bullet lines, nothing else (no links or HTML from the AI). */
+function Rich({ text }: { text: string }) {
+  const bold = (line: string) => line.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 ? <b key={i}>{part}</b> : part.replace(/\*\*/g, "")));
+  const blocks: JSX.Element[] = [];
+  let items: string[] = [];
+  const flush = () => { if (items.length) blocks.push(<ul key={blocks.length} className="bubble-list">{items.map((t, i) => <li key={i}>{bold(t)}</li>)}</ul>); items = []; };
+  for (const line of text.split("\n")) {
+    const m = line.match(/^\s*(?:[•*-]|\d+[.)])\s+(.*)$/);
+    if (m) { items.push(m[1]); continue; }
+    flush();
+    if (line.trim()) blocks.push(<p key={blocks.length}>{bold(line)}</p>);
+  }
+  flush();
+  return <>{blocks}</>;
+}
+
 const MENU: [string, string][] = [["profile", "Profile"], ["settings", "Settings"], ["memory", "AI memory"], ["sources", "Connected sources"], ["data", "Account & data"]];
 
 /** The name at the bottom of the sidebar: opens Profile, Settings and the rest of Account. */
 function ProfileMenu({ initials, active }: { initials: string; active: boolean }) {
   const { ws, me, run, refresh } = useStore();
   const [open, setOpen] = useState(false);
+  const [feedback, setFeedback] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -312,9 +368,38 @@ function ProfileMenu({ initials, active }: { initials: string; active: boolean }
             <button key={k} role="menuitem" onClick={() => { setOpen(false); go(`/accounts?tab=${k}`); }} data-testid={`menu-${k}`}>{l}</button>
           ))}
           <div className="divider" />
+          <button role="menuitem" onClick={() => { setOpen(false); go("/about"); }} data-testid="menu-about">About Remy</button>
+          <button role="menuitem" onClick={() => { setOpen(false); go("/policies"); }} data-testid="menu-policies">Privacy & terms</button>
+          <button role="menuitem" onClick={() => { setOpen(false); setFeedback(true); }} data-testid="menu-feedback">Send feedback</button>
+          {me?.owner && <button role="menuitem" onClick={() => { setOpen(false); go("/admin"); }} data-testid="menu-admin">Owners' dashboard</button>}
+          <div className="divider" />
           <button role="menuitem" onClick={signOut} data-testid="menu-sign-out">Sign out</button>
         </div>
       )}
+      {feedback && <FeedbackModal onClose={() => setFeedback(false)} />}
     </div>
+  );
+}
+
+/** "Send feedback": a few words about what's confusing or broken; it lands in the owners' dashboard. */
+function FeedbackModal({ onClose }: { onClose: () => void }) {
+  const { run } = useStore();
+  const { path } = useRoute();
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const send = async () => {
+    setBusy(true);
+    const ok = await run(() => api("POST", "/api/feedback", { message: text, page: path }), "Thanks! The Remy team reads every note.");
+    setBusy(false);
+    if (ok) onClose();
+  };
+  return (
+    <Modal title="Send feedback" onClose={onClose}>
+      <div className="stack-sm">
+        <p className="small muted">Something confusing, broken, or missing? Tell the Remy team in a sentence or two. It's sent with the page you're on, not your resume or chats.</p>
+        <textarea className="textarea" autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. I couldn't find where to change my graduation date" aria-label="Your feedback" style={{ minHeight: 110 }} data-testid="input-feedback" />
+        <div className="row-between"><button className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button><button className="btn btn-primary btn-sm" onClick={send} disabled={busy || text.trim().length < 3} data-testid="button-send-feedback">{busy ? <Spinner /> : null} Send</button></div>
+      </div>
+    </Modal>
   );
 }

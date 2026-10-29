@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { AI_SAFETY } from "./safety";
 
 // AI provider resolution, in order:
 // 1. A user-supplied OpenAI key routed through the hosting credential proxy
@@ -14,6 +15,10 @@ let lastVia = "";
 const exhausted = new Map<string, number>();
 const GEMINI_FALLBACKS = "gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-flash-latest,gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-flash-lite-latest,gemini-2.5-flash-lite";
 export const lastUsedModel = () => lastModel || model();
+// What the last AI call cost in US dollars, as OpenRouter reports it (other providers don't say).
+// shortcut: one value for the whole process, so two calls finishing together can swap costs; per-request tracking if exact billing matters.
+let lastSpend: number | undefined;
+export const lastCost = () => lastSpend;
 // "gemini" uses Google's OpenAI-compatible Chat Completions endpoint.
 const provider = () => (process.env.OR_AI_PROVIDER || "openai").toLowerCase();
 
@@ -41,8 +46,8 @@ function chainClient(p: string) {
   chainClients.set(p, c);
   return c;
 }
-function chain(): { p: string; m: string; c: OpenAI }[] {
-  return (process.env.OR_AI_CHAIN || "")
+function chain(spec = process.env.OR_AI_CHAIN): { p: string; m: string; c: OpenAI }[] {
+  return (spec || "")
     .split(",")
     .map((x) => x.trim())
     .filter(Boolean)
@@ -123,10 +128,11 @@ function extractJson(text: string): any {
   throw new Error("AI response was not valid JSON");
 }
 
-export async function aiText(system: string, user: string, maxTokens = 1200): Promise<string> {
+/** `chainSpec` overrides OR_AI_CHAIN for one call (e.g. a stronger model just for tailoring); if none of its providers is configured, the default chain is used. */
+export async function aiText(system: string, user: string, maxTokens = 1200, chainSpec?: string): Promise<string> {
   const c = init();
   if (!c) throw new AiUnavailable();
-  const ch0 = chain();
+  const ch0 = (chainSpec && chain(chainSpec).length && chain(chainSpec)) || chain();
   if (ch0.length || provider() === "gemini" || provider() === "openrouter") {
     // Free-tier Gemini quotas are per model per day, and models sometimes return 503 "high demand".
     // Walk a chain of models: skip any that are out of quota (until the time Google reports), retry 503s once.
@@ -148,12 +154,13 @@ export async function aiText(system: string, user: string, maxTokens = 1200): Pr
             ],
             // Thinking tokens count toward the limit; keep reasoning light and leave headroom.
             max_tokens: orr ? Math.max(1500, maxTokens * 2) : Math.max(2048, maxTokens * 3),
-            ...(orr ? { reasoning: { effort: "low" } } : { reasoning_effort: "low" }),
+            ...(orr ? { reasoning: { effort: "low" }, usage: { include: true } } : { reasoning_effort: "low" }),
           } as any);
           const out = r.choices?.[0]?.message?.content ?? "";
           if (!out) throw Object.assign(new Error("The AI returned an empty response."), { status: 502 });
           lastModel = m;
           lastVia = PROVIDERS[p]?.label || "";
+          lastSpend = typeof r.usage?.cost === "number" ? r.usage.cost : undefined;
           return out;
         } catch (e: any) {
           lastErr = e;
@@ -190,12 +197,12 @@ export async function aiText(system: string, user: string, maxTokens = 1200): Pr
   return out;
 }
 
-export async function aiJson<T = any>(system: string, user: string, maxTokens = 3000): Promise<T> {
-  const sys = system + "\n\nRespond with a single JSON object only. No markdown, no commentary.";
+export async function aiJson<T = any>(system: string, user: string, maxTokens = 3000, chainSpec?: string): Promise<T> {
+  const sys = system + "\n\n" + AI_SAFETY + "\n\nRespond with a single JSON object only. No markdown, no commentary.";
   let last: unknown;
   for (let i = 0; i < 2; i++) {
     try {
-      const text = await aiText(sys, i === 0 ? user : user + "\n\nYour previous reply was not valid JSON. Return only the JSON object.", maxTokens);
+      const text = await aiText(sys, i === 0 ? user : user + "\n\nYour previous reply was not valid JSON. Return only the JSON object.", maxTokens, chainSpec);
       return extractJson(text) as T;
     } catch (e) {
       if (e instanceof AiUnavailable) throw e;

@@ -61,10 +61,12 @@ export function AtsCard({ appId, refreshKey }: { appId?: string; refreshKey?: st
     <div className="card card-pad stack" data-testid="card-ats-score">
       <div className="row" style={{ alignItems: "center", gap: 18 }}>
         {data.tailored && <Ring score={data.base.score} label="Base resume" />}
-        <Ring score={main.score} label={data.tailored ? "Tailored" : "ATS readiness"} />
+        <Ring score={main.score} label={data.tailored ? "Tailored" : "Readiness"} />
         <div className="stack-sm" style={{ flex: 1, minWidth: 220 }}>
-          <h3>ATS screening score{data.tailored ? ` · ${data.tailored.score - data.base.score >= 0 ? "+" : ""}${data.tailored.score - data.base.score} from tailoring` : ""}</h3>
-          <p className="xs muted">How well an applicant tracking system can read your resume and match it to {main.against.replace(/^in the |^from /, "")}. Calculated from your resume itself, so the same resume always gets the same score.</p>
+          <h3>ATS readiness{data.tailored ? ` · ${data.tailored.score - data.base.score >= 0 ? "+" : ""}${data.tailored.score - data.base.score} from tailoring` : ""}</h3>
+          <p className="xs muted">{data.tailored
+            ? `How well an applicant tracking system can read your resume and match it to ${main.against.replace(/^in the /, "the ")}.`
+            : "How easily applicant tracking systems can read your resume: contact info, sections, bullets and format. Keywords are checked against each posting when you tailor."} This is Remy's check, not an employer's score; the same resume always gets the same number.</p>
         </div>
       </div>
       <div className="ats-cats">

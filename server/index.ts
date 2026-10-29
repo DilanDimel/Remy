@@ -2,10 +2,12 @@ import "dotenv/config";
 import express, { Response, NextFunction } from 'express';
 import type { Request } from 'express';
 import { registerRoutes } from "./routes";
+import { dbKind, dbReady } from "./sql";
 import { serveStatic } from "./static";
 import { createServer } from "node:http";
 
 const app = express();
+app.disable("x-powered-by"); // don't advertise the server software
 const httpServer = createServer(app);
 
 declare module "http" {
@@ -24,6 +26,34 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+// Standard browser security headers. The resume PDF preview is framed by our own
+// page, so framing is limited to this site rather than blocked outright.
+const supabaseOrigin = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' https://accounts.google.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https:",
+  `connect-src 'self' https://accounts.google.com ${supabaseOrigin}`.trim(),
+  "frame-src 'self' https://accounts.google.com",
+  "frame-ancestors 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join("; ");
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  if (process.env.NODE_ENV === "production") {
+    res.setHeader("Content-Security-Policy", CSP);
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  next();
+});
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -44,7 +74,8 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      log(logLine);
+      // Flag slow requests so a repeat of the 40 s stall seen in load testing stands out in the Render logs.
+      log(duration > 5000 ? `SLOW ${logLine}` : logLine);
     }
   });
 
@@ -52,6 +83,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Connect and apply server/migrations before taking requests, so a bad DATABASE_URL fails at startup.
+  await dbReady();
+  log(`database: ${dbKind}`);
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

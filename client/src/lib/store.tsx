@@ -77,6 +77,9 @@ interface Store {
 const Ctx = createContext<Store>(null as any);
 export const useStore = () => useContext(Ctx);
 
+/** Setup steps 1–2 (resume, review) are "not far yet"; from step 3 on, they get the welcome-back screen instead. */
+export const FAR_ENOUGH_STEP = 3;
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [me, setMe] = useState<Me | null>(null);
