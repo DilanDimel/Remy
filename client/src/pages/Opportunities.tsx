@@ -4,7 +4,7 @@ import type { Job, JobCheck, JobFit, Workspace } from "@shared/types";
 import { api, daysUntil, fmtDate, rid, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { kindLabel, reloadJobs, useJobs } from "../lib/jobs";
-import { Empty, Remy, Spinner, StatusChip } from "../components/common";
+import { Empty, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
 
 type Kind = "all" | "jobs" | "campus" | "event";
 const matchKind = (j: Job, k: Kind) => k === "all" || (k === "event" ? j.kind === "event" : k === "campus" ? j.kind === "campus" : ["job", "internship", "program"].includes(j.kind));
@@ -77,7 +77,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
           <button className="btn btn-secondary" onClick={() => setShowImport((s) => !s)} data-testid="button-toggle-import"><Link2 size={16} /> Import a posting</button>
         </div>
       </div>
-      {finding && <div className="notice small fade-up"><Remy size={28} mood="think" /><div>Remy is reading live job boards from employers that fit {w.profile.targetRoles || "your interests"}{w.profile.regions ? ` in ${w.profile.regions}` : ""}. This takes a few seconds.</div></div>}
+      {finding && <div className="notice small fade-up"><Remy size={28} mood="think" /><div className="stack-sm"><span>Remy is reading live job boards from employers that fit {w.profile.targetRoles || "your interests"}{w.profile.regions ? ` in ${w.profile.regions}` : ""}.</span><WorkingSteps steps={["Picking employers that fit you", "Reading their career sites", "Keeping internships and entry-level roles", "Ranking by how well they fit"]} every={3500} /></div></div>}
       {showImport && <ImportPanel onDone={() => setShowImport(false)} />}
       <div className="row-between">
         <div className="seg" role="group" aria-label="Category">

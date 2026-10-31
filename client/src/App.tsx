@@ -25,6 +25,7 @@ import Accounts from "./pages/Accounts";
 import { About, Policies } from "./pages/Info";
 import Admin from "./pages/Admin";
 import type { ChatAction, Workspace } from "@shared/types";
+import { Celebrate } from "./components/Celebrate";
 import { BETA_TERMS, BETA_TERMS_LEAD, BETA_TERMS_VERSION } from "@shared/beta";
 
 const NAV = [
@@ -185,6 +186,7 @@ function Shell() {
         <ProfileMenu initials={initials} active={path.startsWith("/accounts")} />
       </aside>
 
+      <Celebrate />
       <main className="main" id="main">
         <div className="topbar">
           <div className="crumb">Remy › <b>{current.label}</b></div>

@@ -149,7 +149,7 @@ test("past terms are dropped from setup options: Summer 2026 is past on Oct 31, 
 
 test("career steps count once, saves are capped per day; road milestones read real work", async () => {
   const { step } = await import("@shared/progress");
-  const { milestones } = await import("../client/src/components/RoadCard");
+  const { milestones } = await import("@shared/progress");
   const { emptyWorkspace } = await import("./db");
   const ws = emptyWorkspace();
   assert.equal(step(ws, "task", "c", "2026-10-27T15:00:00Z"), true);

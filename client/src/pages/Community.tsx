@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Copy, GraduationCap, Mail, Plus, Send, Sparkles, Trash2 } from "lucide-react";
+import { GraduationCap, Mail, Plus, Send, Sparkles, Trash2 } from "lucide-react";
 import type { Contact, OutreachDraft } from "@shared/types";
 import { api, fmtDate, rid, useStore } from "../lib/store";
-import { Empty, Modal, StatusChip } from "../components/common";
+import { CopyButton, Empty, Modal, StatusChip } from "../components/common";
 import { startOutreach, useTailorSession } from "../lib/tailorChat";
 
 
@@ -90,7 +90,7 @@ export default function Community() {
 }
 
 function ReviewModal({ draft, onClose }: { draft: OutreachDraft; onClose: () => void }) {
-  const { ws, save, run, toast } = useStore();
+  const { ws, save, run } = useStore();
   const w = ws!;
   const [d, setD] = useState(draft);
   const p = w.contacts.find((x) => x.id === d.contactId);
@@ -110,11 +110,11 @@ function ReviewModal({ draft, onClose }: { draft: OutreachDraft; onClose: () => 
       {d.linkedin && (
         <div className="field"><span>LinkedIn note (under 200 characters)</span>
           <div className="row" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}><p className="small" style={{ flex: 1, background: "var(--surface-2)", border: "1px solid var(--line)", borderRadius: 10, padding: "9px 12px" }} data-testid="text-linkedin-note">{d.linkedin}</p>
-            <button className="btn btn-ghost btn-sm" onClick={() => { navigator.clipboard?.writeText(d.linkedin || ""); toast("LinkedIn note copied"); }}><Copy size={14} /> Copy</button></div>
+            <CopyButton text={d.linkedin || ""} /></div>
         </div>
       )}
       <div className="row" style={{ justifyContent: "space-between" }}>
-        <button className="btn btn-ghost btn-sm" onClick={() => { navigator.clipboard?.writeText(`To: ${d.to}\nSubject: ${d.subject}\n\n${d.body}`); toast("Copied"); }}><Copy size={14} /> Copy</button>
+        <CopyButton text={`To: ${d.to}\nSubject: ${d.subject}\n\n${d.body}`} />
         <div className="row">
           {d.status === "draft" ? (
             <button className="btn btn-primary" onClick={() => run(() => persist({ status: "approved", approvedAt: new Date().toISOString() }), "Approved")} data-testid="button-approve-outreach">Approve message</button>

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import type { Workspace } from "@shared/types";
 import { api, useStore } from "../lib/store";
-import { Spinner } from "./common";
+import { Spinner, WorkingSteps } from "./common";
 
 /** Story Deck: true STAR stories from the resume to practice for interviews; gaps are asked, never filled in. */
 export function StoryDeck() {
@@ -14,6 +14,7 @@ export function StoryDeck() {
     <section className="card card-pad stack-sm" data-testid="story-deck">
       <div className="row-between"><h3>Story deck</h3>
         <button className="btn btn-secondary btn-sm" disabled={busy || !config?.ai.available} onClick={make} data-testid="button-make-stories">{busy ? <Spinner /> : <Sparkles size={14} />} {stories.length ? "Rebuild stories" : "Build my interview stories"}</button></div>
+      {busy && <WorkingSteps steps={["Finding moments in your resume", "Shaping them into stories", "Checking each part against your resume"]} />}
       <p className="xs muted">Interviewers ask “Tell me about a time…”. These stories use only what your resume says; anything missing is a question for you, not something Remy makes up.</p>
       <div className="grid-2">
         {stories.map((st) => (

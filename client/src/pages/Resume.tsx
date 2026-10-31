@@ -7,7 +7,7 @@ import type { Application, BulletChange, ClaimFlag, Job, ResumeDoc, Workspace } 
 import { API_BASE, api, download, fmtDate, rid, useStore } from "../lib/store";
 import { go, replaceRoute } from "../lib/router";
 import { useJobs } from "../lib/jobs";
-import { AiUnavailableNote, Empty, Remy, Spinner, StatusChip } from "../components/common";
+import { AiUnavailableNote, Empty, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
 import { ResumeBuilder } from "../components/ResumeBuilder";
 import { ResumeUpload } from "../components/Uploaders";
 import { AtsCard } from "../components/AtsCard";
@@ -299,6 +299,7 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
             {mine?.stage === "working" ? <Spinner /> : a.generatedAt ? <RotateCcw size={16} /> : <Sparkles size={16} />} {mine?.stage === "working" ? "Tailoring…" : mine?.stage === "asking" ? "Answering Remy…" : a.generatedAt ? "Regenerate" : "Tailor with AI"}
           </button>
         </div>
+        {mine?.stage === "working" && <WorkingSteps steps={["Reading the posting", "Matching it to your resume", "Writing suggested changes", "Checking every change is true to your experience"]} />}
         {a.staleReason && <div className="notice notice-warn" style={{ marginTop: 12 }}><AlertTriangle size={16} /><div>{a.staleReason}</div></div>}
         {a.generatedAt && <p className="xs muted" style={{ marginTop: 10 }}>Draft made {fmtDate(a.generatedAt)} · {a.versions.length ? `approved v${a.versions.length} on ${fmtDate(a.versions[a.versions.length - 1].at)}` : "not yet approved"}</p>}
       </div>

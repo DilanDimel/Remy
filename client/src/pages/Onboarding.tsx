@@ -5,7 +5,7 @@ import type { Profile, SetupFocus, Workspace } from "@shared/types";
 import { FIELD_GROUPS } from "@shared/fields";
 import { api, FAR_ENOUGH_STEP, fmtDate, rid, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
-import { AiUnavailableNote, BetaBadge, Remy, Spinner, StatusChip } from "../components/common";
+import { AiUnavailableNote, BetaBadge, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
 import { ProfileImport, ResumeUpload } from "../components/Uploaders";
 import { atAlumniSchool, atTcu, SchoolVerify } from "../components/SchoolVerify";
 import { ConflictChoice } from "../components/ConflictChoice";
@@ -13,6 +13,7 @@ import { ResumeBuilder } from "../components/ResumeBuilder";
 import { LinkedInGuide } from "../components/LinkedInGuide";
 import { useGoogleCalendar } from "../components/GoogleCalendar";
 import { LinkedInMark } from "./Welcome";
+import { CareerTime } from "../components/CareerTime";
 
 // Step numbers are stored in the workspace; 0 and 1 both open the resume step.
 const STEPS = ["Your resume", "Review", "Preferences", "Questions", "Your plan"];
@@ -605,7 +606,7 @@ function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: () => vo
           <p className="small muted">Suggestions, not requirements. You can change anything.</p>
         </div>
       </div>
-      {busy && <div className="stack-sm">{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 44 }} />)}</div>}
+      {busy && <WorkingSteps steps={["Reading your resume and answers", "Choosing where to start", "Writing your first to-dos"]} />}
       <div className="notice" data-testid="plan-matches">
         {refreshing || !jobs ? <span className="row"><Spinner /> Remy is checking employers' career sites for openings that fit you…</span>
           : matches.length ? <div><strong>Remy found {matches.length} opening{matches.length === 1 ? "" : "s"} that fit you</strong><ul className="plan-matches">{matches.slice(0, 3).map((j) => <li key={j.id} className="small"><b>{j.title}</b> <span className="muted">at {j.company}</span></li>)}</ul></div>
@@ -623,6 +624,7 @@ function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: () => vo
           </div>
         </div>
       )}
+      <div className="card card-pad"><CareerTime /></div>
       <div className="row-between">
         <button className="btn btn-ghost" onClick={onBack}><ArrowLeft size={16} /> Back</button>
         <div className="row">

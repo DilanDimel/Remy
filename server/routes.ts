@@ -484,7 +484,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   const SHAPES: Partial<Record<(typeof SECTIONS)[number], z.ZodType>> = {
     profile: z.looseObject({}),
     settings: z.object({
-      theme: z.enum(["system", "light", "dark"]).optional(), themeChosen: z.boolean().optional(), assistantOpen: z.boolean().optional(), navCollapsed: z.boolean().optional(),
+      theme: z.enum(["system", "light", "dark"]).optional(), themeChosen: z.boolean().optional(), careerTime: z.object({ day: z.number().int().min(0).max(6), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/) }).nullable().optional(), assistantOpen: z.boolean().optional(), navCollapsed: z.boolean().optional(),
       notify: z.object({ deadlines: z.boolean(), statusChanges: z.boolean(), weeklyPlan: z.boolean() }).partial().optional(),
       demoConnections: z.array(str(80)).max(20).optional(), newsSeen: str(40).optional(),
     }),
@@ -1621,7 +1621,7 @@ Return JSON:
   // ---------- calendar export ----------
   app.get("/api/calendar.ics", route(async (req, res, ctx) => {
     const id = req.query.id ? String(req.query.id) : null;
-    const items = ctx.ws.calendar.filter((c) => !id || c.id === id);
+    const items = id?.startsWith("career") ? [] : ctx.ws.calendar.filter((c) => !id || c.id === id);
     const esc = (s: string) => s.replace(/[,;\\]/g, (m) => "\\" + m).replace(/\r\n|\r|\n/g, "\\n");
     const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Remy//EN", "CALSCALE:GREGORIAN"];
     for (const c of items) {
@@ -1632,6 +1632,12 @@ Return JSON:
         lines.push(`DTSTART:${d}T${t}`, `DURATION:PT1H`);
       } else lines.push(`DTSTART;VALUE=DATE:${d}`);
       lines.push(`SUMMARY:${esc(c.title)}`, `DESCRIPTION:${esc(c.notes || c.kind)}`, "END:VEVENT");
+    }
+    const ct = ctx.ws.settings.careerTime;
+    if (ct && (!id || id.startsWith("career"))) {
+      const d = new Date(centralToday() + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + ((ct.day - d.getUTCDay() + 7) % 7));
+      lines.push("BEGIN:VEVENT", "UID:career-time@remy", `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").slice(0, 15)}Z`, `DTSTART:${d.toISOString().slice(0, 10).replace(/-/g, "")}T${ct.time.replace(":", "")}00`, "DURATION:PT45M",
+        `RRULE:FREQ=WEEKLY;BYDAY=${["SU", "MO", "TU", "WE", "TH", "FR", "SA"][ct.day]}`, "SUMMARY:Career time with Remy", `DESCRIPTION:${esc("45 minutes for one real step. Open Remy: https://" + (process.env.PUBLIC_HOST || "offer-ready.onrender.com") + "/")}`, "END:VEVENT");
     }
     lines.push("END:VCALENDAR");
     res.setHeader("Content-Type", "text/calendar; charset=utf-8");

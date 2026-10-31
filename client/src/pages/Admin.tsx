@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "rea
 import { Activity, AlertTriangle, Bot, ArrowLeft, ArrowRight, BarChart3, CalendarDays, Check, Clock, KanbanSquare, Plus, RotateCcw, Trash2, Users } from "lucide-react";
 import { api, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
-import { BetaBadge, Empty, Remy, Rich, Spinner } from "../components/common";
+import { BetaBadge, CopyButton, Empty, Remy, Rich, Spinner } from "../components/common";
 import { WhatsNew } from "../components/WhatsNew";
 import { ThemeToggle } from "../components/ThemeToggle";
 
@@ -240,7 +240,6 @@ function AgentsTab() {
   const [question, setQuestion] = useState("");
   const [brief, setBrief] = useState("");
   const go = async (agent: string) => { setBusy(agent); const r = await run(() => api<Agents>("POST", `/api/admin/agents/${agent}/run`, { question, brief }), "Agent finished"); if (r) setD(r); setBusy(""); };
-  const copy = (t: string) => run(() => navigator.clipboard.writeText(t), "Copied");
   const add = async (title: string) => { if (await run(() => api("POST", "/api/admin/agents/suggestion", { title }), "Added to the board")) setAdded([...added, title]); };
   if (!d) return <div className="row"><Spinner /> Loading…</div>;
   const card = (key: string, name: string, what: string, body: ReactNode, last: Run<unknown>, needsAi = false) => (
@@ -254,7 +253,7 @@ function AgentsTab() {
   const fb = d.feedback?.output, wk = d.weekly?.output, sc = d.scout?.output, rs = d.research?.output, mk = d.marketing?.output;
   const draft = (label: string, text: string) => (
     <div className="stack-sm" style={{ gap: 4 }}>
-      <div className="row-between"><b className="small">{label}</b><button className="btn btn-ghost btn-sm" onClick={() => copy(text)}>Copy</button></div>
+      <div className="row-between"><b className="small">{label}</b><CopyButton text={text} /></div>
       <p className="small" style={{ whiteSpace: "pre-wrap" }}>{text}</p>
     </div>
   );

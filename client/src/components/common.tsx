@@ -1,5 +1,5 @@
-import { useEffect, type ReactNode } from "react";
-import { X } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Check, Copy, X } from "lucide-react";
 import type { Label } from "@shared/types";
 
 export type RemyMood = "idle" | "wave" | "think" | "happy";
@@ -108,4 +108,27 @@ export function Rich({ text }: { text: string }) {
   }
   flush();
   return <>{blocks}</>;
+}
+
+/** Long AI work: names the stages Remy goes through, in order, so a wait doesn't look frozen. Stays on the last one. */
+export function WorkingSteps({ steps, every = 4000 }: { steps: string[]; every?: number }) {
+  const [i, setI] = useState(0);
+  useEffect(() => { const t = setInterval(() => setI((n) => Math.min(n + 1, steps.length - 1)), every); return () => clearInterval(t); }, [steps.length, every]);
+  return (
+    <div className="working-steps" role="status" aria-live="polite" data-testid="working-steps">
+      {steps.map((s, k) => <span key={s} className={k < i ? "done" : k === i ? "now" : ""}>{k < i ? <Check size={12} /> : k === i ? <Spinner /> : <i />}{s}</span>)}
+    </div>
+  );
+}
+
+/** Copy with a visible "Copied" checkmark on the button itself (not only a toast far away). */
+export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+  const [done, setDone] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const copy = () => navigator.clipboard.writeText(text).then(() => { setDone(true); setTimeout(() => setDone(false), 1600); }, () => setFailed(true));
+  return (
+    <button className={"btn btn-ghost btn-sm" + (done ? " copied" : "")} onClick={copy} aria-live="polite">
+      {done ? <><Check size={14} style={{ color: "var(--success, #22a05a)" }} /> Copied</> : failed ? "Select and copy it" : <><Copy size={14} /> {label}</>}
+    </button>
+  );
 }

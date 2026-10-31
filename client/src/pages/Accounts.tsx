@@ -11,6 +11,7 @@ import { GoogleCalendarCard } from "../components/GoogleCalendar";
 import { atTcu, SchoolVerify } from "../components/SchoolVerify";
 import { ConflictChoice } from "../components/ConflictChoice";
 import { ThemeChoice } from "../components/ThemeToggle";
+import { CareerTime } from "../components/CareerTime";
 import { ProfilePhoto } from "../components/ProfilePhoto";
 
 type Tab = "profile" | "sources" | "memory" | "settings" | "data";
@@ -144,6 +145,8 @@ function Settings() {
       <div className="card card-pad stack">
         <h3>Theme</h3>
         <ThemeChoice />
+        <h3>Weekly career time</h3>
+        <CareerTime compact />
         <h3>Assistant</h3>
         <label className="row small"><input type="checkbox" checked={s.assistantOpen} onChange={() => save("settings", { assistantOpen: !s.assistantOpen })} /> Keep Remy open (you can always minimize him from his panel)</label>
       </div>
