@@ -15,13 +15,16 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const { jobs, fits, needsProfile, refreshing } = useJobs();
   const kind = (query.get("kind") as Kind) || "all";
   const focus = query.get("id");
-  const [savedOnly, setSavedOnly] = useState(false);
+  // Filters stay as the student left them (this browser only).
+  const kept = (() => { try { return JSON.parse(localStorage.getItem("remy.opps") || "{}"); } catch { return {}; } })();
+  const [savedOnly, setSavedOnly] = useState<boolean>(!!kept.savedOnly);
   const [q, setQ] = useState("");
   const [showImport, setShowImport] = useState(query.get("import") === "1");
   const [showHidden, setShowHidden] = useState(false);
   const [showIneligible, setShowIneligible] = useState(false);
   const regions = w.profile.regions.trim();
-  const [myRegions, setMyRegions] = useState(!!regions && !/anywhere/i.test(regions));
+  const [myRegions, setMyRegions] = useState<boolean>(kept.myRegions ?? (!!regions && !/anywhere/i.test(regions)));
+  useEffect(() => { try { localStorage.setItem("remy.opps", JSON.stringify({ savedOnly, myRegions })); } catch {} }, [savedOnly, myRegions]);
   const setKind = (k: Kind) => go(`/opportunities?kind=${k}`);
   const [finding, setFinding] = useState(false);
   const discover = async () => {
@@ -42,7 +45,10 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   // The specific words of their goal ("mechanical") in a title outrank a same-field but different job ("electrical").
   const GENERIC = /^(intern|interns|internship|internships|student|students|engineer|engineering|analyst|associate|assistant|summer|entry|level|role|roles|jobs?|work|program|career|careers|position|and|the|for|with)$/i;
   const specific = [...new Set(`${w.profile.targetRoles} ${w.profile.major}`.toLowerCase().split(/[^a-z&]+/).filter((x) => x.length > 3 && !GENERIC.test(x)))];
-  const rank = (j: Job) => (fits[j.id]?.score ?? 0) + (liked.has(j.company) ? 8 : 0) - Math.min(3, hiddenBy.get(j.company) || 0) * 5
+  // No places chosen: openings in the student's own city or state come first.
+  const home = regions ? [] : (w.profile.location || "").split(",").map((x) => x.trim()).filter((x) => x.length >= 2);
+  const near = (j: Job) => home.some((h) => new RegExp(`\\b${h.replace(/[.*+?^${}()|[\]\\]/g, "")}\\b`, "i").test(j.location));
+  const rank = (j: Job) => (fits[j.id]?.score ?? 0) + (near(j) ? 6 : 0) + (liked.has(j.company) ? 8 : 0) - Math.min(3, hiddenBy.get(j.company) || 0) * 5
     + 10 * specific.filter((x) => new RegExp(`\\b${x}`, "i").test(j.title)).length;
   const base = (jobs || [])
     .filter((j) => matchKind(j, kind))
@@ -198,7 +204,7 @@ function JobCard({ j, fit, defaultOpen }: { j: Job; fit?: JobFit; defaultOpen: b
         {j.deadline && <span className={"chip " + (d !== null && d < 0 ? "chip-bad" : d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d < 0 ? "Deadline passed" : `Due ${fmtDate(j.deadline)}${d !== null ? ` · ${d}d` : ""}`}</span>}
       </div>
       {j.requirements.length > 0 && (
-        <div className="row" style={{ gap: 6 }} data-testid="job-keywords">
+        <div className="row" style={{ gap: 6, flexWrap: "wrap" }} data-testid="job-keywords">
           <span className="xs muted" style={{ fontWeight: 700 }}>Looking for:</span>
           {j.requirements.slice(0, 5).map((r) => <span key={r.id} className={"chip " + (fit?.matched.includes(r.keyword) ? "chip-live" : "chip-plain")} title={r.quote}>{fit?.matched.includes(r.keyword) ? "✓ " : ""}{r.keyword}</span>)}
         </div>

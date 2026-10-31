@@ -378,6 +378,9 @@ const GENERIC = /^(intern|interns|internship|internships|student|students|engine
 export const specificWords = (ws: Workspace) =>
   [...new Set(`${ws.profile.targetRoles} ${ws.profile.major}`.toLowerCase().split(/[^a-z&]+/).filter((w) => w.length > 3 && !GENERIC.test(w)))].slice(0, 8);
 
+/** Workday's "IL-Rosemont" / "TX-Houston" → "Rosemont, IL"; anything else unchanged. */
+export const tidyLocation = (l: string) => l.replace(/\b([A-Z]{2})-([A-Za-z .'-]+?)(?=$|;|,|\s·)/g, (_m, st, city) => `${city.replace(/-/g, " ").trim()}, ${st}`);
+
 /** Which employers to read next: liked ones first, dismissed ones (2+ "Not interested") left out, then least recently read. */
 export function orderEmployers<T extends { company: string }>(list: T[], liked: Set<string | undefined>, hides: Map<string, number>, lastRead: Record<string, string>): T[] {
   const like = (e: T) => (liked.has(e.company.toLowerCase()) ? 1 : 0);
@@ -436,7 +439,7 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25): 
         const rel = fields.filter((f) => hay.includes(f)).length + (titleFits.some((t) => t.test(r.title)) ? 2 : titleFits.some((t) => t.test(duties(r.text))) ? 1 : 0)
           + 3 * specificWords(ws).filter((w) => new RegExp(`\\b${w}`, "i").test(r.title)).length;
         const job: Job = {
-          id: uid("j"), kind: kindOf(r.title), title: r.title, company: r.company || b.company, location: r.location || "Not stated",
+          id: uid("j"), kind: kindOf(r.title), title: r.title, company: r.company || b.company, location: tidyLocation(r.location) || "Not stated",
           format: /remote/i.test(r.location) ? "Remote" : "", dates: "", deadline: r.deadline || "", deadlineText: r.deadline ? `Closes ${r.deadline}` : "Not stated on the board — check the posting",
           eligibility: eligibilityFrom(r.text), requirements: requirementsFrom(r.text), summary: r.text.replace(/\s+/g, " ").slice(0, 420),
           applyUrl: r.url, sourceUrl: r.url, sourceName: `${b.company} careers (${b.ats[0].toUpperCase() + b.ats.slice(1)} job board)`,

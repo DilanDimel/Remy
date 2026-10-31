@@ -105,3 +105,11 @@ test("the specific words of a goal rank first: Mechanical Engineering Intern abo
   const jobs = (await discoverJobs(ws, [{ company: "Spec", ats: "greenhouse", slug: "spec-test" } as any], 10)).jobs;
   assert.equal(jobs[0].title, "Mechanical Engineering Intern");
 });
+
+test("Workday locations read like addresses: IL-Rosemont → Rosemont, IL", async () => {
+  const { tidyLocation } = await import("./sources");
+  assert.equal(tidyLocation("IL-Rosemont"), "Rosemont, IL");
+  assert.equal(tidyLocation("TX-Fort-Worth"), "Fort Worth, TX");
+  assert.equal(tidyLocation("Dallas, TX"), "Dallas, TX");
+  assert.equal(tidyLocation("Remote"), "Remote");
+});

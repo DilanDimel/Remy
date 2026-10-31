@@ -3,6 +3,7 @@
 export type NewsItem = { id: string; date: string; kind: "New" | "Improved" | "Fixed" | "Changed"; title: string; body: string; owners?: boolean };
 
 export const NEWS: NewsItem[] = [
+  { id: "2026-10-31-03", date: "2026-10-31", kind: "Improved", title: "Openings near you first", body: "If you haven't picked places to work, openings in your own city or state come first. Locations read normally (“Rosemont, IL”), skill tags wrap on phones, and your Opportunities filters stay as you left them." },
   { id: "2026-10-31-02", date: "2026-10-31", kind: "New", title: "Dark mode, your photo, and chat that changes settings", body: "Remy now matches your device's light or dark mode on every page (change it with the screen icon or in Account → Appearance). Add your own profile photo in Account → Profile. Ask Remy to “turn on dark mode” or “stop deadline reminders” and tap to confirm." },
   { id: "2026-10-31-01", date: "2026-10-31", kind: "Fixed", title: "Smoother setup", body: "Setup no longer gets stuck after the last question, start dates are always in the future, and answering a question twice won't repeat your answer." },
   { id: "2026-10-29-08", date: "2026-10-29", kind: "Fixed", title: "Your resume keeps its look", body: "Tailored downloads now keep your font, sizes and margins, including Word files with several bullets per paragraph, monospace fonts and resumes without italics. Honest rewordings like spelling out “RN” are no longer flagged." },

@@ -260,7 +260,7 @@ function Landing() {
           <p className="small">A free career coach for college students. Made by students at Texas Christian University.</p>
         </div>
         <nav aria-label="Product"><b>Product</b><a href="#get-openings">Openings</a><a href="#get-resume">Honest resume</a><a href="#get-explore">Explore careers</a><a href="#get-plan">Weekly plan</a></nav>
-        <nav aria-label="Company"><b>Company</b><a href="/about">About the team</a><a href="mailto:remy.careercoach@gmail.com">Contact us</a><a href="/signin">Sign in</a></nav>
+        <nav aria-label="Company"><b>Company</b><a href="/about">About the team</a><a href="mailto:remy.careercoach@gmail.com">remy.careercoach@gmail.com</a><a href="/signin">Sign in</a></nav>
         <nav aria-label="Legal"><b>Legal</b><a href="/policies">Privacy policy</a><a href="/policies#beta-terms">Beta terms</a></nav>
         <p className="lp-foot-bottom xs">© 2026 Remy. In beta: features may change, and unfinished ones are marked &ldquo;Coming soon&rdquo;.</p>
       </footer>

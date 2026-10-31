@@ -90,11 +90,11 @@ function Head({ title, sub, action }: { title: string; sub?: string; action?: Re
   return <div className="adm-head"><div><h1>{title}</h1>{sub && <p className="small muted">{sub}</p>}</div>{action}</div>;
 }
 
-function useLoad<T>(path: string): [T | null, () => void, (t: T) => void] {
+function useLoad<T>(path: string): [T | null, (ok?: string) => void, (t: T) => void] {
   const { run } = useStore();
   const [data, setData] = useState<T | null>(null);
-  const load = () => { run(() => api<T>("GET", path)).then((d) => d && setData(d)); };
-  useEffect(load, [path]);
+  const load = (ok?: string) => { run(() => api<T>("GET", path), ok).then((d) => d && setData(d)); };
+  useEffect(() => load(), [path]);
   return [data, load, setData];
 }
 
@@ -121,7 +121,7 @@ function OverviewTab() {
   const max = Math.max(1, ...days.map((x) => byDay.get(x) || 0));
   return (
     <div className="stack-lg">
-      <Head title="Overview" sub="Signed-in students only. Counts, never anything a student wrote." action={<button className="btn btn-ghost btn-sm" onClick={reload}><RotateCcw size={14} /> Refresh</button>} />
+      <Head title="Overview" sub="Signed-in students only. Counts, never anything a student wrote." action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
       <div className="adm-kpis">
         <Kpi n={d.northWeek} label="North star: students who took a career step this week" prev={d.northPrev} />
         <Kpi n={d.activeWeek} label="Active students this week" prev={d.activePrev} />
@@ -182,7 +182,7 @@ function ErrorsTab() {
   const fix = async (e: OpenError) => { const r = await run(() => api<Errors>("POST", "/api/admin/errors/fix", { message: e.message, kind: e.kind }), "Marked fixed. If it happens again, it comes back here."); if (r) setD(r); };
   return (
     <div className="stack-lg">
-      <Head title="Errors & feedback" sub="What students wrote with Send feedback, and the errors they hit in the last 30 days. Mark an error fixed after the fix ships." action={<button className="btn btn-ghost btn-sm" onClick={reload}><RotateCcw size={14} /> Refresh</button>} />
+      <Head title="Errors & feedback" sub="What students wrote with Send feedback, and the errors they hit in the last 30 days. Mark an error fixed after the fix ships." action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
       <section className="adm-card adm-list">
         <h3>Student feedback</h3>
         {d.feedback.map((f) => (
