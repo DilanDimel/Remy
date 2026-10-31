@@ -10,6 +10,7 @@ import { ThemeToggle } from "../components/ThemeToggle";
 // own board, meetings, hours and activity. Never anything a student wrote.
 type Overview = {
   northWeek: number; northPrev: number;
+  returnWeek1?: { cohort: number; back: number }; returnWeek4?: { cohort: number; back: number };
   students: number; newWeek: number; newPrev: number; activeWeek: number; activePrev: number; activeToday: number;
   daily: { day: string; n: number }[];
   funnel: { accounts: number; resume: number; prefs: number; setup_done: number; chatted: number; applied: number };
@@ -125,6 +126,10 @@ function OverviewTab() {
       <Head title="Overview" sub="Signed-in students only. Counts, never anything a student wrote." action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
       <div className="adm-kpis">
         <Kpi n={d.northWeek} label="North star: students who took a career step this week" prev={d.northPrev} />
+        {(() => { const r = (x?: { cohort: number; back: number }) => (x && x.cohort ? `${Math.round((100 * x.back) / x.cohort)}%` : "–"); return <>
+          <Kpi n={r(d.returnWeek1)} label="Came back in their first week" note={d.returnWeek1?.cohort ? `${d.returnWeek1.back} of ${d.returnWeek1.cohort} who signed up 8–35 days ago` : "Counting visits since Oct 31"} />
+          <Kpi n={r(d.returnWeek4)} label="Came back in week 4" note={d.returnWeek4?.cohort ? `${d.returnWeek4.back} of ${d.returnWeek4.cohort} who signed up 29–56 days ago` : "Counting visits since Oct 31"} />
+        </>; })()}
         <Kpi n={d.activeWeek} label="Active students this week" prev={d.activePrev} />
         <Kpi n={d.newWeek} label="New sign-ups this week" prev={d.newPrev} />
         <Kpi n={d.students} label="Students in total" note={`${d.activeToday} active today`} />

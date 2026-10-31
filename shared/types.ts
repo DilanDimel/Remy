@@ -446,6 +446,8 @@ export interface Workspace {
   /** Day and time the last weekly digest went out (one a week; new openings are counted from it). */
   lastDigest?: string;
   lastDigestAt?: string;
+  /** Days (YYYY-MM-DD, Central) the student opened Remy, newest last; owners see only return rates from it. */
+  visits?: string[];
   /** Deadline reminders already emailed (calendar id:date:soon|day), so each goes out once. */
   reminded?: string[];
   /** When the student last uploaded a profile photo (also busts the image cache); absent = no photo. */

@@ -36,6 +36,7 @@ export async function weeklySummary(by: string) {
     `North star: ${o.northWeek} student${o.northWeek === 1 ? "" : "s"} took a real career step this week (${ch(o.northWeek, o.northPrev)}).`,
     `${o.activeWeek} active student${o.activeWeek === 1 ? "" : "s"} (${ch(o.activeWeek, o.activePrev)}); ${o.newWeek} new sign-up${o.newWeek === 1 ? "" : "s"} (${ch(o.newWeek, o.newPrev)}).`,
     `Setup: ${o.funnel?.setup_done ?? 0} of ${o.funnel?.accounts ?? 0} accounts finished setup; ${o.funnel?.applied ?? 0} started an application.`,
+    o.returnWeek1.cohort ? `Return: ${o.returnWeek1.back} of ${o.returnWeek1.cohort} students came back in their first week${o.returnWeek4.cohort ? `, ${o.returnWeek4.back} of ${o.returnWeek4.cohort} in week 4` : ""}.` : "Return rates start once students who signed up after Oct 31 are a week old.",
     `AI this week: ${o.ai.calls} calls, $${o.ai.cost.toFixed(2)}${o.ai.failed ? `, ${o.ai.failed} failed` : ""}.`,
     `${o.openErrors} open error${o.openErrors === 1 ? "" : "s"} and ${o.feedback} new feedback note${o.feedback === 1 ? "" : "s"}.`,
   ];

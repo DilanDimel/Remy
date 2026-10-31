@@ -106,10 +106,20 @@ export async function overview() {
     `SELECT COUNT(*) FILTER (WHERE ${stepIn(7, 0)})::int AS week, COUNT(*) FILTER (WHERE ${stepIn(14, 7)})::int AS prev
      FROM workspaces w JOIN users u ON u.id = w.user_id WHERE ${SIGNED_IN}`,
   );
+  // Return: of students who signed up 8–35 days ago, the share who opened Remy again in days 1–7 (week 1);
+  // of those who signed up 29–56 days ago, the share back in days 22–28 (week 4). Dates only, nothing they wrote.
+  const back = (from: number, to: number, minAge: number, maxAge: number) => `
+    SELECT COUNT(*)::int AS n, COUNT(*) FILTER (WHERE EXISTS (
+      SELECT 1 FROM jsonb_array_elements_text(COALESCE(w.data->'visits', '[]'::jsonb)) v
+      WHERE v::date BETWEEN (u.created_at AT TIME ZONE 'America/Chicago')::date + ${from} AND (u.created_at AT TIME ZONE 'America/Chicago')::date + ${to}))::int AS back
+    FROM users u JOIN workspaces w ON w.user_id = u.id
+    WHERE ${SIGNED_IN} AND u.created_at <= now() - interval '${minAge} days' AND u.created_at > now() - interval '${maxAge} days'`;
+  const w1 = await q1(back(1, 7, 8, 35)), w4 = await q1(back(22, 28, 29, 56));
   const openErrors = await q1("SELECT COUNT(DISTINCT message) FILTER (WHERE kind <> 'feedback')::int AS n, COUNT(*) FILTER (WHERE kind = 'feedback')::int AS feedback FROM error_reports WHERE fixed_at IS NULL AND at > now() - interval '30 days'");
   return {
     students: totals?.students ?? 0, newWeek: totals?.new_week ?? 0, newPrev: totals?.new_prev ?? 0,
     northWeek: north?.week ?? 0, northPrev: north?.prev ?? 0,
+    returnWeek1: { cohort: w1?.n ?? 0, back: w1?.back ?? 0 }, returnWeek4: { cohort: w4?.n ?? 0, back: w4?.back ?? 0 },
     activeWeek: active?.week ?? 0, activePrev: active?.prev ?? 0, activeToday: active?.today ?? 0,
     daily, funnel, features: features.filter((f) => f.uses).sort((a, b) => b.students - a.students || b.uses - a.uses),
     ai: { calls: ai?.calls ?? 0, failed: ai?.failed ?? 0, cost: ai?.cost ?? 0, priced: ai?.priced ?? 0, avgMs: ai?.avg_ms ?? 0 },

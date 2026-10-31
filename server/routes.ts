@@ -425,7 +425,11 @@ export async function registerRoutes(_server: Server, app: Express) {
     try {
       const me = await identify(req);
       if (!me) return res.json({ me: null, workspace: null });
-      res.json({ me, workspace: await loadWorkspace(me.id) });
+      let ws = await loadWorkspace(me.id);
+      // Days the student opened Remy (Central dates, kept 120), so owners can see who comes back. Counts only.
+      const today = centralToday();
+      if (!(ws.visits || []).includes(today)) ws = await saveSections(me.id, { visits: [...(ws.visits || []), today].slice(-120) } as any);
+      res.json({ me, workspace: ws });
     } catch (e) { next(e); }
   });
 
