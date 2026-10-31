@@ -465,7 +465,7 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25): 
           format: /remote/i.test(r.location) ? "Remote" : "", dates: "", deadline: r.deadline || "", deadlineText: r.deadline ? `Closes ${r.deadline}` : "Not stated on the board — check the posting",
           eligibility: eligibilityFrom(r.text), requirements: requirementsFrom(r.text), summary: r.text.replace(/\s+/g, " ").slice(0, 420),
           applyUrl: r.url, sourceUrl: r.url, sourceName: `${b.company} careers (${b.ats[0].toUpperCase() + b.ats.slice(1)} job board)`,
-          label: "Live", checkedAt: new Date().toISOString(), checks: [], origin: "imported", postingText: r.text.slice(0, 12000),
+          label: "Live", checkedAt: new Date().toISOString(), foundAt: new Date().toISOString(), checks: [], origin: "imported", postingText: r.text.slice(0, 12000),
         };
         known.add(r.url);
         found.push({ job, rel });

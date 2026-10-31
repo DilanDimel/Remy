@@ -27,6 +27,7 @@ import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSIO
 import { atsScore } from "./ats";
 import { pastTerm } from "./fit";
 import * as agents from "./agents";
+import { dueReminders, reminderEmail, weeklyDigest } from "./reminders";
 import { step } from "@shared/progress";
 import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
@@ -326,7 +327,32 @@ const searching = new Set<string>();
 
 export async function registerRoutes(_server: Server, app: Express) {
   // Expired sessions and guest workspaces idle for 30 days are removed at start-up and every 6 hours.
-  const sweep = () => { pruneBoardCache().catch(() => {}); return cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)); };
+  // Deadline reminders by email, for students who left them on (checked with every sweep).
+  // shortcut: loads every signed-in workspace each sweep; move to a SQL filter past ~1,000 students.
+  const deadlineReminders = async () => {
+    if (!emailReady()) return;
+    const today = centralToday();
+    for (const u of await q("SELECT u.id, u.email FROM users u WHERE u.kind IN ('google','supabase')")) {
+      const ws = await loadWorkspace(u.id);
+      const due = dueReminders(ws, today);
+      if (!due.length) continue;
+      const { subject, text } = reminderEmail(ws.profile.preferredName || ws.profile.name.split(" ")[0] || "there", due, process.env.PUBLIC_HOST || "offer-ready.onrender.com");
+      try { await sendEmail(ws.profile.applicationEmail || u.email, subject, text); } catch (e: any) { console.error("deadline reminder failed", e?.message); continue; }
+      await saveSections(u.id, { reminded: [...(ws.reminded || []), ...due.map((d) => d.key)].slice(-300) } as any);
+    }
+    // Weekly digest, after 7am Central on the student's day.
+    const now = new Date(), hour = Number(now.toLocaleString("en-US", { timeZone: "America/Chicago", hour: "numeric", hour12: false }));
+    if (hour < 7) return;
+    const weekday = new Date(today + "T12:00:00Z").getUTCDay();
+    for (const u of await q("SELECT u.id, u.email FROM users u WHERE u.kind IN ('google','supabase')")) {
+      const ws = await loadWorkspace(u.id);
+      const d = weeklyDigest(ws, today, weekday, process.env.PUBLIC_HOST || "offer-ready.onrender.com");
+      if (!d) continue;
+      try { await sendEmail(ws.profile.applicationEmail || u.email, d.subject, d.text); } catch (e: any) { console.error("weekly digest failed", e?.message); continue; }
+      await saveSections(u.id, { lastDigest: today, lastDigestAt: now.toISOString() } as any);
+    }
+  };
+  const sweep = () => { pruneBoardCache().catch(() => {}); deadlineReminders().catch((e) => console.error("deadline reminders failed", e?.message)); return cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)); };
   sweep();
   setInterval(sweep, 6 * 60 * 60_000).unref();
 
@@ -484,7 +510,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   const SHAPES: Partial<Record<(typeof SECTIONS)[number], z.ZodType>> = {
     profile: z.looseObject({}),
     settings: z.object({
-      theme: z.enum(["system", "light", "dark"]).optional(), themeChosen: z.boolean().optional(), careerTime: z.object({ day: z.number().int().min(0).max(6), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/) }).nullable().optional(), assistantOpen: z.boolean().optional(), navCollapsed: z.boolean().optional(),
+      theme: z.enum(["system", "light", "dark"]).optional(), themeChosen: z.boolean().optional(), lastSeenAt: z.string().max(40).optional(), careerTime: z.object({ day: z.number().int().min(0).max(6), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/) }).nullable().optional(), assistantOpen: z.boolean().optional(), navCollapsed: z.boolean().optional(),
       notify: z.object({ deadlines: z.boolean(), statusChanges: z.boolean(), weeklyPlan: z.boolean() }).partial().optional(),
       demoConnections: z.array(str(80)).max(20).optional(), newsSeen: str(40).optional(),
     }),
@@ -544,7 +570,13 @@ export async function registerRoutes(_server: Server, app: Express) {
       })).filter((m: MemoryFact) => m.text.trim());
     } else if (section === "savedJobIds") {
       if (!Array.isArray(value)) bad("Saved openings must be a list");
-      for (const id of value) if (!ctx.ws.savedJobIds.includes(id)) step(ctx.ws, "save", String(id));
+      for (const id of value) if (!ctx.ws.savedJobIds.includes(id)) {
+        step(ctx.ws, "save", String(id));
+        // A saved opening's deadline goes on the calendar by itself, so it can't be missed.
+        const j = ctx.ws.jobs.find((x) => x.id === String(id));
+        if (j?.deadline && j.deadline >= centralToday() && !ctx.ws.calendar.some((c) => c.linkedId === j.id))
+          ctx.ws.calendar.push({ id: uid("cal"), title: `${j.company}: ${j.kind === "event" ? "event" : "deadline"}`, date: j.deadline.slice(0, 10), time: "", kind: j.kind === "event" ? "Event" : "Deadline", source: "Added when you saved it", linkedId: j.id, notes: j.deadlineText || "" });
+      }
       ctx.ws.savedJobIds = value.map(String);
     } else if (section === "settings") {
       ctx.ws.settings = { ...ctx.ws.settings, ...value, notify: { ...ctx.ws.settings.notify, ...(value.notify || {}) } };
@@ -987,7 +1019,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     const answers = ctx.ws.onboarding.answers.map((a) => `${a.q} → ${a.a}`).join("\n");
     const out = await withAi(ctx, "Assistant chat", () =>
       aiJson<{ reply: string; remember: string[]; actions?: ChatAction[] }>(
-        `You are Remy, a friendly fox career coach for university students. Be concise: under 110 words, at most 3 short bullet lines starting with "• ", and **bold** only for a few key words. Warm, practical and honest. Use only facts you are given; if you don't know something (like a specific university rule), say so and suggest who to ask. Never claim to have sent emails, applied, or changed calendars — you can only suggest. If the student shares a durable fact or preference worth remembering, propose it in "remember" (short third-person statements); otherwise return an empty list. Today is ${centralToday()}; the student's class standing is ${classYearOf(ctx.ws) || "unknown"}. Don't question dates that fit that standing. You know everything below about the student; use it so they never have to repeat themselves, and refer to their real experience by name.\n\nWhen a concrete next step would help, offer up to 2 buttons in "actions" (the student taps to do it; you never do it yourself): {"kind":"task","title":"short to-do","why":"one sentence"} adds a to-do; {"kind":"role","title":"job title"} adds a job to the roles Remy searches openings for; {"kind":"open","link":"/resume|/opportunities|/path?tab=career|/path?tab=future|/community|/calendar|/progress|/accounts?tab=memory","label":"button text"} opens a page. When they ask to change how Remy looks or reminds them, offer {"kind":"setting","key":"theme","value":"dark"|"light"|"system"} (system = match their device) or {"kind":"setting","key":"notify.deadlines"|"notify.statusChanges"|"notify.weeklyPlan","value":true|false}; say it changes when they tap the button, never that it's already done. Otherwise return an empty list.\n\n${CHAT_RULES}`,
+        `You are Remy, a friendly fox career coach for university students. Be concise: under 110 words, at most 3 short bullet lines starting with "• ", and **bold** only for a few key words. Warm, practical and honest. Use only facts you are given; if you don't know something (like a specific university rule), say so and suggest who to ask. Never claim to have sent emails, applied, or changed calendars — you can only suggest. If the student shares a durable fact or preference worth remembering, propose it in "remember" (short third-person statements); otherwise return an empty list. Today is ${centralToday()}; the student's class standing is ${classYearOf(ctx.ws) || "unknown"}. Don't question dates that fit that standing. You know everything below about the student; use it so they never have to repeat themselves, and refer to their real experience by name.\n\nWhen a concrete next step would help, offer up to 2 buttons in "actions" (the student taps to do it; you never do it yourself): {"kind":"task","title":"short to-do","why":"one sentence"} adds a to-do; {"kind":"role","title":"job title"} adds a job to the roles Remy searches openings for; {"kind":"open","link":"/resume|/opportunities|/path?tab=career|/path?tab=future|/community|/calendar|/progress|/accounts?tab=memory","label":"button text"} opens a page. When they ask to change how Remy looks or reminds them, offer {"kind":"setting","key":"theme","value":"dark"|"light"|"system"} (system = match their device) or {"kind":"setting","key":"notify.deadlines"|"notify.weeklyPlan","value":true|false}; say it changes when they tap the button, never that it's already done. Otherwise return an empty list.\n\n${CHAT_RULES}`,
         `Current page: ${page}\nPROFILE:\n${profileSummary(ctx.ws)}\nAPPROVED MEMORY:\n${approvedFacts(ctx.ws).slice(0, 40).join("\n") || "(none)"}\nRESUME:\n${ctx.ws.resume ? resumeToText(ctx.ws.resume.doc, { verifiedOnly: true }).slice(0, 5000) : "(not uploaded)"}\nSETUP ANSWERS:\n${answers || "(none)"}\nOPEN TO-DOS: ${todos || "(none)"}\nNEXT 3 WEEKS ON THEIR CALENDAR: ${dates || "(nothing)"}\nAPPLICATIONS THEY'RE TRACKING: ${tracking || "(none)"}\nCAREER DIRECTIONS FROM MY PATH: ${direction || "(not built yet)"}\nJOBS THEIR FIELDS LEAD TO MOST OFTEN (U.S. Bureau of Labor Statistics; for "what can I do with my major" questions): ${careersFor(ctx.ws).flatMap((f) => f.jobs.slice(0, 4).map((j) => j.title)).join("; ") || "(no major or field yet)"}\nAPPLICATIONS: ${apps || "(none)"}\nSAVED OPENINGS: ${ctx.ws.savedJobIds.map((id) => findJob(ctx.ws, id)?.title).filter(Boolean).join("; ") || "(none)"}\nOPENINGS REMY FOUND THAT FIT (best first): ${found || "(none yet)"}\nFROM THEIR OTHER PROFILES, NOT YET CONFIRMED BY THE STUDENT (mention, don't rely on): ${ctx.ws.memory.filter((m) => m.status === "suggested" && !m.conflict).slice(0, 15).map((m) => m.text).join("; ") || "(none)"}\nRESUME VS OTHER PROFILES, NOT YET RESOLVED (ask the student which is right; never treat these as true): ${ctx.ws.memory.filter((m) => m.conflict).map((m) => `${m.text} (${m.conflict})`).join("; ") || "(none)"}\n\nRECENT CHAT:\n${history}\n\nStudent: ${message}\n\nReturn {"reply":"","remember":[],"actions":[]}`,
         1100,
       ),

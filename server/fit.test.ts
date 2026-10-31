@@ -164,3 +164,52 @@ test("career steps count once, saves are capped per day; road milestones read re
   assert.equal(m()["First application"], true);
   assert.equal(m().Interviewing, true);
 });
+
+test("deadline reminders: 1–3 days before and on the day, once each, only when on", async () => {
+  const { dueReminders } = await import("./reminders");
+  const { emptyWorkspace } = await import("./db");
+  const ws = emptyWorkspace();
+  ws.onboarding.done = true;
+  ws.calendar = [
+    { id: "a", title: "Deloitte: deadline", date: "2026-11-03", time: "", kind: "Deadline", source: "", notes: "" },
+    { id: "b", title: "PwC: deadline", date: "2026-11-01", time: "", kind: "Deadline", source: "", notes: "" },
+    { id: "c", title: "Far away", date: "2026-12-01", time: "", kind: "Deadline", source: "", notes: "" },
+    { id: "d", title: "Career fair", date: "2026-11-02", time: "", kind: "Event", source: "", notes: "" },
+  ];
+  const r = dueReminders(ws, "2026-11-01");
+  assert.deepEqual(r.map((x) => [x.title, x.left]), [["Deloitte: deadline", 2], ["PwC: deadline", 0]]);
+  ws.reminded = r.map((x) => x.key);
+  assert.equal(dueReminders(ws, "2026-11-01").length, 0, "sent once");
+  assert.equal(dueReminders(ws, "2026-11-02").length, 0, "the 'soon' reminder isn't repeated the next day");
+  assert.equal(dueReminders(ws, "2026-11-03").length, 1, "but the day-of one still comes");
+  ws.settings.notify.deadlines = false;
+  assert.equal(dueReminders(ws, "2026-11-03").length, 0, "off means off");
+});
+
+test("same employer however it's written", async () => {
+  const { sameOrg } = await import("@shared/org");
+  assert.equal(sameOrg("Deloitte LLP", "deloitte"), true);
+  assert.equal(sameOrg("Ernst & Young", "Ernst and Young LLP"), true);
+  assert.equal(sameOrg("PwC", "Deloitte"), false);
+  assert.equal(sameOrg("", "Deloitte"), false);
+});
+
+test("weekly digest: on the student's day, once, only with news, only when on", async () => {
+  const { weeklyDigest } = await import("./reminders");
+  const { emptyWorkspace } = await import("./db");
+  const ws = emptyWorkspace();
+  ws.onboarding.done = true;
+  ws.settings.notify.weeklyPlan = true;
+  ws.settings.careerTime = { day: 0, time: "19:00" };
+  const job = (id: string, foundAt: string) => ({ id, kind: "internship", title: "Audit Intern", company: "Deloitte", foundAt } as any);
+  ws.jobs = [job("a", "2026-10-30T10:00:00Z"), job("b", "2026-09-01T10:00:00Z")];
+  const d = weeklyDigest(ws, "2026-11-01", 0, "x.test");
+  assert.ok(d && d.subject === "1 new opening for you this week", d?.subject);
+  assert.equal(weeklyDigest(ws, "2026-11-02", 1, "x.test"), null, "not on another day");
+  ws.lastDigest = "2026-11-01";
+  assert.equal(weeklyDigest(ws, "2026-11-01", 0, "x.test"), null, "once");
+  ws.lastDigest = undefined; ws.lastDigestAt = "2026-10-31T00:00:00Z";
+  assert.equal(weeklyDigest(ws, "2026-11-08", 0, "x.test"), null, "no news, no email");
+  ws.settings.notify.weeklyPlan = false;
+  assert.equal(weeklyDigest(ws, "2026-11-01", 0, "x.test"), null, "off means off");
+});

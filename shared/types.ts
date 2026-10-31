@@ -178,6 +178,8 @@ export interface Job {
   sourceName: string;
   label: Label;
   checkedAt: string;
+  /** When Remy first found it for this student ("new since your last visit"). */
+  foundAt?: string;
   checks: JobCheck[];
   origin: "imported" | "manual";
   postingText?: string;
@@ -433,6 +435,11 @@ export interface Workspace {
   steps?: Step[];
   /** Story Deck: true interview stories built from resume lines (STAR), with what's still missing. */
   stories?: Story[];
+  /** Day and time the last weekly digest went out (one a week; new openings are counted from it). */
+  lastDigest?: string;
+  lastDigestAt?: string;
+  /** Deadline reminders already emailed (calendar id:date:soon|day), so each goes out once. */
+  reminded?: string[];
   /** When the student last uploaded a profile photo (also busts the image cache); absent = no photo. */
   photoAt?: string;
   /** The beta terms version the student agreed to, and when (server time). */
@@ -453,6 +460,8 @@ export interface Workspace {
     notify: { deadlines: boolean; statusChanges: boolean; weeklyPlan: boolean };
     /** Connectors shown as connected in the demo (no data is read from them yet). */
     demoConnections?: string[];
+    /** When the student last opened Home (for "Since you were last here"). */
+    lastSeenAt?: string;
     /** Newest "What's new" item the student has opened. */
     newsSeen?: string;
   };

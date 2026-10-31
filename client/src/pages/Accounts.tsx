@@ -152,8 +152,8 @@ function Settings() {
       </div>
       <div className="card card-pad stack">
         <h3>Reminders</h3>
-        <p className="xs muted">Shown inside Remy. Email reminders are coming soon.</p>
-        {([["deadlines", "Upcoming deadlines"], ["statusChanges", "Status suggestions from emails"], ["weeklyPlan", "Weekly plan nudge"]] as const).map(([k, l]) => (
+        <p className="xs muted">Emails go to your application email (or your sign-in email). Guest accounts don't get emails.</p>
+        {([["deadlines", "Deadline reminder emails (3 days before and on the day)"], ["weeklyPlan", "Weekly digest email: new openings and deadlines, on your career-time day"]] as const).map(([k, l]) => (
           <label key={k} className="row small"><input type="checkbox" checked={s.notify[k]} onChange={() => toggle(k)} data-testid={`toggle-${k}`} /> {l}</label>
         ))}
       </div>

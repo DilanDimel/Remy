@@ -4,12 +4,18 @@ import type { Contact, OutreachDraft } from "@shared/types";
 import { api, fmtDate, rid, useStore } from "../lib/store";
 import { CopyButton, Empty, Modal, StatusChip } from "../components/common";
 import { startOutreach, useTailorSession } from "../lib/tailorChat";
+import { sameOrg, useJobs } from "../lib/jobs";
+import { go } from "../lib/router";
 
 
 export default function Community() {
   const { ws, save, run } = useStore();
   const w = ws!;
   const [adding, setAdding] = useState(false);
+  const { jobs } = useJobs();
+  const openAt = (org: string) => (jobs || []).filter((j) => org && sameOrg(j.company, org) && !w.hiddenJobIds.includes(j.id));
+  // Employers the student saved but knows nobody at: the people worth meeting next.
+  const unknownOrgs = [...new Set((jobs || []).filter((j) => w.savedJobIds.includes(j.id)).map((j) => j.company))].filter((c) => !w.contacts.some((p) => sameOrg(p.org, c))).slice(0, 4);
   const [c, setC] = useState({ name: "", title: "", org: "", email: "", why: "" });
   const [review, setReview] = useState<OutreachDraft | null>(null);
   // When Remy finishes writing an email, open it for review.
@@ -41,6 +47,7 @@ export default function Community() {
         </div>
       </div>
       <div className="notice small" data-testid="alumni-coming-soon"><GraduationCap size={16} style={{ color: "var(--plum)", marginTop: 2 }} /><div><StatusChip label="Needs setup">Coming soon</StatusChip> <strong>Alumni connections.</strong> Remy will match you with alumni in your field once a school gives us permission to use its alumni list. Until then, add people you've met yourself.</div></div>
+      {unknownOrgs.length > 0 && <div className="notice small" data-testid="people-to-meet"><Sparkles size={16} style={{ color: "var(--fox)", marginTop: 2 }} /><div><strong>Worth meeting next:</strong> you saved openings at {unknownOrgs.join(", ")} but don't know anyone there yet. A recruiter you met at a fair, an alum or a TA who interned there is worth adding, and Remy can draft the first message.</div></div>}
       <h2>Your contacts</h2>
       {w.contacts.length ? (
         <div className="grid-3">
@@ -49,6 +56,7 @@ export default function Community() {
               <div className="row-between"><strong>{p.name}</strong><StatusChip label={p.label} /></div>
               <span className="small muted">{p.title}{p.org ? ` · ${p.org}` : ""}</span>
               <p className="small">{p.why}</p>
+              {openAt(p.org).length > 0 && <button className="xs" style={{ textAlign: "left", color: "var(--fox)", fontWeight: 700, padding: 0 }} onClick={() => go(`/opportunities?kind=all&id=${openAt(p.org)[0].id}`)} data-testid="contact-openings">{openAt(p.org).length} opening{openAt(p.org).length > 1 ? "s" : ""} at {p.org} →</button>}
               <div className="row" style={{ marginTop: "auto" }}>
                 <button className="btn btn-primary btn-sm" onClick={() => draftTo(p)} data-testid="button-draft-outreach"><Sparkles size={14} /> Draft email</button>
                 <button className="icon-btn" onClick={() => save("contacts", w.contacts.filter((x) => x.id !== p.id))} aria-label="Remove contact"><Trash2 size={15} /></button>

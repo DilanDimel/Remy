@@ -3,7 +3,7 @@ import { ArrowUpRight, Bookmark, BookmarkCheck, CalendarPlus, ChevronDown, Chevr
 import type { Job, JobCheck, JobFit, Workspace } from "@shared/types";
 import { api, daysUntil, fmtDate, rid, useStore } from "../lib/store";
 import { go } from "../lib/router";
-import { kindLabel, reloadJobs, useJobs } from "../lib/jobs";
+import { kindLabel, reloadJobs, sameOrg, useJobs } from "../lib/jobs";
 import { screeningFor } from "@shared/screening";
 import { Empty, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
 
@@ -211,6 +211,7 @@ function JobCard({ j, fit, defaultOpen }: { j: Job; fit?: JobFit; defaultOpen: b
         </div>
       )}
       {fit && <p className="small"><strong>Why it fits you: </strong>{fit.why}</p>}
+      {(() => { const known = w.contacts.filter((c) => sameOrg(c.org, j.company)); return known.length > 0 && <button className="xs" style={{ textAlign: "left", color: "var(--fox)", fontWeight: 700, padding: 0 }} onClick={() => go("/community")} data-testid="job-known-contact">You know {known.map((c) => c.name).join(", ")} here: ask about the team before you apply →</button>; })()}
       {fit && fit.eligibility !== "unknown" && <p className="xs muted"><strong>{fit.eligibility === "unlikely" ? "Why not: " : "Why you qualify: "}</strong>{fit.eligibilityNote}</p>}
       {fit && fit.gaps.length > 0 && <p className="small muted"><strong>Gaps: </strong>{fit.gaps.slice(0, 3).join("; ")}</p>}
       {open && (

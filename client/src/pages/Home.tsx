@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { RoadCard } from "../components/RoadCard";
 import { ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronUp, MapPin } from "lucide-react";
 import type { Job, Task, Workspace } from "@shared/types";
@@ -23,6 +23,21 @@ export default function Home() {
   const [open, setOpen] = useState<string>("");
   const name = w.profile.preferredName || w.profile.name.split(" ")[0];
 
+  // Since you were last here: the previous visit is kept for this page view; the new one is saved once.
+  const [since] = useState(() => w.settings.lastSeenAt || "");
+  useEffect(() => { if (!since || Date.now() - Date.parse(since) > 30 * 60_000) save("settings", { lastSeenAt: new Date().toISOString() }).catch(() => {}); }, []);
+  const from = since || new Date(Date.now() - 7 * 864e5).toISOString();
+  const sinceLabel = since ? (Date.now() - Date.parse(since) < 20 * 3600_000 ? "earlier today" : fmtDate(since)) : "";
+  const newJobs = (jobs || []).filter((j) => (j.foundAt || "") > from && !w.hiddenJobIds.includes(j.id) && !fits[j.id]?.excluded).length;
+  const updates = w.tracker.filter((t) => t.events.some((e) => e.at > from && !/^Manual/.test(e.source))).length;
+  const soon = w.calendar.filter((c) => c.kind === "Deadline" && (daysUntil(c.date) ?? -1) >= 0 && (daysUntil(c.date) ?? 99) <= 7).length;
+  const sinceRows: [string, string, string][] = [
+    ...(newJobs ? [[`New openings for you`, String(newJobs), "/opportunities"] as [string, string, string]] : []),
+    ...(updates ? [[`Application updates`, String(updates), "/progress"] as [string, string, string]] : []),
+    ...(soon ? [[`Deadlines in the next 7 days`, String(soon), "/calendar"] as [string, string, string]] : []),
+    ...(w.memory.some((m) => m.status === "suggested") ? [["Facts to approve", String(w.memory.filter((m) => m.status === "suggested").length), "/accounts?tab=memory"] as [string, string, string]] : []),
+  ];
+
   // Interview Tomorrow: an interview in the next two days overrides everything else on Home.
   // Whole calendar days from today (noon to noon, so daylight-saving changes don't shift it).
   const interview = w.calendar.find((c) => { const n = daysUntil(c.date); return c.kind === "Interview" && n !== null && n >= 0 && n <= 2; });
@@ -39,7 +54,7 @@ export default function Home() {
   const next = useMemo(() => {
     if (interview) {
       const d = daysUntil(interview.date);
-      return { title: `Prepare for your interview ${d === 0 ? "today" : d === 1 ? "tomorrow" : "in 2 days"}: ${interview.title}`, why: "Three short steps: research the organization, pick two true stories, and test your setup.", link: "", cta: "Add prep steps" };
+      return { title: `Prepare for your interview ${d === 0 ? "today" : d === 1 ? "tomorrow" : "in 2 days"}: ${interview.title.replace(/^interview( with)?:?\s*/i, "")}`, why: "Three short steps: research the organization, pick two true stories, and test your setup.", link: "", cta: "Add prep steps" };
     }
     const pending = w.applications.find((a) => a.changes.some((c) => c.status === "pending"));
     if (!w.resume) return { title: "Upload your resume", why: "Everything Remy suggests is grounded in your real experience. It starts here.", link: "/resume", cta: "Upload resume" };
@@ -83,16 +98,11 @@ export default function Home() {
             <button className="btn btn-light btn-lg" onClick={() => (interview ? addPrep() : go(next.link))} data-testid="button-next-action">{next.cta} <ArrowRight size={16} /></button>
           </div>
         </div>
-        <div className="hero-side">
-          <span className="eyebrow">Where things stand</span>
-          {[
-            ["Base resume", w.resume ? (w.resume.confirmedAt ? "Confirmed" : "Needs review") : "Not uploaded"],
-            ["Applications", `${w.applications.filter((a) => a.versions.length).length} approved · ${w.applications.filter((a) => !a.versions.length).length} in progress`],
-            ["Tracked", `${w.tracker.length} opening(s)`],
-            ["AI memory", `${w.memory.filter((m) => m.status === "approved").length} approved facts`],
-          ].map(([k, v]) => (
-            <div key={k} className="row-between small"><span style={{ color: "rgba(255,255,255,.75)" }}>{k}</span><strong style={{ color: "#fff" }}>{v}</strong></div>
-          ))}
+        <div className="hero-side" data-testid="since-last">
+          <span className="eyebrow">{since ? `Since ${sinceLabel}` : "This week"}</span>
+          {sinceRows.length ? sinceRows.map(([k, v, link]) => (
+            <button key={k} className="row-between small" style={{ width: "100%", textAlign: "left" }} onClick={() => go(link)}><span style={{ color: "rgba(255,255,255,.75)" }}>{k}</span><strong style={{ color: "#fff" }}>{v} →</strong></button>
+          )) : <span className="small" style={{ color: "rgba(255,255,255,.75)" }}>Nothing new yet. Remy checks employers' sites every few hours, so new openings will show here.</span>}
         </div>
       </section>
 

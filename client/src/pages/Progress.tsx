@@ -69,6 +69,28 @@ function Recovery({ t }: { t: TrackItem }) {
   );
 }
 
+/** An interview: get its date on the calendar (which turns Home into a prep plan) and point to the Story deck. */
+function InterviewDate({ t }: { t: TrackItem }) {
+  const { ws, save, run } = useStore();
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const add = () => run(() => save("calendar", [...ws!.calendar, { id: rid("cal"), title: `Interview: ${t.company}${t.role ? ` (${t.role})` : ""}`, date, time, kind: "Interview" as const, source: "From your applications", linkedId: t.id, notes: "" }]), "Interview added. Home will show a prep plan as it gets close");
+  return (
+    <div className="remy-prompt" style={{ marginTop: 10 }} data-testid="interview-date">
+      <Remy size={32} mood="happy" />
+      <div className="stack-sm grow">
+        <p className="small"><b>An interview with {t.company}!</b> When is it? Remy will turn Home into a prep plan the two days before.</p>
+        <div className="row" style={{ gap: 8 }}>
+          <input className="input" type="date" style={{ width: "auto" }} value={date} onChange={(e) => setDate(e.target.value)} aria-label="Interview date" data-testid="input-interview-date" />
+          <input className="input" type="time" style={{ width: "auto" }} value={time} onChange={(e) => setTime(e.target.value)} aria-label="Interview time" />
+          <button className="btn btn-primary btn-sm" disabled={!date} onClick={add} data-testid="button-interview-add">Add to calendar</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => go("/resume?tab=base")}>Build interview stories</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Tracker() {
   const { ws, save, run, toast } = useStore();
   const w = ws!;
@@ -101,6 +123,7 @@ function Tracker() {
                 </div>
               </div>
               {t.status === "Rejected" && !t.recovery && <Recovery t={t} />}
+              {t.status === "Interview" && !w.calendar.some((c) => c.linkedId === t.id) && <InterviewDate t={t} />}
               {open === t.id && (
                 <div className="stack-sm" style={{ marginTop: 10 }}>
                   {t.events.map((e) => (

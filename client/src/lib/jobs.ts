@@ -45,3 +45,4 @@ export const kindLabel: Record<Job["kind"], string> = {
   job: "Job", internship: "Internship", program: "Early-career program", campus: "Campus job", event: "Event",
 };
 export const isEvent = (j: Job) => j.kind === "event";
+export { sameOrg } from "@shared/org";
