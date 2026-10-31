@@ -130,3 +130,11 @@ test("openings scout: counts early-career postings, flags sites that fail or ret
   assert.deepEqual([by.Empty.ok, by.Empty.total], [true, 0], "answered with nothing: no openings now, not broken");
   assert.ok(seen.includes("finance") || seen.some((f) => f.length > 0), "a field search word is passed for field-search boards");
 });
+
+test("screening guide: finds the application system from where an opening came from or its apply link", async () => {
+  const { screeningFor } = await import("@shared/screening");
+  assert.equal(screeningFor({ sourceName: "Deloitte careers (Workday job board)" })?.system, "Workday");
+  assert.equal(screeningFor({ applyUrl: "https://job-boards.greenhouse.io/stripe/jobs/1" })?.system, "Greenhouse");
+  assert.equal(screeningFor({ applyUrl: "https://abc.fa.us2.oraclecloud.com/hcmUI/x" })?.system, "Oracle Recruiting");
+  assert.equal(screeningFor({ applyUrl: "https://example.com/apply" }), null, "unknown system: nothing guessed");
+});

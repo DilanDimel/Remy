@@ -4,6 +4,7 @@ import type { Job, JobCheck, JobFit, Workspace } from "@shared/types";
 import { api, daysUntil, fmtDate, rid, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { kindLabel, reloadJobs, useJobs } from "../lib/jobs";
+import { screeningFor } from "@shared/screening";
 import { Empty, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
 
 type Kind = "all" | "jobs" | "campus" | "event";
@@ -220,6 +221,17 @@ function JobCard({ j, fit, defaultOpen }: { j: Job; fit?: JobFit; defaultOpen: b
               {fit && <span className="xs muted">{fit.eligibilityNote}</span>}</div>
             <div className="stack-sm"><span className="eyebrow">Requirements (quoted)</span>{j.requirements.map((r) => <span key={r.id} className="quote"><strong>{r.keyword}:</strong> {r.quote}</span>)}</div>
           </div>
+          {(() => { const sc = screeningFor(j); return sc && (
+            <details className="notice stack-sm" data-testid="screening">
+              <summary className="small" style={{ cursor: "pointer" }}><b>How {j.company} reviews applications</b> <span className="muted">· {sc.system}</span></summary>
+              <div className="small stack-sm" style={{ marginTop: 6 }}>
+                <ul style={{ margin: 0, paddingLeft: 18 }}>{sc.steps.map((s) => <li key={s}>{s}</li>)}</ul>
+                <b>What to do</b>
+                <ul style={{ margin: 0, paddingLeft: 18 }}>{sc.tips.map((s) => <li key={s}>{s}</li>)}</ul>
+                <span className="xs muted">This is how {sc.system} works in general. Remy can't see {j.company}'s own settings or who reads your application.</span>
+              </div>
+            </details>
+          ); })()}
           <dl className="kv">
             <dt>Format</dt><dd>{j.format || "—"}</dd>
             <dt>Deadline</dt><dd>{j.deadlineText || "Not stated"}</dd>

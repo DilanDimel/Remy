@@ -5,7 +5,6 @@ import type { PathPlan, Task, Workspace } from "@shared/types";
 import { api, fmtDate, rid, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { AiUnavailableNote, Empty, Remy, Spinner } from "../components/common";
-import { atTcu } from "../components/SchoolVerify";
 
 type Tab = "academic" | "career" | "skills" | "future";
 
@@ -34,7 +33,7 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
       </div>
       {!config?.ai.available && <AiUnavailableNote />}
       <div className="tabs" role="tablist">
-        {([["career", "Career exploration"], ["future", "Future of your field"], ["skills", "Skills & certifications"], ["academic", "Academic plan"]] as [Tab, string][]).map(([k, l]) => (
+        {([["career", "Career exploration"], ["future", "Future of your field"], ["skills", "Skills & certifications"]] as [Tab, string][]).map(([k, l]) => (
           <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => go(`/path?tab=${k}`)} data-testid={`tab-path-${k}`}>{l}</button>
         ))}
       </div>
@@ -48,8 +47,8 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
         <>
           <p className="xs muted">Made {fmtDate(w.plan.generatedAt)}. Changing your profile won't silently rewrite this — refresh when you're ready.</p>
           {tab === "career" && <Careers plan={w.plan} />}
-          {tab === "skills" && <Skills plan={w.plan} />}
-          {tab === "academic" && <Academic plan={w.plan} />}
+          {(tab === "skills" || tab === "academic") && <><Skills plan={w.plan} /><YourTerms plan={w.plan} /></>}
+
         </>
       ) : null}
     </>
@@ -67,8 +66,24 @@ function useAddTask() {
 function Careers({ plan }: { plan: PathPlan }) {
   const { ws, save, run } = useStore();
   const add = useAddTask();
-  const choose = (id?: string) => run(() => save("plan", { ...plan, chosenCareerId: id }), id ? "Direction set — you can change it anytime" : "Direction cleared");
+  const choose = (id?: string) => run(async () => {
+    const c = plan.careers.find((x) => x.id === id);
+    if (c && ws) {
+      // Choosing a direction does something: Remy searches for it, and its next steps go on the to-do list.
+      const roles = ws.profile.targetRoles.split(/,\s*/).filter(Boolean);
+      if (!roles.some((r) => r.toLowerCase() === c.title.toLowerCase())) await save("profile", { ...ws.profile, targetRoles: [...roles, c.title].join(", ") });
+      const have = new Set(ws.tasks.map((t) => t.title));
+      const steps = c.steps.filter((s) => !have.has(s)).slice(0, 3);
+      if (steps.length) await save("tasks", [...steps.map((title) => ({ id: rid("t"), title, why: `Step toward ${c.title}`, due: "", category: "Explore" as const, done: false, source: "Added from My Path" })), ...ws.tasks]);
+    }
+    return save("plan", { ...plan, chosenCareerId: id });
+  }, id ? "Direction chosen: Remy will look for these openings and put its next steps on your to-dos" : "Direction cleared. Your target roles stay as they are (edit them in Profile)");
   return (
+    <section id="directions" className="stack">
+    <div className="stack-sm">
+      <h3 className="row"><Compass size={18} /> Directions that fit your resume</h3>
+      <p className="small muted">Choosing one adds it to the roles Remy searches openings for and puts its first steps on your to-dos.</p>
+    </div>
     <div className="grid-3" style={{ alignItems: "start" }}>
       {plan.careers.map((c) => {
         const chosen = plan.chosenCareerId === c.id;
@@ -83,11 +98,12 @@ function Careers({ plan }: { plan: PathPlan }) {
                 <div key={i} className="row small" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}><span style={{ flex: 1 }}>{s}</span><button className="icon-btn" onClick={() => add(s, `Step toward ${c.title}`, "Explore")} aria-label="Add to to-dos" title="Add to to-dos"><Plus size={15} /></button></div>
               ))}
             </div>
-            <button className={"btn btn-sm " + (chosen ? "btn-secondary" : "btn-primary")} onClick={() => choose(chosen ? undefined : c.id)} data-testid="button-choose-career">{chosen ? "Change direction" : "Explore this direction"}</button>
+            <button className={"btn btn-sm " + (chosen ? "btn-secondary" : "btn-primary")} onClick={() => choose(chosen ? undefined : c.id)} data-testid="button-choose-career">{chosen ? "Clear this direction" : "Choose this direction"}</button>
           </div>
         );
       })}
     </div>
+    </section>
   );
 }
 
@@ -113,28 +129,21 @@ function Skills({ plan }: { plan: PathPlan }) {
   );
 }
 
-function Academic({ plan }: { plan: PathPlan }) {
-  const { save, run, ws, me } = useStore();
-  const [term, setTerm] = useState("");
-  const [items, setItems] = useState("");
-  const addTerm = () => run(() => save("plan", { ...plan, academic: [...plan.academic, { id: rid("ac"), term, items: items.split("\n").map((s) => s.trim()).filter(Boolean), note: "Entered by you" }] }), "Term added").then(() => { setTerm(""); setItems(""); });
+/** The Academic plan tab is gone (Remy can't see degree audits); terms a student typed in are still shown here. */
+function YourTerms({ plan }: { plan: PathPlan }) {
+  const { save } = useStore();
+  const mine = plan.academic.filter((a) => a.note === "Entered by you");
+  if (!mine.length) return null;
   return (
-    <div className="stack">
-      <div className="notice notice-warn"><div><strong>Not an official degree plan.</strong> Remy can't see your school's degree audit. Use {atTcu(me) ? "Stellic" : "your school's degree-planning tool"} and your academic advisor for requirements and graduation status — paste your plan here to keep it alongside your career steps.</div></div>
+    <div className="card card-pad stack-sm">
+      <h3>Your course plan</h3>
       <div className="grid-2" style={{ alignItems: "start" }}>
-        {plan.academic.map((a) => (
-          <div key={a.id} className="card card-pad stack-sm">
-            <div className="row-between"><h3>{a.term}</h3><button className="icon-btn" onClick={() => save("plan", { ...plan, academic: plan.academic.filter((x) => x.id !== a.id) })} aria-label="Remove term"><Trash2 size={15} /></button></div>
+        {mine.map((a) => (
+          <div key={a.id} className="stack-sm">
+            <div className="row-between"><b>{a.term}</b><button className="icon-btn" onClick={() => save("plan", { ...plan, academic: plan.academic.filter((x) => x.id !== a.id) })} aria-label="Remove term"><Trash2 size={15} /></button></div>
             {a.items.map((i, k) => <span key={k} className="small">• {i}</span>)}
-            <span className={"chip " + (a.note === "Entered by you" ? "chip-student" : "chip-plain")}>{a.note === "Entered by you" ? "Entered by you" : "Illustrative suggestion"}</span>
           </div>
         ))}
-        <div className="card card-pad stack-sm">
-          <h3>Add a term from your plan</h3>
-          <input className="input" value={term} onChange={(e) => setTerm(e.target.value)} placeholder="e.g. Spring 2027" aria-label="Term" />
-          <textarea className="textarea" value={items} onChange={(e) => setItems(e.target.value)} placeholder="One course or goal per line" aria-label="Courses" />
-          <div><button className="btn btn-secondary btn-sm" onClick={addTerm} disabled={!term.trim()}>Add term</button></div>
-        </div>
       </div>
     </div>
   );
@@ -214,6 +223,7 @@ function Explore() {
     <div className="card card-pad stack" data-testid="explore-careers">
       <div className="stack-sm">
         <h3 className="row"><HelpCircle size={18} /> Not sure what you want to do? Start here</h3>
+        {ws!.plan?.careers.length ? <button className="xs" style={{ alignSelf: "flex-start", color: "var(--fox)", fontWeight: 700, padding: 0 }} onClick={() => document.getElementById("directions")?.scrollIntoView({ behavior: "smooth" })} data-testid="link-directions">See {ws!.plan.careers.length === 1 ? "the direction" : `the ${ws!.plan.careers.length} directions`} Remy suggests for you ↓</button> : null}
         <p className="small muted">{browse ? `Jobs in ${browse.toLowerCase()} that hire the most people.` : p.major ? `Jobs people with your major (${p.major}) often go into, the ones that hire the most first.` : "Pick an area to see the jobs in it."} Tap one to see what the work is really like.</p>
       </div>
       <form className="row" onSubmit={(e) => { e.preventDefault(); if (typed.trim().length > 2) explain(typed.trim()); }}>
