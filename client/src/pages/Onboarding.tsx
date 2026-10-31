@@ -419,7 +419,9 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
 const UNSURE = /\b(not sure|no idea|idk|don'?t know|unsure|no clue)\b/i;
 function reaction(a: string, target: string | undefined, i: number) {
   if (!a) return "No problem, we can come back to that.";
-  if (UNSURE.test(a)) return "That's completely normal. I'll show you where your major can lead on My Path, and we'll figure it out together.";
+  if (UNSURE.test(a)) return target === "timeline" ? "No problem. I'll show openings for any start date, and you can narrow it later."
+    : target === "dreamEmployers" ? "That's fine. I'll show a mix of employers, and you can save the ones you like."
+    : "That's completely normal. I'll show you where your major can lead on My Path, and we'll figure it out together.";
   const by: Record<string, string[]> = {
     targetRoles: ["Great, I'll look for openings in those.", "Nice, I'll add those to your search."],
     dreamEmployers: ["Noted. I'll check their career sites first.", "Good picks. They go to the top of my search."],
@@ -467,7 +469,9 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
     try {
       if (a && target && target in w.profile && fitsField) {
         const before = String(w.profile[target] || "").trim();
-        await save("profile", { ...w.profile, [target]: before ? `${before}, ${a}` : a });
+        // Answering the same question twice (e.g. after a reload) must not repeat the answer.
+        const has = before.toLowerCase().split(/\s*,\s*/).includes(a.toLowerCase());
+        if (!has) await save("profile", { ...w.profile, [target]: before ? `${before}, ${a}` : a });
       }
       if (a) {
         const fact = { id: "f" + Date.now(), text: `${current} — ${a}`, category: "goal", source: "Onboarding answer", status: "approved", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
@@ -518,7 +522,8 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
           </div>
         </div>
       )}
-      {(!current || !qs.length) && !busy && !pending && (
+      {/* Not gated on "pending": if the last save hangs, the student can still move on (onNext saves the step). */}
+      {(!current || !qs.length) && !busy && (
         <div className="row-between">
           <button className="btn btn-ghost" onClick={onBack}><ArrowLeft size={16} /> Back</button>
           <button className="btn btn-primary" onClick={onNext} data-testid="button-ob-next-questions">Continue <ArrowRight size={16} /></button>

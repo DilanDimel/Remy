@@ -138,3 +138,11 @@ test("setup field chips: 'Engineering' is engineering, not software", () => {
   assert.equal(fieldMatch(eng, job({ title: "Mechanical Engineering Intern" })), true);
   assert.equal(fieldMatch(eng, job({ title: "Software Engineer Intern" })), false);
 });
+
+test("past terms are dropped from setup options: Summer 2026 is past on Oct 31, 2026; Spring 2027 is not", async () => {
+  const { pastTerm } = await import("./fit");
+  assert.equal(pastTerm("Summer 2026", "2026-10-31"), true);
+  assert.equal(pastTerm("Fall 2026", "2026-10-31"), true);
+  assert.equal(pastTerm("Spring 2027", "2026-10-31"), false);
+  assert.equal(pastTerm("Big 4 firms", "2026-10-31"), false);
+});

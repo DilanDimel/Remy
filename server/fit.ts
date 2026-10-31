@@ -285,3 +285,12 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   );
   return { at: new Date().toISOString(), by: "rules", v: FIT_RULES_VERSION, eligibility, eligibilityNote: note, matched, gaps, why, excluded, score, regionMatch: region, typeMatch: type };
 }
+
+// "Summer 2026" offered in October 2026: a term that has already started or ended (the AI doesn't always know the date).
+const TERM_MONTH: Record<string, number> = { spring: 1, summer: 5, fall: 8, autumn: 8, winter: 12 };
+export function pastTerm(text: string, today: string) {
+  const m = text.toLowerCase().match(/\b(spring|summer|fall|autumn|winter)\s+(20\d\d)\b/);
+  if (!m) return false;
+  const [y, mo] = today.split("-").map(Number);
+  return Number(m[2]) * 12 + TERM_MONTH[m[1]] <= y * 12 + mo;
+}

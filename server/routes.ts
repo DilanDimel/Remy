@@ -26,6 +26,7 @@ import { atsChecks, claimCheck } from "./claims";
 import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, skillSuggestions } from "./builder";
 import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSION } from "./fit";
 import { atsScore } from "./ats";
+import { pastTerm } from "./fit";
 import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
 import { docxStyle, editDocx } from "./docxEdit";
@@ -803,7 +804,7 @@ export async function registerRoutes(_server: Server, app: Express) {
 - saveTo says where the answer goes: "targetRoles" (roles/industries to search), "interests" (what they enjoy and are good at), "dreamEmployers" (company names), "timeline" (when to start), "avoid" (industries or companies to leave out), "goals" (their goal this year).
 - If the student is still exploring (marked below, or no target roles), don't ask them to name roles or employers. Ask what they enjoyed most in an experience on their resume (name it), which classes or topics they like, and whether they'd rather work with people, numbers or ideas; save those to "interests" or "goals".
 - options: 2 or 3 short answers (under 6 words each) a student like this might tap, drawn from their profile or resume. Never "I'm not sure", the app adds that.`,
-        `STUDENT PROFILE:\n${profileSummary(ctx.ws)}\nTimeline: ${ctx.ws.profile.timeline || "(not given)"}\nDream employers: ${ctx.ws.profile.dreamEmployers || "(not given)"}\nAvoid: ${ctx.ws.profile.avoid || "(not given)"}\nStill exploring: ${ctx.ws.onboarding.exploring || !ctx.ws.profile.targetRoles.trim() ? "yes, the student isn't sure what career they want" : "no"}\n\nRESUME (headings and roles):\n${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org].filter(Boolean).join(", ")).join("; ")).join("\n") : "(no resume yet)"}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).join("\n") || "(none)"}\n\nReturn {"questions":[{"q":"","saveTo":"","options":["",""]},{"q":"","saveTo":"","options":["",""]},{"q":"","saveTo":"","options":["",""]}]}.`,
+        `TODAY: ${centralToday()} (only offer start terms after today)\nSTUDENT PROFILE:\n${profileSummary(ctx.ws)}\nTimeline: ${ctx.ws.profile.timeline || "(not given)"}\nDream employers: ${ctx.ws.profile.dreamEmployers || "(not given)"}\nAvoid: ${ctx.ws.profile.avoid || "(not given)"}\nStill exploring: ${ctx.ws.onboarding.exploring || !ctx.ws.profile.targetRoles.trim() ? "yes, the student isn't sure what career they want" : "no"}\n\nRESUME (headings and roles):\n${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org].filter(Boolean).join(", ")).join("; ")).join("\n") : "(no resume yet)"}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).join("\n") || "(none)"}\n\nReturn {"questions":[{"q":"","saveTo":"","options":["",""]},{"q":"","saveTo":"","options":["",""]},{"q":"","saveTo":"","options":["",""]}]}.`,
         800,
       ),
     );
@@ -811,7 +812,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const qs = (out.questions || []).filter((x: any) => x && (typeof x === "string" || x.q)).slice(0, 3);
     ctx.ws.onboarding.questions = qs.map((x: any) => String(typeof x === "string" ? x : x.q));
     ctx.ws.onboarding.targets = qs.map((x: any) => (TARGETS.includes(x?.saveTo) ? x.saveTo : "goals"));
-    ctx.ws.onboarding.options = qs.map((x: any) => (Array.isArray(x?.options) ? x.options : []).map((o: unknown) => String(o).trim().slice(0, 60)).filter((o: string) => o && !/not sure/i.test(o)).slice(0, 3));
+    ctx.ws.onboarding.options = qs.map((x: any) => (Array.isArray(x?.options) ? x.options : []).map((o: unknown) => String(o).trim().slice(0, 60)).filter((o: string) => o && !/not sure/i.test(o) && !pastTerm(o, centralToday())).slice(0, 3));
     await ctx.save();
     res.json(ctx.ws);
   }));
