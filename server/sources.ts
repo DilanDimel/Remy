@@ -440,6 +440,8 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25): 
       for (const r of raws) {
         if (!r.url || known.has(r.url) || (!r.student && (!EARLY.test(r.title) || (SENIOR.test(r.title) && !/intern|co-?op|new grad|student/i.test(r.title))))) continue;
         if (undergrad && GRAD_LEVEL.test(r.title)) continue;
+        // A country in the title ("Key Account Trainee – Iberia (España y Portugal)") means abroad, even when the location is vague.
+        if (abroad(r.title)) continue;
         // A title in another field is skipped; a generic one ("Summer Intern") is judged by its duties below.
         const generic = !FIELD_TITLES.some(([, t]) => t.test(r.title));
         if (titleFits.length && !titleFits.some((t) => t.test(r.title)) && !generic) continue;

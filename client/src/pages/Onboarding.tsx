@@ -428,8 +428,23 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
   const setFact = (id: string, patch: any) => save("memory", w.memory.map((m) => (m.id === id ? { ...m, ...patch } : m)));
   const removeFact = (id: string) => save("memory", w.memory.filter((m) => m.id !== id));
   const [skipVerify, setSkipVerify] = useState(false);
+  // Value first: start the search from the resume alone, so real openings show before any more questions.
+  const { jobs, fits } = useJobs();
+  const [looking, setLooking] = useState(false);
+  useEffect(() => {
+    if (!w.resume || (jobs && jobs.length)) return;
+    setLooking(true);
+    api<{ workspace: Workspace }>("POST", "/api/jobs/discover", {}).then((d) => { setWs(d.workspace); return reloadJobs(); }).catch(() => {}).finally(() => setLooking(false));
+  }, []);
+  const first = (jobs || []).filter((j) => !fits[j.id]?.excluded).slice(0, 3);
   return (
     <div className="stack-lg">
+      {(looking || first.length > 0) && (
+        <div className="notice" data-testid="first-matches">
+          {first.length ? <div><strong>First openings that fit your resume</strong><ul className="plan-matches">{first.map((j) => <li key={j.id} className="small"><b>{j.title}</b> <span className="muted">at {j.company}</span></li>)}</ul><span className="xs muted">Your next answers sharpen these.</span></div>
+            : <span className="row small"><Spinner /> Remy is already checking employers' career sites for openings that fit your resume…</span>}
+        </div>
+      )}
       <div className="stack-sm">
         <span className="eyebrow">Step 2 · Review</span>
         <h2>Is this right?</h2>
