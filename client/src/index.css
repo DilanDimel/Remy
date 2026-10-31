@@ -434,7 +434,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .bubble p + p, .bubble p + .bubble-list, .bubble-list + p { margin-top: 8px; }
 .bubble-list { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; list-style: disc; }
 /* owners' dashboard: its own layout, a left menu and wide content */
-.adm { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh; background: var(--bg); }
+.adm { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh; background: linear-gradient(to right, var(--surface-2) 220px, var(--bg) 220px); }
 .adm-nav { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 4px; padding: 20px 14px; border-right: 1px solid var(--line); background: var(--surface-2); }
 .adm-role { margin: -2px 0 14px 36px; }
 .adm-nav nav { display: grid; gap: 2px; }
@@ -500,7 +500,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .adm-inline { display: inline-flex; align-items: center; gap: 4px; }
 .admin-pre { white-space: pre-wrap; font-size: 11px; background: var(--surface-2); padding: 10px; border-radius: 8px; overflow-x: auto; max-height: 260px; }
 @media (max-width: 900px) {
-  .adm { grid-template-columns: 1fr; }
+  .adm { grid-template-columns: 1fr; background: var(--bg); }
   .adm-nav { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px 16px; }
   .adm-role, .adm-back { display: none; }
   .adm-nav nav { display: flex; flex-wrap: wrap; gap: 4px; }

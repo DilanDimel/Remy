@@ -5,13 +5,13 @@ const NEXT: Record<Theme, Theme> = { system: "light", light: "dark", dark: "syst
 const LABEL: Record<Theme, string> = { system: "Match my device", light: "Light", dark: "Dark" };
 
 /** One button that cycles Match device → Light → Dark; works signed out too. */
-export function ThemeToggle({ className = "icon-btn" }: { className?: string }) {
+export function ThemeToggle({ className = "icon-btn", label = false }: { className?: string; label?: boolean }) {
   const { theme, setTheme } = useStore();
   const Icon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
   return (
     <button type="button" className={className} onClick={() => setTheme(NEXT[theme])} title={`Theme: ${LABEL[theme]} (click to change)`}
       aria-label={`Theme: ${LABEL[theme]}. Change to ${LABEL[NEXT[theme]]}`} data-testid="button-theme-toggle">
-      <Icon size={17} />
+      <Icon size={17} />{label && ` Theme: ${LABEL[theme]}`}
     </button>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
-import { Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, CalendarDays, Check, Clock, KanbanSquare, Plus, RotateCcw, Trash2, Users } from "lucide-react";
+import { Activity, AlertTriangle, Bot, ArrowLeft, ArrowRight, BarChart3, CalendarDays, Check, Clock, KanbanSquare, Plus, RotateCcw, Trash2, Users } from "lucide-react";
 import { api, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
 import { BetaBadge, Empty, Remy, Spinner } from "../components/common";
@@ -31,7 +31,7 @@ type Team = {
 };
 const ANSWERS: [Answer, string][] = [["yes", "Going"], ["maybe", "Maybe"], ["no", "Can't go"]];
 
-const TABS = [["overview", "Overview", BarChart3], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity], ["errors", "Errors & feedback", AlertTriangle]] as const;
+const TABS = [["overview", "Overview", BarChart3], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity], ["errors", "Errors & feedback", AlertTriangle], ["agents", "Agents", Bot]] as const;
 type Tab = (typeof TABS)[number][0];
 const HISTORY_AFTER = 3 * 86400_000;
 const COLS: [Status, string][] = [["todo", "To do"], ["doing", "In progress"], ["done", "Done"]];
@@ -74,13 +74,14 @@ export default function Admin() {
           {TABS.map(([k, l, Icon]) => <a key={k} href={`/admin?tab=${k}`} aria-current={tab === k ? "page" : undefined}><Icon size={17} /> {l}</a>)}
         </nav>
         <WhatsNew className="btn btn-ghost btn-sm adm-news" />
-        <ThemeToggle className="btn btn-ghost btn-sm adm-theme" />
+        <ThemeToggle className="btn btn-ghost btn-sm adm-theme" label />
         <a className="btn btn-ghost btn-sm adm-back" href="/"><ArrowLeft size={14} /> Back to Remy</a>
       </aside>
       <main className="adm-main">
         {tab === "overview" && <OverviewTab />}
         {tab === "errors" && <ErrorsTab />}
-        {tab !== "overview" && tab !== "errors" && <TeamTab tab={tab} />}
+        {tab === "agents" && <AgentsTab />}
+        {tab !== "overview" && tab !== "errors" && tab !== "agents" && <TeamTab tab={tab} />}
       </main>
     </div>
   );
@@ -220,6 +221,55 @@ function ErrorsTab() {
           {d.fixed.map((e) => <div key={e.kind + e.message} className="small adm-fixed"><Check size={14} className="pass" /> <span className="grow">{e.message}</span><span className="xs muted">{e.fixed_by.split("@")[0]}, {ago(e.fixed_at)}</span></div>)}
         </section>
       )}
+    </div>
+  );
+}
+
+type Run<T> = { at: string; run_by: string; output: T } | null;
+type Agents = { ai: boolean; feedback: Run<{ themes: { title: string; count: number; severity: string; examples: string[]; todo: string }[]; reports: number; note: string }>; weekly: Run<{ lines: string[] }> };
+
+/** The team's agents: simple workflows that post results here; owners decide what becomes a board card. */
+function AgentsTab() {
+  const { run } = useStore();
+  const [d, , setD] = useLoad<Agents>("/api/admin/agents");
+  const [busy, setBusy] = useState("");
+  const [added, setAdded] = useState<string[]>([]);
+  const go = async (agent: string) => { setBusy(agent); const r = await run(() => api<Agents>("POST", `/api/admin/agents/${agent}/run`), "Agent finished"); if (r) setD(r); setBusy(""); };
+  const add = async (title: string) => { if (await run(() => api("POST", "/api/admin/agents/suggestion", { title }), "Added to the board")) setAdded([...added, title]); };
+  if (!d) return <div className="row"><Spinner /> Loading…</div>;
+  const card = (key: string, name: string, what: string, body: ReactNode, last: Run<unknown>, needsAi = false) => (
+    <section className="adm-card stack-sm" key={key} data-testid={`agent-${key}`}>
+      <div className="row-between"><div><h3>{name}</h3><p className="xs muted">{what}</p></div>
+        <button className="btn btn-secondary btn-sm" disabled={!!busy || (needsAi && !d.ai)} onClick={() => go(key)}>{busy === key ? <Spinner /> : <RotateCcw size={14} />} Run now</button></div>
+      {last ? <span className="xs muted">Last run {ago(last.at)} by {last.run_by.split("@")[0]}</span> : <span className="xs muted">Not run yet.</span>}
+      {body}
+    </section>
+  );
+  const fb = d.feedback?.output, wk = d.weekly?.output;
+  return (
+    <div className="stack-lg">
+      <Head title="Agents" sub="Step-by-step helpers for the team. They suggest; you decide. No student personal data is sent to them." />
+      {card("feedback", "Feedback & bug sorter", "Groups the last 30 days of open errors and student feedback into themes, most urgent first, each with a suggested to-do.", fb && (
+        <div className="stack-sm">
+          {fb.note && <p className="small muted">{fb.note}</p>}
+          {fb.themes.map((t) => (
+            <div key={t.title} className="adm-row" style={{ alignItems: "flex-start" }}>
+              <span className={"chip " + (t.severity === "high" ? "chip-bad" : t.severity === "medium" ? "chip-setup" : "chip-plain")}>{t.severity}</span>
+              <div className="grow stack-sm" style={{ gap: 2 }}><b className="small">{t.title} <span className="muted">({t.count})</span></b>{t.examples.map((e) => <span key={e} className="xs muted">“{e}”</span>)}<span className="xs">To-do: {t.todo}</span></div>
+              {added.includes(t.todo) ? <span className="xs muted"><Check size={12} /> On the board</span> : <button className="btn btn-ghost btn-sm" onClick={() => add(t.todo)}><Plus size={14} /> Add to board</button>}
+            </div>
+          ))}
+        </div>
+      ), d.feedback, true)}
+      {card("weekly", "Weekly analyst", "The week's numbers in plain sentences: north star, active students, setup, AI spend and open issues.", wk && <ul className="small stack-sm" style={{ paddingLeft: 18 }}>{wk.lines.map((l) => <li key={l}>{l}</li>)}</ul>, d.weekly)}
+      <section className="adm-card stack-sm">
+        <h3>Coming next</h3>
+        <ul className="small stack-sm" style={{ paddingLeft: 18 }}>
+          <li><b>Openings scout:</b> new employers, broken job readers and fields with few openings.</li>
+          <li><b>Researcher</b> (Perplexity): answers team questions with sources. Needs the monthly AI budget.</li>
+          <li><b>Marketing drafter:</b> drafts posts and emails for you to edit and send. Never sends anything.</li>
+        </ul>
+      </section>
     </div>
   );
 }
