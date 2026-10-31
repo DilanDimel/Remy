@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "rea
 import { Activity, AlertTriangle, Bot, ArrowLeft, ArrowRight, BarChart3, CalendarDays, Check, Clock, KanbanSquare, Plus, RotateCcw, Trash2, Users } from "lucide-react";
 import { api, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
-import { BetaBadge, Empty, Remy, Spinner } from "../components/common";
+import { BetaBadge, Empty, Remy, Rich, Spinner } from "../components/common";
 import { WhatsNew } from "../components/WhatsNew";
 import { ThemeToggle } from "../components/ThemeToggle";
 
@@ -226,7 +226,10 @@ function ErrorsTab() {
 }
 
 type Run<T> = { at: string; run_by: string; output: T } | null;
-type Agents = { ai: boolean; feedback: Run<{ themes: { title: string; count: number; severity: string; examples: string[]; todo: string }[]; reports: number; note: string }>; weekly: Run<{ lines: string[] }> };
+type Agents = { ai: boolean; feedback: Run<{ themes: { title: string; count: number; severity: string; examples: string[]; todo: string }[]; reports: number; note: string }>; weekly: Run<{ lines: string[] }>;
+  scout: Run<{ reached: number; tried: number; early: number; broken: { company: string; error: string }[]; thin: { field: string; employers: number; early: number }[] }>;
+  research: Run<{ question: string; answer: string; sources: { url: string; title: string }[]; web: boolean }>;
+  marketing: Run<{ brief: string; linkedin: string; instagram: string; email: { subject: string; body: string } }> };
 
 /** The team's agents: simple workflows that post results here; owners decide what becomes a board card. */
 function AgentsTab() {
@@ -234,7 +237,10 @@ function AgentsTab() {
   const [d, , setD] = useLoad<Agents>("/api/admin/agents");
   const [busy, setBusy] = useState("");
   const [added, setAdded] = useState<string[]>([]);
-  const go = async (agent: string) => { setBusy(agent); const r = await run(() => api<Agents>("POST", `/api/admin/agents/${agent}/run`), "Agent finished"); if (r) setD(r); setBusy(""); };
+  const [question, setQuestion] = useState("");
+  const [brief, setBrief] = useState("");
+  const go = async (agent: string) => { setBusy(agent); const r = await run(() => api<Agents>("POST", `/api/admin/agents/${agent}/run`, { question, brief }), "Agent finished"); if (r) setD(r); setBusy(""); };
+  const copy = (t: string) => run(() => navigator.clipboard.writeText(t), "Copied");
   const add = async (title: string) => { if (await run(() => api("POST", "/api/admin/agents/suggestion", { title }), "Added to the board")) setAdded([...added, title]); };
   if (!d) return <div className="row"><Spinner /> Loading…</div>;
   const card = (key: string, name: string, what: string, body: ReactNode, last: Run<unknown>, needsAi = false) => (
@@ -245,7 +251,13 @@ function AgentsTab() {
       {body}
     </section>
   );
-  const fb = d.feedback?.output, wk = d.weekly?.output;
+  const fb = d.feedback?.output, wk = d.weekly?.output, sc = d.scout?.output, rs = d.research?.output, mk = d.marketing?.output;
+  const draft = (label: string, text: string) => (
+    <div className="stack-sm" style={{ gap: 4 }}>
+      <div className="row-between"><b className="small">{label}</b><button className="btn btn-ghost btn-sm" onClick={() => copy(text)}>Copy</button></div>
+      <p className="small" style={{ whiteSpace: "pre-wrap" }}>{text}</p>
+    </div>
+  );
   return (
     <div className="stack-lg">
       <Head title="Agents" sub="Step-by-step helpers for the team. They suggest; you decide. No student personal data is sent to them." />
@@ -262,14 +274,33 @@ function AgentsTab() {
         </div>
       ), d.feedback, true)}
       {card("weekly", "Weekly analyst", "The week's numbers in plain sentences: north star, active students, setup, AI spend and open issues.", wk && <ul className="small stack-sm" style={{ paddingLeft: 18 }}>{wk.lines.map((l) => <li key={l}>{l}</li>)}</ul>, d.weekly)}
-      <section className="adm-card stack-sm">
-        <h3>Coming next</h3>
-        <ul className="small stack-sm" style={{ paddingLeft: 18 }}>
-          <li><b>Openings scout:</b> new employers, broken job readers and fields with few openings.</li>
-          <li><b>Researcher</b> (Perplexity): answers team questions with sources. Needs the monthly AI budget.</li>
-          <li><b>Marketing drafter:</b> drafts posts and emails for you to edit and send. Never sends anything.</li>
-        </ul>
-      </section>
+      {card("scout", "Openings scout", "Reads every employer career site Remy uses (recent copies count) and shows which ones failed and which fields have few early-career openings. Takes about a minute.", sc && (
+        <div className="stack-sm">
+          <p className="small">{sc.reached} of {sc.tried} employer sites answered, with {sc.early} early-career postings in all.</p>
+          {sc.thin.length > 0 && <><b className="small">Fields with the fewest early-career openings</b><ul className="small" style={{ paddingLeft: 18 }}>{sc.thin.map((t) => <li key={t.field}>{t.field}: {t.early} from {t.employers} employer{t.employers === 1 ? "" : "s"}</li>)}</ul></>}
+          {sc.broken.length > 0 && <details><summary className="small">{sc.broken.length} site{sc.broken.length === 1 ? "" : "s"} failed or returned nothing</summary><ul className="xs muted" style={{ paddingLeft: 18 }}>{sc.broken.map((b) => <li key={b.company}>{b.company}: {b.error}</li>)}</ul></details>}
+          {sc.broken.length > 0 && !added.includes("Fix the job readers the scout flagged") && <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => add("Fix the job readers the scout flagged")}><Plus size={14} /> Add to board</button>}
+        </div>
+      ), d.scout)}
+      {card("research", "Researcher", "Answers a team question from live web sources (Perplexity), with links. Don't paste student information.", (
+        <div className="stack-sm">
+          <textarea className="textarea" style={{ minHeight: 60 }} value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="e.g. What do Handshake and Teal charge colleges, and what do students say about them?" aria-label="Research question" data-testid="input-research" />
+          {rs && (
+            <div className="stack-sm">
+              <b className="small">{rs.question}</b>
+              {!rs.web && <span className="chip chip-setup" style={{ alignSelf: "flex-start" }}>No web sources: check before using</span>}
+              <div className="small stack-sm"><Rich text={rs.answer} /></div>
+              {rs.sources.length > 0 && <div className="xs stack-sm" style={{ gap: 2 }}>{rs.sources.map((s, i) => <a key={s.url} href={s.url} target="_blank" rel="noreferrer">[{i + 1}] {s.title || new URL(s.url).hostname}</a>)}</div>}
+            </div>
+          )}
+        </div>
+      ), d.research, true)}
+      {card("marketing", "Marketing drafter", "Drafts a LinkedIn post, an Instagram caption and an email to professors from the latest updates. You edit and send; it never posts anything.", (
+        <div className="stack-sm">
+          <input className="input" value={brief} onChange={(e) => setBrief(e.target.value)} placeholder="Optional brief, e.g. invite Neeley students to try the beta before finals" aria-label="Marketing brief" data-testid="input-marketing" />
+          {mk && <>{draft("LinkedIn", mk.linkedin)}{draft("Instagram", mk.instagram)}{draft(`Email: ${mk.email.subject}`, mk.email.body)}</>}
+        </div>
+      ), d.marketing, true)}
     </div>
   );
 }

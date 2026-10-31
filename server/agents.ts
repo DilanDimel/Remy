@@ -1,7 +1,9 @@
 // Owners' agent team, kept as simple step-by-step workflows (not agents chatting with each other). Each run's
 // output lands in agent_runs; owners turn suggestions into board cards themselves. No student personal data:
 // email addresses are stripped before any text reaches the AI.
-import { aiJson, aiStatus } from "./ai";
+import { aiJson, aiStatus, aiText, lastCitations, lastUsedModel } from "./ai";
+import { NEWS } from "@shared/news";
+import { scoutBoards } from "./sources";
 import { logAction, overview, saveTask } from "./admin";
 import { q, q1 } from "./sql";
 import { uid } from "./ids";
@@ -41,10 +43,57 @@ export async function weeklySummary(by: string) {
   await logAction(by, "Ran an agent", "Weekly analyst");
 }
 
+const save = (agent: string, by: string, output: unknown) => q("INSERT INTO agent_runs (id, agent, run_by, output) VALUES ($1, $2, $3, $4)", [uid("ar"), agent, by, JSON.stringify(output)]);
+
+/** Openings scout (no AI): which employer sites answer, which readers look broken, and fields with few early-career openings. */
+export async function scout(by: string) {
+  const r = await scoutBoards();
+  const fields = new Map<string, { employers: number; early: number }>();
+  for (const b of r) for (const f of b.fields) { const x = fields.get(f) || { employers: 0, early: 0 }; x.employers++; x.early += b.early; fields.set(f, x); }
+  const output = {
+    reached: r.filter((b) => b.ok).length, tried: r.length, early: r.reduce((s, b) => s + b.early, 0),
+    broken: r.filter((b) => !b.ok).map((b) => ({ company: b.company, error: b.error || "" })).sort((a, b) => a.company.localeCompare(b.company)),
+    thin: [...fields].map(([field, x]) => ({ field, ...x })).sort((a, b) => a.early - b.early).slice(0, 8),
+  };
+  await save("scout", by, output);
+  await logAction(by, "Ran an agent", "Openings scout");
+}
+
+// Perplexity Sonar searches the web and cites its sources; it goes through the same OpenRouter key as everything else.
+export const RESEARCH_MODEL = process.env.OR_RESEARCH_CHAIN || "openrouter:perplexity/sonar";
+
+/** Researcher: an owner's question answered from live web sources. Owners type the question; no student data goes in. */
+export async function research(by: string, question: string) {
+  const qn = noEmails(question.trim()).slice(0, 600);
+  if (qn.length < 8) throw Object.assign(new Error("Ask a full question, like “Which Texas universities have startup grants for student founders?”"), { status: 400 });
+  const answer = await aiText(
+    "You research for a student startup team building Remy, an AI career coach for college students (beta, Texas Christian University, Fort Worth). Answer in under 250 words with short bullet points. Cite your sources with [1], [2]. Say clearly when something couldn't be confirmed, and never guess dates, prices or eligibility rules. This is a single answer: don't offer follow-ups.",
+    qn, 900, RESEARCH_MODEL,
+  );
+  const sources = lastCitations().filter((s) => /^https?:\/\//.test(s.url)).slice(0, 20);
+  const web = /perplexity|:online/.test(lastUsedModel()) && sources.length > 0;
+  await save("research", by, { question: qn, answer: answer.slice(0, 4000), sources, web, model: lastUsedModel() });
+  await logAction(by, "Ran an agent", "Researcher");
+}
+
+/** Marketing drafter: drafts from recent "What's new" notes and this week's totals. It never posts or sends anything. */
+export async function marketing(by: string, brief: string) {
+  const o = await overview();
+  const recent = NEWS.filter((n) => !n.owners).slice(0, 6).map((n) => `- ${n.title}: ${n.body}`).join("\n");
+  const out = await aiJson<{ linkedin: string; instagram: string; email: { subject: string; body: string } }>(
+    "You write marketing drafts for Remy, a beta AI career coach built by a student team at TCU. Warm, plain and specific; no hype words (revolutionary, game-changing), no emoji walls, no made-up numbers, quotes or partners. Use only the facts given. Say it's a beta. Remy never applies or sends anything for students; don't imply it does.",
+    `RECENT UPDATES:\n${recent}\n\nNUMBERS YOU MAY USE (totals only): ${o.activeWeek} active students this week; ${o.funnel?.accounts ?? 0} accounts.\n\nTEAM'S BRIEF: ${noEmails(brief).slice(0, 400) || "(none: introduce Remy to TCU students)"}\n\nReturn {"linkedin":"post under 120 words","instagram":"caption under 60 words with up to 3 hashtags","email":{"subject":"","body":"short email to a professor or club officer asking them to share Remy with students, under 120 words, signed 'The Remy team'"}}`,
+    1500,
+  );
+  const s = (x: unknown, n: number) => String(x || "").slice(0, n);
+  await save("marketing", by, { brief: s(brief, 400), linkedin: s(out.linkedin, 1500), instagram: s(out.instagram, 800), email: { subject: s(out.email?.subject, 200), body: s(out.email?.body, 2000) } });
+  await logAction(by, "Ran an agent", "Marketing drafter");
+}
+
 /** The latest run of each agent. */
 export async function agentRuns() {
   const latest = async (agent: string) => (await q1("SELECT at, run_by, output FROM agent_runs WHERE agent = $1 ORDER BY at DESC LIMIT 1", [agent])) || null;
-  return { feedback: await latest("feedback"), weekly: await latest("weekly"), ai: aiStatus().available };
+  return { feedback: await latest("feedback"), weekly: await latest("weekly"), scout: await latest("scout"), research: await latest("research"), marketing: await latest("marketing"), ai: aiStatus().available };
 }
 
 /** Turns a suggested to-do into a board card. */

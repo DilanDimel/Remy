@@ -27,7 +27,7 @@ import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSIO
 import { atsScore } from "./ats";
 import { pastTerm } from "./fit";
 import * as agents from "./agents";
-import { step, weekly } from "@shared/progress";
+import { step } from "@shared/progress";
 import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
 import { docxStyle, editDocx } from "./docxEdit";
@@ -326,21 +326,7 @@ const searching = new Set<string>();
 
 export async function registerRoutes(_server: Server, app: Express) {
   // Expired sessions and guest workspaces idle for 30 days are removed at start-up and every 6 hours.
-  // Friday "streak saver": one kind email to students who turned on weekly emails and haven't met their goal yet.
-  const weeklyNudges = async () => {
-    if (!emailReady() || new Date().toLocaleDateString("en-US", { timeZone: "America/Chicago", weekday: "long" }) !== "Friday") return;
-    for (const u of await q("SELECT u.id, u.email FROM users u WHERE u.kind IN ('google','supabase')")) {
-      const ws = await loadWorkspace(u.id);
-      const w = weekly(ws);
-      if (!ws.settings.notify.weeklyPlan || !ws.onboarding.done || w.days.length >= w.goal || ws.lastNudge === w.weekOf) continue;
-      const left = w.goal - w.days.length, name = ws.profile.preferredName || ws.profile.name.split(" ")[0] || "there";
-      await sendEmail(ws.profile.applicationEmail || u.email, `${left} step${left > 1 ? "s" : ""} from your weekly goal`,
-        `Hi ${name},\n\nYou're ${left} active day${left > 1 ? "s" : ""} away from your goal of ${w.goal} this week. One small step counts: finish a to-do, save an opening that fits, or start an application.\n\nOpen Remy: https://${process.env.PUBLIC_HOST || "offer-ready.onrender.com"}/\n\nYou get this because weekly emails are on. Turn them off anytime in Account → Appearance & alerts.\n\nRemy`,
-      ).catch((e) => console.error("weekly nudge failed", e?.message));
-      await saveSections(u.id, { lastNudge: w.weekOf } as any);
-    }
-  };
-  const sweep = () => { pruneBoardCache().catch(() => {}); weeklyNudges().catch((e) => console.error("weekly nudges failed", e?.message)); return cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)); };
+  const sweep = () => { pruneBoardCache().catch(() => {}); return cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)); };
   sweep();
   setInterval(sweep, 6 * 60 * 60_000).unref();
 
@@ -384,6 +370,9 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!allow("agent:" + me, 10, 60 * 60_000)) bad("That's a lot of agent runs. Try again in an hour.", 429);
     if (req.params.agent === "feedback") await agents.sortFeedback(me);
     else if (req.params.agent === "weekly") await agents.weeklySummary(me);
+    else if (req.params.agent === "scout") await agents.scout(me);
+    else if (req.params.agent === "research") await agents.research(me, String(req.body?.question || ""));
+    else if (req.params.agent === "marketing") await agents.marketing(me, String(req.body?.brief || ""));
     else bad("Unknown agent.", 404);
     res.json(await agents.agentRuns());
   }));
@@ -495,7 +484,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   const SHAPES: Partial<Record<(typeof SECTIONS)[number], z.ZodType>> = {
     profile: z.looseObject({}),
     settings: z.object({
-      theme: z.enum(["system", "light", "dark"]).optional(), themeChosen: z.boolean().optional(), weeklyGoal: z.number().int().min(1).max(7).optional(), hidePoints: z.boolean().optional(), assistantOpen: z.boolean().optional(), navCollapsed: z.boolean().optional(),
+      theme: z.enum(["system", "light", "dark"]).optional(), themeChosen: z.boolean().optional(), assistantOpen: z.boolean().optional(), navCollapsed: z.boolean().optional(),
       notify: z.object({ deadlines: z.boolean(), statusChanges: z.boolean(), weeklyPlan: z.boolean() }).partial().optional(),
       demoConnections: z.array(str(80)).max(20).optional(), newsSeen: str(40).optional(),
     }),

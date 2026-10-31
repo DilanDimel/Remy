@@ -113,3 +113,20 @@ test("Workday locations read like addresses: IL-Rosemont → Rosemont, IL", asyn
   assert.equal(tidyLocation("Dallas, TX"), "Dallas, TX");
   assert.equal(tidyLocation("Remote"), "Remote");
 });
+
+test("openings scout: counts early-career postings, flags sites that fail or return nothing, passes a search word", async () => {
+  const { scoutBoards } = await import("./sources");
+  const seen: string[] = [];
+  const read = async (b: any, field: string) => {
+    seen.push(field);
+    if (b.company === "Down") throw new Error("HTTP 500");
+    if (b.company === "Empty") return [];
+    return [{ title: "Finance Intern", location: "", url: "u1", text: "" }, { title: "Senior Manager", location: "", url: "u2", text: "" }];
+  };
+  const r = await scoutBoards([{ company: "Ok", ats: "workday", slug: "ok", fields: ["Finance"] }, { company: "Down", ats: "lever", slug: "d" }, { company: "Empty", ats: "lever", slug: "e" }] as any, read as any);
+  const by = Object.fromEntries(r.map((x) => [x.company, x]));
+  assert.deepEqual([by.Ok.ok, by.Ok.total, by.Ok.early], [true, 2, 1]);
+  assert.equal(by.Down.error, "HTTP 500");
+  assert.equal(by.Empty.ok, false);
+  assert.ok(seen.includes("finance") || seen.some((f) => f.length > 0), "a field search word is passed for field-search boards");
+});

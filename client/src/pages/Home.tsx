@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { WeekCard } from "../components/WeekCard";
+import { RoadCard } from "../components/RoadCard";
 import { ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronUp, MapPin } from "lucide-react";
 import type { Job, Task, Workspace } from "@shared/types";
 import { api, daysUntil, fmtDate, rid, useStore } from "../lib/store";
@@ -96,7 +96,7 @@ export default function Home() {
         </div>
       </section>
 
-      <WeekCard />
+      <RoadCard w={w} />
 
       <section className="card card-pad">
         <div className="row-between" style={{ marginBottom: 8 }}>

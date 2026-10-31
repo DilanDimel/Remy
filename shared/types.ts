@@ -429,12 +429,10 @@ export interface Workspace {
   calendar: CalItem[];
   contacts: Contact[];
   outreach: OutreachDraft[];
-  /** Real career steps, for weekly momentum and points (server-recorded, once each). */
+  /** Real career steps (server-recorded, once each), counted in the owners' north star. */
   steps?: Step[];
   /** Story Deck: true interview stories built from resume lines (STAR), with what's still missing. */
   stories?: Story[];
-  /** Week (Monday date) the Friday weekly-goal email was last sent. */
-  lastNudge?: string;
   /** When the student last uploaded a profile photo (also busts the image cache); absent = no photo. */
   photoAt?: string;
   /** The beta terms version the student agreed to, and when (server time). */
@@ -446,10 +444,6 @@ export interface Workspace {
   settings: {
     /** "system" follows the device (the default). */
     theme: "system" | "light" | "dark";
-    /** Active days per week the student aims for (2–4; default 3). */
-    weeklyGoal?: number;
-    /** Hide points (the weekly days and streak still show). */
-    hidePoints?: boolean;
     /** True once the student picked a theme themselves (older accounts stored "light" by default). */
     themeChosen?: boolean;
     assistantOpen: boolean;

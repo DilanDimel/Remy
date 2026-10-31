@@ -93,3 +93,19 @@ export function AiUnavailableNote() {
 
 /** Remy is still in development; shown beside the logo everywhere. */
 export const BetaBadge = () => <span className="beta-badge" title="Remy is in development: features may change or be unfinished">Beta</span>;
+
+/** Remy's replies: **bold** and "•"/"-" bullet lines, nothing else (no links or HTML from the AI). */
+export function Rich({ text }: { text: string }) {
+  const bold = (line: string) => line.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 ? <b key={i}>{part}</b> : part.replace(/\*\*/g, "")));
+  const blocks: JSX.Element[] = [];
+  let items: string[] = [];
+  const flush = () => { if (items.length) blocks.push(<ul key={blocks.length} className="bubble-list">{items.map((t, i) => <li key={i}>{bold(t)}</li>)}</ul>); items = []; };
+  for (const line of text.split("\n")) {
+    const m = line.match(/^\s*(?:[•*-]|\d+[.)])\s+(.*)$/);
+    if (m) { items.push(m[1]); continue; }
+    flush();
+    if (line.trim()) blocks.push(<p key={blocks.length}>{bold(line)}</p>);
+  }
+  flush();
+  return <>{blocks}</>;
+}

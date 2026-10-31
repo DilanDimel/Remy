@@ -7,7 +7,7 @@ import {
 import { StoreProvider, api, rid, useStore, type Theme } from "./lib/store";
 import { go, replaceRoute, useRoute } from "./lib/router";
 const PUBLIC = new Set(["/", "/signin", "/about", "/policies", "/privacy", "/terms"]);
-import { BetaBadge, Modal, Remy, Spinner, StatusChip } from "./components/common";
+import { BetaBadge, Modal, Remy, Rich, Spinner, StatusChip } from "./components/common";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { WhatsNew } from "./components/WhatsNew";
 import { Avatar } from "./components/ProfilePhoto";
@@ -370,22 +370,6 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   );
 }
 
-
-/** Remy's replies: **bold** and "•"/"-" bullet lines, nothing else (no links or HTML from the AI). */
-function Rich({ text }: { text: string }) {
-  const bold = (line: string) => line.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 ? <b key={i}>{part}</b> : part.replace(/\*\*/g, "")));
-  const blocks: JSX.Element[] = [];
-  let items: string[] = [];
-  const flush = () => { if (items.length) blocks.push(<ul key={blocks.length} className="bubble-list">{items.map((t, i) => <li key={i}>{bold(t)}</li>)}</ul>); items = []; };
-  for (const line of text.split("\n")) {
-    const m = line.match(/^\s*(?:[•*-]|\d+[.)])\s+(.*)$/);
-    if (m) { items.push(m[1]); continue; }
-    flush();
-    if (line.trim()) blocks.push(<p key={blocks.length}>{bold(line)}</p>);
-  }
-  flush();
-  return <>{blocks}</>;
-}
 
 const MENU: [string, string][] = [["profile", "Profile"], ["settings", "Settings"], ["memory", "AI memory"], ["sources", "Connected sources"], ["data", "Account & data"]];
 

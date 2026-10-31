@@ -98,7 +98,7 @@ async function workday(b: Board, field: string): Promise<Raw[]> {
   const [tenant, wd, site] = b.slug.split("|");
   const origin = `https://${tenant}.${wd}.myworkdayjobs.com`, cxs = `${origin}/wday/cxs/${tenant}/${site}`;
   const list = async (appliedFacets: Record<string, string[]>, searchText: string, offset: number) => {
-    const r = await fetch(`${cxs}/jobs`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json", "user-agent": BROWSER_UA }, body: JSON.stringify({ appliedFacets, limit: 20, offset, searchText }), signal: AbortSignal.timeout(5000) });
+    const r = await fetch(`${cxs}/jobs`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json", "user-agent": BROWSER_UA }, body: JSON.stringify({ appliedFacets, limit: 20, offset, searchText }), signal: AbortSignal.timeout(12_000) }); // big Workday sites often take 5–9s
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return r.json();
   };
@@ -369,6 +369,25 @@ export async function cachedBoard(b: Board, field: string, region: string, fetch
     if (!hit || age > BOARD_STALE) throw e;
   }
   return hit.raws as Raw[];
+}
+/** Openings scout: reads every employer's site (cached copies count) and reports what each returned. */
+export async function scoutBoards(boards = EMPLOYERS, read = cachedBoard) {
+  const out: { company: string; fields: string[]; ok: boolean; total: number; early: number; error?: string }[] = [];
+  let i = 0;
+  const worker = async () => {
+    while (i < boards.length) {
+      const b = boards[i++];
+      const k = FIELD_TITLES.findIndex(([field]) => field.test((b.fields || []).join(" ")));
+      try {
+        const raws = await Promise.race([read(b, k >= 0 ? FIELD_SEARCH[k] : "", ""), new Promise<never>((_, no) => setTimeout(() => no(new Error("timed out")), 45_000))]);
+        out.push({ company: b.company, fields: b.fields || [], ok: raws.length > 0, total: raws.length, early: raws.filter((r) => r.student || EARLY.test(r.title)).length, ...(raws.length ? {} : { error: "no postings returned" }) });
+      } catch (e: any) {
+        out.push({ company: b.company, fields: b.fields || [], ok: false, total: 0, early: 0, error: String(e?.message || e).slice(0, 120) });
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: 8 }, worker));
+  return out;
 }
 export const pruneBoardCache = () => q("DELETE FROM board_cache WHERE fetched_at < now() - interval '3 days'");
 
