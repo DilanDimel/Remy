@@ -4,7 +4,7 @@ import type { Suggestion, Task, TrackItem, TrackStatus, Workspace } from "@share
 import { api, fmtDate, rid, useStore } from "../lib/store";
 import { useCompleting } from "../lib/completing";
 import { go, useRoute } from "../lib/router";
-import { Empty, Modal, Spinner, StatusChip } from "../components/common";
+import { Empty, Modal, Remy, Spinner, StatusChip } from "../components/common";
 
 const STATUSES: TrackStatus[] = ["Saved", "Applied", "Received", "Interview", "Offer", "Rejected", "Withdrawn"];
 const STATUS_HELP: Record<string, string> = {
@@ -40,6 +40,35 @@ export default function Progress() {
   );
 }
 
+/** After a "no": three small steps that turn it into the next application, never a pep talk with made-up numbers. */
+function Recovery({ t }: { t: TrackItem }) {
+  const { ws, save, run } = useStore();
+  const w = ws!;
+  const mark = (recovery: TrackItem["recovery"]) => w.tracker.map((x) => (x.id === t.id ? { ...x, recovery } : x));
+  const add = () => run(async () => {
+    const steps: [string, string, string][] = [
+      [`Send ${t.company} a short thank-you and ask for one piece of feedback`, "Two or three sentences. Many won't answer, but a reply can tell you what to fix, and it leaves a good impression for next time.", "/community"],
+      [`Find two openings like ${t.role || "this one"}`, "Same kind of role, different employers. The work you put into this application carries over.", "/opportunities"],
+      ["Write down one thing to try differently next time", "A stronger bullet, an earlier application, a referral. One change is enough.", "/resume?tab=base"],
+    ];
+    const have = new Set(w.tasks.map((x) => x.title));
+    await save("tasks", [...steps.filter(([title]) => !have.has(title)).map(([title, why, link]) => ({ id: rid("t"), title, why, due: "", category: "Apply", done: false, source: "Recovery", link })), ...w.tasks]);
+    return save("tracker", mark("added"));
+  }, "Added 3 steps to your to-dos");
+  return (
+    <div className="remy-prompt" style={{ marginTop: 10 }} data-testid="recovery">
+      <Remy size={32} mood="wave" />
+      <div className="stack-sm grow">
+        <p className="small"><b>Sorry, that's a tough one.</b> A no from {t.company} doesn't undo what you built for it. Want three small steps to turn it into your next application?</p>
+        <div className="row">
+          <button className="btn btn-primary btn-sm" onClick={add} data-testid="button-recovery-add">Add 3 steps</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => run(() => save("tracker", mark("dismissed")))} data-testid="button-recovery-dismiss">Not now</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Tracker() {
   const { ws, save, run, toast } = useStore();
   const w = ws!;
@@ -71,6 +100,7 @@ function Tracker() {
                   <button className="icon-btn" onClick={() => setOpen(open === t.id ? "" : t.id)} aria-label="Timeline">{open === t.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>
                 </div>
               </div>
+              {t.status === "Rejected" && !t.recovery && <Recovery t={t} />}
               {open === t.id && (
                 <div className="stack-sm" style={{ marginTop: 10 }}>
                   {t.events.map((e) => (

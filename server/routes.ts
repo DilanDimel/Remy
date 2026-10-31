@@ -501,7 +501,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     }),
     tasks: z.array(z.looseObject({ id: str(120), title: str(300), why: str(2000), due: str(10), category: z.enum(["Explore", "Prepare", "Apply", "Connect", "Academic"]), done: z.boolean(), source: str(200), link: str(500).optional() })).max(500),
     calendar: z.array(z.looseObject({ id: str(120), title: str(300), date: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/), time: z.string().regex(/^(\d{2}:\d{2})?$/), kind: z.enum(["Deadline", "Event", "Task", "Interview", "Advising"]), source: str(200), linkedId: str(120).optional(), notes: str(4000).optional() })).max(1000),
-    tracker: z.array(z.looseObject({ id: str(120), company: str(200), role: str(300), jobId: str(120).optional(), applicationId: str(120).optional(), status: TRACK, notes: str(4000), events: z.array(z.looseObject({ id: str(120), at: str(40), status: TRACK, source: str(300), evidence: str(2000).optional() })).max(200) })).max(500),
+    tracker: z.array(z.looseObject({ id: str(120), company: str(200), role: str(300), jobId: str(120).optional(), applicationId: str(120).optional(), status: TRACK, notes: str(4000), recovery: z.enum(["added", "dismissed"]).optional(), events: z.array(z.looseObject({ id: str(120), at: str(40), status: TRACK, source: str(300), evidence: str(2000).optional() })).max(200) })).max(500),
     savedJobIds: ids,
     hiddenJobIds: ids,
     memory: z.array(z.looseObject({ id: str(120).optional(), text: str(2000) })).max(300),

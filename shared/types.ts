@@ -286,6 +286,8 @@ export interface TrackItem {
   status: TrackStatus;
   events: TrackEvent[];
   notes: string;
+  /** After a rejection: the student added the recovery steps or dismissed the card. */
+  recovery?: "added" | "dismissed";
 }
 export interface Suggestion {
   id: string;
