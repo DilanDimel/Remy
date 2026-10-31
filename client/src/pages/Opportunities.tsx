@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowUpRight, Bookmark, BookmarkCheck, CalendarPlus, ChevronDown, ChevronUp, EyeOff, Link2, MapPin, RefreshCw, Search, Sparkles, Trash2 } from "lucide-react";
 import type { Job, JobCheck, JobFit, Workspace } from "@shared/types";
-import { api, daysUntil, fmtDate, rid, useStore } from "../lib/store";
+import { api, daysUntil, fmtDate, rid, useDraft, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { kindLabel, reloadJobs, sameOrg, useJobs } from "../lib/jobs";
 import { screeningFor } from "@shared/screening";
@@ -130,7 +130,7 @@ function nothingFits(p: Workspace["profile"]) {
 function ImportPanel({ onDone }: { onDone: () => void }) {
   const { setWs, run, config, toast } = useStore();
   const [url, setUrl] = useState("");
-  const [text, setText] = useState("");
+  const [text, setText] = useDraft("import-posting");
   const [mode, setMode] = useState<"url" | "text">("url");
   const [busy, setBusy] = useState(false);
   const submit = async () => {

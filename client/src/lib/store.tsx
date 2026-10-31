@@ -208,3 +208,11 @@ export const daysUntil = (d: string) => {
   return isNaN(t) ? null : Math.round((t - new Date(new Date().toLocaleDateString("en-CA") + "T12:00").getTime()) / 86_400_000);
 };
 export const rid = (p = "") => p + Math.random().toString(36).slice(2, 10);
+
+/** Text someone is still typing, kept in this browser so a refresh or a closed tab doesn't lose it. */
+export function useDraft(key: string) {
+  const k = "remy.draft." + key;
+  const [v, setV] = useState(() => { try { return localStorage.getItem(k) || ""; } catch { return ""; } });
+  const set = useCallback((x: string) => { setV(x); try { if (x) localStorage.setItem(k, x); else localStorage.removeItem(k); } catch {} }, [k]);
+  return [v, set] as const;
+}

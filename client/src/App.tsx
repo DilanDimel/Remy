@@ -4,7 +4,7 @@ import {
   BarChart3, Briefcase, CalendarDays, ChevronsLeft, ChevronsRight, Compass, FileText, Home as HomeIcon, Menu, Send,
   Check, Info, Minus, ShieldCheck, UserCog, Users,
 } from "lucide-react";
-import { StoreProvider, api, rid, useStore, type Theme } from "./lib/store";
+import { StoreProvider, api, rid, useDraft, useStore, type Theme } from "./lib/store";
 import { go, replaceRoute, useRoute } from "./lib/router";
 const PUBLIC = new Set(["/", "/signin", "/about", "/policies", "/privacy", "/terms"]);
 import { BetaBadge, Modal, Remy, Rich, Spinner, StatusChip } from "./components/common";
@@ -248,7 +248,7 @@ const STARTERS: Record<string, string[]> = {
 
 function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () => void; flyIn: boolean }) {
   const { ws, setWs, run, save, config, theme, setTheme } = useStore();
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useDraft("chat");
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
   const [greeting, setGreeting] = useState(true);
@@ -423,13 +423,13 @@ function ProfileMenu({ initials, active }: { initials: string; active: boolean }
 function FeedbackModal({ onClose }: { onClose: () => void }) {
   const { run } = useStore();
   const { path } = useRoute();
-  const [text, setText] = useState("");
+  const [text, setText] = useDraft("feedback");
   const [busy, setBusy] = useState(false);
   const send = async () => {
     setBusy(true);
     const ok = await run(() => api("POST", "/api/feedback", { message: text, page: path }), "Thanks! The Remy team reads every note.");
     setBusy(false);
-    if (ok) onClose();
+    if (ok) { setText(""); onClose(); }
   };
   return (
     <Modal title="Send feedback" onClose={onClose}>
