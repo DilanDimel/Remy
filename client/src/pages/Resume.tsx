@@ -14,6 +14,7 @@ import { AtsCard } from "../components/AtsCard";
 import { AtsXray } from "../components/AtsXray";
 import { EvidencePassport } from "../components/EvidencePassport";
 import { StoryDeck } from "../components/StoryDeck";
+import { WordPreview } from "../components/WordPreview";
 import { startTailor, useTailorSession } from "../lib/tailorChat";
 
 type Tab = "base" | "tailor" | "library";
@@ -107,8 +108,8 @@ function BaseResume() {
             {preview && (w.resume.original.mime === "application/pdf"
               ? <iframe className="pdf-preview" src={`${API_BASE}/api/resume/original#view=FitH`} title="Your original resume" data-testid="pdf-preview" />
               : <>
-                  <span className="xs muted">A preview of your Word file. Fonts and spacing may look slightly different from Word.</span>
-                  <iframe className="pdf-preview" sandbox="" src={`${API_BASE}/api/resume/original?view=html&v=${encodeURIComponent(w.resume.uploadedAt)}`} title="Your original resume" data-testid="pdf-preview" />
+                  <span className="xs muted">A preview of your Word file. Fonts can look slightly different if your computer doesn't have them.</span>
+                  <WordPreview version={w.resume.uploadedAt} />
                 </>)}
           </div>
         )}
