@@ -144,6 +144,8 @@ function Settings() {
       <div className="card card-pad stack">
         <h3>Theme</h3>
         <ThemeChoice />
+        <h3>Progress</h3>
+        <label className="row small"><input type="checkbox" checked={!s.hidePoints} onChange={() => save("settings", { hidePoints: !s.hidePoints })} data-testid="toggle-points" /> Show points on Home (your active days and streak always show)</label>
         <h3>Assistant</h3>
         <label className="row small"><input type="checkbox" checked={s.assistantOpen} onChange={() => save("settings", { assistantOpen: !s.assistantOpen })} /> Keep Remy open (you can always minimize him from his panel)</label>
       </div>

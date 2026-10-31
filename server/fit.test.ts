@@ -146,3 +146,20 @@ test("past terms are dropped from setup options: Summer 2026 is past on Oct 31, 
   assert.equal(pastTerm("Spring 2027", "2026-10-31"), false);
   assert.equal(pastTerm("Big 4 firms", "2026-10-31"), false);
 });
+
+test("weekly momentum: steps count once, saves are capped per day, the streak counts weeks that met the goal", async () => {
+  const { step, weekly } = await import("@shared/progress");
+  const { emptyWorkspace } = await import("./db");
+  const ws = emptyWorkspace();
+  ws.settings.weeklyGoal = 2;
+  // Last week: two active days (goal met). This week (Mon Oct 26 – Sun Nov 1, 2026): Tue + Thu.
+  step(ws, "task", "a", "2026-10-20T15:00:00Z"); step(ws, "task", "b", "2026-10-22T15:00:00Z");
+  assert.equal(step(ws, "task", "c", "2026-10-27T15:00:00Z"), true);
+  assert.equal(step(ws, "task", "c", "2026-10-27T16:00:00Z"), false, "same step twice doesn't count");
+  for (const id of ["j1", "j2", "j3", "j4"]) step(ws, "save", id, "2026-10-29T15:00:00Z");
+  const w = weekly(ws, "2026-10-30");
+  assert.equal(w.weekOf, "2026-10-26");
+  assert.deepEqual(w.days, ["2026-10-27", "2026-10-29"]);
+  assert.equal(w.points, 10 + 3 * 5, "fourth save of the day earns nothing");
+  assert.equal(w.streak, 2);
+});

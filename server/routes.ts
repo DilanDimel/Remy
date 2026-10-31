@@ -27,6 +27,7 @@ import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, ski
 import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSION } from "./fit";
 import { atsScore } from "./ats";
 import { pastTerm } from "./fit";
+import { step, weekly } from "@shared/progress";
 import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
 import { docxStyle, editDocx } from "./docxEdit";
@@ -325,7 +326,21 @@ const searching = new Set<string>();
 
 export async function registerRoutes(_server: Server, app: Express) {
   // Expired sessions and guest workspaces idle for 30 days are removed at start-up and every 6 hours.
-  const sweep = () => { pruneBoardCache().catch(() => {}); return cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)); };
+  // Friday "streak saver": one kind email to students who turned on weekly emails and haven't met their goal yet.
+  const weeklyNudges = async () => {
+    if (!emailReady() || new Date().toLocaleDateString("en-US", { timeZone: "America/Chicago", weekday: "long" }) !== "Friday") return;
+    for (const u of await q("SELECT u.id, u.email FROM users u WHERE u.kind IN ('google','supabase')")) {
+      const ws = await loadWorkspace(u.id);
+      const w = weekly(ws);
+      if (!ws.settings.notify.weeklyPlan || !ws.onboarding.done || w.days.length >= w.goal || ws.lastNudge === w.weekOf) continue;
+      const left = w.goal - w.days.length, name = ws.profile.preferredName || ws.profile.name.split(" ")[0] || "there";
+      await sendEmail(ws.profile.applicationEmail || u.email, `${left} step${left > 1 ? "s" : ""} from your weekly goal`,
+        `Hi ${name},\n\nYou're ${left} active day${left > 1 ? "s" : ""} away from your goal of ${w.goal} this week. One small step counts: finish a to-do, save an opening that fits, or start an application.\n\nOpen Remy: https://${process.env.PUBLIC_HOST || "offer-ready.onrender.com"}/\n\nYou get this because weekly emails are on. Turn them off anytime in Account → Appearance & alerts.\n\nRemy`,
+      ).catch((e) => console.error("weekly nudge failed", e?.message));
+      await saveSections(u.id, { lastNudge: w.weekOf } as any);
+    }
+  };
+  const sweep = () => { pruneBoardCache().catch(() => {}); weeklyNudges().catch((e) => console.error("weekly nudges failed", e?.message)); return cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)); };
   sweep();
   setInterval(sweep, 6 * 60 * 60_000).unref();
 
@@ -470,7 +485,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   const SHAPES: Partial<Record<(typeof SECTIONS)[number], z.ZodType>> = {
     profile: z.looseObject({}),
     settings: z.object({
-      theme: z.enum(["system", "light", "dark"]).optional(), themeChosen: z.boolean().optional(), assistantOpen: z.boolean().optional(), navCollapsed: z.boolean().optional(),
+      theme: z.enum(["system", "light", "dark"]).optional(), themeChosen: z.boolean().optional(), weeklyGoal: z.number().int().min(1).max(7).optional(), hidePoints: z.boolean().optional(), assistantOpen: z.boolean().optional(), navCollapsed: z.boolean().optional(),
       notify: z.object({ deadlines: z.boolean(), statusChanges: z.boolean(), weeklyPlan: z.boolean() }).partial().optional(),
       demoConnections: z.array(str(80)).max(20).optional(), newsSeen: str(40).optional(),
     }),
@@ -528,6 +543,10 @@ export async function registerRoutes(_server: Server, app: Express) {
         id: String(m.id || uid("f")), text: String(m.text || "").slice(0, 400), category: m.category || "other", source: String(m.source || "Edited by student"),
         status: (m.status === "suggested" ? "suggested" : "approved") as MemoryFact["status"], ...(m.conflict ? { conflict: String(m.conflict).slice(0, 300) } : {}), createdAt: m.createdAt || nowIso(), updatedAt: nowIso(),
       })).filter((m: MemoryFact) => m.text.trim());
+    } else if (section === "savedJobIds") {
+      if (!Array.isArray(value)) bad("Saved openings must be a list");
+      for (const id of value) if (!ctx.ws.savedJobIds.includes(id)) step(ctx.ws, "save", String(id));
+      ctx.ws.savedJobIds = value.map(String);
     } else if (section === "settings") {
       ctx.ws.settings = { ...ctx.ws.settings, ...value, notify: { ...ctx.ws.settings.notify, ...(value.notify || {}) } };
     } else {
@@ -543,6 +562,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!t) bad("That to-do isn't there anymore.", 404);
     if (typeof req.body?.done !== "boolean") bad("Send done: true or false.");
     t!.done = req.body.done;
+    if (t!.done) step(ctx.ws, "task", t!.id);
     await ctx.save();
     res.json(ctx.ws);
   }));
@@ -767,6 +787,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const q = ctx.ws.resume!.quality;
     if (q) q.missingLines = stillMissing(q.missingLines, d);
     ctx.ws.resume!.confirmedAt = req.body?.confirm ? nowIso() : ctx.ws.resume!.confirmedAt;
+    if (req.body?.confirm) step(ctx.ws, "resume", "base");
     // Student edits are the student's own words and already count as evidence through
     // the edited doc (evidenceOf), so the original upload text stays as it was. The
     // slice also shrinks accounts that grew under the old append-on-every-save code.
@@ -1127,6 +1148,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     if (!a) {
       a = { id: uid("app"), jobId, createdAt: nowIso(), gaps: [], changes: [], letter: "", letterFlags: [], letterApproved: false, personalize: [], ats: [], versions: [] };
       ctx.ws.applications.unshift(a);
+      step(ctx.ws, "start", jobId);
       if (!ctx.ws.savedJobIds.includes(jobId)) ctx.ws.savedJobIds.push(jobId);
       await ctx.save();
     }
@@ -1316,6 +1338,7 @@ Return JSON:
       });
     if (job.deadline && !ctx.ws.calendar.some((c) => c.linkedId === job.id))
       ctx.ws.calendar.push({ id: uid("cal"), title: `${job.company} deadline`, date: job.deadline, time: "", kind: "Deadline", source: "From verified posting", linkedId: job.id, notes: job.deadlineText });
+    step(ctx.ws, "approve", a.jobId);
     await ctx.save();
     res.json({ application: a, workspace: ctx.ws });
   }));
@@ -1477,6 +1500,7 @@ Return JSON:
     const clean = (t: string) => t.replace(/\[[^\]]{2,80}\]/g, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
     const d = { id: uid("o"), contactId: c!.id, to: c!.email, subject: clean(String(out.subject || "")), body: clean(String(out.body || "")), linkedin: clean(String(out.linkedin || "")).slice(0, 200), status: "draft" as const, createdAt: nowIso() };
     ctx.ws.outreach.unshift(d);
+    step(ctx.ws, "outreach", c!.id);
     await ctx.save();
     res.json({ draft: d, workspace: ctx.ws });
   }));

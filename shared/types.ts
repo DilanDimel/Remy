@@ -392,6 +392,7 @@ export interface ChatMsg {
 }
 export type ChatAction = { kind: "task"; title: string; why: string } | { kind: "role"; title: string } | { kind: "open"; link: string; label: string }
   | { kind: "setting"; key: SettingKey; value: string | boolean };
+export interface Step { at: string; kind: "task" | "save" | "start" | "approve" | "outreach" | "resume"; ref: string; xp: number }
 /** Settings the chat may offer to change (the student still taps to confirm). */
 export type SettingKey = "theme" | "notify.deadlines" | "notify.statusChanges" | "notify.weeklyPlan";
 
@@ -423,6 +424,10 @@ export interface Workspace {
   calendar: CalItem[];
   contacts: Contact[];
   outreach: OutreachDraft[];
+  /** Real career steps, for weekly momentum and points (server-recorded, once each). */
+  steps?: Step[];
+  /** Week (Monday date) the Friday weekly-goal email was last sent. */
+  lastNudge?: string;
   /** When the student last uploaded a profile photo (also busts the image cache); absent = no photo. */
   photoAt?: string;
   /** The beta terms version the student agreed to, and when (server time). */
@@ -434,6 +439,10 @@ export interface Workspace {
   settings: {
     /** "system" follows the device (the default). */
     theme: "system" | "light" | "dark";
+    /** Active days per week the student aims for (2–4; default 3). */
+    weeklyGoal?: number;
+    /** Hide points (the weekly days and streak still show). */
+    hidePoints?: boolean;
     /** True once the student picked a theme themselves (older accounts stored "light" by default). */
     themeChosen?: boolean;
     assistantOpen: boolean;
