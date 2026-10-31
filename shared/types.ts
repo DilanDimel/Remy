@@ -392,6 +392,7 @@ export interface ChatMsg {
 }
 export type ChatAction = { kind: "task"; title: string; why: string } | { kind: "role"; title: string } | { kind: "open"; link: string; label: string }
   | { kind: "setting"; key: SettingKey; value: string | boolean };
+export interface Story { id: string; title: string; theme: string; situation: string; task: string; action: string; result: string; missing: string; source: string }
 export interface Step { at: string; kind: "task" | "save" | "start" | "approve" | "outreach" | "resume"; ref: string; xp: number }
 /** Settings the chat may offer to change (the student still taps to confirm). */
 export type SettingKey = "theme" | "notify.deadlines" | "notify.statusChanges" | "notify.weeklyPlan";
@@ -426,6 +427,8 @@ export interface Workspace {
   outreach: OutreachDraft[];
   /** Real career steps, for weekly momentum and points (server-recorded, once each). */
   steps?: Step[];
+  /** Story Deck: true interview stories built from resume lines (STAR), with what's still missing. */
+  stories?: Story[];
   /** Week (Monday date) the Friday weekly-goal email was last sent. */
   lastNudge?: string;
   /** When the student last uploaded a profile photo (also busts the image cache); absent = no photo. */

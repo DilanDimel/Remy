@@ -6,8 +6,7 @@ import path from "node:path";
 import multer from "multer";
 import { z } from "zod";
 import type {
-  Application, AppConfig, BulletChange, ChatAction, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace,
-} from "@shared/types";
+  Application, AppConfig, BulletChange, ChatAction, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace, Story } from "@shared/types";
 import { BETA_TERMS_VERSION } from "@shared/beta";
 import { latestNewsId } from "@shared/news";
 import { aiAllowed, checkSchoolCode, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
@@ -842,6 +841,28 @@ export async function registerRoutes(_server: Server, app: Express) {
   }, { serial: true }));
 
   // ---------- AI: onboarding questions + plan ----------
+  // Story Deck: up to 4 interview stories from the student's own resume lines. Any part the honesty checker flags
+  // is dropped and listed as missing, so a story never says more than the resume does.
+  app.post("/api/ai/stories", route(async (_req, res, ctx) => {
+    if (!ctx.ws.resume) bad("Upload a resume first.");
+    const lines = ctx.ws.resume!.doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => ({ where: [e.role, e.org].filter(Boolean).join(" at "), text: b.text })))).slice(0, 40);
+    const out = await withAi(ctx, "Story deck", () =>
+      aiJson<{ stories: Omit<Story, "id">[] }>(
+        `You help a university student prepare true interview stories (STAR: situation, task, action, result) from their resume. Use ONLY facts in the given lines and approved facts; never invent numbers, people, outcomes or feelings. If a part isn't stated, leave it empty and say in "missing" what the student should add (one short question). Pick up to 4 different lines that make the strongest stories, each with a different theme from: challenge, leadership, teamwork, result, learning.`,
+        `RESUME LINES:\n${lines.map((l) => `- ${l.where}: ${l.text}`).join("\n")}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).join("\n") || "(none)"}\n\nReturn {"stories":[{"title":"short","theme":"","situation":"","task":"","action":"","result":"","missing":"","source":"the resume line used, exactly"}]}`,
+        1600,
+      ),
+    );
+    const ev = evidenceOf(ctx.ws);
+    ctx.ws.stories = (out.stories || []).slice(0, 4).map((st) => {
+      const keep = (t: unknown) => { const x = String(t || "").trim().slice(0, 400); return x && !claimCheck(x, ev, { original: String(st.source || "") }).length ? x : ""; };
+      const story = { id: uid("st"), title: String(st.title || "").slice(0, 80), theme: String(st.theme || "").slice(0, 20), situation: keep(st.situation), task: keep(st.task), action: keep(st.action), result: keep(st.result), missing: String(st.missing || "").slice(0, 200), source: String(st.source || "").slice(0, 300) };
+      if (!story.result && !story.missing) story.missing = "What was the result? Add it only if you know it.";
+      return story;
+    }).filter((st) => st.title && st.action);
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
   app.post("/api/ai/questions", route(async (_req, res, ctx) => {
     const out = await withAi(ctx, "Onboarding questions", () =>
       aiJson<{ questions: { q: string; saveTo: string; options?: string[] }[] }>(

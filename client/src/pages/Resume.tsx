@@ -11,6 +11,9 @@ import { AiUnavailableNote, Empty, Remy, Spinner, StatusChip } from "../componen
 import { ResumeBuilder } from "../components/ResumeBuilder";
 import { ResumeUpload } from "../components/Uploaders";
 import { AtsCard } from "../components/AtsCard";
+import { AtsXray } from "../components/AtsXray";
+import { EvidencePassport } from "../components/EvidencePassport";
+import { StoryDeck } from "../components/StoryDeck";
 import { startTailor, useTailorSession } from "../lib/tailorChat";
 
 type Tab = "base" | "tailor" | "library";
@@ -111,6 +114,9 @@ function BaseResume() {
         )}
       </div>
       <AtsCard refreshKey={`${w.resume.uploadedAt}-${w.resume.confirmedAt || ""}-${JSON.stringify(w.resume.doc).length}`} />
+      {doc && <AtsXray doc={doc} quality={w.resume.quality} upd={upd} />}
+      {doc && <EvidencePassport doc={doc} memory={w.memory} />}
+      <StoryDeck />
       {showRaw && <pre className="card card-pad xs" style={{ whiteSpace: "pre-wrap", maxHeight: 320, overflow: "auto", margin: 0 }}>{w.resume.rawText}</pre>}
 
       <div className="card card-pad stack">

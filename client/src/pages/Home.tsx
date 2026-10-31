@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { WeekCard } from "../components/WeekCard";
 import { ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronUp, MapPin } from "lucide-react";
 import type { Job, Task, Workspace } from "@shared/types";
-import { api, daysUntil, fmtDate, useStore } from "../lib/store";
+import { api, daysUntil, fmtDate, rid, useStore } from "../lib/store";
 import { useCompleting } from "../lib/completing";
 import { go } from "../lib/router";
 import { kindLabel, useJobs } from "../lib/jobs";
@@ -23,7 +23,25 @@ export default function Home() {
   const [open, setOpen] = useState<string>("");
   const name = w.profile.preferredName || w.profile.name.split(" ")[0];
 
+  // Interview Tomorrow: an interview in the next two days overrides everything else on Home.
+  // Whole calendar days from today (noon to noon, so daylight-saving changes don't shift it).
+  const dayDiff = (d: string) => Math.round((new Date(d + "T12:00").getTime() - new Date(new Date().toLocaleDateString("en-CA") + "T12:00").getTime()) / 86_400_000);
+  const interview = w.calendar.find((c) => c.kind === "Interview" && dayDiff(c.date) >= 0 && dayDiff(c.date) <= 2);
+  const addPrep = async () => {
+    const who = interview!.title.replace(/^interview( with)?:?\s*/i, "");
+    const prep = [
+      [`Research ${who}: what they do, recent news, the team`, "Ten minutes of reading gives you a better question to ask at the end."],
+      ["Pick two true stories from your resume for this role", "One about a challenge, one about a result. Say what you did, not just the team."],
+      ["Test your setup: link, camera, mic, quiet spot", "Or plan your route and arrive 10 minutes early if it's in person."],
+    ].filter(([t]) => !w.tasks.some((x) => x.title === t)).map(([title, why]) => ({ id: rid("t"), title, why, due: interview!.date, category: "Prepare" as const, done: false, source: "Interview prep" }));
+    if (prep.length) await run(() => save("tasks", [...prep, ...w.tasks]), "Added 3 prep steps to your to-dos");
+    go("/progress?tab=todos");
+  };
   const next = useMemo(() => {
+    if (interview) {
+      const d = dayDiff(interview.date);
+      return { title: `Prepare for your interview ${d === 0 ? "today" : d === 1 ? "tomorrow" : "in 2 days"}: ${interview.title}`, why: "Three short steps: research the organization, pick two true stories, and test your setup.", link: "", cta: "Add prep steps" };
+    }
     const pending = w.applications.find((a) => a.changes.some((c) => c.status === "pending"));
     if (!w.resume) return { title: "Upload your resume", why: "Everything Remy suggests is grounded in your real experience. It starts here.", link: "/resume", cta: "Upload resume" };
     if (!w.resume.confirmedAt) return { title: "Confirm your base resume", why: "Check that every line was read correctly. Tailored versions are built only from what you confirm.", link: "/resume?tab=base", cta: "Review resume" };
@@ -63,7 +81,7 @@ export default function Home() {
           <h2 data-testid="text-next-action">{next.title}</h2>
           <p>{next.why}</p>
           <div style={{ marginTop: 16 }}>
-            <button className="btn btn-light btn-lg" onClick={() => go(next.link)} data-testid="button-next-action">{next.cta} <ArrowRight size={16} /></button>
+            <button className="btn btn-light btn-lg" onClick={() => (interview ? addPrep() : go(next.link))} data-testid="button-next-action">{next.cta} <ArrowRight size={16} /></button>
           </div>
         </div>
         <div className="hero-side">
