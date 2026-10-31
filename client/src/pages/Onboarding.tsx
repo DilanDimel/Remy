@@ -1,7 +1,7 @@
 import { go, uiFlags } from "../lib/router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Check, FileText, Mail, Sparkles, Trash2 } from "lucide-react";
-import type { Profile, SetupFocus, Workspace } from "@shared/types";
+import { PATHS, type Profile, type SetupFocus, type Workspace } from "@shared/types";
 import { FIELD_GROUPS } from "@shared/fields";
 import { api, FAR_ENOUGH_STEP, fmtDate, rid, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
@@ -75,7 +75,7 @@ const FOCUS: [SetupFocus, string, string][] = [
   ["resume", "Make my resume stronger", "Check how it reads to an ATS and get honest suggestions"],
   ["openings", "Find openings that fit me", "Internships, jobs and events matched to your experience"],
   ["interview", "Get ready for an interview", "True stories from your resume and a short prep plan"],
-  ["direction", "Figure out what I want to do", "See the jobs your major leads to and what they're really like"],
+  ["direction", "Figure out what I want to do", "See the jobs your field leads to and what they're really like"],
   ["explore", "Just look around", "Skip setup for now and finish it later from Home"],
 ];
 
@@ -84,6 +84,8 @@ function FocusPick({ onPick }: { onPick: (f: SetupFocus) => void }) {
   const { ws, me } = useStore();
   const first = (ws!.profile.preferredName || me?.name || "").trim().split(/\s+/)[0];
   const [busy, setBusy] = useState("");
+  const { save } = useStore();
+  const path = ws!.profile.path || "";
   return (
     <div className="stack-lg" data-testid="focus-pick">
       <div className="remy-prompt">
@@ -91,6 +93,12 @@ function FocusPick({ onPick }: { onPick: (f: SetupFocus) => void }) {
         <div className="stack-sm">
           <h2>Hi{first ? ` ${first}` : ""}! What would help most today?</h2>
           <p className="muted">Pick one. The first three start with your resume; you can change course anytime.</p>
+        </div>
+      </div>
+      <div className="stack-sm">
+        <b>Where are you right now?</b>
+        <div className="pref-chips" role="group" aria-label="Where are you right now">
+          {PATHS.map(([k, label]) => <button key={k} type="button" className="pref-chip" aria-pressed={path === k} onClick={() => save("profile", { ...ws!.profile, path: k })} data-testid={`path-${k}`}>{label}</button>)}
         </div>
       </div>
       <div className="stack-sm">
@@ -241,7 +249,7 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
 }
 
 const PROFILE_FIELDS: [keyof Profile, string, string?][] = [
-  ["name", "Full name"], ["preferredName", "What should Remy call you?"], ["applicationEmail", "Email for applications", "e.g. you@tcu.edu"], ["school", "School"], ["major", "Major(s)"], ["minors", "Minor(s)"], ["gpa", "GPA", "e.g. 3.6 (optional)"],
+  ["path", "Where are you right now?"], ["name", "Full name"], ["preferredName", "What should Remy call you?"], ["applicationEmail", "Email for applications", "e.g. you@tcu.edu"], ["school", "School"], ["major", "Major(s)"], ["minors", "Minor(s)"], ["gpa", "GPA", "e.g. 3.6 (optional)"],
   ["classYear", "Class year"], ["graduation", "Expected graduation", "e.g. May 2029"], ["location", "Location"], ["targetRoles", "Roles you're curious about", "e.g. investment banking, fintech"],
   ["regions", "Where should Remy look?", "e.g. Fort Worth, Dallas, Remote"], ["opportunityTypes", "Kinds of opportunities", "e.g. Internships, Events"],
 ];
@@ -258,8 +266,13 @@ export function ProfileForm({ onSaved, hidePrefs }: { onSaved?: () => void; hide
       <div className="grid-2">
         {PROFILE_FIELDS.filter(([k]) => !(hidePrefs && PREF_KEYS.includes(k))).map(([k, label, ph]) => (
           <label key={k} className="field">
-            <span>{label}</span>
-            {k === "classYear" ? (
+            <span>{p.path && p.path !== "four-year" ? ({ major: "Program, trade or field", classYear: "Year (if in school)", graduation: "Expected finish date" } as Record<string, string>)[k] || label : label}</span>
+            {k === "path" ? (
+              <select className="select" value={p.path || ""} onChange={(e) => setP({ ...p, path: e.target.value })} data-testid="select-path">
+                <option value="">Choose…</option>
+                {PATHS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            ) : k === "classYear" ? (
               <select className="select" value={p.classYear} onChange={(e) => setP({ ...p, classYear: e.target.value })} data-testid="select-class-year">
                 <option value="">Choose…</option>
                 {["First-year", "Sophomore", "Junior", "Senior", "Graduate student"].map((o) => <option key={o}>{o}</option>)}

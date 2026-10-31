@@ -7,6 +7,7 @@ import multer from "multer";
 import { z } from "zod";
 import type {
   Application, AppConfig, BulletChange, ChatAction, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace, Story } from "@shared/types";
+import { PATHS } from "@shared/types";
 import { BETA_TERMS_VERSION } from "@shared/beta";
 import { latestNewsId } from "@shared/news";
 import { aiAllowed, checkSchoolCode, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
@@ -175,7 +176,7 @@ const findJob = (ws: Workspace, id: string) => allJobs(ws).find((j) => j.id === 
 function profileSummary(ws: Workspace) {
   const p = ws.profile;
   return [
-    `Name: ${p.preferredName || p.name}`, `School: ${p.school}`, `Major: ${p.major}`, `Minor: ${p.minors || ""}`, `GPA: ${p.gpa || ""}`, `Class year: ${p.classYear || classYearOf(ws)}`, `Graduation: ${p.graduation}`,
+    `Name: ${p.preferredName || p.name}`, `Path: ${PATHS.find(([k]) => k === p.path)?.[1] || ""}${p.path && p.path !== "four-year" ? " (not a four-year degree: suggest certificates, licenses, apprenticeships and roles that don't require a bachelor's where they fit; never assume a major or graduation)" : ""}`, `School: ${p.school}`, `Major: ${p.major}`, `Minor: ${p.minors || ""}`, `GPA: ${p.gpa || ""}`, `Class year: ${p.classYear || classYearOf(ws)}`, `Graduation: ${p.graduation}`,
     `Location: ${p.location}`, `Wants opportunities in: ${p.regions}`, `Opportunity types wanted: ${p.opportunityTypes}`, `Target roles: ${p.targetRoles}`, `Goals: ${p.goals}`, `Interests: ${p.interests}`,
     `Work authorization: ${p.workAuth}`, `Open to relocating: ${p.relocation}`, `When they want to start: ${p.timeline || ""}`, `Dream employers: ${p.dreamEmployers || ""}`, `Wants to avoid: ${p.avoid || ""}`,
     `Skills found on resume: ${(ws.resume?.skills || []).join(", ")}`,

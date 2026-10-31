@@ -135,7 +135,15 @@ export interface Profile {
   avoid?: string;
   /** Employers they'd love to work for, comma-separated. Searched first. */
   dreamEmployers?: string;
+  /** Where they are right now (a PATHS key); "" = not asked yet. Remy doesn't assume a four-year degree. */
+  path?: string;
 }
+
+/** Paths into a career, not only the bachelor's degree. */
+export const PATHS: [string, string][] = [
+  ["four-year", "Four-year college"], ["community-college", "Community college"], ["trade", "Trade or technical school"],
+  ["apprenticeship", "Apprenticeship"], ["military", "Military or veteran"], ["working", "Working, not in school"], ["high-school", "High school"],
+];
 
 export interface MemoryFact {
   id: string;
