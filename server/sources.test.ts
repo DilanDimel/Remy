@@ -127,6 +127,6 @@ test("openings scout: counts early-career postings, flags sites that fail or ret
   const by = Object.fromEntries(r.map((x) => [x.company, x]));
   assert.deepEqual([by.Ok.ok, by.Ok.total, by.Ok.early], [true, 2, 1]);
   assert.equal(by.Down.error, "HTTP 500");
-  assert.equal(by.Empty.ok, false);
+  assert.deepEqual([by.Empty.ok, by.Empty.total], [true, 0], "answered with nothing: no openings now, not broken");
   assert.ok(seen.includes("finance") || seen.some((f) => f.length > 0), "a field search word is passed for field-search boards");
 });

@@ -95,7 +95,7 @@ function useLoad<T>(path: string): [T | null, (ok?: string) => void, (t: T) => v
   const { run } = useStore();
   const [data, setData] = useState<T | null>(null);
   const load = (ok?: string) => { run(() => api<T>("GET", path), ok).then((d) => d && setData(d)); };
-  useEffect(() => load(), [path]);
+  useEffect(() => { load(); }, [path]);
   return [data, load, setData];
 }
 
@@ -227,7 +227,7 @@ function ErrorsTab() {
 
 type Run<T> = { at: string; run_by: string; output: T } | null;
 type Agents = { ai: boolean; feedback: Run<{ themes: { title: string; count: number; severity: string; examples: string[]; todo: string }[]; reports: number; note: string }>; weekly: Run<{ lines: string[] }>;
-  scout: Run<{ reached: number; tried: number; early: number; broken: { company: string; error: string }[]; thin: { field: string; employers: number; early: number }[] }>;
+  scout: Run<{ reached: number; tried: number; early: number; broken: { company: string; error: string }[]; quiet?: string[]; thin: { field: string; employers: number; early: number }[] }>;
   research: Run<{ question: string; answer: string; sources: { url: string; title: string }[]; web: boolean }>;
   marketing: Run<{ brief: string; linkedin: string; instagram: string; email: { subject: string; body: string } }> };
 
@@ -278,7 +278,8 @@ function AgentsTab() {
         <div className="stack-sm">
           <p className="small">{sc.reached} of {sc.tried} employer sites answered, with {sc.early} early-career postings in all.</p>
           {sc.thin.length > 0 && <><b className="small">Fields with the fewest early-career openings</b><ul className="small" style={{ paddingLeft: 18 }}>{sc.thin.map((t) => <li key={t.field}>{t.field}: {t.early} from {t.employers} employer{t.employers === 1 ? "" : "s"}</li>)}</ul></>}
-          {sc.broken.length > 0 && <details><summary className="small">{sc.broken.length} site{sc.broken.length === 1 ? "" : "s"} failed or returned nothing</summary><ul className="xs muted" style={{ paddingLeft: 18 }}>{sc.broken.map((b) => <li key={b.company}>{b.company}: {b.error}</li>)}</ul></details>}
+          {!!sc.quiet?.length && <p className="xs muted">No internships posted right now: {sc.quiet.join(", ")}.</p>}
+          {sc.broken.length > 0 && <details><summary className="small">{sc.broken.length} site{sc.broken.length === 1 ? "" : "s"} couldn't be read</summary><ul className="xs muted" style={{ paddingLeft: 18 }}>{sc.broken.map((b) => <li key={b.company}>{b.company}: {b.error}</li>)}</ul></details>}
           {sc.broken.length > 0 && !added.includes("Fix the job readers the scout flagged") && <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => add("Fix the job readers the scout flagged")}><Plus size={14} /> Add to board</button>}
         </div>
       ), d.scout)}

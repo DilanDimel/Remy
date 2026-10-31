@@ -664,4 +664,9 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .road li span { font-size: var(--text-xs); color: var(--muted-text); }
 .road li.on i { background: var(--fox); border-color: var(--fox); }
 .road li.next { border-color: var(--fox); }
-@media (max-width: 640px) { .road { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) {
+  .road { grid-template-columns: 1fr; gap: 6px; }
+  .road li { grid-template-columns: 20px auto 1fr; padding: 6px 10px; }
+  .road li i { grid-row: auto; }
+  .road li span { text-align: right; }
+}

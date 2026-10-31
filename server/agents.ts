@@ -53,6 +53,7 @@ export async function scout(by: string) {
   const output = {
     reached: r.filter((b) => b.ok).length, tried: r.length, early: r.reduce((s, b) => s + b.early, 0),
     broken: r.filter((b) => !b.ok).map((b) => ({ company: b.company, error: b.error || "" })).sort((a, b) => a.company.localeCompare(b.company)),
+    quiet: r.filter((b) => b.ok && !b.total).map((b) => b.company).sort(),
     thin: [...fields].map(([field, x]) => ({ field, ...x })).sort((a, b) => a.early - b.early).slice(0, 8),
   };
   await save("scout", by, output);

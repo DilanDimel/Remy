@@ -127,8 +127,7 @@ async function workday(b: Board, field: string): Promise<Raw[]> {
 // Search words for boards that need one: hospitals post "Nurse Residency" and "Extern", not "Intern".
 const queries = (field: string) => (field === "nursing" ? ["nurse residency", "extern", "graduate nurse"] : ["intern"]);
 async function each(field: string, read: (q: string) => Promise<Raw[]>): Promise<Raw[]> {
-  const seen = new Set<string>();
-  return (await Promise.all(queries(field).map((q) => read(q).catch(() => [] as Raw[])))).flat().filter((r) => !seen.has(r.url) && seen.add(r.url));
+  return eachQuery(queries(field), read);
 }
 // SmartRecruiters' public postings API. Board = company identifier (e.g. "Colliers").
 async function smartrecruiters(b: Board, field: string): Promise<Raw[]> {
@@ -248,9 +247,12 @@ async function applitrack(b: Board): Promise<Raw[]> {
 }
 // School-district search words: student roles are rare, so search for them instead of paging every opening.
 const SCHOOL_QUERIES = ["tutor", "intern", "student", "substitute", "summer", "lifeguard", "after school"];
+/** Runs each search; one failed search is skipped, but if every one fails the site is down (not "no openings"). */
 async function eachQuery(queries: string[], read: (q: string) => Promise<Raw[]>): Promise<Raw[]> {
   const seen = new Set<string>();
-  return (await Promise.all(queries.map((q) => read(q).catch(() => [] as Raw[])))).flat().filter((r) => !seen.has(r.url) && seen.add(r.url));
+  const res = await Promise.allSettled(queries.map(read));
+  if (res.every((r) => r.status === "rejected")) throw (res[0] as PromiseRejectedResult).reason;
+  return res.flatMap((r) => (r.status === "fulfilled" ? r.value : [])).filter((r) => !seen.has(r.url) && seen.add(r.url));
 }
 // SchoolSpring (PowerSchool), used by districts such as Irving and Keller ISD: its public JSON API.
 // Board = the district's SchoolSpring host ("irvingisd.schoolspring.com").
@@ -380,7 +382,8 @@ export async function scoutBoards(boards = EMPLOYERS, read = cachedBoard) {
       const k = FIELD_TITLES.findIndex(([field]) => field.test((b.fields || []).join(" ")));
       try {
         const raws = await Promise.race([read(b, k >= 0 ? FIELD_SEARCH[k] : "", ""), new Promise<never>((_, no) => setTimeout(() => no(new Error("timed out")), 45_000))]);
-        out.push({ company: b.company, fields: b.fields || [], ok: raws.length > 0, total: raws.length, early: raws.filter((r) => r.student || EARLY.test(r.title)).length, ...(raws.length ? {} : { error: "no postings returned" }) });
+        // A site that answers with nothing usually has no internships posted right now; that isn't a broken reader.
+        out.push({ company: b.company, fields: b.fields || [], ok: true, total: raws.length, early: raws.filter((r) => r.student || EARLY.test(r.title)).length });
       } catch (e: any) {
         out.push({ company: b.company, fields: b.fields || [], ok: false, total: 0, early: 0, error: String(e?.message || e).slice(0, 120) });
       }
