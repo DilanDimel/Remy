@@ -1,0 +1,20 @@
+import { CalendarClock } from "lucide-react";
+import type { Workspace } from "@shared/types";
+import { SEASON_SOURCE, seasonFor } from "@shared/seasons";
+import { go } from "../lib/router";
+
+/** When the student's field usually recruits interns, so they know whether to apply now or prepare. */
+export function SeasonCard({ w }: { w: Workspace }) {
+  const s = seasonFor([w.profile.targetRoles, w.profile.major, w.profile.interests].join(" "));
+  if (!s) return null;
+  return (
+    <section className="card card-pad row" style={{ gap: 12, alignItems: "flex-start", flexWrap: "nowrap" }} data-testid="season-card">
+      <CalendarClock size={20} style={{ color: "var(--fox)", flexShrink: 0, marginTop: 2 }} />
+      <div className="stack-sm grow" style={{ gap: 4 }}>
+        <b className="small">{s.open ? `${s.label} internship season is on now` : `${s.label} internship season usually opens in ${s.opens}${s.monthsUntil === 1 ? ", next month" : ` (in about ${s.monthsUntil} months)`}`}</b>
+        <span className="small muted">Usually {s.window}. {s.note} <a href={SEASON_SOURCE} target="_blank" rel="noreferrer" className="xs">Source</a></span>
+      </div>
+      <button className="btn btn-secondary btn-sm" onClick={() => go(s.open ? "/opportunities" : "/resume?tab=base")}>{s.open ? "See openings" : "Get ready"}</button>
+    </section>
+  );
+}

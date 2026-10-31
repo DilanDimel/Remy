@@ -213,3 +213,12 @@ test("weekly digest: on the student's day, once, only with news, only when on", 
   ws.settings.notify.weeklyPlan = false;
   assert.equal(weeklyDigest(ws, "2026-11-01", 0, "x.test"), null, "off means off");
 });
+
+test("recruiting season: matches the field and says whether it's open now", async () => {
+  const { seasonFor } = await import("@shared/seasons");
+  const fin = seasonFor("Finance, investment banking", new Date("2026-11-15T12:00:00"));
+  assert.deepEqual([fin?.label, fin?.open, fin?.monthsUntil], ["Finance", false, 2]);
+  const tech = seasonFor("Computer Science", new Date("2026-11-15T12:00:00"));
+  assert.deepEqual([tech?.label, tech?.open], ["Tech", true], "a window that wraps the new year");
+  assert.equal(seasonFor("Underwater basket weaving"), null);
+});
