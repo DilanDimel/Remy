@@ -19,12 +19,21 @@ export function useRoute() {
   return r;
 }
 
+// The app scrolls inside <main id="main"> on wide screens and the window elsewhere; handle both.
+const pane = () => document.getElementById("main");
+const scrollY = () => pane()?.scrollTop || window.scrollY;
+const scrollTo = (y: number) => { pane()?.scrollTo(0, y); window.scrollTo(0, y); };
+
 const clean = (to: string) => "/" + to.replace(/^#?\/*/, "");
 
 export function go(to: string) {
   const url = clean(to);
-  if (url !== location.pathname + location.search) history.pushState(null, "", url);
-  window.scrollTo(0, 0);
+  if (url !== location.pathname + location.search) {
+    // Remember where this page was scrolled, so Back returns to the same spot in a list.
+    history.replaceState({ ...history.state, y: scrollY() }, "");
+    history.pushState(null, "", url);
+  }
+  scrollTo(0);
   window.dispatchEvent(new Event(CHANGE));
 }
 
@@ -39,6 +48,14 @@ export function startRouter() {
   const fromHash = () => location.hash.startsWith("#/") && replaceRoute(location.hash);
   fromHash();
   window.addEventListener("hashchange", fromHash);
+  history.scrollRestoration = "manual";
+  window.addEventListener("popstate", () => {
+    const y = history.state?.y || 0;
+    // Lists can take a moment to render; retry briefly until the page is tall enough.
+    let tries = 0;
+    const to = () => { scrollTo(y); if (scrollY() < y - 2 && ++tries < 20) setTimeout(to, 50); };
+    requestAnimationFrame(to);
+  });
   document.addEventListener("click", (e) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     const a = (e.target as Element | null)?.closest?.("a");

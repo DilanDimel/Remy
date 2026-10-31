@@ -25,8 +25,7 @@ export default function Home() {
 
   // Interview Tomorrow: an interview in the next two days overrides everything else on Home.
   // Whole calendar days from today (noon to noon, so daylight-saving changes don't shift it).
-  const dayDiff = (d: string) => Math.round((new Date(d + "T12:00").getTime() - new Date(new Date().toLocaleDateString("en-CA") + "T12:00").getTime()) / 86_400_000);
-  const interview = w.calendar.find((c) => c.kind === "Interview" && dayDiff(c.date) >= 0 && dayDiff(c.date) <= 2);
+  const interview = w.calendar.find((c) => { const n = daysUntil(c.date); return c.kind === "Interview" && n !== null && n >= 0 && n <= 2; });
   const addPrep = async () => {
     const who = interview!.title.replace(/^interview( with)?:?\s*/i, "");
     const prep = [
@@ -39,7 +38,7 @@ export default function Home() {
   };
   const next = useMemo(() => {
     if (interview) {
-      const d = dayDiff(interview.date);
+      const d = daysUntil(interview.date);
       return { title: `Prepare for your interview ${d === 0 ? "today" : d === 1 ? "tomorrow" : "in 2 days"}: ${interview.title}`, why: "Three short steps: research the organization, pick two true stories, and test your setup.", link: "", cta: "Add prep steps" };
     }
     const pending = w.applications.find((a) => a.changes.some((c) => c.status === "pending"));
@@ -154,7 +153,7 @@ function JobRow({ j, why, open, onToggle }: { j: Job; why?: string; open: boolea
           </div>
         )}
       </div>
-      {j.deadline && <span className={"chip " + (d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d >= 0 ? `${d}d left` : fmtDate(j.deadline)}</span>}
+      {j.deadline && <span className={"chip " + (d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d >= 0 ? (d === 0 ? "Due today" : `${d}d left`) : fmtDate(j.deadline)}</span>}
       <button className="icon-btn" onClick={onToggle} aria-label="Details">{open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>
     </div>
   );

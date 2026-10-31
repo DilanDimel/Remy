@@ -1,7 +1,7 @@
-import { uiFlags } from "../lib/router";
+import { go, uiFlags } from "../lib/router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Check, FileText, Mail, Sparkles, Trash2 } from "lucide-react";
-import type { Profile, Workspace } from "@shared/types";
+import type { Profile, SetupFocus, Workspace } from "@shared/types";
 import { FIELD_GROUPS } from "@shared/fields";
 import { api, FAR_ENOUGH_STEP, fmtDate, rid, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
@@ -27,7 +27,17 @@ export default function Onboarding() {
   const setStep = (s: number) => save("onboarding", { ...w.onboarding, step: s });
   const finish = async () => {
     uiFlags.flyIn = true;
+    const to = LAND[w.onboarding.focus || ""];
+    if (to) go(to);
     await save("onboarding", { ...w.onboarding, done: true });
+  };
+  const pick = async (focus: SetupFocus) => {
+    if (focus === "direction" || focus === "explore") {
+      // No resume needed: let them in now. Home's next step asks for the resume when they're ready.
+      uiFlags.flyIn = true;
+      go(focus === "direction" ? "/path?tab=career" : "/");
+      await save("onboarding", { ...w.onboarding, focus, exploring: focus === "direction" || w.onboarding.exploring, done: true });
+    } else await save("onboarding", { ...w.onboarding, focus });
   };
   return (
     <div className="ob">
@@ -44,7 +54,8 @@ export default function Onboarding() {
           <WelcomeBack onContinue={() => setWelcomeBack(false)} onRestart={async () => { await save("onboarding", { ...w.onboarding, step: 1, answers: [], questions: [], targets: [] }); setWelcomeBack(false); }} />
         ) : (
           <>
-            {step <= 1 && <ResumeStep onNext={() => setStep(2)} />}
+            {step <= 1 && !w.onboarding.focus && !w.resume ? <FocusPick onPick={pick} />
+              : step <= 1 && <ResumeStep onNext={() => setStep(2)} />}
             {step === 2 && <Review onBack={() => setStep(1)} onNext={() => setStep(3)} />}
             {step === 3 && <Preferences onBack={() => setStep(2)} />}
             {step === 4 && <Questions onBack={() => setStep(3)} onNext={() => setStep(5)} />}
@@ -53,6 +64,42 @@ export default function Onboarding() {
         )}
       </div>
       {!config?.ai.available && <div style={{ maxWidth: 720, width: "100%" }}><AiUnavailableNote /></div>}
+    </div>
+  );
+}
+
+// Where finishing setup lands, by what the student said would help most.
+const LAND: Record<string, string> = { resume: "/resume?tab=base", openings: "/opportunities", interview: "/resume?tab=base" };
+const FOCUS: [SetupFocus, string, string][] = [
+  ["resume", "Make my resume stronger", "Check how it reads to an ATS and get honest suggestions"],
+  ["openings", "Find openings that fit me", "Internships, jobs and events matched to your experience"],
+  ["interview", "Get ready for an interview", "True stories from your resume and a short prep plan"],
+  ["direction", "Figure out what I want to do", "See the jobs your major leads to and what they're really like"],
+  ["explore", "Just look around", "Skip setup for now and finish it later from Home"],
+];
+
+/** First screen of setup: one question, so a student can get to what they came for. */
+function FocusPick({ onPick }: { onPick: (f: SetupFocus) => void }) {
+  const { ws, me } = useStore();
+  const first = (ws!.profile.preferredName || me?.name || "").trim().split(/\s+/)[0];
+  const [busy, setBusy] = useState("");
+  return (
+    <div className="stack-lg" data-testid="focus-pick">
+      <div className="remy-prompt">
+        <Remy size={44} mood="wave" />
+        <div className="stack-sm">
+          <h2>Hi{first ? ` ${first}` : ""}! What would help most today?</h2>
+          <p className="muted">Pick one. The first three start with your resume; you can change course anytime.</p>
+        </div>
+      </div>
+      <div className="stack-sm">
+        {FOCUS.map(([k, label, detail]) => (
+          <button key={k} className="conn-row" style={{ textAlign: "left", width: "100%" }} disabled={!!busy} onClick={() => { setBusy(k); onPick(k); }} data-testid={`focus-${k}`}>
+            <div className="grow"><b>{label}</b><span>{detail}</span></div>
+            {busy === k ? <Spinner /> : <ArrowRight size={16} />}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

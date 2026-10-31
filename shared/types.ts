@@ -395,13 +395,15 @@ export type ChatAction = { kind: "task"; title: string; why: string } | { kind: 
 export interface Story { id: string; title: string; theme: string; situation: string; task: string; action: string; result: string; missing: string; source: string }
 export interface Step { at: string; kind: "task" | "save" | "start" | "approve" | "outreach" | "resume"; ref: string; xp: number }
 /** Settings the chat may offer to change (the student still taps to confirm). */
+/** What the student said would help most on day one; it picks where setup leads. */
+export type SetupFocus = "resume" | "openings" | "interview" | "direction" | "explore";
 export type SettingKey = "theme" | "notify.deadlines" | "notify.statusChanges" | "notify.weeklyPlan";
 
 export interface Workspace {
   version: 2;
   started: boolean;
   /** options: tap-to-answer suggestions per question; exploring: the student said they're not sure what they want yet. */
-  onboarding: { step: number; done: boolean; answers: { q: string; a: string }[]; questions: string[]; targets?: string[]; options?: string[][]; exploring?: boolean };
+  onboarding: { step: number; done: boolean; answers: { q: string; a: string }[]; questions: string[]; targets?: string[]; options?: string[][]; exploring?: boolean; focus?: SetupFocus };
   profile: Profile;
   resume?: BaseResume;
   builder?: ResumeBuilder;

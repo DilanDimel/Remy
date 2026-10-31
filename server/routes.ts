@@ -506,7 +506,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     hiddenJobIds: ids,
     memory: z.array(z.looseObject({ id: str(120).optional(), text: str(2000) })).max(300),
     outreach: z.array(z.looseObject({ id: str(120), contactId: str(120), to: str(320), subject: str(300), body: str(8000), linkedin: str(400).optional(), status: z.enum(["draft", "approved", "handed-off"]), createdAt: str(40) })).max(500),
-    onboarding: z.object({ step: z.number().int().min(0).max(50), done: z.boolean(), answers: z.array(z.object({ q: str(500), a: str(2000) })).max(50), questions: z.array(str(500)).max(20), targets: z.array(str(40)).max(20).optional(), options: z.array(z.array(str(80)).max(4)).max(20).optional(), exploring: z.boolean().optional() }),
+    onboarding: z.object({ step: z.number().int().min(0).max(50), done: z.boolean(), answers: z.array(z.object({ q: str(500), a: str(2000) })).max(50), questions: z.array(str(500)).max(20), targets: z.array(str(40)).max(20).optional(), options: z.array(z.array(str(80)).max(4)).max(20).optional(), exploring: z.boolean().optional(), focus: z.enum(["resume", "openings", "interview", "direction", "explore"]).optional() }),
     started: z.boolean(),
     plan: z.looseObject({ nextAction: z.looseObject({ title: str(300), why: str(2000), link: str(300) }), careers: z.array(z.looseObject({ id: str(120), title: str(300) })).max(20), skills: z.array(z.looseObject({ id: str(120), name: str(300) })).max(30), academic: z.array(z.looseObject({ id: str(120), term: str(100) })).max(20) }),
     contacts: z.array(z.looseObject({ id: str(120), name: str(200), title: str(300), org: str(300), email: str(320), why: str(2000), tags: z.array(str(120)).max(30), label: str(40) })).max(1000),

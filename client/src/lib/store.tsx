@@ -135,11 +135,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => mq.removeEventListener("change", apply);
   }, [theme]);
 
+  // Save status everyone can see: "Saving…" only if it takes a moment, and a failed save keeps its value for Retry.
+  const [saving, setSaving] = useState(0);
+  const [failed, setFailed] = useState<{ section: string; value: unknown } | null>(null);
   const save = useCallback(async (section: string, value: unknown) => {
-    const w = await api<Workspace>("PUT", `/api/ws/${section}`, { value });
-    setWsState(w);
-    return w;
+    setSaving((n) => n + 1);
+    try {
+      const w = await api<Workspace>("PUT", `/api/ws/${section}`, { value });
+      setWsState(w);
+      setFailed((f) => (f?.section === section ? null : f));
+      return w;
+    } catch (e) {
+      setFailed({ section, value });
+      throw e;
+    } finally {
+      setSaving((n) => n - 1);
+    }
   }, []);
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!saving) { setSlow(false); return; }
+    const t = setTimeout(() => setSlow(true), 600);
+    return () => clearTimeout(t);
+  }, [saving]);
   const setTheme = useCallback(async (t: Theme) => {
     setLocalTheme(t);
     try { if (t === "system") localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, t); } catch {}
@@ -166,6 +184,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={value}>
       {children}
+      {(failed || slow) && (
+        <div className={"save-status" + (failed ? " err" : "")} role="status" data-testid="save-status">
+          {failed && !saving ? <>Couldn't save your last change. <button onClick={() => save(failed.section, failed.value).catch(() => {})}>Retry</button></> : "Saving…"}
+        </div>
+      )}
       <div className="toast-wrap" aria-live="polite">
         {toasts.map((t) => <div key={t.id} className={"toast" + (t.err ? " err" : "")} data-testid="toast">{t.text}</div>)}
       </div>
@@ -178,9 +201,10 @@ export const fmtDate = (d: string) => {
   const dt = new Date(d.length === 10 ? d + "T12:00:00" : d);
   return isNaN(+dt) ? d : dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 };
+/** Calendar days from today to a date: today 0, tomorrow 1 (noon-to-noon, so daylight saving can't shift it). */
 export const daysUntil = (d: string) => {
   if (!d) return null;
-  const t = new Date(d + "T23:59:00").getTime();
-  return Math.ceil((t - Date.now()) / 86_400_000);
+  const t = new Date(d.slice(0, 10) + "T12:00").getTime();
+  return isNaN(t) ? null : Math.round((t - new Date(new Date().toLocaleDateString("en-CA") + "T12:00").getTime()) / 86_400_000);
 };
 export const rid = (p = "") => p + Math.random().toString(36).slice(2, 10);
