@@ -4,6 +4,7 @@ import { api, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
 import { BetaBadge, Empty, Remy, Spinner } from "../components/common";
 import { WhatsNew } from "../components/WhatsNew";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 // The owners' dashboard (server/admin.ts). Numbers about use, errors students hit, and the team's
 // own board, meetings, hours and activity. Never anything a student wrote.
@@ -73,6 +74,7 @@ export default function Admin() {
           {TABS.map(([k, l, Icon]) => <a key={k} href={`/admin?tab=${k}`} aria-current={tab === k ? "page" : undefined}><Icon size={17} /> {l}</a>)}
         </nav>
         <WhatsNew className="btn btn-ghost btn-sm adm-news" />
+        <ThemeToggle className="btn btn-ghost btn-sm adm-theme" />
         <a className="btn btn-ghost btn-sm adm-back" href="/"><ArrowLeft size={14} /> Back to Remy</a>
       </aside>
       <main className="adm-main">

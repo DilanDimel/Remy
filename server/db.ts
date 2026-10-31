@@ -33,7 +33,7 @@ export function emptyWorkspace(): Workspace {
     chat: [],
     aiLog: [],
     incidents: [],
-    settings: { theme: "light", assistantOpen: true, navCollapsed: false, notify: { deadlines: true, statusChanges: true, weeklyPlan: false } },
+    settings: { theme: "system", assistantOpen: true, navCollapsed: false, notify: { deadlines: true, statusChanges: true, weeklyPlan: false } },
     updatedAt: nowIso(),
   };
 }
@@ -120,6 +120,8 @@ function fromStored(data: any): Workspace {
   ws.outreach = ws.outreach.filter((o) => !ws.contacts.some((c) => c.id === o.contactId && gone(c)));
   ws.contacts = ws.contacts.filter((c) => !gone(c));
   ws.inbox = ws.inbox.filter((m) => m.label !== "Sample email");
+  // Accounts made before "Match device" stored "light" without anyone choosing it.
+  if (ws.settings.theme === "light" && !ws.settings.themeChosen) ws.settings.theme = "system";
   return ws;
 }
 export async function loadWorkspace(userId: string): Promise<Workspace> {
@@ -224,6 +226,9 @@ export async function saveFile(userId: string, kind: string, name: string, mime:
 export async function getFile(userId: string, kind: string): Promise<{ name: string; mime: string; data: Buffer } | null> {
   const r = await q1("SELECT name, mime, data FROM files WHERE user_id=$1 AND kind=$2", [userId, kind]);
   return r ? { name: r.name, mime: r.mime, data: Buffer.from(r.data) } : null;
+}
+export async function deleteFile(userId: string, kind: string) {
+  await q("DELETE FROM files WHERE user_id=$1 AND kind=$2", [userId, kind]);
 }
 export async function deleteFiles(userId: string) {
   await q("DELETE FROM files WHERE user_id=$1", [userId]);

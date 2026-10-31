@@ -4,12 +4,13 @@ import {
   BarChart3, Briefcase, CalendarDays, ChevronsLeft, ChevronsRight, Compass, FileText, Home as HomeIcon, Menu, Send,
   Check, Info, Minus, ShieldCheck, UserCog, Users,
 } from "lucide-react";
-import { StoreProvider, api, rid, useStore } from "./lib/store";
+import { StoreProvider, api, rid, useStore, type Theme } from "./lib/store";
 import { go, replaceRoute, useRoute } from "./lib/router";
 const PUBLIC = new Set(["/", "/signin", "/about", "/policies", "/privacy", "/terms"]);
 import { BetaBadge, Modal, Remy, Spinner, StatusChip } from "./components/common";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { WhatsNew } from "./components/WhatsNew";
+import { Avatar } from "./components/ProfilePhoto";
 import { answer as answerTailor, endSession as endTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
 import Onboarding from "./pages/Onboarding";
@@ -36,6 +37,10 @@ const NAV = [
   { path: "/progress", label: "Progress", icon: BarChart3 },
 ];
 const ACCOUNTS = { path: "/accounts", label: "Account", icon: UserCog };
+const THEME_NAME: Record<Theme, string> = { dark: "Dark mode", light: "Light mode", system: "Matching your device" };
+const NOTIFY_NAME: Record<string, string> = { "notify.deadlines": "Deadline reminders", "notify.statusChanges": "Status-change alerts", "notify.weeklyPlan": "Weekly plan emails" };
+const settingLabel = (a: Extract<ChatAction, { kind: "setting" }>) =>
+  a.key === "theme" ? (a.value === "system" ? "Match my device's theme" : `Turn on ${String(a.value)} mode`) : `Turn ${NOTIFY_NAME[a.key].toLowerCase()} ${a.value ? "on" : "off"}`;
 
 export default function App() {
   return (
@@ -240,7 +245,7 @@ const STARTERS: Record<string, string[]> = {
 };
 
 function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () => void; flyIn: boolean }) {
-  const { ws, setWs, run, save, config } = useStore();
+  const { ws, setWs, run, save, config, theme, setTheme } = useStore();
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
@@ -280,9 +285,14 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   const remembered = new Set(ws!.memory.map((m) => m.text));
   // A button Remy offered under a reply. Already-done ones show as done, so a second tap can't add it twice.
   const roles = ws!.profile.targetRoles.split(/,\s*/).filter(Boolean);
-  const isDone = (a: ChatAction) => a.kind === "task" ? ws!.tasks.some((t) => t.title === a.title) : a.kind === "role" ? roles.some((r) => r.toLowerCase() === a.title.toLowerCase()) : false;
+  const isDone = (a: ChatAction) => a.kind === "task" ? ws!.tasks.some((t) => t.title === a.title) : a.kind === "role" ? roles.some((r) => r.toLowerCase() === a.title.toLowerCase())
+    : a.kind === "setting" ? settingNow(a.key) === a.value : false;
+  const settingNow = (key: string) => key === "theme" ? theme : ws!.settings.notify[key.split(".")[1] as keyof Workspace["settings"]["notify"]];
   const act = (a: ChatAction) => {
     if (a.kind === "open") return go(a.link);
+    // The receipt says exactly what changed and where to undo it; run() reports a failed save instead.
+    if (a.kind === "setting" && a.key === "theme") return run(() => setTheme(a.value as Theme), `${THEME_NAME[a.value as Theme]} is on. Change it anytime in Account → Appearance.`);
+    if (a.kind === "setting") return run(() => save("settings", { notify: { ...ws!.settings.notify, [a.key.split(".")[1]]: a.value } }), `${NOTIFY_NAME[a.key]} ${a.value ? "on" : "off"}. Other reminders are unchanged.`);
     if (a.kind === "task") return run(() => save("tasks", [{ id: rid("t"), title: a.title, why: a.why, due: "", category: "Prepare", done: false, source: "Remy chat" }, ...ws!.tasks]), "Added to your to-dos");
     return run(() => save("profile", { ...ws!.profile, targetRoles: [...roles, a.title].join(", ") }), `Remy will look for ${a.title} openings too`);
   };
@@ -309,8 +319,8 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
             {!!m.actions?.length && (
               <div className="row" style={{ gap: 6, maxWidth: "92%" }}>
                 {m.actions.map((a, i) => isDone(a)
-                  ? <span key={i} className="chip"><Check size={12} /> {a.kind === "task" ? "On your to-dos" : "In your search"}</span>
-                  : <button key={i} className="btn btn-secondary btn-sm" style={{ whiteSpace: "normal", height: "auto", textAlign: "left" }} onClick={() => act(a)} data-testid="button-chat-action">{a.kind === "task" ? <>Add to-do: {a.title}</> : a.kind === "role" ? <>Look for {a.title} openings</> : a.label}</button>)}
+                  ? <span key={i} className="chip"><Check size={12} /> {a.kind === "task" ? "On your to-dos" : a.kind === "setting" ? "Done" : "In your search"}</span>
+                  : <button key={i} className="btn btn-secondary btn-sm" style={{ whiteSpace: "normal", height: "auto", textAlign: "left" }} onClick={() => act(a)} data-testid="button-chat-action">{a.kind === "task" ? <>Add to-do: {a.title}</> : a.kind === "role" ? <>Look for {a.title} openings</> : a.kind === "setting" ? settingLabel(a) : a.label}</button>)}
               </div>
             )}
             {m.memorySuggestions?.filter((s) => !remembered.has(s)).map((s) => (
@@ -398,7 +408,7 @@ function ProfileMenu({ initials, active }: { initials: string; active: boolean }
   return (
     <div className="side-foot" ref={ref}>
       <button className={"profile-btn" + (active ? " on" : "")} onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} data-testid="button-profile-menu">
-        <div className="avatar">{me?.picture ? <img src={me.picture} alt="" referrerPolicy="no-referrer" /> : initials}</div>
+        <Avatar initials={initials} />
         <div className="side-foot-text" style={{ minWidth: 0, textAlign: "left" }}>
           <div className="small" style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ws!.profile.preferredName || ws!.profile.name || "Student"}</div>
           <div className="xs muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{kind}</div>

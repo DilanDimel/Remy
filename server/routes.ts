@@ -10,7 +10,7 @@ import type {
 } from "@shared/types";
 import { BETA_TERMS_VERSION } from "@shared/beta";
 import { latestNewsId } from "@shared/news";
-import { aiAllowed, checkSchoolCode, cleanupOld, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
+import { aiAllowed, checkSchoolCode, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./safety";
 import * as admin from "./admin";
@@ -470,7 +470,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   const SHAPES: Partial<Record<(typeof SECTIONS)[number], z.ZodType>> = {
     profile: z.looseObject({}),
     settings: z.object({
-      theme: z.enum(["light", "dark"]).optional(), assistantOpen: z.boolean().optional(), navCollapsed: z.boolean().optional(),
+      theme: z.enum(["system", "light", "dark"]).optional(), themeChosen: z.boolean().optional(), assistantOpen: z.boolean().optional(), navCollapsed: z.boolean().optional(),
       notify: z.object({ deadlines: z.boolean(), statusChanges: z.boolean(), weeklyPlan: z.boolean() }).partial().optional(),
       demoConnections: z.array(str(80)).max(20).optional(), newsSeen: str(40).optional(),
     }),
@@ -608,6 +608,33 @@ export async function registerRoutes(_server: Server, app: Express) {
   }, { serial: true }));
 
   // The exact file the student uploaded (inline, so a PDF previews in the browser).
+  // Profile photo: the browser crops and shrinks it to a small square first; only real JPEG/PNG/WebP bytes are kept.
+  const IMAGE = [["image/jpeg", [0xff, 0xd8, 0xff]], ["image/png", [0x89, 0x50, 0x4e, 0x47]], ["image/webp", [0x52, 0x49, 0x46, 0x46]]] as const;
+  app.post("/api/profile/photo", uploadFile, route(async (req, res, ctx) => {
+    const f = req.file;
+    if (!f) bad("Choose a photo to upload.");
+    const kind = IMAGE.find(([, sig]) => sig.every((b, i) => f!.buffer[i] === b));
+    if (!kind) bad("Use a JPG, PNG or WebP photo.");
+    if (f!.size > 1_500_000) bad("That photo is too large. Try a smaller one.", 413);
+    await saveFile(ctx.me.id, "photo", "photo", kind![0], f!.buffer);
+    ctx.ws.photoAt = nowIso();
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
+  app.get("/api/profile/photo", route(async (_req, res, ctx) => {
+    const f = await getFile(ctx.me.id, "photo");
+    if (!f) bad("No photo.", 404);
+    res.setHeader("Content-Type", f!.mime);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", "private, max-age=86400");
+    res.send(f!.data);
+  }));
+  app.delete("/api/profile/photo", route(async (_req, res, ctx) => {
+    await deleteFile(ctx.me.id, "photo");
+    delete ctx.ws.photoAt;
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
   app.get("/api/resume/original", route(async (req, res, ctx) => {
     const f = await getFile(ctx.me.id, "resume");
     if (!f || !ctx.ws.resume?.original) bad("No uploaded file is stored — this resume was pasted or is the sample.", 404);
@@ -918,7 +945,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     const answers = ctx.ws.onboarding.answers.map((a) => `${a.q} → ${a.a}`).join("\n");
     const out = await withAi(ctx, "Assistant chat", () =>
       aiJson<{ reply: string; remember: string[]; actions?: ChatAction[] }>(
-        `You are Remy, a friendly fox career coach for university students. Be concise: under 110 words, at most 3 short bullet lines starting with "• ", and **bold** only for a few key words. Warm, practical and honest. Use only facts you are given; if you don't know something (like a specific university rule), say so and suggest who to ask. Never claim to have sent emails, applied, or changed calendars — you can only suggest. If the student shares a durable fact or preference worth remembering, propose it in "remember" (short third-person statements); otherwise return an empty list. Today is ${centralToday()}; the student's class standing is ${classYearOf(ctx.ws) || "unknown"}. Don't question dates that fit that standing. You know everything below about the student; use it so they never have to repeat themselves, and refer to their real experience by name.\n\nWhen a concrete next step would help, offer up to 2 buttons in "actions" (the student taps to do it; you never do it yourself): {"kind":"task","title":"short to-do","why":"one sentence"} adds a to-do; {"kind":"role","title":"job title"} adds a job to the roles Remy searches openings for; {"kind":"open","link":"/resume|/opportunities|/path?tab=career|/path?tab=future|/community|/calendar|/progress|/accounts?tab=memory","label":"button text"} opens a page. Otherwise return an empty list.\n\n${CHAT_RULES}`,
+        `You are Remy, a friendly fox career coach for university students. Be concise: under 110 words, at most 3 short bullet lines starting with "• ", and **bold** only for a few key words. Warm, practical and honest. Use only facts you are given; if you don't know something (like a specific university rule), say so and suggest who to ask. Never claim to have sent emails, applied, or changed calendars — you can only suggest. If the student shares a durable fact or preference worth remembering, propose it in "remember" (short third-person statements); otherwise return an empty list. Today is ${centralToday()}; the student's class standing is ${classYearOf(ctx.ws) || "unknown"}. Don't question dates that fit that standing. You know everything below about the student; use it so they never have to repeat themselves, and refer to their real experience by name.\n\nWhen a concrete next step would help, offer up to 2 buttons in "actions" (the student taps to do it; you never do it yourself): {"kind":"task","title":"short to-do","why":"one sentence"} adds a to-do; {"kind":"role","title":"job title"} adds a job to the roles Remy searches openings for; {"kind":"open","link":"/resume|/opportunities|/path?tab=career|/path?tab=future|/community|/calendar|/progress|/accounts?tab=memory","label":"button text"} opens a page. When they ask to change how Remy looks or reminds them, offer {"kind":"setting","key":"theme","value":"dark"|"light"|"system"} (system = match their device) or {"kind":"setting","key":"notify.deadlines"|"notify.statusChanges"|"notify.weeklyPlan","value":true|false}; say it changes when they tap the button, never that it's already done. Otherwise return an empty list.\n\n${CHAT_RULES}`,
         `Current page: ${page}\nPROFILE:\n${profileSummary(ctx.ws)}\nAPPROVED MEMORY:\n${approvedFacts(ctx.ws).slice(0, 40).join("\n") || "(none)"}\nRESUME:\n${ctx.ws.resume ? resumeToText(ctx.ws.resume.doc, { verifiedOnly: true }).slice(0, 5000) : "(not uploaded)"}\nSETUP ANSWERS:\n${answers || "(none)"}\nOPEN TO-DOS: ${todos || "(none)"}\nNEXT 3 WEEKS ON THEIR CALENDAR: ${dates || "(nothing)"}\nAPPLICATIONS THEY'RE TRACKING: ${tracking || "(none)"}\nCAREER DIRECTIONS FROM MY PATH: ${direction || "(not built yet)"}\nJOBS THEIR FIELDS LEAD TO MOST OFTEN (U.S. Bureau of Labor Statistics; for "what can I do with my major" questions): ${careersFor(ctx.ws).flatMap((f) => f.jobs.slice(0, 4).map((j) => j.title)).join("; ") || "(no major or field yet)"}\nAPPLICATIONS: ${apps || "(none)"}\nSAVED OPENINGS: ${ctx.ws.savedJobIds.map((id) => findJob(ctx.ws, id)?.title).filter(Boolean).join("; ") || "(none)"}\nOPENINGS REMY FOUND THAT FIT (best first): ${found || "(none yet)"}\nFROM THEIR OTHER PROFILES, NOT YET CONFIRMED BY THE STUDENT (mention, don't rely on): ${ctx.ws.memory.filter((m) => m.status === "suggested" && !m.conflict).slice(0, 15).map((m) => m.text).join("; ") || "(none)"}\nRESUME VS OTHER PROFILES, NOT YET RESOLVED (ask the student which is right; never treat these as true): ${ctx.ws.memory.filter((m) => m.conflict).map((m) => `${m.text} (${m.conflict})`).join("; ") || "(none)"}\n\nRECENT CHAT:\n${history}\n\nStudent: ${message}\n\nReturn {"reply":"","remember":[],"actions":[]}`,
         1100,
       ),

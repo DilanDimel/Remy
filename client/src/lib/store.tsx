@@ -73,7 +73,13 @@ interface Store {
   refresh: () => Promise<void>;
   toast: (text: string, err?: boolean) => void;
   run: <T>(fn: () => Promise<T>, ok?: string) => Promise<T | undefined>;
+  /** Light, dark or "system" (match the device). Visitors keep it in this browser; students also in their account. */
+  theme: Theme;
+  setTheme: (t: Theme) => Promise<void>;
 }
+export type Theme = "system" | "light" | "dark";
+const THEME_KEY = "remy.theme";
+const readLocalTheme = (): Theme => { try { const t = localStorage.getItem(THEME_KEY); return t === "light" || t === "dark" ? t : "system"; } catch { return "system"; } };
 const Ctx = createContext<Store>(null as any);
 export const useStore = () => useContext(Ctx);
 
@@ -118,15 +124,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     refresh().catch((e) => toast(e.message, true)).finally(() => setLoading(false));
   }, [refresh, toast]);
 
+  // Theme: the account's choice when signed in, else this browser's; "system" follows the device, live.
+  const [localTheme, setLocalTheme] = useState<Theme>(readLocalTheme);
+  const theme: Theme = (ws?.settings.theme as Theme) || localTheme;
   useEffect(() => {
-    document.documentElement.dataset.theme = ws?.settings.theme === "dark" ? "dark" : "light";
-  }, [ws?.settings.theme]);
+    const mq = matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => { document.documentElement.dataset.theme = theme === "system" ? (mq.matches ? "dark" : "light") : theme; };
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, [theme]);
 
   const save = useCallback(async (section: string, value: unknown) => {
     const w = await api<Workspace>("PUT", `/api/ws/${section}`, { value });
     setWsState(w);
     return w;
   }, []);
+  const setTheme = useCallback(async (t: Theme) => {
+    setLocalTheme(t);
+    try { if (t === "system") localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, t); } catch {}
+    if (ws) await save("settings", { theme: t, themeChosen: true });
+  }, [ws, save]);
 
   const run = useCallback(async <T,>(fn: () => Promise<T>, ok?: string) => {
     try {
@@ -140,10 +158,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   const value = useMemo<Store>(() => ({
-    config, me, ws, loading, toast, refresh, save, run,
+    config, me, ws, loading, toast, refresh, save, run, theme, setTheme,
     setWs: setWsState,
     setSession: (m, w) => { setMe(m); setWsState(w); },
-  }), [config, me, ws, loading, toast, refresh, save, run]);
+  }), [config, me, ws, loading, toast, refresh, save, run, theme, setTheme]);
 
   return (
     <Ctx.Provider value={value}>

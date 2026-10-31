@@ -31,6 +31,8 @@ export function chatActions(raw: unknown): ChatAction[] {
     if (a?.kind === "task" && clean(a.title, 120)) return [{ kind: "task", title: clean(a.title, 120), why: clean(a.why, 300) }];
     if (a?.kind === "role" && clean(a.title, 60)) return [{ kind: "role", title: clean(a.title, 60) }];
     if (a?.kind === "open" && PAGE_LINK.test(String(a.link))) return [{ kind: "open", link: String(a.link), label: clean(a.label, 40) || "Open" }];
+    if (a?.kind === "setting" && a.key === "theme" && ["system", "light", "dark"].includes(a.value)) return [{ kind: "setting", key: "theme", value: a.value }];
+    if (a?.kind === "setting" && /^notify\.(deadlines|statusChanges|weeklyPlan)$/.test(String(a.key)) && typeof a.value === "boolean") return [{ kind: "setting", key: a.key, value: a.value }];
     return [];
   }).slice(0, 2);
 }

@@ -10,11 +10,14 @@ import { ProfileImport } from "../components/Uploaders";
 import { GoogleCalendarCard } from "../components/GoogleCalendar";
 import { atTcu, SchoolVerify } from "../components/SchoolVerify";
 import { ConflictChoice } from "../components/ConflictChoice";
+import { ThemeChoice } from "../components/ThemeToggle";
+import { ProfilePhoto } from "../components/ProfilePhoto";
 
 type Tab = "profile" | "sources" | "memory" | "settings" | "data";
 
 export default function Accounts({ query }: { query: URLSearchParams }) {
   const tab = (query.get("tab") as Tab) || "profile";
+  const { ws } = useStore();
   return (
     <>
       <div className="page-head">
@@ -29,7 +32,7 @@ export default function Accounts({ query }: { query: URLSearchParams }) {
           <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => go(`/accounts?tab=${k}`)} data-testid={`tab-accounts-${k}`}>{l}</button>
         ))}
       </div>
-      {tab === "profile" && <div className="card card-pad stack"><p className="xs muted">Changes here update fit and recommendations. Approved application documents are never rewritten — they're marked for your review instead.</p><ProfileForm /></div>}
+      {tab === "profile" && <div className="card card-pad stack"><ProfilePhoto initials={(ws!.profile.preferredName || ws!.profile.name || "S").split(/\s+/).map((x: string) => x[0]).slice(0, 2).join("").toUpperCase()} /><p className="xs muted">Changes here update fit and recommendations. Approved application documents are never rewritten — they're marked for your review instead.</p><ProfileForm /></div>}
       {tab === "sources" && <Sources />}
       {tab === "memory" && <Memory />}
       {tab === "settings" && <Settings />}
@@ -140,7 +143,7 @@ function Settings() {
     <div className="grid-2" style={{ alignItems: "start" }}>
       <div className="card card-pad stack">
         <h3>Theme</h3>
-        <div className="seg">{(["light", "dark"] as const).map((t) => <button key={t} aria-pressed={s.theme === t} onClick={() => save("settings", { theme: t })} data-testid={`button-theme-${t}`}>{t === "light" ? "Light" : "Dark"}</button>)}</div>
+        <ThemeChoice />
         <h3>Assistant</h3>
         <label className="row small"><input type="checkbox" checked={s.assistantOpen} onChange={() => save("settings", { assistantOpen: !s.assistantOpen })} /> Keep Remy open (you can always minimize him from his panel)</label>
       </div>

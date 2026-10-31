@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Remy } from "../components/common";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { BETA_TERMS, BETA_TERMS_LEAD } from "@shared/beta";
 
 const CONTACT = "remy.careercoach@gmail.com";
@@ -15,7 +16,7 @@ function Page({ title, lead, children }: { title: string; lead: string; children
     <div className="ob">
       <div className="row-between" style={{ width: "100%", maxWidth: 740 }}>
         <a className="logo" href="/"><Remy size={26} /><span>Remy<b>.</b></span></a>
-        <nav className="row small"><a href="/about">About</a><a href="/policies">Policies</a></nav>
+        <nav className="row small"><a href="/about">About</a><a href="/policies">Policies</a><ThemeToggle /></nav>
       </div>
       <article className="ob-card card card-pad stack-lg" style={{ lineHeight: 1.6 }}>
         <a className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start", padding: 0 }} href="/"><ArrowLeft size={14} /> Back to Remy</a>

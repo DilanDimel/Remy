@@ -390,7 +390,10 @@ export interface ChatMsg {
   /** Buttons under a reply; nothing happens until the student taps one. */
   actions?: ChatAction[];
 }
-export type ChatAction = { kind: "task"; title: string; why: string } | { kind: "role"; title: string } | { kind: "open"; link: string; label: string };
+export type ChatAction = { kind: "task"; title: string; why: string } | { kind: "role"; title: string } | { kind: "open"; link: string; label: string }
+  | { kind: "setting"; key: SettingKey; value: string | boolean };
+/** Settings the chat may offer to change (the student still taps to confirm). */
+export type SettingKey = "theme" | "notify.deadlines" | "notify.statusChanges" | "notify.weeklyPlan";
 
 export interface Workspace {
   version: 2;
@@ -420,6 +423,8 @@ export interface Workspace {
   calendar: CalItem[];
   contacts: Contact[];
   outreach: OutreachDraft[];
+  /** When the student last uploaded a profile photo (also busts the image cache); absent = no photo. */
+  photoAt?: string;
   /** The beta terms version the student agreed to, and when (server time). */
   betaAgreed?: { version: string; at: string };
   plan?: PathPlan;
@@ -427,7 +432,10 @@ export interface Workspace {
   aiLog: AiLogEntry[];
   incidents: SafeguardIncident[];
   settings: {
-    theme: "light" | "dark";
+    /** "system" follows the device (the default). */
+    theme: "system" | "light" | "dark";
+    /** True once the student picked a theme themselves (older accounts stored "light" by default). */
+    themeChosen?: boolean;
     assistantOpen: boolean;
     navCollapsed: boolean;
     notify: { deadlines: boolean; statusChanges: boolean; weeklyPlan: boolean };

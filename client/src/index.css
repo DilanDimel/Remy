@@ -218,6 +218,8 @@ p, li { max-width: 72ch; }
 /* collapsed: the sidebar is only icon-wide and clips overflow, so the menu floats beside it */
 .nav-collapsed .profile-menu { position: fixed; left: 80px; right: auto; bottom: 16px; }
 .avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--lav); color: var(--plum); display: grid; place-items: center; font-weight: 700; font-size: var(--text-xs); overflow: hidden; flex-shrink: 0; }
+.photo-lg .avatar { width: 64px; height: 64px; font-size: 1.2rem; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
 .main { overflow-y: auto; display: flex; flex-direction: column; min-width: 0; }
 .topbar { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; padding: 12px 28px; min-height: 60px; }
@@ -353,6 +355,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .lp-msg.me { justify-self: end; background: var(--ink); color: var(--surface); padding: 10px 14px; border-radius: 16px 16px 4px 16px; max-width: 85%; }
 .lp-msg.remy { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; }
 .lp-msg.remy > .stack-sm { background: var(--fox-soft); padding: 12px 14px; border-radius: 4px 16px 16px 16px; color: #3a1d0b; }
+[data-theme="dark"] .lp-msg.remy > .stack-sm { color: var(--ink); }
 .lp-item { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: start; font-size: 14px; }
 .lp-item svg { margin-top: 3px; color: var(--fox-deep); }
 .lp-band { padding-top: 56px; padding-bottom: 56px; border-top: 1px solid var(--line); }
@@ -379,6 +382,8 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .lp-why { font-size: 13px; color: var(--sage); margin: -4px 4px 2px; }
 .lp-old { font-size: 14px; text-decoration: line-through; color: var(--faint); }
 .lp-new { font-size: 14px; background: var(--sage-bg); color: #14532d; padding: 8px 10px; border-radius: 10px; }
+[data-theme="dark"] .lp-new { color: var(--sage); }
+[data-theme="dark"] .lp-cta { background: #000; border-top: 1px solid var(--line); }
 .lp-flag { display: grid; grid-template-columns: auto 1fr; gap: 8px; font-size: 13px; background: var(--amber-bg); color: var(--amber); padding: 10px 12px; border-radius: 10px; }
 .lp-flag svg { margin-top: 2px; }
 .lp-occ { display: grid; gap: 2px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 14px; }
@@ -438,7 +443,8 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .adm-nav nav a[aria-current="page"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06); }
 .adm-back { margin-top: auto; justify-content: flex-start; }
 .adm-news { margin-top: auto; justify-content: flex-start; position: relative; }
-.adm-news + .adm-back { margin-top: 0; }
+.adm-news + .adm-back, .adm-theme + .adm-back { margin-top: 0; }
+.adm-theme { justify-content: flex-start; }
 .adm-news .count { margin-left: 4px; }
 .adm-main { padding: 28px 32px 60px; max-width: 1180px; width: 100%; }
 .adm-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }

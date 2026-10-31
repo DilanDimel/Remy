@@ -4,6 +4,7 @@ import { ArrowLeft, CalendarClock, Check, FileText, Search, ShieldCheck } from "
 import { useRoute } from "../lib/router";
 import { BetaBadge, Remy, Spinner, StatusChip } from "../components/common";
 import { providerOn, sendMagicLink, startOAuth, type SupabaseProvider } from "../lib/supabase";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 export function useGoogleButton(onCredential: (cred: string) => void) {
   const { config } = useStore();
@@ -85,7 +86,7 @@ function SignIn() {
   return (
     <div className="landing-screen">
       <div className="landing-card fade-up">
-        <a className="btn btn-ghost btn-sm" href="/" style={{ padding: 0 }}><ArrowLeft size={14} /> What Remy does</a>
+        <div className="row-between"><a className="btn btn-ghost btn-sm" href="/" style={{ padding: 0 }}><ArrowLeft size={14} /> What Remy does</a><ThemeToggle /></div>
         <div className="landing">
           <Remy size={72} mood="wave" />
           <h1 className="motto">Sign in to Remy</h1>
@@ -138,6 +139,7 @@ function Landing() {
         <nav className="row" style={{ gap: 4 }}>
           <button className="btn btn-ghost btn-sm hide-sm" onClick={toTour}>What you get</button>
           <a className="btn btn-ghost btn-sm hide-sm" href="/about">About</a>
+          <ThemeToggle />
           <a className="btn btn-primary btn-sm" href="/signin" data-testid="button-lp-signin">Sign in</a>
         </nav>
       </header>
