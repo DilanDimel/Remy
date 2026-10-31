@@ -10,6 +10,7 @@ import { ThemeToggle } from "../components/ThemeToggle";
 // own board, meetings, hours and activity. Never anything a student wrote.
 type Overview = {
   northWeek: number; northPrev: number;
+  road?: { label: string; n: number }[];
   returnWeek1?: { cohort: number; back: number }; returnWeek4?: { cohort: number; back: number };
   students: number; newWeek: number; newPrev: number; activeWeek: number; activePrev: number; activeToday: number;
   daily: { day: string; n: number }[];
@@ -166,6 +167,18 @@ function OverviewTab() {
               </div>
             );
           })}
+        </section>
+        <section className="adm-card">
+          <h3>Road to an offer: students at each milestone</h3>
+          {(d.road || []).map((m) => (
+            <div key={m.label} className="adm-funnel">
+              <span className="small">{m.label}</span>
+              <div><div style={{ width: `${d.students ? (m.n / d.students) * 100 : 0}%` }} /></div>
+              <b className="small">{m.n}</b>
+              <span className="xs muted">{d.students ? `${Math.round((100 * m.n) / d.students)}%` : ""}</span>
+            </div>
+          ))}
+          <p className="xs muted">The lowest bar is where students get stuck; make that step easier next.</p>
         </section>
         <section className="adm-card">
           <h3>What students used this week</h3>

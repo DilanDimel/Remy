@@ -3,6 +3,8 @@
 import type { CalItem, Me } from "@shared/types";
 import * as gcal from "./gcal";
 import { q, q1 } from "./sql";
+import { loadWorkspace } from "./db";
+import { milestones } from "@shared/progress";
 import { uid } from "./ids";
 
 const cut = (v: unknown, n: number) => String(v ?? "").slice(0, n);
@@ -115,10 +117,16 @@ export async function overview() {
     FROM users u JOIN workspaces w ON w.user_id = u.id
     WHERE ${SIGNED_IN} AND u.created_at <= now() - interval '${minAge} days' AND u.created_at > now() - interval '${maxAge} days'`;
   const w1 = await q1(back(1, 7, 8, 35)), w4 = await q1(back(22, 28, 29, 56));
+  // Road to an offer: how many students reached each milestone (counts only).
+  // shortcut: reads every signed-in workspace; move to SQL past ~1,000 students.
+  const road = new Map<string, number>();
+  for (const r of await q(`SELECT w.user_id FROM workspaces w JOIN users u ON u.id = w.user_id WHERE ${SIGNED_IN}`))
+    for (const m of milestones(await loadWorkspace(String(r.user_id)))) road.set(m.label, (road.get(m.label) || 0) + (m.done ? 1 : 0));
   const openErrors = await q1("SELECT COUNT(DISTINCT message) FILTER (WHERE kind <> 'feedback')::int AS n, COUNT(*) FILTER (WHERE kind = 'feedback')::int AS feedback FROM error_reports WHERE fixed_at IS NULL AND at > now() - interval '30 days'");
   return {
     students: totals?.students ?? 0, newWeek: totals?.new_week ?? 0, newPrev: totals?.new_prev ?? 0,
     northWeek: north?.week ?? 0, northPrev: north?.prev ?? 0,
+    road: [...road].map(([label, n]) => ({ label, n })),
     returnWeek1: { cohort: w1?.n ?? 0, back: w1?.back ?? 0 }, returnWeek4: { cohort: w4?.n ?? 0, back: w4?.back ?? 0 },
     activeWeek: active?.week ?? 0, activePrev: active?.prev ?? 0, activeToday: active?.today ?? 0,
     daily, funnel, features: features.filter((f) => f.uses).sort((a, b) => b.students - a.students || b.uses - a.uses),
