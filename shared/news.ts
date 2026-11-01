@@ -3,6 +3,7 @@
 export type NewsItem = { id: string; date: string; kind: "New" | "Improved" | "Fixed" | "Changed"; title: string; body: string; owners?: boolean };
 
 export const NEWS: NewsItem[] = [
+  { id: "2026-11-01-10", date: "2026-11-01", kind: "New", title: "LinkedIn coach", body: "Upload your LinkedIn PDF on the Resume page and Remy lists what's on your resume but missing from LinkedIn, with every field ready to copy, plus a basics checklist. Remy reminds you to re-check once a month." },
   { id: "2026-11-01-08", date: "2026-11-01", kind: "New", title: "Conferences and early programs", body: "Remy now finds conferences in your field each month and lists them with your openings (only ones whose page shows the dates). Discovery days and insight programs are marked as early programs and shown first to first-years and sophomores." },
   { id: "2026-11-01-09", date: "2026-11-01", kind: "New", title: "Practice out loud", body: "Say your pitch or an interview story out loud: Remy times you and, in browsers that can, shows what it heard and your filler words. Nothing is recorded or saved." },
   { id: "2026-11-01-07", date: "2026-11-01", kind: "New", title: "Your field's road", body: "My Path shows the usual steps from college to license in your field (CPA, SIE, FE, NCLEX, LSAT, MCAT and more), with sources. Add this year's steps to your to-dos." },

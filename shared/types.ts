@@ -448,6 +448,8 @@ export interface Workspace {
   lastDigestAt?: string;
   /** The student's 30-second pitch (Remy's draft, then their edits). */
   pitch?: { text: string; at: string };
+  /** The text of the student's last LinkedIn PDF, for the LinkedIn coach (shared/linkedin.ts). Server-written. */
+  linkedin?: { text: string; at: string };
   /** Day (YYYY-MM-DD, Central) of the last weekly check-in; the Home card hides for 6 days after. */
   lastCheckin?: string;
   /** Days (YYYY-MM-DD, Central) the student opened Remy, newest last; owners see only return rates from it. */

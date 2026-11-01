@@ -256,3 +256,34 @@ test("early programs rank higher for first-years and sophomores; conferences are
   const conf = { ...job("event", "NABA National Convention"), sourceName: "Conference found by Remy's researcher (dates checked on the event page)" };
   assert.equal(computeFit(soph, conf, "").excluded, false);
 });
+
+test("LinkedIn coach: lists resume items missing from the LinkedIn PDF with copy-ready fields; guessed fields stay blank", async () => {
+  const { linkedinGaps, linkedinBasics } = await import("@shared/linkedin");
+  const doc = { contact: {}, skills: [], sections: [
+    { id: "s1", heading: "Experience", entries: [
+      { id: "e1", org: "Chick-fil-A", role: "Team Member", location: "Fort Worth, TX", dates: "2024 – Present", bullets: [{ id: "b", text: "Took orders" }] },
+      { id: "e2", org: "PwC", role: "Extern", location: "", dates: "2025", bullets: [] },
+    ] },
+    { id: "s2", heading: "Volunteer Work", entries: [{ id: "e3", org: "Tarrant Area Food Bank", role: "Volunteer", location: "", dates: "2025", bullets: [], unverified: ["role"] }] },
+    { id: "s3", heading: "Skills", entries: [{ id: "e4", org: "Excel", role: "", location: "", dates: "", bullets: [] }] },
+  ] } as any;
+  const li = "Dilan\nSummary\nFinance student\nExperience\nPwC\nExtern\n2025";
+  const gaps = linkedinGaps(doc, li);
+  assert.deepEqual(gaps.map((g) => [g.section, g.title]), [["Experience", "Team Member, Chick-fil-A"], ["Volunteering", "Tarrant Area Food Bank"]]);
+  assert.deepEqual(gaps[0].fields.find((f) => f.label === "Description")?.value, "• Took orders");
+  assert.equal(gaps[1].fields.find((f) => f.label === "Role"), undefined, "a role the resume reader guessed isn't offered");
+  assert.deepEqual(linkedinBasics(li).map((b) => b.ok), [true, false, true, null]);
+});
+
+test("weekly digest asks for a fresh LinkedIn PDF after a month", async () => {
+  const { weeklyDigest } = await import("./reminders");
+  const { emptyWorkspace } = await import("./db");
+  const ws = emptyWorkspace();
+  ws.onboarding.done = true;
+  ws.settings.notify.weeklyPlan = true;
+  ws.calendar = [{ id: "c", kind: "Deadline", date: "2026-11-03", time: "", title: "EY app", source: "", notes: "" }];
+  ws.linkedin = { text: "", at: "2026-09-20T10:00:00Z" };
+  assert.match(weeklyDigest(ws, "2026-11-01", 0, "x.test")!.text, /LinkedIn check is over a month old/);
+  ws.linkedin.at = "2026-10-25T10:00:00Z";
+  assert.doesNotMatch(weeklyDigest(ws, "2026-11-01", 0, "x.test")!.text, /LinkedIn/);
+});

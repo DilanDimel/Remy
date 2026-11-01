@@ -871,6 +871,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       ctx.ws.tasks.unshift({ id: uid("t"), title: `Decide what to add to your resume from ${source}`, why: `Your ${source} lists ${missing.length} thing${missing.length === 1 ? "" : "s"} your resume doesn't: ${missing.slice(0, 6).join("; ")}${missing.length > 6 ? "; …" : ""}. Add the ones that still apply and are true, so employers see the same story everywhere.`, due: "", category: "Prepare", done: false, source: `${source} check`, link: "/resume" });
     }
     ctx.ws.imports.unshift({ id: uid("i"), kind, fileName, at: nowIso(), label: "Student provided", factsAdded: added });
+    if (/linkedin/i.test(kind)) ctx.ws.linkedin = { text: raw.slice(0, 30000), at: nowIso() };
     await ctx.save();
     return added;
   }

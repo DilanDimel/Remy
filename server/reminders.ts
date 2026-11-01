@@ -1,5 +1,6 @@
 import type { Workspace } from "@shared/types";
 import { milestones } from "@shared/progress";
+import { LINKEDIN_RECHECK_DAYS } from "@shared/linkedin";
 
 const days = (from: string, to: string) => Math.round((Date.parse(to + "T12:00:00Z") - Date.parse(from + "T12:00:00Z")) / 864e5);
 
@@ -40,6 +41,7 @@ export function weeklyDigest(ws: Workspace, today: string, weekday: number, host
     soon.length ? `Closing in the next 7 days:\n${soon.map((c) => `• ${c.title} (${c.date})`).join("\n")}` : "",
     `Your road to an offer: ${m.filter((x) => x.done).length} of ${m.length} milestones.${next ? ` Next: ${next.label}.` : ""}`,
     `30-second check-in: what did you do this week? Tap it on Home and Remy turns it into a resume line, using only your words.`,
+    ws.linkedin && days(ws.linkedin.at.slice(0, 10), today) >= LINKEDIN_RECHECK_DAYS ? `Your LinkedIn check is over a month old. Save a fresh PDF from LinkedIn and upload it on the Resume page to see what's missing.` : "",
   ].filter(Boolean);
   const subject = fresh.length ? `${fresh.length} new opening${fresh.length > 1 ? "s" : ""} for you this week` : `${soon.length} deadline${soon.length > 1 ? "s" : ""} this week`;
   return { subject, text: `Hi ${name},\n\n${parts.join("\n\n")}\n\nOpen Remy: https://${host}/\n\nYou get this because the weekly digest is on. Turn it off in Account → Appearance & alerts.\n\nRemy` };
