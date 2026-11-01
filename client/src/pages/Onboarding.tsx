@@ -70,7 +70,7 @@ export default function Onboarding() {
 }
 
 // Where finishing setup lands, by what the student said would help most.
-const LAND: Record<string, string> = { resume: "/resume?tab=base", openings: "/opportunities", interview: "/resume?tab=base" };
+const LAND: Record<string, string> = { resume: "/resume?tab=base", openings: "/opportunities", interview: "/resume?tab=prep" };
 const FOCUS: [SetupFocus, string, string][] = [
   ["resume", "Make my resume stronger", "Check how it reads to an ATS and get honest suggestions"],
   ["openings", "Find openings that fit me", "Internships, jobs and events matched to your experience"],

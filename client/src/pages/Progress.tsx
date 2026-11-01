@@ -84,7 +84,7 @@ function InterviewDate({ t }: { t: TrackItem }) {
           <input className="input" type="date" style={{ width: "auto" }} value={date} onChange={(e) => setDate(e.target.value)} aria-label="Interview date" data-testid="input-interview-date" />
           <input className="input" type="time" style={{ width: "auto" }} value={time} onChange={(e) => setTime(e.target.value)} aria-label="Interview time" />
           <button className="btn btn-primary btn-sm" disabled={!date} onClick={add} data-testid="button-interview-add">Add to calendar</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => go("/resume?tab=base")}>Build interview stories</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => go("/resume?tab=prep")}>Build interview stories</button>
         </div>
       </div>
     </div>

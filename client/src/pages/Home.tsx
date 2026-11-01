@@ -71,7 +71,7 @@ export default function Home() {
     }
     // An interview coming up (beyond the 2-day prep plan) beats a general suggestion.
     const soon = w.calendar.filter((c) => c.kind === "Interview" && (daysUntil(c.date) ?? -1) > 2 && (daysUntil(c.date) ?? 99) <= 21).sort((a, b) => a.date.localeCompare(b.date))[0];
-    if (soon) return { title: `${soon.title.replace(/^interview:?\s*/i, "Your interview with ")} is ${fmtDate(soon.date)}, in ${daysUntil(soon.date)} days`, why: "Start now: build two true stories from your resume and practice them out loud. Remy turns Home into a prep plan two days before.", link: "/resume?tab=base#story-deck", cta: "Prepare stories" };
+    if (soon) return { title: `${soon.title.replace(/^interview:?\s*/i, "Your interview with ")} is ${fmtDate(soon.date)}, in ${daysUntil(soon.date)} days`, why: "Start now: build two true stories from your resume and practice them out loud. Remy turns Home into a prep plan two days before.", link: "/resume?tab=prep#story-deck", cta: "Prepare stories" };
     // The plan was written earlier: skip its step when it says to apply somewhere the student already applied to.
     const moved = w.tracker.filter((t) => t.status !== "Saved").map((t) => t.company.toLowerCase());
     if (w.plan && !moved.some((c) => c && w.plan!.nextAction.title.toLowerCase().includes(c))) return { ...w.plan.nextAction, cta: "Open" };

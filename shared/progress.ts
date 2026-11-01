@@ -28,7 +28,7 @@ export function milestones(w: Workspace) {
     { label: "Openings picked", done: w.savedJobIds.length >= 3, detail: `${w.savedJobIds.length} of 3 saved`, link: "/opportunities" },
     { label: "First application", done: applied > 0, detail: applied ? `${applied} sent` : "Tailor and apply to one", link: "/opportunities" },
     { label: "Reached out", done: w.outreach.length > 0, detail: w.outreach.length ? `${w.outreach.length} message${w.outreach.length > 1 ? "s" : ""} drafted` : "Message one person", link: "/community" },
-    { label: "Interview stories", done: stories >= 2, detail: `${Math.min(stories, 2)} of 2 ready`, link: "/resume?tab=base" },
+    { label: "Interview stories", done: stories >= 2, detail: `${Math.min(stories, 2)} of 2 ready`, link: "/resume?tab=prep" },
     { label: "Interviewing", done: interviewing, detail: interviewing ? "You're in" : "Comes from the steps above", link: "/progress" },
   ];
 }
