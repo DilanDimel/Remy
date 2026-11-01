@@ -625,9 +625,17 @@ export async function registerRoutes(_server: Server, app: Express) {
       for (const k of Object.keys(p) as (keyof typeof p)[]) if (typeof value[k] === "string") p[k] = value[k].slice(0, 600);
       ctx.ws.profile = p;
       if (before !== JSON.stringify(p)) {
-        for (const a of ctx.ws.applications)
-          if (a.versions.length) a.staleReason = `Your profile changed on ${new Date().toLocaleDateString("en-US")}. This approved version was not changed — review whether it still fits.`;
-        for (const j of allJobs(ctx.ws)) if (ctx.ws.fits[j.id]?.by === "rules") delete ctx.ws.fits[j.id];
+        // Only fields that appear on the documents make an approved version worth reviewing (not a nickname).
+        const old = JSON.parse(before) as typeof p;
+        if ((["name", "applicationEmail", "school", "major", "minors", "gpa", "graduation", "location"] as const).some((k) => (old[k] || "") !== (p[k] || "")))
+          for (const a of ctx.ws.applications)
+            if (a.versions.length) a.staleReason = `Your profile changed on ${new Date().toLocaleDateString("en-US")}. This approved version was not changed — review whether it still fits.`;
+        // Rules are re-run; an "Explain fit" answer keeps its words but takes the new hide/show verdict.
+        for (const j of allJobs(ctx.ws)) {
+          const f = ctx.ws.fits[j.id];
+          if (f?.by === "ai") ctx.ws.fits[j.id] = { ...fitOf(ctx.ws, j), by: "ai", why: f.why, matched: f.matched, gaps: f.gaps };
+          else delete ctx.ws.fits[j.id];
+        }
       }
     } else if (section === "memory") {
       if (!Array.isArray(value)) bad("Memory must be a list");
@@ -1200,7 +1208,9 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     const jobs = allJobs(ctx.ws).map((j) => {
       const f = ctx.ws.fits[j.id];
       if (!f || (f.by === "rules" && f.score === undefined) || f.v !== FIT_RULES_VERSION) {
-        ctx.ws.fits[j.id] = fitOf(ctx.ws, j);
+        const fresh = fitOf(ctx.ws, j);
+        // A rules update keeps an "Explain fit" answer the student already asked for (its words don't depend on the rules).
+        ctx.ws.fits[j.id] = f?.by === "ai" ? { ...fresh, by: "ai", why: f.why, matched: f.matched, gaps: f.gaps } : fresh;
         changed = true;
       }
       return j;

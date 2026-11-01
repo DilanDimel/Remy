@@ -252,10 +252,12 @@ const PROFILE_FIELDS: [keyof Profile, string, string?][] = [
   ["path", "Where are you right now?"], ["name", "Full name"], ["preferredName", "What should Remy call you?"], ["applicationEmail", "Email for applications", "e.g. you@tcu.edu"], ["school", "School"], ["major", "Major(s)"], ["minors", "Minor(s)"], ["gpa", "GPA", "e.g. 3.6 (optional)"],
   ["classYear", "Class year"], ["graduation", "Expected graduation", "e.g. May 2029"], ["location", "Location"], ["targetRoles", "Roles you're curious about", "e.g. investment banking, fintech"],
   ["regions", "Where should Remy look?", "e.g. Fort Worth, Dallas, Remote"], ["opportunityTypes", "Kinds of opportunities", "e.g. Internships, Events"],
+  ["timeline", "When do you want to start?", "e.g. Summer 2027 (empty = open to anything)"], ["relocation", "Open to relocating?"], ["workAuth", "Work authorization"],
+  ["dreamEmployers", "Dream employers", "e.g. PwC, EY (searched first)"], ["avoid", "Anything to leave out?", "e.g. audit, sales (hidden from your openings)"],
 ];
 
 // Onboarding asks roles, regions and opportunity types on its own preferences step, so its review step leaves them out.
-const PREF_KEYS: (keyof Profile)[] = ["classYear", "graduation", "targetRoles", "regions", "opportunityTypes"];
+const PREF_KEYS: (keyof Profile)[] = ["classYear", "graduation", "targetRoles", "regions", "opportunityTypes", "timeline", "relocation", "workAuth", "dreamEmployers", "avoid"];
 /** draft: when given, the parent saves unsaved edits itself (setup's "Looks right"), so there's no separate Save button. */
 export function ProfileForm({ onSaved, hidePrefs, draft }: { onSaved?: () => void; hidePrefs?: boolean; draft?: { current: Profile | null } }) {
   const { ws, save, run } = useStore();
@@ -273,6 +275,11 @@ export function ProfileForm({ onSaved, hidePrefs, draft }: { onSaved?: () => voi
               <select className="select" value={p.path || ""} onChange={(e) => setP({ ...p, path: e.target.value })} data-testid="select-path">
                 <option value="">Choose…</option>
                 {PATHS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            ) : k === "workAuth" || k === "relocation" ? (
+              <select className="select" value={p[k] || ""} onChange={(e) => setP({ ...p, [k]: e.target.value })} data-testid={`select-profile-${k}`}>
+                <option value="">Choose…</option>
+                {(k === "workAuth" ? AUTH_OPTS : RELOC_OPTS).map((o) => <option key={o}>{o}</option>)}
               </select>
             ) : k === "classYear" ? (
               <select className="select" value={p.classYear} onChange={(e) => setP({ ...p, classYear: e.target.value })} data-testid="select-class-year">
