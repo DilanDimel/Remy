@@ -338,7 +338,7 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
           {sub === "export" && <ExportView a={a} job={job} />}
           <div className="card card-pad row-between approve-bar">
             <span className="small">
-              {pending ? `${pending} change(s) still need your decision.` : blocking ? `${blocking} accepted change(s) have unsupported claims.` : "Ready to approve."}
+              {pending ? `${pending} change(s) still need your decision.` : blocking ? `${blocking} accepted change(s) have unsupported claims.` : a.letterFlags.length ? `Ready to approve. Your letter has ${a.letterFlags.length} thing(s) to check first: see Checks.` : "Ready to approve."}
             </span>
             <div className="row">
               <button className="btn btn-primary" onClick={() => approve()} disabled={!!busy} data-testid="button-approve-app">{busy === "approve" ? <Spinner /> : <ShieldCheck size={16} />} Approve this version</button>
@@ -489,6 +489,7 @@ function Checks({ a }: { a: Application }) {
           <h3>Unsupported-claim check</h3>
           <p className="xs muted">Rule-based and independent of the AI: flags numbers, tools, titles, names, class standing and added outcomes that aren't in your resume or approved facts.</p>
           <div className="row"><span className={"chip " + (flagged.length ? "chip-bad" : "chip-live")}>{flagged.length} resume change(s) flagged</span><span className={"chip " + (a.letterFlags.length ? "chip-bad" : "chip-live")}>{a.letterFlags.length} letter issue(s)</span></div>
+          {a.letterFlags.length > 0 && <div className="stack-sm" data-testid="letter-flags">{a.letterFlags.map((f, i) => <div key={i} className="flag"><ShieldAlert size={15} /><span><strong>“{f.term}”</strong> in your letter: {f.message} Edit it in the Cover letter tab if it isn't true.</span></div>)}</div>}
           {flagged.map((c) => <div key={c.id} className="small"><strong>{c.entryLabel}</strong><FlagList flags={c.flags} /></div>)}
         </div>
         <div className="card card-pad stack-sm">
@@ -498,7 +499,7 @@ function Checks({ a }: { a: Application }) {
         </div>
         <div className="card card-pad stack-sm">
           <h3>Test the safeguard</h3>
-          <p className="xs muted">Try a deliberately false claim and watch the checker catch it. Results are logged for your competition evidence.</p>
+          <p className="xs muted">Type a claim that isn't true and watch the checker catch it, so you know what it protects you from.</p>
           <textarea className="textarea" style={{ minHeight: 60 }} value={testText} onChange={(e) => setTestText(e.target.value)} aria-label="Test claim" data-testid="input-safeguard" />
           <div><button className="btn btn-secondary btn-sm" onClick={runTest} disabled={!!busy} data-testid="button-safeguard-test">{busy === "test" && <Spinner />} Check this claim</button></div>
           {test && (test.length ? <FlagList flags={test} /> : <span className="small pass row"><CheckCircle2 size={16} /> Nothing unsupported — this is backed by your resume.</span>)}
@@ -604,7 +605,7 @@ function Library() {
       </div>
       <div className="card card-pad stack">
         <h3>Safeguard log</h3>
-        <p className="xs muted">Every time the checker catches an AI overstatement or you run a safeguard test, it's recorded here with a timestamp — real evidence, not a staged example.</p>
+        <p className="xs muted">Every time the checker stopped an AI overstatement in your documents, or you tested it, it's listed here with the date.</p>
         {w.incidents.length ? w.incidents.slice(0, 20).map((i) => (
           <div key={i.id} className="stack-sm" style={{ borderTop: "1px solid var(--line)", paddingTop: 10 }}>
             <div className="row"><span className={"chip " + (i.kind === "Safeguard test" ? "chip-demo" : "chip-bad")}>{i.kind}</span><span className="xs muted">{new Date(i.at).toLocaleString()} · {i.where}</span></div>

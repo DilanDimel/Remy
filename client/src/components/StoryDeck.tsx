@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
 import type { Workspace } from "@shared/types";
 import { api, useStore } from "../lib/store";
@@ -10,9 +10,12 @@ export function StoryDeck() {
   const { ws, setWs, run, config } = useStore();
   const [busy, setBusy] = useState(false);
   const stories = ws!.stories || [];
+  const ref = useRef<HTMLElement>(null);
+  // Home's interview step links here (#story-deck); the Resume page is long.
+  useEffect(() => { if (location.hash === "#story-deck") ref.current?.scrollIntoView({ block: "start" }); }, []);
   const make = async () => { setBusy(true); const r = await run(() => api<Workspace>("POST", "/api/ai/stories"), "Stories ready"); if (r) setWs(r); setBusy(false); };
   return (
-    <section className="card card-pad stack-sm" data-testid="story-deck">
+    <section ref={ref} id="story-deck" className="card card-pad stack-sm" data-testid="story-deck">
       <div className="row-between"><h3>Story deck</h3>
         <button className="btn btn-secondary btn-sm" disabled={busy || !config?.ai.available} onClick={make} data-testid="button-make-stories">{busy ? <Spinner /> : <Sparkles size={14} />} {stories.length ? "Rebuild stories" : "Build my interview stories"}</button></div>
       {busy && <WorkingSteps steps={["Finding moments in your resume", "Shaping them into stories", "Checking each part against your resume"]} />}
