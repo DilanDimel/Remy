@@ -70,7 +70,7 @@ function eligibilityFrom(text: string) {
   return sentences(text).filter((s) => /graduat|class of|enrolled|sophomore|junior|senior|freshm|first-year|degree|work authori|sponsor|gpa/i.test(s)).slice(0, 4);
 }
 function kindOf(title: string): Job["kind"] {
-  return /intern|extern|co-?op|summer analyst/i.test(title) ? "internship" : /program|fellow|insight|rotational|residen/i.test(title) ? "program" : "job";
+  return /intern|extern|co-?op|summer analyst/i.test(title) ? "internship" : /program|fellow|insight|discovery|launch|emerging leaders|summit|early id|rotational|residen/i.test(title) ? "program" : "job";
 }
 
 type Raw = { title: string; location: string; url: string; text: string; posted?: string; company?: string; deadline?: string; student?: boolean; nearby?: boolean; detail?: () => Promise<{ text: string; location?: string }> };
@@ -392,7 +392,8 @@ export async function scoutBoards(boards = EMPLOYERS, read = cachedBoard) {
   await Promise.all(Array.from({ length: 8 }, worker));
   return out;
 }
-export const pruneBoardCache = () => q("DELETE FROM board_cache WHERE fetched_at < now() - interval '3 days'");
+// Conference lists are kept for a month (server/conferences.ts), employer reads for 3 days.
+export const pruneBoardCache = () => q("DELETE FROM board_cache WHERE fetched_at < now() - interval '3 days' AND (key NOT LIKE 'conferences|%' OR fetched_at < now() - interval '40 days')");
 
 /** The words that make a student's goal specific ("mechanical" in "mechanical engineering intern"), so a
  *  Mechanical Engineering Intern ranks above an Electrical one for them. */

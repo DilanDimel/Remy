@@ -25,12 +25,13 @@ import {
 import { atsChecks, claimCheck } from "./claims";
 import { CHECKIN_KINDS, cleanCheckin } from "./checkin";
 import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, skillSuggestions } from "./builder";
-import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSION } from "./fit";
+import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSION, typeMatch } from "./fit";
 import { atsScore } from "./ats";
 import { pastTerm } from "./fit";
 import * as agents from "./agents";
 import { dueReminders, reminderEmail, weeklyDigest } from "./reminders";
 import { step } from "@shared/progress";
+import { conferencesFor } from "./conferences";
 import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
 import { docxStyle, editDocx } from "./docxEdit";
@@ -310,7 +311,9 @@ async function findOpenings(ctx: Ctx, named: string[] = []) {
   // Add to the latest saved list, so a posting the student imported meanwhile isn't overwritten.
   const fresh = await loadWorkspace(ctx.me.id);
   const have = new Set(fresh.jobs.map((j) => j.applyUrl));
-  const added = r.jobs.filter((j) => !have.has(j.applyUrl));
+  // Conferences in the student's field, unless they said they don't want events.
+  const confs = (await conferencesFor(ctx.ws).catch(() => [])).filter((j) => typeMatch(ctx.ws, j) !== false);
+  const added = [...r.jobs, ...confs].filter((j) => !have.has(j.applyUrl));
   ctx.ws.jobs = [...added, ...fresh.jobs];
   ctx.ws.fits = { ...fresh.fits };
   for (const j of added) ctx.ws.fits[j.id] = fitOf(ctx.ws, j);

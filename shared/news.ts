@@ -3,6 +3,8 @@
 export type NewsItem = { id: string; date: string; kind: "New" | "Improved" | "Fixed" | "Changed"; title: string; body: string; owners?: boolean };
 
 export const NEWS: NewsItem[] = [
+  { id: "2026-11-01-08", date: "2026-11-01", kind: "New", title: "Conferences and early programs", body: "Remy now finds conferences in your field each month and lists them with your openings (only ones whose page shows the dates). Discovery days and insight programs are marked as early programs and shown first to first-years and sophomores." },
+  { id: "2026-11-01-09", date: "2026-11-01", kind: "New", title: "Practice out loud", body: "Say your pitch or an interview story out loud: Remy times you and, in browsers that can, shows what it heard and your filler words. Nothing is recorded or saved." },
   { id: "2026-11-01-07", date: "2026-11-01", kind: "New", title: "Your field's road", body: "My Path shows the usual steps from college to license in your field (CPA, SIE, FE, NCLEX, LSAT, MCAT and more), with sources. Add this year's steps to your to-dos." },
   { id: "2026-11-01-06", date: "2026-11-01", kind: "Changed", title: "Write your own outreach, with a coach", body: "Network → Write an email: you write it in your own words and Remy gives up to 3 specific comments (a clear small ask, a real connection, length). Recruiters remember students who sound like themselves. “Draft it for me” is still there." },
   { id: "2026-11-01-05", date: "2026-11-01", kind: "New", title: "Your 30-second pitch and the 6-second view", body: "Resume → Base resume: Remy drafts your elevator pitch from your own resume (edit it, then practice out loud with a timer), and the 6-second view shows what a recruiter's eye catches first. Remy also flags mixed date formats." },

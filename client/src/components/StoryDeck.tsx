@@ -3,6 +3,7 @@ import { Sparkles } from "lucide-react";
 import type { Workspace } from "@shared/types";
 import { api, useStore } from "../lib/store";
 import { Spinner, WorkingSteps } from "./common";
+import { PracticeOutLoud } from "./PracticeOutLoud";
 
 /** Story Deck: true STAR stories from the resume to practice for interviews; gaps are asked, never filled in. */
 export function StoryDeck() {
@@ -22,6 +23,7 @@ export function StoryDeck() {
             <div className="row-between"><b className="small">{st.title}</b>{st.theme && <span className="chip chip-plain">{st.theme}</span>}</div>
             {([["Situation", st.situation], ["Task", st.task], ["Action", st.action], ["Result", st.result]] as const).map(([k, v]) => v && <p key={k} className="small"><b>{k}:</b> {v}</p>)}
             {st.missing && <p className="xs" style={{ color: "var(--amber)" }}>To complete it: {st.missing}</p>}
+            <PracticeOutLoud goal={[60, 120]} label="Tell it out loud" />
           </div>
         ))}
       </div>

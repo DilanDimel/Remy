@@ -159,12 +159,13 @@ export const FIELD_TITLES: [RegExp, RegExp][] = FIELDS.map(([who, title]) => [wh
 export const FIELD_SEARCH = FIELDS.map(([, , word]) => word);
 
 /** Postings the student pasted in themselves are never hidden by field or type: they chose them. */
-const studentAdded = (job: Job) => job.origin === "imported" && !/job board/i.test(job.sourceName || "");
+const studentAdded = (job: Job) => job.origin === "imported" && !/job board|researcher/i.test(job.sourceName || "");
 /** true / false when the student named fields Remy recognizes; null when not. */
 export function fieldMatch(ws: Workspace, job: Job): boolean | null {
   const p = ws.profile;
   const wanted = FIELD_TITLES.filter(([field]) => field.test([p.targetRoles, p.major, p.interests].join(" "))).map(([, title]) => title);
-  if (!wanted.length) return null;
+  // Conferences were found for the student's field already; their names ("NABA Convention") aren't job titles.
+  if (!wanted.length || job.kind === "event") return null;
   return wanted.some((t) => t.test(job.title));
 }
 
@@ -201,7 +202,7 @@ export function dealbreaker(ws: Workspace, job: Job, today = new Date()): string
 }
 
 // Bump when the fit rules change, so verdicts saved under older rules are worked out again.
-export const FIT_RULES_VERSION = 4; // 4: "Austin, TX" means Austin, not all of Texas
+export const FIT_RULES_VERSION = 5; // 5: early programs rank higher for first-years and sophomores
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const g = gradDate(ws);
   const year = classYearOf(ws);
@@ -284,7 +285,9 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
       30 * (matched.length / req) +
       (region === true ? 15 : region === false ? -15 : 0) +
       (type === true ? 10 : type === false ? -10 : 0) +
-      (job.label === "Live" ? 5 : 0),
+      (job.label === "Live" ? 5 : 0) +
+      // Discovery days and insight programs are built for first-years and sophomores (NABA: EY, PwC).
+      (job.kind === "program" && (year === "First-year" || year === "Sophomore") ? 12 : 0),
   );
   return { at: new Date().toISOString(), by: "rules", v: FIT_RULES_VERSION, eligibility, eligibilityNote: note, matched, gaps, why, excluded, score, regionMatch: region, typeMatch: type };
 }

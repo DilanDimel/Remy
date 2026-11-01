@@ -138,3 +138,18 @@ test("screening guide: finds the application system from where an opening came f
   assert.equal(screeningFor({ applyUrl: "https://abc.fa.us2.oraclecloud.com/hcmUI/x" })?.system, "Oracle Recruiting");
   assert.equal(screeningFor({ applyUrl: "https://example.com/apply" }), null, "unknown system: nothing guessed");
 });
+
+test("conference finder: keeps only events whose page shows the start date, lists them as events for the student's field", async () => {
+  const { pageShowsDate, conferencesFor } = await import("./conferences");
+  assert.ok(pageShowsDate("NABA National Convention · June 23-26, 2027 · Atlanta", "2027-06-23"));
+  assert.ok(pageShowsDate("Join us 23rd June 2027", "2027-06-23"));
+  assert.ok(pageShowsDate("Date: 06/23/2027", "2027-06-23"));
+  assert.ok(!pageShowsDate("June 2027 · Atlanta", "2027-06-23"), "a month alone isn't the date");
+  assert.ok(!pageShowsDate("June 3, 2027", "2027-06-23"));
+  const ws = { profile: { major: "Accounting", path: "", targetRoles: "", interests: "" } } as any;
+  let asked = "";
+  const jobs = await conferencesFor(ws, async (field) => { asked = field; return [{ name: "Future CPA Summit", organizer: "TXCPA", start: "2099-03-05", end: "2099-03-06", location: "Dallas, TX", url: "https://example.org/summit" }]; });
+  assert.equal(asked, "Accounting");
+  assert.deepEqual(jobs.map((j) => [j.kind, j.title, j.location, j.format]), [["event", "Future CPA Summit", "Dallas, TX", "In person"]]);
+  assert.deepEqual(await conferencesFor({ profile: { major: "Underwater basket weaving", path: "", targetRoles: "", interests: "" } } as any, async () => { throw new Error("not asked"); }), []);
+});

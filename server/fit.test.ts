@@ -246,3 +246,13 @@ test("field roads: major wins, trade paths get the trades road, class year maps 
   assert.equal(roadFor("Underwater basket weaving"), null);
   assert.deepEqual(["First-year", "Freshman", "Sophomore", "Senior", "Graduate student", ""].map(yearNumber), [1, 1, 2, 4, 5, 0]);
 });
+
+test("early programs rank higher for first-years and sophomores; conferences aren't hidden as off-field", () => {
+  const job = (kind: string, title: string) => ({ id: "x", kind, title, company: "EY", location: "Dallas, TX", format: "", dates: "", deadline: "", deadlineText: "", eligibility: [], requirements: [], summary: "", applyUrl: "", sourceUrl: "", sourceName: "EY careers (Workday job board)", label: "Live", checkedAt: "", checks: [], origin: "imported" }) as unknown as Job;
+  const soph = student({ classYear: "Sophomore", targetRoles: "accounting" });
+  const senior = student({ classYear: "Senior", targetRoles: "accounting" });
+  const disc = job("program", "EY Discovery Day Accounting");
+  assert.ok(computeFit(soph, disc, "").score! > computeFit(senior, disc, "").score!);
+  const conf = { ...job("event", "NABA National Convention"), sourceName: "Conference found by Remy's researcher (dates checked on the event page)" };
+  assert.equal(computeFit(soph, conf, "").excluded, false);
+});
