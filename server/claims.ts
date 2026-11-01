@@ -194,7 +194,7 @@ export function claimCheck(
   }
   // Check-ins: every detail must come from what the student said, so even one new word is flagged.
   if (opts.strict) {
-    const u = unsaidWords(body, opts.original ?? evidence);
+    const u = unsaidWords(body, evidence + " " + (opts.original ?? ""));
     if (u.length) add({ type: "scope", term: u.slice(0, 6).join(", "), message: `This adds words you didn't say (${u.slice(0, 6).join(", ")}). Keep them only if they're true.` });
   }
   // Rewrites that add outcomes or scope the original bullet never claimed.
