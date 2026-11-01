@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { Check, Compass, HelpCircle, Plus, RotateCcw, Search, Sparkles, Trash2, TrendingDown, TrendingUp } from "lucide-react";
 import { FIELD_GROUPS } from "@shared/fields";
+import { ROADS, roadFor, YEARS, yearNumber } from "@shared/roads";
 import type { PathPlan, Task, Workspace } from "@shared/types";
 import { api, fmtDate, rid, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { AiUnavailableNote, Empty, Remy, Spinner } from "../components/common";
 
-type Tab = "academic" | "career" | "skills" | "future";
+type Tab = "academic" | "career" | "skills" | "future" | "road";
 
 export default function PathPage({ query }: { query: URLSearchParams }) {
   const { ws, setWs, run, config } = useStore();
@@ -33,13 +34,13 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
       </div>
       {!config?.ai.available && <AiUnavailableNote />}
       <div className="tabs" role="tablist">
-        {([["career", "Career exploration"], ["future", "Future of your field"], ["skills", "Skills & certifications"]] as [Tab, string][]).map(([k, l]) => (
+        {([["career", "Career exploration"], ["road", "Your field's road"], ["future", "Future of your field"], ["skills", "Skills & certifications"]] as [Tab, string][]).map(([k, l]) => (
           <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => go(`/path?tab=${k}`)} data-testid={`tab-path-${k}`}>{l}</button>
         ))}
       </div>
       {busy && <div className="card card-pad row"><Remy size={40} mood="think" /><span className="muted">Building suggestions from your resume and answers…</span></div>}
       {tab === "career" && <Explore />}
-      {tab === "future" ? <Future /> : !w.plan && !busy ? (
+      {tab === "future" ? <Future /> : tab === "road" ? <FieldRoad /> : !w.plan && !busy ? (
         <div className="card">{knows
           ? <Empty title="No path yet" body="Remy will suggest roles that fit your resume and goals, with skills and next steps for each." action={<button className="btn btn-primary" onClick={generate} disabled={!config?.ai.available}>Build my path</button>} />
           : <Empty title="Tell Remy about yourself first" body="Your path is built from your resume and goals. Upload your resume, or add your major and the roles you want, and Remy will suggest roles, skills and next steps." action={<a className="btn btn-primary" href="/resume">Upload your resume</a>} />}</div>
@@ -146,6 +147,45 @@ function YourTerms({ plan }: { plan: PathPlan }) {
         ))}
       </div>
     </div>
+  );
+}
+
+/** The usual steps from college to license or first job in the student's field, each with its source. */
+function FieldRoad() {
+  const { ws } = useStore();
+  const add = useAddTask();
+  const p = ws!.profile;
+  const mine = roadFor(p.major, p.path) || roadFor([p.targetRoles, p.interests].join(" "));
+  const [key, setKey] = useState(mine?.key || "");
+  const road = ROADS.find((r) => r.key === key);
+  const year = yearNumber(p.classYear);
+  return (
+    <section className="card card-pad stack" data-testid="field-road">
+      <div className="row-between" style={{ gap: 8 }}>
+        <div className="stack-sm" style={{ gap: 2 }}>
+          <h3>{road ? `The ${road.label.toLowerCase()} road` : "Pick a field"}</h3>
+          {road && <span className="small muted">Exam or license: {road.exam}</span>}
+        </div>
+        <select className="input" style={{ width: "auto" }} value={key} onChange={(e) => setKey(e.target.value)} aria-label="Field" data-testid="select-road">
+          {!road && <option value="">Choose a field</option>}
+          {ROADS.map((r) => <option key={r.key} value={r.key}>{r.label}{r.key === mine?.key ? " (yours)" : ""}</option>)}
+        </select>
+      </div>
+      {road && (
+        <ol className="road road-long">
+          {road.steps.map((s) => (
+            <li key={s.what} className={s.year < year ? "on" : s.year === year ? "next" : ""} data-testid="road-step">
+              <i>{s.year < year && <Check size={12} />}</i>
+              <b>Usually {YEARS[s.year].toLowerCase()}{s.year === year ? " · you are here" : ""}</b>
+              <span>{s.what}. {s.source ? <a href={s.source} target="_blank" rel="noreferrer" className="xs">Source</a> : <span className="xs muted">General advice</span>}
+                {s.year >= year && s.year < 5 && <button className="btn btn-ghost btn-sm" onClick={() => add(s.what, `Usually ${YEARS[s.year].toLowerCase()} on the ${road.label.toLowerCase()} road`, "Prepare")} data-testid="button-road-todo"><Plus size={14} /> To-do</button>}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+      <p className="xs muted">These are usual timelines, mostly Texas rules. Rules change, so check the source and your advisor before you plan around a step.</p>
+    </section>
   );
 }
 

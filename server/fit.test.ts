@@ -235,3 +235,14 @@ test("regions: a state after a city labels that city ('Fort Worth, TX' is not al
   assert.equal(at("TX", "Houston, TX"), true);
   assert.equal(at("Fort Worth", "New York, NY"), false);
 });
+
+test("field roads: major wins, trade paths get the trades road, class year maps to a step year", async () => {
+  const { roadFor, yearNumber } = await import("@shared/roads");
+  assert.equal(roadFor("Accounting")?.key, "accounting");
+  assert.equal(roadFor("Finance & Business Information Systems")?.key, "finance");
+  assert.equal(roadFor("Actuarial Science")?.key, "actuarial", "not finance");
+  assert.equal(roadFor("Nursing")?.key, "nursing", "not health");
+  assert.equal(roadFor("", "apprenticeship")?.key, "trades");
+  assert.equal(roadFor("Underwater basket weaving"), null);
+  assert.deepEqual(["First-year", "Freshman", "Sophomore", "Senior", "Graduate student", ""].map(yearNumber), [1, 1, 2, 4, 5, 0]);
+});

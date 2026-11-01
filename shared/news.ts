@@ -3,6 +3,7 @@
 export type NewsItem = { id: string; date: string; kind: "New" | "Improved" | "Fixed" | "Changed"; title: string; body: string; owners?: boolean };
 
 export const NEWS: NewsItem[] = [
+  { id: "2026-11-01-07", date: "2026-11-01", kind: "New", title: "Your field's road", body: "My Path shows the usual steps from college to license in your field (CPA, SIE, FE, NCLEX, LSAT, MCAT and more), with sources. Add this year's steps to your to-dos." },
   { id: "2026-11-01-06", date: "2026-11-01", kind: "Changed", title: "Write your own outreach, with a coach", body: "Network → Write an email: you write it in your own words and Remy gives up to 3 specific comments (a clear small ask, a real connection, length). Recruiters remember students who sound like themselves. “Draft it for me” is still there." },
   { id: "2026-11-01-05", date: "2026-11-01", kind: "New", title: "Your 30-second pitch and the 6-second view", body: "Resume → Base resume: Remy drafts your elevator pitch from your own resume (edit it, then practice out loud with a timer), and the 6-second view shows what a recruiter's eye catches first. Remy also flags mixed date formats." },
   { id: "2026-11-01-04", date: "2026-11-01", kind: "New", title: "Add proof you already have", body: "Account → Connections now takes your GivePulse volunteer record, certificates and unofficial transcript (PDF or pasted text). Remy suggests facts from them, and nothing is used until you approve it." },

@@ -680,6 +680,11 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .road li span { font-size: var(--text-xs); color: var(--muted-text); }
 .road li.on i { background: var(--fox); border-color: var(--fox); }
 .road li.next { border-color: var(--fox); }
+/* Field roads: long steps stack in one column on every screen. */
+.road.road-long { grid-template-columns: 1fr; }
+.road.road-long li { grid-template-columns: 20px 1fr; align-items: start; }
+.road.road-long li i { grid-row: span 2; }
+.road.road-long li span { text-align: left; font-size: var(--text-sm); }
 @media (max-width: 640px) {
   .road { grid-template-columns: 1fr; gap: 6px; }
   .road li { grid-template-columns: 20px auto 1fr; padding: 6px 10px; }
