@@ -904,7 +904,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   }));
   // Weekly check-in: a draft first (nothing saved); the student approves what to keep.
   const checkinInput = (b: any) => {
-    const kind = String(b?.kind || ""), said = String(b?.said || "").trim().slice(0, 400);
+    const kind = String(b?.kind || ""), said = String(b?.said || "").trim().slice(0, 600);
     if (!(CHECKIN_KINDS as readonly string[]).includes(kind)) bad("Pick what you did.");
     if (said.length < 8) bad("Say one sentence about it, like where and what you did.");
     return { kind, said };
@@ -913,9 +913,9 @@ export async function registerRoutes(_server: Server, app: Express) {
     const { kind, said } = checkinInput(req.body);
     const out = await withAi(ctx, "Check-in", () =>
       aiJson(
-        `A university student tells you one thing they did this week. Turn it into: "fact" (one plain sentence for their record), "bullet" (one resume line starting with a past-tense verb) and "linkedin" (the LinkedIn section and fields to fill). Use ONLY the student's own words and facts: never add numbers, titles, causes, outcomes, how they got a role, or any detail they didn't say. Rewording is fine; adding is not. Leave a field out if they didn't say it. Sections: Experience, Volunteering, Licenses & certifications, Projects, Honors & awards, Organizations.`,
-        `WHAT THEY DID: ${kind}\nTHEIR WORDS: ${said}\n\nReturn {"fact":"","bullet":"","linkedin":{"section":"","fields":[{"label":"e.g. Organization, Role, Title, Issuing organization","value":""}]}}`,
-        700,
+        `A university student tells you one thing they did this week. Turn it into: "fact" (one plain sentence for their record), "bullet" (one resume line starting with a past-tense verb) and "linkedin" (the LinkedIn section and fields to fill). Use ONLY the student's own words and facts: never add numbers, titles, causes, outcomes, how they got a role, or any detail they didn't say. Rewording is fine; adding is not. Leave a field out if they didn't say it. Sections: Experience, Volunteering, Licenses & certifications, Projects, Honors & awards, Organizations. Also ask up to 2 short "followups" about details that would make the resume line stronger and that they didn't give (how many, how often, what result), each with 3 short tap answers that are ranges or plain choices; don't ask what they already said.`,
+        `WHAT THEY DID: ${kind}\nTHEIR WORDS: ${said}\n\nReturn {"fact":"","bullet":"","linkedin":{"section":"","fields":[{"label":"e.g. Organization, Role, Title, Issuing organization","value":""}]},"followups":[{"q":"How many hours did you volunteer?","options":["1–3","4–8","More than 8"]}]}`,
+        900,
       ),
     );
     res.json(cleanCheckin(kind, said, out));
