@@ -30,7 +30,7 @@ export function weeklyDigest(ws: Workspace, today: string, weekday: number, host
   if (!ws.settings.notify.weeklyPlan || !ws.onboarding.done) return null;
   if (weekday !== (ws.settings.careerTime?.day ?? 0) || ws.lastDigest === today) return null;
   const since = ws.lastDigestAt || new Date(Date.parse(today + "T12:00:00Z") - 7 * 864e5).toISOString();
-  const fresh = ws.jobs.filter((j) => (j.foundAt || "") > since && !ws.hiddenJobIds.includes(j.id) && !ws.fits[j.id]?.excluded);
+  const fresh = ws.jobs.filter((j) => (j.foundAt || "") > since && !ws.hiddenJobIds.includes(j.id) && !ws.fits[j.id]?.excluded && ws.fits[j.id]?.regionMatch !== false);
   const soon = ws.calendar.filter((c) => c.kind === "Deadline" && c.date >= today && days(today, c.date) <= 7);
   if (!fresh.length && !soon.length) return null;
   const m = milestones(ws), next = m.find((x) => !x.done);

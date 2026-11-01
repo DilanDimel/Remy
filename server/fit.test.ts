@@ -222,3 +222,16 @@ test("recruiting season: matches the field and says whether it's open now", asyn
   assert.deepEqual([tech?.label, tech?.open], ["Tech", true], "a window that wraps the new year");
   assert.equal(seasonFor("Underwater basket weaving"), null);
 });
+
+test("regions: a state after a city labels that city ('Fort Worth, TX' is not all of Texas); states alone still mean the state", async () => {
+  const { emptyWorkspace } = await import("./db");
+  const { regionMatch } = await import("./fit");
+  const at = (regions: string, location: string) => { const ws = emptyWorkspace(); ws.profile.regions = regions; return regionMatch(ws, { location, format: "" } as any); };
+  assert.equal(at("Fort Worth, TX", "Houston, TX"), false);
+  assert.equal(at("Fort Worth, TX", "Dallas, TX"), true);
+  assert.equal(at("Austin, Texas", "Houston, TX"), false);
+  assert.equal(at("Austin, Texas", "Austin, TX"), true);
+  assert.equal(at("Texas, California", "Houston, TX"), true);
+  assert.equal(at("TX", "Houston, TX"), true);
+  assert.equal(at("Fort Worth", "New York, NY"), false);
+});

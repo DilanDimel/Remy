@@ -24,8 +24,9 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const [showHidden, setShowHidden] = useState(false);
   const [showIneligible, setShowIneligible] = useState(false);
   const regions = w.profile.regions.trim();
-  const [myRegions, setMyRegions] = useState<boolean>(kept.myRegions ?? (!!regions && !/anywhere/i.test(regions)));
-  useEffect(() => { try { localStorage.setItem("remy.opps", JSON.stringify({ savedOnly, myRegions })); } catch {} }, [savedOnly, myRegions]);
+  // Not remembered: "Show all locations" lasts this visit, so the student's places always apply when they come back.
+  const [myRegions, setMyRegions] = useState<boolean>(!!regions && !/anywhere/i.test(regions));
+  useEffect(() => { try { localStorage.setItem("remy.opps", JSON.stringify({ savedOnly })); } catch {} }, [savedOnly]);
   const setKind = (k: Kind) => go(`/opportunities?kind=${k}`);
   const [finding, setFinding] = useState(false);
   const discover = async () => {

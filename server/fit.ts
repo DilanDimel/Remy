@@ -101,6 +101,9 @@ export function regionMatch(ws: Workspace, job: Job): boolean | null {
   if (!wants.length || wants.some((w) => /anywhere|open to (any|all)|united states|^us$|usa/.test(w))) return null;
   // "Dallas-Fort Worth, Texas": the state labels the metro; it doesn't mean anywhere in Texas.
   if (wants.some((w) => Object.keys(METRO).some((k) => !STATE_NAMES.includes(k) && k !== "remote" && w.includes(k)))) wants = wants.filter((w) => !STATE_NAMES.includes(w));
+  // "Austin, TX": a state right after a city labels that city; it doesn't mean the whole state.
+  const isState = (w: string) => STATE_NAMES.includes(w) || new RegExp(`^(${STATE})$`, "i").test(w);
+  wants = wants.filter((w, i) => !(i > 0 && isState(w) && !isState(wants[i - 1])));
   const loc = ` ${job.location} ${job.format} `.toLowerCase();
   // Virtual and remote postings can be done from anywhere, so they match every region.
   // ...unless the posting names another country ("Virtual, BR", "Remote - Canada").
@@ -108,7 +111,7 @@ export function regionMatch(ws: Workspace, job: Job): boolean | null {
   return wants.some((w) => {
     const key = Object.keys(METRO).find((k) => w.includes(k));
     // A state name also matches its abbreviation ("California" → "Glendale, CA").
-    const a = STATE.split("|")[STATE_NAMES.indexOf(w)]?.toLowerCase();
+    const a = STATE.split("|")[STATE_NAMES.indexOf(w)]?.toLowerCase() || (isState(w) ? w : undefined);
     return (key ? METRO[key] : a ? [w, `, ${a},`, `, ${a} `, `,${a} `] : [w]).some((needle) => loc.includes(needle));
   });
 }
@@ -198,7 +201,7 @@ export function dealbreaker(ws: Workspace, job: Job, today = new Date()): string
 }
 
 // Bump when the fit rules change, so verdicts saved under older rules are worked out again.
-export const FIT_RULES_VERSION = 3; // 3: engineering titles include mechanical/CAD/prototype work
+export const FIT_RULES_VERSION = 4; // 4: "Austin, TX" means Austin, not all of Texas
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const g = gradDate(ws);
   const year = classYearOf(ws);

@@ -436,7 +436,7 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
     setLooking(true);
     api<{ workspace: Workspace }>("POST", "/api/jobs/discover", {}).then((d) => { setWs(d.workspace); return reloadJobs(); }).catch(() => {}).finally(() => setLooking(false));
   }, []);
-  const first = (jobs || []).filter((j) => !fits[j.id]?.excluded).slice(0, 3);
+  const first = (jobs || []).filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false).slice(0, 3);
   return (
     <div className="stack-lg">
       {(looking || first.length > 0) && (
@@ -613,7 +613,7 @@ function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: () => vo
   const { ws, setWs, run, config } = useStore();
   const w = ws!;
   const { jobs, fits, refreshing } = useJobs();
-  const matches = (jobs || []).filter((j) => !fits[j.id]?.excluded);
+  const matches = (jobs || []).filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false);
   const [busy, setBusy] = useState(false);
   const make = async () => {
     setBusy(true);

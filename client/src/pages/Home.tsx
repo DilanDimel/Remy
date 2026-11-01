@@ -30,7 +30,7 @@ export default function Home() {
   useEffect(() => { if (!since || Date.now() - Date.parse(since) > 30 * 60_000) save("settings", { lastSeenAt: new Date().toISOString() }).catch(() => {}); }, []);
   const from = since || new Date(Date.now() - 7 * 864e5).toISOString();
   const sinceLabel = since ? (Date.now() - Date.parse(since) < 20 * 3600_000 ? "earlier today" : fmtDate(since)) : "";
-  const newJobs = (jobs || []).filter((j) => (j.foundAt || "") > from && !w.hiddenJobIds.includes(j.id) && !fits[j.id]?.excluded).length;
+  const newJobs = (jobs || []).filter((j) => (j.foundAt || "") > from && !w.hiddenJobIds.includes(j.id) && !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false).length;
   const updates = w.tracker.filter((t) => t.events.some((e) => e.at > from && !/^Manual/.test(e.source))).length;
   const soon = w.calendar.filter((c) => c.kind === "Deadline" && (daysUntil(c.date) ?? -1) >= 0 && (daysUntil(c.date) ?? 99) <= 7).length;
   const sinceRows: [string, string, string][] = [
@@ -75,7 +75,8 @@ export default function Home() {
 
   const { isFading, mark } = useCompleting();
   const todos = w.tasks.filter((t) => !t.done || isFading(t.id)).sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999")).slice(0, 3);
-  const active = (jobs || []).filter((j) => !w.hiddenJobIds.includes(j.id) && (!j.deadline || (daysUntil(j.deadline) ?? 0) >= 0));
+  // Only places the student chose (Opportunities can still show the rest).
+  const active = (jobs || []).filter((j) => !w.hiddenJobIds.includes(j.id) && fits[j.id]?.regionMatch !== false && (!j.deadline || (daysUntil(j.deadline) ?? 0) >= 0));
   const events = active.filter((j) => j.kind === "event").slice(0, 3);
   const opps = active.filter((j) => j.kind !== "event").sort((a, b) => (fits[b.id]?.matched.length || 0) - (fits[a.id]?.matched.length || 0)).slice(0, 3);
   const toggleTask = (t: Task) => { if (!t.done) mark(t.id); return run(() => api<Workspace>("PATCH", `/api/tasks/${t.id}`, { done: !t.done }).then(setWs)); };
