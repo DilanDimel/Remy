@@ -1,3 +1,4 @@
+import { isSkill } from "@shared/requirements";
 import type { Job, JobFit, Workspace } from "@shared/types";
 import { hasKeyword } from "./ats";
 import { norm } from "./parse";
@@ -108,8 +109,12 @@ export function regionMatch(ws: Workspace, job: Job): boolean | null {
   // Virtual and remote postings can be done from anywhere, so they match every region.
   // ...unless the posting names another country ("Virtual, BR", "Remote - Canada").
   if (/remote|virtual|online/.test(loc) && !abroad(job.location)) return true;
+  // Texas metros: a posting that names only other states ("Arlington, VA", "Plano, IL") isn't in Texas.
+  const states = [...` ${job.location} `.matchAll(new RegExp(`[,\\s](${STATE})(?=[\\s,;)]|$)`, "g"))].map((m) => m[1].toLowerCase());
+  const elsewhere = states.length > 0 && !states.includes("tx") && !/texas/i.test(job.location);
   return wants.some((w) => {
     const key = Object.keys(METRO).find((k) => w.includes(k));
+    if (key && key !== "remote" && elsewhere) return false;
     // A state name also matches its abbreviation ("California" → "Glendale, CA").
     const a = STATE.split("|")[STATE_NAMES.indexOf(w)]?.toLowerCase() || (isState(w) ? w : undefined);
     return (key ? METRO[key] : a ? [w, `, ${a},`, `, ${a} `, `,${a} `] : [w]).some((needle) => loc.includes(needle));
@@ -192,6 +197,7 @@ export function dealbreaker(ws: Workspace, job: Job, today = new Date()): string
     return "This posting says it won't sponsor a work visa, and you told Remy you'll need sponsorship.";
   if (classYearOf(ws, today) !== "Graduate student" && /\bMBA\b(?! or undergraduate)|(?:currently )?(?:enrolled in|pursuing) an? (?:master'?s|graduate|ph\.?d)/i.test(`${job.title} ${job.eligibility.join(" ")} ${job.summary} ${job.requirements.map((r) => `${r.keyword} ${r.quote}`).join(" ")}`))
     return "This one is for MBA or graduate students.";
+  if (/\bhigh[- ]school\b/i.test(job.title) && p.path !== "high-school" && classYearOf(ws, today) !== "") return "This one is for high school students.";
   for (const a of (p.avoid || "").split(/[,;]+/).map((x) => x.trim().toLowerCase()).filter((x) => x.length > 2))
     if (`${job.company} ${job.title}`.toLowerCase().includes(a)) return `You told Remy to avoid "${a}".`;
   const want = [...(p.timeline || "").matchAll(/summer\s*(20\d\d)/gi)].map((m) => m[1]);
@@ -202,7 +208,7 @@ export function dealbreaker(ws: Workspace, job: Job, today = new Date()): string
 }
 
 // Bump when the fit rules change, so verdicts saved under older rules are worked out again.
-export const FIT_RULES_VERSION = 5; // 5: early programs rank higher for first-years and sophomores
+export const FIT_RULES_VERSION = 6; // 6: "Arlington, VA" isn't DFW; eligibility labels ("Minimum GPA") aren't skills or gaps
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const g = gradDate(ws);
   const year = classYearOf(ws);
@@ -261,12 +267,14 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
 
   const matched: string[] = [];
   const gaps: string[] = [];
-  for (const r of job.requirements) {
+  const skills = job.requirements.filter((r) => isSkill(r.keyword));
+  for (const r of skills) {
     if (hasKeyword(evidence, r.keyword)) matched.push(r.keyword);
     else gaps.push(r.keyword);
   }
   const why = matched.length
     ? `You already show ${matched.slice(0, 3).join(", ")}${matched.length > 3 ? ` and ${matched.length - 3} more` : ""} — that's what this posting asks for.`
+    : !skills.length ? (ws.resume ? "Remy couldn't read the skills this posting asks for. Open it to check, or tap Explain fit." : "Upload your resume and Remy will show how your experience lines up.")
     : ws.resume ? "This one would be a stretch for you right now: your resume doesn't show its main asks yet, but it's worth exploring." : "Upload your resume and Remy will show how your experience lines up.";
 
   const region = regionMatch(ws, job);
@@ -279,7 +287,7 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   }
   const ruledOut = studentAdded(job) ? "" : dealbreaker(ws, job);
   if (ruledOut) { excluded = true; note = ruledOut; }
-  const req = job.requirements.length || 1;
+  const req = skills.length || 1;
   const score = Math.round(
     ({ likely: 40, check: 22, unknown: 18, unlikely: 0 } as const)[eligibility] +
       30 * (matched.length / req) +

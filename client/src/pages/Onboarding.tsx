@@ -256,11 +256,13 @@ const PROFILE_FIELDS: [keyof Profile, string, string?][] = [
 
 // Onboarding asks roles, regions and opportunity types on its own preferences step, so its review step leaves them out.
 const PREF_KEYS: (keyof Profile)[] = ["classYear", "graduation", "targetRoles", "regions", "opportunityTypes"];
-export function ProfileForm({ onSaved, hidePrefs }: { onSaved?: () => void; hidePrefs?: boolean }) {
+/** draft: when given, the parent saves unsaved edits itself (setup's "Looks right"), so there's no separate Save button. */
+export function ProfileForm({ onSaved, hidePrefs, draft }: { onSaved?: () => void; hidePrefs?: boolean; draft?: { current: Profile | null } }) {
   const { ws, save, run } = useStore();
   const [p, setP] = useState<Profile>(ws!.profile);
   useEffect(() => { setP(ws!.profile); }, [ws!.profile]);
   const dirty = JSON.stringify(p) !== JSON.stringify(ws!.profile);
+  if (draft) draft.current = dirty ? p : null;
   return (
     <div className="stack">
       <div className="grid-2">
@@ -284,10 +286,10 @@ export function ProfileForm({ onSaved, hidePrefs }: { onSaved?: () => void; hide
         ))}
       </div>
       <label className="field"><span>Goals</span><textarea className="textarea" value={p.goals} onChange={(e) => setP({ ...p, goals: e.target.value })} placeholder="What would a great next year look like?" data-testid="input-profile-goals" /></label>
-      <div className="row">
+      {!draft && (<div className="row">
         <button className="btn btn-primary btn-sm" disabled={!dirty} onClick={async () => { const r = await run(() => save("profile", p), "Profile saved"); if (r) onSaved?.(); }} data-testid="button-save-profile">Save profile</button>
         {dirty && <span className="xs muted">Unsaved changes</span>}
-      </div>
+      </div>)}
     </div>
   );
 }
@@ -423,6 +425,7 @@ function Preferences({ onBack }: { onBack: () => void }) {
 function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
   const { ws, save, run, setWs } = useStore();
   const w = ws!;
+  const profileDraft = useRef<Profile | null>(null);
   const unverified = w.resume?.doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets)).filter((b) => b.verified === false) || [];
   const suggested = w.memory.filter((m) => m.status === "suggested");
   const setFact = (id: string, patch: any) => save("memory", w.memory.map((m) => (m.id === id ? { ...m, ...patch } : m)));
@@ -450,7 +453,7 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
         <h2>Is this right?</h2>
         <p className="small muted">Correct anything that's off. Remy only uses what you confirm here.</p>
       </div>
-      <ProfileForm hidePrefs />
+      <ProfileForm hidePrefs draft={profileDraft} />
       {atAlumniSchool(w) && !skipVerify && <SchoolVerify onSkip={() => setSkipVerify(true)} />}
       {w.resume && (
         <div className="stack-sm">
@@ -483,6 +486,8 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
         <button className="btn btn-ghost" onClick={onBack}><ArrowLeft size={16} /> Back</button>
         <button className="btn btn-primary" onClick={async () => {
           // Every line matched the file word for word and the student says it's right: that's a confirmed resume.
+          // Edits typed above count as confirmed too; without this they were lost on "Looks right".
+          if (profileDraft.current && !(await run(() => save("profile", profileDraft.current!)))) return;
           if (w.resume && !w.resume.confirmedAt && !unverified.length) await run(() => api<Workspace>("PUT", "/api/resume/doc", { doc: w.resume!.doc, confirm: true }).then(setWs));
           onNext();
         }} data-testid="button-ob-next-review">Looks right <ArrowRight size={16} /></button>

@@ -1,6 +1,6 @@
 // Tailored resumes for students who uploaded a Word file: change only the text of the edited bullets inside
 // their own .docx, so fonts, spacing, bullets, columns and everything else stay exactly as they made it.
-import type { ResumeStyle } from "@shared/types";
+import type { ResumeDoc, ResumeStyle } from "@shared/types";
 import JSZip from "jszip";
 
 const decode = (s: string) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
@@ -66,6 +66,67 @@ export async function editDocx(buf: Buffer, edits: { from: string; to: string }[
   }
   zip.file("word/document.xml", xml);
   return { buf: await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }), missed };
+}
+
+const paragraphs = (xml: string) => [...xml.matchAll(/<w:p[ >][\s\S]*?<\/w:p>/g)].map((m) => ({ start: m.index!, xml: m[0], text: decode([...m[0].matchAll(T)].map((t) => t[1] || "").join("")) }));
+/** The paragraph's text replaced, keeping its first run's formatting and the paragraph's bullet and spacing. */
+const retext = (pxml: string, text: string) => {
+  let first = true;
+  return pxml.replace(T, (m) => {
+    if (!first) return m.endsWith("/>") ? m : m.replace(/>[\s\S]*<\/w:t>$/, "></w:t>");
+    first = false;
+    return `<w:t xml:space="preserve">${encode(text)}</w:t>`;
+  });
+};
+
+/** The approved resume written into the student's own Word file. The diff is against the FILE (not Remy's copy), so
+ *  lines changed in Remy before tailoring count too: a reworded line replaces its closest match, an added line goes
+ *  right after the line before it (copying that line's bullet and font), a line deleted in Remy is removed.
+ *  Returns missed lines when something can't be placed, so the caller uses Remy's own layout instead. */
+export async function editResumeDocx(buf: Buffer, base: ResumeDoc, version: ResumeDoc, removed: string[] = []): Promise<{ buf: Buffer; missed: string[] }> {
+  const zip = await JSZip.loadAsync(buf);
+  const xml0 = await zip.file("word/document.xml")?.async("string");
+  if (!xml0) throw new Error("Not a Word document");
+  const file = paragraphs(xml0).map((p) => p.text).filter((t) => t.trim());
+  const flat = decode([...xml0.matchAll(T)].map((t) => t[1] || "").join(" "));
+  const has = (t: string) => file.some((p) => norm(p) === norm(t)) || flat.includes(t.trim());
+  const baseById = new Map(base.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => [b.id, b.text] as const))));
+  const kept = new Set(version.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.filter((b) => has(b.text)).map((b) => norm(b.text)))));
+  const replace: { from: string; to: string }[] = [], add: { after: string; add: string }[] = [], missed: string[] = [];
+  const taken = new Set<string>();
+  for (const e of version.sections.flatMap((s) => s.entries)) {
+    let prev = "";
+    for (const b of e.bullets) {
+      if (has(b.text)) { prev = b.text; continue; }
+      const old = baseById.get(b.id);
+      const near = file.filter((p) => !kept.has(norm(p)) && !taken.has(p)).map((p) => [p, overlap(b.text, p)] as const).sort((x, y) => y[1] - x[1])[0];
+      const from = old && has(old) && !kept.has(norm(old)) ? old : near && near[1] >= 0.6 ? near[0] : "";
+      if (from) { taken.add(from); replace.push({ from, to: b.text }); }
+      else if (prev) add.push({ after: prev, add: b.text });
+      else missed.push(b.text);
+      prev = b.text;
+    }
+  }
+  const versionIds = new Set(version.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => b.id))));
+  // Only lines Remy knows were deleted (a file line Remy never read isn't touched).
+  const remove = [...new Set([...[...baseById].filter(([id]) => !versionIds.has(id)).map(([, t]) => t), ...removed])].filter((t) => file.some((p) => norm(p) === norm(t)) && !kept.has(norm(t)));
+  const first = await editDocx(buf, replace);
+  missed.push(...first.missed);
+  if (missed.length || (!add.length && !remove.length)) return { buf: first.buf, missed };
+  const z2 = await JSZip.loadAsync(first.buf);
+  let xml = await z2.file("word/document.xml")!.async("string");
+  for (const r of remove) {
+    const p = paragraphs(xml).find((x) => norm(x.text) === norm(r) && !x.xml.includes("<w:br"));
+    if (p) xml = xml.slice(0, p.start) + xml.slice(p.start + p.xml.length); else missed.push(r);
+  }
+  for (const a of add) {
+    const p = paragraphs(xml).find((x) => norm(x.text) === norm(a.after) && !x.xml.includes("<w:br"));
+    if (!p) { missed.push(a.add); continue; }
+    const at = p.start + p.xml.length;
+    xml = xml.slice(0, at) + retext(p.xml, a.add) + xml.slice(at);
+  }
+  z2.file("word/document.xml", xml);
+  return { buf: await z2.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }), missed };
 }
 
 const SERIF = /times|georgia|garamond|cambria|book antiqua|palatino|baskerville|bodoni|century schoolbook|didot|minion|constantia|bookman|caslon/i;

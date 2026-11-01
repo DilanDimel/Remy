@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import JSZip from "jszip";
 import { Document, Packer, Paragraph, TextRun } from "docx";
-import { editDocx } from "./docxEdit";
+import { editDocx, editResumeDocx } from "./docxEdit";
 
 // A student's own Word resume: Georgia 11 pt, real bullets, and one bullet saved as three runs (Word does this).
 async function studentDocx() {
@@ -56,4 +56,27 @@ test("a bullet inside a paragraph of line breaks is edited in its own run; nothi
   assert.match(xml, /• Wrote detailed incident reports for store leadership/);
   assert.match(xml, /• Monitored store cameras/);
   assert.match(xml, /w:ascii="Courier"/);
+});
+
+test("Word download diffs against the file: a line added in Remy goes in with the same bullet and font; edits made before tailoring and deletions reach the file too", async () => {
+  const original = await studentDocx();
+  const doc = (bullets: [string, string][]) => ({ contact: {}, skills: [], sections: [{ id: "s", heading: "Experience", entries: [{ id: "e", org: "Chick-fil-A", role: "", location: "", dates: "", bullets: bullets.map(([id, text]) => ({ id, text })) }] }] }) as any;
+  // Base in Remy: the first bullet reworded, a new third bullet added. The tailored version keeps both.
+  const base = doc([["b1", "Took drive-thru orders and trained new hires"], ["b2", "Worked weekends during the school year"], ["b3", "Helped plan a $2,000 banquet budget"]]);
+  const { buf, missed } = await editResumeDocx(original, base, base);
+  assert.deepEqual(missed, []);
+  const before = await xmlOf(original), after = await xmlOf(buf);
+  const count = (x: string, re: RegExp) => (x.match(re) || []).length;
+  assert.ok(after.includes("Took drive-thru orders and trained new hires") && !after.includes("Took orders at the"), "reworded in Remy before tailoring");
+  assert.ok(after.indexOf("Helped plan a $2,000 banquet budget") > after.indexOf("Worked weekends"), "added line goes after the one before it");
+  assert.equal(count(after, /<w:numPr>/g), count(before, /<w:numPr>/g) + 1, "the new line is a real bullet");
+  assert.equal(count(after, /w:ascii="Georgia"/g), count(before, /w:ascii="Georgia"/g) + 1, "in the student's font");
+  // A line deleted in Remy is removed from the file.
+  const gone = await editResumeDocx(original, doc([["b1", "Took orders at the drive-thru and trained new hires"]]), doc([["b1", "Took orders at the drive-thru and trained new hires"]]), ["Worked weekends during the school year"]);
+  const notKnown = await editResumeDocx(original, doc([["b1", "Took orders at the drive-thru and trained new hires"]]), doc([["b1", "Took orders at the drive-thru and trained new hires"]]));
+  assert.ok((await xmlOf(notKnown.buf)).includes("Worked weekends"), "a file line Remy never read isn't removed");
+  assert.ok(!(await xmlOf(gone.buf)).includes("Worked weekends"));
+  // A new first line with nothing before it can't be placed: reported so the caller uses Remy's layout.
+  const first = await editResumeDocx(original, doc([["n", "Brand new line"], ["b1", "Took orders at the drive-thru and trained new hires"]]), doc([["n", "Brand new line"], ["b1", "Took orders at the drive-thru and trained new hires"]]));
+  assert.deepEqual(first.missed, ["Brand new line"]);
 });

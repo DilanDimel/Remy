@@ -218,10 +218,12 @@ function Tailor({ query }: { query: URLSearchParams }) {
     const r = await run(() => api<{ application: Application; workspace: Workspace }>("POST", "/api/applications", { jobId }));
     if (r) { setWs(r.workspace); go(`/resume?tab=tailor&app=${r.application.id}`); }
   };
-  // Openings you haven't started, best fit first; ones you're not eligible for are left out.
+  // Openings you haven't started, best fit first, by the same rules as Opportunities: ones you're not eligible for
+  // or that are outside the places you chose are left out. Only the best few, so the tailoring panel stays in view.
   const notStarted = (jobs || [])
-    .filter((j) => j.kind !== "event" && !w.applications.some((a) => a.jobId === j.id) && !fits[j.id]?.excluded && !w.hiddenJobIds.includes(j.id))
+    .filter((j) => j.kind !== "event" && !w.applications.some((a) => a.jobId === j.id) && !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false && !w.hiddenJobIds.includes(j.id))
     .sort((x, y) => (fits[y.id]?.score ?? 0) - (fits[x.id]?.score ?? 0));
+  const shown = notStarted.slice(0, 8);
   return (
     <div className="stack-lg">
       <div className="stack-sm">
@@ -244,13 +246,14 @@ function Tailor({ query }: { query: URLSearchParams }) {
               </button>
             );
           })}
-          {notStarted.map((j) => (
+          {shown.map((j) => (
             <button key={j.id} className="pick pick-new" onClick={() => start(j.id)} data-testid="button-choose-job">
               <span className="xs muted">{j.company}</span>
               <strong className="small">{j.title}</strong>
               <span className="row xs"><span className="chip chip-plain"><Plus size={11} /> Start tailoring</span>{fits[j.id]?.eligibility === "likely" && <span className="chip chip-live">Eligible</span>}</span>
             </button>
           ))}
+          {notStarted.length > shown.length && <button className="pick pick-new" onClick={() => go("/opportunities")} data-testid="button-more-openings"><strong className="small">{notStarted.length - shown.length} more</strong><span className="xs muted">See them all in Opportunities</span></button>}
         </div>
       </div>
       <div>

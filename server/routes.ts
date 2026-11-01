@@ -34,7 +34,7 @@ import { step } from "@shared/progress";
 import { conferencesFor } from "./conferences";
 import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
-import { docxStyle, editDocx } from "./docxEdit";
+import { docxStyle, editResumeDocx } from "./docxEdit";
 import * as gcal from "./gcal";
 import { q, schema } from "./sql";
 import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./docs";
@@ -329,6 +329,23 @@ async function findOpenings(ctx: Ctx, named: string[] = []) {
 // shortcut: refreshes when the student visits, not on a timer (the free host sleeps when idle); add a scheduled sweep on an always-on host.
 const OPENINGS_EVERY = 6 * 60 * 60_000;
 const searching = new Set<string>();
+
+/** Status from a recruiting email by fixed phrases (checked before the AI); the sentence that decided it is the evidence. */
+export function rulesClassify(text: string): { status: TrackStatus | "Unclear"; evidence: string } {
+  const sentences = text.split(/(?<=[.!?])\s+|\n+/).map((s) => s.trim()).filter(Boolean);
+  const tests: [TrackStatus, RegExp][] = [
+    ["Offer", /\b(pleased to offer|offer of (employment|internship)|extend (you )?an offer|congratulations[^.]*offer)\b/i],
+    ["Rejected", /\b(not (be )?moving forward|unable to offer|decided to (pursue|move forward with) other|regret to inform|not selected)\b/i],
+    // Words may sit between: "invite you to a 30-minute first round virtual interview".
+    ["Interview", /\b(invit\w* you to\b[^.]{0,60}\binterview|schedule\b[^.]{0,30}\binterview|interview invitation|(first|second|final|next)[- ]round\b[^.]{0,40}\binterview|superday|choose a time)\b/i],
+    ["Received", /\b(received your application|application (has been )?received|thank you for applying|confirms? (that )?we have received)\b/i],
+  ];
+  for (const [status, re] of tests) {
+    const s = sentences.find((x) => re.test(x));
+    if (s) return { status, evidence: s };
+  }
+  return { status: "Unclear", evidence: "" };
+}
 
 export async function registerRoutes(_server: Server, app: Express) {
   // Expired sessions and guest workspaces idle for 30 days are removed at start-up and every 6 hours.
@@ -864,6 +881,9 @@ export async function registerRoutes(_server: Server, app: Express) {
       e.unverified = e.unverified.filter((f) => before.get(e.id)?.[f] === e[f]);
       if (!e.unverified.length) delete e.unverified;
     }
+    const kept = new Set(d.sections.flatMap((s) => s.entries || []).flatMap((e) => (e.bullets || []).map((b) => b.id)));
+    const gone = ctx.ws.resume!.doc.sections.flatMap((s) => s.entries).flatMap((e) => e.bullets).filter((b) => !kept.has(b.id)).map((b) => b.text);
+    if (gone.length) ctx.ws.resume!.removed = [...(ctx.ws.resume!.removed || []), ...gone].slice(-200);
     ctx.ws.resume!.doc = d;
     const q = ctx.ws.resume!.quality;
     if (q) q.missingLines = stillMissing(q.missingLines, d);
@@ -1525,9 +1545,7 @@ Return JSON:
     if (kind === "resume" && fmt === "docx" && ctx.ws.resume?.original?.mime.includes("wordprocessingml")) {
       // They uploaded Word: edit their own file so it keeps their exact formatting.
       const f = await getFile(ctx.me.id, "resume");
-      const before = new Map(ctx.ws.resume.doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => [b.id, b.text] as const))));
-      const edits = v!.resume.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets)).filter((b) => before.has(b.id) && before.get(b.id) !== b.text).map((b) => ({ from: before.get(b.id)!, to: b.text }));
-      const out = f ? await editDocx(f.data, edits).catch(() => null) : null;
+      const out = f ? await editResumeDocx(f.data, ctx.ws.resume.doc, v!.resume, ctx.ws.resume.removed).catch(() => null) : null;
       if (out && !out.missed.length) buf = out.buf;
       else buf = await resumeDocx(v!.resume, style); // a change couldn't be placed in their file: use Remy's clean layout rather than ship a half-edited file
       res.setHeader("X-Remy-Layout", out && !out.missed.length ? "original" : "remy");
@@ -1677,25 +1695,12 @@ Return JSON:
   app.post("/api/inbox/paste", route(async (req, res, ctx) => {
     const body = String(req.body?.body || "").slice(0, 8000);
     if (body.trim().length < 30) bad("Paste the full email text.");
-    ctx.ws.inbox.unshift({ id: uid("m"), from: String(req.body?.from || "").slice(0, 200), subject: String(req.body?.subject || "(no subject)").slice(0, 200), date: new Date().toISOString().slice(0, 10), body, label: "Pasted by student" });
+    // A pasted email often carries its own From:/Subject: lines.
+    const header = (k: string) => body.match(new RegExp(`^\\s*${k}:\\s*(.+)$`, "im"))?.[1].trim() || "";
+    ctx.ws.inbox.unshift({ id: uid("m"), from: String(req.body?.from || header("From")).slice(0, 200), subject: String(req.body?.subject || header("Subject") || "(no subject)").slice(0, 200), date: new Date().toISOString().slice(0, 10), body, label: "Pasted by student" });
     await ctx.save();
     res.json(ctx.ws);
   }));
-
-  function rulesClassify(text: string): { status: TrackStatus | "Unclear"; evidence: string } {
-    const sentences = text.split(/(?<=[.!?])\s+|\n+/).map((s) => s.trim()).filter(Boolean);
-    const tests: [TrackStatus, RegExp][] = [
-      ["Offer", /\b(pleased to offer|offer of (employment|internship)|extend (you )?an offer|congratulations[^.]*offer)\b/i],
-      ["Rejected", /\b(not (be )?moving forward|unable to offer|decided to (pursue|move forward with) other|regret to inform|not selected)\b/i],
-      ["Interview", /\b(invite you to (an? |a )?(first-round |final-round )?interview|schedule (an |your )?interview|interview invitation|superday|choose a time)\b/i],
-      ["Received", /\b(received your application|application (has been )?received|thank you for applying|confirms? (that )?we have received)\b/i],
-    ];
-    for (const [status, re] of tests) {
-      const s = sentences.find((x) => re.test(x));
-      if (s) return { status, evidence: s };
-    }
-    return { status: "Unclear", evidence: "" };
-  }
 
   app.post("/api/inbox/:id/classify", route(async (req, res, ctx) => {
     const m = ctx.ws.inbox.find((x) => x.id === req.params.id);

@@ -95,3 +95,11 @@ test("retention watcher: quiet means last visit 8–21 days ago; counts the step
   assert.equal(r.noSetup, 1);
   assert.equal(r.stoppedAt.reduce((s, x) => s + x.n, 0), 2);
 });
+
+test("email rules: an interview invite with words in between is an interview, not a receipt", async () => {
+  const { rulesClassify } = await import("./routes");
+  const invite = "Thank you for applying to the 2027 Summer Analyst Internship at Texas Capital. We'd like to invite you to a 30-minute first round virtual interview on Thursday, November 12.";
+  assert.equal(rulesClassify(invite).status, "Interview");
+  assert.equal(rulesClassify("Thank you for applying. We have received your application and will be in touch.").status, "Received");
+  assert.equal(rulesClassify("We'd like to schedule a final round interview with the team.").status, "Interview");
+});

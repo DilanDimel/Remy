@@ -287,3 +287,31 @@ test("weekly digest asks for a fresh LinkedIn PDF after a month", async () => {
   ws.linkedin.at = "2026-10-25T10:00:00Z";
   assert.doesNotMatch(weeklyDigest(ws, "2026-11-01", 0, "x.test")!.text, /LinkedIn/);
 });
+
+test("regionMatch: DFW city names in other states don't count as DFW", () => {
+  const dfw = student({ regions: "Fort Worth, Dallas" });
+  assert.equal(regionMatch(dfw, job({ location: "Arlington, VA" })), false);
+  assert.equal(regionMatch(dfw, job({ location: "Plano, IL" })), false);
+  assert.equal(regionMatch(dfw, job({ location: "Arlington, TX" })), true);
+  assert.equal(regionMatch(dfw, job({ location: "Arlington, Texas" })), true);
+  assert.equal(regionMatch(dfw, job({ location: "Chicago, IL, United States; Dallas, TX, United States" })), true);
+  assert.equal(regionMatch(dfw, job({ location: "Irving" })), true, "no state named: still DFW");
+});
+
+test("dealbreaker: a high school internship rules out a college student, not a high schooler", () => {
+  const hs = job({ title: "High School Internship, Software Engineering (Summer 2027)" });
+  assert.equal(dealbreaker(student({ classYear: "Sophomore" }), hs), "This one is for high school students.");
+  assert.equal(dealbreaker(student({ classYear: "", path: "high-school" }), hs), "");
+});
+
+test("fit: eligibility labels aren't gaps, and no readable skills isn't called a stretch", () => {
+  const ws = student({ classYear: "Sophomore", graduation: "May 2029", targetRoles: "accounting" });
+  (ws as any).resume = { doc: { sections: [] } };
+  const req = (keyword: string) => ({ id: keyword, keyword, quote: keyword });
+  const ey = { ...job({ title: "EY Discovery Day" }), requirements: ["Academic standing", "Eligible majors", "Minimum GPA", "Core skills"].map(req) } as Job;
+  const f = computeFit(ws, ey, "Treasurer, budgeting, Excel");
+  assert.deepEqual(f.gaps, []);
+  assert.match(f.why, /couldn't read the skills/);
+  const real = { ...ey, requirements: [req("Excel"), req("Minimum GPA")] } as Job;
+  assert.deepEqual([computeFit(ws, real, "Built models in Excel").matched, computeFit(ws, real, "Built models in Excel").gaps], [["Excel"], []]);
+});

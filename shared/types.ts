@@ -66,6 +66,8 @@ export interface BaseResume {
   original?: { name: string; mime: string; size: number };
   style?: ResumeStyle;
   quality?: ResumeQuality;
+  /** Lines the student deleted in Remy, so the Word download can take them out of their own file too. */
+  removed?: string[];
 }
 
 /** "Build my resume with Remy": everything the student told the builder, kept so they can come back and add to it. */
