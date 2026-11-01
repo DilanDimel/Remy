@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { CheckCircle2, CircleAlert, ScanSearch } from "lucide-react";
 import type { ResumeDoc, ResumeQuality } from "@shared/types";
-import { rid } from "../lib/store";
+import { rid, useStore } from "../lib/store";
 
 /** "ATS X-Ray": Remy's own extracted view of the resume (not any employer's screen), with the lines it couldn't place
- *  and a one-click way to put each one where it belongs. Edits go into the editor below; nothing saves until Save. */
+ *  (and lines from weekly check-ins: the resume inbox) and a one-click way to put each one where it belongs. Edits go into the editor below; nothing saves until Save. */
 export function AtsXray({ doc, quality, upd }: { doc: ResumeDoc; quality?: ResumeQuality; upd: (fn: (d: ResumeDoc) => void) => void }) {
   const entries = doc.sections.flatMap((s, si) => s.entries.map((e, ei) => ({ si, ei, label: `${s.heading}: ${[e.role, e.org].filter(Boolean).join(", ") || "entry"}` })));
   const [target, setTarget] = useState(0);
@@ -14,7 +14,9 @@ export function AtsXray({ doc, quality, upd }: { doc: ResumeDoc; quality?: Resum
     ["Education section", doc.sections.some((s) => /educat/i.test(s.heading))], ["Experience section", doc.sections.some((s) => /experien|employ|work/i.test(s.heading))],
     ["Dates on every entry", entries.length > 0 && doc.sections.every((s) => s.entries.every((e) => !!e.dates.trim()))], ["Skills", doc.skills.length > 0],
   ];
-  const missing = (quality?.missingLines || []).filter((l) => !placed.includes(l)).slice(0, 8);
+  const { ws, save } = useStore();
+  const inbox = (ws?.tasks || []).filter((t) => t.source === "Check-in" && t.link?.startsWith("/resume") && !t.done);
+  const missing = [...inbox.map((t) => t.why), ...(quality?.missingLines || [])].filter((l) => !placed.includes(l)).slice(0, 8);
   const pct = quality ? Math.round(quality.coverage * 100) : null;
   return (
     <section className="card card-pad stack-sm" data-testid="ats-xray">
@@ -25,7 +27,7 @@ export function AtsXray({ doc, quality, upd }: { doc: ResumeDoc; quality?: Resum
       </div>
       {missing.length > 0 && entries.length > 0 && (
         <div className="stack-sm">
-          <span className="small"><b>Lines Remy couldn't place.</b> Add the ones that matter to the right entry, then save.</span>
+          <span className="small"><b>{inbox.length ? "Lines to add." : "Lines Remy couldn't place."}</b> Add the ones that matter to the right entry, then save.</span>
           <label className="xs muted row" style={{ gap: 6 }}>Add to
             <select className="input" style={{ width: "auto", maxWidth: 360 }} value={target} onChange={(e) => setTarget(Number(e.target.value))} aria-label="Entry to add lines to">
               {entries.map((e, i) => <option key={i} value={i}>{e.label}</option>)}
@@ -33,8 +35,11 @@ export function AtsXray({ doc, quality, upd }: { doc: ResumeDoc; quality?: Resum
           </label>
           {missing.map((l) => (
             <div key={l} className="row-between small" style={{ gap: 8, flexWrap: "nowrap" }}>
-              <span className="quote" style={{ flex: 1 }}>{l}</span>
-              <button className="btn btn-secondary btn-sm" onClick={() => { const t = entries[target]; upd((d) => { d.sections[t.si].entries[t.ei].bullets.push({ id: rid("b"), text: l.replace(/^[•\-*–]\s*/, ""), verified: true }); }); setPlaced([...placed, l]); }} data-testid="button-xray-add">Add as bullet</button>
+              <span className="quote" style={{ flex: 1 }}>{l}{inbox.some((t) => t.why === l) && <span className="xs muted"> · from your check-in</span>}</span>
+              <button className="btn btn-secondary btn-sm" onClick={() => {
+                const t = entries[target]; upd((d) => { d.sections[t.si].entries[t.ei].bullets.push({ id: rid("b"), text: l.replace(/^[•\-*–]\s*/, ""), verified: true }); }); setPlaced([...placed, l]);
+                if (ws && inbox.some((x) => x.why === l)) save("tasks", ws.tasks.map((x) => (x.source === "Check-in" && x.why === l ? { ...x, done: true } : x))).catch(() => {});
+              }} data-testid="button-xray-add">Add as bullet</button>
             </div>
           ))}
         </div>

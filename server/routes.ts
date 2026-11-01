@@ -926,7 +926,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       // Checked again here: the browser's copy can't be trusted.
       const d = cleanCheckin(kind, said, req.body);
       addFact(ctx.ws, d.fact, "experience", "Check-in", "approved");
-      if (d.bullet) ctx.ws.tasks.unshift({ id: uid("t"), title: "Add this line to your resume", why: d.bullet, due: "", category: "Prepare", done: false, source: "Check-in", link: "/resume" });
+      if (d.bullet) ctx.ws.tasks.unshift({ id: uid("t"), title: "Add this line to your resume", why: d.bullet, due: "", category: "Prepare", done: false, source: "Check-in", link: "/resume?tab=base" });
       if (d.linkedin.fields.length) ctx.ws.tasks.unshift({ id: uid("t"), title: `Add to LinkedIn: ${d.linkedin.section}`, why: d.linkedin.fields.map((f) => `${f.label}: ${f.value}`).join("\n"), due: "", category: "Prepare", done: false, source: "Check-in" });
     }
     ctx.ws.lastCheckin = centralToday();
