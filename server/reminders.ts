@@ -39,6 +39,7 @@ export function weeklyDigest(ws: Workspace, today: string, weekday: number, host
     fresh.length ? `${fresh.length} new opening${fresh.length > 1 ? "s" : ""} for you:\n${fresh.slice(0, 3).map((j) => `• ${j.title} at ${j.company}`).join("\n")}` : "",
     soon.length ? `Closing in the next 7 days:\n${soon.map((c) => `• ${c.title} (${c.date})`).join("\n")}` : "",
     `Your road to an offer: ${m.filter((x) => x.done).length} of ${m.length} milestones.${next ? ` Next: ${next.label}.` : ""}`,
+    `30-second check-in: what did you do this week? Tap it on Home and Remy turns it into a resume line, using only your words.`,
   ].filter(Boolean);
   const subject = fresh.length ? `${fresh.length} new opening${fresh.length > 1 ? "s" : ""} for you this week` : `${soon.length} deadline${soon.length > 1 ? "s" : ""} this week`;
   return { subject, text: `Hi ${name},\n\n${parts.join("\n\n")}\n\nOpen Remy: https://${host}/\n\nYou get this because the weekly digest is on. Turn it off in Account → Appearance & alerts.\n\nRemy` };
