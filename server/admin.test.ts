@@ -1,7 +1,7 @@
 // The owners' dashboard: who is an owner, the board, and errors marked fixed. Run with `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { addEvent, emails, setEventPeople, addMember, errors, fixError, isOwner, recordError, removeMember, rsvp, saveTask, team, teamCalendarItems } from "./admin";
+import { addEvent, emails, overview, setEventPeople, addMember, errors, fixError, isOwner, recordError, removeMember, rsvp, saveTask, team, teamCalendarItems } from "./admin";
 
 process.env.OWNER_EMAILS = "founder@test.edu";
 const user = (email: string, kind: any = "supabase") => ({ kind, email });
@@ -73,4 +73,15 @@ test("several teammates on one to-do and one meeting; the calendar notes name th
   const item = (await teamCalendarItems()).find((x) => x.id === e.id)!;
   assert.match(item.notes, /^Team: /);
   assert.match(item.notes, /mate2/);
+});
+
+test("overview: email counts are who left each email on and who got a digest this week", async () => {
+  const { ensureUser, loadWorkspace, saveSections } = await import("./db");
+  await ensureUser({ id: "mail1", kind: "supabase", email: "m1@test.edu", name: "M", picture: "" } as any);
+  const ws = await loadWorkspace("mail1");
+  await saveSections("mail1", { settings: { ...ws.settings, notify: { ...ws.settings.notify, deadlines: true, weeklyPlan: false } }, lastDigestAt: new Date().toISOString() } as any);
+  const o = await overview();
+  assert.equal(o.emails.ready, false);
+  assert.ok(o.emails.reminders >= 1);
+  assert.ok(o.emails.digestsWeek >= 1);
 });

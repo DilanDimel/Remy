@@ -17,6 +17,7 @@ type Overview = {
   funnel: { accounts: number; resume: number; prefs: number; setup_done: number; chatted: number; applied: number };
   features: { name: string; students: number; uses: number }[];
   ai: { calls: number; failed: number; cost: number; priced: number; avgMs: number }; openErrors: number; feedback: number;
+  emails?: { ready: boolean; reminders: number; digest: number; digestsWeek: number };
 };
 type OpenError = { message: string; kind: string; place: string; times: number; students: number; last: string; first: string; detail: string };
 type Errors = { open: OpenError[]; fixed: { message: string; kind: string; fixed_at: string; fixed_by: string; times: number }[]; feedback: { id: number; at: string; place: string; message: string; email: string }[] };
@@ -135,6 +136,8 @@ function OverviewTab() {
         <Kpi n={d.newWeek} label="New sign-ups this week" prev={d.newPrev} />
         <Kpi n={d.students} label="Students in total" note={`${d.activeToday} active today`} />
         <Kpi n={`$${d.ai.cost.toFixed(2)}`} label="AI spend this week" note={d.ai.priced < d.ai.calls ? `${d.ai.calls} calls, ${d.ai.calls - d.ai.priced} without a price` : `${d.ai.calls} calls`} />
+        {d.emails && <Kpi n={d.emails.ready ? d.emails.digestsWeek : "Off"} label={d.emails.ready ? "Weekly digests sent this week" : "Emails aren't set up on the server"}
+          note={d.emails.ready ? `${d.emails.digest} get the digest, ${d.emails.reminders} get deadline reminders` : "Set SMTP_URL on Render to send reminders and digests"} />}
         <Kpi n={d.openErrors} label="Open errors" note={d.feedback ? `${d.feedback} new feedback` : d.openErrors ? "see Errors" : "all clear"} />
       </div>
       <section className="adm-card">
@@ -204,6 +207,11 @@ function ErrorsTab() {
       <Head title="Errors & feedback" sub="What students wrote with Send feedback, and the errors they hit in the last 30 days. Mark an error fixed after the fix ships." action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
       <section className="adm-card adm-list">
         <h3>Student feedback</h3>
+        {d.feedback.length > 1 && (() => {
+          const by = new Map<string, number>();
+          for (const f of d.feedback) by.set(f.place || "somewhere in Remy", (by.get(f.place || "somewhere in Remy") || 0) + 1);
+          return <p className="xs muted">By page: {[...by].sort((a, b) => b[1] - a[1]).map(([p, n]) => `${p} ${n}`).join(" · ")}</p>;
+        })()}
         {d.feedback.map((f) => (
           <div key={f.id} className="adm-err">
             <div className="grow stack-sm" style={{ gap: 4 }}>

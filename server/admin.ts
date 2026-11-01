@@ -6,6 +6,7 @@ import { q, q1 } from "./sql";
 import { loadWorkspace } from "./db";
 import { milestones } from "@shared/progress";
 import { uid } from "./ids";
+import { emailReady } from "./email";
 
 const cut = (v: unknown, n: number) => String(v ?? "").slice(0, n);
 const bad = (message: string, status = 400) => Object.assign(new Error(message), { status });
@@ -122,6 +123,13 @@ export async function overview() {
   const road = new Map<string, number>();
   for (const r of await q(`SELECT w.user_id FROM workspaces w JOIN users u ON u.id = w.user_id WHERE ${SIGNED_IN}`))
     for (const m of milestones(await loadWorkspace(String(r.user_id)))) road.set(m.label, (road.get(m.label) || 0) + (m.done ? 1 : 0));
+  // Emails: who left each one on, and how many got a weekly digest in the last 7 days.
+  const mail = await q1(
+    `SELECT COUNT(*) FILTER (WHERE w.data->'settings'->'notify'->>'deadlines' = 'true')::int AS reminders,
+            COUNT(*) FILTER (WHERE w.data->'settings'->'notify'->>'weeklyPlan' = 'true')::int AS digest,
+            COUNT(*) FILTER (WHERE (w.data->>'lastDigestAt') > ${ts(7)})::int AS digests_week
+     FROM workspaces w JOIN users u ON u.id = w.user_id WHERE ${SIGNED_IN}`,
+  );
   const openErrors = await q1("SELECT COUNT(DISTINCT message) FILTER (WHERE kind <> 'feedback')::int AS n, COUNT(*) FILTER (WHERE kind = 'feedback')::int AS feedback FROM error_reports WHERE fixed_at IS NULL AND at > now() - interval '30 days'");
   return {
     students: totals?.students ?? 0, newWeek: totals?.new_week ?? 0, newPrev: totals?.new_prev ?? 0,
@@ -132,6 +140,7 @@ export async function overview() {
     daily, funnel, features: features.filter((f) => f.uses).sort((a, b) => b.students - a.students || b.uses - a.uses),
     ai: { calls: ai?.calls ?? 0, failed: ai?.failed ?? 0, cost: ai?.cost ?? 0, priced: ai?.priced ?? 0, avgMs: ai?.avg_ms ?? 0 },
     openErrors: openErrors?.n ?? 0, feedback: openErrors?.feedback ?? 0,
+    emails: { ready: emailReady(), reminders: mail?.reminders ?? 0, digest: mail?.digest ?? 0, digestsWeek: mail?.digests_week ?? 0 },
   };
 }
 
