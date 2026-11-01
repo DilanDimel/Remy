@@ -504,6 +504,8 @@ export interface AppConfig {
   supabase: { url: string; anonKey: string; providers: Record<string, boolean> } | null;
   /** School email verification: whether codes can be sent, and which domains count (e.g. tcu.edu). */
   schoolEmail: { ready: boolean; domains: string[] };
+  /** Remy can email its own 6-digit sign-in codes (used instead of Supabase's sign-in links). */
+  emailCodes?: boolean;
   /** Google Calendar connection is set up on this server. */
   googleCalendar: boolean;
 }

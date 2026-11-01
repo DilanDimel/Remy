@@ -48,6 +48,8 @@ function SignIn() {
   const [emailOpen, setEmailOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState("");
+  const [code, setCode] = useState("");
+  const codes = !!config?.emailCodes;
   const gis = !!config?.googleClientId;
   const google = useGoogleButton(async (credential) => {
     setBusy("google");
@@ -64,7 +66,7 @@ function SignIn() {
     setBusy("");
   };
   const enter = async (via: Provider) => {
-    if (via === "Work/School Email") return providerOn(config, "email") ? setEmailOpen((o) => !o) : guest(via);
+    if (via === "Work/School Email") return codes || providerOn(config, "email") ? setEmailOpen((o) => !o) : guest(via);
     const p = SB[via];
     if (!providerOn(config, p)) return guest(via);
     setBusy(via);
@@ -73,16 +75,22 @@ function SignIn() {
   };
   const magic = async () => {
     setBusy("Work/School Email");
-    const ok = await run(() => sendMagicLink(config!, email.trim()).then(() => true));
-    if (ok) { setSent(email.trim()); toast("Check your inbox for a sign-in link"); }
+    const ok = await run(() => (codes ? api("POST", "/api/auth/email/start", { email: email.trim() }) : sendMagicLink(config!, email.trim())).then(() => true));
+    if (ok) { setSent(email.trim()); setCode(""); toast(codes ? "Check your inbox for a 6-digit code" : "Check your inbox for a sign-in link"); }
     setBusy("");
   };
-  const sso = (via: Provider, icon: ReactNode) => !providerOn(config, via === "Work/School Email" ? "email" : SB[via]) ? null : (
+  const verify = async () => {
+    setBusy("Work/School Email");
+    const r = await run(() => api("POST", "/api/auth/email/verify", { email: sent, code }));
+    if (r) setSession(r.me, r.workspace);
+    setBusy("");
+  };
+  const sso = (via: Provider, icon: ReactNode) => !(via === "Work/School Email" ? codes || providerOn(config, "email") : providerOn(config, SB[via])) ? null : (
     <button className="gbtn" type="button" onClick={() => enter(via)} disabled={!!busy} data-testid={`button-sso-${via.split(/\W/)[0].toLowerCase()}`}>
-      {busy === via ? <Spinner /> : icon} Continue with {via}
+      {busy === via ? <Spinner /> : icon} Continue with {via === "Work/School Email" ? "Email" : via}
     </button>
   );
-  const anyReal = gis || ["google", "linkedin_oidc", "apple", "azure", "email"].some((p) => providerOn(config, p as SupabaseProvider));
+  const anyReal = gis || codes || ["google", "linkedin_oidc", "apple", "azure", "email"].some((p) => providerOn(config, p as SupabaseProvider));
   return (
     <div className="landing-screen">
       <div className="landing-card fade-up">
@@ -109,12 +117,21 @@ function SignIn() {
           {sso("Microsoft", <MicrosoftMark />)}
           {sso("Work/School Email", <MailMark />)}
           {emailOpen && (
-            sent ? (
+            sent && codes ? (
+              <form className="stack-sm fade-up" onSubmit={(e) => { e.preventDefault(); verify(); }} data-testid="email-code-form">
+                <span className="small">We emailed a 6-digit code to <strong>{sent}</strong>. It works on any device and expires in 10 minutes. Not there? Check spam or Promotions.</span>
+                <div className="row">
+                  <input className="input" style={{ flex: 1, minWidth: 140, letterSpacing: 4 }} inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="123456" aria-label="6-digit code" data-testid="input-email-code" />
+                  <button className="btn btn-primary btn-sm" disabled={code.length !== 6 || !!busy} data-testid="button-verify-code">{busy === "Work/School Email" ? <Spinner /> : null} Sign in</button>
+                </div>
+                <button type="button" className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start", padding: 0 }} onClick={() => setSent("")}>Use a different email or send a new code</button>
+              </form>
+            ) : sent ? (
               <div className="notice notice-good fade-up" data-testid="magic-link-sent"><Check size={16} /><div>We sent a sign-in link to <strong>{sent}</strong>. Open it on this device to continue.</div></div>
             ) : (
               <form className="row fade-up" onSubmit={(e) => { e.preventDefault(); magic(); }}>
-                <input className="input" style={{ flex: 1, minWidth: 180 }} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@tcu.edu" aria-label="Email address" data-testid="input-magic-email" />
-                <button className="btn btn-primary btn-sm" disabled={!/.+@.+\..+/.test(email) || !!busy} data-testid="button-send-magic">{busy === "Work/School Email" ? <Spinner /> : null} Send link</button>
+                <input className="input" style={{ flex: 1, minWidth: 180 }} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@tcu.edu or any email" aria-label="Email address" data-testid="input-magic-email" />
+                <button className="btn btn-primary btn-sm" disabled={!/.+@.+\..+/.test(email) || !!busy} data-testid="button-send-magic">{busy === "Work/School Email" ? <Spinner /> : null} {codes ? "Send code" : "Send link"}</button>
               </form>
             )
           )}

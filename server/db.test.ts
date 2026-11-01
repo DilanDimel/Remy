@@ -1,7 +1,7 @@
 // The storage layer against real Postgres (PGlite in memory). Run with `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aiAllowed, checkSchoolCode, cleanupOld, newSchoolCode, removeSchoolEmail, schoolEmailOwner, createSession, deleteAccount, ensureUser, getFile, getUser, loadWorkspace, saveFile, saveSections, saveWorkspace, sessionUser } from "./db";
+import { aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, newSchoolCode, removeSchoolEmail, schoolEmailOwner, createSession, deleteAccount, ensureUser, getFile, getUser, loadWorkspace, saveFile, saveSections, saveWorkspace, sessionUser } from "./db";
 import { q } from "./sql";
 
 const me = (id: string, kind = "guest") => ({ id, kind, email: `${id}@example.com`, name: id, picture: "" }) as any;
@@ -129,4 +129,19 @@ test("migrations never drop, truncate or delete data", async () => {
     const code = sql.replace(/--.*$/gm, "").replace(/ON DELETE CASCADE/gi, "");
     assert.doesNotMatch(code, /\b(DROP\s+(TABLE|COLUMN|SCHEMA)|TRUNCATE|DELETE\s+FROM|ALTER\s+TABLE\s+\S+\s+RENAME)\b/i, `${f} would remove or rename data`);
   }
+});
+
+test("email sign-in codes: any case of the email works once; wrong and expired don't; the code opens the existing account", async () => {
+  const code = await newSigninCode("Dee@Gmail.com");
+  assert.match(code, /^\d{6}$/);
+  assert.equal(await checkSigninCode("dee@gmail.com", code === "000000" ? "111111" : "000000"), "wrong");
+  assert.equal(await checkSigninCode("DEE@gmail.com", code), "ok");
+  assert.equal(await checkSigninCode("dee@gmail.com", code), "none", "used up");
+  const c2 = await newSigninCode("dee@gmail.com");
+  await q("UPDATE signin_codes SET expires_at = now() - interval '1 minute'");
+  assert.equal(await checkSigninCode("dee@gmail.com", c2), "expired");
+  assert.equal(await userByEmail("nobody@gmail.com"), null);
+  await ensureUser({ ...me("sb:old", "supabase"), email: "Dee@gmail.com" });
+  await ensureUser({ ...me("guest:x", "guest"), email: "dee@gmail.com" });
+  assert.equal((await userByEmail("dee@GMAIL.com"))!.id, "sb:old", "a guest with the same email isn't a match");
 });

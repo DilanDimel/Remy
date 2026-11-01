@@ -3,6 +3,7 @@
 export type NewsItem = { id: string; date: string; kind: "New" | "Improved" | "Fixed" | "Changed"; title: string; body: string; owners?: boolean };
 
 export const NEWS: NewsItem[] = [
+  { id: "2026-11-01-11", date: "2026-11-01", kind: "Improved", title: "Email sign-in with a code", body: "Continue with Email now sends a 6-digit code from Remy instead of a link, so you can ask on your laptop and type the code from your phone's email. Any email works, not only school email." },
   { id: "2026-11-01-10", date: "2026-11-01", kind: "New", title: "LinkedIn coach", body: "Upload your LinkedIn PDF on the Resume page and Remy lists what's on your resume but missing from LinkedIn, with every field ready to copy, plus a basics checklist. Remy reminds you to re-check once a month." },
   { id: "2026-11-01-08", date: "2026-11-01", kind: "New", title: "Conferences and early programs", body: "Remy now finds conferences in your field each month and lists them with your openings (only ones whose page shows the dates). Discovery days and insight programs are marked as early programs and shown first to first-years and sophomores." },
   { id: "2026-11-01-09", date: "2026-11-01", kind: "New", title: "Practice out loud", body: "Say your pitch or an interview story out loud: Remy times you and, in browsers that can, shows what it heard and your filler words. Nothing is recorded or saved." },

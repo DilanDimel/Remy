@@ -52,6 +52,46 @@ export async function getUser(id: string): Promise<Me | null> {
   return r ? { id: r.id, kind: r.kind, email: r.email, name: r.name, picture: r.picture, ...(r.school_email ? { schoolEmail: r.school_email } : {}) } : null;
 }
 
+// ---------- email sign-in codes ----------
+/** Stores a new sign-in code for an email (replacing any pending one) and returns it to be emailed. */
+export async function newSigninCode(email: string): Promise<string> {
+  const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+  const e = email.toLowerCase();
+  await q(
+    `INSERT INTO signin_codes (email, code_hash, expires_at, tries) VALUES ($1,$2,$3,0)
+     ON CONFLICT (email) DO UPDATE SET code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at, tries = 0`,
+    [e, sha("signin:" + e + ":" + code), new Date(Date.now() + CODE_MINUTES * 60_000)],
+  );
+  return code;
+}
+/** Checks a sign-in code; "ok" uses it up. Five wrong tries or ten minutes and it's gone. */
+export async function checkSigninCode(email: string, code: string): Promise<"ok" | "wrong" | "expired" | "none"> {
+  const e = email.toLowerCase();
+  return tx(async (run) => {
+    const r = (await run("SELECT code_hash, expires_at, tries FROM signin_codes WHERE email=$1 FOR UPDATE", [e]))[0];
+    if (!r) return "none";
+    if (new Date(r.expires_at).getTime() < Date.now() || r.tries >= MAX_TRIES) {
+      await run("DELETE FROM signin_codes WHERE email=$1", [e]);
+      return "expired";
+    }
+    if (sha("signin:" + e + ":" + code) !== r.code_hash) {
+      await run("UPDATE signin_codes SET tries = tries + 1 WHERE email=$1", [e]);
+      return "wrong";
+    }
+    await run("DELETE FROM signin_codes WHERE email=$1", [e]);
+    return "ok";
+  });
+}
+/** The signed-in account that already uses this email (the most recently active one), if any. */
+export async function userByEmail(email: string): Promise<Me | null> {
+  const r = await q1(
+    `SELECT u.id FROM users u LEFT JOIN workspaces w ON w.user_id = u.id
+     WHERE lower(u.email) = lower($1) AND u.kind IN ('google','supabase') ORDER BY w.updated_at DESC NULLS LAST LIMIT 1`,
+    [email],
+  );
+  return r ? getUser(String(r.id)) : null;
+}
+
 // ---------- school email verification ----------
 const CODE_MINUTES = 10;
 const MAX_TRIES = 5;

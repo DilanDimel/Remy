@@ -10,7 +10,7 @@ import type {
 import { PATHS } from "@shared/types";
 import { BETA_TERMS_VERSION } from "@shared/beta";
 import { latestNewsId } from "@shared/news";
-import { aiAllowed, checkSchoolCode, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
+import { aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./safety";
 import * as admin from "./admin";
@@ -372,6 +372,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       today: new Date().toISOString().slice(0, 10),
       supabase: sb ? { ...sb, providers: await supabaseProviders() } : null,
       schoolEmail: { ready: emailReady() || devCodes(), domains: ALUMNI_DOMAINS },
+      emailCodes: emailReady() || devCodes(),
       googleCalendar: gcal.gcalReady(),
     };
     res.json(cfg);
@@ -469,25 +470,63 @@ export async function registerRoutes(_server: Server, app: Express) {
     }
   });
 
+  // Signs a verified account in: a guest workspace in progress moves into a brand-new account.
+  async function signIn(req: Request, res: Response, me: Me) {
+    const prev = await identify(req);
+    await ensureUser(me);
+    if (!(await hasWorkspace(me.id)) && prev && prev.id !== me.id && (await hasWorkspace(prev.id))) await saveWorkspace(me.id, await loadWorkspace(prev.id));
+    const ws = await loadWorkspace(me.id);
+    ws.started = true;
+    ws.settings.newsSeen = latestNewsId(); // new accounts start caught up on "What's new"
+    if (!ws.profile.name) ws.profile.name = me.name;
+    if (!ws.profile.email) ws.profile.email = me.email;
+    if (!ws.profile.applicationEmail) ws.profile.applicationEmail = me.email;
+    await saveWorkspace(me.id, ws);
+    await startSession(res, me.id);
+    res.json({ me, workspace: ws });
+  }
   app.post("/api/auth/supabase", async (req, res) => {
     try {
-      const prev = await identify(req);
       const u = await verifySupabase(String(req.body?.accessToken || ""));
-      const me: Me = { id: "sb:" + u.id, kind: "supabase", email: u.email, name: u.name, picture: u.picture };
-      await ensureUser(me);
-      // carry an in-progress guest workspace into a brand-new account
-      if (!(await hasWorkspace(me.id)) && prev && prev.id !== me.id && (await hasWorkspace(prev.id))) await saveWorkspace(me.id, await loadWorkspace(prev.id));
-      const ws = await loadWorkspace(me.id);
-      ws.started = true;
-      ws.settings.newsSeen = latestNewsId(); // new accounts start caught up on "What's new"
-      if (!ws.profile.name) ws.profile.name = u.name;
-      if (!ws.profile.email) ws.profile.email = u.email;
-      if (!ws.profile.applicationEmail) ws.profile.applicationEmail = u.email;
-      await saveWorkspace(me.id, ws);
-      await startSession(res, me.id);
-      res.json({ me, workspace: ws });
+      await signIn(req, res, { id: "sb:" + u.id, kind: "supabase", email: u.email, name: u.name, picture: u.picture });
     } catch (e: any) {
       res.status(e?.status || 401).json({ message: e?.message || "Sign-in failed." });
+    }
+  });
+
+  // Email sign-in with a 6-digit code Remy sends itself: works on any device (a link only works in the browser that
+  // asked for it) and isn't held to Supabase's shared hourly email limit. The code proves the student owns the email,
+  // so it opens the account already using that email (an earlier link or Google sign-in) or creates one.
+  // New accounts use kind "supabase" ("signed in, not Google") so every signed-in check treats them the same.
+  const emailOf = (req: Request) => String(req.body?.email || "").trim().toLowerCase().slice(0, 254);
+  app.post("/api/auth/email/start", async (req, res) => {
+    const email = emailOf(req);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ message: "Enter your email address." });
+    if (!emailReady() && !devCodes()) return res.status(503).json({ message: "Email codes aren't set up on this server.", code: "no-email" });
+    // Limits keep Remy from being used to flood anyone's inbox.
+    if (!allow("signin-ip:" + clientIp(req), 10, 60 * 60_000)) return res.status(429).json({ message: "Too many codes from this network. Please try again in an hour, or continue with Google." });
+    if (!allow("signin-to:" + email, 5, 60 * 60_000)) return res.status(429).json({ message: "Several codes were already sent to this address. Use the newest one, or try again in an hour." });
+    try {
+      const code = await newSigninCode(email);
+      if (devCodes()) console.log(`[dev] sign-in code for ${email}: ${code}`);
+      else await sendEmail(email, `${code} is your Remy sign-in code`, `Your Remy sign-in code is ${code}.\n\nType it on the Remy sign-in page. It works on any device and expires in 10 minutes.\n\nIf you didn't ask for this, you can ignore this email; no one can sign in without the code.\n\nRemy`);
+      res.json({ sent: true, email });
+    } catch (e: any) {
+      console.error("sign-in code email failed", e?.message);
+      res.status(502).json({ message: "Remy couldn't send the email just now. Please try again, or continue with Google." });
+    }
+  });
+  app.post("/api/auth/email/verify", async (req, res) => {
+    try {
+      const email = emailOf(req), code = String(req.body?.code || "").replace(/\D/g, "");
+      if (code.length !== 6) return res.status(400).json({ message: "Enter the 6-digit code from the email." });
+      const r = await checkSigninCode(email, code);
+      if (r === "wrong") return res.status(400).json({ message: "That code doesn't match. Check the newest email from Remy." });
+      if (r !== "ok") return res.status(400).json({ message: "That code has expired. Ask for a new one.", code: "expired" });
+      const me = (await userByEmail(email)) || { id: "sb:em-" + crypto.randomUUID(), kind: "supabase" as const, email, name: "", picture: "" };
+      await signIn(req, res, me);
+    } catch (e: any) {
+      res.status(e?.status || 500).json({ message: e?.message || "Sign-in failed." });
     }
   });
 
