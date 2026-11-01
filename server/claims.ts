@@ -49,7 +49,17 @@ const REWORD = /^(author|writ|wrote|draft|compos|collaborat|cooperat|partner|mod
 const LIGHT = new Set("using including various multiple several across within helped worked support supported perform performed create created creating materials".split(" "));
 const OUTCOME = /\b(ensuring|ensure|resulting in|leading to|which (improved|increased|reduced)|improv(ed|ing)|increas(ed|ing)|reduc(ed|ing)|driv(ed|ing)|streamlin(ed|ing)|optimiz(ed|ing)|boost(ed|ing)|to keep|enabl(ed|ing)|that emphasizes|emphasizing|demonstrating|showcasing)\b/i;
 
+const IRREG: Record<string, string> = { built: "build", led: "lead", ran: "run", made: "make", wrote: "write", taught: "teach", won: "win", grew: "grow", began: "begin", held: "hold", took: "take", taken: "take", taking: "take" };
+
 const lc = (s: string) => s.toLowerCase();
+
+/** Content words in `text` the student's own words never say (matched on the first 5 letters after -ed/-ing/-s,
+ * so "sorted" covers "sorting" and "donation" covers "donated"). Rewording verbs and filler don't count. */
+export function unsaidWords(text: string, said: string) {
+  const root = (w: string) => (IRREG[w] || w).replace(/(ing|ed|es|s)$/, "").slice(0, 5);
+  const own = new Set((lc(said).match(/[a-z][a-z-]{1,}/g) || []).map(root));
+  return [...new Set((lc(text).match(/[a-z][a-z-]{3,}/g) || []).filter((w) => !STOP.has(w) && !LIGHT.has(w) && !REWORD.test(w) && !own.has(root(w))))];
+}
 const normNum = (s: string) => s.replace(/[,$+\s]/g, "").replace(/[.]+$/, "").replace(/k$/i, "000").toLowerCase();
 
 function hasTerm(hay: string, term: string) {
@@ -75,7 +85,7 @@ export function spelledOut(text: string, own: string): string {
 export function claimCheck(
   text: string,
   evidence: string,
-  opts: { allowedNames?: string[]; postingText?: string; original?: string; postingNumbersOk?: boolean; entryContext?: string } = {},
+  opts: { allowedNames?: string[]; postingText?: string; original?: string; postingNumbersOk?: boolean; entryContext?: string; strict?: boolean } = {},
 ): ClaimFlag[] {
   // An abbreviation spelled out is the same claim, not new detail.
   const spelled = spelledOut(text, evidence + " " + (opts.original || ""));
@@ -182,9 +192,13 @@ export function claimCheck(
       add({ type: "title", term, message: `Class standing “${term}” is not stated in your resume or profile. Set your class year in Accounts or remove it.` });
     }
   }
+  // Check-ins: every detail must come from what the student said, so even one new word is flagged.
+  if (opts.strict) {
+    const u = unsaidWords(body, opts.original ?? evidence);
+    if (u.length) add({ type: "scope", term: u.slice(0, 6).join(", "), message: `This adds words you didn't say (${u.slice(0, 6).join(", ")}). Keep them only if they're true.` });
+  }
   // Rewrites that add outcomes or scope the original bullet never claimed.
-  if (opts.original !== undefined) {
-    const IRREG: Record<string, string> = { built: "build", led: "lead", ran: "run", made: "make", wrote: "write", taught: "teach", won: "win", grew: "grow", began: "begin", held: "hold" };
+  if (opts.original !== undefined && !opts.strict) {
     const stem = (w: string) => {
       let x = IRREG[w] || w;
       x = x.replace(/(ing|ed|es|s)$/, "");

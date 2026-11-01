@@ -74,3 +74,13 @@ test("clean: spelled-out abbreviations, same-credit verbs, plain rewording and t
   ok("Authored incident reports utilized by store leadership", "Wrote incident reports used by store leadership");
   assert.ok(claimCheck("Directed officers with traffic control", ev, { original: "Assisted officers with traffic control" }).length > 0, "dropping the hedge entirely still flags");
 });
+
+test("strict (check-ins): any detail the student didn't say is flagged; rewording what they said is not", () => {
+  const strict = (text: string, said: string) => claimCheck(text, said, { original: said, strict: true }).filter((f) => f.type === "scope").map((f) => f.term).join(", ");
+  assert.match(strict("Elected by peers to serve as Treasurer of the Finance Club", "I'm treasurer of Finance Club now"), /elected, peers/);
+  assert.match(strict("Took customer orders at the drive-thru and handled customer checkout at Chick-fil-A", "I work at Chick-fil-A taking orders at the drive-thru"), /customer, checkout/);
+  assert.match(strict("Poverty Alleviation", "I volunteered at the Tarrant Area Food Bank sorting donations"), /poverty, alleviation/);
+  assert.equal(strict("Volunteered at the Tarrant Area Food Bank, sorting donations", "I volunteered at the Tarrant Area Food Bank on Saturday sorting donations"), "");
+  assert.equal(strict("Sorted donations at the Tarrant Area Food Bank", "I volunteered at the Tarrant Area Food Bank on Saturday sorting donations"), "");
+  assert.equal(strict("Took orders at the drive-thru at Chick-fil-A", "I work at Chick-fil-A taking orders at the drive-thru"), "");
+});

@@ -446,6 +446,8 @@ export interface Workspace {
   /** Day and time the last weekly digest went out (one a week; new openings are counted from it). */
   lastDigest?: string;
   lastDigestAt?: string;
+  /** Day (YYYY-MM-DD, Central) of the last weekly check-in; the Home card hides for 6 days after. */
+  lastCheckin?: string;
   /** Days (YYYY-MM-DD, Central) the student opened Remy, newest last; owners see only return rates from it. */
   visits?: string[];
   /** Deadline reminders already emailed (calendar id:date:soon|day), so each goes out once. */

@@ -23,6 +23,7 @@ import {
   stillMissing, nameCase,
 } from "./resume";
 import { atsChecks, claimCheck } from "./claims";
+import { CHECKIN_KINDS, cleanCheckin } from "./checkin";
 import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, skillSuggestions } from "./builder";
 import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSION } from "./fit";
 import { atsScore } from "./ats";
@@ -898,6 +899,37 @@ export async function registerRoutes(_server: Server, app: Express) {
       if (!story.result && !story.missing) story.missing = "What was the result? Add it only if you know it.";
       return story;
     }).filter((st) => st.title && st.action);
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
+  // Weekly check-in: a draft first (nothing saved); the student approves what to keep.
+  const checkinInput = (b: any) => {
+    const kind = String(b?.kind || ""), said = String(b?.said || "").trim().slice(0, 400);
+    if (!(CHECKIN_KINDS as readonly string[]).includes(kind)) bad("Pick what you did.");
+    if (said.length < 8) bad("Say one sentence about it, like where and what you did.");
+    return { kind, said };
+  };
+  app.post("/api/ai/checkin", route(async (req, res, ctx) => {
+    const { kind, said } = checkinInput(req.body);
+    const out = await withAi(ctx, "Check-in", () =>
+      aiJson(
+        `A university student tells you one thing they did this week. Turn it into: "fact" (one plain sentence for their record), "bullet" (one resume line starting with a past-tense verb) and "linkedin" (the LinkedIn section and fields to fill). Use ONLY the student's own words and facts: never add numbers, titles, causes, outcomes, how they got a role, or any detail they didn't say. Rewording is fine; adding is not. Leave a field out if they didn't say it. Sections: Experience, Volunteering, Licenses & certifications, Projects, Honors & awards, Organizations.`,
+        `WHAT THEY DID: ${kind}\nTHEIR WORDS: ${said}\n\nReturn {"fact":"","bullet":"","linkedin":{"section":"","fields":[{"label":"e.g. Organization, Role, Title, Issuing organization","value":""}]}}`,
+        700,
+      ),
+    );
+    res.json(cleanCheckin(kind, said, out));
+  }));
+  app.post("/api/checkin", route(async (req, res, ctx) => {
+    if (req.body?.kind !== "Nothing new") {
+      const { kind, said } = checkinInput(req.body);
+      // Checked again here: the browser's copy can't be trusted.
+      const d = cleanCheckin(kind, said, req.body);
+      addFact(ctx.ws, d.fact, "experience", "Check-in", "approved");
+      if (d.bullet) ctx.ws.tasks.unshift({ id: uid("t"), title: "Add this line to your resume", why: d.bullet, due: "", category: "Prepare", done: false, source: "Check-in", link: "/resume" });
+      if (d.linkedin.fields.length) ctx.ws.tasks.unshift({ id: uid("t"), title: `Add to LinkedIn: ${d.linkedin.section}`, why: d.linkedin.fields.map((f) => `${f.label}: ${f.value}`).join("\n"), due: "", category: "Prepare", done: false, source: "Check-in" });
+    }
+    ctx.ws.lastCheckin = centralToday();
     await ctx.save();
     res.json(ctx.ws);
   }));
