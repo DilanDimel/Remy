@@ -398,6 +398,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (req.params.agent === "feedback") await agents.sortFeedback(me);
     else if (req.params.agent === "weekly") await agents.weeklySummary(me);
     else if (req.params.agent === "scout") await agents.scout(me);
+    else if (req.params.agent === "retention") await agents.retention(me);
     else if (req.params.agent === "research") await agents.research(me, String(req.body?.question || ""));
     else if (req.params.agent === "marketing") await agents.marketing(me, String(req.body?.brief || ""));
     else bad("Unknown agent.", 404);

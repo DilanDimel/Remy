@@ -7,6 +7,9 @@ import { scoutBoards } from "./sources";
 import { logAction, overview, saveTask } from "./admin";
 import { q, q1 } from "./sql";
 import { uid } from "./ids";
+import { loadWorkspace } from "./db";
+import { milestones } from "@shared/progress";
+import type { Workspace } from "@shared/types";
 
 export type Theme = { title: string; count: number; severity: "high" | "medium" | "low"; examples: string[]; todo: string };
 const noEmails = (t: string) => t.replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email]");
@@ -92,10 +95,33 @@ export async function marketing(by: string, brief: string) {
   await logAction(by, "Ran an agent", "Marketing drafter");
 }
 
+/** Retention watcher (no AI, counts only): students who went quiet (last visit 8–21 days ago) and the
+ * Road-to-an-offer step most of them stopped before, plus sign-ups who never finished setup. */
+export function retentionReport(list: Workspace[], today: string) {
+  const ago = (d: string) => Math.round((Date.parse(today + "T12:00:00Z") - Date.parse(d + "T12:00:00Z")) / 864e5);
+  const stuck = new Map<string, number>();
+  let quiet = 0, noSetup = 0;
+  for (const ws of list) {
+    const last = (ws.visits || []).at(-1);
+    if (!ws.onboarding.done) { noSetup++; continue; }
+    if (!last || ago(last) < 8 || ago(last) > 21) continue;
+    quiet++;
+    const next = milestones(ws).find((m) => !m.done)?.label || "Every milestone done";
+    stuck.set(next, (stuck.get(next) || 0) + 1);
+  }
+  return { quiet, noSetup, stoppedAt: [...stuck].map(([step, n]) => ({ step, n })).sort((a, b) => b.n - a.n) };
+}
+export async function retention(by: string) {
+  // shortcut: loads every signed-in workspace; move to SQL past ~1,000 students.
+  const list = await Promise.all((await q("SELECT u.id FROM users u WHERE u.kind IN ('google','supabase')")).map((r) => loadWorkspace(String(r.id))));
+  await save("retention", by, retentionReport(list, new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" })));
+  await logAction(by, "Ran an agent", "Retention watcher");
+}
+
 /** The latest run of each agent. */
 export async function agentRuns() {
   const latest = async (agent: string) => (await q1("SELECT at, run_by, output FROM agent_runs WHERE agent = $1 ORDER BY at DESC LIMIT 1", [agent])) || null;
-  return { feedback: await latest("feedback"), weekly: await latest("weekly"), scout: await latest("scout"), research: await latest("research"), marketing: await latest("marketing"), ai: aiStatus().available };
+  return { feedback: await latest("feedback"), weekly: await latest("weekly"), scout: await latest("scout"), research: await latest("research"), marketing: await latest("marketing"), retention: await latest("retention"), ai: aiStatus().available };
 }
 
 /** Turns a suggested to-do into a board card. */

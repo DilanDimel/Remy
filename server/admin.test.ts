@@ -85,3 +85,13 @@ test("overview: email counts are who left each email on and who got a digest thi
   assert.ok(o.emails.reminders >= 1);
   assert.ok(o.emails.digestsWeek >= 1);
 });
+
+test("retention watcher: quiet means last visit 8–21 days ago; counts the step they stopped before", async () => {
+  const { emptyWorkspace } = await import("./db");
+  const { retentionReport } = await import("./agents");
+  const mk = (done: boolean, visits: string[]) => { const w = emptyWorkspace(); w.onboarding.done = done; w.visits = visits; return w; };
+  const r = retentionReport([mk(true, ["2026-10-20"]), mk(true, ["2026-10-22"]), mk(true, ["2026-10-25"]), mk(true, ["2026-10-30"]), mk(true, ["2026-10-01"]), mk(false, [])], "2026-11-01");
+  assert.equal(r.quiet, 2);
+  assert.equal(r.noSetup, 1);
+  assert.equal(r.stoppedAt.reduce((s, x) => s + x.n, 0), 2);
+});

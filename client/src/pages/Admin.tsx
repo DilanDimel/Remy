@@ -255,7 +255,8 @@ type Run<T> = { at: string; run_by: string; output: T } | null;
 type Agents = { ai: boolean; feedback: Run<{ themes: { title: string; count: number; severity: string; examples: string[]; todo: string }[]; reports: number; note: string }>; weekly: Run<{ lines: string[] }>;
   scout: Run<{ reached: number; tried: number; early: number; broken: { company: string; error: string }[]; quiet?: string[]; thin: { field: string; employers: number; early: number }[] }>;
   research: Run<{ question: string; answer: string; sources: { url: string; title: string }[]; web: boolean }>;
-  marketing: Run<{ brief: string; linkedin: string; instagram: string; email: { subject: string; body: string } }> };
+  marketing: Run<{ brief: string; linkedin: string; instagram: string; email: { subject: string; body: string } }>;
+  retention?: Run<{ quiet: number; noSetup: number; stoppedAt: { step: string; n: number }[] }> };
 
 /** The team's agents: simple workflows that post results here; owners decide what becomes a board card. */
 function AgentsTab() {
@@ -276,7 +277,7 @@ function AgentsTab() {
       {body}
     </section>
   );
-  const fb = d.feedback?.output, wk = d.weekly?.output, sc = d.scout?.output, rs = d.research?.output, mk = d.marketing?.output;
+  const fb = d.feedback?.output, wk = d.weekly?.output, sc = d.scout?.output, rs = d.research?.output, mk = d.marketing?.output, rt = d.retention?.output;
   const draft = (label: string, text: string) => (
     <div className="stack-sm" style={{ gap: 4 }}>
       <div className="row-between"><b className="small">{label}</b><CopyButton text={text} /></div>
@@ -299,6 +300,13 @@ function AgentsTab() {
         </div>
       ), d.feedback, true)}
       {card("weekly", "Weekly analyst", "The week's numbers in plain sentences: north star, active students, setup, AI spend and open issues.", wk && <ul className="small stack-sm" style={{ paddingLeft: 18 }}>{wk.lines.map((l) => <li key={l}>{l}</li>)}</ul>, d.weekly)}
+      {card("retention", "Retention watcher", "Counts students who went quiet (last opened Remy 8–21 days ago) and the step most of them stopped before. Counts only, no names.", rt && (
+        <div className="stack-sm">
+          <p className="small">{rt.quiet} student{rt.quiet === 1 ? "" : "s"} went quiet; {rt.noSetup} never finished setup.</p>
+          {rt.stoppedAt.length > 0 && <ul className="small" style={{ paddingLeft: 18 }}>{rt.stoppedAt.map((x) => <li key={x.step}>Stopped before “{x.step}”: {x.n}</li>)}</ul>}
+          {rt.stoppedAt[0] && !added.includes(`Make “${rt.stoppedAt[0].step}” easier`) && <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => add(`Make “${rt.stoppedAt[0].step}” easier`)}><Plus size={14} /> Add to board</button>}
+        </div>
+      ), d.retention ?? null)}
       {card("scout", "Openings scout", "Reads every employer career site Remy uses (recent copies count) and shows which ones failed and which fields have few early-career openings. Takes about a minute.", sc && (
         <div className="stack-sm">
           <p className="small">{sc.reached} of {sc.tried} employer sites answered, with {sc.early} early-career postings in all.</p>
