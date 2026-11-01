@@ -3,6 +3,7 @@
 export type NewsItem = { id: string; date: string; kind: "New" | "Improved" | "Fixed" | "Changed"; title: string; body: string; owners?: boolean };
 
 export const NEWS: NewsItem[] = [
+  { id: "2026-11-01-05", date: "2026-11-01", kind: "New", title: "Your 30-second pitch and the 6-second view", body: "Resume → Base resume: Remy drafts your elevator pitch from your own resume (edit it, then practice out loud with a timer), and the 6-second view shows what a recruiter's eye catches first. Remy also flags mixed date formats." },
   { id: "2026-11-01-04", date: "2026-11-01", kind: "New", title: "Add proof you already have", body: "Account → Connections now takes your GivePulse volunteer record, certificates and unofficial transcript (PDF or pasted text). Remy suggests facts from them, and nothing is used until you approve it." },
   { id: "2026-11-01-03", date: "2026-11-01", kind: "Fixed", title: "Your places stick", body: "If you chose Fort Worth, Home, setup and the weekly email now only show openings there (and remote ones). “Fort Worth, TX” no longer means all of Texas, and “Show all locations” lasts one visit." },
   { id: "2026-11-01-02", date: "2026-11-01", kind: "New", title: "A 30-second weekly check-in", body: "Home asks what you did this week. Tap one (a shift, volunteering, a club, a project, a certificate) and say or type one sentence. Remy turns it into a resume line and LinkedIn fields using only your words; anything you didn't say is left out. You choose what to keep." },

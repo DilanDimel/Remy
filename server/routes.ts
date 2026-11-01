@@ -508,7 +508,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   });
 
   // ---------- simple app-owned sections ----------
-  const SECTIONS = ["profile", "settings", "tasks", "calendar", "tracker", "savedJobIds", "hiddenJobIds", "memory", "outreach", "onboarding", "started", "plan", "contacts", "builder"] as const;
+  const SECTIONS = ["profile", "settings", "tasks", "calendar", "tracker", "savedJobIds", "hiddenJobIds", "memory", "outreach", "onboarding", "started", "plan", "contacts", "builder", "pitch"] as const;
   // The shape each section must have, so one malformed save can't break later requests.
   // Objects keep unknown extra fields (loose) but every field the server relies on is checked.
   const str = (max = 600) => z.string().max(max);
@@ -532,6 +532,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     started: z.boolean(),
     plan: z.looseObject({ nextAction: z.looseObject({ title: str(300), why: str(2000), link: str(300) }), careers: z.array(z.looseObject({ id: str(120), title: str(300) })).max(20), skills: z.array(z.looseObject({ id: str(120), name: str(300) })).max(30), academic: z.array(z.looseObject({ id: str(120), term: str(100) })).max(20) }),
     contacts: z.array(z.looseObject({ id: str(120), name: str(200), title: str(300), org: str(300), email: str(320), why: str(2000), tags: z.array(str(120)).max(30), label: str(40) })).max(1000),
+    pitch: z.object({ text: str(1200), at: str(40) }),
     builder: z.looseObject({
       step: z.number().int().min(0).max(20),
       basics: z.object(Object.fromEntries(["name", "email", "phone", "city", "school", "major", "graduation", "classYear", "gpa", "highSchool", "highSchoolYear"].map((k) => [k, str(200)]))),
@@ -902,6 +903,24 @@ export async function registerRoutes(_server: Server, app: Express) {
     await ctx.save();
     res.json(ctx.ws);
   }));
+  // 30-second pitch from the student's own record. Any sentence the honesty checker flags is dropped.
+  app.post("/api/ai/pitch", route(async (_req, res, ctx) => {
+    if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE);
+    const out = await withAi(ctx, "Pitch", () =>
+      aiJson<{ pitch: string }>(
+        "Write a university student's 30-second elevator pitch (70 to 85 words, first person, plain spoken words, no jargon): who they are, what they study or do, one real experience, and what they want next. Use ONLY the facts given; never add numbers, titles, awards or outcomes. End with one short question they could ask the listener.",
+        `PROFILE:\n${profileSummary(ctx.ws)}\n\nRESUME:\n${ctx.ws.resume ? resumeToText(ctx.ws.resume.doc, { verifiedOnly: true }).slice(0, 4000) : "(none)"}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).slice(0, 30).join("\n") || "(none)"}\n\nReturn {"pitch":""}`,
+        600,
+      ),
+    );
+    const ev = evidenceOf(ctx.ws) + "\n" + profileSummary(ctx.ws);
+    const kept = String(out.pitch || "").split(/(?<=[.!?])\s+/).filter((x) => x.trim() && (x.trim().endsWith("?") || !claimCheck(x, ev, { allowedNames: [ctx.ws.profile.name, ctx.ws.profile.school] }).length));
+    if (!kept.length) bad("Remy couldn't write a pitch from what it knows yet. Add your major and target roles, or upload your resume.", 422);
+    ctx.ws.pitch = { text: kept.join(" ").slice(0, 1200), at: nowIso() };
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
+
   // Weekly check-in: a draft first (nothing saved); the student approves what to keep.
   const checkinInput = (b: any) => {
     const kind = String(b?.kind || ""), said = String(b?.said || "").trim().slice(0, 600);

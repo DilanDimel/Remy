@@ -14,6 +14,7 @@ import { AtsCard } from "../components/AtsCard";
 import { AtsXray } from "../components/AtsXray";
 import { EvidencePassport } from "../components/EvidencePassport";
 import { StoryDeck } from "../components/StoryDeck";
+import { PitchCard } from "../components/PitchCard";
 import { WordPreview } from "../components/WordPreview";
 import { startTailor, useTailorSession } from "../lib/tailorChat";
 
@@ -118,6 +119,7 @@ function BaseResume() {
       {doc && <AtsXray doc={doc} quality={w.resume.quality} upd={upd} />}
       {doc && <EvidencePassport doc={doc} memory={w.memory} />}
       <StoryDeck />
+      <PitchCard />
       {showRaw && <pre className="card card-pad xs" style={{ whiteSpace: "pre-wrap", maxHeight: 320, overflow: "auto", margin: 0 }}>{w.resume.rawText}</pre>}
 
       <div className="card card-pad stack">
