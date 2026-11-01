@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { GraduationCap, Mail, Plus, Send, Sparkles, Trash2 } from "lucide-react";
+import { GraduationCap, Mail, PenLine, Plus, Send, Sparkles, Trash2 } from "lucide-react";
 import type { Contact, OutreachDraft } from "@shared/types";
 import { api, fmtDate, rid, useStore } from "../lib/store";
-import { CopyButton, Empty, Modal, StatusChip } from "../components/common";
+import { CopyButton, Empty, Modal, Spinner, StatusChip } from "../components/common";
 import { startOutreach, useTailorSession } from "../lib/tailorChat";
 import { sameOrg, useJobs } from "../lib/jobs";
 import { go } from "../lib/router";
@@ -29,6 +29,11 @@ export default function Community() {
     if (d) { setReview(d); setOpened(d.id); }
   }, [convo?.stage, convo?.draftId, w.outreach.length]);
   const draftTo = (c: Contact) => startOutreach(c);
+  // Coach mode first: the student writes their own email and Remy comments on it.
+  const writeTo = async (c: Contact) => {
+    const d: OutreachDraft = { id: rid("o"), contactId: c.id, to: c.email, subject: "", body: "", status: "draft", createdAt: new Date().toISOString() };
+    if (await run(() => save("outreach", [...w.outreach, d]))) setReview(d);
+  };
   const addContact = async () => {
     await run(() => save("contacts", [...w.contacts, { id: rid("c"), ...c, tags: [], label: "Student provided" }]), "Contact saved");
     setAdding(false);
@@ -58,7 +63,8 @@ export default function Community() {
               <p className="small">{p.why}</p>
               {openAt(p.org).length > 0 && <button className="xs" style={{ textAlign: "left", color: "var(--fox)", fontWeight: 700, padding: 0 }} onClick={() => go(`/opportunities?kind=all&id=${openAt(p.org)[0].id}`)} data-testid="contact-openings">{openAt(p.org).length} opening{openAt(p.org).length > 1 ? "s" : ""} at {p.org} →</button>}
               <div className="row" style={{ marginTop: "auto" }}>
-                <button className="btn btn-primary btn-sm" onClick={() => draftTo(p)} data-testid="button-draft-outreach"><Sparkles size={14} /> Draft email</button>
+                <button className="btn btn-primary btn-sm" onClick={() => writeTo(p)} data-testid="button-write-outreach"><PenLine size={14} /> Write an email</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => draftTo(p)} data-testid="button-draft-outreach"><Sparkles size={14} /> Draft it for me</button>
                 <button className="icon-btn" onClick={() => save("contacts", w.contacts.filter((x) => x.id !== p.id))} aria-label="Remove contact"><Trash2 size={15} /></button>
               </div>
             </div>
@@ -101,6 +107,9 @@ function ReviewModal({ draft, onClose }: { draft: OutreachDraft; onClose: () => 
   const { ws, save, run } = useStore();
   const w = ws!;
   const [d, setD] = useState(draft);
+  const [tips, setTips] = useState<string[] | null>(null);
+  const [coaching, setCoaching] = useState(false);
+  const coach = async () => { setCoaching(true); const r = await run(() => api<{ tips: string[] }>("POST", "/api/ai/outreach-feedback", { contactId: d.contactId, subject: d.subject, body: d.body })); setCoaching(false); if (r) setTips(r.tips); };
   const p = w.contacts.find((x) => x.id === d.contactId);
   const persist = (patch: Partial<OutreachDraft>) => {
     const next = { ...d, ...patch };
@@ -115,6 +124,11 @@ function ReviewModal({ draft, onClose }: { draft: OutreachDraft; onClose: () => 
       <dl className="kv"><dt>To</dt><dd data-testid="text-recipient">{p?.name} &lt;{d.to}&gt;</dd><dt>From</dt><dd>{w.profile.applicationEmail || "Your email account"}</dd></dl>
       <label className="field"><span>Subject</span><input className="input" value={d.subject} onChange={(e) => setD({ ...d, subject: e.target.value, status: "draft" })} data-testid="input-outreach-subject" /></label>
       <label className="field"><span>Full message</span><textarea className="textarea" style={{ minHeight: 220 }} value={d.body} onChange={(e) => setD({ ...d, body: e.target.value, status: "draft" })} data-testid="input-outreach-body" /></label>
+      <div className="stack-sm">
+        <button className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }} disabled={coaching || d.body.trim().split(/\s+/).length < 15} onClick={coach} data-testid="button-outreach-feedback">{coaching ? <Spinner /> : <Sparkles size={14} />} Get Remy's feedback</button>
+        {!d.body.trim() && <span className="xs muted">Write it in your own words: who you are, one real reason you're reaching out to {p?.name.split(" ")[0] || "them"}, and a small ask like a 15-minute chat. Remy comments; it won't rewrite it.</span>}
+        {tips && <ul className="small" style={{ paddingLeft: 18 }} data-testid="outreach-tips">{tips.map((t) => <li key={t}>{t}</li>)}</ul>}
+      </div>
       {d.linkedin && (
         <div className="field"><span>LinkedIn note (under 200 characters)</span>
           <div className="row" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}><p className="small" style={{ flex: 1, background: "var(--surface-2)", border: "1px solid var(--line)", borderRadius: 10, padding: "9px 12px" }} data-testid="text-linkedin-note">{d.linkedin}</p>

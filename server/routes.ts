@@ -903,6 +903,21 @@ export async function registerRoutes(_server: Server, app: Express) {
     await ctx.save();
     res.json(ctx.ws);
   }));
+  // Outreach coach: the student writes; Remy gives up to 3 short comments and never rewrites (NABA/PwC: AI as a coach keeps you memorable).
+  app.post("/api/ai/outreach-feedback", route(async (req, res, ctx) => {
+    const c = ctx.ws.contacts.find((x) => x.id === String(req.body?.contactId || ""));
+    const subject = String(req.body?.subject || "").slice(0, 300), body = String(req.body?.body || "").trim().slice(0, 4000);
+    if (body.split(/\s+/).length < 15) bad("Write a few sentences first, then ask for feedback.");
+    const out = await withAi(ctx, "Outreach feedback", () =>
+      aiJson<{ tips: string[] }>(
+        "You coach a university student on a networking email they wrote themselves. Give at most 3 short, specific comments (one sentence each): is the ask clear and small (like a 15-20 minute chat), is there one genuine personal connection, is it short enough to read on a phone, is the tone professional, any typos. Quote their words when pointing at something. Never rewrite the email and never add facts about the student. If it's already good, say what works in one comment.",
+        `TO: ${c ? `${c.name}, ${c.title}${c.org ? ` at ${c.org}` : ""}` : "(a professional)"}\nSUBJECT: ${subject}\n\nEMAIL:\n${body}\n\nReturn {"tips":["",""]}`,
+        500,
+      ),
+    );
+    res.json({ tips: (out.tips || []).map((t) => String(t).trim().slice(0, 300)).filter(Boolean).slice(0, 3) });
+  }));
+
   // 30-second pitch from the student's own record. Any sentence the honesty checker flags is dropped.
   app.post("/api/ai/pitch", route(async (_req, res, ctx) => {
     if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE);
