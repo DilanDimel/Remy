@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, CircleAlert, ScanSearch } from "lucide-react";
+import { CheckCircle2, CircleAlert, Eye, ScanSearch } from "lucide-react";
 import type { ResumeDoc, ResumeQuality } from "@shared/types";
 import { rid, useStore } from "../lib/store";
 
@@ -9,10 +9,15 @@ export function AtsXray({ doc, quality, upd }: { doc: ResumeDoc; quality?: Resum
   const entries = doc.sections.flatMap((s, si) => s.entries.map((e, ei) => ({ si, ei, label: `${s.heading}: ${[e.role, e.org].filter(Boolean).join(", ") || "entry"}` })));
   const [target, setTarget] = useState(0);
   const [placed, setPlaced] = useState<string[]>([]);
+  const [glance, setGlance] = useState(false);
+  // "May 2024" vs "05/2024" vs "Summer 2024": recruiters notice mixed date styles. "Present" and bare years fit any style.
+  const dateStyle = (d: string) => /\d{1,2}\/\d{2,4}/.test(d) ? "numeric" : /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4}/i.test(d) ? "month" : /\b(spring|summer|fall|autumn|winter)\b/i.test(d) ? "season" : "";
+  const styles = new Set(doc.sections.flatMap((s) => s.entries.map((e) => dateStyle(e.dates))).filter(Boolean));
   const checks: [string, boolean][] = [
     ["Name", !!doc.contact.name.trim()], ["Email", /@/.test(doc.contact.email)], ["Phone", /\d{3}/.test(doc.contact.phone)],
     ["Education section", doc.sections.some((s) => /educat/i.test(s.heading))], ["Experience section", doc.sections.some((s) => /experien|employ|work/i.test(s.heading))],
     ["Dates on every entry", entries.length > 0 && doc.sections.every((s) => s.entries.every((e) => !!e.dates.trim()))], ["Skills", doc.skills.length > 0],
+    ["Same date format everywhere", styles.size <= 1],
   ];
   const { ws, save } = useStore();
   const inbox = (ws?.tasks || []).filter((t) => t.source === "Check-in" && t.link?.startsWith("/resume") && !t.done);
@@ -25,6 +30,25 @@ export function AtsXray({ doc, quality, upd }: { doc: ResumeDoc; quality?: Resum
       <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
         {checks.map(([label, ok]) => <span key={label} className={"chip " + (ok ? "chip-live" : "chip-setup")}>{ok ? <CheckCircle2 size={12} /> : <CircleAlert size={12} />} {label}</span>)}
       </div>
+      <button type="button" className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} aria-pressed={glance} onClick={() => setGlance(!glance)} data-testid="button-six-second"><Eye size={14} /> {glance ? "Hide the 6-second view" : "6-second view"}</button>
+      {glance && (
+        <div className="stack-sm" style={{ borderLeft: "3px solid var(--line)", paddingLeft: 12 }} data-testid="six-second-view">
+          <span className="xs muted">Recruiters often decide in about 7 seconds whether to keep reading, and their eyes go to names, titles, employers and dates. If this alone doesn't tell your story, move your strongest title or employer up.</span>
+          <b>{doc.contact.name || "Your name"}</b>
+          {doc.sections.map((s) => (
+            <div key={s.id} className="stack-sm" style={{ gap: 2 }}>
+              <span className="xs" style={{ fontWeight: 600, textTransform: "uppercase" }}>{s.heading}</span>
+              {s.entries.map((e) => (
+                <div key={e.id} className="small">
+                  <b>{[e.role, e.org].filter(Boolean).join(", ")}</b>{e.dates && <span className="muted"> · {e.dates}</span>}
+                  {e.bullets.length > 0 && <div aria-hidden="true" style={{ filter: "blur(3px)", userSelect: "none" }} className="xs muted">{e.bullets.slice(0, 2).map((b) => b.text).join(" ")}</div>}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+      {!styles.size || styles.size <= 1 ? null : <p className="xs muted">Your dates mix styles ({[...styles].map((x) => (x === "numeric" ? "05/2024" : x === "month" ? "May 2024" : "Summer 2024")).join(", ")}). Pick one and use it everywhere.</p>}
       {missing.length > 0 && entries.length > 0 && (
         <div className="stack-sm">
           <span className="small"><b>{inbox.length ? "Lines to add." : "Lines Remy couldn't place."}</b> Add the ones that matter to the right entry, then save.</span>
