@@ -510,10 +510,10 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
   const [busy, setBusy] = useState(false);
   const [answer, setAnswer] = useState("");
   // The answer being saved shows right away, so Next feels instant.
-  const [pending, setPending] = useState<{ q: string; a: string } | null>(null);
+  const [pending, setPending] = useState<{ q: string; a: string; saved?: boolean } | null>(null);
   const qs = w.onboarding.questions;
   const targets = w.onboarding.targets || [];
-  const answered = pending ? [...w.onboarding.answers, pending] : w.onboarding.answers;
+  const answered = pending ? [...w.onboarding.answers, { q: pending.q, a: pending.a }] : w.onboarding.answers;
   const idx = answered.length;
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -544,6 +544,7 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
         const fact = { id: "f" + Date.now(), text: `${current} — ${a}`, category: "goal", source: "Onboarding answer", status: "approved", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
         await save("memory", [...w.memory, fact]);
       }
+      setPending({ q: current, a, saved: true }); // the profile and memory saves worked: Remy's reply can say what happened
       const last = answers.length >= qs.length;
       if (last) await new Promise((r) => setTimeout(r, 900)); // let Remy's last reply land before the next step
       // The answers and the move to the next step go in one save, so the last answer can't be overwritten.
@@ -567,7 +568,7 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
           <div key={i} className="stack-sm">
             <div className="bubble bubble-ai">{x.q}</div>
             <div className="bubble bubble-user fade-up">{x.a || "Skipped"}</div>
-            <div className="bubble bubble-ai ob-react fade-up">{setupReply(x.a, targets[i], inField(w.profile, targets[i], x.a, !!pending && i === answered.length - 1))}</div>
+            <div className="bubble bubble-ai ob-react fade-up">{pending && !pending.saved && i === answered.length - 1 ? "Saving…" : setupReply(x.a, targets[i], inField(w.profile, targets[i], x.a))}</div>
           </div>
         ))}
         {busy && <div className="bubble bubble-ai row"><Spinner /> Thinking of a few useful questions…</div>}

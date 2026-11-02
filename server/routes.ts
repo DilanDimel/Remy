@@ -1062,7 +1062,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const qs = keepQuestions((out.questions || []).filter((x: any) => x && (typeof x === "string" || x.q)).map((x: any) => (typeof x === "string" ? { q: x } : x)), skipped).slice(0, 3);
     ctx.ws.onboarding.questions = qs.map((x: any) => String(typeof x === "string" ? x : x.q));
     ctx.ws.onboarding.targets = qs.map((x: any) => (TARGETS.includes(x?.saveTo) ? x.saveTo : "goals"));
-    ctx.ws.onboarding.options = qs.map((x: any) => (Array.isArray(x?.options) ? x.options : []).map((o: unknown) => String(o).trim().slice(0, 60)).filter((o: string) => o && !/not sure/i.test(o) && !pastTerm(o, centralToday())).slice(0, 3));
+    ctx.ws.onboarding.options = qs.map((x: any) => (Array.isArray(x?.options) ? x.options : []).map((o: unknown) => String(o).trim().slice(0, 60)).filter((o: string) => o && !/\b(not (really )?sure|unsure|no idea|idk|don'?t know|undecided)\b/i.test(o) && !pastTerm(o, centralToday())).slice(0, 3));
     await ctx.save();
     res.json(ctx.ws);
   }));

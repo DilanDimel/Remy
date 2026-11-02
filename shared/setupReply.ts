@@ -2,18 +2,55 @@
 // actually happened to it: which profile field it went into (if any) and that the plan reads it.
 // It never promises a search, a ranking or a filter that doesn't run.
 
-export const UNSURE = /\b(not sure|no idea|idk|don'?t know|unsure|no clue)\b/i;
-
-/** Whether an answer goes into its profile field. "I'm not sure" never does (it would become a start date
- *  or a search word). Search fields (roles, employers, things to leave out) only take short answers that
- *  name things; a sentence ("I want to…") stays in Remy's AI memory instead. */
-export function fitsField(target: string | undefined, a: string): boolean {
-  if (!a.trim() || UNSURE.test(a)) return false;
-  const searchField = target === "targetRoles" || target === "dreamEmployers" || target === "avoid";
-  return !searchField || (a.length <= 60 && !/\b(i|i'm|im|don'?t|maybe)\b/i.test(a));
+/** Phone keyboards type ’ (curly); every check reads the straight ' instead. */
+const norm = (a: string) => a.replace(/[\u2018\u2019\u02bc]/g, "'");
+/** Words that say "I don't know yet" or "not decided", anywhere in an answer. */
+export const UNSURE = /\b(not (really |quite |totally |entirely |100% )?(sure|certain)|no idea|idk|dunno|(don'?t|do not) (really )?know|unsure|uncertain|no clue|undecided|still (deciding|figuring|thinking|exploring|unsure)|(haven'?t|have not) (really |yet )?(decided|figured|thought)|no preference|tb[da]|to be (determined|decided|announced)|not (yet )?decided|not yet|unknown|maybe|h+m+)\b/i;
+// Small words that, next to an unsure phrase, add nothing ("I have no idea what I want to do yet lol").
+const FILLER = new Set(("i i'm im am me my have has had what want wanna do doing it that this those about out yet really honestly right now at the moment " +
+  "still just um hmm well so to be honest kind of sure not totally tbh yeah lol haha one any anything which where how go get there a an for much " +
+  "figure figuring thought thinking decide deciding decided think know idea clue yet maybe exactly too either").split(" "));
+const words = (a: string) => norm(a).toLowerCase().split(/[^a-z0-9']+/).filter(Boolean);
+/** The whole answer is "I don't know" (not "Not sure about finance but love consulting", which says something). */
+export function isUnsure(a: string): boolean {
+  a = norm(a);
+  if (a.trim() && /^[\s\p{P}]+$/u.test(a)) return true; // "?" or "..."
+  if (!UNSURE.test(a)) return false;
+  return words(a.replace(new RegExp(UNSURE.source, "gi"), " ")).every((w) => FILLER.has(w));
+}
+// "no", "none", "Nothing comes to mind", "No thanks": nothing to add.
+const NO_WORDS = new Set(["no", "nope", "nah", "none", "nothing", "na", "n/a"]);
+const NO_FILLER = new Set("not really specific particular in thanks thank you to avoid comes come mind i can think of that for now right so far yet at all lol off top my head i'm im good fine the above know open flexible anything".split(" "));
+/** "Open to anything", "Any company", "Whenever": no names to search for or hide, and no start date. */
+const OPEN_CORE = new Set("open anything any anywhere anytime whenever whatever flexible everything either picky matter".split(" "));
+const OPEN_FILLER = new Set(("i'm im i am to all really role roles company companies employer employers job jobs place places location locations time " +
+  "works work is fine pretty very not doesn't does the above of them one kind type field fields honestly totally").split(" "));
+export function isOpen(a: string): boolean {
+  const w = words(a);
+  return w.some((x) => OPEN_CORE.has(x)) && w.every((x) => OPEN_CORE.has(x) || OPEN_FILLER.has(x));
+}
+export function isNothing(a: string): boolean {
+  if (/^\W*(n\/a|not (really|anything|at the moment|right now)|not that i (can think|know) of)\W*$/i.test(norm(a))) return true;
+  const w = words(norm(a).replace(/^\W*not really\b/i, "no")); // "Not really, I'm flexible"
+  return w.some((x) => NO_WORDS.has(x)) && w.every((x) => NO_WORDS.has(x) || NO_FILLER.has(x));
 }
 
 const items = (s: string) => s.toLowerCase().split(/\s*[,;]\s*/).map((x) => x.trim()).filter(Boolean);
+
+/** Whether an answer goes into its profile field. "I'm not sure" never does (it would become a start date
+ *  or a search word), and a search field or start date never takes an answer that hedges at all.
+ *  Search fields (roles, employers, things to leave out) only take short answers that name things; a
+ *  sentence ("I want to…") stays in Remy's AI memory instead. */
+export function fitsField(target: string | undefined, a: string): boolean {
+  a = norm(a);
+  if (!a.trim() || isUnsure(a) || isNothing(a)) return false;
+  const searchField = target === "targetRoles" || target === "dreamEmployers" || target === "avoid";
+  if ((searchField || target === "timeline") && (UNSURE.test(a) || isOpen(a))) return false;
+  // The leave-out filter skips pieces of 2 letters or fewer, so "HR" would be saved but never hide anything.
+  if (target === "avoid" && items(a).some((x) => x.length <= 2)) return false;
+  // Names, not sentences: each comma piece is short, and no "I want…" ("Software Engineer I" is a role level, not "I").
+  return !searchField || (a.length <= 300 && items(a).every((x) => x.length <= 60) && !/\b(i'm|im|don'?t|maybe)\b|\bi\s+[a-z]/i.test(a));
+}
 
 /** Every piece of the answer ("Bell, SpaceX" = two) is already in the field's comma list. */
 export function alreadyIn(field: string, a: string): boolean {
@@ -22,10 +59,10 @@ export function alreadyIn(field: string, a: string): boolean {
   return want.length > 0 && want.every((x) => have.has(x));
 }
 
-/** The answer is in its profile field. `pending` = still saving, so say what the save is about to do. */
-export function inField(profile: object, target: string | undefined, a: string, pending = false): boolean {
+/** The answer is in its profile field (checked after the save; while saving, the reply is "Saving…"). */
+export function inField(profile: object, target: string | undefined, a: string): boolean {
   if (!target || !(target in profile) || !fitsField(target, a)) return false;
-  return pending || alreadyIn(String((profile as Record<string, unknown>)[target] ?? ""), a);
+  return alreadyIn(String((profile as Record<string, unknown>)[target] ?? ""), a);
 }
 
 const SAVED: Record<string, string> = {
@@ -40,9 +77,11 @@ const SAVED: Record<string, string> = {
 /** `saved` = the answer is in the target profile field (not just Remy's AI memory). */
 export function setupReply(a: string, target: string | undefined, saved: boolean): string {
   if (!a) return "No problem, we can come back to that.";
-  if (UNSURE.test(a)) return target === "timeline" ? "No problem. You can add a start date in your profile any time."
+  if (isUnsure(a)) return target === "timeline" ? "No problem. You can add a start date in your profile any time."
+    : target === "avoid" ? "No problem. You can add things to leave out in your profile any time."
     : target === "dreamEmployers" ? "That's fine. Save openings you like as you go, and Remy will learn from them."
     : "That's completely normal. My Path shows where your major can lead, and we'll figure it out together.";
+  if (isNothing(a) && target === "avoid") return "Got it. Nothing added to your leave-out list.";
   if (saved && target && SAVED[target]) return SAVED[target];
   return "Thanks. I saved that to your AI memory, and your plan will use it.";
 }
@@ -61,7 +100,7 @@ const ASKS: Record<string, RegExp> = {
   dreamEmployers: /\bdream (employer|compan)|\b(companies|employers|organizations|agencies)\b.*\b(love|like|want|hope) to work\b|\bwork for\b/i,
   avoid: /\brule out\b|\bavoid\b|\bleave out\b|\bsteer clear\b/i,
 };
-export const FALLBACK_QUESTION = { q: "What would make this school year a win for you?", saveTo: "goals", options: [] as string[] };
+export const FALLBACK_QUESTION = { q: "What would make the next few months a win for you?", saveTo: "goals", options: [] as string[] };
 
 /** Drops questions about fields the student skipped. If none are left, asks one goal question
  *  rather than none (no questions would wrongly read as "AI isn't available"). */
