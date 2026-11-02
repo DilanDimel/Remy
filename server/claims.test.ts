@@ -63,3 +63,72 @@ test("claims: rewording an entry with action verbs isn't flagged as added detail
   const f = claimCheck("Collaborated with a team of four to model a rear upright in SolidWorks and run FEA to analyze stress under braking loads", orig, { original: orig, entryContext: "Formula SAE Racing Team Suspension Subteam Member" });
   assert.ok(!f.some((x) => /adds detail/.test(x.message)), JSON.stringify(f));
 });
+
+test("clean: spelled-out abbreviations, same-credit verbs, plain rewording and tools that manage", () => {
+  const ev = "Student nurse. Cared for 3 adult patients per shift under RN supervision. Built an Excel tracker for the team's PBC requests. Assisted officers with traffic control. Wrote incident reports used by store leadership.";
+  const ok = (text: string, original: string) => assert.deepEqual(claimCheck(text, ev, { original }), [], text);
+  ok("Cared for 3 adult patients per shift under registered nurse supervision", "Cared for 3 adult patients per shift under RN supervision");
+  ok("Built an Excel tracker to manage the team's PBC (Provided by Client) requests", "Built an Excel tracker for the team's PBC requests");
+  ok("Supported officers with traffic control", "Assisted officers with traffic control");
+  ok("Assisted RNs with care for 3 adult patients per shift", "Cared for 3 adult patients per shift under RN supervision");
+  ok("Authored incident reports utilized by store leadership", "Wrote incident reports used by store leadership");
+  assert.ok(claimCheck("Directed officers with traffic control", ev, { original: "Assisted officers with traffic control" }).length > 0, "dropping the hedge entirely still flags");
+});
+
+test("strict (check-ins): any detail the student didn't say is flagged; rewording what they said is not", () => {
+  const strict = (text: string, said: string) => claimCheck(text, said, { original: said, strict: true }).filter((f) => f.type === "scope").map((f) => f.term).join(", ");
+  assert.match(strict("Elected by peers to serve as Treasurer of the Finance Club", "I'm treasurer of Finance Club now"), /elected, peers/);
+  assert.match(strict("Took customer orders at the drive-thru and handled customer checkout at Chick-fil-A", "I work at Chick-fil-A taking orders at the drive-thru"), /customer, checkout/);
+  assert.match(strict("Poverty Alleviation", "I volunteered at the Tarrant Area Food Bank sorting donations"), /poverty, alleviation/);
+  assert.equal(strict("Volunteered at the Tarrant Area Food Bank, sorting donations", "I volunteered at the Tarrant Area Food Bank on Saturday sorting donations"), "");
+  assert.equal(strict("Sorted donations at the Tarrant Area Food Bank", "I volunteered at the Tarrant Area Food Bank on Saturday sorting donations"), "");
+  assert.equal(strict("Took orders at the drive-thru at Chick-fil-A", "I work at Chick-fil-A taking orders at the drive-thru"), "");
+});
+
+test("claims: added words are compared by word family, not by their first 5 letters", async () => {
+  const { unsaidWords } = await import("./claims");
+  assert.deepEqual(unsaidWords("Accountability for the cash drawer", "Accounted for the cash drawer"), ["accountability"]);
+  assert.deepEqual(unsaidWords("Built Tableau dashboards", "Built pivot tables"), ["tableau", "dashboards"]);
+  assert.deepEqual(unsaidWords("Sorted donations", "sorting the donated food"), []);
+});
+
+test("claims: past tense and role words the student used aren't flagged as new", async () => {
+  const { unsaidWords } = await import("./claims");
+  assert.deepEqual(unsaidWords("Took orders at the counter", "I take orders at the counter"), []);
+  assert.deepEqual(unsaidWords("Made flyers for the club", "I make flyers for the club"), []);
+  assert.deepEqual(unsaidWords("Exceeded sales goals", "I exceed my sales goals"), []);
+  assert.deepEqual(unsaidWords("Mentorship for new hires", "I mentored new hires"), []);
+});
+
+test("claims: agreed/agree are the same word", async () => {
+  const { unsaidWords } = await import("./claims");
+  assert.deepEqual(unsaidWords("Agreed on a budget", "we agree on a budget"), []);
+});
+
+test("checks: the layout check fails for a Word table and is left out when Remy hasn't seen the file", async () => {
+  const { atsChecks } = await import("./claims");
+  const doc = { contact: { name: "A", email: "a@b.co", phone: "", location: "", links: "" }, sections: [], skills: [] } as any;
+  const job = { requirements: [], company: "X" } as any;
+  const style = { serif: false, size: 11, margin: 72, pages: 1 };
+  assert.equal(atsChecks(doc, job, "f", { ...style, layout: { tables: true, textBoxes: false, columns: false } }).find((c) => c.id === "layout")?.pass, false);
+  assert.equal(atsChecks(doc, job, "f", { ...style, layout: { tables: false, textBoxes: false, columns: false } }).find((c) => c.id === "layout")?.pass, true);
+  assert.equal(atsChecks(doc, job, "f").find((c) => c.id === "layout"), undefined);
+});
+
+test("checks: the font check reads the student's own font and size instead of always passing", async () => {
+  const { fontCheck } = await import("./claims");
+  const style = { serif: true, size: 10.5, margin: 36, pages: 1 };
+  assert.deepEqual(fontCheck(style), []); // font unknown (pasted resume): left out, not passed
+  assert.equal(fontCheck({ ...style, font: "Times New Roman" })[0].pass, true);
+  assert.equal(fontCheck({ ...style, font: "TimesNewRomanPSMT" })[0].pass, true); // PDF name of the same font
+  assert.equal(fontCheck({ ...style, font: "Calibri", size: 11 })[0].pass, true);
+  for (const f of ["TrebuchetMS", "BookAntiqua", "PalatinoLinotype-Roman", "CenturyGothic", "ArialMT", "Calibri-Bold", "Garamond-Bold", "Georgia,Bold", "Helvetica-Bold", "HelveticaNeue", "Aptos", "Book Antiqua"])
+    assert.equal(fontCheck({ ...style, font: f })[0].pass, true, f);
+  assert.doesNotMatch(fontCheck({ ...style, font: "Lobster" })[0].detail, /PDF/); // Remy's own PDF doesn't keep it, so don't say so
+  const odd = fontCheck({ ...style, font: "Lobster" })[0];
+  assert.equal(odd.pass, false);
+  assert.match(odd.detail, /Lobster isn't installed on every computer/);
+  const tiny = fontCheck({ ...style, font: "Arial", size: 9 })[0];
+  assert.equal(tiny.pass, false);
+  assert.match(tiny.detail, /about 9 pt/);
+});

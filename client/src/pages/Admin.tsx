@@ -1,24 +1,30 @@
-import { useEffect, useState, type DragEvent, type ReactNode } from "react";
-import { Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, CalendarDays, Check, Clock, KanbanSquare, Plus, RotateCcw, Trash2, Users } from "lucide-react";
+import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { Activity, AlertTriangle, Bot, ArrowLeft, ArrowRight, BarChart3, CalendarDays, Check, Clock, KanbanSquare, Plus, RotateCcw, Trash2, Users } from "lucide-react";
 import { api, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
-import { Empty, Remy, Spinner } from "../components/common";
+import { BetaBadge, CopyButton, Empty, Remy, Rich, Spinner } from "../components/common";
+import { WhatsNew } from "../components/WhatsNew";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 // The owners' dashboard (server/admin.ts). Numbers about use, errors students hit, and the team's
 // own board, meetings, hours and activity. Never anything a student wrote.
 type Overview = {
+  northWeek: number; northPrev: number;
+  road?: { label: string; n: number }[];
+  returnWeek1?: { cohort: number; back: number }; returnWeek4?: { cohort: number; back: number };
   students: number; newWeek: number; newPrev: number; activeWeek: number; activePrev: number; activeToday: number;
   daily: { day: string; n: number }[];
   funnel: { accounts: number; resume: number; prefs: number; setup_done: number; chatted: number; applied: number };
   features: { name: string; students: number; uses: number }[];
   ai: { calls: number; failed: number; cost: number; priced: number; avgMs: number }; openErrors: number; feedback: number;
+  emails?: { ready: boolean; reminders: number; digest: number; digestsWeek: number };
 };
 type OpenError = { message: string; kind: string; place: string; times: number; students: number; last: string; first: string; detail: string };
 type Errors = { open: OpenError[]; fixed: { message: string; kind: string; fixed_at: string; fixed_by: string; times: number }[]; feedback: { id: number; at: string; place: string; message: string; email: string }[] };
 type Status = "todo" | "doing" | "done";
 type TeamTask = { id: string; title: string; assignee: string; due: string; notes: string; done: boolean; status: Status; done_by: string; done_at: string | null; created_by: string };
 type Answer = "yes" | "maybe" | "no";
-type TeamEvent = { id: string; title: string; date: string; time: string; who: string; notes: string; created_by: string; rsvps: Record<string, Answer> };
+type TeamEvent = { id: string; title: string; date: string; time: string; who: string; notes: string; created_by: string; assignees: string; rsvps: Record<string, Answer> };
 type Member = { email: string; name: string; founder: boolean; addedBy: string; addedAt: string | null };
 type Entry = { id: string; member: string; start_at: string; end_at: string | null; note: string };
 type Team = {
@@ -28,8 +34,9 @@ type Team = {
 };
 const ANSWERS: [Answer, string][] = [["yes", "Going"], ["maybe", "Maybe"], ["no", "Can't go"]];
 
-const TABS = [["overview", "Overview", BarChart3], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity], ["errors", "Errors & feedback", AlertTriangle]] as const;
+const TABS = [["overview", "Overview", BarChart3], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity], ["errors", "Errors & feedback", AlertTriangle], ["agents", "Agents", Bot]] as const;
 type Tab = (typeof TABS)[number][0];
+const HISTORY_AFTER = 3 * 86400_000;
 const COLS: [Status, string][] = [["todo", "To do"], ["doing", "In progress"], ["done", "Done"]];
 const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const day = (d: string) => new Date(d + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
@@ -37,6 +44,8 @@ const ago = (iso: string) => {
   const m = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
   return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
 };
+/** Assignees are stored as comma-separated emails. */
+const list = (v: string) => (v ? v.split(",").filter(Boolean) : []);
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
 
 const GCAL_RESULT: Record<string, [string, boolean]> = {
@@ -62,17 +71,20 @@ export default function Admin() {
   return (
     <div className="adm">
       <aside className="adm-nav">
-        <span className="logo"><Remy size={26} /> Remy</span>
+        <span className="logo"><Remy size={26} /> Remy <BetaBadge /></span>
         <span className="xs muted adm-role">Owners</span>
         <nav>
           {TABS.map(([k, l, Icon]) => <a key={k} href={`/admin?tab=${k}`} aria-current={tab === k ? "page" : undefined}><Icon size={17} /> {l}</a>)}
         </nav>
+        <WhatsNew className="btn btn-ghost btn-sm adm-news" />
+        <ThemeToggle className="btn btn-ghost btn-sm adm-theme" label />
         <a className="btn btn-ghost btn-sm adm-back" href="/"><ArrowLeft size={14} /> Back to Remy</a>
       </aside>
       <main className="adm-main">
         {tab === "overview" && <OverviewTab />}
         {tab === "errors" && <ErrorsTab />}
-        {tab !== "overview" && tab !== "errors" && <TeamTab tab={tab} />}
+        {tab === "agents" && <AgentsTab />}
+        {tab !== "overview" && tab !== "errors" && tab !== "agents" && <TeamTab tab={tab} />}
       </main>
     </div>
   );
@@ -82,11 +94,11 @@ function Head({ title, sub, action }: { title: string; sub?: string; action?: Re
   return <div className="adm-head"><div><h1>{title}</h1>{sub && <p className="small muted">{sub}</p>}</div>{action}</div>;
 }
 
-function useLoad<T>(path: string): [T | null, () => void, (t: T) => void] {
+function useLoad<T>(path: string): [T | null, (ok?: string) => void, (t: T) => void] {
   const { run } = useStore();
   const [data, setData] = useState<T | null>(null);
-  const load = () => { run(() => api<T>("GET", path)).then((d) => d && setData(d)); };
-  useEffect(load, [path]);
+  const load = (ok?: string) => { run(() => api<T>("GET", path), ok).then((d) => d && setData(d)); };
+  useEffect(() => { load(); }, [path]);
   return [data, load, setData];
 }
 
@@ -113,12 +125,19 @@ function OverviewTab() {
   const max = Math.max(1, ...days.map((x) => byDay.get(x) || 0));
   return (
     <div className="stack-lg">
-      <Head title="Overview" sub="Signed-in students only. Counts, never anything a student wrote." action={<button className="btn btn-ghost btn-sm" onClick={reload}><RotateCcw size={14} /> Refresh</button>} />
+      <Head title="Overview" sub="Signed-in students only. Counts, never anything a student wrote." action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
       <div className="adm-kpis">
+        <Kpi n={d.northWeek} label="North star: students who took a career step this week" prev={d.northPrev} />
+        {(() => { const r = (x?: { cohort: number; back: number }) => (x && x.cohort ? `${Math.round((100 * x.back) / x.cohort)}%` : "–"); return <>
+          <Kpi n={r(d.returnWeek1)} label="Came back in their first week" note={d.returnWeek1?.cohort ? `${d.returnWeek1.back} of ${d.returnWeek1.cohort} who signed up 8–35 days ago` : "Counting visits since Oct 31"} />
+          <Kpi n={r(d.returnWeek4)} label="Came back in week 4" note={d.returnWeek4?.cohort ? `${d.returnWeek4.back} of ${d.returnWeek4.cohort} who signed up 29–56 days ago` : "Counting visits since Oct 31"} />
+        </>; })()}
         <Kpi n={d.activeWeek} label="Active students this week" prev={d.activePrev} />
         <Kpi n={d.newWeek} label="New sign-ups this week" prev={d.newPrev} />
         <Kpi n={d.students} label="Students in total" note={`${d.activeToday} active today`} />
         <Kpi n={`$${d.ai.cost.toFixed(2)}`} label="AI spend this week" note={d.ai.priced < d.ai.calls ? `${d.ai.calls} calls, ${d.ai.calls - d.ai.priced} without a price` : `${d.ai.calls} calls`} />
+        {d.emails && <Kpi n={d.emails.ready ? d.emails.digestsWeek : "Off"} label={d.emails.ready ? "Weekly digests sent this week" : "Emails aren't set up on the server"}
+          note={d.emails.ready ? `${d.emails.digest} get the digest, ${d.emails.reminders} get deadline reminders` : "Set SMTP_URL on Render to send reminders and digests"} />}
         <Kpi n={d.openErrors} label="Open errors" note={d.feedback ? `${d.feedback} new feedback` : d.openErrors ? "see Errors" : "all clear"} />
       </div>
       <section className="adm-card">
@@ -153,6 +172,18 @@ function OverviewTab() {
           })}
         </section>
         <section className="adm-card">
+          <h3>Road to an offer: students at each milestone</h3>
+          {(d.road || []).map((m) => (
+            <div key={m.label} className="adm-funnel">
+              <span className="small">{m.label}</span>
+              <div><div style={{ width: `${d.students ? (m.n / d.students) * 100 : 0}%` }} /></div>
+              <b className="small">{m.n}</b>
+              <span className="xs muted">{d.students ? `${Math.round((100 * m.n) / d.students)}%` : ""}</span>
+            </div>
+          ))}
+          <p className="xs muted">The lowest bar is where students get stuck; make that step easier next.</p>
+        </section>
+        <section className="adm-card">
           <h3>What students used this week</h3>
           {d.features.length ? (
             <table className="table"><thead><tr><th>Feature</th><th>Students</th><th>Times</th></tr></thead>
@@ -173,9 +204,14 @@ function ErrorsTab() {
   const fix = async (e: OpenError) => { const r = await run(() => api<Errors>("POST", "/api/admin/errors/fix", { message: e.message, kind: e.kind }), "Marked fixed. If it happens again, it comes back here."); if (r) setD(r); };
   return (
     <div className="stack-lg">
-      <Head title="Errors & feedback" sub="What students wrote with Send feedback, and the errors they hit in the last 30 days. Mark an error fixed after the fix ships." action={<button className="btn btn-ghost btn-sm" onClick={reload}><RotateCcw size={14} /> Refresh</button>} />
+      <Head title="Errors & feedback" sub="What students wrote with Send feedback, and the errors they hit in the last 30 days. Mark an error fixed after the fix ships." action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
       <section className="adm-card adm-list">
         <h3>Student feedback</h3>
+        {d.feedback.length > 1 && (() => {
+          const by = new Map<string, number>();
+          for (const f of d.feedback) by.set(f.place || "somewhere in Remy", (by.get(f.place || "somewhere in Remy") || 0) + 1);
+          return <p className="xs muted">By page: {[...by].sort((a, b) => b[1] - a[1]).map(([p, n]) => `${p} ${n}`).join(" · ")}</p>;
+        })()}
         {d.feedback.map((f) => (
           <div key={f.id} className="adm-err">
             <div className="grow stack-sm" style={{ gap: 4 }}>
@@ -215,17 +251,134 @@ function ErrorsTab() {
   );
 }
 
+type Run<T> = { at: string; run_by: string; output: T } | null;
+type Agents = { ai: boolean; feedback: Run<{ themes: { title: string; count: number; severity: string; examples: string[]; todo: string }[]; reports: number; note: string }>; weekly: Run<{ lines: string[] }>;
+  scout: Run<{ reached: number; tried: number; early: number; broken: { company: string; error: string }[]; quiet?: string[]; thin: { field: string; employers: number; early: number }[] }>;
+  research: Run<{ question: string; answer: string; sources: { url: string; title: string }[]; web: boolean }>;
+  marketing: Run<{ brief: string; linkedin: string; instagram: string; email: { subject: string; body: string } }>;
+  retention?: Run<{ quiet: number; noSetup: number; stoppedAt: { step: string; n: number }[] }> };
+
+/** The team's agents: simple workflows that post results here; owners decide what becomes a board card. */
+function AgentsTab() {
+  const { run } = useStore();
+  const [d, , setD] = useLoad<Agents>("/api/admin/agents");
+  const [busy, setBusy] = useState("");
+  const [added, setAdded] = useState<string[]>([]);
+  const [question, setQuestion] = useState("");
+  const [brief, setBrief] = useState("");
+  const go = async (agent: string) => { setBusy(agent); const r = await run(() => api<Agents>("POST", `/api/admin/agents/${agent}/run`, { question, brief }), "Agent finished"); if (r) setD(r); setBusy(""); };
+  const add = async (title: string) => { if (await run(() => api("POST", "/api/admin/agents/suggestion", { title }), "Added to the board")) setAdded([...added, title]); };
+  if (!d) return <div className="row"><Spinner /> Loading…</div>;
+  const card = (key: string, name: string, what: string, body: ReactNode, last: Run<unknown>, needsAi = false) => (
+    <section className="adm-card stack-sm" key={key} data-testid={`agent-${key}`}>
+      <div className="row-between"><div><h3>{name}</h3><p className="xs muted">{what}</p></div>
+        <button className="btn btn-secondary btn-sm" disabled={!!busy || (needsAi && !d.ai)} onClick={() => go(key)}>{busy === key ? <Spinner /> : <RotateCcw size={14} />} Run now</button></div>
+      {last ? <span className="xs muted">Last run {ago(last.at)} by {last.run_by.split("@")[0]}</span> : <span className="xs muted">Not run yet.</span>}
+      {body}
+    </section>
+  );
+  const fb = d.feedback?.output, wk = d.weekly?.output, sc = d.scout?.output, rs = d.research?.output, mk = d.marketing?.output, rt = d.retention?.output;
+  const draft = (label: string, text: string) => (
+    <div className="stack-sm" style={{ gap: 4 }}>
+      <div className="row-between"><b className="small">{label}</b><CopyButton text={text} /></div>
+      <p className="small" style={{ whiteSpace: "pre-wrap" }}>{text}</p>
+    </div>
+  );
+  return (
+    <div className="stack-lg">
+      <Head title="Agents" sub="Step-by-step helpers for the team. They suggest; you decide. No student personal data is sent to them." />
+      {card("feedback", "Feedback & bug sorter", "Groups the last 30 days of open errors and student feedback into themes, most urgent first, each with a suggested to-do.", fb && (
+        <div className="stack-sm">
+          {fb.note && <p className="small muted">{fb.note}</p>}
+          {fb.themes.map((t) => (
+            <div key={t.title} className="adm-row" style={{ alignItems: "flex-start" }}>
+              <span className={"chip " + (t.severity === "high" ? "chip-bad" : t.severity === "medium" ? "chip-setup" : "chip-plain")}>{t.severity}</span>
+              <div className="grow stack-sm" style={{ gap: 2 }}><b className="small">{t.title} <span className="muted">({t.count})</span></b>{t.examples.map((e) => <span key={e} className="xs muted">“{e}”</span>)}<span className="xs">To-do: {t.todo}</span></div>
+              {added.includes(t.todo) ? <span className="xs muted"><Check size={12} /> On the board</span> : <button className="btn btn-ghost btn-sm" onClick={() => add(t.todo)}><Plus size={14} /> Add to board</button>}
+            </div>
+          ))}
+        </div>
+      ), d.feedback, true)}
+      {card("weekly", "Weekly analyst", "The week's numbers in plain sentences: north star, active students, setup, AI spend and open issues.", wk && <ul className="small stack-sm" style={{ paddingLeft: 18 }}>{wk.lines.map((l) => <li key={l}>{l}</li>)}</ul>, d.weekly)}
+      {card("retention", "Retention watcher", "Counts students who went quiet (last opened Remy 8–21 days ago) and the step most of them stopped before. Counts only, no names.", rt && (
+        <div className="stack-sm">
+          <p className="small">{rt.quiet} student{rt.quiet === 1 ? "" : "s"} went quiet; {rt.noSetup} never finished setup.</p>
+          {rt.stoppedAt.length > 0 && <ul className="small" style={{ paddingLeft: 18 }}>{rt.stoppedAt.map((x) => <li key={x.step}>Stopped before “{x.step}”: {x.n}</li>)}</ul>}
+          {rt.stoppedAt[0] && !added.includes(`Make “${rt.stoppedAt[0].step}” easier`) && <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => add(`Make “${rt.stoppedAt[0].step}” easier`)}><Plus size={14} /> Add to board</button>}
+        </div>
+      ), d.retention ?? null)}
+      {card("scout", "Openings scout", "Reads every employer career site Remy uses (recent copies count) and shows which ones failed and which fields have few early-career openings. Takes about a minute.", sc && (
+        <div className="stack-sm">
+          <p className="small">{sc.reached} of {sc.tried} employer sites answered, with {sc.early} early-career postings in all.</p>
+          {sc.thin.length > 0 && <><b className="small">Fields with the fewest early-career openings</b><ul className="small" style={{ paddingLeft: 18 }}>{sc.thin.map((t) => <li key={t.field}>{t.field}: {t.early} from {t.employers} employer{t.employers === 1 ? "" : "s"}</li>)}</ul></>}
+          {!!sc.quiet?.length && <p className="xs muted">No internships posted right now: {sc.quiet.join(", ")}.</p>}
+          {sc.broken.length > 0 && <details><summary className="small">{sc.broken.length} site{sc.broken.length === 1 ? "" : "s"} couldn't be read</summary><ul className="xs muted" style={{ paddingLeft: 18 }}>{sc.broken.map((b) => <li key={b.company}>{b.company}: {b.error}</li>)}</ul></details>}
+          {sc.broken.length > 0 && !added.includes("Fix the job readers the scout flagged") && <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => add("Fix the job readers the scout flagged")}><Plus size={14} /> Add to board</button>}
+        </div>
+      ), d.scout)}
+      {card("research", "Researcher", "Answers a team question from live web sources (Perplexity), with links. Don't paste student information.", (
+        <div className="stack-sm">
+          <textarea className="textarea" style={{ minHeight: 60 }} value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="e.g. What do Handshake and Teal charge colleges, and what do students say about them?" aria-label="Research question" data-testid="input-research" />
+          {rs && (
+            <div className="stack-sm">
+              <b className="small">{rs.question}</b>
+              {!rs.web && <span className="chip chip-setup" style={{ alignSelf: "flex-start" }}>No web sources: check before using</span>}
+              <div className="small stack-sm"><Rich text={rs.answer} /></div>
+              {rs.sources.length > 0 && <div className="xs stack-sm" style={{ gap: 2 }}>{rs.sources.map((s, i) => <a key={s.url} href={s.url} target="_blank" rel="noreferrer">[{i + 1}] {s.title || new URL(s.url).hostname}</a>)}</div>}
+            </div>
+          )}
+        </div>
+      ), d.research, true)}
+      {card("marketing", "Marketing drafter", "Drafts a LinkedIn post, an Instagram caption and an email to professors from the latest updates. You edit and send; it never posts anything.", (
+        <div className="stack-sm">
+          <input className="input" value={brief} onChange={(e) => setBrief(e.target.value)} placeholder="Optional brief, e.g. invite Neeley students to try the beta before finals" aria-label="Marketing brief" data-testid="input-marketing" />
+          {mk && <>{draft("LinkedIn", mk.linkedin)}{draft("Instagram", mk.instagram)}{draft(`Email: ${mk.email.subject}`, mk.email.body)}</>}
+        </div>
+      ), d.marketing, true)}
+    </div>
+  );
+}
+
 function Avatar({ m, size = 26 }: { m?: Member; size?: number }) {
   const text = m ? m.name.split(/\s+/).map((x) => x[0]).slice(0, 2).join("").toUpperCase() : "?";
   return <span className="adm-av" style={{ width: size, height: size, fontSize: size * 0.4 }} title={m ? `${m.name} (${m.email})` : "Nobody yet"} aria-hidden>{text}</span>;
+}
+
+/** Pick any number of teammates; shows their avatars, opens a checklist. */
+function People({ members, value, onChange, label }: { members: Member[]; value: string[]; onChange: (v: string[]) => void; label: string }) {
+  const chosen = members.filter((m) => value.includes(m.email));
+  const ref = useRef<HTMLDetailsElement>(null);
+  // Close on a click anywhere else, like a menu.
+  useEffect(() => {
+    const close = (e: MouseEvent) => { if (ref.current?.open && !ref.current.contains(e.target as Node)) ref.current.open = false; };
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, []);
+  return (
+    <details className="adm-people-pick" ref={ref}>
+      <summary aria-label={label}>
+        {chosen.length ? <span className="adm-stack">{chosen.slice(0, 4).map((m) => <Avatar key={m.email} m={m} size={22} />)}</span> : <Avatar size={22} />}
+        <span className="xs">{chosen.length === 0 ? "Unassigned" : chosen.length === 1 ? chosen[0].name : `${chosen.length} people`}</span>
+      </summary>
+      <div className="adm-people-menu" role="group" aria-label={label}>
+        {members.map((m) => (
+          <label key={m.email} className="row small" style={{ gap: 8, flexWrap: "nowrap" }}>
+            <input type="checkbox" checked={value.includes(m.email)} onChange={(e) => onChange(e.target.checked ? [...value, m.email] : value.filter((x) => x !== m.email))} />
+            <Avatar m={m} size={20} /> {m.name}
+          </label>
+        ))}
+      </div>
+    </details>
+  );
 }
 
 function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "activity" }) {
   const { run } = useStore();
   const { query } = useRoute();
   const [d, , setD] = useLoad<Team>("/api/admin/team");
-  const [task, setTask] = useState({ title: "", assignee: "", due: "" });
-  const [ev, setEv] = useState({ title: "", date: "", time: "", who: "" });
+  const [task, setTask] = useState({ title: "", assignee: [] as string[], due: "" });
+  const [ev, setEv] = useState({ title: "", date: "", time: "", who: "", assignees: [] as string[] });
+  const [over, setOver] = useState<Status | null>(null);
   const [member, setMember] = useState({ name: "", email: "" });
   const [note, setNote] = useState("");
   const [drag, setDrag] = useState<string | null>(null);
@@ -239,24 +392,24 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
   const nameOf = (email: string) => who(email)?.name || email.split("@")[0];
   // Activity details are stored with emails and ISO dates; show names and readable dates.
   const pretty = (t: string) => t.replace(/[^\s()]+@[^\s()]+\.[a-z]+/gi, (e) => nameOf(e.toLowerCase())).replace(/\b\d{4}-\d{2}-\d{2}\b/g, (x) => day(x));
-  const move = (t: TeamTask, status: Status) => t.status !== status && send("POST", "/api/admin/tasks", { id: t.id, status });
+  // Show the change right away; the server's answer (or a reload on failure) settles it.
+  const patchTask = async (t: TeamTask, patch: Partial<TeamTask>, body: Record<string, unknown>) => {
+    setD({ ...d, tasks: d.tasks.map((x) => (x.id === t.id ? { ...x, ...patch, ...(patch.status ? { done: patch.status === "done", done_by: patch.status === "done" ? d.me : "", done_at: patch.status === "done" ? new Date().toISOString() : null } : {}) } : x)) });
+    const r = await api<Team>("POST", "/api/admin/tasks", { id: t.id, ...body }).catch(() => null);
+    if (r) setD(r); else run(() => api<Team>("GET", "/api/admin/team")).then((x) => x && setD(x));
+  };
+  const move = (t: TeamTask, status: Status) => { if (t.status !== status) patchTask(t, { status }, { status }); };
   const person = query.get("person") || "";
 
   const card = (t: TeamTask) => {
     const i = COLS.findIndex(([s]) => s === t.status);
     const late = t.due && t.status !== "done" && t.due < today();
     return (
-      <div key={t.id} className={"adm-task" + (drag === t.id ? " dragging" : "")} draggable onDragStart={(e: DragEvent) => { e.dataTransfer.setData("text/plain", t.id); setDrag(t.id); }} onDragEnd={() => setDrag(null)}>
+      <div key={t.id} className={"adm-task" + (drag === t.id ? " dragging" : "")} draggable onDragStart={(e: DragEvent) => { e.dataTransfer.setData("text/plain", t.id); setDrag(t.id); }} onDragEnd={() => { setDrag(null); setOver(null); }}>
         <b className="small">{t.title}</b>
         {t.notes && <span className="xs muted">{t.notes}</span>}
         <div className="row-between" style={{ gap: 6 }}>
-          <label className="adm-assign" title="Assigned to">
-            <Avatar m={who(t.assignee)} size={22} />
-            <select value={t.assignee} onChange={(e) => send("POST", "/api/admin/tasks", { id: t.id, assignee: e.target.value })} aria-label={`Who does: ${t.title}`}>
-              <option value="">Unassigned</option>
-              {d.members.map((m) => <option key={m.email} value={m.email}>{m.name}</option>)}
-            </select>
-          </label>
+          <People members={d.members} value={list(t.assignee)} label={`Who does: ${t.title}`} onChange={(v) => patchTask(t, { assignee: v.join(",") }, { assignee: v })} />
           {t.due && <span className={"xs " + (late ? "bad" : "muted")}>{late ? "Late, " : "Due "}{day(t.due)}</span>}
         </div>
         {t.status === "done" && t.done_by && <span className="xs pass adm-inline"><Check size={12} /> Done by {nameOf(t.done_by)}{t.done_at ? `, ${ago(t.done_at)}` : ""}</span>}
@@ -270,16 +423,17 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
   };
 
   if (tab === "board") {
-    const shown = person ? d.tasks.filter((t) => t.assignee === person) : d.tasks;
+    const mine = person ? d.tasks.filter((t) => list(t.assignee).includes(person)) : d.tasks;
+    // Finished to-dos stay in Done for 3 days, then move to History so the board stays short.
+    const old = (t: TeamTask) => t.status === "done" && !!t.done_at && Date.now() - new Date(t.done_at).getTime() > HISTORY_AFTER;
+    const shown = mine.filter((t) => !old(t));
+    const history = mine.filter(old).sort((a, b) => (b.done_at! > a.done_at! ? 1 : -1));
     return (
       <div className="stack-lg">
         <Head title="Board" sub="Drag a card to another column, or use its arrows. Everyone on the team sees the same board." />
-        <form className="adm-card adm-form" onSubmit={async (e) => { e.preventDefault(); if (await send("POST", "/api/admin/tasks", task, "To-do added")) setTask({ title: "", assignee: "", due: "" }); }}>
+        <form className="adm-card adm-form" onSubmit={async (e) => { e.preventDefault(); if (await send("POST", "/api/admin/tasks", task, "To-do added")) setTask({ title: "", assignee: [], due: "" }); }}>
           <input className="input" value={task.title} onChange={(e) => setTask({ ...task, title: e.target.value })} placeholder="What needs doing?" aria-label="To-do" />
-          <select className="input" value={task.assignee} onChange={(e) => setTask({ ...task, assignee: e.target.value })} aria-label="Who does it">
-            <option value="">Unassigned</option>
-            {d.members.map((m) => <option key={m.email} value={m.email}>{m.name}</option>)}
-          </select>
+          <People members={d.members} value={task.assignee} onChange={(v) => setTask({ ...task, assignee: v })} label="Who does it" />
           <input className="input" type="date" value={task.due} onChange={(e) => setTask({ ...task, due: e.target.value })} aria-label="Due date" />
           <button className="btn btn-primary btn-sm" disabled={!task.title.trim()}><Plus size={15} /> Add</button>
         </form>
@@ -291,7 +445,7 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
           {COLS.map(([s, label]) => {
             const list = shown.filter((t) => t.status === s);
             return (
-              <section key={s} className="adm-col" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const t = d.tasks.find((x) => x.id === e.dataTransfer.getData("text/plain")); if (t) move(t, s); setDrag(null); }} aria-label={label}>
+              <section key={s} className={"adm-col" + (over === s && drag ? " adm-col-over" : "")} onDragOver={(e) => { e.preventDefault(); if (over !== s) setOver(s); }} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver(null); }} onDrop={(e) => { e.preventDefault(); const t = d.tasks.find((x) => x.id === e.dataTransfer.getData("text/plain")); if (t) move(t, s); setDrag(null); setOver(null); }} aria-label={label}>
                 <h3>{label} <span className="muted small">{list.length}</span></h3>
                 {list.map(card)}
                 {!list.length && <p className="xs muted adm-drop">{s === "done" ? "Finished to-dos land here." : "Drop a card here."}</p>}
@@ -299,6 +453,21 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
             );
           })}
         </div>
+        {history.length > 0 && (
+          <details className="adm-card" data-testid="task-history">
+            <summary className="row-between" style={{ cursor: "pointer" }}><h3>History</h3><span className="xs muted">{history.length} finished more than 3 days ago</span></summary>
+            <div className="stack-sm" style={{ marginTop: 10 }}>
+              {history.map((t) => (
+                <div key={t.id} className="adm-row small" style={{ alignItems: "center" }}>
+                  <Check size={14} className="pass" />
+                  <span className="grow">{t.title}</span>
+                  <span className="xs muted">Done by {nameOf(t.done_by)}, {day(t.done_at!.slice(0, 10))}</span>
+                  <button className="btn btn-ghost btn-sm" onClick={() => move(t, "todo")}>Reopen</button>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
       </div>
     );
   }
@@ -310,7 +479,7 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
         <Head title="People" sub="Everyone here can open this dashboard and sees the same board, calendar, hours and activity." />
         <div className="adm-people">
           {d.members.map((m) => {
-            const open = d.tasks.filter((t) => t.assignee === m.email && t.status !== "done");
+            const open = d.tasks.filter((t) => list(t.assignee).includes(m.email) && t.status !== "done");
             const doneWeek = d.tasks.filter((t) => t.done_by === m.email && t.done_at && new Date(t.done_at).getTime() > weekAgo).length;
             const h = d.hours.find((x) => x.member === m.email);
             const working = d.entries.some((e) => e.member === m.email && !e.end_at);
@@ -363,6 +532,7 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
           <div className="grow stack-sm" style={{ gap: 4, minWidth: 200 }}>
             <b className="small">{e.title}</b>
             <span className="xs muted">{[e.who && `With ${e.who}`, `added by ${nameOf(e.created_by)}`].filter(Boolean).join(", ")}</span>
+            <People members={d.members} value={list(e.assignees)} label={`Teammates on ${e.title}`} onChange={(v) => { setD({ ...d, events: d.events.map((x) => (x.id === e.id ? { ...x, assignees: v.join(",") } : x)) }); send("POST", `/api/admin/events/${e.id}/people`, { assignees: v }); }} />
             <span className="xs" data-testid="rsvp-headcount">
               <b>{count("yes")} going</b>{count("maybe") ? `, ${count("maybe")} maybe` : ""}{count("no") ? `, ${count("no")} can't go` : ""}{waiting.length ? <span className="muted">, {waiting.length} haven't answered</span> : ""}
             </span>
@@ -373,7 +543,12 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
               <div className="row" style={{ gap: 6 }} role="group" aria-label={`Your answer for ${e.title}`}>
                 {ANSWERS.map(([a, label]) => (
                   <button key={a} className="pref-chip" aria-pressed={e.rsvps[d.me] === a} data-testid={`rsvp-${a}`}
-                    onClick={() => send("POST", `/api/admin/events/${e.id}/rsvp`, { answer: e.rsvps[d.me] === a ? "" : a })}>{label}</button>
+                    onClick={() => {
+                      const answer = e.rsvps[d.me] === a ? "" : a;
+                      const rsvps = { ...e.rsvps }; if (answer) rsvps[d.me] = answer; else delete rsvps[d.me];
+                      setD({ ...d, events: d.events.map((x) => (x.id === e.id ? { ...x, rsvps } : x)) });
+                      send("POST", `/api/admin/events/${e.id}/rsvp`, { answer });
+                    }}>{label}</button>
                 ))}
               </div>
             )}
@@ -397,9 +572,10 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
               : <a className="btn btn-primary btn-sm" href={`/api/calendar/connect?team=1&tz=${encodeURIComponent(tz)}`} data-testid="button-team-gcal">Connect Google Calendar</a>}
           </div>
         )}
-        <form className="adm-card adm-form adm-form-5" onSubmit={async (e) => { e.preventDefault(); if (await send("POST", "/api/admin/events", ev, "Meeting added")) setEv({ title: "", date: "", time: "", who: "" }); }}>
+        <form className="adm-card adm-form adm-form-5" onSubmit={async (e) => { e.preventDefault(); if (await send("POST", "/api/admin/events", ev, "Meeting added")) setEv({ title: "", date: "", time: "", who: "", assignees: [] }); }}>
           <input className="input" value={ev.title} onChange={(e) => setEv({ ...ev, title: e.target.value })} placeholder="Meeting, e.g. Career Center partnership" aria-label="Meeting" />
-          <input className="input" value={ev.who} onChange={(e) => setEv({ ...ev, who: e.target.value })} placeholder="With whom" aria-label="With whom" />
+          <input className="input" value={ev.who} onChange={(e) => setEv({ ...ev, who: e.target.value })} placeholder="With whom (outside the team)" aria-label="With whom" />
+          <People members={d.members} value={ev.assignees} onChange={(v) => setEv({ ...ev, assignees: v })} label="Teammates on this meeting" />
           <input className="input" type="date" value={ev.date} onChange={(e) => setEv({ ...ev, date: e.target.value })} aria-label="Date" />
           <input className="input" type="time" value={ev.time} onChange={(e) => setEv({ ...ev, time: e.target.value })} aria-label="Time" />
           <button className="btn btn-primary btn-sm" disabled={!ev.title.trim() || !ev.date}><Plus size={15} /> Add</button>

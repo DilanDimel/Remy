@@ -14,7 +14,7 @@ export function emptyWorkspace(): Workspace {
     profile: {
       name: "", preferredName: "", email: "", applicationEmail: "", school: "", major: "", classYear: "",
       graduation: "", location: "", targetRoles: "", goals: "", interests: "", workAuth: "", relocation: "",
-      regions: "", opportunityTypes: "", gpa: "", minors: "", timeline: "", avoid: "", dreamEmployers: "",
+      regions: "", opportunityTypes: "", gpa: "", minors: "", timeline: "", avoid: "", dreamEmployers: "", path: "",
     },
     imports: [],
     memory: [],
@@ -33,7 +33,7 @@ export function emptyWorkspace(): Workspace {
     chat: [],
     aiLog: [],
     incidents: [],
-    settings: { theme: "light", assistantOpen: true, navCollapsed: false, notify: { deadlines: true, statusChanges: true, weeklyPlan: false } },
+    settings: { theme: "system", assistantOpen: true, navCollapsed: false, notify: { deadlines: true, statusChanges: true, weeklyPlan: false } },
     updatedAt: nowIso(),
   };
 }
@@ -50,6 +50,46 @@ export async function ensureUser(me: Me) {
 export async function getUser(id: string): Promise<Me | null> {
   const r = await q1("SELECT id, kind, email, name, picture, school_email FROM users WHERE id=$1", [id]);
   return r ? { id: r.id, kind: r.kind, email: r.email, name: r.name, picture: r.picture, ...(r.school_email ? { schoolEmail: r.school_email } : {}) } : null;
+}
+
+// ---------- email sign-in codes ----------
+/** Stores a new sign-in code for an email (replacing any pending one) and returns it to be emailed. */
+export async function newSigninCode(email: string): Promise<string> {
+  const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+  const e = email.toLowerCase();
+  await q(
+    `INSERT INTO signin_codes (email, code_hash, expires_at, tries) VALUES ($1,$2,$3,0)
+     ON CONFLICT (email) DO UPDATE SET code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at, tries = 0`,
+    [e, sha("signin:" + e + ":" + code), new Date(Date.now() + CODE_MINUTES * 60_000)],
+  );
+  return code;
+}
+/** Checks a sign-in code; "ok" uses it up. Five wrong tries or ten minutes and it's gone. */
+export async function checkSigninCode(email: string, code: string): Promise<"ok" | "wrong" | "expired" | "none"> {
+  const e = email.toLowerCase();
+  return tx(async (run) => {
+    const r = (await run("SELECT code_hash, expires_at, tries FROM signin_codes WHERE email=$1 FOR UPDATE", [e]))[0];
+    if (!r) return "none";
+    if (new Date(r.expires_at).getTime() < Date.now() || r.tries >= MAX_TRIES) {
+      await run("DELETE FROM signin_codes WHERE email=$1", [e]);
+      return "expired";
+    }
+    if (sha("signin:" + e + ":" + code) !== r.code_hash) {
+      await run("UPDATE signin_codes SET tries = tries + 1 WHERE email=$1", [e]);
+      return "wrong";
+    }
+    await run("DELETE FROM signin_codes WHERE email=$1", [e]);
+    return "ok";
+  });
+}
+/** The signed-in account that already uses this email (the most recently active one), if any. */
+export async function userByEmail(email: string): Promise<Me | null> {
+  const r = await q1(
+    `SELECT u.id FROM users u LEFT JOIN workspaces w ON w.user_id = u.id
+     WHERE lower(u.email) = lower($1) AND u.kind IN ('google','supabase') ORDER BY w.updated_at DESC NULLS LAST LIMIT 1`,
+    [email],
+  );
+  return r ? getUser(String(r.id)) : null;
 }
 
 // ---------- school email verification ----------
@@ -114,7 +154,15 @@ function fromStored(data: any): Workspace {
   if (!data || data.version !== 2) return emptyWorkspace();
   // forward-fill any keys added later
   const empty = emptyWorkspace();
-  return { ...empty, ...data, profile: { ...empty.profile, ...data.profile }, settings: { ...empty.settings, ...data.settings } };
+  const ws: Workspace = { ...empty, ...data, profile: { ...empty.profile, ...data.profile }, settings: { ...empty.settings, ...data.settings } };
+  // Sample contacts/emails and the old TCU alumni list (no permission to use it) were removed; drop any saved copies.
+  const gone = (c: { id: string; label?: string }) => c.id.startsWith("alum-") || c.label === "Demo data";
+  ws.outreach = ws.outreach.filter((o) => !ws.contacts.some((c) => c.id === o.contactId && gone(c)));
+  ws.contacts = ws.contacts.filter((c) => !gone(c));
+  ws.inbox = ws.inbox.filter((m) => m.label !== "Sample email");
+  // Accounts made before "Match device" stored "light" without anyone choosing it.
+  if (ws.settings.theme === "light" && !ws.settings.themeChosen) ws.settings.theme = "system";
+  return ws;
 }
 export async function loadWorkspace(userId: string): Promise<Workspace> {
   const r = await q1("SELECT data FROM workspaces WHERE user_id=$1", [userId]);
@@ -218,6 +266,9 @@ export async function saveFile(userId: string, kind: string, name: string, mime:
 export async function getFile(userId: string, kind: string): Promise<{ name: string; mime: string; data: Buffer } | null> {
   const r = await q1("SELECT name, mime, data FROM files WHERE user_id=$1 AND kind=$2", [userId, kind]);
   return r ? { name: r.name, mime: r.mime, data: Buffer.from(r.data) } : null;
+}
+export async function deleteFile(userId: string, kind: string) {
+  await q("DELETE FROM files WHERE user_id=$1 AND kind=$2", [userId, kind]);
 }
 export async function deleteFiles(userId: string) {
   await q("DELETE FROM files WHERE user_id=$1", [userId]);

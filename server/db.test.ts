@@ -1,7 +1,7 @@
 // The storage layer against real Postgres (PGlite in memory). Run with `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aiAllowed, checkSchoolCode, cleanupOld, newSchoolCode, removeSchoolEmail, schoolEmailOwner, createSession, deleteAccount, ensureUser, getFile, getUser, loadWorkspace, saveFile, saveSections, saveWorkspace, sessionUser } from "./db";
+import { aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, newSchoolCode, removeSchoolEmail, schoolEmailOwner, createSession, deleteAccount, ensureUser, getFile, getUser, loadWorkspace, saveFile, saveSections, saveWorkspace, sessionUser } from "./db";
 import { q } from "./sql";
 
 const me = (id: string, kind = "guest") => ({ id, kind, email: `${id}@example.com`, name: id, picture: "" }) as any;
@@ -28,6 +28,19 @@ test("saveSections merges only the sections it's given, so parallel saves don't 
   assert.equal(after.calendar[0].title, "From request B");
   assert.equal(after.profile.name, "Dilan");
   assert.equal((await loadWorkspace("u2")).tasks.length, 1);
+});
+
+test("saved alumni and sample contacts/emails are dropped on load; student-added ones stay", async () => {
+  await ensureUser(me("u9"));
+  const ws = await loadWorkspace("u9");
+  ws.contacts = [{ id: "alum-al1", label: "Live" }, { id: "c-sample-1", label: "Demo data" }, { id: "c1", label: "Student provided" }] as any;
+  ws.outreach = [{ id: "o1", contactId: "alum-al1" }, { id: "o2", contactId: "c1" }] as any;
+  ws.inbox = [{ id: "m1", label: "Sample email" }, { id: "m2", label: "Pasted by student" }] as any;
+  await saveWorkspace("u9", ws);
+  const after = await loadWorkspace("u9");
+  assert.deepEqual(after.contacts.map((c) => c.id), ["c1"]);
+  assert.deepEqual(after.outreach.map((o) => o.id), ["o2"]);
+  assert.deepEqual(after.inbox.map((m) => m.id), ["m2"]);
 });
 
 test("text with a NUL character (from some PDFs) still saves", async () => {
@@ -103,4 +116,32 @@ test("school email: one address verifies only one account", async () => {
   assert.equal(await schoolEmailOwner("HORNED@tcu.edu"), "s2");
   assert.equal((await checkSchoolCode("s3", await newSchoolCode("s3", "horned@tcu.edu"))).result, "taken");
   assert.equal((await getUser("s3"))!.schoolEmail, undefined);
+});
+
+// Updates must never lose students' or the team's data: migrations only add. A migration that truly needs to
+// remove something must say so on a line containing "allow-destructive: <reason>", reviewed by a person.
+test("migrations never drop, truncate or delete data", async () => {
+  const fs = await import("node:fs");
+  const dir = new URL("./migrations/", import.meta.url);
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".sql"))) {
+    const sql = fs.readFileSync(new URL(f, dir), "utf8");
+    if (/allow-destructive:/i.test(sql)) continue;
+    const code = sql.replace(/--.*$/gm, "").replace(/ON DELETE CASCADE/gi, "");
+    assert.doesNotMatch(code, /\b(DROP\s+(TABLE|COLUMN|SCHEMA)|TRUNCATE|DELETE\s+FROM|ALTER\s+TABLE\s+\S+\s+RENAME)\b/i, `${f} would remove or rename data`);
+  }
+});
+
+test("email sign-in codes: any case of the email works once; wrong and expired don't; the code opens the existing account", async () => {
+  const code = await newSigninCode("Dee@Gmail.com");
+  assert.match(code, /^\d{6}$/);
+  assert.equal(await checkSigninCode("dee@gmail.com", code === "000000" ? "111111" : "000000"), "wrong");
+  assert.equal(await checkSigninCode("DEE@gmail.com", code), "ok");
+  assert.equal(await checkSigninCode("dee@gmail.com", code), "none", "used up");
+  const c2 = await newSigninCode("dee@gmail.com");
+  await q("UPDATE signin_codes SET expires_at = now() - interval '1 minute'");
+  assert.equal(await checkSigninCode("dee@gmail.com", c2), "expired");
+  assert.equal(await userByEmail("nobody@gmail.com"), null);
+  await ensureUser({ ...me("sb:old", "supabase"), email: "Dee@gmail.com" });
+  await ensureUser({ ...me("guest:x", "guest"), email: "dee@gmail.com" });
+  assert.equal((await userByEmail("dee@GMAIL.com"))!.id, "sb:old", "a guest with the same email isn't a match");
 });

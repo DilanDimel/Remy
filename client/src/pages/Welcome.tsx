@@ -2,8 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, useStore } from "../lib/store";
 import { ArrowLeft, CalendarClock, Check, FileText, Search, ShieldCheck } from "lucide-react";
 import { useRoute } from "../lib/router";
-import { Remy, Spinner, StatusChip } from "../components/common";
+import { BetaBadge, Remy, Spinner, StatusChip } from "../components/common";
 import { providerOn, sendMagicLink, startOAuth, type SupabaseProvider } from "../lib/supabase";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 export function useGoogleButton(onCredential: (cred: string) => void) {
   const { config } = useStore();
@@ -47,6 +48,8 @@ function SignIn() {
   const [emailOpen, setEmailOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState("");
+  const [code, setCode] = useState("");
+  const codes = !!config?.emailCodes;
   const gis = !!config?.googleClientId;
   const google = useGoogleButton(async (credential) => {
     setBusy("google");
@@ -63,7 +66,7 @@ function SignIn() {
     setBusy("");
   };
   const enter = async (via: Provider) => {
-    if (via === "Work/School Email") return providerOn(config, "email") ? setEmailOpen((o) => !o) : guest(via);
+    if (via === "Work/School Email") return codes || providerOn(config, "email") ? setEmailOpen((o) => !o) : guest(via);
     const p = SB[via];
     if (!providerOn(config, p)) return guest(via);
     setBusy(via);
@@ -72,24 +75,30 @@ function SignIn() {
   };
   const magic = async () => {
     setBusy("Work/School Email");
-    const ok = await run(() => sendMagicLink(config!, email.trim()).then(() => true));
-    if (ok) { setSent(email.trim()); toast("Check your inbox for a sign-in link"); }
+    const ok = await run(() => (codes ? api("POST", "/api/auth/email/start", { email: email.trim() }) : sendMagicLink(config!, email.trim())).then(() => true));
+    if (ok) { setSent(email.trim()); setCode(""); toast(codes ? "Check your inbox for a 6-digit code" : "Check your inbox for a sign-in link"); }
     setBusy("");
   };
-  const sso = (via: Provider, icon: ReactNode) => !providerOn(config, via === "Work/School Email" ? "email" : SB[via]) ? null : (
+  const verify = async () => {
+    setBusy("Work/School Email");
+    const r = await run(() => api("POST", "/api/auth/email/verify", { email: sent, code }));
+    if (r) setSession(r.me, r.workspace);
+    setBusy("");
+  };
+  const sso = (via: Provider, icon: ReactNode) => !(via === "Work/School Email" ? codes || providerOn(config, "email") : providerOn(config, SB[via])) ? null : (
     <button className="gbtn" type="button" onClick={() => enter(via)} disabled={!!busy} data-testid={`button-sso-${via.split(/\W/)[0].toLowerCase()}`}>
-      {busy === via ? <Spinner /> : icon} Continue with {via}
+      {busy === via ? <Spinner /> : icon} Continue with {via === "Work/School Email" ? "Email" : via}
     </button>
   );
-  const anyReal = gis || ["google", "linkedin_oidc", "apple", "azure", "email"].some((p) => providerOn(config, p as SupabaseProvider));
+  const anyReal = gis || codes || ["google", "linkedin_oidc", "apple", "azure", "email"].some((p) => providerOn(config, p as SupabaseProvider));
   return (
     <div className="landing-screen">
       <div className="landing-card fade-up">
-        <a className="btn btn-ghost btn-sm" href="/" style={{ padding: 0 }}><ArrowLeft size={14} /> What Remy does</a>
+        <div className="row-between"><a className="btn btn-ghost btn-sm" href="/" style={{ padding: 0 }}><ArrowLeft size={14} /> What Remy does</a><ThemeToggle /></div>
         <div className="landing">
           <Remy size={72} mood="wave" />
           <h1 className="motto">Sign in to Remy</h1>
-          <p className="sub">Free for students. New here? Signing in creates your account; setup takes about 5 minutes.</p>
+          <p className="sub">Free for students while Remy is in beta. New here? Signing in creates your account; setup takes about 5 minutes.</p>
         </div>
         <div className="sso-list">
           <div data-testid="google-signin">
@@ -108,12 +117,21 @@ function SignIn() {
           {sso("Microsoft", <MicrosoftMark />)}
           {sso("Work/School Email", <MailMark />)}
           {emailOpen && (
-            sent ? (
+            sent && codes ? (
+              <form className="stack-sm fade-up" onSubmit={(e) => { e.preventDefault(); verify(); }} data-testid="email-code-form">
+                <span className="small">We emailed a 6-digit code to <strong>{sent}</strong>. It works on any device and expires in 10 minutes. Not there? Check spam or Promotions.</span>
+                <div className="row">
+                  <input className="input" style={{ flex: 1, minWidth: 140, letterSpacing: 4 }} inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="123456" aria-label="6-digit code" data-testid="input-email-code" />
+                  <button className="btn btn-primary btn-sm" disabled={code.length !== 6 || !!busy} data-testid="button-verify-code">{busy === "Work/School Email" ? <Spinner /> : null} Sign in</button>
+                </div>
+                <button type="button" className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start", padding: 0 }} onClick={() => setSent("")}>Use a different email or send a new code</button>
+              </form>
+            ) : sent ? (
               <div className="notice notice-good fade-up" data-testid="magic-link-sent"><Check size={16} /><div>We sent a sign-in link to <strong>{sent}</strong>. Open it on this device to continue.</div></div>
             ) : (
               <form className="row fade-up" onSubmit={(e) => { e.preventDefault(); magic(); }}>
-                <input className="input" style={{ flex: 1, minWidth: 180 }} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@tcu.edu" aria-label="Email address" data-testid="input-magic-email" />
-                <button className="btn btn-primary btn-sm" disabled={!/.+@.+\..+/.test(email) || !!busy} data-testid="button-send-magic">{busy === "Work/School Email" ? <Spinner /> : null} Send link</button>
+                <input className="input" style={{ flex: 1, minWidth: 180 }} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@tcu.edu or any email" aria-label="Email address" data-testid="input-magic-email" />
+                <button className="btn btn-primary btn-sm" disabled={!/.+@.+\..+/.test(email) || !!busy} data-testid="button-send-magic">{busy === "Work/School Email" ? <Spinner /> : null} {codes ? "Send code" : "Send link"}</button>
               </form>
             )
           )}
@@ -134,10 +152,11 @@ function Landing() {
   return (
     <div className="lp">
       <header className="lp-top">
-        <span className="logo"><Remy size={30} mood="idle" /> Remy</span>
+        <span className="logo"><Remy size={30} mood="idle" /> Remy <BetaBadge /></span>
         <nav className="row" style={{ gap: 4 }}>
           <button className="btn btn-ghost btn-sm hide-sm" onClick={toTour}>What you get</button>
           <a className="btn btn-ghost btn-sm hide-sm" href="/about">About</a>
+          <ThemeToggle />
           <a className="btn btn-primary btn-sm" href="/signin" data-testid="button-lp-signin">Sign in</a>
         </nav>
       </header>
@@ -150,16 +169,24 @@ function Landing() {
             <a className="btn btn-primary" href="/signin" data-testid="button-lp-start">Create your free account</a>
             <button className="btn btn-secondary" onClick={toTour}>See what you get</button>
           </div>
-          <p className="xs muted">For every major and every year, freshmen included. Built by students at TCU.</p>
+          <p className="xs muted">For every major and every year, freshmen included. Built by students at TCU. Remy is in beta: it&rsquo;s still in development, and unfinished features are marked &ldquo;Coming soon&rdquo;.</p>
         </div>
         <HeroExample />
       </section>
 
       <section className="lp-gets" ref={tour} aria-label="What you get">
-        <h2>What you get</h2>
-
+        <div className="lp-gets-head">
+          <span className="lp-kicker">What you get</span>
+          <h2>Four things Remy does for you</h2>
+          <nav className="lp-jump" aria-label="Jump to">
+            <a href="#get-openings"><b>1</b> Openings</a><a href="#get-resume"><b>2</b> Honest resume</a><a href="#get-explore"><b>3</b> Explore careers</a><a href="#get-plan"><b>4</b> Weekly plan</a>
+          </nav>
+        </div>
+      </section>
+      <section className="lp-get-band" id="get-openings">
         <div className="lp-get">
           <div className="lp-get-copy">
+            <span className="lp-num">01</span>
             <h3>Openings you can actually get</h3>
             <p>Remy reads more than 180 employers&rsquo; own career sites, from Texas companies to school districts and cities, and checks every posting against you: your year, field, location, start date and visa needs. If you can&rsquo;t apply, you don&rsquo;t see it. If you can, it tells you why.</p>
           </div>
@@ -170,9 +197,12 @@ function Landing() {
             <div className="lp-job lp-hidden"><div><b>Senior Marketing Associate</b><span>Hidden: needs 3 years of experience</span></div></div>
           </div>
         </div>
+      </section>
 
+      <section className="lp-get-band alt" id="get-resume">
         <div className="lp-get flip">
           <div className="lp-get-copy">
+            <span className="lp-num">02</span>
             <h3>A resume that fits each job and stays true</h3>
             <p>For each opening, Remy suggests changes line by line and writes a cover letter draft. Anything your own resume can&rsquo;t back up gets flagged before you accept it. You approve every word, and you send everything yourself.</p>
           </div>
@@ -184,17 +214,23 @@ function Landing() {
             <div className="lp-flag"><ShieldCheck size={15} /><span><b>Flagged:</b> &ldquo;increased followers 40%&rdquo; isn&rsquo;t on your resume. Add it only if it&rsquo;s true.</span></div>
           </div>
         </div>
+      </section>
 
+      <section className="lp-get-band" id="get-explore">
         <div className="lp-get">
           <div className="lp-get-copy">
+            <span className="lp-num">03</span>
             <h3>Help when you don&rsquo;t know what you want yet</h3>
             <p>Pick a major and see the jobs it leads to, with real pay and growth numbers from the U.S. Bureau of Labor Statistics. Heard of a job but not sure what it is? Ask, and Remy explains a normal day, the hard parts and how to try it out this year.</p>
           </div>
           <FieldBrowser />
         </div>
+      </section>
 
+      <section className="lp-get-band alt" id="get-plan">
         <div className="lp-get flip">
           <div className="lp-get-copy">
+            <span className="lp-num">04</span>
             <h3>A plan for this week, not just a list</h3>
             <p>Deadlines, next steps and the gaps Remy spots become to-dos with dates. Connect Google Calendar and they show up in a separate &ldquo;Remy&rdquo; calendar. Ask Remy anything, and it already knows your resume, your to-dos and your deadlines.</p>
           </div>
@@ -208,7 +244,8 @@ function Landing() {
       </section>
 
       <section className="lp-band">
-        <h2>How it works</h2>
+        <span className="lp-kicker">How it works</span>
+        <h2>Three steps, about five minutes</h2>
         <ol className="lp-steps">
           <li><b>Add your resume.</b> Upload it, add your LinkedIn, or answer a few questions and Remy builds your first one.</li>
           <li><b>Say what you want, or that you don&rsquo;t know yet.</b> Pick fields, places and dates, or let Remy show you where your major leads.</li>
@@ -231,10 +268,19 @@ function Landing() {
       <section className="lp-cta">
         <Remy size={56} mood="wave" />
         <h2>Ready when you are.</h2>
-        <p className="muted">Free for students. No credit card. About 5 minutes to set up.</p>
+        <p>Free while Remy is in beta. No credit card. About 5 minutes to set up.</p>
         <a className="btn btn-primary" href="/signin">Create your free account</a>
       </section>
-      <footer className="lp-foot xs muted"><span>Remy, made by students at Texas Christian University.</span><span><a href="/about">About the team</a> &nbsp; <a href="/policies">Privacy and terms</a></span></footer>
+      <footer className="lp-foot">
+        <div className="lp-foot-brand">
+          <span className="logo"><Remy size={26} mood="idle" /> Remy <BetaBadge /></span>
+          <p className="small">A free career coach for college students. Made by students at Texas Christian University.</p>
+        </div>
+        <nav aria-label="Product"><b>Product</b><a href="#get-openings">Openings</a><a href="#get-resume">Honest resume</a><a href="#get-explore">Explore careers</a><a href="#get-plan">Weekly plan</a></nav>
+        <nav aria-label="Company"><b>Company</b><a href="/about">About the team</a><a href="mailto:remy.careercoach@gmail.com">remy.careercoach@gmail.com</a><a href="/signin">Sign in</a></nav>
+        <nav aria-label="Legal"><b>Legal</b><a href="/policies">Privacy policy</a><a href="/policies#beta-terms">Beta terms</a></nav>
+        <p className="lp-foot-bottom xs">© 2026 Remy. In beta: features may change, and unfinished ones are marked &ldquo;Coming soon&rdquo;.</p>
+      </footer>
     </div>
   );
 }

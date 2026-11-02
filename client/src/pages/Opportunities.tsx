@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { ArrowUpRight, Bookmark, BookmarkCheck, CalendarPlus, ChevronDown, ChevronUp, EyeOff, Link2, MapPin, RefreshCw, Search, Sparkles, Trash2 } from "lucide-react";
 import type { Job, JobCheck, JobFit, Workspace } from "@shared/types";
-import { api, daysUntil, fmtDate, rid, useStore } from "../lib/store";
+import { api, daysUntil, fmtDate, rid, useDraft, useStore } from "../lib/store";
 import { go } from "../lib/router";
-import { kindLabel, reloadJobs, useJobs } from "../lib/jobs";
-import { Empty, Remy, Spinner, StatusChip } from "../components/common";
+import { kindLabel, reloadJobs, sameOrg, useJobs } from "../lib/jobs";
+import { screeningFor } from "@shared/screening";
+import { postingSkills, skillsIn } from "@shared/requirements";
+import { Empty, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
 
 type Kind = "all" | "jobs" | "campus" | "event";
 const matchKind = (j: Job, k: Kind) => k === "all" || (k === "event" ? j.kind === "event" : k === "campus" ? j.kind === "campus" : ["job", "internship", "program"].includes(j.kind));
@@ -15,13 +17,17 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const { jobs, fits, needsProfile, refreshing } = useJobs();
   const kind = (query.get("kind") as Kind) || "all";
   const focus = query.get("id");
-  const [savedOnly, setSavedOnly] = useState(false);
+  // Filters stay as the student left them (this browser only).
+  const kept = (() => { try { return JSON.parse(localStorage.getItem("remy.opps") || "{}"); } catch { return {}; } })();
+  const [savedOnly, setSavedOnly] = useState<boolean>(!!kept.savedOnly);
   const [q, setQ] = useState("");
   const [showImport, setShowImport] = useState(query.get("import") === "1");
   const [showHidden, setShowHidden] = useState(false);
   const [showIneligible, setShowIneligible] = useState(false);
   const regions = w.profile.regions.trim();
-  const [myRegions, setMyRegions] = useState(!!regions && !/anywhere/i.test(regions));
+  // Not remembered: "Show all locations" lasts this visit, so the student's places always apply when they come back.
+  const [myRegions, setMyRegions] = useState<boolean>(!!regions && !/anywhere/i.test(regions));
+  useEffect(() => { try { localStorage.setItem("remy.opps", JSON.stringify({ savedOnly })); } catch {} }, [savedOnly]);
   const setKind = (k: Kind) => go(`/opportunities?kind=${k}`);
   const [finding, setFinding] = useState(false);
   const discover = async () => {
@@ -34,6 +40,19 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
     }
     setFinding(false);
   };
+  // Feedback loop: employers the student saved or applied to rise; ones they keep marking "Not interested" sink.
+  const companyOf = (id: string) => (jobs || []).find((j) => j.id === id)?.company;
+  const liked = new Set([...w.savedJobIds, ...w.applications.map((a) => a.jobId)].map(companyOf));
+  const hiddenBy = new Map<string | undefined, number>();
+  for (const id of w.hiddenJobIds) hiddenBy.set(companyOf(id), (hiddenBy.get(companyOf(id)) || 0) + 1);
+  // The specific words of their goal ("mechanical") in a title outrank a same-field but different job ("electrical").
+  const GENERIC = /^(intern|interns|internship|internships|student|students|engineer|engineering|analyst|associate|assistant|summer|entry|level|role|roles|jobs?|work|program|career|careers|position|and|the|for|with)$/i;
+  const specific = [...new Set(`${w.profile.targetRoles} ${w.profile.major}`.toLowerCase().split(/[^a-z&]+/).filter((x) => x.length > 3 && !GENERIC.test(x)))];
+  // No places chosen: openings in the student's own city or state come first.
+  const home = regions ? [] : (w.profile.location || "").split(",").map((x) => x.trim()).filter((x) => x.length >= 2);
+  const near = (j: Job) => home.some((h) => new RegExp(`\\b${h.replace(/[.*+?^${}()|[\]\\]/g, "")}\\b`, "i").test(j.location));
+  const rank = (j: Job) => (fits[j.id]?.score ?? 0) + (near(j) ? 6 : 0) + (liked.has(j.company) ? 8 : 0) - Math.min(3, hiddenBy.get(j.company) || 0) * 5
+    + 10 * specific.filter((x) => new RegExp(`\\b${x}`, "i").test(j.title)).length;
   const base = (jobs || [])
     .filter((j) => matchKind(j, kind))
     .filter((j) => (showHidden ? true : !w.hiddenJobIds.includes(j.id)))
@@ -45,7 +64,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const list = base
     .filter((j) => showIneligible || !fits[j.id]?.excluded)
     .filter((j) => !myRegions || fits[j.id]?.regionMatch !== false)
-    .sort((a, b) => (fits[b.id]?.score ?? 0) - (fits[a.id]?.score ?? 0) || (a.deadline || "9999").localeCompare(b.deadline || "9999"));
+    .sort((a, b) => rank(b) - rank(a) || (a.deadline || "9999").localeCompare(b.deadline || "9999"));
   return (
     <>
       {needsProfile && <div className="notice" data-testid="needs-profile">{needsProfile}</div>}
@@ -55,13 +74,24 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
           <span className="eyebrow">Opportunities</span>
           <h1>Openings worth your time.</h1>
           <p>Ranked for you: openings you're eligible for and that match your background come first.</p>
+          {(() => {
+            // A quiet status line instead of a button to press: when Remy last looked, and what's new this week.
+            const at = w.lastSearch?.at || w.openingsCheckedAt;
+            if (!at || refreshing) return null;
+            const h = Math.max(0, Math.round((Date.now() - Date.parse(at)) / 3600_000));
+            const d = Math.round(h / 24);
+            const ago = h < 1 ? "less than an hour ago" : h < 24 ? `${h}h ago` : `${d} day${d === 1 ? "" : "s"} ago`;
+            const week = new Date(Date.now() - 7 * 864e5).toISOString();
+            const fresh = (jobs || []).filter((j) => (j.foundAt || "") > week && !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false && !w.hiddenJobIds.includes(j.id)).length;
+            return <p className="xs muted" data-testid="openings-status">Updated {ago}{fresh ? ` · ${fresh} new this week` : ""} · Remy checks again by itself</p>;
+          })()}
         </div>
         <div className="row">
-          <button className="btn btn-primary" onClick={discover} disabled={finding} data-testid="button-discover">{finding ? <Spinner /> : <Search size={16} />} {finding ? "Remy is checking job boards…" : "Find more openings"}</button>
+          <button className="btn btn-secondary" onClick={discover} disabled={finding} data-testid="button-discover">{finding ? <Spinner /> : <Search size={16} />} {finding ? "Remy is checking job boards…" : "Find more openings"}</button>
           <button className="btn btn-secondary" onClick={() => setShowImport((s) => !s)} data-testid="button-toggle-import"><Link2 size={16} /> Import a posting</button>
         </div>
       </div>
-      {finding && <div className="notice small fade-up"><Remy size={28} mood="think" /><div>Remy is reading live job boards from employers that fit {w.profile.targetRoles || "your interests"}{w.profile.regions ? ` in ${w.profile.regions}` : ""}. This takes a few seconds.</div></div>}
+      {finding && <div className="notice small fade-up"><Remy size={28} mood="think" /><div className="stack-sm"><span>Remy is reading live job boards from employers that fit {w.profile.targetRoles || "your interests"}{w.profile.regions ? ` in ${w.profile.regions}` : ""}.</span><WorkingSteps steps={["Picking employers that fit you", "Reading their career sites", "Keeping internships and entry-level roles", "Ranking by how well they fit"]} every={3500} /></div></div>}
       {showImport && <ImportPanel onDone={() => setShowImport(false)} />}
       <div className="row-between">
         <div className="seg" role="group" aria-label="Category">
@@ -113,7 +143,7 @@ function nothingFits(p: Workspace["profile"]) {
 function ImportPanel({ onDone }: { onDone: () => void }) {
   const { setWs, run, config, toast } = useStore();
   const [url, setUrl] = useState("");
-  const [text, setText] = useState("");
+  const [text, setText] = useDraft("import-posting");
   const [mode, setMode] = useState<"url" | "text">("url");
   const [busy, setBusy] = useState(false);
   const submit = async () => {
@@ -150,7 +180,9 @@ function eligChip(f?: JobFit) {
   // Remy decides eligibility itself; students only see the outcome. Unknown shows nothing (the page asks once for what's missing).
   if (f.eligibility === "unknown") return null;
   if (f.eligibility === "unlikely") return <span className="chip chip-bad" title={f.eligibilityNote}>Not eligible</span>;
-  return <span className="chip chip-live" title={f.eligibilityNote}>You qualify</span>;
+  // "You qualify" only when the posting states a rule Remy checked and you meet it; "no limits stated" isn't proof.
+  if (f.hidden) return <span className="chip chip-plain" title={f.hidden}>Hidden</span>;
+  return f.checked ? <span className="chip chip-live" title={f.eligibilityNote}>You qualify</span> : null;
 }
 
 function JobCard({ j, fit, defaultOpen }: { j: Job; fit?: JobFit; defaultOpen: boolean }) {
@@ -185,16 +217,18 @@ function JobCard({ j, fit, defaultOpen }: { j: Job; fit?: JobFit; defaultOpen: b
           <h3>{j.title}</h3>
           <div className="row small muted"><span className="row" style={{ gap: 4 }}><MapPin size={14} />{j.location || "Location not stated"}</span>{j.dates && <span>· {j.dates}</span>}</div>
         </div>
-        {j.deadline && <span className={"chip " + (d !== null && d < 0 ? "chip-bad" : d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d < 0 ? "Deadline passed" : `Due ${fmtDate(j.deadline)}${d !== null ? ` · ${d}d` : ""}`}</span>}
+        {j.deadline && <span className={"chip " + (d !== null && d < 0 ? "chip-bad" : d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d < 0 ? "Deadline passed" : `Due ${fmtDate(j.deadline)}${d === 0 ? " · today" : d !== null ? ` · ${d}d` : ""}`}</span>}
       </div>
-      {j.requirements.length > 0 && (
-        <div className="row" style={{ gap: 6 }} data-testid="job-keywords">
+      {postingSkills(j.requirements).length > 0 && (
+        <div className="row" style={{ gap: 6, flexWrap: "wrap" }} data-testid="job-keywords">
           <span className="xs muted" style={{ fontWeight: 700 }}>Looking for:</span>
-          {j.requirements.slice(0, 5).map((r) => <span key={r.id} className={"chip " + (fit?.matched.includes(r.keyword) ? "chip-live" : "chip-plain")} title={r.quote}>{fit?.matched.includes(r.keyword) ? "✓ " : ""}{r.keyword}</span>)}
+          {postingSkills(j.requirements).slice(0, 5).map((k) => <span key={k} className={"chip " + (fit?.matched.includes(k) ? "chip-live" : "chip-plain")} title={j.requirements.find((r) => r.keyword === k || skillsIn(r.quote).includes(k))?.quote}>{fit?.matched.includes(k) ? "✓ " : ""}{k}</span>)}
         </div>
       )}
       {fit && <p className="small"><strong>Why it fits you: </strong>{fit.why}</p>}
-      {fit && fit.eligibility !== "unknown" && <p className="xs muted"><strong>{fit.eligibility === "unlikely" ? "Why not: " : "Why you qualify: "}</strong>{fit.eligibilityNote}</p>}
+      {(() => { const known = w.contacts.filter((c) => sameOrg(c.org, j.company)); return known.length > 0 && <button className="xs" style={{ textAlign: "left", color: "var(--fox)", fontWeight: 700, padding: 0 }} onClick={() => go("/community")} data-testid="job-known-contact">You know {known.map((c) => c.name).join(", ")} here: ask about the team before you apply →</button>; })()}
+      {fit && fit.eligibility !== "unknown" && <p className="xs muted"><strong>{fit.eligibility === "unlikely" ? "Why not: " : fit.checked && !fit.hidden ? "Why you qualify: " : "Eligibility: "}</strong>{fit.eligibilityNote}</p>}
+      {fit?.hidden && <p className="xs muted"><strong>Why it's hidden: </strong>{fit.hidden}</p>}
       {fit && fit.gaps.length > 0 && <p className="small muted"><strong>Gaps: </strong>{fit.gaps.slice(0, 3).join("; ")}</p>}
       {open && (
         <div className="stack" style={{ borderTop: "1px solid var(--line)", paddingTop: 12, marginTop: 4 }}>
@@ -204,6 +238,17 @@ function JobCard({ j, fit, defaultOpen }: { j: Job; fit?: JobFit; defaultOpen: b
               {fit && <span className="xs muted">{fit.eligibilityNote}</span>}</div>
             <div className="stack-sm"><span className="eyebrow">Requirements (quoted)</span>{j.requirements.map((r) => <span key={r.id} className="quote"><strong>{r.keyword}:</strong> {r.quote}</span>)}</div>
           </div>
+          {(() => { const sc = screeningFor(j); return sc && (
+            <details className="notice stack-sm" data-testid="screening">
+              <summary className="small" style={{ cursor: "pointer" }}><b>How {j.company} reviews applications</b> <span className="muted">· {sc.system}</span></summary>
+              <div className="small stack-sm" style={{ marginTop: 6 }}>
+                <ul style={{ margin: 0, paddingLeft: 18 }}>{sc.steps.map((s) => <li key={s}>{s}</li>)}</ul>
+                <b>What to do</b>
+                <ul style={{ margin: 0, paddingLeft: 18 }}>{sc.tips.map((s) => <li key={s}>{s}</li>)}</ul>
+                <span className="xs muted">This is how {sc.system} works in general. Remy can't see {j.company}'s own settings or who reads your application.</span>
+              </div>
+            </details>
+          ); })()}
           <dl className="kv">
             <dt>Format</dt><dd>{j.format || "—"}</dd>
             <dt>Deadline</dt><dd>{j.deadlineText || "Not stated"}</dd>

@@ -1,7 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { RoadCard } from "../components/RoadCard";
+import { SeasonCard } from "../components/SeasonCard";
+import { CheckinCard } from "../components/CheckinCard";
 import { ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronUp, MapPin } from "lucide-react";
 import type { Job, Task, Workspace } from "@shared/types";
-import { api, daysUntil, fmtDate, useStore } from "../lib/store";
+import { api, daysUntil, fmtDate, rid, useStore } from "../lib/store";
 import { useCompleting } from "../lib/completing";
 import { go } from "../lib/router";
 import { kindLabel, useJobs } from "../lib/jobs";
@@ -22,7 +25,39 @@ export default function Home() {
   const [open, setOpen] = useState<string>("");
   const name = w.profile.preferredName || w.profile.name.split(" ")[0];
 
+  // Since you were last here: the previous visit is kept for this page view; the new one is saved once.
+  const [since] = useState(() => w.settings.lastSeenAt || "");
+  useEffect(() => { if (!since || Date.now() - Date.parse(since) > 30 * 60_000) save("settings", { lastSeenAt: new Date().toISOString() }).catch(() => {}); }, []);
+  const from = since || new Date(Date.now() - 7 * 864e5).toISOString();
+  const sinceLabel = since ? (Date.now() - Date.parse(since) < 20 * 3600_000 ? "earlier today" : fmtDate(since)) : "";
+  const newJobs = (jobs || []).filter((j) => (j.foundAt || "") > from && !w.hiddenJobIds.includes(j.id) && !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false).length;
+  const updates = w.tracker.filter((t) => t.events.some((e) => e.at > from && !/^Manual/.test(e.source))).length;
+  const soon = w.calendar.filter((c) => c.kind === "Deadline" && (daysUntil(c.date) ?? -1) >= 0 && (daysUntil(c.date) ?? 99) <= 7).length;
+  const sinceRows: [string, string, string][] = [
+    ...(newJobs ? [[`New openings for you`, String(newJobs), "/opportunities"] as [string, string, string]] : []),
+    ...(updates ? [[`Application updates`, String(updates), "/progress"] as [string, string, string]] : []),
+    ...(soon ? [[`Deadlines in the next 7 days`, String(soon), "/calendar"] as [string, string, string]] : []),
+    ...(w.memory.some((m) => m.status === "suggested") ? [["Facts to approve", String(w.memory.filter((m) => m.status === "suggested").length), "/accounts?tab=memory"] as [string, string, string]] : []),
+  ];
+
+  // Interview Tomorrow: an interview in the next two days overrides everything else on Home.
+  // Whole calendar days from today (noon to noon, so daylight-saving changes don't shift it).
+  const interview = w.calendar.find((c) => { const n = daysUntil(c.date); return c.kind === "Interview" && n !== null && n >= 0 && n <= 2; });
+  const addPrep = async () => {
+    const who = interview!.title.replace(/^interview( with)?:?\s*/i, "");
+    const prep = [
+      [`Research ${who}: what they do, recent news, the team`, "Ten minutes of reading gives you a better question to ask at the end."],
+      ["Pick two true stories from your resume for this role", "One about a challenge, one about a result. Say what you did, not just the team."],
+      ["Test your setup: link, camera, mic, quiet spot", "Or plan your route and arrive 10 minutes early if it's in person."],
+    ].filter(([t]) => !w.tasks.some((x) => x.title === t)).map(([title, why]) => ({ id: rid("t"), title, why, due: interview!.date, category: "Prepare" as const, done: false, source: "Interview prep" }));
+    if (prep.length) await run(() => save("tasks", [...prep, ...w.tasks]), "Added 3 prep steps to your to-dos");
+    go("/progress?tab=todos");
+  };
   const next = useMemo(() => {
+    if (interview) {
+      const d = daysUntil(interview.date);
+      return { title: `Prepare for your interview ${d === 0 ? "today" : d === 1 ? "tomorrow" : "in 2 days"}: ${interview.title.replace(/^interview( with)?:?\s*/i, "")}`, why: "Three short steps: research the organization, pick two true stories, and test your setup.", link: "", cta: "Add prep steps" };
+    }
     const pending = w.applications.find((a) => a.changes.some((c) => c.status === "pending"));
     if (!w.resume) return { title: "Upload your resume", why: "Everything Remy suggests is grounded in your real experience. It starts here.", link: "/resume", cta: "Upload resume" };
     if (!w.resume.confirmedAt) return { title: "Confirm your base resume", why: "Check that every line was read correctly. Tailored versions are built only from what you confirm.", link: "/resume?tab=base", cta: "Review resume" };
@@ -34,13 +69,19 @@ export default function Home() {
       const best = [...jobs].filter((j) => !j.deadline || (daysUntil(j.deadline) ?? 1) >= 0).sort((a, b) => (fits[b.id]?.matched.length || 0) - (fits[a.id]?.matched.length || 0))[0];
       if (best) return { title: `Tailor your resume for ${best.company}`, why: fits[best.id]?.why || "This is your closest fit among current openings.", link: `/resume?tab=tailor&job=${best.id}`, cta: "Start tailoring" };
     }
-    if (w.plan) return { ...w.plan.nextAction, cta: "Open" };
+    // An interview coming up (beyond the 2-day prep plan) beats a general suggestion.
+    const soon = w.calendar.filter((c) => c.kind === "Interview" && (daysUntil(c.date) ?? -1) > 2 && (daysUntil(c.date) ?? 99) <= 21).sort((a, b) => a.date.localeCompare(b.date))[0];
+    if (soon) return { title: `${soon.title.replace(/^interview:?\s*/i, "Your interview with ")} is ${fmtDate(soon.date)}, in ${daysUntil(soon.date)} days`, why: "Start now: build two true stories from your resume and practice them out loud. Remy turns Home into a prep plan two days before.", link: "/resume?tab=prep#story-deck", cta: "Prepare stories" };
+    // The plan was written earlier: skip its step when it says to apply somewhere the student already applied to.
+    const moved = w.tracker.filter((t) => t.status !== "Saved").map((t) => t.company.toLowerCase());
+    if (w.plan && !moved.some((c) => c && w.plan!.nextAction.title.toLowerCase().includes(c))) return { ...w.plan.nextAction, cta: "Open" };
     return { title: "Explore openings that fit you", why: "Save a few to compare deadlines and eligibility.", link: "/opportunities", cta: "Browse" };
   }, [w, jobs, fits]);
 
   const { isFading, mark } = useCompleting();
   const todos = w.tasks.filter((t) => !t.done || isFading(t.id)).sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999")).slice(0, 3);
-  const active = (jobs || []).filter((j) => !w.hiddenJobIds.includes(j.id) && (!j.deadline || (daysUntil(j.deadline) ?? 0) >= 0));
+  // Only places the student chose (Opportunities can still show the rest).
+  const active = (jobs || []).filter((j) => !w.hiddenJobIds.includes(j.id) && fits[j.id]?.regionMatch !== false && (!j.deadline || (daysUntil(j.deadline) ?? 0) >= 0));
   const events = active.filter((j) => j.kind === "event").slice(0, 3);
   const opps = active.filter((j) => j.kind !== "event").sort((a, b) => (fits[b.id]?.matched.length || 0) - (fits[a.id]?.matched.length || 0)).slice(0, 3);
   const toggleTask = (t: Task) => { if (!t.done) mark(t.id); return run(() => api<Workspace>("PATCH", `/api/tasks/${t.id}`, { done: !t.done }).then(setWs)); };
@@ -62,21 +103,20 @@ export default function Home() {
           <h2 data-testid="text-next-action">{next.title}</h2>
           <p>{next.why}</p>
           <div style={{ marginTop: 16 }}>
-            <button className="btn btn-light btn-lg" onClick={() => go(next.link)} data-testid="button-next-action">{next.cta} <ArrowRight size={16} /></button>
+            <button className="btn btn-light btn-lg" onClick={() => (interview ? addPrep() : go(next.link))} data-testid="button-next-action">{next.cta} <ArrowRight size={16} /></button>
           </div>
         </div>
-        <div className="hero-side">
-          <span className="eyebrow">Where things stand</span>
-          {[
-            ["Base resume", w.resume ? (w.resume.confirmedAt ? "Confirmed" : "Needs review") : "Not uploaded"],
-            ["Applications", `${w.applications.filter((a) => a.versions.length).length} approved · ${w.applications.filter((a) => !a.versions.length).length} in progress`],
-            ["Tracked", `${w.tracker.length} opening(s)`],
-            ["AI memory", `${w.memory.filter((m) => m.status === "approved").length} approved facts`],
-          ].map(([k, v]) => (
-            <div key={k} className="row-between small"><span style={{ color: "rgba(255,255,255,.75)" }}>{k}</span><strong style={{ color: "#fff" }}>{v}</strong></div>
-          ))}
+        <div className="hero-side" data-testid="since-last">
+          <span className="eyebrow">{since ? `Since ${sinceLabel}` : "This week"}</span>
+          {sinceRows.length ? sinceRows.map(([k, v, link]) => (
+            <button key={k} className="row-between small" style={{ width: "100%", textAlign: "left" }} onClick={() => go(link)}><span style={{ color: "rgba(255,255,255,.75)" }}>{k}</span><strong style={{ color: "#fff" }}>{v} →</strong></button>
+          )) : <span className="small" style={{ color: "rgba(255,255,255,.75)" }}>Nothing new yet. Remy checks employers' sites every few hours, so new openings will show here.</span>}
         </div>
       </section>
+
+      <CheckinCard w={w} />
+      <RoadCard w={w} />
+      <SeasonCard w={w} />
 
       <section className="card card-pad">
         <div className="row-between" style={{ marginBottom: 8 }}>
@@ -133,7 +173,7 @@ function JobRow({ j, why, open, onToggle }: { j: Job; why?: string; open: boolea
           </div>
         )}
       </div>
-      {j.deadline && <span className={"chip " + (d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d >= 0 ? `${d}d left` : fmtDate(j.deadline)}</span>}
+      {j.deadline && <span className={"chip " + (d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d >= 0 ? (d === 0 ? "Due today" : `${d}d left`) : fmtDate(j.deadline)}</span>}
       <button className="icon-btn" onClick={onToggle} aria-label="Details">{open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>
     </div>
   );

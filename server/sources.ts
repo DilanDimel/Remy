@@ -2,8 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Job, Requirement, Workspace } from "@shared/types";
 import { htmlToText } from "./parse";
+import { topSkills } from "@shared/requirements";
 import { uid } from "./ids";
 import { abroad, FIELD_SEARCH, FIELD_TITLES, regionMatch } from "./fit";
+import { q, q1 } from "./sql";
 
 // Live openings from employers' own career sites (Greenhouse, Lever, Ashby, Workday, SmartRecruiters,
 // Oracle Cloud, Eightfold, Phenom and AppliTrack school-district boards).
@@ -35,16 +37,15 @@ export const DEFAULT_BOARDS: Board[] = EMPLOYERS.length ? EMPLOYERS : [
   { ats: "ashby", slug: "mercury", company: "Mercury" },
 ];
 
-const EARLY = /\b(intern(ship)?s?|co-?op|new grad(uate)?|early career|entry[- ]level|campus|university|student|summer analyst|analyst program|rotational|apprentice|fellow(ship)?|insight|cadets?|recruits?|extern(ship)?s?|nurse residen\w*|graduate nurse|nurse intern|new grad rn|freshm[ae]n|sophomores?|first[- ]year|discover\w*|explore|launch|ambassadors?|leadership program|diversity program|pathways|recent graduate|trainee)\b/i;
-const SENIOR = /\b(senior|sr\.?|staff|principal|lead|manager|director|head of|vp|vice president|ii|iii|iv)\b/i;
+const EARLY = /\b(junior|trainee|(?:teaching|research|marketing|legal|administrative) assistant|intern(ship)?s?|co-?op|new grad(uate)?|early career|entry[- ]level|campus|university|student|summer analyst|analyst program|rotational|apprentice|fellow(ship)?|insight|cadets?|recruits?|extern(ship)?s?|nurse residen\w*|graduate nurse|nurse intern|new grad rn|freshm[ae]n|sophomores?|first[- ]year|discover\w*|explore|launch|ambassadors?|leadership program|diversity program|pathways|recent graduate|trainee)\b/i;
+const SENIOR = /\b(senior|sr\.?|staff|principal|lead|manager|director|head of|vp|vice president|professor|ii|iii|iv)\b/i;
+// What the job itself involves: a posting's sentences minus benefits, "about us", equal-opportunity and
+// "any major" lines, which mention fields without being about the work (from Julio's relevance design).
+const NOT_DUTIES = /benefit|insurance|wellness|discount|equal opportunity|protected by law|about us|our (company|platform|mission)|any major|qualifications:|we provide|perks/i;
+export const duties = (text: string) => text.split(/(?<=[.!?])\s+|\n+/).filter((x) => !NOT_DUTIES.test(x)).join(" ");
 // Roles meant for graduate students, skipped for undergraduates.
 const GRAD_LEVEL = /\b(graduate intern(ship)?|intern,?\s*graduate|mba|ph\.?\s?d|doctoral|postdoc|post-doc|master'?s|graduate student|j\.?d\.?|law student|law clerk|medical student|residency program|school psycholog\w*|diagnostician|licensed specialist)\b/i;
-const KEYWORDS = [
-  "Excel", "PowerPoint", "Python", "SQL", "R ", "Tableau", "Power BI", "financial modeling", "valuation", "accounting", "data analysis", "analytics",
-  "market research", "communication", "written communication", "presentation", "teamwork", "leadership", "problem solving", "attention to detail",
-  "customer", "sales", "marketing", "social media", "content", "CRM", "Salesforce", "HubSpot", "project management", "research", "statistics",
-  "economics", "finance", "computer science", "JavaScript", "Java", "machine learning", "operations", "consulting", "GPA",
-];
+
 
 function sentences(text: string) {
   return text.replace(/\s+/g, " ").split(/(?<=[.!?•])\s+|\s+•\s+/).map((s) => s.trim()).filter((s) => s.length > 20 && s.length < 400);
@@ -53,19 +54,15 @@ function sentences(text: string) {
 export function requirementsFrom(text: string): Requirement[] {
   const out: Requirement[] = [];
   const sents = sentences(text);
-  for (const k of KEYWORDS) {
-    if (out.length >= 5) break;
-    const re = new RegExp(`\\b${k.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
-    const s = sents.find((x) => re.test(x));
-    if (s && !out.some((o) => o.keyword.toLowerCase() === k.trim().toLowerCase())) out.push({ id: uid("rq"), keyword: k.trim(), quote: s });
-  }
+  // The 5 most specific skills the posting names, across fields (tools before broad words like "operations").
+  for (const r of topSkills(sents, 5)) out.push({ id: uid("rq"), ...r });
   return out;
 }
 function eligibilityFrom(text: string) {
   return sentences(text).filter((s) => /graduat|class of|enrolled|sophomore|junior|senior|freshm|first-year|degree|work authori|sponsor|gpa/i.test(s)).slice(0, 4);
 }
 function kindOf(title: string): Job["kind"] {
-  return /intern|extern|co-?op|summer analyst/i.test(title) ? "internship" : /program|fellow|insight|rotational|residen/i.test(title) ? "program" : "job";
+  return /intern|extern|co-?op|summer analyst/i.test(title) ? "internship" : /program|fellow|insight|discovery|launch|emerging leaders|summit|early id|rotational|residen/i.test(title) ? "program" : "job";
 }
 
 type Raw = { title: string; location: string; url: string; text: string; posted?: string; company?: string; deadline?: string; student?: boolean; nearby?: boolean; detail?: () => Promise<{ text: string; location?: string }> };
@@ -93,7 +90,7 @@ async function workday(b: Board, field: string): Promise<Raw[]> {
   const [tenant, wd, site] = b.slug.split("|");
   const origin = `https://${tenant}.${wd}.myworkdayjobs.com`, cxs = `${origin}/wday/cxs/${tenant}/${site}`;
   const list = async (appliedFacets: Record<string, string[]>, searchText: string, offset: number) => {
-    const r = await fetch(`${cxs}/jobs`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json", "user-agent": BROWSER_UA }, body: JSON.stringify({ appliedFacets, limit: 20, offset, searchText }), signal: AbortSignal.timeout(5000) });
+    const r = await fetch(`${cxs}/jobs`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json", "user-agent": BROWSER_UA }, body: JSON.stringify({ appliedFacets, limit: 20, offset, searchText }), signal: AbortSignal.timeout(12_000) }); // big Workday sites often take 5–9s
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return r.json();
   };
@@ -122,8 +119,7 @@ async function workday(b: Board, field: string): Promise<Raw[]> {
 // Search words for boards that need one: hospitals post "Nurse Residency" and "Extern", not "Intern".
 const queries = (field: string) => (field === "nursing" ? ["nurse residency", "extern", "graduate nurse"] : ["intern"]);
 async function each(field: string, read: (q: string) => Promise<Raw[]>): Promise<Raw[]> {
-  const seen = new Set<string>();
-  return (await Promise.all(queries(field).map((q) => read(q).catch(() => [] as Raw[])))).flat().filter((r) => !seen.has(r.url) && seen.add(r.url));
+  return eachQuery(queries(field), read);
 }
 // SmartRecruiters' public postings API. Board = company identifier (e.g. "Colliers").
 async function smartrecruiters(b: Board, field: string): Promise<Raw[]> {
@@ -243,9 +239,12 @@ async function applitrack(b: Board): Promise<Raw[]> {
 }
 // School-district search words: student roles are rare, so search for them instead of paging every opening.
 const SCHOOL_QUERIES = ["tutor", "intern", "student", "substitute", "summer", "lifeguard", "after school"];
+/** Runs each search; one failed search is skipped, but if every one fails the site is down (not "no openings"). */
 async function eachQuery(queries: string[], read: (q: string) => Promise<Raw[]>): Promise<Raw[]> {
   const seen = new Set<string>();
-  return (await Promise.all(queries.map((q) => read(q).catch(() => [] as Raw[])))).flat().filter((r) => !seen.has(r.url) && seen.add(r.url));
+  const res = await Promise.allSettled(queries.map(read));
+  if (res.every((r) => r.status === "rejected")) throw (res[0] as PromiseRejectedResult).reason;
+  return res.flatMap((r) => (r.status === "fulfilled" ? r.value : [])).filter((r) => !seen.has(r.url) && seen.add(r.url));
 }
 // SchoolSpring (PowerSchool), used by districts such as Irving and Keller ISD: its public JSON API.
 // Board = the district's SchoolSpring host ("irvingisd.schoolspring.com").
@@ -344,6 +343,67 @@ function decodeEntities(s: string) {
   return s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
 }
 
+// Shared catalog: one employer site's results serve every student for BOARD_FRESH. If the site fails, the last good
+// copy (up to BOARD_STALE old) is used instead, because a failed read never means "no openings".
+const BOARD_FRESH = 6 * 60 * 60_000;
+const BOARD_STALE = 3 * 24 * 60 * 60_000;
+export async function cachedBoard(b: Board, field: string, region: string, fetch = fetchBoard): Promise<Raw[]> {
+  // Sources that search by field or place get one entry per search; whole-board sources get one entry.
+  const key = [b.ats, b.slug, ["workday", "phenom", "smartrecruiters", "oracle", "eightfold", "usajobs", "careeronestop"].includes(b.ats) ? field : "", ["usajobs", "careeronestop"].includes(b.ats) ? region : ""].join("|").toLowerCase();
+  const hit = await q1("SELECT raws, fetched_at FROM board_cache WHERE key = $1", [key]).catch(() => undefined);
+  const age = hit ? Date.now() - new Date(hit.fetched_at).getTime() : Infinity;
+  if (hit && age < BOARD_FRESH) return hit.raws as Raw[];
+  try {
+    const raws = await fetch(b, field, region);
+    // Empty answers aren't saved (a site under maintenance often answers with nothing); huge boards aren't either.
+    if (raws.length && JSON.stringify(raws).length < 3_000_000)
+      await q("INSERT INTO board_cache (key, raws) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET raws = EXCLUDED.raws, fetched_at = now()", [key, JSON.stringify(raws)]).catch(() => {});
+    if (raws.length || !hit || age > BOARD_STALE) return raws;
+  } catch (e) {
+    if (!hit || age > BOARD_STALE) throw e;
+  }
+  return hit.raws as Raw[];
+}
+/** Openings scout: reads every employer's site (cached copies count) and reports what each returned. */
+export async function scoutBoards(boards = EMPLOYERS, read = cachedBoard) {
+  const out: { company: string; fields: string[]; ok: boolean; total: number; early: number; error?: string }[] = [];
+  let i = 0;
+  const worker = async () => {
+    while (i < boards.length) {
+      const b = boards[i++];
+      const k = FIELD_TITLES.findIndex(([field]) => field.test((b.fields || []).join(" ")));
+      try {
+        const raws = await Promise.race([read(b, k >= 0 ? FIELD_SEARCH[k] : "", ""), new Promise<never>((_, no) => setTimeout(() => no(new Error("timed out")), 45_000))]);
+        // A site that answers with nothing usually has no internships posted right now; that isn't a broken reader.
+        out.push({ company: b.company, fields: b.fields || [], ok: true, total: raws.length, early: raws.filter((r) => r.student || EARLY.test(r.title)).length });
+      } catch (e: any) {
+        out.push({ company: b.company, fields: b.fields || [], ok: false, total: 0, early: 0, error: String(e?.message || e).slice(0, 120) });
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: 8 }, worker));
+  return out;
+}
+// Conference lists are kept for a month (server/conferences.ts), employer reads for 3 days.
+export const pruneBoardCache = () => q("DELETE FROM board_cache WHERE fetched_at < now() - interval '3 days' AND (key NOT LIKE 'conferences|%' OR fetched_at < now() - interval '40 days')");
+
+/** The words that make a student's goal specific ("mechanical" in "mechanical engineering intern"), so a
+ *  Mechanical Engineering Intern ranks above an Electrical one for them. */
+const GENERIC = /^(intern|interns|internship|internships|student|students|engineer|engineering|analyst|associate|assistant|summer|entry|level|role|roles|jobs?|work|program|career|careers|position|and|the|for|with)$/i;
+export const specificWords = (ws: Workspace) =>
+  [...new Set(`${ws.profile.targetRoles} ${ws.profile.major}`.toLowerCase().split(/[^a-z&]+/).filter((w) => w.length > 3 && !GENERIC.test(w)))].slice(0, 8);
+
+/** Workday's "IL-Rosemont" / "TX-Houston" → "Rosemont, IL"; anything else unchanged. */
+export const tidyLocation = (l: string) => l.replace(/\b([A-Z]{2})-([A-Za-z .'-]+?)(?=$|;|,|\s·)/g, (_m, st, city) => `${city.replace(/-/g, " ").trim()}, ${st}`);
+
+/** Which employers to read next: liked ones first, dismissed ones (2+ "Not interested") left out, then least recently read. */
+export function orderEmployers<T extends { company: string }>(list: T[], liked: Set<string | undefined>, hides: Map<string, number>, lastRead: Record<string, string>): T[] {
+  const like = (e: T) => (liked.has(e.company.toLowerCase()) ? 1 : 0);
+  return list
+    .filter((e, i) => list.findIndex((x) => x.company === e.company) === i && (hides.get(e.company.toLowerCase()) || 0) < 2)
+    .sort((a, b) => like(b) - like(a) || (lastRead[a.company] || "").localeCompare(lastRead[b.company] || ""));
+}
+
 /** Turns a company name into board guesses on all three ATSs. */
 export function boardsFor(company: string): Board[] {
   const base = company.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "");
@@ -366,14 +426,18 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25): 
     while (i < boards.length) {
       const b = boards[i++];
       let raws: Raw[] = [];
-      try { raws = await fetchBoard(b, field, ws.profile.regions || ws.profile.location || ""); } catch { continue; }
+      try { raws = await cachedBoard(b, field, ws.profile.regions || ws.profile.location || ""); } catch { continue; }
       if (!raws.length) continue;
       reached.push(b.company);
       let details = 0;
       for (const r of raws) {
         if (!r.url || known.has(r.url) || (!r.student && (!EARLY.test(r.title) || (SENIOR.test(r.title) && !/intern|co-?op|new grad|student/i.test(r.title))))) continue;
         if (undergrad && GRAD_LEVEL.test(r.title)) continue;
-        if (titleFits.length && !titleFits.some((t) => t.test(r.title))) continue;
+        // A country in the title ("Key Account Trainee – Iberia (España y Portugal)") means abroad, even when the location is vague.
+        if (abroad(r.title)) continue;
+        // A title in another field is skipped; a generic one ("Summer Intern") is judged by its duties below.
+        const generic = !FIELD_TITLES.some(([, t]) => t.test(r.title));
+        if (titleFits.length && !titleFits.some((t) => t.test(r.title)) && !generic) continue;
         // Skip places the student didn't ask for before spending a detail read on them.
         const where = (location: string) => { if (r.nearby) return true; const m = regionMatch(ws, { location, format: /remote/i.test(location) ? "Remote" : "" } as Job); return m ?? !abroad(location); };
         if (!/^\d+ locations?$/i.test(r.location) && !where(r.location)) continue;
@@ -383,17 +447,20 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25): 
           try { const d = await r.detail(); r.text = d.text; if (d.location) r.location = d.location; } catch { continue; }
         }
         if (!where(r.location)) continue;
+        if (titleFits.length && !titleFits.some((t) => t.test(r.title)) && !titleFits.some((t) => t.test(duties(r.text)))) continue;
         const same = `${b.company}|${r.title}|${r.location}`.toLowerCase();
         if (known.has(same)) continue;
         known.add(same);
         const hay = `${r.title} ${r.text.slice(0, 3000)}`.toLowerCase();
-        const rel = fields.filter((f) => hay.includes(f)).length;
+        // Passing the field check counts: a "Brand Intern" is marketing even if the word "marketing" never appears.
+        const rel = fields.filter((f) => hay.includes(f)).length + (titleFits.some((t) => t.test(r.title)) ? 2 : titleFits.some((t) => t.test(duties(r.text))) ? 1 : 0)
+          + 3 * specificWords(ws).filter((w) => new RegExp(`\\b${w}`, "i").test(r.title)).length;
         const job: Job = {
-          id: uid("j"), kind: kindOf(r.title), title: r.title, company: r.company || b.company, location: r.location || "Not stated",
+          id: uid("j"), kind: kindOf(r.title), title: r.title, company: r.company || b.company, location: tidyLocation(r.location) || "Not stated",
           format: /remote/i.test(r.location) ? "Remote" : "", dates: "", deadline: r.deadline || "", deadlineText: r.deadline ? `Closes ${r.deadline}` : "Not stated on the board — check the posting",
           eligibility: eligibilityFrom(r.text), requirements: requirementsFrom(r.text), summary: r.text.replace(/\s+/g, " ").slice(0, 420),
           applyUrl: r.url, sourceUrl: r.url, sourceName: `${b.company} careers (${b.ats[0].toUpperCase() + b.ats.slice(1)} job board)`,
-          label: "Live", checkedAt: new Date().toISOString(), checks: [], origin: "imported", postingText: r.text.slice(0, 12000),
+          label: "Live", checkedAt: new Date().toISOString(), foundAt: new Date().toISOString(), checks: [], origin: "imported", postingText: r.text.slice(0, 12000),
         };
         known.add(r.url);
         found.push({ job, rel });

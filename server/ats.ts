@@ -1,6 +1,8 @@
 import type { AtsScore, Job, ResumeDoc } from "@shared/types";
+import { family, families } from "@shared/words";
+import { isSkillKeyword, plainEnglish, skillsIn } from "@shared/requirements";
 
-// ATS readiness score out of 100, computed from the resume itself (no AI), so
+// Resume suggestions (no score is shown to students; the points only order the suggestions), computed from the resume itself (no AI), so
 // it's instant and gives the same number every time. Each lost point comes with
 // the specific fix that would earn it back.
 
@@ -73,7 +75,7 @@ export function atsScore(doc: ResumeDoc, keywords: string[] | null, against: str
   const format = cat("Length & format", 15, [
     item(words >= 250 && words <= 800, 8, `${words} words — a healthy one-page length.`, words < 250 ? `Only ${words} words — add detail to your strongest roles.` : `${words} words — trim to one page (about 450-700 words).`, words < 250 ? words / 250 : words > 800 ? Math.max(0, 1 - (words - 800) / 600) : 1),
     item(!/[│┃■◆★►]|\t{2,}/.test(text), 4, "No symbols that confuse parsers.", "Remove decorative symbols and tab-aligned columns; ATS reads them as noise."),
-    item(new Set(entries.map((e) => (/[a-z]{3}\s+\d{4}/i.test(e.dates) ? "word" : /\d{1,2}\/\d{4}/.test(e.dates) ? "num" : "other"))).size <= 1, 3, "Dates use one consistent format.", "Use one date format everywhere (e.g. \"Jun 2026 – Aug 2026\")."),
+    item(new Set(entries.filter((e) => e.dates.trim()).map((e) => (/[a-z]{3}\s+\d{4}/i.test(e.dates) ? "word" : /\d{1,2}\/\d{4}/.test(e.dates) ? "num" : "other"))).size <= 1, 3, "Dates use one consistent format.", "Use one date format everywhere (e.g. \"Jun 2026 – Aug 2026\")."),
   ]);
 
   const kws = Array.from(new Set((keywords || []).map((k) => k.trim()).filter((k) => k && isSkillKeyword(k)))).slice(0, 15);
@@ -89,21 +91,35 @@ export function atsScore(doc: ResumeDoc, keywords: string[] | null, against: str
   const raw = categories.reduce((s, c) => s + c.score, 0);
   const score = keywords ? raw : Math.round((raw * 100) / categories.reduce((s, c) => s + c.max, 0));
   const fixes = categories.flatMap((c) => c.items.filter((i) => !i.ok).map((i) => ({ category: c.name, text: i.text, gain: Math.round(i.max - i.earned), examples: (i as Item).examples })))
-    .filter((f) => f.gain > 0).sort((a, b) => b.gain - a.gain);
+    .sort((a, b) => b.gain - a.gain); // every failed check is a suggestion (points only order them)
   return { score, categories, fixes, keywords: { matched: hit, missing }, against, at: new Date().toISOString() };
 }
 
-/** True when every word of the keyword is in the text as a whole word ("Power BI" isn't "PowerPoint");
- *  longer words match on their first 5 letters so "modeling" finds "models". Filler like "strong" is ignored. */
-export function hasKeyword(text: string, keyword: string) {
-  const low = lc(text);
+/** True when every word of the keyword is in the text as a whole word ("Power BI" isn't "PowerPoint"),
+ *  counting word families ("modeling" finds "models", never "tables" for "Tableau"). Filler like "strong" is ignored. */
+// What a resume shows instead of the posting's word ("CAD" → SolidWorks; "Bachelor's" → "B.S.").
+const SAME: [RegExp, RegExp][] = [
+  [/^cad$/, /\b(cad|solidworks|autocad|fusion 360|catia|creo|inventor|revit|onshape)\b/],
+  [/^bachelor/, /\b(bachelor|b\.?s\.?|b\.?a\.?|b\.?b\.?a\.?|bsn|bfa)\b/],
+  [/^bsn$/, /\b(bsn|bachelor of science in nursing|nursing)\b/],
+  [/^teamwork$/, /\b(teamwork|team|collaborat\w*)\b/],
+  [/^communication$/, /\b(communicat\w*|present\w*|wrote|writing|report\w*)\b/],
+  [/^excel$/, /\b(excel|spreadsheet\w*)\b/],
+  [/^ehr$/, /\b(ehr|epic|cerner|electronic health record\w*)\b/],
+];
+export function hasKeyword(text: string, keyword: string): boolean {
+  // "Python or Java or C++": the posting asks for any one of them.
+  if (/\sor\s/i.test(keyword)) return keyword.split(/\s+or\s+/i).some((k) => hasKeyword(text, k));
+  const plain = plainEnglish(text); // "excel at" isn't Excel, "react to" isn't React
+  const low = lc(plain);
   const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const words = lc(keyword).split(/[\s/]+/).filter((w) => w && !/^(strong|solid|record|knowledge|interest|ability|skills?|experience|proficiency|with|and|or|of|in|the|a|an)$/.test(w));
-  return words.length > 0 && words.every((w) => new RegExp(w.length > 5 ? `\\b${esc(w.slice(0, 5))}` : `(^|[^a-z0-9])${esc(w)}($|[^a-z0-9])`).test(low));
+  // One- and two-letter names ("R", "C") count only as their own word: not a middle initial "R." or "R&D".
+  if (/^[A-Za-z]{1,2}$/.test(keyword.trim())) return new RegExp(`(?<![\\w&])${esc(keyword.trim())}(?![\\w&+#])`).test(plain);
+  const words = lc(keyword).replace(/['’]s\b/g, "").split(/[\s/]+|-(?=[a-z])/).filter((w) => w && !/^(strong|solid|record|knowledge|interest|ability|skills?|experience|proficiency|proficient|familiarity|understanding|demonstrated|excellent|good|basic|hands-on|hands|on|pursuing|pursuit|pursue|currently|degree|program|enrollment|with|and|or|of|in|the|a|an)$/.test(w));
+  const own = families(low);
+  // Plain words match by word family ("modeling" finds "models"); words with symbols ("C++", "node.js") match whole.
+  return words.length > 0 && words.every((w) =>
+    (/^[a-z]+$/.test(w) ? own.has(family(w)) : new RegExp(`(^|[^a-z0-9])${esc(w)}($|[^a-z0-9])`).test(low)) || SAME.some(([k, r]) => k.test(w) && r.test(low)));
 }
 
-/** Skills and qualities an ATS can match — not eligibility rules (class year, GPA,
- * work authorization) or hiring steps (assessments, HireVue, "resume + transcript"). */
-export function isSkillKeyword(k: string) {
-  return !/\b(?:freshm|first-year|sophom|junior|senior|class of|gpa|graduat|enrolled|authoriz|sponsor|citizen|applica|apply|assessment|hirevue|predictive index|transcript|resume|cv\b|cover letter|interview|deadline|diversity|interest|motivat|curious|passion|work ethic|eligib|academic record|degree in progress)/i.test(k);
-}
+export { isSkillKeyword };

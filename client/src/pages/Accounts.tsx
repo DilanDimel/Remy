@@ -10,11 +10,15 @@ import { ProfileImport } from "../components/Uploaders";
 import { GoogleCalendarCard } from "../components/GoogleCalendar";
 import { atTcu, SchoolVerify } from "../components/SchoolVerify";
 import { ConflictChoice } from "../components/ConflictChoice";
+import { ThemeChoice } from "../components/ThemeToggle";
+import { CareerTime } from "../components/CareerTime";
+import { ProfilePhoto } from "../components/ProfilePhoto";
 
 type Tab = "profile" | "sources" | "memory" | "settings" | "data";
 
 export default function Accounts({ query }: { query: URLSearchParams }) {
   const tab = (query.get("tab") as Tab) || "profile";
+  const { ws } = useStore();
   return (
     <>
       <div className="page-head">
@@ -29,7 +33,7 @@ export default function Accounts({ query }: { query: URLSearchParams }) {
           <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => go(`/accounts?tab=${k}`)} data-testid={`tab-accounts-${k}`}>{l}</button>
         ))}
       </div>
-      {tab === "profile" && <div className="card card-pad stack"><p className="xs muted">Changes here update fit and recommendations. Approved application documents are never rewritten — they're marked for your review instead.</p><ProfileForm /></div>}
+      {tab === "profile" && <div className="card card-pad stack"><ProfilePhoto initials={(ws!.profile.preferredName || ws!.profile.name || "S").split(/\s+/).map((x: string) => x[0]).slice(0, 2).join("").toUpperCase()} /><p className="xs muted">Changes here update fit and recommendations. Approved application documents are never rewritten — they're marked for your review instead.</p><ProfileForm /></div>}
       {tab === "sources" && <Sources />}
       {tab === "memory" && <Memory />}
       {tab === "settings" && <Settings />}
@@ -57,7 +61,16 @@ function Sources() {
     atTcu(me)
       ? { name: "Stellic / TCU academic", status: stellic ? "Student provided" : "Needs setup", chip: stellic ? "Added" : "Coming soon", label: stellic ? `${stellic.fileName} · ${fmtDate(stellic.at)}` : "Direct connection coming soon · you can paste your degree plan now", detail: "Requirements must come from your advisor and official tools.", importKind: "Stellic / degree plan" }
       : { name: "Degree plan", status: stellic ? "Student provided" : "Needs setup", chip: stellic ? "Added" : "Not added", label: stellic ? `${stellic.fileName} · ${fmtDate(stellic.at)}` : "Paste your plan from your school's degree-planning tool", detail: "Requirements must come from your advisor and official tools.", importKind: "Degree plan" },
-    { name: "Email inbox", status: "Needs setup", chip: "Coming soon", label: "Paste recruiting emails in Progress for now", detail: "Remy doesn't read your inbox. Sample emails are labeled as demos." },
+    // Proof the student already has: added as suggested facts they approve one by one.
+    ...([
+      ["Volunteer hours", "GivePulse / volunteer record", "Upload your GivePulse impact transcript (PDF) or paste your service hours", "Verified hours and organizations, for your resume and LinkedIn Volunteering."],
+      ["Certificates", "Certificate", "Upload a certificate PDF or paste its text", "Name, issuer and date, so LinkedIn Licenses & certifications and your resume match."],
+      ["Unofficial transcript", "Unofficial transcript", "Upload your unofficial transcript (PDF) or paste it", "Courses and honors you choose to keep. Nothing is added until you approve it."],
+    ] as const).map(([name, kind, todo, detail]) => {
+      const done = w.imports.find((i) => i.kind === kind);
+      return { name, status: done ? "Student provided" : "Needs setup", chip: done ? "Added" : "Not added", label: done ? `${done.fileName} · ${fmtDate(done.at)}` : todo, detail, importKind: kind };
+    }),
+    { name: "Email inbox", status: "Needs setup", chip: "Coming soon", label: "Paste recruiting emails in Progress for now", detail: "Remy doesn't read your inbox." },
   ];
 
   return (
@@ -140,14 +153,16 @@ function Settings() {
     <div className="grid-2" style={{ alignItems: "start" }}>
       <div className="card card-pad stack">
         <h3>Theme</h3>
-        <div className="seg">{(["light", "dark"] as const).map((t) => <button key={t} aria-pressed={s.theme === t} onClick={() => save("settings", { theme: t })} data-testid={`button-theme-${t}`}>{t === "light" ? "Light" : "Dark"}</button>)}</div>
+        <ThemeChoice />
+        <h3>Weekly career time</h3>
+        <CareerTime compact />
         <h3>Assistant</h3>
         <label className="row small"><input type="checkbox" checked={s.assistantOpen} onChange={() => save("settings", { assistantOpen: !s.assistantOpen })} /> Keep Remy open (you can always minimize him from his panel)</label>
       </div>
       <div className="card card-pad stack">
         <h3>Reminders</h3>
-        <p className="xs muted">Shown inside Remy. Email reminders are coming soon.</p>
-        {([["deadlines", "Upcoming deadlines"], ["statusChanges", "Status suggestions from emails"], ["weeklyPlan", "Weekly plan nudge"]] as const).map(([k, l]) => (
+        <p className="xs muted">Emails go to your application email (or your sign-in email). Guest accounts don't get emails.</p>
+        {([["deadlines", "Deadline reminder emails (3 days before and on the day)"], ["weeklyPlan", "Weekly digest email: new openings and deadlines, on your career-time day"]] as const).map(([k, l]) => (
           <label key={k} className="row small"><input type="checkbox" checked={s.notify[k]} onChange={() => toggle(k)} data-testid={`toggle-${k}`} /> {l}</label>
         ))}
       </div>

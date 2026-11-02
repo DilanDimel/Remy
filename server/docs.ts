@@ -4,6 +4,8 @@ import type { ResumeDoc, ResumeStyle } from "@shared/types";
 import { resumeToText } from "./resume";
 
 const FONT = "Calibri";
+/** US Letter, 8.5 × 11 in, in twentieths of a point. */
+const LETTER = { width: 12240, height: 15840 };
 
 /** Sections in the original order, with Skills back where the student had it. */
 type Block = { heading: string; entries?: ResumeDoc["sections"][number]["entries"]; skills?: ResumeDoc["skills"] };
@@ -13,8 +15,21 @@ function blocks(doc: ResumeDoc): Block[] {
   return out;
 }
 
+/** The student's font as Word knows it: PDF names of metric twins become the familiar font. */
+export function wordFont(style?: ResumeStyle): string {
+  const f = (style?.font || "").replace(/[^A-Za-z ]/g, " ").replace(/\s+/g, " ").trim();
+  if (/liberation ?sans|arimo|arial|helvetica/i.test(f)) return "Arial";
+  if (/liberation ?serif|tinos|times/i.test(f)) return "Times New Roman";
+  if (/liberation ?mono|cousine|courier/i.test(f) || style?.mono) return "Courier New";
+  if (/carlito|calibri/i.test(f)) return "Calibri";
+  if (/caladea|cambria/i.test(f)) return "Cambria";
+  if (f && f.length < 40) return f;
+  return style?.serif ? "Times New Roman" : FONT;
+}
+
 export async function resumeDocx(doc: ResumeDoc, style?: ResumeStyle): Promise<Buffer> {
-  const font = style?.serif ? "Times New Roman" : FONT;
+  const font = wordFont(style);
+  const roleItalic = style?.italic !== false;
   const sz = Math.round((style?.size ?? 10.5) * 2); // half-points
   const kids: Paragraph[] = [];
   kids.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: doc.contact.name, bold: true, size: sz + 10, font })] }));
@@ -34,14 +49,15 @@ export async function resumeDocx(doc: ResumeDoc, style?: ResumeStyle): Promise<B
       if (e.org || e.location)
         kids.push(new Paragraph({ spacing: { before: gap }, tabStops: [{ type: TabStopType.RIGHT, position: right }], children: [new TextRun({ text: e.org, bold: true, size: sz, font }), new TextRun({ text: e.location ? `\t${e.location}` : "", bold: true, size: sz, font })] }));
       if (e.role || e.dates)
-        kids.push(new Paragraph({ spacing: { before: e.org || e.location ? 0 : gap }, tabStops: [{ type: TabStopType.RIGHT, position: right }], children: [new TextRun({ text: e.role, italics: true, size: sz, font }), new TextRun({ text: e.dates ? `\t${e.dates}` : "", italics: true, size: sz, font })] }));
+        kids.push(new Paragraph({ spacing: { before: e.org || e.location ? 0 : gap }, tabStops: [{ type: TabStopType.RIGHT, position: right }], children: [new TextRun({ text: e.role, italics: roleItalic, size: sz, font }), new TextRun({ text: e.dates ? `\t${e.dates}` : "", italics: roleItalic, size: sz, font })] }));
       for (const x of e.bullets) kids.push(new Paragraph({ bullet: { level: 0 }, children: [new TextRun({ text: x.text, size: sz, font })] }));
     });
   }
   const d = new Document({
     creator: "Remy",
     title: `${doc.contact.name} Resume`,
-    sections: [{ properties: { page: { margin: { top: Math.min(margin, 720), bottom: Math.min(margin, 720), left: margin, right: margin } } }, children: kids }],
+    // US Letter (the docx library defaults to A4, which pushed the right-aligned dates past the margin).
+    sections: [{ properties: { page: { size: LETTER, margin: { top: Math.min(margin, 720), bottom: Math.min(margin, 720), left: margin, right: margin } } }, children: kids }],
   });
   return Packer.toBuffer(d);
 }
@@ -52,7 +68,7 @@ export async function letterDocx(name: string, contact: string, letter: string):
     new Paragraph({ spacing: { after: 240 }, children: [new TextRun({ text: contact, size: 20, font: FONT })] }),
     ...letter.split(/\n\s*\n/).map((p) => new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: p.replace(/\n/g, " ").trim(), size: 22, font: FONT })] })),
   ];
-  const d = new Document({ creator: "Remy", sections: [{ properties: { page: { margin: { top: 1080, bottom: 1080, left: 1080, right: 1080 } } }, children: kids }] });
+  const d = new Document({ creator: "Remy", sections: [{ properties: { page: { size: LETTER, margin: { top: 1080, bottom: 1080, left: 1080, right: 1080 } } }, children: kids }] });
   return Packer.toBuffer(d);
 }
 
@@ -70,7 +86,10 @@ function pdfBuffer(build: (pdf: PDFKit.PDFDocument) => void): Promise<Buffer> {
 
 function renderResume(doc: ResumeDoc, style: ResumeStyle | undefined, scale: number, tight: number): Promise<{ buf: Buffer; pages: number }> {
   const M = style?.margin ?? 46;
-  const F = style?.serif ? { r: "Times-Roman", b: "Times-Bold", i: "Times-Italic" } : { r: "Helvetica", b: "Helvetica-Bold", i: "Helvetica-Oblique" };
+  // PDFs use the built-in font closest to the student's: monospace, serif or sans. No italics if their resume has none.
+  const fam = style?.mono || /courier|mono/i.test(style?.font || "") ? { r: "Courier", b: "Courier-Bold", i: "Courier-Oblique" }
+    : style?.serif ? { r: "Times-Roman", b: "Times-Bold", i: "Times-Italic" } : { r: "Helvetica", b: "Helvetica-Bold", i: "Helvetica-Oblique" };
+  const F = { ...fam, i: style?.italic === false ? fam.r : fam.i };
   const base = (style?.size ?? 9.5) * scale;
   return new Promise((resolve, reject) => {
     const edge = Math.min(M, 40) - 14 * tight; // top and bottom margins give a little room when it must fit

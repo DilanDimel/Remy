@@ -37,7 +37,13 @@ export interface ResumeDoc {
   skillsIndex?: number;
 }
 /** The look of the student's uploaded PDF, so downloads match it. */
-export interface ResumeStyle { serif: boolean; size: number; margin: number; pages: number }
+export interface ResumeStyle {
+  serif: boolean; size: number; margin: number; pages: number;
+  /** The file's main font as named there ("Garamond", "Courier", "LiberationSans"), monospace, and whether it uses italics at all. */
+  font?: string; mono?: boolean; italic?: boolean;
+  /** Word layout features some applicant tracking systems read out of order (unset for PDFs and older uploads). */
+  layout?: { tables: boolean; textBoxes: boolean; columns: boolean };
+}
 /** How completely the structured resume reflects the uploaded file. */
 export interface ResumeQuality {
   /** Share of the file's words that made it into the structured resume (0–1). */
@@ -62,6 +68,8 @@ export interface BaseResume {
   original?: { name: string; mime: string; size: number };
   style?: ResumeStyle;
   quality?: ResumeQuality;
+  /** Lines the student deleted in Remy, so the Word download can take them out of their own file too. */
+  removed?: string[];
 }
 
 /** "Build my resume with Remy": everything the student told the builder, kept so they can come back and add to it. */
@@ -131,7 +139,15 @@ export interface Profile {
   avoid?: string;
   /** Employers they'd love to work for, comma-separated. Searched first. */
   dreamEmployers?: string;
+  /** Where they are right now (a PATHS key); "" = not asked yet. Remy doesn't assume a four-year degree. */
+  path?: string;
 }
+
+/** Paths into a career, not only the bachelor's degree. */
+export const PATHS: [string, string][] = [
+  ["four-year", "Four-year college"], ["community-college", "Community college"], ["trade", "Trade or technical school"],
+  ["apprenticeship", "Apprenticeship"], ["military", "Military or veteran"], ["working", "Working, not in school"], ["high-school", "High school"],
+];
 
 export interface MemoryFact {
   id: string;
@@ -174,6 +190,8 @@ export interface Job {
   sourceName: string;
   label: Label;
   checkedAt: string;
+  /** When Remy first found it for this student ("new since your last visit"). */
+  foundAt?: string;
   checks: JobCheck[];
   origin: "imported" | "manual";
   postingText?: string;
@@ -186,6 +204,10 @@ export interface JobFit {
   v?: number;
   eligibility: "likely" | "check" | "unlikely" | "unknown";
   eligibilityNote: string;
+  /** The posting states a rule (class year, graduation, Class of) that Remy checked and the student meets. Only then "You qualify". */
+  checked?: boolean;
+  /** Hidden because of the student's own choices (field, kind of opportunity, avoid list, which summer), not eligibility. */
+  hidden?: string;
   matched: string[];
   gaps: string[];
   why: string;
@@ -239,7 +261,7 @@ export interface AppVersion {
   note: string;
 }
 export interface AtsScore {
-  score: number; // out of 100
+  score: number; // internal only: orders suggestions, never shown to students
   categories: { name: string; max: number; score: number; items: { ok: boolean; earned: number; max: number; text: string }[] }[];
   fixes: { category: string; text: string; gain: number; examples?: string[] }[];
   keywords: { matched: string[]; missing: string[] };
@@ -282,6 +304,8 @@ export interface TrackItem {
   status: TrackStatus;
   events: TrackEvent[];
   notes: string;
+  /** After a rejection: the student added the recovery steps or dismissed the card. */
+  recovery?: "added" | "dismissed";
 }
 export interface Suggestion {
   id: string;
@@ -386,13 +410,20 @@ export interface ChatMsg {
   /** Buttons under a reply; nothing happens until the student taps one. */
   actions?: ChatAction[];
 }
-export type ChatAction = { kind: "task"; title: string; why: string } | { kind: "role"; title: string } | { kind: "open"; link: string; label: string };
+export type ChatAction = { kind: "task"; title: string; why: string } | { kind: "role"; title: string } | { kind: "open"; link: string; label: string }
+  | { kind: "setting"; key: SettingKey; value: string | boolean };
+export interface Story { id: string; title: string; theme: string; situation: string; task: string; action: string; result: string; missing: string; source: string }
+export interface Step { at: string; kind: "task" | "save" | "start" | "approve" | "outreach" | "resume"; ref: string; xp: number }
+/** Settings the chat may offer to change (the student still taps to confirm). */
+/** What the student said would help most on day one; it picks where setup leads. */
+export type SetupFocus = "resume" | "openings" | "interview" | "direction" | "explore";
+export type SettingKey = "theme" | "notify.deadlines" | "notify.statusChanges" | "notify.weeklyPlan";
 
 export interface Workspace {
   version: 2;
   started: boolean;
   /** options: tap-to-answer suggestions per question; exploring: the student said they're not sure what they want yet. */
-  onboarding: { step: number; done: boolean; answers: { q: string; a: string }[]; questions: string[]; targets?: string[]; options?: string[][]; exploring?: boolean };
+  onboarding: { step: number; done: boolean; answers: { q: string; a: string }[]; questions: string[]; targets?: string[]; options?: string[][]; exploring?: boolean; focus?: SetupFocus };
   profile: Profile;
   resume?: BaseResume;
   builder?: ResumeBuilder;
@@ -401,6 +432,10 @@ export interface Workspace {
   jobs: Job[]; // found by the live search, imported or added by the student
   /** When Remy last searched employers' career sites for this student (it re-searches every few hours). */
   openingsCheckedAt?: string;
+  /** When Remy last read each employer's career site for this student (so "Find more" reaches new ones). */
+  employersRead?: Record<string, string>;
+  /** The AI's employer pick for openings searches, reused for 7 days while the profile it was made from is unchanged. */
+  employerPick?: { at: string; key: string; names: string[] };
   /** How the last search went: employer sites reached out of those tried. */
   lastSearch?: { at: string; reached: number; scanned: number };
   savedJobIds: string[];
@@ -414,17 +449,47 @@ export interface Workspace {
   calendar: CalItem[];
   contacts: Contact[];
   outreach: OutreachDraft[];
+  /** Real career steps (server-recorded, once each), counted in the owners' north star. */
+  steps?: Step[];
+  /** Story Deck: true interview stories built from resume lines (STAR), with what's still missing. */
+  stories?: Story[];
+  /** Day and time the last weekly digest went out (one a week; new openings are counted from it). */
+  lastDigest?: string;
+  lastDigestAt?: string;
+  /** The student's 30-second pitch (Remy's draft, then their edits). */
+  pitch?: { text: string; at: string };
+  /** The text of the student's last LinkedIn PDF, for the LinkedIn coach (shared/linkedin.ts). Server-written. */
+  linkedin?: { text: string; at: string };
+  /** Day (YYYY-MM-DD, Central) of the last weekly check-in; the Home card hides for 6 days after. */
+  lastCheckin?: string;
+  /** Days (YYYY-MM-DD, Central) the student opened Remy, newest last; owners see only return rates from it. */
+  visits?: string[];
+  /** Deadline reminders already emailed (calendar id:date:soon|day), so each goes out once. */
+  reminded?: string[];
+  /** When the student last uploaded a profile photo (also busts the image cache); absent = no photo. */
+  photoAt?: string;
+  /** The beta terms version the student agreed to, and when (server time). */
+  betaAgreed?: { version: string; at: string };
   plan?: PathPlan;
   chat: ChatMsg[];
   aiLog: AiLogEntry[];
   incidents: SafeguardIncident[];
   settings: {
-    theme: "light" | "dark";
+    /** "system" follows the device (the default). */
+    theme: "system" | "light" | "dark";
+    /** The student's fixed weekly time for career work (day 0 = Sunday, time "HH:MM"); null = removed. */
+    careerTime?: { day: number; time: string } | null;
+    /** True once the student picked a theme themselves (older accounts stored "light" by default). */
+    themeChosen?: boolean;
     assistantOpen: boolean;
     navCollapsed: boolean;
     notify: { deadlines: boolean; statusChanges: boolean; weeklyPlan: boolean };
     /** Connectors shown as connected in the demo (no data is read from them yet). */
     demoConnections?: string[];
+    /** When the student last opened Home (for "Since you were last here"). */
+    lastSeenAt?: string;
+    /** Newest "What's new" item the student has opened. */
+    newsSeen?: string;
   };
   updatedAt: string;
 }
@@ -435,7 +500,7 @@ export interface Me {
   email: string;
   name: string;
   picture: string;
-  /** A school email the student verified with a code (unlocks alumni). */
+  /** A school email the student verified with a code (unlocks school-specific tools). */
   schoolEmail?: string;
   /** One of Remy's owners (OWNER_EMAILS): can open the admin dashboard. */
   owner?: boolean;
@@ -449,6 +514,10 @@ export interface AppConfig {
   supabase: { url: string; anonKey: string; providers: Record<string, boolean> } | null;
   /** School email verification: whether codes can be sent, and which domains count (e.g. tcu.edu). */
   schoolEmail: { ready: boolean; domains: string[] };
+  /** Remy can email its own 6-digit sign-in codes (used instead of Supabase's sign-in links). */
+  emailCodes?: boolean;
   /** Google Calendar connection is set up on this server. */
   googleCalendar: boolean;
+  /** Which version of Remy the server runs; when it changes, an open tab offers to reload. */
+  build?: string;
 }

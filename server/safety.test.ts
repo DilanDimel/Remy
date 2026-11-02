@@ -18,3 +18,10 @@ test("chat buttons: only Remy's own pages and the three kinds, at most two", () 
   assert.equal(chatActions([{ kind: "task", title: "a", why: "" }, { kind: "role", title: "Actuary" }, { kind: "task", title: "c" }]).length, 2);
   assert.deepEqual(chatActions("nope"), []);
 });
+
+test("chat may offer only known settings with valid values", async () => {
+  const { chatActions } = await import("./safety");
+  assert.deepEqual(chatActions([{ kind: "setting", key: "theme", value: "dark" }]), [{ kind: "setting", key: "theme", value: "dark" }]);
+  assert.deepEqual(chatActions([{ kind: "setting", key: "notify.weeklyPlan", value: false }]), [{ kind: "setting", key: "notify.weeklyPlan", value: false }]);
+  assert.deepEqual(chatActions([{ kind: "setting", key: "theme", value: "neon" }, { kind: "setting", key: "deleteAccount", value: true }, { kind: "setting", key: "notify.weeklyPlan", value: "off" }]), []);
+});

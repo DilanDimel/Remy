@@ -49,7 +49,7 @@ The visual identity now integrates the Remy mockup: near-black `#161616` on warm
 ### Oct 18, second round
 - **Sign-in fix:** Google and LinkedIn sign-ins succeeded at Supabase but the browser logged out of Supabase before our server checked the token, so Supabase answered "Session not found". The browser now logs out only after the server has verified it.
 - **Tailoring is a conversation:** "Tailor with AI" opens Remy's chat; he asks three questions one at a time (type "skip" to skip), tailors, asks about anything still only you know, and writes it into the letter. Approving never blocks on personalization: leftover spots are removed. Unsupported claims still need an edit or an override.
-- **ATS score:** a 0-100 score on Base resume (against your top openings) and on each application's Checks tab (base vs tailored), with a category breakdown and the fixes worth the most points.
+- **Resume suggestions (was the ATS score; the 0-100 number was removed Nov 2 2026 because it mostly graded writing style):** Base resume lists plain suggestions; each application's Checks tab lists the skills the posting names (on your resume / worth adding, if true).
 - **To-dos** strike through and fade out a few seconds after you check them.
 - **Account** moved out of the sidebar into the menu under your name (Profile, Settings, AI memory, Connected sources, Account & data, Sign out). The logo reads "Remy."
 

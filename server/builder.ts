@@ -28,9 +28,12 @@ export function evidenceOf(item: BuilderItem): string {
   return [item.org, item.role, item.start, item.end, item.city, item.about, ...item.followups.map((f) => f.a)].filter(Boolean).join("\n");
 }
 
-/** Honesty check for one bullet against the student's words. Blanks are the student's to fill, so they're ignored. */
+/** Honesty check for one bullet against the student's words. Blanks are the student's to fill, so they're ignored.
+ *  Strict: every word must come from what the student said (rewording verbs aside), as in check-ins. */
 export function bulletFlags(text: string, item: BuilderItem) {
-  return claimCheck(text.replace(BLANK, " "), evidenceOf(item));
+  // The student's sentences are the "original"; org, role and dates are evidence but not things they said they did.
+  const said = [item.about, ...item.followups.map((f) => f.a)].filter(Boolean).join("\n");
+  return claimCheck(text.replace(BLANK, " "), evidenceOf(item), { original: said, strict: true });
 }
 
 /** Without AI: the student's own sentences, lightly tidied. Always honest, never fancy. */

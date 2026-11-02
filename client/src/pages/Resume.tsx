@@ -7,16 +7,22 @@ import type { Application, BulletChange, ClaimFlag, Job, ResumeDoc, Workspace } 
 import { API_BASE, api, download, fmtDate, rid, useStore } from "../lib/store";
 import { go, replaceRoute } from "../lib/router";
 import { useJobs } from "../lib/jobs";
-import { AiUnavailableNote, Empty, Remy, Spinner, StatusChip } from "../components/common";
+import { AiUnavailableNote, Empty, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
 import { ResumeBuilder } from "../components/ResumeBuilder";
 import { ResumeUpload } from "../components/Uploaders";
 import { AtsCard } from "../components/AtsCard";
+import { AtsXray } from "../components/AtsXray";
+import { EvidencePassport } from "../components/EvidencePassport";
+import { StoryDeck } from "../components/StoryDeck";
+import { PitchCard } from "../components/PitchCard";
+import { LinkedInCoach } from "../components/LinkedInCoach";
+import { WordPreview } from "../components/WordPreview";
 import { startTailor, useTailorSession } from "../lib/tailorChat";
 
-type Tab = "base" | "tailor" | "library";
+type Tab = "base" | "tailor" | "prep" | "library";
 
 export default function Resume({ query }: { query: URLSearchParams }) {
-  const tab = (query.get("tab") as Tab) || "tailor";
+  const tab = (query.get("tab") as Tab) || "base";
   const { ws } = useStore();
   const effective: Tab = !ws!.resume && tab !== "library" ? "base" : tab;
   const setTab = (t: Tab) => go(`/resume?tab=${t}`);
@@ -30,12 +36,13 @@ export default function Resume({ query }: { query: URLSearchParams }) {
         </div>
       </div>
       <div className="tabs" role="tablist">
-        {([["base", "Base resume"], ["tailor", "Tailor for an opening"], ["library", "Approved & exports"]] as [Tab, string][]).map(([k, l]) => (
+        {([["base", "Base resume"], ["tailor", "Tailor for an opening"], ["prep", "Interview & LinkedIn"], ["library", "Approved & exports"]] as [Tab, string][]).map(([k, l]) => (
           <button key={k} role="tab" className="tab" aria-selected={effective === k} onClick={() => setTab(k)} data-testid={`tab-resume-${k}`}>{l}</button>
         ))}
       </div>
       {effective === "base" && <BaseResume />}
       {effective === "tailor" && <Tailor query={query} />}
+      {effective === "prep" && <div className="stack-lg"><StoryDeck /><PitchCard /><LinkedInCoach /></div>}
       {effective === "library" && <Library />}
     </>
   );
@@ -94,6 +101,7 @@ function BaseResume() {
             {w.resume.original && <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/original?download=1", w.resume!.original!.name).catch((e) => toast(e.message, true))} data-testid="button-download-original"><Download size={14} /> Original</button>}
             <button className="btn btn-primary btn-sm" onClick={() => download("/api/resume/export?format=pdf", "Resume.pdf").catch((e) => toast(e.message, true))} disabled={dirty} title={dirty ? "Save your edits first" : undefined} data-testid="button-export-base-pdf"><Download size={14} /> Export PDF</button>
             <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/export?format=docx", "Resume.docx").catch((e) => toast(e.message, true))} disabled={dirty} data-testid="button-export-base-docx">Word</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => document.getElementById("edit-resume")?.scrollIntoView({ block: "start", behavior: "smooth" })} data-testid="button-jump-edit">Edit your resume ↓</button>
           </div>
         </div>
         {(w.resume.original?.mime === "application/pdf" || w.resume.original?.mime.includes("wordprocessingml")) && (
@@ -104,16 +112,18 @@ function BaseResume() {
             {preview && (w.resume.original.mime === "application/pdf"
               ? <iframe className="pdf-preview" src={`${API_BASE}/api/resume/original#view=FitH`} title="Your original resume" data-testid="pdf-preview" />
               : <>
-                  <span className="xs muted">A preview of your Word file. Fonts and spacing may look slightly different from Word.</span>
-                  <iframe className="pdf-preview" sandbox="" src={`${API_BASE}/api/resume/original?view=html&v=${encodeURIComponent(w.resume.uploadedAt)}`} title="Your original resume" data-testid="pdf-preview" />
+                  <span className="xs muted">A preview of your Word file. Fonts can look slightly different if your computer doesn't have them.</span>
+                  <WordPreview version={w.resume.uploadedAt} />
                 </>)}
           </div>
         )}
       </div>
       <AtsCard refreshKey={`${w.resume.uploadedAt}-${w.resume.confirmedAt || ""}-${JSON.stringify(w.resume.doc).length}`} />
+      {doc && <AtsXray doc={doc} quality={w.resume.quality} upd={upd} />}
+      {doc && <EvidencePassport doc={doc} memory={w.memory} />}
       {showRaw && <pre className="card card-pad xs" style={{ whiteSpace: "pre-wrap", maxHeight: 320, overflow: "auto", margin: 0 }}>{w.resume.rawText}</pre>}
 
-      <div className="card card-pad stack">
+      <div className="card card-pad stack" id="edit-resume">
         <h3>Contact</h3>
         <div className="grid-2">
           {(["name", "email", "phone", "location", "links"] as const).map((k) => (
@@ -207,10 +217,12 @@ function Tailor({ query }: { query: URLSearchParams }) {
     const r = await run(() => api<{ application: Application; workspace: Workspace }>("POST", "/api/applications", { jobId }));
     if (r) { setWs(r.workspace); go(`/resume?tab=tailor&app=${r.application.id}`); }
   };
-  // Openings you haven't started, best fit first; ones you're not eligible for are left out.
+  // Openings you haven't started, best fit first, by the same rules as Opportunities: ones you're not eligible for
+  // or that are outside the places you chose are left out. Only the best few, so the tailoring panel stays in view.
   const notStarted = (jobs || [])
-    .filter((j) => j.kind !== "event" && !w.applications.some((a) => a.jobId === j.id) && !fits[j.id]?.excluded && !w.hiddenJobIds.includes(j.id))
+    .filter((j) => j.kind !== "event" && !w.applications.some((a) => a.jobId === j.id) && !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false && !w.hiddenJobIds.includes(j.id))
     .sort((x, y) => (fits[y.id]?.score ?? 0) - (fits[x.id]?.score ?? 0));
+  const shown = notStarted.slice(0, 8);
   return (
     <div className="stack-lg">
       <div className="stack-sm">
@@ -233,13 +245,14 @@ function Tailor({ query }: { query: URLSearchParams }) {
               </button>
             );
           })}
-          {notStarted.map((j) => (
+          {shown.map((j) => (
             <button key={j.id} className="pick pick-new" onClick={() => start(j.id)} data-testid="button-choose-job">
               <span className="xs muted">{j.company}</span>
               <strong className="small">{j.title}</strong>
-              <span className="row xs"><span className="chip chip-plain"><Plus size={11} /> Start tailoring</span>{fits[j.id]?.eligibility === "likely" && <span className="chip chip-live">Eligible</span>}</span>
+              <span className="row xs"><span className="chip chip-plain"><Plus size={11} /> Start tailoring</span>{fits[j.id]?.eligibility === "likely" && fits[j.id]?.checked && <span className="chip chip-live">Eligible</span>}</span>
             </button>
           ))}
+          {notStarted.length > shown.length && <button className="pick pick-new" onClick={() => go("/opportunities")} data-testid="button-more-openings"><strong className="small">{notStarted.length - shown.length} more</strong><span className="xs muted">See them all in Opportunities</span></button>}
         </div>
       </div>
       <div>
@@ -293,6 +306,7 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
             {mine?.stage === "working" ? <Spinner /> : a.generatedAt ? <RotateCcw size={16} /> : <Sparkles size={16} />} {mine?.stage === "working" ? "Tailoring…" : mine?.stage === "asking" ? "Answering Remy…" : a.generatedAt ? "Regenerate" : "Tailor with AI"}
           </button>
         </div>
+        {mine?.stage === "working" && <WorkingSteps steps={["Reading the posting", "Matching it to your resume", "Writing suggested changes", "Checking every change is true to your experience"]} />}
         {a.staleReason && <div className="notice notice-warn" style={{ marginTop: 12 }}><AlertTriangle size={16} /><div>{a.staleReason}</div></div>}
         {a.generatedAt && <p className="xs muted" style={{ marginTop: 10 }}>Draft made {fmtDate(a.generatedAt)} · {a.versions.length ? `approved v${a.versions.length} on ${fmtDate(a.versions[a.versions.length - 1].at)}` : "not yet approved"}</p>}
       </div>
@@ -323,7 +337,7 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
           {sub === "export" && <ExportView a={a} job={job} />}
           <div className="card card-pad row-between approve-bar">
             <span className="small">
-              {pending ? `${pending} change(s) still need your decision.` : blocking ? `${blocking} accepted change(s) have unsupported claims.` : "Ready to approve."}
+              {pending ? `${pending} change(s) still need your decision.` : blocking ? `${blocking} accepted change(s) have unsupported claims.` : a.letterFlags.length ? `Ready to approve. Your letter has ${a.letterFlags.length} thing(s) to check first: see Checks.` : "Ready to approve."}
             </span>
             <div className="row">
               <button className="btn btn-primary" onClick={() => approve()} disabled={!!busy} data-testid="button-approve-app">{busy === "approve" ? <Spinner /> : <ShieldCheck size={16} />} Approve this version</button>
@@ -474,6 +488,7 @@ function Checks({ a }: { a: Application }) {
           <h3>Unsupported-claim check</h3>
           <p className="xs muted">Rule-based and independent of the AI: flags numbers, tools, titles, names, class standing and added outcomes that aren't in your resume or approved facts.</p>
           <div className="row"><span className={"chip " + (flagged.length ? "chip-bad" : "chip-live")}>{flagged.length} resume change(s) flagged</span><span className={"chip " + (a.letterFlags.length ? "chip-bad" : "chip-live")}>{a.letterFlags.length} letter issue(s)</span></div>
+          {a.letterFlags.length > 0 && <div className="stack-sm" data-testid="letter-flags">{a.letterFlags.map((f, i) => <div key={i} className="flag"><ShieldAlert size={15} /><span><strong>“{f.term}”</strong> in your letter: {f.message} Edit it in the Cover letter tab if it isn't true.</span></div>)}</div>}
           {flagged.map((c) => <div key={c.id} className="small"><strong>{c.entryLabel}</strong><FlagList flags={c.flags} /></div>)}
         </div>
         <div className="card card-pad stack-sm">
@@ -483,7 +498,7 @@ function Checks({ a }: { a: Application }) {
         </div>
         <div className="card card-pad stack-sm">
           <h3>Test the safeguard</h3>
-          <p className="xs muted">Try a deliberately false claim and watch the checker catch it. Results are logged for your competition evidence.</p>
+          <p className="xs muted">Type a claim that isn't true and watch the checker catch it, so you know what it protects you from.</p>
           <textarea className="textarea" style={{ minHeight: 60 }} value={testText} onChange={(e) => setTestText(e.target.value)} aria-label="Test claim" data-testid="input-safeguard" />
           <div><button className="btn btn-secondary btn-sm" onClick={runTest} disabled={!!busy} data-testid="button-safeguard-test">{busy === "test" && <Spinner />} Check this claim</button></div>
           {test && (test.length ? <FlagList flags={test} /> : <span className="small pass row"><CheckCircle2 size={16} /> Nothing unsupported — this is backed by your resume.</span>)}
@@ -492,7 +507,7 @@ function Checks({ a }: { a: Application }) {
       <div className="card card-pad stack-sm" data-testid="card-ats">
         <h3>ATS format check</h3>
         <p className="xs muted">For the resume as it will be exported, with the changes you accepted.</p>
-        {a.ats.map((c) => (
+        {a.ats.filter((c) => c.id !== "layout" || ws?.resume?.style?.layout).map((c) => ( // checks saved before Remy read the file's layout claimed a pass it never checked
           <div key={c.id} className="ats-row">
             {c.pass ? <CheckCircle2 size={16} className="pass" /> : <AlertTriangle size={16} className="fail" />}
             <div><strong>{c.label}</strong><div className="xs muted">{c.detail}</div></div>
@@ -524,13 +539,33 @@ function ResumePaper({ doc, changed }: { doc: ResumeDoc; changed?: Set<string> }
   );
 }
 
+type WordLayout = { layout: "original" | "remy"; reason?: "not-word" | "unreadable" | "missed"; missed?: string[]; more?: number };
 function DownloadButtons({ a, v }: { a: Application; v: number }) {
-  const { toast } = useStore();
+  const { toast, ws } = useStore();
+  const ownWord = !!ws?.resume?.original?.mime.includes("wordprocessingml");
+  // Before the student downloads: can this version's Word file keep their own design? If not, say so and why.
+  const [layout, setLayout] = useState<WordLayout | null>(null);
+  // Base edits and deleted lines change which lines fit the file, so the answer is asked again when they change.
+  const baseKey = useMemo(() => JSON.stringify([ws?.resume?.original?.name, ws?.resume?.original?.size, ws?.resume?.doc, ws?.resume?.removed]), [ws?.resume]);
+  useEffect(() => {
+    setLayout(null);
+    if (!ownWord) return;
+    let live = true;
+    api<WordLayout>("GET", `/api/applications/${a.id}/word-layout?v=${v}`).then((r) => { if (live) setLayout(r); }).catch(() => {});
+    return () => { live = false; };
+  }, [a.id, v, ownWord, baseKey]);
   const dl = (doc: "resume" | "letter", format: string) =>
     download(`/api/applications/${a.id}/export?doc=${doc}&format=${format}&v=${v}`, `${doc}.${format}`).catch((e) => toast(e.message, true));
   return (
     <div className="stack-sm">
       <div className="row"><span className="small" style={{ width: 92, fontWeight: 700 }}>Resume</span>{["docx", "pdf", "txt"].map((f) => <button key={f} className="btn btn-secondary btn-sm" onClick={() => dl("resume", f)} data-testid={`button-download-resume-${f}`}><Download size={13} /> {f.toUpperCase()}</button>)}</div>
+      {ownWord && layout?.layout === "remy" && (
+        <div className="xs" style={{ color: "var(--amber)" }} data-testid="note-word-layout">
+          {layout.reason === "missed"
+            ? <>Heads up: this DOCX won't keep your own design. Remy couldn't find where {layout.missed!.length === 1 ? "this line goes" : "these lines go"} in your Word file: {layout.missed!.map((m) => `“${m.length > 80 ? m.slice(0, 80) + "…" : m}”`).join(", ")}{layout.more ? ` and ${layout.more} more` : ""}. So the DOCX uses Remy's clean one-column layout in your font. To keep your design, download Original on Base resume and make the change in Word.</>
+            : <>Heads up: Remy couldn't open your Word file, so this DOCX uses Remy's clean one-column layout in your font, not your own design.</>}
+        </div>
+      )}
       <div className="row"><span className="small" style={{ width: 92, fontWeight: 700 }}>Cover letter</span>{["docx", "pdf", "txt"].map((f) => <button key={f} className="btn btn-secondary btn-sm" onClick={() => dl("letter", f)} data-testid={`button-download-letter-${f}`}><Download size={13} /> {f.toUpperCase()}</button>)}</div>
     </div>
   );
@@ -552,7 +587,7 @@ function ExportView({ a, job }: { a: Application; job: Job }) {
           ))
         ) : <span className="small muted">Approve this version to unlock Word, PDF and text downloads. Only approved versions can be exported.</span>}
         <span className="xs muted">{ws!.resume?.original?.mime.includes("wordprocessingml")
-          ? "Word download: your own file with only the changed lines replaced, so it keeps your exact design. PDF: Remy's clean layout in your font."
+          ? "Word download: your own file with only the changed lines replaced, so it keeps your exact design (Remy says so above if a version can't). PDF: Remy's clean layout in your font."
           : ws!.resume?.style
             ? `Remy rebuilds your resume in a clean, ATS-friendly layout using your ${ws!.resume.style.serif ? "serif" : "sans-serif"} font, size and margins, kept to ${ws!.resume.style.pages === 1 ? "one page" : `${ws!.resume.style.pages} pages`} like your original. Upload a Word file instead to keep your exact design.`
             : "Downloads use Remy's clean, ATS-friendly one-column layout."}</span>
@@ -589,7 +624,7 @@ function Library() {
       </div>
       <div className="card card-pad stack">
         <h3>Safeguard log</h3>
-        <p className="xs muted">Every time the checker catches an AI overstatement or you run a safeguard test, it's recorded here with a timestamp — real evidence, not a staged example.</p>
+        <p className="xs muted">Every time the checker stopped an AI overstatement in your documents, or you tested it, it's listed here with the date.</p>
         {w.incidents.length ? w.incidents.slice(0, 20).map((i) => (
           <div key={i.id} className="stack-sm" style={{ borderTop: "1px solid var(--line)", paddingTop: 10 }}>
             <div className="row"><span className={"chip " + (i.kind === "Safeguard test" ? "chip-demo" : "chip-bad")}>{i.kind}</span><span className="xs muted">{new Date(i.at).toLocaleString()} · {i.where}</span></div>

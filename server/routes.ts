@@ -1,3 +1,4 @@
+import { postingSkills } from "@shared/requirements";
 import type { Express, NextFunction, Request, Response } from "express";
 import type { Server } from "node:http";
 import crypto from "node:crypto";
@@ -5,11 +6,13 @@ import fs from "node:fs";
 import path from "node:path";
 import multer from "multer";
 import { z } from "zod";
-import { SAMPLE_CONTACTS, SAMPLE_INBOX } from "@shared/catalog";
 import type {
-  Application, AppConfig, BulletChange, ChatAction, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace,
-} from "@shared/types";
-import { aiAllowed, checkSchoolCode, cleanupOld, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
+  Application, AppConfig, BulletChange, ChatAction, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace, Story } from "@shared/types";
+import { PATHS } from "@shared/types";
+import { BETA_TERMS_VERSION } from "@shared/beta";
+import { keepQuestions, skippedPrefs } from "@shared/setupReply";
+import { latestNewsId } from "@shared/news";
+import { aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./safety";
 import * as admin from "./admin";
@@ -22,18 +25,23 @@ import {
   stillMissing, nameCase,
 } from "./resume";
 import { atsChecks, claimCheck } from "./claims";
+import { CHECKIN_KINDS, cleanCheckin } from "./checkin";
 import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, skillSuggestions } from "./builder";
-import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSION } from "./fit";
+import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSION, typeMatch } from "./fit";
 import { atsScore } from "./ats";
-import { boardsFor, CAREERONESTOP, discoverJobs, EMPLOYERS, USAJOBS } from "./sources";
-import { alumniList, matchAlumni } from "./alumni";
+import { pastTerm } from "./fit";
+import * as agents from "./agents";
+import { dueReminders, reminderEmail, weeklyDigest } from "./reminders";
+import { step } from "@shared/progress";
+import { conferencesFor } from "./conferences";
+import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
-import { docxStyle, editDocx } from "./docxEdit";
+import { docxStyle, editResumeDocx } from "./docxEdit";
 import * as gcal from "./gcal";
 import { q, schema } from "./sql";
 import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./docs";
 
-// Email domains whose owners count as students of the school with the alumni list.
+// Email domains whose owners count as students of the partner school (TCU).
 const ALUMNI_DOMAINS = (process.env.OR_ALUMNI_EMAIL_DOMAINS || "tcu.edu").split(",").map((d) => d.trim().toLowerCase()).filter(Boolean);
 // Without an email sender, local runs print the code to the server log so the flow can be tested.
 const devCodes = () => !emailReady() && process.env.NODE_ENV !== "production";
@@ -74,6 +82,28 @@ function serially<T>(userId: string, fn: () => Promise<T>): Promise<T> {
   return run;
 }
 
+/** Saves a workspace the way every request does. A request can run for seconds (AI calls). On save, re-read the
+ *  stored workspace and write back only the sections this request changed, so a slow request never erases edits
+ *  saved meanwhile by another one.
+ *  shortcut: merges per top-level section; two requests editing the same section still last-write-wins. */
+function sectionSaver(me: Me, ws: Workspace): () => Promise<void> {
+  const before = new Map(Object.entries(ws).map(([k, v]) => [k, JSON.stringify(v)]));
+  return async () => {
+    const mine = ws as unknown as Record<string, unknown>;
+    const changed: Record<string, unknown> = {};
+    for (const k of Object.keys(mine)) if (k !== "updatedAt" && JSON.stringify(mine[k]) !== before.get(k)) changed[k] = mine[k];
+    if (!Object.keys(changed).length) return;
+    // The database merges just these sections into what's stored, in one statement.
+    const fresh = await saveSections(me.id, changed as Partial<Workspace>);
+    Object.assign(ws, fresh);
+    if ("calendar" in changed && gcal.gcalReady()) {
+      const id = me.id;
+      gcal.connected(id).then((on) => on && gcal.syncSoon(id, async () => (await loadWorkspace(id)).calendar)).catch(() => {});
+    }
+    for (const [k, v] of Object.entries(fresh)) before.set(k, JSON.stringify(v));
+  };
+}
+
 function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: Request, res: Response, next: NextFunction) => Promise<unknown> {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -86,26 +116,7 @@ function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: 
       }
       if (opts.serial) { const id = me.id; return await serially(id, () => route(fn)(req, res, next)); }
       const ws = await loadWorkspace(me.id);
-      // A request can run for seconds (AI calls). On save, re-read the stored
-      // workspace and write back only the sections this request changed, so a
-      // slow request never erases edits saved meanwhile by another one.
-      // shortcut: merges per top-level section; two requests editing the same section still last-write-wins.
-      const before = new Map(Object.entries(ws).map(([k, v]) => [k, JSON.stringify(v)]));
-      const save = async () => {
-        const mine = ws as unknown as Record<string, unknown>;
-        const changed: Record<string, unknown> = {};
-        for (const k of Object.keys(mine)) if (k !== "updatedAt" && JSON.stringify(mine[k]) !== before.get(k)) changed[k] = mine[k];
-        if (!Object.keys(changed).length) return;
-        // The database merges just these sections into what's stored, in one statement.
-        const fresh = await saveSections(me!.id, changed as Partial<Workspace>);
-        Object.assign(ws, fresh);
-        if ("calendar" in changed && gcal.gcalReady()) {
-          const id = me!.id;
-          gcal.connected(id).then((on) => on && gcal.syncSoon(id, async () => (await loadWorkspace(id)).calendar)).catch(() => {});
-        }
-        for (const [k, v] of Object.entries(fresh)) before.set(k, JSON.stringify(v));
-      };
-      const ctx: Ctx = { me, ws, ip, save };
+      const ctx: Ctx = { me, ws, ip, save: sectionSaver(me, ws) };
       await fn(req, res, ctx);
     } catch (e: any) {
       if (e instanceof AiUnavailable) return res.status(503).json({ message: e.message, code: "ai-unavailable" });
@@ -172,7 +183,7 @@ const findJob = (ws: Workspace, id: string) => allJobs(ws).find((j) => j.id === 
 function profileSummary(ws: Workspace) {
   const p = ws.profile;
   return [
-    `Name: ${p.preferredName || p.name}`, `School: ${p.school}`, `Major: ${p.major}`, `Minor: ${p.minors || ""}`, `GPA: ${p.gpa || ""}`, `Class year: ${p.classYear || classYearOf(ws)}`, `Graduation: ${p.graduation}`,
+    `Name: ${p.preferredName || p.name}`, `Path: ${PATHS.find(([k]) => k === p.path)?.[1] || ""}${p.path && p.path !== "four-year" ? " (not a four-year degree: suggest certificates, licenses, apprenticeships and roles that don't require a bachelor's where they fit; never assume a major or graduation)" : ""}`, `School: ${p.school}`, `Major: ${p.major}`, `Minor: ${p.minors || ""}`, `GPA: ${p.gpa || ""}`, `Class year: ${p.classYear || classYearOf(ws)}`, `Graduation: ${p.graduation}`,
     `Location: ${p.location}`, `Wants opportunities in: ${p.regions}`, `Opportunity types wanted: ${p.opportunityTypes}`, `Target roles: ${p.targetRoles}`, `Goals: ${p.goals}`, `Interests: ${p.interests}`,
     `Work authorization: ${p.workAuth}`, `Open to relocating: ${p.relocation}`, `When they want to start: ${p.timeline || ""}`, `Dream employers: ${p.dreamEmployers || ""}`, `Wants to avoid: ${p.avoid || ""}`,
     `Skills found on resume: ${(ws.resume?.skills || []).join(", ")}`,
@@ -254,18 +265,28 @@ function letterFlagsFor(ws: Workspace, app: Application, job: Job) {
 }
 function refreshAts(ws: Workspace, app: Application) {
   const job = findJob(ws, app.jobId);
-  if (job && ws.resume) app.ats = atsChecks(composeResume(ws, app), job, fileBase(ws, job, "Resume"));
+  if (job && ws.resume) app.ats = atsChecks(composeResume(ws, app), job, fileBase(ws, job, "Resume"), ws.resume.style);
 }
 
 // Live openings from employers' public job boards, picked for this student. Runs from the
 // "Find openings" button and by itself when the student opens Remy (see GET /api/jobs).
-async function findOpenings(ctx: Ctx, named: string[] = []) {
+async function findOpenings(ctx: Ctx, named: string[] = [], opts: { background?: boolean } = {}) {
   // Which employers to read: the AI picks from the directory for this student's profile;
   // without AI, employers whose fields match the student's are used.
   const p = ctx.ws.profile;
   const wants = [p.targetRoles, p.major, p.interests].join(" ").toLowerCase();
   let picked = EMPLOYERS.filter((e) => (e.fields || []).some((f) => wants.includes(f) || FIELD_TITLES.some(([field, title]) => field.test(wants) && title.test(f))));
-  if (!named.length && aiStatus().available) {
+  // The AI's pick is reused for 7 days while the profile it was made from is unchanged, and always in a background
+  // search (no AI calls when the student isn't on the site).
+  const pickKey = JSON.stringify([p.targetRoles, p.major, p.interests, p.regions, p.opportunityTypes, p.classYear, p.path]);
+  const prev = ctx.ws.employerPick;
+  // In the background a pick of any age is reused, but never one made for a different profile (field-matched employers instead).
+  const reuse = prev?.names.length && prev.key === pickKey && (opts.background || Date.now() - Date.parse(prev.at) < 7 * 24 * 60 * 60_000);
+  if (!named.length && reuse) {
+    const names = new Set(prev!.names);
+    const again = EMPLOYERS.filter((e) => names.has(e.company.toLowerCase()));
+    if (again.length) picked = again;
+  } else if (!named.length && !opts.background && aiStatus().available) {
     try {
       const out = await withAi(ctx, "Pick employers", () =>
         aiJson<{ companies: string[] }>(
@@ -276,10 +297,20 @@ async function findOpenings(ctx: Ctx, named: string[] = []) {
       );
       const names = new Set((out.companies || []).map((x) => String(x).toLowerCase()));
       const ai = EMPLOYERS.filter((e) => names.has(e.company.toLowerCase()));
-      if (ai.length) picked = ai;
+      if (ai.length) { picked = ai; ctx.ws.employerPick = { at: nowIso(), key: pickKey, names: ai.map((e) => e.company.toLowerCase()) }; }
     } catch {}
   }
   if (!picked.length) picked = EMPLOYERS;
+  // Feedback loop: employers the student saved or applied to are read every time; ones they marked
+  // "Not interested" twice (and never saved) are skipped. Then employers read least recently for this
+  // student come first, so "Find more openings" reaches new employers instead of re-reading the same ones.
+  const companyOf = (id: string) => findJob(ctx.ws, id)?.company.toLowerCase();
+  const liked = new Set([...ctx.ws.savedJobIds, ...ctx.ws.applications.map((a) => a.jobId)].map(companyOf).filter(Boolean));
+  const hides = new Map<string, number>();
+  for (const id of ctx.ws.hiddenJobIds) { const c = companyOf(id); if (c && !liked.has(c)) hides.set(c, (hides.get(c) || 0) + 1); }
+  const lastRead = ctx.ws.employersRead || {};
+  const fieldMatched = EMPLOYERS.filter((e) => (e.fields || []).some((f) => wants.includes(f) || FIELD_TITLES.some(([field, title]) => field.test(wants) && title.test(f))));
+  picked = orderEmployers([...EMPLOYERS.filter((e) => liked.has(e.company.toLowerCase())), ...picked, ...fieldMatched], liked, hides, lastRead);
   // Employers the student named as dream employers are always read first: from the directory when
   // Remy knows their career site, otherwise by guessing their Greenhouse/Lever/Ashby board.
   const dream = (p.dreamEmployers || "").split(/[,;]+/).map((x) => x.trim()).filter((x) => x.length > 1).slice(0, 5);
@@ -289,11 +320,17 @@ async function findOpenings(ctx: Ctx, named: string[] = []) {
   const seen = new Set<string>();
   const unique = boards.filter((b) => { const k = b.ats + ":" + b.slug; if (seen.has(k)) return false; seen.add(k); return true; });
   const r = await discoverJobs(ctx.ws, unique);
+  const readAt = nowIso();
+  ctx.ws.employersRead = Object.fromEntries([...Object.entries(ctx.ws.employersRead || {}), ...unique.map((b) => [b.company, readAt])].slice(-400));
   console.log(`discover: read ${r.reached}/${unique.length} (${unique.map((b) => b.company).join(", ")}), added ${r.jobs.length}`);
   // Add to the latest saved list, so a posting the student imported meanwhile isn't overwritten.
   const fresh = await loadWorkspace(ctx.me.id);
   const have = new Set(fresh.jobs.map((j) => j.applyUrl));
-  const added = r.jobs.filter((j) => !have.has(j.applyUrl));
+  // Conferences in the student's field, unless they said they don't want events.
+  // In a background search, only conferences already found this month (finding new ones is an AI call).
+  const cachedOnly = async (): Promise<never> => { throw new Error("background: cache only"); };
+  const confs = (await conferencesFor(ctx.ws, opts.background ? cachedOnly : undefined).catch(() => [])).filter((j) => typeMatch(ctx.ws, j) !== false);
+  const added = [...r.jobs, ...confs].filter((j) => !have.has(j.applyUrl));
   ctx.ws.jobs = [...added, ...fresh.jobs];
   ctx.ws.fits = { ...fresh.fits };
   for (const j of added) ctx.ws.fits[j.id] = fitOf(ctx.ws, j);
@@ -310,13 +347,113 @@ async function findOpenings(ctx: Ctx, named: string[] = []) {
 const OPENINGS_EVERY = 6 * 60 * 60_000;
 const searching = new Set<string>();
 
+/** Status from a recruiting email by fixed phrases (checked before the AI); the sentence that decided it is the evidence. */
+export function rulesClassify(text: string): { status: TrackStatus | "Unclear"; evidence: string } {
+  const sentences = text.split(/(?<=[.!?])\s+|\n+/).map((s) => s.trim()).filter(Boolean);
+  const tests: [TrackStatus, RegExp][] = [
+    ["Offer", /\b(pleased to offer|offer of (employment|internship)|extend (you )?an offer|congratulations[^.]*offer)\b/i],
+    ["Rejected", /\b(not (be )?moving forward|unable to offer|decided to (pursue|move forward with) other|regret to inform|not selected)\b/i],
+    // Words may sit between: "invite you to a 30-minute first round virtual interview".
+    ["Interview", /\b(invit\w* you to\b[^.]{0,60}\binterview|schedule\b[^.]{0,30}\binterview|interview invitation|(first|second|final|next)[- ]round\b[^.]{0,40}\binterview|superday|choose a time)\b/i],
+    ["Received", /\b(received your application|application (has been )?received|thank you for applying|confirms? (that )?we have received)\b/i],
+  ];
+  for (const [status, re] of tests) {
+    const s = sentences.find((x) => re.test(x));
+    if (s) return { status, evidence: s };
+  }
+  return { status: "Unclear", evidence: "" };
+}
+
 export async function registerRoutes(_server: Server, app: Express) {
   // Expired sessions and guest workspaces idle for 30 days are removed at start-up and every 6 hours.
-  const sweep = () => cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message));
+  // Deadline reminders by email, for students who left them on (checked with every sweep).
+  // shortcut: loads every signed-in workspace each sweep; move to a SQL filter past ~1,000 students.
+  const deadlineReminders = async () => {
+    if (!emailReady()) return;
+    const today = centralToday();
+    for (const u of await q("SELECT u.id, u.email FROM users u WHERE u.kind IN ('google','supabase')")) {
+      const ws = await loadWorkspace(u.id);
+      const due = dueReminders(ws, today);
+      if (!due.length) continue;
+      const { subject, text } = reminderEmail(ws.profile.preferredName || ws.profile.name.split(" ")[0] || "there", due, process.env.PUBLIC_HOST || "offer-ready.onrender.com");
+      try { await sendEmail(ws.profile.applicationEmail || u.email, subject, text); } catch (e: any) { console.error("deadline reminder failed", e?.message); continue; }
+      await saveSections(u.id, { reminded: [...(ws.reminded || []), ...due.map((d) => d.key)].slice(-300) } as any);
+    }
+    // Weekly digest, after 7am Central on the student's day.
+    const now = new Date(), hour = Number(now.toLocaleString("en-US", { timeZone: "America/Chicago", hour: "numeric", hour12: false }));
+    if (hour < 7) return;
+    const weekday = new Date(today + "T12:00:00Z").getUTCDay();
+    for (const u of await q("SELECT u.id, u.email FROM users u WHERE u.kind IN ('google','supabase')")) {
+      const ws = await loadWorkspace(u.id);
+      const d = weeklyDigest(ws, today, weekday, process.env.PUBLIC_HOST || "offer-ready.onrender.com");
+      if (!d) continue;
+      try { await sendEmail(ws.profile.applicationEmail || u.email, d.subject, d.text); } catch (e: any) { console.error("weekly digest failed", e?.message); continue; }
+      await saveSections(u.id, { lastDigest: today, lastDigestAt: now.toISOString() } as any);
+    }
+  };
+  // Background jobs: reminder emails, weekly digest, idle-guest cleanup, cache prune. They run at boot, every 6 hours
+  // while the server is awake, and every hour from a scheduled GitHub Action that calls /api/cron/tick (a sleeping
+  // free server otherwise never runs them). One run at a time, so two triggers can't send the same email twice.
+  // Openings for students who aren't on the site: signed in, set up, seen in the last 21 days, last search over a day
+  // old. Up to 10 per run, one at a time, with no AI calls (the employer pick is reused). Shared employer reads are
+  // cached for 6 hours, so this adds little load on employers' sites.
+  const backgroundOpenings = async () => {
+    const today = centralToday();
+    const recent = (d: string) => (Date.parse(today) - Date.parse(d)) / 86_400_000 <= 21;
+    let n = 0;
+    for (const u of await q("SELECT u.id, u.email, u.kind FROM users u WHERE u.kind IN ('google','supabase')")) {
+      if (n >= 10) break;
+      if (searching.has(u.id)) continue;
+      const ws = await loadWorkspace(u.id);
+      if (!ws.onboarding.done || !knowsStudent(ws) || !(ws.visits || []).some(recent)) continue;
+      if (Date.now() - Date.parse(ws.openingsCheckedAt || "") < 24 * 60 * 60_000) continue;
+      if (searching.has(u.id)) continue; // the student started one meanwhile
+      n++;
+      searching.add(u.id);
+      const me = { id: u.id, kind: u.kind, email: u.email, name: "", picture: "" } as Me;
+      try {
+        const ctx: Ctx = { me, ws, ip: "background", save: sectionSaver(me, ws) };
+        ws.openingsCheckedAt = nowIso(); // a failed search waits for the next window instead of retrying every hour
+        await ctx.save();
+        const r = await findOpenings(ctx, [], { background: true });
+        console.log(`background openings: ${u.id} added ${r.added}`);
+      } catch (e: any) { console.error("background openings", u.id, e?.message); }
+      finally { searching.delete(u.id); }
+    }
+  };
+  let sweeping: Promise<void> | null = null;
+  let lastSweep = "";
+  const sweep = () => {
+    sweeping ||= Promise.all([
+      pruneBoardCache().catch(() => {}),
+      deadlineReminders().catch((e) => console.error("deadline reminders failed", e?.message)),
+      cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)),
+      backgroundOpenings().catch((e) => console.error("background openings failed", e?.message)),
+    ]).then(() => { lastSweep = new Date().toISOString(); }).finally(() => { sweeping = null; });
+    return sweeping;
+  };
   sweep();
   setInterval(sweep, 6 * 60 * 60_000).unref();
+  app.post("/api/cron/tick", async (req, res) => {
+    const want = Buffer.from(process.env.CRON_SECRET || ""), got = Buffer.from(String(req.header("x-cron-secret") || ""));
+    if (!want.length) return res.status(404).json({ message: "Not found." });
+    if (got.length !== want.length || !crypto.timingSafeEqual(got, want)) return res.status(401).json({ message: "Wrong secret." });
+    // Answer at once and let the jobs run on (one at a time): a slow run with many students can't time out the caller.
+    const before = lastSweep;
+    sweep();
+    res.status(202).json({ ok: true, started: true, lastFinished: before || null });
+  });
 
   // ---------- config + identity ----------
+  /** Which version of Remy this server runs, so a tab left open can offer "Remy was updated. Reload". Render's commit id,
+   *  else a hash of the built page (a restart of the same build keeps the same id). Empty in development. */
+  let build: string | undefined;
+  const buildId = () => {
+    if (build !== undefined) return build;
+    const page = path.resolve(process.cwd(), "dist", "public", "index.html");
+    build = process.env.RENDER_GIT_COMMIT || (fs.existsSync(page) ? crypto.createHash("sha1").update(fs.readFileSync(page)).digest("hex").slice(0, 12) : "");
+    return build;
+  };
   app.get("/api/config", async (req, res) => {
     const host = String(req.headers.host || "");
     const sb = supabaseConfig();
@@ -327,7 +464,9 @@ export async function registerRoutes(_server: Server, app: Express) {
       today: new Date().toISOString().slice(0, 10),
       supabase: sb ? { ...sb, providers: await supabaseProviders() } : null,
       schoolEmail: { ready: emailReady() || devCodes(), domains: ALUMNI_DOMAINS },
+      emailCodes: emailReady() || devCodes(),
       googleCalendar: gcal.gcalReady(),
+      build: buildId(),
     };
     res.json(cfg);
   });
@@ -350,12 +489,27 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.get("/api/admin/overview", route(async (_req, res, ctx) => { owner(ctx); res.json(await admin.overview()); }));
   app.get("/api/admin/errors", route(async (_req, res, ctx) => { owner(ctx); res.json(await admin.errors()); }));
   app.get("/api/admin/team", route(async (_req, res, ctx) => { res.json(await admin.team(owner(ctx))); }));
+  app.get("/api/admin/agents", route(async (_req, res, ctx) => { owner(ctx); res.json(await agents.agentRuns()); }));
+  app.post("/api/admin/agents/:agent/run", route(async (req, res, ctx) => {
+    const me = owner(ctx);
+    if (!allow("agent:" + me, 10, 60 * 60_000)) bad("That's a lot of agent runs. Try again in an hour.", 429);
+    if (req.params.agent === "feedback") await agents.sortFeedback(me);
+    else if (req.params.agent === "weekly") await agents.weeklySummary(me);
+    else if (req.params.agent === "scout") await agents.scout(me);
+    else if (req.params.agent === "retention") await agents.retention(me);
+    else if (req.params.agent === "research") await agents.research(me, String(req.body?.question || ""));
+    else if (req.params.agent === "marketing") await agents.marketing(me, String(req.body?.brief || ""));
+    else bad("Unknown agent.", 404);
+    res.json(await agents.agentRuns());
+  }));
+  app.post("/api/admin/agents/suggestion", route(async (req, res, ctx) => { const me = owner(ctx); await agents.addSuggestion(me, String(req.body?.title || "")); res.json(await admin.team(me)); }));
   app.post("/api/admin/tasks", route(async (req, res, ctx) => { const me = owner(ctx); await admin.saveTask(me, req.body || {}); res.json(await admin.team(me)); }));
   app.delete("/api/admin/tasks/:id", route(async (req, res, ctx) => { const me = owner(ctx); await admin.deleteTask(me, String(req.params.id)); res.json(await admin.team(me)); }));
   app.post("/api/admin/members", route(async (req, res, ctx) => { const me = owner(ctx); await admin.addMember(me, req.body || {}); res.json(await admin.team(me)); }));
   app.delete("/api/admin/members/:email", route(async (req, res, ctx) => { const me = owner(ctx); await admin.removeMember(me, String(req.params.email)); res.json(await admin.team(me)); }));
   app.post("/api/admin/errors/fix", route(async (req, res, ctx) => { const me = owner(ctx); await admin.fixError(me, String(req.body?.message || ""), String(req.body?.kind || "")); res.json(await admin.errors()); }));
   app.post("/api/admin/events", route(async (req, res, ctx) => { const me = owner(ctx); await admin.addEvent(me, req.body || {}); res.json(await admin.team(me)); }));
+  app.post("/api/admin/events/:id/people", route(async (req, res, ctx) => { const me = owner(ctx); await admin.setEventPeople(me, String(req.params.id), req.body?.assignees); res.json(await admin.team(me)); }));
   app.delete("/api/admin/events/:id", route(async (req, res, ctx) => { const me = owner(ctx); await admin.deleteEvent(me, String(req.params.id)); res.json(await admin.team(me)); }));
   app.post("/api/admin/events/:id/rsvp", route(async (req, res, ctx) => { const me = owner(ctx); await admin.rsvp(me, String(req.params.id), String(req.body?.answer || "")); res.json(await admin.team(me)); }));
   app.delete("/api/admin/calendar", route(async (_req, res, ctx) => {
@@ -370,13 +524,24 @@ export async function registerRoutes(_server: Server, app: Express) {
     try {
       const me = await identify(req);
       if (!me) return res.json({ me: null, workspace: null });
-      res.json({ me, workspace: await loadWorkspace(me.id) });
+      let ws = await loadWorkspace(me.id);
+      // Days the student opened Remy (Central dates, kept 120), so owners can see who comes back. Counts only.
+      const today = centralToday();
+      if (!(ws.visits || []).includes(today)) ws = await saveSections(me.id, { visits: [...(ws.visits || []), today].slice(-120) } as any);
+      // Checklists saved before the font check was real said "pass" without looking; work them out again (Nov 2).
+      const stale = ws.applications.filter((a) => a.ats?.some((c) => c.id === "font" && c.detail === "Downloads keep your own resume's font, size and margins."));
+      if (stale.length) {
+        for (const a of stale) refreshAts(ws, a);
+        ws = await saveSections(me.id, { applications: ws.applications }); // once per student, so later saves don't bring the old line back
+      }
+      res.json({ me, workspace: ws });
     } catch (e) { next(e); }
   });
 
   app.post("/api/auth/guest", route(async (_req, res, ctx) => {
     if (!ctx.ws.started) {
       ctx.ws.started = true;
+      ctx.ws.settings.newsSeen = latestNewsId(); // new accounts start caught up on "What's new"
       await ctx.save();
     }
     res.json({ me: ctx.me, workspace: ctx.ws });
@@ -392,6 +557,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       }
       const ws = await loadWorkspace(me.id);
       ws.started = true;
+      ws.settings.newsSeen = latestNewsId(); // new accounts start caught up on "What's new"
       if (!ws.profile.name) ws.profile.name = me.name;
       if (!ws.profile.email) ws.profile.email = me.email;
       if (!ws.profile.applicationEmail) ws.profile.applicationEmail = me.email;
@@ -403,24 +569,63 @@ export async function registerRoutes(_server: Server, app: Express) {
     }
   });
 
+  // Signs a verified account in: a guest workspace in progress moves into a brand-new account.
+  async function signIn(req: Request, res: Response, me: Me) {
+    const prev = await identify(req);
+    await ensureUser(me);
+    if (!(await hasWorkspace(me.id)) && prev && prev.id !== me.id && (await hasWorkspace(prev.id))) await saveWorkspace(me.id, await loadWorkspace(prev.id));
+    const ws = await loadWorkspace(me.id);
+    ws.started = true;
+    ws.settings.newsSeen = latestNewsId(); // new accounts start caught up on "What's new"
+    if (!ws.profile.name) ws.profile.name = me.name;
+    if (!ws.profile.email) ws.profile.email = me.email;
+    if (!ws.profile.applicationEmail) ws.profile.applicationEmail = me.email;
+    await saveWorkspace(me.id, ws);
+    await startSession(res, me.id);
+    res.json({ me, workspace: ws });
+  }
   app.post("/api/auth/supabase", async (req, res) => {
     try {
-      const prev = await identify(req);
       const u = await verifySupabase(String(req.body?.accessToken || ""));
-      const me: Me = { id: "sb:" + u.id, kind: "supabase", email: u.email, name: u.name, picture: u.picture };
-      await ensureUser(me);
-      // carry an in-progress guest workspace into a brand-new account
-      if (!(await hasWorkspace(me.id)) && prev && prev.id !== me.id && (await hasWorkspace(prev.id))) await saveWorkspace(me.id, await loadWorkspace(prev.id));
-      const ws = await loadWorkspace(me.id);
-      ws.started = true;
-      if (!ws.profile.name) ws.profile.name = u.name;
-      if (!ws.profile.email) ws.profile.email = u.email;
-      if (!ws.profile.applicationEmail) ws.profile.applicationEmail = u.email;
-      await saveWorkspace(me.id, ws);
-      await startSession(res, me.id);
-      res.json({ me, workspace: ws });
+      await signIn(req, res, { id: "sb:" + u.id, kind: "supabase", email: u.email, name: u.name, picture: u.picture });
     } catch (e: any) {
       res.status(e?.status || 401).json({ message: e?.message || "Sign-in failed." });
+    }
+  });
+
+  // Email sign-in with a 6-digit code Remy sends itself: works on any device (a link only works in the browser that
+  // asked for it) and isn't held to Supabase's shared hourly email limit. The code proves the student owns the email,
+  // so it opens the account already using that email (an earlier link or Google sign-in) or creates one.
+  // New accounts use kind "supabase" ("signed in, not Google") so every signed-in check treats them the same.
+  const emailOf = (req: Request) => String(req.body?.email || "").trim().toLowerCase().slice(0, 254);
+  app.post("/api/auth/email/start", async (req, res) => {
+    const email = emailOf(req);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ message: "Enter your email address." });
+    if (!emailReady() && !devCodes()) return res.status(503).json({ message: "Email codes aren't set up on this server.", code: "no-email" });
+    // Limits keep Remy from being used to flood anyone's inbox.
+    if (!allow("signin-ip:" + clientIp(req), 10, 60 * 60_000)) return res.status(429).json({ message: "Too many codes from this network. Please try again in an hour, or continue with Google." });
+    if (!allow("signin-to:" + email, 5, 60 * 60_000)) return res.status(429).json({ message: "Several codes were already sent to this address. Use the newest one, or try again in an hour." });
+    try {
+      const code = await newSigninCode(email);
+      if (devCodes()) console.log(`[dev] sign-in code for ${email}: ${code}`);
+      else await sendEmail(email, `${code} is your Remy sign-in code`, `Your Remy sign-in code is ${code}.\n\nType it on the Remy sign-in page. It works on any device and expires in 10 minutes.\n\nIf you didn't ask for this, you can ignore this email; no one can sign in without the code.\n\nRemy`);
+      res.json({ sent: true, email });
+    } catch (e: any) {
+      console.error("sign-in code email failed", e?.message);
+      res.status(502).json({ message: "Remy couldn't send the email just now. Please try again, or continue with Google." });
+    }
+  });
+  app.post("/api/auth/email/verify", async (req, res) => {
+    try {
+      const email = emailOf(req), code = String(req.body?.code || "").replace(/\D/g, "");
+      if (code.length !== 6) return res.status(400).json({ message: "Enter the 6-digit code from the email." });
+      const r = await checkSigninCode(email, code);
+      if (r === "wrong") return res.status(400).json({ message: "That code doesn't match. Check the newest email from Remy." });
+      if (r !== "ok") return res.status(400).json({ message: "That code has expired. Ask for a new one.", code: "expired" });
+      const me = (await userByEmail(email)) || { id: "sb:em-" + crypto.randomUUID(), kind: "supabase" as const, email, name: "", picture: "" };
+      await signIn(req, res, me);
+    } catch (e: any) {
+      res.status(e?.status || 500).json({ message: e?.message || "Sign-in failed." });
     }
   });
 
@@ -444,7 +649,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   });
 
   // ---------- simple app-owned sections ----------
-  const SECTIONS = ["profile", "settings", "tasks", "calendar", "tracker", "savedJobIds", "hiddenJobIds", "memory", "outreach", "onboarding", "started", "plan", "contacts", "builder"] as const;
+  const SECTIONS = ["profile", "settings", "tasks", "calendar", "tracker", "savedJobIds", "hiddenJobIds", "memory", "outreach", "onboarding", "started", "plan", "contacts", "builder", "pitch"] as const;
   // The shape each section must have, so one malformed save can't break later requests.
   // Objects keep unknown extra fields (loose) but every field the server relies on is checked.
   const str = (max = 600) => z.string().max(max);
@@ -453,21 +658,22 @@ export async function registerRoutes(_server: Server, app: Express) {
   const SHAPES: Partial<Record<(typeof SECTIONS)[number], z.ZodType>> = {
     profile: z.looseObject({}),
     settings: z.object({
-      theme: z.enum(["light", "dark"]).optional(), assistantOpen: z.boolean().optional(), navCollapsed: z.boolean().optional(),
+      theme: z.enum(["system", "light", "dark"]).optional(), themeChosen: z.boolean().optional(), lastSeenAt: z.string().max(40).optional(), careerTime: z.object({ day: z.number().int().min(0).max(6), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/) }).nullable().optional(), assistantOpen: z.boolean().optional(), navCollapsed: z.boolean().optional(),
       notify: z.object({ deadlines: z.boolean(), statusChanges: z.boolean(), weeklyPlan: z.boolean() }).partial().optional(),
-      demoConnections: z.array(str(80)).max(20).optional(),
+      demoConnections: z.array(str(80)).max(20).optional(), newsSeen: str(40).optional(),
     }),
     tasks: z.array(z.looseObject({ id: str(120), title: str(300), why: str(2000), due: str(10), category: z.enum(["Explore", "Prepare", "Apply", "Connect", "Academic"]), done: z.boolean(), source: str(200), link: str(500).optional() })).max(500),
     calendar: z.array(z.looseObject({ id: str(120), title: str(300), date: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/), time: z.string().regex(/^(\d{2}:\d{2})?$/), kind: z.enum(["Deadline", "Event", "Task", "Interview", "Advising"]), source: str(200), linkedId: str(120).optional(), notes: str(4000).optional() })).max(1000),
-    tracker: z.array(z.looseObject({ id: str(120), company: str(200), role: str(300), jobId: str(120).optional(), applicationId: str(120).optional(), status: TRACK, notes: str(4000), events: z.array(z.looseObject({ id: str(120), at: str(40), status: TRACK, source: str(300), evidence: str(2000).optional() })).max(200) })).max(500),
+    tracker: z.array(z.looseObject({ id: str(120), company: str(200), role: str(300), jobId: str(120).optional(), applicationId: str(120).optional(), status: TRACK, notes: str(4000), recovery: z.enum(["added", "dismissed"]).optional(), events: z.array(z.looseObject({ id: str(120), at: str(40), status: TRACK, source: str(300), evidence: str(2000).optional() })).max(200) })).max(500),
     savedJobIds: ids,
     hiddenJobIds: ids,
     memory: z.array(z.looseObject({ id: str(120).optional(), text: str(2000) })).max(300),
     outreach: z.array(z.looseObject({ id: str(120), contactId: str(120), to: str(320), subject: str(300), body: str(8000), linkedin: str(400).optional(), status: z.enum(["draft", "approved", "handed-off"]), createdAt: str(40) })).max(500),
-    onboarding: z.object({ step: z.number().int().min(0).max(50), done: z.boolean(), answers: z.array(z.object({ q: str(500), a: str(2000) })).max(50), questions: z.array(str(500)).max(20), targets: z.array(str(40)).max(20).optional(), options: z.array(z.array(str(80)).max(4)).max(20).optional(), exploring: z.boolean().optional() }),
+    onboarding: z.object({ step: z.number().int().min(0).max(50), done: z.boolean(), answers: z.array(z.object({ q: str(500), a: str(2000) })).max(50), questions: z.array(str(500)).max(20), targets: z.array(str(40)).max(20).optional(), options: z.array(z.array(str(80)).max(4)).max(20).optional(), exploring: z.boolean().optional(), focus: z.enum(["resume", "openings", "interview", "direction", "explore"]).optional() }),
     started: z.boolean(),
     plan: z.looseObject({ nextAction: z.looseObject({ title: str(300), why: str(2000), link: str(300) }), careers: z.array(z.looseObject({ id: str(120), title: str(300) })).max(20), skills: z.array(z.looseObject({ id: str(120), name: str(300) })).max(30), academic: z.array(z.looseObject({ id: str(120), term: str(100) })).max(20) }),
     contacts: z.array(z.looseObject({ id: str(120), name: str(200), title: str(300), org: str(300), email: str(320), why: str(2000), tags: z.array(str(120)).max(30), label: str(40) })).max(1000),
+    pitch: z.object({ text: str(1200), at: str(40) }),
     builder: z.looseObject({
       step: z.number().int().min(0).max(20),
       basics: z.object(Object.fromEntries(["name", "email", "phone", "city", "school", "major", "graduation", "classYear", "gpa", "highSchool", "highSchoolYear"].map((k) => [k, str(200)]))),
@@ -476,6 +682,13 @@ export async function registerRoutes(_server: Server, app: Express) {
       draft: z.record(z.string(), z.array(z.looseObject({ id: str(120), text: str(400), options: z.array(str(400)).max(4), source: str(2000) })).max(6)).optional(),
     }),
   };
+  // Beta terms: recorded with the server's time and the exact version shown.
+  app.post("/api/beta/agree", route(async (req, res, ctx) => {
+    if (req.body?.version !== BETA_TERMS_VERSION) bad("These terms changed. Reload the page to see the latest version.", 409);
+    ctx.ws.betaAgreed = { version: BETA_TERMS_VERSION, at: nowIso() };
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
   app.put("/api/ws/:section", route(async (req, res, ctx) => {
     const section = req.params.section as (typeof SECTIONS)[number];
     if (!SECTIONS.includes(section)) bad("Unknown section");
@@ -494,9 +707,17 @@ export async function registerRoutes(_server: Server, app: Express) {
       for (const k of Object.keys(p) as (keyof typeof p)[]) if (typeof value[k] === "string") p[k] = value[k].slice(0, 600);
       ctx.ws.profile = p;
       if (before !== JSON.stringify(p)) {
-        for (const a of ctx.ws.applications)
-          if (a.versions.length) a.staleReason = `Your profile changed on ${new Date().toLocaleDateString("en-US")}. This approved version was not changed — review whether it still fits.`;
-        for (const j of allJobs(ctx.ws)) if (ctx.ws.fits[j.id]?.by === "rules") delete ctx.ws.fits[j.id];
+        // Only fields that appear on the documents make an approved version worth reviewing (not a nickname).
+        const old = JSON.parse(before) as typeof p;
+        if ((["name", "applicationEmail", "school", "major", "minors", "gpa", "graduation", "location"] as const).some((k) => (old[k] || "") !== (p[k] || "")))
+          for (const a of ctx.ws.applications)
+            if (a.versions.length) a.staleReason = `Your profile changed on ${new Date().toLocaleDateString("en-US")}. This approved version was not changed — review whether it still fits.`;
+        // Rules are re-run; an "Explain fit" answer keeps its words but takes the new hide/show verdict.
+        for (const j of allJobs(ctx.ws)) {
+          const f = ctx.ws.fits[j.id];
+          if (f?.by === "ai") ctx.ws.fits[j.id] = { ...fitOf(ctx.ws, j), by: "ai", why: f.why, matched: f.matched, gaps: f.gaps };
+          else delete ctx.ws.fits[j.id];
+        }
       }
     } else if (section === "memory") {
       if (!Array.isArray(value)) bad("Memory must be a list");
@@ -504,6 +725,16 @@ export async function registerRoutes(_server: Server, app: Express) {
         id: String(m.id || uid("f")), text: String(m.text || "").slice(0, 400), category: m.category || "other", source: String(m.source || "Edited by student"),
         status: (m.status === "suggested" ? "suggested" : "approved") as MemoryFact["status"], ...(m.conflict ? { conflict: String(m.conflict).slice(0, 300) } : {}), createdAt: m.createdAt || nowIso(), updatedAt: nowIso(),
       })).filter((m: MemoryFact) => m.text.trim());
+    } else if (section === "savedJobIds") {
+      if (!Array.isArray(value)) bad("Saved openings must be a list");
+      for (const id of value) if (!ctx.ws.savedJobIds.includes(id)) {
+        step(ctx.ws, "save", String(id));
+        // A saved opening's deadline goes on the calendar by itself, so it can't be missed.
+        const j = ctx.ws.jobs.find((x) => x.id === String(id));
+        if (j?.deadline && j.deadline >= centralToday() && !ctx.ws.calendar.some((c) => c.linkedId === j.id))
+          ctx.ws.calendar.push({ id: uid("cal"), title: `${j.company}: ${j.kind === "event" ? "event" : "deadline"}`, date: j.deadline.slice(0, 10), time: "", kind: j.kind === "event" ? "Event" : "Deadline", source: "Added when you saved it", linkedId: j.id, notes: j.deadlineText || "" });
+      }
+      ctx.ws.savedJobIds = value.map(String);
     } else if (section === "settings") {
       ctx.ws.settings = { ...ctx.ws.settings, ...value, notify: { ...ctx.ws.settings.notify, ...(value.notify || {}) } };
     } else {
@@ -519,6 +750,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!t) bad("That to-do isn't there anymore.", 404);
     if (typeof req.body?.done !== "boolean") bad("Send done: true or false.");
     t!.done = req.body.done;
+    if (t!.done) step(ctx.ws, "task", t!.id);
     await ctx.save();
     res.json(ctx.ws);
   }));
@@ -579,11 +811,39 @@ export async function registerRoutes(_server: Server, app: Express) {
     ctx.ws.resume!.original = { name: f!.originalname, mime, size: f!.size };
     // So downloads can match the student's look (font, size, margins, length).
     ctx.ws.resume!.style = (await (mime === "application/pdf" ? pdfStyle(f!.buffer) : mime.includes("wordprocessingml") ? docxStyle(f!.buffer) : Promise.resolve(null)).catch(() => null)) || undefined;
+    for (const a of ctx.ws.applications) refreshAts(ctx.ws, a); // saved checks describe the new file, not the old one
     await ctx.save();
     res.json(ctx.ws);
   }, { serial: true }));
 
   // The exact file the student uploaded (inline, so a PDF previews in the browser).
+  // Profile photo: the browser crops and shrinks it to a small square first; only real JPEG/PNG/WebP bytes are kept.
+  const IMAGE = [["image/jpeg", [0xff, 0xd8, 0xff]], ["image/png", [0x89, 0x50, 0x4e, 0x47]], ["image/webp", [0x52, 0x49, 0x46, 0x46]]] as const;
+  app.post("/api/profile/photo", uploadFile, route(async (req, res, ctx) => {
+    const f = req.file;
+    if (!f) bad("Choose a photo to upload.");
+    const kind = IMAGE.find(([, sig]) => sig.every((b, i) => f!.buffer[i] === b));
+    if (!kind) bad("Use a JPG, PNG or WebP photo.");
+    if (f!.size > 1_500_000) bad("That photo is too large. Try a smaller one.", 413);
+    await saveFile(ctx.me.id, "photo", "photo", kind![0], f!.buffer);
+    ctx.ws.photoAt = nowIso();
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
+  app.get("/api/profile/photo", route(async (_req, res, ctx) => {
+    const f = await getFile(ctx.me.id, "photo");
+    if (!f) bad("No photo.", 404);
+    res.setHeader("Content-Type", f!.mime);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", "private, max-age=86400");
+    res.send(f!.data);
+  }));
+  app.delete("/api/profile/photo", route(async (_req, res, ctx) => {
+    await deleteFile(ctx.me.id, "photo");
+    delete ctx.ws.photoAt;
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
   app.get("/api/resume/original", route(async (req, res, ctx) => {
     const f = await getFile(ctx.me.id, "resume");
     if (!f || !ctx.ws.resume?.original) bad("No uploaded file is stored — this resume was pasted or is the sample.", 404);
@@ -600,7 +860,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.send(f!.data);
   }));
 
-  // ATS readiness score with a breakdown. ?app=<id> scores that tailored version
+  // Resume suggestions, and with ?app=<id> the skills that posting names: shown on that tailored version or not
   // against its posting (and returns the base score for comparison).
   app.get("/api/resume/ats", route(async (req, res, ctx) => {
     if (!ctx.ws.resume) bad("Upload a resume first.");
@@ -608,7 +868,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const a = appId ? ctx.ws.applications.find((x) => x.id === appId) : undefined;
     const job = a ? findJob(ctx.ws, a.jobId) : undefined;
     if (a && job) {
-      const kws = job.requirements.map((r) => r.keyword);
+      const kws = postingSkills(job.requirements);
       res.json({
         tailored: atsScore(composeResume(ctx.ws, a), kws, `in the ${job.company} posting`),
         base: atsScore(ctx.ws.resume!.doc, kws, `in the ${job.company} posting`),
@@ -712,10 +972,14 @@ export async function registerRoutes(_server: Server, app: Express) {
       e.unverified = e.unverified.filter((f) => before.get(e.id)?.[f] === e[f]);
       if (!e.unverified.length) delete e.unverified;
     }
+    const kept = new Set(d.sections.flatMap((s) => s.entries || []).flatMap((e) => (e.bullets || []).map((b) => b.id)));
+    const gone = ctx.ws.resume!.doc.sections.flatMap((s) => s.entries).flatMap((e) => e.bullets).filter((b) => !kept.has(b.id)).map((b) => b.text);
+    if (gone.length) ctx.ws.resume!.removed = [...(ctx.ws.resume!.removed || []), ...gone].slice(-200);
     ctx.ws.resume!.doc = d;
     const q = ctx.ws.resume!.quality;
     if (q) q.missingLines = stillMissing(q.missingLines, d);
     ctx.ws.resume!.confirmedAt = req.body?.confirm ? nowIso() : ctx.ws.resume!.confirmedAt;
+    if (req.body?.confirm) step(ctx.ws, "resume", "base");
     // Student edits are the student's own words and already count as evidence through
     // the edited doc (evidenceOf), so the original upload text stays as it was. The
     // slice also shrinks accounts that grew under the old append-on-every-save code.
@@ -757,6 +1021,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       ctx.ws.tasks.unshift({ id: uid("t"), title: `Decide what to add to your resume from ${source}`, why: `Your ${source} lists ${missing.length} thing${missing.length === 1 ? "" : "s"} your resume doesn't: ${missing.slice(0, 6).join("; ")}${missing.length > 6 ? "; …" : ""}. Add the ones that still apply and are true, so employers see the same story everywhere.`, due: "", category: "Prepare", done: false, source: `${source} check`, link: "/resume" });
     }
     ctx.ws.imports.unshift({ id: uid("i"), kind, fileName, at: nowIso(), label: "Student provided", factsAdded: added });
+    if (/linkedin/i.test(kind)) ctx.ws.linkedin = { text: raw.slice(0, 30000), at: nowIso() };
     await ctx.save();
     return added;
   }
@@ -770,25 +1035,114 @@ export async function registerRoutes(_server: Server, app: Express) {
   }, { serial: true }));
 
   // ---------- AI: onboarding questions + plan ----------
+  // Story Deck: up to 4 interview stories from the student's own resume lines. Any part the honesty checker flags
+  // is dropped and listed as missing, so a story never says more than the resume does.
+  app.post("/api/ai/stories", route(async (_req, res, ctx) => {
+    if (!ctx.ws.resume) bad("Upload a resume first.");
+    const lines = ctx.ws.resume!.doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => ({ where: [e.role, e.org].filter(Boolean).join(" at "), text: b.text })))).slice(0, 40);
+    const out = await withAi(ctx, "Story deck", () =>
+      aiJson<{ stories: Omit<Story, "id">[] }>(
+        `You help a university student prepare true interview stories (STAR: situation, task, action, result) from their resume. Use ONLY facts in the given lines and approved facts; never invent numbers, people, outcomes or feelings. If a part isn't stated, leave it empty and say in "missing" what the student should add (one short question). Pick up to 4 different lines that make the strongest stories, each with a different theme from: challenge, leadership, teamwork, result, learning.`,
+        `RESUME LINES:\n${lines.map((l) => `- ${l.where}: ${l.text}`).join("\n")}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).join("\n") || "(none)"}\n\nReturn {"stories":[{"title":"short","theme":"","situation":"","task":"","action":"","result":"","missing":"","source":"the resume line used, exactly"}]}`,
+        1600,
+      ),
+    );
+    const ev = evidenceOf(ctx.ws);
+    ctx.ws.stories = (out.stories || []).slice(0, 4).map((st) => {
+      const keep = (t: unknown) => { const x = String(t || "").trim().slice(0, 400); return x && !claimCheck(x, ev, { original: String(st.source || "") }).length ? x : ""; };
+      const story = { id: uid("st"), title: String(st.title || "").slice(0, 80), theme: String(st.theme || "").slice(0, 20), situation: keep(st.situation), task: keep(st.task), action: keep(st.action), result: keep(st.result), missing: String(st.missing || "").slice(0, 200), source: String(st.source || "").slice(0, 300) };
+      if (!story.result && !story.missing) story.missing = "What was the result? Add it only if you know it.";
+      return story;
+    }).filter((st) => st.title && st.action);
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
+  // Outreach coach: the student writes; Remy gives up to 3 short comments and never rewrites (NABA/PwC: AI as a coach keeps you memorable).
+  app.post("/api/ai/outreach-feedback", route(async (req, res, ctx) => {
+    const c = ctx.ws.contacts.find((x) => x.id === String(req.body?.contactId || ""));
+    const subject = String(req.body?.subject || "").slice(0, 300), body = String(req.body?.body || "").trim().slice(0, 4000);
+    if (body.split(/\s+/).length < 15) bad("Write a few sentences first, then ask for feedback.");
+    const out = await withAi(ctx, "Outreach feedback", () =>
+      aiJson<{ tips: string[] }>(
+        "You coach a university student on a networking email they wrote themselves. Give at most 3 short, specific comments (one sentence each): is the ask clear and small (like a 15-20 minute chat), is there one genuine personal connection, is it short enough to read on a phone, is the tone professional, any typos. Quote their words when pointing at something. Never rewrite the email and never add facts about the student. If it's already good, say what works in one comment.",
+        `TO: ${c ? `${c.name}, ${c.title}${c.org ? ` at ${c.org}` : ""}` : "(a professional)"}\nSUBJECT: ${subject}\n\nEMAIL:\n${body}\n\nReturn {"tips":["",""]}`,
+        500,
+      ),
+    );
+    res.json({ tips: (out.tips || []).map((t) => String(t).trim().slice(0, 300)).filter(Boolean).slice(0, 3) });
+  }));
+
+  // 30-second pitch from the student's own record. Any sentence the honesty checker flags is dropped.
+  app.post("/api/ai/pitch", route(async (_req, res, ctx) => {
+    if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE);
+    const out = await withAi(ctx, "Pitch", () =>
+      aiJson<{ pitch: string }>(
+        "Write a university student's 30-second elevator pitch (70 to 85 words, first person, plain spoken words, no jargon): who they are, what they study or do, one real experience, and what they want next. Use ONLY the facts given; never add numbers, titles, awards or outcomes. End with one short question they could ask the listener.",
+        `PROFILE:\n${profileSummary(ctx.ws)}\n\nRESUME:\n${ctx.ws.resume ? resumeToText(ctx.ws.resume.doc, { verifiedOnly: true }).slice(0, 4000) : "(none)"}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).slice(0, 30).join("\n") || "(none)"}\n\nReturn {"pitch":""}`,
+        600,
+      ),
+    );
+    const ev = evidenceOf(ctx.ws) + "\n" + profileSummary(ctx.ws);
+    const kept = String(out.pitch || "").split(/(?<=[.!?])\s+/).filter((x) => x.trim() && (x.trim().endsWith("?") || !claimCheck(x, ev, { allowedNames: [ctx.ws.profile.name, ctx.ws.profile.school] }).length));
+    if (!kept.length) bad("Remy couldn't write a pitch from what it knows yet. Add your major and target roles, or upload your resume.", 422);
+    ctx.ws.pitch = { text: kept.join(" ").slice(0, 1200), at: nowIso() };
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
+
+  // Weekly check-in: a draft first (nothing saved); the student approves what to keep.
+  const checkinInput = (b: any) => {
+    const kind = String(b?.kind || ""), said = String(b?.said || "").trim().slice(0, 600);
+    if (!(CHECKIN_KINDS as readonly string[]).includes(kind)) bad("Pick what you did.");
+    if (said.length < 8) bad("Say one sentence about it, like where and what you did.");
+    return { kind, said };
+  };
+  app.post("/api/ai/checkin", route(async (req, res, ctx) => {
+    const { kind, said } = checkinInput(req.body);
+    const out = await withAi(ctx, "Check-in", () =>
+      aiJson(
+        `A university student tells you one thing they did this week. Turn it into: "fact" (one plain sentence for their record), "bullet" (one resume line starting with a past-tense verb) and "linkedin" (the LinkedIn section and fields to fill). Use ONLY the student's own words and facts: never add numbers, titles, causes, outcomes, how they got a role, or any detail they didn't say. Rewording is fine; adding is not. Leave a field out if they didn't say it. Sections: Experience, Volunteering, Licenses & certifications, Projects, Honors & awards, Organizations. Also ask up to 2 short "followups" about details that would make the resume line stronger and that they didn't give (how many, how often, what result), each with 3 short tap answers that are ranges or plain choices; don't ask what they already said.`,
+        `WHAT THEY DID: ${kind}\nTHEIR WORDS: ${said}\n\nReturn {"fact":"","bullet":"","linkedin":{"section":"","fields":[{"label":"e.g. Organization, Role, Title, Issuing organization","value":""}]},"followups":[{"q":"How many hours did you volunteer?","options":["1–3","4–8","More than 8"]}]}`,
+        900,
+      ),
+    );
+    res.json(cleanCheckin(kind, said, out));
+  }));
+  app.post("/api/checkin", route(async (req, res, ctx) => {
+    if (req.body?.kind !== "Nothing new") {
+      const { kind, said } = checkinInput(req.body);
+      // Checked again here: the browser's copy can't be trusted.
+      const d = cleanCheckin(kind, said, req.body);
+      addFact(ctx.ws, d.fact, "experience", "Check-in", "approved");
+      if (d.bullet) ctx.ws.tasks.unshift({ id: uid("t"), title: "Add this line to your resume", why: d.bullet, due: "", category: "Prepare", done: false, source: "Check-in", link: "/resume?tab=base" });
+      if (d.linkedin.fields.length) ctx.ws.tasks.unshift({ id: uid("t"), title: `Add to LinkedIn: ${d.linkedin.section}`, why: d.linkedin.fields.map((f) => `${f.label}: ${f.value}`).join("\n"), due: "", category: "Prepare", done: false, source: "Check-in" });
+    }
+    ctx.ws.lastCheckin = centralToday();
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
   app.post("/api/ai/questions", route(async (_req, res, ctx) => {
+    const skipped = skippedPrefs(ctx.ws.onboarding.step, ctx.ws.profile);
+    const given = (k: "timeline" | "dreamEmployers" | "avoid") => ctx.ws.profile[k] || (skipped.includes(k) ? "(left empty on purpose a minute ago; don't ask about it)" : "(not given)");
     const out = await withAi(ctx, "Onboarding questions", () =>
       aiJson<{ questions: { q: string; saveTo: string; options?: string[] }[] }>(
         `You are Remy, a career coach for university students. Remy uses the answers to choose which job and internship openings to show this student and how to present them. Ask exactly 3 short, warm questions that each fill a gap that would CHANGE which openings Remy shows or how it writes their applications. Rules:
 - Never ask anything the profile or resume already answers (school, major, class year, regions, kinds of opportunities, fields are already known).
+- Never ask about something marked "left empty on purpose": the student just chose to skip it.
 - One idea per question, answerable in a sentence. No yes/no questions. Speak to the student as "you".
 - Prefer, in order: the specific roles or industries they're most excited about (if fields are broad), what they enjoyed or did best in a past role on their resume (name it), employers they'd love to work for, when they want to start, industries or kinds of work they'd rule out, and the one goal they want this year.
 - saveTo says where the answer goes: "targetRoles" (roles/industries to search), "interests" (what they enjoy and are good at), "dreamEmployers" (company names), "timeline" (when to start), "avoid" (industries or companies to leave out), "goals" (their goal this year).
 - If the student is still exploring (marked below, or no target roles), don't ask them to name roles or employers. Ask what they enjoyed most in an experience on their resume (name it), which classes or topics they like, and whether they'd rather work with people, numbers or ideas; save those to "interests" or "goals".
 - options: 2 or 3 short answers (under 6 words each) a student like this might tap, drawn from their profile or resume. Never "I'm not sure", the app adds that.`,
-        `STUDENT PROFILE:\n${profileSummary(ctx.ws)}\nTimeline: ${ctx.ws.profile.timeline || "(not given)"}\nDream employers: ${ctx.ws.profile.dreamEmployers || "(not given)"}\nAvoid: ${ctx.ws.profile.avoid || "(not given)"}\nStill exploring: ${ctx.ws.onboarding.exploring || !ctx.ws.profile.targetRoles.trim() ? "yes, the student isn't sure what career they want" : "no"}\n\nRESUME (headings and roles):\n${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org].filter(Boolean).join(", ")).join("; ")).join("\n") : "(no resume yet)"}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).join("\n") || "(none)"}\n\nReturn {"questions":[{"q":"","saveTo":"","options":["",""]},{"q":"","saveTo":"","options":["",""]},{"q":"","saveTo":"","options":["",""]}]}.`,
+        `TODAY: ${centralToday()} (only offer start terms after today)\nSTUDENT PROFILE:\n${profileSummary(ctx.ws)}\nTimeline: ${given("timeline")}\nDream employers: ${given("dreamEmployers")}\nAvoid: ${given("avoid")}\nStill exploring: ${ctx.ws.onboarding.exploring || !ctx.ws.profile.targetRoles.trim() ? "yes, the student isn't sure what career they want" : "no"}\n\nRESUME (headings and roles):\n${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org].filter(Boolean).join(", ")).join("; ")).join("\n") : "(no resume yet)"}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).join("\n") || "(none)"}\n\nReturn {"questions":[{"q":"","saveTo":"","options":["",""]},{"q":"","saveTo":"","options":["",""]},{"q":"","saveTo":"","options":["",""]}]}.`,
         800,
       ),
     );
     const TARGETS = ["targetRoles", "interests", "dreamEmployers", "timeline", "avoid", "goals"];
-    const qs = (out.questions || []).filter((x: any) => x && (typeof x === "string" || x.q)).slice(0, 3);
+    const qs = keepQuestions((out.questions || []).filter((x: any) => x && (typeof x === "string" || x.q)).map((x: any) => (typeof x === "string" ? { q: x } : x)), skipped).slice(0, 3);
     ctx.ws.onboarding.questions = qs.map((x: any) => String(typeof x === "string" ? x : x.q));
     ctx.ws.onboarding.targets = qs.map((x: any) => (TARGETS.includes(x?.saveTo) ? x.saveTo : "goals"));
-    ctx.ws.onboarding.options = qs.map((x: any) => (Array.isArray(x?.options) ? x.options : []).map((o: unknown) => String(o).trim().slice(0, 60)).filter((o: string) => o && !/not sure/i.test(o)).slice(0, 3));
+    ctx.ws.onboarding.options = qs.map((x: any) => (Array.isArray(x?.options) ? x.options : []).map((o: unknown) => String(o).trim().slice(0, 60)).filter((o: string) => o && !/\b(not (really )?sure|unsure|no idea|idk|don'?t know|undecided)\b/i.test(o) && !pastTerm(o, centralToday())).slice(0, 3));
     await ctx.save();
     res.json(ctx.ws);
   }));
@@ -881,7 +1235,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     const history = ctx.ws.chat.slice(-12).map((m) => `${m.role === "user" ? "Student" : "Assistant"}: ${m.text}`).join("\n");
     // The openings shown on Opportunities (not hidden as a poor fit), so Remy can answer "which should I apply to?".
     const found = allJobs(ctx.ws).map((j) => ({ j, f: ctx.ws.fits[j.id] })).filter(({ f }) => f && !f.excluded).sort((a, b) => (b.f.score ?? 0) - (a.f.score ?? 0)).slice(0, 8)
-      .map(({ j, f }) => `${j.title} — ${j.company} (${j.location}${j.deadline ? `, closes ${j.deadline}` : ""}; ${f.eligibility === "likely" ? "student qualifies" : "check eligibility"})`).join("; ");
+      .map(({ j, f }) => `${j.title} — ${j.company} (${j.location}${j.deadline ? `, closes ${j.deadline}` : ""}; ${f.eligibility === "likely" && f.checked ? "student meets the rules it states" : f.eligibility === "unlikely" ? "student doesn't qualify" : "nothing found that rules the student out; check eligibility"})`).join("; ");
     const apps = ctx.ws.applications.map((a) => { const j = findJob(ctx.ws, a.jobId); return `${j?.company} ${j?.title}: ${a.versions.length ? "approved v" + a.versions.length : a.generatedAt ? "draft" : "not started"}`; }).join("; ");
     // Everything else Remy knows, so the student never has to repeat themselves.
     const today = centralToday();
@@ -894,7 +1248,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     const answers = ctx.ws.onboarding.answers.map((a) => `${a.q} → ${a.a}`).join("\n");
     const out = await withAi(ctx, "Assistant chat", () =>
       aiJson<{ reply: string; remember: string[]; actions?: ChatAction[] }>(
-        `You are Remy, a friendly fox career coach for university students. Be concise: under 110 words, at most 3 short bullet lines starting with "• ", and **bold** only for a few key words. Warm, practical and honest. Use only facts you are given; if you don't know something (like a specific university rule), say so and suggest who to ask. Never claim to have sent emails, applied, or changed calendars — you can only suggest. If the student shares a durable fact or preference worth remembering, propose it in "remember" (short third-person statements); otherwise return an empty list. Today is ${centralToday()}; the student's class standing is ${classYearOf(ctx.ws) || "unknown"}. Don't question dates that fit that standing. You know everything below about the student; use it so they never have to repeat themselves, and refer to their real experience by name.\n\nWhen a concrete next step would help, offer up to 2 buttons in "actions" (the student taps to do it; you never do it yourself): {"kind":"task","title":"short to-do","why":"one sentence"} adds a to-do; {"kind":"role","title":"job title"} adds a job to the roles Remy searches openings for; {"kind":"open","link":"/resume|/opportunities|/path?tab=career|/path?tab=future|/community|/calendar|/progress|/accounts?tab=memory","label":"button text"} opens a page. Otherwise return an empty list.\n\n${CHAT_RULES}`,
+        `You are Remy, a friendly fox career coach for university students. Be concise: under 110 words, at most 3 short bullet lines starting with "• ", and **bold** only for a few key words. Warm, practical and honest. Use only facts you are given; if you don't know something (like a specific university rule), say so and suggest who to ask. Never claim to have sent emails, applied, or changed calendars — you can only suggest. If the student shares a durable fact or preference worth remembering, propose it in "remember" (short third-person statements); otherwise return an empty list. Today is ${centralToday()}; the student's class standing is ${classYearOf(ctx.ws) || "unknown"}. Don't question dates that fit that standing. You know everything below about the student; use it so they never have to repeat themselves, and refer to their real experience by name.\n\nWhen a concrete next step would help, offer up to 2 buttons in "actions" (the student taps to do it; you never do it yourself): {"kind":"task","title":"short to-do","why":"one sentence"} adds a to-do; {"kind":"role","title":"job title"} adds a job to the roles Remy searches openings for; {"kind":"open","link":"/resume|/opportunities|/path?tab=career|/path?tab=future|/community|/calendar|/progress|/accounts?tab=memory","label":"button text"} opens a page. When they ask to change how Remy looks or reminds them, offer {"kind":"setting","key":"theme","value":"dark"|"light"|"system"} (system = match their device) or {"kind":"setting","key":"notify.deadlines"|"notify.weeklyPlan","value":true|false}; say it changes when they tap the button, never that it's already done. Otherwise return an empty list.\n\n${CHAT_RULES}`,
         `Current page: ${page}\nPROFILE:\n${profileSummary(ctx.ws)}\nAPPROVED MEMORY:\n${approvedFacts(ctx.ws).slice(0, 40).join("\n") || "(none)"}\nRESUME:\n${ctx.ws.resume ? resumeToText(ctx.ws.resume.doc, { verifiedOnly: true }).slice(0, 5000) : "(not uploaded)"}\nSETUP ANSWERS:\n${answers || "(none)"}\nOPEN TO-DOS: ${todos || "(none)"}\nNEXT 3 WEEKS ON THEIR CALENDAR: ${dates || "(nothing)"}\nAPPLICATIONS THEY'RE TRACKING: ${tracking || "(none)"}\nCAREER DIRECTIONS FROM MY PATH: ${direction || "(not built yet)"}\nJOBS THEIR FIELDS LEAD TO MOST OFTEN (U.S. Bureau of Labor Statistics; for "what can I do with my major" questions): ${careersFor(ctx.ws).flatMap((f) => f.jobs.slice(0, 4).map((j) => j.title)).join("; ") || "(no major or field yet)"}\nAPPLICATIONS: ${apps || "(none)"}\nSAVED OPENINGS: ${ctx.ws.savedJobIds.map((id) => findJob(ctx.ws, id)?.title).filter(Boolean).join("; ") || "(none)"}\nOPENINGS REMY FOUND THAT FIT (best first): ${found || "(none yet)"}\nFROM THEIR OTHER PROFILES, NOT YET CONFIRMED BY THE STUDENT (mention, don't rely on): ${ctx.ws.memory.filter((m) => m.status === "suggested" && !m.conflict).slice(0, 15).map((m) => m.text).join("; ") || "(none)"}\nRESUME VS OTHER PROFILES, NOT YET RESOLVED (ask the student which is right; never treat these as true): ${ctx.ws.memory.filter((m) => m.conflict).map((m) => `${m.text} (${m.conflict})`).join("; ") || "(none)"}\n\nRECENT CHAT:\n${history}\n\nStudent: ${message}\n\nReturn {"reply":"","remember":[],"actions":[]}`,
         1100,
       ),
@@ -940,7 +1294,9 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     const jobs = allJobs(ctx.ws).map((j) => {
       const f = ctx.ws.fits[j.id];
       if (!f || (f.by === "rules" && f.score === undefined) || f.v !== FIT_RULES_VERSION) {
-        ctx.ws.fits[j.id] = fitOf(ctx.ws, j);
+        const fresh = fitOf(ctx.ws, j);
+        // A rules update keeps an "Explain fit" answer the student already asked for (its words don't depend on the rules).
+        ctx.ws.fits[j.id] = f?.by === "ai" ? { ...fresh, by: "ai", why: f.why, matched: f.matched, gaps: f.gaps } : fresh;
         changed = true;
       }
       return j;
@@ -1006,6 +1362,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE, 409);
     fetchAllowed(ctx);
     const named: string[] = (Array.isArray(req.body?.companies) ? req.body.companies : []).map(String).map((x: string) => x.trim()).filter(Boolean).slice(0, 10);
+    if (searching.has(ctx.me.id)) bad("Remy is already checking employers' sites for you. New openings will appear here in a moment.", 409);
     searching.add(ctx.me.id);
     try {
       const r = await findOpenings(ctx, named);
@@ -1076,6 +1433,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     if (!a) {
       a = { id: uid("app"), jobId, createdAt: nowIso(), gaps: [], changes: [], letter: "", letterFlags: [], letterApproved: false, personalize: [], ats: [], versions: [] };
       ctx.ws.applications.unshift(a);
+      step(ctx.ws, "start", jobId);
       if (!ctx.ws.savedJobIds.includes(jobId)) ctx.ws.savedJobIds.push(jobId);
       await ctx.save();
     }
@@ -1265,8 +1623,25 @@ Return JSON:
       });
     if (job.deadline && !ctx.ws.calendar.some((c) => c.linkedId === job.id))
       ctx.ws.calendar.push({ id: uid("cal"), title: `${job.company} deadline`, date: job.deadline, time: "", kind: "Deadline", source: "From verified posting", linkedId: job.id, notes: job.deadlineText });
+    step(ctx.ws, "approve", a.jobId);
     await ctx.save();
     res.json({ application: a, workspace: ctx.ws });
+  }));
+
+  /** The tailored Word file built from the student's own .docx, or null when it isn't a Word upload. `missed` = changed lines
+   *  Remy couldn't place in their file; then the download falls back to Remy's layout rather than ship a half-edited file. */
+  async function ownWordFile(ctx: Ctx, resume: ResumeDoc) {
+    if (!ctx.ws.resume?.original?.mime.includes("wordprocessingml")) return null;
+    const f = await getFile(ctx.me.id, "resume");
+    return (f ? await editResumeDocx(f.data, ctx.ws.resume.doc, resume, ctx.ws.resume.removed).catch(() => null) : null) || { buf: null, missed: [] as string[], failed: true };
+  }
+  // Before downloading: will this version's Word file keep the student's own design? (So the page can say so first.)
+  app.get("/api/applications/:id/word-layout", route(async (req, res, ctx) => {
+    const a = getApp(ctx, String(req.params.id));
+    const v = req.query.v ? a.versions.find((x) => x.v === Number(req.query.v)) : a.versions[a.versions.length - 1];
+    if (!v) bad("Approve this application first.", 409);
+    const out = await ownWordFile(ctx, v!.resume);
+    res.json(!out ? { layout: "remy", reason: "not-word" } : "failed" in out || !out.buf ? { layout: "remy", reason: "unreadable", missed: [] } : out.missed.length ? { layout: "remy", reason: "missed", missed: out.missed.slice(0, 5), more: Math.max(0, out.missed.length - 5) } : { layout: "original" });
   }));
 
   app.get("/api/applications/:id/export", route(async (req, res, ctx) => {
@@ -1280,15 +1655,12 @@ Return JSON:
     const contact = [v!.resume.contact.location, v!.resume.contact.email, v!.resume.contact.phone].filter(Boolean).join(" | ");
     let buf: Buffer;
     const style = ctx.ws.resume?.style;
-    if (kind === "resume" && fmt === "docx" && ctx.ws.resume?.original?.mime.includes("wordprocessingml")) {
+    const own = kind === "resume" && fmt === "docx" ? await ownWordFile(ctx, v!.resume) : null;
+    if (own) {
       // They uploaded Word: edit their own file so it keeps their exact formatting.
-      const f = await getFile(ctx.me.id, "resume");
-      const before = new Map(ctx.ws.resume.doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => [b.id, b.text] as const))));
-      const edits = v!.resume.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets)).filter((b) => before.has(b.id) && before.get(b.id) !== b.text).map((b) => ({ from: before.get(b.id)!, to: b.text }));
-      const out = f ? await editDocx(f.data, edits).catch(() => null) : null;
-      if (out && !out.missed.length) buf = out.buf;
-      else buf = await resumeDocx(v!.resume, style); // a change couldn't be placed in their file: use Remy's clean layout rather than ship a half-edited file
-      res.setHeader("X-Remy-Layout", out && !out.missed.length ? "original" : "remy");
+      const kept = own.buf && !own.missed.length ? own.buf : null;
+      buf = kept || (await resumeDocx(v!.resume, style)); // a change couldn't be placed in their file: use Remy's clean layout rather than ship a half-edited file
+      res.setHeader("X-Remy-Layout", kept ? "original" : "remy");
     } else if (kind === "resume") buf = fmt === "docx" ? await resumeDocx(v!.resume, style) : fmt === "pdf" ? await resumePdf(v!.resume, style) : Buffer.from(resumeTxt(v!.resume));
     else buf = fmt === "docx" ? await letterDocx(v!.resume.contact.name, contact, v!.letter) : fmt === "pdf" ? await letterPdf(v!.resume.contact.name, contact, v!.letter) : Buffer.from(v!.letter);
     const mime = fmt === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : fmt === "pdf" ? "application/pdf" : "text/plain; charset=utf-8";
@@ -1311,7 +1683,8 @@ Return JSON:
     res.json({ flags, workspace: ctx.ws });
   }));
 
-  // ---------- school email verification (unlocks alumni) ----------
+  // ---------- school email verification (unlocks school-specific tools) ----------
+  const signedIn = (me: Me) => me.kind === "google" || me.kind === "supabase" || me.kind === "local";
   app.post("/api/school-email/start", route(async (req, res, ctx) => {
     if (!signedIn(ctx.me)) bad("Sign in first, so the verification stays with your account.", 401);
     const email = String(req.body?.email || "").trim().toLowerCase();
@@ -1386,50 +1759,6 @@ Return JSON:
   }));
 
   // ---------- community outreach ----------
-  app.post("/api/community/sample", route(async (_req, res, ctx) => {
-    for (const c of SAMPLE_CONTACTS) if (!ctx.ws.contacts.some((x) => x.id === c.id)) ctx.ws.contacts.push(c);
-    await ctx.save();
-    res.json(ctx.ws);
-  }));
-  // TCU alumni matched to this student (top matches only; the list stays server-side).
-  // Alumni names and emails are personal data: only students signed in with a school
-  // email see matches, the match list carries no emails, and a student can only save
-  // alumni from their own current matches.
-  const schoolEmail = (me: Me) => ALUMNI_DOMAINS.some((d) => me.email.toLowerCase().endsWith("@" + d));
-  const signedIn = (me: Me) => me.kind === "google" || me.kind === "supabase" || me.kind === "local";
-  const alumniOk = (me: Me) => me.kind === "local" || (signedIn(me) && (schoolEmail(me) || !!me.schoolEmail));
-  const myMatches = (ctx: Ctx) => {
-    const companies = Array.from(new Set([...ctx.ws.savedJobIds, ...ctx.ws.applications.map((a) => a.jobId)].map((id) => findJob(ctx.ws, id)?.company).filter(Boolean) as string[]));
-    return matchAlumni(ctx.ws, companies);
-  };
-  app.get("/api/community/alumni", route(async (_req, res, ctx) => {
-    const list = alumniList();
-    const base = { source: list.source, total: list.alumni.length, matches: [] };
-    if (!signedIn(ctx.me)) return res.json({ ...base, signInRequired: true });
-    if (!alumniOk(ctx.me)) return res.json({ ...base, schoolEmailRequired: true, domains: ALUMNI_DOMAINS });
-    if (!allow("alumni:" + ctx.me.id, 30, 60 * 60_000)) bad("You've refreshed your alumni matches a lot. Please try again in an hour.", 429);
-    res.json({ ...base, matches: myMatches(ctx).map(({ email, ...rest }) => rest) });
-  }));
-  app.post("/api/community/alumni/:id/contact", route(async (req, res, ctx) => {
-    if (!alumniOk(ctx.me)) bad(`Sign in with your ${ALUMNI_DOMAINS.map((d) => "@" + d).join(" or ")} email to contact TCU alumni.`, 403);
-    const a = myMatches(ctx).find((x) => x.id === String(req.params.id));
-    if (!a) bad("That alum isn't in your current matches.", 404);
-    if (!ctx.ws.contacts.some((x) => x.id === "alum-" + a!.id) && !allow("alumni-contact:" + ctx.me.id, 25, 24 * 60 * 60_000))
-      bad("You've saved 25 alumni today. Reach out to those first, then come back tomorrow.", 429);
-    const id = "alum-" + a!.id;
-    let c = ctx.ws.contacts.find((x) => x.id === id);
-    if (!c) {
-      c = {
-        id, name: a!.name, title: a!.title || a!.role, org: a!.employer, email: a!.email,
-        why: `TCU alum${a!.year ? `, Class of ${a!.year}` : ""} · ${[a!.industry, a!.location].filter(Boolean).join(" · ")}${a!.majors.length ? ` · ${a!.majors.join("/")} major` : ""}`,
-        tags: ["TCU alumni list", a!.industry, a!.role].filter(Boolean), label: "Live",
-      };
-      ctx.ws.contacts.unshift(c);
-      await ctx.save();
-    }
-    res.json({ contact: c, workspace: ctx.ws });
-  }));
-
   // Outreach email from the student's own answers to Remy's questions. Follows the
   // career office's informational-interview guide; never leaves placeholders.
   app.post("/api/ai/outreach", route(async (req, res, ctx) => {
@@ -1448,7 +1777,7 @@ Return JSON:
       out = await withAi(ctx, "Draft outreach", () =>
         aiJson<{ subject: string; body: string; linkedin: string }>(
           `You write a university student's networking email, following their career office's guidance for informational interviews: say who you are (school, year, major), how you found the person, why them specifically, ask for a 20-30 minute conversation (phone, Zoom or in person) and offer flexibility; warm, specific, professional, under 170 words. Use ONLY the facts and answers given — never invent experience, mutual connections or details. Never use placeholders or brackets of any kind: if a detail is unknown, leave it out. End with the student's sign-off exactly as given. Also write a LinkedIn connection note under 200 characters.`,
-          `TO: ${c!.name}, ${c!.title} at ${c!.org}\nABOUT THEM: ${c!.why}\nHOW THE STUDENT FOUND THEM: ${c!.tags.includes("TCU alumni list") ? "the TCU Neeley alumni networking list from the career office" : "student-added contact"}\nSTUDENT:\n${profileSummary(ctx.ws)}\nRESUME HIGHLIGHTS: ${ctx.ws.resume ? ctx.ws.resume.doc.sections.flatMap((s) => s.entries.map((e) => [e.role, e.org].filter(Boolean).join(" at "))).slice(0, 6).join("; ") : "(none)"}\nSTUDENT'S ANSWERS:\n${answers.map((x) => `${x.q} → ${x.a}`).join("\n") || `Purpose → ${purpose}`}\nSIGN-OFF:\nBest regards,\n${sig}\n\nReturn {"subject":"","body":"","linkedin":""}`,
+          `TO: ${c!.name}, ${c!.title} at ${c!.org}\nABOUT THEM: ${c!.why}\nHOW THE STUDENT FOUND THEM: student-added contact\nSTUDENT:\n${profileSummary(ctx.ws)}\nRESUME HIGHLIGHTS: ${ctx.ws.resume ? ctx.ws.resume.doc.sections.flatMap((s) => s.entries.map((e) => [e.role, e.org].filter(Boolean).join(" at "))).slice(0, 6).join("; ") : "(none)"}\nSTUDENT'S ANSWERS:\n${answers.map((x) => `${x.q} → ${x.a}`).join("\n") || `Purpose → ${purpose}`}\nSIGN-OFF:\nBest regards,\n${sig}\n\nReturn {"subject":"","body":"","linkedin":""}`,
           1200,
         ),
       );
@@ -1456,12 +1785,11 @@ Return JSON:
       // No AI: the guide's sample structure, filled with the student's answers.
       const first = c!.name.split(/\s+/)[0];
       const ans = (i: number) => answers[i]?.a || "";
-      const alum = c!.tags.includes("TCU alumni list");
-      const school = p.school.trim() || (alum ? "TCU" : "");
+      const school = p.school.trim();
       const who = [p.classYear && p.classYear.toLowerCase(), "student", school && `at ${school}`, p.major && `studying ${p.major}`].filter(Boolean).join(" ");
       out = {
         subject: `${school ? school + " student" : "Student"} — ${ans(0) ? "quick question about your path" : "informational interview request"}`,
-        body: [`Dear ${first},`, `I'm ${me}, a ${who}. ${alum ? "I found your contact information through the TCU Neeley alumni networking list" : `I'm reaching out about your work at ${c!.org}`}${ans(1) ? ` and was especially interested in ${ans(1)}` : alum ? ` and was interested in your work at ${c!.org}` : ""}.`,
+        body: [`Dear ${first},`, `I'm ${me}, a ${who}. I'm reaching out about your work at ${c!.org}${ans(1) ? ` and was especially interested in ${ans(1)}` : ""}.`,
           ans(2), `Might you be available for a 20-30 minute conversation${ans(3) ? ` — I'm generally free ${ans(3)}` : ""}? ${ans(0) ? `I'd love to ${ans(0).replace(/^(to |i'd like to |i want to )/i, "")}.` : "I'd appreciate hearing about your experience and any advice you have."}`,
           "Thank you in advance for your consideration.", `Best regards,\n${sig}`].filter(Boolean).join("\n\n"),
         linkedin: `Hi ${first}, I'm ${school ? `a ${school}` : "a"} student interested in ${c!.org} and your path into ${c!.title || "your field"}. I'd love to connect and learn from you. — ${me}`.slice(0, 199),
@@ -1470,38 +1798,21 @@ Return JSON:
     const clean = (t: string) => t.replace(/\[[^\]]{2,80}\]/g, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
     const d = { id: uid("o"), contactId: c!.id, to: c!.email, subject: clean(String(out.subject || "")), body: clean(String(out.body || "")), linkedin: clean(String(out.linkedin || "")).slice(0, 200), status: "draft" as const, createdAt: nowIso() };
     ctx.ws.outreach.unshift(d);
+    step(ctx.ws, "outreach", c!.id);
     await ctx.save();
     res.json({ draft: d, workspace: ctx.ws });
   }));
 
   // ---------- inbox → status suggestions ----------
-  app.post("/api/inbox/sample", route(async (_req, res, ctx) => {
-    for (const m of SAMPLE_INBOX) if (!ctx.ws.inbox.some((x) => x.id === m.id)) ctx.ws.inbox.push(m);
-    await ctx.save();
-    res.json(ctx.ws);
-  }));
   app.post("/api/inbox/paste", route(async (req, res, ctx) => {
     const body = String(req.body?.body || "").slice(0, 8000);
     if (body.trim().length < 30) bad("Paste the full email text.");
-    ctx.ws.inbox.unshift({ id: uid("m"), from: String(req.body?.from || "").slice(0, 200), subject: String(req.body?.subject || "(no subject)").slice(0, 200), date: new Date().toISOString().slice(0, 10), body, label: "Pasted by student" });
+    // A pasted email often carries its own From:/Subject: lines.
+    const header = (k: string) => body.match(new RegExp(`^\\s*${k}:\\s*(.+)$`, "im"))?.[1].trim() || "";
+    ctx.ws.inbox.unshift({ id: uid("m"), from: String(req.body?.from || header("From")).slice(0, 200), subject: String(req.body?.subject || header("Subject") || "(no subject)").slice(0, 200), date: new Date().toISOString().slice(0, 10), body, label: "Pasted by student" });
     await ctx.save();
     res.json(ctx.ws);
   }));
-
-  function rulesClassify(text: string): { status: TrackStatus | "Unclear"; evidence: string } {
-    const sentences = text.split(/(?<=[.!?])\s+|\n+/).map((s) => s.trim()).filter(Boolean);
-    const tests: [TrackStatus, RegExp][] = [
-      ["Offer", /\b(pleased to offer|offer of (employment|internship)|extend (you )?an offer|congratulations[^.]*offer)\b/i],
-      ["Rejected", /\b(not (be )?moving forward|unable to offer|decided to (pursue|move forward with) other|regret to inform|not selected)\b/i],
-      ["Interview", /\b(invite you to (an? |a )?(first-round |final-round )?interview|schedule (an |your )?interview|interview invitation|superday|choose a time)\b/i],
-      ["Received", /\b(received your application|application (has been )?received|thank you for applying|confirms? (that )?we have received)\b/i],
-    ];
-    for (const [status, re] of tests) {
-      const s = sentences.find((x) => re.test(x));
-      if (s) return { status, evidence: s };
-    }
-    return { status: "Unclear", evidence: "" };
-  }
 
   app.post("/api/inbox/:id/classify", route(async (req, res, ctx) => {
     const m = ctx.ws.inbox.find((x) => x.id === req.params.id);
@@ -1574,7 +1885,7 @@ Return JSON:
   // ---------- calendar export ----------
   app.get("/api/calendar.ics", route(async (req, res, ctx) => {
     const id = req.query.id ? String(req.query.id) : null;
-    const items = ctx.ws.calendar.filter((c) => !id || c.id === id);
+    const items = id?.startsWith("career") ? [] : ctx.ws.calendar.filter((c) => !id || c.id === id);
     const esc = (s: string) => s.replace(/[,;\\]/g, (m) => "\\" + m).replace(/\r\n|\r|\n/g, "\\n");
     const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Remy//EN", "CALSCALE:GREGORIAN"];
     for (const c of items) {
@@ -1585,6 +1896,12 @@ Return JSON:
         lines.push(`DTSTART:${d}T${t}`, `DURATION:PT1H`);
       } else lines.push(`DTSTART;VALUE=DATE:${d}`);
       lines.push(`SUMMARY:${esc(c.title)}`, `DESCRIPTION:${esc(c.notes || c.kind)}`, "END:VEVENT");
+    }
+    const ct = ctx.ws.settings.careerTime;
+    if (ct && (!id || id.startsWith("career"))) {
+      const d = new Date(centralToday() + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + ((ct.day - d.getUTCDay() + 7) % 7));
+      lines.push("BEGIN:VEVENT", "UID:career-time@remy", `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").slice(0, 15)}Z`, `DTSTART:${d.toISOString().slice(0, 10).replace(/-/g, "")}T${ct.time.replace(":", "")}00`, "DURATION:PT45M",
+        `RRULE:FREQ=WEEKLY;BYDAY=${["SU", "MO", "TU", "WE", "TH", "FR", "SA"][ct.day]}`, "SUMMARY:Career time with Remy", `DESCRIPTION:${esc("45 minutes for one real step. Open Remy: https://" + (process.env.PUBLIC_HOST || "offer-ready.onrender.com") + "/")}`, "END:VEVENT");
     }
     lines.push("END:VCALENDAR");
     res.setHeader("Content-Type", "text/calendar; charset=utf-8");

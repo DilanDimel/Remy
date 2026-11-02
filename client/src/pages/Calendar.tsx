@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Download, ExternalLink, Plus, Trash2 } from 
 import type { CalItem } from "@shared/types";
 import { download, fmtDate, rid, useStore } from "../lib/store";
 import { Modal, StatusChip } from "../components/common";
+import { careerItems } from "../components/CareerTime";
 
 const KINDS: CalItem["kind"][] = ["Deadline", "Event", "Task", "Interview", "Advising"];
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -19,7 +20,7 @@ function gcalLink(c: CalItem) {
     const n = new Date(c.date + "T12:00:00"); n.setDate(n.getDate() + 1);
     dates = `${d}/${iso(n).replace(/-/g, "")}`;
   }
-  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(c.title)}&dates=${dates}&details=${encodeURIComponent(c.notes || "Added from Remy")}`;
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(c.title)}&dates=${dates}&details=${encodeURIComponent(c.notes || "Added from Remy")}${c.id.startsWith("career-") ? "&recur=" + encodeURIComponent("RRULE:FREQ=WEEKLY") : ""}`;
 }
 
 export default function CalendarPage() {
@@ -30,8 +31,8 @@ export default function CalendarPage() {
   const [sel, setSel] = useState<CalItem | null>(null);
   const items = useMemo(() => {
     const fromTasks: CalItem[] = w.tasks.filter((t) => t.due && !t.done).map((t) => ({ id: "task-" + t.id, title: t.title, date: t.due, time: "", kind: "Task", source: "To-do", notes: t.why, linkedId: t.id }));
-    return [...w.calendar, ...fromTasks].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-  }, [w.calendar, w.tasks]);
+    return [...w.calendar, ...fromTasks, ...careerItems(w)].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  }, [w.calendar, w.tasks, w.settings.careerTime]);
   const start = new Date(month); start.setDate(1 - start.getDay());
   const days = Array.from({ length: 42 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
   const today = iso(new Date());
@@ -52,7 +53,7 @@ export default function CalendarPage() {
           <p>Items you approve live here. Export them to your own calendar whenever you like.</p>
         </div>
         <div className="row">
-          <button className="btn btn-secondary" onClick={() => download("/api/calendar.ics", "remy.ics").catch((e) => toast(e.message, true))} disabled={!w.calendar.length} data-testid="button-export-ics"><Download size={16} /> Export .ics</button>
+          <button className="btn btn-secondary" onClick={() => download("/api/calendar.ics", "remy.ics").catch((e) => toast(e.message, true))} disabled={!w.calendar.length && !w.settings.careerTime} data-testid="button-export-ics"><Download size={16} /> Export .ics</button>
           <button className="btn btn-primary" onClick={() => setEdit({ id: rid("cal"), title: "", date: today, time: "", kind: "Event", source: "Added by you", notes: "" })} data-testid="button-add-event"><Plus size={16} /> Add</button>
         </div>
       </div>
@@ -98,7 +99,8 @@ export default function CalendarPage() {
           {sel.notes && <p className="small">{sel.notes}</p>}
           <div className="row">
             <a className="btn btn-secondary btn-sm" href={gcalLink(sel)} target="_blank" rel="noreferrer" data-testid="link-gcal"><ExternalLink size={14} /> Add to Google Calendar</a>
-            {!sel.id.startsWith("task-") && <>
+            {sel.id.startsWith("career-") && <button className="btn btn-secondary btn-sm" onClick={() => download("/api/calendar.ics?id=career", "career-time.ics").catch((e) => toast(e.message, true))}><Download size={14} /> Repeating .ics</button>}
+            {!sel.id.startsWith("task-") && !sel.id.startsWith("career-") && <>
               <button className="btn btn-secondary btn-sm" onClick={() => download(`/api/calendar.ics?id=${sel.id}`, "event.ics").catch((e) => toast(e.message, true))}><Download size={14} /> .ics</button>
               <button className="btn btn-ghost btn-sm" onClick={() => { setEdit(sel); setSel(null); }}>Edit</button>
               <button className="btn btn-ghost btn-sm" style={{ color: "var(--error)" }} onClick={() => { run(() => save("calendar", w.calendar.filter((x) => x.id !== sel.id)), "Removed"); setSel(null); }}><Trash2 size={14} /> Remove</button>

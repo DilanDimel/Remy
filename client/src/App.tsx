@@ -4,11 +4,13 @@ import {
   BarChart3, Briefcase, CalendarDays, ChevronsLeft, ChevronsRight, Compass, FileText, Home as HomeIcon, Menu, Send,
   Check, Info, Minus, ShieldCheck, UserCog, Users,
 } from "lucide-react";
-import { StoreProvider, api, rid, useStore } from "./lib/store";
+import { StoreProvider, api, rid, useDraft, useStore, type Theme } from "./lib/store";
 import { go, replaceRoute, useRoute } from "./lib/router";
 const PUBLIC = new Set(["/", "/signin", "/about", "/policies", "/privacy", "/terms"]);
-import { Modal, Remy, Spinner, StatusChip } from "./components/common";
+import { BetaBadge, Modal, Remy, Rich, Spinner, StatusChip } from "./components/common";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { WhatsNew } from "./components/WhatsNew";
+import { Avatar } from "./components/ProfilePhoto";
 import { answer as answerTailor, endSession as endTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
 import Onboarding from "./pages/Onboarding";
@@ -23,6 +25,8 @@ import Accounts from "./pages/Accounts";
 import { About, Policies } from "./pages/Info";
 import Admin from "./pages/Admin";
 import type { ChatAction, Workspace } from "@shared/types";
+import { Celebrate } from "./components/Celebrate";
+import { BETA_TERMS, BETA_TERMS_LEAD, BETA_TERMS_VERSION } from "@shared/beta";
 
 const NAV = [
   { path: "/", label: "Home", icon: HomeIcon },
@@ -34,6 +38,10 @@ const NAV = [
   { path: "/progress", label: "Progress", icon: BarChart3 },
 ];
 const ACCOUNTS = { path: "/accounts", label: "Account", icon: UserCog };
+const THEME_NAME: Record<Theme, string> = { dark: "Dark mode", light: "Light mode", system: "Matching your device" };
+const NOTIFY_NAME: Record<string, string> = { "notify.deadlines": "Deadline reminders", "notify.statusChanges": "Status-change alerts", "notify.weeklyPlan": "Weekly plan emails" };
+const settingLabel = (a: Extract<ChatAction, { kind: "setting" }>) =>
+  a.key === "theme" ? (a.value === "system" ? "Match my device's theme" : `Turn on ${String(a.value)} mode`) : `Turn ${NOTIFY_NAME[a.key].toLowerCase()} ${a.value ? "on" : "off"}`;
 
 export default function App() {
   return (
@@ -63,8 +71,37 @@ function Root() {
     return <SlowLoading />;
   if (path === "/admin" && me) return <Admin />;
   if (signedOut) return <Welcome />;
+  if (ws.betaAgreed?.version !== BETA_TERMS_VERSION) return <BetaAgreement />;
   if (!ws.onboarding.done) return <Onboarding />;
   return <Shell />;
+}
+
+/** Every student agrees to the beta terms once (and again when they change) before using Remy. */
+function BetaAgreement() {
+  const { setWs, run } = useStore();
+  const [ok, setOk] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const agree = async () => {
+    setBusy(true);
+    const r = await run(() => api<Workspace>("POST", "/api/beta/agree", { version: BETA_TERMS_VERSION }));
+    if (r) setWs(r);
+    setBusy(false);
+  };
+  return (
+    <div className="landing-screen">
+      <div className="landing-card fade-up stack" data-testid="beta-agreement">
+        <div className="row" style={{ gap: 10 }}><Remy size={44} mood="wave" /><h1 style={{ fontSize: "1.4rem" }}>Before you start <BetaBadge /></h1></div>
+        <p>{BETA_TERMS_LEAD}</p>
+        <ul className="stack-sm small" style={{ paddingLeft: 18 }}>{BETA_TERMS.map((t) => <li key={t}>{t}</li>)}</ul>
+        <p className="xs muted">Read the full <a href="/policies" target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>privacy policy and terms</a>.</p>
+        <label className="row small" style={{ gap: 8, alignItems: "flex-start", flexWrap: "nowrap" }}>
+          <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} data-testid="checkbox-beta-agree" style={{ marginTop: 3 }} />
+          <span>I'm 16 or older (with a parent or guardian's OK if I'm under 18), I understand Remy is in beta, and I agree to these terms.</span>
+        </label>
+        <button className="btn btn-primary" disabled={!ok || busy} onClick={agree} data-testid="button-beta-agree">{busy ? <Spinner /> : null} Agree and continue</button>
+      </div>
+    </div>
+  );
 }
 
 // A reload checks the session in well under a second; showing Remy's loading screen for that long reads as a
@@ -132,7 +169,7 @@ function Shell() {
     <div className={`shell ${collapsed ? "nav-collapsed" : ""} ${asstOpen ? "asst-open" : ""}`}>
       <aside className="sidebar" aria-label="Main navigation">
         <div className="brand">
-          <span className="logo"><Remy size={26} /><span className="logo-text">Remy<b>.</b></span></span>
+          <span className="logo"><Remy size={26} /><span className="logo-text">Remy<b>.</b></span><BetaBadge /></span>
           <button className="icon-btn" onClick={() => save("settings", { navCollapsed: !collapsed })} aria-label={collapsed ? "Expand navigation" : "Collapse navigation"} data-testid="button-toggle-nav">
             {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
           </button>
@@ -145,9 +182,11 @@ function Shell() {
             {n.path === "/progress" && openSuggestions > 0 && <span className="count">{openSuggestions}</span>}
           </a>
         ))}
+        <div className="side-news"><WhatsNew /></div>
         <ProfileMenu initials={initials} active={path.startsWith("/accounts")} />
       </aside>
 
+      <Celebrate />
       <main className="main" id="main">
         <div className="topbar">
           <div className="crumb">Remy › <b>{current.label}</b></div>
@@ -187,6 +226,7 @@ function Shell() {
             <button className="nav-item" onClick={() => { setMore(false); go("/about"); }}><Info size={19} />About Remy</button>
             <button className="nav-item" onClick={() => { setMore(false); go("/policies"); }}><ShieldCheck size={19} />Privacy & terms</button>
             <button className="nav-item" onClick={() => { setMore(false); setFeedback(true); }}><Send size={19} />Send feedback</button>
+            <WhatsNew />
           </div>
         </Modal>
       )}
@@ -207,8 +247,8 @@ const STARTERS: Record<string, string[]> = {
 };
 
 function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () => void; flyIn: boolean }) {
-  const { ws, setWs, run, save, config } = useStore();
-  const [msg, setMsg] = useState("");
+  const { ws, setWs, run, save, config, theme, setTheme } = useStore();
+  const [msg, setMsg] = useDraft("chat");
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
   const [greeting, setGreeting] = useState(true);
@@ -247,9 +287,14 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   const remembered = new Set(ws!.memory.map((m) => m.text));
   // A button Remy offered under a reply. Already-done ones show as done, so a second tap can't add it twice.
   const roles = ws!.profile.targetRoles.split(/,\s*/).filter(Boolean);
-  const isDone = (a: ChatAction) => a.kind === "task" ? ws!.tasks.some((t) => t.title === a.title) : a.kind === "role" ? roles.some((r) => r.toLowerCase() === a.title.toLowerCase()) : false;
+  const isDone = (a: ChatAction) => a.kind === "task" ? ws!.tasks.some((t) => t.title === a.title) : a.kind === "role" ? roles.some((r) => r.toLowerCase() === a.title.toLowerCase())
+    : a.kind === "setting" ? settingNow(a.key) === a.value : false;
+  const settingNow = (key: string) => key === "theme" ? theme : ws!.settings.notify[key.split(".")[1] as keyof Workspace["settings"]["notify"]];
   const act = (a: ChatAction) => {
     if (a.kind === "open") return go(a.link);
+    // The receipt says exactly what changed and where to undo it; run() reports a failed save instead.
+    if (a.kind === "setting" && a.key === "theme") return run(() => setTheme(a.value as Theme), `${THEME_NAME[a.value as Theme]} is on. Change it anytime in Account → Appearance.`);
+    if (a.kind === "setting") return run(() => save("settings", { notify: { ...ws!.settings.notify, [a.key.split(".")[1]]: a.value } }), `${NOTIFY_NAME[a.key]} ${a.value ? "on" : "off"}. Other reminders are unchanged.`);
     if (a.kind === "task") return run(() => save("tasks", [{ id: rid("t"), title: a.title, why: a.why, due: "", category: "Prepare", done: false, source: "Remy chat" }, ...ws!.tasks]), "Added to your to-dos");
     return run(() => save("profile", { ...ws!.profile, targetRoles: [...roles, a.title].join(", ") }), `Remy will look for ${a.title} openings too`);
   };
@@ -276,8 +321,8 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
             {!!m.actions?.length && (
               <div className="row" style={{ gap: 6, maxWidth: "92%" }}>
                 {m.actions.map((a, i) => isDone(a)
-                  ? <span key={i} className="chip"><Check size={12} /> {a.kind === "task" ? "On your to-dos" : "In your search"}</span>
-                  : <button key={i} className="btn btn-secondary btn-sm" style={{ whiteSpace: "normal", height: "auto", textAlign: "left" }} onClick={() => act(a)} data-testid="button-chat-action">{a.kind === "task" ? <>Add to-do: {a.title}</> : a.kind === "role" ? <>Look for {a.title} openings</> : a.label}</button>)}
+                  ? <span key={i} className="chip"><Check size={12} /> {a.kind === "task" ? "On your to-dos" : a.kind === "setting" ? "Done" : "In your search"}</span>
+                  : <button key={i} className="btn btn-secondary btn-sm" style={{ whiteSpace: "normal", height: "auto", textAlign: "left" }} onClick={() => act(a)} data-testid="button-chat-action">{a.kind === "task" ? <>Add to-do: {a.title}</> : a.kind === "role" ? <>Look for {a.title} openings</> : a.kind === "setting" ? settingLabel(a) : a.label}</button>)}
               </div>
             )}
             {m.memorySuggestions?.filter((s) => !remembered.has(s)).map((s) => (
@@ -328,22 +373,6 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
 }
 
 
-/** Remy's replies: **bold** and "•"/"-" bullet lines, nothing else (no links or HTML from the AI). */
-function Rich({ text }: { text: string }) {
-  const bold = (line: string) => line.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 ? <b key={i}>{part}</b> : part.replace(/\*\*/g, "")));
-  const blocks: JSX.Element[] = [];
-  let items: string[] = [];
-  const flush = () => { if (items.length) blocks.push(<ul key={blocks.length} className="bubble-list">{items.map((t, i) => <li key={i}>{bold(t)}</li>)}</ul>); items = []; };
-  for (const line of text.split("\n")) {
-    const m = line.match(/^\s*(?:[•*-]|\d+[.)])\s+(.*)$/);
-    if (m) { items.push(m[1]); continue; }
-    flush();
-    if (line.trim()) blocks.push(<p key={blocks.length}>{bold(line)}</p>);
-  }
-  flush();
-  return <>{blocks}</>;
-}
-
 const MENU: [string, string][] = [["profile", "Profile"], ["settings", "Settings"], ["memory", "AI memory"], ["sources", "Connected sources"], ["data", "Account & data"]];
 
 /** The name at the bottom of the sidebar: opens Profile, Settings and the rest of Account. */
@@ -365,7 +394,7 @@ function ProfileMenu({ initials, active }: { initials: string; active: boolean }
   return (
     <div className="side-foot" ref={ref}>
       <button className={"profile-btn" + (active ? " on" : "")} onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} data-testid="button-profile-menu">
-        <div className="avatar">{me?.picture ? <img src={me.picture} alt="" referrerPolicy="no-referrer" /> : initials}</div>
+        <Avatar initials={initials} />
         <div className="side-foot-text" style={{ minWidth: 0, textAlign: "left" }}>
           <div className="small" style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ws!.profile.preferredName || ws!.profile.name || "Student"}</div>
           <div className="xs muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{kind}</div>
@@ -394,13 +423,13 @@ function ProfileMenu({ initials, active }: { initials: string; active: boolean }
 function FeedbackModal({ onClose }: { onClose: () => void }) {
   const { run } = useStore();
   const { path } = useRoute();
-  const [text, setText] = useState("");
+  const [text, setText] = useDraft("feedback");
   const [busy, setBusy] = useState(false);
   const send = async () => {
     setBusy(true);
     const ok = await run(() => api("POST", "/api/feedback", { message: text, page: path }), "Thanks! The Remy team reads every note.");
     setBusy(false);
-    if (ok) onClose();
+    if (ok) { setText(""); onClose(); }
   };
   return (
     <Modal title="Send feedback" onClose={onClose}>

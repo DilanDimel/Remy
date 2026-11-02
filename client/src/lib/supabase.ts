@@ -55,6 +55,8 @@ export async function finishSupabaseRedirect(config: AppConfig | null): Promise<
   }
   try {
     const { data, error } = await sb(config.supabase).auth.exchangeCodeForSession(code!);
+    // A sign-in link only works in the browser that asked for it (its secret half stays there).
+    if (error && /verifier|flow state/i.test(error.message)) throw new Error("That sign-in link was opened in a different browser or device than the one that asked for it. Sign in again here; email sign-in now uses a code that works on any device.");
     if (error || !data.session) throw error || new Error("Sign-in didn't return a session.");
     const accessToken = data.session.access_token;
     const cfg = config.supabase;

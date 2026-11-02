@@ -73,7 +73,13 @@ interface Store {
   refresh: () => Promise<void>;
   toast: (text: string, err?: boolean) => void;
   run: <T>(fn: () => Promise<T>, ok?: string) => Promise<T | undefined>;
+  /** Light, dark or "system" (match the device). Visitors keep it in this browser; students also in their account. */
+  theme: Theme;
+  setTheme: (t: Theme) => Promise<void>;
 }
+export type Theme = "system" | "light" | "dark";
+const THEME_KEY = "remy.theme";
+const readLocalTheme = (): Theme => { try { const t = localStorage.getItem(THEME_KEY); return t === "light" || t === "dark" ? t : "system"; } catch { return "system"; } };
 const Ctx = createContext<Store>(null as any);
 export const useStore = () => useContext(Ctx);
 
@@ -94,9 +100,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), err ? 6000 : 3200);
   }, []);
 
+  // When the data was last loaded, the build this tab runs, and saves in flight (a quiet refresh must not overwrite them).
+  const lastLoad = useRef(Date.now());
+  const build = useRef<string | undefined>(undefined);
+  const saveSeq = useRef(0);
+  const savingNow = useRef(0);
+  const [updated, setUpdated] = useState(false);
+
   const refresh = useCallback(async () => {
     const c = await api<AppConfig>("GET", "/api/config");
     setConfig(c);
+    build.current = c.build;
+    lastLoad.current = Date.now();
     // Coming back from a Supabase sign-in or connector consent screen.
     try {
       const back = await finishSupabaseRedirect(c);
@@ -118,15 +133,86 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     refresh().catch((e) => toast(e.message, true)).finally(() => setLoading(false));
   }, [refresh, toast]);
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = ws?.settings.theme === "dark" ? "dark" : "light";
-  }, [ws?.settings.theme]);
-
-  const save = useCallback(async (section: string, value: unknown) => {
-    const w = await api<Workspace>("PUT", `/api/ws/${section}`, { value });
-    setWsState(w);
-    return w;
+  // A tab left open goes stale: when the student comes back (or every 15 minutes while it stays open), load again.
+  // Only what changed is replaced, and never while a save is in flight, so nothing they're typing is lost.
+  const softRefresh = useCallback(async () => {
+    if (savingNow.current) return;
+    const seq = saveSeq.current;
+    lastLoad.current = Date.now();
+    const c = await api<AppConfig>("GET", "/api/config").catch(() => null);
+    if (c) {
+      if (build.current && c.build && c.build !== build.current) setUpdated(true);
+      setConfig((prev) => (prev && JSON.stringify(prev) === JSON.stringify(c) ? prev : c));
+    }
+    const m = await api<{ me: Me | null; workspace: Workspace | null }>("GET", "/api/me").catch(() => null);
+    if (!m || seq !== saveSeq.current || savingNow.current) return;
+    setMe((prev) => (JSON.stringify(prev) === JSON.stringify(m.me) ? prev : m.me));
+    setWsState((prev) => {
+      const next = m.workspace;
+      if (!prev || !next) return next;
+      // Keep every unchanged section as the same object, so forms showing it (Profile, setup review) aren't reset.
+      let changed = false;
+      const merged = { ...next } as Record<string, unknown>;
+      for (const k of Object.keys(merged)) {
+        const old = (prev as unknown as Record<string, unknown>)[k];
+        if (JSON.stringify(old) === JSON.stringify(merged[k])) merged[k] = old;
+        else changed = true;
+      }
+      if (Object.keys(prev).length !== Object.keys(next).length) changed = true;
+      return changed ? (merged as unknown as Workspace) : prev;
+    });
   }, []);
+  useEffect(() => {
+    const visible = () => document.visibilityState === "visible";
+    const onBack = () => { if (visible() && Date.now() - lastLoad.current > 5 * 60_000) softRefresh().catch(() => {}); };
+    const t = setInterval(() => { if (visible() && Date.now() - lastLoad.current > 15 * 60_000) softRefresh().catch(() => {}); }, 60_000);
+    document.addEventListener("visibilitychange", onBack);
+    window.addEventListener("focus", onBack);
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", onBack); window.removeEventListener("focus", onBack); };
+  }, [softRefresh]);
+
+  // Theme: the account's choice when signed in, else this browser's; "system" follows the device, live.
+  const [localTheme, setLocalTheme] = useState<Theme>(readLocalTheme);
+  const theme: Theme = (ws?.settings.theme as Theme) || localTheme;
+  useEffect(() => {
+    const mq = matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => { document.documentElement.dataset.theme = theme === "system" ? (mq.matches ? "dark" : "light") : theme; };
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, [theme]);
+
+  // Save status everyone can see: "Saving…" only if it takes a moment, and a failed save keeps its value for Retry.
+  const [saving, setSaving] = useState(0);
+  const [failed, setFailed] = useState<{ section: string; value: unknown } | null>(null);
+  const save = useCallback(async (section: string, value: unknown) => {
+    setSaving((n) => n + 1);
+    saveSeq.current++;
+    savingNow.current++;
+    try {
+      const w = await api<Workspace>("PUT", `/api/ws/${section}`, { value });
+      setWsState(w);
+      setFailed((f) => (f?.section === section ? null : f));
+      return w;
+    } catch (e) {
+      setFailed({ section, value });
+      throw e;
+    } finally {
+      setSaving((n) => n - 1);
+      savingNow.current--;
+    }
+  }, []);
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!saving) { setSlow(false); return; }
+    const t = setTimeout(() => setSlow(true), 600);
+    return () => clearTimeout(t);
+  }, [saving]);
+  const setTheme = useCallback(async (t: Theme) => {
+    setLocalTheme(t);
+    try { if (t === "system") localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, t); } catch {}
+    if (ws) await save("settings", { theme: t, themeChosen: true });
+  }, [ws, save]);
 
   const run = useCallback(async <T,>(fn: () => Promise<T>, ok?: string) => {
     try {
@@ -139,15 +225,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [toast]);
 
+  // Any workspace the app sets (an AI result, a search) is newer than a quiet refresh still on its way.
+  const setWs = useCallback((w: Workspace) => { saveSeq.current++; setWsState(w); }, []);
   const value = useMemo<Store>(() => ({
-    config, me, ws, loading, toast, refresh, save, run,
-    setWs: setWsState,
+    config, me, ws, loading, toast, refresh, save, run, theme, setTheme,
+    setWs,
     setSession: (m, w) => { setMe(m); setWsState(w); },
-  }), [config, me, ws, loading, toast, refresh, save, run]);
+  }), [config, me, ws, loading, toast, refresh, save, run, theme, setTheme, setWs]);
 
   return (
     <Ctx.Provider value={value}>
       {children}
+      {(failed || slow) && (
+        <div className={"save-status" + (failed ? " err" : "")} role="status" data-testid="save-status">
+          {failed && !saving ? <>Couldn't save your last change. <button onClick={() => save(failed.section, failed.value).catch(() => {})}>Retry</button></> : "Saving…"}
+        </div>
+      )}
+      {updated && (
+        <div className="save-status update-bar" role="status" data-testid="update-bar">
+          Remy was updated. <button onClick={() => location.reload()} data-testid="button-reload">Reload</button>
+        </div>
+      )}
       <div className="toast-wrap" aria-live="polite">
         {toasts.map((t) => <div key={t.id} className={"toast" + (t.err ? " err" : "")} data-testid="toast">{t.text}</div>)}
       </div>
@@ -160,9 +258,18 @@ export const fmtDate = (d: string) => {
   const dt = new Date(d.length === 10 ? d + "T12:00:00" : d);
   return isNaN(+dt) ? d : dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 };
+/** Calendar days from today to a date: today 0, tomorrow 1 (noon-to-noon, so daylight saving can't shift it). */
 export const daysUntil = (d: string) => {
   if (!d) return null;
-  const t = new Date(d + "T23:59:00").getTime();
-  return Math.ceil((t - Date.now()) / 86_400_000);
+  const t = new Date(d.slice(0, 10) + "T12:00").getTime();
+  return isNaN(t) ? null : Math.round((t - new Date(new Date().toLocaleDateString("en-CA") + "T12:00").getTime()) / 86_400_000);
 };
 export const rid = (p = "") => p + Math.random().toString(36).slice(2, 10);
+
+/** Text someone is still typing, kept in this browser so a refresh or a closed tab doesn't lose it. */
+export function useDraft(key: string) {
+  const k = "remy.draft." + key;
+  const [v, setV] = useState(() => { try { return localStorage.getItem(k) || ""; } catch { return ""; } });
+  const set = useCallback((x: string) => { setV(x); try { if (x) localStorage.setItem(k, x); else localStorage.removeItem(k); } catch {} }, [k]);
+  return [v, set] as const;
+}

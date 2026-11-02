@@ -19,6 +19,9 @@ export const lastUsedModel = () => lastModel || model();
 // shortcut: one value for the whole process, so two calls finishing together can swap costs; per-request tracking if exact billing matters.
 let lastSpend: number | undefined;
 export const lastCost = () => lastSpend;
+let lastSources: { url: string; title: string }[] = [];
+/** Web pages the last answer cited (only web-search models like Perplexity Sonar return them). */
+export const lastCitations = () => lastSources;
 // "gemini" uses Google's OpenAI-compatible Chat Completions endpoint.
 const provider = () => (process.env.OR_AI_PROVIDER || "openai").toLowerCase();
 
@@ -161,6 +164,8 @@ export async function aiText(system: string, user: string, maxTokens = 1200, cha
           lastModel = m;
           lastVia = PROVIDERS[p]?.label || "";
           lastSpend = typeof r.usage?.cost === "number" ? r.usage.cost : undefined;
+          const ann = (r.choices?.[0]?.message?.annotations || []).filter((a: any) => a?.type === "url_citation").map((a: any) => ({ url: String(a.url_citation?.url || ""), title: String(a.url_citation?.title || "") }));
+          lastSources = ann.length ? ann : (Array.isArray(r.citations) ? r.citations : []).map((u: any) => ({ url: String(u), title: "" }));
           return out;
         } catch (e: any) {
           lastErr = e;

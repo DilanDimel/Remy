@@ -1,5 +1,5 @@
-import { useEffect, type ReactNode } from "react";
-import { X } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Check, Copy, X } from "lucide-react";
 import type { Label } from "@shared/types";
 
 export type RemyMood = "idle" | "wave" | "think" | "happy";
@@ -88,5 +88,47 @@ export function AiUnavailableNote() {
       <strong>AI needs setup.</strong>
       <div>This server has no AI model configured, so AI-written drafts are unavailable. Uploads, editing, checks and exports still work.</div>
     </div>
+  );
+}
+
+/** Remy is still in development; shown beside the logo everywhere. */
+export const BetaBadge = () => <span className="beta-badge" title="Remy is in development: features may change or be unfinished">Beta</span>;
+
+/** Remy's replies: **bold** and "•"/"-" bullet lines, nothing else (no links or HTML from the AI). */
+export function Rich({ text }: { text: string }) {
+  const bold = (line: string) => line.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 ? <b key={i}>{part}</b> : part.replace(/\*\*/g, "")));
+  const blocks: JSX.Element[] = [];
+  let items: string[] = [];
+  const flush = () => { if (items.length) blocks.push(<ul key={blocks.length} className="bubble-list">{items.map((t, i) => <li key={i}>{bold(t)}</li>)}</ul>); items = []; };
+  for (const line of text.split("\n")) {
+    const m = line.match(/^\s*(?:[•*-]|\d+[.)])\s+(.*)$/);
+    if (m) { items.push(m[1]); continue; }
+    flush();
+    if (line.trim()) blocks.push(<p key={blocks.length}>{bold(line)}</p>);
+  }
+  flush();
+  return <>{blocks}</>;
+}
+
+/** Long AI work: names the stages Remy goes through, in order, so a wait doesn't look frozen. Stays on the last one. */
+export function WorkingSteps({ steps, every = 4000 }: { steps: string[]; every?: number }) {
+  const [i, setI] = useState(0);
+  useEffect(() => { const t = setInterval(() => setI((n) => Math.min(n + 1, steps.length - 1)), every); return () => clearInterval(t); }, [steps.length, every]);
+  return (
+    <div className="working-steps" role="status" aria-live="polite" data-testid="working-steps">
+      {steps.map((s, k) => <span key={s} className={k < i ? "done" : k === i ? "now" : ""}>{k < i ? <Check size={12} /> : k === i ? <Spinner /> : <i />}{s}</span>)}
+    </div>
+  );
+}
+
+/** Copy with a visible "Copied" checkmark on the button itself (not only a toast far away). */
+export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+  const [done, setDone] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const copy = () => navigator.clipboard.writeText(text).then(() => { setDone(true); setTimeout(() => setDone(false), 1600); }, () => setFailed(true));
+  return (
+    <button className={"btn btn-ghost btn-sm" + (done ? " copied" : "")} onClick={copy} aria-live="polite">
+      {done ? <><Check size={14} style={{ color: "var(--success, #22a05a)" }} /> Copied</> : failed ? "Select and copy it" : <><Copy size={14} /> {label}</>}
+    </button>
   );
 }

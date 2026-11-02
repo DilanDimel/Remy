@@ -1,5 +1,6 @@
 // Tailored resumes for students who uploaded a Word file: change only the text of the edited bullets inside
 // their own .docx, so fonts, spacing, bullets, columns and everything else stay exactly as they made it.
+import type { ResumeDoc, ResumeStyle } from "@shared/types";
 import JSZip from "jszip";
 
 const decode = (s: string) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
@@ -28,14 +29,20 @@ export async function editDocx(buf: Buffer, edits: { from: string; to: string }[
   const used = new Set<number>();
   const missed: string[] = [];
   const replacements: { start: number; len: number; xml: string }[] = [];
+  const inRun: { from: string; to: string }[] = [];
   for (const e of edits) {
     let best = -1, score = 0;
     paras.forEach((p, i) => {
-      if (used.has(i) || !p.text.trim()) return;
+      // A paragraph holding several lines (line breaks) is never replaced whole; its lines are edited one by one below.
+      if (used.has(i) || !p.text.trim() || p.xml.includes("<w:br")) return;
       const s = norm(p.text) === norm(e.from) ? 1 : overlap(e.from, p.text);
       if (s > score) { score = s; best = i; }
     });
-    if (best < 0 || score < 0.6) { missed.push(e.from); continue; }
+    if (best < 0 || score < 0.6) {
+      // Some files keep several bullets in one paragraph, split by line breaks: edit the exact line inside its text run.
+      inRun.push(e);
+      continue;
+    }
     used.add(best);
     const p = paras[best];
     let first = true;
@@ -47,13 +54,84 @@ export async function editDocx(buf: Buffer, edits: { from: string; to: string }[
     replacements.push({ start: p.start, len: p.xml.length, xml: out });
   }
   for (const r of replacements.sort((a, b) => b.start - a.start)) xml = xml.slice(0, r.start) + r.xml + xml.slice(r.start + r.len);
+  for (const e of inRun) {
+    const from = e.from.trim();
+    let hit = false;
+    xml = xml.replace(T, (m, inner) => {
+      if (hit || inner === undefined || !decode(inner).includes(from)) return m;
+      hit = true;
+      return m.replace(/>[\s\S]*<\/w:t>$/, ` xml:space="preserve">${encode(decode(inner).replace(from, e.to))}</w:t>`).replace(/ xml:space="preserve"( xml:space="preserve")+/, ' xml:space="preserve"');
+    });
+    if (!hit) missed.push(e.from);
+  }
   zip.file("word/document.xml", xml);
   return { buf: await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }), missed };
 }
 
+const paragraphs = (xml: string) => [...xml.matchAll(/<w:p[ >][\s\S]*?<\/w:p>/g)].map((m) => ({ start: m.index!, xml: m[0], text: decode([...m[0].matchAll(T)].map((t) => t[1] || "").join("")) }));
+/** The paragraph's text replaced, keeping its first run's formatting and the paragraph's bullet and spacing. */
+const retext = (pxml: string, text: string) => {
+  let first = true;
+  return pxml.replace(T, (m) => {
+    if (!first) return m.endsWith("/>") ? m : m.replace(/>[\s\S]*<\/w:t>$/, "></w:t>");
+    first = false;
+    return `<w:t xml:space="preserve">${encode(text)}</w:t>`;
+  });
+};
+
+/** The approved resume written into the student's own Word file. The diff is against the FILE (not Remy's copy), so
+ *  lines changed in Remy before tailoring count too: a reworded line replaces its closest match, an added line goes
+ *  right after the line before it (copying that line's bullet and font), a line deleted in Remy is removed.
+ *  Returns missed lines when something can't be placed, so the caller uses Remy's own layout instead. */
+export async function editResumeDocx(buf: Buffer, base: ResumeDoc, version: ResumeDoc, removed: string[] = []): Promise<{ buf: Buffer; missed: string[] }> {
+  const zip = await JSZip.loadAsync(buf);
+  const xml0 = await zip.file("word/document.xml")?.async("string");
+  if (!xml0) throw new Error("Not a Word document");
+  const file = paragraphs(xml0).map((p) => p.text).filter((t) => t.trim());
+  const flat = decode([...xml0.matchAll(T)].map((t) => t[1] || "").join(" "));
+  const has = (t: string) => file.some((p) => norm(p) === norm(t)) || flat.includes(t.trim());
+  const baseById = new Map(base.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => [b.id, b.text] as const))));
+  const kept = new Set(version.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.filter((b) => has(b.text)).map((b) => norm(b.text)))));
+  const replace: { from: string; to: string }[] = [], add: { after: string; add: string }[] = [], missed: string[] = [];
+  const taken = new Set<string>();
+  for (const e of version.sections.flatMap((s) => s.entries)) {
+    let prev = "";
+    for (const b of e.bullets) {
+      if (has(b.text)) { prev = b.text; continue; }
+      const old = baseById.get(b.id);
+      const near = file.filter((p) => !kept.has(norm(p)) && !taken.has(p)).map((p) => [p, overlap(b.text, p)] as const).sort((x, y) => y[1] - x[1])[0];
+      const from = old && has(old) && !kept.has(norm(old)) ? old : near && near[1] >= 0.6 ? near[0] : "";
+      if (from) { taken.add(from); replace.push({ from, to: b.text }); }
+      else if (prev) add.push({ after: prev, add: b.text });
+      else missed.push(b.text);
+      prev = b.text;
+    }
+  }
+  const versionIds = new Set(version.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => b.id))));
+  // Only lines Remy knows were deleted (a file line Remy never read isn't touched).
+  const remove = [...new Set([...[...baseById].filter(([id]) => !versionIds.has(id)).map(([, t]) => t), ...removed])].filter((t) => file.some((p) => norm(p) === norm(t)) && !kept.has(norm(t)));
+  const first = await editDocx(buf, replace);
+  missed.push(...first.missed);
+  if (missed.length || (!add.length && !remove.length)) return { buf: first.buf, missed };
+  const z2 = await JSZip.loadAsync(first.buf);
+  let xml = await z2.file("word/document.xml")!.async("string");
+  for (const r of remove) {
+    const p = paragraphs(xml).find((x) => norm(x.text) === norm(r) && !x.xml.includes("<w:br"));
+    if (p) xml = xml.slice(0, p.start) + xml.slice(p.start + p.xml.length); else missed.push(r);
+  }
+  for (const a of add) {
+    const p = paragraphs(xml).find((x) => norm(x.text) === norm(a.after) && !x.xml.includes("<w:br"));
+    if (!p) { missed.push(a.add); continue; }
+    const at = p.start + p.xml.length;
+    xml = xml.slice(0, at) + retext(p.xml, a.add) + xml.slice(at);
+  }
+  z2.file("word/document.xml", xml);
+  return { buf: await z2.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }), missed };
+}
+
 const SERIF = /times|georgia|garamond|cambria|book antiqua|palatino|baskerville|bodoni|century schoolbook|didot|minion|constantia|bookman|caslon/i;
 /** How the student's Word file looks (font family, body size, left margin, pages), so Remy's PDF can match it. */
-export async function docxStyle(buf: Buffer): Promise<{ serif: boolean; size: number; margin: number; pages: number } | null> {
+export async function docxStyle(buf: Buffer): Promise<ResumeStyle | null> {
   const zip = await JSZip.loadAsync(buf);
   const doc = await zip.file("word/document.xml")?.async("string");
   if (!doc) return null;
@@ -65,5 +143,9 @@ export async function docxStyle(buf: Buffer): Promise<{ serif: boolean; size: nu
   const half = Number(tally(doc, /<w:sz w:val="(\d+)"/g) || normal.match(/<w:sz w:val="(\d+)"/)?.[1] || styles.match(/<w:docDefaults>[\s\S]*?<w:sz w:val="(\d+)"/)?.[1] || 21);
   const left = Number(doc.match(/<w:pgMar[^>]*w:left="(\d+)"/)?.[1] || 1440);
   const pages = Number(app.match(/<Pages>(\d+)<\/Pages>/)?.[1] || 1);
-  return { serif: SERIF.test(font), size: Math.min(12, Math.max(9, half / 2)), margin: Math.min(72, Math.max(28, Math.round(left / 20))), pages: Math.max(1, pages) };
+  const mono = /mono|courier|consolas/i.test(font);
+  // Headers and footers too: templates often put the contact line in a header table or text box.
+  const edges = (await Promise.all(Object.keys(zip.files).filter((n) => /^word\/(header|footer)\d*\.xml$/.test(n)).map((n) => zip.file(n)!.async("string")))).join("");
+  const layout = { tables: /<w:tbl>/.test(doc + edges), textBoxes: /<w:txbxContent>/.test(doc + edges), columns: /<w:cols\b[^>]*w:num="[2-9]"/.test(doc) };
+  return { serif: !mono && SERIF.test(font), mono, italic: /<w:i\/>|<w:i w:val="(1|true)"/.test(doc), font: font || undefined, size: Math.min(12, Math.max(9, half / 2)), margin: Math.min(96, Math.max(28, Math.round(left / 20))), pages: Math.max(1, pages), layout };
 }

@@ -28,3 +28,121 @@ test("base resume score ignores openings: same resume, same score, scaled to 100
   assert.equal(a.categories.reduce((n, c) => n + c.max, 0), 75);
   assert.ok(a.score <= 100 && a.score >= Math.round(a.categories.reduce((n, c) => n + c.score, 0)));
 });
+
+test("keywords match what the resume shows, not just the posting's exact phrase", async () => {
+  const { hasKeyword, isSkillKeyword } = await import("./ats");
+  const r = "B.S. Mechanical Engineering, Expected May 2027. Led 5 students designing a steel tube frame in SolidWorks.";
+  assert.ok(hasKeyword(r, "Pursuing Mechanical Engineering"));
+  assert.ok(hasKeyword(r, "CAD experience"));
+  assert.ok(hasKeyword(r, "Bachelor's Degree Pursuit"));
+  assert.ok(!hasKeyword(r, "Python"));
+  assert.ok(!hasKeyword(r, "Teamwork and communication"), "nothing shows communication");
+  assert.ok(!isSkillKeyword("Background Check"));
+});
+
+test("keywords match whole word families, never just the first 5 letters", async () => {
+  const { hasKeyword } = await import("./ats");
+  // Real bugs found in the Nov 2026 tests: a shared 5-letter start counted as having the skill.
+  assert.ok(!hasKeyword("Built pivot tables in Excel to track dues.", "Tableau"));
+  assert.ok(!hasKeyword("Used CFD to compute drag on the wing. Bachelor of Science.", "computer science"));
+  assert.ok(!hasKeyword("Accounted for weekly cash drawer totals.", "Accountability"));
+  // Same word family still counts.
+  assert.ok(hasKeyword("Built three financial models in Excel.", "financial modeling"));
+  assert.ok(hasKeyword("Sorted donations for the food bank.", "sorting"));
+  assert.ok(hasKeyword("Managed a team of four.", "management"));
+  assert.ok(hasKeyword("Planned the spring banquet.", "planning"));
+  assert.ok(hasKeyword("Studied consumer behavior.", "studies"));
+  assert.ok(hasKeyword("Wrote Python and C++ scripts.", "C++"));
+});
+
+test("keywords: roles count for their skill, and everyday resume words still match", async () => {
+  const { hasKeyword } = await import("./ats");
+  const yes: [string, string][] = [
+    ["Analyzed sales data for 3 stores.", "data analysis"],
+    ["Shift Manager at Chick-fil-A.", "management"],
+    ["Team leader for the robotics club.", "leadership"],
+    ["Organized a 200-person career fair.", "organizational skills"],
+    ["Presented findings to the VP.", "presentation skills"],
+    ["Statistical modeling in R.", "statistics"],
+    ["Accountant intern at BDO.", "accounting"],
+    ["Event coordinator for NABA.", "coordination"],
+    ["Mentored 5 freshmen.", "mentorship"],
+    ["Researcher in the Smith lab.", "research"],
+    ["Strong at problem solving.", "problem-solving"],
+    ["Worked with cross functional teams.", "cross-functional"],
+    ["Built financial models.", "finance"],
+  ];
+  for (const [text, kw] of yes) assert.ok(hasKeyword(text, kw), `${kw} should match: ${text}`);
+  assert.ok(!hasKeyword("Canvas LMS admin for 3 courses.", "Canva"));
+  assert.ok(!hasKeyword("Wrote a script to compute drag.", "computer"));
+});
+
+test("keywords: dates, sales terms and job titles don't pass as skills", async () => {
+  const { hasKeyword } = await import("./ats");
+  assert.ok(!hasKeyword("Barista, Starbucks, Aug 2025 – Present. Made drinks.", "presentation skills"));
+  assert.ok(!hasKeyword("Lead generation: cold-called 50 prospects.", "leadership"));
+  assert.ok(!hasKeyword("Account Executive intern, sold cloud software.", "accounting"));
+  assert.ok(hasKeyword("Presented findings to the VP, Jan 2025 – Present.", "presentation skills"));
+  assert.ok(hasKeyword("Led a team of 4.", "leadership"));
+  assert.ok(hasKeyword("Developer intern at a startup.", "development"));
+});
+
+test("posting skills come from the posting's own words, not AI category labels", async () => {
+  const { postingSkills } = await import("@shared/requirements");
+  const rq = (keyword: string, quote: string) => ({ id: keyword, keyword, quote });
+  // Bank posting from the Nov 2026 test: "Software Skills" was shown as missing although Excel and PowerPoint were on the resume.
+  const bank = postingSkills([rq("Software Skills", "Proficiency in Microsoft Excel and PowerPoint is required."), rq("Communication skills", "Strong written and verbal communication skills.")]);
+  assert.deepEqual(bank, ["Excel", "PowerPoint", "Communication skills"]);
+  // Engineering posting: "Degree Program" is eligibility, not a skill; the tools in the sentence are.
+  const eng = postingSkills([rq("Degree Program", "Pursuing a BS in Mechanical Engineering with SolidWorks or AutoCAD experience.")]);
+  assert.deepEqual(eng, ["SolidWorks or AutoCAD"]);
+  // Health and trades words count too; "R" only as the language.
+  assert.deepEqual(postingSkills([rq("Certifications", "Current BLS and CPR certification; Epic EHR a plus.")]), ["BLS", "CPR", "Epic", "EHR"]);
+  assert.deepEqual(postingSkills([rq("Analytics", "Experience with R or Python for data analysis.")]), ["Analytics", "R or Python", "data analysis"]);
+  assert.deepEqual(postingSkills([rq("Analytics", "Report results to the team.")]), []);
+});
+
+test("posting skills: no false asks from plain English, majors, 'or' lists or boilerplate", async () => {
+  const { postingSkills } = await import("@shared/requirements");
+  const { requirementsFrom } = await import("./sources");
+  const rq = (keyword: string, quote: string) => ({ id: keyword, keyword, quote });
+  assert.deepEqual(postingSkills([rq("Adaptability", "You will excel in a fast-paced environment.")]), ["Adaptability"].filter(() => false));
+  assert.deepEqual(postingSkills([rq("Composure", "Ability to react calmly under pressure with a positive outlook.")]), []);
+  assert.deepEqual(postingSkills([rq("Major", "Pursuing a degree in Finance, Accounting, or Economics.")]), []);
+  assert.deepEqual(postingSkills([rq("Engineering", "Pursuing a BS in Mechanical Engineering with SolidWorks experience.")]), ["SolidWorks"]);
+  assert.deepEqual(postingSkills([rq("Python programming", "Programming experience in Python, Java or C++.")]), ["Python or Java or C++"]);
+  assert.deepEqual(postingSkills([rq("Prior Experience", "Prior experience in a professional setting."), rq("Driver's License", "Valid driver's license."), rq("Physical Requirements", "Physical requirements: lift 25 lbs.")]), []);
+  assert.deepEqual(postingSkills([rq("Excel", "Proficiency in Excel."), rq("Microsoft Excel", "Advanced Microsoft Excel skills.")]), ["Excel"]);
+  const scraped = requirementsFrom("Wells Fargo is a leading financial services company with operations across the country, committed to research, community and leadership. Our consulting and analytics teams serve clients nationwide. Qualifications: Proficiency in Excel and PowerPoint. Strong written communication skills.");
+  const got = postingSkills(scraped);
+  assert.ok(got.includes("Excel") && got.includes("PowerPoint"), got.join(", "));
+});
+
+test("hasKeyword: 'R', 'excel at' and middle initials aren't skills", async () => {
+  const { hasKeyword } = await import("./ats");
+  assert.ok(!hasKeyword("Dilan R. Desman\nFinance student.", "R"));
+  assert.ok(!hasKeyword("Interned in R&D at Lockheed.", "R"));
+  assert.ok(hasKeyword("Cleaned survey data in R and Stata.", "R"));
+  assert.ok(!hasKeyword("I excel at teamwork and deadlines.", "Excel"));
+  assert.ok(hasKeyword("Built budgets in Excel.", "Excel"));
+  assert.ok(hasKeyword("Wrote Python scripts.", "Python or Java or C++"));
+  assert.ok(!hasKeyword("Wrote Ruby scripts.", "Python or Java or C++"));
+});
+
+test("posting skills: end-of-sentence tools, lowercase tools, and 'A/B' means both", async () => {
+  const { skillsIn } = await import("@shared/requirements");
+  const { hasKeyword } = await import("./ats");
+  assert.deepEqual(skillsIn("Proficiency in Excel. Knowledge of SQL a plus."), ["Excel", "SQL"]);
+  assert.deepEqual(skillsIn("Experience with python and sql."), ["Python", "SQL"]);
+  assert.deepEqual(skillsIn("First aid and CPR certified."), ["First Aid", "CPR"]);
+  assert.deepEqual(skillsIn("Comfortable with HTML/CSS."), ["HTML", "CSS"]);
+  assert.ok(hasKeyword("Skills: Python, R. Projects: churn model", "R"));
+});
+
+test("an entry with no date isn't a different date format (the missing date has its own suggestion)", () => {
+  const d = doc(["Led weekly budget reviews for a 40-member student club and its officers"]);
+  d.sections[0].entries.push({ id: "e2", org: "Club", role: "Member", location: "", dates: "", bullets: [] } as any);
+  const fixes = atsScore(d, null, "").fixes.map((f) => f.text);
+  assert.ok(!fixes.some((t) => /one date format/.test(t)), fixes.join(" | "));
+  assert.ok(fixes.some((t) => /missing dates/.test(t)));
+});

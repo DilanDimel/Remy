@@ -1,11 +1,12 @@
-import { uiFlags } from "../lib/router";
+import { go, uiFlags } from "../lib/router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Check, FileText, Mail, Sparkles, Trash2 } from "lucide-react";
-import type { Profile, Workspace } from "@shared/types";
+import { PATHS, type Profile, type SetupFocus, type Workspace } from "@shared/types";
 import { FIELD_GROUPS } from "@shared/fields";
+import { alreadyIn, fitsField, inField, setupReply } from "@shared/setupReply";
 import { api, FAR_ENOUGH_STEP, fmtDate, rid, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
-import { AiUnavailableNote, Remy, Spinner, StatusChip } from "../components/common";
+import { AiUnavailableNote, BetaBadge, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
 import { ProfileImport, ResumeUpload } from "../components/Uploaders";
 import { atAlumniSchool, atTcu, SchoolVerify } from "../components/SchoolVerify";
 import { ConflictChoice } from "../components/ConflictChoice";
@@ -13,6 +14,7 @@ import { ResumeBuilder } from "../components/ResumeBuilder";
 import { LinkedInGuide } from "../components/LinkedInGuide";
 import { useGoogleCalendar } from "../components/GoogleCalendar";
 import { LinkedInMark } from "./Welcome";
+import { CareerTime } from "../components/CareerTime";
 
 // Step numbers are stored in the workspace; 0 and 1 both open the resume step.
 const STEPS = ["Your resume", "Review", "Preferences", "Questions", "Your plan"];
@@ -27,12 +29,22 @@ export default function Onboarding() {
   const setStep = (s: number) => save("onboarding", { ...w.onboarding, step: s });
   const finish = async () => {
     uiFlags.flyIn = true;
+    const to = LAND[w.onboarding.focus || ""];
+    if (to) go(to);
     await save("onboarding", { ...w.onboarding, done: true });
+  };
+  const pick = async (focus: SetupFocus) => {
+    if (focus === "direction" || focus === "explore") {
+      // No resume needed: let them in now. Home's next step asks for the resume when they're ready.
+      uiFlags.flyIn = true;
+      go(focus === "direction" ? "/path?tab=career" : "/");
+      await save("onboarding", { ...w.onboarding, focus, exploring: focus === "direction" || w.onboarding.exploring, done: true });
+    } else await save("onboarding", { ...w.onboarding, focus });
   };
   return (
     <div className="ob">
       <div className="row-between" style={{ width: "100%", maxWidth: 740 }}>
-        <span className="logo"><Remy size={26} /><span>Remy<b>.</b></span></span>
+        <span className="logo"><Remy size={26} /><span>Remy<b>.</b></span><BetaBadge /></span>
       </div>
       {!welcomeBack && (
         <ol className="ob-progress" aria-label={`Step ${shown + 1} of ${STEPS.length}: ${STEPS[shown]}`}>
@@ -44,7 +56,8 @@ export default function Onboarding() {
           <WelcomeBack onContinue={() => setWelcomeBack(false)} onRestart={async () => { await save("onboarding", { ...w.onboarding, step: 1, answers: [], questions: [], targets: [] }); setWelcomeBack(false); }} />
         ) : (
           <>
-            {step <= 1 && <ResumeStep onNext={() => setStep(2)} />}
+            {step <= 1 && !w.onboarding.focus && !w.resume ? <FocusPick onPick={pick} />
+              : step <= 1 && <ResumeStep onNext={() => setStep(2)} />}
             {step === 2 && <Review onBack={() => setStep(1)} onNext={() => setStep(3)} />}
             {step === 3 && <Preferences onBack={() => setStep(2)} />}
             {step === 4 && <Questions onBack={() => setStep(3)} onNext={() => setStep(5)} />}
@@ -53,6 +66,50 @@ export default function Onboarding() {
         )}
       </div>
       {!config?.ai.available && <div style={{ maxWidth: 720, width: "100%" }}><AiUnavailableNote /></div>}
+    </div>
+  );
+}
+
+// Where finishing setup lands, by what the student said would help most.
+const LAND: Record<string, string> = { resume: "/resume?tab=base", openings: "/opportunities", interview: "/resume?tab=prep" };
+const FOCUS: [SetupFocus, string, string][] = [
+  ["resume", "Make my resume stronger", "Check how it reads to an ATS and get honest suggestions"],
+  ["openings", "Find openings that fit me", "Internships, jobs and events matched to your experience"],
+  ["interview", "Get ready for an interview", "True stories from your resume and a short prep plan"],
+  ["direction", "Figure out what I want to do", "See the jobs your field leads to and what they're really like"],
+  ["explore", "Just look around", "Skip setup for now and finish it later from Home"],
+];
+
+/** First screen of setup: one question, so a student can get to what they came for. */
+function FocusPick({ onPick }: { onPick: (f: SetupFocus) => void }) {
+  const { ws, me } = useStore();
+  const first = (ws!.profile.preferredName || me?.name || "").trim().split(/\s+/)[0];
+  const [busy, setBusy] = useState("");
+  const { save } = useStore();
+  const path = ws!.profile.path || "";
+  return (
+    <div className="stack-lg" data-testid="focus-pick">
+      <div className="remy-prompt">
+        <Remy size={44} mood="wave" />
+        <div className="stack-sm">
+          <h2>Hi{first ? ` ${first}` : ""}! What would help most today?</h2>
+          <p className="muted">Pick one. The first three start with your resume; you can change course anytime.</p>
+        </div>
+      </div>
+      <div className="stack-sm">
+        <b>Where are you right now?</b>
+        <div className="pref-chips" role="group" aria-label="Where are you right now">
+          {PATHS.map(([k, label]) => <button key={k} type="button" className="pref-chip" aria-pressed={path === k} onClick={() => save("profile", { ...ws!.profile, path: k })} data-testid={`path-${k}`}>{label}</button>)}
+        </div>
+      </div>
+      <div className="stack-sm">
+        {FOCUS.map(([k, label, detail]) => (
+          <button key={k} className="conn-row" style={{ textAlign: "left", width: "100%" }} disabled={!!busy} onClick={() => { setBusy(k); onPick(k); }} data-testid={`focus-${k}`}>
+            <div className="grow"><b>{label}</b><span>{detail}</span></div>
+            {busy === k ? <Spinner /> : <ArrowRight size={16} />}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -193,25 +250,39 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
 }
 
 const PROFILE_FIELDS: [keyof Profile, string, string?][] = [
-  ["name", "Full name"], ["preferredName", "What should Remy call you?"], ["applicationEmail", "Email for applications", "e.g. you@tcu.edu"], ["school", "School"], ["major", "Major(s)"], ["minors", "Minor(s)"], ["gpa", "GPA", "e.g. 3.6 (optional)"],
+  ["path", "Where are you right now?"], ["name", "Full name"], ["preferredName", "What should Remy call you?"], ["applicationEmail", "Email for applications", "e.g. you@tcu.edu"], ["school", "School"], ["major", "Major(s)"], ["minors", "Minor(s)"], ["gpa", "GPA", "e.g. 3.6 (optional)"],
   ["classYear", "Class year"], ["graduation", "Expected graduation", "e.g. May 2029"], ["location", "Location"], ["targetRoles", "Roles you're curious about", "e.g. investment banking, fintech"],
   ["regions", "Where should Remy look?", "e.g. Fort Worth, Dallas, Remote"], ["opportunityTypes", "Kinds of opportunities", "e.g. Internships, Events"],
+  ["timeline", "When do you want to start?", "e.g. Summer 2027 (empty = open to anything)"], ["relocation", "Open to relocating?"], ["workAuth", "Work authorization"],
+  ["dreamEmployers", "Dream employers", "e.g. PwC, EY (searched first)"], ["avoid", "Anything to leave out?", "e.g. audit, sales (hidden from your openings)"],
 ];
 
 // Onboarding asks roles, regions and opportunity types on its own preferences step, so its review step leaves them out.
-const PREF_KEYS: (keyof Profile)[] = ["classYear", "graduation", "targetRoles", "regions", "opportunityTypes"];
-export function ProfileForm({ onSaved, hidePrefs }: { onSaved?: () => void; hidePrefs?: boolean }) {
+const PREF_KEYS: (keyof Profile)[] = ["classYear", "graduation", "targetRoles", "regions", "opportunityTypes", "timeline", "relocation", "workAuth", "dreamEmployers", "avoid"];
+/** draft: when given, the parent saves unsaved edits itself (setup's "Looks right"), so there's no separate Save button. */
+export function ProfileForm({ onSaved, hidePrefs, draft }: { onSaved?: () => void; hidePrefs?: boolean; draft?: { current: Profile | null } }) {
   const { ws, save, run } = useStore();
   const [p, setP] = useState<Profile>(ws!.profile);
   useEffect(() => { setP(ws!.profile); }, [ws!.profile]);
   const dirty = JSON.stringify(p) !== JSON.stringify(ws!.profile);
+  if (draft) draft.current = dirty ? p : null;
   return (
     <div className="stack">
       <div className="grid-2">
         {PROFILE_FIELDS.filter(([k]) => !(hidePrefs && PREF_KEYS.includes(k))).map(([k, label, ph]) => (
           <label key={k} className="field">
-            <span>{label}</span>
-            {k === "classYear" ? (
+            <span>{p.path && p.path !== "four-year" ? ({ major: "Program, trade or field", classYear: "Year (if in school)", graduation: "Expected finish date" } as Record<string, string>)[k] || label : label}</span>
+            {k === "path" ? (
+              <select className="select" value={p.path || ""} onChange={(e) => setP({ ...p, path: e.target.value })} data-testid="select-path">
+                <option value="">Choose…</option>
+                {PATHS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            ) : k === "workAuth" || k === "relocation" ? (
+              <select className="select" value={p[k] || ""} onChange={(e) => setP({ ...p, [k]: e.target.value })} data-testid={`select-profile-${k}`}>
+                <option value="">Choose…</option>
+                {(k === "workAuth" ? AUTH_OPTS : RELOC_OPTS).map((o) => <option key={o}>{o}</option>)}
+              </select>
+            ) : k === "classYear" ? (
               <select className="select" value={p.classYear} onChange={(e) => setP({ ...p, classYear: e.target.value })} data-testid="select-class-year">
                 <option value="">Choose…</option>
                 {["First-year", "Sophomore", "Junior", "Senior", "Graduate student"].map((o) => <option key={o}>{o}</option>)}
@@ -223,10 +294,10 @@ export function ProfileForm({ onSaved, hidePrefs }: { onSaved?: () => void; hide
         ))}
       </div>
       <label className="field"><span>Goals</span><textarea className="textarea" value={p.goals} onChange={(e) => setP({ ...p, goals: e.target.value })} placeholder="What would a great next year look like?" data-testid="input-profile-goals" /></label>
-      <div className="row">
+      {!draft && (<div className="row">
         <button className="btn btn-primary btn-sm" disabled={!dirty} onClick={async () => { const r = await run(() => save("profile", p), "Profile saved"); if (r) onSaved?.(); }} data-testid="button-save-profile">Save profile</button>
         {dirty && <span className="xs muted">Unsaved changes</span>}
-      </div>
+      </div>)}
     </div>
   );
 }
@@ -362,19 +433,35 @@ function Preferences({ onBack }: { onBack: () => void }) {
 function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
   const { ws, save, run, setWs } = useStore();
   const w = ws!;
+  const profileDraft = useRef<Profile | null>(null);
   const unverified = w.resume?.doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets)).filter((b) => b.verified === false) || [];
   const suggested = w.memory.filter((m) => m.status === "suggested");
   const setFact = (id: string, patch: any) => save("memory", w.memory.map((m) => (m.id === id ? { ...m, ...patch } : m)));
   const removeFact = (id: string) => save("memory", w.memory.filter((m) => m.id !== id));
   const [skipVerify, setSkipVerify] = useState(false);
+  // Value first: start the search from the resume alone, so real openings show before any more questions.
+  const { jobs, fits } = useJobs();
+  const [looking, setLooking] = useState(false);
+  useEffect(() => {
+    if (!w.resume || (jobs && jobs.length)) return;
+    setLooking(true);
+    api<{ workspace: Workspace }>("POST", "/api/jobs/discover", {}).then((d) => { setWs(d.workspace); return reloadJobs(); }).catch(() => {}).finally(() => setLooking(false));
+  }, []);
+  const first = (jobs || []).filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false).slice(0, 3);
   return (
     <div className="stack-lg">
+      {(looking || first.length > 0) && (
+        <div className="notice" data-testid="first-matches">
+          {first.length ? <div><strong>First openings that fit your resume</strong><ul className="plan-matches">{first.map((j) => <li key={j.id} className="small"><b>{j.title}</b> <span className="muted">at {j.company}</span></li>)}</ul><span className="xs muted">Your next answers sharpen these.</span></div>
+            : <span className="row small"><Spinner /> Remy is already checking employers' career sites for openings that fit your resume…</span>}
+        </div>
+      )}
       <div className="stack-sm">
         <span className="eyebrow">Step 2 · Review</span>
         <h2>Is this right?</h2>
         <p className="small muted">Correct anything that's off. Remy only uses what you confirm here.</p>
       </div>
-      <ProfileForm hidePrefs />
+      <ProfileForm hidePrefs draft={profileDraft} />
       {atAlumniSchool(w) && !skipVerify && <SchoolVerify onSkip={() => setSkipVerify(true)} />}
       {w.resume && (
         <div className="stack-sm">
@@ -407,6 +494,8 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
         <button className="btn btn-ghost" onClick={onBack}><ArrowLeft size={16} /> Back</button>
         <button className="btn btn-primary" onClick={async () => {
           // Every line matched the file word for word and the student says it's right: that's a confirmed resume.
+          // Edits typed above count as confirmed too; without this they were lost on "Looks right".
+          if (profileDraft.current && !(await run(() => save("profile", profileDraft.current!)))) return;
           if (w.resume && !w.resume.confirmedAt && !unverified.length) await run(() => api<Workspace>("PUT", "/api/resume/doc", { doc: w.resume!.doc, confirm: true }).then(setWs));
           onNext();
         }} data-testid="button-ob-next-review">Looks right <ArrowRight size={16} /></button>
@@ -415,33 +504,16 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
   );
 }
 
-// Remy's one-line reply to each answer: says what Remy will actually do with it (no AI call, nothing invented).
-const UNSURE = /\b(not sure|no idea|idk|don'?t know|unsure|no clue)\b/i;
-function reaction(a: string, target: string | undefined, i: number) {
-  if (!a) return "No problem, we can come back to that.";
-  if (UNSURE.test(a)) return "That's completely normal. I'll show you where your major can lead on My Path, and we'll figure it out together.";
-  const by: Record<string, string[]> = {
-    targetRoles: ["Great, I'll look for openings in those.", "Nice, I'll add those to your search."],
-    dreamEmployers: ["Noted. I'll check their career sites first.", "Good picks. They go to the top of my search."],
-    avoid: ["Got it, I'll leave those out.", "Understood, those stay hidden."],
-    timeline: ["Got it. I'll focus on openings that start then.", "Perfect, I'll match openings to that timing."],
-    interests: ["Love that. I'll use it when I suggest paths for you.", "That tells me a lot. I'll keep it in mind for your path."],
-    goals: ["Good goal. I'll build your plan around it.", "Got it. Your plan will aim right at that."],
-  };
-  const lines = (target && by[target]) || ["Got it, that helps.", "Good to know.", "Thanks, that's useful."];
-  return lines[i % lines.length];
-}
-
 function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
   const { ws, setWs, save, run, config } = useStore();
   const w = ws!;
   const [busy, setBusy] = useState(false);
   const [answer, setAnswer] = useState("");
   // The answer being saved shows right away, so Next feels instant.
-  const [pending, setPending] = useState<{ q: string; a: string } | null>(null);
+  const [pending, setPending] = useState<{ q: string; a: string; saved?: boolean } | null>(null);
   const qs = w.onboarding.questions;
   const targets = w.onboarding.targets || [];
-  const answered = pending ? [...w.onboarding.answers, pending] : w.onboarding.answers;
+  const answered = pending ? [...w.onboarding.answers, { q: pending.q, a: pending.a }] : w.onboarding.answers;
   const idx = answered.length;
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -460,19 +532,19 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
     setAnswer("");
     const answers = [...w.onboarding.answers, { q: current, a }];
     // Each question says which profile field its answer feeds (roles, dream employers, start date…), so it changes the matches.
-    // Search fields only take short answers that name things; a sentence ("I don't know yet…") stays in Remy's memory instead.
+    // Search fields only take short answers that name things; a sentence ("I don't know yet…") stays in Remy's AI memory instead (see shared/setupReply.ts).
     const target = targets[i] as keyof Profile | undefined;
-    const searchField = target === "targetRoles" || target === "dreamEmployers" || target === "avoid";
-    const fitsField = !searchField || (a.length <= 60 && !/\b(i|i'm|im|don'?t|not sure|no idea|idk|maybe)\b/i.test(a));
     try {
-      if (a && target && target in w.profile && fitsField) {
+      if (a && target && target in w.profile && fitsField(target, a)) {
         const before = String(w.profile[target] || "").trim();
-        await save("profile", { ...w.profile, [target]: before ? `${before}, ${a}` : a });
+        // Answering the same question twice (e.g. after a reload) must not repeat the answer.
+        if (!alreadyIn(before, a)) await save("profile", { ...w.profile, [target]: before ? `${before}, ${a}` : a });
       }
       if (a) {
         const fact = { id: "f" + Date.now(), text: `${current} — ${a}`, category: "goal", source: "Onboarding answer", status: "approved", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
         await save("memory", [...w.memory, fact]);
       }
+      setPending({ q: current, a, saved: true }); // the profile and memory saves worked: Remy's reply can say what happened
       const last = answers.length >= qs.length;
       if (last) await new Promise((r) => setTimeout(r, 900)); // let Remy's last reply land before the next step
       // The answers and the move to the next step go in one save, so the last answer can't be overwritten.
@@ -496,7 +568,7 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
           <div key={i} className="stack-sm">
             <div className="bubble bubble-ai">{x.q}</div>
             <div className="bubble bubble-user fade-up">{x.a || "Skipped"}</div>
-            <div className="bubble bubble-ai ob-react fade-up">{reaction(x.a, targets[i], i)}</div>
+            <div className="bubble bubble-ai ob-react fade-up">{pending && !pending.saved && i === answered.length - 1 ? "Saving…" : setupReply(x.a, targets[i], inField(w.profile, targets[i], x.a))}</div>
           </div>
         ))}
         {busy && <div className="bubble bubble-ai row"><Spinner /> Thinking of a few useful questions…</div>}
@@ -518,7 +590,8 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
           </div>
         </div>
       )}
-      {(!current || !qs.length) && !busy && !pending && (
+      {/* Not gated on "pending": if the last save hangs, the student can still move on (onNext saves the step). */}
+      {(!current || !qs.length) && !busy && (
         <div className="row-between">
           <button className="btn btn-ghost" onClick={onBack}><ArrowLeft size={16} /> Back</button>
           <button className="btn btn-primary" onClick={onNext} data-testid="button-ob-next-questions">Continue <ArrowRight size={16} /></button>
@@ -532,7 +605,7 @@ function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: () => vo
   const { ws, setWs, run, config } = useStore();
   const w = ws!;
   const { jobs, fits, refreshing } = useJobs();
-  const matches = (jobs || []).filter((j) => !fits[j.id]?.excluded);
+  const matches = (jobs || []).filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false);
   const [busy, setBusy] = useState(false);
   const make = async () => {
     setBusy(true);
@@ -553,7 +626,7 @@ function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: () => vo
           <p className="small muted">Suggestions, not requirements. You can change anything.</p>
         </div>
       </div>
-      {busy && <div className="stack-sm">{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 44 }} />)}</div>}
+      {busy && <WorkingSteps steps={["Reading your resume and answers", "Choosing where to start", "Writing your first to-dos"]} />}
       <div className="notice" data-testid="plan-matches">
         {refreshing || !jobs ? <span className="row"><Spinner /> Remy is checking employers' career sites for openings that fit you…</span>
           : matches.length ? <div><strong>Remy found {matches.length} opening{matches.length === 1 ? "" : "s"} that fit you</strong><ul className="plan-matches">{matches.slice(0, 3).map((j) => <li key={j.id} className="small"><b>{j.title}</b> <span className="muted">at {j.company}</span></li>)}</ul></div>
@@ -571,6 +644,7 @@ function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: () => vo
           </div>
         </div>
       )}
+      <div className="card card-pad"><CareerTime /></div>
       <div className="row-between">
         <button className="btn btn-ghost" onClick={onBack}><ArrowLeft size={16} /> Back</button>
         <div className="row">

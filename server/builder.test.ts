@@ -36,6 +36,8 @@ test("builder: the honesty check flags invented numbers and leadership, but not 
   assert.ok(bulletFlags("Led the drive-thru team", cfa).some((f) => f.type === "title"));
   assert.deepEqual(bulletFlags("Trained [how many?] new hires and took drive-thru orders", cfa), []);
   assert.deepEqual(bulletFlags("Played varsity soccer for two years", hsSports), []);
+  assert.ok(bulletFlags("Played varsity soccer for two years as team captain", hsSports).length, "an added role the student never said");
+  assert.ok(bulletFlags("Took drive-thru orders during busy lunch rushes", cfa).length, "an added detail");
   assert.ok(hasBlank("Served [how many customers?] a shift") && !hasBlank("Served customers"));
 });
 

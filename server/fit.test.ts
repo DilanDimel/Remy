@@ -138,3 +138,268 @@ test("setup field chips: 'Engineering' is engineering, not software", () => {
   assert.equal(fieldMatch(eng, job({ title: "Mechanical Engineering Intern" })), true);
   assert.equal(fieldMatch(eng, job({ title: "Software Engineer Intern" })), false);
 });
+
+test("past terms are dropped from setup options: Summer 2026 is past on Oct 31, 2026; Spring 2027 is not", async () => {
+  const { pastTerm } = await import("./fit");
+  assert.equal(pastTerm("Summer 2026", "2026-10-31"), true);
+  assert.equal(pastTerm("Fall 2026", "2026-10-31"), true);
+  assert.equal(pastTerm("Spring 2027", "2026-10-31"), false);
+  assert.equal(pastTerm("Big 4 firms", "2026-10-31"), false);
+});
+
+test("career steps count once, saves are capped per day; road milestones read real work", async () => {
+  const { step } = await import("@shared/progress");
+  const { milestones } = await import("@shared/progress");
+  const { emptyWorkspace } = await import("./db");
+  const ws = emptyWorkspace();
+  assert.equal(step(ws, "task", "c", "2026-10-27T15:00:00Z"), true);
+  assert.equal(step(ws, "task", "c", "2026-10-27T16:00:00Z"), false, "same step twice doesn't count");
+  for (const id of ["j1", "j2", "j3", "j4"]) step(ws, "save", id, "2026-10-29T15:00:00Z");
+  assert.equal(ws.steps!.filter((s) => s.kind === "save").length, 3, "fourth save of the day isn't recorded");
+  ws.savedJobIds = ["j1", "j2", "j3"];
+  ws.tracker = [{ id: "t", company: "A", role: "B", status: "Saved", notes: "", events: [] }];
+  const m = () => Object.fromEntries(milestones(ws).map((x) => [x.label, x.done]));
+  assert.deepEqual(m(), { "Resume ready": false, "Openings picked": true, "First application": false, "Reached out": false, "Interview stories": false, Interviewing: false });
+  ws.tracker[0].status = "Interview";
+  assert.equal(m()["First application"], true);
+  assert.equal(m().Interviewing, true);
+});
+
+test("deadline reminders: 1–3 days before and on the day, once each, only when on", async () => {
+  const { dueReminders } = await import("./reminders");
+  const { emptyWorkspace } = await import("./db");
+  const ws = emptyWorkspace();
+  ws.onboarding.done = true;
+  ws.calendar = [
+    { id: "a", title: "Deloitte: deadline", date: "2026-11-03", time: "", kind: "Deadline", source: "", notes: "" },
+    { id: "b", title: "PwC: deadline", date: "2026-11-01", time: "", kind: "Deadline", source: "", notes: "" },
+    { id: "c", title: "Far away", date: "2026-12-01", time: "", kind: "Deadline", source: "", notes: "" },
+    { id: "d", title: "Career fair", date: "2026-11-02", time: "", kind: "Event", source: "", notes: "" },
+  ];
+  const r = dueReminders(ws, "2026-11-01");
+  assert.deepEqual(r.map((x) => [x.title, x.left]), [["Deloitte: deadline", 2], ["PwC: deadline", 0]]);
+  ws.reminded = r.map((x) => x.key);
+  assert.equal(dueReminders(ws, "2026-11-01").length, 0, "sent once");
+  assert.equal(dueReminders(ws, "2026-11-02").length, 0, "the 'soon' reminder isn't repeated the next day");
+  assert.equal(dueReminders(ws, "2026-11-03").length, 1, "but the day-of one still comes");
+  ws.settings.notify.deadlines = false;
+  assert.equal(dueReminders(ws, "2026-11-03").length, 0, "off means off");
+});
+
+test("same employer however it's written", async () => {
+  const { sameOrg } = await import("@shared/org");
+  assert.equal(sameOrg("Deloitte LLP", "deloitte"), true);
+  assert.equal(sameOrg("Ernst & Young", "Ernst and Young LLP"), true);
+  assert.equal(sameOrg("PwC", "Deloitte"), false);
+  assert.equal(sameOrg("", "Deloitte"), false);
+});
+
+test("weekly digest: on the student's day, once, only with news, only when on", async () => {
+  const { weeklyDigest } = await import("./reminders");
+  const { emptyWorkspace } = await import("./db");
+  const ws = emptyWorkspace();
+  ws.onboarding.done = true;
+  ws.settings.notify.weeklyPlan = true;
+  ws.settings.careerTime = { day: 0, time: "19:00" };
+  const job = (id: string, foundAt: string) => ({ id, kind: "internship", title: "Audit Intern", company: "Deloitte", foundAt } as any);
+  ws.jobs = [job("a", "2026-10-30T10:00:00Z"), job("b", "2026-09-01T10:00:00Z")];
+  const d = weeklyDigest(ws, "2026-11-01", 0, "x.test");
+  assert.ok(d && d.subject === "1 new opening for you this week", d?.subject);
+  assert.equal(weeklyDigest(ws, "2026-11-02", 1, "x.test"), null, "not on another day");
+  ws.lastDigest = "2026-11-01";
+  assert.equal(weeklyDigest(ws, "2026-11-01", 0, "x.test"), null, "once");
+  ws.lastDigest = undefined; ws.lastDigestAt = "2026-10-31T00:00:00Z";
+  assert.equal(weeklyDigest(ws, "2026-11-08", 0, "x.test"), null, "no news, no email");
+  ws.settings.notify.weeklyPlan = false;
+  assert.equal(weeklyDigest(ws, "2026-11-01", 0, "x.test"), null, "off means off");
+});
+
+test("recruiting season: matches the field and says whether it's open now", async () => {
+  const { seasonFor } = await import("@shared/seasons");
+  const fin = seasonFor("Finance, investment banking", new Date("2026-11-15T12:00:00"));
+  assert.deepEqual([fin?.label, fin?.open, fin?.monthsUntil], ["Finance", false, 2]);
+  const tech = seasonFor("Computer Science", new Date("2026-11-15T12:00:00"));
+  assert.deepEqual([tech?.label, tech?.open], ["Tech", true], "a window that wraps the new year");
+  assert.equal(seasonFor("Underwater basket weaving"), null);
+});
+
+test("regions: a state after a city labels that city ('Fort Worth, TX' is not all of Texas); states alone still mean the state", async () => {
+  const { emptyWorkspace } = await import("./db");
+  const { regionMatch } = await import("./fit");
+  const at = (regions: string, location: string) => { const ws = emptyWorkspace(); ws.profile.regions = regions; return regionMatch(ws, { location, format: "" } as any); };
+  assert.equal(at("Fort Worth, TX", "Houston, TX"), false);
+  assert.equal(at("Fort Worth, TX", "Dallas, TX"), true);
+  assert.equal(at("Austin, Texas", "Houston, TX"), false);
+  assert.equal(at("Austin, Texas", "Austin, TX"), true);
+  assert.equal(at("Texas, California", "Houston, TX"), true);
+  assert.equal(at("TX", "Houston, TX"), true);
+  assert.equal(at("Fort Worth", "New York, NY"), false);
+});
+
+test("field roads: major wins, trade paths get the trades road, class year maps to a step year", async () => {
+  const { roadFor, yearNumber } = await import("@shared/roads");
+  assert.equal(roadFor("Accounting")?.key, "accounting");
+  assert.equal(roadFor("Finance & Business Information Systems")?.key, "finance");
+  assert.equal(roadFor("Actuarial Science")?.key, "actuarial", "not finance");
+  assert.equal(roadFor("Nursing")?.key, "nursing", "not health");
+  assert.equal(roadFor("Electrical apprenticeship", "apprenticeship")?.key, "trades");
+  // A wrong road is worse than none (persona test Nov 1): welder ≠ electrician, pre-dental ≠ MCAT, economics ≠ SIE.
+  assert.equal(roadFor("Welding Technology Certificate", "trade"), null);
+  assert.equal(roadFor("", "apprenticeship"), null);
+  assert.equal(roadFor("Biochemistry (Pre-Dental)"), null);
+  assert.equal(roadFor("dentistry"), null);
+  assert.equal(roadFor("Economics"), null);
+  assert.equal(roadFor("Biology"), null);
+  assert.equal(roadFor("Medical Assistant"), null);
+  assert.equal(roadFor("Pre-Med Biology")?.key, "health");
+  assert.equal(roadFor("Pre-PT Kinesiology")?.key, "health");
+  assert.equal(roadFor("Pharmacy")?.key, "health");
+  assert.equal(roadFor("Electrical Engineering")?.key, "engineering", "engineering before electrician");
+  assert.equal(roadFor("Underwater basket weaving"), null);
+  assert.deepEqual(["First-year", "Freshman", "Sophomore", "Senior", "Graduate student", ""].map(yearNumber), [1, 1, 2, 4, 5, 0]);
+});
+
+test("early programs rank higher for first-years and sophomores; conferences aren't hidden as off-field", () => {
+  const job = (kind: string, title: string) => ({ id: "x", kind, title, company: "EY", location: "Dallas, TX", format: "", dates: "", deadline: "", deadlineText: "", eligibility: [], requirements: [], summary: "", applyUrl: "", sourceUrl: "", sourceName: "EY careers (Workday job board)", label: "Live", checkedAt: "", checks: [], origin: "imported" }) as unknown as Job;
+  const soph = student({ classYear: "Sophomore", targetRoles: "accounting" });
+  const senior = student({ classYear: "Senior", targetRoles: "accounting" });
+  const disc = job("program", "EY Discovery Day Accounting");
+  assert.ok(computeFit(soph, disc, "").score! > computeFit(senior, disc, "").score!);
+  const conf = { ...job("event", "NABA National Convention"), sourceName: "Conference found by Remy's researcher (dates checked on the event page)" };
+  assert.equal(computeFit(soph, conf, "").excluded, false);
+});
+
+test("LinkedIn coach: lists resume items missing from the LinkedIn PDF with copy-ready fields; guessed fields stay blank", async () => {
+  const { linkedinGaps, linkedinBasics } = await import("@shared/linkedin");
+  const doc = { contact: {}, skills: [], sections: [
+    { id: "s1", heading: "Experience", entries: [
+      { id: "e1", org: "Chick-fil-A", role: "Team Member", location: "Fort Worth, TX", dates: "2024 – Present", bullets: [{ id: "b", text: "Took orders" }] },
+      { id: "e2", org: "PwC", role: "Extern", location: "", dates: "2025", bullets: [] },
+    ] },
+    { id: "s2", heading: "Volunteer Work", entries: [{ id: "e3", org: "Tarrant Area Food Bank", role: "Volunteer", location: "", dates: "2025", bullets: [], unverified: ["role"] }] },
+    { id: "s3", heading: "Skills", entries: [{ id: "e4", org: "Excel", role: "", location: "", dates: "", bullets: [] }] },
+  ] } as any;
+  const li = "Dilan\nSummary\nFinance student\nExperience\nPwC\nExtern\n2025";
+  const gaps = linkedinGaps(doc, li);
+  assert.deepEqual(gaps.map((g) => [g.section, g.title]), [["Experience", "Team Member, Chick-fil-A"], ["Volunteering", "Tarrant Area Food Bank"]]);
+  assert.deepEqual(gaps[0].fields.find((f) => f.label === "Description")?.value, "• Took orders");
+  assert.equal(gaps[1].fields.find((f) => f.label === "Role"), undefined, "a role the resume reader guessed isn't offered");
+  assert.deepEqual(linkedinBasics(li).map((b) => b.ok), [true, false, true, null]);
+});
+
+test("weekly digest asks for a fresh LinkedIn PDF after a month", async () => {
+  const { weeklyDigest } = await import("./reminders");
+  const { emptyWorkspace } = await import("./db");
+  const ws = emptyWorkspace();
+  ws.onboarding.done = true;
+  ws.settings.notify.weeklyPlan = true;
+  ws.calendar = [{ id: "c", kind: "Deadline", date: "2026-11-03", time: "", title: "EY app", source: "", notes: "" }];
+  ws.linkedin = { text: "", at: "2026-09-20T10:00:00Z" };
+  assert.match(weeklyDigest(ws, "2026-11-01", 0, "x.test")!.text, /LinkedIn check is over a month old/);
+  ws.linkedin.at = "2026-10-25T10:00:00Z";
+  assert.doesNotMatch(weeklyDigest(ws, "2026-11-01", 0, "x.test")!.text, /LinkedIn/);
+});
+
+test("regionMatch: DFW city names in other states don't count as DFW", () => {
+  const dfw = student({ regions: "Fort Worth, Dallas" });
+  assert.equal(regionMatch(dfw, job({ location: "Arlington, VA" })), false);
+  assert.equal(regionMatch(dfw, job({ location: "Plano, IL" })), false);
+  assert.equal(regionMatch(dfw, job({ location: "Arlington, TX" })), true);
+  assert.equal(regionMatch(dfw, job({ location: "Arlington, Texas" })), true);
+  assert.equal(regionMatch(dfw, job({ location: "Chicago, IL, United States; Dallas, TX, United States" })), true);
+  assert.equal(regionMatch(dfw, job({ location: "Irving" })), true, "no state named: still DFW");
+});
+
+test("dealbreaker: a high school internship rules out a college student, not a high schooler", () => {
+  const hs = job({ title: "High School Internship, Software Engineering (Summer 2027)" });
+  assert.equal(dealbreaker(student({ classYear: "Sophomore" }), hs), "This one is for high school students.");
+  assert.equal(dealbreaker(student({ classYear: "", path: "high-school" }), hs), "");
+});
+
+test("fit: eligibility labels aren't gaps, and no readable skills isn't called a stretch", () => {
+  const ws = student({ classYear: "Sophomore", graduation: "May 2029", targetRoles: "accounting" });
+  (ws as any).resume = { doc: { sections: [] } };
+  const req = (keyword: string) => ({ id: keyword, keyword, quote: keyword });
+  const ey = { ...job({ title: "EY Discovery Day" }), requirements: ["Academic standing", "Eligible majors", "Minimum GPA", "Core skills"].map(req) } as Job;
+  const f = computeFit(ws, ey, "Treasurer, budgeting, Excel");
+  assert.deepEqual(f.gaps, []);
+  assert.match(f.why, /couldn't read the skills/);
+  const real = { ...ey, requirements: [req("Excel"), req("Minimum GPA")] } as Job;
+  assert.deepEqual([computeFit(ws, real, "Built models in Excel").matched, computeFit(ws, real, "Built models in Excel").gaps], [["Excel"], []]);
+});
+
+// Piece 6 (Nov 2): "You qualify" only when true (persona test Nov 1: welder, high-school senior, finance, mech-eng, studio art).
+test("'You qualify' needs a rule Remy checked: no stated limit is 'likely' but not checked", () => {
+  const open = computeFit(student({ classYear: "Junior" }), job({ eligibility: [] }), "");
+  assert.equal(open.eligibility, "likely");
+  assert.equal(open.checked, false);
+  assert.equal(computeFit(student({ classYear: "Junior" }), job({ eligibility: ["Open to juniors."] }), "").checked, true);
+  assert.equal(computeFit(student({ graduation: "May 2029" }), job({ eligibility: ["Open to students in the Class of 2029"] }), "").checked, true);
+  assert.equal(computeFit(student({ classYear: "Junior", gpa: "3.4" }), job({ eligibility: ["Minimum GPA of 3.0 required."] }), "").checked, true); // a GPA rule met
+  assert.equal(computeFit(student({ classYear: "Junior" }), job({ eligibility: ["Minimum GPA of 3.0 required."] }), "").checked, false); // GPA unknown
+});
+test("a welding-certificate student isn't eligible for an 'Undergraduate' internship", () => {
+  const f = computeFit(student({ path: "trade", major: "Welding Technology Certificate", classYear: "First-year" }), job({ title: "2027 Undergraduate Summer Internship" }), "");
+  assert.equal(f.eligibility, "unlikely");
+  assert.equal(f.excluded, true);
+  assert.match(f.eligibilityNote, /college students/);
+});
+test("a high-school senior isn't a college senior, and 'current undergraduate enrollment' rules them out", () => {
+  const hs = student({ path: "high-school", classYear: "Senior", graduation: "May 2027" });
+  assert.equal(computeFit(hs, job({ title: "2028 Investment Banking Summer Internship", eligibility: ["Open to rising seniors."] }), "").eligibility, "unlikely");
+  assert.equal(computeFit(hs, job({ title: "AVID Tutor", eligibility: ["Current undergraduate enrollment at an accredited university preferred."] }), "").eligibility, "unlikely");
+  assert.notEqual(computeFit(hs, job({ title: "High School Summer Program", eligibility: ["Open to high school students."] }), "").eligibility, "unlikely");
+});
+test("community college: 'undergraduate' is fine, 'pursuing a bachelor's' isn't", () => {
+  const cc = student({ path: "community-college", classYear: "Sophomore" });
+  assert.notEqual(computeFit(cc, job({ title: "Undergraduate Research Assistant" }), "").eligibility, "unlikely");
+  assert.equal(computeFit(cc, job({ eligibility: ["Must be currently pursuing a bachelor's degree."] }), "").eligibility, "unlikely");
+});
+test("a full-time job needing a finished bachelor's: not for a junior 18 months out, fine for a senior about to graduate", () => {
+  const j = job({ kind: "job", title: "Mechanical Designer", summary: "Bachelor's degree in Mechanical Engineering required." });
+  const junior = computeFit(student({ classYear: "Junior", graduation: "May 2028" }), j, "");
+  assert.equal(junior.eligibility, "unlikely");
+  assert.match(junior.eligibilityNote, /finished bachelor's/);
+  assert.notEqual(computeFit(student({ classYear: "Senior", graduation: "May 2027" }), j, "").eligibility, "unlikely");
+  assert.notEqual(computeFit(student({ classYear: "Junior", graduation: "May 2028" }), job({ kind: "internship", title: "Mechanical Engineering Intern", summary: "Pursuing a bachelor's degree in Mechanical Engineering." }), "").eligibility, "unlikely");
+});
+test("MBA-only is 'Not eligible'; not-your-field is 'Hidden' and never next to a 'You qualify' reason", () => {
+  const mba = computeFit(student({ classYear: "Senior" }), job({ title: "MBA Strategy Intern" }), "");
+  assert.equal(mba.eligibility, "unlikely");
+  assert.equal(mba.hidden, undefined);
+  const mechJunior = student({ classYear: "Junior", major: "Mechanical Engineering" });
+  const sw = computeFit(mechJunior, job({ title: "Software Engineer Intern", origin: "verified-catalog", eligibility: ["Open to juniors."] } as Partial<Job>), "");
+  assert.equal(sw.excluded, true);
+  assert.equal(sw.hidden, "This isn't in the fields you chose.");
+  assert.doesNotMatch(sw.eligibilityNote, /fields you chose/); // the eligibility line stays about eligibility
+  const avoid = computeFit(student({ classYear: "Junior", avoid: "sales" }), job({ title: "Sales Intern", eligibility: ["Open to juniors."] }), "");
+  assert.equal(avoid.excluded, true);
+  assert.match(avoid.hidden || "", /avoid/);
+  assert.equal(avoid.checked, true); // they do qualify; it's hidden because they said avoid
+});
+
+test("second review: preferred or equivalent degrees, trade-friendly and associate-friendly postings aren't 'not eligible'", () => {
+  const junior = student({ classYear: "Junior", graduation: "May 2028" });
+  for (const summary of ["Bachelor's degree in Marketing preferred.", "Bachelor's degree in IT or equivalent experience.", "Requires a bachelor's degree in progress.", "Bachelor's degree from an accredited university."])
+    assert.notEqual(computeFit(junior, job({ kind: "job", title: "Marketing Coordinator", summary }), "").eligibility, "unlikely", summary);
+  assert.equal(computeFit(junior, job({ kind: "job", title: "Marketing Coordinator", summary: "A bachelor's degree is required." }), "").eligibility, "unlikely");
+  const welder = student({ path: "trade", major: "Welding", classYear: "First-year" });
+  assert.notEqual(computeFit(welder, job({ eligibility: ["Currently enrolled in an accredited college, university, or technical school."] }), "").eligibility, "unlikely");
+  assert.notEqual(computeFit(welder, job({ eligibility: ["Pursuing a degree or certificate in welding."] }), "").eligibility, "unlikely");
+  assert.notEqual(computeFit(student({ path: "community-college", classYear: "Sophomore" }), job({ eligibility: ["Currently pursuing an associate's or bachelor's degree."] }), "").eligibility, "unlikely");
+  const quote = computeFit(welder, job({ title: "Summer Analyst", eligibility: ["Open to undergraduates."] }), "").eligibilityNote;
+  assert.match(quote, /“Open to undergraduates”/);
+});
+test("second review: a high-school senior never qualifies through a college graduation-year rule", () => {
+  const hs = student({ path: "high-school", classYear: "Senior", graduation: "May 2027" });
+  for (const e of ["Open to students in the Class of 2027", "Graduating between December 2026 and June 2027"]) {
+    const f = computeFit(hs, job({ eligibility: [e] }), "");
+    assert.equal(f.eligibility, "unlikely", e);
+    assert.notEqual(f.checked, true, e);
+  }
+});
+test("second review: lookalike fields get no road", async () => {
+  const { roadFor } = await import("@shared/roads");
+  for (const f of ["Veterinary Medicine", "Sports Medicine", "Pharmacy Technician", "Pharmaceutical Sciences", "Electric vehicles"]) assert.equal(roadFor(f), null, f);
+  assert.equal(roadFor("Electrical lineworker")?.key, "trades");
+});

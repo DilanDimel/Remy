@@ -1,5 +1,8 @@
-import type { AtsCheck, ClaimFlag, Job, ResumeDoc } from "@shared/types";
+import { postingSkills } from "@shared/requirements";
+import type { AtsCheck, ClaimFlag, Job, ResumeDoc, ResumeStyle } from "@shared/types";
+import { family, families } from "@shared/words";
 import { hasKeyword } from "./ats";
+import { wordFont } from "./docs";
 
 // Deterministic unsupported-claim checker. It does not trust the AI: any
 // number, tool/skill, credential, title, or organization name that appears in
@@ -45,11 +48,20 @@ const CREDENTIALS = /\b(master'?s|mba|ph\.?\s?d|doctoral|doctorate)(?:[- ](?:lev
 const HEDGES = [/\bestimated\b/i, /\bapproximately\b/i, /\bapprox\.?(?=\s)/i, /\broughly\b/i, /\bnearly\b/i, /\balmost\b/i, /\bup to\b/i, /\bmore than\b/i, /\bat least\b/i, /\bco-(?:founded|led|organized|created|authored|chaired)\b/i, /\bhelped\b/i, /\bassisted\b/i, /\bcontributed\b/i, /\bparticipated\b/i];
 const CLASS_YEAR = ["first-year", "first year", "freshman", "sophomore", "second-year", "second year", "junior", "third-year", "senior", "fourth-year"];
 const STOP = new Set("about above across after again against among because before being below between both during each from further having into itself more most other over same some such than that their them then there these they this those through under until very what when where which while with within would your yours ours also just only onto upon".split(/\s+/));
-const REWORD = /^(collaborat|cooperat|partner|model|analy[sz]|assess|evaluat|review|examin|design|develop|build|built|construct|conduct|coordinat|organiz|arrang|assist|aid|run|ran|operat|fabricat|machin|prepar|creat|produc|perform|complet|execut|deliver|handl|process|apply|appli|test|measur|calculat|research|investigat|present|communicat|explain|document|record|maintain|manag(?!er)|track|monitor|serv|help|support|contribut|participat|work|utiliz|employ|leverag)/;
+const REWORD = /^(author|writ|wrote|draft|compos|collaborat|cooperat|partner|model|analy[sz]|assess|evaluat|review|examin|design|develop|build|built|construct|conduct|coordinat|organiz|arrang|assist|aid|run|ran|operat|fabricat|machin|prepar|creat|produc|perform|complet|execut|deliver|handl|process|apply|appli|test|measur|calculat|research|investigat|present|communicat|explain|document|record|maintain|manag(?!er)|track|monitor|serv|help|support|contribut|participat|work|utiliz|employ|leverag)/;
 const LIGHT = new Set("using including various multiple several across within helped worked support supported perform performed create created creating materials".split(" "));
 const OUTCOME = /\b(ensuring|ensure|resulting in|leading to|which (improved|increased|reduced)|improv(ed|ing)|increas(ed|ing)|reduc(ed|ing)|driv(ed|ing)|streamlin(ed|ing)|optimiz(ed|ing)|boost(ed|ing)|to keep|enabl(ed|ing)|that emphasizes|emphasizing|demonstrating|showcasing)\b/i;
 
+
 const lc = (s: string) => s.toLowerCase();
+
+/** Content words in `text` the student's own words never say, compared by word family ("sorted" covers
+ * "sorting", "donation" covers "donated", but "accounted" doesn't cover "accountability"). Rewording verbs and filler don't count. */
+export function unsaidWords(text: string, said: string) {
+  const own = families(said);
+  const said_ = (w: string) => w.split("-").every((p) => !p || own.has(family(p)));
+  return [...new Set((lc(text).match(/[a-z][a-z-]{3,}/g) || []).filter((w) => !STOP.has(w) && !LIGHT.has(w) && !REWORD.test(w) && !said_(w)))];
+}
 const normNum = (s: string) => s.replace(/[,$+\s]/g, "").replace(/[.]+$/, "").replace(/k$/i, "000").toLowerCase();
 
 function hasTerm(hay: string, term: string) {
@@ -57,11 +69,29 @@ function hasTerm(hay: string, term: string) {
   return new RegExp(`(^|[^a-z0-9])${esc}([^a-z0-9]|$)`, "i").test(hay);
 }
 
+/** Words in `text` that spell out an abbreviation the student used ("RN" → "registered nurses", "PBC" → "Provided by Client"). */
+export function spelledOut(text: string, own: string): string {
+  // Small words may or may not count toward an abbreviation ("PBC" = Provided by Client; "EHR" = electronic health records).
+  const all = text.split(/[^A-Za-z]+/).filter((w) => w.length > 1);
+  const lists = [all, all.filter((w) => !/^(of|and|the|for|by|to|in|on)$/i.test(w))];
+  const out: string[] = [];
+  for (const a of new Set((own.match(/\b[A-Z]{2,5}(?=s?\b)/g) || []).map((x) => x.toLowerCase())))
+    for (const words of lists)
+      for (let i = 0; i + a.length <= words.length; i++) {
+        const run = words.slice(i, i + a.length);
+        if (run.map((w) => w[0].toLowerCase()).join("") === a) out.push(...run);
+      }
+  return out.join(" ");
+}
+
 export function claimCheck(
   text: string,
   evidence: string,
-  opts: { allowedNames?: string[]; postingText?: string; original?: string; postingNumbersOk?: boolean; entryContext?: string } = {},
+  opts: { allowedNames?: string[]; postingText?: string; original?: string; postingNumbersOk?: boolean; entryContext?: string; strict?: boolean } = {},
 ): ClaimFlag[] {
+  // An abbreviation spelled out is the same claim, not new detail.
+  const spelled = spelledOut(text, evidence + " " + (opts.original || ""));
+  if (spelled) { evidence += " " + spelled; if (opts.original !== undefined) opts = { ...opts, original: opts.original + " " + spelled }; }
   const flags: ClaimFlag[] = [];
   const ev = lc(evidence);
   const evNums = new Set((evidence.match(/\$?\d+(?:[.,]\d+)*\+?(?:[kKmM%](?![A-Za-z]))?/g) || []).map(normNum));
@@ -102,7 +132,9 @@ export function claimCheck(
   const own = lc(opts.original !== undefined ? opts.original + " " + (opts.entryContext || "") : evidence);
   for (const [re, root, word] of LEADERSHIP) {
     const m = body.match(re);
-    if (m && !own.includes(root) && !re.test(own)) add({ type: "title", term: m[0], message: `“${m[0]}” claims you ${word}, which your ${opts.original !== undefined ? "original bullet" : "resume"} doesn't say. Keep it only if it's true.` });
+    // "a tracker to manage requests": the tool manages, not the student.
+    const toolDoes = new RegExp(`\\b(tool|tracker|system|spreadsheet|dashboard|database|template|app|process|workflow)s?\\s+(to|that|for)\\s+${m?.[0] || "x"}`, "i").test(body);
+    if (m && !own.includes(root) && !re.test(own) && !toolDoes) add({ type: "title", term: m[0], message: `“${m[0]}” claims you ${word}, which your ${opts.original !== undefined ? "original bullet" : "resume"} doesn't say. Keep it only if it's true.` });
   }
   // Numbers written as words ("a team of five", "thirty percent").
   for (const m of body.matchAll(NUMBER_WORDS)) {
@@ -119,7 +151,9 @@ export function claimCheck(
   if (opts.original !== undefined) {
     for (const h of HEDGES) {
       const m = opts.original.match(h);
-      if (m && !h.test(body)) add({ type: "scope", term: m[0], message: `Your original says “${m[0]}”. Dropping it makes the claim sound more certain than your resume does; keep it.` });
+      // "Assisted" → "supported" gives the same credit; only dropping the hedge altogether overstates.
+      const sameCredit = /^(helped|assisted|contributed|participated)$/i.test(m?.[0] || "") && /\b(help\w*|assist\w*|support\w*|aid(ed|ing)?|contribut\w*|participat\w*)\b/i.test(body);
+      if (m && !h.test(body) && !sameCredit) add({ type: "scope", term: m[0], message: `Your original says “${m[0]}”. Dropping it makes the claim sound more certain than your resume does; keep it.` });
     }
   }
   if (opts.original !== undefined) {
@@ -160,16 +194,17 @@ export function claimCheck(
       add({ type: "title", term, message: `Class standing “${term}” is not stated in your resume or profile. Set your class year in Accounts or remove it.` });
     }
   }
+  // Check-ins: every detail must come from what the student said, so even one new word is flagged.
+  if (opts.strict) {
+    const u = unsaidWords(body, evidence + " " + (opts.original ?? ""));
+    if (u.length) add({ type: "scope", term: u.slice(0, 6).join(", "), message: `This adds words you didn't say (${u.slice(0, 6).join(", ")}). Keep them only if they're true.` });
+  }
   // Rewrites that add outcomes or scope the original bullet never claimed.
-  if (opts.original !== undefined) {
-    const IRREG: Record<string, string> = { built: "build", led: "lead", ran: "run", made: "make", wrote: "write", taught: "teach", won: "win", grew: "grow", began: "begin", held: "hold" };
-    const stem = (w: string) => {
-      let x = IRREG[w] || w;
-      x = x.replace(/(ing|ed|es|s)$/, "");
-      return x.slice(0, 6);
-    };
+  if (opts.original !== undefined && !opts.strict) {
+    // Hyphenated words ("cross-functional") compare as their parts.
+    const stem = (w: string) => w.split("-").map(family).join("-");
     const evStems = new Set((lc(evidence + " " + (opts.postingText || "")).match(/[a-z][a-z-]{3,}/g) || []).map(stem));
-    const novel = Array.from(new Set((t.match(/[a-z][a-z-]{4,}/g) || []).filter((w) => !STOP.has(w) && !evStems.has(stem(w)))));
+    const novel = Array.from(new Set((t.match(/[a-z][a-z-]{4,}/g) || []).filter((w) => !STOP.has(w) && !LIGHT.has(w) && !REWORD.test(w) && !evStems.has(stem(w)))));
     const outcome = body.match(OUTCOME);
     const newOutcome = outcome && !lc(opts.original).includes(lc(outcome[0]));
     // Detail added relative to THIS entry (the bullet, its siblings, role and org).
@@ -224,8 +259,8 @@ export function claimCheck(
       if (!meaningful.length) continue;
       const pl = lc(phrase);
       if (ev.includes(pl) || allowed.some((a) => a.includes(pl) || pl.includes(a))) continue;
-      // "TCU's" is the resume's "TCU".
-      if (meaningful.map((w) => lc(w).replace(/['’]s$/, "")).every((w) => ev.includes(w) || allowed.some((a) => a.includes(w)))) continue;
+      // "TCU's" is the resume's "TCU", and "RNs" its "RN".
+      if (meaningful.map((w) => lc(w.replace(/^([A-Z]{2,5})s$/, "$1")).replace(/['’]s$/, "")).every((w) => ev.includes(w) || allowed.some((a) => a.includes(w)))) continue;
       add({ type: "name", term: phrase, message: `“${phrase}” is not mentioned in your resume or approved facts.` });
     }
   }
@@ -237,7 +272,31 @@ export function evidenceText(resumeRaw: string, facts: string[]) {
 }
 
 // ---------- ATS-format checks on the composed resume ----------
-export function atsChecks(doc: ResumeDoc, job: Job, fileBase: string): AtsCheck[] {
+/** Tables, text boxes and columns in the student's own Word file (some applicant tracking systems read them out of order).
+ *  Left out when Remy hasn't seen the file's layout (a PDF, or a Word file uploaded before this check). */
+function layoutCheck(style?: ResumeStyle): AtsCheck[] {
+  const l = style?.layout;
+  if (!l) return [];
+  const found = [l.tables && "a table", l.textBoxes && "text boxes", l.columns && "two or more columns"].filter(Boolean) as string[];
+  return [{ id: "layout", label: "Single column, no tables or text boxes", pass: !found.length, detail: found.length ? `Your Word file uses ${found.join(" and ")}. Some applicant tracking systems read those out of order; if an online application garbles your details, upload Remy's one-column PDF instead.` : "Your Word file is one column with no tables or text boxes." }];
+}
+
+// Fonts that come with Windows and Mac Office, so a Word file opens the same on a recruiter's computer.
+// Compared without spaces or style suffixes, since PDFs name them "TrebuchetMS", "PalatinoLinotype-Roman", "ArialMT".
+const STANDARD_FONTS = new Set("arial calibri cambria timesnewroman georgia garamond helvetica helveticaneue verdana tahoma trebuchetms trebuchet bookantiqua palatino palatinolinotype aptos centurygothic couriernew".split(" "));
+const fontKey = (f: string) => f.toLowerCase().replace(/[-,].*$/, "").replace(/[^a-z]/g, "").replace(/(psmt|mt|ps|regular)$/, "");
+/** The student's own font and size, as read from their file. Left out when Remy doesn't know them (a pasted resume). */
+export function fontCheck(style?: ResumeStyle): AtsCheck[] {
+  if (!style?.font) return [];
+  const font = wordFont(style), size = Math.round(style.size * 2) / 2;
+  const standard = STANDARD_FONTS.has(fontKey(font)) || STANDARD_FONTS.has(fontKey(style.font)), readable = size >= 10;
+  const detail = !standard ? `${font} isn't installed on every computer, so Word may swap it for another font when a recruiter opens your file. Arial, Calibri, Garamond and Times New Roman look the same everywhere.`
+    : !readable ? `Your body text is about ${size} pt. 10 to 12 pt is easier to read.`
+    : `${font}, about ${size} pt: a standard font that looks the same on any computer.`;
+  return [{ id: "font", label: "Readable standard font", pass: standard && readable, detail }];
+}
+
+export function atsChecks(doc: ResumeDoc, job: Job, fileBase: string, style?: ResumeStyle): AtsCheck[] {
   const text = [doc.contact.name, ...doc.sections.flatMap((s) => [s.heading, ...s.entries.flatMap((e) => [e.org, e.role, e.dates, ...e.bullets.map((b) => b.text)])]), ...doc.skills.map((k) => k.label + " " + k.items)].join("\n");
   const words = text.split(/\s+/).filter(Boolean).length;
   const headings = doc.sections.map((s) => lc(s.heading));
@@ -246,17 +305,18 @@ export function atsChecks(doc: ResumeDoc, job: Job, fileBase: string): AtsCheck[
     .filter((s) => !/cert|skill|award|honor/i.test(s.heading))
     .flatMap((s) => s.entries)
     .filter((e) => (e.role || e.bullets.length) && !e.dates.trim());
-  const reqHits = job.requirements.filter((r) => hasKeyword(text, r.keyword));
+  const asks = postingSkills(job.requirements);
+  const reqHits = asks.filter((k) => hasKeyword(text, k));
   const placeholders = /\[(PERSONALIZE|ADD|TODO)/i.test(text);
   return [
     { id: "contact", label: "Contact details at the top", pass: !!doc.contact.name && !!doc.contact.email, detail: doc.contact.email ? "Name and email found." : "Add an email address to the contact line." },
     { id: "headings", label: "Standard section headings", pass: headings.some((h) => h.includes("education")) && headings.some((h) => /experience|projects|leadership/.test(h)), detail: "ATS parsers look for Education and Experience-style headings." },
-    { id: "layout", label: "Single column, no tables, images or text boxes", pass: true, detail: "Remy exports a one-column document with real text only." },
-    { id: "font", label: "Readable standard font", pass: true, detail: "Downloads keep your own resume's font, size and margins." },
+    ...layoutCheck(style),
+    ...fontCheck(style),
     { id: "dates", label: "Every experience entry has dates", pass: undated.length === 0, detail: undated.length ? `Missing dates: ${undated.map((e) => e.org || e.role).join(", ")}` : "All entries are dated." },
     { id: "bullets", label: "Bullets are concise (under ~2 lines)", pass: longBullets.length === 0, detail: longBullets.length ? `${longBullets.length} bullet(s) run long.` : "All bullets are a scannable length." },
     { id: "length", label: "Fits about one page for an undergraduate", pass: words <= 700, detail: `${words} words.` },
-    { id: "keywords", label: "Posting priorities reflected (only where true)", pass: reqHits.length >= Math.min(2, job.requirements.length), detail: `${reqHits.length} of ${job.requirements.length} posting priorities appear. Never add a keyword you can't support.` },
+    { id: "keywords", label: "Posting priorities reflected (only where true)", pass: reqHits.length >= Math.min(2, asks.length), detail: asks.length ? `${reqHits.length} of ${asks.length} skills the posting names appear${asks.length > reqHits.length ? ` (not shown: ${asks.filter((k) => !reqHits.includes(k)).slice(0, 5).join(", ")})` : ""}. Never add one you can't support.` : "Remy couldn't read specific skills in this posting." },
     { id: "placeholders", label: "No unfinished placeholders", pass: !placeholders, detail: placeholders ? "Remove [PERSONALIZE] markers." : "None found." },
     { id: "filename", label: "Clear file name", pass: true, detail: `${fileBase}.docx` },
   ];

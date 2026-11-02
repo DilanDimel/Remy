@@ -1,27 +1,23 @@
 import { useEffect, useState } from "react";
-import { Copy, GraduationCap, Mail, MapPin, Plus, Send, Sparkles, Trash2, UserPlus } from "lucide-react";
-import type { Contact, OutreachDraft, Workspace } from "@shared/types";
+import { GraduationCap, Mail, PenLine, Plus, Send, Sparkles, Trash2 } from "lucide-react";
+import type { Contact, OutreachDraft } from "@shared/types";
 import { api, fmtDate, rid, useStore } from "../lib/store";
-import { Empty, Modal, Spinner, StatusChip } from "../components/common";
-import { atAlumniSchool, SchoolVerify } from "../components/SchoolVerify";
+import { CopyButton, Empty, Modal, Spinner, StatusChip } from "../components/common";
 import { startOutreach, useTailorSession } from "../lib/tailorChat";
+import { sameOrg, useJobs } from "../lib/jobs";
+import { go } from "../lib/router";
 
-type AlumMatch = { id: string; year: number | null; name: string; employer: string; industry: string; role: string; title: string; location: string; majors: string[]; score: number; why: string[] };
 
 export default function Community() {
-  const { ws, me, setWs, save, run, config } = useStore();
+  const { ws, save, run } = useStore();
   const w = ws!;
   const [adding, setAdding] = useState(false);
+  const { jobs } = useJobs();
+  const openAt = (org: string) => (jobs || []).filter((j) => org && sameOrg(j.company, org) && !w.hiddenJobIds.includes(j.id));
+  // Employers the student saved but knows nobody at: the people worth meeting next.
+  const unknownOrgs = [...new Set((jobs || []).filter((j) => w.savedJobIds.includes(j.id)).map((j) => j.company))].filter((c) => !w.contacts.some((p) => sameOrg(p.org, c))).slice(0, 4);
   const [c, setC] = useState({ name: "", title: "", org: "", email: "", why: "" });
   const [review, setReview] = useState<OutreachDraft | null>(null);
-  const [alumni, setAlumni] = useState<{ source: string; total: number; matches: AlumMatch[]; signInRequired?: boolean; schoolEmailRequired?: boolean; domains?: string[] } | null>(null);
-  const [busyAlum, setBusyAlum] = useState("");
-  const profileKey = [w.profile.major, w.profile.targetRoles, w.profile.regions, w.profile.interests, w.savedJobIds.length].join("|");
-  useEffect(() => {
-    let live = true;
-    api<{ source: string; total: number; matches: AlumMatch[]; signInRequired?: boolean; schoolEmailRequired?: boolean; domains?: string[] }>("GET", "/api/community/alumni").then((d) => { if (live) setAlumni(d); }, () => {});
-    return () => { live = false; };
-  }, [profileKey, me?.id, me?.schoolEmail]);
   // When Remy finishes writing an email, open it for review.
   // Remy's "done" can arrive a render before the workspace with the new draft, so
   // look again when the drafts change, and open each draft only once.
@@ -32,15 +28,12 @@ export default function Community() {
     const d = w.outreach.find((x) => x.id === convo.draftId);
     if (d) { setReview(d); setOpened(d.id); }
   }, [convo?.stage, convo?.draftId, w.outreach.length]);
-  const toContact = async (a: AlumMatch) => {
-    setBusyAlum(a.id);
-    const r = await run(() => api<{ contact: Contact; workspace: Workspace }>("POST", `/api/community/alumni/${a.id}/contact`));
-    if (r) setWs(r.workspace);
-    setBusyAlum("");
-    return r?.contact;
-  };
   const draftTo = (c: Contact) => startOutreach(c);
-  const loadSamples = async () => { const r = await run(() => api<Workspace>("POST", "/api/community/sample"), "Sample contacts added"); if (r) setWs(r); };
+  // Coach mode first: the student writes their own email and Remy comments on it.
+  const writeTo = async (c: Contact) => {
+    const d: OutreachDraft = { id: rid("o"), contactId: c.id, to: c.email, subject: "", body: "", status: "draft", createdAt: new Date().toISOString() };
+    if (await run(() => save("outreach", [...w.outreach, d]))) setReview(d);
+  };
   const addContact = async () => {
     await run(() => save("contacts", [...w.contacts, { id: rid("c"), ...c, tags: [], label: "Student provided" }]), "Contact saved");
     setAdding(false);
@@ -52,46 +45,14 @@ export default function Community() {
         <div>
           <span className="eyebrow">Community</span>
           <h1>A few right people.</h1>
-          <p>{alumni && !alumni.schoolEmailRequired ? "TCU alumni who match your major, interests and where you want to work" : "People you've met who can help with your career"}. Remy asks you a few questions, then writes the email — you approve every word and send it yourself.</p>
+          <p>People you've met who can help with your career. Remy asks you a few questions, then writes the email — you approve every word and send it yourself.</p>
         </div>
         <div className="row">
           <button className="btn btn-secondary" onClick={() => setAdding(true)} data-testid="button-add-contact"><Plus size={16} /> Add a contact</button>
-          {!w.contacts.some((x) => x.label === "Demo data") && <button className="btn btn-ghost" onClick={loadSamples} data-testid="button-sample-contacts">Load sample contacts</button>}
         </div>
       </div>
-      {/* Alumni are only for TCU accounts, so other signed-in accounts don't see this section at all. */}
-      {alumni?.schoolEmailRequired && atAlumniSchool(w) && <SchoolVerify />}
-      {alumni && !alumni.schoolEmailRequired && <section className="stack" data-testid="section-alumni">
-        <div className="row-between">
-          <h2>TCU alumni matched to you</h2>
-          {alumni && <span className="xs muted">From the {alumni.source || "TCU alumni list"} · {alumni.total} alumni</span>}
-        </div>
-        {alumni?.signInRequired ? (
-          <div className="card card-pad stack-sm" data-testid="alumni-sign-in">
-            <strong>TCU students: sign in to see alumni in your field</strong>
-            <p className="small muted">Sign out from the menu under your name, then choose Continue with Work/School Email and use your @tcu.edu address.</p>
-          </div>
-        ) : !alumni ? <div className="grid-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 150 }} />)}</div> : alumni.matches.length ? (
-          <div className="grid-3">
-            {alumni.matches.map((a) => {
-              const saved = w.contacts.some((c) => c.id === "alum-" + a.id);
-              return (
-                <div key={a.id} className="card card-pad stack-sm" data-testid="card-alum">
-                  <div className="row-between" style={{ alignItems: "flex-start" }}><strong>{a.name}</strong>{a.year && <span className="chip chip-plain"><GraduationCap size={12} /> {a.year}</span>}</div>
-                  <span className="small">{a.title || a.role}{a.employer ? ` · ${a.employer}` : ""}</span>
-                  <span className="xs muted row" style={{ gap: 4 }}><MapPin size={12} />{a.location || "Location not listed"}{a.majors.length ? ` · ${a.majors.join("/")}` : ""}</span>
-                  <div className="row" style={{ gap: 6 }}>{a.why.slice(0, 3).map((x) => <span key={x} className="chip chip-live">{x}</span>)}</div>
-                  <div className="row" style={{ marginTop: "auto" }}>
-                    <button className="btn btn-primary btn-sm" disabled={busyAlum === a.id} onClick={async () => { const c = await toContact(a); if (c) draftTo(c); }} data-testid="button-draft-alum">{busyAlum === a.id ? <Spinner /> : <Sparkles size={14} />} Draft email</button>
-                    {!saved && <button className="btn btn-ghost btn-sm" disabled={busyAlum === a.id} onClick={() => toContact(a)} data-testid="button-save-alum"><UserPlus size={14} /> Save</button>}
-                    {saved && <span className="xs muted">Saved</span>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : <div className="card"><Empty title="No strong matches yet" body="Add your major, the fields you're interested in and where you want to work (Account → Profile), and Remy will match you with TCU alumni." /></div>}
-      </section>}
+      <div className="notice small" data-testid="alumni-coming-soon"><GraduationCap size={16} style={{ color: "var(--plum)", marginTop: 2 }} /><div><StatusChip label="Needs setup">Coming soon</StatusChip> <strong>Alumni connections.</strong> Remy will match you with alumni in your field once a school gives us permission to use its alumni list. Until then, add people you've met yourself.</div></div>
+      {unknownOrgs.length > 0 && <div className="notice small" data-testid="people-to-meet"><Sparkles size={16} style={{ color: "var(--fox)", marginTop: 2 }} /><div><strong>Worth meeting next:</strong> you saved openings at {unknownOrgs.join(", ")} but don't know anyone there yet. A recruiter you met at a fair, an alum or a TA who interned there is worth adding, and Remy can draft the first message.</div></div>}
       <h2>Your contacts</h2>
       {w.contacts.length ? (
         <div className="grid-3">
@@ -100,14 +61,16 @@ export default function Community() {
               <div className="row-between"><strong>{p.name}</strong><StatusChip label={p.label} /></div>
               <span className="small muted">{p.title}{p.org ? ` · ${p.org}` : ""}</span>
               <p className="small">{p.why}</p>
+              {openAt(p.org).length > 0 && <button className="xs" style={{ textAlign: "left", color: "var(--fox)", fontWeight: 700, padding: 0 }} onClick={() => go(`/opportunities?kind=all&id=${openAt(p.org)[0].id}`)} data-testid="contact-openings">{openAt(p.org).length} opening{openAt(p.org).length > 1 ? "s" : ""} at {p.org} →</button>}
               <div className="row" style={{ marginTop: "auto" }}>
-                <button className="btn btn-primary btn-sm" onClick={() => draftTo(p)} data-testid="button-draft-outreach"><Sparkles size={14} /> Draft email</button>
+                <button className="btn btn-primary btn-sm" onClick={() => writeTo(p)} data-testid="button-write-outreach"><PenLine size={14} /> Write an email</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => draftTo(p)} data-testid="button-draft-outreach"><Sparkles size={14} /> Draft it for me</button>
                 <button className="icon-btn" onClick={() => save("contacts", w.contacts.filter((x) => x.id !== p.id))} aria-label="Remove contact"><Trash2 size={15} /></button>
               </div>
             </div>
           ))}
         </div>
-      ) : <div className="card"><Empty title="No contacts yet" body="Save an alum above, or add someone you've met at a career fair, in class or on LinkedIn." /></div>}
+      ) : <div className="card"><Empty title="No contacts yet" body="Add someone you've met at a career fair, in class or on LinkedIn." /></div>}
 
       {w.outreach.length > 0 && (
         <section className="card card-pad stack">
@@ -141,9 +104,12 @@ export default function Community() {
 }
 
 function ReviewModal({ draft, onClose }: { draft: OutreachDraft; onClose: () => void }) {
-  const { ws, save, run, toast } = useStore();
+  const { ws, save, run } = useStore();
   const w = ws!;
   const [d, setD] = useState(draft);
+  const [tips, setTips] = useState<string[] | null>(null);
+  const [coaching, setCoaching] = useState(false);
+  const coach = async () => { setCoaching(true); const r = await run(() => api<{ tips: string[] }>("POST", "/api/ai/outreach-feedback", { contactId: d.contactId, subject: d.subject, body: d.body })); setCoaching(false); if (r) setTips(r.tips); };
   const p = w.contacts.find((x) => x.id === d.contactId);
   const persist = (patch: Partial<OutreachDraft>) => {
     const next = { ...d, ...patch };
@@ -155,17 +121,22 @@ function ReviewModal({ draft, onClose }: { draft: OutreachDraft; onClose: () => 
   return (
     <Modal title="Review before anything is sent" onClose={onClose} wide>
       <div className="notice small"><Send size={16} style={{ color: "var(--plum)", marginTop: 2 }} /><div>Remy doesn't send email. After you approve, it opens the message in <strong>your</strong> email so you send it yourself.</div></div>
-      <dl className="kv"><dt>To</dt><dd data-testid="text-recipient">{p?.name} &lt;{d.to}&gt; {p?.label === "Demo data" && <StatusChip label="Demo data">Sample address — won't reach anyone</StatusChip>}</dd><dt>From</dt><dd>{w.profile.applicationEmail || "Your email account"}</dd></dl>
+      <dl className="kv"><dt>To</dt><dd data-testid="text-recipient">{p?.name} &lt;{d.to}&gt;</dd><dt>From</dt><dd>{w.profile.applicationEmail || "Your email account"}</dd></dl>
       <label className="field"><span>Subject</span><input className="input" value={d.subject} onChange={(e) => setD({ ...d, subject: e.target.value, status: "draft" })} data-testid="input-outreach-subject" /></label>
       <label className="field"><span>Full message</span><textarea className="textarea" style={{ minHeight: 220 }} value={d.body} onChange={(e) => setD({ ...d, body: e.target.value, status: "draft" })} data-testid="input-outreach-body" /></label>
+      <div className="stack-sm">
+        <button className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }} disabled={coaching || d.body.trim().split(/\s+/).length < 15} onClick={coach} data-testid="button-outreach-feedback">{coaching ? <Spinner /> : <Sparkles size={14} />} Get Remy's feedback</button>
+        {!d.body.trim() && <span className="xs muted">Write it in your own words: who you are, one real reason you're reaching out to {p?.name.split(" ")[0] || "them"}, and a small ask like a 15-minute chat. Remy comments; it won't rewrite it.</span>}
+        {tips && <ul className="small" style={{ paddingLeft: 18 }} data-testid="outreach-tips">{tips.map((t) => <li key={t}>{t}</li>)}</ul>}
+      </div>
       {d.linkedin && (
         <div className="field"><span>LinkedIn note (under 200 characters)</span>
           <div className="row" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}><p className="small" style={{ flex: 1, background: "var(--surface-2)", border: "1px solid var(--line)", borderRadius: 10, padding: "9px 12px" }} data-testid="text-linkedin-note">{d.linkedin}</p>
-            <button className="btn btn-ghost btn-sm" onClick={() => { navigator.clipboard?.writeText(d.linkedin || ""); toast("LinkedIn note copied"); }}><Copy size={14} /> Copy</button></div>
+            <CopyButton text={d.linkedin || ""} /></div>
         </div>
       )}
       <div className="row" style={{ justifyContent: "space-between" }}>
-        <button className="btn btn-ghost btn-sm" onClick={() => { navigator.clipboard?.writeText(`To: ${d.to}\nSubject: ${d.subject}\n\n${d.body}`); toast("Copied"); }}><Copy size={14} /> Copy</button>
+        <CopyButton text={`To: ${d.to}\nSubject: ${d.subject}\n\n${d.body}`} />
         <div className="row">
           {d.status === "draft" ? (
             <button className="btn btn-primary" onClick={() => run(() => persist({ status: "approved", approvedAt: new Date().toISOString() }), "Approved")} data-testid="button-approve-outreach">Approve message</button>

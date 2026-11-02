@@ -53,3 +53,103 @@ test("CareerOneStop: sends the bearer token and a DFW search, reads the jobs", a
     globalThis.fetch = real; delete process.env.COS_USER_ID; delete process.env.COS_TOKEN;
   }
 });
+
+test("shared catalog: one site read serves the next student; a failed or empty read keeps the last good copy", async () => {
+  const { cachedBoard } = await import("./sources");
+  const { q } = await import("./sql");
+  const b = { company: "Acme", ats: "greenhouse", slug: "acme-cache-test" } as any;
+  let calls = 0;
+  const ok = async () => { calls++; return [{ title: "Finance Intern", location: "Dallas, TX", url: "https://x.test/1", text: "" }]; };
+  assert.equal((await cachedBoard(b, "", "", ok)).length, 1);
+  assert.equal((await cachedBoard(b, "", "", ok)).length, 1);
+  assert.equal(calls, 1, "the second student reuses the saved copy");
+  await q("UPDATE board_cache SET fetched_at = now() - interval '7 hours' WHERE key LIKE '%acme-cache-test%'");
+  assert.equal((await cachedBoard(b, "", "", async () => { throw new Error("down"); })).length, 1, "site down: last good copy");
+  assert.equal((await cachedBoard(b, "", "", async () => [])).length, 1, "empty answer: last good copy");
+});
+
+test("Julio's 48 labeled postings: every relevant one is found, no unrelated or senior one is shown", async () => {
+  const { RELEVANCE_CASES } = await import("./fixtures/job-relevance");
+  const { discoverJobs } = await import("./sources");
+  const { emptyWorkspace } = await import("./db");
+  const { q } = await import("./sql");
+  const wrong: string[] = [];
+  for (const g of RELEVANCE_CASES as any[]) {
+    const slug = "julio-" + g.sector;
+    const raws = g.cases.map(([title, text]: any, i: number) => ({ title, location: "Dallas, TX", url: `https://x.test/${slug}/${i}`, text }));
+    await q("INSERT INTO board_cache (key, raws) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET raws = EXCLUDED.raws, fetched_at = now()", [`greenhouse|${slug}||`, JSON.stringify(raws)]);
+    const ws = emptyWorkspace();
+    Object.assign(ws.profile, { targetRoles: g.target, classYear: "Sophomore", regions: "Dallas, TX" });
+    const kept = new Set((await discoverJobs(ws, [{ company: "Synthetic", ats: "greenhouse", slug } as any], 50)).jobs.map((j) => j.title));
+    for (const [title, , want] of g.cases) if (kept.has(title) !== want) wrong.push(`${g.sector}: ${title} (${want ? "missed" : "wrongly shown"})`);
+  }
+  assert.deepEqual(wrong, []);
+});
+
+test("feedback loop: liked employers first, twice-dismissed left out, then the ones not read yet", async () => {
+  const { orderEmployers } = await import("./sources");
+  const list = ["A", "B", "C", "D", "A"].map((company) => ({ company }));
+  const out = orderEmployers(list, new Set(["d"]), new Map([["c", 2]]), { A: "2026-10-29T10:00:00Z" });
+  assert.deepEqual(out.map((e) => e.company), ["D", "B", "A"]);
+});
+
+test("the specific words of a goal rank first: Mechanical Engineering Intern above Electrical for a mechanical student", async () => {
+  const { discoverJobs, specificWords } = await import("./sources");
+  const { emptyWorkspace } = await import("./db");
+  const { q } = await import("./sql");
+  const raws = [["Electrical Engineer Intern", 0], ["Mechanical Engineering Intern", 1]].map(([title, i]) => ({ title, location: "Dallas, TX", url: `https://x.test/spec/${i}`, text: "Design and test hardware." }));
+  await q("INSERT INTO board_cache (key, raws) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET raws = EXCLUDED.raws, fetched_at = now()", ["greenhouse|spec-test||", JSON.stringify(raws)]);
+  const ws = emptyWorkspace();
+  Object.assign(ws.profile, { targetRoles: "mechanical engineering intern", major: "Mechanical Engineering", classYear: "Junior", regions: "Dallas, TX" });
+  assert.deepEqual(specificWords(ws), ["mechanical"]);
+  const jobs = (await discoverJobs(ws, [{ company: "Spec", ats: "greenhouse", slug: "spec-test" } as any], 10)).jobs;
+  assert.equal(jobs[0].title, "Mechanical Engineering Intern");
+});
+
+test("Workday locations read like addresses: IL-Rosemont → Rosemont, IL", async () => {
+  const { tidyLocation } = await import("./sources");
+  assert.equal(tidyLocation("IL-Rosemont"), "Rosemont, IL");
+  assert.equal(tidyLocation("TX-Fort-Worth"), "Fort Worth, TX");
+  assert.equal(tidyLocation("Dallas, TX"), "Dallas, TX");
+  assert.equal(tidyLocation("Remote"), "Remote");
+});
+
+test("openings scout: counts early-career postings, flags sites that fail or return nothing, passes a search word", async () => {
+  const { scoutBoards } = await import("./sources");
+  const seen: string[] = [];
+  const read = async (b: any, field: string) => {
+    seen.push(field);
+    if (b.company === "Down") throw new Error("HTTP 500");
+    if (b.company === "Empty") return [];
+    return [{ title: "Finance Intern", location: "", url: "u1", text: "" }, { title: "Senior Manager", location: "", url: "u2", text: "" }];
+  };
+  const r = await scoutBoards([{ company: "Ok", ats: "workday", slug: "ok", fields: ["Finance"] }, { company: "Down", ats: "lever", slug: "d" }, { company: "Empty", ats: "lever", slug: "e" }] as any, read as any);
+  const by = Object.fromEntries(r.map((x) => [x.company, x]));
+  assert.deepEqual([by.Ok.ok, by.Ok.total, by.Ok.early], [true, 2, 1]);
+  assert.equal(by.Down.error, "HTTP 500");
+  assert.deepEqual([by.Empty.ok, by.Empty.total], [true, 0], "answered with nothing: no openings now, not broken");
+  assert.ok(seen.includes("finance") || seen.some((f) => f.length > 0), "a field search word is passed for field-search boards");
+});
+
+test("screening guide: finds the application system from where an opening came from or its apply link", async () => {
+  const { screeningFor } = await import("@shared/screening");
+  assert.equal(screeningFor({ sourceName: "Deloitte careers (Workday job board)" })?.system, "Workday");
+  assert.equal(screeningFor({ applyUrl: "https://job-boards.greenhouse.io/stripe/jobs/1" })?.system, "Greenhouse");
+  assert.equal(screeningFor({ applyUrl: "https://abc.fa.us2.oraclecloud.com/hcmUI/x" })?.system, "Oracle Recruiting");
+  assert.equal(screeningFor({ applyUrl: "https://example.com/apply" }), null, "unknown system: nothing guessed");
+});
+
+test("conference finder: keeps only events whose page shows the start date, lists them as events for the student's field", async () => {
+  const { pageShowsDate, conferencesFor } = await import("./conferences");
+  assert.ok(pageShowsDate("NABA National Convention · June 23-26, 2027 · Atlanta", "2027-06-23"));
+  assert.ok(pageShowsDate("Join us 23rd June 2027", "2027-06-23"));
+  assert.ok(pageShowsDate("Date: 06/23/2027", "2027-06-23"));
+  assert.ok(!pageShowsDate("June 2027 · Atlanta", "2027-06-23"), "a month alone isn't the date");
+  assert.ok(!pageShowsDate("June 3, 2027", "2027-06-23"));
+  const ws = { profile: { major: "Accounting", path: "", targetRoles: "", interests: "" } } as any;
+  let asked = "";
+  const jobs = await conferencesFor(ws, async (field) => { asked = field; return [{ name: "Future CPA Summit", organizer: "TXCPA", start: "2099-03-05", end: "2099-03-06", location: "Dallas, TX", url: "https://example.org/summit" }]; });
+  assert.equal(asked, "Accounting");
+  assert.deepEqual(jobs.map((j) => [j.kind, j.title, j.location, j.format]), [["event", "Future CPA Summit", "Dallas, TX", "In person"]]);
+  assert.deepEqual(await conferencesFor({ profile: { major: "Underwater basket weaving", path: "", targetRoles: "", interests: "" } } as any, async () => { throw new Error("not asked"); }), []);
+});
