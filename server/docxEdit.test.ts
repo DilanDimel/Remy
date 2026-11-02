@@ -102,3 +102,15 @@ test("layout check: a table in the Word header (where contact lines often sit) c
   }] }));
   assert.equal((await docxStyle(buf))?.layout?.tables, true);
 });
+
+test("Remy's own Word layout and the cover letter are on US Letter, so right-aligned dates stay inside the margin (Nov 2 deep test)", async () => {
+  const { resumeDocx, letterDocx } = await import("./docs");
+  const doc = { contact: { name: "A B", email: "a@b.co", phone: "", location: "", links: "" }, skills: [],
+    sections: [{ id: "s", heading: "Experience", entries: [{ id: "e", org: "Bell", role: "Intern", location: "Fort Worth, TX", dates: "May 2026 – Aug 2026", bullets: [] }] }] } as any;
+  for (const buf of [await resumeDocx(doc, { serif: true, size: 10.5, margin: 36, pages: 1 }), await letterDocx("A B", "a@b.co", "Hello.")]) {
+    const xml = await xmlOf(buf);
+    assert.match(xml, /<w:pgSz[^>]*w:w="12240"[^>]*w:h="15840"/);
+  }
+  // The right tab stop is the Letter text width (12240 − 2 × 720), not past A4's narrower page.
+  assert.match(await xmlOf(await resumeDocx(doc, { serif: true, size: 10.5, margin: 36, pages: 1 })), /w:pos="10800"/);
+});

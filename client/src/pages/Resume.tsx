@@ -539,13 +539,33 @@ function ResumePaper({ doc, changed }: { doc: ResumeDoc; changed?: Set<string> }
   );
 }
 
+type WordLayout = { layout: "original" | "remy"; reason?: "not-word" | "unreadable" | "missed"; missed?: string[]; more?: number };
 function DownloadButtons({ a, v }: { a: Application; v: number }) {
-  const { toast } = useStore();
+  const { toast, ws } = useStore();
+  const ownWord = !!ws?.resume?.original?.mime.includes("wordprocessingml");
+  // Before the student downloads: can this version's Word file keep their own design? If not, say so and why.
+  const [layout, setLayout] = useState<WordLayout | null>(null);
+  // Base edits and deleted lines change which lines fit the file, so the answer is asked again when they change.
+  const baseKey = useMemo(() => JSON.stringify([ws?.resume?.original?.name, ws?.resume?.original?.size, ws?.resume?.doc, ws?.resume?.removed]), [ws?.resume]);
+  useEffect(() => {
+    setLayout(null);
+    if (!ownWord) return;
+    let live = true;
+    api<WordLayout>("GET", `/api/applications/${a.id}/word-layout?v=${v}`).then((r) => { if (live) setLayout(r); }).catch(() => {});
+    return () => { live = false; };
+  }, [a.id, v, ownWord, baseKey]);
   const dl = (doc: "resume" | "letter", format: string) =>
     download(`/api/applications/${a.id}/export?doc=${doc}&format=${format}&v=${v}`, `${doc}.${format}`).catch((e) => toast(e.message, true));
   return (
     <div className="stack-sm">
       <div className="row"><span className="small" style={{ width: 92, fontWeight: 700 }}>Resume</span>{["docx", "pdf", "txt"].map((f) => <button key={f} className="btn btn-secondary btn-sm" onClick={() => dl("resume", f)} data-testid={`button-download-resume-${f}`}><Download size={13} /> {f.toUpperCase()}</button>)}</div>
+      {ownWord && layout?.layout === "remy" && (
+        <div className="xs" style={{ color: "var(--amber)" }} data-testid="note-word-layout">
+          {layout.reason === "missed"
+            ? <>Heads up: this DOCX won't keep your own design. Remy couldn't find where {layout.missed!.length === 1 ? "this line goes" : "these lines go"} in your Word file: {layout.missed!.map((m) => `“${m.length > 80 ? m.slice(0, 80) + "…" : m}”`).join(", ")}{layout.more ? ` and ${layout.more} more` : ""}. So the DOCX uses Remy's clean one-column layout in your font. To keep your design, download Original on Base resume and make the change in Word.</>
+            : <>Heads up: Remy couldn't open your Word file, so this DOCX uses Remy's clean one-column layout in your font, not your own design.</>}
+        </div>
+      )}
       <div className="row"><span className="small" style={{ width: 92, fontWeight: 700 }}>Cover letter</span>{["docx", "pdf", "txt"].map((f) => <button key={f} className="btn btn-secondary btn-sm" onClick={() => dl("letter", f)} data-testid={`button-download-letter-${f}`}><Download size={13} /> {f.toUpperCase()}</button>)}</div>
     </div>
   );
@@ -567,7 +587,7 @@ function ExportView({ a, job }: { a: Application; job: Job }) {
           ))
         ) : <span className="small muted">Approve this version to unlock Word, PDF and text downloads. Only approved versions can be exported.</span>}
         <span className="xs muted">{ws!.resume?.original?.mime.includes("wordprocessingml")
-          ? "Word download: your own file with only the changed lines replaced, so it keeps your exact design. PDF: Remy's clean layout in your font."
+          ? "Word download: your own file with only the changed lines replaced, so it keeps your exact design (Remy says so above if a version can't). PDF: Remy's clean layout in your font."
           : ws!.resume?.style
             ? `Remy rebuilds your resume in a clean, ATS-friendly layout using your ${ws!.resume.style.serif ? "serif" : "sans-serif"} font, size and margins, kept to ${ws!.resume.style.pages === 1 ? "one page" : `${ws!.resume.style.pages} pages`} like your original. Upload a Word file instead to keep your exact design.`
             : "Downloads use Remy's clean, ATS-friendly one-column layout."}</span>

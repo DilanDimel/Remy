@@ -4,6 +4,8 @@ import type { ResumeDoc, ResumeStyle } from "@shared/types";
 import { resumeToText } from "./resume";
 
 const FONT = "Calibri";
+/** US Letter, 8.5 × 11 in, in twentieths of a point. */
+const LETTER = { width: 12240, height: 15840 };
 
 /** Sections in the original order, with Skills back where the student had it. */
 type Block = { heading: string; entries?: ResumeDoc["sections"][number]["entries"]; skills?: ResumeDoc["skills"] };
@@ -54,7 +56,8 @@ export async function resumeDocx(doc: ResumeDoc, style?: ResumeStyle): Promise<B
   const d = new Document({
     creator: "Remy",
     title: `${doc.contact.name} Resume`,
-    sections: [{ properties: { page: { margin: { top: Math.min(margin, 720), bottom: Math.min(margin, 720), left: margin, right: margin } } }, children: kids }],
+    // US Letter (the docx library defaults to A4, which pushed the right-aligned dates past the margin).
+    sections: [{ properties: { page: { size: LETTER, margin: { top: Math.min(margin, 720), bottom: Math.min(margin, 720), left: margin, right: margin } } }, children: kids }],
   });
   return Packer.toBuffer(d);
 }
@@ -65,7 +68,7 @@ export async function letterDocx(name: string, contact: string, letter: string):
     new Paragraph({ spacing: { after: 240 }, children: [new TextRun({ text: contact, size: 20, font: FONT })] }),
     ...letter.split(/\n\s*\n/).map((p) => new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: p.replace(/\n/g, " ").trim(), size: 22, font: FONT })] })),
   ];
-  const d = new Document({ creator: "Remy", sections: [{ properties: { page: { margin: { top: 1080, bottom: 1080, left: 1080, right: 1080 } } }, children: kids }] });
+  const d = new Document({ creator: "Remy", sections: [{ properties: { page: { size: LETTER, margin: { top: 1080, bottom: 1080, left: 1080, right: 1080 } } }, children: kids }] });
   return Packer.toBuffer(d);
 }
 

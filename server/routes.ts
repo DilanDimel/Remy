@@ -454,6 +454,12 @@ export async function registerRoutes(_server: Server, app: Express) {
       // Days the student opened Remy (Central dates, kept 120), so owners can see who comes back. Counts only.
       const today = centralToday();
       if (!(ws.visits || []).includes(today)) ws = await saveSections(me.id, { visits: [...(ws.visits || []), today].slice(-120) } as any);
+      // Checklists saved before the font check was real said "pass" without looking; work them out again (Nov 2).
+      const stale = ws.applications.filter((a) => a.ats?.some((c) => c.id === "font" && c.detail === "Downloads keep your own resume's font, size and margins."));
+      if (stale.length) {
+        for (const a of stale) refreshAts(ws, a);
+        ws = await saveSections(me.id, { applications: ws.applications }); // once per student, so later saves don't bring the old line back
+      }
       res.json({ me, workspace: ws });
     } catch (e) { next(e); }
   });
@@ -1547,6 +1553,22 @@ Return JSON:
     res.json({ application: a, workspace: ctx.ws });
   }));
 
+  /** The tailored Word file built from the student's own .docx, or null when it isn't a Word upload. `missed` = changed lines
+   *  Remy couldn't place in their file; then the download falls back to Remy's layout rather than ship a half-edited file. */
+  async function ownWordFile(ctx: Ctx, resume: ResumeDoc) {
+    if (!ctx.ws.resume?.original?.mime.includes("wordprocessingml")) return null;
+    const f = await getFile(ctx.me.id, "resume");
+    return (f ? await editResumeDocx(f.data, ctx.ws.resume.doc, resume, ctx.ws.resume.removed).catch(() => null) : null) || { buf: null, missed: [] as string[], failed: true };
+  }
+  // Before downloading: will this version's Word file keep the student's own design? (So the page can say so first.)
+  app.get("/api/applications/:id/word-layout", route(async (req, res, ctx) => {
+    const a = getApp(ctx, String(req.params.id));
+    const v = req.query.v ? a.versions.find((x) => x.v === Number(req.query.v)) : a.versions[a.versions.length - 1];
+    if (!v) bad("Approve this application first.", 409);
+    const out = await ownWordFile(ctx, v!.resume);
+    res.json(!out ? { layout: "remy", reason: "not-word" } : "failed" in out || !out.buf ? { layout: "remy", reason: "unreadable", missed: [] } : out.missed.length ? { layout: "remy", reason: "missed", missed: out.missed.slice(0, 5), more: Math.max(0, out.missed.length - 5) } : { layout: "original" });
+  }));
+
   app.get("/api/applications/:id/export", route(async (req, res, ctx) => {
     const a = getApp(ctx, String(req.params.id));
     const job = findJob(ctx.ws, a.jobId)!;
@@ -1558,13 +1580,12 @@ Return JSON:
     const contact = [v!.resume.contact.location, v!.resume.contact.email, v!.resume.contact.phone].filter(Boolean).join(" | ");
     let buf: Buffer;
     const style = ctx.ws.resume?.style;
-    if (kind === "resume" && fmt === "docx" && ctx.ws.resume?.original?.mime.includes("wordprocessingml")) {
+    const own = kind === "resume" && fmt === "docx" ? await ownWordFile(ctx, v!.resume) : null;
+    if (own) {
       // They uploaded Word: edit their own file so it keeps their exact formatting.
-      const f = await getFile(ctx.me.id, "resume");
-      const out = f ? await editResumeDocx(f.data, ctx.ws.resume.doc, v!.resume, ctx.ws.resume.removed).catch(() => null) : null;
-      if (out && !out.missed.length) buf = out.buf;
-      else buf = await resumeDocx(v!.resume, style); // a change couldn't be placed in their file: use Remy's clean layout rather than ship a half-edited file
-      res.setHeader("X-Remy-Layout", out && !out.missed.length ? "original" : "remy");
+      const kept = own.buf && !own.missed.length ? own.buf : null;
+      buf = kept || (await resumeDocx(v!.resume, style)); // a change couldn't be placed in their file: use Remy's clean layout rather than ship a half-edited file
+      res.setHeader("X-Remy-Layout", kept ? "original" : "remy");
     } else if (kind === "resume") buf = fmt === "docx" ? await resumeDocx(v!.resume, style) : fmt === "pdf" ? await resumePdf(v!.resume, style) : Buffer.from(resumeTxt(v!.resume));
     else buf = fmt === "docx" ? await letterDocx(v!.resume.contact.name, contact, v!.letter) : fmt === "pdf" ? await letterPdf(v!.resume.contact.name, contact, v!.letter) : Buffer.from(v!.letter);
     const mime = fmt === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : fmt === "pdf" ? "application/pdf" : "text/plain; charset=utf-8";

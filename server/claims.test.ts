@@ -114,3 +114,21 @@ test("checks: the layout check fails for a Word table and is left out when Remy 
   assert.equal(atsChecks(doc, job, "f", { ...style, layout: { tables: false, textBoxes: false, columns: false } }).find((c) => c.id === "layout")?.pass, true);
   assert.equal(atsChecks(doc, job, "f").find((c) => c.id === "layout"), undefined);
 });
+
+test("checks: the font check reads the student's own font and size instead of always passing", async () => {
+  const { fontCheck } = await import("./claims");
+  const style = { serif: true, size: 10.5, margin: 36, pages: 1 };
+  assert.deepEqual(fontCheck(style), []); // font unknown (pasted resume): left out, not passed
+  assert.equal(fontCheck({ ...style, font: "Times New Roman" })[0].pass, true);
+  assert.equal(fontCheck({ ...style, font: "TimesNewRomanPSMT" })[0].pass, true); // PDF name of the same font
+  assert.equal(fontCheck({ ...style, font: "Calibri", size: 11 })[0].pass, true);
+  for (const f of ["TrebuchetMS", "BookAntiqua", "PalatinoLinotype-Roman", "CenturyGothic", "ArialMT", "Calibri-Bold", "Garamond-Bold", "Georgia,Bold", "Helvetica-Bold", "HelveticaNeue", "Aptos", "Book Antiqua"])
+    assert.equal(fontCheck({ ...style, font: f })[0].pass, true, f);
+  assert.doesNotMatch(fontCheck({ ...style, font: "Lobster" })[0].detail, /PDF/); // Remy's own PDF doesn't keep it, so don't say so
+  const odd = fontCheck({ ...style, font: "Lobster" })[0];
+  assert.equal(odd.pass, false);
+  assert.match(odd.detail, /Lobster isn't installed on every computer/);
+  const tiny = fontCheck({ ...style, font: "Arial", size: 9 })[0];
+  assert.equal(tiny.pass, false);
+  assert.match(tiny.detail, /about 9 pt/);
+});
