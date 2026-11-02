@@ -1,4 +1,5 @@
 import type { AtsScore, Job, ResumeDoc } from "@shared/types";
+import { family, families } from "./words";
 
 // ATS readiness score out of 100, computed from the resume itself (no AI), so
 // it's instant and gives the same number every time. Each lost point comes with
@@ -93,8 +94,8 @@ export function atsScore(doc: ResumeDoc, keywords: string[] | null, against: str
   return { score, categories, fixes, keywords: { matched: hit, missing }, against, at: new Date().toISOString() };
 }
 
-/** True when every word of the keyword is in the text as a whole word ("Power BI" isn't "PowerPoint");
- *  longer words match on their first 5 letters so "modeling" finds "models". Filler like "strong" is ignored. */
+/** True when every word of the keyword is in the text as a whole word ("Power BI" isn't "PowerPoint"),
+ *  counting word families ("modeling" finds "models", never "tables" for "Tableau"). Filler like "strong" is ignored. */
 // What a resume shows instead of the posting's word ("CAD" → SolidWorks; "Bachelor's" → "B.S.").
 const SAME: [RegExp, RegExp][] = [
   [/^cad$/, /\b(cad|solidworks|autocad|fusion 360|catia|creo|inventor|revit|onshape)\b/],
@@ -108,9 +109,11 @@ const SAME: [RegExp, RegExp][] = [
 export function hasKeyword(text: string, keyword: string) {
   const low = lc(text);
   const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const words = lc(keyword).replace(/['’]s\b/g, "").split(/[\s/]+/).filter((w) => w && !/^(strong|solid|record|knowledge|interest|ability|skills?|experience|proficiency|proficient|familiarity|understanding|demonstrated|excellent|good|basic|hands-on|pursuing|pursuit|pursue|currently|degree|program|enrollment|with|and|or|of|in|the|a|an)$/.test(w));
+  const words = lc(keyword).replace(/['’]s\b/g, "").split(/[\s/]+|-(?=[a-z])/).filter((w) => w && !/^(strong|solid|record|knowledge|interest|ability|skills?|experience|proficiency|proficient|familiarity|understanding|demonstrated|excellent|good|basic|hands-on|hands|on|pursuing|pursuit|pursue|currently|degree|program|enrollment|with|and|or|of|in|the|a|an)$/.test(w));
+  const own = families(low);
+  // Plain words match by word family ("modeling" finds "models"); words with symbols ("C++", "node.js") match whole.
   return words.length > 0 && words.every((w) =>
-    new RegExp(w.length > 5 ? `\\b${esc(w.slice(0, 5))}` : `(^|[^a-z0-9])${esc(w)}($|[^a-z0-9])`).test(low) || SAME.some(([k, r]) => k.test(w) && r.test(low)));
+    (/^[a-z]+$/.test(w) ? own.has(family(w)) : new RegExp(`(^|[^a-z0-9])${esc(w)}($|[^a-z0-9])`).test(low)) || SAME.some(([k, r]) => k.test(w) && r.test(low)));
 }
 
 /** Skills and qualities an ATS can match — not eligibility rules (class year, GPA,

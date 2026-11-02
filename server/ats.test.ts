@@ -39,3 +39,50 @@ test("keywords match what the resume shows, not just the posting's exact phrase"
   assert.ok(!hasKeyword(r, "Teamwork and communication"), "nothing shows communication");
   assert.ok(!isSkillKeyword("Background Check"));
 });
+
+test("keywords match whole word families, never just the first 5 letters", async () => {
+  const { hasKeyword } = await import("./ats");
+  // Real bugs found in the Nov 2026 tests: a shared 5-letter start counted as having the skill.
+  assert.ok(!hasKeyword("Built pivot tables in Excel to track dues.", "Tableau"));
+  assert.ok(!hasKeyword("Used CFD to compute drag on the wing. Bachelor of Science.", "computer science"));
+  assert.ok(!hasKeyword("Accounted for weekly cash drawer totals.", "Accountability"));
+  // Same word family still counts.
+  assert.ok(hasKeyword("Built three financial models in Excel.", "financial modeling"));
+  assert.ok(hasKeyword("Sorted donations for the food bank.", "sorting"));
+  assert.ok(hasKeyword("Managed a team of four.", "management"));
+  assert.ok(hasKeyword("Planned the spring banquet.", "planning"));
+  assert.ok(hasKeyword("Studied consumer behavior.", "studies"));
+  assert.ok(hasKeyword("Wrote Python and C++ scripts.", "C++"));
+});
+
+test("keywords: roles count for their skill, and everyday resume words still match", async () => {
+  const { hasKeyword } = await import("./ats");
+  const yes: [string, string][] = [
+    ["Analyzed sales data for 3 stores.", "data analysis"],
+    ["Shift Manager at Chick-fil-A.", "management"],
+    ["Team leader for the robotics club.", "leadership"],
+    ["Organized a 200-person career fair.", "organizational skills"],
+    ["Presented findings to the VP.", "presentation skills"],
+    ["Statistical modeling in R.", "statistics"],
+    ["Accountant intern at BDO.", "accounting"],
+    ["Event coordinator for NABA.", "coordination"],
+    ["Mentored 5 freshmen.", "mentorship"],
+    ["Researcher in the Smith lab.", "research"],
+    ["Strong at problem solving.", "problem-solving"],
+    ["Worked with cross functional teams.", "cross-functional"],
+    ["Built financial models.", "finance"],
+  ];
+  for (const [text, kw] of yes) assert.ok(hasKeyword(text, kw), `${kw} should match: ${text}`);
+  assert.ok(!hasKeyword("Canvas LMS admin for 3 courses.", "Canva"));
+  assert.ok(!hasKeyword("Wrote a script to compute drag.", "computer"));
+});
+
+test("keywords: dates, sales terms and job titles don't pass as skills", async () => {
+  const { hasKeyword } = await import("./ats");
+  assert.ok(!hasKeyword("Barista, Starbucks, Aug 2025 – Present. Made drinks.", "presentation skills"));
+  assert.ok(!hasKeyword("Lead generation: cold-called 50 prospects.", "leadership"));
+  assert.ok(!hasKeyword("Account Executive intern, sold cloud software.", "accounting"));
+  assert.ok(hasKeyword("Presented findings to the VP, Jan 2025 – Present.", "presentation skills"));
+  assert.ok(hasKeyword("Led a team of 4.", "leadership"));
+  assert.ok(hasKeyword("Developer intern at a startup.", "development"));
+});

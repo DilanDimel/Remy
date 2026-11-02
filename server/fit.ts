@@ -208,7 +208,7 @@ export function dealbreaker(ws: Workspace, job: Job, today = new Date()): string
 }
 
 // Bump when the fit rules change, so verdicts saved under older rules are worked out again.
-export const FIT_RULES_VERSION = 6; // 6: "Arlington, VA" isn't DFW; eligibility labels ("Minimum GPA") aren't skills or gaps
+export const FIT_RULES_VERSION = 7; // 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const g = gradDate(ws);
   const year = classYearOf(ws);

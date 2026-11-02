@@ -84,3 +84,23 @@ test("strict (check-ins): any detail the student didn't say is flagged; rewordin
   assert.equal(strict("Sorted donations at the Tarrant Area Food Bank", "I volunteered at the Tarrant Area Food Bank on Saturday sorting donations"), "");
   assert.equal(strict("Took orders at the drive-thru at Chick-fil-A", "I work at Chick-fil-A taking orders at the drive-thru"), "");
 });
+
+test("claims: added words are compared by word family, not by their first 5 letters", async () => {
+  const { unsaidWords } = await import("./claims");
+  assert.deepEqual(unsaidWords("Accountability for the cash drawer", "Accounted for the cash drawer"), ["accountability"]);
+  assert.deepEqual(unsaidWords("Built Tableau dashboards", "Built pivot tables"), ["tableau", "dashboards"]);
+  assert.deepEqual(unsaidWords("Sorted donations", "sorting the donated food"), []);
+});
+
+test("claims: past tense and role words the student used aren't flagged as new", async () => {
+  const { unsaidWords } = await import("./claims");
+  assert.deepEqual(unsaidWords("Took orders at the counter", "I take orders at the counter"), []);
+  assert.deepEqual(unsaidWords("Made flyers for the club", "I make flyers for the club"), []);
+  assert.deepEqual(unsaidWords("Exceeded sales goals", "I exceed my sales goals"), []);
+  assert.deepEqual(unsaidWords("Mentorship for new hires", "I mentored new hires"), []);
+});
+
+test("claims: agreed/agree are the same word", async () => {
+  const { unsaidWords } = await import("./claims");
+  assert.deepEqual(unsaidWords("Agreed on a budget", "we agree on a budget"), []);
+});
