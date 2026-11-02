@@ -516,4 +516,6 @@ export interface AppConfig {
   emailCodes?: boolean;
   /** Google Calendar connection is set up on this server. */
   googleCalendar: boolean;
+  /** Which version of Remy the server runs; when it changes, an open tab offers to reload. */
+  build?: string;
 }

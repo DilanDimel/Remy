@@ -100,9 +100,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), err ? 6000 : 3200);
   }, []);
 
+  // When the data was last loaded, the build this tab runs, and saves in flight (a quiet refresh must not overwrite them).
+  const lastLoad = useRef(Date.now());
+  const build = useRef<string | undefined>(undefined);
+  const saveSeq = useRef(0);
+  const savingNow = useRef(0);
+  const [updated, setUpdated] = useState(false);
+
   const refresh = useCallback(async () => {
     const c = await api<AppConfig>("GET", "/api/config");
     setConfig(c);
+    build.current = c.build;
+    lastLoad.current = Date.now();
     // Coming back from a Supabase sign-in or connector consent screen.
     try {
       const back = await finishSupabaseRedirect(c);
@@ -124,6 +133,44 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     refresh().catch((e) => toast(e.message, true)).finally(() => setLoading(false));
   }, [refresh, toast]);
 
+  // A tab left open goes stale: when the student comes back (or every 15 minutes while it stays open), load again.
+  // Only what changed is replaced, and never while a save is in flight, so nothing they're typing is lost.
+  const softRefresh = useCallback(async () => {
+    if (savingNow.current) return;
+    const seq = saveSeq.current;
+    lastLoad.current = Date.now();
+    const c = await api<AppConfig>("GET", "/api/config").catch(() => null);
+    if (c) {
+      if (build.current && c.build && c.build !== build.current) setUpdated(true);
+      setConfig((prev) => (prev && JSON.stringify(prev) === JSON.stringify(c) ? prev : c));
+    }
+    const m = await api<{ me: Me | null; workspace: Workspace | null }>("GET", "/api/me").catch(() => null);
+    if (!m || seq !== saveSeq.current || savingNow.current) return;
+    setMe((prev) => (JSON.stringify(prev) === JSON.stringify(m.me) ? prev : m.me));
+    setWsState((prev) => {
+      const next = m.workspace;
+      if (!prev || !next) return next;
+      // Keep every unchanged section as the same object, so forms showing it (Profile, setup review) aren't reset.
+      let changed = false;
+      const merged = { ...next } as Record<string, unknown>;
+      for (const k of Object.keys(merged)) {
+        const old = (prev as unknown as Record<string, unknown>)[k];
+        if (JSON.stringify(old) === JSON.stringify(merged[k])) merged[k] = old;
+        else changed = true;
+      }
+      if (Object.keys(prev).length !== Object.keys(next).length) changed = true;
+      return changed ? (merged as unknown as Workspace) : prev;
+    });
+  }, []);
+  useEffect(() => {
+    const visible = () => document.visibilityState === "visible";
+    const onBack = () => { if (visible() && Date.now() - lastLoad.current > 5 * 60_000) softRefresh().catch(() => {}); };
+    const t = setInterval(() => { if (visible() && Date.now() - lastLoad.current > 15 * 60_000) softRefresh().catch(() => {}); }, 60_000);
+    document.addEventListener("visibilitychange", onBack);
+    window.addEventListener("focus", onBack);
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", onBack); window.removeEventListener("focus", onBack); };
+  }, [softRefresh]);
+
   // Theme: the account's choice when signed in, else this browser's; "system" follows the device, live.
   const [localTheme, setLocalTheme] = useState<Theme>(readLocalTheme);
   const theme: Theme = (ws?.settings.theme as Theme) || localTheme;
@@ -140,6 +187,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [failed, setFailed] = useState<{ section: string; value: unknown } | null>(null);
   const save = useCallback(async (section: string, value: unknown) => {
     setSaving((n) => n + 1);
+    saveSeq.current++;
+    savingNow.current++;
     try {
       const w = await api<Workspace>("PUT", `/api/ws/${section}`, { value });
       setWsState(w);
@@ -150,6 +199,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       throw e;
     } finally {
       setSaving((n) => n - 1);
+      savingNow.current--;
     }
   }, []);
   const [slow, setSlow] = useState(false);
@@ -175,11 +225,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [toast]);
 
+  // Any workspace the app sets (an AI result, a search) is newer than a quiet refresh still on its way.
+  const setWs = useCallback((w: Workspace) => { saveSeq.current++; setWsState(w); }, []);
   const value = useMemo<Store>(() => ({
     config, me, ws, loading, toast, refresh, save, run, theme, setTheme,
-    setWs: setWsState,
+    setWs,
     setSession: (m, w) => { setMe(m); setWsState(w); },
-  }), [config, me, ws, loading, toast, refresh, save, run, theme, setTheme]);
+  }), [config, me, ws, loading, toast, refresh, save, run, theme, setTheme, setWs]);
 
   return (
     <Ctx.Provider value={value}>
@@ -187,6 +239,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       {(failed || slow) && (
         <div className={"save-status" + (failed ? " err" : "")} role="status" data-testid="save-status">
           {failed && !saving ? <>Couldn't save your last change. <button onClick={() => save(failed.section, failed.value).catch(() => {})}>Retry</button></> : "Saving…"}
+        </div>
+      )}
+      {updated && (
+        <div className="save-status update-bar" role="status" data-testid="update-bar">
+          Remy was updated. <button onClick={() => location.reload()} data-testid="button-reload">Reload</button>
         </div>
       )}
       <div className="toast-wrap" aria-live="polite">

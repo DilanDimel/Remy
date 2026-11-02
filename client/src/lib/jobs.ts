@@ -6,9 +6,21 @@ let cache: { jobs: Job[]; fits: Record<string, JobFit>; needsProfile?: string; r
 let polling = false;
 const subs = new Set<() => void>();
 
+let loadedAt = 0;
 export async function reloadJobs() {
+  loadedAt = Date.now();
   cache = await api("GET", "/api/jobs");
   subs.forEach((f) => f());
+}
+
+// A tab left open: reload openings when the student comes back after 5 minutes, or every 15 while it's open.
+// Loading them also starts Remy's own search when the last one is over 6 hours old (server side).
+if (typeof document !== "undefined") {
+  const visible = () => document.visibilityState === "visible" && subs.size > 0;
+  const onBack = () => { if (visible() && Date.now() - loadedAt > 5 * 60_000) reloadJobs().catch(() => {}); };
+  document.addEventListener("visibilitychange", onBack);
+  window.addEventListener("focus", onBack);
+  setInterval(() => { if (visible() && Date.now() - loadedAt > 15 * 60_000) reloadJobs().catch(() => {}); }, 60_000);
 }
 
 export function useJobs() {

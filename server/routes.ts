@@ -376,11 +376,41 @@ export async function registerRoutes(_server: Server, app: Express) {
       await saveSections(u.id, { lastDigest: today, lastDigestAt: now.toISOString() } as any);
     }
   };
-  const sweep = () => { pruneBoardCache().catch(() => {}); deadlineReminders().catch((e) => console.error("deadline reminders failed", e?.message)); return cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)); };
+  // Background jobs: reminder emails, weekly digest, idle-guest cleanup, cache prune. They run at boot, every 6 hours
+  // while the server is awake, and every hour from a scheduled GitHub Action that calls /api/cron/tick (a sleeping
+  // free server otherwise never runs them). One run at a time, so two triggers can't send the same email twice.
+  let sweeping: Promise<void> | null = null;
+  let lastSweep = "";
+  const sweep = () => {
+    sweeping ||= Promise.all([
+      pruneBoardCache().catch(() => {}),
+      deadlineReminders().catch((e) => console.error("deadline reminders failed", e?.message)),
+      cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)),
+    ]).then(() => { lastSweep = new Date().toISOString(); }).finally(() => { sweeping = null; });
+    return sweeping;
+  };
   sweep();
   setInterval(sweep, 6 * 60 * 60_000).unref();
+  app.post("/api/cron/tick", async (req, res) => {
+    const want = Buffer.from(process.env.CRON_SECRET || ""), got = Buffer.from(String(req.header("x-cron-secret") || ""));
+    if (!want.length) return res.status(404).json({ message: "Not found." });
+    if (got.length !== want.length || !crypto.timingSafeEqual(got, want)) return res.status(401).json({ message: "Wrong secret." });
+    // Answer at once and let the jobs run on (one at a time): a slow run with many students can't time out the caller.
+    const before = lastSweep;
+    sweep();
+    res.status(202).json({ ok: true, started: true, lastFinished: before || null });
+  });
 
   // ---------- config + identity ----------
+  /** Which version of Remy this server runs, so a tab left open can offer "Remy was updated. Reload". Render's commit id,
+   *  else a hash of the built page (a restart of the same build keeps the same id). Empty in development. */
+  let build: string | undefined;
+  const buildId = () => {
+    if (build !== undefined) return build;
+    const page = path.resolve(process.cwd(), "dist", "public", "index.html");
+    build = process.env.RENDER_GIT_COMMIT || (fs.existsSync(page) ? crypto.createHash("sha1").update(fs.readFileSync(page)).digest("hex").slice(0, 12) : "");
+    return build;
+  };
   app.get("/api/config", async (req, res) => {
     const host = String(req.headers.host || "");
     const sb = supabaseConfig();
@@ -393,6 +423,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       schoolEmail: { ready: emailReady() || devCodes(), domains: ALUMNI_DOMAINS },
       emailCodes: emailReady() || devCodes(),
       googleCalendar: gcal.gcalReady(),
+      build: buildId(),
     };
     res.json(cfg);
   });
