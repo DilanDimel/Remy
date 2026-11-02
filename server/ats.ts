@@ -1,5 +1,6 @@
 import type { AtsScore, Job, ResumeDoc } from "@shared/types";
-import { family, families } from "./words";
+import { family, families } from "@shared/words";
+import { isSkillKeyword, plainEnglish, skillsIn } from "@shared/requirements";
 
 // ATS readiness score out of 100, computed from the resume itself (no AI), so
 // it's instant and gives the same number every time. Each lost point comes with
@@ -106,9 +107,14 @@ const SAME: [RegExp, RegExp][] = [
   [/^excel$/, /\b(excel|spreadsheet\w*)\b/],
   [/^ehr$/, /\b(ehr|epic|cerner|electronic health record\w*)\b/],
 ];
-export function hasKeyword(text: string, keyword: string) {
-  const low = lc(text);
+export function hasKeyword(text: string, keyword: string): boolean {
+  // "Python or Java or C++": the posting asks for any one of them.
+  if (/\sor\s/i.test(keyword)) return keyword.split(/\s+or\s+/i).some((k) => hasKeyword(text, k));
+  const plain = plainEnglish(text); // "excel at" isn't Excel, "react to" isn't React
+  const low = lc(plain);
   const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // One- and two-letter names ("R", "C") count only as their own word: not a middle initial "R." or "R&D".
+  if (/^[A-Za-z]{1,2}$/.test(keyword.trim())) return new RegExp(`(?<![\\w&])${esc(keyword.trim())}(?![\\w&+#])`).test(plain);
   const words = lc(keyword).replace(/['’]s\b/g, "").split(/[\s/]+|-(?=[a-z])/).filter((w) => w && !/^(strong|solid|record|knowledge|interest|ability|skills?|experience|proficiency|proficient|familiarity|understanding|demonstrated|excellent|good|basic|hands-on|hands|on|pursuing|pursuit|pursue|currently|degree|program|enrollment|with|and|or|of|in|the|a|an)$/.test(w));
   const own = families(low);
   // Plain words match by word family ("modeling" finds "models"); words with symbols ("C++", "node.js") match whole.
@@ -116,8 +122,4 @@ export function hasKeyword(text: string, keyword: string) {
     (/^[a-z]+$/.test(w) ? own.has(family(w)) : new RegExp(`(^|[^a-z0-9])${esc(w)}($|[^a-z0-9])`).test(low)) || SAME.some(([k, r]) => k.test(w) && r.test(low)));
 }
 
-/** Skills and qualities an ATS can match — not eligibility rules (class year, GPA,
- * work authorization) or hiring steps (assessments, HireVue, "resume + transcript"). */
-export function isSkillKeyword(k: string) {
-  return !/\b(?:freshm|first-year|sophom|junior|senior|class of|gpa|graduat|enrolled|authoriz|sponsor|citizen|applica|apply|assessment|hirevue|predictive index|transcript|resume|cv\b|cover letter|interview|deadline|diversity|interest|motivat|curious|passion|work ethic|eligib|academic record|degree in progress|background check|drug (test|screen)|driver'?s licen)/i.test(k);
-}
+export { isSkillKeyword };

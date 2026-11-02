@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Job, Requirement, Workspace } from "@shared/types";
 import { htmlToText } from "./parse";
+import { topSkills } from "@shared/requirements";
 import { uid } from "./ids";
 import { abroad, FIELD_SEARCH, FIELD_TITLES, regionMatch } from "./fit";
 import { q, q1 } from "./sql";
@@ -44,12 +45,7 @@ const NOT_DUTIES = /benefit|insurance|wellness|discount|equal opportunity|protec
 export const duties = (text: string) => text.split(/(?<=[.!?])\s+|\n+/).filter((x) => !NOT_DUTIES.test(x)).join(" ");
 // Roles meant for graduate students, skipped for undergraduates.
 const GRAD_LEVEL = /\b(graduate intern(ship)?|intern,?\s*graduate|mba|ph\.?\s?d|doctoral|postdoc|post-doc|master'?s|graduate student|j\.?d\.?|law student|law clerk|medical student|residency program|school psycholog\w*|diagnostician|licensed specialist)\b/i;
-const KEYWORDS = [
-  "Excel", "PowerPoint", "Python", "SQL", "R ", "Tableau", "Power BI", "financial modeling", "valuation", "accounting", "data analysis", "analytics",
-  "market research", "communication", "written communication", "presentation", "teamwork", "leadership", "problem solving", "attention to detail",
-  "customer", "sales", "marketing", "social media", "content", "CRM", "Salesforce", "HubSpot", "project management", "research", "statistics",
-  "economics", "finance", "computer science", "JavaScript", "Java", "machine learning", "operations", "consulting", "GPA",
-];
+
 
 function sentences(text: string) {
   return text.replace(/\s+/g, " ").split(/(?<=[.!?•])\s+|\s+•\s+/).map((s) => s.trim()).filter((s) => s.length > 20 && s.length < 400);
@@ -58,12 +54,8 @@ function sentences(text: string) {
 export function requirementsFrom(text: string): Requirement[] {
   const out: Requirement[] = [];
   const sents = sentences(text);
-  for (const k of KEYWORDS) {
-    if (out.length >= 5) break;
-    const re = new RegExp(`\\b${k.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
-    const s = sents.find((x) => re.test(x));
-    if (s && !out.some((o) => o.keyword.toLowerCase() === k.trim().toLowerCase())) out.push({ id: uid("rq"), keyword: k.trim(), quote: s });
-  }
+  // The 5 most specific skills the posting names, across fields (tools before broad words like "operations").
+  for (const r of topSkills(sents, 5)) out.push({ id: uid("rq"), ...r });
   return out;
 }
 function eligibilityFrom(text: string) {

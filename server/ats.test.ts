@@ -86,3 +86,55 @@ test("keywords: dates, sales terms and job titles don't pass as skills", async (
   assert.ok(hasKeyword("Led a team of 4.", "leadership"));
   assert.ok(hasKeyword("Developer intern at a startup.", "development"));
 });
+
+test("posting skills come from the posting's own words, not AI category labels", async () => {
+  const { postingSkills } = await import("@shared/requirements");
+  const rq = (keyword: string, quote: string) => ({ id: keyword, keyword, quote });
+  // Bank posting from the Nov 2026 test: "Software Skills" was shown as missing although Excel and PowerPoint were on the resume.
+  const bank = postingSkills([rq("Software Skills", "Proficiency in Microsoft Excel and PowerPoint is required."), rq("Communication skills", "Strong written and verbal communication skills.")]);
+  assert.deepEqual(bank, ["Excel", "PowerPoint", "Communication skills"]);
+  // Engineering posting: "Degree Program" is eligibility, not a skill; the tools in the sentence are.
+  const eng = postingSkills([rq("Degree Program", "Pursuing a BS in Mechanical Engineering with SolidWorks or AutoCAD experience.")]);
+  assert.deepEqual(eng, ["SolidWorks or AutoCAD"]);
+  // Health and trades words count too; "R" only as the language.
+  assert.deepEqual(postingSkills([rq("Certifications", "Current BLS and CPR certification; Epic EHR a plus.")]), ["BLS", "CPR", "Epic", "EHR"]);
+  assert.deepEqual(postingSkills([rq("Analytics", "Experience with R or Python for data analysis.")]), ["Analytics", "R or Python", "data analysis"]);
+  assert.deepEqual(postingSkills([rq("Analytics", "Report results to the team.")]), []);
+});
+
+test("posting skills: no false asks from plain English, majors, 'or' lists or boilerplate", async () => {
+  const { postingSkills } = await import("@shared/requirements");
+  const { requirementsFrom } = await import("./sources");
+  const rq = (keyword: string, quote: string) => ({ id: keyword, keyword, quote });
+  assert.deepEqual(postingSkills([rq("Adaptability", "You will excel in a fast-paced environment.")]), ["Adaptability"].filter(() => false));
+  assert.deepEqual(postingSkills([rq("Composure", "Ability to react calmly under pressure with a positive outlook.")]), []);
+  assert.deepEqual(postingSkills([rq("Major", "Pursuing a degree in Finance, Accounting, or Economics.")]), []);
+  assert.deepEqual(postingSkills([rq("Engineering", "Pursuing a BS in Mechanical Engineering with SolidWorks experience.")]), ["SolidWorks"]);
+  assert.deepEqual(postingSkills([rq("Python programming", "Programming experience in Python, Java or C++.")]), ["Python or Java or C++"]);
+  assert.deepEqual(postingSkills([rq("Prior Experience", "Prior experience in a professional setting."), rq("Driver's License", "Valid driver's license."), rq("Physical Requirements", "Physical requirements: lift 25 lbs.")]), []);
+  assert.deepEqual(postingSkills([rq("Excel", "Proficiency in Excel."), rq("Microsoft Excel", "Advanced Microsoft Excel skills.")]), ["Excel"]);
+  const scraped = requirementsFrom("Wells Fargo is a leading financial services company with operations across the country, committed to research, community and leadership. Our consulting and analytics teams serve clients nationwide. Qualifications: Proficiency in Excel and PowerPoint. Strong written communication skills.");
+  const got = postingSkills(scraped);
+  assert.ok(got.includes("Excel") && got.includes("PowerPoint"), got.join(", "));
+});
+
+test("hasKeyword: 'R', 'excel at' and middle initials aren't skills", async () => {
+  const { hasKeyword } = await import("./ats");
+  assert.ok(!hasKeyword("Dilan R. Desman\nFinance student.", "R"));
+  assert.ok(!hasKeyword("Interned in R&D at Lockheed.", "R"));
+  assert.ok(hasKeyword("Cleaned survey data in R and Stata.", "R"));
+  assert.ok(!hasKeyword("I excel at teamwork and deadlines.", "Excel"));
+  assert.ok(hasKeyword("Built budgets in Excel.", "Excel"));
+  assert.ok(hasKeyword("Wrote Python scripts.", "Python or Java or C++"));
+  assert.ok(!hasKeyword("Wrote Ruby scripts.", "Python or Java or C++"));
+});
+
+test("posting skills: end-of-sentence tools, lowercase tools, and 'A/B' means both", async () => {
+  const { skillsIn } = await import("@shared/requirements");
+  const { hasKeyword } = await import("./ats");
+  assert.deepEqual(skillsIn("Proficiency in Excel. Knowledge of SQL a plus."), ["Excel", "SQL"]);
+  assert.deepEqual(skillsIn("Experience with python and sql."), ["Python", "SQL"]);
+  assert.deepEqual(skillsIn("First aid and CPR certified."), ["First Aid", "CPR"]);
+  assert.deepEqual(skillsIn("Comfortable with HTML/CSS."), ["HTML", "CSS"]);
+  assert.ok(hasKeyword("Skills: Python, R. Projects: churn model", "R"));
+});

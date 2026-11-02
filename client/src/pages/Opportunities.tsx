@@ -5,7 +5,7 @@ import { api, daysUntil, fmtDate, rid, useDraft, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { kindLabel, reloadJobs, sameOrg, useJobs } from "../lib/jobs";
 import { screeningFor } from "@shared/screening";
-import { isSkill } from "@shared/requirements";
+import { postingSkills, skillsIn } from "@shared/requirements";
 import { Empty, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
 
 type Kind = "all" | "jobs" | "campus" | "event";
@@ -206,10 +206,10 @@ function JobCard({ j, fit, defaultOpen }: { j: Job; fit?: JobFit; defaultOpen: b
         </div>
         {j.deadline && <span className={"chip " + (d !== null && d < 0 ? "chip-bad" : d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d < 0 ? "Deadline passed" : `Due ${fmtDate(j.deadline)}${d === 0 ? " · today" : d !== null ? ` · ${d}d` : ""}`}</span>}
       </div>
-      {j.requirements.some((r) => isSkill(r.keyword)) && (
+      {postingSkills(j.requirements).length > 0 && (
         <div className="row" style={{ gap: 6, flexWrap: "wrap" }} data-testid="job-keywords">
           <span className="xs muted" style={{ fontWeight: 700 }}>Looking for:</span>
-          {j.requirements.filter((r) => isSkill(r.keyword)).slice(0, 5).map((r) => <span key={r.id} className={"chip " + (fit?.matched.includes(r.keyword) ? "chip-live" : "chip-plain")} title={r.quote}>{fit?.matched.includes(r.keyword) ? "✓ " : ""}{r.keyword}</span>)}
+          {postingSkills(j.requirements).slice(0, 5).map((k) => <span key={k} className={"chip " + (fit?.matched.includes(k) ? "chip-live" : "chip-plain")} title={j.requirements.find((r) => r.keyword === k || skillsIn(r.quote).includes(k))?.quote}>{fit?.matched.includes(k) ? "✓ " : ""}{k}</span>)}
         </div>
       )}
       {fit && <p className="small"><strong>Why it fits you: </strong>{fit.why}</p>}

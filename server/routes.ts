@@ -1,3 +1,4 @@
+import { postingSkills } from "@shared/requirements";
 import type { Express, NextFunction, Request, Response } from "express";
 import type { Server } from "node:http";
 import crypto from "node:crypto";
@@ -785,7 +786,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const a = appId ? ctx.ws.applications.find((x) => x.id === appId) : undefined;
     const job = a ? findJob(ctx.ws, a.jobId) : undefined;
     if (a && job) {
-      const kws = job.requirements.map((r) => r.keyword);
+      const kws = postingSkills(job.requirements);
       res.json({
         tailored: atsScore(composeResume(ctx.ws, a), kws, `in the ${job.company} posting`),
         base: atsScore(ctx.ws.resume!.doc, kws, `in the ${job.company} posting`),

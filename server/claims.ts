@@ -1,5 +1,6 @@
+import { postingSkills } from "@shared/requirements";
 import type { AtsCheck, ClaimFlag, Job, ResumeDoc } from "@shared/types";
-import { family, families } from "./words";
+import { family, families } from "@shared/words";
 import { hasKeyword } from "./ats";
 
 // Deterministic unsupported-claim checker. It does not trust the AI: any
@@ -279,7 +280,8 @@ export function atsChecks(doc: ResumeDoc, job: Job, fileBase: string): AtsCheck[
     .filter((s) => !/cert|skill|award|honor/i.test(s.heading))
     .flatMap((s) => s.entries)
     .filter((e) => (e.role || e.bullets.length) && !e.dates.trim());
-  const reqHits = job.requirements.filter((r) => hasKeyword(text, r.keyword));
+  const asks = postingSkills(job.requirements);
+  const reqHits = asks.filter((k) => hasKeyword(text, k));
   const placeholders = /\[(PERSONALIZE|ADD|TODO)/i.test(text);
   return [
     { id: "contact", label: "Contact details at the top", pass: !!doc.contact.name && !!doc.contact.email, detail: doc.contact.email ? "Name and email found." : "Add an email address to the contact line." },
@@ -289,7 +291,7 @@ export function atsChecks(doc: ResumeDoc, job: Job, fileBase: string): AtsCheck[
     { id: "dates", label: "Every experience entry has dates", pass: undated.length === 0, detail: undated.length ? `Missing dates: ${undated.map((e) => e.org || e.role).join(", ")}` : "All entries are dated." },
     { id: "bullets", label: "Bullets are concise (under ~2 lines)", pass: longBullets.length === 0, detail: longBullets.length ? `${longBullets.length} bullet(s) run long.` : "All bullets are a scannable length." },
     { id: "length", label: "Fits about one page for an undergraduate", pass: words <= 700, detail: `${words} words.` },
-    { id: "keywords", label: "Posting priorities reflected (only where true)", pass: reqHits.length >= Math.min(2, job.requirements.length), detail: `${reqHits.length} of ${job.requirements.length} posting priorities appear. Never add a keyword you can't support.` },
+    { id: "keywords", label: "Posting priorities reflected (only where true)", pass: reqHits.length >= Math.min(2, asks.length), detail: asks.length ? `${reqHits.length} of ${asks.length} skills the posting names appear${asks.length > reqHits.length ? ` (not shown: ${asks.filter((k) => !reqHits.includes(k)).slice(0, 5).join(", ")})` : ""}. Never add one you can't support.` : "Remy couldn't read specific skills in this posting." },
     { id: "placeholders", label: "No unfinished placeholders", pass: !placeholders, detail: placeholders ? "Remove [PERSONALIZE] markers." : "None found." },
     { id: "filename", label: "Clear file name", pass: true, detail: `${fileBase}.docx` },
   ];

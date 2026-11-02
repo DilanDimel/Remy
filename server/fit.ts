@@ -1,4 +1,4 @@
-import { isSkill } from "@shared/requirements";
+import { postingSkills } from "@shared/requirements";
 import type { Job, JobFit, Workspace } from "@shared/types";
 import { hasKeyword } from "./ats";
 import { norm } from "./parse";
@@ -208,7 +208,7 @@ export function dealbreaker(ws: Workspace, job: Job, today = new Date()): string
 }
 
 // Bump when the fit rules change, so verdicts saved under older rules are worked out again.
-export const FIT_RULES_VERSION = 7; // 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
+export const FIT_RULES_VERSION = 8; // 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const g = gradDate(ws);
   const year = classYearOf(ws);
@@ -267,10 +267,10 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
 
   const matched: string[] = [];
   const gaps: string[] = [];
-  const skills = job.requirements.filter((r) => isSkill(r.keyword));
-  for (const r of skills) {
-    if (hasKeyword(evidence, r.keyword)) matched.push(r.keyword);
-    else gaps.push(r.keyword);
+  const skills = postingSkills(job.requirements);
+  for (const k of skills) {
+    if (hasKeyword(evidence, k)) matched.push(k);
+    else gaps.push(k);
   }
   const why = matched.length
     ? `You already show ${matched.slice(0, 3).join(", ")}${matched.length > 3 ? ` and ${matched.length - 3} more` : ""} — that's what this posting asks for.`
