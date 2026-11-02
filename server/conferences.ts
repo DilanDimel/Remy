@@ -46,7 +46,7 @@ async function search(field: string, today: string): Promise<Conf[]> {
 /** Upcoming conferences for the student's field, as event openings. Empty when Remy can't tell their field or AI is off. */
 export async function conferencesFor(ws: Workspace, find = search): Promise<Job[]> {
   const p = ws.profile;
-  const road = roadFor(p.major, p.path) || roadFor([p.targetRoles, p.interests].join(" "));
+  const road = roadFor(p.major, p.path) || roadFor([p.targetRoles, p.interests].join(" "), p.path);
   if (!road) return [];
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
   const key = `conferences|${road.key}`;

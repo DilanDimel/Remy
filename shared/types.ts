@@ -204,6 +204,10 @@ export interface JobFit {
   v?: number;
   eligibility: "likely" | "check" | "unlikely" | "unknown";
   eligibilityNote: string;
+  /** The posting states a rule (class year, graduation, Class of) that Remy checked and the student meets. Only then "You qualify". */
+  checked?: boolean;
+  /** Hidden because of the student's own choices (field, kind of opportunity, avoid list, which summer), not eligibility. */
+  hidden?: string;
   matched: string[];
   gaps: string[];
   why: string;

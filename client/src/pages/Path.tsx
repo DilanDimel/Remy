@@ -155,7 +155,7 @@ function FieldRoad() {
   const { ws } = useStore();
   const add = useAddTask();
   const p = ws!.profile;
-  const mine = roadFor(p.major, p.path) || roadFor([p.targetRoles, p.interests].join(" "));
+  const mine = roadFor(p.major, p.path) || roadFor([p.targetRoles, p.interests].join(" "), p.path);
   const [key, setKey] = useState(mine?.key || "");
   const road = ROADS.find((r) => r.key === key);
   const year = yearNumber(p.classYear);

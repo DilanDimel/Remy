@@ -4,7 +4,7 @@ import { SEASON_SOURCE } from "./seasons";
 
 // source "" = general advice with no page behind it yet.
 export type RoadStep = { year: 1 | 2 | 3 | 4 | 5; what: string; source: string };
-export type Road = { key: string; label: string; field: RegExp; exam: string; steps: RoadStep[] };
+export type Road = { key: string; label: string; field: RegExp; exam: string; steps: RoadStep[]; /** Fields that look similar but take a different road. */ not?: RegExp };
 
 export const YEARS = ["", "First-year", "Sophomore", "Junior", "Senior", "After college"] as const;
 
@@ -38,7 +38,7 @@ export const ROADS: Road[] = [
     { year: 3, what: "Pass a second exam and apply for actuarial internships", source: SOA },
     { year: 5, what: "Keep taking SOA exams toward ASA, then FSA; employers usually pay for study time", source: SOA },
   ] },
-  { key: "finance", label: "Finance", field: /financ|bank|invest|wealth|trading|econom/i, exam: "SIE, Series 7, CFA", steps: [
+  { key: "finance", label: "Finance", field: /financ|bank|invest|wealth|trading/i, exam: "SIE, Series 7, CFA", steps: [
     { year: 2, what: "Take the SIE exam: anyone 18 or older can, no employer sponsor needed, and it shows recruiters you're serious", source: FINRA },
     { year: 3, what: "Apply for junior-summer internships; big banks often recruit a year early", source: SEASON_SOURCE },
     { year: 4, what: "CFA Level I opens once you're within 23 months of graduating", source: CFA },
@@ -64,7 +64,7 @@ export const ROADS: Road[] = [
     { year: 3, what: "Plan for a master's: registered dietitians need a graduate degree since Jan 1, 2024", source: RD },
     { year: 5, what: "Supervised practice, then the CDR exam to become a registered dietitian", source: RD },
   ] },
-  { key: "health", label: "Pre-med and health", field: /pre-?med|medic|pharm|physician|physical therap|health|biolog|kinesi/i, exam: "MCAT, then USMLE / PANCE / NAPLEX / NPTE", steps: [
+  { key: "health", label: "Pre-med and health", field: /\bpre-?(med|medical|pharm|pharmacy|pa|pt)\b|\bmedical school\b|\bmedicine\b|physician|pharmac|physical therap/i, not: /veterin|sports medicine|pharmacy tech|pharmaceutical|dent(al|ist)/i, exam: "MCAT, then USMLE / PANCE / NAPLEX / NPTE", steps: [
     { year: 1, what: "Start shadowing and clinical hours", source: "" },
     { year: 3, what: "To start medical school right after you graduate, take the MCAT and start applying in your junior year", source: MCAT },
     { year: 5, what: "Board exams come after grad school: USMLE (MD), PANCE (PA), NAPLEX (pharmacy), NPTE (PT); doctors then do residency", source: MCAT },
@@ -92,16 +92,20 @@ export const ROADS: Road[] = [
     { year: 2, what: "Try a hackathon", source: "" },
     { year: 4, what: "Optional: a certification like CompTIA Security+ or a cloud cert (no prerequisites)", source: SECPLUS },
   ] },
-  { key: "trades", label: "Electrician and other trades", field: /electric|plumb|hvac|weld|trade|apprentice/i, exam: "Journeyman license", steps: [
+  { key: "trades", label: "Electrician", field: /electrician|electrical (apprentic|technolog|trade|construction|lineworker)|\blinem[ae]n\b|linework/i, exam: "Journeyman license", steps: [
     { year: 1, what: "Register as an apprentice with TDLR before you start (from age 16)", source: ELEC },
     { year: 5, what: "Journeyman license after about 8,000 supervised hours; master electrician later", source: ELEC },
   ] },
 ];
 
-/** The road for a student's field; trade and apprenticeship paths get the trades road. Null when nothing matches. */
+/** The road for a student's field. Null when Remy has no road that really fits: a wrong road (the MCAT for
+ *  pre-dental, electrician licensing for a welder, the SIE for economics) is worse than none. Trade and
+ *  apprenticeship paths only get the electrician road when the field is electrical. */
 export function roadFor(field: string, path = ""): Road | null {
-  if (path === "trade" || path === "apprenticeship") return ROADS.find((r) => r.key === "trades")!;
-  return ROADS.find((r) => r.field.test(field)) || null;
+  const trade = path === "trade" || path === "apprenticeship";
+  if (trade) return /electric/i.test(field) ? ROADS.find((r) => r.key === "trades")! : null;
+  const road = ROADS.find((r) => r.field.test(field)) || null;
+  return road && !road.not?.test(field) ? road : null;
 }
 
 /** "First-year" … "Senior" as 1–4; graduate students and graduates count as after college. */

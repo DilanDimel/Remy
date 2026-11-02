@@ -1161,7 +1161,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     const history = ctx.ws.chat.slice(-12).map((m) => `${m.role === "user" ? "Student" : "Assistant"}: ${m.text}`).join("\n");
     // The openings shown on Opportunities (not hidden as a poor fit), so Remy can answer "which should I apply to?".
     const found = allJobs(ctx.ws).map((j) => ({ j, f: ctx.ws.fits[j.id] })).filter(({ f }) => f && !f.excluded).sort((a, b) => (b.f.score ?? 0) - (a.f.score ?? 0)).slice(0, 8)
-      .map(({ j, f }) => `${j.title} — ${j.company} (${j.location}${j.deadline ? `, closes ${j.deadline}` : ""}; ${f.eligibility === "likely" ? "student qualifies" : "check eligibility"})`).join("; ");
+      .map(({ j, f }) => `${j.title} — ${j.company} (${j.location}${j.deadline ? `, closes ${j.deadline}` : ""}; ${f.eligibility === "likely" && f.checked ? "student meets the rules it states" : f.eligibility === "unlikely" ? "student doesn't qualify" : "nothing found that rules the student out; check eligibility"})`).join("; ");
     const apps = ctx.ws.applications.map((a) => { const j = findJob(ctx.ws, a.jobId); return `${j?.company} ${j?.title}: ${a.versions.length ? "approved v" + a.versions.length : a.generatedAt ? "draft" : "not started"}`; }).join("; ");
     // Everything else Remy knows, so the student never has to repeat themselves.
     const today = centralToday();

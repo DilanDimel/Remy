@@ -96,7 +96,7 @@ function BetaAgreement() {
         <p className="xs muted">Read the full <a href="/policies" target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>privacy policy and terms</a>.</p>
         <label className="row small" style={{ gap: 8, alignItems: "flex-start", flexWrap: "nowrap" }}>
           <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} data-testid="checkbox-beta-agree" style={{ marginTop: 3 }} />
-          <span>I understand Remy is in beta and I agree to these terms.</span>
+          <span>I'm 16 or older (with a parent or guardian's OK if I'm under 18), I understand Remy is in beta, and I agree to these terms.</span>
         </label>
         <button className="btn btn-primary" disabled={!ok || busy} onClick={agree} data-testid="button-beta-agree">{busy ? <Spinner /> : null} Agree and continue</button>
       </div>

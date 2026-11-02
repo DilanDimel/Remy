@@ -12,6 +12,14 @@ const MONTHS: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5,
 const YEARS = ["First-year", "Sophomore", "Junior", "Senior"] as const;
 type Year = (typeof YEARS)[number];
 
+/** The words in the posting that matched, so the student sees why ("Current undergraduate enrollment"). */
+function quoteOf(text: string, re: RegExp): string {
+  const m = text.match(re);
+  if (!m || m.index === undefined) return "";
+  const start = text.lastIndexOf(".", m.index) + 1, end = text.indexOf(".", m.index + m[0].length);
+  return text.slice(start, end < 0 ? undefined : end).trim().slice(0, 140);
+}
+
 export function gradDate(ws: Workspace): { y: number; m: number } | null {
   const src = ws.profile.graduation || graduationOf(primaryEducation(ws.resume?.doc)?.dates || "");
   // The last month and year: a range ("Aug 2025 – May 2029") ends at graduation.
@@ -191,6 +199,11 @@ export function typeMatch(ws: Workspace, job: Job): boolean | null {
  *  they need visa sponsorship and the posting won't sponsor; it's for MBA/graduate students and they're
  *  an undergraduate; it's in something they said to avoid; or it names a summer they didn't pick. */
 export function dealbreaker(ws: Workspace, job: Job, today = new Date()): string {
+  return notEligible(ws, job, today) || notWanted(ws, job);
+}
+
+/** A rule in the posting the student doesn't meet (shown as "Not eligible"), or "". */
+export function notEligible(ws: Workspace, job: Job, today = new Date()): string {
   const p = ws.profile;
   const text = `${job.title} ${job.eligibility.join(" ")} ${job.summary} ${job.postingText || ""}`;
   if (/sponsor|visa|f-?1|opt\b|h-?1b/i.test(p.workAuth || "") && /\b(?:no|not|unable to|cannot|will not|won't|does not)\b[^.]{0,40}\bsponsor|without (?:the need for )?(?:current or future |now or in the future )?(?:visa |employment )?sponsorship|not eligible for (?:visa )?sponsorship/i.test(text))
@@ -198,6 +211,31 @@ export function dealbreaker(ws: Workspace, job: Job, today = new Date()): string
   if (classYearOf(ws, today) !== "Graduate student" && /\bMBA\b(?! or undergraduate)|(?:currently )?(?:enrolled in|pursuing) an? (?:master'?s|graduate|ph\.?d)/i.test(`${job.title} ${job.eligibility.join(" ")} ${job.summary} ${job.requirements.map((r) => `${r.keyword} ${r.quote}`).join(" ")}`))
     return "This one is for MBA or graduate students.";
   if (/\bhigh[- ]school\b/i.test(job.title) && p.path !== "high-school" && classYearOf(ws, today) !== "") return "This one is for high school students.";
+  // Openings for college students, when the student isn't in college (trade school, apprenticeship, high school, working, military).
+  // Community college counts as college, except where the posting asks for a bachelor's or four-year program.
+  const elig = [job.title, ...job.eligibility].join(". ");
+  const forCollege = /\bundergrad(uate)?s?\b|\b(enrolled|enrollment|pursuing|working toward|currently attending)\b[^.]{0,60}\b(college|university|bachelor'?s|undergraduate|degree)\b/i;
+  const forFourYear = /\b(enrolled|enrollment|pursuing|working toward)\b[^.]{0,60}\b(bachelor'?s|four-year|4-year)\b/i;
+  const notCollege = ["trade", "apprenticeship", "high-school", "working", "military"].includes(p.path || "");
+  // Postings that also take high school, trade or certificate students don't rule this student out.
+  if (notCollege && !/\bhigh[- ]school\b|\btrade\b|\btechnical\b|\bvocational\b|\bcertificate\b|\bapprentice/i.test(elig) && forCollege.test(elig)) return `This one is for college students: “${quoteOf(elig, forCollege)}”.`;
+  if (p.path === "community-college" && !/\bassociate'?s?\b/i.test(elig) && forFourYear.test(elig)) return `This one asks for a bachelor's program: “${quoteOf(elig, forFourYear)}”.`;
+  // A full-time job that needs a finished bachelor's, for a student more than a year from graduating.
+  const g = gradDate(ws), months = g ? g.y * 12 + g.m - (today.getFullYear() * 12 + today.getMonth() + 1) : 0;
+  // Only a sentence that says the degree is required; "preferred", "or equivalent experience" and "in progress" don't count.
+  const degreeNeeded = text.split(/(?<=[.;!?])\s+|\n+/).some((x) =>
+    /\bbachelor'?s\b[^.]{0,60}\b(required|must)\b|\b(requires?|must have|minimum(?: of)?|completed?)\b[^.]{0,30}\bbachelor'?s\b/i.test(x) &&
+    !/\b(preferred|equivalent|a plus|in progress|pursuing|expected|candidate|currently enrolled|working toward)\b/i.test(x));
+  const studentRole = /\b(intern|internship|co-?op|apprentice|summer|student|extern|fellow|campus)\b/i.test(job.title);
+  const takesStudents = /\b(pursuing|currently enrolled|working toward)\b[^.]{0,40}\bbachelor/i.test(text);
+  if (job.kind === "job" && !studentRole && months > 12 && degreeNeeded && !takesStudents)
+    return `This job asks for a finished bachelor's degree, and you expect to finish in ${ws.profile.graduation || g!.y}.`;
+  return "";
+}
+
+/** Something the student said they don't want (hidden, but not a question of qualifying), or "". */
+function notWanted(ws: Workspace, job: Job): string {
+  const p = ws.profile;
   for (const a of (p.avoid || "").split(/[,;]+/).map((x) => x.trim().toLowerCase()).filter((x) => x.length > 2))
     if (`${job.company} ${job.title}`.toLowerCase().includes(a)) return `You told Remy to avoid "${a}".`;
   const want = [...(p.timeline || "").matchAll(/summer\s*(20\d\d)/gi)].map((m) => m[1]);
@@ -208,11 +246,13 @@ export function dealbreaker(ws: Workspace, job: Job, today = new Date()): string
 }
 
 // Bump when the fit rules change, so verdicts saved under older rules are worked out again.
-export const FIT_RULES_VERSION = 8; // 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
+export const FIT_RULES_VERSION = 9; // 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const g = gradDate(ws);
   const year = classYearOf(ws);
   let eligibility: JobFit["eligibility"] = "unknown";
+  // True only when the posting states a rule Remy checked and the student meets it; that's when "You qualify" shows.
+  let checked = false;
   let note = "Add your class year or expected graduation date so Remy can check eligibility.";
   let excluded = false;
   const elig = [job.eligibility.join(" "), job.title].join(" ");
@@ -221,24 +261,37 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const years = requiredYears(elig);
   // A class year in the title ("Sophomore Summer Analyst") is a restriction, not a hint.
   if (years && requiredYears(job.title)) years.definite = true;
-  if (g && range) {
+  if (ws.profile.path === "high-school" && (range || classOf)) {
+    // Graduation years in a posting are college graduation years.
+    eligibility = "unlikely";
+    excluded = true;
+    note = "This posting's graduation rule is for college students.";
+  } else if (g && range) {
     const v = g.y * 12 + g.m;
     const a = +range[2] * 12 + (MONTHS[range[1].slice(0, 3).toLowerCase()] || 1);
     const b = +range[4] * 12 + (MONTHS[range[3].slice(0, 3).toLowerCase()] || 12);
     eligibility = v >= a && v <= b ? "likely" : "unlikely";
+    checked = eligibility === "likely";
     excluded = eligibility === "unlikely";
     note = `This posting asks for graduation between ${range[1]} ${range[2]} and ${range[3]} ${range[4]}; you expect ${ws.profile.graduation || g.y}.`;
   } else if (g && classOf) {
     eligibility = +classOf[1] === g.y ? "likely" : "unlikely";
+    checked = eligibility === "likely";
     excluded = eligibility === "unlikely";
     note = `This posting is for the Class of ${classOf[1]}; you expect to graduate in ${g.y}.`;
   } else if (years) {
     const list = [...years.years].join(" or ");
-    if (!year) {
+    if (ws.profile.path === "high-school") {
+      // "Seniors" in a posting means college seniors.
+      eligibility = "unlikely";
+      excluded = true;
+      note = `This posting is for college ${list.toLowerCase()} students.`;
+    } else if (!year) {
       eligibility = "unknown";
       note = `This posting is for ${list.toLowerCase()} students. Add your class year and Remy will check it for you.`;
     } else if (year !== "Graduate student" && years.years.has(year)) {
       eligibility = "likely";
+      checked = true;
       note = `This posting is for ${list.toLowerCase()} students, and you're a ${year.toLowerCase()}.`;
     } else {
       // Standing by credit hours can differ from class year, so that case stays open rather than hidden.
@@ -258,8 +311,8 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const minGpa = gpaText.match(/(?:minimum|min\.?|at least|cumulative|overall)?\s*(?:gpa|grade point average)\s*(?:of|:)?\s*(?:at least\s*)?([2-3]\.\d{1,2})/i) || gpaText.match(/\b([2-3]\.\d{1,2})\s*(?:\/\s*4\.0\s*)?(?:or (?:higher|above|better)\s*)?(?:cumulative\s*)?gpa\b/i);
   const myGpa = parseFloat(ws.profile.gpa || "");
   if (minGpa && eligibility !== "unlikely") {
-    if (myGpa && myGpa < +minGpa[1]) { eligibility = "unlikely"; note = `This posting asks for a ${minGpa[1]} GPA; yours is ${ws.profile.gpa}.`; }
-    else if (myGpa) note += ` It asks for a ${minGpa[1]} GPA, and yours is ${ws.profile.gpa}.`;
+    if (myGpa && myGpa < +minGpa[1]) { eligibility = "unlikely"; checked = false; note = `This posting asks for a ${minGpa[1]} GPA; yours is ${ws.profile.gpa}.`; }
+    else if (myGpa) { note += ` It asks for a ${minGpa[1]} GPA, and yours is ${ws.profile.gpa}.`; if (eligibility === "likely") checked = true; }
     else note += ` It asks for a ${minGpa[1]} GPA; add yours in your profile and Remy will check it.`;
   }
   // Remy doesn't show what the student clearly can't apply for (they can still choose "Show anyway").
@@ -280,13 +333,14 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const region = regionMatch(ws, job);
   const type = typeMatch(ws, job);
   const field = fieldMatch(ws, job);
-  // Leave out what the student said they don't want (wrong field or kind of opportunity).
-  if (!studentAdded(job) && (field === false || type === false)) {
-    excluded = true;
-    note = field === false ? "This isn't in the fields you chose." : "This isn't the kind of opportunity you chose.";
-  }
-  const ruledOut = studentAdded(job) ? "" : dealbreaker(ws, job);
-  if (ruledOut) { excluded = true; note = ruledOut; }
+  // A rule the student doesn't meet (MBA only, college only, needs a finished degree, no sponsorship): not eligible.
+  const ruledOut = studentAdded(job) ? "" : notEligible(ws, job);
+  if (ruledOut) { eligibility = "unlikely"; checked = false; excluded = true; note = ruledOut; }
+  // Hidden because of what the student said they want (field, kind of opportunity, things to avoid, which summer).
+  // That says nothing about qualifying, so it goes in its own line instead of the eligibility note.
+  let hidden = "";
+  if (!studentAdded(job)) hidden = field === false ? "This isn't in the fields you chose." : type === false ? "This isn't the kind of opportunity you chose." : notWanted(ws, job);
+  if (hidden) excluded = true;
   const req = skills.length || 1;
   const score = Math.round(
     ({ likely: 40, check: 22, unknown: 18, unlikely: 0 } as const)[eligibility] +
@@ -297,7 +351,7 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
       // Discovery days and insight programs are built for first-years and sophomores (NABA: EY, PwC).
       (job.kind === "program" && (year === "First-year" || year === "Sophomore") ? 12 : 0),
   );
-  return { at: new Date().toISOString(), by: "rules", v: FIT_RULES_VERSION, eligibility, eligibilityNote: note, matched, gaps, why, excluded, score, regionMatch: region, typeMatch: type };
+  return { at: new Date().toISOString(), by: "rules", v: FIT_RULES_VERSION, eligibility, eligibilityNote: note, checked, ...(hidden ? { hidden } : {}), matched, gaps, why, excluded, score, regionMatch: region, typeMatch: type };
 }
 
 // "Summer 2026" offered in October 2026: a term that has already started or ended (the AI doesn't always know the date).

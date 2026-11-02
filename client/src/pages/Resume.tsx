@@ -249,7 +249,7 @@ function Tailor({ query }: { query: URLSearchParams }) {
             <button key={j.id} className="pick pick-new" onClick={() => start(j.id)} data-testid="button-choose-job">
               <span className="xs muted">{j.company}</span>
               <strong className="small">{j.title}</strong>
-              <span className="row xs"><span className="chip chip-plain"><Plus size={11} /> Start tailoring</span>{fits[j.id]?.eligibility === "likely" && <span className="chip chip-live">Eligible</span>}</span>
+              <span className="row xs"><span className="chip chip-plain"><Plus size={11} /> Start tailoring</span>{fits[j.id]?.eligibility === "likely" && fits[j.id]?.checked && <span className="chip chip-live">Eligible</span>}</span>
             </button>
           ))}
           {notStarted.length > shown.length && <button className="pick pick-new" onClick={() => go("/opportunities")} data-testid="button-more-openings"><strong className="small">{notStarted.length - shown.length} more</strong><span className="xs muted">See them all in Opportunities</span></button>}

@@ -242,7 +242,19 @@ test("field roads: major wins, trade paths get the trades road, class year maps 
   assert.equal(roadFor("Finance & Business Information Systems")?.key, "finance");
   assert.equal(roadFor("Actuarial Science")?.key, "actuarial", "not finance");
   assert.equal(roadFor("Nursing")?.key, "nursing", "not health");
-  assert.equal(roadFor("", "apprenticeship")?.key, "trades");
+  assert.equal(roadFor("Electrical apprenticeship", "apprenticeship")?.key, "trades");
+  // A wrong road is worse than none (persona test Nov 1): welder ≠ electrician, pre-dental ≠ MCAT, economics ≠ SIE.
+  assert.equal(roadFor("Welding Technology Certificate", "trade"), null);
+  assert.equal(roadFor("", "apprenticeship"), null);
+  assert.equal(roadFor("Biochemistry (Pre-Dental)"), null);
+  assert.equal(roadFor("dentistry"), null);
+  assert.equal(roadFor("Economics"), null);
+  assert.equal(roadFor("Biology"), null);
+  assert.equal(roadFor("Medical Assistant"), null);
+  assert.equal(roadFor("Pre-Med Biology")?.key, "health");
+  assert.equal(roadFor("Pre-PT Kinesiology")?.key, "health");
+  assert.equal(roadFor("Pharmacy")?.key, "health");
+  assert.equal(roadFor("Electrical Engineering")?.key, "engineering", "engineering before electrician");
   assert.equal(roadFor("Underwater basket weaving"), null);
   assert.deepEqual(["First-year", "Freshman", "Sophomore", "Senior", "Graduate student", ""].map(yearNumber), [1, 1, 2, 4, 5, 0]);
 });
@@ -314,4 +326,80 @@ test("fit: eligibility labels aren't gaps, and no readable skills isn't called a
   assert.match(f.why, /couldn't read the skills/);
   const real = { ...ey, requirements: [req("Excel"), req("Minimum GPA")] } as Job;
   assert.deepEqual([computeFit(ws, real, "Built models in Excel").matched, computeFit(ws, real, "Built models in Excel").gaps], [["Excel"], []]);
+});
+
+// Piece 6 (Nov 2): "You qualify" only when true (persona test Nov 1: welder, high-school senior, finance, mech-eng, studio art).
+test("'You qualify' needs a rule Remy checked: no stated limit is 'likely' but not checked", () => {
+  const open = computeFit(student({ classYear: "Junior" }), job({ eligibility: [] }), "");
+  assert.equal(open.eligibility, "likely");
+  assert.equal(open.checked, false);
+  assert.equal(computeFit(student({ classYear: "Junior" }), job({ eligibility: ["Open to juniors."] }), "").checked, true);
+  assert.equal(computeFit(student({ graduation: "May 2029" }), job({ eligibility: ["Open to students in the Class of 2029"] }), "").checked, true);
+  assert.equal(computeFit(student({ classYear: "Junior", gpa: "3.4" }), job({ eligibility: ["Minimum GPA of 3.0 required."] }), "").checked, true); // a GPA rule met
+  assert.equal(computeFit(student({ classYear: "Junior" }), job({ eligibility: ["Minimum GPA of 3.0 required."] }), "").checked, false); // GPA unknown
+});
+test("a welding-certificate student isn't eligible for an 'Undergraduate' internship", () => {
+  const f = computeFit(student({ path: "trade", major: "Welding Technology Certificate", classYear: "First-year" }), job({ title: "2027 Undergraduate Summer Internship" }), "");
+  assert.equal(f.eligibility, "unlikely");
+  assert.equal(f.excluded, true);
+  assert.match(f.eligibilityNote, /college students/);
+});
+test("a high-school senior isn't a college senior, and 'current undergraduate enrollment' rules them out", () => {
+  const hs = student({ path: "high-school", classYear: "Senior", graduation: "May 2027" });
+  assert.equal(computeFit(hs, job({ title: "2028 Investment Banking Summer Internship", eligibility: ["Open to rising seniors."] }), "").eligibility, "unlikely");
+  assert.equal(computeFit(hs, job({ title: "AVID Tutor", eligibility: ["Current undergraduate enrollment at an accredited university preferred."] }), "").eligibility, "unlikely");
+  assert.notEqual(computeFit(hs, job({ title: "High School Summer Program", eligibility: ["Open to high school students."] }), "").eligibility, "unlikely");
+});
+test("community college: 'undergraduate' is fine, 'pursuing a bachelor's' isn't", () => {
+  const cc = student({ path: "community-college", classYear: "Sophomore" });
+  assert.notEqual(computeFit(cc, job({ title: "Undergraduate Research Assistant" }), "").eligibility, "unlikely");
+  assert.equal(computeFit(cc, job({ eligibility: ["Must be currently pursuing a bachelor's degree."] }), "").eligibility, "unlikely");
+});
+test("a full-time job needing a finished bachelor's: not for a junior 18 months out, fine for a senior about to graduate", () => {
+  const j = job({ kind: "job", title: "Mechanical Designer", summary: "Bachelor's degree in Mechanical Engineering required." });
+  const junior = computeFit(student({ classYear: "Junior", graduation: "May 2028" }), j, "");
+  assert.equal(junior.eligibility, "unlikely");
+  assert.match(junior.eligibilityNote, /finished bachelor's/);
+  assert.notEqual(computeFit(student({ classYear: "Senior", graduation: "May 2027" }), j, "").eligibility, "unlikely");
+  assert.notEqual(computeFit(student({ classYear: "Junior", graduation: "May 2028" }), job({ kind: "internship", title: "Mechanical Engineering Intern", summary: "Pursuing a bachelor's degree in Mechanical Engineering." }), "").eligibility, "unlikely");
+});
+test("MBA-only is 'Not eligible'; not-your-field is 'Hidden' and never next to a 'You qualify' reason", () => {
+  const mba = computeFit(student({ classYear: "Senior" }), job({ title: "MBA Strategy Intern" }), "");
+  assert.equal(mba.eligibility, "unlikely");
+  assert.equal(mba.hidden, undefined);
+  const mechJunior = student({ classYear: "Junior", major: "Mechanical Engineering" });
+  const sw = computeFit(mechJunior, job({ title: "Software Engineer Intern", origin: "verified-catalog", eligibility: ["Open to juniors."] } as Partial<Job>), "");
+  assert.equal(sw.excluded, true);
+  assert.equal(sw.hidden, "This isn't in the fields you chose.");
+  assert.doesNotMatch(sw.eligibilityNote, /fields you chose/); // the eligibility line stays about eligibility
+  const avoid = computeFit(student({ classYear: "Junior", avoid: "sales" }), job({ title: "Sales Intern", eligibility: ["Open to juniors."] }), "");
+  assert.equal(avoid.excluded, true);
+  assert.match(avoid.hidden || "", /avoid/);
+  assert.equal(avoid.checked, true); // they do qualify; it's hidden because they said avoid
+});
+
+test("second review: preferred or equivalent degrees, trade-friendly and associate-friendly postings aren't 'not eligible'", () => {
+  const junior = student({ classYear: "Junior", graduation: "May 2028" });
+  for (const summary of ["Bachelor's degree in Marketing preferred.", "Bachelor's degree in IT or equivalent experience.", "Requires a bachelor's degree in progress.", "Bachelor's degree from an accredited university."])
+    assert.notEqual(computeFit(junior, job({ kind: "job", title: "Marketing Coordinator", summary }), "").eligibility, "unlikely", summary);
+  assert.equal(computeFit(junior, job({ kind: "job", title: "Marketing Coordinator", summary: "A bachelor's degree is required." }), "").eligibility, "unlikely");
+  const welder = student({ path: "trade", major: "Welding", classYear: "First-year" });
+  assert.notEqual(computeFit(welder, job({ eligibility: ["Currently enrolled in an accredited college, university, or technical school."] }), "").eligibility, "unlikely");
+  assert.notEqual(computeFit(welder, job({ eligibility: ["Pursuing a degree or certificate in welding."] }), "").eligibility, "unlikely");
+  assert.notEqual(computeFit(student({ path: "community-college", classYear: "Sophomore" }), job({ eligibility: ["Currently pursuing an associate's or bachelor's degree."] }), "").eligibility, "unlikely");
+  const quote = computeFit(welder, job({ title: "Summer Analyst", eligibility: ["Open to undergraduates."] }), "").eligibilityNote;
+  assert.match(quote, /“Open to undergraduates”/);
+});
+test("second review: a high-school senior never qualifies through a college graduation-year rule", () => {
+  const hs = student({ path: "high-school", classYear: "Senior", graduation: "May 2027" });
+  for (const e of ["Open to students in the Class of 2027", "Graduating between December 2026 and June 2027"]) {
+    const f = computeFit(hs, job({ eligibility: [e] }), "");
+    assert.equal(f.eligibility, "unlikely", e);
+    assert.notEqual(f.checked, true, e);
+  }
+});
+test("second review: lookalike fields get no road", async () => {
+  const { roadFor } = await import("@shared/roads");
+  for (const f of ["Veterinary Medicine", "Sports Medicine", "Pharmacy Technician", "Pharmaceutical Sciences", "Electric vehicles"]) assert.equal(roadFor(f), null, f);
+  assert.equal(roadFor("Electrical lineworker")?.key, "trades");
 });

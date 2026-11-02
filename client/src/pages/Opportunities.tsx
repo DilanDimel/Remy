@@ -169,7 +169,9 @@ function eligChip(f?: JobFit) {
   // Remy decides eligibility itself; students only see the outcome. Unknown shows nothing (the page asks once for what's missing).
   if (f.eligibility === "unknown") return null;
   if (f.eligibility === "unlikely") return <span className="chip chip-bad" title={f.eligibilityNote}>Not eligible</span>;
-  return <span className="chip chip-live" title={f.eligibilityNote}>You qualify</span>;
+  // "You qualify" only when the posting states a rule Remy checked and you meet it; "no limits stated" isn't proof.
+  if (f.hidden) return <span className="chip chip-plain" title={f.hidden}>Hidden</span>;
+  return f.checked ? <span className="chip chip-live" title={f.eligibilityNote}>You qualify</span> : null;
 }
 
 function JobCard({ j, fit, defaultOpen }: { j: Job; fit?: JobFit; defaultOpen: boolean }) {
@@ -214,7 +216,8 @@ function JobCard({ j, fit, defaultOpen }: { j: Job; fit?: JobFit; defaultOpen: b
       )}
       {fit && <p className="small"><strong>Why it fits you: </strong>{fit.why}</p>}
       {(() => { const known = w.contacts.filter((c) => sameOrg(c.org, j.company)); return known.length > 0 && <button className="xs" style={{ textAlign: "left", color: "var(--fox)", fontWeight: 700, padding: 0 }} onClick={() => go("/community")} data-testid="job-known-contact">You know {known.map((c) => c.name).join(", ")} here: ask about the team before you apply →</button>; })()}
-      {fit && fit.eligibility !== "unknown" && <p className="xs muted"><strong>{fit.eligibility === "unlikely" ? "Why not: " : "Why you qualify: "}</strong>{fit.eligibilityNote}</p>}
+      {fit && fit.eligibility !== "unknown" && <p className="xs muted"><strong>{fit.eligibility === "unlikely" ? "Why not: " : fit.checked && !fit.hidden ? "Why you qualify: " : "Eligibility: "}</strong>{fit.eligibilityNote}</p>}
+      {fit?.hidden && <p className="xs muted"><strong>Why it's hidden: </strong>{fit.hidden}</p>}
       {fit && fit.gaps.length > 0 && <p className="small muted"><strong>Gaps: </strong>{fit.gaps.slice(0, 3).join("; ")}</p>}
       {open && (
         <div className="stack" style={{ borderTop: "1px solid var(--line)", paddingTop: 12, marginTop: 4 }}>

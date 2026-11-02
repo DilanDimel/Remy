@@ -5,7 +5,7 @@ import { ThemeToggle } from "../components/ThemeToggle";
 import { BETA_TERMS, BETA_TERMS_LEAD } from "@shared/beta";
 
 const CONTACT = "remy.careercoach@gmail.com";
-const UPDATED = "October 29, 2026";
+const UPDATED = "November 2, 2026";
 
 const Section = ({ title, children }: { title: string; children: ReactNode }) => (
   <section className="stack-sm"><h2 style={{ fontSize: "1.15rem" }}>{title}</h2>{children}</section>
