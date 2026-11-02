@@ -144,5 +144,8 @@ export async function docxStyle(buf: Buffer): Promise<ResumeStyle | null> {
   const left = Number(doc.match(/<w:pgMar[^>]*w:left="(\d+)"/)?.[1] || 1440);
   const pages = Number(app.match(/<Pages>(\d+)<\/Pages>/)?.[1] || 1);
   const mono = /mono|courier|consolas/i.test(font);
-  return { serif: !mono && SERIF.test(font), mono, italic: /<w:i\/>|<w:i w:val="(1|true)"/.test(doc), font: font || undefined, size: Math.min(12, Math.max(9, half / 2)), margin: Math.min(96, Math.max(28, Math.round(left / 20))), pages: Math.max(1, pages) };
+  // Headers and footers too: templates often put the contact line in a header table or text box.
+  const edges = (await Promise.all(Object.keys(zip.files).filter((n) => /^word\/(header|footer)\d*\.xml$/.test(n)).map((n) => zip.file(n)!.async("string")))).join("");
+  const layout = { tables: /<w:tbl>/.test(doc + edges), textBoxes: /<w:txbxContent>/.test(doc + edges), columns: /<w:cols\b[^>]*w:num="[2-9]"/.test(doc) };
+  return { serif: !mono && SERIF.test(font), mono, italic: /<w:i\/>|<w:i w:val="(1|true)"/.test(doc), font: font || undefined, size: Math.min(12, Math.max(9, half / 2)), margin: Math.min(96, Math.max(28, Math.round(left / 20))), pages: Math.max(1, pages), layout };
 }

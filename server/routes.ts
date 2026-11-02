@@ -261,7 +261,7 @@ function letterFlagsFor(ws: Workspace, app: Application, job: Job) {
 }
 function refreshAts(ws: Workspace, app: Application) {
   const job = findJob(ws, app.jobId);
-  if (job && ws.resume) app.ats = atsChecks(composeResume(ws, app), job, fileBase(ws, job, "Resume"));
+  if (job && ws.resume) app.ats = atsChecks(composeResume(ws, app), job, fileBase(ws, job, "Resume"), ws.resume.style);
 }
 
 // Live openings from employers' public job boards, picked for this student. Runs from the
@@ -730,6 +730,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     ctx.ws.resume!.original = { name: f!.originalname, mime, size: f!.size };
     // So downloads can match the student's look (font, size, margins, length).
     ctx.ws.resume!.style = (await (mime === "application/pdf" ? pdfStyle(f!.buffer) : mime.includes("wordprocessingml") ? docxStyle(f!.buffer) : Promise.resolve(null)).catch(() => null)) || undefined;
+    for (const a of ctx.ws.applications) refreshAts(ctx.ws, a); // saved checks describe the new file, not the old one
     await ctx.save();
     res.json(ctx.ws);
   }, { serial: true }));
@@ -778,7 +779,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.send(f!.data);
   }));
 
-  // ATS readiness score with a breakdown. ?app=<id> scores that tailored version
+  // Resume suggestions, and with ?app=<id> the skills that posting names: shown on that tailored version or not
   // against its posting (and returns the base score for comparison).
   app.get("/api/resume/ats", route(async (req, res, ctx) => {
     if (!ctx.ws.resume) bad("Upload a resume first.");

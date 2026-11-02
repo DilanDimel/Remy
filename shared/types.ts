@@ -41,6 +41,8 @@ export interface ResumeStyle {
   serif: boolean; size: number; margin: number; pages: number;
   /** The file's main font as named there ("Garamond", "Courier", "LiberationSans"), monospace, and whether it uses italics at all. */
   font?: string; mono?: boolean; italic?: boolean;
+  /** Word layout features some applicant tracking systems read out of order (unset for PDFs and older uploads). */
+  layout?: { tables: boolean; textBoxes: boolean; columns: boolean };
 }
 /** How completely the structured resume reflects the uploaded file. */
 export interface ResumeQuality {
@@ -255,7 +257,7 @@ export interface AppVersion {
   note: string;
 }
 export interface AtsScore {
-  score: number; // out of 100
+  score: number; // internal only: orders suggestions, never shown to students
   categories: { name: string; max: number; score: number; items: { ok: boolean; earned: number; max: number; text: string }[] }[];
   fixes: { category: string; text: string; gain: number; examples?: string[] }[];
   keywords: { matched: string[]; missing: string[] };

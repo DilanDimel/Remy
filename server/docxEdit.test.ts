@@ -80,3 +80,25 @@ test("Word download diffs against the file: a line added in Remy goes in with th
   const first = await editResumeDocx(original, doc([["n", "Brand new line"], ["b1", "Took orders at the drive-thru and trained new hires"]]), doc([["n", "Brand new line"], ["b1", "Took orders at the drive-thru and trained new hires"]]));
   assert.deepEqual(first.missed, ["Brand new line"]);
 });
+
+test("layout check: Remy notices a table in the student's Word file", async () => {
+  const { docxStyle } = await import("./docxEdit");
+  const { Table, TableRow, TableCell } = await import("docx");
+  const plain = await docxStyle(await studentDocx());
+  assert.deepEqual(plain?.layout, { tables: false, textBoxes: false, columns: false });
+  const withTable = await Packer.toBuffer(new Document({ sections: [{ children: [
+    new Table({ rows: [new TableRow({ children: [new TableCell({ children: [new Paragraph("Chick-fil-A")] }), new TableCell({ children: [new Paragraph("2024 – Present")] })] })] }),
+  ] }] }));
+  const s = await docxStyle(withTable);
+  assert.equal(s?.layout?.tables, true);
+});
+
+test("layout check: a table in the Word header (where contact lines often sit) counts", async () => {
+  const { docxStyle } = await import("./docxEdit");
+  const { Table, TableRow, TableCell, Header } = await import("docx");
+  const buf = await Packer.toBuffer(new Document({ sections: [{
+    headers: { default: new Header({ children: [new Table({ rows: [new TableRow({ children: [new TableCell({ children: [new Paragraph("Dilan Desman")] }), new TableCell({ children: [new Paragraph("d@x.com")] })] })] })] }) },
+    children: [new Paragraph("Experience")],
+  }] }));
+  assert.equal((await docxStyle(buf))?.layout?.tables, true);
+});

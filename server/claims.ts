@@ -1,5 +1,5 @@
 import { postingSkills } from "@shared/requirements";
-import type { AtsCheck, ClaimFlag, Job, ResumeDoc } from "@shared/types";
+import type { AtsCheck, ClaimFlag, Job, ResumeDoc, ResumeStyle } from "@shared/types";
 import { family, families } from "@shared/words";
 import { hasKeyword } from "./ats";
 
@@ -271,7 +271,16 @@ export function evidenceText(resumeRaw: string, facts: string[]) {
 }
 
 // ---------- ATS-format checks on the composed resume ----------
-export function atsChecks(doc: ResumeDoc, job: Job, fileBase: string): AtsCheck[] {
+/** Tables, text boxes and columns in the student's own Word file (some applicant tracking systems read them out of order).
+ *  Left out when Remy hasn't seen the file's layout (a PDF, or a Word file uploaded before this check). */
+function layoutCheck(style?: ResumeStyle): AtsCheck[] {
+  const l = style?.layout;
+  if (!l) return [];
+  const found = [l.tables && "a table", l.textBoxes && "text boxes", l.columns && "two or more columns"].filter(Boolean) as string[];
+  return [{ id: "layout", label: "Single column, no tables or text boxes", pass: !found.length, detail: found.length ? `Your Word file uses ${found.join(" and ")}. Some applicant tracking systems read those out of order; if an online application garbles your details, upload Remy's one-column PDF instead.` : "Your Word file is one column with no tables or text boxes." }];
+}
+
+export function atsChecks(doc: ResumeDoc, job: Job, fileBase: string, style?: ResumeStyle): AtsCheck[] {
   const text = [doc.contact.name, ...doc.sections.flatMap((s) => [s.heading, ...s.entries.flatMap((e) => [e.org, e.role, e.dates, ...e.bullets.map((b) => b.text)])]), ...doc.skills.map((k) => k.label + " " + k.items)].join("\n");
   const words = text.split(/\s+/).filter(Boolean).length;
   const headings = doc.sections.map((s) => lc(s.heading));
@@ -286,7 +295,7 @@ export function atsChecks(doc: ResumeDoc, job: Job, fileBase: string): AtsCheck[
   return [
     { id: "contact", label: "Contact details at the top", pass: !!doc.contact.name && !!doc.contact.email, detail: doc.contact.email ? "Name and email found." : "Add an email address to the contact line." },
     { id: "headings", label: "Standard section headings", pass: headings.some((h) => h.includes("education")) && headings.some((h) => /experience|projects|leadership/.test(h)), detail: "ATS parsers look for Education and Experience-style headings." },
-    { id: "layout", label: "Single column, no tables, images or text boxes", pass: true, detail: "Remy exports a one-column document with real text only." },
+    ...layoutCheck(style),
     { id: "font", label: "Readable standard font", pass: true, detail: "Downloads keep your own resume's font, size and margins." },
     { id: "dates", label: "Every experience entry has dates", pass: undated.length === 0, detail: undated.length ? `Missing dates: ${undated.map((e) => e.org || e.role).join(", ")}` : "All entries are dated." },
     { id: "bullets", label: "Bullets are concise (under ~2 lines)", pass: longBullets.length === 0, detail: longBullets.length ? `${longBullets.length} bullet(s) run long.` : "All bullets are a scannable length." },

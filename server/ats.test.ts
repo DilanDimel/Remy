@@ -138,3 +138,11 @@ test("posting skills: end-of-sentence tools, lowercase tools, and 'A/B' means bo
   assert.deepEqual(skillsIn("Comfortable with HTML/CSS."), ["HTML", "CSS"]);
   assert.ok(hasKeyword("Skills: Python, R. Projects: churn model", "R"));
 });
+
+test("an entry with no date isn't a different date format (the missing date has its own suggestion)", () => {
+  const d = doc(["Led weekly budget reviews for a 40-member student club and its officers"]);
+  d.sections[0].entries.push({ id: "e2", org: "Club", role: "Member", location: "", dates: "", bullets: [] } as any);
+  const fixes = atsScore(d, null, "").fixes.map((f) => f.text);
+  assert.ok(!fixes.some((t) => /one date format/.test(t)), fixes.join(" | "));
+  assert.ok(fixes.some((t) => /missing dates/.test(t)));
+});

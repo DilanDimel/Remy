@@ -507,7 +507,7 @@ function Checks({ a }: { a: Application }) {
       <div className="card card-pad stack-sm" data-testid="card-ats">
         <h3>ATS format check</h3>
         <p className="xs muted">For the resume as it will be exported, with the changes you accepted.</p>
-        {a.ats.map((c) => (
+        {a.ats.filter((c) => c.id !== "layout" || ws?.resume?.style?.layout).map((c) => ( // checks saved before Remy read the file's layout claimed a pass it never checked
           <div key={c.id} className="ats-row">
             {c.pass ? <CheckCircle2 size={16} className="pass" /> : <AlertTriangle size={16} className="fail" />}
             <div><strong>{c.label}</strong><div className="xs muted">{c.detail}</div></div>

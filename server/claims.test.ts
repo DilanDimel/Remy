@@ -104,3 +104,13 @@ test("claims: agreed/agree are the same word", async () => {
   const { unsaidWords } = await import("./claims");
   assert.deepEqual(unsaidWords("Agreed on a budget", "we agree on a budget"), []);
 });
+
+test("checks: the layout check fails for a Word table and is left out when Remy hasn't seen the file", async () => {
+  const { atsChecks } = await import("./claims");
+  const doc = { contact: { name: "A", email: "a@b.co", phone: "", location: "", links: "" }, sections: [], skills: [] } as any;
+  const job = { requirements: [], company: "X" } as any;
+  const style = { serif: false, size: 11, margin: 72, pages: 1 };
+  assert.equal(atsChecks(doc, job, "f", { ...style, layout: { tables: true, textBoxes: false, columns: false } }).find((c) => c.id === "layout")?.pass, false);
+  assert.equal(atsChecks(doc, job, "f", { ...style, layout: { tables: false, textBoxes: false, columns: false } }).find((c) => c.id === "layout")?.pass, true);
+  assert.equal(atsChecks(doc, job, "f").find((c) => c.id === "layout"), undefined);
+});

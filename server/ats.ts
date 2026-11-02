@@ -2,7 +2,7 @@ import type { AtsScore, Job, ResumeDoc } from "@shared/types";
 import { family, families } from "@shared/words";
 import { isSkillKeyword, plainEnglish, skillsIn } from "@shared/requirements";
 
-// ATS readiness score out of 100, computed from the resume itself (no AI), so
+// Resume suggestions (no score is shown to students; the points only order the suggestions), computed from the resume itself (no AI), so
 // it's instant and gives the same number every time. Each lost point comes with
 // the specific fix that would earn it back.
 
@@ -75,7 +75,7 @@ export function atsScore(doc: ResumeDoc, keywords: string[] | null, against: str
   const format = cat("Length & format", 15, [
     item(words >= 250 && words <= 800, 8, `${words} words — a healthy one-page length.`, words < 250 ? `Only ${words} words — add detail to your strongest roles.` : `${words} words — trim to one page (about 450-700 words).`, words < 250 ? words / 250 : words > 800 ? Math.max(0, 1 - (words - 800) / 600) : 1),
     item(!/[│┃■◆★►]|\t{2,}/.test(text), 4, "No symbols that confuse parsers.", "Remove decorative symbols and tab-aligned columns; ATS reads them as noise."),
-    item(new Set(entries.map((e) => (/[a-z]{3}\s+\d{4}/i.test(e.dates) ? "word" : /\d{1,2}\/\d{4}/.test(e.dates) ? "num" : "other"))).size <= 1, 3, "Dates use one consistent format.", "Use one date format everywhere (e.g. \"Jun 2026 – Aug 2026\")."),
+    item(new Set(entries.filter((e) => e.dates.trim()).map((e) => (/[a-z]{3}\s+\d{4}/i.test(e.dates) ? "word" : /\d{1,2}\/\d{4}/.test(e.dates) ? "num" : "other"))).size <= 1, 3, "Dates use one consistent format.", "Use one date format everywhere (e.g. \"Jun 2026 – Aug 2026\")."),
   ]);
 
   const kws = Array.from(new Set((keywords || []).map((k) => k.trim()).filter((k) => k && isSkillKeyword(k)))).slice(0, 15);
@@ -91,7 +91,7 @@ export function atsScore(doc: ResumeDoc, keywords: string[] | null, against: str
   const raw = categories.reduce((s, c) => s + c.score, 0);
   const score = keywords ? raw : Math.round((raw * 100) / categories.reduce((s, c) => s + c.max, 0));
   const fixes = categories.flatMap((c) => c.items.filter((i) => !i.ok).map((i) => ({ category: c.name, text: i.text, gain: Math.round(i.max - i.earned), examples: (i as Item).examples })))
-    .filter((f) => f.gain > 0).sort((a, b) => b.gain - a.gain);
+    .sort((a, b) => b.gain - a.gain); // every failed check is a suggestion (points only order them)
   return { score, categories, fixes, keywords: { matched: hit, missing }, against, at: new Date().toISOString() };
 }
 
