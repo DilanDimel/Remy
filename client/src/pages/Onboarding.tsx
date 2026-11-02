@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Check, FileText, Mail, Sparkles, Trash2 } from "lucide-react";
 import { PATHS, type Profile, type SetupFocus, type Workspace } from "@shared/types";
 import { FIELD_GROUPS } from "@shared/fields";
+import { alreadyIn, fitsField, inField, setupReply } from "@shared/setupReply";
 import { api, FAR_ENOUGH_STEP, fmtDate, rid, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
 import { AiUnavailableNote, BetaBadge, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
@@ -503,25 +504,6 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
   );
 }
 
-// Remy's one-line reply to each answer: says what Remy will actually do with it (no AI call, nothing invented).
-const UNSURE = /\b(not sure|no idea|idk|don'?t know|unsure|no clue)\b/i;
-function reaction(a: string, target: string | undefined, i: number) {
-  if (!a) return "No problem, we can come back to that.";
-  if (UNSURE.test(a)) return target === "timeline" ? "No problem. I'll show openings for any start date, and you can narrow it later."
-    : target === "dreamEmployers" ? "That's fine. I'll show a mix of employers, and you can save the ones you like."
-    : "That's completely normal. I'll show you where your major can lead on My Path, and we'll figure it out together.";
-  const by: Record<string, string[]> = {
-    targetRoles: ["Great, I'll look for openings in those.", "Nice, I'll add those to your search."],
-    dreamEmployers: ["Noted. I'll check their career sites first.", "Good picks. They go to the top of my search."],
-    avoid: ["Got it, I'll leave those out.", "Understood, those stay hidden."],
-    timeline: ["Got it. I'll focus on openings that start then.", "Perfect, I'll match openings to that timing."],
-    interests: ["Love that. I'll use it when I suggest paths for you.", "That tells me a lot. I'll keep it in mind for your path."],
-    goals: ["Good goal. I'll build your plan around it.", "Got it. Your plan will aim right at that."],
-  };
-  const lines = (target && by[target]) || ["Got it, that helps.", "Good to know.", "Thanks, that's useful."];
-  return lines[i % lines.length];
-}
-
 function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
   const { ws, setWs, save, run, config } = useStore();
   const w = ws!;
@@ -550,16 +532,13 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
     setAnswer("");
     const answers = [...w.onboarding.answers, { q: current, a }];
     // Each question says which profile field its answer feeds (roles, dream employers, start date…), so it changes the matches.
-    // Search fields only take short answers that name things; a sentence ("I don't know yet…") stays in Remy's memory instead.
+    // Search fields only take short answers that name things; a sentence ("I don't know yet…") stays in Remy's AI memory instead (see shared/setupReply.ts).
     const target = targets[i] as keyof Profile | undefined;
-    const searchField = target === "targetRoles" || target === "dreamEmployers" || target === "avoid";
-    const fitsField = !searchField || (a.length <= 60 && !/\b(i|i'm|im|don'?t|not sure|no idea|idk|maybe)\b/i.test(a));
     try {
-      if (a && target && target in w.profile && fitsField) {
+      if (a && target && target in w.profile && fitsField(target, a)) {
         const before = String(w.profile[target] || "").trim();
         // Answering the same question twice (e.g. after a reload) must not repeat the answer.
-        const has = before.toLowerCase().split(/\s*,\s*/).includes(a.toLowerCase());
-        if (!has) await save("profile", { ...w.profile, [target]: before ? `${before}, ${a}` : a });
+        if (!alreadyIn(before, a)) await save("profile", { ...w.profile, [target]: before ? `${before}, ${a}` : a });
       }
       if (a) {
         const fact = { id: "f" + Date.now(), text: `${current} — ${a}`, category: "goal", source: "Onboarding answer", status: "approved", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
@@ -588,7 +567,7 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
           <div key={i} className="stack-sm">
             <div className="bubble bubble-ai">{x.q}</div>
             <div className="bubble bubble-user fade-up">{x.a || "Skipped"}</div>
-            <div className="bubble bubble-ai ob-react fade-up">{reaction(x.a, targets[i], i)}</div>
+            <div className="bubble bubble-ai ob-react fade-up">{setupReply(x.a, targets[i], inField(w.profile, targets[i], x.a, !!pending && i === answered.length - 1))}</div>
           </div>
         ))}
         {busy && <div className="bubble bubble-ai row"><Spinner /> Thinking of a few useful questions…</div>}
