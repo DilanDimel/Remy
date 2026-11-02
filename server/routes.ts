@@ -82,6 +82,28 @@ function serially<T>(userId: string, fn: () => Promise<T>): Promise<T> {
   return run;
 }
 
+/** Saves a workspace the way every request does. A request can run for seconds (AI calls). On save, re-read the
+ *  stored workspace and write back only the sections this request changed, so a slow request never erases edits
+ *  saved meanwhile by another one.
+ *  shortcut: merges per top-level section; two requests editing the same section still last-write-wins. */
+function sectionSaver(me: Me, ws: Workspace): () => Promise<void> {
+  const before = new Map(Object.entries(ws).map(([k, v]) => [k, JSON.stringify(v)]));
+  return async () => {
+    const mine = ws as unknown as Record<string, unknown>;
+    const changed: Record<string, unknown> = {};
+    for (const k of Object.keys(mine)) if (k !== "updatedAt" && JSON.stringify(mine[k]) !== before.get(k)) changed[k] = mine[k];
+    if (!Object.keys(changed).length) return;
+    // The database merges just these sections into what's stored, in one statement.
+    const fresh = await saveSections(me.id, changed as Partial<Workspace>);
+    Object.assign(ws, fresh);
+    if ("calendar" in changed && gcal.gcalReady()) {
+      const id = me.id;
+      gcal.connected(id).then((on) => on && gcal.syncSoon(id, async () => (await loadWorkspace(id)).calendar)).catch(() => {});
+    }
+    for (const [k, v] of Object.entries(fresh)) before.set(k, JSON.stringify(v));
+  };
+}
+
 function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: Request, res: Response, next: NextFunction) => Promise<unknown> {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -94,26 +116,7 @@ function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: 
       }
       if (opts.serial) { const id = me.id; return await serially(id, () => route(fn)(req, res, next)); }
       const ws = await loadWorkspace(me.id);
-      // A request can run for seconds (AI calls). On save, re-read the stored
-      // workspace and write back only the sections this request changed, so a
-      // slow request never erases edits saved meanwhile by another one.
-      // shortcut: merges per top-level section; two requests editing the same section still last-write-wins.
-      const before = new Map(Object.entries(ws).map(([k, v]) => [k, JSON.stringify(v)]));
-      const save = async () => {
-        const mine = ws as unknown as Record<string, unknown>;
-        const changed: Record<string, unknown> = {};
-        for (const k of Object.keys(mine)) if (k !== "updatedAt" && JSON.stringify(mine[k]) !== before.get(k)) changed[k] = mine[k];
-        if (!Object.keys(changed).length) return;
-        // The database merges just these sections into what's stored, in one statement.
-        const fresh = await saveSections(me!.id, changed as Partial<Workspace>);
-        Object.assign(ws, fresh);
-        if ("calendar" in changed && gcal.gcalReady()) {
-          const id = me!.id;
-          gcal.connected(id).then((on) => on && gcal.syncSoon(id, async () => (await loadWorkspace(id)).calendar)).catch(() => {});
-        }
-        for (const [k, v] of Object.entries(fresh)) before.set(k, JSON.stringify(v));
-      };
-      const ctx: Ctx = { me, ws, ip, save };
+      const ctx: Ctx = { me, ws, ip, save: sectionSaver(me, ws) };
       await fn(req, res, ctx);
     } catch (e: any) {
       if (e instanceof AiUnavailable) return res.status(503).json({ message: e.message, code: "ai-unavailable" });
@@ -267,13 +270,23 @@ function refreshAts(ws: Workspace, app: Application) {
 
 // Live openings from employers' public job boards, picked for this student. Runs from the
 // "Find openings" button and by itself when the student opens Remy (see GET /api/jobs).
-async function findOpenings(ctx: Ctx, named: string[] = []) {
+async function findOpenings(ctx: Ctx, named: string[] = [], opts: { background?: boolean } = {}) {
   // Which employers to read: the AI picks from the directory for this student's profile;
   // without AI, employers whose fields match the student's are used.
   const p = ctx.ws.profile;
   const wants = [p.targetRoles, p.major, p.interests].join(" ").toLowerCase();
   let picked = EMPLOYERS.filter((e) => (e.fields || []).some((f) => wants.includes(f) || FIELD_TITLES.some(([field, title]) => field.test(wants) && title.test(f))));
-  if (!named.length && aiStatus().available) {
+  // The AI's pick is reused for 7 days while the profile it was made from is unchanged, and always in a background
+  // search (no AI calls when the student isn't on the site).
+  const pickKey = JSON.stringify([p.targetRoles, p.major, p.interests, p.regions, p.opportunityTypes, p.classYear, p.path]);
+  const prev = ctx.ws.employerPick;
+  // In the background a pick of any age is reused, but never one made for a different profile (field-matched employers instead).
+  const reuse = prev?.names.length && prev.key === pickKey && (opts.background || Date.now() - Date.parse(prev.at) < 7 * 24 * 60 * 60_000);
+  if (!named.length && reuse) {
+    const names = new Set(prev!.names);
+    const again = EMPLOYERS.filter((e) => names.has(e.company.toLowerCase()));
+    if (again.length) picked = again;
+  } else if (!named.length && !opts.background && aiStatus().available) {
     try {
       const out = await withAi(ctx, "Pick employers", () =>
         aiJson<{ companies: string[] }>(
@@ -284,7 +297,7 @@ async function findOpenings(ctx: Ctx, named: string[] = []) {
       );
       const names = new Set((out.companies || []).map((x) => String(x).toLowerCase()));
       const ai = EMPLOYERS.filter((e) => names.has(e.company.toLowerCase()));
-      if (ai.length) picked = ai;
+      if (ai.length) { picked = ai; ctx.ws.employerPick = { at: nowIso(), key: pickKey, names: ai.map((e) => e.company.toLowerCase()) }; }
     } catch {}
   }
   if (!picked.length) picked = EMPLOYERS;
@@ -314,7 +327,9 @@ async function findOpenings(ctx: Ctx, named: string[] = []) {
   const fresh = await loadWorkspace(ctx.me.id);
   const have = new Set(fresh.jobs.map((j) => j.applyUrl));
   // Conferences in the student's field, unless they said they don't want events.
-  const confs = (await conferencesFor(ctx.ws).catch(() => [])).filter((j) => typeMatch(ctx.ws, j) !== false);
+  // In a background search, only conferences already found this month (finding new ones is an AI call).
+  const cachedOnly = async (): Promise<never> => { throw new Error("background: cache only"); };
+  const confs = (await conferencesFor(ctx.ws, opts.background ? cachedOnly : undefined).catch(() => [])).filter((j) => typeMatch(ctx.ws, j) !== false);
   const added = [...r.jobs, ...confs].filter((j) => !have.has(j.applyUrl));
   ctx.ws.jobs = [...added, ...fresh.jobs];
   ctx.ws.fits = { ...fresh.fits };
@@ -379,6 +394,33 @@ export async function registerRoutes(_server: Server, app: Express) {
   // Background jobs: reminder emails, weekly digest, idle-guest cleanup, cache prune. They run at boot, every 6 hours
   // while the server is awake, and every hour from a scheduled GitHub Action that calls /api/cron/tick (a sleeping
   // free server otherwise never runs them). One run at a time, so two triggers can't send the same email twice.
+  // Openings for students who aren't on the site: signed in, set up, seen in the last 21 days, last search over a day
+  // old. Up to 10 per run, one at a time, with no AI calls (the employer pick is reused). Shared employer reads are
+  // cached for 6 hours, so this adds little load on employers' sites.
+  const backgroundOpenings = async () => {
+    const today = centralToday();
+    const recent = (d: string) => (Date.parse(today) - Date.parse(d)) / 86_400_000 <= 21;
+    let n = 0;
+    for (const u of await q("SELECT u.id, u.email, u.kind FROM users u WHERE u.kind IN ('google','supabase')")) {
+      if (n >= 10) break;
+      if (searching.has(u.id)) continue;
+      const ws = await loadWorkspace(u.id);
+      if (!ws.onboarding.done || !knowsStudent(ws) || !(ws.visits || []).some(recent)) continue;
+      if (Date.now() - Date.parse(ws.openingsCheckedAt || "") < 24 * 60 * 60_000) continue;
+      if (searching.has(u.id)) continue; // the student started one meanwhile
+      n++;
+      searching.add(u.id);
+      const me = { id: u.id, kind: u.kind, email: u.email, name: "", picture: "" } as Me;
+      try {
+        const ctx: Ctx = { me, ws, ip: "background", save: sectionSaver(me, ws) };
+        ws.openingsCheckedAt = nowIso(); // a failed search waits for the next window instead of retrying every hour
+        await ctx.save();
+        const r = await findOpenings(ctx, [], { background: true });
+        console.log(`background openings: ${u.id} added ${r.added}`);
+      } catch (e: any) { console.error("background openings", u.id, e?.message); }
+      finally { searching.delete(u.id); }
+    }
+  };
   let sweeping: Promise<void> | null = null;
   let lastSweep = "";
   const sweep = () => {
@@ -386,6 +428,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       pruneBoardCache().catch(() => {}),
       deadlineReminders().catch((e) => console.error("deadline reminders failed", e?.message)),
       cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)),
+      backgroundOpenings().catch((e) => console.error("background openings failed", e?.message)),
     ]).then(() => { lastSweep = new Date().toISOString(); }).finally(() => { sweeping = null; });
     return sweeping;
   };
@@ -1319,6 +1362,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE, 409);
     fetchAllowed(ctx);
     const named: string[] = (Array.isArray(req.body?.companies) ? req.body.companies : []).map(String).map((x: string) => x.trim()).filter(Boolean).slice(0, 10);
+    if (searching.has(ctx.me.id)) bad("Remy is already checking employers' sites for you. New openings will appear here in a moment.", 409);
     searching.add(ctx.me.id);
     try {
       const r = await findOpenings(ctx, named);

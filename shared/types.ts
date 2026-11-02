@@ -434,6 +434,8 @@ export interface Workspace {
   openingsCheckedAt?: string;
   /** When Remy last read each employer's career site for this student (so "Find more" reaches new ones). */
   employersRead?: Record<string, string>;
+  /** The AI's employer pick for openings searches, reused for 7 days while the profile it was made from is unchanged. */
+  employerPick?: { at: string; key: string; names: string[] };
   /** How the last search went: employer sites reached out of those tried. */
   lastSearch?: { at: string; reached: number; scanned: number };
   savedJobIds: string[];

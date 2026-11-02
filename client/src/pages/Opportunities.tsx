@@ -74,9 +74,20 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
           <span className="eyebrow">Opportunities</span>
           <h1>Openings worth your time.</h1>
           <p>Ranked for you: openings you're eligible for and that match your background come first.</p>
+          {(() => {
+            // A quiet status line instead of a button to press: when Remy last looked, and what's new this week.
+            const at = w.lastSearch?.at || w.openingsCheckedAt;
+            if (!at || refreshing) return null;
+            const h = Math.max(0, Math.round((Date.now() - Date.parse(at)) / 3600_000));
+            const d = Math.round(h / 24);
+            const ago = h < 1 ? "less than an hour ago" : h < 24 ? `${h}h ago` : `${d} day${d === 1 ? "" : "s"} ago`;
+            const week = new Date(Date.now() - 7 * 864e5).toISOString();
+            const fresh = (jobs || []).filter((j) => (j.foundAt || "") > week && !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false && !w.hiddenJobIds.includes(j.id)).length;
+            return <p className="xs muted" data-testid="openings-status">Updated {ago}{fresh ? ` · ${fresh} new this week` : ""} · Remy checks again by itself</p>;
+          })()}
         </div>
         <div className="row">
-          <button className="btn btn-primary" onClick={discover} disabled={finding} data-testid="button-discover">{finding ? <Spinner /> : <Search size={16} />} {finding ? "Remy is checking job boards…" : "Find more openings"}</button>
+          <button className="btn btn-secondary" onClick={discover} disabled={finding} data-testid="button-discover">{finding ? <Spinner /> : <Search size={16} />} {finding ? "Remy is checking job boards…" : "Find more openings"}</button>
           <button className="btn btn-secondary" onClick={() => setShowImport((s) => !s)} data-testid="button-toggle-import"><Link2 size={16} /> Import a posting</button>
         </div>
       </div>
