@@ -35,7 +35,7 @@ export function weeklyDigest(ws: Workspace, today: string, weekday: number, host
     .sort((a, b) => (ws.fits[b.id]?.score || 0) - (ws.fits[a.id]?.score || 0));
   const soon = ws.calendar.filter((c) => c.kind === "Deadline" && c.date >= today && days(today, c.date) <= 7);
   // Saved openings Remy's background check found closed since the last digest.
-  const saved = new Set(ws.savedJobIds);
+  const saved = new Set([...ws.savedJobIds, ...ws.applications.map((a) => a.jobId)]);
   const closed = ws.jobs.filter((j) => { const c = j.checks?.[0]; return saved.has(j.id) && !!c && c.at > since && (c.result === "closed-signal" || c.httpStatus === 404 || c.httpStatus === 410); });
   if (!fresh.length && !soon.length && !closed.length) return null;
   const name = ws.profile.preferredName || ws.profile.name.split(" ")[0] || "there";
@@ -47,8 +47,9 @@ export function weeklyDigest(ws: Workspace, today: string, weekday: number, host
     ws.linkedin && days(ws.linkedin.at.slice(0, 10), today) >= LINKEDIN_RECHECK_DAYS ? `Your LinkedIn check is over a month old. Save a fresh PDF from LinkedIn and upload it on the Resume page to see what's missing.` : "",
   ].filter(Boolean);
   // A real employer in the subject is what gets an email opened ("Frost Bank and 2 more new openings for you").
-  const subject = fresh.length ? `${fresh[0].company}${fresh.length > 1 ? ` and ${fresh.length - 1} more new opening${fresh.length > 2 ? "s" : ""}` : `: ${fresh[0].title}`} for you`
+  const lead = (j: { company: string; title: string }) => j.company.trim() || j.title;
+  const subject = fresh.length ? `${lead(fresh[0])}${fresh.length > 1 ? ` and ${fresh.length - 1} more new opening${fresh.length > 2 ? "s" : ""}` : fresh[0].company.trim() ? `: ${fresh[0].title}` : ""} for you`
     : soon.length ? `${soon[0].title}${soon.length > 1 ? ` and ${soon.length - 1} more deadline${soon.length > 2 ? "s" : ""}` : ""} this week`
-    : `${closed[0].company} closed its posting`;
+    : `${lead(closed[0])} closed its posting`;
   return { subject, text: `Hi ${name},\n\n${parts.join("\n\n")}\n\nOpen Remy: https://${host}/\n\nYou get this because the weekly digest is on. Turn it off in Account → Appearance & alerts.\n\nRemy` };
 }

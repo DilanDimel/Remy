@@ -121,8 +121,6 @@ export default function Home() {
         </div>
       </section>
 
-      <ApplyNudge w={w} />
-
       <section className="card card-pad">
         <div className="row-between" style={{ marginBottom: 8 }}>
           <div className="seg" role="group" aria-label="Show">
@@ -154,6 +152,7 @@ export default function Home() {
           <JobRow key={j.id} j={j} why={fits[j.id]?.why} open={open === j.id} onToggle={() => setOpen(open === j.id ? "" : j.id)} />
         )) : <p className="muted small" style={{ padding: "14px 0" }}>{jobs ? "Nothing here yet." : "Loading…"}</p>)}
       </section>
+      <ApplyNudge w={w} />
       <CheckinCard w={w} />
       <SeasonCard w={w} />
     </>

@@ -25,3 +25,12 @@ test("chat may offer only known settings with valid values", async () => {
   assert.deepEqual(chatActions([{ kind: "setting", key: "notify.weeklyPlan", value: false }]), [{ kind: "setting", key: "notify.weeklyPlan", value: false }]);
   assert.deepEqual(chatActions([{ kind: "setting", key: "theme", value: "neon" }, { kind: "setting", key: "deleteAccount", value: true }, { kind: "setting", key: "notify.weeklyPlan", value: "off" }]), []);
 });
+
+test("chat: the feature map is in the rules, and links to Resume tabs are allowed buttons", async () => {
+  const { CHAT_RULES, chatActions } = await import("./safety");
+  assert.match(CHAT_RULES, /Tailor for an opening/);
+  assert.match(CHAT_RULES, /can't apply or send messages/);
+  for (const link of ["/resume?tab=tailor", "/resume?tab=prep", "/progress?tab=tracker", "/accounts?tab=profile"])
+    assert.equal(chatActions([{ kind: "open", link, label: "Go" }]).length, 1, link);
+  assert.equal(chatActions([{ kind: "open", link: "https://evil.example", label: "x" }]).length, 0);
+});

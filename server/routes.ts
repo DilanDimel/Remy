@@ -132,6 +132,7 @@ function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: 
 
 // Outbound page reads (posting import, link re-checks, job-board scans): 20 per user and 40 per network per 10 minutes.
 function fetchAllowed(ctx: Ctx) {
+  if (ctx.ip === "background") return; // background runs cap themselves (30 per run, 10 per student, 5 per site)
   if (!allow("fetch:" + ctx.me.id, 20, 10 * 60_000) || !allow("fetch-ip:" + ctx.ip, 40, 10 * 60_000))
     bad("You've checked a lot of links in a short time. Please wait a few minutes.", 429);
 }
@@ -446,18 +447,29 @@ export async function registerRoutes(_server: Server, app: Express) {
       const due = ws.jobs.filter((j) => mine.has(j.id) && (j.sourceUrl || j.applyUrl) && !closedReason(ws, j) && !(Date.now() - Date.parse(j.checks[0]?.at || "") < 3 * 86_400_000));
       if (!due.length) continue;
       const me = { id: u.id, kind: u.kind, email: u.email, name: "", picture: "" } as Me;
-      const ctx: Ctx = { me, ws, ip: "background", save: sectionSaver(me, ws) };
+      const ctx: Ctx = { me, ws, ip: "background", save: async () => {} };
+      // While this student's pages are checked, their own searches wait (both write their openings).
+      if (searching.has(u.id)) continue;
+      searching.add(u.id);
       let checked = 0;
-      for (const j of due) {
-        if (total >= 30) break;
-        let host = "";
-        try { host = new URL(j.sourceUrl || j.applyUrl).host; } catch { continue; }
-        if ((perHost.get(host) || 0) >= 5) continue;
-        perHost.set(host, (perHost.get(host) || 0) + 1);
-        total++;
-        try { await checkPosting(ctx, j); checked++; } catch {}
-      }
-      if (checked) { await ctx.save(); console.log(`background rechecks: ${u.id} checked ${checked}`); }
+      try {
+        for (const j of due.slice(0, 10)) {
+          if (total >= 30) break;
+          let host = "";
+          try { host = new URL(j.sourceUrl || j.applyUrl).host; } catch { continue; }
+          if ((perHost.get(host) || 0) >= 5) continue;
+          perHost.set(host, (perHost.get(host) || 0) + 1);
+          total++;
+          try { await checkPosting(ctx, j); checked++; } catch {}
+        }
+        if (checked) {
+          // Copy only the new checks onto the latest saved openings, so anything added or removed meanwhile is kept.
+          const fresh = await loadWorkspace(u.id);
+          const byId = new Map(ws.jobs.map((j) => [j.id, j.checks]));
+          await saveSections(u.id, { jobs: fresh.jobs.map((j) => (due.some((d) => d.id === j.id) && byId.get(j.id) ? { ...j, checks: byId.get(j.id)! } : j)) });
+          console.log(`background rechecks: ${u.id} checked ${checked}`);
+        }
+      } finally { searching.delete(u.id); }
     }
   };
   let sweeping: Promise<void> | null = null;
@@ -1289,7 +1301,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     const answers = ctx.ws.onboarding.answers.map((a) => `${a.q} → ${a.a}`).join("\n");
     const out = await withAi(ctx, "Assistant chat", () =>
       aiJson<{ reply: string; remember: string[]; actions?: ChatAction[] }>(
-        `You are Remy, a friendly fox career coach for university students. Be concise: under 110 words, at most 3 short bullet lines starting with "• ", and **bold** only for a few key words. Warm, practical and honest. Use only facts you are given; if you don't know something (like a specific university rule), say so and suggest who to ask. Never claim to have sent emails, applied, or changed calendars — you can only suggest. If the student shares a durable fact or preference worth remembering, propose it in "remember" (short third-person statements); otherwise return an empty list. Today is ${centralToday()}; the student's class standing is ${classYearOf(ctx.ws) || "unknown"}. Don't question dates that fit that standing. You know everything below about the student; use it so they never have to repeat themselves, and refer to their real experience by name.\n\nWhen a concrete next step would help, offer up to 2 buttons in "actions" (the student taps to do it; you never do it yourself): {"kind":"task","title":"short to-do","why":"one sentence"} adds a to-do; {"kind":"role","title":"job title"} adds a job to the roles Remy searches openings for; {"kind":"open","link":"/resume|/opportunities|/path?tab=career|/path?tab=future|/community|/calendar|/progress|/accounts?tab=memory","label":"button text"} opens a page. When they ask to change how Remy looks or reminds them, offer {"kind":"setting","key":"theme","value":"dark"|"light"|"system"} (system = match their device) or {"kind":"setting","key":"notify.deadlines"|"notify.weeklyPlan","value":true|false}; say it changes when they tap the button, never that it's already done. Otherwise return an empty list.\n\n${CHAT_RULES}`,
+        `You are Remy, a friendly fox career coach for university students. Be concise: under 110 words, at most 3 short bullet lines starting with "• ", and **bold** only for a few key words. Warm, practical and honest. Use only facts you are given; if you don't know something (like a specific university rule), say so and suggest who to ask. Never claim to have sent emails, applied, or changed calendars — you can only suggest. If the student shares a durable fact or preference worth remembering, propose it in "remember" (short third-person statements); otherwise return an empty list. Today is ${centralToday()}; the student's class standing is ${classYearOf(ctx.ws) || "unknown"}. Don't question dates that fit that standing. You know everything below about the student; use it so they never have to repeat themselves, and refer to their real experience by name.\n\nWhen a concrete next step would help, offer up to 2 buttons in "actions" (the student taps to do it; you never do it yourself): {"kind":"task","title":"short to-do","why":"one sentence"} adds a to-do; {"kind":"role","title":"job title"} adds a job to the roles Remy searches openings for; {"kind":"open","link":"/resume?tab=base|/resume?tab=tailor|/resume?tab=prep|/opportunities|/path?tab=career|/path?tab=road|/path?tab=future|/community|/calendar|/progress?tab=tracker|/accounts?tab=profile|/accounts?tab=memory","label":"button text"} opens a page. When they ask to change how Remy looks or reminds them, offer {"kind":"setting","key":"theme","value":"dark"|"light"|"system"} (system = match their device) or {"kind":"setting","key":"notify.deadlines"|"notify.weeklyPlan","value":true|false}; say it changes when they tap the button, never that it's already done. Otherwise return an empty list.\n\n${CHAT_RULES}`,
         `Current page: ${page}\nPROFILE:\n${profileSummary(ctx.ws)}\nAPPROVED MEMORY:\n${approvedFacts(ctx.ws).slice(0, 40).join("\n") || "(none)"}\nRESUME:\n${ctx.ws.resume ? resumeToText(ctx.ws.resume.doc, { verifiedOnly: true }).slice(0, 5000) : "(not uploaded)"}\nSETUP ANSWERS:\n${answers || "(none)"}\nOPEN TO-DOS: ${todos || "(none)"}\nNEXT 3 WEEKS ON THEIR CALENDAR: ${dates || "(nothing)"}\nAPPLICATIONS THEY'RE TRACKING: ${tracking || "(none)"}\nCAREER DIRECTIONS FROM MY PATH: ${direction || "(not built yet)"}\nJOBS THEIR FIELDS LEAD TO MOST OFTEN (U.S. Bureau of Labor Statistics; for "what can I do with my major" questions): ${careersFor(ctx.ws).flatMap((f) => f.jobs.slice(0, 4).map((j) => j.title)).join("; ") || "(no major or field yet)"}\nAPPLICATIONS: ${apps || "(none)"}\nSAVED OPENINGS: ${ctx.ws.savedJobIds.map((id) => findJob(ctx.ws, id)?.title).filter(Boolean).join("; ") || "(none)"}\nOPENINGS REMY FOUND THAT FIT (best first): ${found || "(none yet)"}\nFROM THEIR OTHER PROFILES, NOT YET CONFIRMED BY THE STUDENT (mention, don't rely on): ${ctx.ws.memory.filter((m) => m.status === "suggested" && !m.conflict).slice(0, 15).map((m) => m.text).join("; ") || "(none)"}\nRESUME VS OTHER PROFILES, NOT YET RESOLVED (ask the student which is right; never treat these as true): ${ctx.ws.memory.filter((m) => m.conflict).map((m) => `${m.text} (${m.conflict})`).join("; ") || "(none)"}\n\nRECENT CHAT:\n${history}\n\nStudent: ${message}\n\nReturn {"reply":"","remember":[],"actions":[]}`,
         1100,
       ),
