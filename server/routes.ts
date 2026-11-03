@@ -270,6 +270,14 @@ function refreshAts(ws: Workspace, app: Application) {
 
 // Live openings from employers' public job boards, picked for this student. Runs from the
 // "Find openings" button and by itself when the student opens Remy (see GET /api/jobs).
+/** Employers in Remy's directory that hire in the student's field: by their target roles when they named some (their
+ *  real goal; "Welding Technology Certificate" would otherwise count every tech employer), else their major. */
+function fieldEmployers(ws: Workspace) {
+  const p = ws.profile;
+  const wants = (p.targetRoles.trim() || p.major).toLowerCase();
+  return EMPLOYERS.filter((e) => (e.fields || []).some((f) => wants.includes(f) || FIELD_TITLES.some(([field, title]) => field.test(wants) && title.test(f))));
+}
+
 async function findOpenings(ctx: Ctx, named: string[] = [], opts: { background?: boolean } = {}) {
   // Which employers to read: the AI picks from the directory for this student's profile;
   // without AI, employers whose fields match the student's are used.
@@ -1321,7 +1329,8 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       const closed = closedReason(ctx.ws, j);
       fits[j.id] = closed ? { ...ctx.ws.fits[j.id], closed, excluded: true, score: 0, eligibilityNote: closed } : ctx.ws.fits[j.id];
     }
-    res.json({ jobs, fits, refreshing: searching.has(ctx.me.id) });
+    // How many employers Remy reads for this student's field, so an empty list can say why honestly.
+    res.json({ jobs, fits, refreshing: searching.has(ctx.me.id), fieldEmployers: fieldEmployers(ctx.ws).length });
   }));
 
   app.post("/api/jobs/import", route(async (req, res, ctx) => {
