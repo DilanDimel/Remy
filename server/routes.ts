@@ -26,6 +26,7 @@ import {
 } from "./resume";
 import { atsChecks, claimCheck } from "./claims";
 import { CHECKIN_KINDS, cleanCheckin } from "./checkin";
+import { checkinProposals } from "@shared/checkin";
 import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, skillSuggestions } from "./builder";
 import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSION, typeMatch } from "./fit";
 import { atsScore } from "./ats";
@@ -728,7 +729,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     plan: z.looseObject({ nextAction: z.looseObject({ title: str(300), why: str(2000), link: str(300) }), careers: z.array(z.looseObject({ id: str(120), title: str(300) })).max(20), skills: z.array(z.looseObject({ id: str(120), name: str(300) })).max(30), academic: z.array(z.looseObject({ id: str(120), term: str(100) })).max(20) }),
     contacts: z.array(z.looseObject({ id: str(120), name: str(200), title: str(300), org: str(300), email: str(320), why: str(2000), tags: z.array(str(120)).max(30), label: str(40) })).max(1000),
     pitch: z.object({ text: str(1200), at: str(40) }),
-    hours: z.array(z.object({ id: str(120), activity: str(120), hours: z.number().min(0).max(24), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), note: str(500).optional() })).max(2000),
+    hours: z.array(z.object({ id: str(120), activity: str(120), hours: z.number().min(0).max(168), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), note: str(500).optional() })).max(2000),
     builder: z.looseObject({
       step: z.number().int().min(0).max(20),
       basics: z.object(Object.fromEntries(["name", "email", "phone", "city", "school", "major", "graduation", "classYear", "gpa", "highSchool", "highSchoolYear"].map((k) => [k, str(200)]))),
@@ -1161,7 +1162,8 @@ export async function registerRoutes(_server: Server, app: Express) {
         900,
       ),
     );
-    res.json(cleanCheckin(kind, said, out));
+    // Plus what the sentence says Remy can update (hours, an application, an interview), for the student to approve.
+    res.json({ ...cleanCheckin(kind, said, out), proposals: checkinProposals(ctx.ws, kind, said) });
   }));
   app.post("/api/checkin", route(async (req, res, ctx) => {
     if (req.body?.kind !== "Nothing new") {
@@ -1171,6 +1173,16 @@ export async function registerRoutes(_server: Server, app: Express) {
       addFact(ctx.ws, d.fact, "experience", "Check-in", "approved");
       if (d.bullet) ctx.ws.tasks.unshift({ id: uid("t"), title: "Add this line to your resume", why: d.bullet, due: "", category: "Prepare", done: false, source: "Check-in", link: "/resume?tab=base" });
       if (d.linkedin.fields.length) ctx.ws.tasks.unshift({ id: uid("t"), title: `Add to LinkedIn: ${d.linkedin.section}`, why: d.linkedin.fields.map((f) => `${f.label}: ${f.value}`).join("\n"), due: "", category: "Prepare", done: false, source: "Check-in" });
+      // Only proposals the server finds in the same sentence, and only the ones the student kept.
+      const accept = new Set<string>(Array.isArray(req.body?.accept) ? req.body.accept.map(String) : []);
+      const now = nowIso();
+      for (const p of checkinProposals(ctx.ws, kind, said).filter((x) => accept.has(x.id))) {
+        if (p.kind === "hours") ctx.ws.hours = [{ id: uid("h"), activity: p.activity, hours: p.hours, date: centralToday(), note: "From your check-in" }, ...(ctx.ws.hours || [])];
+        else if (p.trackId) {
+          const t = ctx.ws.tracker.find((x) => x.id === p.trackId);
+          if (t) { t.status = p.kind === "applied" ? "Applied" : "Interview"; t.events.push({ id: uid("ev"), at: now, status: t.status, source: "Check-in" }); }
+        } else if (p.kind === "applied") ctx.ws.tracker.unshift({ id: uid("tr"), company: p.company, role: "", status: "Applied", notes: "", events: [{ id: uid("ev"), at: now, status: "Applied", source: "Check-in" }] });
+      }
     }
     ctx.ws.lastCheckin = centralToday();
     await ctx.save();
