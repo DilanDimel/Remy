@@ -42,7 +42,15 @@ export async function recordError(kind: "browser" | "server" | "feedback", place
 }
 
 // ---------- overview ----------
-const SIGNED_IN = "u.kind IN ('google','supabase')";
+const SIGNED_IN_ANY = "u.kind IN ('google','supabase')";
+/** Real students: signed in, and not a team member (founders, added members) or one of their "+" test addresses
+ *  ("dilan+live1103@gmail.com" is dilan@gmail.com testing), nor an address in EXCLUDE_EMAILS. */
+async function studentsOnly() {
+  const team = new Set([...envOwners(), ...(await memberEmails()), ...(process.env.EXCLUDE_EMAILS || "").toLowerCase().split(/[,\s]+/).filter(Boolean)]);
+  if (!team.size) return SIGNED_IN_ANY;
+  const list = [...team].map((e) => `'${e.replace(/'/g, "''")}'`).join(",");
+  return `${SIGNED_IN_ANY} AND lower(regexp_replace(COALESCE(u.email, ''), '\\+[^@]*@', '@')) NOT IN (${list})`;
+}
 // AI log purposes → the feature a student was using.
 const FEATURES: [string, string][] = [
   ["Reading a resume", "e->>'purpose' = 'Parse resume'"],
@@ -57,6 +65,7 @@ const FEATURES: [string, string][] = [
 ];
 
 export async function overview() {
+  const SIGNED_IN = await studentsOnly();
   const totals = await q1(
     `SELECT COUNT(*) FILTER (WHERE ${SIGNED_IN})::int AS students,
             COUNT(*) FILTER (WHERE ${SIGNED_IN} AND u.created_at > now() - interval '7 days')::int AS new_week,
@@ -76,7 +85,10 @@ export async function overview() {
   // How far signed-in students get. Counts only; nothing a student wrote is read out.
   const funnel = await q1(
     `SELECT COUNT(*)::int AS accounts,
+            COUNT(*) FILTER (WHERE COALESCE(w.data->'profile'->>'goal', '') <> '' OR w.data->'onboarding'->>'focus' IS NOT NULL OR (w.data->'onboarding'->>'done')::boolean)::int AS goal,
             COUNT(*) FILTER (WHERE w.data->'resume' IS NOT NULL AND w.data->'resume' <> 'null'::jsonb)::int AS resume,
+            COUNT(*) FILTER (WHERE (w.data->'onboarding'->>'step')::int >= 4 OR (w.data->'onboarding'->>'done')::boolean)::int AS questions,
+            COUNT(*) FILTER (WHERE (w.data->'onboarding'->>'step')::int >= 5 OR (w.data->'onboarding'->>'done')::boolean)::int AS plan,
             COUNT(*) FILTER (WHERE (w.data->'onboarding'->>'step')::int >= 3 OR (w.data->'onboarding'->>'done')::boolean)::int AS prefs,
             COUNT(*) FILTER (WHERE (w.data->'onboarding'->>'done')::boolean)::int AS setup_done,
             COUNT(*) FILTER (WHERE jsonb_array_length(COALESCE(w.data->'chat', '[]'::jsonb)) > 0)::int AS chatted,
