@@ -429,6 +429,37 @@ export async function registerRoutes(_server: Server, app: Express) {
       finally { searching.delete(u.id); }
     }
   };
+  // Is it still open? Saved openings and ones with an application, for students seen in the last 21 days, checked again
+  // when the last check is over 3 days old: a plain page fetch for "closed" wording or a dead link (no AI). At most
+  // 30 pages per run and 5 per employer site, so Remy stays polite. A closed one then shows as Closed everywhere.
+  const backgroundRechecks = async () => {
+    const today = centralToday();
+    const recent = (d: string) => (Date.parse(today) - Date.parse(d)) / 86_400_000 <= 21;
+    const perHost = new Map<string, number>();
+    let total = 0;
+    for (const u of await q("SELECT u.id, u.email, u.kind FROM users u WHERE u.kind IN ('google','supabase')")) {
+      if (total >= 30) break;
+      if (searching.has(u.id)) continue;
+      const ws = await loadWorkspace(u.id);
+      if (!(ws.visits || []).some(recent)) continue;
+      const mine = new Set([...ws.savedJobIds, ...ws.applications.map((a) => a.jobId)]);
+      const due = ws.jobs.filter((j) => mine.has(j.id) && (j.sourceUrl || j.applyUrl) && !closedReason(ws, j) && !(Date.now() - Date.parse(j.checks[0]?.at || "") < 3 * 86_400_000));
+      if (!due.length) continue;
+      const me = { id: u.id, kind: u.kind, email: u.email, name: "", picture: "" } as Me;
+      const ctx: Ctx = { me, ws, ip: "background", save: sectionSaver(me, ws) };
+      let checked = 0;
+      for (const j of due) {
+        if (total >= 30) break;
+        let host = "";
+        try { host = new URL(j.sourceUrl || j.applyUrl).host; } catch { continue; }
+        if ((perHost.get(host) || 0) >= 5) continue;
+        perHost.set(host, (perHost.get(host) || 0) + 1);
+        total++;
+        try { await checkPosting(ctx, j); checked++; } catch {}
+      }
+      if (checked) { await ctx.save(); console.log(`background rechecks: ${u.id} checked ${checked}`); }
+    }
+  };
   let sweeping: Promise<void> | null = null;
   let lastSweep = "";
   const sweep = () => {
@@ -436,7 +467,9 @@ export async function registerRoutes(_server: Server, app: Express) {
       pruneBoardCache().catch(() => {}),
       deadlineReminders().catch((e) => console.error("deadline reminders failed", e?.message)),
       cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)),
-      backgroundOpenings().catch((e) => console.error("background openings failed", e?.message)),
+      // One after the other: both write a student's openings, so they must not run at the same time.
+      backgroundOpenings().catch((e) => console.error("background openings failed", e?.message))
+        .then(() => backgroundRechecks()).catch((e) => console.error("background rechecks failed", e?.message)),
     ]).then(() => { lastSweep = new Date().toISOString(); }).finally(() => { sweeping = null; });
     return sweeping;
   };

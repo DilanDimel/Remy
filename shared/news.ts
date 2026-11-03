@@ -3,6 +3,7 @@
 export type NewsItem = { id: string; date: string; kind: "New" | "Improved" | "Fixed" | "Changed"; title: string; body: string; owners?: boolean };
 
 export const NEWS: NewsItem[] = [
+  { id: "2026-11-02-18", date: "2026-11-02", kind: "New", title: "Saved openings checked for you", body: "Remy now re-checks the openings you saved or applied to every few days, even when you’re not on the site. If a posting’s page says it’s closed or the link is gone, it shows as Closed, so you don’t spend time on it." },
   { id: "2026-11-02-17", date: "2026-11-02", kind: "Changed", title: "Your resume first", body: "Base resume now opens on your resume itself, ready to edit. Suggestions, what an application system reads from your file, and the evidence behind your skills are in a Checks section below (one click, or the “Checks ↓” link at the top)." },
   { id: "2026-11-02-16", date: "2026-11-02", kind: "Improved", title: "Clearer My Path and Calendar", body: "My Path now opens with the directions Remy built from your resume, with general field exploration below. Calendar’s Upcoming list shows only your next weekly career time, so deadlines and interviews aren’t pushed out." },
   { id: "2026-11-02-15", date: "2026-11-02", kind: "Improved", title: "Home fits your phone", body: "On a phone, your next step and this week’s to-dos now fit on the first screen. The weekly check-in moved below them." },
