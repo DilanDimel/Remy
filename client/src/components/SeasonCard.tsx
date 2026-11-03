@@ -5,7 +5,11 @@ import { go } from "../lib/router";
 
 /** When the student's field usually recruits interns, so they know whether to apply now or prepare. */
 export function SeasonCard({ w }: { w: Workspace }) {
-  const s = seasonFor([w.profile.targetRoles, w.profile.major, w.profile.interests].join(" "));
+  // Internship seasons are a college thing; trade, apprenticeship, high school, working and military paths don't have one.
+  // The field is the student's target roles when they named some ("Welding Technology Certificate" isn't tech).
+  if (["trade", "apprenticeship", "high-school", "working", "military"].includes(w.profile.path || "")) return null;
+  if (/certificate|apprentic|weld|hvac|plumb|electrician|cosmetolog|lineworker|cdl\b/i.test(`${w.profile.major} ${w.profile.targetRoles}`)) return null;
+  const s = seasonFor(w.profile.targetRoles) || seasonFor([w.profile.major, w.profile.interests].join(" "));
   if (!s) return null;
   return (
     <section className="card card-pad row" style={{ gap: 12, alignItems: "flex-start", flexWrap: "nowrap" }} data-testid="season-card">

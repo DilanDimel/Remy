@@ -71,7 +71,9 @@ export default function Onboarding() {
 }
 
 // Where finishing setup lands, by what the student said would help most.
-const LAND: Record<string, string> = { resume: "/resume?tab=base", openings: "/opportunities", interview: "/resume?tab=prep" };
+// "Find openings" lands on Home, where the plan's first step and the best-fitting openings are (Opportunities alone
+// could be empty for fields Remy covers thinly); resume and interview go straight to the tool the student asked for.
+const LAND: Record<string, string> = { resume: "/resume?tab=base", openings: "/", interview: "/resume?tab=prep" };
 const FOCUS: [SetupFocus, string, string][] = [
   ["resume", "Make my resume stronger", "Check how it reads to an ATS and get honest suggestions"],
   ["openings", "Find openings that fit me", "Internships, jobs and events matched to your experience"],

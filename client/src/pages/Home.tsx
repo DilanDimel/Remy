@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { RoadCard } from "../components/RoadCard";
 import { SeasonCard } from "../components/SeasonCard";
 import { CheckinCard } from "../components/CheckinCard";
 import { ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronUp, MapPin } from "lucide-react";
@@ -65,16 +64,23 @@ export default function Home() {
       const j = jobs?.find((x) => x.id === pending.jobId);
       return { title: `Finish reviewing your ${j?.company || ""} application`, why: `${pending.changes.filter((c) => c.status === "pending").length} suggested change(s) are waiting for your accept, edit or reject.`, link: `/resume?tab=tailor&app=${pending.id}`, cta: "Continue review" };
     }
-    if (!w.applications.length && jobs?.length) {
-      const best = [...jobs].filter((j) => !j.deadline || (daysUntil(j.deadline) ?? 1) >= 0).sort((a, b) => (fits[b.id]?.matched.length || 0) - (fits[a.id]?.matched.length || 0))[0];
-      if (best) return { title: `Tailor your resume for ${best.company}`, why: fits[best.id]?.why || "This is your closest fit among current openings.", link: `/resume?tab=tailor&job=${best.id}`, cta: "Start tailoring" };
-    }
     // An interview coming up (beyond the 2-day prep plan) beats a general suggestion.
     const soon = w.calendar.filter((c) => c.kind === "Interview" && (daysUntil(c.date) ?? -1) > 2 && (daysUntil(c.date) ?? 99) <= 21).sort((a, b) => a.date.localeCompare(b.date))[0];
     if (soon) return { title: `${soon.title.replace(/^interview:?\s*/i, "Your interview with ")} is ${fmtDate(soon.date)}, in ${daysUntil(soon.date)} days`, why: "Start now: build two true stories from your resume and practice them out loud. Remy turns Home into a prep plan two days before.", link: "/resume?tab=prep#story-deck", cta: "Prepare stories" };
-    // The plan was written earlier: skip its step when it says to apply somewhere the student already applied to.
+    // An opening counts only if it passes every filter (not hidden, in their places, eligible, still open).
+    const fitsAll = (j: NonNullable<typeof jobs>[number]) => { const f = fits[j.id]; return !!f && !f.excluded && !f.closed && f.regionMatch !== false && f.eligibility !== "unlikely" && j.kind !== "event" && !w.hiddenJobIds.includes(j.id) && (!j.deadline || (daysUntil(j.deadline) ?? 1) >= 0); };
+    // A plan step that names an opening the student can't or won't pursue anymore (hidden, closed, elsewhere, not eligible) is skipped.
+    // Hidden openings aren't in the list Home gets, so the student's own saved list is checked too.
+    const blocked = (text: string) => [...(jobs || []), ...w.jobs].some((j) => !fitsAll(j) && j.company.length > 2 && text.toLowerCase().includes(j.company.toLowerCase()));
     const moved = w.tracker.filter((t) => t.status !== "Saved").map((t) => t.company.toLowerCase());
-    if (w.plan && !moved.some((c) => c && w.plan!.nextAction.title.toLowerCase().includes(c))) return { ...w.plan.nextAction, cta: "Open" };
+    // The student's own plan comes first: its first to-do they haven't done (they can cross it off), then the plan's written next step.
+    const planTodo = w.tasks.find((t) => !t.done && t.source === "AI plan (review)" && !blocked(t.title));
+    if (planTodo) return { title: planTodo.title, why: planTodo.why, link: planTodo.link || "/progress?tab=todos", cta: "Open" };
+    if (w.plan && !blocked(w.plan.nextAction.title) && !moved.some((c) => c && w.plan!.nextAction.title.toLowerCase().includes(c))) return { ...w.plan.nextAction, cta: "Open" };
+    if (!w.applications.length && jobs?.length) {
+      const best = [...jobs].filter(fitsAll).sort((a, b) => (fits[b.id]?.score || 0) - (fits[a.id]?.score || 0))[0];
+      if (best) return { title: `Tailor your resume for ${best.company}`, why: fits[best.id]?.why || "This is your closest fit among current openings.", link: `/resume?tab=tailor&job=${best.id}`, cta: "Start tailoring" };
+    }
     return { title: "Explore openings that fit you", why: "Save a few to compare deadlines and eligibility.", link: "/opportunities", cta: "Browse" };
   }, [w, jobs, fits]);
 
@@ -115,7 +121,6 @@ export default function Home() {
       </section>
 
       <CheckinCard w={w} />
-      <RoadCard w={w} />
       <SeasonCard w={w} />
 
       <section className="card card-pad">
