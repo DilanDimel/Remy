@@ -14,7 +14,10 @@ const matchKind = (j: Job, k: Kind) => k === "all" || (k === "event" ? j.kind ==
 export default function Opportunities({ query }: { query: URLSearchParams }) {
   const { ws, setWs, run, toast } = useStore();
   const w = ws!;
-  const { jobs, fits, needsProfile, refreshing } = useJobs();
+  const { jobs, fits, needsProfile, refreshing, fieldEmployers } = useJobs();
+  // Remy's employer list is mostly business, tech and engineering; for other fields it says so instead of blaming filters.
+  const fewInField = fieldEmployers !== undefined && fieldEmployers < 20;
+  const field = w.profile.targetRoles || w.profile.major || "your field";
   const kind = (query.get("kind") as Kind) || "all";
   const focus = query.get("id");
   // Filters stay as the student left them (this browser only).
@@ -36,7 +39,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
     if (r) {
       setWs(r.workspace);
       await reloadJobs();
-      toast(r.added ? `Found ${r.added} new opening${r.added > 1 ? "s" : ""} from ${r.reached.length} employer job boards` : `Checked ${r.reached.length} employer job boards — nothing new that fits you right now${r.workspace.profile.regions?.trim() ? `. Few openings in ${r.workspace.profile.regions} at the moment: adding more places in Account → Profile will show more` : ""}`);
+      toast(r.added ? `Found ${r.added} new opening${r.added > 1 ? "s" : ""} from ${r.reached.length} employer job boards` : fewInField ? `Checked ${r.reached.length} employer job boards. Remy reads few employers in ${field} yet, so import postings you find elsewhere and Remy will tailor your resume to them.` : `Checked ${r.reached.length} employer job boards: nothing new that fits you right now. Remy checks again by itself.`);
     }
     setFinding(false);
   };
@@ -121,8 +124,10 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
         <div className="card">
           <Empty
             title={kind === "campus" ? "No campus jobs added yet" : jobs.length ? "Nothing matches" : "No openings yet"}
-            body={kind === "campus" ? "Campus jobs are posted on your school's career site (often Handshake), which requires your login. Copy a posting's text and import it here — Remy will pull out the requirements." : jobs.length ? nothingFits(w.profile) : "Remy searches employers' own career sites for openings that fit you. Run a search, or import a posting you found."}
-            action={kind !== "campus" && !jobs.length ? <button className="btn btn-primary" onClick={discover} disabled={finding}>{finding ? <Spinner /> : <Search size={16} />} {finding ? "Remy is checking job boards…" : "Find openings"}</button> : <button className="btn btn-secondary" onClick={() => setShowImport(true)}>Import a posting</button>}
+            body={kind === "campus" ? "Campus jobs are posted on your school's career site (often Handshake), which requires your login. Copy a posting's text and import it here — Remy will pull out the requirements."
+              : fewInField ? `Remy reads about 180 employers' career sites, mostly in business, tech and engineering, and ${fieldEmployers ? `only ${fieldEmployers} of them hire` : "none of them hire"} in ${field} right now. That's a gap in Remy, not in you. Import postings you find on Handshake, your career center or an employer's own site, and Remy will check your eligibility and tailor your resume to each one.`
+              : jobs.length ? nothingFits(w.profile) : "Remy searches employers' own career sites for openings that fit you. Run a search, or import a posting you found."}
+            action={kind !== "campus" && !jobs.length && !fewInField ? <button className="btn btn-primary" onClick={discover} disabled={finding}>{finding ? <Spinner /> : <Search size={16} />} {finding ? "Remy is checking job boards…" : "Find openings"}</button> : <button className="btn btn-secondary" onClick={() => setShowImport(true)}>Import a posting</button>}
           />
         </div>
       )}
