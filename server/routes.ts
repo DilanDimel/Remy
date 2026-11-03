@@ -1180,7 +1180,12 @@ export async function registerRoutes(_server: Server, app: Express) {
         if (p.kind === "hours") ctx.ws.hours = [{ id: uid("h"), activity: p.activity, hours: p.hours, date: centralToday(), note: "From your check-in" }, ...(ctx.ws.hours || [])];
         else if (p.trackId) {
           const t = ctx.ws.tracker.find((x) => x.id === p.trackId);
-          if (t) { t.status = p.kind === "applied" ? "Applied" : "Interview"; t.events.push({ id: uid("ev"), at: now, status: t.status, source: "Check-in" }); }
+          if (t) {
+            t.status = p.kind === "applied" ? "Applied" : "Interview";
+            t.events.push({ id: uid("ev"), at: now, status: t.status, source: "Check-in" });
+            // Same as an interview found in an email: a prep to-do.
+            if (p.kind === "interview") ctx.ws.tasks.unshift({ id: uid("t"), title: `Prepare for your ${t.company} interview`, why: "Build two true stories from your resume and practice them out loud.", due: "", category: "Prepare", done: false, source: "Check-in", link: "/resume?tab=prep" });
+          }
         } else if (p.kind === "applied") ctx.ws.tracker.unshift({ id: uid("tr"), company: p.company, role: "", status: "Applied", notes: "", events: [{ id: uid("ev"), at: now, status: "Applied", source: "Check-in" }] });
       }
     }

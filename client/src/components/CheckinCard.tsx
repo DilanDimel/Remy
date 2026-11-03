@@ -5,7 +5,7 @@ import { CHECKIN_KINDS } from "@shared/checkin";
 import { api, daysUntil, useDraft, useStore } from "../lib/store";
 import { Spinner } from "./common";
 
-type Draft = { kind: string; said: string; fact: string; bullet: string; linkedin: { section: string; fields: { label: string; value: string }[] }; followups: { q: string; options: string[] }[]; proposals?: { id: string; label: string }[] };
+type Draft = { kind: string; said: string; fact: string; bullet: string; linkedin: { section: string; fields: { label: string; value: string }[] }; followups: { q: string; options: string[] }[]; proposals?: { id: string; label: string; checked?: boolean }[] };
 const Speech = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
 /** Weekly check-in: tap what you did, say one sentence, approve what Remy keeps. Only the student's own words are used. */
@@ -28,7 +28,7 @@ export function CheckinCard({ w }: { w: Workspace }) {
     setListening(true);
     r.start();
   };
-  const make = async (text = said) => { setBusy(true); const d = await run(() => api<Draft>("POST", "/api/ai/checkin", { kind, said: text })); setBusy(false); if (d) { setDraft(d); setKeep({ bullet: !!d.bullet, linkedin: !!d.linkedin.fields.length }); setAccept((d.proposals || []).map((p) => p.id)); } };
+  const make = async (text = said) => { setBusy(true); const d = await run(() => api<Draft>("POST", "/api/ai/checkin", { kind, said: text })); setBusy(false); if (d) { setDraft(d); setKeep({ bullet: !!d.bullet, linkedin: !!d.linkedin.fields.length }); setAccept((d.proposals || []).filter((p) => p.checked !== false).map((p) => p.id)); } };
   // A tapped answer becomes part of the student's own words, so the honesty check allows it.
   const answer = (q: string, a: string) => { const text = `${said.trim().replace(/[.]?$/, ".")} ${q} ${a}.`; setSaid(text); make(text); };
   const finish = async (body: object, done: string) => {
