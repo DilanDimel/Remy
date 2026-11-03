@@ -39,7 +39,6 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
         ))}
       </div>
       {busy && <div className="card card-pad row"><Remy size={40} mood="think" /><span className="muted">Building suggestions from your resume and answers…</span></div>}
-      {tab === "career" && <Explore />}
       {tab === "future" ? <Future /> : tab === "road" ? <FieldRoad /> : !w.plan && !busy ? (
         <div className="card">{knows
           ? <Empty title="No path yet" body="Remy will suggest roles that fit your resume and goals, with skills and next steps for each." action={<button className="btn btn-primary" onClick={generate} disabled={!config?.ai.available}>Build my path</button>} />
@@ -52,6 +51,8 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
 
         </>
       ) : null}
+      {/* Directions built from the student's own resume come first; general exploration of fields follows. */}
+      {tab === "career" && <Explore />}
     </>
   );
 }

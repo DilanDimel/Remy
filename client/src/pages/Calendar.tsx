@@ -36,7 +36,8 @@ export default function CalendarPage() {
   const start = new Date(month); start.setDate(1 - start.getDay());
   const days = Array.from({ length: 42 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
   const today = iso(new Date());
-  const upcoming = items.filter((i) => i.date >= today).slice(0, 8);
+  // The weekly career time repeats; Upcoming shows only its next one, so real deadlines and interviews aren't pushed out.
+  const upcoming = items.filter((i) => i.date >= today).filter((i, n, all) => !i.id.startsWith("career-") || all.findIndex((x) => x.id.startsWith("career-")) === n).slice(0, 8);
   const saveItem = async (c: CalItem) => {
     const exists = w.calendar.some((x) => x.id === c.id);
     const dupe = w.calendar.find((x) => x.id !== c.id && x.title.trim().toLowerCase() === c.title.trim().toLowerCase() && x.date === c.date);
