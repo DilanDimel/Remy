@@ -33,9 +33,13 @@ export default function Home() {
   const newJobs = (jobs || []).filter((j) => (j.foundAt || "") > from && !w.hiddenJobIds.includes(j.id) && !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false).length;
   const updates = w.tracker.filter((t) => t.events.some((e) => e.at > from && !/^Manual/.test(e.source))).length;
   const soon = w.calendar.filter((c) => c.kind === "Deadline" && (daysUntil(c.date) ?? -1) >= 0 && (daysUntil(c.date) ?? 99) <= 7).length;
+  const mine = new Set([...w.savedJobIds, ...w.applications.map((a) => a.jobId)]);
+  const closedSince = w.jobs.filter((j) => { const c = j.checks?.[0]; return mine.has(j.id) && !!c && c.at > from && (c.result === "closed-signal" || c.httpStatus === 404 || c.httpStatus === 410); }).length;
   const sinceRows: [string, string, string][] = [
     ...(newJobs ? [[`New openings for you`, String(newJobs), "/opportunities"] as [string, string, string]] : []),
     ...(updates ? [[`Application updates`, String(updates), "/progress"] as [string, string, string]] : []),
+    // Saved or applied-to openings Remy's background check found closed since the last visit.
+    ...(closedSince ? [[`Saved openings that closed`, String(closedSince), "/opportunities"] as [string, string, string]] : []),
     ...(soon ? [[`Deadlines in the next 7 days`, String(soon), "/calendar"] as [string, string, string]] : []),
     ...(w.memory.some((m) => m.status === "suggested") ? [["Facts to approve", String(w.memory.filter((m) => m.status === "suggested").length), "/accounts?tab=memory"] as [string, string, string]] : []),
   ];

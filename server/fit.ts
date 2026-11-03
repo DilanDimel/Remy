@@ -264,8 +264,16 @@ export function notEligible(ws: Workspace, job: Job, today = new Date()): string
 /** Something the student said they don't want (hidden, but not a question of qualifying), or "". */
 function notWanted(ws: Workspace, job: Job): string {
   const p = ws.profile;
-  for (const a of (p.avoid || "").split(/[,;]+/).map((x) => x.trim().toLowerCase()).filter((x) => x.length > 2))
-    if (`${job.company} ${job.title}`.toLowerCase().includes(a)) return `You told Remy to avoid "${a}".`;
+  // Things to leave out: whole words (avoiding "sales" doesn't hide "Salesforce"), with trailing words like "roles" or
+  // "companies" dropped ("defense sales roles" → "defense sales"), in the company, the title or the skills it requires.
+  const required = job.requirements.map((r) => r.keyword).join(" ; ");
+  for (const raw of (p.avoid || "").split(/[,;]+/).map((x) => x.trim().toLowerCase()).filter((x) => x.length > 2)) {
+    const a = raw.replace(/\s+(roles?|jobs?|positions?|work|companies|company|industry|industries|firms?)$/i, "").trim();
+    if (a.length < 3) continue;
+    const re = new RegExp(`(^|[^a-z0-9])${a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}s?(?![a-z0-9])`, "i");
+    if (re.test(`${job.company} ${job.title}`)) return `You told Remy to avoid "${raw}".`;
+    if (re.test(required)) return `This posting asks for "${a}", which you told Remy to avoid.`;
+  }
   const want = [...(p.timeline || "").matchAll(/summer\s*(20\d\d)/gi)].map((m) => m[1]);
   const named = job.title.match(/summer\s*(20\d\d)|(20\d\d)\s*summer/i);
   const y = named && (named[1] || named[2]);
@@ -277,7 +285,7 @@ function notWanted(ws: Workspace, job: Job): string {
 const GENERIC_TITLE_WORDS = new Set(["engineer", "engineering", "business", "intern", "internship", "analyst", "associate", "science", "sciences", "studies", "student", "program", "summer", "major", "minor", "degree", "bachelor", "master", "technology", "general", "role", "roles", "position", "entry", "level", "career", "work", "certificate", "and"].map(family));
 
 // Bump when the fit rules change, so verdicts saved under older rules are worked out again.
-export const FIT_RULES_VERSION = 11; // 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
+export const FIT_RULES_VERSION = 12; // 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const g = gradDate(ws);
   const year = classYearOf(ws);

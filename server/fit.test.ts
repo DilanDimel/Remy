@@ -435,3 +435,12 @@ test("ranking: a title with the student's own field words beats one that only fi
   // Generic words ("engineering", "intern", "analyst") don't count as the student's own field.
   assert.equal(s("Engineering Intern") < s("Mechanical Engineering Intern"), true);
 });
+
+test("avoid list: whole words, trailing 'roles' dropped, required skills count (persona test Nov 1)", () => {
+  const st = student({ classYear: "Junior", avoid: "sales, defense sales roles" });
+  const hidden = (j: Partial<Job>) => computeFit(st, job(j), "").hidden || "";
+  assert.match(hidden({ title: "Sales Intern" }), /avoid/);
+  assert.equal(hidden({ title: "Salesforce Administrator Intern" }), "", "Salesforce isn't sales");
+  assert.match(hidden({ title: "Marketing Intern", requirements: [{ id: "r", keyword: "Sales", quote: "Experience in sales" }] as any }), /asks for "sales"/);
+  assert.match(computeFit(student({ classYear: "Junior", avoid: "defense sales roles" }), job({ title: "Defense Sales Representative" }), "").hidden || "", /avoid/);
+});
