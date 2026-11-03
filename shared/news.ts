@@ -3,6 +3,7 @@
 export type NewsItem = { id: string; date: string; kind: "New" | "Improved" | "Fixed" | "Changed"; title: string; body: string; owners?: boolean };
 
 export const NEWS: NewsItem[] = [
+  { id: "2026-11-02-21", date: "2026-11-02", kind: "New", title: "Interview debrief", body: "The day after an interview on your calendar, Home asks how it went. Write what they asked and what you’d do differently while it’s fresh; it’s saved with that application, and Remy can add a thank-you note to your to-dos." },
   { id: "2026-11-02-20", date: "2026-11-02", kind: "Improved", title: "A weekly email worth opening", body: "The weekly digest’s subject now names the best new opening for you (“Frost Bank and 2 more new openings for you”), lists best fits first, and tells you when a saved opening has closed." },
   { id: "2026-11-02-19", date: "2026-11-02", kind: "New", title: "“Did you apply?” and follow-ups", body: "A couple of days after you approve a tailored resume, Home asks whether you applied (one tap updates your tracker). Two weeks after you apply with no news, it suggests a short follow-up and can add it to your to-dos. One question at a time, and “Not yet” or “Not needed” makes it go away." },
   { id: "2026-11-02-18", date: "2026-11-02", kind: "New", title: "Saved openings checked for you", body: "Remy now re-checks the openings you saved or applied to every few days, even when you’re not on the site. If a posting’s page says it’s closed or the link is gone, it shows as Closed, so you don’t spend time on it." },
