@@ -403,3 +403,17 @@ test("second review: lookalike fields get no road", async () => {
   for (const f of ["Veterinary Medicine", "Sports Medicine", "Pharmacy Technician", "Pharmaceutical Sciences", "Electric vehicles"]) assert.equal(roadFor(f), null, f);
   assert.equal(roadFor("Electrical lineworker")?.key, "trades");
 });
+
+test("abroad: US towns with foreign names stay in the US; remote jobs abroad aren't local (persona test Nov 1)", () => {
+  for (const l of ["Albuquerque, New Mexico", "Dublin, OH", "Paris, TX", "St. Petersburg, FL", "London, KY", "Berlin, NH", "Atlanta, Georgia", "Remote, US", "Remote, Chattanooga, TN", "Ontario, CA", "Panama City, FL", "Remote - United States"])
+    assert.equal(abroad(l), false, l);
+  for (const l of ["Lima, OH", "Mexico, MO", "Peru, IN", "Dallas, On-site", "san francisco, ca", "Dallas, TX; London, UK", "London, UK; Dallas, TX", "US-TX-Dallas", "Panama City Beach, FL"])
+    assert.equal(abroad(l), false, l);
+  for (const l of ["Remote, St. Petersburg, Russian Federation", "Remote, Tunis, Tunisia", "Remote - EMEA", "Remote, LATAM", "Toronto, ON, Canada", "Toronto, ON", "Remote - Querétaro, Mexico", "Hybrid - London, UK", "Dublin, Ireland", "Vancouver, BC", "Remote - Europe",
+    "Toronto, ON, CA", "Berlin, DE", "Bengaluru, IN", "Remote, Bengaluru, IN", "Tel Aviv, IL", "Bogotá, CO", "Buenos Aires, AR", "Lima, Peru", "Mexico City", "Paris, France"])
+    assert.equal(abroad(l), true, l);
+  const dfw = student({ regions: "Dallas-Fort Worth" });
+  assert.equal(regionMatch(dfw, job({ location: "Remote, St. Petersburg, Russian Federation" })), false);
+  assert.equal(regionMatch(dfw, job({ location: "Remote" })), true);
+  assert.equal(regionMatch(student({ regions: "Texas" }), job({ location: "Paris, TX" })), true);
+});

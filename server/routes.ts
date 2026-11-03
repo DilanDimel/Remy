@@ -34,7 +34,7 @@ import * as agents from "./agents";
 import { dueReminders, reminderEmail, weeklyDigest } from "./reminders";
 import { step } from "@shared/progress";
 import { conferencesFor } from "./conferences";
-import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, USAJOBS } from "./sources";
+import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, kindOf, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
 import { docxStyle, editResumeDocx } from "./docxEdit";
 import * as gcal from "./gcal";
@@ -1291,6 +1291,8 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
   app.get("/api/jobs", route(async (_req, res, ctx) => {
     if (!knowsStudent(ctx.ws)) return res.json({ jobs: [], fits: {}, needsProfile: NEEDS_PROFILE });
     let changed = false;
+    // Openings saved before the "program" label was tightened ("Launch Engineer", "Program Manager") become jobs again.
+    for (const j of ctx.ws.jobs) if (j.kind === "program" && j.origin === "imported" && kindOf(j.title) === "job") { j.kind = "job"; delete ctx.ws.fits[j.id]; changed = true; }
     const jobs = allJobs(ctx.ws).map((j) => {
       const f = ctx.ws.fits[j.id];
       if (!f || (f.by === "rules" && f.score === undefined) || f.v !== FIT_RULES_VERSION) {

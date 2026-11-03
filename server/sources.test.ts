@@ -153,3 +153,14 @@ test("conference finder: keeps only events whose page shows the start date, list
   assert.deepEqual(jobs.map((j) => [j.kind, j.title, j.location, j.format]), [["event", "Future CPA Summit", "Dallas, TX", "In person"]]);
   assert.deepEqual(await conferencesFor({ profile: { major: "Underwater basket weaving", path: "", targetRoles: "", interests: "" } } as any, async () => { throw new Error("not asked"); }), []);
 });
+
+test("job kind: named programs are programs; jobs that mention 'program' or 'launch' are jobs (persona test Nov 1)", async () => {
+  const { kindOf } = await import("./sources");
+  for (const t of ["Launch Engineer", "Program Manager", "Technical Program Manager II", "Resident Engineer", "Senior Program Analyst", "Mechanical Designer", "Software Programmer"]) assert.equal(kindOf(t), "job", t);
+  for (const t of ["Analyst Development Program", "2027 Rotational Leadership Program", "Diversity Fellowship", "EY Discovery Day", "Women in Finance Insight Week", "Pharmacy Residency", "Emerging Leaders Program", "Staff Accountant - Rotational Program", "Leadership Development Program"]) assert.equal(kindOf(t), "program", t);
+  assert.equal(kindOf("Summer Analyst Intern"), "internship");
+  assert.equal(kindOf("Programming Intern"), "internship");
+  const { COUNTRY_IN_TEXT } = await import("./fit");
+  for (const t of ["Africa Programs Intern", "Middle East Studies Fellow", "Sales Intern - Asia Pacific", "Intern, Lima Office"]) assert.equal(COUNTRY_IN_TEXT.test(t), false, t); // titles with regions stay
+  assert.equal(COUNTRY_IN_TEXT.test("Financial Analyst - Germany"), true);
+});
