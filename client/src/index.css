@@ -675,6 +675,9 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .road.road-long li i { grid-row: span 2; }
 .road.road-long li span { text-align: left; font-size: var(--text-sm); }
 @media (max-width: 640px) {
+  /* Home fits a phone: the next step and this week's to-dos on the first screen. */
+  .hide-phone { display: none !important; }
+  .hero { padding: 20px; gap: 14px; }
   .road { grid-template-columns: 1fr; gap: 6px; }
   .road li { grid-template-columns: 20px auto 1fr; padding: 6px 10px; }
   .road li i { grid-row: auto; }
