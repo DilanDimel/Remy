@@ -28,3 +28,15 @@ test("check-in follow-ups: questions with at least two tap answers, at most two 
   ] });
   assert.deepEqual(d.followups.map((f) => f.q), ["How many hours did you volunteer?", "About how many pounds?"]);
 });
+
+test("check-in proposals: hours, applications and interviews, only when the sentence says so", async () => {
+  const { checkinProposals } = await import("@shared/checkin");
+  const tracker = [{ id: "t1", company: "Frost Bank", role: "Analyst", status: "Saved", notes: "", events: [] }, { id: "t2", company: "Texas Capital", role: "", status: "Applied", notes: "", events: [] }] as any;
+  const p = (kind: string, said: string) => checkinProposals({ tracker }, kind, said).map((x) => x.label);
+  assert.deepEqual(p("Volunteered", "Shadowed Dr. Lee at Cook Children's for about 18 hours."), ["Log 18 h of Shadowing in Progress → Hours"]);
+  assert.deepEqual(p("Worked shifts", "Worked 12 hours at Chick-fil-A and applied to Frost Bank."), ["Log 12 h of Work shifts in Progress → Hours", "Mark Frost Bank as Applied"]);
+  assert.deepEqual(p("Club", "Applied to Goldman Sachs summer program."), ["Track your application to Goldman Sachs (Applied)"]);
+  assert.deepEqual(p("Club", "Had an interview with Texas Capital on Tuesday."), ["Mark Texas Capital as Interview"]);
+  assert.deepEqual(p("Club", "I want to apply to Frost Bank next week."), []); // a plan, not a fact
+  assert.deepEqual(p("Club", "Led our weekly meeting and planned the food drive."), []);
+});

@@ -5,7 +5,7 @@ import { CHECKIN_KINDS } from "@shared/checkin";
 import { api, daysUntil, useDraft, useStore } from "../lib/store";
 import { Spinner } from "./common";
 
-type Draft = { kind: string; said: string; fact: string; bullet: string; linkedin: { section: string; fields: { label: string; value: string }[] }; followups: { q: string; options: string[] }[] };
+type Draft = { kind: string; said: string; fact: string; bullet: string; linkedin: { section: string; fields: { label: string; value: string }[] }; followups: { q: string; options: string[] }[]; proposals?: { id: string; label: string }[] };
 const Speech = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
 /** Weekly check-in: tap what you did, say one sentence, approve what Remy keeps. Only the student's own words are used. */
@@ -15,6 +15,7 @@ export function CheckinCard({ w }: { w: Workspace }) {
   const [said, setSaid] = useDraft("checkin");
   const [draft, setDraft] = useState<Draft | null>(null);
   const [keep, setKeep] = useState({ bullet: true, linkedin: true });
+  const [accept, setAccept] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
   if (w.lastCheckin && (daysUntil(w.lastCheckin) ?? -99) > -6) return null;
@@ -27,7 +28,7 @@ export function CheckinCard({ w }: { w: Workspace }) {
     setListening(true);
     r.start();
   };
-  const make = async (text = said) => { setBusy(true); const d = await run(() => api<Draft>("POST", "/api/ai/checkin", { kind, said: text })); setBusy(false); if (d) { setDraft(d); setKeep({ bullet: !!d.bullet, linkedin: !!d.linkedin.fields.length }); } };
+  const make = async (text = said) => { setBusy(true); const d = await run(() => api<Draft>("POST", "/api/ai/checkin", { kind, said: text })); setBusy(false); if (d) { setDraft(d); setKeep({ bullet: !!d.bullet, linkedin: !!d.linkedin.fields.length }); setAccept((d.proposals || []).map((p) => p.id)); } };
   // A tapped answer becomes part of the student's own words, so the honesty check allows it.
   const answer = (q: string, a: string) => { const text = `${said.trim().replace(/[.]?$/, ".")} ${q} ${a}.`; setSaid(text); make(text); };
   const finish = async (body: object, done: string) => {
@@ -58,6 +59,7 @@ export function CheckinCard({ w }: { w: Workspace }) {
           ? <label className="row small" style={{ gap: 6, flexWrap: "nowrap", alignItems: "flex-start" }}><input type="checkbox" checked={keep.bullet} onChange={(e) => setKeep({ ...keep, bullet: e.target.checked })} /> <span>Add to my resume to-dos: “{draft.bullet}”</span></label>
           : <span className="xs muted">Remy couldn't write a resume line using only your words. Add more detail next time, like what you did and where.</span>}
         {draft.linkedin.fields.length > 0 && <label className="row small" style={{ gap: 6, flexWrap: "nowrap", alignItems: "flex-start" }}><input type="checkbox" checked={keep.linkedin} onChange={(e) => setKeep({ ...keep, linkedin: e.target.checked })} /> <span>Add to my LinkedIn to-dos ({draft.linkedin.section}): {draft.linkedin.fields.map((f) => `${f.label}: ${f.value}`).join(" · ")}</span></label>}
+        {(draft.proposals || []).map((p) => <label key={p.id} className="row small" style={{ gap: 6, flexWrap: "nowrap", alignItems: "flex-start" }} data-testid={`checkin-proposal-${p.id}`}><input type="checkbox" checked={accept.includes(p.id)} onChange={(e) => setAccept(e.target.checked ? [...accept, p.id] : accept.filter((x) => x !== p.id))} /> <span>{p.label}</span></label>)}
         {draft.followups.map((f) => (
           <div key={f.q} className="stack-sm" style={{ gap: 4 }}>
             <span className="xs muted">Make it stronger (optional): {f.q}</span>
@@ -65,7 +67,7 @@ export function CheckinCard({ w }: { w: Workspace }) {
           </div>
         ))}
         <div className="row" style={{ gap: 6 }}>
-          <button className="btn btn-primary btn-sm" disabled={busy} onClick={() => finish({ ...draft, bullet: keep.bullet ? draft.bullet : "", linkedin: keep.linkedin ? draft.linkedin : { section: "", fields: [] } }, "Saved. Remy will use it from now on")}>Looks right, save</button>
+          <button className="btn btn-primary btn-sm" disabled={busy} onClick={() => finish({ ...draft, bullet: keep.bullet ? draft.bullet : "", linkedin: keep.linkedin ? draft.linkedin : { section: "", fields: [] }, accept }, "Saved. Remy will use it from now on")}>Looks right, save</button>
           <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setDraft(null)}>Change what I said</button>
         </div>
       </>}
