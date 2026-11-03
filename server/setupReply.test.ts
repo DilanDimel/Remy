@@ -32,7 +32,7 @@ test("dream employers: no 'top of my search', says what Remy actually does", () 
 
 test("avoid: says the real rule (company name or job title), not 'I'll leave those out'", () => {
   const r = setupReply("defense sales roles", "avoid", true);
-  assert.match(r, /exact phrase/);
+  assert.match(r, /company, the job title or the skills/);
 });
 
 test("no reply in any case makes a false promise", () => {

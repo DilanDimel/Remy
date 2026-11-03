@@ -68,7 +68,7 @@ export function inField(profile: object, target: string | undefined, a: string):
 const SAVED: Record<string, string> = {
   targetRoles: "Saved to the roles you're looking for. Your plan will use it too.",
   dreamEmployers: "Saved to your dream employers. Remy looks for their openings when it searches.",
-  avoid: "Saved to your leave-out list. Openings whose company name or job title contains that exact phrase are hidden.",
+  avoid: "Saved to your leave-out list. Openings that name it in the company, the job title or the skills they require are hidden.",
   timeline: "Saved as when you want to start. Your plan will use it.",
   interests: "Saved. Your plan will use it.",
   goals: "Saved. Your plan will build on it.",
