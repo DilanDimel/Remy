@@ -1,4 +1,5 @@
 import type { Bullet, Entry, ResumeDoc, ResumeQuality, Section, SkillLine } from "@shared/types";
+import { skillParts, splitList } from "@shared/words";
 import { aiJson } from "./ai";
 import { uid } from "./ids";
 import { fold, norm } from "./parse";
@@ -609,8 +610,9 @@ export function verifyAiDoc(raw: string, out: any): { doc: ResumeDoc; notes: str
   }
   let droppedSkills = 0;
   for (const k of Array.isArray(out?.skills) ? out.skills : []) {
-    const items = str(k?.items).split(/\s*[,;|•·]\s*/).filter(Boolean);
-    const kept = items.filter((x) => supported(x, have));
+    const items = splitList(str(k?.items));
+    // A group the file doesn't fully support ("Excel (pivot tables, VLOOKUP)" when only pivot tables is there) keeps the parts it does.
+    const kept = items.flatMap((x) => (supported(x, have) ? [x] : skillParts(x).filter((y) => y !== x && supported(y, have))));
     droppedSkills += items.length - kept.length;
     if (kept.length) doc.skills.push({ id: uid("k"), label: str(k?.label) || "Skills", items: kept.join(", ") });
   }
@@ -816,10 +818,10 @@ export function extractSkills(doc: ResumeDoc, raw: string): string[] {
   for (const sec of doc.sections) {
     if (!/skill|tool|technical|language|certif|software|proficien/i.test(sec.heading)) continue;
     for (const e of sec.entries) for (const line of [e.role, e.org, ...e.bullets.map((b) => b.text)]) {
-      (line || "").replace(/^[A-Za-z ]{2,30}:\s*/, "").split(/[,;|•·]| and /).forEach(add);
+      splitList((line || "").replace(/^[A-Za-z ]{2,30}:\s*/, ""), { and: true }).flatMap(skillParts).forEach(add);
     }
   }
-  for (const g of doc.skills || []) (g.items || "").split(/[,;|•·]| and /).forEach(add);
+  for (const g of doc.skills || []) splitList(g.items || "", { and: true }).flatMap(skillParts).forEach(add);
   const lower = ` ${raw.toLowerCase()} `;
   for (const tool of KNOWN_TOOLS) if (new RegExp(`[^a-z]${tool.replace(/[+]/g, "\\+")}[^a-z]`).test(lower) && ![...found.keys()].includes(tool)) add(tool.replace(/\b\w/g, (c) => c.toUpperCase()));
   return [...found.values()].slice(0, 40);

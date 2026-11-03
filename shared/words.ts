@@ -72,3 +72,34 @@ export const families = (text: string) => new Set((text.toLowerCase()
   .replace(/(?:[–—-]|\bto)\s*present\b/g, " ")       // "Aug 2025 – Present" is a date, not presentation skills
   .replace(/\blead\s+gen(eration)?\b/g, " leadgen ")  // "Lead generation" is sales, not leadership
   .match(/[a-z]+/g) || []).map(family));
+
+/** Splits a list on , ; | • · (and " and " when asked), but never inside parentheses or brackets:
+ *  "Excel (pivot tables, VLOOKUP), R (beginner)" → ["Excel (pivot tables, VLOOKUP)", "R (beginner)"]. */
+export function splitList(s: string, opts: { and?: boolean } = {}): string[] {
+  const out: string[] = [];
+  let depth = 0, cur = "";
+  const text = s || "";
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === "(" || c === "[") depth++;
+    else if ((c === ")" || c === "]") && depth > 0) depth--;
+    const sep = depth === 0 && (/[,;|•·]/.test(c) || (opts.and && /^ and /i.test(text.slice(i, i + 5))));
+    if (sep) { out.push(cur); cur = ""; if (c === " ") i += 4; continue; }
+    cur += c;
+  }
+  // An unclosed "(" ("Excel (advanced, Python, SQL") mustn't swallow the rest: split that part normally.
+  if (depth > 0) out.push(...cur.split(/[,;|•·]/).map((x) => x.replace(/\s*[([]\s*/g, " ")));
+  else out.push(cur);
+  return out.map((x) => x.trim()).filter(Boolean);
+}
+
+/** A grouped skill and the skills inside it: "Microsoft Office (Word, Excel, Outlook)" → ["Microsoft Office", "Word", "Excel", "Outlook"].
+ *  A plain skill or a short note ("R (beginner)") comes back as the skill alone or unchanged. */
+export function skillParts(item: string): string[] {
+  const m = item.match(/^([^()]+?)\s*\(([^()]*)\)\s*$/);
+  if (!m) return [item];
+  const inner = splitList(m[2]).map((x) => x.replace(/^(and|or)\s+/i, "").trim()).filter(Boolean);
+  // "(beginner)", "(advanced)", "(2 years)" describe the skill; they aren't skills themselves.
+  const notes = inner.every((x) => /^(basic|beginner|intermediate|advanced|proficient|fluent|native|conversational|certified|\d+\+?\s*(yrs?|years?))$/i.test(x));
+  return notes ? [m[1].trim()] : [m[1].trim(), ...inner];
+}

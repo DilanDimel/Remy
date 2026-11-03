@@ -334,13 +334,25 @@ export function htmlToText(html: string): string {
   }
   return stripTags(html);
 }
+const HTML_ENTITIES: Record<string, string> = { nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", rsquo: "\u2019", lsquo: "\u2018", rdquo: "\u201d", ldquo: "\u201c", ndash: "\u2013", mdash: "\u2014", bull: "\u2022", middot: "\u00b7", hellip: "\u2026", copy: "\u00a9", reg: "\u00ae", trade: "\u2122", deg: "\u00b0" };
+/** "&bull;" → •, "&#8217;" → ’, "&nbsp" (missing ;) → space. Unknown names stay as they are. */
+function decodeEntity(e: string): string | undefined {
+  if (e[0] === "#") { const n = e[1].toLowerCase() === "x" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10); return n > 0 && n < 0x110000 && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : undefined; }
+  return HTML_ENTITIES[e.toLowerCase()];
+}
 function stripTags(h: string) {
   return h
     .replace(/<(script|style|noscript|svg|head)[\s\S]*?<\/\1>/gi, " ")
     .replace(/<(br|\/p|\/div|\/li|\/h\d|\/tr)[^>]*>/gi, "\n")
     .replace(/<li[^>]*>/gi, "\n• ")
     .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#39;|&rsquo;/g, "'").replace(/&quot;/g, '"')
+    // Leftovers from pages that build text with JavaScript (school-district boards): "'); document.write('".
+    .replace(/(['"])\s*\)\s*;\s*document\.write\(\s*\1/g, " ")
+    .replace(/document\.write\(\s*(['"])([\s\S]*?)\1\s*\)\s*;?/g, "$2")
+    .replace(/^\s*['"]\s*\)\s*;|['"]\s*\)\s*;\s*$/g, " ")
+    // "&bull;", "&#8211;", and "&nbsp" without its ";" (but not "?a=1&copy=2" in a link).
+    .replace(/&(#x?[0-9a-f]+|[a-z]+)(;|(?![=a-z0-9]))/gi, (m, e: string) => decodeEntity(e) ?? m)
+    .replace(/\u00a0/g, " ")
     .replace(/[ \t]+/g, " ")
     .replace(/\n\s*\n+/g, "\n")
     .trim();
