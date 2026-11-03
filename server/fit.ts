@@ -1,6 +1,7 @@
 import { postingSkills } from "@shared/requirements";
 import type { Job, JobFit, Workspace } from "@shared/types";
 import { hasKeyword } from "./ats";
+import { families, family } from "@shared/words";
 import { norm } from "./parse";
 import { graduationOf, primaryEducation } from "./resume";
 
@@ -272,8 +273,11 @@ function notWanted(ws: Workspace, job: Job): string {
   return "";
 }
 
+// Words in a major or target role that say nothing about the field ("Bachelor of Science in…", "engineering intern").
+const GENERIC_TITLE_WORDS = new Set(["engineer", "engineering", "business", "intern", "internship", "analyst", "associate", "science", "sciences", "studies", "student", "program", "summer", "major", "minor", "degree", "bachelor", "master", "technology", "general", "role", "roles", "position", "entry", "level", "career", "work", "certificate", "and"].map(family));
+
 // Bump when the fit rules change, so verdicts saved under older rules are worked out again.
-export const FIT_RULES_VERSION = 10; // 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
+export const FIT_RULES_VERSION = 11; // 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const g = gradDate(ws);
   const year = classYearOf(ws);
@@ -369,7 +373,13 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   if (!studentAdded(job)) hidden = field === false ? "This isn't in the fields you chose." : type === false ? "This isn't the kind of opportunity you chose." : notWanted(ws, job);
   if (hidden) excluded = true;
   const req = skills.length || 1;
+  // Field first: a title with the student's own words (major, target roles: "Mechanical", "Investment Banking",
+  // "Economic Research") ranks well above one that only fits their broad field ("Hardware Engineer").
+  const own = [...families(`${ws.profile.major} ${ws.profile.targetRoles}`)].filter((f) => f.length >= 4 && !GENERIC_TITLE_WORDS.has(f));
+  const titleWords = families(job.title);
+  const specific = own.some((f) => titleWords.has(f));
   const score = Math.round(
+    (specific ? 20 : field === true ? 6 : 0) +
     ({ likely: 40, check: 22, unknown: 18, unlikely: 0 } as const)[eligibility] +
       30 * (matched.length / req) +
       (region === true ? 15 : region === false ? -15 : 0) +
