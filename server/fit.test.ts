@@ -204,12 +204,18 @@ test("weekly digest: on the student's day, once, only with news, only when on", 
   const job = (id: string, foundAt: string) => ({ id, kind: "internship", title: "Audit Intern", company: "Deloitte", foundAt } as any);
   ws.jobs = [job("a", "2026-10-30T10:00:00Z"), job("b", "2026-09-01T10:00:00Z")];
   const d = weeklyDigest(ws, "2026-11-01", 0, "x.test");
-  assert.ok(d && d.subject === "1 new opening for you this week", d?.subject);
+  assert.ok(d && d.subject === "Deloitte: Audit Intern for you", d?.subject); // a real employer in the subject
+  assert.doesNotMatch(d!.text, /road to an offer/i);
   assert.equal(weeklyDigest(ws, "2026-11-02", 1, "x.test"), null, "not on another day");
   ws.lastDigest = "2026-11-01";
   assert.equal(weeklyDigest(ws, "2026-11-01", 0, "x.test"), null, "once");
   ws.lastDigest = undefined; ws.lastDigestAt = "2026-10-31T00:00:00Z";
   assert.equal(weeklyDigest(ws, "2026-11-08", 0, "x.test"), null, "no news, no email");
+  // A saved opening Remy found closed since the last digest is news too.
+  ws.savedJobIds = ["b"];
+  (ws.jobs[1] as any).checks = [{ at: "2026-11-05T03:00:00Z", httpStatus: 404, result: "unreachable", note: "" }];
+  const c = weeklyDigest(ws, "2026-11-08", 0, "x.test");
+  assert.ok(c && c.subject === "Deloitte closed its posting" && /No longer open/.test(c.text), c?.subject);
   ws.settings.notify.weeklyPlan = false;
   assert.equal(weeklyDigest(ws, "2026-11-01", 0, "x.test"), null, "off means off");
 });
