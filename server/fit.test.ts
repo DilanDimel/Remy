@@ -417,3 +417,15 @@ test("abroad: US towns with foreign names stay in the US; remote jobs abroad are
   assert.equal(regionMatch(dfw, job({ location: "Remote" })), true);
   assert.equal(regionMatch(student({ regions: "Texas" }), job({ location: "Paris, TX" })), true);
 });
+
+test("ranking: a title with the student's own field words beats one that only fits the broad field (persona test Nov 1)", () => {
+  const mech = student({ classYear: "Junior", major: "Mechanical Engineering", targetRoles: "aerospace, manufacturing" });
+  const s = (title: string) => computeFit(mech, job({ title, origin: "verified-catalog" } as Partial<Job>), "").score!;
+  assert.ok(s("Mechanical Design Intern") > s("Hardware Engineering Intern"), "mechanical beats hardware");
+  assert.ok(s("Manufacturing Engineering Intern") > s("Software Engineering Intern"));
+  const fin = student({ classYear: "Sophomore", major: "Finance", targetRoles: "investment banking" });
+  const f = (title: string) => computeFit(fin, job({ title, origin: "verified-catalog" } as Partial<Job>), "").score!;
+  assert.ok(f("Investment Banking Summer Analyst") > f("IT Business Analyst Intern"));
+  // Generic words ("engineering", "intern", "analyst") don't count as the student's own field.
+  assert.equal(s("Engineering Intern") < s("Mechanical Engineering Intern"), true);
+});
