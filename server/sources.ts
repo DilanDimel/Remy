@@ -4,7 +4,7 @@ import type { Job, Requirement, Workspace } from "@shared/types";
 import { htmlToText } from "./parse";
 import { topSkills } from "@shared/requirements";
 import { uid } from "./ids";
-import { abroad, FIELD_SEARCH, FIELD_TITLES, regionMatch } from "./fit";
+import { abroad, COUNTRY_IN_TEXT, FIELD_SEARCH, FIELD_TITLES, regionMatch } from "./fit";
 import { q, q1 } from "./sql";
 
 // Live openings from employers' own career sites (Greenhouse, Lever, Ashby, Workday, SmartRecruiters,
@@ -61,8 +61,12 @@ export function requirementsFrom(text: string): Requirement[] {
 function eligibilityFrom(text: string) {
   return sentences(text).filter((s) => /graduat|class of|enrolled|sophomore|junior|senior|freshm|first-year|degree|work authori|sponsor|gpa/i.test(s)).slice(0, 4);
 }
-function kindOf(title: string): Job["kind"] {
-  return /intern|extern|co-?op|summer analyst/i.test(title) ? "internship" : /program|fellow|insight|discovery|launch|emerging leaders|summit|early id|rotational|residen/i.test(title) ? "program" : "job";
+/** Internship, early-career program or job, from the title. A program is a named student/early-career program,
+ *  not a job whose title merely contains "program" or "launch" ("Program Manager", "Launch Engineer", "Resident Engineer"). */
+export function kindOf(title: string): Job["kind"] {
+  if (/intern|extern|co-?op|summer analyst/i.test(title)) return "internship";
+  const program = /\b(program|programme)\b(?!\s*(manager|management|coordinator|analyst|specialist|director|assistant|officer|lead|administrator|associate|engineer))|fellowship|\bfellows?\b(?!\s*engineer)|insight (day|week|program|series)|discovery (day|program|days)|\blaunch program\b|emerging leaders|summit|early id|rotational|residency/i;
+  return program.test(title) ? "program" : "job";
 }
 
 type Raw = { title: string; location: string; url: string; text: string; posted?: string; company?: string; deadline?: string; student?: boolean; nearby?: boolean; detail?: () => Promise<{ text: string; location?: string }> };
@@ -434,7 +438,7 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25): 
         if (!r.url || known.has(r.url) || (!r.student && (!EARLY.test(r.title) || (SENIOR.test(r.title) && !/intern|co-?op|new grad|student/i.test(r.title))))) continue;
         if (undergrad && GRAD_LEVEL.test(r.title)) continue;
         // A country in the title ("Key Account Trainee – Iberia (España y Portugal)") means abroad, even when the location is vague.
-        if (abroad(r.title)) continue;
+        if (COUNTRY_IN_TEXT.test(r.title)) continue; // a country in the title ("Analyst - Germany"); regions and cities don't count
         // A title in another field is skipped; a generic one ("Summer Intern") is judged by its duties below.
         const generic = !FIELD_TITLES.some(([, t]) => t.test(r.title));
         if (titleFits.length && !titleFits.some((t) => t.test(r.title)) && !generic) continue;

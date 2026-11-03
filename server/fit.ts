@@ -95,13 +95,40 @@ const METRO: Record<string, string[]> = {
 // Same order as STATE.
 const STATE_NAMES = "alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|district of columbia|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming".split("|");
 const STATE = "AL|AK|AZ|AR|CA|CO|CT|DE|DC|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY";
-const FOREIGN = new RegExp(
-  `\\b(brazil|canada|india|mexico|united kingdom|england|scotland|ireland|germany|france|spain|ital(y|ia)|milan|madrid|poland|philippines|singapore|china|hong kong|japan|korea|taiwan|vietnam|australia|morocco|guatemala|ukraine|turkey|türkiye|portugal|saudi|emirates|netherlands|switzerland|sweden|hungary|costa rica|argentina|colombia|chile|israel|egypt|romania|czech|belgium|denmark|norway|luxembourg|london|paris|berlin|frankfurt|munich|zurich|dublin|amsterdam|warsaw|stockholm|lisbon|istanbul|dubai|riyadh|tokyo|seoul|shanghai|beijing|sydney|s[aã]o paulo|toronto|bengaluru|bangalore|hyderabad|mumbai|taguig|manila)\\b|,\\s*(br|uk|mx|sg|ph|cn|jp|au|hk|eng|ita)\\b`, "i");
-/** True when a posting's location is outside the US ("Sao Paulo Brazil", "ES - MADRID"). Unknown places count as US.
- *  shortcut: a word list, not geocoding; misses unlisted countries, upgrade if students see foreign postings. */
+// Foreign countries and regions: always abroad. Cities that are also US town names (Dublin, Paris, Lima…) are in
+// AMBIGUOUS and lose to a US state ("Dublin, OH"). Codes that are only foreign come last ("Leeds, UK").
+const COUNTRIES = "brazil|canada|india|united kingdom|england|scotland|wales|ireland|germany|france|spain|ital(?:y|ia)|poland|philippines|singapore|china|hong kong|japan|korea|taiwan|vietnam|australia|new zealand|morocco|guatemala|ukraine|russia|russian federation|belarus|turkey|türkiye|portugal|saudi arabia|saudi|emirates|uae|qatar|kuwait|bahrain|oman|netherlands|switzerland|sweden|finland|iceland|hungary|austria|greece|cyprus|malta|estonia|latvia|lithuania|slovakia|slovenia|croatia|serbia|bulgaria|costa rica|honduras|el salvador|nicaragua|dominican republic|jamaica|trinidad|argentina|colombia|chile|ecuador|venezuela|uruguay|paraguay|bolivia|israel|egypt|tunisia|algeria|nigeria|kenya|ghana|ethiopia|uganda|tanzania|rwanda|senegal|cameroon|south africa|zimbabwe|zambia|botswana|namibia|mauritius|romania|czech republic|czechia|belgium|denmark|norway|luxembourg|pakistan|bangladesh|sri lanka|nepal|indonesia|malaysia|thailand|cambodia|myanmar|kazakhstan|uzbekistan|armenia|azerbaijan";
+const REGIONS = "emea|apac|latam|europe|asia|africa|middle east";
+const CITIES = "frankfurt|munich|hamburg|zurich|geneva|amsterdam|rotterdam|brussels|prague|budapest|bucharest|sofia|warsaw|krakow|stockholm|oslo|copenhagen|helsinki|lisbon|porto|barcelona|madrid|milan|milano|edinburgh|istanbul|moscow|kyiv|tel aviv|cairo|tunis|casablanca|lagos|nairobi|johannesburg|cape town|dubai|abu dhabi|riyadh|doha|karachi|lahore|dhaka|tokyo|osaka|seoul|shanghai|beijing|shenzhen|taipei|sydney|melbourne|brisbane|auckland|jakarta|kuala lumpur|bangkok|hanoi|ho chi minh|s[aã]o paulo|rio de janeiro|buenos aires|bogot[aá]|santiago|toronto|vancouver|montreal|ottawa|calgary|bengaluru|bangalore|hyderabad|mumbai|pune|chennai|delhi|new delhi|noida|gurgaon|gurugram|kolkata|taguig|manila|cebu";
+const AMBIGUOUS = "mexico|peru|lebanon|jordan|london|paris|berlin|dublin|lima|athens|rome|toledo|valencia|vienna|st\\.? petersburg|manchester|cambridge|birmingham|panama city|panama";
+const FOREIGN = new RegExp(`(?<![a-z])(${COUNTRIES}|${REGIONS}|${CITIES})(?![a-z])`, "i");
+const AMBIGUOUS_CITY = new RegExp(`\\b(${AMBIGUOUS})\\b`, "i");
+// Two-letter codes that are only foreign, after a comma and at the end of the place or before another comma.
+const FOREIGN_CODE = /,\s*(UK|GB|MX|BR|SG|PH|CN|JP|AU|HK|NL|IE|FR|ES|IT|ITA|ENG|Eng|ON|BC|QC|AB)(?=\s*(,|$))/;
+/** Exported for job titles: only country names, so "Africa Programs Intern" or "Intern, Lima Office" aren't dropped. */
+export const COUNTRY_IN_TEXT = new RegExp(`\\b(${COUNTRIES})\\b`, "i");
+const US_STATE_CODE = new RegExp(`(?:^|,\\s*|\\()(${STATE})(?=[\\s,;)]|$)`, "i");
+const US_STATE_NAME = new RegExp(`\\b(${STATE_NAMES.join("|")}|united states|usa|u\\.s\\.a?\\.?)(?![a-z])`, "i");
+/** True when a posting's location is outside the US ("Sao Paulo Brazil", "ES - MADRID", "Remote, Russian Federation",
+ *  "Berlin, DE"). A list ("Dallas, TX; London, UK") is abroad only when every place in it is.
+ *  shortcut: a word list, not geocoding; an unlisted foreign place counts as US. */
 export function abroad(location: string): boolean {
-  const prefix = /^([A-Z]{2})\s?-\s/.exec(location.trim());
-  return FOREIGN.test(location) || !!(prefix && prefix[1] !== "US" && !new RegExp(`^(${STATE})$`).test(prefix[1]));
+  const parts = location.split(/\s*[;|]\s*|\s+\/\s+/).map((x) => x.trim()).filter(Boolean);
+  return parts.length > 0 && parts.every(abroadOne);
+}
+function abroadOne(place: string): boolean {
+  const prefix = /^([A-Z]{2})\s?-\s/.exec(place);
+  const rest = prefix ? place.slice(prefix[0].length) : place;
+  const loc = rest.replace(/\bnew mexico\b/gi, "NM-state");
+  // A named foreign country, region or (non-US-sounding) city decides it: "Bengaluru, IN", "Toronto, ON, CA", "Berlin, Germany".
+  if (FOREIGN.test(loc) || FOREIGN_CODE.test(loc)) return true;
+  const usMark = US_STATE_CODE.test(loc) || US_STATE_NAME.test(loc) || /NM-state/.test(loc);
+  // A city that's also a US town is foreign only without a US state ("Dublin" alone vs "Dublin, OH").
+  if (AMBIGUOUS_CITY.test(loc) && !usMark) return true;
+  // ...or with its own country's code, which is also a state code ("Berlin, DE" is Germany, not Delaware).
+  if (/\bberlin,\s*DE\b|\bparis,\s*FR\b|\blima,\s*PE\b|\bathens,\s*GR\b|\bvienna,\s*AT\b|\brome,\s*IT\b/i.test(loc)) return true;
+  // Workday style "DE - FRANKFURT": a leading code that isn't a US state is a country.
+  return !!(prefix && prefix[1] !== "US" && !new RegExp(`^(${STATE})$`).test(prefix[1]));
 }
 
 /** true / false when the student named regions; null when they didn't (or "anywhere"). */
@@ -246,7 +273,7 @@ function notWanted(ws: Workspace, job: Job): string {
 }
 
 // Bump when the fit rules change, so verdicts saved under older rules are worked out again.
-export const FIT_RULES_VERSION = 9; // 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
+export const FIT_RULES_VERSION = 10; // 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const g = gradDate(ws);
   const year = classYearOf(ws);
