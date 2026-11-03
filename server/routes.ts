@@ -1275,15 +1275,17 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
         3500,
       ),
     );
+    // The AI sometimes copies an opening's internal id into its text ("(j076f2ac1bfaa)"); students should never see those.
+    const noIds = (x: unknown) => String(x || "").replace(/\s*\(?\bj[0-9a-f]{8,}\b\)?/g, "").replace(/\s+([.,;])/g, "$1").trim();
     const tasks = (out.tasks || []).slice(0, 8).map((t: any) => ({
-      id: uid("t"), title: String(t.title || ""), why: String(t.why || ""), due: /^\d{4}-\d{2}-\d{2}$/.test(t.due || "") ? t.due : "",
+      id: uid("t"), title: noIds(t.title), why: noIds(t.why), due: /^\d{4}-\d{2}-\d{2}$/.test(t.due || "") ? t.due : "",
       category: ["Explore", "Prepare", "Apply", "Connect", "Academic"].includes(t.category) ? t.category : "Prepare",
       done: false, source: "AI plan (review)", link: String(t.link || ""),
     }));
     ctx.ws.tasks = [...ctx.ws.tasks.filter((t) => t.source !== "AI plan (review)" || t.done), ...tasks];
     ctx.ws.plan = {
       generatedAt: nowIso(), generatedBy: lastUsedModel(),
-      nextAction: { title: String(out.nextAction?.title || "Tailor your resume for your strongest opening"), why: String(out.nextAction?.why || ""), link: String(out.nextAction?.link || "/resume") },
+      nextAction: { title: noIds(out.nextAction?.title) || "Tailor your resume for your strongest opening", why: noIds(out.nextAction?.why), link: String(out.nextAction?.link || "/resume") },
       careers: (out.careers || []).slice(0, 4).map((c: any) => ({ id: uid("cp"), title: String(c.title), what: String(c.what || ""), fit: (c.fit || []).map(String), gaps: (c.gaps || []).map(String), steps: (c.steps || []).map(String) })),
       skills: (out.skills || []).slice(0, 8).map((s: any) => ({ id: uid("sk"), name: String(s.name), type: ["skill", "certification", "course"].includes(s.type) ? s.type : "skill", why: String(s.why || ""), verify: String(s.verify || "Illustrative suggestion") })),
       academic: (out.academic || []).slice(0, 4).map((a: any) => ({ id: uid("ac"), term: String(a.term), items: (a.items || []).map(String), note: String(a.note || "Illustrative — confirm with your academic advisor.") })),
