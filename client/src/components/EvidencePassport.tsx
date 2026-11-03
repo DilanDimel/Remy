@@ -1,5 +1,6 @@
 import { BadgeCheck, CircleDashed } from "lucide-react";
 import type { MemoryFact, ResumeDoc } from "@shared/types";
+import { splitList } from "@shared/words";
 
 /** Evidence Passport: each skill on the resume next to the line that proves it (a bullet, a role, or an approved
  *  fact), or "no example yet". Missing data isn't missing experience, so it asks rather than judges. */
@@ -8,7 +9,8 @@ export function EvidencePassport({ doc, memory }: { doc: ResumeDoc; memory: Memo
     ...doc.sections.flatMap((s) => s.entries.flatMap((e) => [[e.role, e.org].filter(Boolean).join(", "), ...e.bullets.map((b) => b.text)])),
     ...memory.filter((m) => m.status === "approved").map((m) => m.text),
   ].filter(Boolean);
-  const skills = [...new Set(doc.skills.flatMap((k) => k.items.split(/[,;]+/)).map((x) => x.replace(/\(.*?\)/g, "").trim()).filter((x) => x.length > 1))].slice(0, 16);
+  // "Excel (pivot tables, VLOOKUP)" is one skill, Excel; "R (beginner)" is R (one-letter languages count).
+  const skills = [...new Set(doc.skills.flatMap((k) => splitList(k.items)).map((x) => x.replace(/\(.*?\)/g, "").trim()).filter((x) => x.length > 1 || /^[A-Z]$/.test(x)))].slice(0, 16);
   if (!skills.length) return null;
   const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const proof = (skill: string) => lines.find((l) => new RegExp(`(^|[^a-z0-9])${esc(skill.toLowerCase())}($|[^a-z0-9])`).test(l.toLowerCase()));

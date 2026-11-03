@@ -83,3 +83,22 @@ test("AI reading: 'Role @ Org' with no role is split", () => {
   assert.equal(doc.sections[0].entries[0].role, "Team Member");
   assert.equal(doc.sections[0].entries[0].org, "Chick-fil-A");
 });
+
+test("skill lists don't split inside parentheses; HTML leftovers are cleaned (persona test Nov 1)", async () => {
+  const { splitList } = await import("@shared/words");
+  assert.deepEqual(splitList("Excel (pivot tables, VLOOKUP), R (beginner); Python"), ["Excel (pivot tables, VLOOKUP)", "R (beginner)", "Python"]);
+  assert.deepEqual(splitList("bilingual (English/Spanish, conversational), CPR"), ["bilingual (English/Spanish, conversational)", "CPR"]);
+  assert.deepEqual(splitList("Excel and PowerPoint, SQL", { and: true }), ["Excel", "PowerPoint", "SQL"]);
+  assert.deepEqual(splitList("Research and Development", { and: false }), ["Research and Development"]);
+  const { skillParts } = await import("@shared/words");
+  assert.deepEqual(splitList("Microsoft Office (Word, Excel, Outlook, Access), Python").flatMap(skillParts), ["Microsoft Office", "Word", "Excel", "Outlook", "Access", "Python"]);
+  assert.deepEqual(splitList("Excel (advanced, Python, SQL"), ["Excel advanced", "Python", "SQL"]); // unclosed "(" doesn't swallow the rest
+  assert.deepEqual(skillParts("R (beginner)"), ["R"]);
+  const { htmlToText } = await import("./parse");
+  assert.equal(htmlToText("Use document.write() sparingly"), "Use document.write() sparingly");
+  assert.equal(htmlToText("?a=1&copy=2"), "?a=1&copy=2");
+  assert.equal(htmlToText(`document.write('<p>AVID</p>'); document.write('Tutor');`).replace(/\s+/g, " "), "AVID Tutor");
+  const t = htmlToText(`<p>AVID Tutor</p>'); document.write(' &bull; Location: Keller&nbsp&nbsp ISD &#8211; Fort Worth &amp; AT&T`);
+  assert.doesNotMatch(t, /document\.write|&bull;|&nbsp|&#8211;/);
+  assert.match(t, /• Location: Keller ISD – Fort Worth & AT&T/);
+});
