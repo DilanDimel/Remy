@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Check, ChevronDown, ChevronUp, Inbox, Mail, Plus, Trash2, Wand2 } from "lucide-react";
-import type { Suggestion, Task, TrackItem, TrackStatus, Workspace } from "@shared/types";
+import type { HoursEntry, Suggestion, Task, TrackItem, TrackStatus, Workspace } from "@shared/types";
 import { api, fmtDate, rid, useStore } from "../lib/store";
 import { useCompleting } from "../lib/completing";
 import { go, useRoute } from "../lib/router";
@@ -12,7 +12,7 @@ const STATUS_HELP: Record<string, string> = {
   Interview: "An interview invitation — not an offer.",
   Offer: "A written offer of employment or internship.",
 };
-type Tab = "tracker" | "email" | "todos";
+type Tab = "tracker" | "email" | "todos" | "hours";
 
 export default function Progress() {
   const { query } = useRoute();
@@ -29,13 +29,14 @@ export default function Progress() {
         </div>
       </div>
       <div className="tabs" role="tablist">
-        {([["tracker", "Applications"], ["email", `Email updates${open ? ` (${open})` : ""}`], ["todos", "To-dos"]] as [Tab, string][]).map(([k, l]) => (
+        {([["tracker", "Applications"], ["email", `Email updates${open ? ` (${open})` : ""}`], ["todos", "To-dos"], ["hours", "Hours"]] as [Tab, string][]).map(([k, l]) => (
           <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => go(`/progress?tab=${k}`)} data-testid={`tab-progress-${k}`}>{l}</button>
         ))}
       </div>
       {tab === "tracker" && <Tracker />}
       {tab === "email" && <EmailUpdates />}
       {tab === "todos" && <Todos />}
+      {tab === "hours" && <Hours />}
     </>
   );
 }
@@ -272,6 +273,62 @@ function Todos() {
         </div>
       )) : <Empty title={doneCount ? "All caught up" : "No to-dos"} body={doneCount ? "Everything on your list is done." : "Add one above, or build your path to get suggestions."} />}
       {doneCount > 0 && <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setShowDone((v) => !v)} data-testid="button-show-done">{showDone ? "Hide" : "Show"} completed ({doneCount})</button>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- hours
+const ACTIVITIES = ["Volunteering", "Shadowing", "Clinical hours", "Research", "Work shifts", "Club or leadership", "Tutoring", "Apprenticeship hours"];
+
+/** A simple hours log: what pre-health, volunteer and apprenticeship students are asked to total up. */
+function Hours() {
+  const { ws, save, run } = useStore();
+  const list = [...(ws!.hours || [])].sort((a, b) => b.date.localeCompare(a.date));
+  const [activity, setActivity] = useState("");
+  const [hours, setHours] = useState("");
+  const [date, setDate] = useState(() => new Date().toLocaleDateString("en-CA"));
+  const [note, setNote] = useState("");
+  const n = parseFloat(hours);
+  const ok = activity.trim() && n > 0 && n <= 24 && /^\d{4}-\d{2}-\d{2}$/.test(date);
+  const add = () => run(async () => {
+    const e: HoursEntry = { id: rid("h"), activity: activity.trim(), hours: Math.round(n * 4) / 4, date, ...(note.trim() ? { note: note.trim() } : {}) };
+    await save("hours", [e, ...(ws!.hours || [])]);
+    setHours(""); setNote("");
+  }, "Hours logged");
+  const remove = (id: string) => run(() => save("hours", (ws!.hours || []).filter((h) => h.id !== id)));
+  const totals = [...list.reduce((m, h) => m.set(h.activity, (m.get(h.activity) || 0) + h.hours), new Map<string, number>())].sort((a, b) => b[1] - a[1]);
+  const fmt = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(2).replace(/0$/, ""));
+  return (
+    <div className="stack">
+      <div className="card card-pad stack-sm">
+        <h3>Log hours</h3>
+        <span className="small muted">Volunteering, shadowing, clinical, research or shifts: many programs and applications ask for totals, so keep them as you go.</span>
+        <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <label className="field" style={{ minWidth: 200 }}><span className="xs muted">Activity</span><input className="input" list="hour-activities" value={activity} onChange={(e) => setActivity(e.target.value)} placeholder="e.g. Shadowing" data-testid="input-hours-activity" /></label>
+          <datalist id="hour-activities">{[...new Set([...totals.map(([a]) => a), ...ACTIVITIES])].map((a) => <option key={a} value={a} />)}</datalist>
+          <label className="field" style={{ width: 90 }}><span className="xs muted">Hours</span><input className="input" type="number" min="0.25" max="24" step="0.25" value={hours} onChange={(e) => setHours(e.target.value)} data-testid="input-hours-amount" /></label>
+          <label className="field" style={{ width: 160 }}><span className="xs muted">Date</span><input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} data-testid="input-hours-date" /></label>
+          <label className="field grow" style={{ minWidth: 180 }}><span className="xs muted">Note (optional)</span><input className="input" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="e.g. Dr. Lee, cardiology clinic" /></label>
+          <button className="btn btn-primary" disabled={!ok} onClick={add} data-testid="button-add-hours"><Plus size={16} /> Add</button>
+        </div>
+      </div>
+      {list.length ? (
+        <>
+          <div className="card card-pad stack-sm" data-testid="hours-totals">
+            <h3>Totals</h3>
+            {totals.map(([a, t]) => <div key={a} className="row-between small"><span>{a}</span><strong>{fmt(t)} h</strong></div>)}
+          </div>
+          <div className="card card-pad stack-sm">
+            <h3>Log</h3>
+            {list.map((h) => (
+              <div key={h.id} className="row-between small" style={{ borderTop: "1px solid var(--line)", paddingTop: 8 }}>
+                <span>{fmtDate(h.date)} · {h.activity} · <strong>{fmt(h.hours)} h</strong>{h.note ? <span className="muted"> · {h.note}</span> : null}</span>
+                <button className="btn btn-ghost btn-sm" onClick={() => remove(h.id)} aria-label={`Delete ${h.activity} on ${h.date}`}><Trash2 size={14} /></button>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : <div className="card"><Empty title="No hours yet" body="Add your first entry above. Totals per activity add up here." /></div>}
     </div>
   );
 }
