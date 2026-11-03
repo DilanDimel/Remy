@@ -353,6 +353,8 @@ export interface CalItem {
   source: string;
   linkedId?: string;
   notes: string;
+  /** An interview the student wrote a debrief for (or skipped), so Home stops asking. */
+  debriefed?: boolean;
 }
 export interface Contact {
   id: string;
