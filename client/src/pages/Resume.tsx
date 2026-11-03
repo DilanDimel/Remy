@@ -50,6 +50,12 @@ export default function Resume({ query }: { query: URLSearchParams }) {
 
 // ---------------------------------------------------------------- base resume
 function BaseResume() {
+  // "Make my resume stronger" in setup lands here with the checks open.
+  useEffect(() => {
+    if (!new URLSearchParams(location.search).has("checks")) return;
+    const t = setTimeout(() => { const d = document.getElementById("resume-checks") as HTMLDetailsElement | null; if (d) d.open = true; }, 300);
+    return () => clearTimeout(t);
+  }, []);
   const { ws, setWs, run, toast } = useStore();
   const w = ws!;
   const [doc, setDoc] = useState<ResumeDoc | null>(w.resume?.doc ? JSON.parse(JSON.stringify(w.resume.doc)) : null);
@@ -101,7 +107,7 @@ function BaseResume() {
             {w.resume.original && <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/original?download=1", w.resume!.original!.name).catch((e) => toast(e.message, true))} data-testid="button-download-original"><Download size={14} /> Original</button>}
             <button className="btn btn-primary btn-sm" onClick={() => download("/api/resume/export?format=pdf", "Resume.pdf").catch((e) => toast(e.message, true))} disabled={dirty} title={dirty ? "Save your edits first" : undefined} data-testid="button-export-base-pdf"><Download size={14} /> Export PDF</button>
             <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/export?format=docx", "Resume.docx").catch((e) => toast(e.message, true))} disabled={dirty} data-testid="button-export-base-docx">Word</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => document.getElementById("edit-resume")?.scrollIntoView({ block: "start", behavior: "smooth" })} data-testid="button-jump-edit">Edit your resume ↓</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => { const d = document.getElementById("resume-checks") as HTMLDetailsElement | null; if (d) { d.open = true; d.scrollIntoView({ block: "start", behavior: "smooth" }); } }} data-testid="button-jump-checks">Checks ↓</button>
           </div>
         </div>
         {(w.resume.original?.mime === "application/pdf" || w.resume.original?.mime.includes("wordprocessingml")) && (
@@ -118,9 +124,6 @@ function BaseResume() {
           </div>
         )}
       </div>
-      <AtsCard refreshKey={`${w.resume.uploadedAt}-${w.resume.confirmedAt || ""}-${JSON.stringify(w.resume.doc).length}`} />
-      {doc && <AtsXray doc={doc} quality={w.resume.quality} upd={upd} />}
-      {doc && <EvidencePassport doc={doc} memory={w.memory} />}
       {showRaw && <pre className="card card-pad xs" style={{ whiteSpace: "pre-wrap", maxHeight: 320, overflow: "auto", margin: 0 }}>{w.resume.rawText}</pre>}
 
       <div className="card card-pad stack" id="edit-resume">
@@ -179,6 +182,15 @@ function BaseResume() {
           <button className="btn btn-primary" onClick={() => saveDoc(true)} data-testid="button-confirm-resume"><CheckCircle2 size={16} /> {w.resume.confirmedAt && !dirty ? "Re-confirm" : "Save & confirm"}</button>
         </div>
       </div>
+      {/* The resume comes first; suggestions, what an ATS reads and the evidence passport are one click away. */}
+      <details className="card card-pad stack" id="resume-checks" data-testid="resume-checks">
+        <summary style={{ cursor: "pointer" }}><h3 style={{ display: "inline" }}>Checks</h3> <span className="small muted">Suggestions, what an application system reads from your file, and the evidence behind your skills</span></summary>
+        <div className="stack" style={{ marginTop: 12 }}>
+          <AtsCard refreshKey={`${w.resume.uploadedAt}-${w.resume.confirmedAt || ""}-${JSON.stringify(w.resume.doc).length}`} />
+          {doc && <AtsXray doc={doc} quality={w.resume.quality} upd={upd} />}
+          {doc && <EvidencePassport doc={doc} memory={w.memory} />}
+        </div>
+      </details>
     </div>
   );
 }
