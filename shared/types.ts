@@ -114,6 +114,12 @@ export interface ResumeBuilder {
 export interface Profile {
   /** "What are you working toward?", in the student's own words or a tapped chip (first question of setup). */
   goal?: string;
+  /** Practical limits from setup ("Needs to be paid, Up to 15 hours a week, No car"). */
+  constraints?: string;
+  /** What they've already tried ("Applied to a few, Went to a career fair"). */
+  tried?: string;
+  /** What worries them most; the plan's first step addresses it. */
+  worries?: string;
   name: string;
   preferredName: string;
   email: string;
