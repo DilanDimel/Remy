@@ -262,10 +262,11 @@ const PROFILE_FIELDS: [keyof Profile, string, string?][] = [
   ["regions", "Where should Remy look?", "e.g. Fort Worth, Dallas, Remote"], ["opportunityTypes", "Kinds of opportunities", "e.g. Internships, Events"],
   ["timeline", "When do you want to start?", "e.g. Summer 2027 (empty = open to anything)"], ["relocation", "Open to relocating?"], ["workAuth", "Work authorization"],
   ["dreamEmployers", "Dream employers", "e.g. PwC, EY (searched first)"], ["avoid", "Anything to leave out?", "e.g. audit, sales (hidden from your openings)"],
+  ["constraints", "Anything that limits what you can take?", "e.g. Needs to be paid, Up to 15 hours a week"], ["worries", "What worries you most?", "e.g. Interviews"],
 ];
 
 // Onboarding asks roles, regions and opportunity types on its own preferences step, so its review step leaves them out.
-const PREF_KEYS: (keyof Profile)[] = ["classYear", "graduation", "targetRoles", "regions", "opportunityTypes", "timeline", "relocation", "workAuth", "dreamEmployers", "avoid"];
+const PREF_KEYS: (keyof Profile)[] = ["classYear", "graduation", "targetRoles", "regions", "opportunityTypes", "timeline", "relocation", "workAuth", "dreamEmployers", "avoid", "constraints", "worries"];
 /** draft: when given, the parent saves unsaved edits itself (setup's "Looks right"), so there's no separate Save button. */
 export function ProfileForm({ onSaved, hidePrefs, draft }: { onSaved?: () => void; hidePrefs?: boolean; draft?: { current: Profile | null } }) {
   const { ws, save, run } = useStore();
@@ -341,6 +342,10 @@ function Q({ n, children }: { n: number; children: ReactNode }) {
 
 /** Remy's quick questions: class year, where to look, what kinds of
  * opportunities and fields. Saved to the profile; Opportunities filters by them. */
+const LIMIT_OPTS = ["Needs to be paid", "Up to 15 hours a week", "Up to 20 hours a week", "No car (near transit or remote)", "Remote only", "Summers only"];
+const TRIED_OPTS = ["Nothing yet", "Applied to a few", "Went to a career fair", "Talked to the career center", "Reached out to people"];
+const WORRY_OPTS = ["No experience yet", "Not sure what I want", "Feeling behind", "Interviews", "My resume", "Talking to people"];
+
 function Preferences({ onBack }: { onBack: () => void }) {
   const { ws, save, run, setWs } = useStore();
   const p = ws!.profile;
@@ -358,6 +363,10 @@ function Preferences({ onBack }: { onBack: () => void }) {
   const [reloc, setReloc] = useState(p.relocation ? [p.relocation] : []);
   const [dream, setDream] = useState(p.dreamEmployers || "");
   const [avoid, setAvoid] = useState(p.avoid || "");
+  const [limits, setLimits] = useState(splitList(p.constraints || ""));
+  const [tried, setTried] = useState(splitList(p.tried || ""));
+  const [worries, setWorries] = useState(splitList(p.worries || ""));
+  const [worryText, setWorryText] = useState("");
   const allFields = [...fields, ...splitList(otherField)];
   // Two short screens: what you want, then where and the practical bits.
   const missing = (page === 0
@@ -377,6 +386,9 @@ function Preferences({ onBack }: { onBack: () => void }) {
       relocation: reloc[0] || "",
       dreamEmployers: dream.trim(),
       avoid: avoid.trim(),
+      constraints: limits.join(", "),
+      tried: tried.join(", "),
+      worries: [...worries, ...(worryText.trim() ? [worryText.trim()] : [])].join(", ").slice(0, 400),
     }), "Got it — Remy is searching for openings that fit");
     if (!r) return;
     if (unsure && !allFields.length && !ws!.tasks.some((t) => t.link === "/path?tab=career" && !t.done))
@@ -424,6 +436,13 @@ function Preferences({ onBack }: { onBack: () => void }) {
             <span className="xs muted">Remy checks their career sites first.</span></Q>
           <Q n={8}><strong>Anything to leave out? <span className="muted xs">(optional)</span></strong>
             <input className="input" value={avoid} onChange={(e) => setAvoid(e.target.value)} placeholder="e.g. tobacco, cold calling, a company name" aria-label="Things to avoid" data-testid="input-pref-avoid" /></Q>
+          <Q n={9}><strong>Anything that limits what you can take? <span className="muted xs">(optional)</span></strong><Chips options={LIMIT_OPTS} value={limits} onChange={setLimits} testid="pref-limit" /></Q>
+          <Q n={10}><strong>What have you tried so far? <span className="muted xs">(optional)</span></strong><Chips options={TRIED_OPTS} value={tried} onChange={setTried} testid="pref-tried" /></Q>
+          <Q n={11}><strong>What worries you most about this? <span className="muted xs">(optional)</span></strong><Chips options={WORRY_OPTS} value={worries} onChange={setWorries} testid="pref-worry" />
+            <input className="input" value={worryText} onChange={(e) => setWorryText(e.target.value)} maxLength={200} placeholder="Or in your own words" aria-label="Your worry" data-testid="input-pref-worry" />
+            <span className="xs muted">Your plan's first step will start there.</span></Q>
+          {/* Remy repeats it back in one line before saving, so the student can catch anything wrong. */}
+          <p className="small" data-testid="prefs-summary"><b>So:</b> {[year[0], allFields.slice(0, 3).join(", ") || (unsure ? "still exploring" : ""), types.join(", "), timeline.join(", "), [...regions, ...splitList(otherRegion)].join(", "), limits.join(", "), [...worries, worryText.trim()].filter(Boolean).length ? `worried about ${[...worries, worryText.trim()].filter(Boolean).join(", ").toLowerCase()}` : ""].filter(Boolean).join(" · ")}. <span className="muted">Change anything above if it's off.</span></p>
         </>}
       </div>
       {missing.length > 0 && <p className="xs muted" data-testid="prefs-missing">To continue, choose {missing.join(", ")}.</p>}

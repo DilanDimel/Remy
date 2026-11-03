@@ -189,6 +189,7 @@ function profileSummary(ws: Workspace) {
     `Name: ${p.preferredName || p.name}`, `Path: ${PATHS.find(([k]) => k === p.path)?.[1] || ""}${p.path && p.path !== "four-year" ? " (not a four-year degree: suggest certificates, licenses, apprenticeships and roles that don't require a bachelor's where they fit; never assume a major or graduation)" : ""}`, `School: ${p.school}`, `Major: ${p.major}`, `Minor: ${p.minors || ""}`, `GPA: ${p.gpa || ""}`, `Class year: ${p.classYear || classYearOf(ws)}`, `Graduation: ${p.graduation}`,
     `Location: ${p.location}`, `Wants opportunities in: ${p.regions}`, `Opportunity types wanted: ${p.opportunityTypes}`, `Target roles: ${p.targetRoles}`, `Goals: ${p.goals}`, `Interests: ${p.interests}`,
     `Work authorization: ${p.workAuth}`, `Open to relocating: ${p.relocation}`, `When they want to start: ${p.timeline || ""}`, `Dream employers: ${p.dreamEmployers || ""}`, `Wants to avoid: ${p.avoid || ""}`,
+    `Practical limits: ${p.constraints || ""}`, `Already tried: ${p.tried || ""}`, `Biggest worry: ${p.worries || ""}`,
     `Skills found on resume: ${(ws.resume?.skills || []).join(", ")}`,
   ].filter((l) => !/:\s*$/.test(l)).join("\n");
 }
@@ -1263,7 +1264,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const jobs = openJobs(ctx.ws).map((j) => `${j.id}: ${j.company} — ${j.title} (deadline ${j.deadline || "n/a"})`).join("\n");
     const out = await withAi(ctx, "Initial plan", () =>
       aiJson<any>(
-        `You are Remy, a truthful career companion for a university student. Base every suggestion on the student's real background. Never invent university requirements, official certifications, or guarantees. Mark anything the student must verify (with an advisor, the registrar, or the official catalog) in "verify". Today is ${today}.`,
+        `You are Remy, a truthful career companion for a university student. Base every suggestion on the student's real background. If the profile names a biggest worry, make the next action and the first task address it directly, and respect their practical limits (paid, hours, transport) and what they've already tried. Never invent university requirements, official certifications, or guarantees. Mark anything the student must verify (with an advisor, the registrar, or the official catalog) in "verify". Today is ${today}.`,
         `PROFILE:\n${profileSummary(ctx.ws)}\n\nRESUME:\n${ctx.ws.resume ? resumeToText(ctx.ws.resume.doc).slice(0, 6000) : "(none)"}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).join("\n") || "(none)"}\n\nONBOARDING ANSWERS:\n${ctx.ws.onboarding.answers.map((a) => a.q + " → " + a.a).join("\n") || "(none)"}\n\nKNOWN OPENINGS (id: description):\n${jobs}\n
 Return JSON:
 {"nextAction":{"title":"","why":"","link":"/resume|/opportunities|/path|/community|/calendar"},
