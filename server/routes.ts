@@ -132,6 +132,7 @@ function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: 
 
 // Outbound page reads (posting import, link re-checks, job-board scans): 20 per user and 40 per network per 10 minutes.
 function fetchAllowed(ctx: Ctx) {
+  if (ctx.ip === "background") return; // background runs cap themselves (30 per run, 10 per student, 5 per site)
   if (!allow("fetch:" + ctx.me.id, 20, 10 * 60_000) || !allow("fetch-ip:" + ctx.ip, 40, 10 * 60_000))
     bad("You've checked a lot of links in a short time. Please wait a few minutes.", 429);
 }
@@ -446,18 +447,29 @@ export async function registerRoutes(_server: Server, app: Express) {
       const due = ws.jobs.filter((j) => mine.has(j.id) && (j.sourceUrl || j.applyUrl) && !closedReason(ws, j) && !(Date.now() - Date.parse(j.checks[0]?.at || "") < 3 * 86_400_000));
       if (!due.length) continue;
       const me = { id: u.id, kind: u.kind, email: u.email, name: "", picture: "" } as Me;
-      const ctx: Ctx = { me, ws, ip: "background", save: sectionSaver(me, ws) };
+      const ctx: Ctx = { me, ws, ip: "background", save: async () => {} };
+      // While this student's pages are checked, their own searches wait (both write their openings).
+      if (searching.has(u.id)) continue;
+      searching.add(u.id);
       let checked = 0;
-      for (const j of due) {
-        if (total >= 30) break;
-        let host = "";
-        try { host = new URL(j.sourceUrl || j.applyUrl).host; } catch { continue; }
-        if ((perHost.get(host) || 0) >= 5) continue;
-        perHost.set(host, (perHost.get(host) || 0) + 1);
-        total++;
-        try { await checkPosting(ctx, j); checked++; } catch {}
-      }
-      if (checked) { await ctx.save(); console.log(`background rechecks: ${u.id} checked ${checked}`); }
+      try {
+        for (const j of due.slice(0, 10)) {
+          if (total >= 30) break;
+          let host = "";
+          try { host = new URL(j.sourceUrl || j.applyUrl).host; } catch { continue; }
+          if ((perHost.get(host) || 0) >= 5) continue;
+          perHost.set(host, (perHost.get(host) || 0) + 1);
+          total++;
+          try { await checkPosting(ctx, j); checked++; } catch {}
+        }
+        if (checked) {
+          // Copy only the new checks onto the latest saved openings, so anything added or removed meanwhile is kept.
+          const fresh = await loadWorkspace(u.id);
+          const byId = new Map(ws.jobs.map((j) => [j.id, j.checks]));
+          await saveSections(u.id, { jobs: fresh.jobs.map((j) => (due.some((d) => d.id === j.id) && byId.get(j.id) ? { ...j, checks: byId.get(j.id)! } : j)) });
+          console.log(`background rechecks: ${u.id} checked ${checked}`);
+        }
+      } finally { searching.delete(u.id); }
     }
   };
   let sweeping: Promise<void> | null = null;

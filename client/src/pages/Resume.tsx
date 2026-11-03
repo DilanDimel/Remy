@@ -53,7 +53,7 @@ function BaseResume() {
   // "Make my resume stronger" in setup lands here with the checks open.
   useEffect(() => {
     if (!new URLSearchParams(location.search).has("checks")) return;
-    const t = setTimeout(() => { const d = document.getElementById("resume-checks") as HTMLDetailsElement | null; if (d) d.open = true; }, 300);
+    const t = setTimeout(() => { const d = document.getElementById("resume-checks") as HTMLDetailsElement | null; if (d) { d.open = true; d.scrollIntoView({ block: "start", behavior: "smooth" }); } }, 300);
     return () => clearTimeout(t);
   }, []);
   const { ws, setWs, run, toast } = useStore();

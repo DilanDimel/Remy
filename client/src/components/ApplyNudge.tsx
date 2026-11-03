@@ -13,7 +13,7 @@ export function ApplyNudge({ w }: { w: Workspace }) {
   // First, the most time-sensitive: an interview in the last week with no debrief yet.
   const today = new Date().toLocaleDateString("en-CA");
   const interview = w.calendar.find((c) => c.kind === "Interview" && c.date < today && ago(c.date + "T12:00:00") <= 7 && !c.debriefed);
-  if (interview) return <Debrief w={w} c={interview} />;
+  if (interview) return <Debrief key={interview.id} w={w} c={interview} />;
   const approvedAt = (t: TrackItem) => w.applications.find((a) => a.id === t.applicationId)?.versions.at(-1)?.at;
   const ask = w.tracker.find((t) => t.status === "Saved" && t.applicationId && ago(approvedAt(t)) >= 2 && !(t.askedAt && ago(t.askedAt) < 5));
   const lastEvent = (t: TrackItem) => t.events.reduce((m, e) => (e.at > m ? e.at : m), "");
@@ -56,15 +56,16 @@ function Debrief({ w, c }: { w: Workspace; c: CalItem }) {
   const who = c.title.replace(/^interview:?\s*/i, "");
   const finish = (note: string, addThanks: boolean) => run(async () => {
     const stamp = `Debrief ${c.date}: ${note}`;
-    await save("calendar", w.calendar.map((x) => (x.id === c.id ? { ...x, debriefed: true, notes: note ? [x.notes, stamp].filter(Boolean).join("\n") : x.notes } : x)));
+    // Kept in its own field, not the event notes: those sync to Google Calendar and the .ics export, and a debrief is private.
+    await save("calendar", w.calendar.map((x) => (x.id === c.id ? { ...x, debriefed: true, ...(note ? { debrief: note } : {}) } : x)));
     const t = w.tracker.find((x) => x.id === c.linkedId);
-    if (t && note) await save("tracker", w.tracker.map((x) => (x.id === t.id ? { ...x, notes: [x.notes, stamp].filter(Boolean).join("\n") } : x)));
+    if (t && note) await save("tracker", w.tracker.map((x) => (x.id === t.id ? { ...x, notes: [x.notes, stamp].filter(Boolean).join("\n").slice(-3900) } : x)));
     if (addThanks) await save("tasks", [{ id: rid("t"), title: `Send a thank-you note for your ${who} interview`, why: "Two or three sentences within a day: thank them, mention one thing you discussed, restate your interest.", due: "", category: "Connect", done: false, source: "Interview debrief (Home)" }, ...w.tasks]);
   }, note ? "Debrief saved" : undefined);
   return (
     <section className="card card-pad stack-sm" data-testid="interview-debrief">
       <b className="small">How did your interview go? {who}, {c.date}</b>
-      <textarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} placeholder="What did they ask? What went well? What would you do differently next time?" style={{ minHeight: 70 }} data-testid="input-debrief" />
+      <textarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} placeholder="What did they ask? What went well? What would you do differently next time?" maxLength={1500} style={{ minHeight: 70 }} data-testid="input-debrief" />
       <label className="row small"><input type="checkbox" checked={thanks} onChange={(e) => setThanks(e.target.checked)} /> Add a thank-you note to my to-dos</label>
       <div className="row">
         <button className="btn btn-primary btn-sm" disabled={!text.trim()} onClick={() => finish(text.trim(), thanks)} data-testid="button-save-debrief">Save debrief</button>

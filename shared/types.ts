@@ -355,6 +355,8 @@ export interface CalItem {
   notes: string;
   /** An interview the student wrote a debrief for (or skipped), so Home stops asking. */
   debriefed?: boolean;
+  /** The debrief itself: private, so not in `notes` (which sync to Google Calendar). */
+  debrief?: string;
 }
 export interface Contact {
   id: string;
