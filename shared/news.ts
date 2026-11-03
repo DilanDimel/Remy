@@ -3,6 +3,7 @@
 export type NewsItem = { id: string; date: string; kind: "New" | "Improved" | "Fixed" | "Changed"; title: string; body: string; owners?: boolean };
 
 export const NEWS: NewsItem[] = [
+  { id: "2026-11-02-23", date: "2026-11-02", kind: "New", title: "Hours log", body: "Progress → Hours: log volunteering, shadowing, clinical, research or work hours as you go, and see running totals per activity, ready for applications that ask for them." },
   { id: "2026-11-02-22", date: "2026-11-02", kind: "Improved", title: "Chat knows its way around Remy", body: "Ask the chat how to do something (tailor a resume, practice your pitch, import a posting) and it points you to the right page and tab, with a button to go there. It also says plainly what Remy can’t do, like applying for you or seeing Handshake." },
   { id: "2026-11-02-21", date: "2026-11-02", kind: "New", title: "Interview debrief", body: "The day after an interview on your calendar, Home asks how it went. Write what they asked and what you’d do differently while it’s fresh; it’s saved with that application, and Remy can add a thank-you note to your to-dos." },
   { id: "2026-11-02-20", date: "2026-11-02", kind: "Improved", title: "A weekly email worth opening", body: "The weekly digest’s subject now names the best new opening for you (“Frost Bank and 2 more new openings for you”), lists best fits first, and tells you when a saved opening has closed." },
