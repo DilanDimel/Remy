@@ -3,6 +3,7 @@
 export type NewsItem = { id: string; date: string; kind: "New" | "Improved" | "Fixed" | "Changed"; title: string; body: string; owners?: boolean };
 
 export const NEWS: NewsItem[] = [
+  { id: "2026-11-03-01", date: "2026-11-03", kind: "Fixed", title: "Cleaner plan steps", body: "Plan to-dos no longer show Remy’s internal codes (like “j076f2ac1bfaa”), and Home’s next step no longer skips a plan step just because one other posting from that employer didn’t fit you." },
   { id: "2026-11-02-25", date: "2026-11-02", kind: "Improved", title: "A smarter weekly check-in", body: "When your check-in sentence mentions hours (“about 18 hours shadowing”), an application (“applied to Frost Bank”) or an interview, Remy offers to log the hours and update your tracker too. Each one is a checkbox you can untick, and Remy only uses what you actually wrote." },
   { id: "2026-11-02-24", date: "2026-11-02", kind: "Changed", title: "Setup starts with your goal", body: "Setup now opens with one question: what are you working toward? Tap an answer or write your own (“Not sure yet” is fine). Everything Remy suggests starts from it, and you can change it anytime in Account → Profile. Every setup now includes your resume: upload yours, or build one with Remy in about 10 minutes if you don’t have one yet." },
   { id: "2026-11-02-23", date: "2026-11-02", kind: "New", title: "Hours log", body: "Progress → Hours: log volunteering, shadowing, clinical, research or work hours as you go, and see running totals per activity, ready for applications that ask for them." },
