@@ -34,9 +34,16 @@ test("check-in proposals: hours, applications and interviews, only when the sent
   const tracker = [{ id: "t1", company: "Frost Bank", role: "Analyst", status: "Saved", notes: "", events: [] }, { id: "t2", company: "Texas Capital", role: "", status: "Applied", notes: "", events: [] }] as any;
   const p = (kind: string, said: string) => checkinProposals({ tracker }, kind, said).map((x) => x.label);
   assert.deepEqual(p("Volunteered", "Shadowed Dr. Lee at Cook Children's for about 18 hours."), ["Log 18 h of Shadowing in Progress → Hours"]);
-  assert.deepEqual(p("Worked shifts", "Worked 12 hours at Chick-fil-A and applied to Frost Bank."), ["Log 12 h of Work shifts in Progress → Hours", "Mark Frost Bank as Applied"]);
+  assert.deepEqual(p("Worked shifts", "Worked 12 hours at Chick-fil-A and applied to Frost Bank."), ["Log 12 h of Work shifts in Progress → Hours", "Mark Frost Bank (Analyst) as Applied"]);
   assert.deepEqual(p("Club", "Applied to Goldman Sachs summer program."), ["Track your application to Goldman Sachs (Applied)"]);
   assert.deepEqual(p("Club", "Had an interview with Texas Capital on Tuesday."), ["Mark Texas Capital as Interview"]);
   assert.deepEqual(p("Club", "I want to apply to Frost Bank next week."), []); // a plan, not a fact
   assert.deepEqual(p("Club", "Led our weekly meeting and planned the food drive."), []);
+  // Second review: job titles, non-employers, negations, totals, ranges and look-alike names stay out.
+  assert.deepEqual(p("Club", "Applied for Summer Analyst at Frost Bank."), ["Mark Frost Bank (Analyst) as Applied"]);
+  for (const s of ["Applied with LinkedIn Easy Apply.", "I applied to TCU's honors college.", "I applied to Remy as a tester.", "I never applied to Frost Bank.", "Still haven't had an interview with Texas Capital.", "Mock interview with Frost Bank recruiter at the career fair.", "Volunteered 400 hours total over the year.", "Volunteered 10-12 hours.", "2 hours on Monday and 3 hours on Friday.", "Spent 3 hours applying to Goldman Sachs."])
+    assert.deepEqual(p("Volunteered", s).filter((x) => !/^Log .* of Volunteering/.test(x) || /400|10-12|Monday/.test(s)), [], s);
+  assert.deepEqual(p("Club", "Applied to Frost Bank Foundation scholarship."), ["Track your application to Frost Bank Foundation (Applied)"]); // not Frost Bank itself
+  assert.deepEqual(p("Club", "I Applied To JPMorgan Chase."), ["Track your application to JPMorgan Chase (Applied)"]);
+  assert.equal(checkinProposals({ tracker }, "Club", "Applied to Goldman Sachs.")[0].checked, false); // new tracker items start unticked
 });
