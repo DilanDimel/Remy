@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { SeasonCard } from "../components/SeasonCard";
+import { ApplyNudge } from "../components/ApplyNudge";
 import { CheckinCard } from "../components/CheckinCard";
 import { ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronUp, MapPin } from "lucide-react";
 import type { Job, Task, Workspace } from "@shared/types";
@@ -119,6 +120,8 @@ export default function Home() {
           )) : <span className="small" style={{ color: "rgba(255,255,255,.75)" }}>Nothing new yet. Remy checks employers' sites every few hours, so new openings will show here.</span>}
         </div>
       </section>
+
+      <ApplyNudge w={w} />
 
       <section className="card card-pad">
         <div className="row-between" style={{ marginBottom: 8 }}>

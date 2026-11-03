@@ -306,6 +306,10 @@ export interface TrackItem {
   notes: string;
   /** After a rejection: the student added the recovery steps or dismissed the card. */
   recovery?: "added" | "dismissed";
+  /** Home asked "Did you apply?" and the student said not yet (asked again 5 days later). */
+  askedAt?: string;
+  /** Two weeks after applying with no news: the student added a follow-up to-do or said it isn't needed. */
+  followUp?: "added" | "dismissed";
 }
 export interface Suggestion {
   id: string;
