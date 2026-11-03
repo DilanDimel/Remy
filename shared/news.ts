@@ -3,6 +3,7 @@
 export type NewsItem = { id: string; date: string; kind: "New" | "Improved" | "Fixed" | "Changed"; title: string; body: string; owners?: boolean };
 
 export const NEWS: NewsItem[] = [
+  { id: "2026-11-02-24", date: "2026-11-02", kind: "Changed", title: "Setup starts with your goal", body: "Setup now opens with one question: what are you working toward? Tap an answer or write your own (“Not sure yet” is fine). Everything Remy suggests starts from it, and you can change it anytime in Account → Profile. Every setup now includes your resume: upload yours, or build one with Remy in about 10 minutes if you don’t have one yet." },
   { id: "2026-11-02-23", date: "2026-11-02", kind: "New", title: "Hours log", body: "Progress → Hours: log volunteering, shadowing, clinical, research or work hours as you go, and see running totals per activity, ready for applications that ask for them." },
   { id: "2026-11-02-22", date: "2026-11-02", kind: "Improved", title: "Chat knows its way around Remy", body: "Ask the chat how to do something (tailor a resume, practice your pitch, import a posting) and it points you to the right page and tab, with a button to go there. It also says plainly what Remy can’t do, like applying for you or seeing Handshake." },
   { id: "2026-11-02-21", date: "2026-11-02", kind: "New", title: "Interview debrief", body: "The day after an interview on your calendar, Home asks how it went. Write what they asked and what you’d do differently while it’s fresh; it’s saved with that application, and Remy can add a thank-you note to your to-dos." },

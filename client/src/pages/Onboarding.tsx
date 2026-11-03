@@ -33,14 +33,9 @@ export default function Onboarding() {
     if (to) go(to);
     await save("onboarding", { ...w.onboarding, done: true });
   };
-  const pick = async (focus: SetupFocus) => {
-    if (focus === "direction" || focus === "explore") {
-      // No resume needed: let them in now. Home's next step asks for the resume when they're ready.
-      uiFlags.flyIn = true;
-      go(focus === "direction" ? "/path?tab=career" : "/");
-      await save("onboarding", { ...w.onboarding, focus, exploring: focus === "direction" || w.onboarding.exploring, done: true });
-    } else await save("onboarding", { ...w.onboarding, focus });
-  };
+  // The first screen saves the path and goal and picks where setup ends; nobody skips setup, since everything
+  // Remy does is built on knowing the student (resume upload or "Build one with Remy" is the next step).
+  const pick = async (focus: SetupFocus, exploring?: boolean) => { await save("onboarding", { ...w.onboarding, focus, ...(exploring ? { exploring: true } : {}) }); };
   return (
     <div className="ob">
       <div className="row-between" style={{ width: "100%", maxWidth: 740 }}>
@@ -56,7 +51,7 @@ export default function Onboarding() {
           <WelcomeBack onContinue={() => setWelcomeBack(false)} onRestart={async () => { await save("onboarding", { ...w.onboarding, step: 1, answers: [], questions: [], targets: [] }); setWelcomeBack(false); }} />
         ) : (
           <>
-            {step <= 1 && !w.onboarding.focus && !w.resume ? <FocusPick onPick={pick} />
+            {step <= 1 && !w.onboarding.focus ? <FocusPick onPick={pick} />
               : step <= 1 && <ResumeStep onNext={() => setStep(2)} />}
             {step === 2 && <Review onBack={() => setStep(1)} onNext={() => setStep(3)} />}
             {step === 3 && <Preferences onBack={() => setStep(2)} />}
@@ -73,44 +68,54 @@ export default function Onboarding() {
 // Where finishing setup lands, by what the student said would help most.
 // "Find openings" lands on Home, where the plan's first step and the best-fitting openings are (Opportunities alone
 // could be empty for fields Remy covers thinly); resume and interview go straight to the tool the student asked for.
-const LAND: Record<string, string> = { resume: "/resume?tab=base&checks=1", openings: "/", interview: "/resume?tab=prep" };
-const FOCUS: [SetupFocus, string, string][] = [
-  ["resume", "Make my resume stronger", "Check how it reads to an ATS and get honest suggestions"],
-  ["openings", "Find openings that fit me", "Internships, jobs and events matched to your experience"],
-  ["interview", "Get ready for an interview", "True stories from your resume and a short prep plan"],
-  ["direction", "Figure out what I want to do", "See the jobs your field leads to and what they're really like"],
-  ["explore", "Just look around", "Skip setup for now and finish it later from Home"],
-];
+const LAND: Record<string, string> = { resume: "/resume?tab=base&checks=1", openings: "/", interview: "/resume?tab=prep", direction: "/path?tab=career" };
 
 /** First screen of setup: one question, so a student can get to what they came for. */
-function FocusPick({ onPick }: { onPick: (f: SetupFocus) => void }) {
-  const { ws, me } = useStore();
-  const first = (ws!.profile.preferredName || me?.name || "").trim().split(/\s+/)[0];
-  const [busy, setBusy] = useState("");
-  const { save } = useStore();
-  const path = ws!.profile.path || "";
+// "What are you working toward?": tap one or write your own. "Not sure yet" is a real answer (Remy starts from exploring).
+const GOALS: [string, SetupFocus][] = [["Land an internship", "openings"], ["Find a full-time job", "openings"], ["Make my resume stronger", "resume"], ["Get ready for an interview", "interview"], ["Switch to a new field", "direction"], ["Not sure yet", "direction"]];
+
+/** First screen of setup: where the student is and what they're working toward, so Remy starts from their goal. */
+function FocusPick({ onPick }: { onPick: (f: SetupFocus, exploring?: boolean) => Promise<void> }) {
+  const { ws, me, save, run } = useStore();
+  const w = ws!;
+  const first = (w.profile.preferredName || me?.name || "").trim().split(/\s+/)[0];
+  const [busy, setBusy] = useState(false);
+  const path = w.profile.path || "";
+  const [goal, setGoal] = useState(w.profile.goal || "");
+  const chip = GOALS.find(([g]) => g === goal);
+  const ready = !!path && goal.trim().length > 1;
+  const go2 = () => run(async () => {
+    setBusy(true);
+    const unsure = goal === "Not sure yet"; // the chip only: "Not sure between finance and consulting" says something
+    await save("profile", { ...w.profile, goal: goal.trim().slice(0, 300) });
+    // One save for focus and "still exploring", so neither overwrites the other.
+    await onPick(chip ? chip[1] : "openings", unsure);
+  }).finally(() => setBusy(false));
   return (
     <div className="stack-lg" data-testid="focus-pick">
       <div className="remy-prompt">
         <Remy size={44} mood="wave" />
         <div className="stack-sm">
-          <h2>Hi{first ? ` ${first}` : ""}! What would help most today?</h2>
-          <p className="muted">Pick one. The first three start with your resume; you can change course anytime.</p>
+          <h2>Hi{first ? ` ${first}` : ""}! What are you working toward?</h2>
+          <p className="muted">Everything Remy suggests starts from this, so be as specific as you like. "Not sure yet" is a fine answer.</p>
         </div>
       </div>
       <div className="stack-sm">
         <b>Where are you right now?</b>
         <div className="pref-chips" role="group" aria-label="Where are you right now">
-          {PATHS.map(([k, label]) => <button key={k} type="button" className="pref-chip" aria-pressed={path === k} onClick={() => save("profile", { ...ws!.profile, path: k })} data-testid={`path-${k}`}>{label}</button>)}
+          {PATHS.map(([k, label]) => <button key={k} type="button" className="pref-chip" aria-pressed={path === k} onClick={() => save("profile", { ...w.profile, path: k })} data-testid={`path-${k}`}>{label}</button>)}
         </div>
       </div>
       <div className="stack-sm">
-        {FOCUS.map(([k, label, detail]) => (
-          <button key={k} className="conn-row" style={{ textAlign: "left", width: "100%" }} disabled={!!busy} onClick={() => { setBusy(k); onPick(k); }} data-testid={`focus-${k}`}>
-            <div className="grow"><b>{label}</b><span>{detail}</span></div>
-            {busy === k ? <Spinner /> : <ArrowRight size={16} />}
-          </button>
-        ))}
+        <b>What are you working toward?</b>
+        <div className="pref-chips" role="group" aria-label="What are you working toward">
+          {GOALS.map(([g]) => <button key={g} type="button" className={"pref-chip" + (g === "Not sure yet" ? " pref-unsure" : "")} aria-pressed={goal === g} onClick={() => setGoal(g)} data-testid={`goal-${g.toLowerCase().replace(/\W+/g, "-")}`}>{g}</button>)}
+        </div>
+        <input className="input" value={chip ? "" : goal} onChange={(e) => setGoal(e.target.value)} maxLength={300} placeholder="Or in your own words, e.g. a summer 2027 finance internship in Dallas" aria-label="What you're working toward" data-testid="input-goal" />
+      </div>
+      <div className="row-between">
+        <span className="xs muted">{!path ? "Pick where you are right now." : !goal.trim() ? "Tap a goal or write your own." : "Next: your resume (upload it, or build one with Remy)."}</span>
+        <button className="btn btn-primary" disabled={!ready || busy} onClick={go2} data-testid="button-goal-next">{busy ? <Spinner /> : null} Continue <ArrowRight size={16} /></button>
       </div>
     </div>
   );
@@ -252,7 +257,7 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
 }
 
 const PROFILE_FIELDS: [keyof Profile, string, string?][] = [
-  ["path", "Where are you right now?"], ["name", "Full name"], ["preferredName", "What should Remy call you?"], ["applicationEmail", "Email for applications", "e.g. you@tcu.edu"], ["school", "School"], ["major", "Major(s)"], ["minors", "Minor(s)"], ["gpa", "GPA", "e.g. 3.6 (optional)"],
+  ["path", "Where are you right now?"], ["goal", "What you're working toward", "e.g. a summer 2027 finance internship in Dallas"], ["name", "Full name"], ["preferredName", "What should Remy call you?"], ["applicationEmail", "Email for applications", "e.g. you@tcu.edu"], ["school", "School"], ["major", "Major(s)"], ["minors", "Minor(s)"], ["gpa", "GPA", "e.g. 3.6 (optional)"],
   ["classYear", "Class year"], ["graduation", "Expected graduation", "e.g. May 2029"], ["location", "Location"], ["targetRoles", "Roles you're curious about", "e.g. investment banking, fintech"],
   ["regions", "Where should Remy look?", "e.g. Fort Worth, Dallas, Remote"], ["opportunityTypes", "Kinds of opportunities", "e.g. Internships, Events"],
   ["timeline", "When do you want to start?", "e.g. Summer 2027 (empty = open to anything)"], ["relocation", "Open to relocating?"], ["workAuth", "Work authorization"],
