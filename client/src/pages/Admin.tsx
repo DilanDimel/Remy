@@ -14,7 +14,7 @@ type Overview = {
   returnWeek1?: { cohort: number; back: number }; returnWeek4?: { cohort: number; back: number };
   students: number; newWeek: number; newPrev: number; activeWeek: number; activePrev: number; activeToday: number;
   daily: { day: string; n: number }[];
-  funnel: { accounts: number; resume: number; prefs: number; setup_done: number; chatted: number; applied: number };
+  funnel: { accounts: number; goal: number; resume: number; prefs: number; questions: number; plan: number; setup_done: number; chatted: number; applied: number };
   features: { name: string; students: number; uses: number }[];
   ai: { calls: number; failed: number; cost: number; priced: number; avgMs: number }; openErrors: number; feedback: number;
   emails?: { ready: boolean; reminders: number; digest: number; digestsWeek: number };
@@ -118,14 +118,15 @@ function OverviewTab() {
   const [d, reload] = useLoad<Overview>("/api/admin/overview");
   if (!d) return <div className="row"><Spinner /> Loading…</div>;
   const f = d.funnel;
-  const steps: [string, number][] = [["Signed up", f.accounts], ["Added a resume", f.resume], ["Reached preferences", f.prefs], ["Finished setup", f.setup_done], ["Asked Remy something", f.chatted], ["Started an application", f.applied]];
+  // Setup step by step (where friend testers stop), then what they did after.
+  const steps: [string, number][] = [["Signed up", f.accounts], ["Answered the goal question", f.goal], ["Added a resume", f.resume], ["Reached preferences", f.prefs], ["Reached the questions", f.questions], ["Saw their plan", f.plan], ["Finished setup", f.setup_done], ["Asked Remy something", f.chatted], ["Started an application", f.applied]];
   // 14 days, including days with no sign-ups, so gaps read as gaps.
   const days = Array.from({ length: 14 }, (_, i) => new Date(Date.now() - (13 - i) * 86400_000).toLocaleDateString("en-CA", { timeZone: "America/Chicago" }));
   const byDay = new Map(d.daily.map((x) => [x.day, x.n]));
   const max = Math.max(1, ...days.map((x) => byDay.get(x) || 0));
   return (
     <div className="stack-lg">
-      <Head title="Overview" sub="Signed-in students only. Counts, never anything a student wrote." action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
+      <Head title="Overview" sub="Real students only: team members and their “+” test addresses are left out. Counts, never anything a student wrote." action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
       <div className="adm-kpis">
         <Kpi n={d.northWeek} label="North star: students who took a career step this week" prev={d.northPrev} />
         {(() => { const r = (x?: { cohort: number; back: number }) => (x && x.cohort ? `${Math.round((100 * x.back) / x.cohort)}%` : "–"); return <>
