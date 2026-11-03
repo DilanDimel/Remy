@@ -112,6 +112,8 @@ export interface ResumeBuilder {
 }
 
 export interface Profile {
+  /** "What are you working toward?", in the student's own words or a tapped chip (first question of setup). */
+  goal?: string;
   name: string;
   preferredName: string;
   email: string;

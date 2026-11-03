@@ -14,7 +14,7 @@ export function emptyWorkspace(): Workspace {
     profile: {
       name: "", preferredName: "", email: "", applicationEmail: "", school: "", major: "", classYear: "",
       graduation: "", location: "", targetRoles: "", goals: "", interests: "", workAuth: "", relocation: "",
-      regions: "", opportunityTypes: "", gpa: "", minors: "", timeline: "", avoid: "", dreamEmployers: "", path: "",
+      regions: "", opportunityTypes: "", gpa: "", minors: "", timeline: "", avoid: "", dreamEmployers: "", path: "", goal: "",
     },
     imports: [],
     memory: [],

@@ -59,7 +59,7 @@ export default function Home() {
       return { title: `Prepare for your interview ${d === 0 ? "today" : d === 1 ? "tomorrow" : "in 2 days"}: ${interview.title.replace(/^interview( with)?:?\s*/i, "")}`, why: "Three short steps: research the organization, pick two true stories, and test your setup.", link: "", cta: "Add prep steps" };
     }
     const pending = w.applications.find((a) => a.changes.some((c) => c.status === "pending"));
-    if (!w.resume) return { title: "Upload your resume", why: "Everything Remy suggests is grounded in your real experience. It starts here.", link: "/resume", cta: "Upload resume" };
+    if (!w.resume) return { title: "Add your resume", why: "Upload it, or build one with Remy in about 10 minutes (no resume yet is fine). Everything Remy suggests is built on it.", link: "/resume?tab=base", cta: "Add resume" };
     if (!w.resume.confirmedAt) return { title: "Confirm your base resume", why: "Check that every line was read correctly. Tailored versions are built only from what you confirm.", link: "/resume?tab=base", cta: "Review resume" };
     if (pending) {
       const j = jobs?.find((x) => x.id === pending.jobId);
