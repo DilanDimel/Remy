@@ -99,7 +99,7 @@ export default function Home() {
         <div>
           <span className="eyebrow">Home</span>
           <h1 data-testid="text-greeting">{greeting()}{name ? `, ${name}` : ""}.</h1>
-          <p>Here's the one thing worth doing next, and a few things that matter this week.</p>
+          <p className="hide-phone">Here's the one thing worth doing next, and a few things that matter this week.</p>
         </div>
       </div>
 
@@ -112,16 +112,13 @@ export default function Home() {
             <button className="btn btn-light btn-lg" onClick={() => (interview ? addPrep() : go(next.link))} data-testid="button-next-action">{next.cta} <ArrowRight size={16} /></button>
           </div>
         </div>
-        <div className="hero-side" data-testid="since-last">
+        <div className={"hero-side" + (sinceRows.length ? "" : " hide-phone")} data-testid="since-last">
           <span className="eyebrow">{since ? `Since ${sinceLabel}` : "This week"}</span>
           {sinceRows.length ? sinceRows.map(([k, v, link]) => (
             <button key={k} className="row-between small" style={{ width: "100%", textAlign: "left" }} onClick={() => go(link)}><span style={{ color: "rgba(255,255,255,.75)" }}>{k}</span><strong style={{ color: "#fff" }}>{v} →</strong></button>
           )) : <span className="small" style={{ color: "rgba(255,255,255,.75)" }}>Nothing new yet. Remy checks employers' sites every few hours, so new openings will show here.</span>}
         </div>
       </section>
-
-      <CheckinCard w={w} />
-      <SeasonCard w={w} />
 
       <section className="card card-pad">
         <div className="row-between" style={{ marginBottom: 8 }}>
@@ -154,6 +151,8 @@ export default function Home() {
           <JobRow key={j.id} j={j} why={fits[j.id]?.why} open={open === j.id} onToggle={() => setOpen(open === j.id ? "" : j.id)} />
         )) : <p className="muted small" style={{ padding: "14px 0" }}>{jobs ? "Nothing here yet." : "Loading…"}</p>)}
       </section>
+      <CheckinCard w={w} />
+      <SeasonCard w={w} />
     </>
   );
 }
