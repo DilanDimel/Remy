@@ -80,10 +80,11 @@ const retext = (pxml: string, text: string) => {
 };
 
 /** The approved resume written into the student's own Word file. The diff is against the FILE (not Remy's copy), so
- *  lines changed in Remy before tailoring count too: a reworded line replaces its closest match, an added line goes
- *  right after the line before it (copying that line's bullet and font), a line deleted in Remy is removed.
- *  Returns missed lines when something can't be placed, so the caller uses Remy's own layout instead. */
-export async function editResumeDocx(buf: Buffer, base: ResumeDoc, version: ResumeDoc, removed: string[] = []): Promise<{ buf: Buffer; missed: string[] }> {
+ *  lines changed in Remy before tailoring count too: a reworded line replaces the file line it came from (`fileLines`:
+ *  each bullet's text as first read from the file, by id) or else its closest match; an added line goes right after the
+ *  line before it, or before the entry's next line when it's first (copying that line's bullet and font); a line
+ *  deleted in Remy is removed. Returns missed lines when something can't be placed, so the caller uses Remy's own layout. */
+export async function editResumeDocx(buf: Buffer, base: ResumeDoc, version: ResumeDoc, removed: string[] = [], fileLines: Record<string, string> = {}): Promise<{ buf: Buffer; missed: string[] }> {
   const zip = await JSZip.loadAsync(buf);
   const xml0 = await zip.file("word/document.xml")?.async("string");
   if (!xml0) throw new Error("Not a Word document");
@@ -92,24 +93,45 @@ export async function editResumeDocx(buf: Buffer, base: ResumeDoc, version: Resu
   const has = (t: string) => file.some((p) => norm(p) === norm(t)) || flat.includes(t.trim());
   const baseById = new Map(base.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => [b.id, b.text] as const))));
   const kept = new Set(version.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.filter((b) => has(b.text)).map((b) => norm(b.text)))));
-  const replace: { from: string; to: string }[] = [], add: { after: string; add: string }[] = [], missed: string[] = [];
+  const gone = new Set(removed.map(norm));
+  const hasOrig = Object.keys(fileLines).length > 0;
+  const replace: { from: string; to: string }[] = [], add: { after?: string; before?: string; add: string }[] = [], missed: string[] = [];
   const taken = new Set<string>();
+  const free = (p: string) => !kept.has(norm(p)) && !taken.has(p) && !gone.has(norm(p));
+  const closest = (t: string, min: number) => {
+    const best = file.filter(free).map((p) => [p, overlap(t, p)] as const).sort((x, y) => y[1] - x[1])[0];
+    return best && best[1] >= min ? best[0] : "";
+  };
   for (const e of version.sections.flatMap((s) => s.entries)) {
-    let prev = "";
-    for (const b of e.bullets) {
-      if (has(b.text)) { prev = b.text; continue; }
-      const old = baseById.get(b.id);
-      const near = file.filter((p) => !kept.has(norm(p)) && !taken.has(p)).map((p) => [p, overlap(b.text, p)] as const).sort((x, y) => y[1] - x[1])[0];
-      const from = old && has(old) && !kept.has(norm(old)) ? old : near && near[1] >= 0.6 ? near[0] : "";
-      if (from) { taken.add(from); replace.push({ from, to: b.text }); }
-      else if (prev) add.push({ after: prev, add: b.text });
+    // First where each changed line came from, then where new lines go (a new first line sits before the entry's next line).
+    const placed = e.bullets.map((b) => {
+      if (has(b.text)) return true;
+      // A line added in Remy (not one read from the file) is only ever added, never matched onto a file line.
+      if (hasOrig && !(b.id in fileLines)) return false;
+      const old = baseById.get(b.id), orig = fileLines[b.id];
+      const from = old && has(old) && free(old) ? old
+        : orig && has(orig) && free(orig) ? file.find((p) => norm(p) === norm(orig)) || orig
+        : (orig && closest(orig, 0.8)) || closest(b.text, 0.6);
+      if (!from) return false;
+      taken.add(from);
+      replace.push({ from, to: b.text });
+      return true;
+    });
+    e.bullets.forEach((b, i) => {
+      if (placed[i]) return;
+      // A reworded file line Remy couldn't find is reported rather than added next to the old one. Uploads from before
+      // Remy kept `fileLines` can't tell new from reworded, so they keep the older rule (after the previous line, or report).
+      if (b.id in fileLines) return void missed.push(b.text);
+      const prev = i > 0 ? e.bullets[i - 1].text : "";
+      const next = hasOrig ? e.bullets.find((x, j) => j > i && placed[j])?.text || "" : "";
+      if (prev) add.push({ after: prev, add: b.text });
+      else if (next) add.push({ before: next, add: b.text });
       else missed.push(b.text);
-      prev = b.text;
-    }
+    });
   }
   const versionIds = new Set(version.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => b.id))));
   // Only lines Remy knows were deleted (a file line Remy never read isn't touched).
-  const remove = [...new Set([...[...baseById].filter(([id]) => !versionIds.has(id)).map(([, t]) => t), ...removed])].filter((t) => file.some((p) => norm(p) === norm(t)) && !kept.has(norm(t)));
+  const remove = [...new Set([...[...baseById].filter(([id]) => !versionIds.has(id)).map(([, t]) => t), ...removed])].filter((t) => file.some((p) => norm(p) === norm(t)) && !kept.has(norm(t)) && ![...taken].some((x) => norm(x) === norm(t)));
   const first = await editDocx(buf, replace);
   missed.push(...first.missed);
   if (missed.length || (!add.length && !remove.length)) return { buf: first.buf, missed };
@@ -120,10 +142,13 @@ export async function editResumeDocx(buf: Buffer, base: ResumeDoc, version: Resu
     if (p) xml = xml.slice(0, p.start) + xml.slice(p.start + p.xml.length); else missed.push(r);
   }
   for (const a of add) {
-    const p = paragraphs(xml).find((x) => norm(x.text) === norm(a.after) && !x.xml.includes("<w:br"));
+    const anchor = a.after ?? a.before!;
+    // The anchor must be one clear line: the same text under two jobs could put the new line under the wrong one.
+    const hits = paragraphs(xml).filter((x) => norm(x.text) === norm(anchor));
+    const p = hits.length === 1 && !hits[0].xml.includes("<w:br") ? hits[0] : null;
     if (!p) { missed.push(a.add); continue; }
-    const at = p.start + p.xml.length;
-    xml = xml.slice(0, at) + retext(p.xml, a.add) + xml.slice(at);
+    const pos = a.after !== undefined ? p.start + p.xml.length : p.start;
+    xml = xml.slice(0, pos) + retext(p.xml, a.add) + xml.slice(pos);
   }
   z2.file("word/document.xml", xml);
   return { buf: await z2.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }), missed };

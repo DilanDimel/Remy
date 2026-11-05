@@ -70,6 +70,9 @@ export interface BaseResume {
   quality?: ResumeQuality;
   /** Lines the student deleted in Remy, so the Word download can take them out of their own file too. */
   removed?: string[];
+  /** Each bullet's text as first read from the uploaded file, by bullet id, so the Word download can find the file line
+   *  a reworded bullet came from. Lines added in Remy aren't here, so they never overwrite a file line. */
+  fileLines?: Record<string, string>;
 }
 
 /** "Build my resume with Remy": everything the student told the builder, kept so they can come back and add to it. */
