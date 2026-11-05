@@ -60,7 +60,7 @@ export function About() {
         </ul>
       </Section>
       <Section title="Who we are">
-        <p>Remy was started by five TCU students. It won first place at TCU Neeley's AI Forward competition in October 2026, and we've kept building it since.</p>
+        <p>Remy was started by five TCU students. It won first at the TCU Neeley AI Forward competition in October 2026, in the job recruitment category, and we've kept building it since.</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(118px, 1fr))", gap: 12 }}>
           {TEAM.map((m) => (
             <figure key={m.name} className="stack-sm" style={{ margin: 0, alignItems: "center", textAlign: "center" }}>

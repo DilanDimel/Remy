@@ -459,7 +459,7 @@ function Letter({ a }: { a: Application }) {
     <div className="grid-2" style={{ alignItems: "start" }}>
       <div className="card card-pad stack">
         <div className="row-between"><h3>Cover letter draft</h3>{a.letterApproved ? <span className="chip chip-live">Approved</span> : <span className="chip chip-plain">Draft</span>}</div>
-        <textarea className="textarea" style={{ minHeight: 420, fontSize: 14 }} value={text} onChange={(e) => setText(e.target.value)} aria-label="Cover letter" data-testid="input-letter" />
+        <textarea className="textarea" style={{ minHeight: 420 }} value={text} onChange={(e) => setText(e.target.value)} aria-label="Cover letter" data-testid="input-letter" />
         <div className="row"><button className="btn btn-primary btn-sm" onClick={saveLetter} disabled={busy || text === a.letter} data-testid="button-save-letter">{busy && <Spinner />} Save changes</button><span className="xs muted">Edit anything you like.</span></div>
       </div>
       <div className="stack">

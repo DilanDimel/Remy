@@ -16,7 +16,7 @@ export function useGoogleButton(onCredential: (cred: string) => void) {
     const init = () => {
       try {
         window.google.accounts.id.initialize({ client_id: cid, callback: (r: any) => onCredential(r.credential), ux_mode: "popup" });
-        if (ref.current) window.google.accounts.id.renderButton(ref.current, { theme: "outline", size: "large", text: "continue_with", shape: "pill", width: 360 });
+        if (ref.current) window.google.accounts.id.renderButton(ref.current, { theme: "outline", size: "large", text: "continue_with", shape: "pill", width: Math.min(360, ref.current.offsetWidth || 360) });
         setState("ready");
       } catch {
         setState("failed");
@@ -92,9 +92,19 @@ function SignIn() {
   );
   const anyReal = gis || codes || ["google", "linkedin_oidc", "apple", "azure", "email"].some((p) => providerOn(config, p as SupabaseProvider));
   return (
-    <div className="landing-screen">
+    <div className="landing-screen auth-stage">
+      <div className="lp-beam" aria-hidden><span className="lp-beam-floor" /></div>
+      <aside className="auth-side" aria-label="What happens next">
+        <span className="lp-award">Free while Remy is in beta</span>
+        <p className="auth-side-h" aria-hidden>Your career coach is one step away.</p>
+        <ol className="auth-steps">
+          <li><b>Sign in</b><span>New here? This creates your account.</span></li>
+          <li><b>Add your resume</b><span>Upload it, or Remy helps you build one.</span></li>
+          <li><b>Get your plan</b><span>Openings you can get and what to do this week.</span></li>
+        </ol>
+      </aside>
       <div className="landing-card fade-up">
-        <div className="row-between"><a className="btn btn-ghost btn-sm" href="/" style={{ padding: 0 }}><ArrowLeft size={14} /> What Remy does</a><ThemeToggle /></div>
+        <div className="row-between"><a className="btn btn-ghost auth-back" href="/"><ArrowLeft size={16} /> What Remy does</a><ThemeToggle /></div>
         <div className="landing">
           <Remy size={72} mood="wave" />
           <h1 className="motto">Sign in to Remy</h1>
@@ -122,7 +132,7 @@ function SignIn() {
                 <span className="small">We emailed a 6-digit code to <strong>{sent}</strong>. It works on any device and expires in 10 minutes. Not there? Check spam or Promotions.</span>
                 <div className="row">
                   <input className="input" style={{ flex: 1, minWidth: 140, letterSpacing: 4 }} inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="123456" aria-label="6-digit code" data-testid="input-email-code" />
-                  <button className="btn btn-primary btn-sm" disabled={code.length !== 6 || !!busy} data-testid="button-verify-code">{busy === "Work/School Email" ? <Spinner /> : null} Sign in</button>
+                  <button className="btn btn-primary auth-go" disabled={code.length !== 6 || !!busy} data-testid="button-verify-code">{busy === "Work/School Email" ? <Spinner /> : null} Sign in</button>
                 </div>
                 <button type="button" className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start", padding: 0 }} onClick={() => setSent("")}>Use a different email or send a new code</button>
               </form>
@@ -130,15 +140,15 @@ function SignIn() {
               <div className="notice notice-good fade-up" data-testid="magic-link-sent"><Check size={16} /><div>We sent a sign-in link to <strong>{sent}</strong>. Open it on this device to continue.</div></div>
             ) : (
               <form className="row fade-up" onSubmit={(e) => { e.preventDefault(); magic(); }}>
-                <input className="input" style={{ flex: 1, minWidth: 180 }} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@tcu.edu or any email" aria-label="Email address" data-testid="input-magic-email" />
-                <button className="btn btn-primary btn-sm" disabled={!/.+@.+\..+/.test(email) || !!busy} data-testid="button-send-magic">{busy === "Work/School Email" ? <Spinner /> : null} {codes ? "Send code" : "Send link"}</button>
+                <input className="input" style={{ flex: 1, minWidth: 180 }} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Any email address" autoComplete="email" autoCapitalize="none" aria-label="Email address" data-testid="input-magic-email" />
+                <button className="btn btn-primary auth-go" disabled={!/.+@.+\..+/.test(email) || !!busy} data-testid="button-send-magic">{busy === "Work/School Email" ? <Spinner /> : null} {codes ? "Send code" : "Send link"}</button>
               </form>
             )
           )}
           {!anyReal && <p className="small muted" style={{ textAlign: "center" }}><StatusChip label="Needs setup">Sign-in</StatusChip> No sign-in method is switched on for this server yet.</p>}
         </div>
         <div className="landing-foot">
-          <p className="xs muted">Remy never asks for your passwords. <a href="/policies">Privacy and terms</a></p>
+          <p className="xs muted">Remy never asks for your passwords. <a className="auth-link" href="/policies">Privacy and terms</a></p>
         </div>
       </div>
     </div>
@@ -184,7 +194,7 @@ function Landing() {
       <section className="lp-hero lp-dark">
         <div className="lp-beam" aria-hidden><span className="lp-beam-line" /><span className="lp-beam-floor" /></div>
         <div className="lp-hero-copy">
-          <span className="lp-award">Built by TCU students · Won the Offer Ready case at Neeley AI Forward</span>
+          <span className="lp-award">Built by TCU students · Won first at TCU Neeley AI Forward, job recruitment category</span>
           <h1>Don&rsquo;t hunt for a job <span className="lp-accent">alone.</span></h1>
           <p className="lp-lede">A free career coach for college students: openings you can actually get, a resume that stays true, and what to do this week.</p>
           <div className="lp-ctas">
