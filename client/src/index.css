@@ -581,6 +581,33 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 [data-theme="dark"] .lp-kicker, [data-theme="dark"] .lp-jump b, [data-theme="dark"] .lp-live .pref-chip[aria-pressed="true"] { color: #ffb48a; }
 .lp-cta .btn-primary { background: #c2410c; border-color: #c2410c; }
 .lp-cta .btn-primary:hover { background: #9a3412; border-color: #9a3412; }
+/* beta terms (walkthrough stage 3): scannable points; the list scrolls inside the card and the agree box stays in view.
+   The list never shrinks below ~40% of the screen; on short screens (landscape phone, big zoom) the whole page scrolls instead. */
+.auth-stage .terms-card { max-width: 560px; display: grid; gap: 12px; padding: 24px 26px; max-height: calc(100dvh - 48px); grid-template-rows: auto minmax(min(40dvh, 240px), 1fr) auto auto; }
+.terms-head { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; }
+.terms-head h1 { font-size: 1.4rem; font-weight: 800; letter-spacing: -.02em; display: flex; align-items: center; gap: 8px; }
+.terms-list { list-style: none; margin: 0; padding: 0 2px 0 0; display: grid; gap: 10px; align-content: start; overflow-y: auto; overscroll-behavior: contain; }
+.terms-list li { display: grid; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); font-size: var(--text-sm); line-height: 1.5; }
+.terms-list b { font-size: var(--text-sm); }
+.terms-list span { color: var(--muted-text); }
+.terms-more { margin: -4px 0 0; text-align: center; font-weight: 600; color: var(--muted-text); }
+.terms-foot { display: grid; gap: 10px; }
+.terms-check { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; padding: 12px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; font-size: var(--text-sm); }
+.terms-check:has(input:checked) { border-color: var(--fox); background: var(--fox-soft); }
+[data-theme="dark"] .terms-check:has(input:checked) { background: rgba(232, 106, 42, .14); }
+.terms-check input { width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--fox-deep); }
+.terms-go { width: 100%; justify-content: center; }
+@media (max-width: 640px) {
+  .auth-stage:has(.terms-card) { padding: 12px; }
+  .auth-stage .terms-card { max-height: calc(100dvh - 24px); padding: 18px 16px 14px; }
+  .terms-head h1 { font-size: 1.25rem; }
+}
+@media (max-height: 560px) {
+  .auth-stage:has(.terms-card) { align-items: flex-start; overflow: visible; }
+  .auth-stage .terms-card { max-height: none; grid-template-rows: none; }
+  .terms-list { overflow: visible; }
+  .terms-more { display: none; }
+}
 .bubble p { margin: 0; }
 .bubble p + p, .bubble p + .bubble-list, .bubble-list + p { margin-top: 8px; }
 .bubble-list { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; list-style: disc; }
