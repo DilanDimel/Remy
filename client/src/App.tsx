@@ -26,7 +26,7 @@ import { About, Policies } from "./pages/Info";
 import Admin from "./pages/Admin";
 import type { ChatAction, Workspace } from "@shared/types";
 import { Celebrate } from "./components/Celebrate";
-import { BETA_TERMS, BETA_TERMS_LEAD, BETA_TERMS_VERSION } from "@shared/beta";
+import { BETA_TERM_HEADS, BETA_TERMS, BETA_TERMS_LEAD, BETA_TERMS_VERSION } from "@shared/beta";
 
 const NAV = [
   { path: "/", label: "Home", icon: HomeIcon },
@@ -81,6 +81,11 @@ function BetaAgreement() {
   const { setWs, run } = useStore();
   const [ok, setOk] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Shows "scroll to read them all" until the last term is in view (or when the list fits without scrolling).
+  const list = useRef<HTMLOListElement>(null);
+  const [atEnd, setAtEnd] = useState(true);
+  const checkEnd = () => { const l = list.current; if (l) setAtEnd(l.scrollTop + l.clientHeight >= l.scrollHeight - 4); };
+  useEffect(() => { checkEnd(); addEventListener("resize", checkEnd); return () => removeEventListener("resize", checkEnd); }, []);
   const agree = async () => {
     setBusy(true);
     const r = await run(() => api<Workspace>("POST", "/api/beta/agree", { version: BETA_TERMS_VERSION }));
@@ -88,17 +93,22 @@ function BetaAgreement() {
     setBusy(false);
   };
   return (
-    <div className="landing-screen">
-      <div className="landing-card fade-up stack" data-testid="beta-agreement">
-        <div className="row" style={{ gap: 10 }}><Remy size={44} mood="wave" /><h1 style={{ fontSize: "1.4rem" }}>Before you start <BetaBadge /></h1></div>
-        <p>{BETA_TERMS_LEAD}</p>
-        <ul className="stack-sm small" style={{ paddingLeft: 18 }}>{BETA_TERMS.map((t) => <li key={t}>{t}</li>)}</ul>
-        <p className="xs muted">Read the full <a href="/policies" target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>privacy policy and terms</a>.</p>
-        <label className="row small" style={{ gap: 8, alignItems: "flex-start", flexWrap: "nowrap" }}>
-          <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} data-testid="checkbox-beta-agree" style={{ marginTop: 3 }} />
-          <span>I'm 16 or older (with a parent or guardian's OK if I'm under 18), I understand Remy is in beta, and I agree to these terms.</span>
-        </label>
-        <button className="btn btn-primary" disabled={!ok || busy} onClick={agree} data-testid="button-beta-agree">{busy ? <Spinner /> : null} Agree and continue</button>
+    <div className="landing-screen auth-stage">
+      <div className="lp-beam" aria-hidden><span className="lp-beam-floor" /></div>
+      <div className="landing-card fade-up terms-card" data-testid="beta-agreement">
+        <div className="terms-head"><Remy size={44} mood="wave" /><div><h1>Before you start <BetaBadge /></h1><p className="small muted">{BETA_TERMS_LEAD}</p></div></div>
+        <ol className="terms-list" tabIndex={0} aria-label="Beta terms" ref={list} onScroll={checkEnd}>
+          {BETA_TERMS.map((t, i) => <li key={t}><b>{BETA_TERM_HEADS[i] || `Point ${i + 1}`}</b><span>{t}</span></li>)}
+        </ol>
+        {!atEnd && <p className="xs terms-more" aria-hidden>{BETA_TERMS.length} points · scroll to read them all ↓</p>}
+        <div className="terms-foot">
+          <label className="terms-check">
+            <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} data-testid="checkbox-beta-agree" />
+            <span>I'm 16 or older (with a parent or guardian's OK if I'm under 18), I understand Remy is in beta, and I agree to these terms.</span>
+          </label>
+          <button className="btn btn-primary btn-lg terms-go" disabled={!ok || busy} onClick={agree} data-testid="button-beta-agree">{busy ? <Spinner /> : null} Agree and continue</button>
+          <p className="xs muted">Read the full <a className="auth-link" href="/policies" target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>privacy policy and terms</a>.</p>
+        </div>
       </div>
     </div>
   );
