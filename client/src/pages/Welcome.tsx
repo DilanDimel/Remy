@@ -148,10 +148,30 @@ function SignIn() {
 /** The front page: what a student gets, shown with previews built from Remy's real screens. */
 function Landing() {
   const tour = useRef<HTMLElement>(null);
+  const page = useRef<HTMLDivElement>(null);
+  const [scrolled, setScrolled] = useState(false);
   const toTour = () => tour.current?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  // Sections fade up as they scroll into view (CSS keeps everything visible when motion is reduced or JS is off).
+  useEffect(() => {
+    const els = page.current?.querySelectorAll(".rv") || [];
+    if (!("IntersectionObserver" in window)) { els.forEach((e) => e.classList.add("in")); return; }
+    const io = new IntersectionObserver((list) => { for (const x of list) if (x.isIntersecting) { x.target.classList.add("in"); io.unobserve(x.target); } }, { rootMargin: "0px 0px -8% 0px" });
+    els.forEach((e) => io.observe(e));
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => { io.disconnect(); window.removeEventListener("scroll", onScroll); };
+  }, []);
+  // Dark tiles light up where the pointer is (a soft spotlight, as on huly.io).
+  const spotlight = (e: React.PointerEvent<HTMLDivElement>) => {
+    const t = (e.target as Element).closest?.(".lp-tile") as HTMLElement | null;
+    if (!t) return;
+    const r = t.getBoundingClientRect();
+    t.style.setProperty("--mx", `${e.clientX - r.left}px`);
+    t.style.setProperty("--my", `${e.clientY - r.top}px`);
+  };
   return (
-    <div className="lp">
-      <header className="lp-top">
+    <div className="lp" ref={page}>
+      <header className={"lp-top" + (scrolled ? " scrolled" : "")}>
         <span className="logo"><Remy size={30} mood="idle" /> Remy <BetaBadge /></span>
         <nav className="row" style={{ gap: 4 }}>
           <button className="btn btn-ghost btn-sm hide-sm" onClick={toTour}>What you get</button>
@@ -161,115 +181,106 @@ function Landing() {
         </nav>
       </header>
 
-      <section className="lp-hero">
+      <section className="lp-hero lp-dark">
+        <div className="lp-beam" aria-hidden><span className="lp-beam-line" /><span className="lp-beam-floor" /></div>
         <div className="lp-hero-copy">
-          <h1>Don&rsquo;t hunt for a job alone.</h1>
-          <p className="lp-lede">Stop scrolling job boards for roles you can't apply to, rewriting your resume for every posting, and guessing what your major leads to. Remy is a free career coach for college students that does the searching, keeps your applications honest, and tells you what to do this week.</p>
-          <div className="row" style={{ gap: 10 }}>
-            <a className="btn btn-primary" href="/signin" data-testid="button-lp-start">Create your free account</a>
-            <button className="btn btn-secondary" onClick={toTour}>See what you get</button>
+          <span className="lp-award">Built by TCU students · Won the Offer Ready case at Neeley AI Forward</span>
+          <h1>Don&rsquo;t hunt for a job <span className="lp-accent">alone.</span></h1>
+          <p className="lp-lede">A free career coach for college students: openings you can actually get, a resume that stays true, and what to do this week.</p>
+          <div className="lp-ctas">
+            <a className="btn btn-lg lp-glow-btn" href="/signin" data-testid="button-lp-start">Create your free account</a>
+            <button className="btn btn-lg lp-ghost-btn" onClick={toTour}>See what you get</button>
           </div>
-          <p className="xs muted">For every major and every year, freshmen included. Built by students at TCU. Remy is in beta: it&rsquo;s still in development, and unfinished features are marked &ldquo;Coming soon&rdquo;.</p>
+          <p className="xs lp-fine">Free beta · every major and every year, freshmen included</p>
         </div>
         <HeroExample />
       </section>
+      <div className="lp-ticker" aria-hidden>
+        <div className="lp-ticker-track">
+          {[0, 1].map((n) => <span key={n}>{TICKER.map((t) => <b key={t}>{t}</b>)}</span>)}
+        </div>
+      </div>
 
-      <section className="lp-gets" ref={tour} aria-label="What you get">
-        <div className="lp-gets-head">
+      <section className="lp-bento-sec" ref={tour} aria-label="What you get">
+        <div className="lp-gets-head rv">
           <span className="lp-kicker">What you get</span>
-          <h2>Four things Remy does for you</h2>
+          <h2>One coach for the whole search</h2>
           <nav className="lp-jump" aria-label="Jump to">
-            <a href="#get-openings"><b>1</b> Openings</a><a href="#get-resume"><b>2</b> Honest resume</a><a href="#get-explore"><b>3</b> Explore careers</a><a href="#get-plan"><b>4</b> Weekly plan</a>
+            <a href="#get-openings"><b>1</b> Openings</a><a href="#get-resume"><b>2</b> Honest resume</a><a href="#get-plan"><b>3</b> Weekly plan</a><a href="#get-explore"><b>4</b> Explore careers</a>
           </nav>
         </div>
-      </section>
-      <section className="lp-get-band" id="get-openings">
-        <div className="lp-get">
-          <div className="lp-get-copy">
-            <span className="lp-num">01</span>
-            <h3>Openings you can actually get</h3>
-            <p>Remy reads more than 180 employers&rsquo; own career sites, from Texas companies to school districts and cities, and checks every posting against you: your year, field, location, start date and visa needs. If you can&rsquo;t apply, you don&rsquo;t see it. If you can, it tells you why.</p>
-          </div>
-          <div className="lp-shot" aria-hidden>
-            <div className="lp-job"><div><b>Marketing Intern, Summer 2027</b><span>American retailer · Dallas, TX · closes Jan 31</span></div><span className="chip chip-live">You qualify</span></div>
-            <p className="lp-why">It asks for sophomores or juniors in marketing or business. You&rsquo;re a sophomore in marketing.</p>
-            <div className="lp-job"><div><b>Brand Analyst Co-op</b><span>Consumer goods · Plano, TX · closes Feb 14</span></div><span className="chip chip-live">You qualify</span></div>
-            <div className="lp-job lp-hidden"><div><b>Senior Marketing Associate</b><span>Hidden: needs 3 years of experience</span></div></div>
-          </div>
-        </div>
-      </section>
-
-      <section className="lp-get-band alt" id="get-resume">
-        <div className="lp-get flip">
-          <div className="lp-get-copy">
-            <span className="lp-num">02</span>
-            <h3>A resume that fits each job and stays true</h3>
-            <p>For each opening, Remy suggests changes line by line and writes a cover letter draft. Anything your own resume can&rsquo;t back up gets flagged before you accept it. You approve every word, and you send everything yourself.</p>
-          </div>
-          <div className="lp-shot" aria-hidden>
-            <span className="xs muted">Suggested change</span>
-            <p className="lp-old">Posted on the club&rsquo;s Instagram</p>
-            <p className="lp-new">Grew the club&rsquo;s Instagram by planning a weekly posting calendar</p>
-            <div className="row" style={{ gap: 6 }}><span className="btn btn-primary btn-sm">Accept</span><span className="btn btn-secondary btn-sm">Edit</span></div>
-            <div className="lp-flag"><ShieldCheck size={15} /><span><b>Flagged:</b> &ldquo;increased followers 40%&rdquo; isn&rsquo;t on your resume. Add it only if it&rsquo;s true.</span></div>
-          </div>
-        </div>
-      </section>
-
-      <section className="lp-get-band" id="get-explore">
-        <div className="lp-get">
-          <div className="lp-get-copy">
-            <span className="lp-num">03</span>
-            <h3>Help when you don&rsquo;t know what you want yet</h3>
-            <p>Pick a major and see the jobs it leads to, with real pay and growth numbers from the U.S. Bureau of Labor Statistics. Heard of a job but not sure what it is? Ask, and Remy explains a normal day, the hard parts and how to try it out this year.</p>
-          </div>
-          <FieldBrowser />
-        </div>
-      </section>
-
-      <section className="lp-get-band alt" id="get-plan">
-        <div className="lp-get flip">
-          <div className="lp-get-copy">
-            <span className="lp-num">04</span>
-            <h3>A plan for this week, not just a list</h3>
-            <p>Deadlines, next steps and the gaps Remy spots become to-dos with dates. Connect Google Calendar and they show up in a separate &ldquo;Remy&rdquo; calendar. Ask Remy anything, and it already knows your resume, your to-dos and your deadlines.</p>
-          </div>
-          <div className="lp-shot" aria-hidden>
-            <div className="lp-todo"><span className="lp-box" /><span><b>Apply: Marketing Intern</b><span className="xs muted"> · due Jan 31</span></span></div>
-            <div className="lp-todo"><span className="lp-box" /><span><b>Ask your club advisor for a reference</b><span className="xs muted"> · this week</span></span></div>
-            <div className="lp-todo done"><span className="lp-box"><Check size={12} /></span><span>Add your LinkedIn</span></div>
-            <div className="lp-todo"><span className="lp-box" /><span><b>Update LinkedIn: it says a different major</b></span></div>
-          </div>
+        <div className="lp-bento" onPointerMove={spotlight}>
+          <article className="lp-tile wide rv" id="get-openings">
+            <div className="lp-tile-copy">
+              <span className="lp-num">01</span>
+              <h3>Openings you can actually get</h3>
+              <p>Remy reads 180+ employers&rsquo; own career sites and checks each posting against your year, field, location, start date and visa needs. If you can&rsquo;t apply, you don&rsquo;t see it. If you can, it says why.</p>
+            </div>
+            <div className="lp-shot" aria-hidden>
+              <span className="lp-ex-tag">Example</span>
+              <div className="lp-job"><div><b>Marketing Intern, Summer 2027</b><span>American retailer · Dallas, TX · closes Jan 31</span></div><span className="chip chip-live">You qualify</span></div>
+              <p className="lp-why">It asks for sophomores or juniors in marketing or business. You&rsquo;re a sophomore in marketing.</p>
+              <div className="lp-job lp-hidden"><div><b>Senior Marketing Associate</b><span>Hidden: needs 3 years of experience</span></div></div>
+            </div>
+          </article>
+          <article className="lp-tile rv" id="get-resume">
+            <div className="lp-tile-copy">
+              <span className="lp-num">02</span>
+              <h3>A resume that fits each job and stays true</h3>
+              <p>Line-by-line suggestions for each opening. Anything your resume can&rsquo;t back up gets flagged. You approve every word.</p>
+            </div>
+            <div className="lp-shot" aria-hidden>
+              <span className="lp-ex-tag">Example</span>
+              <p className="lp-old">Posted on the club&rsquo;s Instagram</p>
+              <p className="lp-new">Grew the club&rsquo;s Instagram with a weekly posting calendar</p>
+              <div className="lp-flag"><ShieldCheck size={15} /><span><b>Flagged:</b> &ldquo;followers up 40%&rdquo; isn&rsquo;t on your resume.</span></div>
+            </div>
+          </article>
+          <article className="lp-tile rv" id="get-plan">
+            <div className="lp-tile-copy">
+              <span className="lp-num">03</span>
+              <h3>A plan for this week</h3>
+              <p>Deadlines and next steps become dated to-dos, in your Google Calendar if you like. Ask Remy anything; it knows your resume and deadlines.</p>
+            </div>
+            <div className="lp-shot" aria-hidden>
+              <span className="lp-ex-tag">Example</span>
+              <div className="lp-todo"><span className="lp-box" /><span><b>Apply: Marketing Intern</b><span className="xs muted"> · due Jan 31</span></span></div>
+              <div className="lp-todo"><span className="lp-box" /><span><b>Ask your advisor for a reference</b></span></div>
+              <div className="lp-todo done"><span className="lp-box"><Check size={12} /></span><span>Add your LinkedIn</span></div>
+            </div>
+          </article>
+          <article className="lp-tile wide rv" id="get-explore">
+            <div className="lp-tile-copy">
+              <span className="lp-num">04</span>
+              <h3>Help when you don&rsquo;t know what you want yet</h3>
+              <p>Pick a major and see the jobs it leads to, with real pay and growth from the U.S. Bureau of Labor Statistics. Try it here.</p>
+            </div>
+            <FieldBrowser />
+          </article>
         </div>
       </section>
 
       <section className="lp-band">
         <span className="lp-kicker">How it works</span>
         <h2>Three steps, about five minutes</h2>
-        <ol className="lp-steps">
+        <ol className="lp-steps rv">
           <li><b>Add your resume.</b> Upload it, add your LinkedIn, or answer a few questions and Remy builds your first one.</li>
           <li><b>Say what you want, or that you don&rsquo;t know yet.</b> Pick fields, places and dates, or let Remy show you where your major leads.</li>
-          <li><b>Get openings and a plan.</b> Remy keeps looking every few hours and turns what it finds into to-dos and deadlines.</li>
+          <li><b>Get openings and a plan.</b> Remy checks for new openings about once a day and turns what it finds into to-dos and deadlines.</li>
         </ol>
-      </section>
-
-      <section className="lp-promise">
-        <ShieldCheck size={22} />
-        <div className="stack-sm">
-          <h2>What Remy will never do</h2>
-          <ul>
-            <li>Make up experience, numbers or skills you don&rsquo;t have.</li>
-            <li>Apply, email or message anyone for you. You send everything yourself.</li>
-            <li>Ask for your passwords or sell your data. You can download or delete everything at any time.</li>
-          </ul>
+        <div className="lp-nevers rv" aria-label="What Remy will never do">
+          <ShieldCheck size={18} /><b>Remy never</b>
+          <span>makes up experience</span><span>applies or messages anyone for you</span><span>asks for passwords or sells your data</span>
         </div>
       </section>
 
       <section className="lp-cta">
+        <div className="lp-cta-in rv">
         <Remy size={56} mood="wave" />
         <h2>Ready when you are.</h2>
         <p>Free while Remy is in beta. No credit card. About 5 minutes to set up.</p>
-        <a className="btn btn-primary" href="/signin">Create your free account</a>
+        <a className="btn btn-primary btn-lg" href="/signin">Create your free account</a>
+        </div>
       </section>
       <footer className="lp-foot">
         <div className="lp-foot-brand">
@@ -284,6 +295,8 @@ function Landing() {
     </div>
   );
 }
+
+const TICKER = ["Openings you qualify for", "Honest resume tailoring", "Cover letter drafts", "Weekly plan", "Deadlines on your calendar", "Interview practice", "Careers by major", "Hours log", "Follow-up nudges"];
 
 // The hero's example conversation, one per kind of student (fictional students; job numbers are real BLS figures).
 const EXAMPLES: { tab: string; ask: string; items: [ReactNode, string, ReactNode][] }[] = [
@@ -305,22 +318,61 @@ const EXAMPLES: { tab: string; ask: string; items: [ReactNode, string, ReactNode
 ];
 function HeroExample() {
   const [i, setI] = useState(0);
+  const [typing, setTyping] = useState(true);
+  const [picked, setPicked] = useState(false);
+  const [hold, setHold] = useState(false); // paused while the visitor's pointer or focus is on it
+  const [seen, setSeen] = useState(true); // and while it's scrolled out of view
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!box.current || !("IntersectionObserver" in window)) return;
+    const io = new IntersectionObserver(([x]) => setSeen(x.isIntersecting));
+    io.observe(box.current);
+    return () => io.disconnect();
+  }, []);
+  const calm = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   const ex = EXAMPLES[i];
+  // Remy "types" for a moment, then answers; the examples take turns until the visitor picks one.
+  useEffect(() => {
+    if (calm) { setTyping(false); return; }
+    setTyping(true);
+    const t = setTimeout(() => setTyping(false), 1100);
+    return () => clearTimeout(t);
+  }, [i, calm]);
+  useEffect(() => {
+    if (calm || picked || hold || !seen) return;
+    const t = setTimeout(() => setI((k) => (k + 1) % EXAMPLES.length), 7500);
+    return () => clearTimeout(t);
+  }, [i, picked, calm, hold, seen]);
   return (
     <div className="lp-hero-ex">
-      <div className="row" role="tablist" aria-label="Example student" style={{ gap: 6 }}>
-        {EXAMPLES.map((e, k) => <button key={e.tab} role="tab" aria-selected={k === i} className="pref-chip" aria-pressed={k === i} onClick={() => setI(k)}>{e.tab}</button>)}
+      <div className="row lp-tabs" role="tablist" aria-label="Example student" style={{ gap: 6 }}>
+        {EXAMPLES.map((e, k) => <button key={e.tab} role="tab" aria-selected={k === i} className="pref-chip" aria-pressed={k === i} onClick={() => { setPicked(true); setI(k); }}>{e.tab}</button>)}
       </div>
-      <div className="lp-chat" aria-label="Example conversation with Remy" aria-live="polite">
-        <div key={"q" + i} className="lp-msg me fade-up">{ex.ask}</div>
-        <div key={"a" + i} className="lp-msg remy fade-up">
-          <Remy size={30} mood="happy" />
-          <div className="stack-sm">
-            <span>Three things, based on your resume:</span>
-            {ex.items.map(([icon, b, rest], k) => <div key={k} className="lp-item">{icon}<span><b>{b}</b> {rest}</span></div>)}
+      {/* Every example sits in the same grid cell (only the current one shows), so the box is as tall as the longest one
+          and nothing below it moves when Remy answers or the examples take turns. */}
+      <div className="lp-chat" ref={box} onPointerEnter={() => setHold(true)} onPointerLeave={() => setHold(false)} onFocus={() => setHold(true)} onBlur={() => setHold(false)} aria-label="Example conversation with Remy">
+        {EXAMPLES.map((e, k) => (
+          <div key={e.tab} className="lp-chat-slot" aria-hidden={k !== i} style={{ visibility: k === i ? "visible" : "hidden" }}>
+            <div key={"q" + (k === i ? i : "x")} className={"lp-msg me" + (k === i ? " fade-up" : "")}>{e.ask}</div>
+            <div className="lp-answer">
+              <div key={"a" + (k === i ? i : "x")} className={"lp-msg remy" + (k === i && !typing ? " fade-up" : "")} style={{ visibility: k === i && typing ? "hidden" : undefined }}>
+                <Remy size={30} mood="happy" />
+                <div className="stack-sm">
+                  <span>Three things, based on your resume:</span>
+                  {e.items.map(([icon, b, rest], n) => <div key={n} className={"lp-item" + (k === i ? " lp-drop" : "")} style={{ animationDelay: `${120 + n * 160}ms` }}>{icon}<span><b>{b}</b> {rest}</span></div>)}
+                </div>
+              </div>
+              {k === i && typing && (
+                <div className="lp-msg remy lp-typing-row fade-up" aria-label="Remy is typing">
+                  <Remy size={30} mood="think" />
+                  <div className="lp-typing"><i /><i /><i /></div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        ))}
       </div>
+      <span className="xs muted lp-ex-note">Example with a fictional student. Career numbers are from the U.S. Bureau of Labor Statistics.</span>
     </div>
   );
 }
