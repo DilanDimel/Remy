@@ -125,7 +125,7 @@ export default function Home() {
           <span className="eyebrow">{since ? `Since ${sinceLabel}` : "This week"}</span>
           {sinceRows.length ? sinceRows.map(([k, v, link]) => (
             <button key={k} className="row-between small" style={{ width: "100%", textAlign: "left" }} onClick={() => go(link)}><span style={{ color: "rgba(255,255,255,.75)" }}>{k}</span><strong style={{ color: "#fff" }}>{v} →</strong></button>
-          )) : <span className="small" style={{ color: "rgba(255,255,255,.75)" }}>Nothing new yet. Remy checks employers' sites every few hours, so new openings will show here.</span>}
+          )) : <span className="small" style={{ color: "rgba(255,255,255,.75)" }}>Nothing new yet. Remy checks employers' sites about once a day, so new openings will show here.</span>}
         </div>
       </section>
 

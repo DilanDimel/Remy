@@ -24,12 +24,12 @@ export function ApplyNudge({ w }: { w: Workspace }) {
     await save("tracker", w.tracker.map((t) => (t.id === item.id ? { ...t, ...patch } : t)));
     if (extra) await extra();
   });
-  const name = `${item.company}${item.role ? ` (${item.role})` : ""}`;
+  const name = item.role ? `${item.role} at ${item.company}` : item.company;
   return (
     <section className="card card-pad row-between" style={{ gap: 12 }} data-testid="apply-nudge">
       {ask ? (
         <>
-          <span className="small"><b>Did you apply to {name}?</b> You approved your tailored resume {Math.floor(ago(approvedAt(item)))} days ago.</span>
+          <span className="small"><b>Did you apply for {name}?</b> You approved your tailored resume {Math.floor(ago(approvedAt(item)))} days ago.</span>
           <div className="row">
             <button className="btn btn-primary btn-sm" data-testid="button-nudge-applied" onClick={() => update({ status: "Applied", events: [...item.events, { id: rid("ev"), at: new Date().toISOString(), status: "Applied", source: "Manual (asked on Home)" }] })}>Yes, I applied</button>
             <button className="btn btn-ghost btn-sm" data-testid="button-nudge-later" onClick={() => update({ askedAt: new Date().toISOString() })}>Not yet</button>

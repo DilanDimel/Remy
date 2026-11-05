@@ -675,7 +675,7 @@ function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: () => vo
           : matches.length ? <div><strong>Remy found {matches.length} opening{matches.length === 1 ? "" : "s"} that fit you</strong><ul className="plan-matches">{matches.slice(0, 3).map((j) => <li key={j.id} className="small"><b>{j.title}</b> <span className="muted">at {j.company}</span></li>)}</ul></div>
           : w.lastSearch && w.lastSearch.reached < w.lastSearch.scanned / 2
             ? <div><strong>Most employer career sites didn't answer just now</strong><div className="small muted">Remy reached {w.lastSearch.reached} of {w.lastSearch.scanned} (they may be down for maintenance). It will try again in about 30 minutes, and your openings will be waiting in Opportunities.</div></div>
-            : <div><strong>No openings fit all your choices right now</strong><div className="small muted">Remy keeps checking every few hours. Adding more places or fields shows more.</div></div>}
+            : <div><strong>No openings fit all your choices right now</strong><div className="small muted">Remy checks again about once a day. Adding more places or fields shows more.</div></div>}
       </div>
       {w.plan && !busy && (
         <div className="stack">

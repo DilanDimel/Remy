@@ -907,3 +907,39 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 [data-theme="dark"] .pref-chip[aria-pressed="true"] { color: #ffb48a; }
 /* the dark landing hero keeps its own light-peach selected tab in both themes */
 .lp-dark .pref-chip[aria-pressed="true"], [data-theme="dark"] .lp-dark .pref-chip[aria-pressed="true"] { color: #ffd7bf; }
+
+/* ---- Home, walkthrough stage 5 (Nov 5): the app's shared feel + phone basics; later stages build on these ---- */
+/* readable orange: white text needs the deeper orange (4.5:1+) in both themes */
+.hero .btn-light { background: #c2410c; }
+.hero .btn-light:hover { background: #9a3412; }
+.nav-item .count { background: #c2410c; }
+.logo b { color: #c2410c; }
+[data-theme="dark"] .logo b { color: #ff8a4c; }
+/* the next-step card: same dark-with-glow as the front page, so the app feels like the site */
+.hero { position: relative; overflow: hidden; isolation: isolate; background: radial-gradient(70% 120% at 85% 0%, rgba(232, 106, 42, .28), transparent 60%), linear-gradient(180deg, #17151d, #0e0d12); border-color: rgba(255, 255, 255, .06); box-shadow: 0 24px 50px -30px rgba(232, 106, 42, .55); }
+[data-theme="dark"] .hero { background: radial-gradient(70% 120% at 85% 0%, rgba(232, 106, 42, .24), transparent 60%), linear-gradient(180deg, #17151d, #0e0d12); }
+.hero .btn-light { box-shadow: 0 10px 24px -12px rgba(232, 106, 42, .9); }
+/* buttons answer a tap (no page-wide entrance animation: an animated wrapper traps pop-up overlays inside it) */
+.btn:active:not(:disabled) { transform: scale(.97); }
+.btn, .seg button, .pref-chip { -webkit-tap-highlight-color: transparent; }
+@media (max-width: 640px) {
+  /* the breadcrumb bar already names the page */
+  .page-head .eyebrow { display: none; }
+  .page-head h1 { font-size: clamp(1.45rem, 6.5vw, 1.8rem); }
+  /* thumb-sized controls */
+  .btn-sm { min-height: 44px; }
+  .seg button { min-height: 40px; }
+  .src-link, a.xs { display: inline-block; padding: 12px 2px; margin: -12px 0; }
+  .hero-side button { min-height: 44px; }
+  /* room under the last card so the chat button never sits on it */
+  #main { padding-bottom: 96px; }
+}
+
+/* "FOV" (Dilan, Nov 5): the app and setup read about 7% larger on phones, 12% on laptops, 22% on big monitors,
+   so most text lands at 16-17px instead of 14-15px. Heights that fill the screen divide by the zoom so they still fit. */
+:root { --app-zoom: 1.12; }
+@media (max-width: 640px) { :root { --app-zoom: 1.07; } }
+@media (min-width: 1700px) { :root { --app-zoom: 1.22; } }
+.shell, .ob { zoom: var(--app-zoom); }
+.shell { height: calc(100vh / var(--app-zoom)); height: calc(100dvh / var(--app-zoom)); }
+.ob { min-height: calc(100vh / var(--app-zoom)); }
