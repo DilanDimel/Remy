@@ -26,15 +26,33 @@ const scrollTo = (y: number) => { pane()?.scrollTo(0, y); window.scrollTo(0, y);
 
 const clean = (to: string) => "/" + to.replace(/^#?\/*/, "");
 
+/** Scrolls to the element named by the address's #part (e.g. /policies#beta-terms), waiting briefly for the page to render.
+ *  Returns false when there's no such part, so the caller scrolls to the top instead. */
+function scrollToHash(instant = false) {
+  let id = "";
+  try { id = decodeURIComponent(location.hash.slice(1)); } catch { return false; }
+  if (!id || id.startsWith("/")) return false;
+  let tries = 0;
+  const to = () => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ block: "start", behavior: instant || matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    else if (++tries < 20) setTimeout(to, 50);
+  };
+  requestAnimationFrame(to);
+  return true;
+}
+
 export function go(to: string) {
   const url = clean(to);
-  if (url !== location.pathname + location.search) {
+  // Same page without a #part: drop a leftover #part so the page goes to the top (e.g. back to /resume?tab=prep).
+  if (url === location.pathname + location.search && location.hash) history.replaceState(history.state, "", url);
+  if (url !== location.pathname + location.search + location.hash) {
     // Remember where this page was scrolled, so Back returns to the same spot in a list.
     history.replaceState({ ...history.state, y: scrollY() }, "");
     history.pushState(null, "", url);
   }
-  scrollTo(0);
   window.dispatchEvent(new Event(CHANGE));
+  if (!scrollToHash()) scrollTo(0);
 }
 
 /** Changes the address without adding a Back step (for redirects). */
@@ -48,8 +66,12 @@ export function startRouter() {
   const fromHash = () => location.hash.startsWith("#/") && replaceRoute(location.hash);
   fromHash();
   window.addEventListener("hashchange", fromHash);
+  // Opened straight on a #section (new tab, shared link, reload): jump there, and again once fonts and data have settled.
+  if (scrollToHash(true)) setTimeout(() => scrollToHash(true), 700);
   history.scrollRestoration = "manual";
   window.addEventListener("popstate", () => {
+    // A same-page #link (the landing page's "Jump to" pills) also fires popstate: go to that section, not the top.
+    if (history.state?.y == null && scrollToHash()) return;
     const y = history.state?.y || 0;
     // Lists can take a moment to render; retry briefly until the page is tall enough.
     let tries = 0;
