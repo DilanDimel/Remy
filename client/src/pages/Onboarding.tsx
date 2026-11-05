@@ -1,8 +1,8 @@
 import { go, uiFlags } from "../lib/router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Check, FileText, Mail, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, FileText, Mail, Sparkles, Trash2 } from "lucide-react";
 import { PATHS, type Profile, type SetupFocus, type Workspace } from "@shared/types";
-import { FIELD_GROUPS } from "@shared/fields";
+import { FIELD_GROUPS, FIELD_MAJORS, splitFieldList } from "@shared/fields";
 import { alreadyIn, fitsField, inField, setupReply } from "@shared/setupReply";
 import { api, FAR_ENOUGH_STEP, fmtDate, rid, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
@@ -16,14 +16,15 @@ import { useGoogleCalendar } from "../components/GoogleCalendar";
 import { LinkedInMark } from "./Welcome";
 import { CareerTime } from "../components/CareerTime";
 
-// Step numbers are stored in the workspace; 0 and 1 both open the resume step.
-const STEPS = ["Your resume", "Review", "Preferences", "Questions", "Your plan"];
+// Step numbers are stored in the workspace: 0 and 1 are the goal question (no focus yet) or the resume step; 2-5 follow.
+const STEPS = ["Your goal", "Your resume", "Review", "Preferences", "Questions", "Your plan"];
 
 export default function Onboarding() {
   const { ws, save, config } = useStore();
   const w = ws!;
   const step = w.onboarding.step;
-  const shown = Math.max(0, step - 1);
+  // The goal question is step 1; the saved step number (1-5) starts at the resume, so it shows one further along.
+  const shown = step <= 1 ? (w.onboarding.focus ? 1 : 0) : Math.min(step, STEPS.length - 1);
   // Coming back partway through: say so and let the student choose, instead of dropping them mid-step.
   const [welcomeBack, setWelcomeBack] = useState(() => step >= FAR_ENOUGH_STEP);
   const setStep = (s: number) => save("onboarding", { ...w.onboarding, step: s });
@@ -42,9 +43,12 @@ export default function Onboarding() {
         <span className="logo"><Remy size={26} /><span>Remy<b>.</b></span><BetaBadge /></span>
       </div>
       {!welcomeBack && (
-        <ol className="ob-progress" aria-label={`Step ${shown + 1} of ${STEPS.length}: ${STEPS[shown]}`}>
-          {STEPS.map((s, i) => <li key={s} className={i <= shown ? "on" : ""} aria-current={i === shown ? "step" : undefined}><span /><em>{s}</em></li>)}
-        </ol>
+        <div className="ob-progress-wrap">
+          <span className="ob-progress-label" aria-hidden>Step {shown + 1} of {STEPS.length} · <b>{STEPS[shown]}</b></span>
+          <ol className="ob-progress" aria-label={`Step ${shown + 1} of ${STEPS.length}: ${STEPS[shown]}`}>
+            {STEPS.map((s, i) => <li key={s} className={i <= shown ? "on" : ""} aria-current={i === shown ? "step" : undefined}><span /></li>)}
+          </ol>
+        </div>
       )}
       <div className="ob-card card card-pad fade-up" key={welcomeBack ? "back" : shown}>
         {welcomeBack ? (
@@ -111,7 +115,7 @@ function FocusPick({ onPick }: { onPick: (f: SetupFocus, exploring?: boolean) =>
         <div className="pref-chips" role="group" aria-label="What are you working toward">
           {GOALS.map(([g]) => <button key={g} type="button" className={"pref-chip" + (g === "Not sure yet" ? " pref-unsure" : "")} aria-pressed={goal === g} onClick={() => setGoal(g)} data-testid={`goal-${g.toLowerCase().replace(/\W+/g, "-")}`}>{g}</button>)}
         </div>
-        <input className="input" value={chip ? "" : goal} onChange={(e) => setGoal(e.target.value)} maxLength={300} placeholder="Or in your own words, e.g. a summer 2027 finance internship in Dallas" aria-label="What you're working toward" data-testid="input-goal" />
+        <input className="input" value={chip ? "" : goal} onChange={(e) => setGoal(e.target.value)} maxLength={300} placeholder="Or in your own words" aria-label="What you're working toward" data-testid="input-goal" />
       </div>
       <div className="row-between">
         <span className="xs muted">{!path ? "Pick where you are right now." : !goal.trim() ? "Tap a goal or write your own." : "Next: your resume (upload it, or build one with Remy)."}</span>
@@ -187,7 +191,7 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
   return (
     <div className="stack-lg">
       <div className="stack-sm">
-        <span className="eyebrow">Step 1 · Connect your accounts</span>
+        <span className="eyebrow">Step 2 · Your resume</span>
         <h2 className="conn-title">Start with your resume</h2>
       </div>
       <div className="remy-prompt">
@@ -231,23 +235,16 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
             {open === "school" && <div className="fade-up"><SchoolVerify /></div>}
           </>
         )}
-        <div className="conn-row">
+        {gc.available && <div className="conn-row">
           <span className="conn-ico gcal" aria-hidden><CalendarMark /></span>
           <div className="grow"><b>Google Calendar</b><span>Your deadlines and interviews in a separate “Remy” calendar. Remy can't see your other calendars, and deletes it the moment you delete your account.</span></div>
-          {!gc.available ? <span className="conn-badge">Coming soon</span>
-            : gc.connected ? <span className="conn-badge done"><Check size={13} /> Connected</span>
+          {gc.connected ? <span className="conn-badge done"><Check size={13} /> Connected</span>
             : gc.signedIn ? <button className="btn btn-secondary btn-sm" onClick={() => gc.connect("setup")} data-testid="button-source-gcal">Connect</button>
             : <span className="conn-badge">Sign in to connect</span>}
-        </div>
-        {soon.map(([k, title, what, ico]) => (
-          <div key={k} className="conn-row">
-            <span className={`conn-ico ${k}`} aria-hidden>{ico}</span>
-            <div className="grow"><b>{title}</b><span>{what}</span></div>
-            <span className="conn-badge">Coming soon</span>
-          </div>
-        ))}
+        </div>}
+        <p className="xs muted conn-soon" data-testid="conn-soon">Coming soon: {[...(gc.available ? [] : ["Google Calendar"]), ...soon.map(([, title]) => title)].join(", ")}.</p>
       </div>
-      <p className="xs muted">Remy never asks for your passwords. <a href="/policies">How Remy handles your information</a></p>
+      <p className="xs muted">Remy never asks for your passwords. <a className="auth-link" href="/policies">How Remy handles your information</a></p>
       <div className="row-between">
         <span className="xs muted">{!w.resume && "Add your resume, or build one, to continue."}</span>
         <button className="btn btn-primary" onClick={onNext} disabled={!w.resume || busy} data-testid="button-ob-next-sources">Continue <ArrowRight size={16} /></button>
@@ -355,8 +352,15 @@ function Preferences({ onBack }: { onBack: () => void }) {
   const [regions, setRegions] = useState(splitList(p.regions));
   const [otherRegion, setOtherRegion] = useState("");
   const [types, setTypes] = useState(p.opportunityTypes ? splitList(p.opportunityTypes) : ["Internships"]);
-  const [fields, setFields] = useState(splitList(p.targetRoles));
+  const [fields, setFields] = useState(splitFieldList(p.targetRoles));
   const [otherField, setOtherField] = useState("");
+  // Field groups open like a dropdown: the ones with a pick, or that match the student's major or goal, start open.
+  const [openGroups, setOpenGroups] = useState<string[]>(() => {
+    const about = `${p.major || ""} ${p.goal || ""}`;
+    const picked = splitFieldList(p.targetRoles);
+    return FIELD_GROUPS.filter(([, opts]) => opts.some((o) => picked.includes(o) || FIELD_MAJORS[o]?.test(about))).map(([g]) => g);
+  });
+  const toggleGroup = (g: string) => setOpenGroups((o) => (o.includes(g) ? o.filter((x) => x !== g) : [...o, g]));
   const [unsure, setUnsure] = useState(!!ws!.onboarding.exploring);
   const [page, setPage] = useState(0);
   const [auth, setAuth] = useState(p.workAuth ? [AUTH_OPTS.find((o) => /sponsor/i.test(o) === /sponsor|visa/i.test(p.workAuth))!] : []);
@@ -403,7 +407,7 @@ function Preferences({ onBack }: { onBack: () => void }) {
       <div className="remy-prompt">
         <Remy size={44} mood="wave" />
         <div className="stack-sm">
-          <span className="eyebrow">Step 3 · Preferences, {page + 1} of 2</span>
+          <span className="eyebrow">Step 4 · Preferences, {page + 1} of 2</span>
           <p>{page === 0
             ? <><b>Remy:</b> What are you looking for? This decides which openings I show you, and anything that rules you out stays hidden.</>
             : <><b>Remy:</b> Almost there. Where should I look, and is there anything that would rule an opening out?</>}</p>
@@ -418,24 +422,37 @@ function Preferences({ onBack }: { onBack: () => void }) {
               <button type="button" className="pref-chip pref-unsure" aria-pressed={unsure} onClick={() => setUnsure(!unsure)} data-testid="pref-unsure">I'm not sure yet</button>
               {unsure && <span className="xs muted fade-up">No problem. Pick any that sound interesting, or none. Remy will search by your major and show you where it leads on My Path.</span>}
             </div>
-            {FIELD_GROUPS.map(([group, opts]) => (
-              <div key={group} className="stack-sm" style={{ gap: 4 }}><span className="xs muted" style={{ fontWeight: 700 }}>{group}</span><Chips options={opts} value={fields} onChange={setFields} testid="pref-field" /></div>
-            ))}
-            <input className="input" value={otherField} onChange={(e) => setOtherField(e.target.value)} placeholder="Something more specific? e.g. mechanical engineering, pre-med, sports marketing" aria-label="Other fields" data-testid="input-pref-field" /></Q>
+            <div className="pref-groups">
+              {FIELD_GROUPS.map(([group, opts]) => {
+                const open = openGroups.includes(group);
+                const picked = opts.filter((o) => fields.includes(o));
+                const id = "fg-" + group.toLowerCase().replace(/\W+/g, "-");
+                return (
+                  <div key={group} className={"pref-group" + (open ? " open" : "")}>
+                    <button type="button" className="pref-group-head" aria-expanded={open} aria-controls={id} onClick={() => toggleGroup(group)} data-testid={`pref-group-${group.toLowerCase().replace(/\W+/g, "-")}`}>
+                      <span className="grow"><b>{group}</b><span className="xs muted">{picked.length ? `${picked.length} picked: ${picked.join(", ")}` : `${opts.length} fields`}</span></span>
+                      <ChevronDown size={18} aria-hidden />
+                    </button>
+                    {open && <div id={id} className="pref-group-body fade-up"><Chips options={opts} value={fields} onChange={setFields} testid="pref-field" /></div>}
+                  </div>
+                );
+              })}
+            </div>
+            <input className="input" value={otherField} onChange={(e) => setOtherField(e.target.value)} placeholder="Something more specific?" aria-label="Other fields" data-testid="input-pref-field" /></Q>
           <Q n={3}><strong>What kinds of opportunities do you want?</strong><Chips options={TYPE_OPTS} value={types} onChange={setTypes} testid="pref-type" /></Q>
           <Q n={4}><strong>When do you want to start?</strong><Chips options={timelineOptions()} value={timeline} onChange={setTimeline} testid="pref-when" />
             <span className="xs muted">Pick all that work. Leave empty if you're open to anything.</span></Q>
         </> : <>
           <Q n={5}><strong>Where should I look for you?</strong><Chips options={REGION_OPTS} value={regions} onChange={setRegions} testid="pref-region" />
-            <input className="input" value={otherRegion} onChange={(e) => setOtherRegion(e.target.value)} placeholder="Somewhere else? e.g. New York, Chicago" aria-label="Other regions" data-testid="input-pref-region" />
+            <input className="input" value={otherRegion} onChange={(e) => setOtherRegion(e.target.value)} placeholder="Somewhere else? e.g. Chicago" aria-label="Other regions" data-testid="input-pref-region" />
             <span className="xs muted">Open to relocating?</span><Chips options={RELOC_OPTS} value={reloc} onChange={setReloc} multi={false} testid="pref-reloc" /></Q>
           <Q n={6}><strong>Work authorization</strong><Chips options={AUTH_OPTS} value={auth} onChange={setAuth} multi={false} testid="pref-auth" />
             <span className="xs muted">If you'll need sponsorship, Remy hides postings that say they won't sponsor.</span></Q>
           <Q n={7}><strong>Dream employers <span className="muted xs">(optional)</span></strong>
-            <input className="input" value={dream} onChange={(e) => setDream(e.target.value)} placeholder="e.g. Goldman Sachs, American Airlines" aria-label="Dream employers" data-testid="input-pref-dream" />
+            <input className="input" value={dream} onChange={(e) => setDream(e.target.value)} placeholder="e.g. Goldman Sachs" aria-label="Dream employers" data-testid="input-pref-dream" />
             <span className="xs muted">Remy checks their career sites first.</span></Q>
           <Q n={8}><strong>Anything to leave out? <span className="muted xs">(optional)</span></strong>
-            <input className="input" value={avoid} onChange={(e) => setAvoid(e.target.value)} placeholder="e.g. tobacco, cold calling, a company name" aria-label="Things to avoid" data-testid="input-pref-avoid" /></Q>
+            <input className="input" value={avoid} onChange={(e) => setAvoid(e.target.value)} placeholder="e.g. tobacco, cold calling" aria-label="Things to avoid" data-testid="input-pref-avoid" /></Q>
           <Q n={9}><strong>Anything that limits what you can take? <span className="muted xs">(optional)</span></strong><Chips options={LIMIT_OPTS} value={limits} onChange={setLimits} testid="pref-limit" /></Q>
           <Q n={10}><strong>What have you tried so far? <span className="muted xs">(optional)</span></strong><Chips options={TRIED_OPTS} value={tried} onChange={setTried} testid="pref-tried" /></Q>
           <Q n={11}><strong>What worries you most about this? <span className="muted xs">(optional)</span></strong><Chips options={WORRY_OPTS} value={worries} onChange={setWorries} testid="pref-worry" />
@@ -483,7 +500,7 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
         </div>
       )}
       <div className="stack-sm">
-        <span className="eyebrow">Step 2 · Review</span>
+        <span className="eyebrow">Step 3 · Review</span>
         <h2>Is this right?</h2>
         <p className="small muted">Correct anything that's off. Remy only uses what you confirm here.</p>
       </div>
@@ -585,7 +602,7 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
       <div className="row" style={{ flexWrap: "nowrap", alignItems: "center", gap: 12 }}>
         <Remy size={44} mood={busy ? "think" : pending ? "happy" : "idle"} />
         <div className="stack-sm" style={{ gap: 2 }}>
-          <span className="eyebrow">Step 4 · {qs.length ? `Question ${Math.min(idx + 1, qs.length)} of ${qs.length}` : "A few questions"}</span>
+          <span className="eyebrow">Step 5 · {qs.length ? `Question ${Math.min(idx + 1, qs.length)} of ${qs.length}` : "A few questions"}</span>
           <span className="small muted">Three quick questions so I can pick better openings for you.</span>
         </div>
       </div>
@@ -647,7 +664,7 @@ function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: () => vo
       <div className="row" style={{ flexWrap: "nowrap", alignItems: "flex-start", gap: 14 }}>
         <Remy size={52} mood={busy ? "think" : "wave"} />
         <div className="stack-sm">
-          <span className="eyebrow">Step 5 · Your starting plan</span>
+          <span className="eyebrow">Step 6 · Your starting plan</span>
           <h2>{busy ? "Putting your plan together…" : w.plan ? "Here's where I'd start" : "Your workspace is ready"}</h2>
           <p className="small muted">Suggestions, not requirements. You can change anything.</p>
         </div>
