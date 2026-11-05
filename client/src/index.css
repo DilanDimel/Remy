@@ -940,6 +940,13 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 :root { --app-zoom: 1.12; }
 @media (max-width: 640px) { :root { --app-zoom: 1.07; } }
 @media (min-width: 1700px) { :root { --app-zoom: 1.22; } }
-.shell, .ob { zoom: var(--app-zoom); }
-.shell { height: calc(100vh / var(--app-zoom)); height: calc(100dvh / var(--app-zoom)); }
-.ob { min-height: calc(100vh / var(--app-zoom)); }
+@supports (zoom: 1) {
+  .shell, .ob { zoom: var(--app-zoom); }
+  .shell { height: calc(100vh / var(--app-zoom)); height: calc(100dvh / var(--app-zoom)); }
+  .ob { min-height: calc(100vh / var(--app-zoom)); }
+  /* screen-sized things inside the zoomed app divide by the zoom so they still fit the screen */
+  .shell .modal { max-height: calc(90dvh / var(--app-zoom)); }
+  .shell .pdf-preview { height: min(calc(80vh / var(--app-zoom)), 1000px); }
+  .shell .celebrate { max-width: calc(100vw / var(--app-zoom) - 32px); }
+  @media (max-width: 1020px) { .shell .assistant { width: min(380px, calc(100vw / var(--app-zoom))); } }
+}
