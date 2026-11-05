@@ -76,8 +76,8 @@ test("Word download diffs against the file: a line added in Remy goes in with th
   const notKnown = await editResumeDocx(original, doc([["b1", "Took orders at the drive-thru and trained new hires"]]), doc([["b1", "Took orders at the drive-thru and trained new hires"]]));
   assert.ok((await xmlOf(notKnown.buf)).includes("Worked weekends"), "a file line Remy never read isn't removed");
   assert.ok(!(await xmlOf(gone.buf)).includes("Worked weekends"));
-  // A new first line with nothing before it can't be placed: reported so the caller uses Remy's layout.
-  const first = await editResumeDocx(original, doc([["n", "Brand new line"], ["b1", "Took orders at the drive-thru and trained new hires"]]), doc([["n", "Brand new line"], ["b1", "Took orders at the drive-thru and trained new hires"]]));
+  // A new line in an entry with no line from the file to sit next to can't be placed: reported so the caller uses Remy's layout.
+  const first = await editResumeDocx(original, doc([["n", "Brand new line"]]), doc([["n", "Brand new line"]]));
   assert.deepEqual(first.missed, ["Brand new line"]);
 });
 
@@ -113,4 +113,110 @@ test("Remy's own Word layout and the cover letter are on US Letter, so right-ali
   }
   // The right tab stop is the Letter text width (12240 − 2 × 720), not past A4's narrower page.
   assert.match(await xmlOf(await resumeDocx(doc, { serif: true, size: 10.5, margin: 36, pages: 1 })), /w:pos="10800"/);
+});
+
+// Three bullets, so a middle line has neighbours on both sides.
+async function threeBullets() {
+  const run = (text: string, bold = false) => new TextRun({ text, font: "Georgia", size: 22, bold });
+  return Packer.toBuffer(new Document({ sections: [{ children: [
+    new Paragraph({ children: [run("Chick-fil-A", true)] }),
+    new Paragraph({ bullet: { level: 0 }, children: [run("Took orders at the drive-thru and trained new hires")] }),
+    new Paragraph({ bullet: { level: 0 }, children: [run("Worked weekends during the school year")] }),
+    new Paragraph({ bullet: { level: 0 }, children: [run("Kept the dining room clean during rush")] }),
+  ] }] }));
+}
+const entry = (bullets: [string, string][]) => ({ contact: {}, skills: [], sections: [{ id: "s", heading: "Experience", entries: [{ id: "e", org: "Chick-fil-A", role: "", location: "", dates: "", bullets: bullets.map(([id, text]) => ({ id, text })) }] }] }) as any;
+const FILE: [string, string][] = [["b1", "Took orders at the drive-thru and trained new hires"], ["b2", "Worked weekends during the school year"], ["b3", "Kept the dining room clean during rush"]];
+
+const ORIG = Object.fromEntries(FILE);
+const lines = async (buf: Buffer) => [...(await xmlOf(buf)).matchAll(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g)].map((m) => [...m[0].matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g)].map((t) => t[1]).join("")).filter(Boolean);
+
+test("Word download: a first bullet reworded heavily in Remy replaces the file line it came from, so the student's own file is kept", async () => {
+  const original = await threeBullets();
+  const base = entry([["b1", "Coached five new team members on speed and accuracy"], FILE[1], FILE[2]]);
+  const { buf, missed } = await editResumeDocx(original, base, base, [], ORIG);
+  assert.deepEqual(missed, []);
+  assert.deepEqual(await lines(buf), ["Chick-fil-A", "Coached five new team members on speed and accuracy", FILE[1][1], FILE[2][1]]);
+  assert.equal(((await xmlOf(buf)).match(/<w:numPr>/g) || []).length, 3, "still three bullets");
+  // Resumes uploaded before Remy kept the original lines: still reported (safe fallback), never guessed.
+  assert.equal((await editResumeDocx(original, base, base)).missed.length, 1);
+});
+
+test("Word download: a middle bullet reworded heavily replaces the old line instead of sitting next to it", async () => {
+  const base = entry([FILE[0], ["b2", "Covered Saturday shifts all through my classes"], FILE[2]]);
+  const { buf, missed } = await editResumeDocx(await threeBullets(), base, base, [], ORIG);
+  assert.deepEqual(missed, []);
+  assert.deepEqual(await lines(buf), ["Chick-fil-A", FILE[0][1], "Covered Saturday shifts all through my classes", FILE[2][1]]);
+});
+
+test("Word download: a new first bullet added in Remy goes in before the entry's next bullet", async () => {
+  const base = entry([["n", "Named employee of the month twice"], ...FILE]);
+  const { buf, missed } = await editResumeDocx(await threeBullets(), base, base, [], ORIG);
+  assert.deepEqual(missed, []);
+  assert.deepEqual(await lines(buf), ["Chick-fil-A", "Named employee of the month twice", ...FILE.map((f) => f[1])]);
+  assert.equal(((await xmlOf(buf)).match(/<w:numPr>/g) || []).length, 4, "a real bullet");
+  assert.equal(((await xmlOf(buf)).match(/w:ascii="Georgia"/g) || []).length, 5, "in the student's font");
+});
+
+test("Word download: a new first line and a reworded first line keep their order", async () => {
+  const base = entry([["b1", "Coached five new hires on speed"], FILE[1], FILE[2]]);
+  const version = entry([["n", "Brand new tailored line"], ["b1", "Coached five new hires on speed"], FILE[1], FILE[2]]);
+  const { buf, missed } = await editResumeDocx(await threeBullets(), base, version, [], ORIG);
+  assert.deepEqual(missed, []);
+  assert.deepEqual(await lines(buf), ["Chick-fil-A", "Brand new tailored line", "Coached five new hires on speed", FILE[1][1], FILE[2][1]]);
+});
+
+// Typed "•" bullets (no Word numbering), two entries and a role line: lines added in Remy must never overwrite file lines.
+async function typedDocx() {
+  const zip = new JSZip();
+  const p = (t: string) => `<w:p><w:r><w:t xml:space="preserve">${t}</w:t></w:r></w:p>`;
+  zip.file("word/document.xml", `<w:document><w:body>${[
+    "Chick-fil-A", "Team Member, May 2023 - Present", "• Took orders at the drive-thru and trained new hires", "• Worked weekends during the school year",
+    "Relevant coursework: Accounting I", "Starbucks", "• Made coffee for the morning rush"].map(p).join("")}</w:body></w:document>`);
+  return zip.generateAsync({ type: "nodebuffer" });
+}
+test("Word download: a line added in Remy never overwrites the next job's heading, a role line or a line Remy didn't read, even with shared words", async () => {
+  const orig = { b1: "Took orders at the drive-thru and trained new hires", b2: "Worked weekends during the school year" };
+  const doc = (bullets: [string, string][]) => ({ contact: {}, skills: [], sections: [{ id: "s", heading: "Experience", entries: [
+    { id: "e", org: "Chick-fil-A", role: "Team Member", location: "", dates: "May 2023 - Present", bullets: bullets.map(([id, text]) => ({ id, text })) },
+    { id: "e2", org: "Starbucks", role: "", location: "", dates: "", bullets: [{ id: "s1", text: "Made coffee for the morning rush" }] }] }] }) as any;
+  const all = [...await lines(await typedDocx())];
+  // Added at the end, and added first.
+  for (const added of ["Named employee of the month", "Promoted to Team Member in May 2023", "Completed coursework in Accounting I"])
+  for (const base of [doc([["b1", orig.b1], ["b2", orig.b2], ["x", added]]), doc([["x", added], ["b1", orig.b1], ["b2", orig.b2]])]) {
+    const out = await editResumeDocx(await typedDocx(), base, base, [], { ...orig, s1: "Made coffee for the morning rush" });
+    const got = await lines(out.buf);
+    for (const l of all) assert.ok(got.includes(l), `kept: ${l}`);
+    assert.deepEqual(out.missed, []);
+    assert.ok(got.includes(added));
+    assert.equal(got.length, all.length + 1);
+  }
+});
+
+test("Word download: a line deleted in Remy plus a new last line keeps the student's file", async () => {
+  const base = entry([FILE[0], FILE[1], ["n", "Named employee of the month twice"]]);
+  const { buf, missed } = await editResumeDocx(await threeBullets(), base, base, [FILE[2][1]], ORIG);
+  assert.deepEqual(missed, []);
+  assert.deepEqual(await lines(buf), ["Chick-fil-A", FILE[0][1], FILE[1][1], "Named employee of the month twice"]);
+});
+
+test("Word download: when the line to sit next to appears under two jobs, a new line is reported instead of guessed", async () => {
+  const zip = new JSZip();
+  const p = (t: string) => `<w:p><w:r><w:t xml:space="preserve">${t}</w:t></w:r></w:p>`;
+  zip.file("word/document.xml", `<w:document><w:body>${["Chick-fil-A", "Worked weekends during the school year", "Starbucks", "Worked weekends during the school year", "Made coffee"].map(p).join("")}</w:body></w:document>`);
+  const file = await zip.generateAsync({ type: "nodebuffer" });
+  const doc = (sb: [string, string][]) => ({ contact: {}, skills: [], sections: [{ id: "s", heading: "Experience", entries: [
+    { id: "e1", org: "Chick-fil-A", role: "", location: "", dates: "", bullets: [{ id: "c1", text: "Worked weekends during the school year" }] },
+    { id: "e2", org: "Starbucks", role: "", location: "", dates: "", bullets: sb.map(([id, text]) => ({ id, text })) }] }] }) as any;
+  const fl = { c1: "Worked weekends during the school year", s1: "Worked weekends during the school year", s2: "Made coffee" };
+  const base = doc([["n", "Named barista of the month"], ["s1", "Worked weekends during the school year"], ["s2", "Made coffee"]]);
+  const out = await editResumeDocx(file, base, base, [], fl);
+  assert.deepEqual(out.missed, ["Named barista of the month"]);
+});
+
+test("Word download: a line reworded in Remy and then deleted is taken out of the file by its original wording", async () => {
+  const base = entry([FILE[0], FILE[1]]);
+  const { buf, missed } = await editResumeDocx(await threeBullets(), base, base, ["Covered weekend shifts", FILE[2][1]], ORIG);
+  assert.deepEqual(missed, []);
+  assert.deepEqual(await lines(buf), ["Chick-fil-A", FILE[0][1], FILE[1][1]]);
 });

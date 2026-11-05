@@ -835,7 +835,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       }
     }
     doc.skillsIndex = skillsPosition(raw, doc);
-    ctx.ws.resume = { fileName, uploadedAt: nowIso(), rawText: raw.slice(0, 30000), parsedBy, doc, skills: extractSkills(doc, raw), quality: parseQuality(raw, doc, notes), ...(from ? { from } : {}) };
+    ctx.ws.resume = { fileName, uploadedAt: nowIso(), rawText: raw.slice(0, 30000), parsedBy, doc, skills: extractSkills(doc, raw), quality: parseQuality(raw, doc, notes), fileLines: Object.fromEntries(doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => [b.id, b.text]))).slice(0, 300)), ...(from ? { from } : {}) };
     ctx.ws.imports.unshift({ id: uid("i"), kind: from ? LINKEDIN : "Resume", fileName, at: nowIso(), label: "Student provided", factsAdded: 0 });
     // Fill empty profile fields, and fields still holding what the replaced resume said. What the student typed stays.
     const p = ctx.ws.profile;
@@ -1030,7 +1030,15 @@ export async function registerRoutes(_server: Server, app: Express) {
       if (!e.unverified.length) delete e.unverified;
     }
     const kept = new Set(d.sections.flatMap((s) => s.entries || []).flatMap((e) => (e.bullets || []).map((b) => b.id)));
-    const gone = ctx.ws.resume!.doc.sections.flatMap((s) => s.entries).flatMap((e) => e.bullets).filter((b) => !kept.has(b.id)).map((b) => b.text);
+    const fileLines = ctx.ws.resume!.fileLines;
+    // A deleted line goes as Remy last had it and as it reads in the uploaded file (it may have been reworded first).
+    const gone = ctx.ws.resume!.doc.sections.flatMap((s) => s.entries).flatMap((e) => e.bullets).filter((b) => !kept.has(b.id)).flatMap((b) => [b.text, ...(fileLines?.[b.id] && fileLines[b.id] !== b.text ? [fileLines[b.id]] : [])]);
+    // A line put back from "lines Remy missed" is a line of the file, so the Word download may edit it in place.
+    if (fileLines) {
+      const had = new Set(ctx.ws.resume!.doc.sections.flatMap((s) => s.entries).flatMap((e) => e.bullets).map((b) => b.id));
+      const missing = new Set((ctx.ws.resume!.quality?.missingLines || []).map((l) => l.replace(/^[•\-*–]\s*/, "").trim()));
+      for (const b of d.sections.flatMap((s) => s.entries || []).flatMap((e) => e.bullets || [])) if (!had.has(b.id) && missing.has(b.text.trim())) fileLines[b.id] = b.text.trim();
+    }
     if (gone.length) ctx.ws.resume!.removed = [...(ctx.ws.resume!.removed || []), ...gone].slice(-200);
     ctx.ws.resume!.doc = d;
     const q = ctx.ws.resume!.quality;
@@ -1711,7 +1719,7 @@ Return JSON:
   async function ownWordFile(ctx: Ctx, resume: ResumeDoc) {
     if (!ctx.ws.resume?.original?.mime.includes("wordprocessingml")) return null;
     const f = await getFile(ctx.me.id, "resume");
-    return (f ? await editResumeDocx(f.data, ctx.ws.resume.doc, resume, ctx.ws.resume.removed).catch(() => null) : null) || { buf: null, missed: [] as string[], failed: true };
+    return (f ? await editResumeDocx(f.data, ctx.ws.resume.doc, resume, ctx.ws.resume.removed, ctx.ws.resume.fileLines).catch(() => null) : null) || { buf: null, missed: [] as string[], failed: true };
   }
   // Before downloading: will this version's Word file keep the student's own design? (So the page can say so first.)
   app.get("/api/applications/:id/word-layout", route(async (req, res, ctx) => {
