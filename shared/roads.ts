@@ -1,6 +1,7 @@
 // Each field's usual road from college to license or first job, from the NABA research proposal (opened 2026-10-31/11-01).
 // Texas rules where licenses are state-run. Every step is "usually": rules change, so each one links to where it came from.
 import { SEASON_SOURCE } from "./seasons";
+import { ENG_ROADS } from "./roads-engineering";
 
 // source "" = general advice with no page behind it yet.
 export type RoadStep = { year: 1 | 2 | 3 | 4 | 5; what: string; source: string; /** Many people in the field skip it. */ optional?: boolean };
@@ -9,7 +10,11 @@ export type RoadStep = { year: 1 | 2 | 3 | 4 | 5; what: string; source: string; 
  *  after hiring, you can't take it before; depends = needed for some jobs in the field, not others; optional = nice to have. */
 export type CredentialNeed = "required" | "job" | "depends" | "optional";
 export type Credential = { name: string; need: CredentialNeed; /** who actually needs it */ who: string; /** why people get it anyway, or why it matters */ why: string; learn: string; when: string; source: string };
-export type Road = { key: string; label: string; field: RegExp; credentials: Credential[]; steps: RoadStep[]; /** Fields that look similar but take a different road. */ not?: RegExp };
+export type Road = { key: string; label: string; field: RegExp; credentials: Credential[]; steps: RoadStep[]; /** Fields that look similar but take a different road. */ not?: RegExp;
+  /** A specialty's broad field ("engineering" for mechanical engineering); specialties are listed before their parent so they match first. */
+  parent?: string;
+  /** Skills and tools entry-level postings in this field usually list, and where that list comes from. */
+  skills?: string[]; skillsSource?: string };
 export const NEED_LABEL: Record<CredentialNeed, string> = { required: "Required", job: "Comes with the job", depends: "Depends on the job", optional: "Optional" };
 
 export const YEARS = ["", "First-year", "Sophomore", "Junior", "Senior", "After college"] as const;
@@ -76,14 +81,18 @@ export const ROADS: Road[] = [
     { year: 4, what: "CFA Level I, if you're aiming for investment management or research", source: CFAPOL, optional: true },
     { year: 5, what: "If your job needs a license (Series 7, 63 or 79), your firm sponsors it after hiring", source: S79 },
   ] },
-  { key: "engineering", label: "Engineering", field: /engineer/i, credentials: [
+  // Specialties first, so "Mechanical Engineering" gets its own road; plain "Engineering" falls through to the general one.
+  ...ENG_ROADS,
+  // Software engineering goes to tech; engineering technology degrees follow different PE rules (8 years in Texas), so no road.
+  { key: "engineering", label: "Engineering", field: /engineer/i, not: /software|computer science|technolog/i, credentials: [
     { name: "FE exam (Engineer in Training)", need: "depends", who: "The first step to a PE. Common in civil, structural and environmental engineering; many mechanical, electrical and software engineers at companies never take it.", why: "It's easiest right after school while the material is fresh, and it keeps the PE option open.", learn: "A review of your whole engineering degree: math, statics, circuits or your discipline's basics.", when: "Last semester or right after graduating", source: FE },
     { name: "Texas engineering ethics exam", need: "depends", who: "Required for a Texas PE license, so only if you go for a PE.", why: "Texas asks every new PE to show they know the state's engineering law and ethics.", learn: "The Texas Engineering Practice Act and board rules.", when: "When you apply for your PE", source: PE },
-    { name: "PE license", need: "depends", who: "Needed to sign off on public work (buildings, roads, utilities) and to offer engineering services to the public. Engineers employed by companies are often exempt.", why: "Required for those jobs, and a mark of trust and higher pay in civil and consulting work.", learn: "Your discipline in depth, after years of real projects.", when: "About 4 years of experience under a licensed engineer", source: NSPE },
+    { name: "PE license", need: "depends", who: "Needed to sign off on public work (buildings, roads, utilities) and to offer engineering services to the public. Engineers employed by companies are often exempt.", why: "Required for those jobs, and a mark of trust and higher pay in civil and consulting work.", learn: "Your discipline in depth, after years of real projects.", when: "At least 4 years of engineering work, plus references from 3 licensed PEs", source: PE },
   ], steps: [
+    { year: 2, what: "At TCU: pick your emphasis (electrical or mechanical) before your 4th semester", source: "https://cse.tcu.edu/engineering/academics/engineering-major.php" },
     { year: 3, what: "Apply for engineering internships or co-ops (most are filled October to February)", source: SEASON_SOURCE },
     { year: 4, what: "If you might want a PE (common in civil and structural), take the FE exam in your last semester", source: FE, optional: true },
-    { year: 5, what: "PE license after about 4 years of experience under a licensed engineer, if your work needs one", source: PE },
+    { year: 5, what: "PE license after at least 4 years of engineering work (working under a licensed PE is recommended, not required) and references from 3 licensed PEs, if your work needs one", source: PE },
   ] },
   { key: "architecture", label: "Architecture", field: /architect/i, credentials: [
     { name: "Architect license (ARE exams + AXP hours)", need: "depends", who: "Needed to call yourself an architect and to stamp drawings. Many people work in architecture firms as designers without a license.", why: "Licensed architects can lead projects and open their own firm.", learn: "Practice, project management, design and construction documents, across 6 exams and supervised experience.", when: "Experience hours can start in school; the license usually comes years after graduating", source: TBAE },
@@ -173,7 +182,7 @@ export const ROADS: Road[] = [
     { year: 2, what: "Lead something: a club project, a team or an event you can talk about in interviews", source: "" },
     { year: 3, what: "Apply for junior-summer internships; consulting firms recruit early, often the summer before", source: SEASON_SOURCE },
   ] },
-  { key: "tech", label: "Tech and IT", field: /software|computer|data|information|cyber|\btech\b|technology|^\s*it\s*$/i, not: /technician|pharma|medical|health|lab /i, credentials: [
+  { key: "tech", label: "Tech and IT", field: /software|computer|data|information|cyber|\btech\b|technology|^\s*it\s*$/i, not: /technician|pharma|medical|health|lab |engineering tech/i, credentials: [
     { name: "Certifications (CompTIA Security+, AWS, Azure…)", need: "optional", who: "Not needed for most software or data jobs, where projects and skills matter more. Some cybersecurity and government jobs ask for Security+.", why: "A cert can help when you have no experience yet in IT or security, and it shows you studied a topic in depth.", learn: "One area in detail: security basics, or how a cloud platform works.", when: "Anytime; no prerequisites for entry-level ones", source: SECPLUS },
   ], steps: [
     { year: 1, what: "Build projects and put them on GitHub; a portfolio matters more than a license", source: "" },

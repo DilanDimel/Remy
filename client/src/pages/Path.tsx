@@ -169,7 +169,13 @@ function FieldRoad() {
         </div>
         <select className="input" style={{ width: "auto" }} value={key} onChange={(e) => setKey(e.target.value)} aria-label="Field" data-testid="select-road">
           {!road && <option value="">Choose a field</option>}
-          {ROADS.map((r) => <option key={r.key} value={r.key}>{r.label}{r.key === mine?.key ? " (yours)" : ""}</option>)}
+          {ROADS.filter((r) => !r.parent && !ROADS.some((x) => x.parent === r.key)).map((r) => <option key={r.key} value={r.key}>{r.label}{r.key === mine?.key ? " (yours)" : ""}</option>)}
+          {/* fields with specialties: the broad road first, then each specialty */}
+          {ROADS.filter((r) => ROADS.some((x) => x.parent === r.key)).map((g) => (
+            <optgroup key={g.key} label={g.label}>
+              {[g, ...ROADS.filter((x) => x.parent === g.key)].map((r) => <option key={r.key} value={r.key}>{r.key === g.key ? `${r.label} (general)` : r.label}{r.key === mine?.key ? " (yours)" : ""}</option>)}
+            </optgroup>
+          ))}
         </select>
       </div>
       {road && (
@@ -185,6 +191,13 @@ function FieldRoad() {
           ))}
         </ol>
       )}
+      {road?.skills?.length ? (
+        <div className="stack-sm" data-testid="road-skills">
+          <h4 style={{ margin: "6px 0 0" }}>Skills entry-level postings usually ask for</h4>
+          <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>{road.skills.map((k) => <span key={k} className="chip chip-plain">{k}</span>)}</div>
+          {road.skillsSource && <a className="xs src-link" href={road.skillsSource} target="_blank" rel="noreferrer">Source</a>}
+        </div>
+      ) : null}
       {road && (
         <div className="stack-sm" data-testid="road-credentials">
           <h4 style={{ margin: "6px 0 0" }}>Exams and licenses</h4>
