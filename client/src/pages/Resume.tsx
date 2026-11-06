@@ -19,6 +19,7 @@ import { PitchCard } from "../components/PitchCard";
 import { LinkedInCoach } from "../components/LinkedInCoach";
 import { WordPreview } from "../components/WordPreview";
 import { startTailor, useTailorSession } from "../lib/tailorChat";
+import { textConcern } from "@shared/junk";
 
 type Tab = "base" | "tailor" | "prep" | "library";
 
@@ -113,6 +114,10 @@ function BaseResume() {
             <button className="btn btn-ghost btn-sm" onClick={() => { const d = document.getElementById("resume-checks") as HTMLDetailsElement | null; if (d) { d.open = true; d.scrollIntoView({ block: "start", behavior: "smooth" }); } }} data-testid="button-jump-checks">Checks ↓</button>
           </div>
         </div>
+        {(() => { // live from the current bullets, so it's gone as soon as the line is reworded
+          const rude = w.resume.doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.filter((b) => textConcern(b.text)).map((b) => b.text)));
+          return rude.length > 0 && <div className="notice notice-bad" role="alert" data-testid="warn-rude-lines"><AlertTriangle size={16} /> <span>{rude.length === 1 ? "One line has" : `${rude.length} lines have`} language most employers would reject: “{rude[0].length > 90 ? rude[0].slice(0, 90) + "…" : rude[0]}”. Reword {rude.length === 1 ? "it" : "them"} in Edit before you apply.</span></div>;
+        })()}
         {(w.resume.original?.mime === "application/pdf" || w.resume.original?.mime.includes("wordprocessingml")) && (
           <div className="stack-sm">
             <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setPreview((p) => !p)} aria-expanded={preview} data-testid="button-toggle-preview">
@@ -158,6 +163,7 @@ function BaseResume() {
                   <span style={{ marginTop: 9 }}>•</span>
                   <textarea className="textarea" style={{ minHeight: 44 }} value={b.text} onChange={(x) => upd((d) => { const bb = d.sections[si].entries[ei].bullets[bi]; bb.text = x.target.value; })} aria-label="Bullet" data-testid="input-bullet" />
                   {b.verified === false && <span title="Not found word-for-word in your file" style={{ color: "var(--amber)", marginTop: 8 }}><AlertTriangle size={16} /></span>}
+                  {textConcern(b.text) && <span title={textConcern(b.text)} role="img" aria-label={textConcern(b.text)} style={{ color: "var(--error)", marginTop: 8 }} data-testid="warn-bullet"><AlertTriangle size={16} /></span>}
                   <button className="icon-btn" onClick={() => upd((d) => { d.sections[si].entries[ei].bullets.splice(bi, 1); })} aria-label="Remove bullet"><Trash2 size={15} /></button>
                 </div>
               ))}
@@ -553,7 +559,7 @@ function ResumePaper({ doc, changed }: { doc: ResumeDoc; changed?: Set<string> }
             <div key={e.id}>
               {(e.org || e.location) && <div className="rp-row"><strong>{e.org}</strong><strong>{e.location}</strong></div>}
               {(e.role || e.dates) && <div className="rp-row"><em>{e.role}</em><em>{e.dates}</em></div>}
-              {e.bullets.length > 0 && <ul>{e.bullets.map((b) => <li key={b.id}><span className={changed?.has(b.id) ? "changed" : undefined}>{b.text}</span></li>)}</ul>}
+              {e.bullets.length > 0 && <ul>{e.bullets.map((b) => <li key={b.id}><span className={changed?.has(b.id) ? "changed" : undefined}>{b.text}</span>{textConcern(b.text) && <span role="img" aria-label={textConcern(b.text)} title={textConcern(b.text)} style={{ color: "var(--error)", marginLeft: 4, verticalAlign: "middle" }} data-testid="warn-bullet-preview"><AlertTriangle size={13} /></span>}</li>)}</ul>}
             </div>
           ))}
         </div>

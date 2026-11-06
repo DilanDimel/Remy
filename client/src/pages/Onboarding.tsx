@@ -16,6 +16,7 @@ import { useGoogleCalendar } from "../components/GoogleCalendar";
 import { LinkedInMark } from "./Welcome";
 import { CareerTime } from "../components/CareerTime";
 import { firstName } from "@shared/names";
+import { nameConcern } from "@shared/junk";
 
 // Step numbers are stored in the workspace: 0 and 1 are the goal question (no focus yet) or the resume step; 2-5 follow.
 const STEPS = ["Your goal", "Your resume", "Review", "Preferences", "Questions", "Your plan"];
@@ -267,6 +268,7 @@ const PROFILE_FIELDS: [keyof Profile, string, string?][] = [
 const PREF_KEYS: (keyof Profile)[] = ["classYear", "graduation", "targetRoles", "regions", "opportunityTypes", "timeline", "relocation", "workAuth", "dreamEmployers", "avoid", "constraints", "worries"];
 /** draft: when given, the parent saves unsaved edits itself (setup's "Looks right"), so there's no separate Save button. */
 export function ProfileForm({ onSaved, hidePrefs, draft }: { onSaved?: () => void; hidePrefs?: boolean; draft?: { current: Profile | null } }) {
+  const [typing, setTyping] = useState(""); // name notes wait until the student leaves the field
   const { ws, save, run } = useStore();
   const [p, setP] = useState<Profile>(ws!.profile);
   useEffect(() => { setP(ws!.profile); }, [ws!.profile]);
@@ -294,8 +296,9 @@ export function ProfileForm({ onSaved, hidePrefs, draft }: { onSaved?: () => voi
                 {["First-year", "Sophomore", "Junior", "Senior", "Graduate student"].map((o) => <option key={o}>{o}</option>)}
               </select>
             ) : (
-              <input className="input" value={p[k] ?? ""} placeholder={ph} onChange={(e) => setP({ ...p, [k]: e.target.value })} data-testid={`input-profile-${k}`} />
+              <input className="input" value={p[k] ?? ""} placeholder={ph} onChange={(e) => setP({ ...p, [k]: e.target.value })} onFocus={() => setTyping(k)} onBlur={() => setTyping("")} data-testid={`input-profile-${k}`} />
             )}
+            {(k === "name" || k === "preferredName") && typing !== k && nameConcern(p[k] || "", k === "preferredName") && <span className="xs field-warn" role="note" data-testid={`warn-profile-${k}`}>{nameConcern(p[k] || "", k === "preferredName")}</span>}
           </label>
         ))}
       </div>
