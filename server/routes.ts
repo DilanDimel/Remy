@@ -11,9 +11,11 @@ import type {
 import { PATHS } from "@shared/types";
 import { BETA_TERMS_VERSION } from "@shared/beta";
 import { NAME_CHECK, firstName, knownName, nameUnsure, sameName } from "@shared/names";
+import { JOB_INTEREST_REASONS, type JobInterestRating } from "@shared/types";
+import { employerPreferences, interestContext, interestEnabled, ownInterest } from "./ranking";
 import { keepQuestions, skippedPrefs } from "@shared/setupReply";
 import { latestNewsId } from "@shared/news";
-import { aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
+import { editWorkspace, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./safety";
 import * as admin from "./admin";
@@ -314,16 +316,18 @@ async function findOpenings(ctx: Ctx, named: string[] = [], opts: { background?:
     } catch {}
   }
   if (!picked.length) picked = EMPLOYERS;
-  // Feedback loop: employers the student saved or applied to are read every time; ones they marked
-  // "Not interested" twice (and never saved) are skipped. Then employers read least recently for this
-  // student come first, so "Find more openings" reaches new employers instead of re-reading the same ones.
+  // Feedback loop: employers the student liked ("More like this … this employer") or saved or applied to are read
+  // first; ones they keep hiding or marked "Not for me … this employer" go later (never skipped outright: one posting
+  // shouldn't ban a company). Then employers read least recently come first, so "Find more openings" reaches new ones.
   const companyOf = (id: string) => findJob(ctx.ws, id)?.company.toLowerCase();
-  const liked = new Set([...ctx.ws.savedJobIds, ...ctx.ws.applications.map((a) => a.jobId)].map(companyOf).filter(Boolean));
+  const preferences = employerPreferences(ctx.ws);
+  const liked = new Set([...ctx.ws.savedJobIds, ...ctx.ws.applications.map((a) => a.jobId)].map(companyOf).filter((c) => c && !preferences.has(c)));
   const hides = new Map<string, number>();
-  for (const id of ctx.ws.hiddenJobIds) { const c = companyOf(id); if (c && !liked.has(c)) hides.set(c, (hides.get(c) || 0) + 1); }
+  // A card hidden with "Not for me" counts through its reason (employerPreferences), not as a silent employer hide.
+  for (const id of ctx.ws.hiddenJobIds) { if (interestEnabled() && ctx.ws.jobFeedback?.[id]) continue; const c = companyOf(id); if (c && !liked.has(c)) hides.set(c, (hides.get(c) || 0) + 1); }
   const lastRead = ctx.ws.employersRead || {};
   const fieldMatched = EMPLOYERS.filter((e) => (e.fields || []).some((f) => wants.includes(f) || FIELD_TITLES.some(([field, title]) => field.test(wants) && title.test(f))));
-  picked = orderEmployers([...EMPLOYERS.filter((e) => liked.has(e.company.toLowerCase())), ...picked, ...fieldMatched], liked, hides, lastRead);
+  picked = orderEmployers([...EMPLOYERS.filter((e) => liked.has(e.company.toLowerCase()) || (preferences.get(e.company.toLowerCase()) || 0) > 0), ...picked, ...fieldMatched], liked, hides, lastRead, preferences);
   // Employers the student named as dream employers are always read first: from the directory when
   // Remy knows their career site, otherwise by guessing their Greenhouse/Lever/Ashby board.
   const dream = (p.dreamEmployers || "").split(/[,;]+/).map((x) => x.trim()).filter((x) => x.length > 1).slice(0, 5);
@@ -1382,7 +1386,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
 
   // ---------- opportunities ----------
   app.get("/api/jobs", route(async (_req, res, ctx) => {
-    if (!knowsStudent(ctx.ws)) return res.json({ jobs: [], fits: {}, needsProfile: NEEDS_PROFILE });
+    if (!knowsStudent(ctx.ws)) return res.json({ jobs: [], fits: {}, interest: {}, needsProfile: NEEDS_PROFILE });
     let changed = false;
     // Openings saved before the "program" label was tightened ("Launch Engineer", "Program Manager") become jobs again.
     for (const j of ctx.ws.jobs) if (j.kind === "program" && j.origin === "imported" && kindOf(j.title) === "job") { j.kind = "job"; delete ctx.ws.fits[j.id]; changed = true; }
@@ -1415,7 +1419,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       fits[j.id] = closed ? { ...ctx.ws.fits[j.id], closed, excluded: true, score: 0, eligibilityNote: closed } : ctx.ws.fits[j.id];
     }
     // How many employers Remy reads for this student's field, so an empty list can say why honestly.
-    res.json({ jobs, fits, refreshing: searching.has(ctx.me.id), fieldEmployers: fieldEmployers(ctx.ws).length });
+    res.json({ jobs, fits, interest: ownInterest(ctx.ws, jobs), interestEnabled: interestEnabled(), refreshing: searching.has(ctx.me.id), fieldEmployers: fieldEmployers(ctx.ws).length });
   }));
 
   app.post("/api/jobs/import", route(async (req, res, ctx) => {
@@ -1515,10 +1519,43 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     res.json(ctx.ws.fits[job!.id]);
   }));
 
+  // "More like this" (5) / "Not for me" (1), with an optional reason that carries over to similar openings.
+  // Ported from Julio's interest system (Nov 6, 2026); the shared learned model stays on his branch.
+  const InterestInput = z.object({ rating: z.number().int().min(1).max(5), reason: z.enum(JOB_INTEREST_REASONS).optional(), hide: z.boolean().optional() }).strict();
+  app.put("/api/jobs/:id/interest", route(async (req, res, ctx) => {
+    if (!interestEnabled()) bad("Interest ratings are paused right now.", 503);
+    const input = InterestInput.safeParse(req.body);
+    if (!input.success) bad("Choose an interest level from 1 to 5 and an optional reason.");
+    const { rating, reason, hide } = input.data!;
+    res.json(await editWorkspace(ctx.me.id, (fresh) => {
+      const job = findJob(fresh, String(req.params.id));
+      if (!job) bad("Opening not found", 404);
+      if (job!.kind === "event") bad("Interest is for job openings, not events.");
+      const feedback = fresh.jobFeedback!;
+      if (!Object.hasOwn(feedback, job!.id) && Object.keys(feedback).length >= 5000) bad("Clear some likes before adding more.", 409);
+      const at = nowIso();
+      feedback[job!.id] = { rating: rating as JobInterestRating, ...(reason ? { reason } : {}), createdAt: feedback[job!.id]?.createdAt || at, updatedAt: at, context: interestContext(fresh, job!, at) };
+      // "Not for me" hides the card in the same locked edit, so two quick taps can't overwrite each other's hidden list.
+      if (hide && !fresh.hiddenJobIds.includes(job!.id)) fresh.hiddenJobIds.push(job!.id);
+    }));
+  }));
+  // Literal route before /api/jobs/:id.
+  app.delete("/api/jobs/interests", route(async (_req, res, ctx) => {
+    res.json(await editWorkspace(ctx.me.id, (fresh) => { fresh.jobFeedback = {}; }));
+  }));
+  app.delete("/api/jobs/:id/interest", route(async (req, res, ctx) => {
+    res.json(await editWorkspace(ctx.me.id, (fresh) => {
+      const id = String(req.params.id);
+      if (!findJob(fresh, id)) bad("Opening not found", 404);
+      delete fresh.jobFeedback![id];
+      if (req.query.unhide === "1") fresh.hiddenJobIds = fresh.hiddenJobIds.filter((x) => x !== id);
+    }));
+  }));
   app.delete("/api/jobs/:id", route(async (req, res, ctx) => {
-    ctx.ws.jobs = ctx.ws.jobs.filter((j) => j.id !== req.params.id);
-    await ctx.save();
-    res.json(ctx.ws);
+    res.json(await editWorkspace(ctx.me.id, (fresh) => {
+      fresh.jobs = fresh.jobs.filter((j) => j.id !== req.params.id);
+      delete fresh.jobFeedback![String(req.params.id)];
+    }));
   }));
 
   // ---------- applications (tailored resume + cover letter) ----------

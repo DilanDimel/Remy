@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import type { Job, JobFit, Workspace } from "@shared/types";
+import type { Job, JobFit, JobRanking, Workspace } from "@shared/types";
 import { api, useStore } from "./store";
 
-let cache: { jobs: Job[]; fits: Record<string, JobFit>; needsProfile?: string; refreshing?: boolean; fieldEmployers?: number } | null = null;
+let cache: { jobs: Job[]; fits: Record<string, JobFit>; interest?: Record<string, JobRanking>; interestEnabled?: boolean; needsProfile?: string; refreshing?: boolean; fieldEmployers?: number } | null = null;
 let polling = false;
 const subs = new Set<() => void>();
 
@@ -32,7 +32,7 @@ export function useJobs() {
     return () => { subs.delete(f); };
   }, []);
   // refetch when the workspace changes in ways that affect fit or the list
-  const key = `${ws?.jobs.length}-${ws?.resume?.uploadedAt}-${ws?.profile.graduation}-${ws?.profile.classYear}-${Object.keys(ws?.fits || {}).length}`;
+  const key = `${ws?.jobs.length}-${ws?.resume?.uploadedAt}-${ws?.profile.graduation}-${ws?.profile.classYear}-${Object.keys(ws?.fits || {}).length}-${ws?.jobFeedbackVersion || 0}`;
   useEffect(() => { reloadJobs().catch(() => {}); }, [key]);
   // Remy searches employers' sites by itself every few hours; while it does, check back until it's done.
   const refreshing = !!cache?.refreshing;
@@ -50,7 +50,7 @@ export function useJobs() {
     return () => { clearInterval(t); polling = false; };
   }, [refreshing, setWs]);
   const refresh = useCallback(() => reloadJobs(), []);
-  return { jobs: cache?.jobs || null, fits: cache?.fits || {}, needsProfile: cache?.needsProfile, refreshing, refresh, fieldEmployers: cache?.fieldEmployers };
+  return { jobs: cache?.jobs || null, fits: cache?.fits || {}, interest: cache?.interest || {}, interestEnabled: cache?.interestEnabled !== false, needsProfile: cache?.needsProfile, refreshing, refresh, fieldEmployers: cache?.fieldEmployers };
 }
 
 export const kindLabel: Record<Job["kind"], string> = {

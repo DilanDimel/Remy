@@ -86,11 +86,67 @@ test("Julio's 48 labeled postings: every relevant one is found, no unrelated or 
   assert.deepEqual(wrong, []);
 });
 
-test("feedback loop: liked employers first, twice-dismissed left out, then the ones not read yet", async () => {
+test("feedback loop: liked employers first, unseen next, dismissed employers remain discoverable", async () => {
   const { orderEmployers } = await import("./sources");
   const list = ["A", "B", "C", "D", "A"].map((company) => ({ company }));
   const out = orderEmployers(list, new Set(["d"]), new Map([["c", 2]]), { A: "2026-10-29T10:00:00Z" });
-  assert.deepEqual(out.map((e) => e.company), ["D", "B", "A"]);
+  assert.deepEqual(out.map((e) => e.company), ["D", "B", "A", "C"]);
+});
+
+test("employer order: explicit company feedback replaces weak interest, including neutral, without excluding anyone", async () => {
+  const { orderEmployers } = await import("./sources");
+  const list = ["A", "B", "C", "D"].map((company) => ({ company }));
+  const preferences = new Map([["a", 0], ["b", -4], ["d", 4]]);
+  const out = orderEmployers(list, new Set(["a", "b"]), new Map([["d", 4]]), {}, preferences);
+  assert.deepEqual(out.map((e) => e.company), ["D", "A", "C", "B"]);
+  assert.equal(orderEmployers([{ company: "Acme" }, { company: "acme" }], new Set(), new Map(), {}).length, 1);
+});
+
+test("discovery: role preference is applied before the four-per-employer cut, and disabling it restores the baseline", async () => {
+  const { discoverJobs } = await import("./sources");
+  const { interestContext } = await import("./ranking");
+  const { emptyWorkspace } = await import("./db");
+  const { q } = await import("./sql");
+  const ws = emptyWorkspace();
+  Object.assign(ws.profile, { major: "Mechanical Engineering", targetRoles: "mechanical", classYear: "Junior", regions: "Dallas, TX" });
+  const title = "Mechanical Testing Intern";
+  const raws = [...Array.from({ length: 5 }, (_, i) => `Mechanical Design Intern ${i + 1}`), title].map((title, i) => ({ title, location: "Dallas, TX", url: `https://example.test/interest-cut/${i}`, text: "Test mechanical hardware." }));
+  await q("INSERT INTO board_cache (key, raws) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET raws = EXCLUDED.raws, fetched_at = now()", ["greenhouse|interest-cut||", JSON.stringify(raws)]);
+  const source = { id: "rated", title, company: "Different employer", location: "Austin, TX", format: "", kind: "internship" } as any;
+  const at = "2026-11-03T12:00:00Z";
+  ws.jobFeedback = { rated: { rating: 5, reason: "role", createdAt: at, updatedAt: at, context: interestContext(ws, source, at) } };
+  const board = [{ company: "Synthetic", ats: "greenhouse", slug: "interest-cut" }] as any;
+  const baseline = (await discoverJobs(ws, board, 25, false)).jobs;
+  const personalized = (await discoverJobs(ws, board, 25, true)).jobs;
+  assert.equal(baseline.some((j) => j.title === title), false, "baseline recency/alphabetic tie would cut this candidate");
+  assert.equal(personalized[0].title, title);
+  assert.equal(personalized.length, 4, "employer diversity cap stays intact");
+});
+
+test("discovery: company preference affects selection before the total cut without dropping employer diversity", async () => {
+  const { discoverJobs } = await import("./sources");
+  const { interestContext } = await import("./ranking");
+  const { emptyWorkspace } = await import("./db");
+  const { q } = await import("./sql");
+  const ws = emptyWorkspace();
+  Object.assign(ws.profile, { major: "Mechanical Engineering", targetRoles: "mechanical", classYear: "Junior", regions: "Dallas, TX" });
+  const boards = Array.from({ length: 8 }, (_, i) => ({ company: `Synthetic ${i}`, ats: "greenhouse", slug: `interest-total-${i}` }));
+  for (const [i, board] of boards.entries()) {
+    const raws = Array.from({ length: 6 }, (_, j) => ({ title: `Mechanical Design Intern ${j}`, location: "Dallas, TX", url: `https://example.test/interest-total/${i}/${j}`, text: "Test mechanical hardware." }));
+    await q("INSERT INTO board_cache (key, raws) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET raws = EXCLUDED.raws, fetched_at = now()", [`greenhouse|${board.slug}||`, JSON.stringify(raws)]);
+  }
+  const source = { id: "rated", title: "Mechanical Design Intern", company: "Synthetic 7", location: "Dallas, TX", format: "", kind: "internship" } as any;
+  const at = "2026-11-03T12:00:00Z";
+  ws.jobFeedback = { rated: { rating: 5, reason: "company", createdAt: at, updatedAt: at, context: interestContext(ws, source, at) } };
+  const baseline = (await discoverJobs(ws, boards as any, 25, false)).jobs;
+  const personalized = (await discoverJobs(ws, boards as any, 25, true)).jobs;
+  assert.equal(baseline.some((j) => j.company === "Synthetic 7"), false);
+  assert.equal(personalized[0].company, "Synthetic 7");
+  assert.equal(personalized.length, 25);
+  const counts = new Map<string, number>();
+  for (const job of personalized) counts.set(job.company, (counts.get(job.company) || 0) + 1);
+  assert.ok([...counts.values()].every((n) => n <= 4));
+  assert.ok(counts.size >= 7);
 });
 
 test("the specific words of a goal rank first: Mechanical Engineering Intern above Electrical for a mechanical student", async () => {

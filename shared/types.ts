@@ -438,6 +438,22 @@ export interface Step { at: string; kind: "task" | "save" | "start" | "approve" 
 export type SetupFocus = "resume" | "openings" | "interview" | "direction" | "explore";
 export type SettingKey = "theme" | "notify.deadlines" | "notify.statusChanges" | "notify.weeklyPlan";
 
+// Interest in an opening (ported from Julio's interest system, Nov 6 2026). Only the student's own ratings; no shared model.
+export type JobInterestRating = 1 | 2 | 3 | 4 | 5;
+export const JOB_INTEREST_REASONS = ["role", "location", "format", "pay", "requirements", "company"] as const;
+export type JobInterestReason = typeof JOB_INTEREST_REASONS[number];
+/** Only professional search context: no name, contact details, GPA, work authorization or resume text. */
+export interface JobInterestContext {
+  rankingVersion: string;
+  profileKey: string;
+  profile: Pick<Profile, "major" | "targetRoles" | "interests" | "classYear" | "regions" | "opportunityTypes">;
+  job: Pick<Job, "title" | "company" | "location" | "format" | "kind">;
+  capturedAt: string;
+}
+export interface JobInterest { rating: JobInterestRating; reason?: JobInterestReason; createdAt: string; updatedAt: string; context: JobInterestContext }
+/** How the student's own interest moved an opening, and why (shown on the card). */
+export interface JobRanking { score: number; adjustment: number; reasons: string[] }
+
 export interface Workspace {
   version: 2;
   started: boolean;
@@ -460,6 +476,10 @@ export interface Workspace {
   savedJobIds: string[];
   fits: Record<string, JobFit>;
   hiddenJobIds: string[];
+  /** The student's own interest per opening ("More like this" / "Not for me"). Missing = unknown. */
+  jobFeedback?: Record<string, JobInterest>;
+  /** Server revision, so a late response can't undo a newer rating. */
+  jobFeedbackVersion?: number;
   applications: Application[];
   tracker: TrackItem[];
   inbox: InboxMessage[];

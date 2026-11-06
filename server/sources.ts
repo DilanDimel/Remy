@@ -6,6 +6,7 @@ import { topSkills } from "@shared/requirements";
 import { uid } from "./ids";
 import { abroad, COUNTRY_IN_TEXT, FIELD_SEARCH, FIELD_TITLES, regionMatch } from "./fit";
 import { q, q1 } from "./sql";
+import { interestEnabled, preferenceAdjustment } from "./ranking";
 
 // Live openings from employers' own career sites (Greenhouse, Lever, Ashby, Workday, SmartRecruiters,
 // Oracle Cloud, Eightfold, Phenom and AppliTrack school-district boards).
@@ -400,12 +401,16 @@ export const specificWords = (ws: Workspace) =>
 /** Workday's "IL-Rosemont" / "TX-Houston" → "Rosemont, IL"; anything else unchanged. */
 export const tidyLocation = (l: string) => l.replace(/\b([A-Z]{2})-([A-Za-z .'-]+?)(?=$|;|,|\s·)/g, (_m, st, city) => `${city.replace(/-/g, " ").trim()}, ${st}`);
 
-/** Which employers to read next: liked ones first, dismissed ones (2+ "Not interested") left out, then least recently read. */
-export function orderEmployers<T extends { company: string }>(list: T[], liked: Set<string | undefined>, hides: Map<string, number>, lastRead: Record<string, string>): T[] {
-  const like = (e: T) => (liked.has(e.company.toLowerCase()) ? 1 : 0);
+/** Which employers to read next: explicit company preferences, then weak interest and recency. No employer is blocked by hiding individual openings. */
+export function orderEmployers<T extends { company: string }>(list: T[], liked: Set<string | undefined>, hides: Map<string, number>, lastRead: Record<string, string>, preferences = new Map<string, number>()): T[] {
+  const score = (e: T) => {
+    const key = e.company.trim().toLowerCase();
+    // Explicit neutral also replaces the weaker save/hide inference.
+    return preferences.has(key) ? preferences.get(key)! : (liked.has(key) ? 2 : 0) - Math.min(3, hides.get(key) || 0) * 0.5;
+  };
   return list
-    .filter((e, i) => list.findIndex((x) => x.company === e.company) === i && (hides.get(e.company.toLowerCase()) || 0) < 2)
-    .sort((a, b) => like(b) - like(a) || (lastRead[a.company] || "").localeCompare(lastRead[b.company] || ""));
+    .filter((e, i) => list.findIndex((x) => x.company.trim().toLowerCase() === e.company.trim().toLowerCase()) === i)
+    .sort((a, b) => score(b) - score(a) || (lastRead[a.company] || "").localeCompare(lastRead[b.company] || "") || a.company.localeCompare(b.company));
 }
 
 /** Turns a company name into board guesses on all three ATSs. */
@@ -416,7 +421,7 @@ export function boardsFor(company: string): Board[] {
 }
 
 /** Scans boards in parallel and returns early-career postings that suit the student. */
-export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25): Promise<{ jobs: Job[]; scanned: number; reached: string[] }> {
+export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, enabled = interestEnabled()): Promise<{ jobs: Job[]; scanned: number; reached: string[] }> {
   const fields = (ws.profile.targetRoles + "," + ws.profile.major + "," + ws.profile.interests).toLowerCase().split(/[,;/]+/).map((x) => x.trim()).filter((x) => x.length > 2);
   const titleFits = FIELD_TITLES.filter(([field]) => field.test(fields.join(" "))).map(([, title]) => title);
   // Workday needs a search word; use the student's first field ("finance").
@@ -424,7 +429,7 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25): 
   const undergrad = !/grad/i.test(ws.profile.classYear);
   const known = new Set([...ws.jobs.map((j) => j.applyUrl), ...ws.jobs.map((j) => j.sourceUrl)]);
   const reached: string[] = [];
-  const found: { job: Job; rel: number }[] = [];
+  const found: { job: Job; rel: number; preference: number }[] = [];
   let i = 0;
   const worker = async () => {
     while (i < boards.length) {
@@ -467,13 +472,14 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25): 
           label: "Live", checkedAt: new Date().toISOString(), foundAt: new Date().toISOString(), checks: [], origin: "imported", postingText: r.text.slice(0, 12000),
         };
         known.add(r.url);
-        found.push({ job, rel });
+        found.push({ job, rel, preference: preferenceAdjustment(ws, job, enabled).adjustment });
       }
     }
   };
   await Promise.all(Array.from({ length: 12 }, worker));
   // Most relevant to the student's fields first; keep a few from each company.
-  found.sort((a, b) => b.rel - a.rel);
+  // The student's own likes count before the per-company and overall cuts; field checks and employer variety stay.
+  found.sort((a, b) => (b.rel + b.preference) - (a.rel + a.preference) || b.rel - a.rel || a.job.company.localeCompare(b.job.company) || a.job.title.localeCompare(b.job.title) || a.job.applyUrl.localeCompare(b.job.applyUrl));
   const perCompany = new Map<string, number>();
   const jobs: Job[] = [];
   for (const f of found) {
