@@ -173,7 +173,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Theme: the account's choice when signed in, else this browser's; "system" follows the device, live.
   const [localTheme, setLocalTheme] = useState<Theme>(readLocalTheme);
-  const theme: Theme = (ws?.settings.theme as Theme) || localTheme;
+  // A new account starts on "system"; until the student picks a theme in the account, keep what they picked in this browser
+  // (e.g. light on the home page stays light through sign-in and setup). A non-"system" theme without the flag is a real
+  // pick saved before themeChosen existed (db.ts already turned unflagged "light" into "system").
+  const theme: Theme = ws && (ws.settings.themeChosen || (ws.settings.theme && ws.settings.theme !== "system")) ? (ws.settings.theme as Theme) : localTheme;
   useEffect(() => {
     const mq = matchMedia("(prefers-color-scheme: dark)");
     const apply = () => { document.documentElement.dataset.theme = theme === "system" ? (mq.matches ? "dark" : "light") : theme; };
