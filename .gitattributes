@@ -1,0 +1,2 @@
+# Every PR adds a "What's new" line at the top of this file; keep both sides instead of conflicting.
+shared/news.ts merge=union
