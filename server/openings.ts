@@ -56,18 +56,23 @@ const shareable = (j: Job) => j.origin === "imported" && j.label !== "Demo data"
 
 /** Records openings Remy just found. Seen again → last_seen moves and times_seen counts up; tags are refreshed. */
 export async function recordFound(jobs: Job[], boardFieldsByCompany: Record<string, string[]> = {}): Promise<number> {
-  const rows = jobs.filter(shareable);
-  for (const j of rows) {
+  // One row per link (the same posting can come back twice in one search); one statement for the whole batch.
+  const rows = [...new Map(jobs.filter(shareable).map((j) => [urlOf(j), j])).values()];
+  if (!rows.length) return 0;
+  const vals = rows.map((j) => {
     const t = tagsOf(j, boardFieldsByCompany[j.company] || []);
-    await q(
+    return { url: urlOf(j), title: j.title.slice(0, 300), company: j.company.slice(0, 200), company_key: t.companyKey, kind: j.kind,
+      location: j.location.slice(0, 200), industry: t.industry, career_path: t.careerPath, source_name: j.sourceName.slice(0, 200), deadline: j.deadline || "" };
+  });
+  await q(
       `INSERT INTO checked_openings (url, title, company, company_key, kind, location, industry, career_path, source_name, deadline)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       SELECT url, title, company, company_key, kind, location, industry, career_path, source_name, deadline
+       FROM jsonb_to_recordset($1::jsonb) AS r(url text, title text, company text, company_key text, kind text, location text, industry text, career_path text, source_name text, deadline text)
        ON CONFLICT (url) DO UPDATE SET title = EXCLUDED.title, company = EXCLUDED.company, company_key = EXCLUDED.company_key,
          kind = EXCLUDED.kind, location = EXCLUDED.location, industry = EXCLUDED.industry, career_path = EXCLUDED.career_path,
          source_name = EXCLUDED.source_name, deadline = EXCLUDED.deadline, last_seen = now(), times_seen = checked_openings.times_seen + 1`,
-      [urlOf(j), j.title.slice(0, 300), j.company.slice(0, 200), t.companyKey, j.kind, j.location.slice(0, 200), t.industry, t.careerPath, j.sourceName.slice(0, 200), j.deadline || ""],
+      [JSON.stringify(vals, (_k, v) => (typeof v === "string" ? v.replace(/\u0000/g, "") : v))],
     );
-  }
   return rows.length;
 }
 

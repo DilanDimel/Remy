@@ -427,7 +427,7 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, e
   // Workday needs a search word; use the student's first field ("finance").
   const field = FIELD_SEARCH.find((_, k) => FIELD_TITLES[k][0].test(fields.join(" "))) || "";
   const undergrad = !/grad/i.test(ws.profile.classYear);
-  const known = new Set([...ws.jobs.map((j) => j.applyUrl), ...ws.jobs.map((j) => j.sourceUrl)]);
+  const known = new Set([...ws.jobs.map((j) => j.applyUrl), ...ws.jobs.map((j) => j.sourceUrl), ...(ws.droppedJobUrls || [])]);
   const reached: string[] = [];
   const found: { job: Job; rel: number; preference: number }[] = [];
   let i = 0;

@@ -15,7 +15,7 @@ import { JOB_INTEREST_REASONS, type JobInterestRating } from "@shared/types";
 import { employerPreferences, interestContext, interestEnabled, ownInterest } from "./ranking";
 import { keepQuestions, skippedPrefs } from "@shared/setupReply";
 import { latestNewsId } from "@shared/news";
-import { editWorkspace, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
+import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./safety";
 import * as admin from "./admin";
@@ -40,6 +40,7 @@ import * as agents from "./agents";
 import { dueReminders, reminderEmail, weeklyDigest } from "./reminders";
 import { step } from "@shared/progress";
 import { conferencesFor } from "./conferences";
+import { trimOpenings } from "./trim";
 import { pruneOpenings, recordFound, recordCheck, listOpenings, openingsSummary } from "./openings";
 import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, kindOf, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
@@ -232,6 +233,8 @@ const fitOf = (ws: Workspace, job: Job) => computeFit(ws, job, evidenceOf(ws));
 // Openings that can't be applied to anymore. Checked on every read rather than cached in
 // fits, because a deadline passes and a link breaks without the student doing anything.
 const centralToday = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+/** The date `days` before a YYYY-MM-DD date, same format (dates compare as text). */
+const daysBefore = (day: string, days: number) => new Date(Date.parse(day + "T12:00:00Z") - days * 86_400_000).toISOString().slice(0, 10);
 function closedReason(ws: Workspace, job: Job): string | undefined {
   if (job.deadline && job.deadline < centralToday()) return `The deadline passed on ${job.deadline}.`;
   const latest = job.checks[0];
@@ -359,6 +362,11 @@ async function findOpenings(ctx: Ctx, named: string[] = [], opts: { background?:
   ctx.ws.jobs = [...added, ...fresh.jobs];
   ctx.ws.fits = { ...fresh.fits };
   for (const j of added) ctx.ws.fits[j.id] = fitOf(ctx.ws, j);
+  // Old openings the student never saved, applied to, rated or hid are dropped so the workspace stays under its size limit.
+  // References are read from the latest stored copy, so an opening saved during this search is kept.
+  ctx.ws.droppedJobUrls = fresh.droppedJobUrls;
+  const dropped = trimOpenings(ctx.ws, fresh);
+  if (dropped) console.log(`discover: dropped ${dropped} old untouched openings`);
   // When most employer sites didn't answer (Workday maintenance, outages), try again in 30 minutes instead of 6 hours.
   const mostlyDown = r.reached.length < unique.length / 2;
   ctx.ws.openingsCheckedAt = new Date(Date.now() - (mostlyDown ? OPENINGS_EVERY - 30 * 60_000 : 0)).toISOString();
@@ -428,7 +436,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const today = centralToday();
     const recent = (d: string) => (Date.parse(today) - Date.parse(d)) / 86_400_000 <= 21;
     let n = 0;
-    for (const u of await q("SELECT u.id, u.email, u.kind FROM users u WHERE u.kind IN ('google','supabase')")) {
+    for (const u of await recentStudents(daysBefore(today, 21), true)) {
       if (!(await beta.emailAllowed(u.email))) continue; // accounts outside the Founding Cohort aren't refreshed
       if (n >= 10) break;
       if (searching.has(u.id)) continue;
@@ -457,7 +465,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const recent = (d: string) => (Date.parse(today) - Date.parse(d)) / 86_400_000 <= 21;
     const perHost = new Map<string, number>();
     let total = 0;
-    for (const u of await q("SELECT u.id, u.email, u.kind FROM users u WHERE u.kind IN ('google','supabase')")) {
+    for (const u of await recentStudents(daysBefore(today, 21))) {
       if (!(await beta.emailAllowed(u.email))) continue; // accounts outside the Founding Cohort aren't refreshed
       if (total >= 30) break;
       if (searching.has(u.id)) continue;

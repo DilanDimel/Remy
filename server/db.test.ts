@@ -1,7 +1,7 @@
 // The storage layer against real Postgres (PGlite in memory). Run with `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, newSchoolCode, removeSchoolEmail, schoolEmailOwner, createSession, deleteAccount, ensureUser, getFile, getUser, loadWorkspace, saveFile, saveSections, saveWorkspace, sessionUser } from "./db";
+import { recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, newSchoolCode, removeSchoolEmail, schoolEmailOwner, createSession, deleteAccount, ensureUser, getFile, getUser, loadWorkspace, saveFile, saveSections, saveWorkspace, sessionUser } from "./db";
 import { q } from "./sql";
 
 const me = (id: string, kind = "guest") => ({ id, kind, email: `${id}@example.com`, name: id, picture: "" }) as any;
@@ -144,4 +144,29 @@ test("email sign-in codes: any case of the email works once; wrong and expired d
   await ensureUser({ ...me("sb:old", "supabase"), email: "Dee@gmail.com" });
   await ensureUser({ ...me("guest:x", "guest"), email: "dee@gmail.com" });
   assert.equal((await userByEmail("dee@GMAIL.com"))!.id, "sb:old", "a guest with the same email isn't a match");
+});
+
+test("recentStudents: only signed-in students seen since the date (and set up, when asked), longest-waiting search first", async () => {
+  for (const [id, kind] of [["rs-a", "supabase"], ["rs-b", "supabase"], ["rs-old", "supabase"], ["rs-guest", "guest"], ["rs-new", "google"]] as const) {
+    await ensureUser(me(id, kind));
+    const ws = await loadWorkspace(id);
+    ws.visits = id === "rs-old" ? ["2026-09-01"] : ["2026-09-01", "2026-11-01"];
+    ws.onboarding.done = id !== "rs-new";
+    ws.openingsCheckedAt = id === "rs-a" ? "2026-11-05T00:00:00Z" : id === "rs-b" ? "2026-11-01T00:00:00Z" : undefined;
+    await saveWorkspace(id, ws);
+  }
+  const ids = (rows: { id: string }[]) => rows.map((r) => r.id).filter((x) => x.startsWith("rs-"));
+  assert.deepEqual(ids(await recentStudents("2026-10-16")), ["rs-new", "rs-b", "rs-a"]);
+  assert.deepEqual(ids(await recentStudents("2026-10-16", true)), ["rs-b", "rs-a"]);
+});
+
+test("cleanup removes sign-in and school-email codes nobody came back for", async () => {
+  await ensureUser(me("code-u"));
+  await newSigninCode("late@example.com");
+  await newSchoolCode("code-u", "late@tcu.edu");
+  await q("UPDATE signin_codes SET expires_at = now() - interval '1 minute' WHERE email = 'late@example.com'");
+  await q("UPDATE school_email_codes SET expires_at = now() - interval '1 minute' WHERE user_id = 'code-u'");
+  await cleanupOld(30);
+  assert.equal((await q("SELECT 1 FROM signin_codes WHERE email = 'late@example.com'")).length, 0);
+  assert.equal((await q("SELECT 1 FROM school_email_codes WHERE user_id = 'code-u'")).length, 0);
 });
