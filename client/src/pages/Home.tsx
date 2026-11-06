@@ -9,6 +9,7 @@ import { useCompleting } from "../lib/completing";
 import { go } from "../lib/router";
 import { kindLabel, useJobs } from "../lib/jobs";
 import { StatusChip } from "../components/common";
+import { firstName } from "@shared/names";
 
 type Tab = "todos" | "events" | "opps";
 
@@ -23,7 +24,7 @@ export default function Home() {
   const { jobs, fits } = useJobs();
   const [tab, setTab] = useState<Tab>("todos");
   const [open, setOpen] = useState<string>("");
-  const name = w.profile.preferredName || w.profile.name.split(" ")[0];
+  const name = firstName(w);
 
   // Since you were last here: the previous visit is kept for this page view; the new one is saved once.
   const [since] = useState(() => w.settings.lastSeenAt || "");

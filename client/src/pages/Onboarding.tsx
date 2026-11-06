@@ -15,6 +15,7 @@ import { LinkedInGuide } from "../components/LinkedInGuide";
 import { useGoogleCalendar } from "../components/GoogleCalendar";
 import { LinkedInMark } from "./Welcome";
 import { CareerTime } from "../components/CareerTime";
+import { firstName } from "@shared/names";
 
 // Step numbers are stored in the workspace: 0 and 1 are the goal question (no focus yet) or the resume step; 2-5 follow.
 const STEPS = ["Your goal", "Your resume", "Review", "Preferences", "Questions", "Your plan"];
@@ -82,7 +83,7 @@ const GOALS: [string, SetupFocus][] = [["Land an internship", "openings"], ["Fin
 function FocusPick({ onPick }: { onPick: (f: SetupFocus, exploring?: boolean) => Promise<void> }) {
   const { ws, me, save, run } = useStore();
   const w = ws!;
-  const first = (w.profile.preferredName || me?.name || "").trim().split(/\s+/)[0];
+  const first = firstName(w);
   const [busy, setBusy] = useState(false);
   const path = w.profile.path || "";
   const [goal, setGoal] = useState(w.profile.goal || "");
@@ -129,7 +130,7 @@ function WelcomeBack({ onContinue, onRestart }: { onContinue: () => void; onRest
   const { ws } = useStore();
   const w = ws!;
   const step = w.onboarding.step;
-  const first = (w.profile.preferredName || w.profile.name).split(/\s+/)[0];
+  const first = firstName(w);
   const done: [string, boolean, string][] = [
     ["Your resume", !!w.resume, w.resume ? w.resume.fileName : "Not uploaded yet"],
     ["Profile reviewed", step > 2, step > 2 ? "School, major and graduation confirmed" : "Next up"],
@@ -174,7 +175,7 @@ function CalendarMark() {
 /** Step 1: resume first (upload or build one), then the other accounts, each with its own row. */
 function ResumeStep({ onNext }: { onNext: () => void }) {
   const { ws, me } = useStore();
-  const first = (ws!.profile.preferredName || me?.name || "").trim().split(/\s+/)[0];
+  const first = firstName(ws!);
   const w = ws!;
   const [open, setOpen] = useState<"" | "resume" | "school">(w.resume ? "" : "resume");
   const [busy, setBusy] = useState(false);
