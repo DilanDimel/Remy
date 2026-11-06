@@ -3,6 +3,7 @@
 import { SEASON_SOURCE } from "./seasons";
 import { ENG_ROADS } from "./roads-engineering";
 import { bizRoad } from "./roads-business";
+import { HEALTH_ROADS, NURSING_SPECIALTIES } from "./roads-health";
 
 // source "" = general advice with no page behind it yet.
 export type RoadStep = { year: 1 | 2 | 3 | 4 | 5; what: string; source: string; /** Many people in the field skip it. */ optional?: boolean };
@@ -105,7 +106,9 @@ export const ROADS: Road[] = [
     { year: 4, what: "Texas lets you start the ARE exams after a NAAB-accredited professional degree (B.Arch or M.Arch; a 4-year BS doesn't count) and 6 months of work under a licensed architect", source: TBAERULES },
     { year: 5, what: "Finish AXP hours and the ARE; about 12 years on average from the start of college to license", source: NCARB },
   ] },
-  { key: "nursing", label: "Nursing", field: /nurs/i, credentials: [
+  // Specialties first, so "Nurse Anesthesia" gets its own road.
+  ...NURSING_SPECIALTIES,
+  { key: "nursing", label: "Nursing", field: /nurs/i, not: /veterin|home admin|facility admin/i, credentials: [
     { name: "NCLEX-RN", need: "required", who: "Every registered nurse. You can't work as an RN without passing it.", why: "It's the state license exam for nurses.", learn: "Safe patient care: judgment, medications, prioritizing, across all of nursing.", when: "Right after you finish your nursing program", source: BON },
   ], steps: [
     { year: 3, what: "Clinical rotations", source: "" },
@@ -120,14 +123,8 @@ export const ROADS: Road[] = [
     { year: 3, what: "Plan for a master's: registered dietitians need a graduate degree since Jan 1, 2024", source: RD },
     { year: 5, what: "Supervised practice, then the CDR exam to become a registered dietitian", source: RD },
   ] },
-  { key: "health", label: "Pre-med and health", field: /\bpre-?(med|medical|pharm|pharmacy|pa|pt)\b|\bmedical school\b|\bmedicine\b|physician|pharmac|physical therap/i, not: /veterin|sports medicine|pharmacy tech|pharmaceutical|dent(al|ist)/i, credentials: [
-    { name: "MCAT (or the PA, pharmacy or PT program's own test rules)", need: "required", who: "Almost every U.S. medical school requires the MCAT. PA, pharmacy and PT programs set their own rules, so check each one.", why: "Schools use it to compare applicants.", learn: "Biology, chemistry, physics, psychology and reading reasoning.", when: "Usually junior year, if you want to start right after graduating", source: MCAT },
-    { name: "Board exams (USMLE or COMLEX for DOs, PANCE, NAPLEX, NPTE)", need: "required", who: "Required to practice in each profession.", why: "They're the license exams.", learn: "Everything from your graduate program.", when: "During and after graduate school", source: "https://www.usmle.org/" },
-  ], steps: [
-    { year: 1, what: "Start shadowing and clinical hours", source: "" },
-    { year: 3, what: "To start medical school right after you graduate, take the MCAT and start applying in your junior year", source: MCAT },
-    { year: 5, what: "Board exams come after grad school: USMLE (MD), PANCE (PA), NAPLEX (pharmacy), NPTE (PT); doctors then do residency", source: MCAT },
-  ] },
+  // One road per health profession, in an order that matters (see roads-health.ts).
+  ...HEALTH_ROADS,
   { key: "teaching", label: "Teaching", field: /teach|education/i, credentials: [
     { name: "Texas teaching certificate (TExES exams)", need: "depends", who: "Texas public schools are phasing out uncertified teachers under HB 2 (2025), starting with K-5 reading and math in 2026-27. Private schools set their own rules and many don't require it.", why: "It's what public schools hire for, and it moves with you to other public districts.", learn: "Your subject, plus how to teach and manage a classroom.", when: "During your educator preparation program, around student teaching", source: HB2 },
   ], steps: [
@@ -189,7 +186,7 @@ export const ROADS: Road[] = [
     { year: 3, what: "Apply for junior-summer internships; consulting firms recruit early, often the summer before", source: SEASON_SOURCE },
   ] },
   bizRoad("bis"),
-  { key: "tech", label: "Tech and IT", field: /software|computer|data|information|cyber|\btech\b|technology|^\s*it\s*$/i, not: /technician|pharma|medical|health|lab |engineering tech/i, credentials: [
+  { key: "tech", label: "Tech and IT", field: /software|computer|data|information|cyber|\btech\b|technology|^\s*it\s*$/i, not: /technician|pharma|medical|medicine|health|lab |engineering tech|veterin|biotech|surgical|respiratory|cytotech|histotech|dental lab|ophthalmic/i, credentials: [
     { name: "Certifications (CompTIA Security+, AWS, Azure…)", need: "optional", who: "Not needed for most software or data jobs, where projects and skills matter more. Some cybersecurity and government jobs ask for Security+.", why: "A cert can help when you have no experience yet in IT or security, and it shows you studied a topic in depth.", learn: "One area in detail: security basics, or how a cloud platform works.", when: "Anytime; no prerequisites for entry-level ones", source: SECPLUS },
   ], steps: [
     { year: 1, what: "Build projects and put them on GitHub; a portfolio matters more than a license", source: "" },

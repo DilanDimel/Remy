@@ -167,7 +167,7 @@ function FieldRoad() {
           <h3>{road ? `The ${road.label.toLowerCase()} road` : "Pick a field"}</h3>
           {road && <span className="small muted">{road.credentials.some((c) => c.need === "required") ? "Has a required exam or license" : road.credentials.some((c) => c.need === "depends") ? "Some jobs in this field need a license" : "No license needed"}</span>}
         </div>
-        <select className="input" style={{ width: "auto" }} value={key} onChange={(e) => setKey(e.target.value)} aria-label="Field" data-testid="select-road">
+        <select className="input" style={{ width: "auto", maxWidth: "100%" }} value={key} onChange={(e) => setKey(e.target.value)} aria-label="Field" data-testid="select-road">
           {!road && <option value="">Choose a field</option>}
           {ROADS.filter((r) => !r.parent && !ROADS.some((x) => x.parent === r.key)).map((r) => <option key={r.key} value={r.key}>{r.label}{r.key === mine?.key ? " (yours)" : ""}</option>)}
           {/* fields with specialties: the broad road first, then each specialty */}

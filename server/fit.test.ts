@@ -252,14 +252,15 @@ test("field roads: major wins, trade paths get the trades road, class year maps 
   // A wrong road is worse than none (persona test Nov 1): welder ≠ electrician, pre-dental ≠ MCAT, economics ≠ SIE.
   assert.equal(roadFor("Welding Technology Certificate", "trade"), null);
   assert.equal(roadFor("", "apprenticeship"), null);
-  assert.equal(roadFor("Biochemistry (Pre-Dental)"), null);
-  assert.equal(roadFor("dentistry"), null);
+  // Since the health batch (Nov 6) pre-dental has its own road (DAT, not the MCAT).
+  assert.equal(roadFor("Biochemistry (Pre-Dental)")?.key, "pre-dental");
+  assert.equal(roadFor("dentistry")?.key, "pre-dental");
   assert.equal(roadFor("Economics")?.key, "economics");
   assert.equal(roadFor("Biology"), null);
   assert.equal(roadFor("Medical Assistant"), null);
-  assert.equal(roadFor("Pre-Med Biology")?.key, "health");
-  assert.equal(roadFor("Pre-PT Kinesiology")?.key, "health");
-  assert.equal(roadFor("Pharmacy")?.key, "health");
+  assert.equal(roadFor("Pre-Med Biology")?.key, "pre-med");
+  assert.equal(roadFor("Pre-PT Kinesiology")?.key, "pre-pt");
+  assert.equal(roadFor("Pharmacy")?.key, "pre-pharmacy");
   assert.equal(roadFor("Electrical Engineering")?.key, "eng-electrical", "engineering before electrician");
   assert.equal(roadFor("Underwater basket weaving"), null);
   assert.deepEqual(["First-year", "Freshman", "Sophomore", "Senior", "Graduate student", ""].map(yearNumber), [1, 1, 2, 4, 5, 0]);
@@ -406,8 +407,31 @@ test("second review: a high-school senior never qualifies through a college grad
 });
 test("second review: lookalike fields get no road", async () => {
   const { roadFor } = await import("@shared/roads");
-  for (const f of ["Veterinary Medicine", "Sports Medicine", "Pharmacy Technician", "Pharmaceutical Sciences", "Electric vehicles"]) assert.equal(roadFor(f), null, f);
+  for (const f of ["Sports Medicine", "Pharmacy Technician", "Pharmaceutical Sciences", "Electric vehicles"]) assert.equal(roadFor(f), null, f);
   assert.equal(roadFor("Electrical lineworker")?.key, "trades");
+});
+test("health roads (Nov 6): each health major gets its own road, and lookalikes don't", async () => {
+  const { roadFor } = await import("@shared/roads");
+  const want: [string, string | null][] = [
+    ["Veterinary Medicine", "pre-vet"], ["Nurse Anesthesia", "crna"], ["Family Nurse Practitioner", "nurse-practitioner"], ["Nursing", "nursing"],
+    // Plain psychology isn't the licensed-counselor road (an LPC needs a master's; most psych majors never get one).
+    ["Psychology", null], ["Counseling Psychology", null], ["Clinical Mental Health Counseling", "counseling"], ["Counseling", "counseling"],
+    ["Genetic Counseling", null], ["Communication Sciences and Disorders", "slp"], ["Athletic Training", "athletic-training"],
+    ["Movement Science 3+2", "athletic-training"], ["Kinesiology", "kinesiology"], ["Exercise Science", "kinesiology"],
+    ["Physical Education: Strength & Conditioning", "kinesiology"], ["Kinesiology (Pre-Med)", "pre-med"], ["Biology (Pre-Med)", "pre-med"],
+    ["Pre-Physical Therapy", "pre-pt"], ["Public Health", "public-health"], ["Health Education", "public-health"],
+    ["Health Administration", "health-admin"], ["Nutritional Sciences", "nutrition"], ["Physician Assistant Studies", "pre-pa"],
+    ["Library Science (MLS)", null], ["Medical Laboratory Technology", null],
+    // Old collisions with the nursing and tech roads
+    ["Veterinary Nursing", null], ["Nursing Home Administration", "health-admin"], ["Veterinary Technology", null], ["Biotechnology", null],
+    ["Nuclear Medicine Technology", null], ["Surgical Technology", null], ["Information Technology", "tech"], ["Computer Science", "tech"],
+    // Skeptic review (Nov 6): lookalikes that must keep their old road or get none
+    ["In-house legal counsel", "law"], ["Camp counselor", null], ["Admissions counselor", null], ["Social Work (Mental Health)", "social-work"],
+    ["Health Education (Teacher Certification)", "teaching"], ["Pre-Med Student", "pre-med"], ["Biology (Pre-Med), Independent Study", "pre-med"],
+    ["Master of Legal Studies (MLS)", "law"], ["Physicians' Assistant", "pre-pa"], ["Pre-Physician Asst", "pre-pa"],
+    ["Medicine, Health, and Society", null], ["Mental Health Technician", null], ["Histotechnology", null],
+  ];
+  for (const [f, key] of want) assert.equal(roadFor(f)?.key ?? null, key, f);
 });
 test("every road labels its exams and licenses; optional steps say so (Dilan, Nov 5: the SIE isn't a normal step)", async () => {
   const { ROADS, roadFor } = await import("@shared/roads");
