@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Check, Compass, HelpCircle, Plus, RotateCcw, Search, Sparkles, Trash2, TrendingDown, TrendingUp } from "lucide-react";
 import { FIELD_GROUPS } from "@shared/fields";
-import { ROADS, roadFor, YEARS, yearNumber } from "@shared/roads";
+import { NEED_LABEL, ROADS, roadFor, YEARS, yearNumber } from "@shared/roads";
 import type { PathPlan, Task, Workspace } from "@shared/types";
 import { api, fmtDate, rid, useStore } from "../lib/store";
 import { go } from "../lib/router";
@@ -165,7 +165,7 @@ function FieldRoad() {
       <div className="row-between" style={{ gap: 8 }}>
         <div className="stack-sm" style={{ gap: 2 }}>
           <h3>{road ? `The ${road.label.toLowerCase()} road` : "Pick a field"}</h3>
-          {road && <span className="small muted">Exam or license: {road.exam}</span>}
+          {road && <span className="small muted">{road.credentials.some((c) => c.need === "required") ? "Has a required exam or license" : "No license needed to start"}</span>}
         </div>
         <select className="input" style={{ width: "auto" }} value={key} onChange={(e) => setKey(e.target.value)} aria-label="Field" data-testid="select-road">
           {!road && <option value="">Choose a field</option>}
@@ -177,13 +177,29 @@ function FieldRoad() {
           {road.steps.map((s) => (
             <li key={s.what} className={s.year < year ? "on" : s.year === year ? "next" : ""} data-testid="road-step">
               <i>{s.year < year && <Check size={12} />}</i>
-              <b>Usually {YEARS[s.year].toLowerCase()}{s.year === year ? " · you are here" : ""}</b>
+              <b>Usually {YEARS[s.year].toLowerCase()}{s.year === year ? " · you are here" : ""}{s.optional ? <span className="chip chip-plain" style={{ marginLeft: 8 }}>Optional</span> : null}</b>
               <span>{s.what}. {s.source ? <a href={s.source} target="_blank" rel="noreferrer" className="xs">Source</a> : <span className="xs muted">General advice</span>}
                 {s.year >= year && s.year < 5 && <button className="btn btn-ghost btn-sm" onClick={() => add(s.what, `Usually ${YEARS[s.year].toLowerCase()} on the ${road.label.toLowerCase()} road`, "Prepare")} data-testid="button-road-todo"><Plus size={14} /> To-do</button>}
               </span>
             </li>
           ))}
         </ol>
+      )}
+      {road && (
+        <div className="stack-sm" data-testid="road-credentials">
+          <h4 style={{ margin: "6px 0 0" }}>Exams and licenses</h4>
+          <ul className="rows cred-list">
+            {road.credentials.map((c) => (
+              <li key={c.name} className="cred">
+                <div className="row" style={{ gap: 8 }}><b>{c.name}</b><span className={"chip " + (c.need === "required" ? "chip-setup" : c.need === "optional" ? "chip-plain" : "chip-live")}>{NEED_LABEL[c.need]}</span></div>
+                <p className="small">{c.who}</p>
+                {c.why && <p className="small muted"><strong>Why people get it: </strong>{c.why}</p>}
+                {c.learn && <p className="small muted"><strong>What you learn: </strong>{c.learn}</p>}
+                {c.when && <p className="xs muted"><strong>When: </strong>{c.when}{c.source ? <> · <a className="src-link" href={c.source} target="_blank" rel="noreferrer">Source</a></> : null}</p>}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       <p className="xs muted">These are usual timelines, mostly Texas rules. Rules change, so check the source and your advisor before you plan around a step.</p>
     </section>

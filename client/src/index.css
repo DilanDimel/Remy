@@ -1025,3 +1025,6 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 @media (max-width: 640px) { .phone-only { display: flex !important; } }
 /* rows in styled lists (road steps, job lists, picks) use the card's full width; plain bullet text keeps the 72ch reading width */
 ul[class] > li, ol[class] > li { max-width: none; }
+.cred-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.cred { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 4px; }
+.cred p { margin: 0; }
