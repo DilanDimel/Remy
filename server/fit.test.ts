@@ -425,6 +425,11 @@ test("health roads (Nov 6): each health major gets its own road, and lookalikes 
     // Old collisions with the nursing and tech roads
     ["Veterinary Nursing", null], ["Nursing Home Administration", "health-admin"], ["Veterinary Technology", null], ["Biotechnology", null],
     ["Nuclear Medicine Technology", null], ["Surgical Technology", null], ["Information Technology", "tech"], ["Computer Science", "tech"],
+    // Skeptic review (Nov 6): lookalikes that must keep their old road or get none
+    ["In-house legal counsel", "law"], ["Camp counselor", null], ["Admissions counselor", null], ["Social Work (Mental Health)", "social-work"],
+    ["Health Education (Teacher Certification)", "teaching"], ["Pre-Med Student", "pre-med"], ["Biology (Pre-Med), Independent Study", "pre-med"],
+    ["Master of Legal Studies (MLS)", "law"], ["Physicians' Assistant", "pre-pa"], ["Pre-Physician Asst", "pre-pa"],
+    ["Medicine, Health, and Society", null], ["Mental Health Technician", null], ["Histotechnology", null],
   ];
   for (const [f, key] of want) assert.equal(roadFor(f)?.key ?? null, key, f);
 });

@@ -28,13 +28,9 @@
 //   "Kinesiology", "Exercise Science", "Health & Fitness" → "kinesiology"; "Kinesiology (Pre-Med)", "Biology (Pre-Med)" → "pre-med";
 //   "Pre-Physical Therapy" → "pre-pt"; "Public Health", "Health Education" → "public-health"; "Health Administration" → "health-admin";
 //   "Nutritional Sciences" → nutrition (existing road); "Library Science (MLS)" → not "mls"; "Medical Laboratory Technology" → not "mls".
-// Known collisions with EXISTING roads in roads.ts (not fixed here; roads.ts untouched):
-//   nursing /nurs/ catches "Veterinary Nursing" and "Nursing Home Administration" (it sits before these roads).
-//     Proposed: nursing gets not: /veterin|home admin|facility admin/i.
-//   tech /technology/ catches "Veterinary Technology", "Nuclear Medicine Technology", "Biotechnology", "Surgical Technology", "Cytotechnology"
-//     (its not has /medical/, which misses "Medicine"). Proposed: add veterin|medicine|biotech|surgical|respiratory to tech's not.
-//   teaching /education/ gets "Physical Education: Strength & Conditioning" (a TCU kinesiology major) because kinesiology's not
-//     excludes "physical education". Human call: PE teacher road or kinesiology?
+// Applied in roads.ts on merge (Nov 6): nursing skips veterin|home admin|facility admin; tech skips veterinary, medicine, biotech,
+// surgical, respiratory, cytotech, histotech, dental lab and ophthalmic names. "Physical Education: Strength & Conditioning" → kinesiology
+// (Dilan let the council decide); counseling skips legal/camp/admissions/peer/resident counselors, social work and criminal justice.
 import type { Road } from "./roads";
 
 // Same values as in roads.ts (kept here so this file stands on its own, like roads-business.ts).
@@ -129,8 +125,8 @@ export const NURSING_SPECIALTIES: Road[] = [
   skillsSource: ONET("29-1171.00") },
 ];
 
-// Proposed fix to the existing nursing road (optional): add `not: /veterin|home admin|facility admin/i` so "Nursing Home Administration"
-// reaches health-admin and "Veterinary Nursing" doesn't get the NCLEX, and add an optional year-5 step: "Later: advanced practice (NP, CRNA) needs a graduate degree" (source TX_APRN).
+// The nursing-road fix was applied in roads.ts. Not done yet: an optional year-5 nursing step, "Later: advanced practice (NP, CRNA)
+// needs a graduate degree" (source TX_APRN).
 
 // ---------- Replace the combined "health" road with these, in this order ----------
 export const HEALTH_ROADS: Road[] = [
@@ -145,7 +141,7 @@ export const HEALTH_ROADS: Road[] = [
   skills: ["Patient positioning and care", "Radiation safety", "Anatomy", "Imaging equipment operation", "Physics basics", "Electronic health records", "Clear communication with patients"],
   skillsSource: ONET("29-2034.00") },
 
-  { key: "mls", label: "Medical laboratory science", field: /medical lab|clinical lab|laborator(y|ies) science|\bmls\b/i, /* cytotechnology and MLT are separate ASCP credentials: no road */ not: /technician|technolog(y|ist)\b|\bmlt\b|librar/i, credentials: [
+  { key: "mls", label: "Medical laboratory science", field: /medical lab|clinical lab|laborator(y|ies) science/i, /* cytotechnology and MLT are separate ASCP credentials: no road */ not: /technician|technolog(y|ist)\b|\bmlt\b|librar/i, credentials: [
     { name: "ASCP Board of Certification: MLS(ASCP)", need: "depends", who: "Texas has no state license for lab scientists (10 states have one), so whether you need it is up to each employer; check the postings you want.", why: "It's the national certification for medical laboratory scientists.", learn: "Clinical chemistry, hematology, microbiology, blood banking, immunology.", when: "After your bachelor's and a NAACLS-accredited MLS program (finished within the last 5 years)", source: ASCP_MLS },
   ], steps: [
     { year: 2, what: "Chemistry and biology prerequisites; plan for a NAACLS-accredited MLS program", source: ASCP_MLS },
@@ -155,7 +151,7 @@ export const HEALTH_ROADS: Road[] = [
   skills: ["Lab test procedures and quality control", "Chemistry and biology", "Microscopy", "Attention to detail", "Lab information systems", "Critical thinking", "Lab safety"],
   skillsSource: ONET("29-2011.00") },
 
-  { key: "pre-pa", label: "Pre-PA", field: /\bpre-?p\.?a\.?\b|physician('?s)? (assistant|associate)|\bpa studies|\bpa school/i, credentials: [
+  { key: "pre-pa", label: "Pre-PA", field: /\bpre-?p\.?a\.?\b|physicians?'?s?\.? (assist|asst|associate)|\bpa studies|\bpa school/i, credentials: [
     { name: "Hands-on patient care hours", need: "depends", who: "Many PA programs require them, and the hour rule differs by program. Most PA students had about three years of health care experience before starting.", why: "Programs want proof you've worked with patients.", learn: "Real patient care, as a CNA, EMT, medical assistant, scribe, phlebotomist or tech.", when: "Start early; it takes years to build", source: AAPA },
     { name: "GRE or PA-CAT", need: "depends", who: "Test rules differ by PA program: some want the GRE, some the PA-CAT, some take either (a few accept the MCAT). The PAEA program directory lists each one's rule.", why: "Programs that require it use it to compare applicants.", learn: "Reasoning and writing (GRE) or prerequisite science (PA-CAT).", when: "Before you apply, if a program on your list needs it", source: PAEA },
     { name: "PANCE (from NCCPA)", need: "required", who: "Every PA. Texas requires a passing PANCE and current NCCPA certification.", why: "It's the national certification exam.", learn: "Everything from PA school.", when: "After PA school", source: TX_PA },
@@ -182,7 +178,7 @@ export const HEALTH_ROADS: Road[] = [
   skillsSource: ONET("29-1051.00") },
 
   { key: "pre-dental", label: "Pre-dental", field: /\bdent(al|ist)|\bpre-?dent\b|\bd\.?d\.?s\b|\bd\.?m\.?d\b/i, not: /hygien|assist|lab(oratory)? tech|technician/i, credentials: [
-    { name: "DAT (Dental Admission Test)", need: "required", who: "The dental school admission test, accepted by all 66 U.S. dental schools.", why: "Schools use it to compare applicants.", learn: "Biology, general and organic chemistry, perceptual ability (spatial reasoning), reading and quantitative reasoning.", when: "Spring of junior year or the summer right after", source: DAT },
+    { name: "DAT (Dental Admission Test)", need: "required", who: "The dental school admission test, accepted by every U.S. dental school, and all of them ask for it.", why: "Schools use it to compare applicants.", learn: "Biology, general and organic chemistry, perceptual ability (spatial reasoning), reading and quantitative reasoning.", when: "Spring of junior year or the summer right after", source: DAT },
     { name: "INBDE + regional clinical exam + Texas jurisprudence assessment", need: "required", who: "Every dentist licensed in Texas. TSBDE currently validates clinical exam scores from ADEX and CRDTS-SRTA.", why: "They're the national board, the hands-on clinical exam and the state law test.", learn: "Everything from dental school, plus Texas dental law.", when: "During and after dental school", source: TSBDE },
   ], steps: [
     { year: 1, what: "Science prerequisites: biology, general and organic chemistry (what the DAT tests), plus whatever else your target schools list", source: DAT },
@@ -207,7 +203,7 @@ export const HEALTH_ROADS: Road[] = [
   skillsSource: ONET("29-1131.00") },
 
   { key: "pre-optometry", label: "Pre-optometry", field: /optometr|\bpre-?opt(om)?\b/i, not: /technician|assistant/i, credentials: [
-    { name: "OAT (Optometry Admission Test)", need: "required", who: "All U.S. optometry schools require it.", why: "Schools use it to compare applicants.", learn: "Biology, general and organic chemistry, physics, reading, quantitative reasoning.", when: "Second semester of junior year or the summer after", source: OAT },
+    { name: "OAT (Optometry Admission Test)", need: "depends", who: "The usual optometry admission test, accepted by every U.S. optometry school. Check each school's rule for whether it's required.", why: "Schools use it to compare applicants.", learn: "Biology, general and organic chemistry, physics, reading, quantitative reasoning.", when: "Second semester of junior year or the summer after", source: OAT },
     { name: "NBEO Parts I–III + TMOD + Texas jurisprudence exam", need: "required", who: "Every optometrist licensed in Texas.", why: "They're the national boards and the state law exam.", learn: "Everything from optometry school, plus Texas rules.", when: "During and after optometry school", source: TOB },
   ], steps: [
     { year: 1, what: "Science prerequisites, including physics", source: OAT },
@@ -244,8 +240,8 @@ export const HEALTH_ROADS: Road[] = [
   skillsSource: ONET("29-1122.00") },
 
   { key: "athletic-training", label: "Athletic training", field: /athletic train|\bmsat\b|movement science 3\s*\+\s*2/i, credentials: [
-    { name: "Master's in athletic training (CAATE-accredited)", need: "required", who: "Everyone becoming an athletic trainer now: accredited bachelor's programs stopped enrolling after fall 2022, so new athletic trainers come from graduate programs.", why: "It's the standard way into the profession now.", learn: "Injury prevention, evaluation, rehab, emergency care.", when: "After your bachelor's, or a 3+2 (TCU has one)", source: CAATE },
-    { name: "BOC exam + Texas athletic trainer license (TDLR)", need: "required", who: "Anyone working as an athletic trainer in Texas. Passing the BOC exam may let you skip Texas's own written and practical exams; everyone takes the Texas jurisprudence exam.", why: "It's the state license.", learn: "Athletic training practice plus Texas rules.", when: "After your master's", source: TX_AT },
+    { name: "Master's in athletic training (CAATE-accredited)", need: "depends", who: "The usual route: national BOC certification needs a CAATE-accredited program, and most employers want BOC-certified athletic trainers. Texas also still lists an apprenticeship route (a degree plus 1,800 hours under a licensed athletic trainer).", why: "It's how most athletic trainers get in now.", learn: "Injury prevention, evaluation, rehab, emergency care.", when: "After your bachelor's, or a 3+2 (TCU has one)", source: CAATE },
+    { name: "Texas athletic trainer license (TDLR)", need: "required", who: "Anyone working as an athletic trainer in Texas. Passing the national BOC exam may let you skip Texas's own written and practical exams; everyone takes the Texas jurisprudence exam.", why: "It's the state license.", learn: "Athletic training practice plus Texas rules.", when: "After your master's", source: TX_AT },
   ], steps: [
     { year: 1, what: "Kinesiology or movement science coursework; TCU's Movement Science 3+2 leads to the MSAT", source: TCU_UG },
     { year: 3, what: "Apply to a CAATE master's (or move into the 3+2)", source: CAATE },
@@ -269,7 +265,7 @@ export const HEALTH_ROADS: Road[] = [
   skills: ["Language and speech assessment", "Treatment planning", "Active listening", "Patient and family communication", "Clinical documentation", "Speech analysis software", "Patience and teaching skill"],
   skillsSource: ONET("29-1127.00") },
 
-  { key: "pre-med", label: "Pre-med (MD or DO)", field: /\bpre-?med(ical)?\b|medical school|\bmedicine\b|physician|osteopath/i, not: /sports medicine|nuclear medicine|veterin|physician('?s)? (assistant|associate)|dent|pharm|chinese medicine|integrative medicine/i, credentials: [
+  { key: "pre-med", label: "Pre-med (MD or DO)", field: /\bpre-?med(ical)?\b|medical school|\bmedicine\b|physician|osteopath/i, not: /sports medicine|nuclear medicine|veterin|physicians?'?s?\.? (assist|asst|associate)|\bdent(al|ist)|\bpre-?dent|pharm|chinese medicine|integrative medicine|medicine,? health,? and society|humanit/i, credentials: [
     { name: "MCAT", need: "required", who: "Nearly all U.S. MD schools require it, and osteopathic (DO) schools use it too.", why: "Schools use it to compare applicants.", learn: "Biology, chemistry, physics, psychology and reading reasoning.", when: "Usually junior year, if you want to start right after graduating", source: MCAT }, // "nearly all": AAMC "What you need to know about the MCAT" (search snippet); DO: AACOM reports entering students' mean MCAT
     { name: "Clinical experience and shadowing", need: "depends", who: "Not a written rule everywhere, but medical schools look for clinical experience, and DO schools look for shadowing a DO. AAMC says shadowing helps but isn't the only way to get experience.", why: "It shows you know what doctors actually do.", learn: "Patient contact through volunteering, scribing or clinical jobs.", when: "Start in your first two years", source: AACOM },
     { name: "USMLE (MD) or COMLEX (DO) + Texas jurisprudence exam", need: "required", who: "Every doctor licensed in Texas. U.S. grads also need 1 continuous year of accredited residency first.", why: "They're the license exams.", learn: "Everything from medical school and residency, plus Texas medical law.", when: "During and after medical school", source: TMB_MD },
@@ -295,7 +291,7 @@ export const HEALTH_ROADS: Road[] = [
   skills: ["Exercise testing and programming", "Anatomy and physiology", "Coaching and motivating clients", "CPR/AED", "Fitness and scheduling software", "Clear communication", "Microsoft Excel"],
   skillsSource: ONET("29-1128.00") },
 
-  { key: "public-health", label: "Public health", field: /public health|epidemiolog|community health|global health|health promotion|health education/i, credentials: [
+  { key: "public-health", label: "Public health", field: /public health|epidemiolog|community health|global health|health promotion|health education/i, not: /teach|certif/i, credentials: [
     { name: "CHES (Certified Health Education Specialist)", need: "optional", who: "For health education jobs. You need a health education major, or at least 25 semester credits of qualifying health education coursework.", why: "It's the health education specialist certification from NCHEC.", learn: "Planning, running and evaluating health programs.", when: "Students can test if they'll graduate within 90 days of the exam date", source: CHES },
     { name: "Master of Public Health (MPH)", need: "depends", who: "Epidemiologists typically need at least a master's, often an MPH. Not every public health job needs one.", why: "It opens research, epidemiology and leadership roles.", learn: "Biostatistics, epidemiology, policy.", when: "After your bachelor's", source: BLS_EPI },
     { name: "CPH (Certified in Public Health)", need: "optional", who: "Students and grads of CEPH-accredited graduate programs, or anyone with a bachelor's plus 5 years of public health work.", why: "Shows broad public health knowledge.", learn: "All core areas of public health.", when: "During or after an MPH", source: CPH },
@@ -322,7 +318,7 @@ export const HEALTH_ROADS: Road[] = [
   // Plain "Psychology" does NOT get this road (Dilan's decision, Nov 6): most psychology majors don't become LPCs.
   // Only counseling and mental-health-counseling majors match. Addiction/substance-abuse counseling (Texas LCDC) and
   // school counseling (TEA certification) take different licenses, so they're excluded.
-  { key: "counseling", label: "Counseling (LPC)", field: /counsel|\bmental health\b|\blpc\b/i, not: /industrial|organizational|genetic|financ|marriage|family therap|school (counsel|psych)|counseling psychology|addiction|substance|chemical dependency|\blcdc\b|career counsel/i, credentials: [
+  { key: "counseling", label: "Counseling (LPC)", field: /counseling|counselor|\blpc\b/i, not: /industrial|organizational|genetic|financ|marriage|family therap|school (counsel|psych)|counseling psychology|addiction|substance|chemical dependency|\blcdc\b|career counsel|legal|general counsel|camp|admission|peer|resident|social work|criminal|pastoral|technician/i, credentials: [
     { name: "Master's degree in counseling", need: "required", who: "Needed to become a licensed counselor. A bachelor's alone doesn't lead to a counseling license.", why: "Texas requires a graduate degree in counseling or a counseling-related field for the LPC.", learn: "Counseling theory, ethics, assessment, supervised practicum.", when: "After your bachelor's", source: LPC },
     { name: "NCE or NCMHCE + Texas LPC jurisprudence exam", need: "required", who: "Everyone applying to be an LPC Associate in Texas.", why: "They're the national counseling exam and the state law exam.", learn: "Counseling practice and Texas rules.", when: "Near or after the end of your master's", source: LPC },
     { name: "LPC Associate → full LPC", need: "required", who: "Texas counselors work as LPC Associates first: 3,000 supervised hours over at least 18 months, 1,500 of them counseling clients directly.", why: "Only a full LPC can practice independently.", learn: "Real counseling under supervision.", when: "After your master's (about 2 years)", source: LPC },
