@@ -4,6 +4,7 @@ import type { Job, JobCheck, JobFit, Workspace } from "@shared/types";
 import { api, daysUntil, fmtDate, rid, useDraft, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { kindLabel, reloadJobs, sameOrg, useJobs } from "../lib/jobs";
+import { shortTitle } from "@shared/org";
 import { screeningFor } from "@shared/screening";
 import { postingSkills, skillsIn } from "@shared/requirements";
 import { Empty, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
@@ -76,7 +77,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
         <div>
           <span className="eyebrow">Opportunities</span>
           <h1>Openings worth your time.</h1>
-          <p>Ranked for you: openings you're eligible for and that match your background come first.</p>
+          <p className="hide-phone">Ranked for you: openings you're eligible for and that match your background come first.</p>
           {(() => {
             // A quiet status line instead of a button to press: when Remy last looked, and what's new this week.
             const at = w.lastSearch?.at || w.openingsCheckedAt;
@@ -89,21 +90,21 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
             return <p className="xs muted" data-testid="openings-status">Updated {ago}{fresh ? ` · ${fresh} new this week` : ""} · Remy checks again by itself</p>;
           })()}
         </div>
-        <div className="row">
+        <div className="row opp-actions">
           <button className="btn btn-secondary" onClick={discover} disabled={finding} data-testid="button-discover">{finding ? <Spinner /> : <Search size={16} />} {finding ? "Remy is checking job boards…" : "Find more openings"}</button>
-          <button className="btn btn-secondary" onClick={() => setShowImport((s) => !s)} data-testid="button-toggle-import"><Link2 size={16} /> Import a posting</button>
+          <button className="btn btn-secondary" onClick={() => setShowImport((s) => !s)} data-testid="button-toggle-import"><Link2 size={16} /> <span className="hide-phone">Import a posting</span><span className="opp-phone-only">Import</span></button>
         </div>
       </div>
       {finding && <div className="notice small fade-up"><Remy size={28} mood="think" /><div className="stack-sm"><span>Remy is reading live job boards from employers that fit {w.profile.targetRoles || "your interests"}{w.profile.regions ? ` in ${w.profile.regions}` : ""}.</span><WorkingSteps steps={["Picking employers that fit you", "Reading their career sites", "Keeping internships and entry-level roles", "Ranking by how well they fit"]} every={3500} /></div></div>}
       {showImport && <ImportPanel onDone={() => setShowImport(false)} />}
-      <div className="row-between">
+      <div className="row-between opp-filters">
         <div className="seg" role="group" aria-label="Category">
           {([["all", "All"], ["jobs", "Jobs & internships"], ["campus", "Campus jobs"], ["event", "Events"]] as [Kind, string][]).map(([k, l]) => (
             <button key={k} aria-pressed={kind === k} onClick={() => setKind(k)} data-testid={`filter-${k}`}>{l}</button>
           ))}
         </div>
         <div className="row">
-          <input className="input" style={{ width: 200 }} placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search openings" data-testid="input-search-jobs" />
+          <input className="input opp-search" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search openings" data-testid="input-search-jobs" />
           <label className="row small"><input type="checkbox" checked={savedOnly} onChange={(e) => setSavedOnly(e.target.checked)} /> Saved only</label>
           {regions && <label className="row small" title={`Your regions: ${regions}`}><input type="checkbox" checked={myRegions} onChange={(e) => setMyRegions(e.target.checked)} data-testid="checkbox-my-regions" /> Only where I want to work</label>}
           {w.hiddenJobIds.length > 0 && <label className="row small"><input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} /> Show ones I'm not interested in</label>}
@@ -112,7 +113,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
       {(ineligible.length > 0 || (myRegions && elsewhere.length > 0)) && (
         <div className="notice small" data-testid="notice-filtered">
           <div>
-            {ineligible.length > 0 && <>{showIneligible ? "Showing" : "Hiding"} <strong>{ineligible.length}</strong> opening{ineligible.length > 1 ? "s" : ""} that {ineligible.length > 1 ? "don't" : "doesn't"} fit what you chose, {ineligible.length > 1 ? "are" : "is"} closed, or you're not eligible for (for example, another field, a passed deadline or a class-year rule). <button className="btn btn-ghost btn-sm" onClick={() => setShowIneligible((v) => !v)} data-testid="button-toggle-ineligible">{showIneligible ? "Hide them" : "Show anyway"}</button></>}
+            {ineligible.length > 0 && <>{showIneligible ? "Showing" : "Hiding"} <strong>{ineligible.length}</strong> opening{ineligible.length > 1 ? "s" : ""} you can't apply to or that {ineligible.length > 1 ? "don't" : "doesn't"} fit your choices. <button className="btn btn-ghost btn-sm" onClick={() => setShowIneligible((v) => !v)} data-testid="button-toggle-ineligible">{showIneligible ? "Hide them" : "Show anyway"}</button></>}
             {myRegions && elsewhere.length > 0 && <div>{elsewhere.length} more {elsewhere.length > 1 ? "are" : "is"} outside {regions}. <button className="btn btn-ghost btn-sm" onClick={() => setMyRegions(false)}>Show all locations</button></div>}
             {!w.profile.classYear && !w.profile.graduation && <div>Add your class year in <a href="/accounts" style={{ fontWeight: 700 }}>Accounts</a> and Remy will check every opening's eligibility for you.</div>}
           </div>
@@ -215,26 +216,29 @@ function JobCard({ j, fit, defaultOpen }: { j: Job; fit?: JobFit; defaultOpen: b
   };
   const addCal = () => run(() => save("calendar", [...w.calendar, { id: rid("cal"), title: `${j.company}: ${j.kind === "event" ? "event" : "deadline"}`, date: j.deadline, time: "", kind: j.kind === "event" ? "Event" : "Deadline", source: j.label === "Live" ? "From verified posting" : "From imported posting", linkedId: j.id, notes: j.deadlineText }]), "Added to your Remy calendar");
   return (
-    <article id={"job-" + j.id} className="card card-pad stack-sm" style={defaultOpen ? { borderColor: "var(--plum)" } : undefined} data-testid="card-job">
-      <div className="row-between" style={{ alignItems: "flex-start" }}>
+    <article id={"job-" + j.id} className={"card card-pad stack-sm job-card" + (open ? " open" : "")} style={defaultOpen ? { borderColor: "var(--plum)" } : undefined} data-testid="card-job">
+      <div className="row-between job-top" style={{ alignItems: "flex-start" }}>
         <div className="stack-sm" style={{ minWidth: 0, flex: 1 }}>
           <div className="row"><span className="xs muted">{j.company} · {kindLabel[j.kind]}</span><StatusChip label={j.label} />{eligChip(fit)}</div>
-          <h3>{j.title}</h3>
+          <h3 title={shortTitle(j.title, j.company) !== j.title ? j.title : undefined}>{shortTitle(j.title, j.company)}</h3>
           <div className="row small muted"><span className="row" style={{ gap: 4 }}><MapPin size={14} />{j.location || "Location not stated"}</span>{j.dates && <span>· {j.dates}</span>}</div>
         </div>
         {j.deadline && <span className={"chip " + (d !== null && d < 0 ? "chip-bad" : d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d < 0 ? "Deadline passed" : `Due ${fmtDate(j.deadline)}${d === 0 ? " · today" : d !== null ? ` · ${d}d` : ""}`}</span>}
       </div>
+      {fit && <p className="small job-why"><strong>Why it fits you: </strong>{fit.why}</p>}
+      {(() => { const known = w.contacts.filter((c) => sameOrg(c.org, j.company)); return known.length > 0 && <button className="xs job-contact" style={{ textAlign: "left", color: "var(--fox)", fontWeight: 700 }} onClick={() => go("/community")} data-testid="job-known-contact">You know {known.map((c) => c.name).join(", ")} here: ask about the team before you apply →</button>; })()}
+      {/* On a phone these wait under Details, so a closed card is short. */}
+      <div className="job-more stack-sm">
       {postingSkills(j.requirements).length > 0 && (
         <div className="row" style={{ gap: 6, flexWrap: "wrap" }} data-testid="job-keywords">
           <span className="xs muted" style={{ fontWeight: 700 }}>Looking for:</span>
           {postingSkills(j.requirements).slice(0, 5).map((k) => <span key={k} className={"chip " + (fit?.matched.includes(k) ? "chip-live" : "chip-plain")} title={j.requirements.find((r) => r.keyword === k || skillsIn(r.quote).includes(k))?.quote}>{fit?.matched.includes(k) ? "✓ " : ""}{k}</span>)}
         </div>
       )}
-      {fit && <p className="small"><strong>Why it fits you: </strong>{fit.why}</p>}
-      {(() => { const known = w.contacts.filter((c) => sameOrg(c.org, j.company)); return known.length > 0 && <button className="xs" style={{ textAlign: "left", color: "var(--fox)", fontWeight: 700, padding: 0 }} onClick={() => go("/community")} data-testid="job-known-contact">You know {known.map((c) => c.name).join(", ")} here: ask about the team before you apply →</button>; })()}
       {fit && fit.eligibility !== "unknown" && <p className="xs muted"><strong>{fit.eligibility === "unlikely" ? "Why not: " : fit.checked && !fit.hidden ? "Why you qualify: " : "Eligibility: "}</strong>{fit.eligibilityNote}</p>}
       {fit?.hidden && <p className="xs muted"><strong>Why it's hidden: </strong>{fit.hidden}</p>}
       {fit && fit.gaps.length > 0 && <p className="small muted"><strong>Gaps: </strong>{fit.gaps.slice(0, 3).join("; ")}</p>}
+      </div>
       {open && (
         <div className="stack" style={{ borderTop: "1px solid var(--line)", paddingTop: 12, marginTop: 4 }}>
           <p className="small">{j.summary}</p>
