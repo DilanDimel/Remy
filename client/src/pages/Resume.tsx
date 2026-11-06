@@ -1,3 +1,4 @@
+import { shortTitle } from "@shared/org";
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowUpRight, Check, CheckCircle2, ChevronDown, ChevronUp, Download, FileText, Link2, Pencil, Plus, RotateCcw, ShieldAlert, ShieldCheck, Sparkles,
@@ -35,6 +36,7 @@ export default function Resume({ query }: { query: URLSearchParams }) {
           <p>Every tailored change shows the posting requirement behind it and the evidence from your own resume.</p>
         </div>
       </div>
+      <LaptopNudge />
       <div className="tabs" role="tablist">
         {([["base", "Base resume"], ["tailor", "Tailor for an opening"], ["prep", "Interview & LinkedIn"], ["library", "Approved & exports"]] as [Tab, string][]).map(([k, l]) => (
           <button key={k} role="tab" className="tab" aria-selected={effective === k} onClick={() => setTab(k)} data-testid={`tab-resume-${k}`}>{l}</button>
@@ -62,7 +64,8 @@ function BaseResume() {
   const [showRaw, setShowRaw] = useState(false);
   const [replace, setReplace] = useState(false);
   // Students who'd rather not see their file can minimize it; the choice is remembered on this device.
-  const [preview, setPreviewState] = useState(() => { try { return localStorage.getItem("remy.resumePreview") !== "hidden"; } catch { return true; } });
+  // No choice yet: open on laptops, minimized on phones (the file preview is a screen tall there).
+  const [preview, setPreviewState] = useState(() => { try { const v = localStorage.getItem("remy.resumePreview"); return v ? v !== "hidden" : !window.matchMedia("(max-width: 640px)").matches; } catch { return true; } });
   const setPreview = (fn: (p: boolean) => boolean) => setPreviewState((p) => { const n = fn(p); try { localStorage.setItem("remy.resumePreview", n ? "shown" : "hidden"); } catch { /* private mode */ } return n; });
   const [building, setBuilding] = useState(false);
   useEffect(() => { setDoc(w.resume?.doc ? JSON.parse(JSON.stringify(w.resume.doc)) : null); }, [w.resume?.uploadedAt]);
@@ -249,7 +252,7 @@ function Tailor({ query }: { query: URLSearchParams }) {
             return (
               <button key={a.id} className="pick" aria-pressed={selected?.id === a.id} onClick={() => go(`/resume?tab=tailor&app=${a.id}`)} data-testid="button-pick-application">
                 <span className="xs muted">{j?.company || "…"}</span>
-                <strong className="small">{j?.title || "Loading"}</strong>
+                <strong className="small">{j ? shortTitle(j.title, j.company) : "Loading"}</strong>
                 <span className="row xs">
                   {a.versions.length ? <span className="chip chip-live">Approved v{a.versions.length}</span> : a.generatedAt ? <span className="chip chip-plain">Draft{pending ? ` · ${pending} to review` : ""}</span> : <span className="chip chip-plain">Not generated</span>}
                   {a.staleReason && <span className="chip chip-setup">Review</span>}
@@ -257,14 +260,16 @@ function Tailor({ query }: { query: URLSearchParams }) {
               </button>
             );
           })}
-          {shown.map((j) => (
-            <button key={j.id} className="pick pick-new" onClick={() => start(j.id)} data-testid="button-choose-job">
+          {shown.map((j, i) => (
+            <button key={j.id} className={"pick pick-new" + (i >= 3 ? " pick-extra" : "")} onClick={() => start(j.id)} data-testid="button-choose-job">
               <span className="xs muted">{j.company}</span>
-              <strong className="small">{j.title}</strong>
+              <strong className="small">{shortTitle(j.title, j.company)}</strong>
               <span className="row xs"><span className="chip chip-plain"><Plus size={11} /> Start tailoring</span>{fits[j.id]?.eligibility === "likely" && fits[j.id]?.checked && <span className="chip chip-live">Eligible</span>}</span>
             </button>
           ))}
-          {notStarted.length > shown.length && <button className="pick pick-new" onClick={() => go("/opportunities")} data-testid="button-more-openings"><strong className="small">{notStarted.length - shown.length} more</strong><span className="xs muted">See them all in Opportunities</span></button>}
+          {/* phones list only the top 3 new openings (no sideways scrolling), so their "more" counts from 3 */}
+          {notStarted.length > 3 && <button className="pick pick-new pick-more-phone" onClick={() => go("/opportunities")}><strong className="small">{notStarted.length - 3} more</strong><span className="xs muted">See them all in Opportunities</span></button>}
+          {notStarted.length > shown.length && <button className="pick pick-new pick-more-wide" onClick={() => go("/opportunities")} data-testid="button-more-openings"><strong className="small">{notStarted.length - shown.length} more</strong><span className="xs muted">See them all in Opportunities</span></button>}
         </div>
       </div>
       <div>
@@ -312,7 +317,7 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
           <div className="stack-sm">
             <span className="xs muted">{job.company} · <StatusChip label={job.label} /></span>
             <h2 data-testid="text-app-title">{job.title}</h2>
-            <span className="xs muted">{job.deadlineText || "No deadline listed"} · <a href={job.applyUrl || job.sourceUrl} target="_blank" rel="noreferrer" style={{ color: "var(--plum)", fontWeight: 700 }}>Posting <ArrowUpRight size={12} style={{ display: "inline" }} /></a></span>
+            <span className="xs muted">{job.deadlineText || "No deadline listed"} · <a className="src-link" href={job.applyUrl || job.sourceUrl} target="_blank" rel="noreferrer" style={{ color: "var(--plum)", fontWeight: 700 }}>Posting <ArrowUpRight size={12} style={{ display: "inline" }} /></a></span>
           </div>
           <button className="btn btn-primary" onClick={generate} disabled={!!busy || (!!mine && mine.stage !== "done") || !config?.ai.available || !w.resume} data-testid="button-generate">
             {mine?.stage === "working" ? <Spinner /> : a.generatedAt ? <RotateCcw size={16} /> : <Sparkles size={16} />} {mine?.stage === "working" ? "Tailoring…" : mine?.stage === "asking" ? "Answering Remy…" : a.generatedAt ? "Regenerate" : "Tailor with AI"}
@@ -645,6 +650,18 @@ function Library() {
           </div>
         )) : <span className="small muted">No incidents yet.</span>}
       </div>
+    </div>
+  );
+}
+
+/** Phones only, until dismissed: editing is easier on a bigger screen, and what works fine here. */
+function LaptopNudge() {
+  const [gone, setGone] = useState(() => { try { return localStorage.getItem("remy.laptopNudge") === "hidden"; } catch { return false; } });
+  if (gone) return null;
+  return (
+    <div className="notice small phone-only" data-testid="laptop-nudge">
+      <span>Editing a resume is easier on a laptop. On your phone you can review changes, approve them and download your files.</span>
+      <button className="btn btn-ghost btn-sm" onClick={() => { setGone(true); try { localStorage.setItem("remy.laptopNudge", "hidden"); } catch { /* private mode */ } }}>Got it</button>
     </div>
   );
 }

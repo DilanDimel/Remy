@@ -224,8 +224,8 @@ function Future() {
         <div key={f.field} className="card card-pad stack-sm" data-testid="card-future">
           <h3 style={{ textTransform: "capitalize" }}>{f.field}</h3>
           <p className="small muted">{f.fasterThanAverage} of {f.total} {f.field} jobs are expected to grow faster than average.</p>
-          {f.growing.length > 0 && <><b className="row small"><TrendingUp size={15} /> Growing</b><ul style={{ margin: 0, padding: 0, listStyle: "none" }}>{f.growing.map(row)}</ul></>}
-          {f.shrinking.length > 0 && <><b className="row small"><TrendingDown size={15} /> Shrinking</b><ul style={{ margin: 0, padding: 0, listStyle: "none" }}>{f.shrinking.map(row)}</ul></>}
+          {f.growing.length > 0 && <><b className="row small"><TrendingUp size={15} /> Growing</b><ul className="rows" style={{ margin: 0, padding: 0, listStyle: "none" }}>{f.growing.map(row)}</ul></>}
+          {f.shrinking.length > 0 && <><b className="row small"><TrendingDown size={15} /> Shrinking</b><ul className="rows" style={{ margin: 0, padding: 0, listStyle: "none" }}>{f.shrinking.map(row)}</ul></>}
         </div>
       ))}
       <div className="notice"><div className="small"><b>What "AI tools can speed up" means:</b> the share of a job's tasks where AI could cut the time in half or more, from research by Eloundou, Manning, Mishkin and Rock (2023). It doesn't mean the job goes away. It means people in that job who use AI well will have an edge, so it's worth learning those tools now.</div></div>
@@ -290,7 +290,7 @@ function Explore() {
       {data?.map((f) => (
         <div key={f.field} className="stack-sm">
           <span className="eyebrow" style={{ textTransform: "capitalize" }}>{f.field}</span>
-          <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+          <ul className="rows" style={{ margin: 0, padding: 0, listStyle: "none" }}>
             {f.jobs.map((o) => (
               <li key={o.title} className="row-between" style={{ gap: 8, padding: "8px 0", borderTop: "1px solid var(--line)" }}>
                 <span className="stack-sm" style={{ gap: 2 }}><b className="small">{o.title}</b><span className="xs muted">{facts(o)}</span></span>
@@ -301,11 +301,12 @@ function Explore() {
         </div>
       ))}
       <div className="stack-sm">
-        <span className="xs muted">Browse another area:</span>
-        <div className="row" style={{ gap: 6 }}>
-          {browse && <button className="chip" onClick={() => setBrowse("")}>My major</button>}
-          {FIELD_GROUPS.flatMap(([, opts]) => opts).map((o) => <button key={o} className={"chip" + (browse === o ? " chip-live" : "")} onClick={() => setBrowse(o)}>{o}</button>)}
-        </div>
+        {/* one grouped dropdown instead of ~70 small chips */}
+        <label className="xs muted" htmlFor="browse-area">Browse another area</label>
+        <select id="browse-area" className="input" style={{ maxWidth: 360 }} value={browse} onChange={(e) => setBrowse(e.target.value)} data-testid="select-browse-area">
+          <option value="">My major</option>
+          {FIELD_GROUPS.map(([g, opts]) => <optgroup key={g} label={g}>{opts.map((o) => <option key={o} value={o}>{o}</option>)}</optgroup>)}
+        </select>
       </div>
     </div>
   );

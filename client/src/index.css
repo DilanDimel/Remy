@@ -1004,3 +1004,24 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .asst-welcome p { margin: 0 0 6px; max-width: 34ch; }
 .asst-welcome .stack-sm { width: 100%; }
 .asst-starter { justify-content: flex-start; white-space: normal; text-align: left; height: auto; padding: 8px 12px; width: 100%; }
+@media (max-width: 640px) {
+  /* every page on a phone: thumb-sized controls, all tabs visible (no sideways scrolling), slogans off the first screen */
+  .btn, .seg button, .tab, .input, .select, select { min-height: 44px; }
+  .icon-btn { width: 44px; height: 44px; }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; overflow: visible; gap: 0; }
+  .tab { white-space: normal; text-align: left; line-height: 1.25; }
+  .page-head > div > p:first-of-type:not([data-testid]) { display: none; }
+}
+.pick-more-phone { display: none; }
+@media (max-width: 640px) {
+  /* Tailor's opening picker: a short list on phones instead of a sideways strip */
+  .opening-strip { grid-auto-flow: row; grid-auto-columns: auto; overflow: visible; padding-bottom: 0; }
+  .opening-strip .pick-extra, .opening-strip .pick-more-wide { display: none; }
+  .opening-strip .pick-more-phone { display: flex; }
+}
+.link-btn { min-height: 0; }
+@media (max-width: 640px) { .link-btn { min-height: 44px; } }
+.phone-only { display: none !important; }
+@media (max-width: 640px) { .phone-only { display: flex !important; } }
+/* rows in styled lists (road steps, job lists, picks) use the card's full width; plain bullet text keeps the 72ch reading width */
+ul[class] > li, ol[class] > li { max-width: none; }
