@@ -434,6 +434,10 @@ test("health roads (Nov 6): each health major gets its own road, and lookalikes 
     ["Respiratory Therapy", "respiratory"], ["Respiratory Care", "respiratory"], ["Cardiopulmonary Science", "respiratory"], ["Respiratory Care Technology", "respiratory"],
     ["Cardiopulmonary Physical Therapy", "pre-pt"], ["Cardiovascular Sonography", "radiologic"], ["Respiratory Physiology", null], ["Polysomnography", null],
     ["Pulmonary Function Technology", null], ["Cardiovascular Technology", null],
+    // ...and it doesn't steal other majors that only mention breathing (skeptic, Nov 6)
+    ["Public Health - Respiratory Epidemiology", "public-health"], ["Exercise Science (Cardiopulmonary)", "kinesiology"],
+    ["Health Administration - Respiratory Care Management", "health-admin"], ["Pre-Med (Respiratory)", "pre-med"], ["Respiratory medicine", "pre-med"],
+    ["Microbiology - Respiratory Pathogens", null], ["Cardiorespiratory Care", "respiratory"], ["BS Respiratory Therapy (RRT)", "respiratory"],
   ];
   for (const [f, key] of want) assert.equal(roadFor(f)?.key ?? null, key, f);
 });
