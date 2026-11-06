@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Job, JobFit, JobInterestRating, JobInterestReason, Workspace } from "@shared/types";
-import { employerPreferences, interestContext, interestEnabled, preferenceAdjustment, rankJobs, weakInterestJobIds } from "./ranking";
+import { employerPreferences, interestContext, interestEnabled, preferenceAdjustment, weakInterestJobIds } from "./ranking";
 
 const at = "2026-11-03T12:00:00Z";
 const workspace = () => ({
@@ -117,32 +117,4 @@ test("interest: many ratings stay bounded, neutral replaces inferred affinity, a
   assert.equal(preferenceAdjustment(ws, opening("unrelated", { company: "Acme Partners" })).adjustment, 0);
 });
 
-test("ranking: uses a single stable order, keeps fit verdicts intact, and interest cannot promote ineligible or closed jobs", () => {
-  const ws = workspace(), a = opening("a"), b = opening("b"), excluded = opening("excluded"), closed = opening("closed");
-  const jobs = [a, b, excluded, closed];
-  const fits = { a: fit(50), b: fit(50), excluded: fit(95, { excluded: true, eligibility: "unlikely" }), closed: fit(100, { closed: "Closed" }) };
-  rate(ws, b, 5); rate(ws, excluded, 5); rate(ws, closed, 5);
-  const before = JSON.stringify(fits), input = jobs.map((j) => j.id);
-  const ranked = rankJobs(ws, jobs, fits);
-  assert.deepEqual(ranked.jobs.map((j) => j.id), ["b", "a", "excluded", "closed"]);
-  assert.equal(ranked.rankings.b.score, 58);
-  assert.equal(JSON.stringify(fits), before);
-  assert.deepEqual(jobs.map((j) => j.id), input);
-  ws.jobFeedback = {};
-  assert.deepEqual(rankJobs(ws, [b, a], fits).jobs.map((j) => j.id), rankJobs(ws, [a, b], fits).jobs.map((j) => j.id));
-});
 
-test("ranking: rollback ignores ratings and transfer, while preserving the unified base and weak save signal", () => {
-  const ws = workspace(), job = opening("rated"), candidate = opening("candidate");
-  ws.jobs = [job, candidate]; ws.savedJobIds = [job.id]; rate(ws, job, 1, "company");
-  assert.equal(preferenceAdjustment(ws, job, false).adjustment, 2);
-  assert.equal(preferenceAdjustment(ws, candidate, false).adjustment, 1);
-  assert.equal(employerPreferences(ws, false).size, 0);
-  const fits = { rated: fit(50), candidate: fit(60) };
-  const disabled = rankJobs(ws, ws.jobs, fits, false);
-  ws.jobFeedback = {};
-  assert.deepEqual(disabled, rankJobs(ws, ws.jobs, fits, true));
-  const previous = process.env.OR_JOB_INTEREST_ENABLED;
-  try { process.env.OR_JOB_INTEREST_ENABLED = "false"; assert.equal(interestEnabled(), false); }
-  finally { if (previous === undefined) delete process.env.OR_JOB_INTEREST_ENABLED; else process.env.OR_JOB_INTEREST_ENABLED = previous; }
-});

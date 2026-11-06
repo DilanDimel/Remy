@@ -90,6 +90,8 @@ export const FAR_ENOUGH_STEP = 3;
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [me, setMe] = useState<Me | null>(null);
+  const meRef = useRef<Me | null>(null); // callbacks made once still see the current account
+  meRef.current = me;
   const [ws, setWsState] = useState<Workspace | null>(null);
   const [loading, setLoading] = useState(true);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -149,7 +151,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!m || seq !== saveSeq.current || savingNow.current) return;
     setMe((prev) => (JSON.stringify(prev) === JSON.stringify(m.me) ? prev : m.me));
     setWsState((prev) => {
-      const next = m.workspace && prev ? keepNewerJobFeedback(prev, m.workspace, "me", "me") : m.workspace;
+      const next = m.workspace && prev ? keepNewerJobFeedback(prev, m.workspace, meRef.current?.id || null, m.me?.id || null) : m.workspace;
       if (!prev || !next) return next;
       // Keep every unchanged section as the same object, so forms showing it (Profile, setup review) aren't reset.
       let changed = false;
@@ -195,7 +197,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     savingNow.current++;
     try {
       const w = await api<Workspace>("PUT", `/api/ws/${section}`, { value });
-      setWsState((prev) => keepNewerJobFeedback(prev, w, "me", "me")); // a slow save can't undo a newer like
+      setWsState((prev) => keepNewerJobFeedback(prev, w, meRef.current?.id || null, meRef.current?.id || null)); // a slow save can't undo a newer like
       setFailed((f) => (f?.section === section ? null : f));
       return w;
     } catch (e) {
@@ -230,7 +232,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   // Any workspace the app sets (an AI result, a search) is newer than a quiet refresh still on its way.
-  const setWs = useCallback((w: Workspace) => { saveSeq.current++; setWsState((prev) => keepNewerJobFeedback(prev, w, "me", "me")); }, []);
+  const setWs = useCallback((w: Workspace) => { saveSeq.current++; setWsState((prev) => keepNewerJobFeedback(prev, w, meRef.current?.id || null, meRef.current?.id || null)); }, []);
   const value = useMemo<Store>(() => ({
     config, me, ws, loading, toast, refresh, save, run, theme, setTheme,
     setWs,

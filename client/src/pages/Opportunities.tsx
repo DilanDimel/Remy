@@ -48,7 +48,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const companyOf = (id: string) => (jobs || []).find((j) => j.id === id)?.company;
   const liked = new Set([...w.savedJobIds, ...w.applications.map((a) => a.jobId)].map(companyOf));
   const hiddenBy = new Map<string | undefined, number>();
-  for (const id of w.hiddenJobIds) hiddenBy.set(companyOf(id), (hiddenBy.get(companyOf(id)) || 0) + 1);
+  for (const id of w.hiddenJobIds) if (!w.jobFeedback?.[id]) hiddenBy.set(companyOf(id), (hiddenBy.get(companyOf(id)) || 0) + 1); // a "Not for me" counts once, through its reason
   // The specific words of their goal ("mechanical") in a title outrank a same-field but different job ("electrical").
   const GENERIC = /^(intern|interns|internship|internships|student|students|engineer|engineering|analyst|associate|assistant|summer|entry|level|role|roles|jobs?|work|program|career|careers|position|and|the|for|with)$/i;
   const specific = [...new Set(`${w.profile.targetRoles} ${w.profile.major}`.toLowerCase().split(/[^a-z&]+/).filter((x) => x.length > 3 && !GENERIC.test(x)))];
@@ -289,39 +289,40 @@ function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit
 }
 
 // "More like this" / "Not for me" (Julio's interest system, Nov 6 2026): the student's own taps re-order their openings,
-// and an optional reason carries the like or pass over to similar openings. "Not for me" also hides the card.
-const REASONS: [JobInterestReason, string][] = [["role", "the role"], ["company", "the employer"], ["location", "the location"], ["format", "remote / in person"]];
+// and an optional reason carries the like or pass over to similar openings. "Not for me" asks why first (or "Just hide it"),
+// then saves and hides the card in one step, so nothing is half-done if the student walks away.
 function Interest({ j, hidden }: { j: Job; hidden: boolean }) {
   const { ws, setWs, save, run } = useStore();
   const w = ws!;
   const mine = w.jobFeedback?.[j.id];
-  const side = mine ? (mine.rating >= 4 ? "up" : mine.rating <= 2 ? "down" : "") : "";
-  const [asking, setAsking] = useState(false);
-  const rate = async (rating: 1 | 5, reason?: JobInterestReason) => {
-    const r = await run(() => api<Workspace>("PUT", `/api/jobs/${j.id}/interest`, { rating, ...(reason ? { reason } : {}) }));
+  const liked = !!mine && mine.rating >= 4;
+  const [asking, setAsking] = useState<"" | "up" | "down">("");
+  // Openings found on job boards only say "Remote" or nothing, so "remote or not" only works when it says remote.
+  const reasons: [JobInterestReason, string][] = [["role", "the role"], ["company", "the employer"], ["location", "the location"], ...(/remote/i.test(j.format) ? [["format", "remote work"] as [JobInterestReason, string]] : [])];
+  const put = (rating: 1 | 5, reason?: JobInterestReason) => run(() => api<Workspace>("PUT", `/api/jobs/${j.id}/interest`, { rating, ...(reason ? { reason } : {}) }));
+  const like = async (reason?: JobInterestReason) => { const r = await put(5, reason); if (r) { setWs(r); setAsking(reason ? "" : "up"); } };
+  const pass = async (reason?: JobInterestReason) => {
+    const r = await put(1, reason);
     if (!r) return;
     setWs(r);
-    // "Not for me" hides the card, but only after the optional "why" (so the question doesn't vanish with it).
-    if (rating === 1 && reason) await hide(r);
-    setAsking(!reason);
+    setAsking("");
+    if (!r.hiddenJobIds.includes(j.id)) await save("hiddenJobIds", [...r.hiddenJobIds, j.id]);
   };
-  const hide = async (r: Workspace) => { if (!r.hiddenJobIds.includes(j.id)) await save("hiddenJobIds", [...r.hiddenJobIds, j.id]); setAsking(false); };
-  const undo = async () => {
-    const r = await run(() => api<Workspace>("DELETE", `/api/jobs/${j.id}/interest`));
-    if (!r) return;
-    setWs(r);
-    if (side === "down" && r.hiddenJobIds.includes(j.id)) await save("hiddenJobIds", r.hiddenJobIds.filter((x) => x !== j.id));
-    setAsking(false);
+  const clear = async () => { const r = await run(() => api<Workspace>("DELETE", `/api/jobs/${j.id}/interest`)); if (r) { setWs(r); setAsking(""); } return r; };
+  const showAgain = async () => {
+    const r = mine ? await clear() : w;
+    if (r && r.hiddenJobIds.includes(j.id)) await save("hiddenJobIds", r.hiddenJobIds.filter((x) => x !== j.id));
   };
+  if (hidden) return <button className="btn btn-ghost btn-sm" onClick={showAgain} data-testid="button-show-again">Show it again</button>;
   return (
     <>
-      <button className="btn btn-ghost btn-sm" aria-pressed={side === "up"} onClick={() => (side === "up" ? undo() : rate(5))} data-testid="button-more-like-this"><ThumbsUp size={14} /> {side === "up" ? "Liked" : "More like this"}</button>
-      <button className="btn btn-ghost btn-sm" aria-pressed={side === "down"} onClick={() => (side === "down" ? undo() : rate(1))} data-testid="button-not-for-me"><ThumbsDown size={14} /> {side === "down" || hidden ? "Show it again" : "Not for me"}</button>
-      {asking && side && (
+      <button className="btn btn-ghost btn-sm" aria-pressed={liked} onClick={() => (liked ? clear() : like())} data-testid="button-more-like-this"><ThumbsUp size={14} /> {liked ? "Liked" : "More like this"}</button>
+      <button className="btn btn-ghost btn-sm" aria-expanded={asking === "down"} onClick={() => setAsking(asking === "down" ? "" : "down")} data-testid="button-not-for-me"><ThumbsDown size={14} /> Not for me</button>
+      {asking && (
         <div className="row xs" style={{ gap: 6, flexBasis: "100%" }} role="group" aria-label="Why (optional)">
-          <span className="muted">{side === "up" ? "What did you like?" : "What put you off?"} (optional, Remy applies it to similar openings)</span>
-          {REASONS.map(([k, label]) => <button key={k} className="pref-chip" aria-pressed={mine?.reason === k} onClick={() => rate(side === "up" ? 5 : 1, k)} data-testid={`chip-reason-${k}`}>{label}</button>)}
-          <button className="btn btn-ghost btn-sm" onClick={() => (side === "down" ? hide(w) : setAsking(false))} data-testid="button-reason-skip">Skip</button>
+          <span className="muted">{asking === "up" ? "What did you like? (optional, Remy applies it to similar openings)" : "What puts you off? Remy hides this one and applies your answer to similar openings."}</span>
+          {reasons.map(([k, label]) => <button key={k} className="pref-chip" aria-pressed={asking === "up" && mine?.reason === k} onClick={() => (asking === "up" ? like(k) : pass(k))} data-testid={`chip-reason-${k}`}>{label}</button>)}
+          <button className="btn btn-ghost btn-sm" onClick={() => (asking === "down" ? pass() : setAsking(""))} data-testid="button-reason-skip">{asking === "down" ? "Just hide it" : "Skip"}</button>
         </div>
       )}
     </>

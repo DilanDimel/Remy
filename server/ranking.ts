@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { Job, JobFit, JobInterest, JobInterestContext, JobRanking, Workspace } from "@shared/types";
+import type { Job, JobInterest, JobInterestContext, JobRanking, Workspace } from "@shared/types";
 import { families, family } from "@shared/words";
 
 export const RANKING_VERSION = "interest-v1";
@@ -14,7 +14,9 @@ const rounded = (n: number) => Math.round(n * 100) / 100;
 export function interestContext(ws: Workspace, job: Job, at: string): JobInterestContext {
   const { major = "", targetRoles = "", interests = "", classYear = "", regions = "", opportunityTypes = "" } = ws.profile;
   const profile = { major, targetRoles, interests, classYear, regions, opportunityTypes };
-  const profileKey = createHash("sha256").update(JSON.stringify(Object.values(profile).map(clean))).digest("hex").slice(0, 24);
+  // Free-text interests are left out of the key: editing them shouldn't silently switch off past likes and passes.
+  const { interests: _free, ...keyed } = profile;
+  const profileKey = createHash("sha256").update(JSON.stringify(Object.values(keyed).map(clean))).digest("hex").slice(0, 24);
   const { title, company, location, format, kind } = job;
   return { rankingVersion: RANKING_VERSION, profileKey, profile, job: { title, company, location, format, kind }, capturedAt: at };
 }
@@ -111,18 +113,6 @@ export function employerPreferences(ws: Workspace, enabled = interestEnabled()):
   return result;
 }
 
-/** One server order for every screen; the separate fit verdict remains untouched. */
-export function rankJobs(ws: Workspace, jobs: Job[], fits: Record<string, JobFit>, enabled = interestEnabled()): { jobs: Job[]; rankings: Record<string, JobRanking> } {
-  const rankings: Record<string, JobRanking> = {};
-  for (const job of jobs) {
-    const preference = preferenceAdjustment(ws, job, enabled);
-    const base = Number.isFinite(fits[job.id]?.score) ? fits[job.id].score! : 0;
-    rankings[job.id] = { score: rounded(base + preference.adjustment), ...preference };
-  }
-  const group = (j: Job) => fits[j.id]?.closed ? 2 : fits[j.id]?.excluded || fits[j.id]?.eligibility === "unlikely" ? 1 : 0;
-  const key = (j: Job) => `${j.company}\n${j.title}\n${j.location}\n${j.id}`;
-  return { jobs: [...jobs].sort((a, b) => group(a) - group(b) || rankings[b.id].score - rankings[a.id].score || key(a).localeCompare(key(b))), rankings };
-}
 
 /** Only what the student's own "More like this" / "Not for me" taps did to each opening (no save/apply signals,
  *  which the Openings page already weighs). Shown on the card as the reason it moved. */
