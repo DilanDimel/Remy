@@ -2,8 +2,7 @@
 // Replaced the combined "health" road in roads.ts. Every claim links to the page it came from; claims I could not confirm are marked UNVERIFIED in a comment.
 // AUDITED Nov 6, 2026 (backup of the pre-audit draft: health-roads-draft.pre-audit.ts). Sources re-fetched Nov 6 unless a
 // comment says "search snippet" (the page blocked direct fetching, so the fact comes from a search result quoting that page).
-// Audit changes: counseling road no longer matches plain "Psychology" (Dilan's decision); CRNA doctorate wording, NP
-// "500 clinical hours" (not on BON's page) removed; sonography/MLS/PA/pharmacy/OT/PT/kinesiology claims re-sourced or softened.
+// Audit changes: counseling road no longer matches plain "Psychology" (Dilan's decision); CRNA doctorate wording, NP "500 clinical hours" left off the road (BON's page states it as a program requirement, not a step for students); sonography/MLS/PA/pharmacy/OT/PT/kinesiology claims re-sourced or softened.
 //
 // Where they go in ROADS (order matters, first match wins):
 //   crna, nurse-practitioner           → BEFORE "nursing" (specialties before parent, so "Nurse Anesthesia" doesn't stop at nursing)
@@ -95,6 +94,20 @@ const NBCRNA = "https://www.nbcrna.com/";
 const TX_APRN = "https://www.bon.texas.gov/applications_advanced_practice_registered_nurse.asp.html"; // TLS error to fetchers; search snippet Nov 6: RN license, accredited APRN program, national certification in role + population focus
 const AAVMC = "https://www.aavmc.org/wp-content/uploads/2024/11/AAVMC-Advisor-Guide-04.pdf"; // "most veterinary medical colleges participate in VMCAS" (search snippet)
 const ONET = (soc: string) => `https://www.onetonline.org/link/summary/${soc}`;
+const TCU_DNP_ADMIT = "https://graduate.catalog.tcu.edu/colleges/harris/dnp/postbaccbsntodnp"; // FNP, PMHNP: preferred 1 yr full-time RN; AGACNP: required 1 yr RN in inpatient acute care
+const ARRT_PRIMARY = "https://www.arrt.org/pages/earn-arrt-credentials/initial-requirements/primary-requirements"; // associate's or higher + ARRT-approved program in the same discipline (radiography, sonography, MRI…)
+const ARRT_HANDBOOK = "https://www.arrt.org/docs/default-source/handbooks/arrt-primary-handbook.pdf"; // 2026 handbook: didactic + program clinical requirements + ARRT's clinical competencies
+const ASCO_PREREQ = "https://optometriceducation.org/wp-content/uploads/2024/04/ASCO-Prerequisites-2024.pdf"; // ASCO chart (April 2024) with a SHADOWING column per school
+const OTCAS_OBS = "https://help.liaisonedu.com/OTCAS_Applicant_Help_Center/Filling_Out_Your_OTCAS_Application/Supporting_Information/02_Observation_Hours"; // OTCAS doesn't verify hours; programs set any minimum or documentation rule
+const OTCAS_PROG = "https://help.liaisonedu.com/OTCAS_Applicant_Help_Center/Filling_Out_Your_OTCAS_Application/Program_Materials/OTCAS_Program_Materials"; // "Each program's requirements may vary"
+// Respiratory therapy (draft Nov 6, 2026). Sources read Nov 6 unless marked.
+const NBRC_RRT = "https://www.nbrc.org/examinations/rrt/"; // CoARC program + associate degree minimum; TMC/CSE; RT Exam from Jan 2027; "CRT and/or RRT ... basis for the licensure in all 49 states that regulate"
+const NBRC_2027 = "https://www.nbrc.org/examination-changes-coming-in-2027-new-details-added/"; // single Respiratory Therapy Examination from Jan 2027: low cut = CRT, high cut = RRT; CSE through Dec 31, 2027 only for TMC high-cut passers before Dec 31, 2026
+const COARC_REPORT = "https://coarc.com/wp-content/uploads/2026/03/Master-2025-CoARC-Report-on-Accreditation-2.23.26-TA-src.pdf"; // entry programs at associate, bachelor's, master's; 82% associate, 17% bachelor's, 7 master's (Dec 31, 2025)
+const TX_RCP = "https://www.tmb.texas.gov/apply-renew/respiratory-care-practitioner/respiratory-care-practitioner-certificate-application"; // RCP certificate, temporary RCP, jurisprudence exam in fee
+const TX_RCP_CHECK = "https://www.tmb.texas.gov/file/respiratory-care-practitioner-documentation-checklist-eligibility-requirements"; // certified program transcript, NBRC certificate, fingerprints
+const TX_RCP_RULE = "https://www.law.cornell.edu/regulations/texas/22-Tex-Admin-Code-SS-187-10"; // 22 TAC 187.10: Texas Jurisprudence exam score of at least 75; 187.12: temporary permit before the national exam
+const BLS_RT = "https://www.bls.gov/ooh/healthcare/respiratory-therapists.htm"; // associate's typical, some employers prefer bachelor's; supervised clinical training; some employers require RRT before hiring
 
 // ---------- Nursing specialties: go BEFORE the "nursing" road ----------
 export const NURSING_SPECIALTIES: Road[] = [
@@ -117,7 +130,7 @@ export const NURSING_SPECIALTIES: Road[] = [
     { name: "Texas APRN license (+ prescriptive authority)", need: "required", who: "Anyone practicing as an NP in Texas. Prescriptive authority is applied for with it.", why: "It's the state license; prescribing needs the added authority.", learn: "Texas APRN rules.", when: "After national certification", source: TX_APRN },
   ], steps: [
     { year: 4, what: "Finish your BSN and pass the NCLEX-RN", source: BON },
-    { year: 5, what: "Some NP programs want RN work experience before you start; check each program's rule", source: "", optional: true }, // UNVERIFIED: varies by program, no single source
+    { year: 5, what: "NP programs can ask for RN work experience first; check each one. TCU's BSN-to-DNP prefers a year as an RN for family and psych-mental health, and requires a year in inpatient acute care for adult-gero acute care", source: TCU_DNP_ADMIT },
     { year: 5, what: "NP program (master's or DNP) in your population focus. TCU offers BSN-to-DNP in family, adult-gero acute care and psych-mental health", source: TCU_GRAD },
     { year: 5, what: "Pass your national certification exam, then apply for the Texas APRN license", source: TX_APRN },
   ],
@@ -134,8 +147,8 @@ export const HEALTH_ROADS: Road[] = [
     { name: "Texas Medical Radiologic Technologist certificate (GMRT)", need: "depends", who: "Needed to take X-rays (radiography) in Texas. Texas says no radiologic technologist license is needed for MRI, and it isn't one of the states that license sonographers.", why: "It's the state credential for doing radiologic procedures.", learn: "Radiation safety, positioning, imaging.", when: "After a radiologic technology program, once you hold ARRT (or NMTCB) certification", source: TX_MRT_CHECK },
     { name: "ARDMS sonography credential (RDMS, RDCS, RVT or RMSKS)", need: "depends", who: "Sonographers. Only 4 states license sonography and Texas isn't one, so this certification is what you can show; many employers hire only certified sonographers.", why: "It's the main proof you can do ultrasound.", learn: "Ultrasound physics plus a specialty (abdomen, OB/GYN, cardiac, vascular…).", when: "After a sonography program", source: SDMS_LIC }, // ARDMS credential names from ARDMS; "many employers hire only certified" from SDMS (search snippet)
   ], steps: [
-    { year: 2, what: "Apply to an accredited radiography or sonography program; they have their own application", source: "" },
-    { year: 4, what: "Clinical rotations inside the program", source: "" },
+    { year: 2, what: "Apply to a radiography or sonography program ARRT approves; ARRT also requires an associate degree or higher", source: ARRT_PRIMARY },
+    { year: 4, what: "Clinical training inside the program: ARRT requires you to pass the program's clinical requirements and ARRT's list of clinical competencies", source: ARRT_HANDBOOK },
     { year: 5, what: "Pass the ARRT exam (radiography) or an ARDMS exam (sonography); radiographers then apply for the Texas certificate", source: TX_MRT_CHECK },
   ],
   skills: ["Patient positioning and care", "Radiation safety", "Anatomy", "Imaging equipment operation", "Physics basics", "Electronic health records", "Clear communication with patients"],
@@ -157,7 +170,7 @@ export const HEALTH_ROADS: Road[] = [
     { name: "PANCE (from NCCPA)", need: "required", who: "Every PA. Texas requires a passing PANCE and current NCCPA certification.", why: "It's the national certification exam.", learn: "Everything from PA school.", when: "After PA school", source: TX_PA },
     { name: "Texas PA license + jurisprudence exam", need: "required", who: "Anyone practicing as a PA in Texas: an accredited (ARC-PA) program, the PANCE, and a 75+ on the Texas jurisprudence exam.", why: "It's the state license.", learn: "Texas medical law.", when: "After the PANCE", source: TX_PA },
   ], steps: [
-    { year: 1, what: "Typical prerequisites: anatomy, physiology, biochemistry, microbiology, chemistry, organic chemistry, genetics, psychology, statistics, English composition; each program sets its own list", source: AAPA },
+    { year: 1, what: "Typical prerequisites: anatomy, physiology, biochemistry, biology, microbiology, chemistry, organic chemistry, genetics, medical terminology, psychology, statistics, English composition; each program sets its own list", source: AAPA },
     { year: 1, what: "Start a hands-on patient care job (CNA, EMT, scribe, medical assistant) and shadow PAs", source: AAPA },
     { year: 3, what: "Apply through CASPA once your patient care hours are strong; most PA students had about three years of health care experience before starting", source: AAPA },
     { year: 5, what: "PA school, most about 27 months for a master's (TCU has one: Physician Associate Studies), then the PANCE and Texas license", source: AAPA },
@@ -207,7 +220,7 @@ export const HEALTH_ROADS: Road[] = [
     { name: "NBEO Parts I–III + TMOD + Texas jurisprudence exam", need: "required", who: "Every optometrist licensed in Texas.", why: "They're the national boards and the state law exam.", learn: "Everything from optometry school, plus Texas rules.", when: "During and after optometry school", source: TOB },
   ], steps: [
     { year: 1, what: "Science prerequisites, including physics", source: OAT },
-    { year: 2, what: "Shadow optometrists", source: "" },
+    { year: 2, what: "Shadow optometrists: some schools require a set number of hours and others strongly recommend it; ASCO's prerequisites chart lists each school's rule", source: ASCO_PREREQ },
     { year: 3, what: "Take the OAT, then apply through OptomCAS", source: OPTOMCAS },
     { year: 5, what: "Optometry school (OD), NBEO boards, Texas license", source: TOB },
   ],
@@ -227,12 +240,12 @@ export const HEALTH_ROADS: Road[] = [
   skillsSource: ONET("29-1123.00") },
 
   { key: "pre-ot", label: "Pre-occupational therapy", field: /\bpre-?ot\b|occupational therap|\bo\.?t\.?d\b/i, not: /assistant|\bota\b/i, credentials: [
-    { name: "Observation hours", need: "depends", who: "Some OT programs ask for observation hours; the rules vary, so check each program.", why: "Programs want proof you know the work.", learn: "How OTs help people do daily tasks after injury, illness or disability.", when: "Sophomore and junior years", source: "" }, // UNVERIFIED: no official page checked for how many programs ask
+    { name: "Observation hours", need: "depends", who: "Some OT programs set a minimum number of observation hours or want them documented; OTCAS doesn't check them, so look up each program's rule.", why: "Programs want proof you know the work.", learn: "How OTs help people do daily tasks after injury, illness or disability.", when: "Sophomore and junior years", source: OTCAS_OBS },
     { name: "NBCOT exam (OTR)", need: "required", who: "Every occupational therapist. You need an entry-level OT degree (master's or doctorate) from an ACOTE-accredited program, with at least 960 fieldwork hours.", why: "It's the national certification exam.", learn: "Everything from your OT program.", when: "After your OT program", source: NBCOT },
     { name: "Texas OT license + jurisprudence exam", need: "required", who: "Every OT working in Texas.", why: "It's the state license; the 20-question open-book exam covers Texas OT rules.", learn: "Texas OT law.", when: "After the NBCOT exam", source: TX_OT },
   ], steps: [
-    { year: 1, what: "Take the prerequisites your target OT programs list; each sets its own", source: "" },
-    { year: 2, what: "Observe OTs in different settings", source: "", optional: true },
+    { year: 1, what: "Take the prerequisites your target OT programs list; each sets its own (OTCAS's Program Materials section shows them)", source: OTCAS_PROG },
+    { year: 2, what: "Observe OTs; check whether your programs require a minimum number of hours or a signed form", source: OTCAS_OBS, optional: true },
     { year: 3, what: "Apply to a master's or doctorate (OTD); both are accredited entry routes to the same NBCOT exam. TCU offers an OTD", source: ACOTE },
     { year: 5, what: "OT program with fieldwork, then the NBCOT exam and Texas license", source: NBCOT },
   ],
@@ -250,6 +263,20 @@ export const HEALTH_ROADS: Road[] = [
   skills: ["Injury evaluation", "Emergency care and CPR", "Rehab and taping", "Communicating with athletes and coaches", "Injury tracking software", "Concussion testing (ImPACT)", "Calm under pressure"],
   skillsSource: ONET("29-9091.00") },
 
+  { key: "respiratory", label: "Respiratory therapy", field: /respiratory|cardio-?pulmonary/i, not: /physiolog|physical therap|rehab|nurs|perfusion|polysomnograph|sleep|pulmonary function|research/i, credentials: [
+    { name: "CoARC-accredited respiratory therapy program", need: "required", who: "Every respiratory therapist. The NBRC exam is only open to graduates of a CoARC-accredited program with at least an associate degree. Most programs (about 4 in 5) are associate degrees; about 1 in 6 are bachelor's, and a few are master's.", why: "No accredited program, no national exam, and Texas needs both.", learn: "Anatomy and physiology, ventilators, oxygen and airway care, with supervised clinical training on patients.", when: "Usually 2 years (associate) or 4 (bachelor's)", source: NBRC_RRT }, // program counts: COARC_REPORT; clinical training: BLS_RT
+    { name: "NBRC Respiratory Therapy Exam (earns the CRT or the RRT)", need: "required", who: "Every respiratory therapist. NBRC says the CRT or RRT is the basis for licensure in all 49 states that regulate respiratory care, Texas included. From January 2027 it's one exam: the lower passing score earns the CRT, the higher one the RRT.", why: "It's the national credential; Texas asks for your NBRC certificate.", learn: "Patient assessment, ventilator and oxygen therapy, airway care, clinical judgment.", when: "After you graduate from your program", source: NBRC_2027 }, // older two-exam system (TMC + Clinical Simulation Exam) ends Dec 31, 2026; CSE stays open through 2027 only for people who passed the TMC at the high cut score before then
+    { name: "RRT (Registered Respiratory Therapist)", need: "depends", who: "The CRT is enough for the Texas certificate, but some employers require the RRT before hiring or within a set time after.", why: "It's the higher of the two NBRC credentials.", learn: "Same exam: it takes the higher passing score.", when: "On the NBRC exam, or a retake later", source: BLS_RT },
+    { name: "Texas Respiratory Care Practitioner (RCP) certificate + jurisprudence exam", need: "required", who: "Anyone working as a respiratory therapist in Texas. The Texas Medical Board needs your program transcript (sent by the program), your NBRC certificate, fingerprints, and a score of 75 or better on the Texas jurisprudence exam.", why: "Texas law doesn't let you call yourself a respiratory care practitioner without it. A temporary permit (up to 12 months) can cover you before you pass the national exam.", learn: "Texas respiratory care law and rules.", when: "Right after the NBRC exam (or a temporary permit just before)", source: TX_RCP_CHECK }, // 75: TX_RCP_RULE (22 TAC 187.10); temporary permit: 22 TAC 187.12; title rule: Tex. Occ. Code 604.101-102 (read on texas.public.law, a reproduction)
+  ], steps: [
+    { year: 1, what: "Apply to a CoARC-accredited respiratory therapy program (associate or bachelor's); only graduates of one can take the NBRC exam", source: NBRC_RRT },
+    { year: 2, what: "Supervised clinical training with patients inside the program", source: BLS_RT },
+    { year: 4, what: "Take the NBRC Respiratory Therapy Exam: the lower passing score earns the CRT, the higher one the RRT", source: NBRC_2027 },
+    { year: 4, what: "Apply for the Texas RCP certificate: program transcript, NBRC certificate, fingerprints and the jurisprudence exam (75+)", source: TX_RCP_CHECK },
+    { year: 5, what: "Started with an associate degree? Some employers prefer a bachelor's; CoARC accredits bachelor's degree-advancement programs for working RTs", source: COARC_REPORT, optional: true }, // "some employers prefer a bachelor's": BLS_RT
+  ],
+  skills: ["Ventilator and oxygen equipment setup", "Arterial blood gas testing", "Patient monitoring", "Emergency care and CPR", "Pulmonary function testing", "Patient and family education", "Electronic health records (MEDITECH, eClinicalWorks)", "Teamwork with physicians and nurses"],
+  skillsSource: ONET("29-1126.00") },
   { key: "slp", label: "Speech-language pathology", field: /speech[- ]?language|speech,? language|speech pathol|speech (and|&) hearing|communication (sciences|disorders)|communicative disorders|\bslp\b|\bcosd\b/i, credentials: [
     { name: "Master's in speech-language pathology", need: "required", who: "Every SLP. A bachelor's in communication sciences alone doesn't make you an SLP.", why: "ASHA certification and the Texas license both need a graduate degree.", learn: "Language, speech, voice, fluency and swallowing disorders, with 400 supervised clinical hours.", when: "After your bachelor's", source: ASHA },
     { name: "Praxis exam in speech-language pathology", need: "required", who: "Needed for the full Texas SLP license and for ASHA certification.", why: "It's the national exam ASHA and Texas use.", learn: "Everything from your master's.", when: "Near the end of your master's", source: ASHA },
@@ -281,8 +308,8 @@ export const HEALTH_ROADS: Road[] = [
   skillsSource: ONET("29-1215.00") },
 
   { key: "kinesiology", label: "Kinesiology and exercise science", field: /kinesiolog|exercise (science|physiology)|movement science|health (and|&) fitness|strength (and|&) conditioning|sport science|human performance/i, not: /teach|physical education(?!.*strength)/i, credentials: [
-    { name: "CSCS (NSCA)", need: "optional", who: "For strength and conditioning coaching. You need a bachelor's in any field (college seniors can test) and CPR/AED. From Jan 1, 2030, NSCA plans to require a degree from a CASCE-accredited program, so check yours if you graduate after 2029.", why: "NSCA's strength and conditioning coach certification.", learn: "Program design, exercise technique, testing.", when: "Senior year or after", source: CSCS },
-    { name: "ACSM Certified Exercise Physiologist (or Certified Personal Trainer)", need: "optional", who: "Fitness and clinical exercise jobs. The exercise physiologist exam needs an exercise science (or similar) bachelor's; you can test in your last semester. Degrees awarded from Aug 15, 2027 must come from a CAAHEP-accredited program.", why: "It shows you know safe exercise testing and programming.", learn: "Exercise testing and prescription.", when: "Last semester or after", source: ACSM_EP },
+    { name: "CSCS (NSCA)", need: "optional", who: "For strength and conditioning coaching. You need a bachelor's in any field (college seniors can test) and CPR/AED. NSCA plans to eventually require a degree from a CASCE-accredited program; the start date has moved, so check NSCA's prerequisites page if you graduate after 2029.", why: "NSCA's strength and conditioning coach certification.", learn: "Program design, exercise technique, testing.", when: "Senior year or after", source: CSCS },
+    { name: "ACSM Certified Exercise Physiologist (or Certified Personal Trainer)", need: "optional", who: "Fitness and clinical exercise jobs. The exercise physiologist exam needs a bachelor's in exercise science, exercise physiology or kinesiology, plus CPR/AED. From Aug 15, 2027, ACSM requires the degree to come from a CAAHEP-accredited program (graduates of other programs may qualify under a temporary exemption through Aug 14, 2029), so check whether yours is accredited.", why: "It shows you know safe exercise testing and programming.", learn: "Exercise testing and prescription.", when: "After your bachelor's", source: ACSM_EP },
   ], steps: [
     { year: 2, what: "Decide your direction: PT, OT, PA, athletic training and medicine all need graduate school (each has its own road); fitness and coaching jobs don't", source: "" },
     { year: 3, what: "Internship or job in a gym, clinic or athletics", source: "" },

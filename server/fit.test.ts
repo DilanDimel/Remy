@@ -430,6 +430,10 @@ test("health roads (Nov 6): each health major gets its own road, and lookalikes 
     ["Health Education (Teacher Certification)", "teaching"], ["Pre-Med Student", "pre-med"], ["Biology (Pre-Med), Independent Study", "pre-med"],
     ["Master of Legal Studies (MLS)", "law"], ["Physicians' Assistant", "pre-pa"], ["Pre-Physician Asst", "pre-pa"],
     ["Medicine, Health, and Society", null], ["Mental Health Technician", null], ["Histotechnology", null],
+    // Respiratory therapy road (Nov 6, second research pass)
+    ["Respiratory Therapy", "respiratory"], ["Respiratory Care", "respiratory"], ["Cardiopulmonary Science", "respiratory"], ["Respiratory Care Technology", "respiratory"],
+    ["Cardiopulmonary Physical Therapy", "pre-pt"], ["Cardiovascular Sonography", "radiologic"], ["Respiratory Physiology", null], ["Polysomnography", null],
+    ["Pulmonary Function Technology", null], ["Cardiovascular Technology", null],
   ];
   for (const [f, key] of want) assert.equal(roadFor(f)?.key ?? null, key, f);
 });
