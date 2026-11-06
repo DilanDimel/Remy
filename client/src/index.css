@@ -1008,9 +1008,8 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
   /* every page on a phone: thumb-sized controls, all tabs visible (no sideways scrolling), slogans off the first screen */
   .btn, .seg button, .tab, .input, .select, select { min-height: 44px; }
   .icon-btn { width: 44px; height: 44px; }
-  .tabs { display: grid; grid-template-columns: 1fr 1fr; overflow: visible; gap: 0; }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; overflow: visible; gap: 0; padding-right: 0; -webkit-mask-image: none; mask-image: none; }
   .tab { white-space: normal; text-align: left; line-height: 1.25; }
-  .page-head > div > p:first-of-type:not([data-testid]) { display: none; }
 }
 .pick-more-phone { display: none; }
 @media (max-width: 640px) {
@@ -1028,3 +1027,5 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .cred-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
 .cred { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 4px; }
 .cred p { margin: 0; max-width: none; }
+.phone-only-block { display: none !important; }
+@media (max-width: 640px) { .phone-only-block { display: block !important; } }

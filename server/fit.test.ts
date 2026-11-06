@@ -424,6 +424,10 @@ test("every road labels its exams and licenses; optional steps say so (Dilan, No
   assert.equal(roadFor("Business Information Systems")?.key, "tech");
   assert.equal(roadFor("Hospitality Management"), null);
   assert.equal(roadFor("Economics"), null);
+  // skeptic, Nov 5: MIS keeps the tech road; "management" only as the whole major
+  for (const f of ["Management Information Systems", "Information management"]) assert.equal(roadFor(f)?.key, "tech", f);
+  for (const f of ["Sport Management", "Ranch Management", "Wildlife management", "Environmental Management", "Emergency Management", "Arts Management", "Event Management", "risk management"]) assert.notEqual(roadFor(f)?.key, "management", f);
+  for (const f of ["Management", "Business Management", "Business Administration", "Entrepreneurship", "Consulting"]) assert.equal(roadFor(f)?.key, "management", f);
 });
 
 test("abroad: US towns with foreign names stay in the US; remote jobs abroad aren't local (persona test Nov 1)", () => {

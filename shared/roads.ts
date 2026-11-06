@@ -60,7 +60,7 @@ export const ROADS: Road[] = [
   ] },
   { key: "finance", label: "Finance", field: /financ|bank|invest|wealth|trading/i, credentials: [
     { name: "SIE (Securities Industry Essentials)", need: "optional", who: "Not needed for internships or most finance jobs. Banks and brokerages that need you licensed have you take it, usually with paid study time, after they hire you.", why: "Some students take it early to show interest, mostly for sales & trading or wealth management. It alone doesn't let you do licensed work.", learn: "How securities markets work: stocks, bonds and funds, who regulates them, and what's not allowed.", when: "Anyone 18+, no sponsor needed, $100, valid 4 years", source: SIE },
-    { name: "Series 7, 63 or 79", need: "job", who: "Only for roles that buy, sell or advise on securities: brokers, traders, investment bankers. Corporate finance, FP&A and many analyst jobs never need them.", why: "The law requires them for those roles; you can't take them without a firm sponsoring you.", learn: "Rules and products for that job (79 is investment banking: deals, valuations, offerings).", when: "After you're hired, usually within your first few months", source: S79 },
+    { name: "Series 7, 63 or 79", need: "job", who: "Only for roles that buy, sell or advise on securities: brokers, traders, investment bankers. Corporate finance, FP&A and many analyst jobs never need them.", why: "The law requires them for those roles. The Series 7 and 79 need a firm to sponsor you; the 63 is usually taken alongside the 7 after hiring.", learn: "Rules and products for that job (79 is investment banking: deals, valuations, offerings).", when: "After you're hired, usually within your first few months", source: S79 },
     { name: "CFA charter", need: "optional", who: "Mostly investment management and research (asset managers, equity research). Rarely asked for in banking or corporate finance.", why: "Respected proof of investment knowledge; the full charter takes years and work experience.", learn: "Investment analysis, valuation, portfolio management and ethics, over 3 levels.", when: "Level I can be taken within 23 months of graduating", source: CFAPOL },
   ], steps: [
     { year: 2, what: "Some students take the SIE to show interest (mostly for sales & trading or wealth management); it isn't needed for internships", source: SIE, optional: true },
@@ -99,7 +99,7 @@ export const ROADS: Road[] = [
   ] },
   { key: "health", label: "Pre-med and health", field: /\bpre-?(med|medical|pharm|pharmacy|pa|pt)\b|\bmedical school\b|\bmedicine\b|physician|pharmac|physical therap/i, not: /veterin|sports medicine|pharmacy tech|pharmaceutical|dent(al|ist)/i, credentials: [
     { name: "MCAT (or the PA, pharmacy or PT program's own test rules)", need: "required", who: "Almost every U.S. medical school requires the MCAT. PA, pharmacy and PT programs set their own rules, so check each one.", why: "Schools use it to compare applicants.", learn: "Biology, chemistry, physics, psychology and reading reasoning.", when: "Usually junior year, if you want to start right after graduating", source: MCAT },
-    { name: "Board exams (USMLE, PANCE, NAPLEX, NPTE)", need: "required", who: "Required to practice in each profession.", why: "They're the license exams.", learn: "Everything from your graduate program.", when: "During and after graduate school", source: MCAT },
+    { name: "Board exams (USMLE, PANCE, NAPLEX, NPTE)", need: "required", who: "Required to practice in each profession.", why: "They're the license exams.", learn: "Everything from your graduate program.", when: "During and after graduate school", source: "https://www.usmle.org/" },
   ], steps: [
     { year: 1, what: "Start shadowing and clinical hours", source: "" },
     { year: 3, what: "To start medical school right after you graduate, take the MCAT and start applying in your junior year", source: MCAT },
@@ -150,20 +150,19 @@ export const ROADS: Road[] = [
   ] },
   { key: "supply-chain", label: "Supply chain", field: /supply chain|logistics|procurement|purchasing/i, credentials: [
     { name: "No license needed", need: "optional", who: "Supply chain jobs don't require a license.", why: "", learn: "", when: "", source: "" },
-    { name: "ASCM certifications (CPIM, CSCP)", need: "optional", who: "Usually earned after a few years of work, often paid for by the employer. Not expected from new graduates.", why: "They help with promotions in planning and operations roles.", learn: "Planning, inventory, sourcing and running a supply chain end to end.", when: "Usually after some work experience; check ASCM's rules", source: "" },
     { name: "CAPM (project management)", need: "optional", who: "Optional for anyone heading into operations or project work.", why: "Students can take it: it needs 23 hours of project management education and no work experience.", learn: "How projects are planned, scheduled and run.", when: "Anytime after the 23 hours", source: CAPM },
   ], steps: [
     { year: 2, what: "Learn Excel well; most supply chain internships use it every day", source: "" },
     { year: 3, what: "Apply for supply chain, operations or purchasing internships", source: SEASON_SOURCE },
   ] },
-  { key: "management", label: "Management and consulting", field: /consult|entrepreneur|business administration|general business|\bmanagement\b/i, not: /information|hotel|hospitality|construction|health|sports|supply|human/i, credentials: [
+  { key: "management", label: "Management and consulting", field: /consult|entrepreneur|business administration|general business|^\s*(business |general )?management\s*$/i, credentials: [
     { name: "No license needed", need: "optional", who: "Consulting, management and general business jobs don't require a license.", why: "Internships, case practice and leadership in clubs count more than certifications.", learn: "", when: "", source: "" },
     { name: "CAPM (project management)", need: "optional", who: "Optional; rarely asked for from new graduates.", why: "A way to show you understand how projects run, without work experience.", learn: "How projects are planned, scheduled and run.", when: "Anytime after 23 hours of project management education", source: CAPM },
   ], steps: [
     { year: 2, what: "Lead something: a club project, a team or an event you can talk about in interviews", source: "" },
     { year: 3, what: "Apply for junior-summer internships; consulting firms recruit early, often the summer before", source: SEASON_SOURCE },
   ] },
-  { key: "tech", label: "Tech and IT", field: /software|computer|data|information|cyber|tech/i, credentials: [
+  { key: "tech", label: "Tech and IT", field: /software|computer|data|information|cyber|\btech\b|technology|^\s*it\s*$/i, not: /technician|pharma|medical|health|lab /i, credentials: [
     { name: "Certifications (CompTIA Security+, AWS, Azure…)", need: "optional", who: "Not needed for most software or data jobs, where projects and skills matter more. Some cybersecurity and government jobs ask for Security+.", why: "A cert can help when you have no experience yet in IT or security, and it shows you studied a topic in depth.", learn: "One area in detail: security basics, or how a cloud platform works.", when: "Anytime; no prerequisites for entry-level ones", source: SECPLUS },
   ], steps: [
     { year: 1, what: "Build projects and put them on GitHub; a portfolio matters more than a license", source: "" },
@@ -184,8 +183,8 @@ export const ROADS: Road[] = [
 export function roadFor(field: string, path = ""): Road | null {
   const trade = path === "trade" || path === "apprenticeship";
   if (trade) return /electric/i.test(field) ? ROADS.find((r) => r.key === "trades")! : null;
-  const road = ROADS.find((r) => r.field.test(field)) || null;
-  return road && !road.not?.test(field) ? road : null;
+  // A road whose "not" matches is skipped, and later roads still get a chance (MIS → tech).
+  return ROADS.find((r) => r.field.test(field) && !r.not?.test(field)) || null;
 }
 
 /** "First-year" … "Senior" as 1–4; graduate students and graduates count as after college. */

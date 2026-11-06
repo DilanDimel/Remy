@@ -33,7 +33,7 @@ export default function Resume({ query }: { query: URLSearchParams }) {
         <div>
           <span className="eyebrow">Resume/CV</span>
           <h1>Your experience, clearly expressed.</h1>
-          <p>Every tailored change shows the posting requirement behind it and the evidence from your own resume.</p>
+          <p className="hide-phone">Every tailored change shows the posting requirement behind it and the evidence from your own resume.</p>
         </div>
       </div>
       <LaptopNudge />
@@ -245,12 +245,19 @@ function Tailor({ query }: { query: URLSearchParams }) {
           <span className="eyebrow">Your applications · {w.applications.length} · {notStarted.length} more openings that fit you</span>
           <button className="btn btn-ghost btn-sm" onClick={() => go("/opportunities?import=1")} data-testid="button-new-application"><Link2 size={14} /> Import a posting from a link or text</button>
         </div>
+        {/* phones show 3 applications (plus the open one); the rest are one tap away here */}
+        {w.applications.length > 3 && (
+          <select className="input phone-only-block" aria-label="All your applications" value={selected?.id || ""} onChange={(e) => go(`/resume?tab=tailor&app=${e.target.value}`)}>
+            {!selected && <option value="">All {w.applications.length} applications…</option>}
+            {w.applications.map((a) => { const j = jobOf(a); return <option key={a.id} value={a.id}>{j ? `${j.company}: ${shortTitle(j.title, j.company)}` : "Loading"}</option>; })}
+          </select>
+        )}
         <div className="opening-strip" data-testid="opening-strip">
-          {w.applications.map((a) => {
+          {w.applications.map((a, i) => {
             const j = jobOf(a);
             const pending = a.changes.filter((c) => c.status === "pending").length;
             return (
-              <button key={a.id} className="pick" aria-pressed={selected?.id === a.id} onClick={() => go(`/resume?tab=tailor&app=${a.id}`)} data-testid="button-pick-application">
+              <button key={a.id} className={"pick" + (i >= 3 && selected?.id !== a.id ? " pick-extra" : "")} aria-pressed={selected?.id === a.id} onClick={() => go(`/resume?tab=tailor&app=${a.id}`)} data-testid="button-pick-application">
                 <span className="xs muted">{j?.company || "…"}</span>
                 <strong className="small">{j ? shortTitle(j.title, j.company) : "Loading"}</strong>
                 <span className="row xs">

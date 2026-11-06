@@ -165,7 +165,7 @@ function FieldRoad() {
       <div className="row-between" style={{ gap: 8 }}>
         <div className="stack-sm" style={{ gap: 2 }}>
           <h3>{road ? `The ${road.label.toLowerCase()} road` : "Pick a field"}</h3>
-          {road && <span className="small muted">{road.credentials.some((c) => c.need === "required") ? "Has a required exam or license" : "No license needed to start"}</span>}
+          {road && <span className="small muted">{road.credentials.some((c) => c.need === "required") ? "Has a required exam or license" : road.credentials.some((c) => c.need === "depends") ? "Some jobs in this field need a license" : "No license needed"}</span>}
         </div>
         <select className="input" style={{ width: "auto" }} value={key} onChange={(e) => setKey(e.target.value)} aria-label="Field" data-testid="select-road">
           {!road && <option value="">Choose a field</option>}
@@ -191,7 +191,7 @@ function FieldRoad() {
           <ul className="rows cred-list">
             {road.credentials.map((c) => (
               <li key={c.name} className="cred">
-                <div className="row" style={{ gap: 8 }}><b>{c.name}</b><span className={"chip " + (c.need === "required" ? "chip-setup" : c.need === "optional" ? "chip-plain" : "chip-live")}>{NEED_LABEL[c.need]}</span></div>
+                <div className="row" style={{ gap: 8 }}><b>{c.name}</b>{!/^No license needed/.test(c.name) && <span className={"chip " + (c.need === "required" ? "chip-setup" : c.need === "optional" ? "chip-plain" : "chip-live")}>{NEED_LABEL[c.need]}</span>}</div>
                 <p className="small">{c.who}</p>
                 {c.why && <p className="small muted"><strong>Why people get it: </strong>{c.why}</p>}
                 {c.learn && <p className="small muted"><strong>What you learn: </strong>{c.learn}</p>}
