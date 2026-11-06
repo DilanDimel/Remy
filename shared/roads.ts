@@ -186,7 +186,7 @@ export const ROADS: Road[] = [
     { year: 3, what: "Apply for junior-summer internships; consulting firms recruit early, often the summer before", source: SEASON_SOURCE },
   ] },
   bizRoad("bis"),
-  { key: "tech", label: "Tech and IT", field: /software|computer|data|information|cyber|\btech\b|technology|^\s*it\s*$/i, not: /technician|pharma|medical|medicine|health|lab |engineering tech|veterin|biotech|surgical|respiratory|cytotech|histotech|dental lab|ophthalmic/i, credentials: [
+  { key: "tech", label: "Tech and IT", field: /software|computer|data|information|cyber|\btech\b|technology|^\s*it\s*$/i, not: /technician|pharma|medical|medicine|health|lab |engineering tech|veterin|biotech|surgical|respiratory|cytotech|histotech|dental lab|ophthalmic|pulmonary|cardiovascular/i, credentials: [
     { name: "Certifications (CompTIA Security+, AWS, Azure…)", need: "optional", who: "Not needed for most software or data jobs, where projects and skills matter more. Some cybersecurity and government jobs ask for Security+.", why: "A cert can help when you have no experience yet in IT or security, and it shows you studied a topic in depth.", learn: "One area in detail: security basics, or how a cloud platform works.", when: "Anytime; no prerequisites for entry-level ones", source: SECPLUS },
   ], steps: [
     { year: 1, what: "Build projects and put them on GitHub; a portfolio matters more than a license", source: "" },

@@ -430,6 +430,16 @@ test("health roads (Nov 6): each health major gets its own road, and lookalikes 
     ["Health Education (Teacher Certification)", "teaching"], ["Pre-Med Student", "pre-med"], ["Biology (Pre-Med), Independent Study", "pre-med"],
     ["Master of Legal Studies (MLS)", "law"], ["Physicians' Assistant", "pre-pa"], ["Pre-Physician Asst", "pre-pa"],
     ["Medicine, Health, and Society", null], ["Mental Health Technician", null], ["Histotechnology", null],
+    // Respiratory therapy road (Nov 6, second research pass)
+    ["Respiratory Therapy", "respiratory"], ["Respiratory Care", "respiratory"], ["Cardiopulmonary Science", "respiratory"], ["Respiratory Care Technology", "respiratory"],
+    ["Cardiopulmonary Physical Therapy", "pre-pt"], ["Cardiovascular Sonography", "radiologic"], ["Respiratory Physiology", null], ["Polysomnography", null],
+    ["Pulmonary Function Technology", null], ["Cardiovascular Technology", null],
+    // ...and it doesn't steal other majors that only mention breathing (skeptic, Nov 6)
+    ["Public Health - Respiratory Epidemiology", "public-health"], ["Exercise Science (Cardiopulmonary)", "kinesiology"],
+    ["Health Administration - Respiratory Care Management", "health-admin"], ["Pre-Med (Respiratory)", "pre-med"], ["Respiratory medicine", "pre-med"],
+    ["Microbiology - Respiratory Pathogens", null], ["Cardiorespiratory Care", "respiratory"], ["BS Respiratory Therapy (RRT)", "respiratory"],
+    ["BS in Respiratory Care Management", "respiratory"], ["Respiratory Therapy - Polysomnography", "respiratory"], ["Respiratory Care - Sleep Disorders Specialist", "respiratory"],
+    ["Respiratory Therapy (Research track)", "respiratory"], ["Respiratory Therapy & Pathophysiology", "respiratory"], ["Respiratory Therapy (Rehabilitation)", "respiratory"],
   ];
   for (const [f, key] of want) assert.equal(roadFor(f)?.key ?? null, key, f);
 });
