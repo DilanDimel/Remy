@@ -935,10 +935,10 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
   #main { padding-bottom: 96px; }
 }
 
-/* "FOV" (Dilan, Nov 5): on laptop-size windows the app felt too close (big and crowded), so it shows at 80% there,
+/* "FOV" (Dilan, Nov 5): on laptop-size windows the app felt too close (big and crowded), so it shows at 85% there (80% first, Dilan moved it to 85% the same night),
    like it looks on a big monitor; phones and big monitors stay at 100%. Screen-sized heights divide by the zoom. */
 :root { --app-zoom: 1; }
-@media (min-width: 1100px) and (max-width: 1699px) { :root { --app-zoom: .8; } }
+@media (min-width: 1100px) and (max-width: 1699px) { :root { --app-zoom: .85; } }
 @supports (zoom: 1) {
   .shell, .ob { zoom: var(--app-zoom); }
   .shell { height: calc(100vh / var(--app-zoom)); height: calc(100dvh / var(--app-zoom)); }
@@ -975,3 +975,57 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
   .opp-import-seg button { min-height: 44px; }
   .opp-actions .btn { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 }
+
+/* ---- App look (Nov 5): the front page's dark-with-orange-glow carried into the app frame; pages stay light for reading ---- */
+/* The sidebar (and phone tab bar) use the dark tokens, so their pop-up menus match in both themes. */
+.sidebar, .mobile-nav {
+  --bg: #111111; --surface: #1c1a22; --surface-2: #141219; --ink: #f2f0f6; --muted-text: #aaa6b4; --faint: #8a8694;
+  --plum: #ffffff; --plum-ink: #111111; --lav: rgba(255, 255, 255, .09); --lav-2: rgba(255, 255, 255, .05); --line: rgba(255, 255, 255, .08);
+  --fox: #ff8a3d; --blue: #8ab4f8; --blue-bg: #1a2638;
+  --shadow: 0 1px 3px rgba(0, 0, 0, .4), 0 8px 28px rgba(0, 0, 0, .35);
+  color: var(--ink); color-scheme: dark;
+}
+.sidebar { background: radial-gradient(140% 38% at 0% 0%, rgba(232, 106, 42, .20), transparent 62%), linear-gradient(180deg, #17151d, #0e0d12); border-right-color: rgba(255, 255, 255, .06); }
+.sidebar .logo b { color: #ff8a4c; }
+.sidebar .nav-item { color: #d9d6e0; }
+.sidebar .nav-item:hover { color: #fff; }
+.sidebar .nav-item[aria-current="page"] { background: linear-gradient(90deg, rgba(232, 106, 42, .22), rgba(232, 106, 42, .06)); color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 138, 76, .18); }
+.sidebar .nav-item[aria-current="page"] svg { color: #ff8a4c; }
+.sidebar .icon-btn { color: #aaa6b4; }
+.sidebar .avatar { background: rgba(255, 255, 255, .1); color: #fff; }
+.mobile-nav { background: linear-gradient(180deg, #17151d, #0e0d12) !important; border-top-color: rgba(255, 255, 255, .06) !important; }
+.mobile-nav a { color: #b4b0bd !important; }
+.mobile-nav a[aria-current="page"] { color: #fff !important; background: rgba(232, 106, 42, .18) !important; box-shadow: inset 0 -2px 0 #ff8a4c !important; }
+.mobile-nav a[aria-current="page"] svg { color: #ff8a4c; }
+/* empty chat: centered welcome */
+.asst-body > .asst-welcome:first-child { margin: auto 0; }
+.asst-welcome { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 8px 4px; }
+.asst-welcome > b { font-family: var(--font-display); font-size: 1.15rem; letter-spacing: -0.02em; }
+.asst-welcome p { margin: 0 0 6px; max-width: 34ch; }
+.asst-welcome .stack-sm { width: 100%; }
+.asst-starter { justify-content: flex-start; white-space: normal; text-align: left; height: auto; padding: 8px 12px; width: 100%; }
+@media (max-width: 640px) {
+  /* every page on a phone: thumb-sized controls, all tabs visible (no sideways scrolling), slogans off the first screen */
+  .btn, .seg button, .tab, .input, .select, select { min-height: 44px; }
+  .icon-btn { width: 44px; height: 44px; }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; overflow: visible; gap: 0; padding-right: 0; -webkit-mask-image: none; mask-image: none; }
+  .tab { white-space: normal; text-align: left; line-height: 1.25; }
+}
+.pick-more-phone { display: none; }
+@media (max-width: 640px) {
+  /* Tailor's opening picker: a short list on phones instead of a sideways strip */
+  .opening-strip { grid-auto-flow: row; grid-auto-columns: auto; overflow: visible; padding-bottom: 0; }
+  .opening-strip .pick-extra, .opening-strip .pick-more-wide { display: none; }
+  .opening-strip .pick-more-phone { display: flex; }
+}
+.link-btn { min-height: 0; }
+@media (max-width: 640px) { .link-btn { min-height: 44px; } }
+.phone-only { display: none !important; }
+@media (max-width: 640px) { .phone-only { display: flex !important; } }
+/* rows in styled lists (road steps, job lists, picks) use the card's full width; plain bullet text keeps the 72ch reading width */
+ul[class] > li, ol[class] > li { max-width: none; }
+.cred-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
+.cred { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 4px; }
+.cred p { margin: 0; max-width: none; }
+.phone-only-block { display: none !important; }
+@media (max-width: 640px) { .phone-only-block { display: block !important; } }

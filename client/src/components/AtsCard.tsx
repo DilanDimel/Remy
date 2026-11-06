@@ -13,7 +13,7 @@ function Fix({ f }: { f: AtsScore["fixes"][number] }) {
         <div className="small">{f.text}</div>
         {!!f.examples?.length && (
           <>
-            <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start", padding: 0, minHeight: 0 }} onClick={() => setOpen((o) => !o)}>{open ? "Hide" : "Show which"}</button>
+            <button className="btn btn-ghost btn-sm link-btn" style={{ alignSelf: "flex-start", padding: 0 }} onClick={() => setOpen((o) => !o)}>{open ? "Hide" : "Show which"}</button>
             {open && <ul className="ats-examples">{f.examples.map((x, i) => <li key={i}>{x}</li>)}</ul>}
           </>
         )}

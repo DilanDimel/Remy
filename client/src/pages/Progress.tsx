@@ -25,7 +25,7 @@ export default function Progress() {
         <div>
           <span className="eyebrow">Progress</span>
           <h1>Follow through, without the spreadsheet.</h1>
-          <p>Track every application, turn recruiting emails into reviewed status updates, and keep your to-dos honest.</p>
+          <p className="hide-phone">Track every application, turn recruiting emails into reviewed status updates, and keep your to-dos honest.</p>
         </div>
       </div>
       <div className="tabs" role="tablist">

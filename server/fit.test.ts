@@ -409,6 +409,26 @@ test("second review: lookalike fields get no road", async () => {
   for (const f of ["Veterinary Medicine", "Sports Medicine", "Pharmacy Technician", "Pharmaceutical Sciences", "Electric vehicles"]) assert.equal(roadFor(f), null, f);
   assert.equal(roadFor("Electrical lineworker")?.key, "trades");
 });
+test("every road labels its exams and licenses; optional steps say so (Dilan, Nov 5: the SIE isn't a normal step)", async () => {
+  const { ROADS, roadFor } = await import("@shared/roads");
+  for (const r of ROADS) {
+    assert.ok(r.credentials.length > 0, r.key);
+    for (const c of r.credentials) assert.ok(["required", "job", "depends", "optional"].includes(c.need) && c.who, `${r.key}: ${c.name}`);
+  }
+  const fin = ROADS.find((r) => r.key === "finance")!;
+  assert.equal(fin.credentials.find((c) => /SIE/.test(c.name))?.need, "optional");
+  assert.ok(fin.steps.filter((s) => /SIE|CFA/.test(s.what)).every((s) => s.optional));
+  assert.equal(roadFor("Marketing")?.key, "marketing");
+  assert.equal(roadFor("Human Resources Management")?.key, "hr");
+  assert.equal(roadFor("Supply Chain Management")?.key, "supply-chain");
+  assert.equal(roadFor("Business Information Systems")?.key, "tech");
+  assert.equal(roadFor("Hospitality Management"), null);
+  assert.equal(roadFor("Economics"), null);
+  // skeptic, Nov 5: MIS keeps the tech road; "management" only as the whole major
+  for (const f of ["Management Information Systems", "Information management"]) assert.equal(roadFor(f)?.key, "tech", f);
+  for (const f of ["Sport Management", "Ranch Management", "Wildlife management", "Environmental Management", "Emergency Management", "Arts Management", "Event Management", "risk management"]) assert.notEqual(roadFor(f)?.key, "management", f);
+  for (const f of ["Management", "Business Management", "Business Administration", "Entrepreneurship", "Consulting"]) assert.equal(roadFor(f)?.key, "management", f);
+});
 
 test("abroad: US towns with foreign names stay in the US; remote jobs abroad aren't local (persona test Nov 1)", () => {
   for (const l of ["Albuquerque, New Mexico", "Dublin, OH", "Paris, TX", "St. Petersburg, FL", "London, KY", "Berlin, NH", "Atlanta, Georgia", "Remote, US", "Remote, Chattanooga, TN", "Ontario, CA", "Panama City, FL", "Remote - United States"])
