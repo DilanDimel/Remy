@@ -91,7 +91,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
           })()}
         </div>
         <div className="row opp-actions">
-          <button className="btn btn-secondary" onClick={discover} disabled={finding} data-testid="button-discover">{finding ? <Spinner /> : <Search size={16} />} {finding ? "Remy is checking job boards…" : "Find more openings"}</button>
+          <button className="btn btn-secondary" onClick={discover} disabled={finding} data-testid="button-discover">{finding ? <Spinner /> : <Search size={16} />} {finding ? <><span className="hide-phone">Remy is checking job boards…</span><span className="opp-phone-only">Checking…</span></> : "Find more openings"}</button>
           <button className="btn btn-secondary" onClick={() => setShowImport((s) => !s)} data-testid="button-toggle-import"><Link2 size={16} /> <span className="hide-phone">Import a posting</span><span className="opp-phone-only">Import</span></button>
         </div>
       </div>
@@ -170,7 +170,7 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
   };
   return (
     <div className="card card-pad stack">
-      <div className="row-between"><h3>Import any public posting</h3><div className="seg"><button aria-pressed={mode === "url"} onClick={() => setMode("url")}>From a link</button><button aria-pressed={mode === "text"} onClick={() => setMode("text")} data-testid="button-import-mode-text">Paste text</button></div></div>
+      <div className="row-between"><h3>Import any public posting</h3><div className="seg opp-import-seg"><button aria-pressed={mode === "url"} onClick={() => setMode("url")}>From a link</button><button aria-pressed={mode === "text"} onClick={() => setMode("text")} data-testid="button-import-mode-text">Paste text</button></div></div>
       <p className="xs muted">Remy reads one public page you choose and quotes requirements exactly. It doesn't read pages behind logins (LinkedIn, Handshake) — paste their text instead.</p>
       <input className="input" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://careers.example.com/job/…" aria-label="Posting link" data-testid="input-import-url" />
       {mode === "text" && <textarea className="textarea" style={{ minHeight: 160 }} value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste the full posting text" aria-label="Posting text" data-testid="input-import-text" />}
@@ -241,6 +241,7 @@ function JobCard({ j, fit, defaultOpen }: { j: Job; fit?: JobFit; defaultOpen: b
       </div>
       {open && (
         <div className="stack" style={{ borderTop: "1px solid var(--line)", paddingTop: 12, marginTop: 4 }}>
+          {shortTitle(j.title, j.company) !== j.title && <p className="xs muted" data-testid="job-full-title"><strong>Full title: </strong>{j.title}</p>}
           <p className="small">{j.summary}</p>
           <div className="grid-2">
             <div className="stack-sm"><span className="eyebrow">Eligibility (quoted)</span>{j.eligibility.length ? j.eligibility.map((e, i) => <span key={i} className="quote">{e}</span>) : <span className="small muted">Not stated</span>}

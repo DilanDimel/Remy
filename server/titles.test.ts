@@ -19,3 +19,9 @@ test("never empties a title", () => {
   assert.equal(shortTitle("Goldman Sachs - Intern", "Goldman Sachs"), "Intern");
   assert.equal(shortTitle("Visa - AI", "Visa"), "Visa - AI");
 });
+test("a department that only starts the employer's name stays", () => {
+  assert.equal(shortTitle("Sales - Account Executive Intern", "Salesforce"), "Sales - Account Executive Intern");
+  assert.equal(shortTitle("Tech - Intern", "Techstars"), "Tech - Intern");
+  assert.equal(shortTitle("Data Analyst at Home", "Home Depot"), "Data Analyst at Home");
+  assert.equal(shortTitle("Intelligence - Analyst Intern", "Intel"), "Intelligence - Analyst Intern");
+});
