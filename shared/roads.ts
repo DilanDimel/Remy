@@ -2,6 +2,7 @@
 // Texas rules where licenses are state-run. Every step is "usually": rules change, so each one links to where it came from.
 import { SEASON_SOURCE } from "./seasons";
 import { ENG_ROADS } from "./roads-engineering";
+import { bizRoad } from "./roads-business";
 
 // source "" = general advice with no page behind it yet.
 export type RoadStep = { year: 1 | 2 | 3 | 4 | 5; what: string; source: string; /** Many people in the field skip it. */ optional?: boolean };
@@ -70,7 +71,8 @@ export const ROADS: Road[] = [
     { year: 3, what: "Pass a second exam and apply for actuarial internships", source: SOA },
     { year: 5, what: "Keep taking SOA exams toward ASA, then FSA; employers usually pay for study time", source: SOA },
   ] },
-  { key: "finance", label: "Finance", field: /financ|bank|invest|wealth|trading/i, credentials: [
+  bizRoad("investment-banking"), bizRoad("financial-planning"),
+  { key: "finance", label: "Finance", field: /financ|fintech|bank|invest|wealth|trading/i, credentials: [
     { name: "SIE (Securities Industry Essentials)", need: "optional", who: "Not needed for internships or most finance jobs. Banks and brokerages that need you licensed have you take it, usually with paid study time, after they hire you.", why: "Some students take it early to show interest, mostly for sales & trading or wealth management. It alone doesn't let you do licensed work.", learn: "How securities markets work: stocks, bonds and funds, who regulates them, and what's not allowed.", when: "Anyone 18+, no sponsor needed, $100, valid 4 years", source: SIE },
     { name: "Series 7, 63 or 79", need: "job", who: "Only for roles that buy, sell or advise on securities: brokers, traders, investment bankers. Corporate finance, FP&A and many analyst jobs never need them.", why: "The law requires them for those roles. The Series 7 and 79 need a firm to sponsor you; the 63 is usually taken alongside the 7 after hiring.", learn: "Rules and products for that job (79 is investment banking: deals, valuations, offerings).", when: "After you're hired, usually within your first few months", source: S79 },
     { name: "CFP (Certified Financial Planner)", need: "optional", who: "For financial planning and wealth management advisors; not used in banking or corporate finance.", why: "The main credential for advising individuals on their money.", learn: "Retirement, tax, insurance, estate and investment planning.", when: "After a bachelor's plus CFP coursework, an exam and work experience", source: "https://www.cfp.net/" },
@@ -81,6 +83,7 @@ export const ROADS: Road[] = [
     { year: 4, what: "CFA Level I, if you're aiming for investment management or research", source: CFAPOL, optional: true },
     { year: 5, what: "If your job needs a license (Series 7, 63 or 79), your firm sponsors it after hiring", source: S79 },
   ] },
+  bizRoad("economics"), bizRoad("insurance"),
   // Specialties first, so "Mechanical Engineering" gets its own road; plain "Engineering" falls through to the general one.
   ...ENG_ROADS,
   // Software engineering goes to tech; engineering technology degrees follow different PE rules (8 years in Texas), so no road.
@@ -94,6 +97,7 @@ export const ROADS: Road[] = [
     { year: 4, what: "If you might want a PE (common in civil and structural), take the FE exam in your last semester", source: FE, optional: true },
     { year: 5, what: "PE license after at least 4 years of engineering work (working under a licensed PE is recommended, not required) and references from 3 licensed PEs, if your work needs one", source: PE },
   ] },
+  bizRoad("energy"),
   { key: "architecture", label: "Architecture", field: /architect/i, credentials: [
     { name: "Architect license (ARE exams + AXP hours)", need: "depends", who: "Needed to call yourself an architect and to stamp drawings. Many people work in architecture firms as designers without a license.", why: "Licensed architects can lead projects and open their own firm.", learn: "Practice, project management, design and construction documents, across 6 exams and supervised experience.", when: "Experience hours can start in school; the license usually comes years after graduating", source: TBAE },
   ], steps: [
@@ -152,7 +156,8 @@ export const ROADS: Road[] = [
     { year: 4, what: "Apply to law school in the fall of senior year", source: LSAT },
     { year: 5, what: "The bar exam comes after law school (Texas moves to the NextGen bar in July 2028)", source: BAR },
   ] },
-  { key: "marketing", label: "Marketing", field: /marketing|advertising|public relations/i, credentials: [
+  bizRoad("sports-business"), bizRoad("hospitality"), bizRoad("sales"),
+  { key: "marketing", label: "Marketing", field: /marketing|advertising|public relations|strategic comm/i, credentials: [
     { name: "No license needed", need: "optional", who: "Marketing jobs don't require a license or certification.", why: "A portfolio (campaigns, social accounts you grew, writing samples) usually counts more.", learn: "", when: "", source: "" },
     { name: "Google Analytics or Google Ads certification", need: "optional", who: "Nice to have for digital marketing and analytics roles; rarely required.", why: "Free, and shows you can read website and ad data, which a lot of entry-level marketing work uses.", learn: "How to measure traffic, campaigns and conversions in Google's tools.", when: "Anytime; free online", source: GA },
   ], steps: [
@@ -168,20 +173,22 @@ export const ROADS: Road[] = [
     { year: 3, what: "Apply for HR or recruiting internships", source: SEASON_SOURCE },
     { year: 4, what: "The aPHR or SHRM-CP, if you want a credential early", source: HRCERTS, optional: true },
   ] },
-  { key: "supply-chain", label: "Supply chain", field: /supply chain|logistics|procurement|purchasing/i, credentials: [
+  { key: "supply-chain", label: "Supply chain", field: /supply chain|value chain|logistics|procurement|purchasing/i, credentials: [
     { name: "No license needed", need: "optional", who: "Supply chain jobs don't require a license.", why: "", learn: "", when: "", source: "" },
     { name: "CAPM (project management)", need: "optional", who: "Optional for anyone heading into operations or project work.", why: "Students can take it: it needs 23 hours of project management education and no work experience.", learn: "How projects are planned, scheduled and run.", when: "Anytime after the 23 hours", source: CAPM },
   ], steps: [
     { year: 2, what: "Learn Excel well; most supply chain internships use it every day", source: "" },
     { year: 3, what: "Apply for supply chain, operations or purchasing internships", source: SEASON_SOURCE },
   ] },
-  { key: "management", label: "Management and consulting", field: /consult|entrepreneur|business administration|general business|^\s*(business |general )?management\s*$/i, credentials: [
+  bizRoad("entrepreneurship"), bizRoad("international-business"),
+  { key: "management", label: "Management and consulting", field: /consult|business administration|general business|^\s*(business |general )?management\s*$/i, credentials: [
     { name: "No license needed", need: "optional", who: "Consulting, management and general business jobs don't require a license.", why: "Internships, case practice and leadership in clubs count more than certifications.", learn: "", when: "", source: "" },
     { name: "CAPM (project management)", need: "optional", who: "Optional; rarely asked for from new graduates.", why: "A way to show you understand how projects run, without work experience.", learn: "How projects are planned, scheduled and run.", when: "Anytime after 23 hours of project management education", source: CAPM },
   ], steps: [
     { year: 2, what: "Lead something: a club project, a team or an event you can talk about in interviews", source: "" },
     { year: 3, what: "Apply for junior-summer internships; consulting firms recruit early, often the summer before", source: SEASON_SOURCE },
   ] },
+  bizRoad("bis"),
   { key: "tech", label: "Tech and IT", field: /software|computer|data|information|cyber|\btech\b|technology|^\s*it\s*$/i, not: /technician|pharma|medical|health|lab |engineering tech/i, credentials: [
     { name: "Certifications (CompTIA Security+, AWS, Azure…)", need: "optional", who: "Not needed for most software or data jobs, where projects and skills matter more. Some cybersecurity and government jobs ask for Security+.", why: "A cert can help when you have no experience yet in IT or security, and it shows you studied a topic in depth.", learn: "One area in detail: security basics, or how a cloud platform works.", when: "Anytime; no prerequisites for entry-level ones", source: SECPLUS },
   ], steps: [
