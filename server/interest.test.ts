@@ -79,6 +79,23 @@ test("interest API: ownership, strict inputs, concurrent updates, ranking and da
     assert.deepEqual(Object.keys(ws.jobFeedback!.a.context.profile).sort(), ["classYear", "interests", "major", "opportunityTypes", "regions", "targetRoles"]);
     assert.deepEqual((await loadWorkspace("interest-b")).jobFeedback, {});
   });
+  await t.test("'Not for me' hides in the same request; two quick passes both stay hidden; Show it again un-hides", async () => {
+    const [x, y] = await Promise.all([
+      call(cookie, "PUT", "/api/jobs/a/interest", { rating: 1, hide: true }),
+      call(cookie, "PUT", "/api/jobs/b/interest", { rating: 1, reason: "role", hide: true }),
+    ]);
+    assert.equal(x.status, 200); assert.equal(y.status, 200);
+    assert.deepEqual([...(await loadWorkspace("interest-a")).hiddenJobIds].sort(), ["a", "b"]);
+    assert.equal((await call(cookie, "PUT", "/api/jobs/a/interest", { rating: 1, hide: "yes" })).status, 400);
+    const shown = await call(cookie, "DELETE", "/api/jobs/a/interest?unhide=1");
+    assert.deepEqual(shown.data.hiddenJobIds, ["b"]);
+    assert.equal(shown.data.jobFeedback.a, undefined);
+    const kept = await call(cookie, "DELETE", "/api/jobs/b/interest"); // without unhide, the hidden list is left alone
+    assert.deepEqual(kept.data.hiddenJobIds, ["b"]);
+    await saveSections("interest-a", { hiddenJobIds: [] });
+    await call(cookie, "PUT", "/api/jobs/a/interest", { rating: 5, reason: "role" });
+    await call(cookie, "PUT", "/api/jobs/b/interest", { rating: 1, reason: "location" });
+  });
   await t.test("editing keeps createdAt; neutral is explicit and fit stays unchanged", async () => {
     const before = (await call(cookie, "GET", "/api/jobs")).data;
     assert.equal(before.interestEnabled, true);

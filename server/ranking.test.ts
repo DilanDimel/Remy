@@ -118,3 +118,12 @@ test("interest: many ratings stay bounded, neutral replaces inferred affinity, a
 });
 
 
+
+test("interest: flag off is a full rollback, saves included (skeptic, Nov 6)", () => {
+  const ws = workspace(), saved = opening("saved"), fresh = opening("fresh");
+  ws.jobs = [saved]; ws.savedJobIds = [saved.id];
+  rate(ws, saved, 5, "company");
+  assert.deepEqual(preferenceAdjustment(ws, saved, false), { adjustment: 0, reasons: [] });
+  assert.deepEqual(preferenceAdjustment(ws, fresh, false), { adjustment: 0, reasons: [] });
+  assert.ok(preferenceAdjustment(ws, fresh, true).adjustment > 0);
+});

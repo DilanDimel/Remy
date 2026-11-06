@@ -323,7 +323,8 @@ async function findOpenings(ctx: Ctx, named: string[] = [], opts: { background?:
   const preferences = employerPreferences(ctx.ws);
   const liked = new Set([...ctx.ws.savedJobIds, ...ctx.ws.applications.map((a) => a.jobId)].map(companyOf).filter((c) => c && !preferences.has(c)));
   const hides = new Map<string, number>();
-  for (const id of ctx.ws.hiddenJobIds) { const c = companyOf(id); if (c && !liked.has(c)) hides.set(c, (hides.get(c) || 0) + 1); }
+  // A card hidden with "Not for me" counts through its reason (employerPreferences), not as a silent employer hide.
+  for (const id of ctx.ws.hiddenJobIds) { if (interestEnabled() && ctx.ws.jobFeedback?.[id]) continue; const c = companyOf(id); if (c && !liked.has(c)) hides.set(c, (hides.get(c) || 0) + 1); }
   const lastRead = ctx.ws.employersRead || {};
   const fieldMatched = EMPLOYERS.filter((e) => (e.fields || []).some((f) => wants.includes(f) || FIELD_TITLES.some(([field, title]) => field.test(wants) && title.test(f))));
   picked = orderEmployers([...EMPLOYERS.filter((e) => liked.has(e.company.toLowerCase()) || (preferences.get(e.company.toLowerCase()) || 0) > 0), ...picked, ...fieldMatched], liked, hides, lastRead, preferences);
@@ -1520,12 +1521,12 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
 
   // "More like this" (5) / "Not for me" (1), with an optional reason that carries over to similar openings.
   // Ported from Julio's interest system (Nov 6, 2026); the shared learned model stays on his branch.
-  const InterestInput = z.object({ rating: z.number().int().min(1).max(5), reason: z.enum(JOB_INTEREST_REASONS).optional() }).strict();
+  const InterestInput = z.object({ rating: z.number().int().min(1).max(5), reason: z.enum(JOB_INTEREST_REASONS).optional(), hide: z.boolean().optional() }).strict();
   app.put("/api/jobs/:id/interest", route(async (req, res, ctx) => {
     if (!interestEnabled()) bad("Interest ratings are paused right now.", 503);
     const input = InterestInput.safeParse(req.body);
     if (!input.success) bad("Choose an interest level from 1 to 5 and an optional reason.");
-    const { rating, reason } = input.data!;
+    const { rating, reason, hide } = input.data!;
     res.json(await editWorkspace(ctx.me.id, (fresh) => {
       const job = findJob(fresh, String(req.params.id));
       if (!job) bad("Opening not found", 404);
@@ -1534,6 +1535,8 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       if (!Object.hasOwn(feedback, job!.id) && Object.keys(feedback).length >= 5000) bad("Clear some likes before adding more.", 409);
       const at = nowIso();
       feedback[job!.id] = { rating: rating as JobInterestRating, ...(reason ? { reason } : {}), createdAt: feedback[job!.id]?.createdAt || at, updatedAt: at, context: interestContext(fresh, job!, at) };
+      // "Not for me" hides the card in the same locked edit, so two quick taps can't overwrite each other's hidden list.
+      if (hide && !fresh.hiddenJobIds.includes(job!.id)) fresh.hiddenJobIds.push(job!.id);
     }));
   }));
   // Literal route before /api/jobs/:id.
@@ -1545,6 +1548,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       const id = String(req.params.id);
       if (!findJob(fresh, id)) bad("Opening not found", 404);
       delete fresh.jobFeedback![id];
+      if (req.query.unhide === "1") fresh.hiddenJobIds = fresh.hiddenJobIds.filter((x) => x !== id);
     }));
   }));
   app.delete("/api/jobs/:id", route(async (req, res, ctx) => {

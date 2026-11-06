@@ -63,8 +63,9 @@ export function weakInterestJobIds(ws: Workspace, enabled = interestEnabled()): 
 
 /** Interest never changes fit, eligibility or the student's explicit hidden list. */
 export function preferenceAdjustment(ws: Workspace, job: Job, enabled = interestEnabled()): Pick<JobRanking, "adjustment" | "reasons"> {
+  if (!enabled) return { adjustment: 0, reasons: [] }; // flag off = the ranking from before likes existed, saves included
   const direct = ws.jobFeedback?.[job.id];
-  if (enabled && validRating(direct)) {
+  if (validRating(direct)) {
     const said = direct.rating >= 4 ? "Higher because you marked it “More like this”." : direct.rating <= 2 ? "Lower because you marked it “Not for me”." : "You marked it neutral, so your likes don't move it.";
     return { adjustment: 4 * (direct.rating - 3), reasons: [said] };
   }

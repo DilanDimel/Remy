@@ -48,7 +48,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const companyOf = (id: string) => (jobs || []).find((j) => j.id === id)?.company;
   const liked = new Set([...w.savedJobIds, ...w.applications.map((a) => a.jobId)].map(companyOf));
   const hiddenBy = new Map<string | undefined, number>();
-  for (const id of w.hiddenJobIds) if (!w.jobFeedback?.[id]) hiddenBy.set(companyOf(id), (hiddenBy.get(companyOf(id)) || 0) + 1); // a "Not for me" counts once, through its reason
+  for (const id of w.hiddenJobIds) if (!(interestEnabled && w.jobFeedback?.[id])) hiddenBy.set(companyOf(id), (hiddenBy.get(companyOf(id)) || 0) + 1); // a "Not for me" counts once, through its reason
   // The specific words of their goal ("mechanical") in a title outrank a same-field but different job ("electrical").
   const GENERIC = /^(intern|interns|internship|internships|student|students|engineer|engineering|analyst|associate|assistant|summer|entry|level|role|roles|jobs?|work|program|career|careers|position|and|the|for|with)$/i;
   const specific = [...new Set(`${w.profile.targetRoles} ${w.profile.major}`.toLowerCase().split(/[^a-z&]+/).filter((x) => x.length > 3 && !GENERIC.test(x)))];
@@ -298,21 +298,16 @@ function Interest({ j, hidden }: { j: Job; hidden: boolean }) {
   const liked = !!mine && mine.rating >= 4;
   const [asking, setAsking] = useState<"" | "up" | "down">("");
   // Openings found on job boards only say "Remote" or nothing, so "remote or not" only works when it says remote.
-  const reasons: [JobInterestReason, string][] = [["role", "the role"], ["company", "the employer"], ["location", "the location"], ...(/remote/i.test(j.format) ? [["format", "remote work"] as [JobInterestReason, string]] : [])];
-  const put = (rating: 1 | 5, reason?: JobInterestReason) => run(() => api<Workspace>("PUT", `/api/jobs/${j.id}/interest`, { rating, ...(reason ? { reason } : {}) }));
+  const reasons: [JobInterestReason, string][] = [["role", "the role"], ["company", "the employer"], ["location", "the location"], ...(/remote/i.test(j.format) && !/hybrid|on-?site|in[- ]person/i.test(j.format) ? [["format", "remote work"] as [JobInterestReason, string]] : [])];
+  const put = (rating: 1 | 5, reason?: JobInterestReason) => run(() => api<Workspace>("PUT", `/api/jobs/${j.id}/interest`, { rating, ...(reason ? { reason } : {}), ...(rating === 1 ? { hide: true } : {}) }));
   const like = async (reason?: JobInterestReason) => { const r = await put(5, reason); if (r) { setWs(r); setAsking(reason ? "" : "up"); } };
   const pass = async (reason?: JobInterestReason) => {
-    const r = await put(1, reason);
-    if (!r) return;
-    setWs(r);
-    setAsking("");
-    if (!r.hiddenJobIds.includes(j.id)) await save("hiddenJobIds", [...r.hiddenJobIds, j.id]);
+    const r = await put(1, reason); // the server rates and hides it in one step
+    if (r) { setWs(r); setAsking(""); }
   };
-  const clear = async () => { const r = await run(() => api<Workspace>("DELETE", `/api/jobs/${j.id}/interest`)); if (r) { setWs(r); setAsking(""); } return r; };
-  const showAgain = async () => {
-    const r = mine ? await clear() : w;
-    if (r && r.hiddenJobIds.includes(j.id)) await save("hiddenJobIds", r.hiddenJobIds.filter((x) => x !== j.id));
-  };
+  const clear = async (unhide = false) => { const r = await run(() => api<Workspace>("DELETE", `/api/jobs/${j.id}/interest${unhide ? "?unhide=1" : ""}`)); if (r) { setWs(r); setAsking(""); } return r; };
+  // Rated cards un-hide in the same request; cards hidden the old way (no rating) just leave the hidden list.
+  const showAgain = () => (mine ? clear(true) : save("hiddenJobIds", w.hiddenJobIds.filter((x) => x !== j.id)));
   if (hidden) return <button className="btn btn-ghost btn-sm" onClick={showAgain} data-testid="button-show-again">Show it again</button>;
   return (
     <>
