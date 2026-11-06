@@ -182,11 +182,15 @@ const evidenceOf = (ws: Workspace) =>
 const allJobs = (ws: Workspace): Job[] => ws.jobs;
 const findJob = (ws: Workspace, id: string) => allJobs(ws).find((j) => j.id === id);
 
+const NAME_CHECK = "Name check";
+const sameName = (a: string, b: string) => a.toLowerCase().replace(/[^a-z]+/g, " ").trim() === b.toLowerCase().replace(/[^a-z]+/g, " ").trim();
+/** The resume names someone other than the profile, and the student hasn't answered "Which name should Remy use?" yet. */
+const nameUnsure = (ws: Workspace) => !!ws.resume?.doc.contact.name && !!ws.profile.name && !sameName(ws.profile.name, ws.resume.doc.contact.name) && ws.tasks.some((t) => t.source === NAME_CHECK && !t.done);
 function profileSummary(ws: Workspace) {
   const p = ws.profile;
   return [
     `What they're working toward (the first thing they told Remy; may be a tapped choice): ${p.goal || ""}`,
-    `Name: ${p.preferredName || p.name}`, `Path: ${PATHS.find(([k]) => k === p.path)?.[1] || ""}${p.path && p.path !== "four-year" ? " (not a four-year degree: suggest certificates, licenses, apprenticeships and roles that don't require a bachelor's where they fit; never assume a major or graduation)" : ""}`, `School: ${p.school}`, `Major: ${p.major}`, `Minor: ${p.minors || ""}`, `GPA: ${p.gpa || ""}`, `Class year: ${p.classYear || classYearOf(ws)}`, `Graduation: ${p.graduation}`,
+    `Name: ${nameUnsure(ws) ? `not confirmed yet (sign-in account: ${p.name}; resume: ${ws.resume!.doc.contact.name}); don't call the student by either until they choose` : p.preferredName || p.name}`, `Path: ${PATHS.find(([k]) => k === p.path)?.[1] || ""}${p.path && p.path !== "four-year" ? " (not a four-year degree: suggest certificates, licenses, apprenticeships and roles that don't require a bachelor's where they fit; never assume a major or graduation)" : ""}`, `School: ${p.school}`, `Major: ${p.major}`, `Minor: ${p.minors || ""}`, `GPA: ${p.gpa || ""}`, `Class year: ${p.classYear || classYearOf(ws)}`, `Graduation: ${p.graduation}`,
     `Location: ${p.location}`, `Wants opportunities in: ${p.regions}`, `Opportunity types wanted: ${p.opportunityTypes}`, `Target roles: ${p.targetRoles}`, `Goals: ${p.goals}`, `Interests: ${p.interests}`,
     `Work authorization: ${p.workAuth}`, `Open to relocating: ${p.relocation}`, `When they want to start: ${p.timeline || ""}`, `Dream employers: ${p.dreamEmployers || ""}`, `Wants to avoid: ${p.avoid || ""}`,
     `Practical limits: ${p.constraints || ""}`, `Already tried: ${p.tried || ""}`, `Biggest worry: ${p.worries || ""}`,
@@ -843,6 +847,12 @@ export async function registerRoutes(_server: Server, app: Express) {
     for (const k of Object.keys(now) as (keyof typeof now)[]) if (!p[k] || (was && p[k] === was[k])) p[k] = now[k];
     // Class standing: stated on the resume, or worked out from the graduation date.
     if (!p.classYear || (was && p.classYear === yearWas)) p.classYear = classYearOf({ ...ctx.ws, profile: { ...p, classYear: "" } });
+    // The profile name may only be the sign-in account's name (Google/LinkedIn), e.g. a borrowed or family account.
+    // If the resume names someone else, ask the student which is right instead of picking one.
+    if (now.name && p.name && ctx.me.name && p.name === ctx.me.name && !sameName(p.name, now.name) && !ctx.ws.tasks.some((t) => t.source === NAME_CHECK && !t.done))
+      ctx.ws.tasks.unshift({ id: uid("t"), title: "Which name should Remy use?", why: `Your sign-in account is under "${p.name}", but your resume says "${now.name}". Remy uses "${p.name}" until you choose. Change it in Account → Profile if your resume's name is right, then tick this off.`, due: "", category: "Prepare", done: false, source: NAME_CHECK, link: "/accounts?tab=profile" });
+    // A newer resume that matches the profile name answers the question.
+    else if (now.name && p.name && sameName(p.name, now.name)) for (const t of ctx.ws.tasks) if (t.source === NAME_CHECK && !t.done) t.done = true;
     for (const a of ctx.ws.applications) if (a.versions.length) a.staleReason = "You uploaded a new base resume. Approved versions were kept as they were — regenerate if you want them to use the new resume.";
     ctx.ws.fits = {};
     await ctx.save();
@@ -1058,7 +1068,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   async function importProfile(ctx: Ctx, kind: string, raw: string, fileName: string) {
     const out = await withAi(ctx, `Import ${kind}`, () =>
       aiJson<{ facts: { text: string; category: MemoryFact["category"]; quote: string; conflict?: string; notOnResume?: boolean }[] }>(
-        "You extract factual statements about a student from their own exported profile text. Only include facts stated in the text. Keep each fact short and specific. Include a verbatim supporting quote. If a fact disagrees with the student's resume or profile (a different major, school, title, employer or dates), say how in \"conflict\" in plain words, e.g. \"Your resume says Finance & BIS\"; otherwise leave it empty. Something missing from the resume is not a conflict: instead set \"notOnResume\": true for experience, skills, certifications, awards or activities the resume doesn't mention.",
+        "You extract factual statements about a student from their own exported profile text. Only include facts stated in the text. Keep each fact short and specific. Include a verbatim supporting quote. If a fact disagrees with the student's resume or profile (a different major, school, title, employer or dates), say how in \"conflict\" in plain words, e.g. \"Your resume says Finance & BIS\"; otherwise leave it empty. Name each source (\"your resume says…\", \"your setup answers say…\"); never write \"you said\" about the profile, because parts of it are filled in automatically. Ignore name differences: Remy asks the student about their name separately. Something missing from the resume is not a conflict: instead set \"notOnResume\": true for experience, skills, certifications, awards or activities the resume doesn't mention.",
         `Source: ${kind}\nRESUME AND PROFILE (for spotting disagreements only):\n${profileSummary(ctx.ws)}\n${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org, e.dates].filter(Boolean).join(", ")).join("; ")).join("\n") : "(no resume)"}\n\nReturn {"facts":[{"text":"","category":"background|goal|preference|skill|experience|constraint|other","quote":"exact words","conflict":"","notOnResume":false}]} with at most 15 facts.\n\nTEXT:\n"""${raw.slice(0, 12000)}"""`,
       ),
     );
