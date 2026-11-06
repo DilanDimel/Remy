@@ -438,6 +438,8 @@ test("health roads (Nov 6): each health major gets its own road, and lookalikes 
     ["Public Health - Respiratory Epidemiology", "public-health"], ["Exercise Science (Cardiopulmonary)", "kinesiology"],
     ["Health Administration - Respiratory Care Management", "health-admin"], ["Pre-Med (Respiratory)", "pre-med"], ["Respiratory medicine", "pre-med"],
     ["Microbiology - Respiratory Pathogens", null], ["Cardiorespiratory Care", "respiratory"], ["BS Respiratory Therapy (RRT)", "respiratory"],
+    ["BS in Respiratory Care Management", "respiratory"], ["Respiratory Therapy - Polysomnography", "respiratory"], ["Respiratory Care - Sleep Disorders Specialist", "respiratory"],
+    ["Respiratory Therapy (Research track)", "respiratory"], ["Respiratory Therapy & Pathophysiology", "respiratory"], ["Respiratory Therapy (Rehabilitation)", "respiratory"],
   ];
   for (const [f, key] of want) assert.equal(roadFor(f)?.key ?? null, key, f);
 });
