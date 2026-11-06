@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Plus, Trash2 } from "lucide-react";
 import type { BuilderItem, ResumeBuilder as Builder, Workspace } from "@shared/types";
 import { api, rid, useStore } from "../lib/store";
 import { Remy, Spinner } from "./common";
+import { nameConcern } from "@shared/junk";
 
 // The buttons a student taps. Labels are what freshmen recognize as "experience".
 const GROUPS: [string, [string, string][]][] = [
@@ -80,7 +81,7 @@ export function ResumeBuilder({ onDone, onCancel }: { onDone: () => void; onCanc
       {b.step === 0 && (
         <div className="grid-2">
           {([["name", "Full name"], ["email", "Email"], ["phone", "Phone (optional)"], ["city", "City, state"], ["school", "College"], ["major", "Major (or intended major)"], ["graduation", "Expected graduation", "e.g. May 2029"], ["gpa", "GPA (optional)", "Career centers suggest listing it if it's 3.0 or higher"]] as [keyof Builder["basics"], string, string?][]).map(([k, l, hint]) => (
-            <label key={k} className="field"><span>{l}</span><input className="input" value={b.basics[k]} onChange={(e) => basics(k, e.target.value)} data-testid={`input-builder-${k}`} />{hint && <span className="xs muted">{hint}</span>}</label>
+            <label key={k} className="field"><span>{l}</span><input className="input" value={b.basics[k]} onChange={(e) => basics(k, e.target.value)} data-testid={`input-builder-${k}`} />{k === "name" && nameConcern(b.basics.name) && <span className="xs field-warn" role="note">{nameConcern(b.basics.name)}</span>}{hint && <span className="xs muted">{hint}</span>}</label>
           ))}
           <label className="field"><span>Class year</span>
             <select className="select" value={b.basics.classYear} onChange={(e) => basics("classYear", e.target.value)} data-testid="select-builder-year">

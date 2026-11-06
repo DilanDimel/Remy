@@ -11,6 +11,7 @@ import type {
 import { PATHS } from "@shared/types";
 import { BETA_TERMS_VERSION } from "@shared/beta";
 import { NAME_CHECK, firstName, knownName, nameUnsure, sameName } from "@shared/names";
+import { textConcern } from "@shared/junk";
 import { keepQuestions, skippedPrefs } from "@shared/setupReply";
 import { latestNewsId } from "@shared/news";
 import { aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
@@ -838,6 +839,8 @@ export async function registerRoutes(_server: Server, app: Express) {
       }
     }
     doc.skillsIndex = skillsPosition(raw, doc);
+    const rude = doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.filter((b) => textConcern(b.text)).map((b) => b.text)));
+    if (rude.length) notes.push(`${rude.length === 1 ? "One line has" : `${rude.length} lines have`} language most employers would reject: "${rude[0].slice(0, 80)}${rude[0].length > 80 ? "…" : ""}". Reword ${rude.length === 1 ? "it" : "them"} before you apply.`);
     ctx.ws.resume = { fileName, uploadedAt: nowIso(), rawText: raw.slice(0, 30000), parsedBy, doc, skills: extractSkills(doc, raw), quality: parseQuality(raw, doc, notes), fileLines: Object.fromEntries(doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => [b.id, b.text]))).slice(0, 300)), ...(from ? { from } : {}) };
     ctx.ws.imports.unshift({ id: uid("i"), kind: from ? LINKEDIN : "Resume", fileName, at: nowIso(), label: "Student provided", factsAdded: 0 });
     // Fill empty profile fields, and fields still holding what the replaced resume said. What the student typed stays.

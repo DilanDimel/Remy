@@ -170,6 +170,7 @@ p, li { max-width: 72ch; }
 
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field > span { font-size: var(--text-sm); font-weight: 700; }
+.field > .field-warn { font-weight: 400; color: var(--amber); }
 .input, .textarea, .select {
   width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 9px 12px; font-size: var(--text-sm);
 }

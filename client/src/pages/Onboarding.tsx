@@ -16,6 +16,7 @@ import { useGoogleCalendar } from "../components/GoogleCalendar";
 import { LinkedInMark } from "./Welcome";
 import { CareerTime } from "../components/CareerTime";
 import { firstName } from "@shared/names";
+import { nameConcern } from "@shared/junk";
 
 // Step numbers are stored in the workspace: 0 and 1 are the goal question (no focus yet) or the resume step; 2-5 follow.
 const STEPS = ["Your goal", "Your resume", "Review", "Preferences", "Questions", "Your plan"];
@@ -296,6 +297,7 @@ export function ProfileForm({ onSaved, hidePrefs, draft }: { onSaved?: () => voi
             ) : (
               <input className="input" value={p[k] ?? ""} placeholder={ph} onChange={(e) => setP({ ...p, [k]: e.target.value })} data-testid={`input-profile-${k}`} />
             )}
+            {(k === "name" || k === "preferredName") && nameConcern(p[k] || "") && <span className="xs field-warn" role="note" data-testid={`warn-profile-${k}`}>{nameConcern(p[k] || "")}</span>}
           </label>
         ))}
       </div>
