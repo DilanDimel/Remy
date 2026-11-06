@@ -935,10 +935,10 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
   #main { padding-bottom: 96px; }
 }
 
-/* "FOV" (Dilan, Nov 5): on laptop-size windows the app felt too close (big and crowded), so it shows at 80% there,
+/* "FOV" (Dilan, Nov 5): on laptop-size windows the app felt too close (big and crowded), so it shows at 85% there (80% first, Dilan moved it to 85% the same night),
    like it looks on a big monitor; phones and big monitors stay at 100%. Screen-sized heights divide by the zoom. */
 :root { --app-zoom: 1; }
-@media (min-width: 1100px) and (max-width: 1699px) { :root { --app-zoom: .8; } }
+@media (min-width: 1100px) and (max-width: 1699px) { :root { --app-zoom: .85; } }
 @supports (zoom: 1) {
   .shell, .ob { zoom: var(--app-zoom); }
   .shell { height: calc(100vh / var(--app-zoom)); height: calc(100dvh / var(--app-zoom)); }
@@ -1025,6 +1025,6 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 @media (max-width: 640px) { .phone-only { display: flex !important; } }
 /* rows in styled lists (road steps, job lists, picks) use the card's full width; plain bullet text keeps the 72ch reading width */
 ul[class] > li, ol[class] > li { max-width: none; }
-.cred-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.cred-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
 .cred { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 4px; }
-.cred p { margin: 0; }
+.cred p { margin: 0; max-width: none; }
