@@ -254,13 +254,13 @@ test("field roads: major wins, trade paths get the trades road, class year maps 
   assert.equal(roadFor("", "apprenticeship"), null);
   assert.equal(roadFor("Biochemistry (Pre-Dental)"), null);
   assert.equal(roadFor("dentistry"), null);
-  assert.equal(roadFor("Economics"), null);
+  assert.equal(roadFor("Economics")?.key, "economics");
   assert.equal(roadFor("Biology"), null);
   assert.equal(roadFor("Medical Assistant"), null);
   assert.equal(roadFor("Pre-Med Biology")?.key, "health");
   assert.equal(roadFor("Pre-PT Kinesiology")?.key, "health");
   assert.equal(roadFor("Pharmacy")?.key, "health");
-  assert.equal(roadFor("Electrical Engineering")?.key, "engineering", "engineering before electrician");
+  assert.equal(roadFor("Electrical Engineering")?.key, "eng-electrical", "engineering before electrician");
   assert.equal(roadFor("Underwater basket weaving"), null);
   assert.deepEqual(["First-year", "Freshman", "Sophomore", "Senior", "Graduate student", ""].map(yearNumber), [1, 1, 2, 4, 5, 0]);
 });
@@ -421,13 +421,35 @@ test("every road labels its exams and licenses; optional steps say so (Dilan, No
   assert.equal(roadFor("Marketing")?.key, "marketing");
   assert.equal(roadFor("Human Resources Management")?.key, "hr");
   assert.equal(roadFor("Supply Chain Management")?.key, "supply-chain");
-  assert.equal(roadFor("Business Information Systems")?.key, "tech");
-  assert.equal(roadFor("Hospitality Management"), null);
-  assert.equal(roadFor("Economics"), null);
+  assert.equal(roadFor("Business Information Systems")?.key, "bis");
+  assert.equal(roadFor("Hospitality Management")?.key, "hospitality");
+  assert.equal(roadFor("Economics")?.key, "economics");
   // skeptic, Nov 5: MIS keeps the tech road; "management" only as the whole major
-  for (const f of ["Management Information Systems", "Information management"]) assert.equal(roadFor(f)?.key, "tech", f);
+  assert.equal(roadFor("Management Information Systems")?.key, "bis");
+  assert.equal(roadFor("Information management")?.key, "tech");
   for (const f of ["Sport Management", "Ranch Management", "Wildlife management", "Environmental Management", "Emergency Management", "Arts Management", "Event Management", "risk management"]) assert.notEqual(roadFor(f)?.key, "management", f);
-  for (const f of ["Management", "Business Management", "Business Administration", "Entrepreneurship", "Consulting"]) assert.equal(roadFor(f)?.key, "management", f);
+  for (const f of ["Management", "Business Management", "Business Administration", "Consulting"]) assert.equal(roadFor(f)?.key, "management", f);
+  const biz: Record<string, string> = { "Entrepreneurship & Innovation": "entrepreneurship", "Supply and Value Chain Management": "supply-chain", "Strategic Communication": "marketing", "Fintech": "finance", "Petroleum Land Management": "energy", "Petroleum Engineering": "eng-petroleum", "Risk Management and Insurance": "insurance", "International Business": "international-business", "Financial Economics": "finance", "Sales": "sales" };
+  for (const [f, k] of Object.entries(biz)) assert.equal(roadFor(f)?.key, k, f);
+  assert.notEqual(roadFor("Counselling")?.key, "sales");
+});
+test("engineering specialties get their own road; lookalikes don't (Nov 5)", async () => {
+  const { roadFor, ROADS } = await import("@shared/roads");
+  const want: Record<string, string | null> = {
+    "Mechanical Engineering": "eng-mechanical", "Engineering (mechanical emphasis)": "eng-mechanical", "Engineering, Mechanical concentration": "eng-mechanical",
+    "Engineering (electrical emphasis)": "eng-electrical", "Electrical Engineering": "eng-electrical", "Electrical apprenticeship": "trades",
+    "Computer Engineering": "eng-computer", "Computer Science": "tech", "Software Engineering": "tech", "Computer Science and Engineering": "tech",
+    "Civil Engineering": "eng-civil", "Civil Engineering Technology": null, "Chemical Engineering": "eng-chemical", "Chemistry": null,
+    "Aerospace Engineering": "eng-aerospace", "Aerospace Studies": null, "Biomedical Engineering": "eng-biomedical", "Biomedical Sciences": null,
+    "Industrial Engineering": "eng-industrial", "Industrial Design": null, "Environmental Engineering": "eng-environmental", "Environmental Science": null,
+    "Petroleum Engineering": "eng-petroleum", "Petroleum Land Management": "energy", "Engineering": "engineering",
+  };
+  for (const [f, k] of Object.entries(want)) assert.equal(roadFor(f)?.key ?? null, k, f);
+  assert.equal(roadFor("Electrical apprenticeship", "apprenticeship")?.key, "trades");
+  for (const r of ROADS.filter((x) => x.parent === "engineering")) {
+    assert.ok(r.skills?.length && r.skillsSource, r.key);
+    assert.ok(r.credentials.every((c) => !(/FE exam/.test(c.name) && c.need === "required")), `${r.key}: FE is never required`);
+  }
 });
 
 test("abroad: US towns with foreign names stay in the US; remote jobs abroad aren't local (persona test Nov 1)", () => {
