@@ -27,6 +27,7 @@ import Admin from "./pages/Admin";
 import type { ChatAction, Workspace } from "@shared/types";
 import { Celebrate } from "./components/Celebrate";
 import { BETA_TERM_HEADS, BETA_TERMS, BETA_TERMS_LEAD, BETA_TERMS_VERSION } from "@shared/beta";
+import { knownName } from "@shared/names";
 
 const NAV = [
   { path: "/", label: "Home", icon: HomeIcon },
@@ -173,7 +174,7 @@ function Shell() {
       default: return <Home />;
     }
   })();
-  const initials = (w.profile.preferredName || w.profile.name || me?.name || "S").split(/\s+/).map((x) => x[0]).slice(0, 2).join("").toUpperCase();
+  const initials = (w.profile.preferredName || knownName(w) || "S").split(/\s+/).map((x) => x[0]).slice(0, 2).join("").toUpperCase();
 
   return (
     <div className={`shell ${collapsed ? "nav-collapsed" : ""} ${asstOpen ? "asst-open" : ""}`}>
@@ -412,7 +413,7 @@ function ProfileMenu({ initials, active }: { initials: string; active: boolean }
       <button className={"profile-btn" + (active ? " on" : "")} onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} data-testid="button-profile-menu">
         <Avatar initials={initials} />
         <div className="side-foot-text" style={{ minWidth: 0, textAlign: "left" }}>
-          <div className="small" style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ws!.profile.preferredName || ws!.profile.name || "Student"}</div>
+          <div className="small" style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ws!.profile.preferredName || knownName(ws!) || "Student"}</div>
           <div className="xs muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{kind}</div>
         </div>
       </button>

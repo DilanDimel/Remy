@@ -10,6 +10,7 @@ import type {
   Application, AppConfig, BulletChange, ChatAction, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace, Story } from "@shared/types";
 import { PATHS } from "@shared/types";
 import { BETA_TERMS_VERSION } from "@shared/beta";
+import { NAME_CHECK, firstName, knownName, nameUnsure, sameName } from "@shared/names";
 import { keepQuestions, skippedPrefs } from "@shared/setupReply";
 import { latestNewsId } from "@shared/news";
 import { aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
@@ -182,13 +183,6 @@ const evidenceOf = (ws: Workspace) =>
 const allJobs = (ws: Workspace): Job[] => ws.jobs;
 const findJob = (ws: Workspace, id: string) => allJobs(ws).find((j) => j.id === id);
 
-const NAME_CHECK = "Name check";
-/** Name words without accents, middle initials or order ("Doe, Jane M." = "jane doe"); any script. */
-const nameKey = (n: string) => n.normalize("NFD").replace(/\p{M}+/gu, "").toLowerCase().split(/[^\p{L}]+/u).filter((w) => w.length > 1).sort().join(" ");
-/** true/false when the two names can be compared, null when they can't (e.g. only initials). */
-const sameName = (a: string, b: string): boolean | null => { const x = nameKey(a), y = nameKey(b); return x && y ? x === y : null; };
-/** The resume names someone other than the profile, and the student hasn't answered "Which name should Remy use?" yet. */
-const nameUnsure = (ws: Workspace) => !ws.profile.preferredName && !!ws.resume?.doc.contact.name && sameName(ws.profile.name, ws.resume.doc.contact.name) === false && ws.tasks.some((t) => t.source === NAME_CHECK && !t.done);
 function profileSummary(ws: Workspace) {
   const p = ws.profile;
   return [
@@ -254,7 +248,7 @@ function composeResume(ws: Workspace, app: Application): ResumeDoc {
   return doc;
 }
 function fileBase(ws: Workspace, job: Job, doc: "Resume" | "Cover-Letter") {
-  const n = (ws.profile.name || ws.resume?.doc.contact.name || "Student").replace(/[^A-Za-z]+/g, "-");
+  const n = (nameUnsure(ws) ? "Student" : ws.profile.name || ws.resume?.doc.contact.name || "Student").replace(/[^A-Za-z]+/g, "-");
   return `${n}-${job.company.replace(/[^A-Za-z0-9]+/g, "-")}-${doc}`.replace(/-+/g, "-");
 }
 function entryContextOf(ws: Workspace, bulletId: string) {
@@ -394,7 +388,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       const ws = await loadWorkspace(u.id);
       const due = dueReminders(ws, today);
       if (!due.length) continue;
-      const { subject, text } = reminderEmail(ws.profile.preferredName || ws.profile.name.split(" ")[0] || "there", due, process.env.PUBLIC_HOST || "offer-ready.onrender.com");
+      const { subject, text } = reminderEmail(firstName(ws) || "there", due, process.env.PUBLIC_HOST || "offer-ready.onrender.com");
       try { await sendEmail(ws.profile.applicationEmail || u.email, subject, text); } catch (e: any) { console.error("deadline reminder failed", e?.message); continue; }
       await saveSections(u.id, { reminded: [...(ws.reminded || []), ...due.map((d) => d.key)].slice(-300) } as any);
     }
@@ -773,6 +767,8 @@ export async function registerRoutes(_server: Server, app: Express) {
       if (before !== JSON.stringify(p)) {
         // Only fields that appear on the documents make an approved version worth reviewing (not a nickname).
         const old = JSON.parse(before) as typeof p;
+        // Changing the name (or setting what to call them) answers "Which name should Remy use?".
+        if (old.name !== p.name || (!old.preferredName && p.preferredName)) for (const t of ctx.ws.tasks) if (t.source === NAME_CHECK && !t.done) t.done = true;
         if ((["name", "applicationEmail", "school", "major", "minors", "gpa", "graduation", "location"] as const).some((k) => (old[k] || "") !== (p[k] || "")))
           for (const a of ctx.ws.applications)
             if (a.versions.length) a.staleReason = `Your profile changed on ${new Date().toLocaleDateString("en-US")}. This approved version was not changed — review whether it still fits.`;
@@ -852,7 +848,8 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!p.classYear || (was && p.classYear === yearWas)) p.classYear = classYearOf({ ...ctx.ws, profile: { ...p, classYear: "" } });
     // The profile name may only be the sign-in account's name (Google/LinkedIn), e.g. a borrowed or family account.
     // If the resume names someone else, ask the student which is right instead of picking one.
-    if (now.name && p.name && ctx.me.name && p.name === ctx.me.name && sameName(p.name, now.name) === false && !ctx.ws.tasks.some((t) => t.source === NAME_CHECK && (!t.done || t.why.includes(`"${now.name}"`))))
+    const fromSignIn = (!!ctx.me.name && p.name === ctx.me.name) || ctx.ws.imports.some((i) => i.kind === "LinkedIn (connected)" && i.fileName.split(" · ")[0] === p.name);
+    if (now.name && p.name && fromSignIn && sameName(p.name, now.name) === false && !ctx.ws.tasks.some((t) => t.source === NAME_CHECK && (!t.done || t.why.includes(`"${now.name}"`))))
       ctx.ws.tasks.unshift({ id: uid("t"), title: "Which name should Remy use?", why: `Your sign-in account is under "${p.name}", but your resume says "${now.name}". Until you choose, Remy's coach won't call you by either name, and emails it drafts leave the name for you to fill in. If your resume's name is right, change it in Account → Profile; then tick this off.`, due: "", category: "Prepare", done: false, source: NAME_CHECK, link: "/accounts?tab=profile" });
     // A newer resume that matches the profile name answers the question.
     else if (now.name && p.name && sameName(p.name, now.name) === true) for (const t of ctx.ws.tasks) if (t.source === NAME_CHECK && !t.done) t.done = true;
@@ -955,7 +952,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const fmt = req.query.format === "docx" ? "docx" : "pdf";
     const doc = ctx.ws.resume!.doc;
     const buf = fmt === "pdf" ? await resumePdf(doc, ctx.ws.resume!.style) : await resumeDocx(doc, ctx.ws.resume!.style);
-    const name = (ctx.ws.profile.name || doc.contact.name || "Resume").replace(/[^A-Za-z]+/g, "-") + "-Resume";
+    const name = (nameUnsure(ctx.ws) ? "Resume" : ctx.ws.profile.name || doc.contact.name || "Resume").replace(/[^A-Za-z]+/g, "-") + "-Resume";
     res.setHeader("Content-Type", fmt === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
     res.setHeader("Content-Disposition", `attachment; filename="${name}.${fmt}"`);
     res.send(buf);
@@ -1869,9 +1866,9 @@ Return JSON:
     const purpose = String(req.body?.purpose || answers[0]?.a || "a brief informational conversation").slice(0, 300);
     for (const x of answers) addFact(ctx.ws, `${x.q} — ${x.a}`, "goal", `Told Remy while writing to ${c!.name}`, "approved");
     const p = ctx.ws.profile;
-    const unsure = nameUnsure(ctx.ws); // which name is theirs isn't answered yet: leave it for them to fill in
-    const me = p.preferredName || (unsure ? "" : p.name) || "Your name";
-    const sig = [(unsure ? "" : p.name) || me, p.applicationEmail || p.email].filter(Boolean).join("\n");
+    const full = knownName(ctx.ws); // "" while "Which name should Remy use?" is unanswered: they fill it in
+    const me = p.preferredName || full || "Your name";
+    const sig = [full || me, p.applicationEmail || p.email].filter(Boolean).join("\n");
     let out: { subject: string; body: string; linkedin: string };
     if (aiStatus().available) {
       out = await withAi(ctx, "Draft outreach", () =>

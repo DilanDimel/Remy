@@ -1,4 +1,5 @@
 import type { Workspace } from "@shared/types";
+import { firstName } from "@shared/names";
 import { LINKEDIN_RECHECK_DAYS } from "@shared/linkedin";
 
 const days = (from: string, to: string) => Math.round((Date.parse(to + "T12:00:00Z") - Date.parse(from + "T12:00:00Z")) / 864e5);
@@ -38,7 +39,7 @@ export function weeklyDigest(ws: Workspace, today: string, weekday: number, host
   const saved = new Set([...ws.savedJobIds, ...ws.applications.map((a) => a.jobId)]);
   const closed = ws.jobs.filter((j) => { const c = j.checks?.[0]; return saved.has(j.id) && !!c && c.at > since && (c.result === "closed-signal" || c.httpStatus === 404 || c.httpStatus === 410); });
   if (!fresh.length && !soon.length && !closed.length) return null;
-  const name = ws.profile.preferredName || ws.profile.name.split(" ")[0] || "there";
+  const name = firstName(ws) || "there";
   const parts = [
     fresh.length ? `${fresh.length} new opening${fresh.length > 1 ? "s" : ""} for you:\n${fresh.slice(0, 3).map((j) => `• ${j.title} at ${j.company}`).join("\n")}` : "",
     soon.length ? `Closing in the next 7 days:\n${soon.map((c) => `• ${c.title} (${c.date})`).join("\n")}` : "",

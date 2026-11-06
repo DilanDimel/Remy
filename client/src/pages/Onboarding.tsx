@@ -15,6 +15,7 @@ import { LinkedInGuide } from "../components/LinkedInGuide";
 import { useGoogleCalendar } from "../components/GoogleCalendar";
 import { LinkedInMark } from "./Welcome";
 import { CareerTime } from "../components/CareerTime";
+import { firstName } from "@shared/names";
 
 // Step numbers are stored in the workspace: 0 and 1 are the goal question (no focus yet) or the resume step; 2-5 follow.
 const STEPS = ["Your goal", "Your resume", "Review", "Preferences", "Questions", "Your plan"];
@@ -129,7 +130,7 @@ function WelcomeBack({ onContinue, onRestart }: { onContinue: () => void; onRest
   const { ws } = useStore();
   const w = ws!;
   const step = w.onboarding.step;
-  const first = (w.profile.preferredName || w.profile.name).split(/\s+/)[0];
+  const first = firstName(w);
   const done: [string, boolean, string][] = [
     ["Your resume", !!w.resume, w.resume ? w.resume.fileName : "Not uploaded yet"],
     ["Profile reviewed", step > 2, step > 2 ? "School, major and graduation confirmed" : "Next up"],
