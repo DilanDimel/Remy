@@ -83,7 +83,7 @@ const GOALS: [string, SetupFocus][] = [["Land an internship", "openings"], ["Fin
 function FocusPick({ onPick }: { onPick: (f: SetupFocus, exploring?: boolean) => Promise<void> }) {
   const { ws, me, save, run } = useStore();
   const w = ws!;
-  const first = (w.profile.preferredName || me?.name || "").trim().split(/\s+/)[0];
+  const first = firstName(w);
   const [busy, setBusy] = useState(false);
   const path = w.profile.path || "";
   const [goal, setGoal] = useState(w.profile.goal || "");
@@ -175,7 +175,7 @@ function CalendarMark() {
 /** Step 1: resume first (upload or build one), then the other accounts, each with its own row. */
 function ResumeStep({ onNext }: { onNext: () => void }) {
   const { ws, me } = useStore();
-  const first = (ws!.profile.preferredName || me?.name || "").trim().split(/\s+/)[0];
+  const first = firstName(ws!);
   const w = ws!;
   const [open, setOpen] = useState<"" | "resume" | "school">(w.resume ? "" : "resume");
   const [busy, setBusy] = useState(false);

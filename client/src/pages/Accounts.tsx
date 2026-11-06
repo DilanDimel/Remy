@@ -13,6 +13,7 @@ import { ConflictChoice } from "../components/ConflictChoice";
 import { ThemeChoice } from "../components/ThemeToggle";
 import { CareerTime } from "../components/CareerTime";
 import { ProfilePhoto } from "../components/ProfilePhoto";
+import { knownName } from "@shared/names";
 
 type Tab = "profile" | "sources" | "memory" | "settings" | "data";
 
@@ -33,7 +34,7 @@ export default function Accounts({ query }: { query: URLSearchParams }) {
           <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => go(`/accounts?tab=${k}`)} data-testid={`tab-accounts-${k}`}>{l}</button>
         ))}
       </div>
-      {tab === "profile" && <div className="card card-pad stack"><ProfilePhoto initials={(ws!.profile.preferredName || ws!.profile.name || "S").split(/\s+/).map((x: string) => x[0]).slice(0, 2).join("").toUpperCase()} /><p className="xs muted">Changes here update fit and recommendations. Approved application documents are never rewritten — they're marked for your review instead.</p><ProfileForm /></div>}
+      {tab === "profile" && <div className="card card-pad stack"><ProfilePhoto initials={(ws!.profile.preferredName || knownName(ws!) || "S").split(/\s+/).map((x: string) => x[0]).slice(0, 2).join("").toUpperCase()} /><p className="xs muted">Changes here update fit and recommendations. Approved application documents are never rewritten — they're marked for your review instead.</p><ProfileForm /></div>}
       {tab === "sources" && <Sources />}
       {tab === "memory" && <Memory />}
       {tab === "settings" && <Settings />}
