@@ -41,6 +41,7 @@ import { dueReminders, reminderEmail, weeklyDigest } from "./reminders";
 import { step } from "@shared/progress";
 import { conferencesFor } from "./conferences";
 import { trimOpenings } from "./trim";
+import { storageReport, warnIfNearLimit } from "./storage";
 import { pruneOpenings, recordFound, recordCheck, listOpenings, openingsSummary } from "./openings";
 import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, kindOf, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
@@ -505,6 +506,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   const sweep = () => {
     sweeping ||= Promise.all([
       pruneBoardCache().catch(() => {}),
+      warnIfNearLimit().catch((e) => console.error("storage check failed", e?.message)),
       pruneOpenings().then((n) => { if (n) console.log(`checked openings: discarded ${n} not seen for a while`); }).catch((e) => console.error("checked openings prune failed", e?.message)),
       deadlineReminders().catch((e) => console.error("deadline reminders failed", e?.message)),
       cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)),
@@ -573,6 +575,8 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.get("/api/admin/errors", route(async (_req, res, ctx) => { owner(ctx); res.json(await admin.errors()); }));
   app.get("/api/admin/team", route(async (_req, res, ctx) => { res.json(await admin.team(owner(ctx))); }));
   app.get("/api/admin/agents", route(async (_req, res, ctx) => { owner(ctx); res.json(await agents.agentRuns()); }));
+  // Database space used against the plan's limit, per table (owners only).
+  app.get("/api/admin/storage", route(async (_req, res, ctx) => { owner(ctx); res.json(await storageReport()); }));
   // Checked openings by company, industry, career path or status (owners only; public postings, no student data).
   app.get("/api/admin/openings", route(async (req, res, ctx) => {
     owner(ctx);

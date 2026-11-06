@@ -24,6 +24,8 @@ This is fine for a demo and a small pilot. It breaks down when:
 ## Built: keeping the data small (Nov 2026, Demetre)
 - **Openings lists are trimmed** (`server/trim.ts`) whenever a search adds openings: imported openings nothing else refers to (not saved, applied to, rated, hidden, linked from a to-do or the calendar) are dropped after 30 days, and at most the newest 150 are kept. Their links go in `droppedJobUrls` so a search doesn't add them back as new. Before this, every search added up to 25 openings with up to 12 KB of text each and nothing was ever removed, so active accounts would hit the 4 MB limit.
 - **Background jobs filter in SQL** (`recentStudents`): the background openings search and the saved-openings re-check load only students who visited in the last 21 days (and, for the search, finished setup), longest-waiting first, instead of every signed-in account.
+- **Employer cache is slimmer:** `board_cache` keeps every posting's title, place and link, but description text only for student-level postings (capped at 20,000 characters). Search results are identical (tested on Julio's 48 labeled postings); senior roles' full text was the bulk of the cache.
+- **Space watch** (`server/storage.ts`): `GET /api/admin/storage` (owners) shows the database size against `DB_SIZE_LIMIT_MB` (default 500, the Supabase free plan) and each table's size. Past 80%, the sweep posts one warning a day on the owners' Errors page. Free-plan note: daily backups aren't included; check before launch.
 - **Expired codes are cleaned up:** the sweep deletes sign-in and school-email codes nobody came back for.
 
 ## Proposal
