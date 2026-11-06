@@ -40,6 +40,7 @@ import * as agents from "./agents";
 import { dueReminders, reminderEmail, weeklyDigest } from "./reminders";
 import { step } from "@shared/progress";
 import { conferencesFor } from "./conferences";
+import { pruneOpenings, recordFound, recordCheck, listOpenings, openingsSummary } from "./openings";
 import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, kindOf, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
 import { docxStyle, editResumeDocx } from "./docxEdit";
@@ -342,6 +343,8 @@ async function findOpenings(ctx: Ctx, named: string[] = [], opts: { background?:
   const seen = new Set<string>();
   const unique = boards.filter((b) => { const k = b.ats + ":" + b.slug; if (seen.has(k)) return false; seen.add(k); return true; });
   const r = await discoverJobs(ctx.ws, unique);
+  // Shared, tagged record of what Remy found (public postings only); never slows or fails the student's search.
+  recordFound(r.jobs, Object.fromEntries(unique.map((b) => [b.company, b.fields || []]))).catch((e) => console.error("checked openings: record failed", e?.message));
   const readAt = nowIso();
   ctx.ws.employersRead = Object.fromEntries([...Object.entries(ctx.ws.employersRead || {}), ...unique.map((b) => [b.company, readAt])].slice(-400));
   console.log(`discover: read ${r.reached}/${unique.length} (${unique.map((b) => b.company).join(", ")}), added ${r.jobs.length}`);
@@ -494,6 +497,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   const sweep = () => {
     sweeping ||= Promise.all([
       pruneBoardCache().catch(() => {}),
+      pruneOpenings().then((n) => { if (n) console.log(`checked openings: discarded ${n} not seen for a while`); }).catch((e) => console.error("checked openings prune failed", e?.message)),
       deadlineReminders().catch((e) => console.error("deadline reminders failed", e?.message)),
       cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)),
       // One after the other: both write a student's openings, so they must not run at the same time.
@@ -561,6 +565,16 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.get("/api/admin/errors", route(async (_req, res, ctx) => { owner(ctx); res.json(await admin.errors()); }));
   app.get("/api/admin/team", route(async (_req, res, ctx) => { res.json(await admin.team(owner(ctx))); }));
   app.get("/api/admin/agents", route(async (_req, res, ctx) => { owner(ctx); res.json(await agents.agentRuns()); }));
+  // Checked openings by company, industry, career path or status (owners only; public postings, no student data).
+  app.get("/api/admin/openings", route(async (req, res, ctx) => {
+    owner(ctx);
+    const s = (k: string) => (typeof req.query[k] === "string" ? String(req.query[k]).slice(0, 100) : undefined);
+    const status = s("status");
+    res.json({
+      summary: await openingsSummary(),
+      openings: await listOpenings({ company: s("company"), industry: s("industry"), careerPath: s("path"), status: status === "open" || status === "closed" || status === "unchecked" ? status : undefined, limit: Number(s("limit")) || undefined }),
+    });
+  }));
   app.post("/api/admin/agents/:agent/run", route(async (req, res, ctx) => {
     const me = owner(ctx);
     if (!allow("agent:" + me, 10, 60 * 60_000)) bad("That's a lot of agent runs. Try again in an hour.", 429);
@@ -1575,6 +1589,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       check = { at: nowIso(), httpStatus: null, result: "unreachable" as const, note: e?.message || "Could not reach the page." };
     }
     ctx.ws.jobs.find((x) => x.id === job.id)?.checks.unshift(check);
+    recordCheck(job, check).catch((e) => console.error("checked openings: check not recorded", e?.message));
     return check;
   }
   app.post("/api/jobs/:id/check", route(async (req, res, ctx) => {
