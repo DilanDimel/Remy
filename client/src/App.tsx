@@ -320,9 +320,15 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
         <button className="btn btn-secondary btn-sm" onClick={onMinimize} aria-label="Minimize Remy" title="Minimize Remy" data-testid="button-close-assistant"><Minus size={15} /><span className="hide-sm">Minimize</span></button>
       </div>
       <div className="asst-body">
-        {chat.length === 0 && (
-          <div className="bubble bubble-ai">
-            Hi, I'm Remy! I can explain recommendations, help you think through choices, and suggest next steps. I only use what's in your approved profile — and I'll never send anything for you.
+        {chat.length === 0 && !tailor && !busy && (
+          // Empty chat: a welcome in the middle of the panel instead of one bubble under a blank space.
+          <div className="asst-welcome" data-testid="assistant-welcome">
+            <Remy size={56} mood="wave" />
+            <b>Hi, I'm Remy.</b>
+            <p className="small muted">I can explain recommendations, help you think through choices and suggest next steps. I only use what's in your approved profile, and I never send anything for you.</p>
+            <div className="stack-sm">
+              {(STARTERS[page] || STARTERS.Home).map((s) => <button key={s} className="btn btn-secondary btn-sm asst-starter" onClick={() => send(s)}>{s}</button>)}
+            </div>
           </div>
         )}
         {chat.slice(-30).map((m) => (
@@ -355,7 +361,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
             <div ref={tailorEnd} />
           </div>
         )}
-        {chat.length < 2 && !busy && !tailor && (
+        {chat.length === 1 && !busy && !tailor && (
           <div className="stack-sm">
             {(STARTERS[page] || STARTERS.Home).map((s) => (
               <button key={s} className="btn btn-secondary btn-sm" style={{ justifyContent: "flex-start", whiteSpace: "normal", textAlign: "left", height: "auto", padding: "8px 12px" }} onClick={() => send(s)}>{s}</button>
