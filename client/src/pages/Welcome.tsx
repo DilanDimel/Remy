@@ -320,6 +320,11 @@ const EXAMPLES: { tab: string; ask: string; items: [ReactNode, string, ReactNode
     [<CalendarClock size={15} />, "Applications close Feb 15.", <>It's on your calendar.</>],
     [<FileText size={15} />, "To-do:", <>add your Walgreens pharmacy work to your resume. Your LinkedIn has it; your resume doesn't.</>],
   ] },
+  { tab: "Engineering", ask: "I'm a junior in mechanical engineering. How do I land a summer internship?", items: [
+    [<Search size={15} />, "Mechanical Design Intern", <>at a Fort Worth aerospace company. You qualify: it asks for juniors with a 3.0 GPA.</>],
+    [<CalendarClock size={15} />, "Applications close Jan 15.", <>It's on your calendar.</>],
+    [<FileText size={15} />, "To-do:", <>your design team bullet doesn't say what you built. Name the part and the tool, like SolidWorks.</>],
+  ] },
   { tab: "Not sure yet", ask: "I'm a psychology major and I have no idea what jobs I can get.", items: [
     [<Search size={15} />, "Social and human service assistants", <>hire about 48,900 people a year. Your crisis-line volunteering fits.</>],
     [<Search size={15} />, "School and career counselors", <>earn a $64,330 median and need a master's. Want to see what a day looks like?</>],
