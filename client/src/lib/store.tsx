@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { AppConfig, Me, Workspace } from "@shared/types";
 import { finishSupabaseRedirect } from "./supabase";
+import { keepNewerJobFeedback } from "./jobFeedback";
 
 declare global {
   interface Window { __API_BASE__?: string; google?: any }
@@ -148,7 +149,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!m || seq !== saveSeq.current || savingNow.current) return;
     setMe((prev) => (JSON.stringify(prev) === JSON.stringify(m.me) ? prev : m.me));
     setWsState((prev) => {
-      const next = m.workspace;
+      const next = m.workspace && prev ? keepNewerJobFeedback(prev, m.workspace, "me", "me") : m.workspace;
       if (!prev || !next) return next;
       // Keep every unchanged section as the same object, so forms showing it (Profile, setup review) aren't reset.
       let changed = false;
@@ -194,7 +195,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     savingNow.current++;
     try {
       const w = await api<Workspace>("PUT", `/api/ws/${section}`, { value });
-      setWsState(w);
+      setWsState((prev) => keepNewerJobFeedback(prev, w, "me", "me")); // a slow save can't undo a newer like
       setFailed((f) => (f?.section === section ? null : f));
       return w;
     } catch (e) {
@@ -229,7 +230,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   // Any workspace the app sets (an AI result, a search) is newer than a quiet refresh still on its way.
-  const setWs = useCallback((w: Workspace) => { saveSeq.current++; setWsState(w); }, []);
+  const setWs = useCallback((w: Workspace) => { saveSeq.current++; setWsState((prev) => keepNewerJobFeedback(prev, w, "me", "me")); }, []);
   const value = useMemo<Store>(() => ({
     config, me, ws, loading, toast, refresh, save, run, theme, setTheme,
     setWs,

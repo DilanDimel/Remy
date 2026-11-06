@@ -22,6 +22,8 @@ export function emptyWorkspace(): Workspace {
     savedJobIds: [],
     fits: {},
     hiddenJobIds: [],
+    jobFeedback: {},
+    jobFeedbackVersion: 0,
     applications: [],
     tracker: [],
     inbox: [],
@@ -162,6 +164,8 @@ function fromStored(data: any): Workspace {
   ws.inbox = ws.inbox.filter((m) => m.label !== "Sample email");
   // Accounts made before "Match device" stored "light" without anyone choosing it.
   if (ws.settings.theme === "light" && !ws.settings.themeChosen) ws.settings.theme = "system";
+  ws.jobFeedback ||= {};
+  ws.jobFeedbackVersion = Number.isSafeInteger(ws.jobFeedbackVersion) ? ws.jobFeedbackVersion : 0;
   return ws;
 }
 export async function loadWorkspace(userId: string): Promise<Workspace> {
@@ -213,6 +217,27 @@ export async function deleteWorkspace(userId: string) {
   await q("DELETE FROM files WHERE user_id=$1", [userId]);
 }
 /** Everything stored about a user: workspace, files, AI usage, sessions and the account row. */
+/** Read and edit one owner's current workspace under a database row lock.
+ * Feedback edits use this so simultaneous ratings never replace each other's entries. */
+export async function editWorkspace(userId: string, edit: (ws: Workspace) => void): Promise<Workspace> {
+  return tx(async (run) => {
+    const row = (await run("SELECT data FROM workspaces WHERE user_id=$1 FOR UPDATE", [userId]))[0];
+    const ws = fromStored(row && (typeof row.data === "string" ? JSON.parse(row.data) : row.data));
+    const before = new Map(Object.entries(ws).map(([key, value]) => [key, JSON.stringify(value)]));
+    edit(ws);
+    if (JSON.stringify(ws.jobFeedback) !== before.get("jobFeedback"))
+      ws.jobFeedbackVersion = (ws.jobFeedbackVersion || 0) + 1;
+    const changed = Object.fromEntries(Object.entries(ws).filter(([key, value]) => key !== "updatedAt" && JSON.stringify(value) !== before.get(key)));
+    if (!Object.keys(changed).length) return ws;
+    if (!row) throw Object.assign(new Error("Workspace not found."), { status: 404 });
+    ws.updatedAt = nowIso();
+    if (JSON.stringify(ws, noNul).length > 4_000_000)
+      throw Object.assign(new Error("Workspace is too large."), { status: 413 });
+    await run("UPDATE workspaces SET data = data || $2::jsonb, updated_at = now() WHERE user_id=$1",
+      [userId, JSON.stringify({ ...changed, updatedAt: ws.updatedAt }, noNul)]);
+    return ws;
+  });
+}
 export async function deleteAccount(userId: string) {
   await tx(async (run) => {
     await run("DELETE FROM workspaces WHERE user_id=$1", [userId]);
