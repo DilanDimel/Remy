@@ -228,7 +228,7 @@ function Landing() {
         <div className="lp-beam" aria-hidden><span className="lp-beam-line" /><span className="lp-beam-floor" /></div>
         <div className="lp-hero-copy">
           <span className="lp-award">Built by TCU students · Won first at TCU Neeley AI Forward, job recruitment category</span>
-          <h1>Don&rsquo;t hunt for a job <span className="lp-accent">alone.</span></h1>
+          <h1>Don&rsquo;t Hunt For A Job <span className="lp-accent">Alone.</span></h1>
           <p className="lp-lede">A free career coach for college students: openings you can actually get, a resume that stays true, and what to do this week.</p>
           <div className="lp-ctas">
             <a className="btn btn-lg lp-glow-btn" href={start} {...(beta ? { target: "_blank", rel: "noreferrer" } : {})} data-testid="button-lp-start">{startLabel}</a>
@@ -247,7 +247,7 @@ function Landing() {
       <section className="lp-bento-sec" ref={tour} aria-label="What you get">
         <div className="lp-gets-head rv">
           <span className="lp-kicker">What you get</span>
-          <h2>One coach for the whole search</h2>
+          <h2>One Coach For The Whole Search</h2>
           <nav className="lp-jump" aria-label="Jump to">
             <a href="#get-openings"><b>1</b> Openings</a><a href="#get-resume"><b>2</b> Honest resume</a><a href="#get-plan"><b>3</b> Weekly plan</a><a href="#get-explore"><b>4</b> Explore careers</a>
           </nav>
