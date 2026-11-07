@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
-import { Activity, AlertTriangle, Bot, ArrowLeft, ArrowRight, BarChart3, CalendarDays, Check, Clock, KanbanSquare, Plus, RotateCcw, Trash2, UserCheck, Users } from "lucide-react";
+import { Activity, AlertTriangle, Bot, ArrowLeft, ArrowRight, BarChart3, Briefcase, CalendarDays, Check, Clock, Database, KanbanSquare, Plus, RotateCcw, Trash2, TrendingUp, UserCheck, Users } from "lucide-react";
 import { api, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
 import { BetaBadge, CopyButton, Empty, Modal, Remy, Rich, Spinner } from "../components/common";
@@ -35,8 +35,10 @@ type Team = {
 };
 const ANSWERS: [Answer, string][] = [["yes", "Going"], ["maybe", "Maybe"], ["no", "Can't go"]];
 
-const TABS = [["overview", "Overview", BarChart3], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity], ["errors", "Errors & feedback", AlertTriangle], ["agents", "Agents", Bot], ["beta", "Beta list", UserCheck]] as const;
+const TABS = [["overview", "Overview", BarChart3], ["beta", "Beta", UserCheck], ["outcomes", "Outcomes", TrendingUp], ["database", "Database", Database], ["openings", "Openings", Briefcase], ["errors", "Errors & feedback", AlertTriangle], ["agents", "Agents", Bot], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity]] as const;
 type Tab = (typeof TABS)[number][0];
+// The menu in three groups (Nov 7): students first, then data, then the team's own work.
+const NAV_GROUPS: [string, Tab[]][] = [["Students", ["overview", "beta", "outcomes"]], ["Data", ["database", "openings", "errors", "agents"]], ["Team", ["board", "people", "calendar", "hours", "activity"]]];
 const HISTORY_AFTER = 3 * 86400_000;
 const COLS: [Status, string][] = [["todo", "To do"], ["doing", "In progress"], ["done", "Done"]];
 const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -75,7 +77,12 @@ export default function Admin() {
         <span className="logo"><Remy size={26} /> Remy <BetaBadge /></span>
         <span className="xs muted adm-role">Owners</span>
         <nav>
-          {TABS.map(([k, l, Icon]) => <a key={k} href={`/admin?tab=${k}`} aria-current={tab === k ? "page" : undefined}><Icon size={17} /> {l}</a>)}
+          {NAV_GROUPS.map(([group, keys]) => (
+            <div key={group} className="adm-nav-group">
+              <span className="adm-nav-label">{group}</span>
+              {TABS.filter(([k]) => keys.includes(k)).map(([k, l, Icon]) => <a key={k} href={`/admin?tab=${k}`} aria-current={tab === k ? "page" : undefined}><Icon size={17} /> {l}</a>)}
+            </div>
+          ))}
         </nav>
         <WhatsNew className="btn btn-ghost btn-sm adm-news" />
         <ThemeToggle className="btn btn-ghost btn-sm adm-theme" label />
@@ -85,8 +92,11 @@ export default function Admin() {
         {tab === "overview" && <OverviewTab />}
         {tab === "errors" && <ErrorsTab />}
         {tab === "agents" && <AgentsTab />}
-        {tab === "beta" && <BetaTab />}
-        {tab !== "overview" && tab !== "errors" && tab !== "agents" && tab !== "beta" && <TeamTab tab={tab} />}
+        {tab === "beta" && <><FunnelCard /><BetaTab /></>}
+        {tab === "outcomes" && <OutcomesTab />}
+        {tab === "database" && <DatabaseTab />}
+        {tab === "openings" && <OpeningsTab />}
+        {(tab === "board" || tab === "people" || tab === "calendar" || tab === "hours" || tab === "activity") && <TeamTab tab={tab} />}
       </main>
     </div>
   );
@@ -240,6 +250,125 @@ function BetaTab() {
           </div>
         ))}
         {!d.list.length && <p className="small muted">Nobody yet. Paste emails above once you accept them.</p>}
+      </section>
+    </div>
+  );
+}
+
+type Split = { label: string; applied: number; accepted: number };
+type Funnel = { applied: number; accepted: number; next: number; declined: number; waiting: number; feedback: number; on_list: number; signed_in: number; set_up: number; active_week: number; bySchool: Split[]; byYear: Split[]; bySource: Split[]; byStuck: Split[] };
+const pctOf = (a: number, b: number) => (b ? `${Math.round((100 * a) / b)}%` : "—");
+
+/** Founding Cohort funnel: from the form to students actually using Remy this week. */
+function FunnelCard() {
+  const [d] = useLoad<Funnel>("/api/admin/funnel");
+  if (!d) return <Spinner />;
+  const steps: [string, number, string][] = [
+    ["Applied", d.applied, `${d.waiting} waiting · ${d.next} next cohort · ${d.declined} declined`],
+    ["Accepted", d.on_list, `${d.accepted} from the form`],
+    ["Signed in", d.signed_in, pctOf(d.signed_in, d.on_list) + " of accepted"],
+    ["Finished setup", d.set_up, pctOf(d.set_up, d.signed_in) + " of signed in"],
+    ["Active this week", d.active_week, pctOf(d.active_week, d.set_up) + " of set up"],
+  ];
+  const table = (title: string, rows: Split[]) => (
+    <div className="stack-sm"><b className="small">{title}</b>
+      {rows.map((r) => <div key={r.label} className="row-between small"><span>{r.label}</span><span className="muted">{r.applied} applied · {r.accepted} in</span></div>)}
+      {!rows.length && <span className="small muted">No applications yet.</span>}
+    </div>
+  );
+  return (
+    <section className="adm-card stack" data-testid="beta-funnel" style={{ marginBottom: 16 }}>
+      <Head title="Founding Cohort" sub="From the form to students using Remy this week. Counts only." />
+      <div className="adm-kpis">{steps.map(([l, n, note]) => <Kpi key={l} n={n} label={l} note={note} />)}</div>
+      <div className="grid-3" style={{ alignItems: "start" }}>{table("By school", d.bySchool)}{table("By class year", d.byYear)}{table("Heard about Remy from", d.bySource)}</div>
+      {table("Where they're stuck", d.byStuck)}
+      <span className="xs muted">{d.feedback} of {d.applied} said they'll give feedback each week.</span>
+    </section>
+  );
+}
+
+type Outcomes = { applied: number; answered: number; interviews: number; offers: number; applied_tailored: number; answered_tailored: number; students_applying: number; students_rating: number; ratings: number; students: number };
+/** What Remy is for: applications that got answers, interviews and offers, across real students (team left out). */
+function OutcomesTab() {
+  const [d, reload] = useLoad<Outcomes>("/api/admin/outcomes");
+  if (!d) return <Spinner />;
+  const plain = d.applied - d.applied_tailored, plainAnswered = d.answered - d.answered_tailored;
+  return (
+    <div className="stack">
+      <Head title="Outcomes" sub="Across real students (the team and its “+” test addresses are left out), from each application's history." action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
+      <div className="adm-kpis">
+        <Kpi n={d.applied} label="Applications sent" note={`by ${d.students_applying} of ${d.students} students`} />
+        <Kpi n={pctOf(d.answered, d.applied)} label="Got an answer" note={`${d.answered} of ${d.applied}`} />
+        <Kpi n={d.interviews} label="Interviews" />
+        <Kpi n={d.offers} label="Offers" />
+      </div>
+      <section className="adm-card stack-sm">
+        <h3>Tailored with Remy vs not</h3>
+        <span className="small">Materials approved in Remy: <b>{pctOf(d.answered_tailored, d.applied_tailored)}</b> got an answer ({d.answered_tailored} of {d.applied_tailored})</span>
+        <span className="small">Not tailored in Remy: <b>{pctOf(plainAnswered, plain)}</b> got an answer ({plainAnswered} of {plain})</span>
+        <span className="xs muted">Small numbers swing a lot: wait for 20+ applications on each side before reading anything into it.</span>
+      </section>
+      <section className="adm-card stack-sm">
+        <h3>More like this / Not for me</h3>
+        <span className="small"><b>{d.students_rating}</b> of {d.students} students have rated openings ({d.ratings} ratings in all).</span>
+      </section>
+    </div>
+  );
+}
+
+type Storage = { usedMb: number; limitMb: number; percent: number; tables: { name: string; mb: number; rows: number }[]; workspaces: { n: number; avg_kb: number; max_kb: number; p90_kb: number } };
+/** How full the database is against the plan's limit, and what takes the space (Demetre's space watch). */
+function DatabaseTab() {
+  const [d, reload] = useLoad<Storage>("/api/admin/storage");
+  if (!d) return <Spinner />;
+  return (
+    <div className="stack">
+      <Head title="Database" sub={`Supabase Postgres. Limit set to ${d.limitMb} MB (the free plan); past 80% a warning appears on Errors.`} action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
+      <div className="adm-kpis">
+        <Kpi n={`${d.percent}%`} label="Space used" note={`${d.usedMb} of ${d.limitMb} MB`} />
+        <Kpi n={`${d.workspaces.avg_kb} KB`} label="Average student account" note={`90% under ${d.workspaces.p90_kb} KB · largest ${d.workspaces.max_kb} KB`} />
+        <Kpi n={d.workspaces.n} label="Accounts stored" />
+      </div>
+      <section className="adm-card stack-sm"><span className="small">Every page a student opens reads their whole account, so account size drives speed and Supabase's monthly data transfer (5 GB on the free plan). Data transfer itself isn't visible from here: check Supabase → Usage → Egress weekly.</span></section>
+      <section className="adm-card adm-list">
+        <h3>Tables</h3>
+        {d.tables.map((t) => <div key={t.name} className="row-between small"><span>{t.name}</span><span className="muted">{t.mb} MB · about {t.rows.toLocaleString()} rows</span></div>)}
+      </section>
+    </div>
+  );
+}
+
+type Opening = { url: string; title: string; company: string; kind: string; location: string; industry: string; career_path: string; source_name: string; deadline: string; first_seen: string; last_seen: string; times_seen: number; last_checked: string | null; check_result: string | null };
+type OpeningsData = { summary: { total: number; closed: number; unchecked: number; companies: number; keepDays: number; byIndustry: { industry: string; n: number }[]; byPath: { career_path: string; n: number }[] }; openings: Opening[] };
+/** Every public posting Remy found or re-checked (Demetre's checked-openings record). No student data. */
+function OpeningsTab() {
+  const [f, setF] = useState({ industry: "", path: "", status: "", company: "" });
+  const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString();
+  const [d] = useLoad<OpeningsData>(`/api/admin/openings${qs ? "?" + qs : ""}`);
+  if (!d) return <Spinner />;
+  const s = d.summary;
+  return (
+    <div className="stack">
+      <Head title="Openings Remy knows" sub={`Public postings Remy found or re-checked, shared across students; kept ${s.keepDays} days after last seen. No student data.`} />
+      <div className="adm-kpis">
+        <Kpi n={s.total} label="Openings" note={`${s.companies} employers`} />
+        <Kpi n={s.closed} label="Look closed" />
+        <Kpi n={s.unchecked} label="Not re-checked yet" />
+      </div>
+      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        <select className="select" style={{ width: 190 }} value={f.industry} onChange={(e) => setF({ ...f, industry: e.target.value })} aria-label="Industry"><option value="">Every industry</option>{s.byIndustry.map((r) => <option key={r.industry} value={r.industry}>{r.industry || "(none)"} ({r.n})</option>)}</select>
+        <select className="select" style={{ width: 190 }} value={f.path} onChange={(e) => setF({ ...f, path: e.target.value })} aria-label="Career path"><option value="">Every career path</option>{s.byPath.map((r) => <option key={r.career_path} value={r.career_path}>{r.career_path || "(none)"} ({r.n})</option>)}</select>
+        <select className="select" style={{ width: 150 }} value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })} aria-label="Status"><option value="">Any status</option><option value="open">Open</option><option value="closed">Closed</option><option value="unchecked">Not checked</option></select>
+        <input className="input" style={{ width: 180 }} placeholder="Company, then Enter" defaultValue={f.company} onKeyDown={(e) => { if (e.key === "Enter") setF({ ...f, company: (e.target as HTMLInputElement).value.trim() }); }} aria-label="Company (press Enter)" />
+      </div>
+      <section className="adm-card adm-list">
+        {d.openings.map((o) => (
+          <div key={o.url} className="row-between small" style={{ gap: 10 }}>
+            <span><a href={o.url} target="_blank" rel="noreferrer"><b>{o.title}</b></a> · {o.company}{o.location ? ` · ${o.location}` : ""}<span className="xs muted"> · {[o.industry, o.career_path].filter(Boolean).join(" / ") || "untagged"}</span></span>
+            <span className="xs muted" style={{ whiteSpace: "nowrap" }}>{o.check_result === "closed-signal" ? "looks closed" : o.check_result === "reachable" ? "open" : o.check_result || "not checked"} · seen {o.times_seen}× · {ago(o.last_seen)}</span>
+          </div>
+        ))}
+        {!d.openings.length && <p className="small muted">Nothing matches.</p>}
       </section>
     </div>
   );

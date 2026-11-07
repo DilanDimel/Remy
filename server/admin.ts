@@ -45,7 +45,7 @@ export async function recordError(kind: "browser" | "server" | "feedback", place
 const SIGNED_IN_ANY = "u.kind IN ('google','supabase')";
 /** Real students: signed in, and not a team member (founders, added members) or one of their "+" test addresses
  *  ("dilan+live1103@gmail.com" is dilan@gmail.com testing), nor an address in EXCLUDE_EMAILS. */
-async function studentsOnly() {
+export async function studentsOnly() {
   const team = new Set([...envOwners(), ...(await memberEmails()), ...(process.env.EXCLUDE_EMAILS || "").toLowerCase().split(/[,\s]+/).filter(Boolean)]);
   if (!team.size) return SIGNED_IN_ANY;
   const list = [...team].map((e) => `'${e.replace(/'/g, "''")}'`).join(",");
