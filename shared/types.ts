@@ -561,6 +561,8 @@ export interface AppConfig {
   googleCalendar: boolean;
   /** Which version of Remy the server runs; when it changes, an open tab offers to reload. */
   build?: string;
+  /** Founding Cohort beta: when on, only accepted emails can sign in; formUrl is the team's application form. */
+  beta?: { on: boolean; formUrl: string };
 }
 
 export interface HoursEntry {
