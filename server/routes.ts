@@ -44,6 +44,7 @@ import { conferencesFor } from "./conferences";
 import { trimOpenings } from "./trim";
 import { storageReport, warnIfNearLimit } from "./storage";
 import * as insights from "./insights";
+import * as services from "./services";
 import { pruneOpenings, recordFound, recordCheck, listOpenings, openingsSummary } from "./openings";
 import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, kindOf, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
@@ -521,6 +522,8 @@ export async function registerRoutes(_server: Server, app: Express) {
   };
   sweep();
   setInterval(sweep, 6 * 60 * 60_000).unref();
+  // Database data transfer, saved every 5 minutes (owners see it on Admin → Database).
+  setInterval(() => { insights.flushDbBytes().catch((e) => console.error("usage flush failed", e?.message)); }, 5 * 60_000).unref();
   app.post("/api/cron/tick", async (req, res) => {
     const want = Buffer.from(process.env.CRON_SECRET || ""), got = Buffer.from(String(req.header("x-cron-secret") || ""));
     if (!want.length) return res.status(404).json({ message: "Not found." });
@@ -579,7 +582,12 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.get("/api/admin/team", route(async (_req, res, ctx) => { res.json(await admin.team(owner(ctx))); }));
   app.get("/api/admin/agents", route(async (_req, res, ctx) => { owner(ctx); res.json(await agents.agentRuns()); }));
   // Database space used against the plan's limit, per table (owners only).
-  app.get("/api/admin/storage", route(async (_req, res, ctx) => { owner(ctx); res.json({ ...(await storageReport()), workspaces: await insights.workspaceSizes() }); }));
+  app.get("/api/admin/storage", route(async (_req, res, ctx) => { owner(ctx); await insights.flushDbBytes(); res.json({ ...(await storageReport()), workspaces: await insights.workspaceSizes(), transfer: await insights.dataTransfer() }); }));
+  app.get("/api/admin/services", route(async (_req, res, ctx) => {
+    owner(ctx);
+    const [errors, deploys, ai] = await Promise.all([services.recentErrors(), services.renderDeploys(), services.openRouter()]);
+    res.json({ server: services.serverNow(), errors, deploys, ai, aiChain: aiStatus() });
+  }));
   app.get("/api/admin/funnel", route(async (_req, res, ctx) => { owner(ctx); res.json(await insights.funnel()); }));
   app.get("/api/admin/outcomes", route(async (_req, res, ctx) => { owner(ctx); res.json(await insights.outcomes()); }));
   // Checked openings by company, industry, career path or status (owners only; public postings, no student data).
