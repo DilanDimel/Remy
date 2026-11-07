@@ -30,7 +30,7 @@ function Page({ title, lead, children }: { title: string; lead: string; children
 
 // Photos go in client/public/team/ (e.g. "/team/dilan.jpg"); until then each shows initials.
 const TEAM: { name: string; role: string; photo: string }[] = [
-  { name: "Dilan Desman", role: "Technology lead", photo: "" },
+  { name: "Dilan Desman", role: "Technology lead", photo: "/team/dilan.jpg" },
   { name: "Ashton Wisecarver", role: "Brand, marketing & finance", photo: "" },
   { name: "Lincoln Yoo", role: "Operations & partnerships", photo: "" },
   { name: "Demetre Dondoladze", role: "Data & databases", photo: "" },
