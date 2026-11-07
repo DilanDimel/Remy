@@ -27,6 +27,16 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
+// One address: pages opened on the old *.onrender.com address move to PUBLIC_HOST (remyai.org), keeping the path,
+// query and any sign-in fragment. API calls aren't redirected, so scheduled jobs and open tabs keep working.
+app.use((req, res, next) => {
+  const target = (process.env.PUBLIC_HOST || "").trim();
+  const host = String(req.headers.host || "").toLowerCase();
+  if (target && host.endsWith(".onrender.com") && host !== target && (req.method === "GET" || req.method === "HEAD") && !req.path.startsWith("/api/"))
+    return res.redirect(301, `https://${target}${req.originalUrl}`);
+  next();
+});
+
 // Standard browser security headers. The resume PDF preview is framed by our own
 // page, so framing is limited to this site rather than blocked outright.
 const supabaseOrigin = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
