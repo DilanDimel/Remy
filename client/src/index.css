@@ -1063,3 +1063,25 @@ ul[class] > li, ol[class] > li { max-width: none; }
 /* The grouped menu is taller than short laptop screens: let it scroll so "Back to Remy" is always reachable (Nov 7) */
 .adm-nav { overflow-y: auto; overscroll-behavior: contain; }
 .adm-nav nav a { padding: 8px 12px; }
+/* Owners' dashboard on a phone (Nov 7): a slim top bar (logo + Back to Remy) and the tabs as one row that scrolls
+   sideways, instead of the full menu filling the first screen. Numbers two per row; filters share the row evenly. */
+@media (max-width: 900px) {
+  .adm { grid-template-rows: auto 1fr; }
+  .adm-nav { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 16px 8px; overflow: visible; border-right: 0; border-bottom: 1px solid var(--line); }
+  .adm-back { display: inline-flex; margin: 0; grid-column: 2; grid-row: 1; }
+  .adm-news, .adm-theme { display: none; }
+  .adm-nav nav { grid-column: 1 / -1; display: flex; flex-wrap: nowrap; gap: 4px; overflow-x: auto; margin: 0 -16px; padding: 2px 16px 4px; scrollbar-width: none; }
+  .adm-nav nav::-webkit-scrollbar { display: none; }
+  .adm-nav-group { display: contents; }
+  .adm-nav-label { display: none; }
+  .adm-nav nav a { flex: none; white-space: nowrap; padding: 7px 12px; }
+  /* Numbers as one list: label (and its note) on the left, the number on the right (Dilan picked this, Nov 7) */
+  .adm-kpis { grid-template-columns: 1fr; gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 2px 14px; }
+  .adm-kpi { border: 0; border-radius: 0; background: none; padding: 10px 0; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; row-gap: 0; align-items: center; }
+  .adm-kpi + .adm-kpi { border-top: 1px solid var(--line); }
+  .adm-kpi > span:first-child { grid-column: 1; grid-row: 1; color: var(--ink); font-weight: 600; }
+  .adm-kpi > strong { grid-column: 2; grid-row: 1 / span 2; font-size: 1.35rem; text-align: right; }
+  .adm-kpi > span:last-child { grid-column: 1; grid-row: 2; }
+  .adm-funnel { grid-template-columns: minmax(0, 1fr) 70px 22px 34px; gap: 8px; font-size: 13px; }
+  .adm-main .row > .select, .adm-main .row > .input { width: auto !important; flex: 1 1 140px; min-width: 0; }
+}

@@ -2,7 +2,7 @@ import { uiFlags } from "./lib/router";
 import { useEffect, useRef, useState } from "react";
 import {
   BarChart3, Briefcase, CalendarDays, ChevronsLeft, ChevronsRight, Compass, FileText, Home as HomeIcon, Menu, Send,
-  Check, Info, Minus, ShieldCheck, UserCog, Users,
+  Check, Gauge, Info, Minus, ShieldCheck, UserCog, Users,
 } from "lucide-react";
 import { StoreProvider, api, rid, useDraft, useStore, type Theme } from "./lib/store";
 import { go, replaceRoute, useRoute } from "./lib/router";
@@ -242,6 +242,7 @@ function Shell() {
             <button className="nav-item" onClick={() => { setMore(false); go("/about"); }}><Info size={19} />About Remy</button>
             <button className="nav-item" onClick={() => { setMore(false); go("/policies"); }}><ShieldCheck size={19} />Privacy & terms</button>
             <button className="nav-item" onClick={() => { setMore(false); setFeedback(true); }}><Send size={19} />Send feedback</button>
+            {me?.owner && <button className="nav-item" onClick={() => { setMore(false); go("/admin"); }} data-testid="mobile-admin"><Gauge size={19} />Owners' dashboard</button>}
             <WhatsNew />
           </div>
         </Modal>

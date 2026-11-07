@@ -68,6 +68,8 @@ export default function Admin() {
     toast(...r);
     history.replaceState(null, "", "/admin?tab=calendar");
   }, []);
+  // Phone: the tabs are one sideways-scrolling row, so bring the open tab into view.
+  useEffect(() => { document.querySelector(".adm-nav a[aria-current]")?.scrollIntoView({ block: "nearest", inline: "nearest" }); }, [tab]);
   if (!me?.owner) return (
     <div className="landing-screen"><div className="landing-card"><Empty title="Only for Remy's owners" body="Sign in with an owner's email to see this page." action={<a className="btn btn-primary" href="/">Back to Remy</a>} /></div></div>
   );
