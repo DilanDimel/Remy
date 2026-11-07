@@ -5,8 +5,9 @@ import { api, fmtDate, rid, useStore } from "../lib/store";
 import { useCompleting } from "../lib/completing";
 import { go, useRoute } from "../lib/router";
 import { Empty, Modal, Remy, Spinner, StatusChip } from "../components/common";
+import { MIN_FOR_RATE, replyStats } from "@shared/progress";
 
-const STATUSES: TrackStatus[] = ["Saved", "Applied", "Received", "Interview", "Offer", "Rejected", "Withdrawn"];
+const STATUSES: TrackStatus[] = ["Saved", "Applied", "Received", "Heard back", "Interview", "Offer", "Rejected", "No reply", "Withdrawn"];
 const STATUS_HELP: Record<string, string> = {
   Received: "Application receipt — the employer confirmed they got it. Not an interview.",
   Interview: "An interview invitation — not an offer.",
@@ -42,6 +43,22 @@ export default function Progress() {
 }
 
 /** After a "no": three small steps that turn it into the next application, never a pep talk with made-up numbers. */
+// How many applications got a reply from a person, with tailored vs not once both have 3 (council, Nov 6).
+function ReplyRate() {
+  const { ws } = useStore();
+  const r = replyStats(ws!);
+  if (!r.applied) return null;
+  return (
+    <div className="card card-pad stack-sm" data-testid="reply-rate">
+      {r.rate === null
+        ? <span className="small">Your reply rate shows after {MIN_FOR_RATE} applications (you have {r.applied}). Mark an application <b>Heard back</b> when a person answers, or <b>No reply</b> when you stop waiting.</span>
+        : <span><b>{r.replied} of {r.applied}</b> applications got a reply from a person (<b>{r.rate}%</b>) · {r.interviews} interview{r.interviews === 1 ? "" : "s"} · {r.offers} offer{r.offers === 1 ? "" : "s"}</span>}
+      {r.split && <span className="small muted">Tailored with Remy: {r.split.tailored.replied} of {r.split.tailored.applied} replied ({r.split.tailored.rate}%) · Not tailored: {r.split.plain.replied} of {r.split.plain.applied} ({r.split.plain.rate}%)</span>}
+      <span className="xs muted">An automatic "we received your application" doesn't count as a reply; a rejection does, since someone answered.</span>
+    </div>
+  );
+}
+
 function Recovery({ t }: { t: TrackItem }) {
   const { ws, save, run } = useStore();
   const w = ws!;
@@ -98,7 +115,7 @@ function Tracker() {
   const [open, setOpen] = useState("");
   const [adding, setAdding] = useState(false);
   const [n, setN] = useState({ company: "", role: "" });
-  const counts = ["Saved", "Applied", "Received", "Interview", "Offer", "Rejected"].map((s) => [s, w.tracker.filter((t) => t.status === s).length] as const);
+  const counts = ["Saved", "Applied", "Received", "Heard back", "Interview", "Offer", "Rejected", "No reply"].map((s) => [s, w.tracker.filter((t) => t.status === s).length] as const);
   const setStatus = (t: TrackItem, status: TrackStatus) =>
     run(() => save("tracker", w.tracker.map((x) => (x.id === t.id ? { ...x, status, events: [...x.events, { id: rid("ev"), at: new Date().toISOString(), status, source: "Manual correction" }] } : x))), `Marked ${status}`);
   const add = async () => {
@@ -111,6 +128,7 @@ function Tracker() {
   return (
     <div className="stack">
       <div className="pipeline">{counts.map(([s, c]) => <div key={s} className="pipe"><span className="xs muted">{s}</span><strong>{c}</strong></div>)}</div>
+      <ReplyRate />
       <div className="card card-pad">
         <div className="row-between" style={{ marginBottom: 8 }}><h3>Applications</h3><button className="btn btn-secondary btn-sm" onClick={() => setAdding(true)} data-testid="button-add-tracking"><Plus size={14} /> Track an application</button></div>
         {w.tracker.length ? w.tracker.map((t) => (

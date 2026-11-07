@@ -298,7 +298,8 @@ export interface Application {
   staleReason?: string;
 }
 
-export type TrackStatus = "Saved" | "Applied" | "Received" | "Interview" | "Offer" | "Rejected" | "Withdrawn";
+/** "Received" = an automatic confirmation; "Heard back" = a person replied (not yet an interview); "No reply" = the student stopped waiting. */
+export type TrackStatus = "Saved" | "Applied" | "Received" | "Heard back" | "Interview" | "Offer" | "Rejected" | "No reply" | "Withdrawn";
 export interface TrackEvent {
   id: string;
   at: string;

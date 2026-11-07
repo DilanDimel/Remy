@@ -715,7 +715,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   // Objects keep unknown extra fields (loose) but every field the server relies on is checked.
   const str = (max = 600) => z.string().max(max);
   const ids = z.array(str(120)).max(1000);
-  const TRACK = z.enum(["Saved", "Applied", "Received", "Interview", "Offer", "Rejected", "Withdrawn"]);
+  const TRACK = z.enum(["Saved", "Applied", "Received", "Heard back", "Interview", "Offer", "Rejected", "No reply", "Withdrawn"]);
   const SHAPES: Partial<Record<(typeof SECTIONS)[number], z.ZodType>> = {
     profile: z.looseObject({}),
     settings: z.object({
@@ -1958,7 +1958,7 @@ Return JSON:
         ai = await withAi(ctx, "Classify email", () =>
           aiJson<any>(
             "Classify a recruiting email. Distinguish carefully: an application receipt is NOT an interview; an interview invitation is NOT an offer; 'decisions about interviews and offers in the coming weeks' is Unclear. Quote the exact sentence that justifies the label.",
-            `FROM: ${m!.from}\nSUBJECT: ${m!.subject}\nBODY:\n${m!.body}\n\nReturn {"status":"Received|Interview|Offer|Rejected|Unclear","evidence":"exact sentence","company":"","role":""}`,
+            `FROM: ${m!.from}\nSUBJECT: ${m!.subject}\nBODY:\n${m!.body}\n\nReturn {"status":"Received|Heard back|Interview|Offer|Rejected|Unclear" (Heard back = a person wrote back, e.g. asks for more information or a quick chat, but it is not an interview invitation),"evidence":"exact sentence","company":"","role":""}`,
             500,
           ),
         );
