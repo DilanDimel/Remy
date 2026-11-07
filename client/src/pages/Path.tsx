@@ -86,13 +86,16 @@ function Careers({ plan }: { plan: PathPlan }) {
       <h3 className="row"><Compass size={18} /> Directions that fit your resume</h3>
       <p className="small muted">Choosing one adds it to the roles Remy searches openings for and puts its first steps on your to-dos.</p>
     </div>
-    <div className="grid-3" style={{ alignItems: "start" }}>
+    {/* One full-width row per direction (Nov 6): fit, gaps and next steps side by side, so 1, 2 or 3 directions all look right. */}
+    <div className="stack">
       {plan.careers.map((c) => {
         const chosen = plan.chosenCareerId === c.id;
         return (
-          <div key={c.id} className="card card-pad stack" style={chosen ? { borderColor: "var(--plum)", boxShadow: "0 0 0 1px var(--plum) inset" } : undefined} data-testid="card-career">
-            <div className="row-between"><h3>{c.title}</h3>{chosen && <span className="chip"><Compass size={12} /> Your direction</span>}</div>
-            <p className="small muted">{c.what}</p>
+          <div key={c.id} className="card card-pad path-dir" style={chosen ? { borderColor: "var(--plum)", boxShadow: "0 0 0 1px var(--plum) inset" } : undefined} data-testid="card-career">
+            <div className="path-dir-head">
+              <div className="row-between"><h3>{c.title}</h3>{chosen && <span className="chip"><Compass size={12} /> Your direction</span>}</div>
+              <p className="small muted">{c.what}</p>
+            </div>
             <div className="stack-sm"><span className="eyebrow">Fit · from your resume</span>{c.fit.map((f, i) => <span key={i} className="small row" style={{ alignItems: "flex-start", flexWrap: "nowrap" }}><Check size={14} className="pass" style={{ marginTop: 3 }} />{f}</span>)}</div>
             <div className="stack-sm"><span className="eyebrow">Gaps</span>{c.gaps.map((f, i) => <span key={i} className="small">• {f}</span>)}</div>
             <div className="stack-sm"><span className="eyebrow">Next steps · illustrative</span>
@@ -100,7 +103,7 @@ function Careers({ plan }: { plan: PathPlan }) {
                 <div key={i} className="row small" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}><span style={{ flex: 1 }}>{s}</span><button className="icon-btn" onClick={() => add(s, `Step toward ${c.title}`, "Explore")} aria-label="Add to to-dos" title="Add to to-dos"><Plus size={15} /></button></div>
               ))}
             </div>
-            <button className={"btn btn-sm " + (chosen ? "btn-secondary" : "btn-primary")} onClick={() => choose(chosen ? undefined : c.id)} data-testid="button-choose-career">{chosen ? "Clear this direction" : "Choose this direction"}</button>
+            <button className={"btn btn-sm path-dir-go " + (chosen ? "btn-secondary" : "btn-primary")} onClick={() => choose(chosen ? undefined : c.id)} data-testid="button-choose-career">{chosen ? "Clear this direction" : "Choose this direction"}</button>
           </div>
         );
       })}
