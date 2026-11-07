@@ -68,7 +68,13 @@ function useAddTask() {
 function Careers({ plan }: { plan: PathPlan }) {
   const { ws, save, run } = useStore();
   const add = useAddTask();
-  const choose = (id?: string) => run(async () => {
+  // The toast says exactly what happened: which jobs Remy now searches for and how many steps were added.
+  const choose = (id?: string) => {
+    const c = plan.careers.find((x) => x.id === id);
+    const added = c && ws ? c.steps.filter((s) => !ws.tasks.some((t) => t.title === s)).slice(0, 3).length : 0;
+    return run(() => pick(id), c ? `Remy will now look for ${c.title} openings${added ? ` · ${added} step${added > 1 ? "s" : ""} added to your to-dos` : ""}` : "Removed from your search picks. Your target roles stay as they are (edit them in Profile)");
+  };
+  const pick = async (id?: string) => {
     const c = plan.careers.find((x) => x.id === id);
     if (c && ws) {
       // Choosing a direction does something: Remy searches for it, and its next steps go on the to-do list.
@@ -79,19 +85,19 @@ function Careers({ plan }: { plan: PathPlan }) {
       if (steps.length) await save("tasks", [...steps.map((title) => ({ id: rid("t"), title, why: `Step toward ${c.title}`, due: "", category: "Explore" as const, done: false, source: "Added from My Path" })), ...ws.tasks]);
     }
     return save("plan", { ...plan, chosenCareerId: id });
-  }, id ? "Direction chosen: Remy will look for these openings and put its next steps on your to-dos" : "Direction cleared. Your target roles stay as they are (edit them in Profile)");
+  };
   return (
     <section id="directions" className="stack">
     <div className="stack-sm">
       <h3 className="row"><Compass size={18} /> Directions that fit your resume</h3>
-      <p className="small muted">Choosing one adds it to the roles Remy searches openings for and puts its first steps on your to-dos.</p>
+      <p className="small muted">Pick one and Remy searches openings for that job and puts its first steps on your to-dos.</p>
     </div>
     <div className="grid-3" style={{ alignItems: "start" }}>
       {plan.careers.map((c) => {
         const chosen = plan.chosenCareerId === c.id;
         return (
           <div key={c.id} className="card card-pad stack" style={chosen ? { borderColor: "var(--plum)", boxShadow: "0 0 0 1px var(--plum) inset" } : undefined} data-testid="card-career">
-            <div className="row-between"><h3>{c.title}</h3>{chosen && <span className="chip"><Compass size={12} /> Your direction</span>}</div>
+            <div className="row-between"><h3>{c.title}</h3>{chosen && <span className="chip"><Compass size={12} /> In your search</span>}</div>
             <p className="small muted">{c.what}</p>
             <div className="stack-sm"><span className="eyebrow">Fit · from your resume</span>{c.fit.map((f, i) => <span key={i} className="small row" style={{ alignItems: "flex-start", flexWrap: "nowrap" }}><Check size={14} className="pass" style={{ marginTop: 3 }} />{f}</span>)}</div>
             <div className="stack-sm"><span className="eyebrow">Gaps</span>{c.gaps.map((f, i) => <span key={i} className="small">• {f}</span>)}</div>
@@ -100,7 +106,7 @@ function Careers({ plan }: { plan: PathPlan }) {
                 <div key={i} className="row small" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}><span style={{ flex: 1 }}>{s}</span><button className="icon-btn" onClick={() => add(s, `Step toward ${c.title}`, "Explore")} aria-label="Add to to-dos" title="Add to to-dos"><Plus size={15} /></button></div>
               ))}
             </div>
-            <button className={"btn btn-sm " + (chosen ? "btn-secondary" : "btn-primary")} onClick={() => choose(chosen ? undefined : c.id)} data-testid="button-choose-career">{chosen ? "Clear this direction" : "Choose this direction"}</button>
+            <button className={"btn btn-sm " + (chosen ? "btn-secondary" : "btn-primary")} onClick={() => choose(chosen ? undefined : c.id)} data-testid="button-choose-career">{chosen ? "Remove from my search" : "Search for these jobs + add steps"}</button>
           </div>
         );
       })}
