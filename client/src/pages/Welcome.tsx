@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, useStore } from "../lib/store";
 import { ArrowLeft, CalendarClock, Check, FileText, Search, ShieldCheck } from "lucide-react";
-import { useRoute } from "../lib/router";
+import { go, useRoute } from "../lib/router";
 import { BetaBadge, Remy, Spinner, StatusChip } from "../components/common";
 import { providerOn, sendMagicLink, startOAuth, type SupabaseProvider } from "../lib/supabase";
 import { ThemeToggle } from "../components/ThemeToggle";
@@ -39,7 +39,32 @@ const SB: Record<Exclude<Provider, "Work/School Email">, SupabaseProvider> = { G
 /** Signed out: the landing page at /, the sign-in page at /signin. */
 export default function Welcome() {
   const { path } = useRoute();
-  return path === "/signin" ? <SignIn /> : <Landing />;
+  const { betaBlocked } = useStore();
+  return path === "/signin" || betaBlocked ? <SignIn /> : <Landing />;
+}
+
+/** Where to apply for the Founding Cohort: the team's form, or Remy's inbox when the form isn't set yet. */
+const applyHref = (formUrl?: string) => formUrl || "mailto:remy.careercoach@gmail.com?subject=Remy%20Founding%20Cohort";
+
+/** Invite-only beta: who can sign in, and why someone was turned away. */
+function BetaNote({ onOther }: { onOther: () => void }) {
+  const { config, betaBlocked, clearBeta } = useStore();
+  if (!config?.beta?.on && !betaBlocked) return null;
+  const href = applyHref(config?.beta?.formUrl);
+  if (betaBlocked) return (
+    <div className="notice notice-warn stack-sm fade-up" role="alert" data-testid="beta-blocked">
+      <span className="small">{betaBlocked}</span>
+      <div className="row" style={{ gap: 8 }}>
+        <a className="btn btn-primary btn-sm" href={href} target="_blank" rel="noreferrer" data-testid="link-beta-apply">Apply for the Founding Cohort</a>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => { clearBeta(); onOther(); go("/signin"); }} data-testid="button-beta-other">Use a different email</button>
+      </div>
+    </div>
+  );
+  return (
+    <p className="small muted" style={{ textAlign: "center" }} data-testid="beta-note">
+      Remy is invite-only during the beta. Sign in with the email you applied with. Not in yet? <a className="auth-link" href={href} target="_blank" rel="noreferrer">Apply for the Founding Cohort</a>
+    </p>
+  );
 }
 
 function SignIn() {
@@ -60,6 +85,7 @@ function SignIn() {
   // A button whose provider isn't switched on in Supabase opens a private guest workspace and says so,
   // rather than pretending to sign in. Only switched-on providers are shown, so this is a fallback.
   const guest = async (via: Provider) => {
+    if (config?.beta?.on) return toast(`${via} sign-in isn't switched on yet. Use another option above.`, true); // no guest workspaces in the invite-only beta
     setBusy(via);
     const r = await run(() => api("POST", "/api/auth/guest"), `${via} sign-in isn't switched on yet, so Remy opened a private guest workspace on this browser.`);
     if (r) setSession(r.me, r.workspace);
@@ -95,10 +121,10 @@ function SignIn() {
     <div className="landing-screen auth-stage">
       <div className="lp-beam" aria-hidden><span className="lp-beam-floor" /></div>
       <aside className="auth-side" aria-label="What happens next">
-        <span className="lp-award">Free while Remy is in beta</span>
+        <span className="lp-award">{config?.beta?.on ? "Founding Cohort · invite-only beta" : "Free while Remy is in beta"}</span>
         <p className="auth-side-h" aria-hidden>Your career coach is one step away.</p>
         <ol className="auth-steps">
-          <li><b>Sign in</b><span>New here? This creates your account.</span></li>
+          <li><b>Sign in</b><span>{config?.beta?.on ? "With the email you applied with." : "New here? This creates your account."}</span></li>
           <li><b>Add your resume</b><span>Upload it, or Remy helps you build one.</span></li>
           <li><b>Get your plan</b><span>Openings you can get and what to do this week.</span></li>
         </ol>
@@ -108,8 +134,9 @@ function SignIn() {
         <div className="landing">
           <Remy size={72} mood="wave" />
           <h1 className="motto">Sign in to Remy</h1>
-          <p className="sub">Free for students while Remy is in beta. New here? Signing in creates your account; setup takes about 5 minutes.</p>
+          <p className="sub">{config?.beta?.on ? "Free for Founding Cohort members during the beta. Setup takes about 5 minutes." : "Free for students while Remy is in beta. New here? Signing in creates your account; setup takes about 5 minutes."}</p>
         </div>
+        <BetaNote onOther={() => { setSent(""); setEmail(""); setCode(""); }} />
         <div className="sso-list">
           <div data-testid="google-signin">
             {gis && google.state !== "failed" ? (
@@ -129,7 +156,9 @@ function SignIn() {
           {emailOpen && (
             sent && codes ? (
               <form className="stack-sm fade-up" onSubmit={(e) => { e.preventDefault(); verify(); }} data-testid="email-code-form">
-                <span className="small">We emailed a 6-digit code to <strong>{sent}</strong>. It works on any device and expires in 10 minutes. Not there? Check spam or Promotions.</span>
+                <span className="small">{config?.beta?.on
+                  ? <>If <strong>{sent}</strong> is in Remy's Founding Cohort, a 6-digit code is on its way (it expires in 10 minutes). Nothing after a few minutes? Check spam, then make sure it's the email you applied with, or <a className="auth-link" href={applyHref(config.beta.formUrl)} target="_blank" rel="noreferrer">apply here</a>.</>
+                  : <>We emailed a 6-digit code to <strong>{sent}</strong>. It works on any device and expires in 10 minutes. Not there? Check spam or Promotions.</>}</span>
                 <div className="row">
                   <input className="input" style={{ flex: 1, minWidth: 140, letterSpacing: 4 }} inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="123456" aria-label="6-digit code" data-testid="input-email-code" />
                   <button className="btn btn-primary auth-go" disabled={code.length !== 6 || !!busy} data-testid="button-verify-code">{busy === "Work/School Email" ? <Spinner /> : null} Sign in</button>
@@ -157,6 +186,10 @@ function SignIn() {
 
 /** The front page: what a student gets, shown with previews built from Remy's real screens. */
 function Landing() {
+  const { config } = useStore();
+  const beta = !!config?.beta?.on;
+  const start = beta ? applyHref(config?.beta?.formUrl) : "/signin";
+  const startLabel = beta ? "Apply for the Founding Cohort" : "Create your free account";
   const tour = useRef<HTMLElement>(null);
   const page = useRef<HTMLDivElement>(null);
   const [scrolled, setScrolled] = useState(false);
@@ -198,10 +231,10 @@ function Landing() {
           <h1>Don&rsquo;t hunt for a job <span className="lp-accent">alone.</span></h1>
           <p className="lp-lede">A free career coach for college students: openings you can actually get, a resume that stays true, and what to do this week.</p>
           <div className="lp-ctas">
-            <a className="btn btn-lg lp-glow-btn" href="/signin" data-testid="button-lp-start">Create your free account</a>
+            <a className="btn btn-lg lp-glow-btn" href={start} {...(beta ? { target: "_blank", rel: "noreferrer" } : {})} data-testid="button-lp-start">{startLabel}</a>
             <button className="btn btn-lg lp-ghost-btn" onClick={toTour}>See what you get</button>
           </div>
-          <p className="xs lp-fine">Free beta · every major and every year, freshmen included</p>
+          <p className="xs lp-fine">{beta ? "Invite-only beta · small cohorts, and the founders talk to every member · already accepted? Sign in above" : "Free beta · every major and every year, freshmen included"}</p>
         </div>
         <HeroExample />
       </section>
@@ -288,8 +321,8 @@ function Landing() {
         <div className="lp-cta-in rv">
         <Remy size={56} mood="wave" />
         <h2>Ready when you are.</h2>
-        <p>Free while Remy is in beta. No credit card. About 5 minutes to set up.</p>
-        <a className="btn btn-primary btn-lg" href="/signin">Create your free account</a>
+        <p>{beta ? "Remy is invite-only while it's in beta: apply, and the team takes a small group each cohort. Free, no credit card." : "Free while Remy is in beta. No credit card. About 5 minutes to set up."}</p>
+        <a className="btn btn-primary btn-lg" href={start} {...(beta ? { target: "_blank", rel: "noreferrer" } : {})}>{startLabel}</a>
         </div>
       </section>
       <footer className="lp-foot">

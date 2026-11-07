@@ -19,6 +19,7 @@ import { editWorkspace, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCo
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./safety";
 import * as admin from "./admin";
+import * as beta from "./beta";
 import { recordError } from "./admin";
 import { careersFor, futureFor, officialFor } from "./future";
 import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase } from "./auth";
@@ -113,8 +114,11 @@ function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: 
     try {
       const ip = clientIp(req);
       let me = await identify(req);
+      // Founding Cohort beta: only accepted emails and the team get past here; no new guest workspaces.
+      if (me && !(await beta.meAllowed(me))) return res.status(403).json({ message: beta.betaError(me.email).message, code: "beta" });
       if (!me) {
         if (!opts.create) return res.status(401).json({ message: "Please sign in to continue." });
+        if (beta.betaOn()) return res.status(403).json({ message: "Remy is invite-only during the beta. Apply for the Founding Cohort, then sign in with the email you applied with.", code: "beta" });
         if (!allow("guest:" + ip, 10, 60 * 60_000)) return res.status(429).json({ message: "Too many new guest workspaces from this network. Please try again in an hour, or sign in." });
         me = await newGuest(res);
       }
@@ -389,6 +393,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!emailReady()) return;
     const today = centralToday();
     for (const u of await q("SELECT u.id, u.email FROM users u WHERE u.kind IN ('google','supabase')")) {
+      if (!(await beta.emailAllowed(u.email))) continue; // no emails to accounts outside the Founding Cohort
       const ws = await loadWorkspace(u.id);
       const due = dueReminders(ws, today);
       if (!due.length) continue;
@@ -401,6 +406,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (hour < 7) return;
     const weekday = new Date(today + "T12:00:00Z").getUTCDay();
     for (const u of await q("SELECT u.id, u.email FROM users u WHERE u.kind IN ('google','supabase')")) {
+      if (!(await beta.emailAllowed(u.email))) continue; // no emails to accounts outside the Founding Cohort
       const ws = await loadWorkspace(u.id);
       const d = weeklyDigest(ws, today, weekday, process.env.PUBLIC_HOST || "offer-ready.onrender.com");
       if (!d) continue;
@@ -419,6 +425,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const recent = (d: string) => (Date.parse(today) - Date.parse(d)) / 86_400_000 <= 21;
     let n = 0;
     for (const u of await q("SELECT u.id, u.email, u.kind FROM users u WHERE u.kind IN ('google','supabase')")) {
+      if (!(await beta.emailAllowed(u.email))) continue; // accounts outside the Founding Cohort aren't refreshed
       if (n >= 10) break;
       if (searching.has(u.id)) continue;
       const ws = await loadWorkspace(u.id);
@@ -447,6 +454,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const perHost = new Map<string, number>();
     let total = 0;
     for (const u of await q("SELECT u.id, u.email, u.kind FROM users u WHERE u.kind IN ('google','supabase')")) {
+      if (!(await beta.emailAllowed(u.email))) continue; // accounts outside the Founding Cohort aren't refreshed
       if (total >= 30) break;
       if (searching.has(u.id)) continue;
       const ws = await loadWorkspace(u.id);
@@ -528,6 +536,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       emailCodes: emailReady() || devCodes(),
       googleCalendar: gcal.gcalReady(),
       build: buildId(),
+      beta: { on: beta.betaOn(), formUrl: beta.betaFormUrl() },
     };
     res.json(cfg);
   });
@@ -566,6 +575,27 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.post("/api/admin/agents/suggestion", route(async (req, res, ctx) => { const me = owner(ctx); await agents.addSuggestion(me, String(req.body?.title || "")); res.json(await admin.team(me)); }));
   app.post("/api/admin/tasks", route(async (req, res, ctx) => { const me = owner(ctx); await admin.saveTask(me, req.body || {}); res.json(await admin.team(me)); }));
   app.delete("/api/admin/tasks/:id", route(async (req, res, ctx) => { const me = owner(ctx); await admin.deleteTask(me, String(req.params.id)); res.json(await admin.team(me)); }));
+  // Founding Cohort list: owners add accepted emails (optionally emailing "You're in") and remove them.
+  app.get("/api/admin/beta", route(async (_req, res, ctx) => { owner(ctx); res.json({ on: beta.betaOn(), formUrl: beta.betaFormUrl(), emailReady: emailReady(), list: await beta.list() }); }));
+  app.post("/api/admin/beta", route(async (req, res, ctx) => {
+    const me = owner(ctx);
+    const r = await beta.add(me, String(req.body?.emails || ""), String(req.body?.note || ""));
+    const invited: string[] = [];
+    if (req.body?.notify === true && emailReady()) {
+      const { subject, text } = beta.welcomeEmail(process.env.PUBLIC_HOST || "offer-ready.onrender.com");
+      for (const e of r.added) {
+        try { await sendEmail(e, subject, text); await beta.markInvited(e); invited.push(e); } catch (err: any) { console.error("beta welcome email failed", err?.message); }
+      }
+    }
+    if (r.added.length) await admin.logAction(me, "beta: accepted", `${r.added.length} email(s)${invited.length ? `, ${invited.length} emailed` : ""}`);
+    res.json({ ...r, invited, list: await beta.list() });
+  }));
+  app.delete("/api/admin/beta/:email", route(async (req, res, ctx) => {
+    const me = owner(ctx);
+    await beta.remove(String(req.params.email));
+    await admin.logAction(me, "beta: removed", "1 email");
+    res.json({ list: await beta.list() });
+  }));
   app.post("/api/admin/members", route(async (req, res, ctx) => { const me = owner(ctx); await admin.addMember(me, req.body || {}); res.json(await admin.team(me)); }));
   app.delete("/api/admin/members/:email", route(async (req, res, ctx) => { const me = owner(ctx); await admin.removeMember(me, String(req.params.email)); res.json(await admin.team(me)); }));
   app.post("/api/admin/errors/fix", route(async (req, res, ctx) => { const me = owner(ctx); await admin.fixError(me, String(req.body?.message || ""), String(req.body?.kind || "")); res.json(await admin.errors()); }));
@@ -585,6 +615,11 @@ export async function registerRoutes(_server: Server, app: Express) {
     try {
       const me = await identify(req);
       if (!me) return res.json({ me: null, workspace: null });
+      // Not (or no longer) in the Founding Cohort: sign this browser out and say why; their saved work stays untouched.
+      if (!(await beta.meAllowed(me))) {
+        await endSession(req, res);
+        return res.json({ me: null, workspace: null, beta: { blocked: true, email: me.email || "" } });
+      }
       let ws = await loadWorkspace(me.id);
       // Days the student opened Remy (Central dates, kept 120), so owners can see who comes back. Counts only.
       const today = centralToday();
@@ -612,6 +647,8 @@ export async function registerRoutes(_server: Server, app: Express) {
     try {
       const prev = await identify(req);
       const me = await verifyGoogle(String(req.body?.credential || ""));
+      if (!(await beta.emailAllowed(me.email))) throw beta.betaError(me.email);
+      await ensureUser(me);
       // carry an in-progress demo workspace into a brand-new Google account
       if (!(await hasWorkspace(me.id)) && prev && prev.id !== me.id && (await hasWorkspace(prev.id))) {
         await saveWorkspace(me.id, await loadWorkspace(prev.id));
@@ -626,12 +663,13 @@ export async function registerRoutes(_server: Server, app: Express) {
       await startSession(res, me.id);
       res.json({ me, workspace: ws });
     } catch (e: any) {
-      res.status(e?.status || 401).json({ message: e?.message || "Google sign-in failed." });
+      res.status(e?.status || 401).json({ message: e?.message || "Google sign-in failed.", code: e?.code });
     }
   });
 
   // Signs a verified account in: a guest workspace in progress moves into a brand-new account.
   async function signIn(req: Request, res: Response, me: Me) {
+    if (!(await beta.emailAllowed(me.email))) throw beta.betaError(me.email); // before any account or session is made
     const prev = await identify(req);
     await ensureUser(me);
     if (!(await hasWorkspace(me.id)) && prev && prev.id !== me.id && (await hasWorkspace(prev.id))) await saveWorkspace(me.id, await loadWorkspace(prev.id));
@@ -650,7 +688,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       const u = await verifySupabase(String(req.body?.accessToken || ""));
       await signIn(req, res, { id: "sb:" + u.id, kind: "supabase", email: u.email, name: u.name, picture: u.picture });
     } catch (e: any) {
-      res.status(e?.status || 401).json({ message: e?.message || "Sign-in failed." });
+      res.status(e?.status || 401).json({ message: e?.message || "Sign-in failed.", code: e?.code });
     }
   });
 
@@ -663,6 +701,8 @@ export async function registerRoutes(_server: Server, app: Express) {
     const email = emailOf(req);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ message: "Enter your email address." });
     if (!emailReady() && !devCodes()) return res.status(503).json({ message: "Email codes aren't set up on this server.", code: "no-email" });
+    // Not accepted: answer exactly as for an accepted email but send nothing, so nobody can probe who's in the cohort.
+    if (!(await beta.emailAllowed(email))) return res.json({ sent: true, email });
     // Limits keep Remy from being used to flood anyone's inbox.
     if (!allow("signin-ip:" + clientIp(req), 10, 60 * 60_000)) return res.status(429).json({ message: "Too many codes from this network. Please try again in an hour, or continue with Google." });
     if (!allow("signin-to:" + email, 5, 60 * 60_000)) return res.status(429).json({ message: "Several codes were already sent to this address. Use the newest one, or try again in an hour." });
@@ -686,7 +726,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       const me = (await userByEmail(email)) || { id: "sb:em-" + crypto.randomUUID(), kind: "supabase" as const, email, name: "", picture: "" };
       await signIn(req, res, me);
     } catch (e: any) {
-      res.status(e?.status || 500).json({ message: e?.message || "Sign-in failed." });
+      res.status(e?.status || 500).json({ message: e?.message || "Sign-in failed.", code: e?.code });
     }
   });
 

@@ -74,9 +74,8 @@ export async function verifyGoogle(credential: string): Promise<Me> {
   const ticket = await gclient.verifyIdToken({ idToken: credential, audience: cid });
   const p = ticket.getPayload();
   if (!p?.sub || !p.email_verified) throw Object.assign(new Error("Google could not verify this account."), { status: 401 });
-  const me: Me = { id: "g:" + p.sub, kind: "google", email: p.email || "", name: p.name || "", picture: p.picture || "" };
-  await ensureUser(me);
-  return me;
+  // The caller saves the account (after the Founding Cohort check), so a turned-away sign-in leaves no row behind.
+  return { id: "g:" + p.sub, kind: "google", email: p.email || "", name: p.name || "", picture: p.picture || "" };
 }
 
 export async function startSession(res: Response, userId: string) {
@@ -127,7 +126,7 @@ export async function verifySupabase(accessToken: string): Promise<SupabaseUser>
   const meta = u.user_metadata || {};
   return {
     id: String(u.id),
-    email: String(u.email || meta.email || ""),
+    email: String(u.email || ""), // only the confirmed address: user_metadata is editable by the user
     name: String(meta.full_name || meta.name || [meta.given_name, meta.family_name].filter(Boolean).join(" ") || ""),
     picture: String(meta.avatar_url || meta.picture || ""),
     provider: String(u.app_metadata?.provider || ""),
