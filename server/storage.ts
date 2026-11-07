@@ -18,10 +18,17 @@ export async function storageReport() {
      WHERE n.nspname = $1 AND c.relkind = 'r' ORDER BY pg_total_relation_size(c.oid) DESC`,
     [schema],
   );
+  // Exact row counts: Postgres's own estimate (reltuples) is stale or missing (-1) until it re-analyzes a table, which
+  // for small, new tables can take a long time. Counting is cheap at Remy's size (owners open this page now and then).
+  const counted = await Promise.all(tables.map(async (t) => {
+    const name = String(t.name);
+    if (!/^[a-z0-9_]+$/i.test(name)) return Math.max(0, Number(t.rows));
+    return Number((await q1(`SELECT COUNT(*)::bigint AS n FROM "${schema}"."${name}"`))?.n || 0);
+  }));
   const limit = limitMb();
   return {
     usedMb: mb(db), limitMb: limit, percent: Math.round((mb(db) / limit) * 1000) / 10,
-    tables: tables.map((t) => ({ name: String(t.name), mb: mb(Number(t.b)), rows: Math.max(0, Number(t.rows)) })),
+    tables: tables.map((t, i) => ({ name: String(t.name), mb: mb(Number(t.b)), rows: counted[i] })),
   };
 }
 
