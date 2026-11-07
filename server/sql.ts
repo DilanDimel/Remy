@@ -14,11 +14,24 @@ export const schema = (process.env.DB_SCHEMA || "remy").replace(/[^a-z0-9_]/gi, 
 let ready: Promise<void> | null = null;
 export let dbKind = "";
 
+// Bytes read from the database since the last call (0 on PGlite, which runs inside Node and moves nothing over a network).
+const sockets = new Map<{ bytesRead?: number }, number>();
+let pending = 0;
+export function takeDbBytes() {
+  let n = pending;
+  pending = 0;
+  for (const [s, last] of sockets) { const now = s.bytesRead || 0; n += Math.max(0, now - last); sockets.set(s, now); }
+  return n;
+}
+
 async function connect(): Promise<Client> {
   const url = process.env.DATABASE_URL;
   if (url) {
     const { Pool } = await import("pg");
     const pool = new Pool({ connectionString: url, max: Number(process.env.DB_POOL_MAX) || 5, ssl: sslFor(url), options: `-c search_path=${schema}` });
+    // Count the bytes each connection receives from the database: that's what Supabase bills as data transfer.
+    pool.on("connect", (c: any) => { const s = c?.connection?.stream; if (s) sockets.set(s, 0); });
+    pool.on("remove", (c: any) => { const s = c?.connection?.stream; if (s) { pending += Math.max(0, (s.bytesRead || 0) - (sockets.get(s) || 0)); sockets.delete(s); } });
     dbKind = `postgres (schema ${schema})`;
     return pool;
   }

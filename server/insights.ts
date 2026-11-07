@@ -1,6 +1,20 @@
 // Owners' dashboard: the Founding Cohort funnel and student outcomes, counted inside the database (no workspace is
 // loaded into the server, so this stays cheap at hundreds of students). Counts only; nothing a student wrote.
-import { q, q1 } from "./sql";
+import { q, q1, takeDbBytes } from "./sql";
+
+const centralDay = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+/** Adds the bytes read from the database since last time to today's total (run every 5 minutes). */
+export async function flushDbBytes(n = takeDbBytes()) {
+  if (n > 0) await q("INSERT INTO usage_daily (day, db_bytes) VALUES ($1, $2) ON CONFLICT (day) DO UPDATE SET db_bytes = usage_daily.db_bytes + EXCLUDED.db_bytes", [centralDay(), n]);
+}
+/** This month's total and the last 14 days, in MB. */
+export async function dataTransfer() {
+  const month = centralDay().slice(0, 7);
+  const days = await q("SELECT day, db_bytes FROM usage_daily ORDER BY day DESC LIMIT 14");
+  const total = await q1("SELECT COALESCE(SUM(db_bytes), 0)::bigint AS b FROM usage_daily WHERE day LIKE $1", [month + "%"]);
+  const mb = (b: unknown) => Math.round(Number(b) / 104857.6) / 10;
+  return { monthMb: mb(total?.b), limitGb: Number(process.env.DB_EGRESS_LIMIT_GB) || 5, days: days.map((d) => ({ day: String(d.day), mb: mb(d.db_bytes) })).reverse() };
+}
 import { studentsOnly } from "./admin";
 
 const SENT = ["Applied", "Received", "Heard back", "Interview", "Offer", "Rejected", "No reply"];

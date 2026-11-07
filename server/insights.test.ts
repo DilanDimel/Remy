@@ -3,7 +3,18 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { emptyWorkspace, ensureUser, saveWorkspace } from "./db";
 import { add, parseAnswers, saveApplication, decide } from "./beta";
-import { funnel, outcomes, workspaceSizes } from "./insights";
+import { dataTransfer, flushDbBytes, funnel, outcomes, workspaceSizes } from "./insights";
+
+test("insights: data transfer adds up per day and month", async () => {
+  await flushDbBytes(3 * 1048576);
+  await flushDbBytes(2 * 1048576);
+  await flushDbBytes(0);
+  const t = await dataTransfer();
+  assert.equal(t.monthMb, 5);
+  assert.equal(t.days.length, 1);
+  assert.equal(t.days[0].mb, 5);
+  assert.equal(t.limitGb, 5);
+});
 
 process.env.OWNER_EMAILS = "founder@insights.test";
 const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
