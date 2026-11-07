@@ -1033,3 +1033,10 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .cred p { margin: 0; max-width: none; }
 .phone-only-block { display: none !important; }
 @media (max-width: 640px) { .phone-only-block { display: block !important; } }
+
+/* My Path directions (Nov 6): one full-width row each, fit / gaps / next steps side by side; one column on phones */
+.path-dir { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.2fr); column-gap: 28px; row-gap: 12px; align-items: start; }
+.path-dir-head { grid-column: 1 / -1; display: grid; gap: 4px; }
+.path-dir-head p { max-width: 80ch; }
+.path-dir-go { grid-column: 1 / -1; justify-self: start; }
+@media (max-width: 760px) { .path-dir { grid-template-columns: 1fr; } .path-dir-go { justify-self: stretch; } }
