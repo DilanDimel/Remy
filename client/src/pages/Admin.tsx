@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "rea
 import { Activity, AlertTriangle, Bot, ArrowLeft, ArrowRight, BarChart3, CalendarDays, Check, Clock, KanbanSquare, Plus, RotateCcw, Trash2, UserCheck, Users } from "lucide-react";
 import { api, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
-import { BetaBadge, CopyButton, Empty, Remy, Rich, Spinner } from "../components/common";
+import { BetaBadge, CopyButton, Empty, Modal, Remy, Rich, Spinner } from "../components/common";
+import { acceptDraft, acceptHtml } from "@shared/acceptEmail";
 import { WhatsNew } from "../components/WhatsNew";
 import { ThemeToggle } from "../components/ThemeToggle";
 
@@ -101,7 +102,7 @@ function Applications({ emailReady, onList }: { emailReady: boolean; onList: (li
   const [data, setData] = useState<{ applications: Application[]; hookReady: boolean } | null>(null);
   const [show, setShow] = useState<AppStatus>("new");
   const [cohort, setCohort] = useState("Cohort 1");
-  const [notify, setNotify] = useState(false);
+  const [draft, setDraft] = useState<{ a: Application; subject: string; message: string } | null>(null);
   const [filter, setFilter] = useState<{ school: string; year: string; feedback: boolean }>({ school: "", year: "", feedback: false });
   const [busy, setBusy] = useState("");
   useEffect(() => {
@@ -112,15 +113,19 @@ function Applications({ emailReady, onList }: { emailReady: boolean; onList: (li
     return () => { on = false; clearInterval(t); };
   }, []);
   if (!data) return <Spinner />;
-  const decide = async (a: Application, status: AppStatus) => {
+  const decide = async (a: Application, status: AppStatus, mail?: { subject: string; message: string }) => {
     setBusy(a.email);
-    const r = await run(() => api<{ applications: Application[]; list: BetaRow[]; invited: boolean }>("POST", `/api/admin/beta/applications/${encodeURIComponent(a.email)}`, { status, cohort: status === "accepted" ? cohort : "", notify: notify && emailReady }));
+    const r = await run(() => api<{ applications: Application[]; list: BetaRow[]; invited: boolean; emailError: string }>("POST", `/api/admin/beta/applications/${encodeURIComponent(a.email)}`, { status, cohort: status === "accepted" ? (a.status === "accepted" && a.cohort ? a.cohort : cohort) : "", ...(mail ? { notify: true, ...mail } : {}) }));
     setBusy("");
     if (!r) return;
     setData({ ...data, applications: r.applications });
     onList(r.list);
+    setDraft(null);
+    if (r.emailError) return toast(r.emailError, true);
     toast(status === "accepted" ? `${a.name || a.email} accepted${r.invited ? " and emailed" : ""}: they can sign in now` : status === "next" ? "Moved to next cohort" : status === "declined" ? "Declined" : "Moved back to New");
   };
+  // Accept opens the drafted "You're in" email: edit it, see exactly what they'll get, then send.
+  const openDraft = (a: Application) => setDraft({ a, ...acceptDraft({ name: a.name, email: a.email, cohort: a.status === "accepted" && a.cohort ? a.cohort : cohort }) });
   const clearDeclined = async () => {
     if (!confirm("Delete every declined application? Do this once the cohort has closed. It can't be undone.")) return;
     const r = await run(() => api<{ deleted: number; applications: Application[] }>("DELETE", "/api/admin/beta/applications"));
@@ -148,14 +153,29 @@ function Applications({ emailReady, onList }: { emailReady: boolean; onList: (li
         <select className="select" style={{ width: 150 }} value={filter.year} onChange={(e) => setFilter({ ...filter, year: e.target.value })} aria-label="Class year"><option value="">Every year</option>{years.map((s) => <option key={s}>{s}</option>)}</select>
         <label className="row small"><input type="checkbox" checked={filter.feedback} onChange={(e) => setFilter({ ...filter, feedback: e.target.checked })} /> Will give feedback</label>
         <span className="row small" style={{ marginLeft: "auto", gap: 6 }}>Accept into <input className="input" style={{ width: 120 }} value={cohort} onChange={(e) => setCohort(e.target.value)} aria-label="Cohort name" /></span>
-        <label className="row small" title={emailReady ? "" : "Email isn't set up on this server"}><input type="checkbox" checked={notify && emailReady} disabled={!emailReady} onChange={(e) => setNotify(e.target.checked)} /> Also send Remy's “You're in” email</label>
       </div>
+      {draft && (
+        <Modal title={`Accept ${draft.a.name || draft.a.email}`} onClose={() => setDraft(null)} wide>
+          <div className="stack-sm" data-testid="accept-email">
+            <span className="small muted">To: <b>{draft.a.email}</b> · from the Remy email. Edit anything; the preview shows exactly what they'll get.</span>
+            <input className="input" value={draft.subject} onChange={(e) => setDraft({ ...draft, subject: e.target.value })} aria-label="Subject" maxLength={150} />
+            <textarea className="textarea" style={{ minHeight: 200 }} value={draft.message} onChange={(e) => setDraft({ ...draft, message: e.target.value })} aria-label="Message" maxLength={5000} data-testid="input-accept-message" />
+            <iframe title="Email preview" sandbox="" style={{ width: "100%", height: 460, border: "1px solid var(--line)", borderRadius: 12, background: "#f5f1ec" }} srcDoc={acceptHtml(draft.message, location.host)} />
+            {!emailReady && <p className="small notice notice-warn">Email isn't set up on this server, so this can't be sent from here. Accept without email and send it from the Remy inbox instead.</p>}
+            <div className="row" style={{ justifyContent: "flex-end", gap: 8 }}>
+              {draft.a.status !== "accepted" && <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => decide(draft.a, "accepted")}>Accept without email</button>}
+              <button className="btn btn-primary btn-sm" disabled={!!busy || !emailReady || !draft.message.trim()} onClick={() => decide(draft.a, "accepted", { subject: draft.subject, message: draft.message })} data-testid="button-accept-send">{busy ? <Spinner /> : null} {draft.a.status === "accepted" ? "Send email" : "Accept & send email"}</button>
+            </div>
+          </div>
+        </Modal>
+      )}
       {rows.map((a) => (
         <div key={a.email} className="adm-person stack-sm" style={{ borderTop: "1px solid var(--line)", paddingTop: 10 }} data-testid="row-application">
           <div className="row-between" style={{ gap: 8 }}>
             <div><b>{a.name || "(no name)"}</b> <span className="small muted">· {a.email}</span><div className="small">{[a.school, a.classYear, a.major].filter(Boolean).join(" · ")}</div></div>
             <div className="row" style={{ gap: 6 }}>
-              {a.status !== "accepted" && <button className="btn btn-primary btn-sm" disabled={!!busy} onClick={() => decide(a, "accepted")} data-testid="button-app-accept">Accept</button>}
+              {a.status !== "accepted" ? <button className="btn btn-primary btn-sm" disabled={!!busy} onClick={() => openDraft(a)} data-testid="button-app-accept">Accept</button>
+                : <button className="btn btn-secondary btn-sm" disabled={!!busy} onClick={() => openDraft(a)}>Email them</button>}
               {a.status !== "next" && <button className="btn btn-secondary btn-sm" disabled={!!busy} onClick={() => decide(a, "next")}>Next cohort</button>}
               {a.status !== "declined" && <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => decide(a, "declined")}>Decline</button>}
               {a.status !== "new" && <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => decide(a, "new")}>Back to New</button>}
