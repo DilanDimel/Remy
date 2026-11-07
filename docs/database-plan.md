@@ -14,7 +14,7 @@ This is fine for a demo and a small pilot. It breaks down when:
 - we need backups, point-in-time recovery, or to answer "who can see this student's data" for TCU.
 
 ## Built: checked openings (Nov 2026, Demetre)
-`checked_openings` (migration 012, `server/openings.ts`) keeps one shared row per public posting Remy has found or re-checked, with no student data.
+`checked_openings` (migration 014, `server/openings.ts`) keeps one shared row per public posting Remy has found or re-checked, with no student data.
 - **Tags:** company (normalized like `sameOrg`), industry (the setup field chips, from the title, else the employer's directory field) and career path (the My Path road key, empty when no road really fits).
 - **Filled by:** every openings search (`recordFound`) and every page check, manual or background (`recordCheck`: reachable, closed wording or unreachable, with the HTTP status).
 - **Discarded:** the 6-hour sweep deletes rows not seen or checked for `OPENINGS_KEEP_DAYS` days (default 30).
