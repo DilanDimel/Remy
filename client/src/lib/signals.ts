@@ -30,7 +30,11 @@ export function apiResult(method: string, url: string, status: number, ms: numbe
   if (url.startsWith("/api/signals") || url.startsWith("/api/client-error")) return;
   if (status === 0) problem(where, "Request didn't reach Remy (network dropped or server restarting)");
   else if (status >= 500) problem(where, `Request failed (${status})`);
-  else if (ms > 8000) problem(where, "Slow: took over 8 seconds");
+  // AI answers (tailoring, coach, plans, searches) normally take a while; only flag them when far slower than usual.
+  else {
+    const limit = /\/(ai|assistant|chat|discover|tailor|builder)\b/.test(url) ? 45_000 : 8000;
+    if (ms > limit) problem(where, `Slow: took over ${limit / 1000} seconds`);
+  }
 }
 
 function flush(beacon = false) {
@@ -49,7 +53,7 @@ export function startSignals() {
   addEventListener("error", (e) => problem(location.pathname, `Page error: ${String((e as ErrorEvent).message || "unknown")}`));
   addEventListener("unhandledrejection", (e) => {
     const r = (e as PromiseRejectionEvent).reason;
-    if (r?.status && r.status < 500) return; // a normal "please fix this field" answer, already shown to the student
+    if (r?.status !== undefined) return; // an answer from Remy's server: shown to the student, and failures were already reported by api()
     problem(location.pathname, `Unhandled: ${String(r?.message || r || "unknown").slice(0, 200)}`);
   });
   // Rage click: 3+ clicks on the same thing within a second usually means it looks clickable but doesn't work.
@@ -59,7 +63,8 @@ export function startSignals() {
     const now = Date.now();
     last = el === last.el && now - last.t < 1000 ? { el, n: last.n + 1, t: now } : { el, n: 1, t: now };
     if (last.n === 3 && el) {
-      const id = el.getAttribute("data-testid") || el.getAttribute("aria-label") || el.tagName.toLowerCase();
+      // Only the developer-given id or the tag name: never visible text or aria-labels, which can hold what a student wrote.
+      const id = el.getAttribute("data-testid") || el.tagName.toLowerCase();
       count(`rage:${tidyPath(location.pathname)}:${id.slice(0, 40)}`);
     }
   }, true);
