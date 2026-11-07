@@ -38,6 +38,8 @@ export async function api<T = any>(method: string, url: string, body?: unknown):
       msg = j.message || msg;
       code = j.code;
     } catch {}
+    // Founding Cohort beta: the server turned this account (or a guest) away; the app signs out and says why.
+    if (code === "beta") window.dispatchEvent(new CustomEvent("remy-beta", { detail: msg }));
     throw new ApiError(msg, res.status, code);
   }
   const ct = res.headers.get("content-type") || "";
@@ -77,6 +79,9 @@ interface Store {
   /** Light, dark or "system" (match the device). Visitors keep it in this browser; students also in their account. */
   theme: Theme;
   setTheme: (t: Theme) => Promise<void>;
+  /** Why the last sign-in (or session) was turned away during the invite-only beta; null when it wasn't. */
+  betaBlocked: string | null;
+  clearBeta: () => void;
 }
 export type Theme = "system" | "light" | "dark";
 const THEME_KEY = "remy.theme";
@@ -94,6 +99,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   meRef.current = me;
   const [ws, setWsState] = useState<Workspace | null>(null);
   const [loading, setLoading] = useState(true);
+  const [betaBlocked, setBetaBlocked] = useState<string | null>(null);
+  useEffect(() => {
+    const on = (e: Event) => { setBetaBlocked(String((e as CustomEvent).detail || "")); setMe(null); setWsState(null); };
+    window.addEventListener("remy-beta", on);
+    return () => window.removeEventListener("remy-beta", on);
+  }, []);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const n = useRef(0);
 
@@ -118,7 +129,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Coming back from a Supabase sign-in or connector consent screen.
     try {
       const back = await finishSupabaseRedirect(c);
-      if (back?.intent === "signin") await api("POST", "/api/auth/supabase", { accessToken: back.accessToken });
+      if (back?.intent === "signin") await api("POST", "/api/auth/supabase", { accessToken: back.accessToken }).catch((e) => { if (e?.code !== "beta") throw e; });
       if (back?.intent === "connect-linkedin") {
         await api("POST", "/api/connect/linkedin", { accessToken: back.accessToken });
         toast("LinkedIn connected");
@@ -127,7 +138,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } catch (e: any) {
       toast(e?.message || "Sign-in didn't finish.", true);
     }
-    const m = await api<{ me: Me | null; workspace: Workspace | null }>("GET", "/api/me");
+    const m = await api<{ me: Me | null; workspace: Workspace | null; beta?: { blocked: boolean; email: string } }>("GET", "/api/me");
+    if (m.beta?.blocked) setBetaBlocked(`${m.beta.email || "This account"} isn't in Remy's Founding Cohort yet. Remy is invite-only during the beta: apply with the form, then sign in with this same email once you're accepted.`);
     setMe(m.me);
     setWsState(m.workspace);
   }, [toast]);
@@ -226,7 +238,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (ok) toast(ok);
       return r;
     } catch (e: any) {
-      toast(e?.message || "Something went wrong.", true);
+      if (e?.code !== "beta") toast(e?.message || "Something went wrong.", true); // the sign-in page explains a beta refusal
       return undefined;
     }
   }, [toast]);
@@ -235,9 +247,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const setWs = useCallback((w: Workspace) => { saveSeq.current++; setWsState((prev) => keepNewerJobFeedback(prev, w, meRef.current?.id || null, meRef.current?.id || null)); }, []);
   const value = useMemo<Store>(() => ({
     config, me, ws, loading, toast, refresh, save, run, theme, setTheme,
-    setWs,
-    setSession: (m, w) => { setMe(m); setWsState(w); },
-  }), [config, me, ws, loading, toast, refresh, save, run, theme, setTheme, setWs]);
+    setWs, betaBlocked, clearBeta: () => setBetaBlocked(null),
+    setSession: (m, w) => { setMe(m); setWsState(w); if (m) setBetaBlocked(null); },
+  }), [config, me, ws, loading, toast, refresh, save, run, theme, setTheme, setWs, betaBlocked]);
 
   return (
     <Ctx.Provider value={value}>

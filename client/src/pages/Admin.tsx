@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
-import { Activity, AlertTriangle, Bot, ArrowLeft, ArrowRight, BarChart3, CalendarDays, Check, Clock, KanbanSquare, Plus, RotateCcw, Trash2, Users } from "lucide-react";
+import { Activity, AlertTriangle, Bot, ArrowLeft, ArrowRight, BarChart3, CalendarDays, Check, Clock, KanbanSquare, Plus, RotateCcw, Trash2, UserCheck, Users } from "lucide-react";
 import { api, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
 import { BetaBadge, CopyButton, Empty, Remy, Rich, Spinner } from "../components/common";
@@ -34,7 +34,7 @@ type Team = {
 };
 const ANSWERS: [Answer, string][] = [["yes", "Going"], ["maybe", "Maybe"], ["no", "Can't go"]];
 
-const TABS = [["overview", "Overview", BarChart3], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity], ["errors", "Errors & feedback", AlertTriangle], ["agents", "Agents", Bot]] as const;
+const TABS = [["overview", "Overview", BarChart3], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity], ["errors", "Errors & feedback", AlertTriangle], ["agents", "Agents", Bot], ["beta", "Beta list", UserCheck]] as const;
 type Tab = (typeof TABS)[number][0];
 const HISTORY_AFTER = 3 * 86400_000;
 const COLS: [Status, string][] = [["todo", "To do"], ["doing", "In progress"], ["done", "Done"]];
@@ -84,8 +84,62 @@ export default function Admin() {
         {tab === "overview" && <OverviewTab />}
         {tab === "errors" && <ErrorsTab />}
         {tab === "agents" && <AgentsTab />}
-        {tab !== "overview" && tab !== "errors" && tab !== "agents" && <TeamTab tab={tab} />}
+        {tab === "beta" && <BetaTab />}
+        {tab !== "overview" && tab !== "errors" && tab !== "agents" && tab !== "beta" && <TeamTab tab={tab} />}
       </main>
+    </div>
+  );
+}
+
+type BetaRow = { email: string; note: string; addedBy: string; addedAt: string; invitedAt: string | null };
+type BetaData = { on: boolean; formUrl: string; emailReady: boolean; list: BetaRow[] };
+/** Founding Cohort: owners paste accepted emails (one per line or comma-separated); Remy can email them "You're in". */
+function BetaTab() {
+  const { run, toast } = useStore();
+  const [d, , setD] = useLoad<BetaData>("/api/admin/beta");
+  const [emails, setEmails] = useState("");
+  const [note, setNote] = useState("");
+  const [notify, setNotify] = useState(true);
+  const [busy, setBusy] = useState(false);
+  if (!d) return <Spinner />;
+  const add = async () => {
+    setBusy(true);
+    const r = await run(() => api<BetaData & { added: string[]; already: string[]; wrong: string[]; invited: string[] }>("POST", "/api/admin/beta", { emails, note, notify: notify && d.emailReady }));
+    setBusy(false);
+    if (!r) return;
+    setD({ ...d, list: r.list });
+    setEmails("");
+    toast([`${r.added.length} accepted`, r.invited.length ? `${r.invited.length} emailed` : "", r.already.length ? `${r.already.length} already on the list` : "", r.wrong.length ? `not emails: ${r.wrong.join(", ")}` : ""].filter(Boolean).join(" · "), r.wrong.length > 0);
+  };
+  const remove = async (e: string) => {
+    if (!confirm(`Remove ${e} from the Founding Cohort? They won't be able to sign in while beta-only mode is on (their saved work stays).`)) return;
+    const r = await run(() => api<{ list: BetaRow[] }>("DELETE", `/api/admin/beta/${encodeURIComponent(e)}`), "Removed");
+    if (r) setD({ ...d, list: r.list });
+  };
+  return (
+    <div className="stack">
+      <Head title="Beta list" sub="Founding Cohort: while beta-only mode is on, only these emails (and the team) can sign in. Students must sign in with the same email they put on the form." />
+      <section className="adm-card stack-sm" data-testid="beta-status">
+        <span><b>Beta-only mode is {d.on ? "ON" : "OFF"}</b> on this server{d.on ? "" : ": anyone can sign in right now. Turn it on with OR_BETA_ONLY=true in Render's environment settings"}.</span>
+        <span className="small muted">Application form: {d.formUrl ? <a href={d.formUrl} target="_blank" rel="noreferrer">{d.formUrl}</a> : "not set (set OR_BETA_FORM_URL; until then students are pointed to remy.careercoach@gmail.com)"}</span>
+      </section>
+      <form className="adm-card adm-form stack-sm" onSubmit={(e) => { e.preventDefault(); add(); }}>
+        <h3>Accept students</h3>
+        <textarea className="textarea" value={emails} onChange={(e) => setEmails(e.target.value)} placeholder={"Paste emails from the form, one per line or separated by commas"} aria-label="Emails to accept" data-testid="input-beta-emails" />
+        <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note, e.g. Cohort 1 · tcu-table (optional)" aria-label="Note" maxLength={200} />
+        <label className="row small"><input type="checkbox" checked={notify && d.emailReady} disabled={!d.emailReady} onChange={(e) => setNotify(e.target.checked)} /> Email them “You're in” with the sign-in link{d.emailReady ? "" : " (email isn't set up on this server)"}</label>
+        <div><button className="btn btn-primary btn-sm" disabled={!emails.trim() || busy} data-testid="button-beta-add">{busy ? <Spinner /> : <Plus size={14} />} Accept</button></div>
+      </form>
+      <section className="adm-card adm-list">
+        <h3>Accepted ({d.list.length})</h3>
+        {d.list.map((r) => (
+          <div key={r.email} className="row-between" style={{ gap: 8 }} data-testid="row-beta">
+            <div className="stack-sm"><b className="small">{r.email}</b><span className="xs muted">{[r.note, `added ${ago(r.addedAt)} by ${r.addedBy}`, r.invitedAt ? `emailed ${ago(r.invitedAt)}` : ""].filter(Boolean).join(" · ")}</span></div>
+            <button className="btn btn-ghost btn-sm" onClick={() => remove(r.email)} aria-label={`Remove ${r.email}`}><Trash2 size={14} /> Remove</button>
+          </div>
+        ))}
+        {!d.list.length && <p className="small muted">Nobody yet. Paste emails above once you accept them.</p>}
+      </section>
     </div>
   );
 }
