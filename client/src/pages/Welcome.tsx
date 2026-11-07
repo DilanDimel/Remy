@@ -186,10 +186,12 @@ function SignIn() {
 
 /** The front page: what a student gets, shown with previews built from Remy's real screens. */
 function Landing() {
-  const { config } = useStore();
-  const beta = !!config?.beta?.on;
-  const start = beta ? applyHref(config?.beta?.formUrl) : "/signin";
-  const startLabel = beta ? "Apply for the Founding Cohort" : "Create your free account";
+  const { config, me, ws } = useStore();
+  // Signed in (visiting the homepage from the app): the buttons open their Remy instead of sign-in or the form.
+  const inside = !!(me && ws?.started);
+  const beta = !!config?.beta?.on && !inside;
+  const start = inside ? "/" : beta ? applyHref(config?.beta?.formUrl) : "/signin";
+  const startLabel = inside ? "Open my Remy" : beta ? "Apply for the Founding Cohort" : "Create your free account";
   const tour = useRef<HTMLElement>(null);
   const page = useRef<HTMLDivElement>(null);
   const [scrolled, setScrolled] = useState(false);
@@ -220,7 +222,7 @@ function Landing() {
           <button className="btn btn-ghost btn-sm hide-sm" onClick={toTour}>What you get</button>
           <a className="btn btn-ghost btn-sm hide-sm" href="/about">About</a>
           <ThemeToggle />
-          <a className="btn btn-primary btn-sm" href="/signin" data-testid="button-lp-signin">Sign in</a>
+          <a className="btn btn-primary btn-sm" href={inside ? "/" : "/signin"} data-testid="button-lp-signin">{inside ? "Open my Remy" : "Sign in"}</a>
         </nav>
       </header>
 

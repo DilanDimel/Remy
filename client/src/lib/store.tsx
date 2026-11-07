@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { AppConfig, Me, Workspace } from "@shared/types";
 import { finishSupabaseRedirect } from "./supabase";
 import { keepNewerJobFeedback } from "./jobFeedback";
+import { apiResult } from "./signals";
 
 declare global {
   interface Window { __API_BASE__?: string; google?: any }
@@ -24,12 +25,20 @@ export class ApiError extends Error {
 export async function api<T = any>(method: string, url: string, body?: unknown): Promise<T> {
   if (API_BASE === "__UNRESOLVED__") throw new ApiError("Backend connection was not configured. Please reopen the app.", 0);
   const isForm = body instanceof FormData;
-  const res = await fetch(`${API_BASE}${url}`, {
-    method,
-    credentials: "same-origin",
-    headers: body && !isForm ? { "Content-Type": "application/json" } : {},
-    body: body ? (isForm ? (body as FormData) : JSON.stringify(body)) : undefined,
-  });
+  const started = performance.now();
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${url}`, {
+      method,
+      credentials: "same-origin",
+      headers: body && !isForm ? { "Content-Type": "application/json" } : {},
+      body: body ? (isForm ? (body as FormData) : JSON.stringify(body)) : undefined,
+    });
+  } catch (e) {
+    apiResult(method, url, 0, performance.now() - started); // never reached the server: shows up on the owners' Errors page
+    throw e;
+  }
+  apiResult(method, url, res.status, performance.now() - started);
   if (!res.ok) {
     let msg = "Something went wrong. Please try again.";
     let code: string | undefined;

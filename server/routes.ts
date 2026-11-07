@@ -20,6 +20,7 @@ import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFai
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./safety";
 import * as admin from "./admin";
 import * as beta from "./beta";
+import * as signals from "./signals";
 import { acceptHtml } from "@shared/acceptEmail";
 import { recordError } from "./admin";
 import { careersFor, futureFor, officialFor } from "./future";
@@ -1363,6 +1364,18 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.json(field ? careersFor({ profile: { major: "", minors: "", targetRoles: "", interests: "" } } as Workspace, field).slice(0, 1) : []);
   });
   // "Send feedback" from anywhere in Remy; it lands in the owners' dashboard next to errors.
+  // Automatic signals from signed-in students' browsers: counted events and error reports (client/src/lib/signals.ts).
+  app.post("/api/signals", route(async (req, res, ctx) => {
+    if (!allow("signals:" + ctx.me.id, 120, 60 * 60_000)) return res.json({ ok: true }); // quietly drop a flood
+    await signals.countEvents(req.body?.events);
+    const problems = Array.isArray(req.body?.problems) ? req.body.problems.slice(0, 20) : [];
+    for (const p of problems) {
+      const where = String(p?.where || "").slice(0, 120), message = String(p?.message || "").slice(0, 300);
+      if (message) await recordError("browser", where, message, "Reported automatically by the student's browser", ctx.me.id);
+    }
+    res.json({ ok: true });
+  }));
+  app.get("/api/admin/signals", route(async (_req, res, ctx) => { owner(ctx); res.json(await signals.signalsReport(7)); }));
   app.post("/api/feedback", route(async (req, res, ctx) => {
     const message = String(req.body?.message || "").replace(/\s+/g, " ").trim().slice(0, 1000);
     if (message.length < 3) bad("Write a few words first.");
