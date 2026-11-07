@@ -715,7 +715,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   // Objects keep unknown extra fields (loose) but every field the server relies on is checked.
   const str = (max = 600) => z.string().max(max);
   const ids = z.array(str(120)).max(1000);
-  const TRACK = z.enum(["Saved", "Applied", "Received", "Interview", "Offer", "Rejected", "Withdrawn"]);
+  const TRACK = z.enum(["Saved", "Applied", "Received", "Heard back", "Interview", "Offer", "Rejected", "No reply", "Withdrawn"]);
   const SHAPES: Partial<Record<(typeof SECTIONS)[number], z.ZodType>> = {
     profile: z.looseObject({}),
     settings: z.object({
@@ -1748,7 +1748,10 @@ Return JSON:
     const doc = composeResume(ctx.ws, a);
     a.versions.push({ v: a.versions.length + 1, at: nowIso(), resume: doc, letter: a.letter, note: String(req.body?.note || "") });
     a.staleReason = undefined;
-    const t = ctx.ws.tracker.find((x) => x.applicationId === a.id || x.jobId === a.jobId);
+    // An application the student already tracked by hand (same company and role) gets linked instead of duplicated.
+    const t = ctx.ws.tracker.find((x) => x.applicationId === a.id || x.jobId === a.jobId)
+      || ctx.ws.tracker.find((x) => !x.applicationId && !x.jobId && norm(x.company) === norm(job.company) && norm(x.role) === norm(job.title));
+    if (t && !t.applicationId) { t.applicationId = a.id; t.jobId ||= job.id; }
     if (!t)
       ctx.ws.tracker.unshift({
         id: uid("tr"), company: job.company, role: job.title, jobId: job.id, applicationId: a.id, status: "Saved", notes: "",
@@ -1958,7 +1961,7 @@ Return JSON:
         ai = await withAi(ctx, "Classify email", () =>
           aiJson<any>(
             "Classify a recruiting email. Distinguish carefully: an application receipt is NOT an interview; an interview invitation is NOT an offer; 'decisions about interviews and offers in the coming weeks' is Unclear. Quote the exact sentence that justifies the label.",
-            `FROM: ${m!.from}\nSUBJECT: ${m!.subject}\nBODY:\n${m!.body}\n\nReturn {"status":"Received|Interview|Offer|Rejected|Unclear","evidence":"exact sentence","company":"","role":""}`,
+            `FROM: ${m!.from}\nSUBJECT: ${m!.subject}\nBODY:\n${m!.body}\n\nReturn {"status":"Received|Heard back|Interview|Offer|Rejected|Unclear" (Heard back = a person wrote back, e.g. asks for more information or a quick chat, but it is not an interview invitation),"evidence":"exact sentence","company":"","role":""}`,
             500,
           ),
         );
@@ -1967,7 +1970,10 @@ Return JSON:
         ai = null;
       }
     }
-    const aiStatusVal = (ai?.status as TrackStatus | "Unclear") || undefined;
+    // The model's answer must be one of Remy's statuses ("Heard Back" → "Heard back"); anything else is Unclear.
+    const ALLOWED: TrackStatus[] = ["Received", "Heard back", "Interview", "Offer", "Rejected"];
+    const aiStatusVal: TrackStatus | "Unclear" | undefined = ai ? ALLOWED.find((x) => x.toLowerCase() === String(ai!.status || "").trim().toLowerCase()) || "Unclear" : undefined;
+    if (ai) ai.status = aiStatusVal!;
     const agree = !!ai && ai.status === rules.status && rules.status !== "Unclear";
     const proposed: TrackStatus | "Unclear" = rules.status !== "Unclear" ? rules.status : aiStatusVal || "Unclear";
     const evidence = rules.evidence || ai?.evidence || "";
@@ -1991,6 +1997,7 @@ Return JSON:
       s!.state = "dismissed";
     } else {
       const status = (req.body?.status || s!.proposed) as TrackStatus;
+      if (!TRACK.safeParse(status).success) bad("Pick a status from the list.");
       const m = ctx.ws.inbox.find((x) => x.id === s!.messageId);
       let t = ctx.ws.tracker.find((x) => x.id === (req.body?.trackId || s!.trackId));
       if (!t) {
