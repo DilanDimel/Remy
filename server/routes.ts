@@ -20,6 +20,7 @@ import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFai
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./safety";
 import * as admin from "./admin";
 import * as beta from "./beta";
+import { acceptHtml } from "@shared/acceptEmail";
 import { recordError } from "./admin";
 import { careersFor, futureFor, officialFor } from "./future";
 import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase } from "./auth";
@@ -607,14 +608,23 @@ export async function registerRoutes(_server: Server, app: Express) {
     const status = String(req.body?.status || "") as beta.AppStatus;
     if (!beta.APP_STATUSES.includes(status)) bad("Pick accepted, next, declined or new.");
     const email = String(req.params.email);
-    const fresh = await beta.decide(me, email, status, String(req.body?.cohort || ""));
+    await beta.decide(me, email, status, String(req.body?.cohort || ""));
     let invited = false;
-    if (fresh && req.body?.notify === true && emailReady()) {
-      const { subject, text } = beta.welcomeEmail(process.env.PUBLIC_HOST || "offer-ready.onrender.com");
-      try { await sendEmail(email, subject, text); await beta.markInvited(email); invited = true; } catch (err: any) { console.error("beta welcome email failed", err?.message); }
+    // "Accept & send": the owner's (possibly edited) draft goes out as the styled Remy email, with a plain-text copy.
+    let emailError = "";
+    if (status === "accepted" && req.body?.notify === true) {
+      if (!emailReady()) emailError = "Email isn't set up on this server, so nothing was sent.";
+      else {
+        const host = process.env.PUBLIC_HOST || "offer-ready.onrender.com";
+        const subject = String(req.body?.subject || "").replace(/[\r\n]+/g, " ").trim().slice(0, 150) || "You're in: welcome to Remy's Founding Cohort";
+        const message = String(req.body?.message || "").slice(0, 5000).trim();
+        if (!message) bad("Write the email first.");
+        try { await sendEmail(email, subject, `${message}\n\nSign in: https://${host}/signin`, acceptHtml(message, host)); await beta.markInvited(email); invited = true; }
+        catch (err: any) { console.error("beta accept email failed", err?.message); emailError = "Accepted, but the email didn't send. Try again from the Accepted tab."; }
+      }
     }
     await admin.logAction(me, `beta: application ${status}`, req.body?.cohort ? String(req.body.cohort).slice(0, 60) : "");
-    res.json({ applications: await beta.applications(), list: await beta.list(), invited });
+    res.json({ applications: await beta.applications(), list: await beta.list(), invited, emailError });
   }));
   app.delete("/api/admin/beta/applications", route(async (_req, res, ctx) => {
     const me = owner(ctx);
