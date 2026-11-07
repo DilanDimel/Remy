@@ -332,7 +332,7 @@ function DatabaseTab() {
       <section className="adm-card stack-sm"><span className="small">Every page a student opens reads their whole account, so account size drives speed and Supabase's monthly data transfer (5 GB on the free plan). Data transfer itself isn't visible from here: check Supabase → Usage → Egress weekly.</span></section>
       <section className="adm-card adm-list">
         <h3>Tables</h3>
-        {d.tables.map((t) => <div key={t.name} className="row-between small"><span>{t.name}</span><span className="muted">{t.mb} MB · about {t.rows.toLocaleString()} rows</span></div>)}
+        {d.tables.map((t) => <div key={t.name} className="row-between small"><span>{t.name}</span><span className="muted">{t.mb} MB · {t.rows.toLocaleString()} rows</span></div>)}
       </section>
     </div>
   );
