@@ -316,7 +316,7 @@ function OutcomesTab() {
   );
 }
 
-type Storage = { usedMb: number; limitMb: number; percent: number; tables: { name: string; mb: number; rows: number }[]; workspaces: { n: number; avg_kb: number; max_kb: number; p90_kb: number } };
+type Storage = { usedMb: number; limitMb: number; percent: number; tables: { name: string; mb: number; rows: number }[]; workspaces: { n: number; avg_kb: number; max_kb: number; p90_kb: number }; transfer: { monthMb: number; limitGb: number; days: { day: string; mb: number }[] } };
 /** How full the database is against the plan's limit, and what takes the space (Demetre's space watch). */
 function DatabaseTab() {
   const [d, reload] = useLoad<Storage>("/api/admin/storage");
@@ -328,8 +328,12 @@ function DatabaseTab() {
         <Kpi n={`${d.percent}%`} label="Space used" note={`${d.usedMb} of ${d.limitMb} MB`} />
         <Kpi n={`${d.workspaces.avg_kb} KB`} label="Average student account" note={`90% under ${d.workspaces.p90_kb} KB · largest ${d.workspaces.max_kb} KB`} />
         <Kpi n={d.workspaces.n} label="Accounts stored" />
+        <Kpi n={`${(d.transfer.monthMb / 1024).toFixed(2)} GB`} label="Data transfer this month (estimate)" note={`of ${d.transfer.limitGb} GB on the free plan · ${Math.round((100 * d.transfer.monthMb) / 1024 / d.transfer.limitGb)}%`} />
       </div>
-      <section className="adm-card stack-sm"><span className="small">Every page a student opens reads their whole account, so account size drives speed and Supabase's monthly data transfer (5 GB on the free plan). Data transfer itself isn't visible from here: check Supabase → Usage → Egress weekly.</span></section>
+      <section className="adm-card stack-sm">
+        <span className="small">Every page a student opens reads their whole account, so account size drives speed and data transfer. The transfer number is Remy's own count of what it read from the database (counting started when this was added); Supabase's bill can differ a little, so check Supabase → Usage → Egress now and then.</span>
+        {d.transfer.days.length > 0 && <span className="xs muted">Last days: {d.transfer.days.map((x) => `${x.day.slice(5)} ${x.mb} MB`).join(" · ")}</span>}
+      </section>
       <section className="adm-card adm-list">
         <h3>Tables</h3>
         {d.tables.map((t) => <div key={t.name} className="row-between small"><span>{t.name}</span><span className="muted">{t.mb} MB · {t.rows.toLocaleString()} rows</span></div>)}
