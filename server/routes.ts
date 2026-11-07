@@ -15,7 +15,7 @@ import { JOB_INTEREST_REASONS, type JobInterestRating } from "@shared/types";
 import { employerPreferences, interestContext, interestEnabled, ownInterest } from "./ranking";
 import { keepQuestions, skippedPrefs } from "@shared/setupReply";
 import { latestNewsId } from "@shared/news";
-import { editWorkspace, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
+import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./safety";
 import * as admin from "./admin";
@@ -40,6 +40,9 @@ import * as agents from "./agents";
 import { dueReminders, reminderEmail, weeklyDigest } from "./reminders";
 import { step } from "@shared/progress";
 import { conferencesFor } from "./conferences";
+import { trimOpenings } from "./trim";
+import { storageReport, warnIfNearLimit } from "./storage";
+import { pruneOpenings, recordFound, recordCheck, listOpenings, openingsSummary } from "./openings";
 import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, kindOf, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
 import { docxStyle, editResumeDocx } from "./docxEdit";
@@ -231,6 +234,8 @@ const fitOf = (ws: Workspace, job: Job) => computeFit(ws, job, evidenceOf(ws));
 // Openings that can't be applied to anymore. Checked on every read rather than cached in
 // fits, because a deadline passes and a link breaks without the student doing anything.
 const centralToday = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+/** The date `days` before a YYYY-MM-DD date, same format (dates compare as text). */
+const daysBefore = (day: string, days: number) => new Date(Date.parse(day + "T12:00:00Z") - days * 86_400_000).toISOString().slice(0, 10);
 function closedReason(ws: Workspace, job: Job): string | undefined {
   if (job.deadline && job.deadline < centralToday()) return `The deadline passed on ${job.deadline}.`;
   const latest = job.checks[0];
@@ -342,20 +347,28 @@ async function findOpenings(ctx: Ctx, named: string[] = [], opts: { background?:
   const seen = new Set<string>();
   const unique = boards.filter((b) => { const k = b.ats + ":" + b.slug; if (seen.has(k)) return false; seen.add(k); return true; });
   const r = await discoverJobs(ctx.ws, unique);
+  // Shared, tagged record of what Remy found (public postings only); never slows or fails the student's search.
+  recordFound(r.jobs, Object.fromEntries(unique.map((b) => [b.company, b.fields || []]))).catch((e) => console.error("checked openings: record failed", e?.message));
   const readAt = nowIso();
   ctx.ws.employersRead = Object.fromEntries([...Object.entries(ctx.ws.employersRead || {}), ...unique.map((b) => [b.company, readAt])].slice(-400));
   console.log(`discover: read ${r.reached}/${unique.length} (${unique.map((b) => b.company).join(", ")}), added ${r.jobs.length}`);
-  // Add to the latest saved list, so a posting the student imported meanwhile isn't overwritten.
-  const fresh = await loadWorkspace(ctx.me.id);
-  const have = new Set(fresh.jobs.map((j) => j.applyUrl));
   // Conferences in the student's field, unless they said they don't want events.
   // In a background search, only conferences already found this month (finding new ones is an AI call).
   const cachedOnly = async (): Promise<never> => { throw new Error("background: cache only"); };
   const confs = (await conferencesFor(ctx.ws, opts.background ? cachedOnly : undefined).catch(() => [])).filter((j) => typeMatch(ctx.ws, j) !== false);
+  // Add to the latest saved list, read only now (after the slow conference step), so a posting the student imported,
+  // saved or rated during this search isn't overwritten or trimmed.
+  const fresh = await loadWorkspace(ctx.me.id);
+  const have = new Set(fresh.jobs.map((j) => j.applyUrl));
   const added = [...r.jobs, ...confs].filter((j) => !have.has(j.applyUrl));
   ctx.ws.jobs = [...added, ...fresh.jobs];
   ctx.ws.fits = { ...fresh.fits };
   for (const j of added) ctx.ws.fits[j.id] = fitOf(ctx.ws, j);
+  // Old openings the student never saved, applied to, rated or hid are dropped so the workspace stays under its size limit.
+  // References are read from the latest stored copy, so an opening saved during this search is kept.
+  ctx.ws.droppedJobUrls = fresh.droppedJobUrls;
+  const dropped = trimOpenings(ctx.ws, fresh);
+  if (dropped) console.log(`discover: dropped ${dropped} old untouched openings`);
   // When most employer sites didn't answer (Workday maintenance, outages), try again in 30 minutes instead of 6 hours.
   const mostlyDown = r.reached.length < unique.length / 2;
   ctx.ws.openingsCheckedAt = new Date(Date.now() - (mostlyDown ? OPENINGS_EVERY - 30 * 60_000 : 0)).toISOString();
@@ -425,7 +438,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const today = centralToday();
     const recent = (d: string) => (Date.parse(today) - Date.parse(d)) / 86_400_000 <= 21;
     let n = 0;
-    for (const u of await q("SELECT u.id, u.email, u.kind FROM users u WHERE u.kind IN ('google','supabase')")) {
+    for (const u of await recentStudents(daysBefore(today, 21), true)) {
       if (!(await beta.emailAllowed(u.email))) continue; // accounts outside the Founding Cohort aren't refreshed
       if (n >= 10) break;
       if (searching.has(u.id)) continue;
@@ -454,7 +467,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const recent = (d: string) => (Date.parse(today) - Date.parse(d)) / 86_400_000 <= 21;
     const perHost = new Map<string, number>();
     let total = 0;
-    for (const u of await q("SELECT u.id, u.email, u.kind FROM users u WHERE u.kind IN ('google','supabase')")) {
+    for (const u of await recentStudents(daysBefore(today, 21))) {
       if (!(await beta.emailAllowed(u.email))) continue; // accounts outside the Founding Cohort aren't refreshed
       if (total >= 30) break;
       if (searching.has(u.id)) continue;
@@ -494,6 +507,8 @@ export async function registerRoutes(_server: Server, app: Express) {
   const sweep = () => {
     sweeping ||= Promise.all([
       pruneBoardCache().catch(() => {}),
+      warnIfNearLimit().catch((e) => console.error("storage check failed", e?.message)),
+      pruneOpenings().then((n) => { if (n) console.log(`checked openings: discarded ${n} not seen for a while`); }).catch((e) => console.error("checked openings prune failed", e?.message)),
       deadlineReminders().catch((e) => console.error("deadline reminders failed", e?.message)),
       cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)),
       // One after the other: both write a student's openings, so they must not run at the same time.
@@ -561,6 +576,18 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.get("/api/admin/errors", route(async (_req, res, ctx) => { owner(ctx); res.json(await admin.errors()); }));
   app.get("/api/admin/team", route(async (_req, res, ctx) => { res.json(await admin.team(owner(ctx))); }));
   app.get("/api/admin/agents", route(async (_req, res, ctx) => { owner(ctx); res.json(await agents.agentRuns()); }));
+  // Database space used against the plan's limit, per table (owners only).
+  app.get("/api/admin/storage", route(async (_req, res, ctx) => { owner(ctx); res.json(await storageReport()); }));
+  // Checked openings by company, industry, career path or status (owners only; public postings, no student data).
+  app.get("/api/admin/openings", route(async (req, res, ctx) => {
+    owner(ctx);
+    const s = (k: string) => (typeof req.query[k] === "string" ? String(req.query[k]).slice(0, 100) : undefined);
+    const status = s("status");
+    res.json({
+      summary: await openingsSummary(),
+      openings: await listOpenings({ company: s("company"), industry: s("industry"), careerPath: s("path"), status: status === "open" || status === "closed" || status === "unchecked" ? status : undefined, limit: Number(s("limit")) || undefined }),
+    });
+  }));
   app.post("/api/admin/agents/:agent/run", route(async (req, res, ctx) => {
     const me = owner(ctx);
     if (!allow("agent:" + me, 10, 60 * 60_000)) bad("That's a lot of agent runs. Try again in an hour.", 429);
@@ -1575,6 +1602,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       check = { at: nowIso(), httpStatus: null, result: "unreachable" as const, note: e?.message || "Could not reach the page." };
     }
     ctx.ws.jobs.find((x) => x.id === job.id)?.checks.unshift(check);
+    recordCheck(job, check).catch((e) => console.error("checked openings: check not recorded", e?.message));
     return check;
   }
   app.post("/api/jobs/:id/check", route(async (req, res, ctx) => {

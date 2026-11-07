@@ -247,9 +247,24 @@ export async function deleteAccount(userId: string) {
     await run("DELETE FROM users WHERE id=$1", [userId]);
   });
 }
+/** Signed-in students who visited on or after `since` (YYYY-MM-DD), filtered in the database so background jobs
+ *  don't load every account. `setupDone` also requires finished setup. Longest-waiting search first. */
+export async function recentStudents(since: string, setupDone = false): Promise<{ id: string; email: string; kind: string }[]> {
+  return (await q(
+    `SELECT u.id, u.email, u.kind FROM users u JOIN workspaces w ON w.user_id = u.id
+     WHERE u.kind IN ('google','supabase')
+       AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(CASE WHEN jsonb_typeof(w.data->'visits') = 'array' THEN w.data->'visits' ELSE '[]'::jsonb END) v WHERE v >= $1)
+       AND (NOT $2::boolean OR COALESCE(w.data->'onboarding'->>'done', 'false') = 'true')
+     ORDER BY COALESCE(w.data->>'openingsCheckedAt', '') ASC, u.id`,
+    [since, setupDone],
+  )) as { id: string; email: string; kind: string }[];
+}
 /** Removes expired sessions and guest accounts untouched for `days` days. Returns how many guests were removed. */
 export async function cleanupOld(days = 30) {
   await q("DELETE FROM sessions WHERE expires_at < now()");
+  // Codes nobody came back for (they're only removed on a retry otherwise).
+  await q("DELETE FROM signin_codes WHERE expires_at < now()");
+  await q("DELETE FROM school_email_codes WHERE expires_at < now()");
   const stale = await q(
     `SELECT u.id FROM users u LEFT JOIN workspaces w ON w.user_id = u.id
      WHERE u.kind = 'guest' AND COALESCE(w.updated_at, u.created_at) < now() - make_interval(days => $1::int)`,

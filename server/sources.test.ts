@@ -220,3 +220,27 @@ test("job kind: named programs are programs; jobs that mention 'program' or 'lau
   for (const t of ["Africa Programs Intern", "Middle East Studies Fellow", "Sales Intern - Asia Pacific", "Intern, Lima Office"]) assert.equal(COUNTRY_IN_TEXT.test(t), false, t); // titles with regions stay
   assert.equal(COUNTRY_IN_TEXT.test("Financial Analyst - Germany"), true);
 });
+
+test("slim cache: only student-level postings keep their text, and the search finds exactly the same openings", async () => {
+  const { RELEVANCE_CASES } = await import("./fixtures/job-relevance");
+  const { discoverJobs, slimForCache } = await import("./sources");
+  const { emptyWorkspace } = await import("./db");
+  const { q } = await import("./sql");
+  const slim = slimForCache([
+    { title: "Senior Software Engineer", location: "", url: "u1", text: "long text" },
+    { title: "Finance Intern", location: "", url: "u2", text: "x".repeat(30_000) },
+    { title: "Program Coordinator", location: "", url: "u3", text: "kept", student: true },
+  ]);
+  assert.deepEqual(slim.map((r) => r.text.length), [0, 20_000, 4]);
+  assert.equal(slim.length, 3, "every posting is still counted");
+  for (const g of RELEVANCE_CASES as any[]) {
+    const raws = g.cases.map(([title, text]: any, i: number) => ({ title, location: "Dallas, TX", url: `https://x.test/slim-${g.sector}/${i}`, text }));
+    const search = async (slug: string, list: unknown[]) => {
+      await q("INSERT INTO board_cache (key, raws) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET raws = EXCLUDED.raws, fetched_at = now()", [`greenhouse|${slug}||`, JSON.stringify(list)]);
+      const ws = emptyWorkspace();
+      Object.assign(ws.profile, { targetRoles: g.target, classYear: "Sophomore", regions: "Dallas, TX" });
+      return (await discoverJobs(ws, [{ company: "Synthetic", ats: "greenhouse", slug } as any], 50)).jobs.map((j) => `${j.title}|${j.summary}`).sort();
+    };
+    assert.deepEqual(await search(`slim-full-${g.sector}`, raws), await search(`slim-cut-${g.sector}`, slimForCache(raws)), g.sector);
+  }
+});

@@ -351,6 +351,12 @@ function decodeEntities(s: string) {
 // Shared catalog: one employer site's results serve every student for BOARD_FRESH. If the site fails, the last good
 // copy (up to BOARD_STALE old) is used instead, because a failed read never means "no openings".
 const BOARD_FRESH = 6 * 60 * 60_000;
+// Only student-level postings' text is ever read (discoverJobs skips the rest by title first), so the cache keeps the
+// text of those alone, capped above the 12,000 characters an opening keeps. Every posting's title, place and link stay,
+// so counts (the openings scout) don't change. A whole board of senior roles used to be stored word for word.
+const CACHE_TEXT_MAX = 20_000;
+export const slimForCache = (raws: Raw[]): Raw[] =>
+  raws.map((r) => ({ ...r, text: r.student || EARLY.test(r.title) ? (r.text || "").slice(0, CACHE_TEXT_MAX) : "" }));
 const BOARD_STALE = 3 * 24 * 60 * 60_000;
 export async function cachedBoard(b: Board, field: string, region: string, fetch = fetchBoard): Promise<Raw[]> {
   // Sources that search by field or place get one entry per search; whole-board sources get one entry.
@@ -361,8 +367,9 @@ export async function cachedBoard(b: Board, field: string, region: string, fetch
   try {
     const raws = await fetch(b, field, region);
     // Empty answers aren't saved (a site under maintenance often answers with nothing); huge boards aren't either.
-    if (raws.length && JSON.stringify(raws).length < 3_000_000)
-      await q("INSERT INTO board_cache (key, raws) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET raws = EXCLUDED.raws, fetched_at = now()", [key, JSON.stringify(raws)]).catch(() => {});
+    const slim = JSON.stringify(slimForCache(raws));
+    if (raws.length && slim.length < 3_000_000)
+      await q("INSERT INTO board_cache (key, raws) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET raws = EXCLUDED.raws, fetched_at = now()", [key, slim]).catch(() => {});
     if (raws.length || !hit || age > BOARD_STALE) return raws;
   } catch (e) {
     if (!hit || age > BOARD_STALE) throw e;
@@ -427,7 +434,7 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, e
   // Workday needs a search word; use the student's first field ("finance").
   const field = FIELD_SEARCH.find((_, k) => FIELD_TITLES[k][0].test(fields.join(" "))) || "";
   const undergrad = !/grad/i.test(ws.profile.classYear);
-  const known = new Set([...ws.jobs.map((j) => j.applyUrl), ...ws.jobs.map((j) => j.sourceUrl)]);
+  const known = new Set([...ws.jobs.map((j) => j.applyUrl), ...ws.jobs.map((j) => j.sourceUrl), ...(ws.droppedJobUrls || [])]);
   const reached: string[] = [];
   const found: { job: Job; rel: number; preference: number }[] = [];
   let i = 0;
