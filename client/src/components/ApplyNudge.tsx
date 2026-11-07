@@ -17,7 +17,7 @@ export function ApplyNudge({ w }: { w: Workspace }) {
   const approvedAt = (t: TrackItem) => w.applications.find((a) => a.id === t.applicationId)?.versions.at(-1)?.at;
   const ask = w.tracker.find((t) => t.status === "Saved" && t.applicationId && ago(approvedAt(t)) >= 2 && !(t.askedAt && ago(t.askedAt) < 5));
   const lastEvent = (t: TrackItem) => t.events.reduce((m, e) => (e.at > m ? e.at : m), "");
-  const quiet = !ask && w.tracker.find((t) => t.status === "Applied" && !t.followUp && ago(lastEvent(t)) >= 14);
+  const quiet = !ask && w.tracker.find((t) => (t.status === "Applied" || t.status === "Heard back") && !t.followUp && ago(lastEvent(t)) >= 14);
   const item = ask || quiet;
   if (!item) return null;
   const update = (patch: Partial<TrackItem>, extra?: () => Promise<unknown>) => run(async () => {

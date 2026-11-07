@@ -41,3 +41,20 @@ test("reply rate: tailored vs not only once each side has 3 applications", () =>
   assert.deepEqual([r.split?.plain.replied, r.split?.plain.applied, r.split?.plain.rate], [1, 3, 33]);
   assert.equal(replyStats({ tracker: tracker.slice(0, 5) }).split, null);
 });
+
+test("reply rate: a status picked by hand and changed again within 10 minutes is a slip; longer or from an email counts", () => {
+  const at = (min: number) => new Date(Date.UTC(2026, 9, 1, 12, min)).toISOString();
+  const mk = (events: [TrackStatus, number, string][]): TrackItem => ({ id: "s" + ++n, company: "S" + n, role: "", status: events[events.length - 1][0], notes: "",
+    events: events.map(([status, min, source], i) => ({ id: `s${n}-${i}`, at: at(min), status, source })) });
+  const r = replyStats({ tracker: [
+    mk([["Applied", 0, "Manual"], ["Offer", 1, "Manual correction"], ["Applied", 2, "Manual correction"]]), // slip: not an offer
+    mk([["Applied", 0, "Manual"], ["Heard back", 1, "Manual correction"], ["Interview", 2, "Manual correction"], ["Offer", 3, "Manual correction"], ["No reply", 4, "Manual correction"]]), // arrowed through the list
+    mk([["Applied", 0, "Manual"], ["Heard back", 0, "Email (pasted) · m1"], ["No reply", 1, "Manual correction"]]), // email evidence stands
+    mk([["Applied", 0, "Manual"], ["Interview", 30, "Manual correction"], ["No reply", 50, "Manual correction"]]), // stood 20 minutes
+    mk([["Applied", 0, "Manual"]]),
+  ] });
+  assert.equal(r.applied, 5);
+  assert.equal(r.replied, 2);
+  assert.equal(r.offers, 0);
+  assert.equal(r.interviews, 1);
+});

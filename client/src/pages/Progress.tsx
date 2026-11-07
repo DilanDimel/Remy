@@ -10,7 +10,9 @@ import { MIN_FOR_RATE, replyStats } from "@shared/progress";
 const STATUSES: TrackStatus[] = ["Saved", "Applied", "Received", "Heard back", "Interview", "Offer", "Rejected", "No reply", "Withdrawn"];
 const STATUS_HELP: Record<string, string> = {
   Received: "Application receipt — the employer confirmed they got it. Not an interview.",
+  "Heard back": "A person wrote back (asked for more, offered a quick call) — not an interview yet.",
   Interview: "An interview invitation — not an offer.",
+  "No reply": "You stopped waiting: no answer after you applied.",
   Offer: "A written offer of employment or internship.",
 };
 type Tab = "tracker" | "email" | "todos" | "hours";
@@ -51,10 +53,10 @@ function ReplyRate() {
   return (
     <div className="card card-pad stack-sm" data-testid="reply-rate">
       {r.rate === null
-        ? <span className="small">Your reply rate shows after {MIN_FOR_RATE} applications (you have {r.applied}). Mark an application <b>Heard back</b> when a person answers, or <b>No reply</b> when you stop waiting.</span>
-        : <span><b>{r.replied} of {r.applied}</b> applications got a reply from a person (<b>{r.rate}%</b>) · {r.interviews} interview{r.interviews === 1 ? "" : "s"} · {r.offers} offer{r.offers === 1 ? "" : "s"}</span>}
-      {r.split && <span className="small muted">Tailored with Remy: {r.split.tailored.replied} of {r.split.tailored.applied} replied ({r.split.tailored.rate}%) · Not tailored: {r.split.plain.replied} of {r.split.plain.applied} ({r.split.plain.rate}%)</span>}
-      <span className="xs muted">An automatic "we received your application" doesn't count as a reply; a rejection does, since someone answered.</span>
+        ? <span className="small">Your answer rate shows after {MIN_FOR_RATE} applications (you have {r.applied}). Mark an application <b>Heard back</b> when someone writes back, or <b>No reply</b> when you stop waiting.</span>
+        : <span><b>{r.replied} of {r.applied}</b> applications got an answer (<b>{r.rate}%</b>) · {r.interviews} interview{r.interviews === 1 ? "" : "s"} · {r.offers} offer{r.offers === 1 ? "" : "s"}</span>}
+      {r.split && <span className="small muted">Materials approved in Remy: {r.split.tailored.replied} of {r.split.tailored.applied} answered ({r.split.tailored.rate}%) · Not tailored: {r.split.plain.replied} of {r.split.plain.applied} ({r.split.plain.rate}%)</span>}
+      <span className="xs muted">An automatic "we received your application" doesn't count; a rejection does, since you got an answer.</span>
     </div>
   );
 }

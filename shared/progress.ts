@@ -35,7 +35,7 @@ export function milestones(w: Workspace) {
 
 // Reply rate (council, Nov 6): of the applications a student sent, how many got a reply from a person. Read from each
 // application's own history, so moving a card on later doesn't erase that someone replied. An automatic "we received
-// your application" isn't a reply; a rejection is (someone closed the loop). Shown only from MIN_FOR_RATE applications,
+// your application" isn't an answer; a rejection is (the loop was closed). Shown only from MIN_FOR_RATE applications,
 // so 0 of 2 doesn't read as a verdict.
 export const MIN_FOR_RATE = 5;
 const SENT = new Set(["Applied", "Received", "Heard back", "Interview", "Offer", "Rejected", "No reply"]);
@@ -43,10 +43,16 @@ const REPLIED = new Set(["Heard back", "Interview", "Offer", "Rejected"]);
 const INTERVIEWED = new Set(["Interview", "Offer"]);
 type Group = { applied: number; replied: number; interviews: number; offers: number };
 export function replyStats(w: Pick<Workspace, "tracker">) {
+  // A status picked by hand and changed again by hand within 10 minutes was a slip (or arrowing through the list),
+  // so it doesn't count; anything that stood longer, came from an email, or is the current status does.
+  const kept = (t: Workspace["tracker"][number]) => t.events.filter((e, i) => {
+    const next = t.events[i + 1];
+    return !(next && /^Manual/.test(e.source) && /^Manual/.test(next.source) && Date.parse(next.at) - Date.parse(e.at) < 10 * 60_000);
+  });
   const group = (items: Workspace["tracker"]): Group => {
-    const seen = (t: Workspace["tracker"][number], set: Set<string>) => set.has(t.status) || t.events.some((e) => set.has(e.status));
+    const seen = (t: Workspace["tracker"][number], set: Set<string>) => set.has(t.status) || kept(t).some((e) => set.has(e.status));
     const sent = items.filter((t) => seen(t, SENT));
-    return { applied: sent.length, replied: sent.filter((t) => seen(t, REPLIED)).length, interviews: sent.filter((t) => seen(t, INTERVIEWED)).length, offers: sent.filter((t) => t.status === "Offer" || t.events.some((e) => e.status === "Offer")).length };
+    return { applied: sent.length, replied: sent.filter((t) => seen(t, REPLIED)).length, interviews: sent.filter((t) => seen(t, INTERVIEWED)).length, offers: sent.filter((t) => t.status === "Offer" || kept(t).some((e) => e.status === "Offer")).length };
   };
   const all = group(w.tracker);
   const tailored = group(w.tracker.filter((t) => !!t.applicationId));
