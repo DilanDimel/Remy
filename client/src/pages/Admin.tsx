@@ -481,6 +481,25 @@ function OverviewTab() {
   );
 }
 
+type Signals = { days: number; pages: { name: string; n: number }[]; rage: { name: string; n: number }[]; ratings: { place: string; up: number; down: number }[] };
+/** What students' browsers reported on their own this week: where they go, what they rage-click, 👍/👎 per feature. */
+function SignalsCard() {
+  const [d] = useLoad<Signals>("/api/admin/signals");
+  if (!d) return null;
+  const list = (rows: { name: string; n: number }[], empty: string) => rows.length ? rows.map((r) => <div key={r.name} className="row-between small"><span>{r.name}</span><b>{r.n}</b></div>) : <span className="small muted">{empty}</span>;
+  return (
+    <section className="adm-card stack-sm" data-testid="signals-card">
+      <h3>What students did this week (automatic)</h3>
+      <p className="xs muted">Counted by students' browsers: no names and nothing they typed. A rage click is 3+ quick clicks on the same thing; it usually means something looks clickable but doesn't work.</p>
+      <div className="grid-3" style={{ alignItems: "start" }}>
+        <div className="stack-sm"><b className="small">Pages opened</b>{list(d.pages, "No visits counted yet.")}</div>
+        <div className="stack-sm"><b className="small">Rage clicks</b>{list(d.rage, "None. Good sign.")}</div>
+        <div className="stack-sm"><b className="small">Was it useful? 👍 / 👎</b>{d.ratings.length ? d.ratings.map((r) => <div key={r.place} className="row-between small"><span>{r.place}</span><span><b>{r.up}</b> 👍 · <b>{r.down}</b> 👎</span></div>) : <span className="small muted">No ratings yet.</span>}</div>
+      </div>
+    </section>
+  );
+}
+
 function ErrorsTab() {
   const { run } = useStore();
   const [d, reload, setD] = useLoad<Errors>("/api/admin/errors");
@@ -489,7 +508,8 @@ function ErrorsTab() {
   const fix = async (e: OpenError) => { const r = await run(() => api<Errors>("POST", "/api/admin/errors/fix", { message: e.message, kind: e.kind }), "Marked fixed. If it happens again, it comes back here."); if (r) setD(r); };
   return (
     <div className="stack-lg">
-      <Head title="Errors & feedback" sub="What students wrote with Send feedback, and the errors they hit in the last 30 days. Mark an error fixed after the fix ships." action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
+      <Head title="Errors & feedback" sub="What students wrote (Send feedback or a 👎 note), and the errors they hit in the last 30 days, including ones their browsers reported automatically. Mark an error fixed after the fix ships." action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
+      <SignalsCard />
       <section className="adm-card adm-list">
         <h3>Student feedback</h3>
         {d.feedback.length > 1 && (() => {

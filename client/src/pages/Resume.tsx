@@ -1,3 +1,4 @@
+import { QuickRate } from "../components/QuickRate";
 import { shortTitle } from "@shared/org";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -365,6 +366,7 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
           {sub === "letter" && <Letter a={a} />}
           {sub === "checks" && <Checks a={a} />}
           {sub === "export" && <ExportView a={a} job={job} />}
+          <QuickRate place="tailor" id={"tailor:" + a.id + ":" + a.generatedAt} label="Is this tailored draft useful?" />
           <div className="card card-pad row-between approve-bar">
             <span className="small">
               {pending ? `${pending} change(s) still need your decision.` : blocking ? `${blocking} accepted change(s) have unsupported claims.` : a.letterFlags.length ? `Ready to approve. Your letter has ${a.letterFlags.length} thing(s) to check first: see Checks.` : "Ready to approve."}

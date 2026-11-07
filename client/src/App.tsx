@@ -6,13 +6,15 @@ import {
 } from "lucide-react";
 import { StoreProvider, api, rid, useDraft, useStore, type Theme } from "./lib/store";
 import { go, replaceRoute, useRoute } from "./lib/router";
-const PUBLIC = new Set(["/", "/signin", "/about", "/policies", "/privacy", "/terms"]);
+const PUBLIC = new Set(["/", "/signin", "/welcome", "/about", "/policies", "/privacy", "/terms"]);
 import { BetaBadge, Modal, Remy, Rich, Spinner, StatusChip } from "./components/common";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { QuickRate } from "./components/QuickRate";
 import { WhatsNew } from "./components/WhatsNew";
 import { Avatar } from "./components/ProfilePhoto";
 import { answer as answerTailor, endSession as endTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
+import { count as countSignal, startSignals, tidyPath } from "./lib/signals";
 import Onboarding from "./pages/Onboarding";
 import Home from "./pages/Home";
 import PathPage from "./pages/Path";
@@ -65,13 +67,16 @@ function Root() {
     if (signedOut && !PUBLIC.has(path) && !(path === "/admin" && me)) replaceRoute("/");
     if (!signedOut && path === "/signin") replaceRoute("/");
   }, [loading, signedOut, path]);
+  // Signed-in students: automatic signals for the owners (page visits, rage clicks, errors). Counts only.
+  useEffect(() => { if (!loading && !signedOut) { startSignals(); countSignal("page:" + tidyPath(path)); } }, [loading, signedOut, path]);
   // Public pages: readable without signing in.
   if (path === "/about") return <About />;
   if (path === "/policies" || path === "/privacy" || path === "/terms") return <Policies />;
   if (loading)
     return <SlowLoading />;
   if (path === "/admin" && me) return <Admin />;
-  if (signedOut) return <Welcome />;
+  // The public homepage stays reachable while signed in (its buttons then open the student's Remy).
+  if (signedOut || path === "/welcome") return <Welcome />;
   if (ws.betaAgreed?.version !== BETA_TERMS_VERSION) return <BetaAgreement />;
   if (!ws.onboarding.done) return <Onboarding />;
   return <Shell />;
@@ -193,7 +198,7 @@ function Shell() {
             {n.path === "/progress" && openSuggestions > 0 && <span className="count">{openSuggestions}</span>}
           </a>
         ))}
-        <div className="side-news"><WhatsNew /></div>
+        <div className="side-news"><WhatsNew /><a className="nav-item" href="/welcome" title="Remy's homepage" data-testid="nav-homepage"><Info size={19} /><span className="nav-label">Remy homepage</span></a></div>
         <ProfileMenu initials={initials} active={path.startsWith("/accounts")} />
       </aside>
 
@@ -335,6 +340,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
         {chat.slice(-30).map((m) => (
           <div key={m.id} className="stack-sm" style={{ alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
             <div className={`bubble ${m.role === "user" ? "bubble-user" : "bubble-ai"}`}>{m.role === "user" ? m.text : <Rich text={m.text} />}</div>
+            {m.role !== "user" && m.id === chat[chat.length - 1]?.id && !busy && <QuickRate place="coach" id={"coach:" + m.id} label="Helpful?" />}
             {!!m.actions?.length && (
               <div className="row" style={{ gap: 6, maxWidth: "92%" }}>
                 {m.actions.map((a, i) => isDone(a)
