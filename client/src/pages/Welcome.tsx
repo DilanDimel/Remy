@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, useStore } from "../lib/store";
 import { ArrowLeft, CalendarClock, Check, FileText, Search, ShieldCheck } from "lucide-react";
-import { useRoute } from "../lib/router";
+import { go, useRoute } from "../lib/router";
 import { BetaBadge, Remy, Spinner, StatusChip } from "../components/common";
 import { providerOn, sendMagicLink, startOAuth, type SupabaseProvider } from "../lib/supabase";
 import { ThemeToggle } from "../components/ThemeToggle";
@@ -56,7 +56,7 @@ function BetaNote({ onOther }: { onOther: () => void }) {
       <span className="small">{betaBlocked}</span>
       <div className="row" style={{ gap: 8 }}>
         <a className="btn btn-primary btn-sm" href={href} target="_blank" rel="noreferrer" data-testid="link-beta-apply">Apply for the Founding Cohort</a>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => { clearBeta(); onOther(); }} data-testid="button-beta-other">Use a different email</button>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => { clearBeta(); onOther(); go("/signin"); }} data-testid="button-beta-other">Use a different email</button>
       </div>
     </div>
   );

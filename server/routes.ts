@@ -648,6 +648,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       const prev = await identify(req);
       const me = await verifyGoogle(String(req.body?.credential || ""));
       if (!(await beta.emailAllowed(me.email))) throw beta.betaError(me.email);
+      await ensureUser(me);
       // carry an in-progress demo workspace into a brand-new Google account
       if (!(await hasWorkspace(me.id)) && prev && prev.id !== me.id && (await hasWorkspace(prev.id))) {
         await saveWorkspace(me.id, await loadWorkspace(prev.id));
