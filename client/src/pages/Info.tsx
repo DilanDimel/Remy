@@ -5,7 +5,7 @@ import { ThemeToggle } from "../components/ThemeToggle";
 import { BETA_TERMS, BETA_TERMS_LEAD } from "@shared/beta";
 
 const CONTACT = "remy.careercoach@gmail.com";
-const UPDATED = "November 2, 2026";
+const UPDATED = "November 7, 2026";
 
 const Section = ({ title, children }: { title: string; children: ReactNode }) => (
   <section className="stack-sm"><h2 style={{ fontSize: "1.15rem" }}>{title}</h2>{children}</section>
@@ -39,7 +39,7 @@ const TEAM: { name: string; role: string; photo: string }[] = [
 
 export function About() {
   return (
-    <Page title="About Remy" lead="Remy is a career coach for college students: it finds real openings that fit you and helps you apply honestly.">
+    <Page title="About Remy" lead="Remy is a career coach for college students: it finds real openings that fit you and helps you apply honestly. During the beta it's invite-only: apply for the Founding Cohort on the homepage.">
       <Section title="Why we built it">
         <p>Most students, freshmen especially, don't know where to start: what to put on a resume, which openings fit, or who to talk to. Remy walks you through it, from your first resume to your first offer.</p>
       </Section>
@@ -49,7 +49,7 @@ export function About() {
           <li><b>Finds real openings.</b> Remy reads employers' own career sites and shows openings that fit your major, year and where you want to work.</li>
           <li><b>Tailors honestly.</b> Every suggested change is checked against your own resume. Remy never invents numbers, titles or experience.</li>
           <li><b>Helps you reach out.</b> Remy helps write the first email to people you've met. You approve every word and send it yourself. Alumni matching is coming soon.</li>
-          <li><b>Keeps you on track.</b> A plan, deadlines, a calendar and an application tracker in one place.</li>
+          <li><b>Keeps you on track.</b> A plan, deadlines, a calendar and an application tracker in one place, and it shows how many of your applications got an answer, so you can see what works.</li>
         </ul>
       </Section>
       <Section title="Our promises">
@@ -57,6 +57,7 @@ export function About() {
           <li>Remy only uses what you give it, and you can see and change all of it.</li>
           <li>Remy never asks for your passwords.</li>
           <li>Delete your account and everything that identifies you is deleted right away.</li>
+          <li>Remy never records your screen or what you type to learn how it's used: when something breaks, it reports only what failed and where.</li>
         </ul>
       </Section>
       <Section title="Who we are">
@@ -86,6 +87,9 @@ export function Policies() {
           <li><b>From signing in:</b> your name, email address and profile photo.</li>
           <li><b>What you give Remy:</b> your resume (the file and its text), a LinkedIn profile PDF if you upload one, your answers in setup and the resume builder, your preferences, saved openings, applications, tracker, calendar items, contacts you add, email drafts and chat messages.</li>
           <li><b>Your school email</b>, if you verify it (for example name@tcu.edu), so Remy knows you're a student there.</li>
+          <li><b>Your Founding Cohort application</b>, if you apply with our Google Form: your name, school, the email you'll sign in with, major, class year, what you're looking for, where you're stuck, the tools you use, whether you'll give weekly feedback and how you heard about Remy. The team uses it to choose each cohort. Google Forms' own privacy policy applies to the form itself.</li>
+          <li><b>Your ratings and feedback:</b> “More like this” / “Not for me” on openings, one-tap 👍 / 👎, and anything you send with Send feedback.</li>
+          <li><b>Automatic problem reports:</b> when something breaks for you (a page error, or a request that fails or is very slow), your browser tells Remy which page and what failed, linked to your account so we can fix it. Remy also counts which pages are opened and when a button is clicked over and over (a sign it's broken), without your name. Remy never records your screen or what you type.</li>
           <li><b>A sign-in cookie</b> that keeps you signed in. Remy uses your network address briefly to stop abuse (like too many requests at once) and doesn't store it.</li>
         </ul>
       </Section>
@@ -100,14 +104,15 @@ export function Policies() {
       <Section title="How your information is used">
         <p>Only to run Remy for you: building your profile, finding openings that fit, tailoring applications, drafting emails, and planning your next steps.</p>
         <p>Some of this uses AI. When it does, Remy sends only the text that task needs (for example, your resume and a job posting) to an AI provider (currently Google's Gemini models, through OpenRouter), and those providers' own privacy policies apply. Remy checks what the AI writes against your own words before showing it to you.</p>
-        <p>We may keep combined statistics that can't identify anyone (for example, how many students used the resume builder) to improve Remy.</p>
+        <p>Remy emails you 6-digit sign-in codes and, unless you turn them off in Account → Appearance & alerts, deadline reminders and a weekly digest, from remy.careercoach@gmail.com. If you're accepted into the Founding Cohort, the team sends you a welcome email with how to sign in.</p>
+        <p>The team's dashboard shows counts across students (for example, how many applications got an answer, or how many students opened a page), never what you wrote. We may keep combined statistics that can't identify anyone to improve Remy.</p>
       </Section>
       <Section title="Where it's stored">
-        <p>Your information is stored in a Supabase database and served from Render, both in the United States. Sign-in is handled by Supabase (with Google, LinkedIn or an email link) or Google. If you connect Google Calendar, Remy keeps an encrypted Google access key so it can update and delete its “Remy” calendar; disconnecting deletes the calendar and the key.</p>
+        <p>Your information is stored in a Supabase database and served from Render, both in the United States. Sign-in is handled by Supabase (with Google or LinkedIn), Google, or Remy's own emailed 6-digit code. Public job postings Remy finds are kept in one shared list with no student information. If you connect Google Calendar, Remy keeps an encrypted Google access key so it can update and delete its “Remy” calendar; disconnecting deletes the calendar and the key.</p>
       </Section>
       <Section title="Deleting your information">
-        <p>Go to <b>Account → Account & data → Delete everything</b>. Your resume, files, profile, applications, calendar, contacts, chat, verified school email, sign-in record and account are deleted immediately, the “Remy” calendar is deleted from your Google Calendar if you connected it, and you're signed out. Remy keeps nothing that identifies you. Combined statistics, if any, can't be traced back to you.</p>
-        <p>You can also <b>download all your data</b> from the same page at any time. Guest (demo) accounts are deleted automatically after 30 days without use. Copies in our hosting providers' routine backups expire on their own schedule.</p>
+        <p>Go to <b>Account → Account & data → Delete everything</b>. Your resume, files, profile, applications, calendar, contacts, chat, ratings, feedback and problem reports, verified school email, Founding Cohort application, sign-in record and account are deleted immediately, the “Remy” calendar is deleted from your Google Calendar if you connected it, and you're signed out. Remy keeps nothing that identifies you. Combined statistics, if any, can't be traced back to you.</p>
+        <p>You can also <b>download all your data</b> from the same page at any time. Guest (demo) accounts are deleted automatically after 30 days without use. Applications the team declines are deleted after their cohort closes. Copies in our hosting providers' routine backups expire on their own schedule.</p>
       </Section>
 
       <h2 className="eyebrow" style={{ marginTop: 12 }}>Terms of use</h2>
@@ -117,7 +122,7 @@ export function Policies() {
       </Section>
       <Section title="Using Remy">
         <ul className="stack-sm" style={{ paddingLeft: 18 }}>
-          <li>Remy is for college students looking for internships, jobs and career advice. It's free while we're in early testing.</li>
+          <li>Remy is for college students looking for internships, jobs and career advice. It's free while we're in early testing, and invite-only: sign in with the same email you applied with.</li>
           <li>Be honest. You're responsible for what you put on your resume and send to employers. Remy only suggests; you decide.</li>
           <li>Remy can be wrong. Check openings, deadlines and requirements with the employer before you apply. Remy can't promise any interview or job.</li>
           <li>Use contacts respectfully: one thoughtful email, no spam, and never share someone's information.</li>
