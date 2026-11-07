@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
-import { Activity, AlertTriangle, Bot, ArrowLeft, ArrowRight, BarChart3, Briefcase, CalendarDays, Check, Clock, Database, KanbanSquare, Plus, RotateCcw, Trash2, TrendingUp, UserCheck, Users } from "lucide-react";
+import { Activity, AlertTriangle, Bot, ArrowLeft, ArrowRight, BarChart3, Briefcase, CalendarDays, Check, Clock, Database, KanbanSquare, Server, Plus, RotateCcw, Trash2, TrendingUp, UserCheck, Users } from "lucide-react";
 import { api, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
 import { BetaBadge, CopyButton, Empty, Modal, Remy, Rich, Spinner } from "../components/common";
@@ -35,10 +35,10 @@ type Team = {
 };
 const ANSWERS: [Answer, string][] = [["yes", "Going"], ["maybe", "Maybe"], ["no", "Can't go"]];
 
-const TABS = [["overview", "Overview", BarChart3], ["beta", "Beta", UserCheck], ["outcomes", "Outcomes", TrendingUp], ["database", "Database", Database], ["openings", "Openings", Briefcase], ["errors", "Errors & feedback", AlertTriangle], ["agents", "Agents", Bot], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity]] as const;
+const TABS = [["overview", "Overview", BarChart3], ["beta", "Beta", UserCheck], ["outcomes", "Outcomes", TrendingUp], ["services", "Services", Server], ["database", "Database", Database], ["openings", "Openings", Briefcase], ["errors", "Errors & feedback", AlertTriangle], ["agents", "Agents", Bot], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity]] as const;
 type Tab = (typeof TABS)[number][0];
 // The menu in three groups (Nov 7): students first, then data, then the team's own work.
-const NAV_GROUPS: [string, Tab[]][] = [["Students", ["overview", "beta", "outcomes"]], ["Data", ["database", "openings", "errors", "agents"]], ["Team", ["board", "people", "calendar", "hours", "activity"]]];
+const NAV_GROUPS: [string, Tab[]][] = [["Students", ["overview", "beta", "outcomes"]], ["Data", ["services", "database", "openings", "errors", "agents"]], ["Team", ["board", "people", "calendar", "hours", "activity"]]];
 const HISTORY_AFTER = 3 * 86400_000;
 const COLS: [Status, string][] = [["todo", "To do"], ["doing", "In progress"], ["done", "Done"]];
 const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -94,6 +94,7 @@ export default function Admin() {
         {tab === "agents" && <AgentsTab />}
         {tab === "beta" && <><FunnelCard /><BetaTab /></>}
         {tab === "outcomes" && <OutcomesTab />}
+        {tab === "services" && <ServicesTab />}
         {tab === "database" && <DatabaseTab />}
         {tab === "openings" && <OpeningsTab />}
         {(tab === "board" || tab === "people" || tab === "calendar" || tab === "hours" || tab === "activity") && <TeamTab tab={tab} />}
@@ -373,6 +374,51 @@ function OpeningsTab() {
           </div>
         ))}
         {!d.openings.length && <p className="small muted">Nothing matches.</p>}
+      </section>
+    </div>
+  );
+}
+
+type Services = {
+  server: { commit: string; branch: string; instance: string; startedAt: string; uptimeMin: number; memoryMb: number; memoryLimitMb: number; node: string };
+  errors: { server: number; browser: number };
+  deploys: { available: false } | { available: true; error?: string; deploys?: { status: string; createdAt: string | null; finishedAt: string | null; message: string; commit: string }[] };
+  ai: { available: false } | { available: true; error?: string; label?: string; freeTier?: boolean; usage?: number | null; limit?: number | null; remaining?: number | null; usageDaily?: number | null; usageWeekly?: number | null; usageMonthly?: number | null };
+  aiChain: { available: boolean; model: string; via: string };
+};
+const money = (n?: number | null) => (n == null ? "—" : `$${n.toFixed(2)}`);
+/** Is the site healthy, which version is live, recent deploys, and how much AI money is left. Read-only. */
+function ServicesTab() {
+  const [d, reload] = useLoad<Services>("/api/admin/services");
+  if (!d) return <Spinner />;
+  const up = d.server.uptimeMin < 90 ? `${d.server.uptimeMin} min` : d.server.uptimeMin < 2880 ? `${Math.round(d.server.uptimeMin / 60)} h` : `${Math.round(d.server.uptimeMin / 1440)} days`;
+  const ai = d.ai.available ? d.ai : null;
+  const dep = d.deploys.available ? d.deploys : null;
+  return (
+    <div className="stack">
+      <Head title="Services" sub="Render (the server), OpenRouter (AI) and Supabase (database). Read-only." action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
+      <div className="adm-kpis">
+        <Kpi n="Up" label="Server" note={`version ${d.server.commit || "local"} · running ${up}`} />
+        <Kpi n={`${d.server.memoryMb} MB`} label="Memory in use" note={`of ${d.server.memoryLimitMb} MB on the Render plan`} />
+        <Kpi n={d.errors.server + d.errors.browser} label="Errors, last 24 hours" note={`${d.errors.server} server · ${d.errors.browser} from browsers`} />
+        <Kpi n={ai && !ai.error ? (ai.remaining != null ? money(ai.remaining) : "No cap") : "—"} label="AI money left on Remy's key" note={ai && !ai.error ? (ai.limit != null ? `${money(ai.usage)} used of ${money(ai.limit)}` : `${money(ai.usage)} used so far; this key has no spending cap`) : ai?.error || "OPENROUTER_API_KEY isn't set"} />
+      </div>
+      <section className="adm-card stack-sm">
+        <h3>Render (server)</h3>
+        <span className="small">Live version <b>{d.server.commit || "local build"}</b>{d.server.branch ? ` from ${d.server.branch}` : ""}, started {new Date(d.server.startedAt).toLocaleString()}. A new start time means a deploy or restart happened then.</span>
+        {dep?.deploys ? (
+          <div className="stack-sm">{dep.deploys.map((x, i) => <div key={i} className="row-between small"><span><b>{x.status}</b> · {x.message || x.commit}</span><span className="xs muted">{x.createdAt ? ago(x.createdAt) : ""}{x.finishedAt && x.createdAt ? ` · took ${Math.max(1, Math.round((Date.parse(x.finishedAt) - Date.parse(x.createdAt)) / 60000))} min` : ""}</span></div>)}</div>
+        ) : <span className="xs muted">{dep?.error || "Deploy history and live deploy status need a Render API key (RENDER_API_KEY). Render keys can change the whole account, so it's off; check dashboard.render.com for deploys."}</span>}
+      </section>
+      <section className="adm-card stack-sm">
+        <h3>OpenRouter (AI)</h3>
+        <span className="small">AI is {d.aiChain.available ? "on" : "off"}: {d.aiChain.via} · {d.aiChain.model}</span>
+        {ai && !ai.error && <span className="small">Spent on this key: today {money(ai.usageDaily)} · this week {money(ai.usageWeekly)} · this month {money(ai.usageMonthly)} · all time {money(ai.usage)}{ai.freeTier ? " · free tier" : ""}</span>}
+        <span className="xs muted">The whole account's balance (credits bought minus used) needs an OpenRouter management key, which can create and delete keys, so Remy doesn't hold one: see openrouter.ai/settings/credits. Overview also shows AI spend this week from Remy's own log.</span>
+      </section>
+      <section className="adm-card stack-sm">
+        <h3>Supabase (database)</h3>
+        <span className="small">Space, account sizes and Remy's data-transfer estimate are on the <a href="/admin?tab=database">Database</a> page.</span>
       </section>
     </div>
   );

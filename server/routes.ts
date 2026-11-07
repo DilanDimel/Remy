@@ -44,6 +44,7 @@ import { conferencesFor } from "./conferences";
 import { trimOpenings } from "./trim";
 import { storageReport, warnIfNearLimit } from "./storage";
 import * as insights from "./insights";
+import * as services from "./services";
 import { pruneOpenings, recordFound, recordCheck, listOpenings, openingsSummary } from "./openings";
 import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, kindOf, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
@@ -582,6 +583,11 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.get("/api/admin/agents", route(async (_req, res, ctx) => { owner(ctx); res.json(await agents.agentRuns()); }));
   // Database space used against the plan's limit, per table (owners only).
   app.get("/api/admin/storage", route(async (_req, res, ctx) => { owner(ctx); await insights.flushDbBytes(); res.json({ ...(await storageReport()), workspaces: await insights.workspaceSizes(), transfer: await insights.dataTransfer() }); }));
+  app.get("/api/admin/services", route(async (_req, res, ctx) => {
+    owner(ctx);
+    const [errors, deploys, ai] = await Promise.all([services.recentErrors(), services.renderDeploys(), services.openRouter()]);
+    res.json({ server: services.serverNow(), errors, deploys, ai, aiChain: aiStatus() });
+  }));
   app.get("/api/admin/funnel", route(async (_req, res, ctx) => { owner(ctx); res.json(await insights.funnel()); }));
   app.get("/api/admin/outcomes", route(async (_req, res, ctx) => { owner(ctx); res.json(await insights.outcomes()); }));
   // Checked openings by company, industry, career path or status (owners only; public postings, no student data).
