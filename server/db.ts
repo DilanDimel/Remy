@@ -239,7 +239,16 @@ export async function editWorkspace(userId: string, edit: (ws: Workspace) => voi
   });
 }
 export async function deleteAccount(userId: string) {
+  const email = String((await q1("SELECT email FROM users WHERE id=$1", [userId]))?.email || "").trim().toLowerCase();
   await tx(async (run) => {
+    // Everything that identifies the student: their feedback and error reports, and (by email) their Founding Cohort
+    // application and place on the beta list, so "Delete everything" leaves nothing behind.
+    await run("DELETE FROM error_reports WHERE user_id=$1", [userId]);
+    if (email) {
+      await run("DELETE FROM beta_applications WHERE lower(email)=$1", [email]);
+      await run("DELETE FROM beta_list WHERE lower(email)=$1", [email]);
+      await run("DELETE FROM signin_codes WHERE lower(email)=$1", [email]);
+    }
     await run("DELETE FROM workspaces WHERE user_id=$1", [userId]);
     await run("DELETE FROM files WHERE user_id=$1", [userId]);
     await run("DELETE FROM ai_usage WHERE user_id=$1", [userId]);
