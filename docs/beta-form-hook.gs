@@ -32,7 +32,9 @@ function onSubmit(e) {
   if (res.getResponseCode() !== 200) console.error("Remy didn't take the application: " + res.getResponseCode() + " " + res.getContentText());
 }
 
-/** Optional: run once by hand (▶ Run → sendAllExisting) to send answers that came in before the script was added. */
+/** Optional: run once by hand (▶ Run → sendAllExisting) to send answers that came in before the script was added.
+ *  Remy takes up to 300 submissions an hour; past that, wait an hour and run it again (re-sending is harmless).
+ *  Tip: Settings → Responses → "Collect email addresses: Verified" stops people applying with someone else's email. */
 function sendAllExisting() {
   FormApp.getActiveForm().getResponses().forEach(function (response) { onSubmit({ response: response }); });
 }

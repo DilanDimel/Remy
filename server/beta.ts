@@ -142,7 +142,8 @@ export async function decide(by: string, email: string, status: AppStatus, cohor
   if (!before.length) throw Object.assign(new Error("Application not found."), { status: 404 });
   await q("UPDATE beta_applications SET status=$2, cohort=$3, decided_by=$4, decided_at=now() WHERE email=$1", [e, status, String(cohort || "").slice(0, 60), by]);
   if (status === "accepted") return (await add(by, e, cohort ? `${cohort} · from the form` : "From the form")).added.length > 0;
-  if (String(before[0].status) === "accepted") await remove(e);
+  // Only an entry this form accept created is taken back; someone an owner added by hand keeps access.
+  if (String(before[0].status) === "accepted" && (await q("SELECT 1 FROM beta_list WHERE email=$1 AND note LIKE '%from the form'", [e])).length) await remove(e);
   return false;
 }
 
