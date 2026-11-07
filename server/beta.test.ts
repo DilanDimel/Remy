@@ -56,9 +56,12 @@ test("beta gate: guests, outsiders and old accounts are kept out; accepted email
     assert.equal(me.data.beta.blocked, true);
     assert.equal(me.data.beta.email, "old.tester@beta.test");
     assert.match(me.setCookie, /or_sid=;|Max-Age=0|Expires=Thu, 01 Jan 1970/i); // that browser is signed out
+    // Same answer as an accepted email (no probing who's in), but no code exists to sign in with.
     const start = await call("", "POST", "/api/auth/email/start", { email: "stranger@beta.test" });
-    assert.equal(start.status, 403);
-    assert.equal(start.data.code, "beta");
+    assert.equal(start.status, 200);
+    assert.equal(start.data.sent, true);
+    const guess = await call("", "POST", "/api/auth/email/verify", { email: "stranger@beta.test", code: "123456" });
+    assert.equal(guess.status, 400);
     // A code issued before the switch still can't open an account outside the list.
     const code = await newSigninCode("stranger@beta.test");
     const verify = await call("", "POST", "/api/auth/email/verify", { email: "stranger@beta.test", code });

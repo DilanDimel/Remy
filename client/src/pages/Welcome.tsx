@@ -156,7 +156,9 @@ function SignIn() {
           {emailOpen && (
             sent && codes ? (
               <form className="stack-sm fade-up" onSubmit={(e) => { e.preventDefault(); verify(); }} data-testid="email-code-form">
-                <span className="small">We emailed a 6-digit code to <strong>{sent}</strong>. It works on any device and expires in 10 minutes. Not there? Check spam or Promotions.</span>
+                <span className="small">{config?.beta?.on
+                  ? <>If <strong>{sent}</strong> is in Remy's Founding Cohort, a 6-digit code is on its way (it expires in 10 minutes). Nothing after a few minutes? Check spam, then make sure it's the email you applied with, or <a className="auth-link" href={applyHref(config.beta.formUrl)} target="_blank" rel="noreferrer">apply here</a>.</>
+                  : <>We emailed a 6-digit code to <strong>{sent}</strong>. It works on any device and expires in 10 minutes. Not there? Check spam or Promotions.</>}</span>
                 <div className="row">
                   <input className="input" style={{ flex: 1, minWidth: 140, letterSpacing: 4 }} inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="123456" aria-label="6-digit code" data-testid="input-email-code" />
                   <button className="btn btn-primary auth-go" disabled={code.length !== 6 || !!busy} data-testid="button-verify-code">{busy === "Work/School Email" ? <Spinner /> : null} Sign in</button>

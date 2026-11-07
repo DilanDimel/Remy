@@ -700,7 +700,8 @@ export async function registerRoutes(_server: Server, app: Express) {
     const email = emailOf(req);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ message: "Enter your email address." });
     if (!emailReady() && !devCodes()) return res.status(503).json({ message: "Email codes aren't set up on this server.", code: "no-email" });
-    if (!(await beta.emailAllowed(email))) return res.status(403).json({ message: beta.betaError(email).message, code: "beta" });
+    // Not accepted: answer exactly as for an accepted email but send nothing, so nobody can probe who's in the cohort.
+    if (!(await beta.emailAllowed(email))) return res.json({ sent: true, email });
     // Limits keep Remy from being used to flood anyone's inbox.
     if (!allow("signin-ip:" + clientIp(req), 10, 60 * 60_000)) return res.status(429).json({ message: "Too many codes from this network. Please try again in an hour, or continue with Google." });
     if (!allow("signin-to:" + email, 5, 60 * 60_000)) return res.status(429).json({ message: "Several codes were already sent to this address. Use the newest one, or try again in an hour." });

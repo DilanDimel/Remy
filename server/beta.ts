@@ -16,7 +16,7 @@ const EMAIL = /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/;
 // Read on every request while the switch is on, so a short cache; adding or removing an email clears it at once.
 let cache: { at: number; set: Set<string> } = { at: 0, set: new Set() };
 async function accepted() {
-  if (Date.now() - cache.at > 30_000) cache = { at: Date.now(), set: new Set((await q("SELECT email FROM beta_list")).map((r) => String(r.email))) };
+  if (Date.now() - cache.at > 30_000) cache = { at: Date.now(), set: new Set((await q("SELECT email FROM beta_list")).map((r) => normEmail(String(r.email)))) };
   return cache.set;
 }
 export const clearBetaCache = () => { cache.at = 0; };
