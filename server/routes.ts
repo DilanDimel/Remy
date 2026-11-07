@@ -590,6 +590,38 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (r.added.length) await admin.logAction(me, "beta: accepted", `${r.added.length} email(s)${invited.length ? `, ${invited.length} emailed` : ""}`);
     res.json({ ...r, invited, list: await beta.list() });
   }));
+  // Founding Cohort applications. The Google Form's script posts each submission here with a shared secret
+  // (OR_BETA_HOOK_SECRET), so the Admin page shows it within seconds; nothing about it is public.
+  app.post("/api/beta/form-hook", async (req, res) => {
+    const want = Buffer.from(process.env.OR_BETA_HOOK_SECRET || ""), got = Buffer.from(String(req.header("x-beta-secret") || ""));
+    if (want.length < 16 || got.length !== want.length || !crypto.timingSafeEqual(got, want)) return res.status(401).json({ message: "Wrong secret." });
+    if (!allow("beta-hook", 300, 60 * 60_000)) return res.status(429).json({ message: "Too many submissions this hour." });
+    const a = beta.parseAnswers(req.body?.answers);
+    if (!a) return res.status(400).json({ message: "No email address in the answers." });
+    await beta.saveApplication(a);
+    res.json({ ok: true });
+  });
+  app.get("/api/admin/beta/applications", route(async (_req, res, ctx) => { owner(ctx); res.json({ applications: await beta.applications(), hookReady: (process.env.OR_BETA_HOOK_SECRET || "").length >= 16 }); }));
+  app.post("/api/admin/beta/applications/:email", route(async (req, res, ctx) => {
+    const me = owner(ctx);
+    const status = String(req.body?.status || "") as beta.AppStatus;
+    if (!beta.APP_STATUSES.includes(status)) bad("Pick accepted, next, declined or new.");
+    const email = String(req.params.email);
+    const fresh = await beta.decide(me, email, status, String(req.body?.cohort || ""));
+    let invited = false;
+    if (fresh && req.body?.notify === true && emailReady()) {
+      const { subject, text } = beta.welcomeEmail(process.env.PUBLIC_HOST || "offer-ready.onrender.com");
+      try { await sendEmail(email, subject, text); await beta.markInvited(email); invited = true; } catch (err: any) { console.error("beta welcome email failed", err?.message); }
+    }
+    await admin.logAction(me, `beta: application ${status}`, req.body?.cohort ? String(req.body.cohort).slice(0, 60) : "");
+    res.json({ applications: await beta.applications(), list: await beta.list(), invited });
+  }));
+  app.delete("/api/admin/beta/applications", route(async (_req, res, ctx) => {
+    const me = owner(ctx);
+    const n = await beta.deleteDeclined();
+    await admin.logAction(me, "beta: deleted declined applications", String(n));
+    res.json({ deleted: n, applications: await beta.applications() });
+  }));
   app.delete("/api/admin/beta/:email", route(async (req, res, ctx) => {
     const me = owner(ctx);
     await beta.remove(String(req.params.email));

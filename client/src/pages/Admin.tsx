@@ -91,6 +91,86 @@ export default function Admin() {
   );
 }
 
+type AppStatus = "new" | "accepted" | "next" | "declined";
+type Application = { email: string; name: string; school: string; major: string; classYear: string; goal: string; stuck: string; tools: string; feedback: string; source: string; terms: string; status: AppStatus; cohort: string; decidedBy: string; decidedAt: string | null; receivedAt: string };
+const APP_TABS: [AppStatus, string][] = [["new", "New"], ["accepted", "Accepted"], ["next", "Next cohort"], ["declined", "Declined"]];
+
+/** Applications from the Founding Cohort form, live (checks every 20 seconds while this page is open). */
+function Applications({ emailReady, onList }: { emailReady: boolean; onList: (list: BetaRow[]) => void }) {
+  const { run, toast } = useStore();
+  const [data, setData] = useState<{ applications: Application[]; hookReady: boolean } | null>(null);
+  const [show, setShow] = useState<AppStatus>("new");
+  const [cohort, setCohort] = useState("Cohort 1");
+  const [notify, setNotify] = useState(false);
+  const [filter, setFilter] = useState<{ school: string; year: string; feedback: boolean }>({ school: "", year: "", feedback: false });
+  const [busy, setBusy] = useState("");
+  useEffect(() => {
+    let on = true;
+    const load = () => api<{ applications: Application[]; hookReady: boolean }>("GET", "/api/admin/beta/applications").then((r) => on && setData(r)).catch(() => {});
+    load();
+    const t = setInterval(() => { if (document.visibilityState === "visible") load(); }, 20_000);
+    return () => { on = false; clearInterval(t); };
+  }, []);
+  if (!data) return <Spinner />;
+  const decide = async (a: Application, status: AppStatus) => {
+    setBusy(a.email);
+    const r = await run(() => api<{ applications: Application[]; list: BetaRow[]; invited: boolean }>("POST", `/api/admin/beta/applications/${encodeURIComponent(a.email)}`, { status, cohort: status === "accepted" ? cohort : "", notify: notify && emailReady }));
+    setBusy("");
+    if (!r) return;
+    setData({ ...data, applications: r.applications });
+    onList(r.list);
+    toast(status === "accepted" ? `${a.name || a.email} accepted${r.invited ? " and emailed" : ""}: they can sign in now` : status === "next" ? "Moved to next cohort" : status === "declined" ? "Declined" : "Moved back to New");
+  };
+  const clearDeclined = async () => {
+    if (!confirm("Delete every declined application? Do this once the cohort has closed. It can't be undone.")) return;
+    const r = await run(() => api<{ deleted: number; applications: Application[] }>("DELETE", "/api/admin/beta/applications"));
+    if (r) { setData({ ...data, applications: r.applications }); toast(`${r.deleted} declined application${r.deleted === 1 ? "" : "s"} deleted`); }
+  };
+  const all = data.applications;
+  const schools = [...new Set(all.map((a) => a.school).filter(Boolean))].sort();
+  const years = [...new Set(all.map((a) => a.classYear).filter(Boolean))].sort();
+  const rows = all.filter((a) => a.status === show && (!filter.school || a.school === filter.school) && (!filter.year || a.classYear === filter.year) && (!filter.feedback || /^yes/i.test(a.feedback)));
+  const tally = (key: "stuck" | "source" | "goal") => Object.entries(all.reduce<Record<string, number>>((m, a) => { const k = a[key] || "—"; m[k] = (m[k] || 0) + 1; return m; }, {})).sort((x, y) => y[1] - x[1]).slice(0, 5);
+  return (
+    <section className="adm-card stack-sm" data-testid="beta-applications">
+      <div className="row-between"><h3>Applications from the form ({all.length})</h3><span className="xs muted">Updates every 20 seconds</span></div>
+      {!data.hookReady && <p className="small notice notice-warn">The form isn't connected yet: set OR_BETA_HOOK_SECRET on Render and add the script from docs/beta-form-hook.gs to the form.</p>}
+      {all.length > 0 && (
+        <div className="small muted stack-sm">
+          {(["stuck", "goal", "source"] as const).map((k) => <span key={k}><b>{k === "stuck" ? "Stuck on" : k === "goal" ? "Wants" : "Heard from"}:</b> {tally(k).map(([v, n]) => `${v} (${n})`).join(" · ")}</span>)}
+        </div>
+      )}
+      <div className="seg" role="group" aria-label="Status">
+        {APP_TABS.map(([k, l]) => <button key={k} aria-pressed={show === k} onClick={() => setShow(k)} data-testid={`apps-tab-${k}`}>{l} ({all.filter((a) => a.status === k).length})</button>)}
+      </div>
+      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        <select className="select" style={{ width: 170 }} value={filter.school} onChange={(e) => setFilter({ ...filter, school: e.target.value })} aria-label="School"><option value="">Every school</option>{schools.map((s) => <option key={s}>{s}</option>)}</select>
+        <select className="select" style={{ width: 150 }} value={filter.year} onChange={(e) => setFilter({ ...filter, year: e.target.value })} aria-label="Class year"><option value="">Every year</option>{years.map((s) => <option key={s}>{s}</option>)}</select>
+        <label className="row small"><input type="checkbox" checked={filter.feedback} onChange={(e) => setFilter({ ...filter, feedback: e.target.checked })} /> Will give feedback</label>
+        <span className="row small" style={{ marginLeft: "auto", gap: 6 }}>Accept into <input className="input" style={{ width: 120 }} value={cohort} onChange={(e) => setCohort(e.target.value)} aria-label="Cohort name" /></span>
+        <label className="row small" title={emailReady ? "" : "Email isn't set up on this server"}><input type="checkbox" checked={notify && emailReady} disabled={!emailReady} onChange={(e) => setNotify(e.target.checked)} /> Also send Remy's “You're in” email</label>
+      </div>
+      {rows.map((a) => (
+        <div key={a.email} className="adm-person stack-sm" style={{ borderTop: "1px solid var(--line)", paddingTop: 10 }} data-testid="row-application">
+          <div className="row-between" style={{ gap: 8 }}>
+            <div><b>{a.name || "(no name)"}</b> <span className="small muted">· {a.email}</span><div className="small">{[a.school, a.classYear, a.major].filter(Boolean).join(" · ")}</div></div>
+            <div className="row" style={{ gap: 6 }}>
+              {a.status !== "accepted" && <button className="btn btn-primary btn-sm" disabled={!!busy} onClick={() => decide(a, "accepted")} data-testid="button-app-accept">Accept</button>}
+              {a.status !== "next" && <button className="btn btn-secondary btn-sm" disabled={!!busy} onClick={() => decide(a, "next")}>Next cohort</button>}
+              {a.status !== "declined" && <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => decide(a, "declined")}>Decline</button>}
+              {a.status !== "new" && <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => decide(a, "new")}>Back to New</button>}
+            </div>
+          </div>
+          <span className="small"><b>Wants:</b> {a.goal || "—"} · <b>Stuck on:</b> {a.stuck || "—"} · <b>Uses:</b> {a.tools || "—"}</span>
+          <span className="xs muted">Feedback each week: {a.feedback || "—"} · Heard from: {a.source || "—"} · Applied {ago(a.receivedAt)}{a.decidedAt ? ` · ${a.status}${a.cohort ? ` (${a.cohort})` : ""} by ${a.decidedBy} ${ago(a.decidedAt)}` : ""}{/18|parent/i.test(a.terms) ? "" : " · ⚠ age/terms box not confirmed"}</span>
+        </div>
+      ))}
+      {!rows.length && <p className="small muted">{all.length ? "Nothing here with these filters." : "No applications yet. They appear here seconds after someone submits the form."}</p>}
+      {show === "declined" && all.some((a) => a.status === "declined") && <div><button className="btn btn-ghost btn-sm" style={{ color: "var(--error)" }} onClick={clearDeclined}><Trash2 size={14} /> Delete declined (after the cohort closes)</button></div>}
+    </section>
+  );
+}
+
 type BetaRow = { email: string; note: string; addedBy: string; addedAt: string; invitedAt: string | null };
 type BetaData = { on: boolean; formUrl: string; emailReady: boolean; list: BetaRow[] };
 /** Founding Cohort: owners paste accepted emails (one per line or comma-separated); Remy can email them "You're in". */
@@ -123,8 +203,9 @@ function BetaTab() {
         <span><b>Beta-only mode is {d.on ? "ON" : "OFF"}</b> on this server{d.on ? "" : ": anyone can sign in right now. Turn it on with OR_BETA_ONLY=true in Render's environment settings"}.</span>
         <span className="small muted">Application form: {d.formUrl ? <a href={d.formUrl} target="_blank" rel="noreferrer">{d.formUrl}</a> : "not set (set OR_BETA_FORM_URL; until then students are pointed to remy.careercoach@gmail.com)"}</span>
       </section>
-      <form className="adm-card adm-form stack-sm" onSubmit={(e) => { e.preventDefault(); add(); }}>
-        <h3>Accept students</h3>
+      <Applications emailReady={d.emailReady} onList={(list) => setD({ ...d, list })} />
+      <form className="adm-card stack-sm" onSubmit={(e) => { e.preventDefault(); add(); }}>
+        <h3>Accept by email (without the form)</h3>
         <textarea className="textarea" value={emails} onChange={(e) => setEmails(e.target.value)} placeholder={"Paste emails from the form, one per line or separated by commas"} aria-label="Emails to accept" data-testid="input-beta-emails" />
         <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note, e.g. Cohort 1 · tcu-table (optional)" aria-label="Note" maxLength={200} />
         <label className="row small"><input type="checkbox" checked={notify && d.emailReady} disabled={!d.emailReady} onChange={(e) => setNotify(e.target.checked)} /> Email them “You're in” with the sign-in link{d.emailReady ? "" : " (email isn't set up on this server)"}</label>
