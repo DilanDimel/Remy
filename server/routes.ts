@@ -352,13 +352,14 @@ async function findOpenings(ctx: Ctx, named: string[] = [], opts: { background?:
   const readAt = nowIso();
   ctx.ws.employersRead = Object.fromEntries([...Object.entries(ctx.ws.employersRead || {}), ...unique.map((b) => [b.company, readAt])].slice(-400));
   console.log(`discover: read ${r.reached}/${unique.length} (${unique.map((b) => b.company).join(", ")}), added ${r.jobs.length}`);
-  // Add to the latest saved list, so a posting the student imported meanwhile isn't overwritten.
-  const fresh = await loadWorkspace(ctx.me.id);
-  const have = new Set(fresh.jobs.map((j) => j.applyUrl));
   // Conferences in the student's field, unless they said they don't want events.
   // In a background search, only conferences already found this month (finding new ones is an AI call).
   const cachedOnly = async (): Promise<never> => { throw new Error("background: cache only"); };
   const confs = (await conferencesFor(ctx.ws, opts.background ? cachedOnly : undefined).catch(() => [])).filter((j) => typeMatch(ctx.ws, j) !== false);
+  // Add to the latest saved list, read only now (after the slow conference step), so a posting the student imported,
+  // saved or rated during this search isn't overwritten or trimmed.
+  const fresh = await loadWorkspace(ctx.me.id);
+  const have = new Set(fresh.jobs.map((j) => j.applyUrl));
   const added = [...r.jobs, ...confs].filter((j) => !have.has(j.applyUrl));
   ctx.ws.jobs = [...added, ...fresh.jobs];
   ctx.ws.fits = { ...fresh.fits };

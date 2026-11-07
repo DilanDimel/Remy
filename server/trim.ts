@@ -1,7 +1,8 @@
 // Keeps a student's openings list from growing forever. Every search adds up to 25 openings (each with up to 12 KB of
 // posting text) and a workspace over 4 MB can't be saved, so old openings the student never touched are dropped.
 // An opening is kept whenever anything else in the workspace mentions its id: saved, applied to, rated, hidden,
-// a to-do, a calendar item, the tracker, a chat or AI log line. Openings the student added themselves always stay.
+// a to-do, a calendar item, the tracker, a chat or AI log line. Openings typed in by hand always stay; ones imported
+// from a link are kept while anything above refers to them, like Remy's own finds.
 // Dropped links are remembered (droppedJobUrls) so the next search doesn't bring them back as "new".
 import type { Job, Workspace } from "@shared/types";
 
