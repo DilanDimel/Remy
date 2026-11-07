@@ -1038,3 +1038,25 @@ ul[class] > li, ol[class] > li { max-width: none; }
 /* Owners' menu in groups (Nov 7) */
 .adm-nav-group { display: grid; gap: 2px; margin-bottom: 10px; }
 .adm-nav-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted-text); padding: 6px 12px 2px; }
+
+/* Light mode (Nov 7, Dilan picked "Soft gray"): the menu is a soft gray strip instead of the dark frame, so the app
+   matches in light mode; the current page is a white pill. Dark mode keeps the dark menu above. */
+[data-theme="light"] .sidebar, [data-theme="light"] .mobile-nav {
+  --bg: #ffffff; --surface: #ffffff; --surface-2: #f0eef2; --ink: #1d1b22; --muted-text: #6b6773; --faint: #8a8694;
+  --plum: #1d1b22; --plum-ink: #ffffff; --lav: rgba(0, 0, 0, .05); --lav-2: rgba(0, 0, 0, .03); --line: rgba(0, 0, 0, .08);
+  --fox: #e2632a; --blue: #1a5fb4; --blue-bg: #e8f0fb;
+  --shadow: 0 1px 3px rgba(0, 0, 0, .08), 0 8px 24px rgba(0, 0, 0, .08);
+  color: var(--ink); color-scheme: light;
+}
+[data-theme="light"] .sidebar { background: #f0eef2; border-right-color: rgba(0, 0, 0, .07); }
+[data-theme="light"] .sidebar .logo b { color: #e2632a; }
+[data-theme="light"] .sidebar .nav-item { color: #3d3a44; }
+[data-theme="light"] .sidebar .nav-item:hover { color: #111111; background: rgba(0, 0, 0, .04); }
+[data-theme="light"] .sidebar .nav-item[aria-current="page"] { background: #ffffff; color: #111111; box-shadow: 0 1px 2px rgba(0, 0, 0, .06), inset 0 0 0 1px rgba(232, 106, 42, .22); }
+[data-theme="light"] .sidebar .nav-item[aria-current="page"] svg { color: #e2632a; }
+[data-theme="light"] .sidebar .icon-btn { color: #6b6773; }
+[data-theme="light"] .sidebar .avatar { background: rgba(0, 0, 0, .06); color: #1d1b22; }
+[data-theme="light"] .mobile-nav { background: #f0eef2 !important; border-top-color: rgba(0, 0, 0, .07) !important; }
+[data-theme="light"] .mobile-nav a { color: #5a5662 !important; }
+[data-theme="light"] .mobile-nav a[aria-current="page"] { color: #111111 !important; background: #ffffff !important; box-shadow: inset 0 -2px 0 #e2632a !important; }
+[data-theme="light"] .mobile-nav a[aria-current="page"] svg { color: #e2632a; }
