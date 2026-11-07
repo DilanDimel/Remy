@@ -53,14 +53,12 @@ function Sources() {
   const stellic = w.imports.find((i) => /stellic|tcu|degree/i.test(i.kind));
   // Each row says what's actually connected right now; "chip" overrides the status wording.
   const rows: { name: string; status: any; chip?: string; label: string; detail: string; importKind?: string }[] = [
-    { name: "Sign-in", status: signedIn ? "Live" : "Needs setup", chip: signedIn ? "Signed in" : "Demo account", label: signedIn ? `Signed in as ${me!.email}` : "You're using a demo account", detail: signedIn ? "Sign-in only (name, email, photo). Remy doesn't read your Gmail or calendar." : "Sign in with Google or email to keep your work across devices." },
-    { name: "AI assistant", status: config?.ai.available ? "Live" : "Needs setup", chip: config?.ai.available ? "On" : "Off", label: config?.ai.available ? "On" : "Not set up on this server", detail: "Used for resume reading, tailoring, plans, chat, outreach drafts and email classification." },
     { name: "Resume", status: w.resume ? "Student provided" : "Needs setup", chip: w.resume ? "Added" : "Not added", label: w.resume ? `${w.resume.fileName} · ${fmtDate(w.resume.uploadedAt)}` : "Not uploaded yet", detail: "Your evidence base. Replace it anytime in Resume/CV." },
     { name: "LinkedIn", status: linkedin ? "Student provided" : "Needs setup", chip: linkedin ? "Added" : "Not added", label: linkedin ? `${linkedin.fileName} · ${fmtDate(linkedin.at)}` : "Upload your profile PDF (Resources → Save to PDF on LinkedIn)", detail: "LinkedIn doesn't let apps read profiles directly, so Remy uses the PDF you download.", importKind: "LinkedIn profile (PDF)" },
-    { name: "Handshake", status: handshake ? "Student provided" : "Needs setup", chip: handshake ? "Added" : "Coming soon", label: handshake ? `${handshake.fileName} · ${fmtDate(handshake.at)}` : "Direct connection coming soon · you can paste profile or posting text now", detail: "Handshake requires your login; Remy never asks for it.", importKind: "Handshake" },
+    { name: "Handshake", status: handshake ? "Student provided" : "Needs setup", chip: handshake ? "Added" : "Not added", label: handshake ? `${handshake.fileName} · ${fmtDate(handshake.at)}` : "Paste your Handshake profile or a posting", detail: "Handshake requires your login; Remy never asks for it.", importKind: "Handshake" },
     // Stellic is TCU's degree-planning tool; everyone else pastes their plan from their own school's tool.
     atTcu(me)
-      ? { name: "Stellic / TCU academic", status: stellic ? "Student provided" : "Needs setup", chip: stellic ? "Added" : "Coming soon", label: stellic ? `${stellic.fileName} · ${fmtDate(stellic.at)}` : "Direct connection coming soon · you can paste your degree plan now", detail: "Requirements must come from your advisor and official tools.", importKind: "Stellic / degree plan" }
+      ? { name: "Stellic / TCU academic", status: stellic ? "Student provided" : "Needs setup", chip: stellic ? "Added" : "Not added", label: stellic ? `${stellic.fileName} · ${fmtDate(stellic.at)}` : "Paste your degree plan from Stellic", detail: "Requirements must come from your advisor and official tools.", importKind: "Stellic / degree plan" }
       : { name: "Degree plan", status: stellic ? "Student provided" : "Needs setup", chip: stellic ? "Added" : "Not added", label: stellic ? `${stellic.fileName} · ${fmtDate(stellic.at)}` : "Paste your plan from your school's degree-planning tool", detail: "Requirements must come from your advisor and official tools.", importKind: "Degree plan" },
     // Proof the student already has: added as suggested facts they approve one by one.
     ...([
@@ -71,7 +69,6 @@ function Sources() {
       const done = w.imports.find((i) => i.kind === kind);
       return { name, status: done ? "Student provided" : "Needs setup", chip: done ? "Added" : "Not added", label: done ? `${done.fileName} · ${fmtDate(done.at)}` : todo, detail, importKind: kind };
     }),
-    { name: "Email inbox", status: "Needs setup", chip: "Coming soon", label: "Paste recruiting emails in Progress for now", detail: "Remy doesn't read your inbox." },
   ];
 
   return (
@@ -92,10 +89,10 @@ function Sources() {
         </div>
       ))}
       {w.imports.length > 0 && (
-        <div className="card card-pad stack-sm">
-          <h3>Import history</h3>
+        <details className="card card-pad stack-sm">
+          <summary className="small" style={{ cursor: "pointer" }}><b>Import history</b> <span className="muted">({w.imports.length})</span></summary>
           {w.imports.map((i) => <div key={i.id} className="small">{fmtDate(i.at)} · <strong>{i.kind}</strong> · {i.fileName}{i.factsAdded ? ` · ${i.factsAdded} fact(s) suggested` : ""}</div>)}
-        </div>
+        </details>
       )}
     </div>
   );
@@ -199,10 +196,12 @@ function Data() {
           <button className="btn btn-danger btn-sm" onClick={() => setConfirm(true)} data-testid="button-delete-data"><Trash2 size={14} /> Delete everything</button>
         </div>
         <p className="xs muted"><a href="/policies">Privacy & terms</a> · <a href="/about">About Remy</a></p>
-        <h3 style={{ marginTop: 8 }}>AI activity</h3>
-        <div className="stack-sm" style={{ maxHeight: 240, overflow: "auto" }}>
+        <details>
+        <summary className="small" style={{ cursor: "pointer", marginTop: 8 }}><b>AI activity</b> <span className="muted">(technical log)</span></summary>
+        <div className="stack-sm" style={{ maxHeight: 240, overflow: "auto", marginTop: 6 }}>
           {ws!.aiLog.length ? [...ws!.aiLog].reverse().slice(0, 40).map((l) => <div key={l.id} className="xs"><span className={l.ok ? "pass" : "fail"}>●</span> {new Date(l.at).toLocaleString()} · {l.purpose} · {(l.ms / 1000).toFixed(1)}s{l.note ? ` · ${l.note}` : ""}</div>) : <span className="xs muted">No AI calls yet.</span>}
         </div>
+        </details>
       </div>
       {confirm && (
         <Modal title="Delete everything?" onClose={() => setConfirm(false)}>
