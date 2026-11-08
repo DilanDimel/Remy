@@ -214,7 +214,7 @@ function EmailUpdates() {
             {s && <SuggestionBox s={s} />}
           </div>
         );
-      }) : <div className="card"><Empty title="No emails yet" body="Paste a recruiting email or load the samples." /></div>}
+      }) : <div className="card"><Empty title="No emails yet" body="Paste a recruiting email (an interview invite, a rejection, a “we received your application”) and Remy suggests the status. Nothing changes until you confirm." /></div>}
       {paste && (
         <Modal title="Paste a recruiting email" onClose={() => setPaste(false)}>
           <label className="field"><span>From</span><input className="input" value={m.from} onChange={(e) => setM({ ...m, from: e.target.value })} placeholder="recruiting@company.com" /></label>
@@ -272,7 +272,7 @@ function Todos() {
   const w = ws!;
   const [title, setTitle] = useState("");
   const [due, setDue] = useState("");
-  const add = () => run(() => save("tasks", [{ id: rid("t"), title, why: "Added by you", due, category: "Prepare", done: false, source: "Added by you" } as Task, ...w.tasks]), "To-do added").then(() => { setTitle(""); setDue(""); });
+  const add = () => run(() => save("tasks", [{ id: rid("t"), title, why: "", due, category: "Prepare", done: false, source: "Added by you" } as Task, ...w.tasks]), "To-do added").then(() => { setTitle(""); setDue(""); });
   const { isFading, mark } = useCompleting();
   const [showDone, setShowDone] = useState(false);
   const doneCount = w.tasks.filter((t) => t.done && !isFading(t.id)).length;
@@ -287,7 +287,7 @@ function Todos() {
       {sorted.length ? sorted.map((t) => (
         <div key={t.id} className={"item todo-row" + (t.done && isFading(t.id) ? " completing" : "")} data-testid="row-todo">
           <button className="check" role="checkbox" aria-checked={t.done} onClick={() => { if (!t.done) mark(t.id); run(() => api<Workspace>("PATCH", `/api/tasks/${t.id}`, { done: !t.done }).then(setWs)); }} aria-label="Toggle done">{t.done && <Check size={13} />}</button>
-          <div className="item-main"><strong className="small" style={{ textDecoration: t.done ? "line-through" : undefined }}>{t.title}</strong><div className="why">{t.why} · <span className="faint">{t.source}</span></div></div>
+          <div className="item-main"><strong className="small" style={{ textDecoration: t.done ? "line-through" : undefined }}>{t.title}</strong><div className="why">{t.why ? <>{t.why} · </> : null}<span className="faint">{t.source}</span></div></div>
           {t.due && <span className="chip chip-plain">{fmtDate(t.due)}</span>}
           <button className="icon-btn" onClick={() => save("tasks", w.tasks.filter((x) => x.id !== t.id))} aria-label="Delete to-do"><Trash2 size={15} /></button>
         </div>

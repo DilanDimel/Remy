@@ -50,6 +50,12 @@ export const plainEnglish = (text: string) => text
   .replace(/\b(react)(s|ed|ing)?\s+(to|quickly|calmly|well|appropriately)\b/gi, "respond $3")
   .replace(/\b(positive|optimistic|bright|career|economic|financial|global)\s+outlook\b/gi, "$1 view");
 
+// Legal notices every posting carries aren't requirements ("EEOC Know Your Rights Poster in Spanish" isn't "Spanish").
+// Postings only (a resume line "Processed E-Verify checks in Workday" keeps Workday). Dropped piece by piece between
+// . ; and line breaks, so "Excel and SQL required; reasonable accommodations available" keeps Excel and SQL.
+const NOTICE = /\b(?:EEOC?|equal (?:employment )?opportunity|know your rights|e-verify|pay transparency|reasonable accommodations?|affirmative action)\b/i;
+export const withoutNotices = (text: string) => text.slice(0, 20000).split(/(?<=[.;\n])/).filter((piece) => !NOTICE.test(piece)).join("");
+
 /** Known skills and tools a piece of text names, in the order it names them ("Python, Java or C++" stays one choice). */
 export function skillsIn(text: string): string[] {
   const t = plainEnglish(text);
@@ -82,7 +88,8 @@ export function postingSkills(requirements: { keyword: string; quote: string }[]
     out.push(k); f.forEach((x) => covered.add(x));
   };
   for (const r of requirements) {
-    const label = r.keyword.trim(), quote = r.quote || "";
+    const label = r.keyword.trim(), quote = withoutNotices(r.quote || "");
+    if (r.quote && !quote.trim()) continue; // the whole "requirement" was a legal notice
     const grounded = !quote || fams(label).every((f) => families(plainEnglish(quote)).has(f));
     const degree = DEGREE.test(quote);
     const terms = skillsIn(quote).filter((t) => !(degree && isField(t)));

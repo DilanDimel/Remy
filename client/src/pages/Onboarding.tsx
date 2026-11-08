@@ -193,7 +193,6 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
   return (
     <div className="stack-lg">
       <div className="stack-sm">
-        <span className="eyebrow">Step 2 · Your resume</span>
         <h2 className="conn-title">Start with your resume</h2>
       </div>
       <div className="remy-prompt">
@@ -411,7 +410,7 @@ function Preferences({ onBack }: { onBack: () => void }) {
       <div className="remy-prompt">
         <Remy size={44} mood="wave" />
         <div className="stack-sm">
-          <span className="eyebrow">Step 4 · Preferences, {page + 1} of 2</span>
+          <span className="eyebrow">Page {page + 1} of 2</span>
           <p>{page === 0
             ? <><b>Remy:</b> What are you looking for? This decides which openings I show you, and anything that rules you out stays hidden.</>
             : <><b>Remy:</b> Almost there. Where should I look, and is there anything that would rule an opening out?</>}</p>
@@ -504,7 +503,6 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
         </div>
       )}
       <div className="stack-sm">
-        <span className="eyebrow">Step 3 · Review</span>
         <h2>Is this right?</h2>
         <p className="small muted">Correct anything that's off. Remy only uses what you confirm here.</p>
       </div>
@@ -523,6 +521,7 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
           ) : (
             <span className="xs muted row"><Check size={14} style={{ color: "var(--sage)" }} /> Every bullet matches your original file word-for-word.</span>
           )}
+          {w.resume.parsedBy === "rules" && <div className="notice notice-warn" data-testid="rules-parse-warning"><div>Remy's AI reader was busy, so a simpler reader sorted your resume. The words are yours, but check in Resume/CV that each job has its own bullets and your degree line reads right.</div></div>}
         </div>
       )}
       {suggested.length > 0 && (
@@ -606,7 +605,7 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
       <div className="row" style={{ flexWrap: "nowrap", alignItems: "center", gap: 12 }}>
         <Remy size={44} mood={busy ? "think" : pending ? "happy" : "idle"} />
         <div className="stack-sm" style={{ gap: 2 }}>
-          <span className="eyebrow">Step 5 · {qs.length ? `Question ${Math.min(idx + 1, qs.length)} of ${qs.length}` : "A few questions"}</span>
+          <span className="eyebrow">{qs.length ? `Question ${Math.min(idx + 1, qs.length)} of ${qs.length}` : "A few questions"}</span>
           <span className="small muted">Three quick questions so I can pick better openings for you.</span>
         </div>
       </div>
@@ -668,7 +667,6 @@ function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: () => vo
       <div className="row" style={{ flexWrap: "nowrap", alignItems: "flex-start", gap: 14 }}>
         <Remy size={52} mood={busy ? "think" : "wave"} />
         <div className="stack-sm">
-          <span className="eyebrow">Step 6 · Your starting plan</span>
           <h2>{busy ? "Putting your plan together…" : w.plan ? "Here's where I'd start" : "Your workspace is ready"}</h2>
           <p className="small muted">Suggestions, not requirements. You can change anything.</p>
         </div>

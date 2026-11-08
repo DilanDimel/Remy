@@ -9,7 +9,7 @@ import { go } from "../lib/router";
 
 
 export default function Community() {
-  const { ws, save, run } = useStore();
+  const { ws, save, run, toast } = useStore();
   const w = ws!;
   const [adding, setAdding] = useState(false);
   const { jobs } = useJobs();
@@ -35,6 +35,8 @@ export default function Community() {
     if (await run(() => save("outreach", [...w.outreach, d]))) setReview(d);
   };
   const addContact = async () => {
+    // An email is optional, but one that can't be an address would end up in the draft's "To:" line.
+    if (c.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email.trim())) { toast("That email doesn't look right. Fix it or leave it empty.", true); return; }
     await run(() => save("contacts", [...w.contacts, { id: rid("c"), ...c, tags: [], label: "Student provided" }]), "Contact saved");
     setAdding(false);
     setC({ name: "", title: "", org: "", email: "", why: "" });

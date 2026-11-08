@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /$
+Allow: /about
+Allow: /policies
+Disallow: /
+Sitemap: https://remyai.org/sitemap.xml

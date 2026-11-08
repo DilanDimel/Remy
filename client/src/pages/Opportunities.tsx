@@ -128,6 +128,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
             title={kind === "campus" ? "No campus jobs added yet" : jobs.length ? "Nothing matches" : "No openings yet"}
             body={kind === "campus" ? "Campus jobs are posted on your school's career site (often Handshake), which requires your login. Copy a posting's text and import it here — Remy will pull out the requirements."
               : fewInField ? `Remy reads about 180 employers' career sites, mostly in business, tech and engineering, and ${fieldEmployers ? `only ${fieldEmployers} of them hire` : "none of them hire"} in ${field} right now. That's a gap in Remy, not in you. Import postings you find on Handshake, your career center or an employer's own site, and Remy will check your eligibility and tailor your resume to each one.`
+              : jobs.length && (q || savedOnly || kind !== "all") ? `Nothing here matches ${q ? `"${q}"` : savedOnly ? "your saved openings" : "this filter"}. Clear the search or pick All to see everything Remy found.`
               : jobs.length ? nothingFits(w.profile) : "Remy searches employers' own career sites for openings that fit you. Run a search, or import a posting you found."}
             action={kind !== "campus" && !jobs.length && !fewInField ? <button className="btn btn-primary" onClick={discover} disabled={finding}>{finding ? <Spinner /> : <Search size={16} />} {finding ? "Remy is checking job boards…" : "Find openings"}</button> : <button className="btn btn-secondary" onClick={() => setShowImport(true)}>Import a posting</button>}
           />
@@ -144,7 +145,7 @@ function nothingFits(p: Workspace["profile"]) {
     /sponsor|visa/i.test(p.workAuth) && "Fewer postings work when you need sponsorship. Your school's international student office can tell you which roles you can take.",
     p.regions && !/remote|anywhere/i.test(p.regions) && "Widening where you'll look (Remote or Anywhere in the US) usually finds more.",
   ].filter(Boolean);
-  return [...(tips.length ? tips : ["Try another filter."]), "You can also import a posting you found yourself, or change these choices in Accounts → Profile."].join(" ");
+  return [...(tips.length ? tips : ["Try another filter."]), "You can also import a posting you found yourself, or change these choices in Account → Profile."].join(" ");
 }
 
 function ImportPanel({ onDone }: { onDone: () => void }) {

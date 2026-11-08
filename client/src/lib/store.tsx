@@ -15,10 +15,13 @@ export const API_BASE = raw.startsWith("__PORT_") ? "" : raw;
 export class ApiError extends Error {
   status: number;
   code?: string;
-  constructor(msg: string, status: number, code?: string) {
+  /** The server's whole reply, for refusals that also send fresh data (e.g. the workspace). */
+  body?: any;
+  constructor(msg: string, status: number, code?: string, body?: any) {
     super(msg);
     this.status = status;
     this.code = code;
+    this.body = body;
   }
 }
 
@@ -42,14 +45,15 @@ export async function api<T = any>(method: string, url: string, body?: unknown):
   if (!res.ok) {
     let msg = "Something went wrong. Please try again.";
     let code: string | undefined;
+    let body: any;
     try {
-      const j = await res.json();
-      msg = j.message || msg;
-      code = j.code;
+      body = await res.json();
+      msg = body.message || msg;
+      code = body.code;
     } catch {}
     // Founding Cohort beta: the server turned this account (or a guest) away; the app signs out and says why.
     if (code === "beta") window.dispatchEvent(new CustomEvent("remy-beta", { detail: msg }));
-    throw new ApiError(msg, res.status, code);
+    throw new ApiError(msg, res.status, code, body);
   }
   const ct = res.headers.get("content-type") || "";
   return (ct.includes("json") ? res.json() : res.blob()) as Promise<T>;
