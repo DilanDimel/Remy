@@ -21,6 +21,11 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const field = w.profile.targetRoles || w.profile.major || "your field";
   const kind = (query.get("kind") as Kind) || "all";
   const focus = query.get("id");
+  // From Home's "New openings" / "Saved openings that closed": those cards come first.
+  const show = query.get("show"), since = query.get("since") || "";
+  const pinned = (j: Job) => show === "new" ? (j.foundAt || "") > since
+    : show === "closed" ? (w.savedJobIds.includes(j.id) || w.applications.some((a) => a.jobId === j.id)) && !!j.checks?.[0] && j.checks[0].at > since && (j.checks[0].result === "closed-signal" || j.checks[0].httpStatus === 404 || j.checks[0].httpStatus === 410)
+    : false;
   // Filters stay as the student left them (this browser only).
   const kept = (() => { try { return JSON.parse(localStorage.getItem("remy.opps") || "{}"); } catch { return {}; } })();
   const [savedOnly, setSavedOnly] = useState<boolean>(!!kept.savedOnly);
@@ -32,6 +37,9 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   // Not remembered: "Show all locations" lasts this visit, so the student's places always apply when they come back.
   const [myRegions, setMyRegions] = useState<boolean>(!!regions && !/anywhere/i.test(regions));
   useEffect(() => { try { localStorage.setItem("remy.opps", JSON.stringify({ savedOnly })); } catch {} }, [savedOnly]);
+  // The best 10 first, then 10 more at a time (99 cards were 40 phone screens long); a new search or filter starts over.
+  const [shown, setShown] = useState(10);
+  useEffect(() => { setShown(10); }, [kind, q, savedOnly, myRegions, showHidden, showIneligible]);
   const setKind = (k: Kind) => go(`/opportunities?kind=${k}`);
   const [finding, setFinding] = useState(false);
   const discover = async () => {
@@ -69,7 +77,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const list = base
     .filter((j) => showIneligible || !fits[j.id]?.excluded)
     .filter((j) => !myRegions || fits[j.id]?.regionMatch !== false)
-    .sort((a, b) => rank(b) - rank(a) || (a.deadline || "9999").localeCompare(b.deadline || "9999"));
+    .sort((a, b) => Number(pinned(b)) - Number(pinned(a)) || rank(b) - rank(a) || (a.deadline || "9999").localeCompare(b.deadline || "9999"));
   return (
     <>
       {needsProfile && <div className="notice" data-testid="needs-profile">{needsProfile}</div>}
@@ -121,7 +129,24 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
         </div>
       )}
       {!jobs ? <div className="stack">{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 120 }} />)}</div> : list.length ? (
-        <div className="stack">{list.map((j) => <JobCard key={j.id} j={j} fit={fits[j.id]} moved={interest[j.id]} canRate={interestEnabled} defaultOpen={focus === j.id} />)}</div>
+        (() => {
+          // A link to one opening (?id=) shows the list down to it.
+          const count = Math.max(shown, list.findIndex((j) => j.id === focus) + 1);
+          return (
+            <div className="stack">
+              {list.slice(0, count).map((j) => <JobCard key={j.id} j={j} fit={fits[j.id]} moved={interest[j.id]} canRate={interestEnabled} defaultOpen={focus === j.id} />)}
+              {list.length > count && (
+                <button className="btn btn-secondary" style={{ alignSelf: "center" }} onClick={() => {
+                  setShown(count + 10);
+                  // Keyboard users land on the first new card, not past it.
+                  setTimeout(() => { const el = document.querySelectorAll<HTMLElement>(".job-card")[count]; if (el) { el.setAttribute("tabindex", "-1"); el.focus(); } }, 50);
+                }} data-testid="button-show-more-jobs">
+                  Show {Math.min(10, list.length - count)} more <span className="muted">({list.length - count} left)</span>
+                </button>
+              )}
+            </div>
+          );
+        })()
       ) : (
         <div className="card">
           <Empty

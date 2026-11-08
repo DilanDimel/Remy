@@ -12,7 +12,7 @@ import { go, replaceRoute } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Empty, Modal, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
 import { resumeDiff } from "@shared/resumeDiff";
-import { MomentAsk } from "../components/FeedbackAsks";
+import { MomentAsk, recent } from "../components/FeedbackAsks";
 import { ResumeBuilder } from "../components/ResumeBuilder";
 import { ResumeUpload } from "../components/Uploaders";
 import { AtsCard } from "../components/AtsCard";
@@ -109,6 +109,7 @@ function BaseResume() {
         </div>
       </div>
       {replace && <div className="card card-pad"><ResumeUpload compact onDone={() => setReplace(false)} /></div>}
+      {w.resume.confirmedAt && !dirty && recent(w.resume.confirmedAt) && <MomentAsk ask="moment:resume" question="What was the hardest or most confusing part of getting your resume into Remy?" />}
       <div className="card card-pad stack" data-testid="card-resume-files">
         <div className="row-between">
           <div className="stack-sm">
@@ -119,7 +120,6 @@ function BaseResume() {
             {w.resume.original && <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/original?download=1", w.resume!.original!.name).catch((e) => toast(e.message, true))} data-testid="button-download-original"><Download size={14} /> Original</button>}
             <button className="btn btn-primary btn-sm" onClick={() => download("/api/resume/export?format=pdf", "Resume.pdf").catch((e) => toast(e.message, true))} disabled={dirty} title={dirty ? "Save your edits first" : undefined} data-testid="button-export-base-pdf"><Download size={14} /> Export PDF</button>
             <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/export?format=docx", "Resume.docx").catch((e) => toast(e.message, true))} disabled={dirty} data-testid="button-export-base-docx">Word</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => { const d = document.getElementById("resume-checks") as HTMLDetailsElement | null; if (d) { d.open = true; d.scrollIntoView({ block: "start", behavior: "smooth" }); } }} data-testid="button-jump-checks">Checks ↓</button>
           </div>
         </div>
         {(() => { // live from the current bullets, so it's gone as soon as the line is reworded
@@ -142,6 +142,18 @@ function BaseResume() {
       </div>
       {showRaw && <pre className="card card-pad xs" style={{ whiteSpace: "pre-wrap", maxHeight: 320, overflow: "auto", margin: 0 }}>{w.resume.rawText}</pre>}
 
+      {/* Checks sit right under the file (not seven screens down): suggestions, what an ATS reads, the evidence behind skills. */}
+      <details className="card card-pad stack" id="resume-checks" data-testid="resume-checks">
+        <summary style={{ cursor: "pointer" }}>
+          <h3 style={{ display: "inline" }}>Checks</h3>{" "}
+          <span className="small muted">Suggestions, what an application system reads from your file, and the evidence behind your skills</span>
+        </summary>
+        <div className="stack" style={{ marginTop: 12 }}>
+          <AtsCard refreshKey={`${w.resume.uploadedAt}-${w.resume.confirmedAt || ""}-${JSON.stringify(w.resume.doc).length}`} />
+          {doc && <AtsXray doc={doc} quality={w.resume.quality} upd={upd} />}
+          {doc && <EvidencePassport doc={doc} memory={w.memory} />}
+        </div>
+      </details>
       <div className="card card-pad stack" id="edit-resume">
         <h3>Contact</h3>
         <div className="grid-2">
@@ -199,7 +211,6 @@ function BaseResume() {
           <button className="btn btn-primary" onClick={() => (dirty ? setReview(true) : saveDoc(true))} data-testid="button-confirm-resume"><CheckCircle2 size={16} /> {w.resume.confirmedAt && !dirty ? "Re-confirm" : "Save & confirm"}</button>
         </div>
       </div>
-      {w.resume.confirmedAt && !dirty && <MomentAsk ask="moment:resume" question="What was the hardest or most confusing part of getting your resume into Remy?" />}
       {review !== null && (
         <Modal title="Review your changes" onClose={() => setReview(null)} wide>
           <div className="stack" data-testid="resume-changes">
@@ -220,15 +231,6 @@ function BaseResume() {
           </div>
         </Modal>
       )}
-      {/* The resume comes first; suggestions, what an ATS reads and the evidence passport are one click away. */}
-      <details className="card card-pad stack" id="resume-checks" data-testid="resume-checks">
-        <summary style={{ cursor: "pointer" }}><h3 style={{ display: "inline" }}>Checks</h3> <span className="small muted">Suggestions, what an application system reads from your file, and the evidence behind your skills</span></summary>
-        <div className="stack" style={{ marginTop: 12 }}>
-          <AtsCard refreshKey={`${w.resume.uploadedAt}-${w.resume.confirmedAt || ""}-${JSON.stringify(w.resume.doc).length}`} />
-          {doc && <AtsXray doc={doc} quality={w.resume.quality} upd={upd} />}
-          {doc && <EvidencePassport doc={doc} memory={w.memory} />}
-        </div>
-      </details>
     </div>
   );
 }
@@ -352,7 +354,9 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
   const blocking = a.changes.filter((c) => (c.status === "accepted" || c.status === "edited") && c.flags.length).length;
   // A refusal over the letter carries the fresh flags, so the bar can show "Fix the letter / It's true" right away.
   const approve = (confirmLetter = false) => call("approve", () => api("POST", `/api/applications/${a.id}/approve`, confirmLetter ? { confirmLetter: true } : undefined)
-    .catch((e) => { if (e?.code === "letter-unshown" && e.body?.workspace) setWs(e.body.workspace); throw e; }), "Approved — downloads are ready");
+    .catch((e) => { if (e?.code === "letter-unshown" && e.body?.workspace) setWs(e.body.workspace); throw e; }), "Approved — downloads are ready")
+    // The bar stops floating once approved; bring it (and the question under it) into view.
+    .then((r) => { if (r) setTimeout(() => document.querySelector(".approve-bar")?.scrollIntoView({ block: "center", behavior: "smooth" }), 50); return r; });
   // Things the letter says that the resume doesn't show: approval waits until the student fixes them or says they're true.
   const letterIssues = a.letterFlags.filter((f) => f.type !== "placeholder").length;
 
@@ -399,8 +403,7 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
           {sub === "checks" && <Checks a={a} />}
           {sub === "export" && <ExportView a={a} job={job} />}
           <QuickRate place="tailor" id={"tailor:" + a.id + ":" + a.generatedAt} label="Is this tailored draft useful?" />
-          {a.versions.length > 0 && <MomentAsk ask="moment:approved" question="You approved a tailored version. Would you send it as is? What would you change first?" />}
-          <div className="card card-pad row-between approve-bar">
+          <div className={"card card-pad row-between approve-bar" + (a.letterApproved && a.versions.length && !a.staleReason ? "" : " floating")}>
             <span className="small">
               {pending ? `${pending} change(s) still need your decision.` : blocking ? `${blocking} accepted change(s) have unsupported claims.` : letterIssues ? `Your cover letter says ${letterIssues} thing(s) your resume doesn't show (see Checks). Fix the letter, or confirm they're true.` : a.letterApproved && a.versions.length && !a.staleReason ? `Approved as version ${a.versions.length}. Downloads are in Preview & export; change anything and approve again.` : "Ready to approve."}
             </span>
@@ -411,6 +414,7 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
               </> : <button className="btn btn-primary" onClick={() => approve()} disabled={!!busy} data-testid="button-approve-app">{busy === "approve" ? <Spinner /> : <ShieldCheck size={16} />} {a.letterApproved && a.versions.length && !a.staleReason ? "Approve again" : "Approve this version"}</button>}
             </div>
           </div>
+          {a.versions.length > 0 && recent(a.versions[a.versions.length - 1].at) && <MomentAsk ask="moment:approved" question="You approved a tailored version. Would you send it as is? What would you change first?" />}
         </>
       )}
       {!a.generatedAt && !mine && (

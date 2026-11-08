@@ -20,6 +20,8 @@ export function isoWeek(day: string) {
 }
 const daysSince = (day?: string) => (day ? Math.floor((Date.parse(today() + "T12:00:00Z") - Date.parse(day + "T12:00:00Z")) / 86_400_000) : 0);
 
+/** Within the last 3 days: a moment question is asked right after the moment, not weeks later. */
+export const recent = (iso?: string) => !!iso && Date.now() - Date.parse(iso) < 3 * 86_400_000;
 /** The day-7 question on Home: after a week with Remy, once. */
 export const dayWeekDue = (w: Workspace) => daysSince(w.visits?.[0]) >= 7 && !w.feedbackAsked?.["moment:day7"] && !Object.values(w.feedbackAsked || {}).includes(today());
 /** The weekly check-in on Home: from the third day on, once per week, after that week's career check-in, one ask a day. */
