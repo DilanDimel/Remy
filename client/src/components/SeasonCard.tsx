@@ -12,7 +12,7 @@ export function SeasonCard({ w }: { w: Workspace }) {
   const s = seasonFor(w.profile.targetRoles) || seasonFor([w.profile.major, w.profile.interests].join(" "));
   if (!s) return null;
   return (
-    <section className="card card-pad row" style={{ gap: 12, alignItems: "flex-start", flexWrap: "nowrap" }} data-testid="season-card">
+    <section className="card card-pad row season-card" style={{ gap: 12, alignItems: "flex-start" }} data-testid="season-card">
       <CalendarClock size={20} style={{ color: "var(--fox)", flexShrink: 0, marginTop: 2 }} />
       <div className="stack-sm grow" style={{ gap: 4 }}>
         <b className="small">{s.open ? `${s.label} internship season is on now` : `${s.label} internship season usually opens in ${s.opens}${s.monthsUntil === 1 ? ", next month" : ` (in about ${s.monthsUntil} months)`}`}</b>

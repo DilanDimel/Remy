@@ -1,3 +1,4 @@
+import { FitTextarea } from "./FitTextarea";
 import { useState } from "react";
 import { ArrowLeft, ArrowRight, Plus, Trash2 } from "lucide-react";
 import type { BuilderItem, ResumeBuilder as Builder, Workspace } from "@shared/types";
@@ -169,7 +170,7 @@ export function ResumeBuilder({ onDone, onCancel }: { onDone: () => void; onCanc
                 return (
                   <div key={x.id} className="stack-sm" data-testid="builder-bullet">
                     <div className="row">
-                      <textarea className="textarea" style={{ minHeight: 56, flex: 1, ...(BLANK.test(x.text) ? { borderColor: "var(--amber)" } : {}) }} value={x.text} onChange={(e) => setText(e.target.value)} aria-label="Resume line" />
+                      <FitTextarea className="textarea" style={{ minHeight: 56, flex: 1, ...(BLANK.test(x.text) ? { borderColor: "var(--amber)" } : {}) }} value={x.text} onChange={(e) => setText(e.target.value)} aria-label="Resume line" />
                       <button className="icon-btn" aria-label="Delete line" onClick={() => set({ draft: { ...b.draft, [i.id]: b.draft![i.id].filter((y) => y.id !== x.id) } })}><Trash2 size={16} /></button>
                     </div>
                     {BLANK.test(x.text) && <span className="xs" style={{ color: "var(--amber)" }}>Replace the [blank] with the real number, or delete it.</span>}

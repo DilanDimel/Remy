@@ -119,7 +119,7 @@ function Skills({ plan }: { plan: PathPlan }) {
   const add = useAddTask();
   return (
     <div className="card card-pad">
-      <table className="table">
+      <table className="table skills-table">
         <thead><tr><th>Suggestion</th><th>Why it matters for you</th><th className="hide-sm">Verify</th><th /></tr></thead>
         <tbody>
           {plan.skills.map((s) => (

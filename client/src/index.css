@@ -97,6 +97,8 @@ body {
   font-family: var(--font-body);
   font-size: var(--text-base);
   line-height: 1.5;
+  /* A long link or email with no spaces breaks onto the next line instead of widening the page (phones zoom out) */
+  overflow-wrap: break-word;
   -webkit-font-smoothing: antialiased;
 }
 h1, h2, h3, h4, p { margin: 0; }
@@ -144,6 +146,9 @@ p, li { max-width: 72ch; }
 .stack-lg { display: flex; flex-direction: column; gap: 20px; }
 .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .row-between { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+/* A checkbox and its words stay side by side; long words wrap beside the box, not under it (phones) */
+label.row:has(> input[type="checkbox"]) { flex-wrap: nowrap; align-items: flex-start; }
+label.row > input[type="checkbox"] { flex: none; margin-top: 3px; }
 .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .divider { height: 1px; background: var(--line); margin: 4px 0; }
@@ -181,7 +186,7 @@ p, li { max-width: 72ch; }
 .tab { padding: 10px 12px; font-weight: 700; font-size: var(--text-sm); color: var(--muted-text); border-bottom: 2px solid transparent; border-radius: 0; white-space: nowrap; }
 .tab[aria-selected="true"] { color: var(--plum); border-bottom-color: var(--fox); }
 .seg { display: inline-flex; background: var(--lav-2); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 2px; }
-.seg button { padding: 6px 12px; border-radius: 9px; font-size: var(--text-sm); font-weight: 700; color: var(--muted-text); }
+.seg button { padding: 6px 12px; border-radius: 9px; font-size: var(--text-sm); font-weight: 700; color: var(--muted-text); white-space: nowrap; }
 .seg button[aria-pressed="true"] { background: var(--surface); color: var(--plum); box-shadow: var(--shadow); }
 
 .empty { text-align: center; padding: 36px 20px; color: var(--muted-text); display: flex; flex-direction: column; align-items: center; gap: 10px; }
@@ -700,7 +705,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .adm-inline { display: inline-flex; align-items: center; gap: 4px; }
 .admin-pre { white-space: pre-wrap; font-size: 11px; background: var(--surface-2); padding: 10px; border-radius: 8px; overflow-x: auto; max-height: 260px; }
 @media (max-width: 900px) {
-  .adm { grid-template-columns: 1fr; background: var(--bg); }
+  .adm { grid-template-columns: minmax(0, 1fr); background: var(--bg); }
   .adm-nav { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px 16px; }
   .adm-role, .adm-back { display: none; }
   .adm-nav nav { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -970,7 +975,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
   .opp-filters .seg button { min-height: 44px; }
   .opp-filters > .row { width: 100%; }
   .opp-search { flex: 1; width: auto; min-width: 0; }
-  .opp-filters label.row { min-height: 44px; }
+  .opp-filters label.row { min-height: 44px; align-items: center; }
   .opp-filters input[type="checkbox"] { width: 20px; height: 20px; }
   /* a closed card shows company, title, place, due date, one short "why it fits" and the buttons; Details opens the rest */
   .job-card:not(.open) .job-more { display: none; }
@@ -1084,4 +1089,33 @@ ul[class] > li, ol[class] > li { max-width: none; }
   .adm-kpi > span:last-child { grid-column: 1; grid-row: 2; }
   .adm-funnel { grid-template-columns: minmax(0, 1fr) 70px 22px 34px; gap: 8px; font-size: 13px; }
   .adm-main .row > .select, .adm-main .row > .input { width: auto !important; flex: 1 1 140px; min-width: 0; }
+  /* Long emails and links break instead of widening the page; each card's column fits the phone */
+  .adm-main { overflow-wrap: anywhere; }
+  .adm-main button, .adm-main .btn { overflow-wrap: normal; }
+  .adm-card { grid-template-columns: minmax(0, 1fr); }
+  .adm-main .seg { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .adm-main .seg button { white-space: nowrap; padding: 8px 10px; }
+}
+.season-card { flex-wrap: nowrap; }
+/* Phones (Nov 7): a to-do's title gets the full width; its date sits under it instead of in a narrow side column.
+   The openings search gets its own row instead of being squeezed by the checkboxes. */
+@media (max-width: 640px) {
+  .todo-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 12px; row-gap: 6px; }
+  .todo-row > .check { grid-column: 1; grid-row: 1; }
+  .todo-row > .item-main { grid-column: 2; grid-row: 1; }
+  .todo-row > .chip { grid-column: 2; grid-row: 2; justify-self: start; }
+  .todo-row > .icon-btn { grid-column: 3; grid-row: 1; }
+  .opp-search { flex: 1 1 100%; }
+  /* Skills & certifications: each suggestion is a block (name + To-do on top, why underneath), not 3 thin columns */
+  .skills-table thead { display: none; }
+  .skills-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .skills-table tr:first-child { border-top: 0; }
+  .skills-table td { border: 0; padding: 0; }
+  .skills-table td:first-child { grid-column: 1; grid-row: 1; }
+  .skills-table td:last-child { grid-column: 2; grid-row: 1; align-self: start; }
+  .skills-table td.small { grid-column: 1 / -1; grid-row: 2; padding-top: 6px; }
+  /* Internship season card: the button goes under the words instead of squeezing them */
+  .season-card { flex-wrap: wrap; }
+  .season-card > .stack-sm { flex: 1 1 calc(100% - 40px); }
+  .season-card > .btn { margin-left: 32px; }
 }
