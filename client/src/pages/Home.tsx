@@ -38,10 +38,11 @@ export default function Home() {
   const mine = new Set([...w.savedJobIds, ...w.applications.map((a) => a.jobId)]);
   const closedSince = w.jobs.filter((j) => { const c = j.checks?.[0]; return mine.has(j.id) && !!c && c.at > from && (c.result === "closed-signal" || c.httpStatus === 404 || c.httpStatus === 410); }).length;
   const sinceRows: [string, string, string][] = [
-    ...(newJobs ? [[`New openings for you`, String(newJobs), "/opportunities"] as [string, string, string]] : []),
+    // These open the Openings page with the cards they count first (it shows 10 at a time).
+    ...(newJobs ? [[`New openings for you`, String(newJobs), `/opportunities?show=new&since=${encodeURIComponent(from)}`] as [string, string, string]] : []),
     ...(updates ? [[`Application updates`, String(updates), "/progress"] as [string, string, string]] : []),
     // Saved or applied-to openings Remy's background check found closed since the last visit.
-    ...(closedSince ? [[`Saved openings that closed`, String(closedSince), "/opportunities"] as [string, string, string]] : []),
+    ...(closedSince ? [[`Saved openings that closed`, String(closedSince), `/opportunities?show=closed&since=${encodeURIComponent(from)}`] as [string, string, string]] : []),
     ...(soon ? [[`Deadlines in the next 7 days`, String(soon), "/calendar"] as [string, string, string]] : []),
     ...(w.memory.some((m) => m.status === "suggested") ? [["Facts to approve", String(w.memory.filter((m) => m.status === "suggested").length), "/accounts?tab=memory"] as [string, string, string]] : []),
   ];

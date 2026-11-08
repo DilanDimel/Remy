@@ -12,6 +12,8 @@ type Tab = "academic" | "career" | "skills" | "future" | "road";
 export default function PathPage({ query }: { query: URLSearchParams }) {
   const { ws, setWs, run, config } = useStore();
   const w = ws!;
+  // Decided once per visit: adding a role from "Start here" mustn't make the card jump while the student is using it.
+  const [unsure] = useState(() => !!w.onboarding.exploring || !w.profile.targetRoles.trim());
   const tab = (query.get("tab") as Tab) || "career";
   const [busy, setBusy] = useState(false);
   // Same rule as the server: no path until Remy knows something about the student.
@@ -46,13 +48,15 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
       ) : w.plan && !busy ? (
         <>
           <p className="xs muted">Made {fmtDate(w.plan.generatedAt)}. Changing your profile won't silently rewrite this — refresh when you're ready.</p>
+          {tab === "career" && unsure && <Explore above />}
           {tab === "career" && <Careers plan={w.plan} />}
           {(tab === "skills" || tab === "academic") && <><Skills plan={w.plan} /><YourTerms plan={w.plan} /></>}
 
         </>
       ) : null}
-      {/* Directions built from the student's own resume come first; general exploration of fields follows. */}
-      {tab === "career" && <Explore />}
+      {/* Directions built from the student's own resume come first; general exploration follows. A student who said
+          they're not sure what they want gets "Start here" first instead (it was three screens down). */}
+      {tab === "career" && (!unsure || !(w.plan && !busy)) && <Explore />}
     </>
   );
 }
@@ -273,7 +277,7 @@ type Explained = { title: string; known?: boolean; what: string; day: string[]; 
 const facts = (o: FutureOcc) => [o.wage ? `$${o.wage.toLocaleString("en-US")} median pay` : "", o.openings ? `about ${Math.round(o.openings * 1000).toLocaleString("en-US")} openings a year` : "", o.change ? `${o.change > 0 ? "+" : ""}${o.change}% by 2035` : "", o.education].filter(Boolean).join(" · ");
 
 /** For students who have a major but no idea what jobs it leads to, or who've heard a job title but don't know what the work is. */
-function Explore() {
+function Explore({ above = false }: { above?: boolean }) {
   const { ws, save, run, config } = useStore();
   const p = ws!.profile;
   const [browse, setBrowse] = useState("");
@@ -299,7 +303,7 @@ function Explore() {
     <div className="card card-pad stack" data-testid="explore-careers">
       <div className="stack-sm">
         <h3 className="row"><HelpCircle size={18} /> Not sure what you want to do? Start here</h3>
-        {ws!.plan?.careers.length ? <button className="xs" style={{ alignSelf: "flex-start", color: "var(--fox)", fontWeight: 700, padding: 0 }} onClick={() => document.getElementById("directions")?.scrollIntoView({ behavior: "smooth" })} data-testid="link-directions">See {ws!.plan.careers.length === 1 ? "the direction" : `the ${ws!.plan.careers.length} directions`} Remy suggests for you ↓</button> : null}
+        {ws!.plan?.careers.length ? <button className="xs" style={{ alignSelf: "flex-start", color: "var(--fox)", fontWeight: 700, padding: 0 }} onClick={() => document.getElementById("directions")?.scrollIntoView({ behavior: "smooth" })} data-testid="link-directions">See {ws!.plan.careers.length === 1 ? "the direction" : `the ${ws!.plan.careers.length} directions`} Remy suggests for you {above ? "↓" : "↑"}</button> : null}
         <p className="small muted">{browse ? `Jobs in ${browse.toLowerCase()} that hire the most people.` : p.major ? `Jobs people with your major (${p.major}) often go into, the ones that hire the most first.` : "Pick an area to see the jobs in it."} Tap one to see what the work is really like.</p>
       </div>
       <form className="row" onSubmit={(e) => { e.preventDefault(); if (typed.trim().length > 2) explain(typed.trim()); }}>
