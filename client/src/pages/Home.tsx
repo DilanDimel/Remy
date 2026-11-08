@@ -140,7 +140,7 @@ export default function Home() {
           <a href={moreLink} className="btn btn-ghost btn-sm" data-testid="link-view-more">View more <ArrowUpRight size={14} /></a>
         </div>
         {tab === "todos" && (todos.length ? todos.map((t) => (
-          <div key={t.id} className={"item" + (t.done ? " completing" : "")}>
+          <div key={t.id} className={"item todo-row" + (t.done ? " completing" : "")}>
             <button className="check" role="checkbox" aria-checked={t.done} onClick={() => toggleTask(t)} aria-label={`Mark ${t.title} done`} data-testid="checkbox-task">{t.done && <Check size={13} />}</button>
             <div className="item-main">
               <button style={{ textAlign: "left", padding: 0, fontWeight: 700 }} onClick={() => setOpen(open === t.id ? "" : t.id)}>{t.title}</button>

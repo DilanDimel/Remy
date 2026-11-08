@@ -53,7 +53,7 @@ export function AtsXray({ doc, quality, upd }: { doc: ResumeDoc; quality?: Resum
         <div className="stack-sm">
           <span className="small"><b>{inbox.length ? "Lines to add." : "Lines Remy couldn't place."}</b> Add the ones that matter to the right entry, then save.</span>
           <label className="xs muted row" style={{ gap: 6 }}>Add to
-            <select className="input" style={{ width: "auto", maxWidth: 360 }} value={target} onChange={(e) => setTarget(Number(e.target.value))} aria-label="Entry to add lines to">
+            <select className="input" style={{ width: "auto", maxWidth: "min(360px, 100%)", minWidth: 0 }} value={target} onChange={(e) => setTarget(Number(e.target.value))} aria-label="Entry to add lines to">
               {entries.map((e, i) => <option key={i} value={i}>{e.label}</option>)}
             </select>
           </label>

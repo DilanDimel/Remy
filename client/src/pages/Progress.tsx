@@ -285,7 +285,7 @@ function Todos() {
         <button className="btn btn-primary" disabled={!title.trim()} data-testid="button-add-todo"><Plus size={16} /> Add</button>
       </form>
       {sorted.length ? sorted.map((t) => (
-        <div key={t.id} className={"item" + (t.done && isFading(t.id) ? " completing" : "")} data-testid="row-todo">
+        <div key={t.id} className={"item todo-row" + (t.done && isFading(t.id) ? " completing" : "")} data-testid="row-todo">
           <button className="check" role="checkbox" aria-checked={t.done} onClick={() => { if (!t.done) mark(t.id); run(() => api<Workspace>("PATCH", `/api/tasks/${t.id}`, { done: !t.done }).then(setWs)); }} aria-label="Toggle done">{t.done && <Check size={13} />}</button>
           <div className="item-main"><strong className="small" style={{ textDecoration: t.done ? "line-through" : undefined }}>{t.title}</strong><div className="why">{t.why} · <span className="faint">{t.source}</span></div></div>
           {t.due && <span className="chip chip-plain">{fmtDate(t.due)}</span>}
