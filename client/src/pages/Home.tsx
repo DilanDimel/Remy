@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { checkinDue, dayWeekDue, MomentAsk, WeeklyCheckin } from "../components/FeedbackAsks";
 import { SeasonCard } from "../components/SeasonCard";
 import { ApplyNudge } from "../components/ApplyNudge";
 import { CheckinCard } from "../components/CheckinCard";
@@ -164,6 +165,7 @@ export default function Home() {
       </section>
       <ApplyNudge w={w} />
       <CheckinCard w={w} />
+      {dayWeekDue(w) ? <MomentAsk ask="moment:day7" question="You've been using Remy for a week or more. What's the one thing that would make you open it more often?" /> : checkinDue(w) ? <WeeklyCheckin /> : null}
       <SeasonCard w={w} />
     </>
   );

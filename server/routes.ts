@@ -1405,6 +1405,44 @@ export async function registerRoutes(_server: Server, app: Express) {
     await recordError("feedback", String(req.body?.page || "").slice(0, 120), message, ctx.me.email || "", ctx.me.id);
     res.json({ ok: true });
   }));
+  // Feedback Remy asks for itself (founders can't interview everyone): one question at a moment that matters, and a
+  // weekly 3-question check-in. Each answer is a feedback note under the student's account (deleted with the account);
+  // asked once per key, answered or skipped.
+  const ASK_KEY = /^(?:moment:(?:resume|approved|day7)|checkin:\d{4}-W\d{2})$/;
+  app.post("/api/feedback/ask", route(async (req, res, ctx) => {
+    const key = String(req.body?.key || "");
+    if (!ASK_KEY.test(key)) bad("Unknown question.");
+    const items = (Array.isArray(req.body?.answers) ? req.body.answers : []).slice(0, 6)
+      .map((x: any) => ({ q: String(x?.q || "").replace(/\s+/g, " ").trim().slice(0, 160), a: String(x?.a || "").replace(/\s+/g, " ").trim().slice(0, 330), fq: String(x?.fq || "").replace(/\s+/g, " ").trim().slice(0, 160), fa: String(x?.fa || "").replace(/\s+/g, " ").trim().slice(0, 330) }))
+      .filter((x: any) => x.q && (x.a.length >= 2 || x.fa.length >= 2));
+    // Asked once: a second tab or an old page answering again changes nothing.
+    if (ctx.ws.feedbackAsked?.[key]) return res.json(ctx.ws);
+    if (!allow("feedback:" + ctx.me.id, 20, 60 * 60_000)) bad("Thanks! That's a lot of feedback at once; please wait a bit.", 429);
+    // One note per answer and one per follow-up answer (a note keeps 500 characters; both fit whole).
+    for (const x of items) {
+      if (x.a.length >= 2) await recordError("feedback", `ask:${key}`, `${x.q} — ${x.a}`, ctx.me.email || "", ctx.me.id);
+      if (x.fq && x.fa.length >= 2) await recordError("feedback", `ask:${key}`, `Follow-up to "${x.q}": ${x.fq} — ${x.fa}`, ctx.me.email || "", ctx.me.id);
+    }
+    ctx.ws.feedbackAsked = { ...(ctx.ws.feedbackAsked || {}), [key]: centralToday() };
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
+  // One follow-up for a short or vague check-in answer ("it was fine" → "What did you try that was fine?"). Never
+  // suggests an answer; empty when the answer is already specific or AI is off.
+  app.post("/api/feedback/followup", route(async (req, res, ctx) => {
+    const q = String(req.body?.q || "").trim().slice(0, 200), a = String(req.body?.a || "").trim().slice(0, 600);
+    if (!q || a.length < 2 || a.length > 330 || !aiStatus().available || !allow("followup:" + ctx.me.id, 6, 60 * 60_000)) return res.json({ followup: "" });
+    try {
+      const out = await withAi(ctx, "Feedback follow-up", () => aiJson<{ followup?: string }>(
+        "You help a student startup collect honest product feedback. Given one question and a student's answer, write ONE short follow-up question (at most 18 words) that asks for a concrete example, what exactly happened, or why. Never suggest an answer, never praise, never ask two things. If the answer is already specific (names a page, a step, or an example), return an empty string.",
+        `QUESTION: ${q}\nANSWER: ${a}\n\nReturn {"followup":"..."}`, 120));
+      const f = String(out?.followup || "").replace(/\s+/g, " ").trim();
+      await ctx.save();
+      res.json({ followup: f.endsWith("?") && f.length <= 160 ? f : "" });
+    } catch {
+      res.json({ followup: "" });
+    }
+  }));
   // "What can I do with my major?" — the jobs that hire most in their fields, or a field they browse.
   app.get("/api/careers", route(async (req, res, ctx) => { res.json(careersFor(ctx.ws, String(req.query.field || "").slice(0, 80))); }));
   // "What does a ___ actually do?" in plain words, with the government's numbers when the job is one it tracks.

@@ -164,7 +164,7 @@ export async function errors() {
      FROM error_reports e WHERE fixed_at IS NULL AND kind <> 'feedback' AND at > now() - interval '30 days' GROUP BY message, kind ORDER BY MAX(at) DESC LIMIT 30`,
   );
   // What students wrote with "Send feedback": one row each, until someone marks it handled.
-  const feedback = await q("SELECT id, at, place, message, detail AS email FROM error_reports WHERE kind = 'feedback' AND fixed_at IS NULL ORDER BY at DESC LIMIT 50");
+  const feedback = await q("SELECT id, at, place, message, detail AS email FROM error_reports WHERE kind = 'feedback' AND fixed_at IS NULL ORDER BY at DESC LIMIT 200");
   const fixed = await q(
     `SELECT message, kind, MAX(fixed_at) AS fixed_at, MAX(fixed_by) AS fixed_by, COUNT(*)::int AS times
      FROM error_reports WHERE fixed_at > now() - interval '30 days' GROUP BY message, kind ORDER BY MAX(fixed_at) DESC LIMIT 15`,

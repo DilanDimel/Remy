@@ -504,6 +504,8 @@ export interface Workspace {
   hours?: HoursEntry[];
   /** The text of the student's last LinkedIn PDF, for the LinkedIn coach (shared/linkedin.ts). Server-written. */
   linkedin?: { text: string; at: string };
+  /** Feedback asks the student answered or skipped ("moment:resume", "checkin:2026-W46" → Central day), so each is asked once. Server-written. */
+  feedbackAsked?: Record<string, string>;
   /** Day (YYYY-MM-DD, Central) of the last weekly check-in; the Home card hides for 6 days after. */
   lastCheckin?: string;
   /** Days (YYYY-MM-DD, Central) the student opened Remy, newest last; owners see only return rates from it. */

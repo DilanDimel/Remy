@@ -12,6 +12,7 @@ import { go, replaceRoute } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Empty, Modal, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
 import { resumeDiff } from "@shared/resumeDiff";
+import { MomentAsk } from "../components/FeedbackAsks";
 import { ResumeBuilder } from "../components/ResumeBuilder";
 import { ResumeUpload } from "../components/Uploaders";
 import { AtsCard } from "../components/AtsCard";
@@ -198,6 +199,7 @@ function BaseResume() {
           <button className="btn btn-primary" onClick={() => (dirty ? setReview(true) : saveDoc(true))} data-testid="button-confirm-resume"><CheckCircle2 size={16} /> {w.resume.confirmedAt && !dirty ? "Re-confirm" : "Save & confirm"}</button>
         </div>
       </div>
+      {w.resume.confirmedAt && !dirty && <MomentAsk ask="moment:resume" question="What was the hardest or most confusing part of getting your resume into Remy?" />}
       {review !== null && (
         <Modal title="Review your changes" onClose={() => setReview(null)} wide>
           <div className="stack" data-testid="resume-changes">
@@ -397,6 +399,7 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
           {sub === "checks" && <Checks a={a} />}
           {sub === "export" && <ExportView a={a} job={job} />}
           <QuickRate place="tailor" id={"tailor:" + a.id + ":" + a.generatedAt} label="Is this tailored draft useful?" />
+          {a.versions.length > 0 && <MomentAsk ask="moment:approved" question="You approved a tailored version. Would you send it as is? What would you change first?" />}
           <div className="card card-pad row-between approve-bar">
             <span className="small">
               {pending ? `${pending} change(s) still need your decision.` : blocking ? `${blocking} accepted change(s) have unsupported claims.` : letterIssues ? `Your cover letter says ${letterIssues} thing(s) your resume doesn't show (see Checks). Fix the letter, or confirm they're true.` : a.letterApproved && a.versions.length && !a.staleReason ? `Approved as version ${a.versions.length}. Downloads are in Preview & export; change anything and approve again.` : "Ready to approve."}
