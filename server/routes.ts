@@ -277,10 +277,24 @@ function changeFlags(ws: Workspace, c: BulletChange): ClaimFlag[] {
   return claimCheck(text, evidenceOf(ws), { original: c.original, entryContext: entryContextOf(ws, c.bulletId), postingText: job ? [job.summary, ...job.requirements.map((r) => r.quote)].join(" ") : "" });
 }
 function letterFlagsFor(ws: Workspace, app: Application, job: Job) {
-  return claimCheck(app.letter, evidenceOf(ws), {
+  // A "Dear Hiring Manager," greeting isn't a claim; it's set aside before checking (a "manager" claim elsewhere still counts).
+  const letter = app.letter.replace(/^\s*(?:dear\s+)?hiring\s+manager\s*[,:]?\s*$/gim, "");
+  // The posting's own names ("your Commercial Banking team") aren't claims about the student: name flags only, whole words.
+  // Skills, titles and credentials the posting mentions still need the student's evidence.
+  const words = (t: string) => ` ${t.toLowerCase().replace(/[^a-z0-9&]+/g, " ")} `;
+  const posting = words([job.postingText, job.summary, ...job.requirements.map((r) => r.quote)].filter(Boolean).join(" "));
+  return claimCheck(letter, evidenceOf(ws), {
     allowedNames: [job.company, job.title, job.location, job.dates, ws.profile.school, ws.profile.name, ws.profile.preferredName, ws.profile.classYear, ...job.requirements.map((r) => r.keyword)].filter(Boolean),
     postingText: [job.summary, job.dates, job.deadlineText, ...job.requirements.map((r) => r.quote), ...job.eligibility].filter(Boolean).join("\n"),
     postingNumbersOk: true,
+  }).filter((f) => {
+    if (f.type !== "name") return true;
+    const t = words(f.term).trim();
+    if (t.length < 3 || !posting.includes(` ${t} `)) return true;
+    // Only where the letter speaks of the employer's own group ("your Commercial Banking team", "the Risk division"),
+    // never as something the student did ("I interned at Goldman Sachs" stays flagged even if the posting names Goldman).
+    const l = words(letter);
+    return !(l.includes(` your ${t} `) || new RegExp(` ${t} (?:team|group|division|department|program|office|practice|unit) `).test(l));
   });
 }
 function refreshAts(ws: Workspace, app: Application) {
@@ -414,7 +428,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       const ws = await loadWorkspace(u.id);
       const due = dueReminders(ws, today);
       if (!due.length) continue;
-      const { subject, text } = reminderEmail(firstName(ws) || "there", due, process.env.PUBLIC_HOST || "offer-ready.onrender.com");
+      const { subject, text } = reminderEmail(firstName(ws) || "there", due, process.env.PUBLIC_HOST || "remyai.org");
       try { await sendEmail(ws.profile.applicationEmail || u.email, subject, text); } catch (e: any) { console.error("deadline reminder failed", e?.message); continue; }
       await saveSections(u.id, { reminded: [...(ws.reminded || []), ...due.map((d) => d.key)].slice(-300) } as any);
     }
@@ -425,7 +439,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     for (const u of await q("SELECT u.id, u.email FROM users u WHERE u.kind IN ('google','supabase')")) {
       if (!(await beta.emailAllowed(u.email))) continue; // no emails to accounts outside the Founding Cohort
       const ws = await loadWorkspace(u.id);
-      const d = weeklyDigest(ws, today, weekday, process.env.PUBLIC_HOST || "offer-ready.onrender.com");
+      const d = weeklyDigest(ws, today, weekday, process.env.PUBLIC_HOST || "remyai.org");
       if (!d) continue;
       try { await sendEmail(ws.profile.applicationEmail || u.email, d.subject, d.text); } catch (e: any) { console.error("weekly digest failed", e?.message); continue; }
       await saveSections(u.id, { lastDigest: today, lastDigestAt: now.toISOString() } as any);
@@ -551,7 +565,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       googleClientId: googleClientId(),
       ai: aiStatus(),
       hosting: /localhost|127\.0\.0\.1/.test(host) ? "local" : req.header("x-visitor-id") ? "preview" : "published",
-      today: new Date().toISOString().slice(0, 10),
+      today: centralToday(),
       supabase: sb ? { ...sb, providers: await supabaseProviders() } : null,
       schoolEmail: { ready: emailReady() || devCodes(), domains: ALUMNI_DOMAINS },
       emailCodes: emailReady() || devCodes(),
@@ -622,7 +636,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const r = await beta.add(me, String(req.body?.emails || ""), String(req.body?.note || ""));
     const invited: string[] = [];
     if (req.body?.notify === true && emailReady()) {
-      const { subject, text } = beta.welcomeEmail(process.env.PUBLIC_HOST || "offer-ready.onrender.com");
+      const { subject, text } = beta.welcomeEmail(process.env.PUBLIC_HOST || "remyai.org");
       for (const e of r.added) {
         try { await sendEmail(e, subject, text); await beta.markInvited(e); invited.push(e); } catch (err: any) { console.error("beta welcome email failed", err?.message); }
       }
@@ -654,7 +668,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (status === "accepted" && req.body?.notify === true) {
       if (!emailReady()) emailError = "Email isn't set up on this server, so nothing was sent.";
       else {
-        const host = process.env.PUBLIC_HOST || "offer-ready.onrender.com";
+        const host = process.env.PUBLIC_HOST || "remyai.org";
         const subject = String(req.body?.subject || "").replace(/[\r\n]+/g, " ").trim().slice(0, 150) || "You're in: welcome to Remy's Founding Cohort";
         const message = String(req.body?.message || "").slice(0, 5000).trim();
         if (!message) bad("Write the email first.");
@@ -1408,6 +1422,11 @@ export async function registerRoutes(_server: Server, app: Express) {
           900,
         ),
       );
+      // The AI's answer is checked before anyone sees or caches it: a missing list would crash the page for every student.
+      const list = (v: unknown) => (Array.isArray(v) ? v.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 6) : []);
+      const raw: any = about || {};
+      about = { known: raw.known !== false, what: String(raw.what || "").trim(), day: list(raw.day), entry: list(raw.entry), majors: list(raw.majors), startNow: list(raw.startNow), downside: String(raw.downside || "").trim() };
+      if (about.known && !about.what) { await ctx.save(); bad("Remy couldn't explain that job just now. Please try again.", 502); }
       if (about.known !== false) { if (explained.size > 500) explained.clear(); explained.set(key, about); }
     }
     await ctx.save(); // keeps the AI log entry
@@ -1415,7 +1434,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   }));
   app.post("/api/ai/plan", route(async (_req, res, ctx) => {
     if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE, 409);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = centralToday(); // a Texas evening is still today, not tomorrow (UTC)
     const jobs = openJobs(ctx.ws).map((j) => `${j.id}: ${j.company} — ${j.title} (deadline ${j.deadline || "n/a"})`).join("\n");
     const out = await withAi(ctx, "Initial plan", () =>
       aiJson<any>(
@@ -1441,7 +1460,12 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     ctx.ws.tasks = [...ctx.ws.tasks.filter((t) => t.source !== "AI plan (review)" || t.done), ...tasks];
     ctx.ws.plan = {
       generatedAt: nowIso(), generatedBy: lastUsedModel(),
-      nextAction: { title: noIds(out.nextAction?.title) || "Tailor your resume for your strongest opening", why: noIds(out.nextAction?.why), link: String(out.nextAction?.link || "/resume") },
+      nextAction: (() => {
+        const title = noIds(out.nextAction?.title) || "Tailor your resume for your strongest opening";
+        const link = String(out.nextAction?.link || "/resume");
+        // "Tailor your resume…" should open the Tailor tab, not the base resume.
+        return { title, why: noIds(out.nextAction?.why), link: /\btailor/i.test(title) && link === "/resume" ? "/resume?tab=tailor" : link };
+      })(),
       careers: (out.careers || []).slice(0, 4).map((c: any) => ({ id: uid("cp"), title: String(c.title), what: String(c.what || ""), fit: (c.fit || []).map(String), gaps: (c.gaps || []).map(String), steps: (c.steps || []).map(String) })),
       skills: (out.skills || []).slice(0, 8).map((s: any) => ({ id: uid("sk"), name: String(s.name), type: ["skill", "certification", "course"].includes(s.type) ? s.type : "skill", why: String(s.why || ""), verify: String(s.verify || "Illustrative suggestion") })),
       academic: (out.academic || []).slice(0, 4).map((a: any) => ({ id: uid("ac"), term: String(a.term), items: (a.items || []).map(String), note: String(a.note || "Illustrative — confirm with your academic advisor.") })),
@@ -1469,7 +1493,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     const apps = ctx.ws.applications.map((a) => { const j = findJob(ctx.ws, a.jobId); return `${j?.company} ${j?.title}: ${a.versions.length ? "approved v" + a.versions.length : a.generatedAt ? "draft" : "not started"}`; }).join("; ");
     // Everything else Remy knows, so the student never has to repeat themselves.
     const today = centralToday();
-    const soon = new Date(Date.now() + 21 * 86400_000).toISOString().slice(0, 10);
+    const soon = daysBefore(today, -21);
     const todos = ctx.ws.tasks.filter((t) => !t.done).slice(0, 12).map((t) => t.title + (t.due ? ` (due ${t.due})` : "")).join("; ");
     const dates = ctx.ws.calendar.filter((c) => c.date >= today && c.date <= soon).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 10).map((c) => `${c.date} ${c.kind}: ${c.title}`).join("; ");
     const tracking = ctx.ws.tracker.slice(0, 15).map((t) => `${t.company} ${t.role}: ${t.status}`).join("; ");
@@ -1799,7 +1823,12 @@ Return JSON:
     const sm = out.strongestMatch || {};
     const smReq = reqById.get(String(sm.requirementId));
     const smEv = byId.get(String(sm.evidenceBulletId));
-    a.strongestMatch = { text: String(sm.text || ""), requirementQuote: smReq?.quote || "", evidence: smEv?.text || "" };
+    // Only a match backed by a real line of the resume is shown. If the AI's summary says more than that line and the
+    // posting show, the student's own line is shown instead of the summary.
+    const smText = String(sm.text || "").trim();
+    a.strongestMatch = smEv && smText
+      ? { text: claimCheck(smText, ev, { postingText: postingCtx, postingNumbersOk: true }).length ? smEv.text : smText, requirementQuote: smReq?.quote || "", evidence: smEv.text }
+      : undefined;
     a.gaps = (out.gaps || []).map((g: any) => ({ requirementQuote: reqById.get(String(g.requirementId))?.quote || "", note: String(g.note || "") })).filter((g: any) => g.note);
     a.changes = changes;
     a.letter = stripPlaceholders(String(out.coverLetter || "").trim());
@@ -1872,9 +1901,17 @@ Return JSON:
     for (const c of a.changes) c.flags = c.status === "rejected" ? [] : changeFlags(ctx.ws, c);
     const blocked = a.changes.filter((c) => (c.status === "accepted" || c.status === "edited") && c.flags.length);
     if (blocked.length) bad("Some accepted changes still contain unsupported claims. Edit, reject, or confirm them first.", 409);
-    // The letter is written from the student's resume and their own answers, so approval
-    // doesn't re-check it; any stray fill-in brackets are simply removed.
+    // The letter is checked again: anything it says that the resume, profile and posting don't show stops approval,
+    // unless the student confirms it's true (their call, recorded). Stray fill-in brackets are simply removed.
     a.letter = stripPlaceholders(a.letter);
+    const unshown = letterFlagsFor(ctx.ws, a, job).filter((f) => f.type !== "placeholder");
+    if (unshown.length && req.body?.confirmLetter !== true) {
+      a.letterFlags = unshown;
+      await ctx.save();
+      return res.status(409).json({ message: `Your cover letter says ${unshown.length} thing${unshown.length > 1 ? "s" : ""} your resume doesn't show (see Checks). Edit the letter, or confirm ${unshown.length > 1 ? "they're" : "it's"} true.`, code: "letter-unshown", application: a, workspace: ctx.ws });
+    }
+    // The student said the letter's unshown lines are true: kept on the Safeguard log with what they confirmed.
+    if (unshown.length) ctx.ws.incidents.unshift({ id: uid("inc"), at: nowIso(), kind: "Letter check overridden by student", where: `${job.company} cover letter`, text: a.letter.slice(0, 600), flags: unshown });
     for (const p of a.personalize) p.done = true;
     a.letterFlags = [];
     a.letterApproved = true;
@@ -2080,7 +2117,7 @@ Return JSON:
     if (body.trim().length < 30) bad("Paste the full email text.");
     // A pasted email often carries its own From:/Subject: lines.
     const header = (k: string) => body.match(new RegExp(`^\\s*${k}:\\s*(.+)$`, "im"))?.[1].trim() || "";
-    ctx.ws.inbox.unshift({ id: uid("m"), from: String(req.body?.from || header("From")).slice(0, 200), subject: String(req.body?.subject || header("Subject") || "(no subject)").slice(0, 200), date: new Date().toISOString().slice(0, 10), body, label: "Pasted by student" });
+    ctx.ws.inbox.unshift({ id: uid("m"), from: String(req.body?.from || header("From")).slice(0, 200), subject: String(req.body?.subject || header("Subject") || "(no subject)").slice(0, 200), date: centralToday(), body, label: "Pasted by student" });
     await ctx.save();
     res.json(ctx.ws);
   }));
@@ -2111,8 +2148,33 @@ Return JSON:
     const agree = !!ai && ai.status === rules.status && rules.status !== "Unclear";
     const proposed: TrackStatus | "Unclear" = rules.status !== "Unclear" ? rules.status : aiStatusVal || "Unclear";
     const evidence = rules.evidence || ai?.evidence || "";
-    const company = ai?.company || m!.from.split("@")[1]?.split(".").slice(-2, -1)[0] || "";
-    const existing = ctx.ws.tracker.find((t) => company && norm(t.company).includes(norm(company)));
+    // An application the email names (subject or body) wins: "Bluebonnet Coffee Co." in the text beats a sender domain.
+    // Whole words only ("visa sponsorship" isn't Visa, "attached" isn't AT&T). A short one-word name ("Visa", "Target",
+    // "Chase") counts only in the subject, where it's the company, not an everyday word in the body.
+    // The subject decides first (a short name like "Target" only as written, capitalized: "your target start date" isn't it).
+    // A name only in the body counts when it's the AI's reading too (or the AI gave none), and the earliest one wins:
+    // "Proficiency in Microsoft Excel" in a Goldman email isn't a Microsoft update.
+    const words = (t: string, keepCase = false) => ` ${(keepCase ? t : t.toLowerCase()).replace(/[^A-Za-z0-9&]+/g, " ")} `;
+    const shortWord = (company: string) => !/\s/.test(company.trim()) && company.trim().length <= 6;
+    const at = (hay: string, company: string, keepCase = false) => { const c = words(company, keepCase).trim(); return c.length >= 2 ? hay.indexOf(` ${c} `) : -1; };
+    // In the body, a name counts only where it names the employer: "applying to X", "at X", "join X", "X team".
+    const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const asEmployer = (body: string, company: string) => {
+      const c = esc(words(company).trim());
+      return new RegExp(` (?:to|at|join) (?:the )?${c} | ${c} (?:team|recruiting|careers|talent|hr|family) `).test(words(body));
+    };
+    const earliest = (hay: string, keepCaseForShort: boolean, allowShort: boolean) => ctx.ws.tracker
+      .map((t) => ({ t, i: shortWord(t.company) ? (allowShort ? at(keepCaseForShort ? words(hay, true) : hay, t.company, keepCaseForShort) : -1) : allowShort || asEmployer(hay, t.company) ? at(words(hay), t.company) : -1 }))
+      .filter((x) => x.i >= 0).sort((a, b) => a.i - b.i)[0]?.t;
+    const aiCo = words(ai?.company || "").trim();
+    const agreesWithAi = (t: { company: string }) => !aiCo || words(aiCo).includes(` ${words(t.company).trim()} `) || words(t.company).includes(` ${aiCo} `);
+    const inBody = earliest(m!.body, false, false);
+    const named = earliest(m!.subject, true, true) || (inBody && agreesWithAi(inBody) ? inBody : undefined);
+    // A sender domain names the company only when it isn't an email or hiring service (gmail.com, myworkday.com…).
+    const domain = m!.from.split("@")[1]?.split(".").slice(-2, -1)[0] || "";
+    const fromDomain = /^(gmail|googlemail|outlook|hotmail|live|yahoo|icloud|aol|proton|protonmail|example|myworkday|workday|greenhouse|lever|ashbyhq|smartrecruiters|icims|taleo|oracle|successfactors|jobvite|handshake|joinhandshake|linkedin|indeed|paylocity|ultipro|ukg|bamboohr|recruitee|workable)$/i.test(domain) ? "" : domain;
+    const company = named?.company || ai?.company || fromDomain;
+    const existing = named || ctx.ws.tracker.find((t) => company && norm(t.company).includes(norm(company)));
     const s: Suggestion = {
       id: uid("sg"), messageId: m!.id, trackId: existing?.id, company: existing?.company || company, role: existing?.role || ai?.role || "",
       proposed: proposed === "Unclear" ? "Applied" : proposed,
@@ -2176,7 +2238,7 @@ Return JSON:
     if (ct && (!id || id.startsWith("career"))) {
       const d = new Date(centralToday() + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + ((ct.day - d.getUTCDay() + 7) % 7));
       lines.push("BEGIN:VEVENT", "UID:career-time@remy", `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").slice(0, 15)}Z`, `DTSTART:${d.toISOString().slice(0, 10).replace(/-/g, "")}T${ct.time.replace(":", "")}00`, "DURATION:PT45M",
-        `RRULE:FREQ=WEEKLY;BYDAY=${["SU", "MO", "TU", "WE", "TH", "FR", "SA"][ct.day]}`, "SUMMARY:Career time with Remy", `DESCRIPTION:${esc("45 minutes for one real step. Open Remy: https://" + (process.env.PUBLIC_HOST || "offer-ready.onrender.com") + "/")}`, "END:VEVENT");
+        `RRULE:FREQ=WEEKLY;BYDAY=${["SU", "MO", "TU", "WE", "TH", "FR", "SA"][ct.day]}`, "SUMMARY:Career time with Remy", `DESCRIPTION:${esc("45 minutes for one real step. Open Remy: https://" + (process.env.PUBLIC_HOST || "remyai.org") + "/")}`, "END:VEVENT");
     }
     lines.push("END:VCALENDAR");
     res.setHeader("Content-Type", "text/calendar; charset=utf-8");

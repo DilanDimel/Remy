@@ -97,7 +97,8 @@ export default function Home() {
   const { isFading, mark } = useCompleting();
   const todos = w.tasks.filter((t) => !t.done || isFading(t.id)).sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999")).slice(0, 3);
   // Only places the student chose (Opportunities can still show the rest).
-  const active = (jobs || []).filter((j) => !w.hiddenJobIds.includes(j.id) && fits[j.id]?.regionMatch !== false && (!j.deadline || (daysUntil(j.deadline) ?? 0) >= 0));
+  // Same rules as the Opportunities page: nothing it hides (not eligible, not in their fields, closed) shows here either.
+  const active = (jobs || []).filter((j) => !w.hiddenJobIds.includes(j.id) && !fits[j.id]?.excluded && !fits[j.id]?.closed && fits[j.id]?.regionMatch !== false && (!j.deadline || (daysUntil(j.deadline) ?? 0) >= 0));
   const events = active.filter((j) => j.kind === "event").slice(0, 3);
   const opps = active.filter((j) => j.kind !== "event").sort((a, b) => (fits[b.id]?.matched.length || 0) - (fits[a.id]?.matched.length || 0)).slice(0, 3);
   const toggleTask = (t: Task) => { if (!t.done) mark(t.id); return run(() => api<Workspace>("PATCH", `/api/tasks/${t.id}`, { done: !t.done }).then(setWs)); };

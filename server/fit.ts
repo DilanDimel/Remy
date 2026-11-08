@@ -236,6 +236,9 @@ export function notEligible(ws: Workspace, job: Job, today = new Date()): string
   const text = `${job.title} ${job.eligibility.join(" ")} ${job.summary} ${job.postingText || ""}`;
   if (/sponsor|visa|f-?1|opt\b|h-?1b/i.test(p.workAuth || "") && /\b(?:no|not|unable to|cannot|will not|won't|does not)\b[^.]{0,40}\bsponsor|without (?:the need for )?(?:current or future |now or in the future )?(?:visa |employment )?sponsorship|not eligible for (?:visa )?sponsorship/i.test(text))
     return "This posting says it won't sponsor a work visa, and you told Remy you'll need sponsorship.";
+  const citizensOnly = citizensOnlySentence(text);
+  if (/sponsor|visa|f-?1|opt\b|h-?1b/i.test(p.workAuth || "") && citizensOnly)
+    return `This posting is only for U.S. citizens: “${citizensOnly.trim().slice(0, 160)}”, and you told Remy you'll need sponsorship.`;
   if (classYearOf(ws, today) !== "Graduate student" && /\bMBA\b(?! or undergraduate)|(?:currently )?(?:enrolled in|pursuing) an? (?:master'?s|graduate|ph\.?d)/i.test(`${job.title} ${job.eligibility.join(" ")} ${job.summary} ${job.requirements.map((r) => `${r.keyword} ${r.quote}`).join(" ")}`))
     return "This one is for MBA or graduate students.";
   if (/\bhigh[- ]school\b/i.test(job.title) && p.path !== "high-school" && classYearOf(ws, today) !== "") return "This one is for high school students.";
@@ -285,7 +288,7 @@ function notWanted(ws: Workspace, job: Job): string {
 const GENERIC_TITLE_WORDS = new Set(["engineer", "engineering", "business", "intern", "internship", "analyst", "associate", "science", "sciences", "studies", "student", "program", "summer", "major", "minor", "degree", "bachelor", "master", "technology", "general", "role", "roles", "position", "entry", "level", "career", "work", "certificate", "and"].map(family));
 
 // Bump when the fit rules change, so verdicts saved under older rules are worked out again.
-export const FIT_RULES_VERSION = 12; // 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
+export const FIT_RULES_VERSION = 13; // 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const g = gradDate(ws);
   const year = classYearOf(ws);
@@ -354,6 +357,9 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
     else if (myGpa) { note += ` It asks for a ${minGpa[1]} GPA, and yours is ${ws.profile.gpa}.`; if (eligibility === "likely") checked = true; }
     else note += ` It asks for a ${minGpa[1]} GPA; add yours in your profile and Remy will check it.`;
   }
+  // Rules Remy can't fully check from the profile (a license, a list of majors): said plainly, not hidden.
+  const caution = cautionFor(ws, job, evidence);
+  if (caution && eligibility !== "unlikely") note = `${note} ${caution}`.trim();
   // Remy doesn't show what the student clearly can't apply for (they can still choose "Show anyway").
   if (eligibility === "unlikely") excluded = true;
 
@@ -406,4 +412,53 @@ export function pastTerm(text: string, today: string) {
   if (!m) return false;
   const [y, mo] = today.split("-").map(Number);
   return Number(m[2]) * 12 + TERM_MONTH[m[1]] <= y * 12 + mo;
+}
+
+const LICENSES = "RN|LVN|LPN|CNA|EMT|paramedic|CPA|teaching|teacher|real estate|insurance|pharmacy technician|CDL|nursing";
+/** Things a posting requires that Remy can't verify, so the student checks before spending time on it: a license
+ *  their resume doesn't show, or a list of majors that doesn't include theirs. Never hides the opening. "" if none. */
+export function cautionFor(ws: Workspace, job: Job, evidence: string): string {
+  const text = `${job.eligibility.join(" ")} ${job.postingText || ""}`;
+  const out: string[] = [];
+  const lic = text.match(new RegExp(`\\b(?:must (?:hold|have|possess)|requires?|required:?)\\s+(?:an?\\s+)?(?:active |current |valid |unrestricted )?(?:texas |state )?(${LICENSES})\\s+(?:license|licensure|certification|certificate)\\b|\\b(?:active |current |valid |unrestricted )?(${LICENSES})\\s+(?:license|licensure|certification|certificate)\\s+(?:is\\s+)?(?:required|needed)\\b`, "i"));
+  const name = lic && (lic[1] || lic[2]);
+  // "upon hire", "within 2 years", "or willingness to obtain": something they get on the job, not a bar to applying.
+  // Only the rest of the same sentence counts ("…required. Must be eligible to work in the US" is a different rule).
+  const near = lic && lic.index !== undefined ? text.slice(lic.index, lic.index + lic[0].length + 100).split(/(?<=[a-z0-9]{2}[.!?])\s/)[0] : "";
+  const later = /\b(?:upon hire|after hire|within \d+ (?:days?|months?|years?)|willing(?:ness)? to obtain|ability to obtain|or be \w+ eligible|eligible to (?:sit|obtain|apply for)|obtain(?:ed)? (?:within|after|by)|interns? (?:are|is) not)\b/i.test(near);
+  if (name && !later && !new RegExp(`\\b${name}\\b`, "i").test(evidence))
+    out.push(`It requires ${/^[aeiouAEIOU]|^(?:RN|LVN|LPN|EMT|MIS)$/.test(name) ? "an" : "a"} ${name} license or certification, which Remy doesn't see on your resume; check before applying.`);
+  // "Majors in Accounting or Finance": only a firm list (no "related field", "any major", "such as", "preferred").
+  const sentence = job.eligibility.join(". ").split(/(?<=[.!?])\s+|\n+/).find((x) => /\b(?:majoring in|majors? in|major(?:s)?:|degree in)\b/i.test(x));
+  const major = (ws.profile.major || "").trim();
+  if (sentence && major && !/related|similar|equivalent|any major|all majors|any discipline|such as|e\.g\.|preferred|a plus|including but|also (?:considered|welcome|eligible)|other majors/i.test(sentence)) {
+    const list = sentence.replace(/^.*?\b(?:majoring in|majors? in|majors?:|degree in)\s*/i, "").replace(/[.;]+$/, "").trim();
+    // Short names postings use: CS, MIS, IS, Econ, Math, Stats, EE, ME, CE.
+    const spelled = list.replace(/\bCS\b/g, "Computer Science").replace(/\bM?IS\b/g, "Information Systems").replace(/\bEcon\b/gi, "Economics")
+      .replace(/\bMath\b/gi, "Mathematics").replace(/\bStats?\b/gi, "Statistics").replace(/\bEE\b/g, "Electrical Engineering").replace(/\bME\b/g, "Mechanical Engineering").replace(/\bCE\b/g, "Civil Engineering");
+    const mine = [...families(major)].filter((f) => f.length >= 4 && !/^(bachelor|science|studi|degree|major|minor|master|art)/.test(f));
+    if (list && mine.length && !mine.some((f) => families(spelled).has(f)))
+      out.push(`It asks for a degree in ${list.slice(0, 120)}, and your major is ${major}; check before applying.`);
+  }
+  return out.join(" ");
+}
+
+/** The sentence that limits a posting to U.S. citizens, or "". A sentence that also lets others in ("citizens or
+ *  permanent residents", "…and international students with OPT", "authorized to work") or says "not only" doesn't count. */
+export function citizensOnlySentence(text: string): string {
+  const CITIZEN = /\b(?:u\.?\s?s\.?|united states)\s+citizen(?:s|ship)?\b/i;
+  const LIMITS = /\b(?:must be|must hold|required|requires|only|exclusively|limited to|restricted to)\b/i;
+  // Groups a sentence also lets in ("…or permanent residents", "…and international students with OPT").
+  const OTHERS = /\b(?:permanent residents?|green card|authori[sz]ed|eligible to work|work authori[sz]ation|international|foreign nationals?|non-?citizens?|opt|cpt|visa holders?|lawful|refugees?|asylees?|daca)\b/i;
+  // Not a limit: "non-U.S. citizens", "is not required", "citizenship status", "may be required for certain projects".
+  const SOFT = /\bnon[- ]?(?:u\.?\s?s\.?|united states)|\b(?:not|no|never|some|certain|except|unless|preferred|encouraged|welcome)\b|\b(?:may|might)(?: be)? requir|citizenship status/i;
+  // Sentence ends need two lowercase letters before the stop, so "U.S. citizen" isn't cut at "U.S.".
+  for (const sentence of text.split(/(?<=[a-z0-9]{2}[.!?]|;)\s+|\n+/)) {
+    const m = sentence.match(CITIZEN);
+    if (!m || m.index === undefined || !LIMITS.test(sentence) || SOFT.test(sentence)) continue;
+    // What follows "citizen(s)" in the same sentence: "or permanent residents", ", and international students…".
+    if (OTHERS.test(sentence.slice(m.index + m[0].length))) continue;
+    return sentence;
+  }
+  return "";
 }

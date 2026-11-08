@@ -23,6 +23,9 @@ function gcalLink(c: CalItem) {
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(c.title)}&dates=${dates}&details=${encodeURIComponent(c.notes || "Added from Remy")}${c.id.startsWith("career-") ? "&recur=" + encodeURIComponent("RRULE:FREQ=WEEKLY") : ""}`;
 }
 
+/** "19:00" → "7:00 PM", the way setup shows times. */
+const clock = (t: string) => { const [h, m] = t.split(":").map(Number); return isNaN(h) ? t : `${h % 12 || 12}:${String(m || 0).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; };
+
 export default function CalendarPage() {
   const { ws, save, run, toast } = useStore();
   const w = ws!;
@@ -88,7 +91,7 @@ export default function CalendarPage() {
           <h3>Upcoming</h3>
           {upcoming.length ? <div className="upcoming-grid">{upcoming.map((i) => (
             <button key={i.id} className="pick" onClick={() => setSel(i)} data-testid="button-upcoming">
-              <span className="xs muted">{fmtDate(i.date)}{i.time ? ` · ${i.time}` : ""} · {i.kind}</span>
+              <span className="xs muted">{fmtDate(i.date)}{i.time ? ` · ${clock(i.time)}` : ""} · {i.kind}</span>
               <strong className="small">{i.title}</strong>
             </button>
           ))}</div> : <span className="small muted">Nothing scheduled. Add deadlines from Opportunities.</span>}

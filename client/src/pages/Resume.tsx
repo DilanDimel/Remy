@@ -10,7 +10,8 @@ import type { Application, BulletChange, ClaimFlag, Job, ResumeDoc, Workspace } 
 import { API_BASE, api, download, fmtDate, rid, useStore } from "../lib/store";
 import { go, replaceRoute } from "../lib/router";
 import { useJobs } from "../lib/jobs";
-import { AiUnavailableNote, Empty, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
+import { AiUnavailableNote, Empty, Modal, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
+import { resumeDiff } from "@shared/resumeDiff";
 import { ResumeBuilder } from "../components/ResumeBuilder";
 import { ResumeUpload } from "../components/Uploaders";
 import { AtsCard } from "../components/AtsCard";
@@ -19,7 +20,7 @@ import { EvidencePassport } from "../components/EvidencePassport";
 import { StoryDeck } from "../components/StoryDeck";
 import { PitchCard } from "../components/PitchCard";
 import { LinkedInCoach } from "../components/LinkedInCoach";
-import { WordPreview } from "../components/WordPreview";
+import { PdfPreview, WordPreview } from "../components/WordPreview";
 import { startTailor, useTailorSession } from "../lib/tailorChat";
 import { textConcern } from "@shared/junk";
 
@@ -71,6 +72,9 @@ function BaseResume() {
   const [preview, setPreviewState] = useState(() => { try { const v = localStorage.getItem("remy.resumePreview"); return v ? v !== "hidden" : !window.matchMedia("(max-width: 640px)").matches; } catch { return true; } });
   const setPreview = (fn: (p: boolean) => boolean) => setPreviewState((p) => { const n = fn(p); try { localStorage.setItem("remy.resumePreview", n ? "shown" : "hidden"); } catch { /* private mode */ } return n; });
   const [building, setBuilding] = useState(false);
+  // Before saving edits, the student sees every change (before → after) and says yes. null = closed; else "confirm?".
+  const [review, setReview] = useState<boolean | null>(null);
+  const changes = useMemo(() => (review !== null && doc && w.resume ? resumeDiff(w.resume.doc, doc) : []), [review, doc, w.resume]);
   useEffect(() => { setDoc(w.resume?.doc ? JSON.parse(JSON.stringify(w.resume.doc)) : null); }, [w.resume?.uploadedAt]);
   if ((!w.resume || !doc) && building) return <div className="card card-pad"><ResumeBuilder onDone={() => setBuilding(false)} onCancel={() => setBuilding(false)} /></div>;
   if (!w.resume || !doc)
@@ -85,6 +89,7 @@ function BaseResume() {
   const saveDoc = async (confirm: boolean) => {
     const r = await run(() => api<Workspace>("PUT", "/api/resume/doc", { doc, confirm }), confirm ? "Base resume confirmed" : "Saved");
     if (r) setWs(r);
+    setReview(null);
   };
   const upd = (fn: (d: ResumeDoc) => void) => setDoc((d) => { const c = JSON.parse(JSON.stringify(d)); fn(c); return c; });
   const unverified = doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets)).filter((b) => b.verified === false).length;
@@ -123,10 +128,10 @@ function BaseResume() {
         {(w.resume.original?.mime === "application/pdf" || w.resume.original?.mime.includes("wordprocessingml")) && (
           <div className="stack-sm">
             <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setPreview((p) => !p)} aria-expanded={preview} data-testid="button-toggle-preview">
-              {preview ? <><ChevronUp size={14} /> Minimize your resume</> : <><ChevronDown size={14} /> Show your resume</>}
+              {preview ? <><ChevronUp size={14} /> Hide the preview</> : <><ChevronDown size={14} /> Show your resume</>}
             </button>
             {preview && (w.resume.original.mime === "application/pdf"
-              ? <iframe className="pdf-preview" src={`${API_BASE}/api/resume/original#view=FitH`} title="Your original resume" data-testid="pdf-preview" />
+              ? <PdfPreview name={w.resume.original.name} />
               : <>
                   <span className="xs muted">A preview of your Word file. Fonts can look slightly different if your computer doesn't have them.</span>
                   <WordPreview version={w.resume.uploadedAt} />
@@ -189,10 +194,30 @@ function BaseResume() {
       <div className={"card card-pad row-between approve-bar" + (dirty ? " floating" : "")}>
         <span className="small muted">{dirty ? "You have unsaved edits. Your edits become the evidence Remy may use." : w.resume.confirmedAt ? "This is the evidence base for every tailored version." : "Confirm when every line is accurate."}</span>
         <div className="row">
-          <button className="btn btn-secondary" disabled={!dirty} onClick={() => saveDoc(false)} data-testid="button-save-resume">Save edits</button>
-          <button className="btn btn-primary" onClick={() => saveDoc(true)} data-testid="button-confirm-resume"><CheckCircle2 size={16} /> {w.resume.confirmedAt && !dirty ? "Re-confirm" : "Save & confirm"}</button>
+          <button className="btn btn-secondary" disabled={!dirty} onClick={() => setReview(false)} data-testid="button-save-resume">Save edits</button>
+          <button className="btn btn-primary" onClick={() => (dirty ? setReview(true) : saveDoc(true))} data-testid="button-confirm-resume"><CheckCircle2 size={16} /> {w.resume.confirmedAt && !dirty ? "Re-confirm" : "Save & confirm"}</button>
         </div>
       </div>
+      {review !== null && (
+        <Modal title="Review your changes" onClose={() => setReview(null)} wide>
+          <div className="stack" data-testid="resume-changes">
+            <p className="small muted">{changes.length ? `${changes.length} change${changes.length > 1 ? "s" : ""} to your base resume. Remy uses it as the evidence for everything it writes, so check each one.` : "Nothing changed in the wording (only spacing or order)."}</p>
+            <div className="stack-sm" style={{ maxHeight: "50vh", overflowY: "auto" }}>
+              {changes.map((c, i) => (
+                <div key={i} className="card card-pad stack-sm" data-testid="resume-change">
+                  <span className="xs muted"><b>{c.kind === "added" ? "Added" : c.kind === "removed" ? "Removed" : "Changed"}</b> · {c.where}</span>
+                  {c.before && <span className="small" style={{ textDecoration: c.kind === "changed" || c.kind === "removed" ? "line-through" : undefined, color: "var(--muted-text)" }}>{c.before}</span>}
+                  {c.after && <span className="small">{c.after}</span>}
+                </div>
+              ))}
+            </div>
+            <div className="row" style={{ justifyContent: "flex-end" }}>
+              <button className="btn btn-secondary" onClick={() => setReview(null)} data-testid="button-keep-editing">Keep editing</button>
+              <button className="btn btn-primary" onClick={() => saveDoc(review)} data-testid="button-save-changes"><CheckCircle2 size={16} /> {review ? "Save & confirm" : "Save these changes"}</button>
+            </div>
+          </div>
+        </Modal>
+      )}
       {/* The resume comes first; suggestions, what an ATS reads and the evidence passport are one click away. */}
       <details className="card card-pad stack" id="resume-checks" data-testid="resume-checks">
         <summary style={{ cursor: "pointer" }}><h3 style={{ display: "inline" }}>Checks</h3> <span className="small muted">Suggestions, what an application system reads from your file, and the evidence behind your skills</span></summary>
@@ -323,7 +348,11 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
   }, []);
   const pending = a.changes.filter((c) => c.status === "pending").length;
   const blocking = a.changes.filter((c) => (c.status === "accepted" || c.status === "edited") && c.flags.length).length;
-  const approve = () => call("approve", () => api("POST", `/api/applications/${a.id}/approve`), "Approved — downloads are ready");
+  // A refusal over the letter carries the fresh flags, so the bar can show "Fix the letter / It's true" right away.
+  const approve = (confirmLetter = false) => call("approve", () => api("POST", `/api/applications/${a.id}/approve`, confirmLetter ? { confirmLetter: true } : undefined)
+    .catch((e) => { if (e?.code === "letter-unshown" && e.body?.workspace) setWs(e.body.workspace); throw e; }), "Approved — downloads are ready");
+  // Things the letter says that the resume doesn't show: approval waits until the student fixes them or says they're true.
+  const letterIssues = a.letterFlags.filter((f) => f.type !== "placeholder").length;
 
   return (
     <div className="stack">
@@ -370,10 +399,13 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
           <QuickRate place="tailor" id={"tailor:" + a.id + ":" + a.generatedAt} label="Is this tailored draft useful?" />
           <div className="card card-pad row-between approve-bar">
             <span className="small">
-              {pending ? `${pending} change(s) still need your decision.` : blocking ? `${blocking} accepted change(s) have unsupported claims.` : a.letterFlags.length ? `Ready to approve. Your letter has ${a.letterFlags.length} thing(s) to check first: see Checks.` : "Ready to approve."}
+              {pending ? `${pending} change(s) still need your decision.` : blocking ? `${blocking} accepted change(s) have unsupported claims.` : letterIssues ? `Your cover letter says ${letterIssues} thing(s) your resume doesn't show (see Checks). Fix the letter, or confirm they're true.` : a.letterApproved && a.versions.length && !a.staleReason ? `Approved as version ${a.versions.length}. Downloads are in Preview & export; change anything and approve again.` : "Ready to approve."}
             </span>
             <div className="row">
-              <button className="btn btn-primary" onClick={() => approve()} disabled={!!busy} data-testid="button-approve-app">{busy === "approve" ? <Spinner /> : <ShieldCheck size={16} />} Approve this version</button>
+              {letterIssues > 0 && !pending && !blocking ? <>
+                <button className="btn btn-primary" onClick={() => setSub("letter")} data-testid="button-fix-letter">Fix the letter</button>
+                <button className="btn btn-secondary" onClick={() => approve(true)} disabled={!!busy} data-testid="button-approve-confirm">{busy === "approve" ? <Spinner /> : <ShieldCheck size={16} />} It's true, approve</button>
+              </> : <button className="btn btn-primary" onClick={() => approve()} disabled={!!busy} data-testid="button-approve-app">{busy === "approve" ? <Spinner /> : <ShieldCheck size={16} />} {a.letterApproved && a.versions.length && !a.staleReason ? "Approve again" : "Approve this version"}</button>}
             </div>
           </div>
         </>
