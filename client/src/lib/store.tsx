@@ -152,7 +152,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       toast(e?.message || "Sign-in didn't finish.", true);
     }
     const m = await api<{ me: Me | null; workspace: Workspace | null; beta?: { blocked: boolean; email: string } }>("GET", "/api/me");
-    if (m.beta?.blocked) setBetaBlocked(`${m.beta.email || "This account"} isn't in Remy's Founding Cohort yet. Remy is invite-only during the beta: apply with the form, then sign in with this same email once you're accepted.`);
+    if (m.beta?.blocked) setBetaBlocked(`${m.beta.email || "This account"} isn't on Remy's beta tester list yet. Remy is invite-only during the beta: apply with the form, then sign in with this same email once you're accepted.`);
     setMe(m.me);
     setWsState(m.workspace);
   }, [toast]);

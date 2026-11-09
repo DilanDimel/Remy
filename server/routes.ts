@@ -125,7 +125,7 @@ function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: 
       if (me && !(await beta.meAllowed(me))) return res.status(403).json({ message: beta.betaError(me.email).message, code: "beta" });
       if (!me) {
         if (!opts.create) return res.status(401).json({ message: "Please sign in to continue." });
-        if (beta.betaOn()) return res.status(403).json({ message: "Remy is invite-only during the beta. Apply for the Founding Cohort, then sign in with the email you applied with.", code: "beta" });
+        if (beta.betaOn()) return res.status(403).json({ message: "Remy is invite-only during the beta. Apply to be a beta tester, then sign in with the email you applied with.", code: "beta" });
         if (!allow("guest:" + ip, 10, 60 * 60_000)) return res.status(429).json({ message: "Too many new guest workspaces from this network. Please try again in an hour, or sign in." });
         me = await newGuest(res);
       }
@@ -669,7 +669,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       if (!emailReady()) emailError = "Email isn't set up on this server, so nothing was sent.";
       else {
         const host = process.env.PUBLIC_HOST || "remyai.org";
-        const subject = String(req.body?.subject || "").replace(/[\r\n]+/g, " ").trim().slice(0, 150) || "You're in: welcome to Remy's Founding Cohort";
+        const subject = String(req.body?.subject || "").replace(/[\r\n]+/g, " ").trim().slice(0, 150) || "You're in: welcome to the Remy beta";
         const message = String(req.body?.message || "").slice(0, 5000).trim();
         if (!message) bad("Write the email first.");
         try { await sendEmail(email, subject, `${message}\n\nSign in: https://${host}/signin`, acceptHtml(message, host)); await beta.markInvited(email); invited = true; }
