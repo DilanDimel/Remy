@@ -43,7 +43,7 @@ export async function meAllowed(me: Pick<Me, "kind" | "email">) {
 
 export function betaError(email = "") {
   const who = normEmail(email);
-  return Object.assign(new Error(`${who ? who + " isn't" : "You're not"} in Remy's Founding Cohort yet. Remy is invite-only during the beta: apply with the form, then sign in with this same email once you're accepted.`), { status: 403, code: "beta" });
+  return Object.assign(new Error(`${who ? who + " isn't" : "You're not"} on Remy's beta tester list yet. Remy is invite-only during the beta: apply with the form, then sign in with this same email once you're accepted.`), { status: 403, code: "beta" });
 }
 
 // ---------- owners' list ----------
@@ -80,8 +80,8 @@ export async function markInvited(email: string) {
 
 export function welcomeEmail(host: string) {
   return {
-    subject: "You're in: welcome to Remy's Founding Cohort",
-    text: `You're in Remy's Founding Cohort.\n\nSign in at https://${host}/signin with exactly this email address: "Continue with Email" sends you a 6-digit code, or use Google if this is your Google account's address. Setup takes about 5 minutes.\n\nAs a founding member, you've agreed to use Remy about once a week and answer one short check-in. Tell us anything Remy gets wrong: that's how it gets better.\n\nThe Remy team\nremy.careercoach@gmail.com`,
+    subject: "You're in: welcome to the Remy beta",
+    text: `You're in: you're one of Remy's beta testers.\n\nSign in at https://${host}/signin with exactly this email address: "Continue with Email" sends you a 6-digit code, or use Google if this is your Google account's address. Setup takes about 5 minutes.\n\nAs a founding member, you've agreed to use Remy about once a week and answer one short check-in. Tell us anything Remy gets wrong: that's how it gets better.\n\nThe Remy team\nremy.careercoach@gmail.com`,
   };
 }
 

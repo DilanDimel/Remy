@@ -39,7 +39,7 @@ const TEAM: { name: string; role: string; photo: string }[] = [
 
 export function About() {
   return (
-    <Page title="About Remy" lead="Remy is a career coach for college students: it finds real openings that fit you and helps you apply honestly. During the beta it's invite-only: apply for the Founding Cohort on the homepage.">
+    <Page title="About Remy" lead="Remy is a career coach for college students: it finds real openings that fit you and helps you apply honestly. During the beta it's invite-only: apply to be a beta tester on the homepage.">
       <Section title="Why we built it">
         <p>Most students, freshmen especially, don't know where to start: what to put on a resume, which openings fit, or who to talk to. Remy walks you through it, from your first resume to your first offer.</p>
       </Section>
@@ -87,7 +87,7 @@ export function Policies() {
           <li><b>From signing in:</b> your name, email address and profile photo.</li>
           <li><b>What you give Remy:</b> your resume (the file and its text), a LinkedIn profile PDF if you upload one, your answers in setup and the resume builder, your preferences, saved openings, applications, tracker, calendar items, contacts you add, email drafts and chat messages.</li>
           <li><b>Your school email</b>, if you verify it (for example name@tcu.edu), so Remy knows you're a student there.</li>
-          <li><b>Your Founding Cohort application</b>, if you apply with our Google Form: your name, school, the email you'll sign in with, major, class year, what you're looking for, where you're stuck, the tools you use, whether you'll give weekly feedback and how you heard about Remy. The team uses it to choose each cohort. Google Forms' own privacy policy applies to the form itself.</li>
+          <li><b>Your beta tester application</b>, if you apply with our Google Form: your name, school, the email you'll sign in with, major, class year, what you're looking for, where you're stuck, the tools you use, whether you'll give weekly feedback and how you heard about Remy. The team uses it to choose who joins the beta. Google Forms' own privacy policy applies to the form itself.</li>
           <li><b>Your ratings and feedback:</b> “More like this” / “Not for me” on openings, one-tap 👍 / 👎, anything you send with Send feedback, and your answers to Remy's occasional questions and weekly check-in (Remy's AI may ask one follow-up; only the question and your answer are sent to it).</li>
           <li><b>Automatic problem reports:</b> when something breaks for you (a page error, or a request that fails or is very slow), your browser tells Remy which page and what failed, linked to your account so we can fix it. Remy also counts which pages are opened and when a button is clicked over and over (a sign it's broken), without your name. Remy never records your screen or what you type.</li>
           <li><b>A sign-in cookie</b> that keeps you signed in. Remy uses your network address briefly to stop abuse (like too many requests at once) and doesn't store it.</li>
@@ -104,14 +104,14 @@ export function Policies() {
       <Section title="How your information is used">
         <p>Only to run Remy for you: building your profile, finding openings that fit, tailoring applications, drafting emails, and planning your next steps.</p>
         <p>Some of this uses AI. When it does, Remy sends only the text that task needs (for example, your resume and a job posting) to an AI provider (currently Google's Gemini models, through OpenRouter), and those providers' own privacy policies apply. Remy checks what the AI writes against your own words before showing it to you.</p>
-        <p>Remy emails you 6-digit sign-in codes and, unless you turn them off in Account → Appearance & alerts, deadline reminders and a weekly digest, from remy.careercoach@gmail.com. If you're accepted into the Founding Cohort, the team sends you a welcome email with how to sign in.</p>
+        <p>Remy emails you 6-digit sign-in codes and, unless you turn them off in Account → Appearance & alerts, deadline reminders and a weekly digest, from remy.careercoach@gmail.com. If you're accepted as a beta tester, the team sends you a welcome email with how to sign in.</p>
         <p>The team's dashboard shows counts across students (for example, how many applications got an answer, or how many students opened a page), never what you wrote. We may keep combined statistics that can't identify anyone to improve Remy.</p>
       </Section>
       <Section title="Where it's stored">
         <p>Your information is stored in a Supabase database and served from Render, both in the United States. Sign-in is handled by Supabase (with Google or LinkedIn), Google, or Remy's own emailed 6-digit code. Public job postings Remy finds are kept in one shared list with no student information. If you connect Google Calendar, Remy keeps an encrypted Google access key so it can update and delete its “Remy” calendar; disconnecting deletes the calendar and the key.</p>
       </Section>
       <Section title="Deleting your information">
-        <p>Go to <b>Account → Account & data → Delete everything</b>. Your resume, files, profile, applications, calendar, contacts, chat, ratings, feedback and problem reports, verified school email, Founding Cohort application, sign-in record and account are deleted immediately, the “Remy” calendar is deleted from your Google Calendar if you connected it, and you're signed out. Remy keeps nothing that identifies you. Combined statistics, if any, can't be traced back to you.</p>
+        <p>Go to <b>Account → Account & data → Delete everything</b>. Your resume, files, profile, applications, calendar, contacts, chat, ratings, feedback and problem reports, verified school email, beta tester application, sign-in record and account are deleted immediately, the “Remy” calendar is deleted from your Google Calendar if you connected it, and you're signed out. Remy keeps nothing that identifies you. Combined statistics, if any, can't be traced back to you.</p>
         <p>You can also <b>download all your data</b> from the same page at any time. Guest (demo) accounts are deleted automatically after 30 days without use. Applications the team declines are deleted after their cohort closes. Copies in our hosting providers' routine backups expire on their own schedule.</p>
       </Section>
 

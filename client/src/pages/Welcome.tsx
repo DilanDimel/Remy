@@ -43,8 +43,8 @@ export default function Welcome() {
   return path === "/signin" || betaBlocked ? <SignIn /> : <Landing />;
 }
 
-/** Where to apply for the Founding Cohort: the team's form, or Remy's inbox when the form isn't set yet. */
-const applyHref = (formUrl?: string) => formUrl || "mailto:remy.careercoach@gmail.com?subject=Remy%20Founding%20Cohort";
+/** Where to apply to be a beta tester: the team's form, or Remy's inbox when the form isn't set yet. */
+const applyHref = (formUrl?: string) => formUrl || "mailto:remy.careercoach@gmail.com?subject=Remy%20beta%20tester";
 
 /** Invite-only beta: who can sign in, and why someone was turned away. */
 function BetaNote({ onOther }: { onOther: () => void }) {
@@ -55,14 +55,14 @@ function BetaNote({ onOther }: { onOther: () => void }) {
     <div className="notice notice-warn stack-sm fade-up" role="alert" data-testid="beta-blocked">
       <span className="small">{betaBlocked}</span>
       <div className="row" style={{ gap: 8 }}>
-        <a className="btn btn-primary btn-sm" href={href} target="_blank" rel="noreferrer" data-testid="link-beta-apply">Apply for the Founding Cohort</a>
+        <a className="btn btn-primary btn-sm" href={href} target="_blank" rel="noreferrer" data-testid="link-beta-apply">Apply to be a beta tester</a>
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => { clearBeta(); onOther(); go("/signin"); }} data-testid="button-beta-other">Use a different email</button>
       </div>
     </div>
   );
   return (
     <p className="small muted" style={{ textAlign: "center" }} data-testid="beta-note">
-      Remy is invite-only during the beta. Sign in with the email you applied with. Not in yet? <a className="auth-link" href={href} target="_blank" rel="noreferrer">Apply for the Founding Cohort</a>
+      Remy is invite-only during the beta. Sign in with the email you applied with. Not in yet? <a className="auth-link" href={href} target="_blank" rel="noreferrer">Apply to be a beta tester</a>
     </p>
   );
 }
@@ -121,7 +121,7 @@ function SignIn() {
     <div className="landing-screen auth-stage">
       <div className="lp-beam" aria-hidden><span className="lp-beam-floor" /></div>
       <aside className="auth-side" aria-label="What happens next">
-        <span className="lp-award">{config?.beta?.on ? "Founding Cohort · invite-only beta" : "Free while Remy is in beta"}</span>
+        <span className="lp-award">{config?.beta?.on ? "Invite-only beta · looking for testers" : "Free while Remy is in beta"}</span>
         <p className="auth-side-h" aria-hidden>Your career coach is one step away.</p>
         <ol className="auth-steps">
           <li><b>Sign in</b><span>{config?.beta?.on ? "With the email you applied with." : "New here? This creates your account."}</span></li>
@@ -134,7 +134,7 @@ function SignIn() {
         <div className="landing">
           <Remy size={72} mood="wave" />
           <h1 className="motto">Sign in to Remy</h1>
-          <p className="sub">{config?.beta?.on ? "Free for Founding Cohort members during the beta. Setup takes about 5 minutes." : "Free for students while Remy is in beta. New here? Signing in creates your account; setup takes about 5 minutes."}</p>
+          <p className="sub">{config?.beta?.on ? "Free for beta testers. Setup takes about 5 minutes." : "Free for students while Remy is in beta. New here? Signing in creates your account; setup takes about 5 minutes."}</p>
         </div>
         <BetaNote onOther={() => { setSent(""); setEmail(""); setCode(""); }} />
         <div className="sso-list">
@@ -157,7 +157,7 @@ function SignIn() {
             sent && codes ? (
               <form className="stack-sm fade-up" onSubmit={(e) => { e.preventDefault(); verify(); }} data-testid="email-code-form">
                 <span className="small">{config?.beta?.on
-                  ? <>If <strong>{sent}</strong> is in Remy's Founding Cohort, a 6-digit code is on its way (it expires in 10 minutes). Nothing after a few minutes? Check spam, then make sure it's the email you applied with, or <a className="auth-link" href={applyHref(config.beta.formUrl)} target="_blank" rel="noreferrer">apply here</a>.</>
+                  ? <>If <strong>{sent}</strong> is on Remy's beta tester list, a 6-digit code is on its way (it expires in 10 minutes). Nothing after a few minutes? Check spam, then make sure it's the email you applied with, or <a className="auth-link" href={applyHref(config.beta.formUrl)} target="_blank" rel="noreferrer">apply here</a>.</>
                   : <>We emailed a 6-digit code to <strong>{sent}</strong>. It works on any device and expires in 10 minutes. Not there? Check spam or Promotions.</>}</span>
                 <div className="row">
                   <input className="input" style={{ flex: 1, minWidth: 140, letterSpacing: 4 }} inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="123456" aria-label="6-digit code" data-testid="input-email-code" />
@@ -191,7 +191,7 @@ function Landing() {
   const inside = !!(me && ws?.started);
   const beta = !!config?.beta?.on && !inside;
   const start = inside ? "/" : beta ? applyHref(config?.beta?.formUrl) : "/signin";
-  const startLabel = inside ? "Open my Remy" : beta ? "Apply for the Founding Cohort" : "Create your free account";
+  const startLabel = inside ? "Open my Remy" : beta ? "Apply to be a beta tester" : "Create your free account";
   const tour = useRef<HTMLElement>(null);
   const page = useRef<HTMLDivElement>(null);
   const [scrolled, setScrolled] = useState(false);
@@ -236,7 +236,7 @@ function Landing() {
             <a className="btn btn-lg lp-glow-btn" href={start} {...(beta ? { target: "_blank", rel: "noreferrer" } : {})} data-testid="button-lp-start">{startLabel}</a>
             <button className="btn btn-lg lp-ghost-btn" onClick={toTour}>See what you get</button>
           </div>
-          <p className="xs lp-fine">{beta ? "Invite-only beta · small cohorts, and the founders talk to every member · already accepted? Sign in above" : "Free beta · every major and every year, freshmen included"}</p>
+          <p className="xs lp-fine">{beta ? "Invite-only beta · the founders read every tester's feedback · already accepted? Sign in above" : "Free beta · every major and every year, freshmen included"}</p>
         </div>
         <HeroExample />
       </section>
@@ -323,7 +323,7 @@ function Landing() {
         <div className="lp-cta-in rv">
         <Remy size={56} mood="wave" />
         <h2>Ready when you are.</h2>
-        <p>{beta ? "Remy is invite-only while it's in beta: apply, and the team takes a small group each cohort. Free, no credit card." : "Free while Remy is in beta. No credit card. About 5 minutes to set up."}</p>
+        <p>{beta ? "Remy is invite-only while it's in beta: apply to be a tester and the team lets people in a group at a time. Free, no credit card." : "Free while Remy is in beta. No credit card. About 5 minutes to set up."}</p>
         <a className="btn btn-primary btn-lg" href={start} {...(beta ? { target: "_blank", rel: "noreferrer" } : {})}>{startLabel}</a>
         </div>
       </section>
