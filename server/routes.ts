@@ -18,6 +18,7 @@ import { latestNewsId } from "@shared/news";
 import { isNonAnswer } from "@shared/words";
 import { STORY_ASK, STORY_PARTS, findLine, namesNew, sameLine } from "@shared/stories";
 import { briefMessages, briefPrompt, cleanBrief } from "./brief";
+import { assemblePitch, type PitchParts } from "./pitch";
 import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./safety";
@@ -1344,20 +1345,31 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.json({ tips: (out.tips || []).map((t) => String(t).trim().slice(0, 300)).filter(Boolean).slice(0, 3) });
   }));
 
-  // 30-second pitch from the student's own record. Any sentence the honesty checker flags is dropped.
+  // 30-second pitch from the student's own record, written to be spoken (server/pitch.ts). Each part is honesty-checked;
+  // one that fails is replaced by a plain true sentence from the profile, so the pitch never turns choppy.
   app.post("/api/ai/pitch", route(async (_req, res, ctx) => {
     if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE);
     const out = await withAi(ctx, "Pitch", () =>
-      aiJson<{ pitch: string }>(
-        "Write a university student's 30-second elevator pitch (70 to 85 words, first person, plain spoken words, no jargon): who they are, what they study or do, one real experience, and what they want next. Use ONLY the facts given; never add numbers, titles, awards or outcomes. End on what they want next, not a question.",
-        `PROFILE:\n${profileSummary(ctx.ws)}\n\nRESUME:\n${ctx.ws.resume ? resumeToText(ctx.ws.resume.doc, { verifiedOnly: true }).slice(0, 4000) : "(none)"}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).slice(0, 30).join("\n") || "(none)"}\n\nReturn {"pitch":""}`,
+      aiJson<PitchParts>(
+        `Write a university student's 30-second pitch for a career fair or a coffee chat, as they would SAY it out loud: 60 to 80 words in four short parts.
+- "hello": a one-line hello with their name.
+- "study": what they study or do, in one short sentence.
+- "story": ONE real experience with one concrete detail of what they did (from the resume), in one or two short sentences.
+- "next": what they're looking for next, specific (role, field or season).
+Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), short sentences, everyday words. No buzzwords (passionate, leverage, driven, dynamic, results-oriented, thrive, utilize, team player). No questions. Use ONLY the facts given; never add numbers, titles, awards or outcomes.`,
+        `PROFILE:\n${profileSummary(ctx.ws)}\n\nRESUME:\n${ctx.ws.resume ? resumeToText(ctx.ws.resume.doc, { verifiedOnly: true }).slice(0, 4000) : "(none)"}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).slice(0, 30).join("\n") || "(none)"}\n\nReturn {"hello":"","study":"","story":"","next":""}`,
         600,
       ),
     );
+    const p = ctx.ws.profile;
+    const name = nameUnsure(ctx.ws) ? "" : firstName(ctx.ws);
     const ev = evidenceOf(ctx.ws) + "\n" + profileSummary(ctx.ws);
-    const kept = String(out.pitch || "").split(/(?<=[.!?])\s+/).filter((x) => x.trim() && (x.trim().endsWith("?") || !claimCheck(x, ev, { allowedNames: [ctx.ws.profile.name, ctx.ws.profile.school] }).length));
-    if (!kept.length) bad("Remy couldn't write a pitch from what it knows yet. Add your major and target roles, or upload your resume.", 422);
-    ctx.ws.pitch = { text: kept.join(" ").slice(0, 1200), at: nowIso() };
+    // Only the name the student confirmed counts as theirs; the class year only as they stated it, not inferred.
+    const text = assemblePitch(out || {}, (x) => !claimCheck(x, ev, { allowedNames: [name, p.school].filter(Boolean) }).length, {
+      name, classYear: p.classYear, major: p.major, school: p.school, interests: p.targetRoles || "",
+    });
+    if (!text) bad("Remy couldn't find one real experience it could put in your pitch. Upload your resume or add an experience (Home → weekly check-in), then try again.", 422);
+    ctx.ws.pitch = { text, at: nowIso() };
     await ctx.save();
     res.json(ctx.ws);
   }));
