@@ -19,7 +19,7 @@ import { isNonAnswer } from "@shared/words";
 import { draftOk } from "./bulletDraft";
 import { STORY_ASK, STORY_PARTS, findLine, namesNew, sameLine } from "@shared/stories";
 import { briefMessages, briefPrompt, cleanBrief } from "./brief";
-import { assemblePitch, type PitchParts } from "./pitch";
+import { BUZZ, assemblePitch, type PitchParts } from "./pitch";
 import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./safety";
@@ -1398,6 +1398,31 @@ Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), 
     ctx.ws.pitch = { text, at: nowIso() };
     await ctx.save();
     res.json(ctx.ws);
+  }));
+
+  // LinkedIn About, drafted from the student's own record for them to edit and paste (not saved). It's public, so it
+  // only sees public-safe facts (school, major, year, resume and experience facts), never GPA, work authorization,
+  // worries or limits. Each sentence is honesty-checked; ones that fail or sound like a brochure are dropped.
+  app.post("/api/ai/linkedin-about", route(async (_req, res, ctx) => {
+    if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE);
+    const p = ctx.ws.profile;
+    const publicFacts = [`School: ${p.school}`, `Major: ${p.major}`, p.minors ? `Minor: ${p.minors}` : "", p.classYear ? `Class year: ${p.classYear}` : "", p.opportunityTypes ? `Looking for: ${p.opportunityTypes}` : ""].filter((x) => !/:\s*$/.test(x)).join("\n");
+    const experience = ctx.ws.memory.filter((m) => m.status === "approved" && (m.category === "experience" || m.category === "skill")).map((m) => m.text).slice(0, 20);
+    const out = await withAi(ctx, "LinkedIn About", () =>
+      aiJson<{ sentences: string[] }>(
+        `Write a college student's LinkedIn About section as 3 or 4 short sentences: first person, plain everyday words, the way they'd write it themselves. Say what they study, one or two real things they've done (from the resume), and what they're looking for next. No buzzwords (passionate, driven, leverage, results-oriented, thrive, dynamic), no questions, no emojis. Use ONLY the facts given; never add numbers, titles, awards or outcomes.`,
+        `${publicFacts}\n\nRESUME:\n${ctx.ws.resume ? resumeToText(ctx.ws.resume.doc, { verifiedOnly: true }).slice(0, 4000) : "(none)"}\n\nMORE EXPERIENCE THEY TOLD REMY:\n${experience.join("\n") || "(none)"}\n\nReturn {"sentences":["",""]}`,
+        600,
+      ),
+    );
+    const name = nameUnsure(ctx.ws) ? "" : firstName(ctx.ws);
+    const ev = `${publicFacts}\n${ctx.ws.resume ? resumeToText(ctx.ws.resume.doc, { verifiedOnly: true }) : ""}\n${experience.join("\n")}`;
+    // The AI sometimes returns the paragraph as one item: split after a lowercase letter or digit + period, so
+    // "J.P. Morgan" and "U.S." stay whole.
+    const kept = (Array.isArray(out?.sentences) ? out.sentences : []).flatMap((x) => String(x || "").replace(/\s+/g, " ").trim().split(/(?<=[a-z0-9)][.!])\s+(?=[A-Z])/)).map((x) => x.trim()).filter((x) => x.split(" ").length >= 5)
+      .filter((x) => !x.includes("?") && !BUZZ.test(x) && !claimCheck(x, ev, { allowedNames: [name, p.school].filter(Boolean) }).length);
+    if (kept.length < 2) bad("Remy couldn't write an About from what it knows yet. Upload your resume or add an experience, then try again.", 422);
+    res.json({ about: kept.map((x) => (/[.!]$/.test(x) ? x : x + ".")).join(" ").slice(0, 1500) });
   }));
 
   // Weekly check-in: a draft first (nothing saved); the student approves what to keep.

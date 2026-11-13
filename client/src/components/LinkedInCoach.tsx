@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { Check, ChevronDown, ChevronUp, Linkedin, Plus } from "lucide-react";
-import { LINKEDIN_RECHECK_DAYS, linkedinBasics, linkedinGaps } from "@shared/linkedin";
+import { LINKEDIN_RECHECK_DAYS, linkedinBasics, linkedinGaps, linkedinTips, parseLinkedin } from "@shared/linkedin";
+import { splitList } from "@shared/words";
+import { Sparkles } from "lucide-react";
+import { api } from "../lib/store";
+import { Spinner } from "./common";
 import { daysUntil, rid, useStore } from "../lib/store";
 import { CopyButton } from "./common";
 import { ProfileImport } from "./Uploaders";
@@ -24,7 +28,22 @@ export function LinkedInCoach() {
     </section>
   );
   const gaps = linkedinGaps(doc, li.text);
-  const basics = linkedinBasics(li.text);
+  // Photo isn't in the PDF, so it goes in the "can't see" note instead of the checklist.
+  // The tips below cover About and Skills, so only Experience stays in the short checklist.
+  const basics = linkedinBasics(li.text).filter((b) => b.ok !== null && !/about|skills/i.test(b.label));
+  const parsed = parseLinkedin(li.text, [w.profile.name, w.profile.preferredName || "", doc.contact.name]);
+  // For the headline: a CURRENT role the resume reader didn't guess (dates say Present or this/last year), leadership
+  // first. No current role → no role in the suggestion (an old high-school title isn't who they are now).
+  const yr = new Date().getFullYear();
+  const current = (d: string) => /present|current|now/i.test(d) || new RegExp(`\\b(${yr}|${yr + 1}|${yr + 2})\\b`).test(d);
+  const roles = doc.sections.filter((x) => !/educ|skill|certif|honou?r|award|course/i.test(x.heading)).flatMap((x) => x.entries)
+    .filter((e) => e.role && e.org && !e.unverified?.includes("role") && !e.unverified?.includes("org") && current(e.dates));
+  const lead0 = roles.find((e) => /president|treasurer|founder|director|captain|chair|lead|officer|vice|secretary|intern/i.test(e.role)) || roles[0];
+  const lead = lead0 && { role: lead0.role.split(/\s+[–—|]\s+|\s*\(/)[0].trim(), org: lead0.org.split(/\s+[–—|]\s+|\s*\(/)[0].trim() };
+  const tips = linkedinTips(parsed, {
+    major: w.profile.major, school: w.profile.school, role: lead ? `${lead.role} @ ${lead.org}` : "",
+    resumeSkills: doc.skills.flatMap((k) => splitList(k.items)).map((x) => x.replace(/\(.*?\)/g, "").trim()).filter((x) => x.length > 1),
+  });
   const addTodo = (title: string, why: string) => w.tasks.some((t) => t.title === title && !t.done)
     ? run(async () => { throw new Error("That's already on your to-do list."); })
     : run(() => save("tasks", [{ id: rid("t"), title, why, due: "", category: "Prepare" as const, done: false, source: "LinkedIn coach" }, ...w.tasks]), "Added to your to-dos");
@@ -37,6 +56,18 @@ export function LinkedInCoach() {
           <div key={b.label} className="row small" style={{ flexWrap: "nowrap", alignItems: "flex-start", gap: 8 }}>
             <span style={{ flex: "none", width: 16, marginTop: 2, color: b.ok ? "var(--success, #22a05a)" : b.ok === false ? "var(--amber)" : "var(--muted-text)" }}>{b.ok ? <Check size={14} /> : b.ok === false ? "!" : "?"}</span>
             <span><b>{b.label}</b>{!b.ok && <span className="muted"> · {b.tip}</span>}</span>
+          </div>
+        ))}
+      </div>
+      <div className="stack-sm" style={{ gap: 10 }} data-testid="linkedin-tips">
+        {tips.map((t) => (
+          <div key={t.key} className="stack-sm" style={{ gap: 4 }} data-testid={`linkedin-tip-${t.key}`}>
+            <span className="small row" style={{ gap: 8, flexWrap: "nowrap", alignItems: "flex-start" }}>
+              <span style={{ flex: "none", width: 16, marginTop: 2, color: t.ok ? "var(--success, #22a05a)" : "var(--amber)" }}>{t.ok ? <Check size={14} /> : "!"}</span>
+              <span><b>{t.title}</b> <span className="muted">{t.detail}</span></span>
+            </span>
+            {t.suggestion && <div className="row" style={{ gap: 8, flexWrap: "nowrap", marginLeft: 24 }}><span className="xs" style={{ flex: 1 }}>Try: “{t.suggestion}”</span><CopyButton text={t.suggestion} /></div>}
+            {t.key === "about" && !parsed.about && <AboutDraft />}
           </div>
         ))}
       </div>
@@ -58,8 +89,26 @@ export function LinkedInCoach() {
           </>}
         </div>
       ))}
+      <details className="xs muted"><summary>What Remy can't see in the PDF</summary>Your photo, banner and “Open to work” setting don't come through in LinkedIn's PDF. Quick check yourself: a clear, friendly headshot; a simple banner (your school works); and Open to work set to recruiters only if you're looking.</details>
       <details className="xs muted"><summary>Upload a newer LinkedIn PDF</summary>{upload}</details>
       <p className="xs muted">Remy only compares the two. When they disagree, you decide which is right.</p>
     </section>
+  );
+}
+
+/** "Draft my About": Remy writes 3-4 sentences from the student's own record; they edit and paste it. Not saved. */
+function AboutDraft() {
+  const { run } = useStore();
+  const [busy, setBusy] = useState(false);
+  const [text, setText] = useState("");
+  const draft = async () => { setBusy(true); const r = await run(() => api<{ about: string }>("POST", "/api/ai/linkedin-about")); setBusy(false); if (r) setText(r.about); };
+  return (
+    <div className="stack-sm" style={{ marginLeft: 24, gap: 6 }}>
+      {!text && <button className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }} disabled={busy} onClick={draft} data-testid="button-draft-about">{busy ? <Spinner /> : <Sparkles size={14} />} Draft my About</button>}
+      {text && <>
+        <textarea className="textarea" style={{ minHeight: 110 }} value={text} onChange={(e) => setText(e.target.value)} aria-label="Your About section" data-testid="input-about" />
+        <div className="row" style={{ gap: 8 }}><CopyButton text={text} /><span className="xs muted">Made only from your resume and profile. Change any words so it sounds like you, then paste it into LinkedIn → About.</span></div>
+      </>}
+    </div>
   );
 }
