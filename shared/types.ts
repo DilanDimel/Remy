@@ -432,7 +432,16 @@ export interface ChatMsg {
 }
 export type ChatAction = { kind: "task"; title: string; why: string } | { kind: "role"; title: string } | { kind: "open"; link: string; label: string }
   | { kind: "setting"; key: SettingKey; value: string | boolean };
-export interface Story { id: string; title: string; theme: string; situation: string; task: string; action: string; result: string; missing: string; source: string }
+export type StoryPart = "situation" | "task" | "action" | "result";
+export interface Story {
+  id: string; title: string; theme: string; situation: string; task: string; action: string; result: string; missing: string; source: string;
+  /** For each part the resume doesn't say: one question about this experience, for the student to answer. */
+  asks?: Partial<Record<StoryPart, string>>;
+  /** Parts the student wrote themselves (kept when the deck is rebuilt). */
+  mine?: StoryPart[];
+  /** The approved fact each of the student's parts became, so an edit updates it and clearing removes it. */
+  facts?: Partial<Record<StoryPart, string>>;
+}
 export interface Step { at: string; kind: "task" | "save" | "start" | "approve" | "outreach" | "resume"; ref: string; xp: number }
 /** Settings the chat may offer to change (the student still taps to confirm). */
 /** What the student said would help most on day one; it picks where setup leads. */
