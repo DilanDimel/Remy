@@ -16,6 +16,7 @@ import { employerPreferences, interestContext, interestEnabled, ownInterest } fr
 import { keepQuestions, skippedPrefs } from "@shared/setupReply";
 import { latestNewsId } from "@shared/news";
 import { isNonAnswer } from "@shared/words";
+import { briefMessages, briefPrompt, cleanBrief } from "./brief";
 import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./safety";
@@ -1776,6 +1777,19 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     return a!;
   };
 
+  // Before tailoring: a coach's brief (company, role, why you fit) and tap-to-answer questions (server/brief.ts).
+  // One AI call; if it fails the chat falls back to the plain questions, so tailoring never depends on it.
+  app.post("/api/applications/:id/brief", route(async (req, res, ctx) => {
+    const a = getApp(ctx, String(req.params.id));
+    const job = findJob(ctx.ws, a.jobId)!;
+    if (!ctx.ws.resume) bad("Upload your base resume first.");
+    const early = preCollegeIds(ctx.ws.resume!.doc, collegeStartOf(ctx.ws));
+    const lines = ctx.ws.resume!.doc.sections.flatMap((s) => s.entries.filter((e) => !early.has(e.id)).flatMap((e) => e.bullets.map((b) => ({ id: b.id, where: `${s.heading} › ${[e.role, e.org].filter(Boolean).join(", ")}`, text: b.text }))));
+    const p = briefPrompt(job, lines, profileSummary(ctx.ws), ctx.ws.resume!.doc);
+    const raw = await withAi(ctx, `Brief for ${job.company}`, () => aiJson<any>(p.system, p.user, 1200));
+    const brief = cleanBrief(raw, job, lines);
+    res.json({ brief, messages: brief ? briefMessages(brief, job.company) : [] });
+  }));
   app.post("/api/applications/:id/generate", route(async (req, res, ctx) => {
     const a = getApp(ctx, String(req.params.id));
     const job = findJob(ctx.ws, a.jobId)!;

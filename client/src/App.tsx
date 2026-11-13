@@ -283,7 +283,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
     const t = setTimeout(() => setCheer(lastAi), 1300);
     return () => clearTimeout(t);
   }, [lastAi]);
-  const mood = busy || tailor?.stage === "working" ? "think" : greeting || asking ? "wave" : lastAi && lastAi !== cheer ? "happy" : "idle";
+  const mood = busy || tailor?.stage === "working" || tailor?.stage === "reading" ? "think" : greeting || asking ? "wave" : lastAi && lastAi !== cheer ? "happy" : "idle";
   useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [chat.length, busy]);
   const send = async (text: string) => {
     if (asking) { setMsg(""); await answerTailor(text, { setWs, run }); return; }
@@ -365,7 +365,18 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
           <div className="asst-card stack-sm" data-testid="tailor-chat">
             <span className="eyebrow">{tailor.title}</span>
             {tailor.log.map((m, i) => <div key={i} className={`bubble ${m.role === "me" ? "bubble-user" : "bubble-ai"}`}>{m.text}</div>)}
-            {tailor.stage === "working" && <div className="bubble bubble-ai row"><Spinner /> Working on it…</div>}
+            {tailor.stage === "asking" && (() => {
+              const q = tailor.qs[tailor.idx];
+              const taps = [...(q?.options || []), ...(q?.pick ? [q.pick] : [])];
+              return taps.length > 0 && (
+                <div className="stack-sm" data-testid="tailor-options">
+                  {taps.map((o) => (
+                    <button key={o} className={`btn ${o === q.pick ? "btn-ghost" : "btn-secondary"} btn-sm`} style={{ justifyContent: "flex-start", whiteSpace: "normal", textAlign: "left", height: "auto", padding: "8px 12px" }} onClick={() => send(o)} data-testid="tailor-option">{o}</button>
+                  ))}
+                </div>
+              );
+            })()}
+            {(tailor.stage === "working" || tailor.stage === "reading") && <div className="bubble bubble-ai row"><Spinner /> {tailor.stage === "reading" ? "Reading…" : "Working on it…"}</div>}
             <div ref={tailorEnd} />
           </div>
         )}
@@ -385,12 +396,12 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
           value={msg}
           onChange={(e) => { setMsg(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px"; }}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(msg); } }}
-          placeholder={asking ? "Answer Remy… (or type skip)" : config?.ai.available ? "Ask Remy anything… (Shift+Enter for a new line)" : "AI needs setup on this server"}
-          disabled={!config?.ai.available && !asking}
+          placeholder={tailor?.stage === "reading" ? "Remy is reading the posting…" : asking ? "Answer Remy… (or type skip)" : config?.ai.available ? "Ask Remy anything… (Shift+Enter for a new line)" : "AI needs setup on this server"}
+          disabled={(!config?.ai.available && !asking) || tailor?.stage === "reading"}
           aria-label="Message Remy"
           data-testid="input-chat"
         />
-        <button className="btn btn-primary" disabled={(busy && !asking) || !msg.trim()} aria-label="Send" data-testid="button-send-chat"><Send size={16} /></button>
+        <button className="btn btn-primary" disabled={(busy && !asking) || !msg.trim() || tailor?.stage === "reading"} aria-label="Send" data-testid="button-send-chat"><Send size={16} /></button>
       </form>
     </>
   );
