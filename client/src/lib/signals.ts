@@ -32,7 +32,7 @@ export function apiResult(method: string, url: string, status: number, ms: numbe
   else if (status >= 500) problem(where, `Request failed (${status})`);
   // AI answers (tailoring, coach, plans, searches) normally take a while; only flag them when far slower than usual.
   else {
-    const limit = /\/(ai|assistant|chat|discover|tailor|builder)\b/.test(url) ? 45_000 : 8000;
+    const limit = /\/(ai|assistant|chat|discover|tailor|builder|generate|audit|fit|explain|import|classify|followup|resume\/upload|resume\/text)\b/.test(url) ? 45_000 : 8000;
     if (ms > limit) problem(where, `Slow: took over ${limit / 1000} seconds`);
   }
 }
@@ -50,9 +50,16 @@ function flush(beacon = false) {
 export function startSignals() {
   if (started) return;
   started = true;
-  addEventListener("error", (e) => problem(location.pathname, `Page error: ${String((e as ErrorEvent).message || "unknown")}`));
+  // A browser extension's own crash (crypto wallets, ad blockers) isn't Remy's problem.
+  const extension = (x: unknown) => /(chrome|moz|safari-web)-extension:\/\//.test(String(x || ""));
+  addEventListener("error", (e) => {
+    const ev = e as ErrorEvent;
+    if (extension(ev.filename) || extension(ev.error?.stack)) return;
+    problem(location.pathname, `Page error: ${String(ev.message || "unknown")}`);
+  });
   addEventListener("unhandledrejection", (e) => {
     const r = (e as PromiseRejectionEvent).reason;
+    if (extension(r?.stack)) return;
     if (r?.status !== undefined) return; // an answer from Remy's server: shown to the student, and failures were already reported by api()
     problem(location.pathname, `Unhandled: ${String(r?.message || r || "unknown").slice(0, 200)}`);
   });

@@ -31,10 +31,14 @@ async function log(actor: string, action: string, detail = "") {
   await q("INSERT INTO team_activity (actor, action, detail) VALUES ($1, $2, $3)", [actor, cut(action, 200), cut(detail, 500)]);
 }
 
+// Long enough for a whole "Send feedback" note (the box takes 1,000 characters); browser errors are shorter anyway.
+const MESSAGE_MAX = 1000;
+/** Errors thrown by a visitor's browser extension (crypto wallets, ad blockers), not by Remy. */
+export const fromExtension = (stack: string) => /(chrome|moz|safari-web)-extension:\/\//.test(stack || "");
 /** Saves an error a student hit. Kept 60 days. */
 export async function recordError(kind: "browser" | "server" | "feedback", place: string, message: string, detail = "", userId = "") {
   try {
-    await q("INSERT INTO error_reports (kind, place, message, detail, user_id) VALUES ($1, $2, $3, $4, $5)", [kind, cut(place, 200), cut(message, 500), cut(detail, 2000), cut(userId, 80)]);
+    await q("INSERT INTO error_reports (kind, place, message, detail, user_id) VALUES ($1, $2, $3, $4, $5)", [kind, cut(place, 200), cut(message, MESSAGE_MAX), cut(detail, 2000), cut(userId, 80)]);
     if (Math.random() < 0.02) await q("DELETE FROM error_reports WHERE at < now() - interval '60 days'");
   } catch (e: any) {
     console.error("could not record error", e?.message);
@@ -173,7 +177,7 @@ export async function errors() {
 }
 /** Marks every open report of one error as fixed. If it happens again, it shows up as open again. */
 export async function fixError(me: string, message: string, kind: string) {
-  const r = await q1("WITH u AS (UPDATE error_reports SET fixed_at = now(), fixed_by = $3 WHERE message = $1 AND kind = $2 AND fixed_at IS NULL RETURNING 1) SELECT COUNT(*)::int AS n FROM u", [cut(message, 500), cut(kind, 20), me]);
+  const r = await q1("WITH u AS (UPDATE error_reports SET fixed_at = now(), fixed_by = $3 WHERE message = $1 AND kind = $2 AND fixed_at IS NULL RETURNING 1) SELECT COUNT(*)::int AS n FROM u", [cut(message, MESSAGE_MAX), cut(kind, 20), me]);
   if (r?.n) await log(me, kind === "feedback" ? "Handled feedback" : "Marked an error fixed", message);
 }
 

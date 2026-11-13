@@ -1,6 +1,6 @@
 import { BadgeCheck, CircleDashed } from "lucide-react";
 import type { MemoryFact, ResumeDoc } from "@shared/types";
-import { splitList } from "@shared/words";
+import { skillProof, splitList } from "@shared/words";
 
 /** Evidence Passport: each skill on the resume next to the line that proves it (a bullet, a role, or an approved
  *  fact), or "no example yet". Missing data isn't missing experience, so it asks rather than judges. */
@@ -12,8 +12,7 @@ export function EvidencePassport({ doc, memory }: { doc: ResumeDoc; memory: Memo
   // "Excel (pivot tables, VLOOKUP)" is one skill, Excel; "R (beginner)" is R (one-letter languages count).
   const skills = [...new Set(doc.skills.flatMap((k) => splitList(k.items)).map((x) => x.replace(/\(.*?\)/g, "").trim()).filter((x) => x.length > 1 || /^[A-Z]$/.test(x)))].slice(0, 16);
   if (!skills.length) return null;
-  const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const proof = (skill: string) => lines.find((l) => new RegExp(`(^|[^a-z0-9])${esc(skill.toLowerCase())}($|[^a-z0-9])`).test(l.toLowerCase()));
+  const proof = (skill: string) => skillProof(skill, lines);
   const rows = skills.map((s) => ({ s, p: proof(s) }));
   const backed = rows.filter((r) => r.p).length;
   return (

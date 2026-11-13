@@ -47,7 +47,7 @@ export function linkedinBasics(li: string): { label: string; ok: boolean | null;
     { label: "About section", ok: has(/^\s*(summary|about)\s*$/im), tip: "Two or three sentences in your own words: what you study, what you've done, what you want next." },
     { label: "Skills listed", ok: has(/^\s*(top skills|skills)\s*$/im), tip: "Add at least 5 skills that are also on your resume." },
     { label: "Experience listed", ok: has(/^\s*experience\s*$/im), tip: "Add your jobs, internships and leadership roles; the list below has the words ready." },
-    { label: "Profile photo", ok: null, tip: "The PDF doesn't show photos, so check this one yourself: a clear, friendly headshot." },
+    { label: "Profile photo", ok: null, tip: "Remy can't see your photo: LinkedIn leaves it out of the PDF. If you have a clear, friendly headshot, you're set." },
   ];
 }
 
