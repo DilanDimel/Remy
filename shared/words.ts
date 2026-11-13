@@ -103,3 +103,26 @@ export function skillParts(item: string): string[] {
   const notes = inner.every((x) => /^(basic|beginner|intermediate|advanced|proficient|fluent|native|conversational|certified|\d+\+?\s*(yrs?|years?))$/i.test(x));
   return notes ? [m[1].trim()] : [m[1].trim(), ...inner];
 }
+
+/** "skip", "idk", "I don't really have one": the student didn't answer. Used so a non-answer never becomes a fact
+ *  about them or a line in their cover letter. */
+export function isNonAnswer(text: string): boolean {
+  if (!/[\p{L}\p{N}]/u.test(text || "")) return true; // empty, "-", "?"; any letter (any language) or digit counts
+  const t = (text || "").toLowerCase().replace(/[’']/g, "").replace(/[^a-z/ ]+/g, " ").replace(/\s+/g, " ").trim();
+  if (/^(skip|skipped|pass|no|nope|nah|none|n\/a|na|nothing|nothing really|not really|idk|dunno|no idea|not sure|unsure|no reason|no comment|whatever|nothing to add|nothing else)$/.test(t)) return true;
+  return /^(i )?(dont|do not|dont really|do not really) (know|have (one|any|anything|an answer)|really (know|have (one|any|anything)))$/.test(t)
+    || /^(i )?(dont|do not)( really)? (have|know)( one| any| anything)?( yet| really)?$/.test(t)
+    || /^(im |i am )?not (sure|really sure)( yet)?$/.test(t);
+}
+
+/** The resume line that shows a skill is used, or undefined. "MS Excel", "Microsoft Excel" and "Excel" are the same skill. */
+export function skillProof(skill: string, lines: string[]): string | undefined {
+  const norm = (x: string) => x.toLowerCase()
+    .replace(/\bms\s+(?=(excel|word|powerpoint|outlook|office|access|teams|project|visio|365)\b)/g, "microsoft ")
+    .replace(/\bmicrosoft\s+(?=(excel|powerpoint|visio|365)\b)/g, ""); // only names that aren't everyday words drop the prefix
+  const s = norm(skill).trim();
+  if (!s) return undefined;
+  const esc = s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`(^|[^a-z0-9])${esc}($|[^a-z0-9])`);
+  return lines.find((l) => re.test(norm(l)));
+}

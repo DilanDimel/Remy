@@ -15,6 +15,7 @@ import { JOB_INTEREST_REASONS, type JobInterestRating } from "@shared/types";
 import { employerPreferences, interestContext, interestEnabled, ownInterest } from "./ranking";
 import { keepQuestions, skippedPrefs } from "@shared/setupReply";
 import { latestNewsId } from "@shared/news";
+import { isNonAnswer } from "@shared/words";
 import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./safety";
@@ -584,7 +585,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (allow("client-error:" + clientIp(req), 20, 10 * 60_000) && clientErrors++ < 500) {
       const b = req.body || {};
       console.error("client error", JSON.stringify({ where: String(b.where || "").slice(0, 80), message: String(b.message || "").slice(0, 500), url: String(b.url || "").slice(0, 200), stack: String(b.stack || "").slice(0, 1500) }));
-      recordError("browser", String(b.url || b.where || ""), String(b.message || "Unknown error"), String(b.stack || ""));
+      if (!admin.fromExtension(String(b.stack || ""))) recordError("browser", String(b.url || b.where || ""), String(b.message || "Unknown error"), String(b.stack || ""));
     }
     res.json({ ok: true });
   });
@@ -1291,7 +1292,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE);
     const out = await withAi(ctx, "Pitch", () =>
       aiJson<{ pitch: string }>(
-        "Write a university student's 30-second elevator pitch (70 to 85 words, first person, plain spoken words, no jargon): who they are, what they study or do, one real experience, and what they want next. Use ONLY the facts given; never add numbers, titles, awards or outcomes. End with one short question they could ask the listener.",
+        "Write a university student's 30-second elevator pitch (70 to 85 words, first person, plain spoken words, no jargon): who they are, what they study or do, one real experience, and what they want next. Use ONLY the facts given; never add numbers, titles, awards or outcomes. End on what they want next, not a question.",
         `PROFILE:\n${profileSummary(ctx.ws)}\n\nRESUME:\n${ctx.ws.resume ? resumeToText(ctx.ws.resume.doc, { verifiedOnly: true }).slice(0, 4000) : "(none)"}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).slice(0, 30).join("\n") || "(none)"}\n\nReturn {"pitch":""}`,
         600,
       ),
@@ -1418,7 +1419,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     // Asked once: a second tab or an old page answering again changes nothing.
     if (ctx.ws.feedbackAsked?.[key]) return res.json(ctx.ws);
     if (!allow("feedback:" + ctx.me.id, 20, 60 * 60_000)) bad("Thanks! That's a lot of feedback at once; please wait a bit.", 429);
-    // One note per answer and one per follow-up answer (a note keeps 500 characters; both fit whole).
+    // One note per answer and one per follow-up answer (a note keeps 1,000 characters; both fit whole).
     for (const x of items) {
       if (x.a.length >= 2) await recordError("feedback", `ask:${key}`, `${x.q} — ${x.a}`, ctx.me.email || "", ctx.me.id);
       if (x.fq && x.fa.length >= 2) await recordError("feedback", `ask:${key}`, `Follow-up to "${x.q}": ${x.fq} — ${x.fa}`, ctx.me.email || "", ctx.me.id);
@@ -1794,7 +1795,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     }
     // Answers the student gave Remy before/while tailoring become approved facts,
     // so the letter can use them and the claim checker treats them as evidence.
-    const answers = (Array.isArray(req.body?.answers) ? req.body.answers : []).map((x: any) => ({ q: String(x?.q || "").slice(0, 200), a: String(x?.a || "").trim().slice(0, 800) })).filter((x: any) => x.a);
+    const answers = (Array.isArray(req.body?.answers) ? req.body.answers : []).map((x: any) => ({ q: String(x?.q || "").slice(0, 200), a: String(x?.a || "").trim().slice(0, 800) })).filter((x: any) => x.a && !isNonAnswer(x.a));
     for (const x of answers) addFact(ctx.ws, `${x.q} — ${x.a}`, "goal", `Told Remy while tailoring for ${job.company}`, "approved");
     // High-school and other pre-college entries stay on the resume but aren't tailored or used in the letter.
     const early = preCollegeIds(ctx.ws.resume!.doc, collegeStartOf(ctx.ws));

@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { Application, Contact, Job, OutreachDraft, Workspace } from "@shared/types";
+import { isNonAnswer } from "@shared/words";
 import { api } from "./store";
 
 // Conversations with Remy in his panel: he asks a few questions one at a time,
@@ -14,7 +15,7 @@ export type TailorSession = {
   appId: string; // kept for the Resume page; "" for outreach
   title: string; // shown above the conversation
   stage: Stage;
-  qs: { key: string; q: string }[];
+  qs: { key: string; q: string; label?: string }[]; // label: what the answer is saved under, when the question is long
   idx: number;
   answers: Record<string, string>;
   log: Msg[];
@@ -80,14 +81,18 @@ export function startOutreach(c: Contact) {
   );
 }
 
-const SKIP = /^\s*(skip|no|none|n\/a|nothing|-)\s*\.?$/i;
+// When a student skips most tailoring questions, Remy says so once before writing a generic letter.
+export const NUDGE_KEY = "_reason";
+const NUDGE_Q = `You skipped most of these, so the cover letter would be generic, and recruiters notice. Give me one real reason you want this role (a class, a project, someone you talked to, what the team works on), or type "go" to write it anyway.`;
+export const realAnswers = (s: Pick<TailorSession, "qs" | "answers">) => s.qs.filter((x) => !x.key.startsWith("_") && s.answers[x.key]).length;
 
 export async function answer(text: string, deps: Deps) {
   const s = session;
   if (!s || s.stage !== "asking") return;
   const q = s.qs[s.idx];
   say(text.trim() || "skip", "me");
-  s.answers[q.key] = SKIP.test(text) ? "" : text.trim();
+  const goAnyway = q.key === NUDGE_KEY && /^\s*(go|go ahead|just go|write it|write it anyway)\s*[.!]?\s*$/i.test(text);
+  s.answers[q.key] = q.key === "_ok" ? text.trim() : isNonAnswer(text) || goAnyway ? "" : text.trim();
   if (q.key === "_ok" && !/^\s*(y|yes|yeah|yep|sure|ok|okay)\b/i.test(text)) {
     s.stage = "done";
     say("Okay, I won't tailor for this one. Your time is better spent on openings you qualify for.");
@@ -95,13 +100,16 @@ export async function answer(text: string, deps: Deps) {
     return;
   }
   s.idx += 1;
+  if (s.idx >= s.qs.length && s.kind === "tailor" && realAnswers(s) < 2 && !s.qs.some((x) => x.key === NUDGE_KEY)) {
+    s.qs = [...s.qs, { key: NUDGE_KEY, q: NUDGE_Q, label: "Why I want this role" }];
+  }
   if (s.idx < s.qs.length) {
     say(s.qs[s.idx].q);
     emit();
     return;
   }
   s.stage = "working";
-  const answers = s.qs.filter((x) => x.key !== "_ok").map((x) => ({ q: x.q, a: s.answers[x.key] || "" })).filter((x) => x.a);
+  const answers = s.qs.filter((x) => x.key !== "_ok").map((x) => ({ q: x.label || x.q, a: s.answers[x.key] || "" })).filter((x) => x.a);
   if (s.kind === "tailor") {
     say("Thanks! Tailoring your resume and writing your letter now — this can take a minute.");
     emit();
