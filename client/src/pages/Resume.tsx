@@ -19,6 +19,7 @@ import { AtsCard } from "../components/AtsCard";
 import { AtsXray } from "../components/AtsXray";
 import { EvidencePassport } from "../components/EvidencePassport";
 import { StoryDeck } from "../components/StoryDeck";
+import { ResumeReview } from "../components/ResumeReview";
 import { PitchCard } from "../components/PitchCard";
 import { LinkedInCoach } from "../components/LinkedInCoach";
 import { PdfPreview, WordPreview } from "../components/WordPreview";
@@ -47,7 +48,7 @@ export default function Resume({ query }: { query: URLSearchParams }) {
           <button key={k} role="tab" className="tab" aria-selected={effective === k} onClick={() => setTab(k)} data-testid={`tab-resume-${k}`}>{l}</button>
         ))}
       </div>
-      {effective === "base" && <BaseResume />}
+      {effective === "base" && <BaseResume subParam={query.get("sub")} />}
       {effective === "tailor" && <Tailor query={query} />}
       {effective === "prep" && <div className="stack-lg"><StoryDeck /><PitchCard /><LinkedInCoach /></div>}
       {effective === "library" && <Library />}
@@ -56,11 +57,11 @@ export default function Resume({ query }: { query: URLSearchParams }) {
 }
 
 // ---------------------------------------------------------------- base resume
-function BaseResume() {
+function BaseResume({ subParam }: { subParam: string | null }) {
   // "Make my resume stronger" in setup lands here with the checks open.
   useEffect(() => {
     if (!new URLSearchParams(location.search).has("checks")) return;
-    const t = setTimeout(() => { const d = document.getElementById("resume-checks") as HTMLDetailsElement | null; if (d) { d.open = true; d.scrollIntoView({ block: "start", behavior: "smooth" }); } }, 300);
+    const t = setTimeout(() => document.getElementById("resume-review")?.scrollIntoView({ block: "start", behavior: "smooth" }), 300);
     return () => clearTimeout(t);
   }, []);
   const { ws, setWs, run, toast } = useStore();
@@ -73,6 +74,11 @@ function BaseResume() {
   const [preview, setPreviewState] = useState(() => { try { const v = localStorage.getItem("remy.resumePreview"); return v ? v !== "hidden" : !window.matchMedia("(max-width: 640px)").matches; } catch { return true; } });
   const setPreview = (fn: (p: boolean) => boolean) => setPreviewState((p) => { const n = fn(p); try { localStorage.setItem("remy.resumePreview", n ? "shown" : "hidden"); } catch { /* private mode */ } return n; });
   const [building, setBuilding] = useState(false);
+  // Review first (Remy's top fixes), then Edit, then the file itself. ?sub= opens one directly.
+  const [sub, setSubState] = useState<"review" | "edit" | "file">(() => { const v = new URLSearchParams(location.search).get("sub") || new URLSearchParams(location.hash.split("?")[1] || "").get("sub"); return v === "edit" || v === "file" ? v : "review"; });
+  const setSub = (v: "review" | "edit" | "file") => { setSubState(v); window.scrollTo({ top: 0 }); };
+  // A link to ?sub=… while this page is already open switches the tab too.
+  useEffect(() => { if (subParam === "edit" || subParam === "file" || subParam === "review") setSubState(subParam); }, [subParam]);
   // Before saving edits, the student sees every change (before → after) and says yes. null = closed; else "confirm?".
   const [review, setReview] = useState<boolean | null>(null);
   const changes = useMemo(() => (review !== null && doc && w.resume ? resumeDiff(w.resume.doc, doc) : []), [review, doc, w.resume]);
@@ -104,12 +110,18 @@ function BaseResume() {
           <span className="xs muted">{w.resume.parsedBy === "builder" ? "Made" : "Uploaded"} {fmtDate(w.resume.uploadedAt)} · {w.resume.parsedBy === "builder" ? "built with Remy from your answers" : `read by ${w.resume.parsedBy === "ai" ? "AI, then checked word-for-word against your file" : "the built-in parser"}`}{unverified ? ` · ${unverified} line(s) need a look` : ""}</span>
         </div>
         <div className="row">
-          <button className="btn btn-ghost btn-sm" onClick={() => setShowRaw((s) => !s)}>{showRaw ? "Hide" : "Show"} original text</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => { setShowRaw((s) => !s); setSubState("file"); }}>{showRaw ? "Hide" : "Show"} original text</button>
           <button className="btn btn-secondary btn-sm" onClick={() => setReplace((s) => !s)} data-testid="button-replace-resume">Replace file</button>
         </div>
       </div>
       {replace && <div className="card card-pad"><ResumeUpload compact onDone={() => setReplace(false)} /></div>}
       {w.resume.confirmedAt && !dirty && recent(w.resume.confirmedAt) && <MomentAsk ask="moment:resume" question="What was the hardest or most confusing part of getting your resume into Remy?" />}
+      <div className="tabs tabs-sub" role="tablist" aria-label="Base resume">
+        {([["review", "Review"], ["edit", "Edit"], ["file", "File & export"]] as const).map(([k, l]) => (
+          <button key={k} role="tab" className="tab" aria-selected={sub === k} onClick={() => setSub(k)} data-testid={`subtab-${k}`}>{l}</button>
+        ))}
+      </div>
+      {sub === "file" && <>
       <div className="card card-pad stack" data-testid="card-resume-files">
         <div className="row-between">
           <div className="stack-sm">
@@ -142,18 +154,23 @@ function BaseResume() {
       </div>
       {showRaw && <pre className="card card-pad xs" style={{ whiteSpace: "pre-wrap", maxHeight: 320, overflow: "auto", margin: 0 }}>{w.resume.rawText}</pre>}
 
-      {/* Checks sit right under the file (not seven screens down): suggestions, what an ATS reads, the evidence behind skills. */}
-      <details className="card card-pad stack" id="resume-checks" data-testid="resume-checks">
-        <summary style={{ cursor: "pointer" }}>
-          <h3 style={{ display: "inline" }}>Checks</h3>{" "}
-          <span className="small muted">Suggestions, what an application system reads from your file, and the evidence behind your skills</span>
-        </summary>
-        <div className="stack" style={{ marginTop: 12 }}>
-          <AtsCard refreshKey={`${w.resume.uploadedAt}-${w.resume.confirmedAt || ""}-${JSON.stringify(w.resume.doc).length}`} />
-          {doc && <AtsXray doc={doc} quality={w.resume.quality} upd={upd} />}
-          {doc && <EvidencePassport doc={doc} memory={w.memory} />}
-        </div>
-      </details>
+      </>}
+      {sub === "review" && <div className="stack" id="resume-review">
+        <ResumeReview doc={doc} upd={upd} needsConfirm={w.resume.confirmedAt ? null : unverified} onEdit={() => setSub("edit")} />
+        {/* Lines from weekly check-ins waiting to be placed live in More checks (AtsXray), so it opens when there are some. */}
+        <details className="card card-pad stack" data-testid="resume-checks" open={w.tasks.some((t) => t.source === "Check-in" && t.link?.startsWith("/resume") && !t.done) || undefined}>
+          <summary style={{ cursor: "pointer" }}><b>More checks</b> <span className="small muted">What an application system reads from your file, and the proof behind your skills</span></summary>
+          <div className="stack" style={{ marginTop: 12 }}>
+            <AtsXray doc={doc} quality={w.resume.quality} upd={upd} />
+            <EvidencePassport doc={doc} memory={w.memory} />
+          </div>
+        </details>
+      </div>}
+      {sub === "edit" && <>
+        {(() => { // live from the current bullets, so it's gone as soon as the line is reworded
+          const rude = doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.filter((b) => textConcern(b.text)).map((b) => b.text)));
+          return rude.length > 0 && <div className="notice notice-bad" role="alert" data-testid="warn-rude-lines-edit"><AlertTriangle size={16} /> <span>{rude.length === 1 ? "One line has" : `${rude.length} lines have`} language most employers would reject. Reword {rude.length === 1 ? "it" : "them"} below before you apply.</span></div>;
+        })()}
       <div className="card card-pad stack" id="edit-resume">
         <h3>Contact</h3>
         <div className="grid-2">
@@ -204,6 +221,7 @@ function BaseResume() {
           </div>
         ))}
       </div>
+      </>}
       <div className={"card card-pad row-between approve-bar" + (dirty ? " floating" : "")}>
         <span className="small muted">{dirty ? "You have unsaved edits. Your edits become the evidence Remy may use." : w.resume.confirmedAt ? "This is the evidence base for every tailored version." : "Confirm when every line is accurate."}</span>
         <div className="row">

@@ -1,19 +1,13 @@
 import type { AtsScore, Job, ResumeDoc } from "@shared/types";
 import { family, families } from "@shared/words";
 import { isSkillKeyword, plainEnglish, skillsIn } from "@shared/requirements";
+import { QUANT, WEAK, isAction, isListSection } from "@shared/bullets";
 
 // Resume suggestions (no score is shown to students; the points only order the suggestions), computed from the resume itself (no AI), so
 // it's instant and gives the same number every time. Each lost point comes with
 // the specific fix that would earn it back.
 
-const STRONG = /^(led|built|grew|launched|managed|created|designed|developed|analyz|organized|trained|presented|drove|owned|published|surveyed|coordinated|improved|increased|reduced|negotiated|founded|directed|executed|implemented|researched|modeled|forecast|automated|streamlined|delivered|won|raised|secured|mentored|wrote|produced|planned|conducted|evaluated|optimized|spearheaded|initiated|established|collaborated|supported|prepared|assisted|served|tutored|taught|volunteered|completed|calculated|reviewed|tracked|built)/i;
-// Past-tense verbs ("Organized", "Pitched") count too, minus a few that aren't actions.
-const PAST_VERB = /^(?!(?:need|interest|based|located|expected|detailed|related|used)ed\b)[A-Z][a-z]{2,}ed\b/;
-// Present tense is right for a current role ("Manage…", "Provide…").
-const PRESENT = /^(lead|build|grow|launch|manage|create|design|develop|analy[sz]e|organi[sz]e|train|present|drive|own|publish|coordinate|improve|increase|reduce|negotiate|direct|execute|implement|research|model|forecast|automate|deliver|raise|mentor|write|produce|plan|conduct|evaluate|optimi[sz]e|collaborate|support|prepare|serve|tutor|teach|run|oversee|maintain|review|track|provide|advise|facilitate|recruit|schedule|process|operate|handle|assist)s?\b/i;
-const isAction = (b: string) => STRONG.test(b) || PAST_VERB.test(b) || PRESENT.test(b);
-const WEAK = /^(responsible for|helped|assisted with|worked on|duties included|tasked with|was in charge of|handled|did)\b/i;
-const QUANT = /\d|%|\$/;
+
 
 const lc = (s: string) => s.toLowerCase();
 function textOf(doc: ResumeDoc) {
@@ -26,7 +20,6 @@ export function atsScore(doc: ResumeDoc, keywords: string[] | null, against: str
   const text = textOf(doc);
   const low = lc(text);
   // Coursework, honors and skills lines aren't achievement bullets; judge the rest.
-  const isListSection = (h: string) => /educ|skill|course|honou?r|award|interest|certif|language|activit/i.test(h);
   const bullets = doc.sections.filter((s) => !isListSection(s.heading)).flatMap((s) => s.entries.flatMap((e) => e.bullets)).map((b) => b.text.trim().replace(/^[•\-–*]\s*/, "")).filter(Boolean);
   const words = text.split(/\s+/).filter(Boolean).length;
   const headings = doc.sections.map((s) => lc(s.heading));

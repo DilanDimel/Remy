@@ -16,6 +16,7 @@ import { employerPreferences, interestContext, interestEnabled, ownInterest } fr
 import { keepQuestions, skippedPrefs } from "@shared/setupReply";
 import { latestNewsId } from "@shared/news";
 import { isNonAnswer } from "@shared/words";
+import { draftOk } from "./bulletDraft";
 import { STORY_ASK, STORY_PARTS, findLine, namesNew, sameLine } from "@shared/stories";
 import { briefMessages, briefPrompt, cleanBrief } from "./brief";
 import { assemblePitch, type PitchParts } from "./pitch";
@@ -1236,7 +1237,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     }
     // The student decides what belongs on the resume; Remy only makes the gap visible as a to-do.
     if (missing.length) {
-      ctx.ws.tasks.unshift({ id: uid("t"), title: `Decide what to add to your resume from ${source}`, why: `Your ${source} lists ${missing.length} thing${missing.length === 1 ? "" : "s"} your resume doesn't: ${missing.slice(0, 6).join("; ")}${missing.length > 6 ? "; …" : ""}. Add the ones that still apply and are true, so employers see the same story everywhere.`, due: "", category: "Prepare", done: false, source: `${source} check`, link: "/resume" });
+      ctx.ws.tasks.unshift({ id: uid("t"), title: `Decide what to add to your resume from ${source}`, why: `Your ${source} lists ${missing.length} thing${missing.length === 1 ? "" : "s"} your resume doesn't: ${missing.slice(0, 6).join("; ")}${missing.length > 6 ? "; …" : ""}. Add the ones that still apply and are true, so employers see the same story everywhere.`, due: "", category: "Prepare", done: false, source: `${source} check`, link: "/resume?tab=base&sub=edit" });
     }
     ctx.ws.imports.unshift({ id: uid("i"), kind, fileName, at: nowIso(), label: "Student provided", factsAdded: added });
     if (/linkedin/i.test(kind)) ctx.ws.linkedin = { text: raw.slice(0, 30000), at: nowIso() };
@@ -1253,6 +1254,31 @@ export async function registerRoutes(_server: Server, app: Express) {
   }, { serial: true }));
 
   // ---------- AI: onboarding questions + plan ----------
+  // Review tab: Remy drafts a better version of ONE bullet, using only the bullet and the student's own answer (a
+  // number they know, for "numbers"). Strictly checked; nothing is saved here: the student taps "Use it", then saves
+  // through the usual "Review your changes". If Remy can't do it honestly, it says so instead of guessing.
+  app.post("/api/resume/bullet-draft", route(async (req, res, ctx) => {
+    const kind = String(req.body?.kind || "");
+    if (kind !== "numbers" && kind !== "verbs") bad("Pick what to fix.");
+    const text = String(req.body?.text || "").replace(/\s+/g, " ").trim().slice(0, 400);
+    const answer = String(req.body?.answer || "").replace(/\s+/g, " ").trim().slice(0, 200);
+    if (text.length < 4) bad("That line is empty.");
+    if (kind === "numbers" && (!answer || isNonAnswer(answer) || !/\d/.test(answer))) bad("Type the real number you know (like “40 members” or “$5,000”), or skip this line.");
+    if (kind === "verbs" && (!answer || isNonAnswer(answer) || answer.length < 4)) bad("Say in a few words what you actually did (like “wrote and scheduled the posts”).");
+    const out = await withAi(ctx, "Improve a bullet", () =>
+      aiJson<{ bullet: string }>(
+        `You improve ONE line of a college student's resume. Rules: keep every fact in the line; add nothing that isn't in the line or the student's answer (no outcomes, purposes, tools, numbers or adjectives they didn't give); start with a strong past-tense action verb (or present tense if the line is in present tense); 8 to 28 words; no period at the end.${kind === "numbers" ? " Work the student's number(s) into the line naturally, exactly as given." : " Start the line with what the student says they did, in their words (their answer), e.g. line \"Helped with social media\" + answer \"wrote and scheduled the posts\" becomes \"Wrote and scheduled social media posts\"."}`,
+        `LINE: ${text}\n${answer ? `STUDENT'S ANSWER: ${answer}\n` : ""}\nReturn {"bullet":""}`,
+        300,
+      ),
+    );
+    const draft = String(out?.bullet || "").replace(/\s+/g, " ").trim().replace(/\.$/, "").slice(0, 300);
+    // Only the line plus the student's answer, never a hedged action upgraded (server/bulletDraft.ts).
+    if (!draftOk(kind as "numbers" | "verbs", text, answer, draft)) {
+      bad("Remy couldn't improve this line without adding something you didn't say. Edit it yourself in the Edit tab.", 422);
+    }
+    res.json({ draft });
+  }));
   // Story Deck: up to 4 interview stories from the student's own resume lines. The AI may only fill a part with what
   // THAT line (and its entry) says, checked strictly; Situation is always the student's own words (a resume line never
   // says what was going on). Every empty part gets a question about that experience for the student to answer.
@@ -1636,7 +1662,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       m!.updatedAt = nowIso();
       const was = m!.conflict;
       delete m!.conflict;
-      ctx.ws.tasks.unshift({ id: uid("t"), title: "Update your resume to match", why: `You said ${source} is right: "${m!.text}". ${was}. Change your resume so they match.`, due: "", category: "Prepare", done: false, source: `${source} check`, link: "/resume" });
+      ctx.ws.tasks.unshift({ id: uid("t"), title: "Update your resume to match", why: `You said ${source} is right: "${m!.text}". ${was}. Change your resume so they match.`, due: "", category: "Prepare", done: false, source: `${source} check`, link: "/resume?tab=base&sub=edit" });
     }
     await ctx.save();
     res.json(ctx.ws);
