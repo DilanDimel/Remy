@@ -42,7 +42,7 @@ function StoryCard({ st }: { st: Story }) {
       <div className="row-between"><b className="small">{st.title}</b>{st.theme && <span className="chip chip-plain">{st.theme}</span>}</div>
       <span className="xs muted" data-testid="story-progress">{done === 4 ? "All 4 parts ready. Practice it out loud." : `${done} of 4 parts. Answer the ${4 - done === 1 ? "question" : `${4 - done} questions`} below to finish it.`}</span>
       {STORY_PARTS.map((p) => <PartRow key={p} st={st} part={p} />)}
-      <PracticeOutLoud goal={[60, 120]} label="Tell it out loud" />
+      <PracticeOutLoud goal={[60, 120]} label="Tell it out loud" script={STORY_PARTS.map((p) => st[p]).filter(Boolean).join(" ")} />
     </div>
   );
 }

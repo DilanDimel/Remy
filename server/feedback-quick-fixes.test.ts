@@ -65,5 +65,5 @@ test("pitch: the prompt no longer asks to end with a question", () => {
   const src = readFileSync(new URL("./routes.ts", import.meta.url), "utf8");
   const prompt = src.slice(src.indexOf('app.post("/api/ai/pitch"'), src.indexOf('app.post("/api/ai/pitch"') + 1200);
   assert.doesNotMatch(prompt, /End with one short question/);
-  assert.match(prompt, /not a question/);
+  assert.match(prompt, /No questions/); // and server/pitch.test.ts checks a question is never kept
 });
