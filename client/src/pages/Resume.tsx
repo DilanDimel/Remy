@@ -344,7 +344,7 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
   const tailor = useTailorSession();
   const mine = tailor?.appId === a.id ? tailor : null;
   const conflict = ws!.fits[job.id]?.eligibility === "unlikely" ? ws!.fits[job.id]!.eligibilityNote : undefined;
-  const generate = () => startTailor(a, job, conflict);
+  const generate = () => startTailor(a, job, conflict, ws!.resume?.doc);
   useEffect(() => {
     if (!autoStart) return;
     replaceRoute(`/resume?tab=tailor&app=${a.id}`); // so a reload doesn't start it again
@@ -370,7 +370,7 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
             <span className="xs muted">{job.deadlineText || "No deadline listed"} · <a className="src-link" href={job.applyUrl || job.sourceUrl} target="_blank" rel="noreferrer" style={{ color: "var(--plum)", fontWeight: 700 }}>Posting <ArrowUpRight size={12} style={{ display: "inline" }} /></a></span>
           </div>
           <button className="btn btn-primary" onClick={generate} disabled={!!busy || (!!mine && mine.stage !== "done") || !config?.ai.available || !w.resume} data-testid="button-generate">
-            {mine?.stage === "working" ? <Spinner /> : a.generatedAt ? <RotateCcw size={16} /> : <Sparkles size={16} />} {mine?.stage === "working" ? "Tailoring…" : mine?.stage === "asking" ? "Answering Remy…" : a.generatedAt ? "Regenerate" : "Tailor with AI"}
+            {mine?.stage === "working" ? <Spinner /> : a.generatedAt ? <RotateCcw size={16} /> : <Sparkles size={16} />} {mine?.stage === "working" ? "Tailoring…" : mine?.stage === "reading" ? "Reading the posting…" : mine?.stage === "asking" ? "Answering Remy…" : a.generatedAt ? "Regenerate" : "Tailor with AI"}
           </button>
         </div>
         {mine?.stage === "working" && <WorkingSteps steps={["Reading the posting", "Matching it to your resume", "Writing suggested changes", "Checking every change is true to your experience"]} />}
@@ -378,6 +378,7 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
         {a.generatedAt && <p className="xs muted" style={{ marginTop: 10 }}>Draft made {fmtDate(a.generatedAt)} · {a.versions.length ? `approved v${a.versions.length} on ${fmtDate(a.versions[a.versions.length - 1].at)}` : "not yet approved"}</p>}
       </div>
 
+      {mine?.stage === "reading" && <div className="card card-pad row" style={{ flexWrap: "nowrap" }}><Remy size={40} mood="think" /><span className="small"><b>Remy is reading the posting.</b> He'll tell you what {job.company} does and why you fit, then ask a few quick questions in the chat.</span></div>}
       {mine?.stage === "asking" && <div className="card card-pad row" style={{ flexWrap: "nowrap" }} data-testid="tailor-asking"><Remy size={40} mood="wave" /><span className="small"><b>Remy is asking you a few questions in the chat.</b> Answer there (or type "skip") and he'll tailor as soon as you're done.</span></div>}
       {mine?.stage === "working" && <div className="card card-pad stack"><div className="row"><Remy size={40} mood="think" /><span className="muted">Remy is matching your experience to {job.company}'s requirements. This usually takes about a minute.</span></div>{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 70 }} />)}</div>}
 
@@ -502,6 +503,7 @@ function ChangeCard({ a, c, n }: { a: Application; c: BulletChange; n: number })
 }
 
 function Letter({ a }: { a: Application }) {
+  const talking = useTailorSession(); // a tailoring chat already open for this opening
   const { ws, setWs, run } = useStore();
   const { jobs } = useJobs();
   const job = jobs?.find((j) => j.id === a.jobId);
@@ -527,7 +529,7 @@ function Letter({ a }: { a: Application }) {
           <h3>What Remy used</h3>
           <p className="xs muted">Your letter is written from your resume and what you told Remy — nothing to fill in.</p>
           {used.length ? used.map((m) => <div key={m.id} className="small" style={{ borderTop: "1px solid var(--line)", paddingTop: 8 }}>{m.text}</div>) : <span className="small muted">No answers yet.</span>}
-          {job && <button className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => startTailor(a, job, ws!.fits[job.id]?.eligibility === "unlikely" ? ws!.fits[job.id]!.eligibilityNote : undefined)} data-testid="button-answer-again">Answer again &amp; rewrite</button>}
+          {job && <button className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => startTailor(a, job, ws!.fits[job.id]?.eligibility === "unlikely" ? ws!.fits[job.id]!.eligibilityNote : undefined, ws!.resume?.doc)} disabled={!!talking && talking.appId === a.id && talking.stage !== "done"} data-testid="button-answer-again">Answer again &amp; rewrite</button>}
         </div>
       </div>
     </div>

@@ -8,18 +8,22 @@ import { api } from "./store";
 // outreach email. No fill-in-the-blank placeholders: what's unknown is left out.
 
 type Msg = { role: "remy" | "me"; text: string };
-type Stage = "asking" | "working" | "done";
+type Stage = "reading" | "asking" | "working" | "done"; // reading: Remy is reading the posting before asking
 export type TailorSession = {
   kind: "tailor" | "outreach";
   targetId: string; // application id or contact id
   appId: string; // kept for the Resume page; "" for outreach
   title: string; // shown above the conversation
   stage: Stage;
-  qs: { key: string; q: string; label?: string }[]; // label: what the answer is saved under, when the question is long
+  // label: what the answer is saved under, when the question is long. options: tap answers (typing still works);
+  // pick: the "let Remy choose" tap for that question.
+  qs: { key: string; q: string; label?: string; options?: string[]; pick?: string }[];
   idx: number;
   answers: Record<string, string>;
   log: Msg[];
   draftId?: string; // outreach draft created at the end
+  job?: Job; // tailoring: the opening, for the brief that follows the eligibility question
+  briefKey?: string; // the opening + this version of the resume: a changed resume means a fresh brief
 };
 type Deps = { setWs: (w: Workspace) => void; run: <T>(fn: () => Promise<T>, ok?: string) => Promise<T | undefined> };
 
@@ -48,21 +52,58 @@ function begin(s: Omit<TailorSession, "stage" | "idx" | "answers" | "log">, intr
   openers.forEach((o) => o());
 }
 
-/** `conflict`: the eligibility note when Remy found a clear conflict; the student confirms before any work. */
-export function startTailor(a: Application, job: Job, conflict?: string) {
-  begin(
-    {
-      kind: "tailor", targetId: a.id, appId: a.id, title: `Tailoring for ${job.company}`,
-      qs: [
-        ...(conflict ? [{ key: "_ok", q: `Heads up before we start: ${conflict} Do you still want to tailor for this one? (yes / no)` }] : []),
-        { key: "why", q: `What draws you to ${job.company}? Even one specific reason helps.` },
-        { key: "learn", q: "What do you most want to do or learn in this role?" },
-        { key: "proud", q: "Which experience of yours are you proudest of for this kind of work — and what did you do there?" },
-        { key: "extra", q: `Anything else ${job.company} should know — availability, someone you've talked to, why now? (Type "skip" if nothing.)` },
-      ],
-    },
-    `Let's tailor your resume and cover letter for ${job.company}. I'll ask a few quick questions so the letter sounds like you — answer below, or type "skip".`,
-  );
+/** `conflict`: the eligibility note when Remy found a clear conflict; the student confirms before any work.
+ *  Then Remy reads the posting and briefs the student (company, role, why they fit) and asks questions they can
+ *  answer with a tap. If the brief fails or is slow, the plain questions are used, so tailoring never depends on it. */
+export function startTailor(a: Application, job: Job, conflict?: string, resume?: unknown) {
+  const s: TailorSession = {
+    kind: "tailor", targetId: a.id, appId: a.id, title: `Tailoring for ${job.company}`, job, briefKey: `${a.id}|${hash(JSON.stringify(resume ?? ""))}`,
+    stage: "asking", idx: 0, answers: {}, log: [],
+    qs: conflict ? [{ key: "_ok", q: `Heads up before we start: ${conflict} Do you still want to tailor for this one?`, options: ["Yes", "No"] }] : [],
+  };
+  session = s;
+  say(`Let's tailor your resume and cover letter for ${job.company}.`);
+  openers.forEach((o) => o());
+  if (conflict) { say(s.qs[0].q); emit(); return; }
+  readPosting(s);
+}
+
+// One brief per opening and resume version while the page is open, so "Answer again" doesn't pay for the same reading twice.
+const hash = (t: string) => { let h = 5381; for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+const briefs = new Map<string, { brief: Brief | null; messages: string[] }>();
+const BRIEF_WAIT_MS = 20_000;
+function readPosting(s: TailorSession) {
+  const job = s.job!;
+  s.stage = "reading";
+  say("Give me a moment to read the posting.");
+  emit();
+  const cached = briefs.get(s.briefKey!);
+  const slow = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("slow")), BRIEF_WAIT_MS));
+  (cached ? Promise.resolve(cached) : Promise.race([api<{ brief: Brief | null; messages: string[] }>("POST", `/api/applications/${s.appId}/brief`), slow])
+    .then((r) => { if (r.brief) briefs.set(s.briefKey!, r); return r; }))
+    .catch(() => ({ brief: null, messages: [] as string[] }))
+    .then(({ brief, messages }) => {
+      if (session !== s) return;
+      messages.forEach((m) => say(m));
+      s.qs = [...s.qs, ...tailorQuestions(job, brief)];
+      s.stage = "asking";
+      if (messages.length) say(`A few quick questions so the letter sounds like you. Tap an answer or type your own.`);
+      say(s.qs[s.idx].q);
+      emit();
+    });
+}
+
+type Brief = { questions: { key: string; q: string; options: string[] }[] };
+/** The questions for one tailoring: the brief's tap questions where it had good ones, the plain ones otherwise. */
+export function tailorQuestions(job: Job, brief: Brief | null): TailorSession["qs"] {
+  const from = (key: string) => brief?.questions.find((x) => x.key === key);
+  const why = from("why"), learn = from("learn"), proud = from("proud");
+  return [
+    why ? { key: "why", q: why.q, options: why.options, pick: "Not sure yet" } : { key: "why", q: `Is there anything about ${job.company} or this role that draws you? Even one reason helps. "Not sure" is fine.` },
+    learn ? { key: "learn", q: learn.q, options: learn.options, pick: "Not sure yet" } : { key: "learn", q: "What do you most want to do or learn in this role?" },
+    proud ? { key: "proud", q: proud.q, options: proud.options, pick: "You pick" } : { key: "proud", q: "Which experience of yours are you proudest of for this kind of work — and what did you do there?" },
+    { key: "extra", q: `Anything else ${job.company} should know — availability, someone you've talked to, why now? (Type "skip" if nothing.)`, options: [], pick: "Nothing to add" },
+  ];
 }
 
 export function startOutreach(c: Contact) {
@@ -91,6 +132,10 @@ export async function answer(text: string, deps: Deps) {
   if (!s || s.stage !== "asking") return;
   const q = s.qs[s.idx];
   say(text.trim() || "skip", "me");
+  if (q.pick && text.trim().toLowerCase() === q.pick.toLowerCase() && q.key === "proud" && q.options?.length) {
+    text = q.options[0];
+    say(`I'd lead with this one: ${q.options[0]}. Tell me in chat if you'd rather use another.`);
+  }
   const goAnyway = q.key === NUDGE_KEY && /^\s*(go|go ahead|just go|write it|write it anyway)\s*[.!]?\s*$/i.test(text);
   s.answers[q.key] = q.key === "_ok" ? text.trim() : isNonAnswer(text) || goAnyway ? "" : text.trim();
   if (q.key === "_ok" && !/^\s*(y|yes|yeah|yep|sure|ok|okay)\b/i.test(text)) {
@@ -100,6 +145,7 @@ export async function answer(text: string, deps: Deps) {
     return;
   }
   s.idx += 1;
+  if (q.key === "_ok") { readPosting(s); return; } // confirmed: now it's worth reading the posting
   if (s.idx >= s.qs.length && s.kind === "tailor" && realAnswers(s) < 2 && !s.qs.some((x) => x.key === NUDGE_KEY)) {
     s.qs = [...s.qs, { key: NUDGE_KEY, q: NUDGE_Q, label: "Why I want this role" }];
   }
