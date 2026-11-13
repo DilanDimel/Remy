@@ -7,7 +7,7 @@ import path from "node:path";
 import multer from "multer";
 import { z } from "zod";
 import type {
-  Application, AppConfig, BulletChange, ChatAction, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace, Story } from "@shared/types";
+  Application, AppConfig, BulletChange, ChatAction, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace, Story, StoryPart } from "@shared/types";
 import { PATHS } from "@shared/types";
 import { BETA_TERMS_VERSION } from "@shared/beta";
 import { NAME_CHECK, firstName, knownName, nameUnsure, sameName } from "@shared/names";
@@ -16,6 +16,7 @@ import { employerPreferences, interestContext, interestEnabled, ownInterest } fr
 import { keepQuestions, skippedPrefs } from "@shared/setupReply";
 import { latestNewsId } from "@shared/news";
 import { isNonAnswer } from "@shared/words";
+import { STORY_ASK, STORY_PARTS, findLine, namesNew, sameLine } from "@shared/stories";
 import { briefMessages, briefPrompt, cleanBrief } from "./brief";
 import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
@@ -1251,25 +1252,80 @@ export async function registerRoutes(_server: Server, app: Express) {
   }, { serial: true }));
 
   // ---------- AI: onboarding questions + plan ----------
-  // Story Deck: up to 4 interview stories from the student's own resume lines. Any part the honesty checker flags
-  // is dropped and listed as missing, so a story never says more than the resume does.
+  // Story Deck: up to 4 interview stories from the student's own resume lines. The AI may only fill a part with what
+  // THAT line (and its entry) says, checked strictly; Situation is always the student's own words (a resume line never
+  // says what was going on). Every empty part gets a question about that experience for the student to answer.
   app.post("/api/ai/stories", route(async (_req, res, ctx) => {
     if (!ctx.ws.resume) bad("Upload a resume first.");
     const lines = ctx.ws.resume!.doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => ({ where: [e.role, e.org].filter(Boolean).join(" at "), text: b.text })))).slice(0, 40);
     const out = await withAi(ctx, "Story deck", () =>
-      aiJson<{ stories: Omit<Story, "id">[] }>(
-        `You help a university student prepare true interview stories (STAR: situation, task, action, result) from their resume. Use ONLY facts in the given lines and approved facts; never invent numbers, people, outcomes or feelings. If a part isn't stated, leave it empty and say in "missing" what the student should add (one short question). Pick up to 4 different lines that make the strongest stories, each with a different theme from: challenge, leadership, teamwork, result, learning.`,
-        `RESUME LINES:\n${lines.map((l) => `- ${l.where}: ${l.text}`).join("\n")}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).join("\n") || "(none)"}\n\nReturn {"stories":[{"title":"short","theme":"","situation":"","task":"","action":"","result":"","missing":"","source":"the resume line used, exactly"}]}`,
-        1600,
+      aiJson<{ stories: (Omit<Story, "id"> & { asks?: Record<string, string> })[] }>(
+        `You help a university student prepare true interview stories (STAR: situation, task, action, result) from their resume. Each story uses ONE resume line. Fill a part only with what that line itself says; never invent or borrow numbers, people, places, outcomes or feelings from other lines. Leave "situation" empty (the student tells it). For each empty part put one short, open question in "asks" about THIS experience, e.g. "What was going on when you built the budget trackers?" A question must not assume anything the line doesn't say (no club, client, team, problem, sponsor or outcome that isn't there). The title only names what the line says. Pick up to 4 different lines that make the strongest stories, each with a different theme from: challenge, leadership, teamwork, result, learning.`,
+        `RESUME LINES:\n${lines.map((l) => `- ${l.where}: ${l.text}`).join("\n")}\n\nReturn {"stories":[{"title":"short","theme":"","situation":"","task":"","action":"","result":"","asks":{"situation":"","task":"","action":"","result":""},"source":"the resume line used, copied exactly"}]}`,
+        2000,
       ),
     );
-    const ev = evidenceOf(ctx.ws);
-    ctx.ws.stories = (out.stories || []).slice(0, 4).map((st) => {
-      const keep = (t: unknown) => { const x = String(t || "").trim().slice(0, 400); return x && !claimCheck(x, ev, { original: String(st.source || "") }).length ? x : ""; };
-      const story = { id: uid("st"), title: String(st.title || "").slice(0, 80), theme: String(st.theme || "").slice(0, 20), situation: keep(st.situation), task: keep(st.task), action: keep(st.action), result: keep(st.result), missing: String(st.missing || "").slice(0, 200), source: String(st.source || "").slice(0, 300) };
-      if (!story.result && !story.missing) story.missing = "What was the result? Add it only if you know it.";
-      return story;
-    }).filter((st) => st.title && st.action);
+    const old = ctx.ws.stories || [];
+    const made: Story[] = [];
+    for (const st of (out.stories || []).slice(0, 4)) {
+      // The story's line must be a real line on the resume; everything is checked against that line, not the AI's copy.
+      const line = findLine(lines, String(st.source || ""));
+      if (!line || made.some((m) => m.source === line.text)) continue;
+      const local = `${line.text} ${line.where}`;
+      const keep = (t: unknown) => { const x = String(t || "").trim().slice(0, 400); return x && !claimCheck(x, local, { original: line.text, strict: true }).length ? x : ""; };
+      const title = String(st.title || "").slice(0, 80);
+      const plainTitle = line.text.split(/\s+/).slice(0, 6).join(" ").replace(/[,.;:&]$/, "") || "Your story";
+      const story: Story = { id: uid("st"), title: title && !claimCheck(title, local, { original: line.text, strict: true }).length ? title : plainTitle, theme: String(st.theme || "").slice(0, 20), situation: "", task: keep(st.task), action: keep(st.action), result: keep(st.result), missing: "", source: line.text, asks: {}, mine: [], facts: {} };
+      // What the student already wrote for this same resume line survives a rebuild.
+      const before = old.find((o) => sameLine(o.source, line.text));
+      for (const p of before?.mine || []) if (before![p]) { story[p] = before![p]; story.mine!.push(p); if (before!.facts?.[p]) story.facts![p] = before!.facts[p]; }
+      for (const p of STORY_PARTS) {
+        if (story[p]) continue;
+        const q = String(st.asks?.[p] || "").replace(/\s+/g, " ").trim().slice(0, 160);
+        story.asks![p] = q.endsWith("?") && !namesNew(q, local) ? q : STORY_ASK[p];
+      }
+      made.push(story);
+    }
+    // Stories the student already worked on, for lines the AI didn't pick this time, stay in the deck, first, so the
+    // 6-story limit only ever drops new AI stories. Their AI parts are re-checked against the line as it is now.
+    const kept: Story[] = [];
+    for (const o of old) {
+      if (!o.mine?.length || made.some((m) => sameLine(m.source, o.source))) continue;
+      const line = lines.find((l) => sameLine(l.text, o.source));
+      const check = (p: StoryPart) => o.mine!.includes(p) || (line && o[p] && !claimCheck(o[p], `${line.text} ${line.where}`, { original: line.text, strict: true }).length) ? o[p] : "";
+      kept.push({ ...o, situation: o.mine.includes("situation") ? o.situation : "", task: check("task"), action: check("action"), result: check("result"), asks: o.asks || {} });
+    }
+    const deck = [...kept, ...made].slice(0, 6);
+    for (const st of deck) st.missing = STORY_PARTS.filter((p) => !st[p]).map((p) => st.asks?.[p] || STORY_ASK[p])[0] || "";
+    ctx.ws.stories = deck;
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
+  // The student fills a part of a story in their own words; it becomes an approved fact other features can use.
+  // One fact per part: editing updates it, clearing removes it, so an old answer never lingers as "true".
+  app.post("/api/stories/:id/part", route(async (req, res, ctx) => {
+    const st = (ctx.ws.stories || []).find((x) => x.id === String(req.params.id));
+    if (!st) bad("That story isn't there anymore. Rebuild your stories.", 404);
+    const part = String(req.body?.part || "") as StoryPart;
+    if (!STORY_PARTS.includes(part)) bad("Pick situation, task, action or result.");
+    const text = String(req.body?.text || "").replace(/\s+/g, " ").trim().slice(0, 400);
+    if (st![part] && !st!.mine?.includes(part)) bad("Remy wrote that part from your resume; edit your resume to change it.");
+    st!.facts = st!.facts || {};
+    const factId = st!.facts[part];
+    const fact = factId ? ctx.ws.memory.find((m) => m.id === factId) : undefined;
+    if (!text) {
+      if (!st!.mine?.includes(part)) bad("There's nothing of yours to clear there.");
+      st![part] = ""; st!.mine = st!.mine!.filter((p) => p !== part);
+      if (fact) ctx.ws.memory = ctx.ws.memory.filter((m) => m.id !== fact.id);
+      delete st!.facts[part];
+    } else {
+      if (isNonAnswer(text) || text.length < 8) bad("Write a sentence in your own words, like what happened and what you did.");
+      st![part] = text; st!.mine = [...new Set([...(st!.mine || []), part])];
+      const factText = `${st!.title} (${part}): ${text}`;
+      if (fact) { fact.text = factText.slice(0, 400); fact.updatedAt = nowIso(); }
+      else if (addFact(ctx.ws, factText, "experience", "Told Remy in the story deck", "approved")) st!.facts[part] = ctx.ws.memory[ctx.ws.memory.length - 1].id;
+    }
+    st!.missing = STORY_PARTS.filter((p) => !st![p]).map((p) => st!.asks?.[p] || STORY_ASK[p])[0] || "";
     await ctx.save();
     res.json(ctx.ws);
   }));
