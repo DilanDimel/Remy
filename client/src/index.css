@@ -1124,3 +1124,9 @@ ul[class] > li, ol[class] > li { max-width: none; }
   .season-card > .stack-sm { flex: 1 1 calc(100% - 40px); }
   .season-card > .btn { margin-left: 32px; }
 }
+
+/* Base resume: Review / Edit / File & export, a smaller row under the page tabs. */
+.tabs-sub { margin-top: -8px; }
+.tabs-sub .tab { font-size: var(--text-sm); padding-top: 6px; padding-bottom: 6px; }
+/* One fix in Remy's review of the resume. */
+.review-item { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding-top: 12px; }
