@@ -4,7 +4,7 @@ import type { Job, Requirement, Workspace } from "@shared/types";
 import { htmlToText } from "./parse";
 import { topSkills } from "@shared/requirements";
 import { uid } from "./ids";
-import { abroad, COUNTRY_IN_TEXT, FIELD_SEARCH, FIELD_TITLES, regionMatch } from "./fit";
+import { abroad, COUNTRY_IN_TEXT, FIELD_SEARCH, FIELD_TITLES, regionMatch, chosenFieldText } from "./fit";
 import { q, q1 } from "./sql";
 import { interestEnabled, preferenceAdjustment } from "./ranking";
 
@@ -429,7 +429,8 @@ export function boardsFor(company: string): Board[] {
 
 /** Scans boards in parallel and returns early-career postings that suit the student. */
 export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, enabled = interestEnabled()): Promise<{ jobs: Job[]; scanned: number; reached: string[] }> {
-  const fields = (ws.profile.targetRoles + "," + ws.profile.major + "," + ws.profile.interests).toLowerCase().split(/[,;/]+/).map((x) => x.trim()).filter((x) => x.length > 2);
+  // Only fields the student chose narrow the search (see chosenFieldText): "working with people" isn't the HR field.
+  const fields = chosenFieldText(ws.profile).toLowerCase().split(/[,;/]+/).map((x) => x.trim()).filter((x) => x.length > 2);
   const titleFits = FIELD_TITLES.filter(([field]) => field.test(fields.join(" "))).map(([, title]) => title);
   // Workday needs a search word; use the student's first field ("finance").
   const field = FIELD_SEARCH.find((_, k) => FIELD_TITLES[k][0].test(fields.join(" "))) || "";

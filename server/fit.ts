@@ -201,13 +201,23 @@ export const FIELD_SEARCH = FIELDS.map(([, , word]) => word);
 
 /** Postings the student pasted in themselves are never hidden by field or type: they chose them. */
 const studentAdded = (job: Job) => job.origin === "imported" && !/job board|researcher/i.test(job.sourceName || "");
-/** true / false when the student named fields Remy recognizes; null when not. */
+/** The fields a student CHOSE, as text: their target roles and their major. "Undecided" isn't a field, and what
+ *  they said they enjoy (profile.interests, e.g. "working with people") isn't a choice of field either. */
+export const chosenFieldText = (p: Pick<Workspace["profile"], "targetRoles" | "major">) =>
+  [p.targetRoles, /undecided|undeclared|exploring|not sure/i.test(p.major || "") ? "" : p.major].join(" ");
+
+/** true / false when the student named fields Remy recognizes; null when not.
+ *  Only fields the student CHOSE (target roles, major) can rule a posting out. What they said they enjoy
+ *  ("working with people") can make a posting match, but never hides one: an undecided student chose no field. */
 export function fieldMatch(ws: Workspace, job: Job): boolean | null {
   const p = ws.profile;
-  const wanted = FIELD_TITLES.filter(([field]) => field.test([p.targetRoles, p.major, p.interests].join(" "))).map(([, title]) => title);
+  const titlesFor = (s: string) => FIELD_TITLES.filter(([field]) => field.test(s)).map(([, title]) => title);
+  const chosen = titlesFor(chosenFieldText(p));
+  const liked = titlesFor(p.interests || "");
   // Conferences were found for the student's field already; their names ("NABA Convention") aren't job titles.
-  if (!wanted.length || job.kind === "event") return null;
-  return wanted.some((t) => t.test(job.title));
+  if ((!chosen.length && !liked.length) || job.kind === "event") return null;
+  if ([...chosen, ...liked].some((t) => t.test(job.title))) return true;
+  return chosen.length ? false : null;
 }
 
 const TYPE_OF: Record<Job["kind"], string> = { internship: "internship", job: "full-time", program: "program", campus: "campus", event: "event" };
@@ -216,7 +226,8 @@ export function typeMatch(ws: Workspace, job: Job): boolean | null {
   if (!t.trim()) return null;
   const k = TYPE_OF[job.kind];
   if (k === "internship") return /intern/.test(t);
-  if (k === "full-time") return /full|job/.test(t);
+  // "Part-time / campus jobs" has the word "jobs" in it but isn't a wish for full-time work.
+  if (k === "full-time") return /full|job/.test(t.replace(/part[- ]?time(\s*\/\s*campus)?(\s+jobs?)?|campus jobs?/g, ""));
   if (k === "program") return /program|insight|intern/.test(t);
   if (k === "campus") return /part|campus/.test(t);
   // Summits and insight events are what "Programs & insight days" means in practice.
@@ -288,7 +299,7 @@ function notWanted(ws: Workspace, job: Job): string {
 const GENERIC_TITLE_WORDS = new Set(["engineer", "engineering", "business", "intern", "internship", "analyst", "associate", "science", "sciences", "studies", "student", "program", "summer", "major", "minor", "degree", "bachelor", "master", "technology", "general", "role", "roles", "position", "entry", "level", "career", "work", "certificate", "and"].map(family));
 
 // Bump when the fit rules change, so verdicts saved under older rules are worked out again.
-export const FIT_RULES_VERSION = 13; // 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
+export const FIT_RULES_VERSION = 14; // 14: what a student enjoys never hides an opening, only fields they chose. 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const g = gradDate(ws);
   const year = classYearOf(ws);
@@ -462,3 +473,9 @@ export function citizensOnlySentence(text: string): string {
   }
   return "";
 }
+
+/** The openings the plan may mention, one per line with where each is. Nearby ones only, when there are any. */
+export const planJobs = (open: Job[], near: (j: Job) => boolean): string => {
+  const nearby = open.filter(near);
+  return (nearby.length ? nearby : open).map((j) => `${j.id}: ${j.company} — ${j.title}, ${j.location || "location not stated"} (deadline ${j.deadline || "n/a"})`).join("\n");
+};

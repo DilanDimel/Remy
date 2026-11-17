@@ -22,3 +22,10 @@ export function shortTitle(title: string, company: string) {
   if (at && holdsOrg(at[1], company) && t.length - at[0].length >= 4) t = t.slice(0, t.length - at[0].length);
   return t || title;
 }
+
+/** Dream employers the student named that have no opening in their list (first 5, the ones Remy searches).
+ *  "JPMorgan" matches "JPMorgan Chase & Co." (same employer by sameOrg); "EY" doesn't match "Disney". */
+export function dreamWithoutOpenings(dreamEmployers: string | undefined, companies: string[]): string[] {
+  return (dreamEmployers || "").split(/[,;]+/).map((x) => x.trim()).filter((x) => x.length > 1 && orgKey(x)).slice(0, 5)
+    .filter((d) => !companies.some((c) => sameOrg(d, c)));
+}

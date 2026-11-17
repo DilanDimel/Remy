@@ -2,7 +2,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Job, Workspace } from "@shared/types";
-import { abroad, classYearOf, computeFit, dealbreaker, FIELD_TITLES, fieldMatch, regionMatch } from "./fit";
+import { abroad, chosenFieldText, classYearOf, computeFit, dealbreaker, FIELD_TITLES, fieldMatch, planJobs, regionMatch, typeMatch } from "./fit";
+import { dreamWithoutOpenings } from "../shared/org";
 import { FIELD_GROUPS } from "@shared/fields";
 
 const fall2026 = new Date("2026-10-22T12:00:00");
@@ -370,6 +371,21 @@ test("a full-time job needing a finished bachelor's: not for a junior 18 months 
   assert.notEqual(computeFit(student({ classYear: "Senior", graduation: "May 2027" }), j, "").eligibility, "unlikely");
   assert.notEqual(computeFit(student({ classYear: "Junior", graduation: "May 2028" }), job({ kind: "internship", title: "Mechanical Engineering Intern", summary: "Pursuing a bachelor's degree in Mechanical Engineering." }), "").eligibility, "unlikely");
 });
+test("an undecided student who chose no field has nothing hidden by field, whatever they said they enjoy", () => {
+  // Setup saves "what did you enjoy?" answers to interests; "people" also names the HR field.
+  const undecided = student({ classYear: "First-year", major: "Undecided", targetRoles: "", interests: "Helping guests directly, Working with people" });
+  const tutor = job({ title: "AVID Tutor Pool", origin: "verified-catalog" } as Partial<Job>);
+  assert.equal(fieldMatch(undecided, tutor), null);
+  assert.equal(computeFit(undecided, tutor, "").hidden, undefined);
+  assert.equal(fieldMatch(undecided, job({ title: "Human Resources Intern" })), true); // what they enjoy can still match
+  // "Undecided (Arts & Sciences)" names a college, not a field ("arts" is also the design field's word).
+  assert.equal(fieldMatch(student({ major: "Undecided (Arts & Sciences)", targetRoles: "", interests: "" }), tutor), null);
+  assert.equal(chosenFieldText({ targetRoles: "", major: "Undeclared" }).trim(), "");
+  // A chosen field still hides other fields, and an interest adds to it without widening the filter away.
+  const finance = student({ major: "Finance", targetRoles: "Finance", interests: "Working with people" });
+  assert.equal(fieldMatch(finance, job({ title: "Software Engineer Intern" })), false);
+  assert.equal(fieldMatch(finance, job({ title: "Talent Acquisition Intern" })), true);
+});
 test("MBA-only is 'Not eligible'; not-your-field is 'Hidden' and never next to a 'You qualify' reason", () => {
   const mba = computeFit(student({ classYear: "Senior" }), job({ title: "MBA Strategy Intern" }), "");
   assert.equal(mba.eligibility, "unlikely");
@@ -519,4 +535,34 @@ test("avoid list: whole words, trailing 'roles' dropped, required skills count (
   assert.equal(hidden({ title: "Salesforce Administrator Intern" }), "", "Salesforce isn't sales");
   assert.match(hidden({ title: "Marketing Intern", requirements: [{ id: "r", keyword: "Sales", quote: "Experience in sales" }] as any }), /asks for "sales"/);
   assert.match(computeFit(student({ classYear: "Junior", avoid: "defense sales roles" }), job({ title: "Defense Sales Representative" }), "").hidden || "", /avoid/);
+});
+test("the plan only hears about nearby openings, each with its location (audit Nov 17)", () => {
+  const dfw = student({ regions: "DFW area" });
+  const near = job({ id: "a", company: "BNSF Railway", title: "Accounting Summer Intern", location: "Fort Worth, TX" });
+  const far = job({ id: "b", company: "Bread Financial", title: "Intern - Financial Risk", location: "Columbus, Ohio, United States of America" });
+  const isNear = (j: Job) => regionMatch(dfw, j) !== false;
+  const lines = planJobs([far, near], isNear);
+  assert.match(lines, /BNSF Railway — Accounting Summer Intern, Fort Worth, TX/);
+  assert.doesNotMatch(lines, /Bread Financial/);
+  // Nothing nearby: the plan still gets the openings, with where they are.
+  assert.match(planJobs([far], isNear), /Bread Financial — Intern - Financial Risk, Columbus, Ohio/);
+  assert.match(planJobs([job({ id: "c", company: "X", title: "Intern", location: "" })], () => true), /location not stated/);
+});
+test("dream employers with no opening in the list are named; ones with openings aren't", () => {
+  assert.deepEqual(dreamWithoutOpenings("JPMorgan Chase, Fidelity Investments", ["BNSF Railway", "Fidelity"]), ["JPMorgan Chase"]);
+  assert.deepEqual(dreamWithoutOpenings("JPMorgan", ["JPMorgan Chase & Co."]), []);
+  assert.deepEqual(dreamWithoutOpenings("EY, GE", ["Disney", "Kroger", "Keysight Technologies"]), ["EY", "GE"]); // a short name inside another company isn't that company
+  assert.deepEqual(dreamWithoutOpenings("", ["BNSF Railway"]), []);
+  assert.deepEqual(dreamWithoutOpenings(undefined, []), []);
+});
+test("picking part-time / campus jobs doesn't ask for full-time jobs (audit Nov 17)", () => {
+  const fullTime = job({ kind: "job", title: "Fire Recruit" });
+  assert.equal(typeMatch(student({ opportunityTypes: "Internships, Part-time / campus jobs, Programs & insight days" }), fullTime), false);
+  assert.match(computeFit(student({ classYear: "First-year", opportunityTypes: "Internships, Part-time / campus jobs" }), job({ kind: "job", title: "Fire Recruit", origin: "verified-catalog" } as Partial<Job>), "").hidden || "", /kind of opportunity/);
+  assert.equal(typeMatch(student({ opportunityTypes: "Full-time jobs" }), fullTime), true);
+  assert.equal(typeMatch(student({ opportunityTypes: "Part-time / campus jobs, Full-time jobs" }), fullTime), true);
+  assert.equal(typeMatch(student({ opportunityTypes: "jobs" }), fullTime), true);
+  for (const typed of ["Part-time or full-time jobs", "part-time and full-time", "Part-time / campus jobs / Full-time jobs", "Part-time / campus jobs and full time"]) assert.equal(typeMatch(student({ opportunityTypes: typed }), fullTime), true, typed);
+  for (const typed of ["Part-time jobs", "part time", "Campus job", "on-campus jobs"]) assert.equal(typeMatch(student({ opportunityTypes: typed }), fullTime), false, typed);
+  assert.equal(typeMatch(student({ opportunityTypes: "" }), fullTime), null);
 });
