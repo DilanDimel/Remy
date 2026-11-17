@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { dreamWithoutOpenings } from "@shared/org";
 import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, BookmarkCheck, CalendarPlus, ChevronDown, ChevronUp, Link2, MapPin, RefreshCw, Search, Sparkles, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
 import type { Job, JobCheck, JobFit, JobInterestReason, JobRanking, Workspace } from "@shared/types";
 import { api, daysUntil, fmtDate, rid, useDraft, useStore } from "../lib/store";
@@ -17,7 +18,9 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const w = ws!;
   const { jobs, fits, interest, interestEnabled, needsProfile, refreshing, fieldEmployers } = useJobs();
   // Remy's employer list is mostly business, tech and engineering; for other fields it says so instead of blaming filters.
-  const fewInField = fieldEmployers !== undefined && fieldEmployers < 20;
+  // An undecided student has no field, so "few employers hire in your field" would be untrue for them.
+  const noField = !w.profile.targetRoles.trim() && (!w.profile.major.trim() || /undecided|undeclared|not sure|exploring/i.test(w.profile.major));
+  const fewInField = !noField && fieldEmployers !== undefined && fieldEmployers < 20;
   const field = w.profile.targetRoles || w.profile.major || "your field";
   const kind = (query.get("kind") as Kind) || "all";
   const focus = query.get("id");
@@ -42,6 +45,9 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   useEffect(() => { setShown(10); }, [kind, q, savedOnly, myRegions, showHidden, showIneligible]);
   const setKind = (k: Kind) => go(`/opportunities?kind=${k}`);
   const [finding, setFinding] = useState(false);
+  // Dream employers with nothing in the list: say so instead of staying silent. Only once the list has loaded
+  // and no search is running, so it never claims "nothing" about openings that are still on their way.
+  const noDream = jobs && !refreshing && !finding && w.lastSearch?.at ? dreamWithoutOpenings(w.profile.dreamEmployers, jobs.map((j) => j.company)) : [];
   const discover = async () => {
     setFinding(true);
     const r = await run(() => api<{ added: number; reached: string[]; workspace: Workspace }>("POST", "/api/jobs/discover", {}));
@@ -119,11 +125,12 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
           {w.hiddenJobIds.length > 0 && <label className="row small"><input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} /> Show ones I'm not interested in</label>}
         </div>
       </div>
-      {(ineligible.length > 0 || (myRegions && elsewhere.length > 0)) && (
+      {(ineligible.length > 0 || (myRegions && elsewhere.length > 0) || noDream.length > 0) && (
         <div className="notice small" data-testid="notice-filtered">
           <div>
             {ineligible.length > 0 && <>{showIneligible ? "Showing" : "Hiding"} <strong>{ineligible.length}</strong> opening{ineligible.length > 1 ? "s" : ""} you can't apply to or that {ineligible.length > 1 ? "don't" : "doesn't"} fit your choices. <button className="btn btn-ghost btn-sm" onClick={() => setShowIneligible((v) => !v)} data-testid="button-toggle-ineligible">{showIneligible ? "Hide them" : "Show anyway"}</button></>}
             {myRegions && elsewhere.length > 0 && <div>{elsewhere.length} more {elsewhere.length > 1 ? "are" : "is"} outside {regions}. <button className="btn btn-ghost btn-sm" onClick={() => setMyRegions(false)}>Show all locations</button></div>}
+            {noDream.length > 0 && <div data-testid="notice-dream">Nothing from {noDream.join(", ")} in your list yet. Remy checks the career sites it can read each time it searches. Found an opening on {noDream.length > 1 ? "their sites" : "its site"}? <button className="btn btn-ghost btn-sm" onClick={() => setShowImport(true)}>Import it</button></div>}
             {!w.profile.classYear && !w.profile.graduation && <div>Add your class year in <a href="/accounts" style={{ fontWeight: 700 }}>Accounts</a> and Remy will check every opening's eligibility for you.</div>}
           </div>
         </div>

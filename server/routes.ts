@@ -39,7 +39,7 @@ import { atsChecks, claimCheck } from "./claims";
 import { CHECKIN_KINDS, cleanCheckin } from "./checkin";
 import { checkinProposals } from "@shared/checkin";
 import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, skillSuggestions } from "./builder";
-import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSION, typeMatch } from "./fit";
+import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSION, planJobs, typeMatch } from "./fit";
 import { atsScore } from "./ats";
 import { pastTerm } from "./fit";
 import * as agents from "./agents";
@@ -1594,7 +1594,9 @@ Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), 
   app.post("/api/ai/plan", route(async (_req, res, ctx) => {
     if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE, 409);
     const today = centralToday(); // a Texas evening is still today, not tomorrow (UTC)
-    const jobs = openJobs(ctx.ws).map((j) => `${j.id}: ${j.company} — ${j.title} (deadline ${j.deadline || "n/a"})`).join("\n");
+    // Only openings the student sees on Opportunities by default: ones outside the places they chose are left out
+    // when any fit (the plan once sent a DFW student to a Columbus, Ohio posting and called it "DFW-based").
+    const jobs = planJobs(openJobs(ctx.ws), (j) => fitOf(ctx.ws, j).regionMatch !== false);
     const out = await withAi(ctx, "Initial plan", () =>
       aiJson<any>(
         `You are Remy, a truthful career companion for a university student. Base every suggestion on the student's real background. If the profile names a biggest worry, make the next action and the first task address it directly, and respect their practical limits (paid, hours, transport) and what they've already tried. Never invent university requirements, official certifications, or guarantees. For every certification or license you suggest, say in \"why\" whether it is required for their target roles, only taken after hiring (the employer sponsors it, like FINRA Series 7 or 79), needed for some jobs only, or optional, and why people get it; never present an optional one as a normal or expected step. Mark anything the student must verify (with an advisor, the registrar, or the official catalog) in "verify". Today is ${today}.`,
@@ -1605,7 +1607,7 @@ Return JSON:
  "careers":[{"title":"","what":"2 sentences on what the work is","fit":["evidence from their resume"],"gaps":["honest gap"],"steps":["practical next step"]}],
  "skills":[{"name":"","type":"skill|certification|course","why":"","verify":"what to verify and where, or 'Illustrative suggestion'"}],
  "academic":[{"term":"e.g. Spring 2027","items":["planning idea"],"note":"Illustrative — confirm with your academic advisor and the official degree plan."}]}
-Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 5 skills, 2 academic terms.`,
+Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 5 skills, 2 academic terms. Name a specific opening or say an employer has openings only if it is in KNOWN OPENINGS, and say where it is only as its location is written there.`,
         3500,
       ),
     );
