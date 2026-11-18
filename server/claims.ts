@@ -331,7 +331,7 @@ export function atsChecks(doc: ResumeDoc, job: Job, fileBase: string, style?: Re
     ...fontCheck(style),
     { id: "dates", label: "Every experience entry has dates", pass: undated.length === 0, detail: undated.length ? `Missing dates: ${undated.map((e) => e.org || e.role).join(", ")}` : "All entries are dated." },
     { id: "bullets", label: "Bullets are concise (under ~2 lines)", pass: longBullets.length === 0, detail: longBullets.length ? `${longBullets.length} bullet(s) run long.` : "All bullets are a scannable length." },
-    { id: "length", label: "Fits about one page for an undergraduate", pass: words <= 700, detail: `${words} words.` },
+    { id: "length", label: "Fits about one page for an undergraduate", pass: words <= 700, detail: words < 250 ? `${words} words: fits easily, with room to add detail to your strongest roles.` : `${words} words.` },
     { id: "keywords", label: "Posting priorities reflected (only where true)", pass: reqHits.length >= Math.min(2, asks.length), detail: asks.length ? `${reqHits.length} of ${asks.length} skills the posting names appear${asks.length > reqHits.length ? ` (not shown: ${asks.filter((k) => !reqHits.includes(k)).slice(0, 5).join(", ")})` : ""}. Never add one you can't support.` : "Remy couldn't read specific skills in this posting." },
     { id: "placeholders", label: "No unfinished placeholders", pass: !placeholders, detail: placeholders ? "Remove [PERSONALIZE] markers." : "None found." },
     { id: "filename", label: "Clear file name", pass: true, detail: `${fileBase}.docx` },

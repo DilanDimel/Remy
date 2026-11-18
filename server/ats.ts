@@ -103,6 +103,11 @@ const SAME: [RegExp, RegExp][] = [
 export function hasKeyword(text: string, keyword: string): boolean {
   // "Python or Java or C++": the posting asks for any one of them.
   if (/\sor\s/i.test(keyword)) return keyword.split(/\s+or\s+/i).some((k) => hasKeyword(text, k));
+  // "Microsoft Excel" / "MS Excel" is the resume's "Excel" (distinct product names only: "Word" or "Project" alone are everyday words).
+  const office = keyword.trim().match(/^(?:microsoft|ms)\s+(excel|powerpoint|outlook|visio)$/i);
+  if (office) return hasKeyword(text, office[1]) || new RegExp(`\\b(?:microsoft|ms)\\s+${office[1]}\\b`, "i").test(text);
+  // "Microsoft Office" is shown by any of its apps on the resume.
+  if (/^(?:microsoft|ms)\s+office(?:\s+suite)?$/i.test(keyword.trim())) return /\b(?:microsoft|ms)\s+(?:office|word|365)\b|\b(?:excel|powerpoint|outlook)\b/i.test(plainEnglish(text));
   const plain = plainEnglish(text); // "excel at" isn't Excel, "react to" isn't React
   const low = lc(plain);
   const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

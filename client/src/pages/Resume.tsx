@@ -116,7 +116,6 @@ function BaseResume({ subParam }: { subParam: string | null }) {
         </div>
       </div>
       {replace && <div className="card card-pad"><ResumeUpload compact onDone={() => setReplace(false)} /></div>}
-      {w.resume.confirmedAt && !dirty && recent(w.resume.confirmedAt) && <MomentAsk ask="moment:resume" question="What was the hardest or most confusing part of getting your resume into Remy?" />}
       <div className="tabs tabs-sub" role="tablist" aria-label="Base resume">
         {([["review", "Review"], ["edit", "Edit"], ["file", "File & export"]] as const).map(([k, l]) => (
           <button key={k} role="tab" className="tab" aria-selected={sub === k} onClick={() => setSub(k)} data-testid={`subtab-${k}`}>{l}</button>
@@ -127,7 +126,7 @@ function BaseResume({ subParam }: { subParam: string | null }) {
         <div className="row-between">
           <div className="stack-sm">
             <h3>Your resume, as a file</h3>
-            <span className="xs muted">{w.resume.original ? "Your original keeps your own layout. The export uses Remy's clean, ATS-friendly one-column format with your edits below, in your font and length." : "This resume was pasted, so there's no original file. Export it as a clean PDF or Word file."}</span>
+            <span className="xs muted">{w.resume.original ? "Your original keeps your own layout. The export uses Remy's clean, ATS-friendly one-column format with your edits below, in your font and length." : w.resume.parsedBy === "builder" ? "You built this resume with Remy, so there's no original file. Export it as a clean PDF or Word file." : "This resume was pasted, so there's no original file. Export it as a clean PDF or Word file."}</span>
           </div>
           <div className="row">
             {w.resume.original && <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/original?download=1", w.resume!.original!.name).catch((e) => toast(e.message, true))} data-testid="button-download-original"><Download size={14} /> Original</button>}
@@ -250,6 +249,8 @@ function BaseResume({ subParam }: { subParam: string | null }) {
           </div>
         </Modal>
       )}
+      {/* After the page, not above Remy's review: the student came to see their resume first. */}
+      {w.resume.confirmedAt && !dirty && recent(w.resume.confirmedAt) && <MomentAsk ask="moment:resume" question="What was the hardest or most confusing part of getting your resume into Remy?" />}
     </div>
   );
 }
@@ -456,9 +457,11 @@ function FlagList({ flags }: { flags: ClaimFlag[] }) {
 }
 
 function Changes({ a }: { a: Application }) {
-  if (!a.changes.length) return <div className="card"><Empty title="No material changes proposed" body="Your resume already reads well for this posting. You can still write the cover letter and export." /></div>;
+  const skipped = a.skippedChanges ? <p className="xs muted" data-testid="text-skipped-changes">Remy left {a.skippedChanges === 1 ? "one line" : `${a.skippedChanges} lines`} as you wrote {a.skippedChanges === 1 ? "it" : "them"}: it couldn't reword {a.skippedChanges === 1 ? "it" : "them"} for this posting without adding things your resume doesn't say.</p> : null;
+  if (!a.changes.length) return <div className="card">{skipped}<Empty title="No material changes proposed" body={(a.skippedChanges ? "" : "Your resume already reads well for this posting. ") + "You can still write the cover letter and export."} /></div>;
   return (
     <div className="stack">
+      {skipped}
       {a.changes.map((c, i) => <ChangeCard key={c.id} a={a} c={c} n={i + 1} />)}
       {a.gaps.length > 0 && (
         <div className="card card-pad stack-sm">

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ApplyLink } from "../components/ApplyLink";
 import { checkinDue, dayWeekDue, MomentAsk, WeeklyCheckin } from "../components/FeedbackAsks";
 import { SeasonCard } from "../components/SeasonCard";
 import { ApplyNudge } from "../components/ApplyNudge";
@@ -187,7 +188,7 @@ function JobRow({ j, why, open, onToggle }: { j: Job; why?: string; open: boolea
             <div className="row">
               <button className="btn btn-primary btn-sm" onClick={() => go(`/opportunities?kind=${j.kind === "event" ? "event" : "jobs"}&id=${j.id}`)}>Details</button>
               {j.kind !== "event" && <button className="btn btn-secondary btn-sm" onClick={() => go(`/resume?tab=tailor&job=${j.id}`)}>Tailor resume</button>}
-              <a className="btn btn-ghost btn-sm" href={j.applyUrl} target="_blank" rel="noreferrer">{j.kind === "event" ? "Register" : "Apply"} <ArrowUpRight size={14} /></a>
+              <ApplyLink j={j} className="btn btn-ghost btn-sm" testid="link-apply-home" />
             </div>
           </div>
         )}

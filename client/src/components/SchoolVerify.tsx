@@ -52,7 +52,7 @@ export function SchoolVerify({ onSkip }: { onSkip?: () => void }) {
         <p className="small muted">Sign in first, so the verification stays with your account.</p>
       ) : !sentTo ? (
         <>
-          <p className="small muted">Remy emails a 6-digit code to your {domains.map((d) => "@" + d).join(" or ")} address. Verifying unlocks your school's tools and alumni. Remy supports {domains.join(", ")} for now; more schools are coming.</p>
+          <p className="small muted">Remy emails a 6-digit code to your {domains.map((d) => "@" + d).join(" or ")} address. Verifying unlocks your school's tools, like adding your degree plan. Remy supports {domains.join(", ")} for now; more schools are coming.</p>
           <div className="row">
             <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={`name@${domains[0]}`} aria-label="School email" data-testid="input-school-email" />
             <button className="btn btn-primary btn-sm" disabled={busy || !email.includes("@")} onClick={async () => { const r = await call(() => api("POST", "/api/school-email/start", { email })); if (r?.sent) setSentTo(r.email || email); }} data-testid="button-send-school-code">{busy && <Spinner />} Send code</button>

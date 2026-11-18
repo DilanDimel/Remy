@@ -281,6 +281,8 @@ export interface AtsScore {
 }
 export interface Application {
   id: string;
+  /** Rewrites Remy dropped because even its repair try still said more than the resume (server/tailorFix.ts). */
+  skippedChanges?: number;
   jobId: string;
   createdAt: string;
   generatedAt?: string;

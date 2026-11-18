@@ -20,7 +20,7 @@ type Overview = {
   ai: { calls: number; failed: number; cost: number; priced: number; avgMs: number }; openErrors: number; feedback: number;
   emails?: { ready: boolean; reminders: number; digest: number; digestsWeek: number };
 };
-type OpenError = { message: string; kind: string; place: string; times: number; students: number; last: string; first: string; detail: string };
+type OpenError = { message: string; kind: string; place: string; places?: number; times: number; students: number; last: string; first: string; detail: string };
 type Errors = { open: OpenError[]; fixed: { message: string; kind: string; fixed_at: string; fixed_by: string; times: number }[]; feedback: { id: number; at: string; place: string; message: string; email: string }[] };
 type Status = "todo" | "doing" | "done";
 type TeamTask = { id: string; title: string; assignee: string; due: string; notes: string; done: boolean; status: Status; done_by: string; done_at: string | null; created_by: string };
@@ -588,7 +588,7 @@ function ErrorsTab() {
             <div key={k} className="adm-err">
               <div className="grow stack-sm" style={{ gap: 4 }}>
                 <b className="small">{e.message}</b>
-                <span className="xs muted">{e.kind === "browser" ? "Browser" : "Server"} · {e.place || "unknown page"} · {e.times} time{e.times === 1 ? "" : "s"}{e.students ? `, ${e.students} student${e.students === 1 ? "" : "s"}` : ""} · last {ago(e.last)}</span>
+                <span className="xs muted">{e.kind === "browser" ? "Browser" : "Server"} · {e.place || "unknown page"}{(e.places || 1) > 1 ? ` and ${e.places! - 1} other page${e.places! - 1 === 1 ? "" : "s"}` : ""} · {e.times} time{e.times === 1 ? "" : "s"}{e.students ? `, ${e.students} student${e.students === 1 ? "" : "s"}` : ""} · last {ago(e.last)}</span>
                 {e.detail && <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start", padding: 0 }} onClick={() => setOpen(open === k ? null : k)}>{open === k ? "Hide details" : "Show details"}</button>}
                 {open === k && <pre className="admin-pre">{e.detail}</pre>}
               </div>

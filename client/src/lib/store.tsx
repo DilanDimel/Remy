@@ -25,21 +25,40 @@ export class ApiError extends Error {
   }
 }
 
+// A request cut off because the page is reloading or closing isn't a Remy problem, so it isn't reported.
+let leaving = false;
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", () => { leaving = true; });
+  window.addEventListener("beforeunload", () => { leaving = true; });
+  window.addEventListener("pageshow", () => { leaving = false; });
+}
+
 export async function api<T = any>(method: string, url: string, body?: unknown): Promise<T> {
   if (API_BASE === "__UNRESOLVED__") throw new ApiError("Backend connection was not configured. Please reopen the app.", 0);
   const isForm = body instanceof FormData;
   const started = performance.now();
+  const send = () => fetch(`${API_BASE}${url}`, {
+    method,
+    credentials: "same-origin",
+    headers: body && !isForm ? { "Content-Type": "application/json" } : {},
+    body: body ? (isForm ? (body as FormData) : JSON.stringify(body)) : undefined,
+  });
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${url}`, {
-      method,
-      credentials: "same-origin",
-      headers: body && !isForm ? { "Content-Type": "application/json" } : {},
-      body: body ? (isForm ? (body as FormData) : JSON.stringify(body)) : undefined,
-    });
+    res = await send();
   } catch (e) {
-    apiResult(method, url, 0, performance.now() - started); // never reached the server: shows up on the owners' Errors page
-    throw e;
+    // A blip (Wi-Fi, laptop waking up): a read is quietly tried once more. Writes aren't, so nothing saves twice.
+    let retried: Response | null = null;
+    if (method === "GET" && !leaving && navigator.onLine !== false) {
+      await new Promise((r) => setTimeout(r, 800));
+      retried = await send().catch(() => null);
+    }
+    if (!retried) {
+      // Only a real failure reaches the owners' Errors page: not a page that's closing, not a device that's offline.
+      if (!leaving && navigator.onLine !== false) apiResult(method, url, 0, performance.now() - started);
+      throw e;
+    }
+    res = retried;
   }
   apiResult(method, url, res.status, performance.now() - started);
   if (!res.ok) {
@@ -123,7 +142,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const toast = useCallback((text: string, err?: boolean) => {
     const id = ++n.current;
-    setToasts((t) => [...t, { id, text, err }]);
+    // The same message already on screen isn't shown twice (one failure can reach two handlers).
+    setToasts((t) => (t.some((x) => x.text === text) ? t : [...t, { id, text, err }]));
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), err ? 6000 : 3200);
   }, []);
 

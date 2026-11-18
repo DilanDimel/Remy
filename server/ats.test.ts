@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { ResumeDoc } from "@shared/types";
-import { atsScore } from "./ats";
+import { atsScore, hasKeyword } from "./ats";
 
 const doc = (bullets: string[], skills = ""): ResumeDoc => ({
   contact: { name: "Dilan Desman", email: "d@example.com", phone: "682-000-0000", location: "Fort Worth, TX", links: "linkedin.com/in/x" },
@@ -145,4 +145,12 @@ test("an entry with no date isn't a different date format (the missing date has 
   const fixes = atsScore(d, null, "").fixes.map((f) => f.text);
   assert.ok(!fixes.some((t) => /one date format/.test(t)), fixes.join(" | "));
   assert.ok(fixes.some((t) => /missing dates/.test(t)));
+});
+
+// Nov 18: Opportunities said "Gaps: Microsoft Excel" for a student whose resume lists Excel.
+test("skills: Microsoft Excel / MS Excel is the resume's Excel; Microsoft Office is shown by its apps", () => {
+  const r = "Sales Associate\nSKILLS\nExcel, PowerPoint, customer service";
+  for (const k of ["Microsoft Excel", "MS Excel", "Microsoft PowerPoint", "Microsoft Office", "Excel"]) assert.ok(hasKeyword(r, k), k);
+  for (const k of ["Microsoft Word", "Microsoft Project", "Power BI"]) assert.ok(!hasKeyword(r, k), k);
+  assert.ok(!hasKeyword("I excel at teamwork", "Microsoft Excel")); // "excel at" isn't Excel
 });

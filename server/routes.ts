@@ -19,6 +19,7 @@ import { isNonAnswer } from "@shared/words";
 import { draftOk } from "./bulletDraft";
 import { STORY_ASK, STORY_PARTS, findLine, namesNew, sameLine } from "@shared/stories";
 import { briefMessages, briefPrompt, cleanBrief } from "./brief";
+import { keptFixes, letterFixPrompt, rewriteFixPrompt } from "./tailorFix";
 import { BUZZ, assemblePitch, type PitchParts } from "./pitch";
 import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
@@ -2010,11 +2011,28 @@ Return JSON:
       ? { text: claimCheck(smText, ev, { postingText: postingCtx, postingNumbersOk: true }).length ? smEv.text : smText, requirementQuote: smReq?.quote || "", evidence: smEv.text }
       : undefined;
     a.gaps = (out.gaps || []).map((g: any) => ({ requirementQuote: reqById.get(String(g.requirementId))?.quote || "", note: String(g.note || "") })).filter((g: any) => g.note);
-    a.changes = changes;
     a.letter = stripPlaceholders(String(out.coverLetter || "").trim());
     a.letterFlags = letterFlagsFor(ctx.ws, a, job);
-    if (a.letterFlags.some((f) => f.type !== "placeholder"))
-      ctx.ws.incidents.unshift({ id: uid("inc"), at: nowIso(), kind: "AI overstatement caught", where: `${job.company} cover letter`, text: a.letter.slice(0, 600), flags: a.letterFlags.filter((f) => f.type !== "placeholder") });
+    // Remy fixes what its own check rejects before the student sees it (server/tailorFix.ts): one more AI try for the
+    // flagged rewrites and letter, in parallel. A rewrite that still fails isn't offered; the student keeps their line.
+    const flagged = changes.filter((c) => c.flags.length);
+    const letterProblems = a.letterFlags.filter((f) => f.type !== "placeholder");
+    if (letterProblems.length) ctx.ws.incidents.unshift({ id: uid("inc"), at: nowIso(), kind: "AI overstatement caught", where: `${job.company} cover letter`, text: a.letter.slice(0, 600), flags: letterProblems });
+    const quiet = <T,>(p: Promise<T>) => p.catch(() => null);
+    const [rw, lt] = await Promise.all([
+      flagged.length ? quiet(withAi(ctx, `Fix rewrites for ${job.company}`, () => { const q = rewriteFixPrompt(flagged); return aiJson<any>(q.system, q.user, 1200); })) : null,
+      letterProblems.length ? quiet(withAi(ctx, `Fix letter for ${job.company}`, () => { const q = letterFixPrompt(a.letter, letterProblems); return aiJson<any>(q.system, q.user, 1500); })) : null,
+    ]);
+    const fixed = keptFixes(flagged, rw, (t, it) => !claimCheck(t, ev, { original: it.original, entryContext: entryContextOf(ctx.ws, changes.find((c) => c.id === it.id)!.bulletId), postingText: postingCtx }).length, norm);
+    a.changes = changes.flatMap((c) => (!c.flags.length ? [c] : fixed.has(c.id) ? [{ ...c, revised: fixed.get(c.id)!, flags: [] }] : []));
+    a.skippedChanges = changes.length - a.changes.length;
+    const newLetter = stripPlaceholders(String(lt?.letter || "").trim());
+    if (newLetter && newLetter.length > a.letter.length * 0.6) {
+      const before = { letter: a.letter, flags: a.letterFlags };
+      a.letter = newLetter;
+      a.letterFlags = letterFlagsFor(ctx.ws, a, job);
+      if (a.letterFlags.filter((f) => f.type !== "placeholder").length >= letterProblems.length) { a.letter = before.letter; a.letterFlags = before.flags; }
+    }
     a.letterApproved = false;
     a.personalize = []; // Remy asks before writing; the letter never carries fill-in-the-blank gaps
     a.generatedAt = nowIso();
@@ -2080,7 +2098,7 @@ Return JSON:
     if (pending.length) bad(`Review ${pending.length} remaining change${pending.length > 1 ? "s" : ""} before approving.`, 409);
     for (const c of a.changes) c.flags = c.status === "rejected" ? [] : changeFlags(ctx.ws, c);
     const blocked = a.changes.filter((c) => (c.status === "accepted" || c.status === "edited") && c.flags.length);
-    if (blocked.length) bad("Some accepted changes still contain unsupported claims. Edit, reject, or confirm them first.", 409);
+    if (blocked.length) bad(`${blocked.length === 1 ? "One change you accepted" : `${blocked.length} changes you accepted`} still say${blocked.length === 1 ? "s" : ""} things your resume doesn't show (${blocked.map((c) => `${c.entryLabel.split(" › ").pop()}: ${c.flags.map((f) => `“${f.term}”`).join(", ")}`).join("; ")}). Edit it, reject it, or press “This is true” if you can back it up.`, 409);
     // The letter is checked again: anything it says that the resume, profile and posting don't show stops approval,
     // unless the student confirms it's true (their call, recorded). Stray fill-in brackets are simply removed.
     a.letter = stripPlaceholders(a.letter);

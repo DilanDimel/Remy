@@ -163,7 +163,7 @@ export async function overview() {
 // ---------- errors ----------
 export async function errors() {
   const open = await q(
-    `SELECT message, kind, MIN(place) AS place, COUNT(*)::int AS times, COUNT(DISTINCT NULLIF(user_id, ''))::int AS students, MAX(at) AS last, MIN(at) AS first,
+    `SELECT message, kind, MIN(place) AS place, COUNT(DISTINCT place)::int AS places, COUNT(*)::int AS times, COUNT(DISTINCT NULLIF(user_id, ''))::int AS students, MAX(at) AS last, MIN(at) AS first,
             (SELECT detail FROM error_reports d WHERE d.message = e.message AND d.kind = e.kind ORDER BY at DESC LIMIT 1) AS detail
      FROM error_reports e WHERE fixed_at IS NULL AND kind <> 'feedback' AND at > now() - interval '30 days' GROUP BY message, kind ORDER BY MAX(at) DESC LIMIT 30`,
   );

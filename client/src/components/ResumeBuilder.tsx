@@ -14,6 +14,8 @@ const GROUPS: [string, [string, string][]][] = [
   ["Skills", [["language", "A language besides English"], ["certificate", "A certificate (CPR, Excel…)"]]],
 ];
 const LABEL = Object.fromEntries(GROUPS.flatMap(([, ks]) => ks));
+/** The "add one more" button's noun ("Add another job", not "Another had a job"). */
+const ONE_MORE: Record<string, string> = { job: "job", internship: "internship", care: "babysitting, tutoring or pet-sitting job", family: "family business job", hustle: "side hustle", project: "class project", research: "research project", award: "award or honor", club: "club or organization", sports: "sports team", faith: "church or youth group", volunteer: "volunteer role", arts: "music, theater or art activity", greek: "Greek life role", language: "language", certificate: "certificate" };
 const NAME_ONLY = new Set(["language", "certificate"]);
 const STEPS = ["About you", "What you've done", "Tell me more", "A few details", "Your resume"];
 const YEARS = ["First-year", "Sophomore", "Junior", "Senior"];
@@ -138,7 +140,7 @@ export function ResumeBuilder({ onDone, onCancel }: { onDone: () => void; onCanc
             </div>
           ))}
           <div className="row" style={{ flexWrap: "wrap" }}>
-            {Array.from(new Set(b.items.map((i) => i.kind))).map((k) => <button key={k} className="btn btn-ghost btn-sm" onClick={() => add(k)}><Plus size={14} /> Another {LABEL[k].toLowerCase()}</button>)}
+            {Array.from(new Set(b.items.map((i) => i.kind))).map((k) => <button key={k} className="btn btn-ghost btn-sm" onClick={() => add(k)}><Plus size={14} /> Add another {ONE_MORE[k] || LABEL[k].toLowerCase()}</button>)}
           </div>
         </div>
       )}
