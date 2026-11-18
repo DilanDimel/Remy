@@ -198,6 +198,10 @@ const approvedFacts = (ws: Workspace) => ws.memory.filter((m) => m.status === "a
 // AI-read text that isn't in the file doesn't count as evidence until the student saves the resume as theirs.
 const evidenceOf = (ws: Workspace) =>
   [ws.resume?.rawText || "", ws.resume ? resumeToText(ws.resume.doc, { verifiedOnly: true }) : "", ws.profile.classYear ? `Class year: ${ws.profile.classYear}` : "", ...approvedFacts(ws)].join("\n");
+/** Setup answers the AI may read. A tapped Remy suggestion about a resume experience (marked when the student
+ *  answered, shared/setupReply.ts) counts only once they kept it (Accounts → Memory): until then it's Remy's words. */
+const setupAnswers = (ws: Workspace) =>
+  ws.onboarding.answers.filter((x) => !x.toConfirm || ws.memory.some((m) => m.status === "approved" && m.text === `${x.q} — ${x.a}`));
 const allJobs = (ws: Workspace): Job[] => ws.jobs;
 const findJob = (ws: Workspace, id: string) => allJobs(ws).find((j) => j.id === id);
 
@@ -870,7 +874,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     hiddenJobIds: ids,
     memory: z.array(z.looseObject({ id: str(120).optional(), text: str(2000) })).max(300),
     outreach: z.array(z.looseObject({ id: str(120), contactId: str(120), to: str(320), subject: str(300), body: str(8000), linkedin: str(400).optional(), status: z.enum(["draft", "approved", "handed-off"]), createdAt: str(40) })).max(500),
-    onboarding: z.object({ step: z.number().int().min(0).max(50), done: z.boolean(), answers: z.array(z.object({ q: str(500), a: str(2000) })).max(50), questions: z.array(str(500)).max(20), targets: z.array(str(40)).max(20).optional(), options: z.array(z.array(str(80)).max(4)).max(20).optional(), exploring: z.boolean().optional(), focus: z.enum(["resume", "openings", "interview", "direction", "explore"]).optional() }),
+    onboarding: z.object({ step: z.number().int().min(0).max(50), done: z.boolean(), answers: z.array(z.object({ q: str(500), a: str(2000), toConfirm: z.boolean().optional() })).max(50), questions: z.array(str(500)).max(20), targets: z.array(str(40)).max(20).optional(), options: z.array(z.array(str(80)).max(4)).max(20).optional(), exploring: z.boolean().optional(), focus: z.enum(["resume", "openings", "interview", "direction", "explore"]).optional() }),
     started: z.boolean(),
     plan: z.looseObject({ nextAction: z.looseObject({ title: str(300), why: str(2000), link: str(300) }), careers: z.array(z.looseObject({ id: str(120), title: str(300) })).max(20), skills: z.array(z.looseObject({ id: str(120), name: str(300) })).max(30), academic: z.array(z.looseObject({ id: str(120), term: str(100) })).max(20) }),
     contacts: z.array(z.looseObject({ id: str(120), name: str(200), title: str(300), org: str(300), email: str(320), why: str(2000), tags: z.array(str(120)).max(30), label: str(40) })).max(1000),
@@ -1394,7 +1398,9 @@ Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), 
     const text = assemblePitch(out || {}, (x) => !claimCheck(x, ev, { allowedNames: [name, p.school].filter(Boolean) }).length, {
       name, classYear: p.classYear, major: p.major, school: p.school, interests: p.targetRoles || "",
     });
-    if (!text) bad("Remy couldn't find one real experience it could put in your pitch. Upload your resume or add an experience (Home → weekly check-in), then try again.", 422);
+    if (!text) bad(ctx.ws.resume
+      ? "Remy's draft added details that aren't on your resume, so Remy held it back. Try again, or add an experience in your own words (Home → weekly check-in)."
+      : "Remy couldn't find one real experience it could put in your pitch. Upload your resume or add an experience (Home → weekly check-in), then try again.", 422);
     ctx.ws.pitch = { text, at: nowIso() };
     await ctx.save();
     res.json(ctx.ws);
@@ -1600,7 +1606,7 @@ Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), 
     const out = await withAi(ctx, "Initial plan", () =>
       aiJson<any>(
         `You are Remy, a truthful career companion for a university student. Base every suggestion on the student's real background. If the profile names a biggest worry, make the next action and the first task address it directly, and respect their practical limits (paid, hours, transport) and what they've already tried. Never invent university requirements, official certifications, or guarantees. For every certification or license you suggest, say in \"why\" whether it is required for their target roles, only taken after hiring (the employer sponsors it, like FINRA Series 7 or 79), needed for some jobs only, or optional, and why people get it; never present an optional one as a normal or expected step. Mark anything the student must verify (with an advisor, the registrar, or the official catalog) in "verify". Today is ${today}.`,
-        `PROFILE:\n${profileSummary(ctx.ws)}\n\nRESUME:\n${ctx.ws.resume ? resumeToText(ctx.ws.resume.doc).slice(0, 6000) : "(none)"}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).join("\n") || "(none)"}\n\nONBOARDING ANSWERS:\n${ctx.ws.onboarding.answers.map((a) => a.q + " → " + a.a).join("\n") || "(none)"}\n\nKNOWN OPENINGS (id: description):\n${jobs}\n
+        `PROFILE:\n${profileSummary(ctx.ws)}\n\nRESUME:\n${ctx.ws.resume ? resumeToText(ctx.ws.resume.doc).slice(0, 6000) : "(none)"}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).join("\n") || "(none)"}\n\nONBOARDING ANSWERS:\n${setupAnswers(ctx.ws).map((a) => a.q + " → " + a.a).join("\n") || "(none)"}\n\nKNOWN OPENINGS (id: description):\n${jobs}\n
 Return JSON:
 {"nextAction":{"title":"","why":"","link":"/resume|/opportunities|/path|/community|/calendar"},
  "tasks":[{"title":"","why":"one sentence tied to their background","due":"YYYY-MM-DD or empty","category":"Explore|Prepare|Apply|Connect|Academic","link":"/opportunities?kind=program etc or empty"}],
@@ -1660,7 +1666,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     const tracking = ctx.ws.tracker.slice(0, 15).map((t) => `${t.company} ${t.role}: ${t.status}`).join("; ");
     const plan = ctx.ws.plan;
     const direction = plan ? `${plan.careers.map((c) => c.title).join(", ")}${plan.chosenCareerId ? `; the student chose: ${plan.careers.find((c) => c.id === plan.chosenCareerId)?.title}` : ""}` : "";
-    const answers = ctx.ws.onboarding.answers.map((a) => `${a.q} → ${a.a}`).join("\n");
+    const answers = setupAnswers(ctx.ws).map((a) => `${a.q} → ${a.a}`).join("\n");
     const out = await withAi(ctx, "Assistant chat", () =>
       aiJson<{ reply: string; remember: string[]; actions?: ChatAction[] }>(
         `You are Remy, a friendly fox career coach for university students. Be concise: under 110 words, at most 3 short bullet lines starting with "• ", and **bold** only for a few key words. Warm, practical and honest. Use only facts you are given; if you don't know something (like a specific university rule), say so and suggest who to ask. Never claim to have sent emails, applied, or changed calendars — you can only suggest. If the student shares a durable fact or preference worth remembering, propose it in "remember" (short third-person statements); otherwise return an empty list. Today is ${centralToday()}; the student's class standing is ${classYearOf(ctx.ws) || "unknown"}. Don't question dates that fit that standing. You know everything below about the student; use it so they never have to repeat themselves, and refer to their real experience by name.\n\nWhen a concrete next step would help, offer up to 2 buttons in "actions" (the student taps to do it; you never do it yourself): {"kind":"task","title":"short to-do","why":"one sentence"} adds a to-do; {"kind":"role","title":"job title"} adds a job to the roles Remy searches openings for; {"kind":"open","link":"/resume?tab=base|/resume?tab=tailor|/resume?tab=prep|/opportunities|/path?tab=career|/path?tab=road|/path?tab=future|/community|/calendar|/progress?tab=tracker|/accounts?tab=profile|/accounts?tab=memory","label":"button text"} opens a page. When they ask to change how Remy looks or reminds them, offer {"kind":"setting","key":"theme","value":"dark"|"light"|"system"} (system = match their device) or {"kind":"setting","key":"notify.deadlines"|"notify.weeklyPlan","value":true|false}; say it changes when they tap the button, never that it's already done. Otherwise return an empty list.\n\n${CHAT_RULES}`,

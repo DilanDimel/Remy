@@ -1,6 +1,7 @@
 import { AlignmentType, BorderStyle, Document, Packer, Paragraph, TabStopType, TextRun } from "docx";
 import PDFDocument from "pdfkit";
 import type { ResumeDoc, ResumeStyle } from "@shared/types";
+import { dropDates, skillGroupName } from "@shared/words";
 import { resumeToText } from "./resume";
 
 const FONT = "Calibri";
@@ -43,13 +44,13 @@ export async function resumeDocx(doc: ResumeDoc, style?: ResumeStyle): Promise<B
       border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "222222", space: 1 } },
       children: [new TextRun({ text: b.heading.toUpperCase(), bold: true, size: sz + 1, font })],
     }));
-    for (const k of b.skills || []) kids.push(new Paragraph({ children: [new TextRun({ text: `${k.label}: `, bold: true, size: sz, font }), new TextRun({ text: k.items, size: sz, font })] }));
+    for (const k of b.skills || []) kids.push(new Paragraph({ children: [...(skillGroupName(k.label) ? [new TextRun({ text: `${skillGroupName(k.label)}: `, bold: true, size: sz, font })] : []), new TextRun({ text: k.items, size: sz, font })] }));
     (b.entries || []).forEach((e, i) => {
       const gap = i ? 80 : 0;
       if (e.org || e.location)
         kids.push(new Paragraph({ spacing: { before: gap }, tabStops: [{ type: TabStopType.RIGHT, position: right }], children: [new TextRun({ text: e.org, bold: true, size: sz, font }), new TextRun({ text: e.location ? `\t${e.location}` : "", bold: true, size: sz, font })] }));
       if (e.role || e.dates)
-        kids.push(new Paragraph({ spacing: { before: e.org || e.location ? 0 : gap }, tabStops: [{ type: TabStopType.RIGHT, position: right }], children: [new TextRun({ text: e.role, italics: roleItalic, size: sz, font }), new TextRun({ text: e.dates ? `\t${e.dates}` : "", italics: roleItalic, size: sz, font })] }));
+        kids.push(new Paragraph({ spacing: { before: e.org || e.location ? 0 : gap }, tabStops: [{ type: TabStopType.RIGHT, position: right }], children: [new TextRun({ text: dropDates(e.role, e.dates), italics: roleItalic, size: sz, font }), new TextRun({ text: e.dates ? `\t${e.dates}` : "", italics: roleItalic, size: sz, font })] }));
       for (const x of e.bullets) kids.push(new Paragraph({ bullet: { level: 0 }, children: [new TextRun({ text: x.text, size: sz, font })] }));
     });
   }
@@ -119,11 +120,11 @@ function renderResume(doc: ResumeDoc, style: ResumeStyle | undefined, scale: num
     };
     for (const b of blocks(doc)) {
       rule(b.heading);
-      for (const k of b.skills || []) pdf.font(F.b).fontSize(base).text(k.label + ": ", M, pdf.y, { continued: true, width: W, lineGap }).font(F.r).text(k.items, { lineGap });
+      for (const k of b.skills || []) (skillGroupName(k.label) ? pdf.font(F.b).fontSize(base).text(skillGroupName(k.label) + ": ", M, pdf.y, { continued: true, width: W, lineGap }).font(F.r).text(k.items, { lineGap }) : pdf.font(F.r).fontSize(base).text(k.items, M, pdf.y, { width: W, lineGap }));
       (b.entries || []).forEach((e, i) => {
         if (i) pdf.moveDown(0.3 * (1 - 0.7 * tight));
         if (e.org || e.location) row(e.org, e.location, F.b);
-        if (e.role || e.dates) row(e.role, e.dates, F.i);
+        if (e.role || e.dates) row(dropDates(e.role, e.dates), e.dates, F.i);
         for (const x of e.bullets) pdf.font(F.r).fontSize(base).text("•  " + x.text, M + 8, pdf.y, { width: W - 8, indent: -8, lineGap });
         pdf.x = M;
       });

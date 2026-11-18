@@ -148,3 +148,31 @@ test("real role levels and long employer lists are saved (third review)", () => 
   assert.equal(fitsField("dreamEmployers", "I like Boeing"), false);
   assert.equal(fitsField("dreamEmployers", "Any role in finance at Goldman"), true); // names something real
 });
+
+// Nov 17 audit: Remy offered "Tracking sales and inventory" for "What did you do best at Academy Sports?"; one tap
+// made it a fact, then the plan, chat and My Path said Chris had that experience.
+test("setup: a tapped Remy answer about a resume experience waits for the student to confirm it", async () => {
+  const { tappedResumeClaim, setupReply } = await import("@shared/setupReply");
+  const names = { orgs: ["Academy Sports + Outdoors", "Texas Christian University", "Finance Club", "Campus Recreation"], roles: ["Sales Associate", "BBA Finance, GPA 3.6", "Member"] };
+  const q = "What did you enjoy most about your work at Academy Sports?";
+  const opts = ["Helping customers", "Tracking sales and inventory"];
+  assert.equal(tappedResumeClaim(q, "Tracking sales and inventory", opts, "interests", names), true);
+  assert.equal(tappedResumeClaim("What did you do best as a Sales Associate?", "Helping customers", opts, "goals", names), true);
+  // Typed in their own words: theirs.
+  assert.equal(tappedResumeClaim(q, "Talking to customers about running shoes", opts, "interests", names), false);
+  // Preferences, not claims about the past.
+  assert.equal(tappedResumeClaim("Would you rather work with people, numbers or ideas?", "Numbers", ["People", "Numbers", "Ideas"], "interests", names), false);
+  assert.equal(tappedResumeClaim("Which roles excite you most?", "Investment banking", ["Investment banking"], "targetRoles", names), false);
+  // Shortened names still count.
+  const n2 = { orgs: ["Academy Sports and Outdoors", "Chick-fil-A Southlake"], roles: [] };
+  assert.equal(tappedResumeClaim("What did you do best at Academy Sports?", "Helping customers", opts, "interests", n2), true);
+  assert.equal(tappedResumeClaim("What did you enjoy at Chick-fil-A?", "Helping customers", opts, "interests", n2), true);
+  // One common word from a resume isn't a question about that experience.
+  for (const [q2, a2] of [["Do you prefer sales or analysis work?", "Analysis work"], ["Would you rather stay in Texas or move?", "Stay in Texas"], ["Which finance topics do you like most?", "Valuation"], ["What's one goal for your campus job search this year?", "Land an internship"]])
+    assert.equal(tappedResumeClaim(q2, a2, [a2, "Other"], "goals", names), false, q2);
+  const n3 = { orgs: ["Target"], roles: [] };
+  assert.equal(tappedResumeClaim("Which industries do you want to target first?", "Retail", ["Retail"], "goals", n3), false);
+  assert.equal(tappedResumeClaim("What did you enjoy most at Target?", "Retail", ["Retail"], "interests", n3), true);
+  assert.match(setupReply("Tracking sales and inventory", "interests", false, true), /confirm/);
+  assert.doesNotMatch(setupReply("Tracking sales and inventory", "interests", false, true), /plan will use it/);
+});

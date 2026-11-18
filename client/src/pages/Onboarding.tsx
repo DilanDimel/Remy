@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Check, ChevronDown, FileText, Mail, Sparkles, Trash2 } from "lucide-react";
 import { PATHS, type Profile, type SetupFocus, type Workspace } from "@shared/types";
 import { FIELD_GROUPS, FIELD_MAJORS, splitFieldList } from "@shared/fields";
-import { alreadyIn, fitsField, inField, setupReply } from "@shared/setupReply";
+import { alreadyIn, fitsField, inField, setupReply, tappedResumeClaim } from "@shared/setupReply";
 import { api, FAR_ENOUGH_STEP, fmtDate, rid, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
 import { AiUnavailableNote, BetaBadge, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
@@ -556,10 +556,10 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
   const [busy, setBusy] = useState(false);
   const [answer, setAnswer] = useState("");
   // The answer being saved shows right away, so Next feels instant.
-  const [pending, setPending] = useState<{ q: string; a: string; saved?: boolean } | null>(null);
+  const [pending, setPending] = useState<{ q: string; a: string; toConfirm?: boolean; saved?: boolean } | null>(null);
   const qs = w.onboarding.questions;
   const targets = w.onboarding.targets || [];
-  const answered = pending ? [...w.onboarding.answers, { q: pending.q, a: pending.a }] : w.onboarding.answers;
+  const answered = pending ? [...w.onboarding.answers, { q: pending.q, a: pending.a, toConfirm: pending.toConfirm }] : w.onboarding.answers;
   const idx = answered.length;
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -570,24 +570,28 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
   }, []);
   useEffect(() => { end.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, [idx, busy]);
   const current = qs[idx];
+  const entries = (w.resume?.doc.sections || []).flatMap((s) => s.entries);
+  const resumeNames = { orgs: entries.map((e) => e.org).filter(Boolean), roles: entries.map((e) => e.role).filter(Boolean) };
   const submit = async (text: string) => {
     if (pending || !current) return;
     const a = text.trim();
     const i = idx;
-    setPending({ q: current, a });
-    setAnswer("");
-    const answers = [...w.onboarding.answers, { q: current, a }];
     // Each question says which profile field its answer feeds (roles, dream employers, start date…), so it changes the matches.
     // Search fields only take short answers that name things; a sentence ("I don't know yet…") stays in Remy's AI memory instead (see shared/setupReply.ts).
     const target = targets[i] as keyof Profile | undefined;
+    // Decided now and kept on the answer, so a later resume edit can't turn Remy's words into the student's.
+    const toConfirm = tappedResumeClaim(current, a, w.onboarding.options?.[i] || [], target, resumeNames);
+    setPending({ q: current, a, toConfirm });
+    setAnswer("");
+    const answers = [...w.onboarding.answers, { q: current, a, ...(toConfirm ? { toConfirm } : {}) }];
     try {
-      if (a && target && target in w.profile && fitsField(target, a)) {
+      if (a && !toConfirm && target && target in w.profile && fitsField(target, a)) {
         const before = String(w.profile[target] || "").trim();
         // Answering the same question twice (e.g. after a reload) must not repeat the answer.
         if (!alreadyIn(before, a)) await save("profile", { ...w.profile, [target]: before ? `${before}, ${a}` : a });
       }
       if (a) {
-        const fact = { id: "f" + Date.now(), text: `${current} — ${a}`, category: "goal", source: "Onboarding answer", status: "approved", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+        const fact = { id: "f" + Date.now(), text: `${current} — ${a}`, category: "goal", source: toConfirm ? "Tapped one of Remy's suggested answers in setup: keep it only if it's true" : "Onboarding answer", status: toConfirm ? "suggested" : "approved", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
         await save("memory", [...w.memory, fact]);
       }
       setPending({ q: current, a, saved: true }); // the profile and memory saves worked: Remy's reply can say what happened
@@ -614,7 +618,7 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
           <div key={i} className="stack-sm">
             <div className="bubble bubble-ai">{x.q}</div>
             <div className="bubble bubble-user fade-up">{x.a || "Skipped"}</div>
-            <div className="bubble bubble-ai ob-react fade-up">{pending && !pending.saved && i === answered.length - 1 ? "Saving…" : setupReply(x.a, targets[i], inField(w.profile, targets[i], x.a))}</div>
+            <div className="bubble bubble-ai ob-react fade-up">{pending && !pending.saved && i === answered.length - 1 ? "Saving…" : setupReply(x.a, targets[i], inField(w.profile, targets[i], x.a), !!x.toConfirm)}</div>
           </div>
         ))}
         {busy && <div className="bubble bubble-ai row"><Spinner /> Thinking of a few useful questions…</div>}
