@@ -1130,3 +1130,9 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .tabs-sub .tab { font-size: var(--text-sm); padding-top: 6px; padding-bottom: 6px; }
 /* One fix in Remy's review of the resume. */
 .review-item { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding-top: 12px; }
+
+/* Story deck as a chat: questions on the left, stories on the right; one column on phones. */
+.story-chat { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.story-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; text-align: left; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: inherit; cursor: pointer; }
+.story-row:hover, .story-row.on { border-color: var(--fox); }
+@media (max-width: 760px) { .story-chat { grid-template-columns: 1fr; } }
