@@ -1,6 +1,7 @@
 import { FitTextarea } from "../components/FitTextarea";
 import { QuickRate } from "../components/QuickRate";
 import { shortTitle } from "@shared/org";
+import { dropDates, skillGroupName } from "@shared/words";
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowUpRight, Check, CheckCircle2, ChevronDown, ChevronUp, Download, FileText, Link2, Pencil, Plus, RotateCcw, ShieldAlert, ShieldCheck, Sparkles,
@@ -620,13 +621,13 @@ function ResumePaper({ doc, changed }: { doc: ResumeDoc; changed?: Set<string> }
           {s.entries.map((e) => (
             <div key={e.id}>
               {(e.org || e.location) && <div className="rp-row"><strong>{e.org}</strong><strong>{e.location}</strong></div>}
-              {(e.role || e.dates) && <div className="rp-row"><em>{e.role}</em><em>{e.dates}</em></div>}
+              {(e.role || e.dates) && <div className="rp-row"><em>{dropDates(e.role, e.dates)}</em><em>{e.dates}</em></div>}
               {e.bullets.length > 0 && <ul>{e.bullets.map((b) => <li key={b.id}><span className={changed?.has(b.id) ? "changed" : undefined}>{b.text}</span>{textConcern(b.text) && <span role="img" aria-label={textConcern(b.text)} title={textConcern(b.text)} style={{ color: "var(--error)", marginLeft: 4, verticalAlign: "middle" }} data-testid="warn-bullet-preview"><AlertTriangle size={13} /></span>}</li>)}</ul>}
             </div>
           ))}
         </div>
       ))}
-      {doc.skills.length > 0 && <div><h4>Skills</h4>{doc.skills.map((k) => <div key={k.id}><strong>{k.label}:</strong> {k.items}</div>)}</div>}
+      {doc.skills.length > 0 && <div><h4>Skills</h4>{doc.skills.map((k) => <div key={k.id}>{skillGroupName(k.label) && <strong>{skillGroupName(k.label)}: </strong>}{k.items}</div>)}</div>}
     </div>
   );
 }

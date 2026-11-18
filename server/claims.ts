@@ -255,6 +255,10 @@ export function claimCheck(
       while (words.length && /^(of|and|&|for|the)$/i.test(words[0])) words = words.slice(1);
       const phrase = words.join(" ");
       if (!phrase || (words.length === 1 && (STOP_CAPS.has(phrase) || phrase.length < 3))) continue;
+      // Spoken contractions ("Now, I'm looking", "and I've worked") are not names.
+      if (words.length === 1 && /^(I|It|That|There|Here|What|We|You|They|He|She|Let)['’](m|ve|d|ll|s|re)$/.test(phrase)) continue;
+      // "TCU" when the record says "Texas Christian University": the initials of a name already on file.
+      if (words.length === 1 && /^[A-Z]{2,5}$/.test(phrase) && initialsOn(phrase, [evidence, ...(opts.allowedNames || [])])) continue;
       const meaningful = words.filter((w) => !STOP_CAPS.has(w) && !/^(of|and|&|for|the)$/i.test(w));
       if (!meaningful.length) continue;
       const pl = lc(phrase);
@@ -265,6 +269,18 @@ export function claimCheck(
     }
   }
   return flags;
+}
+
+/** True when `abbr` is the initials of one whole name on a single line of `texts` ("TCU" ← "Texas Christian University";
+ *  small words like "of" may count or not). Never a slice of a name or words from two lines, so "UBS" isn't
+ *  read out of "University" + "Bachelor of Science". */
+function initialsOn(abbr: string, texts: string[]) {
+  for (const t of texts)
+    for (const m of t.matchAll(/[A-Z][a-zA-Z&'-]*(?:[ \t]+(?:of|and|&|for|the|[A-Z][a-zA-Z&'-]*))+/g)) {
+      const w = m[0].split(/[ \t]+/);
+      if (w.map((x) => x[0]).join("").toUpperCase() === abbr || w.filter((x) => /^[A-Z]/.test(x)).map((x) => x[0]).join("") === abbr) return true;
+    }
+  return false;
 }
 
 export function evidenceText(resumeRaw: string, facts: string[]) {

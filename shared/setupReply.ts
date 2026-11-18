@@ -75,8 +75,9 @@ const SAVED: Record<string, string> = {
 };
 
 /** `saved` = the answer is in the target profile field (not just Remy's AI memory). */
-export function setupReply(a: string, target: string | undefined, saved: boolean): string {
+export function setupReply(a: string, target: string | undefined, saved: boolean, toConfirm = false): string {
   if (!a) return "No problem, we can come back to that.";
+  if (toConfirm) return "Got it. That was one of my suggestions, so I'll only use it once you confirm it's true (Home → Facts to approve).";
   if (isUnsure(a)) return target === "timeline" ? "No problem. You can add a start date in your profile any time."
     : target === "avoid" ? "No problem. You can add things to leave out in your profile any time."
     : target === "dreamEmployers" ? "That's fine. Save openings you like as you go, and Remy will learn from them."
@@ -107,4 +108,27 @@ export const FALLBACK_QUESTION = { q: "What would make the next few months a win
 export function keepQuestions<T extends { q: string; saveTo?: string }>(qs: T[], skipped: string[]): (T | typeof FALLBACK_QUESTION)[] {
   const kept = qs.filter((x) => !skipped.includes(String(x.saveTo)) && !skipped.some((k) => ASKS[k]?.test(x.q)));
   return kept.length || !qs.length ? kept : [FALLBACK_QUESTION];
+}
+
+/** A tap on one of Remy's own answer options to a question about something on the resume ("What did you do
+ *  best at Academy Sports?" → "Tracking sales and inventory"). Those words are Remy's, not the student's, so
+ *  the answer is saved as a suggestion to confirm, never as a fact or a profile interest. Preference taps
+ *  (roles, employers, start date, "people, numbers or ideas") and anything typed stay as they are. */
+export function tappedResumeClaim(q: string, a: string, options: string[], target: string | undefined, resume: { orgs: string[]; roles: string[] }): boolean {
+  if (target !== "interests" && target !== "goals") return false;
+  if (!options.some((o) => norm(o).trim().toLowerCase() === norm(a).trim().toLowerCase())) return false;
+  const clean = (x: string) => norm(x).toLowerCase().replace(/[^a-z0-9&'+-]+/g, " ").trim();
+  const ql = ` ${clean(q)} `;
+  // The AI shortens employer names ("Academy Sports" for "Academy Sports and Outdoors", "Chick-fil-A" for
+  // "Chick-fil-A Southlake"): the whole name, the part before "+ , & | and", or its first two words count.
+  // One word alone only when it looks like a brand ("Chick-fil-A", "H&M"), and a role only whole: "sales" or "Texas"
+  // in a question is a preference, not a claim.
+  const orgForms = (n: string) => {
+    const w = clean(n).split(" ").filter((x) => x && !/^(the|a|an)$/.test(x));
+    return [w.join(" "), clean(norm(n).split(/\s*[+,&|–—(]\s*|\s+-\s+|\s+and\s+/i)[0]), w.length > 2 ? w.slice(0, 2).join(" ") : "", /[-&\d]/.test(w[0] || "") ? w[0] : ""];
+  };
+  const forms = [...resume.orgs.flatMap(orgForms), ...resume.roles.map(clean)];
+  // A one-word employer ("Target", "Apple") only counts written as a name, capitalized: "want to target first" is a preference.
+  const asName = (f: string) => resume.orgs.some((o) => clean(o) === f) && new RegExp(`(^|[^A-Za-z])${f[0].toUpperCase()}${f.slice(1)}([^A-Za-z]|$)`).test(norm(q));
+  return forms.some((f) => f.length >= 4 && (f.includes(" ") || /[-&\d]/.test(f) || asName(f)) && ql.includes(` ${f} `));
 }

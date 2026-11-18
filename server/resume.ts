@@ -1,5 +1,5 @@
 import type { Bullet, Entry, ResumeDoc, ResumeQuality, Section, SkillLine } from "@shared/types";
-import { skillParts, splitList } from "@shared/words";
+import { dropDates, skillGroupName, skillParts, splitList } from "@shared/words";
 import { aiJson } from "./ai";
 import { uid } from "./ids";
 import { fold, norm } from "./parse";
@@ -595,8 +595,9 @@ export function verifyAiDoc(raw: string, out: any): { doc: ResumeDoc; notes: str
   for (const s of Array.isArray(out?.sections) ? out.sections : []) {
     const section: Section = { id: uid("s"), heading: str(s?.heading) || "Section", entries: [] };
     for (const e of Array.isArray(s?.entries) ? s.entries : []) {
+      const split = atSplit(str(e?.org), str(e?.role)), dates = keep(e?.dates);
       const entry: Entry = {
-        id: uid("e"), ...atSplit(str(e?.org), str(e?.role)), location: keep(e?.location), dates: keep(e?.dates),
+        id: uid("e"), org: split.org, role: dropDates(split.role, dates), location: keep(e?.location), dates,
         bullets: (Array.isArray(e?.bullets) ? e.bullets : typeof e?.bullets === "string" ? [e.bullets] : [])
           .map((b: unknown) => str(typeof b === "object" && b ? (b as { text?: unknown }).text : b))
           .filter(Boolean)
@@ -694,7 +695,7 @@ export function stillMissing(lines: string[], doc: ResumeDoc): string[] {
 // ---------- the resume as text ----------
 /** Plain text of the resume. verifiedOnly leaves out AI-read text that isn't in the file, so it can't count as evidence. */
 export function resumeToText(doc: ResumeDoc, opts: { verifiedOnly?: boolean } = {}): string {
-  const field = (e: Entry, f: "org" | "role") => (opts.verifiedOnly && e.unverified?.includes(f) ? "" : e[f]);
+  const field = (e: Entry, f: "org" | "role") => (opts.verifiedOnly && e.unverified?.includes(f) ? "" : f === "role" ? dropDates(e.role, e.dates) : e[f]);
   const out: string[] = [doc.contact.name, [doc.contact.location, doc.contact.email, doc.contact.phone, doc.contact.links].filter(Boolean).join(" | ")];
   for (const s of doc.sections) {
     out.push("", s.heading.toUpperCase());
@@ -706,7 +707,7 @@ export function resumeToText(doc: ResumeDoc, opts: { verifiedOnly?: boolean } = 
   }
   if (doc.skills.length) {
     out.push("", "SKILLS");
-    for (const k of doc.skills) out.push(`${k.label}: ${k.items}`);
+    for (const k of doc.skills) out.push(skillGroupName(k.label) ? `${skillGroupName(k.label)}: ${k.items}` : k.items);
   }
   return out.filter((l) => l !== undefined).join("\n");
 }
@@ -741,12 +742,14 @@ const DEGREE_WORDS = /^(?:(?:bachelor|master)(?:'s)?\s+of\s+(?:science|arts|busi
 /** The student's major(s) from the university entry: "Majors: A | B", "B.S., Mathematics; B.S., Physics" or the degree line. */
 export function majorsOf(e?: Entry): string {
   if (!e) return "";
-  const all = [e.role, ...e.bullets.map((b) => b.text)].join("\n");
+  // A graduation date written into the degree line ("BBA Finance, Expected May 2029.") isn't part of the major.
+  const role = e.role.replace(/[,(]?\s*\b(?:(?:expected|anticipated|graduat\w*|class of)\s+)?(?:(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+)?(?:19|20)\d{2}\b\)?\.?/gi, (m) => (/expected|anticipated|graduat|class of|[a-z]{3}/i.test(m) ? "" : m));
+  const all = [role, ...e.bullets.map((b) => b.text)].join("\n");
   const listed = all.match(/\bmajors?\s*:\s*([^\n]+)/i)?.[1];
-  const parts = (listed ? listed.replace(/\bGPA\b.*$/i, "").split(/\s*[|;\/]\s*|,\s+(?=\p{Lu})/u) : e.role.split(/\s*[|;]\s*/))
+  const parts = (listed ? listed.replace(/\bGPA\b.*$/i, "").split(/\s*[|;\/]\s*|,\s+(?=\p{Lu})/u) : role.split(/\s*[|;]\s*|,\s+(?=\p{Lu})/u))
     .map((p) => p.replace(/\bGPA\b.*$/i, "").replace(/,?\s*\bminors?\b.*$/i, "").replace(DEGREE_WORDS, "").replace(/\bwith\b.*$/i, (m) => (/certific|concentration|minor/i.test(m) ? m : "")).replace(/[\s,.]+$/, "").replace(/^[\s,.;:|–-]+/, "").trim())
     .filter((p) => p && !NOT_A_MAJOR.test(p) && !/^minors?\b/i.test(p));
-  if (!parts.length) return listed ? "" : DEGREE_WORDS.test(e.role) ? e.role.replace(/\bGPA\b.*$/i, "").split(/[|;]/)[0].trim() : "";
+  if (!parts.length) return listed ? "" : DEGREE_WORDS.test(role) ? role.replace(/\bGPA\b.*$/i, "").split(/[|;]/)[0].trim() : "";
   // "ENTREPRENEURSHIP AND INNOVATION NEELEY SCHOOL OF BUSINESS" → "Entrepreneurship and Innovation".
   const clean = parts.map((p) => p.replace(/\s*[-–,]?\s*\b(?:[\p{L}.]+\s+)?(?:school|college) of [\p{L} ]+$/iu, "").trim()).filter(Boolean)
     .map((p) => (isCaps(p) ? p.split(" ").map((w, k) => (k > 0 && /^(AND|OF|IN|THE|WITH|&)$/.test(w) ? w.toLowerCase() : titleCase(w))).join(" ") : p));

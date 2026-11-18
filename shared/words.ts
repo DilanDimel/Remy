@@ -126,3 +126,23 @@ export function skillProof(skill: string, lines: string[]): string | undefined {
   const re = new RegExp(`(^|[^a-z0-9])${esc}($|[^a-z0-9])`);
   return lines.find((l) => re.test(norm(l)));
 }
+
+/** A skill group's name as printed, or "" when it only repeats the Skills heading ("Skills", "SKILLS:"), so a
+ *  download never reads "SKILLS / Skills: Excel". */
+export const skillGroupName = (label: string) => (/^\s*skills?\s*:?\s*$/i.test(label || "") ? "" : (label || "").trim());
+
+/** "BBA Finance, Expected May 2029. GPA 3.6" with dates "Expected May 2029" (or just "May 2029") → "BBA Finance, GPA 3.6":
+ *  the date prints once, in the dates column. A lead-in ("Expected", "Class of", "since") goes with it, and brackets
+ *  only when the date fills them. Only dates with a year: "Summer" in "Summer Analyst" is part of the title. */
+export function dropDates(role: string, dates: string): string {
+  const d = (dates || "").trim();
+  if (!role || !/\b(19|20)\d{2}\b/.test(d)) return role || "";
+  const esc = d.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+  const core = `(?:(?:expected|anticipated|graduat\\w*|class of|since)\\s*:?\\s*)?(?<!\\w)${esc}(?!\\w)`;
+  const re = new RegExp(`\\(\\s*${core}\\s*\\)|\\[\\s*${core}\\s*\\]|${core}`, "i");
+  if (!re.test(role)) return role;
+  return role.replace(re, " | ")
+    .replace(/(?:\s*[,.;|–—-]\s*)+(?=[A-Za-z0-9(])/g, (m) => (/[|]/.test(m) ? ", " : m.replace(/\s*\|\s*/, "")))
+    .replace(/\((?:\s*[,;|–—-])+\s*/g, "(").replace(/(?:\s*[,;|–—-])+\s*\)/g, ")")
+    .replace(/^[\s,.;|–—-]+|[\s,;|–—-]+$/g, "").replace(/(?<=[a-z]{3})\.$/, "").trim(); // "Finance." loses the period; "B.S." and "Co." keep it
+}

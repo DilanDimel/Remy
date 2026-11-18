@@ -468,7 +468,7 @@ export interface Workspace {
   version: 2;
   started: boolean;
   /** options: tap-to-answer suggestions per question; exploring: the student said they're not sure what they want yet. */
-  onboarding: { step: number; done: boolean; answers: { q: string; a: string }[]; questions: string[]; targets?: string[]; options?: string[][]; exploring?: boolean; focus?: SetupFocus };
+  onboarding: { step: number; done: boolean; answers: { q: string; a: string; toConfirm?: boolean }[]; questions: string[]; targets?: string[]; options?: string[][]; exploring?: boolean; focus?: SetupFocus };
   profile: Profile;
   resume?: BaseResume;
   builder?: ResumeBuilder;

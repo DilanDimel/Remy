@@ -102,3 +102,40 @@ test("skill lists don't split inside parentheses; HTML leftovers are cleaned (pe
   assert.doesNotMatch(t, /document\.write|&bull;|&nbsp|&#8211;/);
   assert.match(t, /• Location: Keller ISD – Fort Worth & AT&T/);
 });
+
+// Nov 17 audit: a downloaded resume read "BBA Finance, Expected May 2029. GPA 3.6 | Expected May 2029" and
+// "SKILLS" then "SKILLS: Excel…", and the major showed as "BBA Finance, Expected May 2029." in four places.
+test("export: the graduation date prints once and a plain Skills group isn't labelled twice", async () => {
+  const { majorsOf, resumeToText } = await import("./resume");
+  const { dropDates, skillGroupName } = await import("@shared/words");
+  const edu = (role: string) => ({ id: "e", org: "Texas Christian University", role, dates: "", location: "", bullets: [] });
+  assert.equal(dropDates("BBA Finance, Expected May 2029. GPA 3.6", "Expected May 2029"), "BBA Finance, GPA 3.6");
+  assert.equal(dropDates("BBA Finance | Expected May 2029", "Expected May 2029"), "BBA Finance");
+  assert.equal(dropDates("B.S. Computer Science", "Aug 2024 - May 2028"), "B.S. Computer Science");
+  assert.equal(dropDates("BBA Finance, Expected May 2029. GPA 3.6", "May 2029"), "BBA Finance, GPA 3.6");
+  assert.equal(dropDates("Team Captain (Aug 2024 - Present) HPW:4", "Aug 2024 - Present"), "Team Captain, HPW:4");
+  assert.equal(dropDates("Intern (2024)", "2024"), "Intern");
+  assert.equal(dropDates("Finance, Class of 2028", "2028"), "Finance");
+  assert.equal(dropDates("Data Analyst — May 2025", "May 2025"), "Data Analyst");
+  assert.equal(dropDates("Analyst 20245", "2024"), "Analyst 20245");
+  assert.equal(dropDates("Summer Analyst", "Summer"), "Summer Analyst"); // no year: part of the title
+  assert.equal(dropDates("Present Day Ministries Volunteer", "Present"), "Present Day Ministries Volunteer");
+  assert.equal(dropDates("BS Finance (GPA 3.6, Expected May 2029)", "Expected May 2029"), "BS Finance (GPA 3.6)");
+  assert.equal(dropDates("Analyst (Summer 2025, Remote)", "Summer 2025"), "Analyst (Remote)");
+  assert.equal(dropDates("BBA Finance. Expected May 2029", "May 2029"), "BBA Finance");
+  assert.equal(dropDates("Finance, B.S., May 2029", "May 2029"), "Finance, B.S.");
+  assert.equal(dropDates("Analyst, J.P. Morgan Co., 2025", "2025"), "Analyst, J.P. Morgan Co.");
+  assert.equal(majorsOf(edu("BBA Marketing, May 2028")), "Marketing"); // "Mar…" isn't March
+  // Saved resumes are cleaned when printed, not only new uploads.
+  const saved = { contact: { name: "Chris", email: "", phone: "", location: "", links: "" }, skills: [], sections: [{ id: "s", heading: "Education", entries: [{ ...edu("BBA Finance, Expected May 2029. GPA 3.6"), dates: "Expected May 2029" }] }] };
+  assert.match(resumeToText(saved as any), /BBA Finance, GPA 3\.6 \| Expected May 2029/);
+  assert.equal(majorsOf(edu("BBA Finance, Expected May 2029. GPA 3.6")), "Finance");
+  assert.equal(majorsOf(edu("Bachelor of Science in Biology, May 2028")), "Biology");
+  for (const l of ["Skills", "SKILLS", "Skills:", " skill "]) assert.equal(skillGroupName(l), "", l);
+  assert.equal(skillGroupName("Technical Skills"), "Technical Skills");
+  assert.equal(skillGroupName("Languages"), "Languages");
+  const doc = { contact: { name: "Chris", email: "", phone: "", location: "", links: "" }, sections: [], skills: [{ id: "k", label: "SKILLS", items: "Excel, PowerPoint" }, { id: "k2", label: "Languages", items: "Spanish" }] };
+  const txt = resumeToText(doc as any);
+  assert.match(txt, /SKILLS\nExcel, PowerPoint\nLanguages: Spanish/);
+  assert.doesNotMatch(txt, /SKILLS: /);
+});

@@ -132,3 +132,20 @@ test("checks: the font check reads the student's own font and size instead of al
   assert.equal(tiny.pass, false);
   assert.match(tiny.detail, /about 9 pt/);
 });
+
+// Nov 17 audit: "Draft my pitch" failed 4 of 4 for a thin resume because spoken contractions after a comma
+// ("Now, I'm looking") and the school's initials ("TCU" for "Texas Christian University") were flagged as names.
+test("pitch speech: contractions and a school's initials are not new names", () => {
+  const ev = "Chris Nguyen\nTexas Christian University\nAcademy Sports + Outdoors\nSales Associate\nRan the register and handled cash and card payments\nTarget roles: Financial analyst internship";
+  const school = { allowedNames: ["Chris", "Texas Christian University"] };
+  for (const s of ["Now, I'm looking for a financial analyst internship.", "At Academy Sports + Outdoors, I've run the register.", "So, I'd like to learn more.", "Honestly, it's been great and I'll keep going."])
+    assert.deepEqual(claimCheck(s, ev, school), [], s);
+  assert.deepEqual(claimCheck("I'm a sophomore studying finance at TCU.", ev + "\nClass year: Sophomore", school), []);
+  assert.deepEqual(claimCheck("I'm studying finance at TCU.", ev, { allowedNames: ["Chris"] }), []); // initials found in the resume itself
+  // Still flagged: initials of nothing on file, and real invented names after a contraction.
+  assert.ok(claimCheck("I'm studying finance at SMU.", ev, school).some((f) => f.term === "SMU"));
+  assert.ok(claimCheck("Now, I've also worked at Goldman Sachs.", ev, school).some((f) => f.term === "Goldman Sachs"));
+  // Initials only of one whole name on one line: "University" + "Bachelor of Science" doesn't make "UBS".
+  const ev2 = "Texas Christian University\nBachelor of Science in Finance\nDean's List\nCampus Recreation";
+  for (const fake of ["UBS", "BFD", "CUB", "LCR"]) assert.ok(claimCheck(`Last year, I worked at ${fake}.`, ev2, school).some((f) => f.term === fake), fake);
+});
