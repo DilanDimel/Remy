@@ -383,7 +383,9 @@ function Preferences({ onBack }: { onBack: () => void }) {
   // Page 1's picks are saved before page 2, so a refresh there doesn't lose them (the rest saves on "Save and continue").
   const nextPage = async () => {
     const r = await run(() => save("profile", { ...p, classYear: year[0] || "", graduation: grad.trim(), timeline: timeline.join(", "), opportunityTypes: types.join(", "), targetRoles: allFields.join(", ") }));
-    if (r) toPage(1);
+    // "I'm not sure yet" lives with setup, not the profile.
+    const o = r && unsure !== !!ws!.onboarding.exploring ? await run(() => save("onboarding", { ...ws!.onboarding, exploring: unsure })) : r;
+    if (r && o) toPage(1);
   };
   const submit = async () => {
     const r = await run(() => save("profile", {

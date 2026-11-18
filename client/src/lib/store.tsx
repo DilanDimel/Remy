@@ -142,8 +142,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const toast = useCallback((text: string, err?: boolean) => {
     const id = ++n.current;
-    // The same message already on screen isn't shown twice (one failure can reach two handlers).
-    setToasts((t) => (t.some((x) => x.text === text) ? t : [...t, { id, text, err }]));
+    // The same message already on screen isn't shown twice (one failure can reach two handlers); it restarts its timer instead.
+    setToasts((t) => [...t.filter((x) => x.text !== text), { id, text, err }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), err ? 6000 : 3200);
   }, []);
 

@@ -283,6 +283,8 @@ export interface Application {
   id: string;
   /** Rewrites Remy dropped because even its repair try still said more than the resume (server/tailorFix.ts). */
   skippedChanges?: number;
+  /** Those were left out because the AI was busy, not because they overstated (try tailoring again later). */
+  skippedBusy?: boolean;
   jobId: string;
   createdAt: string;
   generatedAt?: string;

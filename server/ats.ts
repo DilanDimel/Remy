@@ -72,7 +72,7 @@ export function atsScore(doc: ResumeDoc, keywords: string[] | null, against: str
   ]);
 
   const kws = Array.from(new Set((keywords || []).map((k) => k.trim()).filter((k) => k && isSkillKeyword(k)))).slice(0, 15);
-  const hit = kws.filter((k) => hasKeyword(low, k));
+  const hit = kws.filter((k) => hasKeyword(text, k)); // the original case: "Excel" the program isn't "excel" the verb
   const missing = kws.filter((k) => !hit.includes(k));
   const keywordCat = cat("Keyword match", 25, [
     kws.length
@@ -100,14 +100,25 @@ const SAME: [RegExp, RegExp][] = [
   [/^excel$/, /\b(excel|spreadsheet\w*)\b/],
   [/^ehr$/, /\b(ehr|epic|cerner|electronic health record\w*)\b/],
 ];
+/** The Office program, not the everyday word: "Excel" or "MS Excel", or "excel" as an item in a list ("excel, powerpoint"),
+ *  never "strive to excel"; "Outlook" but not "market outlook". */
+function productIn(text: string, name: string): boolean {
+  const t = plainEnglish(text), n = name.toLowerCase();
+  if (new RegExp(`\\b(?:microsoft|ms)\\s+${n}\\b`, "i").test(t)) return true;
+  if (n === "powerpoint" || n === "visio") return new RegExp(`\\b${n}\\b`, "i").test(t);
+  const cap = n[0].toUpperCase() + n.slice(1);
+  if (n === "outlook") return /(?<!\b(?:market|industry|economic|financial|global|career|investment|sector|earnings|business|weekly|monthly|quarterly|annual|positive|negative|long-term|short-term)\s+)\bOutlook\b/i.test(t) && new RegExp(`\\b${cap}\\b`).test(t);
+  return new RegExp(`\\b${cap}\\b`).test(t) || new RegExp(`(^|[,:;•|/(])\\s*${n}\\s*($|[,;|/)])`, "im").test(t);
+}
+
 export function hasKeyword(text: string, keyword: string): boolean {
   // "Python or Java or C++": the posting asks for any one of them.
   if (/\sor\s/i.test(keyword)) return keyword.split(/\s+or\s+/i).some((k) => hasKeyword(text, k));
   // "Microsoft Excel" / "MS Excel" is the resume's "Excel" (distinct product names only: "Word" or "Project" alone are everyday words).
-  const office = keyword.trim().match(/^(?:microsoft|ms)\s+(excel|powerpoint|outlook|visio)$/i);
-  if (office) return hasKeyword(text, office[1]) || new RegExp(`\\b(?:microsoft|ms)\\s+${office[1]}\\b`, "i").test(text);
+  const office = keyword.trim().match(/^(?:(?:microsoft|ms)\s+)?(excel|powerpoint|outlook|visio)$/i);
+  if (office) return productIn(text, office[1]);
   // "Microsoft Office" is shown by any of its apps on the resume.
-  if (/^(?:microsoft|ms)\s+office(?:\s+suite)?$/i.test(keyword.trim())) return /\b(?:microsoft|ms)\s+(?:office|word|365)\b|\b(?:excel|powerpoint|outlook)\b/i.test(plainEnglish(text));
+  if (/^(?:microsoft|ms)\s+office(?:\s+suite)?$/i.test(keyword.trim())) return /\b(?:microsoft|ms)\s+(?:office|word|365)\b/i.test(text) || ["excel", "powerpoint", "outlook"].some((x) => productIn(text, x));
   const plain = plainEnglish(text); // "excel at" isn't Excel, "react to" isn't React
   const low = lc(plain);
   const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

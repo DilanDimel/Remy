@@ -153,4 +153,8 @@ test("skills: Microsoft Excel / MS Excel is the resume's Excel; Microsoft Office
   for (const k of ["Microsoft Excel", "MS Excel", "Microsoft PowerPoint", "Microsoft Office", "Excel"]) assert.ok(hasKeyword(r, k), k);
   for (const k of ["Microsoft Word", "Microsoft Project", "Power BI"]) assert.ok(!hasKeyword(r, k), k);
   assert.ok(!hasKeyword("I excel at teamwork", "Microsoft Excel")); // "excel at" isn't Excel
+  // The everyday words aren't the programs (skeptic, Nov 18).
+  for (const [t, k] of [["Strive to excel", "Excel"], ["Strive to excel", "Microsoft Office"], ["Wrote a weekly market outlook", "Microsoft Outlook"], ["Wrote the Weekly Market Outlook", "Outlook"]]) assert.ok(!hasKeyword(t, k), `${t} / ${k}`);
+  assert.ok(hasKeyword("skills: excel, powerpoint", "Excel")); // lowercase, but clearly a list of programs
+  assert.ok(hasKeyword("Managed Outlook calendars for 3 managers", "Outlook"));
 });

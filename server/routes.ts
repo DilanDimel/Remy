@@ -19,7 +19,7 @@ import { isNonAnswer } from "@shared/words";
 import { draftOk } from "./bulletDraft";
 import { STORY_ASK, STORY_PARTS, findLine, namesNew, sameLine } from "@shared/stories";
 import { briefMessages, briefPrompt, cleanBrief } from "./brief";
-import { keptFixes, letterFixPrompt, rewriteFixPrompt } from "./tailorFix";
+import { betterLetter, keptFixes, letterFixPrompt, rewriteFixPrompt } from "./tailorFix";
 import { BUZZ, assemblePitch, type PitchParts } from "./pitch";
 import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
 import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
@@ -2018,20 +2018,26 @@ Return JSON:
     const flagged = changes.filter((c) => c.flags.length);
     const letterProblems = a.letterFlags.filter((f) => f.type !== "placeholder");
     if (letterProblems.length) ctx.ws.incidents.unshift({ id: uid("inc"), at: nowIso(), kind: "AI overstatement caught", where: `${job.company} cover letter`, text: a.letter.slice(0, 600), flags: letterProblems });
+    // Nothing half-checked can be left behind if a repair call fails mid-way (withAi saves on failure): only the
+    // clean changes are on the application, and nothing counts as approved.
+    a.changes = changes.filter((c) => !c.flags.length);
+    a.letterApproved = false;
     const quiet = <T,>(p: Promise<T>) => p.catch(() => null);
     const [rw, lt] = await Promise.all([
       flagged.length ? quiet(withAi(ctx, `Fix rewrites for ${job.company}`, () => { const q = rewriteFixPrompt(flagged); return aiJson<any>(q.system, q.user, 1200); })) : null,
       letterProblems.length ? quiet(withAi(ctx, `Fix letter for ${job.company}`, () => { const q = letterFixPrompt(a.letter, letterProblems); return aiJson<any>(q.system, q.user, 1500); })) : null,
     ]);
-    const fixed = keptFixes(flagged, rw, (t, it) => !claimCheck(t, ev, { original: it.original, entryContext: entryContextOf(ctx.ws, changes.find((c) => c.id === it.id)!.bulletId), postingText: postingCtx }).length, norm);
-    a.changes = changes.flatMap((c) => (!c.flags.length ? [c] : fixed.has(c.id) ? [{ ...c, revised: fixed.get(c.id)!, flags: [] }] : []));
+    const fixed = keptFixes(flagged, rw, (t, it) => !claimCheck(t, ev, { original: it.original, entryContext: entryContextOf(ctx.ws, changes.find((c) => c.id === it.id)!.bulletId), postingText: postingCtx }).length, norm,
+      (why) => !claimCheck(why, ev, { postingText: postingCtx, postingNumbersOk: true, allowedNames: [job.company, job.title] }).length);
+    a.changes = changes.flatMap((c) => (!c.flags.length ? [c] : fixed.has(c.id) ? [{ ...c, revised: fixed.get(c.id)!.revised, reason: fixed.get(c.id)!.reason, flags: [] }] : []));
     a.skippedChanges = changes.length - a.changes.length;
+    // Why they were left out: the AI was busy (try again later) or even its repair said more than the resume.
+    a.skippedBusy = a.skippedChanges > 0 && !rw;
     const newLetter = stripPlaceholders(String(lt?.letter || "").trim());
-    if (newLetter && newLetter.length > a.letter.length * 0.6) {
-      const before = { letter: a.letter, flags: a.letterFlags };
+    const letterProblemsIn = (letter: string) => letterFlagsFor(ctx.ws, { ...a, letter }, job).filter((f) => f.type !== "placeholder").length;
+    if (newLetter && betterLetter(a.letter, newLetter, letterProblems.length, letterProblemsIn)) {
       a.letter = newLetter;
       a.letterFlags = letterFlagsFor(ctx.ws, a, job);
-      if (a.letterFlags.filter((f) => f.type !== "placeholder").length >= letterProblems.length) { a.letter = before.letter; a.letterFlags = before.flags; }
     }
     a.letterApproved = false;
     a.personalize = []; // Remy asks before writing; the letter never carries fill-in-the-blank gaps

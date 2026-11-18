@@ -11,8 +11,18 @@ const problems = (flags: ClaimFlag[]) => flags.filter((f) => f.type !== "placeho
 export function rewriteFixPrompt(items: FlaggedRewrite[]) {
   return {
     system: `You repair resume bullet rewrites that an honesty check rejected. For each item, write a new version of the ORIGINAL bullet that fixes every listed problem: drop or replace each flagged word, never upgrade the student's verb (ran → managed, helped → led), and never add qualities, outcomes, numbers, tools or details the ORIGINAL doesn't state (no "with attention to detail", "ensuring", "efficiently"). Rewording is fine; adding is not. If the original can't be improved honestly, return it unchanged.`,
-    user: `${items.map((x) => `ID: ${x.id}\nORIGINAL: ${x.original}\nREJECTED REWRITE: ${x.revised}\nPROBLEMS:\n${problems(x.flags)}`).join("\n\n")}\n\nReturn {"fixes":[{"id":"","revised":""}]}`,
+    user: `${items.map((x) => `ID: ${x.id}\nORIGINAL: ${x.original}\nREJECTED REWRITE: ${x.revised}\nPROBLEMS:\n${problems(x.flags)}`).join("\n\n")}\n\nAlso give "reason": one short sentence on why the NEW version helps for this posting, claiming nothing the original doesn't say.\nReturn {"fixes":[{"id":"","revised":"","reason":""}]}`,
   };
+}
+
+/** A repaired letter is used only if it kept the greeting and sign-off, isn't much shorter or longer, and has fewer
+ *  problems than the first one (`problemsIn` counts them). Otherwise the first letter stays, with its flags shown. */
+export function betterLetter(before: string, after: string, beforeProblems: number, problemsIn: (letter: string) => number): boolean {
+  const lines = (t: string) => t.split("\n").map((l) => l.trim()).filter(Boolean);
+  const b = lines(before), a = lines(after);
+  if (!a.length || a[0] !== b[0] || a[a.length - 1] !== b[b.length - 1]) return false;
+  if (after.length < before.length * 0.6 || after.length > before.length * 1.3) return false;
+  return problemsIn(after) < beforeProblems;
 }
 
 export function letterFixPrompt(letter: string, flags: ClaimFlag[]) {
@@ -22,13 +32,15 @@ export function letterFixPrompt(letter: string, flags: ClaimFlag[]) {
   };
 }
 
-/** The repaired text for each id, only when it passes the check (`clean`) and still differs from the original. */
-export function keptFixes(items: FlaggedRewrite[], out: any, clean: (text: string, item: FlaggedRewrite) => boolean, norm: (s: string) => string): Map<string, string> {
-  const got = new Map<string, string>();
+/** The repaired text (and its own short reason) for each id, only when it passes the check (`clean`) and still
+ *  differs from the original. The first version's reason is never reused: it described the claims that were removed. */
+export function keptFixes(items: FlaggedRewrite[], out: any, clean: (text: string, item: FlaggedRewrite) => boolean, norm: (s: string) => string, reasonOk: (reason: string) => boolean = () => false): Map<string, { revised: string; reason: string }> {
+  const got = new Map<string, { revised: string; reason: string }>();
   for (const f of Array.isArray(out?.fixes) ? out.fixes : []) {
     const item = items.find((x) => x.id === String(f?.id || ""));
     const text = String(f?.revised || "").replace(/\s+/g, " ").trim();
-    if (item && text && norm(text) !== norm(item.original) && clean(text, item)) got.set(item.id, text);
+    const reason = String(f?.reason || "").replace(/\s+/g, " ").trim().slice(0, 300);
+    if (item && text && norm(text) !== norm(item.original) && clean(text, item)) got.set(item.id, { revised: text, reason: reason && reasonOk(reason) ? reason : "" });
   }
   return got;
 }

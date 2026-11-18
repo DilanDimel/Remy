@@ -457,7 +457,10 @@ function FlagList({ flags }: { flags: ClaimFlag[] }) {
 }
 
 function Changes({ a }: { a: Application }) {
-  const skipped = a.skippedChanges ? <p className="xs muted" data-testid="text-skipped-changes">Remy left {a.skippedChanges === 1 ? "one line" : `${a.skippedChanges} lines`} as you wrote {a.skippedChanges === 1 ? "it" : "them"}: it couldn't reword {a.skippedChanges === 1 ? "it" : "them"} for this posting without adding things your resume doesn't say.</p> : null;
+  const n = a.skippedChanges || 0, one = n === 1;
+  const skipped = n ? <p className="xs muted" data-testid="text-skipped-changes">{a.skippedBusy
+    ? `Remy's AI was busy, so it left ${one ? "one line" : `${n} lines`} as you wrote ${one ? "it" : "them"}. Tailor again later to try rewording ${one ? "it" : "them"}.`
+    : `Remy left ${one ? "one line" : `${n} lines`} as you wrote ${one ? "it" : "them"}: it couldn't reword ${one ? "it" : "them"} for this posting without adding things your resume doesn't say.`}</p> : null;
   if (!a.changes.length) return <div className="card">{skipped}<Empty title="No material changes proposed" body={(a.skippedChanges ? "" : "Your resume already reads well for this posting. ") + "You can still write the cover letter and export."} /></div>;
   return (
     <div className="stack">
