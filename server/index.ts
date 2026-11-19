@@ -76,9 +76,12 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
+/** The last few API requests that started (method and path only), named in a freeze report. */
+const recent: string[] = [];
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
+  if (path.startsWith("/api") && path !== "/api/config") { recent.push(`${req.method} ${path.replace(/\/[a-z]*[0-9][\w-]*/gi, "/:id")}`); if (recent.length > 10) recent.shift(); }
 
   res.on("finish", () => {
     const duration = Date.now() - start;
@@ -134,6 +137,20 @@ app.use((req, res, next) => {
     },
     () => {
       log(`serving on port ${port}`);
+      watchFreezes();
     },
   );
 })();
+
+/** Live, Nov 13 + 17: the server stopped answering for 6-9 s (health checks went unanswered) and nobody could see
+ *  why. A timer that should tick every second notices when it ran late, and logs how long the server was stuck and
+ *  which request was being handled when it started, so the next freeze explains itself. Never logs student data. */
+function watchFreezes() {
+  let expected = Date.now() + 1000;
+  const t = setInterval(() => {
+    const late = Date.now() - expected;
+    if (late > 2000) console.warn(`server froze for ${late}ms (recent requests: ${recent.slice(-5).join(", ") || "none"})`);
+    expected = Date.now() + 1000;
+  }, 1000);
+  t.unref();
+}
