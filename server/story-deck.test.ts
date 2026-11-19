@@ -129,3 +129,33 @@ test("story lines keep experience under mixed headings and drop skills/certifica
   ] } as any;
   assert.deepEqual(storyLines(doc).map((l) => l.text), ["President of Finance Club", "Built a Tableau dashboard for a class", "Built a budgeting app for Intro to IS", "Honors Thesis on bank failures, 40 pages"]);
 });
+
+test("story answers about another experience on the resume are caught; on-topic answers in other words are not (live test Nov 19)", async () => {
+  const { otherExperience } = await import("../shared/stories");
+  const e = (org: string, role: string, ...b: string[]) => ({ id: org, org, role, location: "", dates: "", bullets: b.map((text, i) => ({ id: org + i, text })) });
+  const doc: any = { contact: {}, skills: [], sections: [{ id: "x", heading: "Experience", entries: [
+    e("Create + Collaborate", "Cohort Member & Student Ambassador", "Built professional connections at key industry conferences, including a VIP event with American Airlines", "As Student Ambassador, raised $5,000 for first-generation college students' dorm supplies"),
+    e("TCU NABA (National Association of Black Accountants)", "Treasurer", "Oversee an estimated annual chapter budget of $5,000+, managing SGA funding allocations and corporate sponsorship packages to fund campus events"),
+    e("UNO Club – TCU", "President & Founder", "Founded club from concept to active organization; organized inaugural tournament with 24 participants"),
+  ] }] };
+  const dorm: any = { title: "As Student Ambassador, raised $5,000 for", source: "As Student Ambassador, raised $5,000 for first-generation college students' dorm supplies", situation: "", task: "", action: "", result: "" };
+  assert.match(otherExperience("When I became treasurer, the chapter had no clear record of what SGA had funded versus what we had spent.", dorm, "situation", doc) || "", /Treasurer/);
+  doc.sections.unshift({ id: "ed", heading: "Education", entries: [e("Texas Christian University", "BBA in Finance and Business Information Systems", "GPA: 3.6; Dean's List")] });
+  doc.sections.push({ id: "sk", heading: "Skills", entries: [e("", "Technical", "Excel, PowerPoint, Python, Tableau")] });
+  // On-topic answers in other words, or naming the school, a major, a tool, or a word several experiences share (skeptic review).
+  for (const ok of ["Many first-gen freshmen moved in without basics like bedding or a desk lamp.", "My goal was to get enough donations for everyone who signed up.", "Our ambassador group noticed new students arriving with almost nothing.",
+    "Lots of freshmen showed up at move-in with nothing, so we set up a donation drive on campus.", "At TCU a lot of first-years can't afford basics.", "I was in charge of the budget and tracking every donation.",
+    "I had to organize the drive and reach out to local businesses.", "It was my freshman year at Texas Christian University.", "I'm a finance major so I handled the money side.", "I kept track of every donation in an Excel sheet."])
+    assert.equal(otherExperience(ok, dorm, "situation", doc), undefined, ok);
+  const uno: any = { title: "Founding UNO Club", source: "Founded club from concept to active organization; organized inaugural tournament with 24 participants", situation: "", task: "", action: "", result: "" };
+  assert.equal(otherExperience("24 players showed up and SGA approved us as an official org.", uno, "result", doc), undefined, "one shared word isn't enough");
+  assert.match(otherExperience("Nobody tracked our SGA funding, so as treasurer I took over the chapter budget.", uno, "situation", doc) || "", /Treasurer/);
+  // Mixes the first version missed (skeptic round 2): one shared word ("students", "events") or just the other org's name.
+  for (const mix of ["As NABA treasurer I tracked what SGA funded for students.", "I was treasurer and handled the chapter budget for our events.", "I balanced the books for NABA."])
+    assert.match(otherExperience(mix, dorm, "action", doc) || "", /Treasurer/, mix);
+  assert.equal(otherExperience("I reserved a room, made a sign-up form, and recruited members at the student org fair.", uno, "action", doc), undefined, "generic words like member/student don't count");
+  // The student reworded the story's bullet: its entry is still found, so its own words never count against it.
+  const edited = JSON.parse(JSON.stringify(doc)); edited.sections[1].entries[0].bullets[1].text = "Raised $6,200 as Student Ambassador to buy dorm supplies for first-gen students";
+  assert.equal(otherExperience("I pitched it to American Airlines people I met at a conference.", dorm, "action", edited), undefined);
+  assert.equal(otherExperience("anything", dorm, "situation", undefined), undefined, "no resume: nothing to compare");
+});

@@ -1313,7 +1313,8 @@ export async function registerRoutes(_server: Server, app: Express) {
       const local = `${line.text} ${line.where}`;
       const keep = (t: unknown) => { const x = String(t || "").trim().slice(0, 400); return x && !claimCheck(x, local, { original: line.text, strict: true }).length ? x : ""; };
       const title = String(st.title || "").slice(0, 80);
-      const plainTitle = line.text.split(/\s+/).slice(0, 6).join(" ").replace(/[,.;:&]$/, "") || "Your story";
+      // Cut at 6 words without ending on a dangling small word ("…raised $5,000 for" → "…raised $5,000").
+      const plainTitle = line.text.split(/\s+/).slice(0, 6).join(" ").replace(/[,.;:&]$/, "").replace(/(\s+(for|to|of|and|with|the|a|an|in|on|at|by|from|as))+$/i, "").replace(/[,.;:&]$/, "") || "Your story";
       const story: Story = { id: uid("st"), title: title && !claimCheck(title, local, { original: line.text, strict: true }).length ? title : plainTitle, theme: String(st.theme || "").slice(0, 20), situation: "", task: keep(st.task), action: keep(st.action), result: keep(st.result), missing: "", source: line.text, asks: {}, mine: [], facts: {} };
       // What the student already wrote for this same resume line survives a rebuild.
       const before = old.find((o) => sameLine(o.source, line.text));

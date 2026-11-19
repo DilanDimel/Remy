@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Sparkles } from "lucide-react";
 import type { Story, StoryPart, Workspace } from "@shared/types";
-import { STORY_ASK, STORY_PARTS } from "@shared/stories";
+import { otherExperience, STORY_ASK, STORY_PARTS } from "@shared/stories";
 import { api, useStore } from "../lib/store";
 import { Spinner, WorkingSteps } from "./common";
 import { PracticeOutLoud } from "./PracticeOutLoud";
@@ -43,10 +43,15 @@ export function StoryDeck() {
   // the draft is cleared so it can never be saved into the wrong story.
   const nextKey = next ? key(next) : "";
   useEffect(() => { setText(""); }, [nextKey]);
-  const answer = async (skip: boolean) => {
+  // An answer that sounds like another experience on the resume gets one question first; the student decides.
+  const [check, setCheck] = useState<{ key: string; text: string; other: string } | null>(null);
+  const answer = async (skip: boolean, sure = false) => {
     if (!next || sending) return;
     const q = next, asked = lead(q) + question(q);
-    if (skip) { setSkipped((s) => [...s, key(q)]); keep([{ who: "ai", text: asked, story: q.st.id }, { who: "me", text: "Skipped for now" }]); return; }
+    if (skip) { setCheck(null); setSkipped((s) => [...s, key(q)]); keep([{ who: "ai", text: asked, story: q.st.id }, { who: "me", text: "Skipped for now" }]); return; }
+    const other = sure ? undefined : otherExperience(text, q.st, q.part, ws!.resume?.doc);
+    if (other) { setCheck({ key: key(q), text, other }); return; }
+    setCheck(null);
     setSending(true);
     const r = await run(() => api<Workspace>("POST", `/api/stories/${q.st.id}/part`, { part: q.part, text }));
     setSending(false);
@@ -85,6 +90,15 @@ export function StoryDeck() {
             </div>
             {next && <>
               <textarea className="input" rows={2} value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && !sending && text.trim().length >= 8) { e.preventDefault(); answer(false); } }} placeholder="Type your answer…" aria-label={`${LABEL[next.part]} for ${next.st.title}`} data-testid="input-story-answer" />
+              {check && check.key === key(next) && check.text === text && (
+                <div className="notice small stack-sm" role="alert" data-testid="story-other-experience">
+                  <span>This sounds like your <b>{check.other}</b> experience. Is it about “{next.st.title}”? A story mixing two experiences is hard to tell in an interview.</span>
+                  <div className="row" style={{ gap: 6 }}>
+                    <button className="btn btn-secondary btn-sm" onClick={() => answer(false, true)} data-testid="button-story-same">Yes, save it</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setCheck(null)} data-testid="button-story-fix">Let me fix it</button>
+                  </div>
+                </div>
+              )}
               <div className="row-between">
                 <button className="btn btn-ghost btn-sm" onClick={() => answer(true)} disabled={sending} data-testid="button-story-skip">Skip</button>
                 <button className="btn btn-primary btn-sm" disabled={sending || text.trim().length < 8} onClick={() => answer(false)} data-testid="button-story-send">{sending ? <Spinner /> : null} Send</button>
@@ -123,8 +137,9 @@ function StoryView({ st }: { st: Story }) {
 }
 
 function PartRow({ st, part }: { st: Story; part: StoryPart }) {
-  const { setWs, run } = useStore();
+  const { ws, setWs, run } = useStore();
   const [text, setText] = useState("");
+  const [other, setOther] = useState<{ text: string; label: string } | null>(null);
   const [editing, setEditing] = useState(false);
   const mine = !!st.mine?.includes(part);
   const save = async (value: string) => {
@@ -142,10 +157,11 @@ function PartRow({ st, part }: { st: Story; part: StoryPart }) {
       <span className="small"><b>{LABEL[part]}:</b></span>
       <textarea className="input" rows={2} value={text} onChange={(e) => setText(e.target.value)} aria-label={`${LABEL[part]} for ${st.title}`} />
       <div className="row" style={{ gap: 6 }}>
-        <button className="btn btn-secondary btn-sm" disabled={text.trim().length < 8} onClick={() => save(text)} data-testid={`button-save-${part}`}><Check size={14} /> Save</button>
+        <button className="btn btn-secondary btn-sm" disabled={text.trim().length < 8} onClick={() => { const o = other?.text === text ? undefined : otherExperience(text, st, part, ws!.resume?.doc); if (o) setOther({ text, label: o }); else save(text); }} data-testid={`button-save-${part}`}><Check size={14} /> {other?.text === text ? "Yes, save it" : "Save"}</button>
         <button className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}>Cancel</button>
         {mine && <button className="btn btn-ghost btn-sm" onClick={() => save("")}>Clear</button>}
       </div>
+      {other?.text === text && <span className="xs field-warn" role="alert" data-testid="story-edit-other-experience">This sounds like your <b>{other.label}</b> experience. If it's really about “{st.title}”, press Yes, save it.</span>}
     </div>
   );
 }
