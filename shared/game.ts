@@ -36,6 +36,13 @@ const POOL: Mission[] = [
   { key: "apply", title: "Send 1 application", counter: "sent", target: 1, mins: 10, xp: 35, effect: "The step that gets interviews", link: "/progress" },
   { key: "tailor", title: "Tailor your resume for 1 opening", counter: "tailored", target: 1, mins: 5, xp: 80, effect: "A version made for that posting", link: "/opportunities" },
 ];
+// "Log a win" (council, Nov 19): an optional bonus each week, never one of the three, so nobody types junk to save a
+// streak. Done when the student approves a resume line from one sentence about their week (a "Check-in" fact).
+export const WIN = { key: "win", title: "Log a win", xp: 30 };
+// The fact's own local date, inside this week only: a Sunday-evening win (Monday in UTC) isn't counted twice (skeptic).
+const localDay = (iso: string) => { const d = new Date(iso); return isNaN(+d) ? "" : d.toLocaleDateString("en-CA"); };
+const nextWeek = (key: string) => { const d = new Date(key + "T12:00:00"); d.setDate(d.getDate() + 7); return d.toLocaleDateString("en-CA"); };
+export const winThisWeek = (w: Workspace, key: string) => w.memory.some((m) => { const d = localDay(m.createdAt || ""); return m.source === "Check-in" && m.status === "approved" && d >= key && d < nextWeek(key); });
 export const ALL_DONE_BONUS = 50;
 // Names for effort, never outcomes (council review, Nov 19: "Hired" could be reached without being hired). Real outcomes
 // are badges tied to real events.
@@ -89,7 +96,7 @@ export function streak(g: GameState, key: string): { weeks: number; freezeUsed: 
 
 /** XP: missions done (plus a bonus for all three in a week) and real wins. */
 export function xpOf(w: Workspace, g: GameState): number {
-  const byKey = new Map(POOL.map((m) => [m.key, m.xp]));
+  const byKey = new Map([...POOL.map((m) => [m.key, m.xp] as [string, number]), [WIN.key, WIN.xp]]);
   const missions = Object.values(g.weeks).reduce((n, wk) => n + wk.done.reduce((t, k) => t + (byKey.get(k) || 0), 0) + (wk.done.length >= 3 && (!wk.missions || wk.missions.every((m) => wk.done.includes(m))) ? ALL_DONE_BONUS : 0), 0);
   const c = counters(w);
   const interviews = w.tracker.filter((t) => t.status === "Interview" || t.status === "Offer").length;

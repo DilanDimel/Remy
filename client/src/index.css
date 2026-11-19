@@ -1170,5 +1170,8 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .game-mission.ok { border-color: #2f9e44; background: rgba(47, 158, 68, .06); }
 .game-ico { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--fox-soft); color: var(--fox); }
 .game-mission.ok .game-ico { background: #2f9e44; color: #fff; }
+.game-win { border: 1px dashed var(--line); border-radius: 16px; padding: 12px 14px; }
+.game-win.ok { border-style: solid; border-color: #2f9e44; background: rgba(47, 158, 68, .06); gap: 8px; }
+.game-win.ok .game-ico { background: #2f9e44; color: #fff; }
 .game-badge { gap: 4px; opacity: .45; font-weight: 700; }
 .game-badge.on { opacity: 1; background: var(--fox-soft); }
