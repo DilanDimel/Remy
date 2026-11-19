@@ -3,10 +3,12 @@ import App from "./App";
 import "./index.css";
 import { reportClientError } from "./components/ErrorBoundary";
 import { startRouter } from "./lib/router";
+import { guardDomAgainstTranslators } from "./lib/domGuard";
 
 window.addEventListener("error", (e) => reportClientError("window", e.error || e.message));
 window.addEventListener("unhandledrejection", (e) => reportClientError("promise", e.reason));
 
+guardDomAgainstTranslators();
 startRouter();
 
 createRoot(document.getElementById("root")!).render(<App />);
