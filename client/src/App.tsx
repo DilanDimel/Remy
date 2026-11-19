@@ -11,6 +11,7 @@ import { BetaBadge, Modal, Remy, Rich, Spinner, StatusChip } from "./components/
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { QuickRate } from "./components/QuickRate";
 import { WhatsNew } from "./components/WhatsNew";
+import { GameSidebar, useGameRecord } from "./components/Game";
 import { Avatar } from "./components/ProfilePhoto";
 import { answer as answerTailor, endSession as endTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
@@ -142,6 +143,7 @@ function isMobileNow() {
 
 function Shell() {
   const { ws, save, me } = useStore();
+  useGameRecord(ws, !!me?.owner); // Career quest (owners only while tested): keeps the week on every page
   const { path, query } = useRoute();
   const [asstPage, setAsstPage] = useState<boolean | null>(null);
   const [more, setMore] = useState(false);
@@ -202,6 +204,8 @@ function Shell() {
             {n.path === "/progress" && openSuggestions > 0 && <span className="count">{openSuggestions}</span>}
           </a>
         ))}
+        {/* Career quest: owners only while it's tested (Dilan, Nov 19); a big release later. */}
+        {me?.owner && ws && <GameSidebar w={ws} />}
         <div className="side-news"><WhatsNew /><a className="nav-item" href="/welcome" title="Remy's homepage" data-testid="nav-homepage"><Info size={19} /><span className="nav-label">Remy homepage</span></a></div>
         <ProfileMenu initials={initials} active={path.startsWith("/accounts")} />
       </aside>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ApplyLink } from "../components/ApplyLink";
 import { SeasonCard } from "../components/SeasonCard";
 import { ApplyNudge } from "../components/ApplyNudge";
+import { MissionBoard } from "../components/Game";
 import { ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronUp, MapPin } from "lucide-react";
 import type { Job, Task, Workspace } from "@shared/types";
 import { api, daysUntil, fmtDate, rid, useStore } from "../lib/store";
@@ -20,7 +21,7 @@ function greeting() {
 }
 
 export default function Home() {
-  const { ws, save, run, setWs } = useStore();
+  const { ws, save, run, setWs, me } = useStore();
   const w = ws!;
   const { jobs, fits } = useJobs();
   const [tab, setTab] = useState<Tab>("todos");
@@ -148,6 +149,7 @@ export default function Home() {
           </div>
         )}
       </section>
+      {me?.owner && <MissionBoard w={w} />}
 
       <section className="card card-pad">
         <div className="row-between" style={{ marginBottom: 8 }}>
