@@ -19,20 +19,21 @@ import { ResumeUpload } from "../components/Uploaders";
 import { AtsCard } from "../components/AtsCard";
 import { AtsXray } from "../components/AtsXray";
 import { EvidencePassport } from "../components/EvidencePassport";
-import { StoryDeck } from "../components/StoryDeck";
 import { ResumeReview } from "../components/ResumeReview";
-import { PitchCard } from "../components/PitchCard";
 import { ApplyLink } from "../components/ApplyLink";
 import { LinkedInCoach } from "../components/LinkedInCoach";
 import { PdfPreview, WordPreview } from "../components/WordPreview";
 import { startTailor, useTailorSession } from "../lib/tailorChat";
 import { textConcern } from "@shared/junk";
 
-type Tab = "base" | "tailor" | "prep" | "library";
+type Tab = "base" | "tailor" | "linkedin" | "library";
 
 export default function Resume({ query }: { query: URLSearchParams }) {
   const tab = (query.get("tab") as Tab) || "base";
   const { ws } = useStore();
+  // Interview prep moved to its own page (Nov 19); old links (saved to-dos, emails, "#story-deck") go there.
+  const legacyPrep = (query.get("tab") as string) === "prep";
+  useEffect(() => { if (legacyPrep) replaceRoute("/interview" + location.hash); }, [legacyPrep]);
   const effective: Tab = !ws!.resume && tab !== "library" ? "base" : tab;
   const setTab = (t: Tab) => go(`/resume?tab=${t}`);
   return (
@@ -46,13 +47,13 @@ export default function Resume({ query }: { query: URLSearchParams }) {
       </div>
       <LaptopNudge />
       <div className="tabs" role="tablist">
-        {([["base", "Base resume"], ["tailor", "Tailor for an opening"], ["prep", "Interview & LinkedIn"], ["library", "Approved & exports"]] as [Tab, string][]).map(([k, l]) => (
+        {([["base", "Base resume"], ["tailor", "Tailor for an opening"], ["linkedin", "LinkedIn"], ["library", "Approved & exports"]] as [Tab, string][]).map(([k, l]) => (
           <button key={k} role="tab" className="tab" aria-selected={effective === k} onClick={() => setTab(k)} data-testid={`tab-resume-${k}`}>{l}</button>
         ))}
       </div>
       {effective === "base" && <BaseResume subParam={query.get("sub")} />}
       {effective === "tailor" && <Tailor query={query} />}
-      {effective === "prep" && <div className="stack-lg"><StoryDeck /><PitchCard /><LinkedInCoach /></div>}
+      {effective === "linkedin" && <div className="stack-lg"><LinkedInCoach /></div>}
       {effective === "library" && <Library />}
     </>
   );

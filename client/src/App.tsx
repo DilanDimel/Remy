@@ -2,7 +2,7 @@ import { uiFlags } from "./lib/router";
 import { useEffect, useRef, useState } from "react";
 import {
   BarChart3, Briefcase, CalendarDays, ChevronsLeft, ChevronsRight, Compass, FileText, Home as HomeIcon, Menu, Send,
-  Check, Gauge, Info, Minus, ShieldCheck, UserCog, Users,
+  Check, Gauge, Info, Mic, Minus, ShieldCheck, UserCog, Users,
 } from "lucide-react";
 import { StoreProvider, api, rid, useDraft, useStore, type Theme } from "./lib/store";
 import { go, replaceRoute, useRoute } from "./lib/router";
@@ -23,11 +23,13 @@ import Opportunities from "./pages/Opportunities";
 import Community from "./pages/Community";
 import CalendarPage from "./pages/Calendar";
 import Progress from "./pages/Progress";
+import Interview from "./pages/Interview";
 import Accounts from "./pages/Accounts";
 import { About, Policies } from "./pages/Info";
 import Admin from "./pages/Admin";
 import type { ChatAction, Workspace } from "@shared/types";
 import { Celebrate } from "./components/Celebrate";
+import { FirstWin, PageIntro, firstWinPending, tourAgain } from "./components/Tour";
 import { BETA_TERM_HEADS, BETA_TERMS, BETA_TERMS_LEAD, BETA_TERMS_VERSION } from "@shared/beta";
 import { knownName } from "@shared/names";
 
@@ -36,6 +38,7 @@ const NAV = [
   { path: "/path", label: "My Path", icon: Compass },
   { path: "/resume", label: "Resume/CV", icon: FileText },
   { path: "/opportunities", label: "Opportunities", icon: Briefcase },
+  { path: "/interview", label: "Interview", icon: Mic },
   { path: "/community", label: "Community", icon: Users },
   { path: "/calendar", label: "Calendar", icon: CalendarDays },
   { path: "/progress", label: "Progress", icon: BarChart3 },
@@ -175,6 +178,7 @@ function Shell() {
       case "/community": return <Community />;
       case "/calendar": return <CalendarPage />;
       case "/progress": return <Progress />;
+      case "/interview": return <Interview />;
       case "/accounts": return <Accounts query={query} />;
       default: return <Home />;
     }
@@ -214,7 +218,7 @@ function Shell() {
             )}
           </div>
         </div>
-        <div className="page fade-up" key={current.path}><ErrorBoundary where={`page:${current.path}`} resetKey={current.path}>{page}</ErrorBoundary></div>
+        <div className="page fade-up" key={current.path}><ErrorBoundary where={`page:${current.path}`} resetKey={current.path}>{!asstOpen && <FirstWin where="home" />}<PageIntro path={current.path} />{page}</ErrorBoundary></div>
       </main>
 
       {asstOpen && <aside className="assistant" aria-label="Remy assistant" data-testid="assistant-panel"><ErrorBoundary where="assistant" compact><Assistant page={current.label} onMinimize={() => setAsst(false)} flyIn={flyIn} /></ErrorBoundary></aside>}
@@ -236,9 +240,10 @@ function Shell() {
       {more && (
         <Modal title="More" onClose={() => setMore(false)}>
           <div className="stack-sm">
-            {[...NAV.filter((n) => ["/community", "/calendar"].includes(n.path)), ACCOUNTS].map((n) => (
+            {[...NAV.filter((n) => ["/interview", "/community", "/calendar"].includes(n.path)), ACCOUNTS].map((n) => (
               <button key={n.path} className="nav-item" onClick={() => { setMore(false); go(n.path); }}><n.icon size={19} />{n.label}</button>
             ))}
+            <button className="nav-item" onClick={() => { setMore(false); tourAgain(save); go("/"); }} data-testid="mobile-tour"><Compass size={19} />Show me around again</button>
             <button className="nav-item" onClick={() => { setMore(false); go("/about"); }}><Info size={19} />About Remy</button>
             <button className="nav-item" onClick={() => { setMore(false); go("/policies"); }}><ShieldCheck size={19} />Privacy & terms</button>
             <button className="nav-item" onClick={() => { setMore(false); setFeedback(true); }}><Send size={19} />Send feedback</button>
@@ -257,6 +262,7 @@ const STARTERS: Record<string, string[]> = {
   "My Path": ["What jobs does my major lead to?", "What skill gap matters most for me?"],
   "Resume/CV": ["Which of my experiences is strongest?", "What's missing from my resume?"],
   Opportunities: ["Which deadlines are closest?", "Which of these do I actually qualify for?"],
+  Interview: ["What will they ask me in an internship interview?", "Which of my stories fits a leadership question?"],
   Community: ["How do I ask an alum for a 15-minute chat?"],
   Calendar: ["Help me plan around my deadlines"],
   Progress: ["What should I do after an interview invite?"],
@@ -327,7 +333,8 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
         <button className="btn btn-secondary btn-sm" onClick={onMinimize} aria-label="Minimize Remy" title="Minimize Remy" data-testid="button-close-assistant"><Minus size={15} /><span className="hide-sm">Minimize</span></button>
       </div>
       <div className="asst-body">
-        {chat.length === 0 && !tailor && !busy && (
+        {!tailor && <FirstWin where="panel" />}
+        {chat.length === 0 && !tailor && !busy && !firstWinPending(ws!) && (
           // Empty chat: a welcome in the middle of the panel instead of one bubble under a blank space.
           <div className="asst-welcome" data-testid="assistant-welcome">
             <Remy size={56} mood="wave" />
@@ -336,6 +343,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
             <div className="stack-sm">
               {(STARTERS[page] || STARTERS.Home).map((s) => <button key={s} className="btn btn-secondary btn-sm asst-starter" onClick={() => send(s)}>{s}</button>)}
             </div>
+            <button className="btn btn-ghost btn-sm" onClick={() => tourAgain(save)} data-testid="button-tour-again">Show me around again</button>
           </div>
         )}
         {chat.slice(-30).map((m) => (
@@ -412,7 +420,7 @@ const MENU: [string, string][] = [["profile", "Profile"], ["settings", "Settings
 
 /** The name at the bottom of the sidebar: opens Profile, Settings and the rest of Account. */
 function ProfileMenu({ initials, active }: { initials: string; active: boolean }) {
-  const { ws, me, run, refresh } = useStore();
+  const { ws, me, run, refresh, save } = useStore();
   const [open, setOpen] = useState(false);
   const [feedback, setFeedback] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -441,6 +449,7 @@ function ProfileMenu({ initials, active }: { initials: string; active: boolean }
             <button key={k} role="menuitem" onClick={() => { setOpen(false); go(`/accounts?tab=${k}`); }} data-testid={`menu-${k}`}>{l}</button>
           ))}
           <div className="divider" />
+          <button role="menuitem" onClick={() => { setOpen(false); tourAgain(save); go("/"); }} data-testid="menu-tour">Show me around again</button>
           <button role="menuitem" onClick={() => { setOpen(false); go("/about"); }} data-testid="menu-about">About Remy</button>
           <button role="menuitem" onClick={() => { setOpen(false); go("/policies"); }} data-testid="menu-policies">Privacy & terms</button>
           <button role="menuitem" onClick={() => { setOpen(false); setFeedback(true); }} data-testid="menu-feedback">Send feedback</button>

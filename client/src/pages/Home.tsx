@@ -12,6 +12,7 @@ import { go } from "../lib/router";
 import { kindLabel, useJobs } from "../lib/jobs";
 import { StatusChip } from "../components/common";
 import { firstName } from "@shared/names";
+import { gettingStarted } from "@shared/progress";
 
 type Tab = "todos" | "events" | "opps";
 
@@ -75,7 +76,7 @@ export default function Home() {
     }
     // An interview coming up (beyond the 2-day prep plan) beats a general suggestion.
     const soon = w.calendar.filter((c) => c.kind === "Interview" && (daysUntil(c.date) ?? -1) > 2 && (daysUntil(c.date) ?? 99) <= 21).sort((a, b) => a.date.localeCompare(b.date))[0];
-    if (soon) return { title: `${soon.title.replace(/^interview:?\s*/i, "Your interview with ")} is ${fmtDate(soon.date)}, in ${daysUntil(soon.date)} days`, why: "Start now: build two true stories from your resume and practice them out loud. Remy turns Home into a prep plan two days before.", link: "/resume?tab=prep#story-deck", cta: "Prepare stories" };
+    if (soon) return { title: `${soon.title.replace(/^interview:?\s*/i, "Your interview with ")} is ${fmtDate(soon.date)}, in ${daysUntil(soon.date)} days`, why: "Start now: build two true stories from your resume and practice them out loud. Remy turns Home into a prep plan two days before.", link: "/interview#story-deck", cta: "Prepare stories" };
     // An opening counts only if it passes every filter (not hidden, in their places, eligible, still open).
     const fitsAll = (j: NonNullable<typeof jobs>[number]) => { const f = fits[j.id]; return !!f && !f.excluded && !f.closed && f.regionMatch !== false && f.eligibility !== "unlikely" && j.kind !== "event" && !w.hiddenJobIds.includes(j.id) && (!j.deadline || (daysUntil(j.deadline) ?? 1) >= 0); };
     // A plan step that names an opening the student can't or won't pursue anymore (hidden, closed, elsewhere, not eligible) is skipped.
@@ -97,6 +98,7 @@ export default function Home() {
     return { title: "Explore openings that fit you", why: "Save a few to compare deadlines and eligibility.", link: "/opportunities", cta: "Browse" };
   }, [w, jobs, fits]);
 
+  const starting = gettingStarted(w);
   const { isFading, mark } = useCompleting();
   const todos = w.tasks.filter((t) => !t.done || isFading(t.id)).sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999")).slice(0, 3);
   // Only places the student chose (Opportunities can still show the rest).
@@ -126,12 +128,27 @@ export default function Home() {
             <button className="btn btn-light btn-lg" onClick={() => (interview ? addPrep() : go(next.link))} data-testid="button-next-action">{next.cta} <ArrowRight size={16} /></button>
           </div>
         </div>
+        {starting.some((x) => !x.done) ? (
+          // Getting started (audit 5C): the first five real steps sit where "This week" goes, until all are done.
+          <div className="hero-side" data-testid="getting-started">
+            <div className="row-between"><span className="eyebrow">Getting started</span><span className="small" style={{ color: "rgba(255,255,255,.75)" }}>{starting.filter((x) => x.done).length} of 5</span></div>
+            {starting.map((x) => (
+              <button key={x.label} className="row small start-row" style={{ width: "100%", textAlign: "left", gap: 10 }} onClick={() => go(x.link)} data-testid="getting-started-item" aria-label={`${x.label}${x.done ? " (done)" : ""}`}>
+                <span className={"start-box" + (x.done ? " done" : "")}>{x.done && <Check size={12} />}</span>
+                <span style={x.done ? { color: "rgba(255,255,255,.5)", textDecoration: "line-through" } : { color: "#fff" }}>{x.label}</span>
+                {!x.done && <ArrowRight size={13} style={{ marginLeft: "auto", color: "rgba(255,255,255,.5)" }} />}
+              </button>
+            ))}
+            {sinceRows.map(([k, v, link], i) => <button key={k} className="row-between xs" style={{ width: "100%", textAlign: "left", marginTop: i ? 0 : 6, color: "rgba(255,255,255,.65)" }} onClick={() => go(link)}><span>{k}</span><strong style={{ color: "#fff" }}>{v} →</strong></button>)}
+          </div>
+        ) : (
         <div className={"hero-side" + (sinceRows.length ? "" : " hide-phone")} data-testid="since-last">
-          <span className="eyebrow">{since ? `Since ${sinceLabel}` : "This week"}</span>
-          {sinceRows.length ? sinceRows.map(([k, v, link]) => (
-            <button key={k} className="row-between small" style={{ width: "100%", textAlign: "left" }} onClick={() => go(link)}><span style={{ color: "rgba(255,255,255,.75)" }}>{k}</span><strong style={{ color: "#fff" }}>{v} →</strong></button>
-          )) : <span className="small" style={{ color: "rgba(255,255,255,.75)" }}>Nothing new yet. Remy checks employers' sites about once a day, so new openings will show here.</span>}
-        </div>
+            <span className="eyebrow">{since ? `Since ${sinceLabel}` : "This week"}</span>
+            {sinceRows.length ? sinceRows.map(([k, v, link]) => (
+              <button key={k} className="row-between small" style={{ width: "100%", textAlign: "left" }} onClick={() => go(link)}><span style={{ color: "rgba(255,255,255,.75)" }}>{k}</span><strong style={{ color: "#fff" }}>{v} →</strong></button>
+            )) : <span className="small" style={{ color: "rgba(255,255,255,.75)" }}>Nothing new yet. Remy checks employers' sites about once a day, so new openings will show here.</span>}
+          </div>
+        )}
       </section>
 
       <section className="card card-pad">
