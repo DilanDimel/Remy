@@ -5,6 +5,7 @@ import { ArrowRight, Award, Check, Flame, Lock, Snowflake, Star, Zap } from "luc
 import type { Workspace } from "@shared/types";
 import { ALL_DONE_BONUS, badges, counters, doneThisWeek, levelOf, missionsOf, streak, weekKey, weekMissions, xpOf, type GameState } from "@shared/game";
 import { useStore } from "../lib/store";
+import { count } from "../lib/signals";
 import { go } from "../lib/router";
 
 const stateOf = (w: Workspace): GameState => w.game || { weeks: {} };
@@ -16,12 +17,16 @@ export function useGameRecord(w: Workspace | null | undefined, on: boolean) {
   const g = w ? stateOf(w) : { weeks: {} };
   const now = w ? counters(w) : {};
   const done = w ? doneThisWeek(w, g, key, now) : [];
-  const sig = JSON.stringify([key, done, !!g.weeks[key]]);
+  const lvl = w ? levelOf(xpOf(w, g), g.bestLevel).n : 1;
+  const sig = JSON.stringify([key, done, !!g.weeks[key], lvl]);
   useEffect(() => {
     if (!on || !w) return;
     const week = g.weeks[key];
-    if (!week) { save("game", { weeks: { ...trim(g.weeks), [key]: { base: now, done: [], missions: weekMissions(w, key).map((m) => m.key) } } }).catch(() => {}); return; }
-    if (done.length > week.done.length) save("game", { weeks: { ...g.weeks, [key]: { ...week, done } } }).catch(() => {});
+    // Counted for the owners' test (council, Nov 19): weeks played, missions finished, levels reached.
+    if (!week) { count("quest:week"); save("game", { weeks: { ...trim(g.weeks), [key]: { base: now, done: [], missions: weekMissions(w, key).map((m) => m.key) } }, bestLevel: lvl }).catch(() => {}); return; }
+    const fresh = done.filter((k) => !week.done.includes(k));
+    if (fresh.length) { fresh.forEach((k) => count(`quest:done:${k}`)); save("game", { weeks: { ...g.weeks, [key]: { ...week, done } }, bestLevel: Math.max(lvl, g.bestLevel || 1) }).catch(() => {}); return; }
+    if (lvl > (g.bestLevel || 1)) { count(`quest:level:${lvl}`); save("game", { weeks: g.weeks, bestLevel: lvl }).catch(() => {}); }
   }, [on, sig]);
 }
 // Two years of weeks at most (the server keeps 110).
@@ -29,8 +34,8 @@ const trim = (weeks: GameState["weeks"]) => Object.fromEntries(Object.entries(we
 
 export function GameSidebar({ w }: { w: Workspace }) {
   const g = stateOf(w), key = weekKey();
-  const lv = levelOf(xpOf(w, g)), s = streak(g, key);
-  const pct = lv.max ? 100 : Math.round((100 * (xpOf(w, g) - lv.floor)) / Math.max(1, lv.next - lv.floor));
+  const lv = levelOf(xpOf(w, g), g.bestLevel), s = streak(g, key);
+  const pct = lv.max ? 100 : Math.max(0, Math.round((100 * (xpOf(w, g) - lv.floor)) / Math.max(1, lv.next - lv.floor)));
   return (
     <button onClick={() => go("/#missions")} className="game-side" data-testid="game-sidebar" title="Career quest (owners only while we test it)">
       <div className="row-between">
@@ -47,7 +52,7 @@ export function MissionBoard({ w }: { w: Workspace }) {
   const g = stateOf(w), key = weekKey();
   const missions = missionsOf(w, g, key);
   const done = doneThisWeek(w, g, key, counters(w));
-  const s = streak(g, key), lv = levelOf(xpOf(w, g));
+  const s = streak(g, key), lv = levelOf(xpOf(w, g), g.bestLevel);
   const n = missions.filter((m) => done.includes(m.key)).length;
   return (
     <section id="missions" className="card card-pad stack" data-testid="mission-board">

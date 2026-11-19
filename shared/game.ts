@@ -5,8 +5,9 @@
 import type { Workspace } from "./types";
 
 export type Counters = Record<string, number>;
+const SENT = new Set(["Applied", "Received", "Heard back", "Interview", "Offer", "Rejected", "No reply"]);
 export type GameWeek = { base: Counters; done: string[]; missions?: string[] };
-export type GameState = { weeks: Record<string, GameWeek> };
+export type GameState = { weeks: Record<string, GameWeek>; bestLevel?: number };
 export type Mission = { key: string; title: string; counter: string; target: number; mins: number; xp: number; effect: string; link: string };
 
 /** What the student has done so far, counted from the workspace (nothing extra is tracked). */
@@ -19,7 +20,8 @@ export function counters(w: Workspace): Counters {
     contacts: w.contacts.length,
     saved: w.savedJobIds.length,
     tailored: w.applications.filter((a) => a.versions.length > 0).length,
-    sent: w.tracker.filter((t) => !["Saved", "Withdrawn"].includes(t.status)).length,
+    // Sent once means sent: withdrawing later keeps it (council, Nov 19); deleting the row removes it.
+    sent: w.tracker.filter((t) => SENT.has(t.status) || t.events.some((e) => SENT.has(e.status))).length,
   };
 }
 
@@ -29,11 +31,15 @@ const POOL: Mission[] = [
   { key: "number", title: "Add a real number to 1 bullet", counter: "numbered", target: 1, mins: 2, xp: 40, effect: "Recruiters believe lines with numbers", link: "/resume?tab=base" },
   { key: "person", title: "Add someone you met", counter: "contacts", target: 1, mins: 2, xp: 40, effect: "Remy reminds you to follow up", link: "/community" },
   { key: "save", title: "Save 2 openings you'd apply to", counter: "saved", target: 2, mins: 3, xp: 35, effect: "Deadlines go on your calendar", link: "/opportunities" },
+  // Sending also earns 120 XP as a real win, so the habit mission pays a normal rate (council, Nov 19); offered only
+  // once something is tailored, so a freshman never gets a mission they can't do.
+  { key: "apply", title: "Send 1 application", counter: "sent", target: 1, mins: 10, xp: 35, effect: "The step that gets interviews", link: "/progress" },
   { key: "tailor", title: "Tailor your resume for 1 opening", counter: "tailored", target: 1, mins: 5, xp: 80, effect: "A version made for that posting", link: "/opportunities" },
-  { key: "apply", title: "Send 1 application", counter: "sent", target: 1, mins: 10, xp: 120, effect: "The step that gets interviews", link: "/progress" },
 ];
 export const ALL_DONE_BONUS = 50;
-export const LEVELS: [string, number][] = [["Rookie", 0], ["Prospect", 300], ["Contender", 800], ["Finalist", 1600], ["Hired", 3000]];
+// Names for effort, never outcomes (council review, Nov 19: "Hired" could be reached without being hired). Real outcomes
+// are badges tied to real events.
+export const LEVELS: [string, number][] = [["Rookie", 0], ["Explorer", 300], ["Builder", 800], ["Pro", 1600], ["Legend", 3000]];
 
 /** Monday-based week key in the student's own time zone, like "2026-11-16". */
 export function weekKey(d = new Date()): string {
@@ -87,10 +93,13 @@ export function xpOf(w: Workspace, g: GameState): number {
   const missions = Object.values(g.weeks).reduce((n, wk) => n + wk.done.reduce((t, k) => t + (byKey.get(k) || 0), 0) + (wk.done.length >= 3 && (!wk.missions || wk.missions.every((m) => wk.done.includes(m))) ? ALL_DONE_BONUS : 0), 0);
   const c = counters(w);
   const interviews = w.tracker.filter((t) => t.status === "Interview" || t.status === "Offer").length;
+  // Each application counts once, as a real win; there's no "send an application" mission (council, Nov 19).
   return missions + (w.resume?.confirmedAt ? 100 : 0) + 120 * c.sent + 250 * interviews + (w.tracker.some((t) => t.status === "Offer") ? 500 : 0);
 }
-export function levelOf(xp: number) {
+/** Levels never drop (council, Nov 19): the best level reached is kept even if XP later goes down. */
+export function levelOf(xp: number, best = 0) {
   let i = 0; for (let k = 0; k < LEVELS.length; k++) if (xp >= LEVELS[k][1]) i = k;
+  i = Math.max(i, Math.min(LEVELS.length - 1, Math.max(0, best - 1)));
   const next = LEVELS[Math.min(i + 1, LEVELS.length - 1)][1];
   return { n: i + 1, name: LEVELS[i][0], floor: LEVELS[i][1], next, max: i === LEVELS.length - 1 };
 }
