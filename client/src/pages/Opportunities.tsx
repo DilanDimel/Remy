@@ -1,6 +1,7 @@
 import { useEffect, useState, Fragment } from "react";
 import { dreamWithoutOpenings } from "@shared/org";
 import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, BookmarkCheck, CalendarPlus, ChevronDown, ChevronUp, Link2, MapPin, RefreshCw, Search, Sparkles, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
+import { openingRanker } from "@shared/order";
 import type { Job, JobCheck, JobFit, JobInterestReason, JobRanking, Workspace } from "@shared/types";
 import { api, daysUntil, fmtDate, rid, useDraft, useStore } from "../lib/store";
 import { ApplyLink } from "../components/ApplyLink";
@@ -59,20 +60,8 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
     }
     setFinding(false);
   };
-  // Feedback loop: employers the student saved or applied to rise; ones they keep marking "Not interested" sink.
-  const companyOf = (id: string) => (jobs || []).find((j) => j.id === id)?.company;
-  const liked = new Set([...w.savedJobIds, ...w.applications.map((a) => a.jobId)].map(companyOf));
-  const hiddenBy = new Map<string | undefined, number>();
-  for (const id of w.hiddenJobIds) if (!(interestEnabled && w.jobFeedback?.[id])) hiddenBy.set(companyOf(id), (hiddenBy.get(companyOf(id)) || 0) + 1); // a "Not for me" counts once, through its reason
-  // The specific words of their goal ("mechanical") in a title outrank a same-field but different job ("electrical").
-  const GENERIC = /^(intern|interns|internship|internships|student|students|engineer|engineering|analyst|associate|assistant|summer|entry|level|role|roles|jobs?|work|program|career|careers|position|and|the|for|with)$/i;
-  const specific = [...new Set(`${w.profile.targetRoles} ${w.profile.major}`.toLowerCase().split(/[^a-z&]+/).filter((x) => x.length > 3 && !GENERIC.test(x)))];
-  // No places chosen: openings in the student's own city or state come first.
-  const home = regions ? [] : (w.profile.location || "").split(",").map((x) => x.trim()).filter((x) => x.length >= 2);
-  const near = (j: Job) => home.some((h) => new RegExp(`\\b${h.replace(/[.*+?^${}()|[\]\\]/g, "")}\\b`, "i").test(j.location));
-  const rank = (j: Job) => (fits[j.id]?.score ?? 0) + (near(j) ? 6 : 0) + (liked.has(j.company) ? 8 : 0) - Math.min(3, hiddenBy.get(j.company) || 0) * 5
-    + 10 * specific.filter((x) => new RegExp(`\\b${x}`, "i").test(j.title)).length
-    + (interest[j.id]?.adjustment || 0); // the student's own "More like this" / "Not for me" (server-side, explained on the card)
+  // The ordering itself lives in shared/order.ts (tested in server/order.test.ts).
+  const { group, compare } = openingRanker(w, jobs || [], fits, interest, interestEnabled);
   const base = (jobs || [])
     .filter((j) => matchKind(j, kind))
     .filter((j) => (showHidden ? true : !w.hiddenJobIds.includes(j.id)))
@@ -82,13 +71,12 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const ineligible = base.filter((j) => fits[j.id]?.excluded);
   // Outside the student's places with no reason from their relocation answer: behind the "N more" link.
   const elsewhere = base.filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch === false && !fits[j.id]?.relocate);
-  const group = (j: Job) => (!regions || fits[j.id]?.regionMatch !== false ? 0 : fits[j.id]?.relocate ? 1 : 2);
   const list = base
     .filter((j) => showIneligible || !fits[j.id]?.excluded)
     .filter((j) => !myRegions || fits[j.id]?.regionMatch !== false || !!fits[j.id]?.relocate)
     // The student's own places first, then "Worth relocating for" (their relocation answer), then other places (only
     // when they show all locations); pinned and ranked within each group, so a group never splits (skeptic review).
-    .sort((a, b) => group(a) - group(b) || Number(pinned(b)) - Number(pinned(a)) || rank(b) - rank(a) || (a.deadline || "9999").localeCompare(b.deadline || "9999"));
+    .sort(compare(pinned));
   return (
     <>
       {needsProfile && <div className="notice" data-testid="needs-profile">{needsProfile}</div>}
