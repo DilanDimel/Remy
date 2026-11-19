@@ -54,7 +54,7 @@ import { storageReport, warnIfNearLimit } from "./storage";
 import * as insights from "./insights";
 import * as services from "./services";
 import { pruneOpenings, recordFound, recordCheck, listOpenings, openingsSummary } from "./openings";
-import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, kindOf, USAJOBS } from "./sources";
+import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, isEmptyListing, refillEmpty, kindOf, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
 import { docxStyle, editResumeDocx } from "./docxEdit";
 import * as gcal from "./gcal";
@@ -380,7 +380,7 @@ async function findOpenings(ctx: Ctx, named: string[] = [], opts: { background?:
   recordFound(r.jobs, Object.fromEntries(unique.map((b) => [b.company, b.fields || []]))).catch((e) => console.error("checked openings: record failed", e?.message));
   const readAt = nowIso();
   ctx.ws.employersRead = Object.fromEntries([...Object.entries(ctx.ws.employersRead || {}), ...unique.map((b) => [b.company, readAt])].slice(-400));
-  console.log(`discover: read ${r.reached}/${unique.length} (${unique.map((b) => b.company).join(", ")}), added ${r.jobs.length}`);
+  console.log(`discover: read ${r.reached}/${unique.length} (${unique.map((b) => b.company).join(", ")}), found ${r.jobs.length} (new or refilled)`);
   // Conferences in the student's field, unless they said they don't want events.
   // In a background search, only conferences already found this month (finding new ones is an AI call).
   const cachedOnly = async (): Promise<never> => { throw new Error("background: cache only"); };
@@ -388,11 +388,14 @@ async function findOpenings(ctx: Ctx, named: string[] = [], opts: { background?:
   // Add to the latest saved list, read only now (after the slow conference step), so a posting the student imported,
   // saved or rated during this search isn't overwritten or trimmed.
   const fresh = await loadWorkspace(ctx.me.id);
+  const refilled = fresh.jobs.filter(isEmptyListing).map((j) => j.id);
+  const found = refillEmpty(fresh.jobs, r.jobs);
   const have = new Set(fresh.jobs.map((j) => j.applyUrl));
-  const added = [...r.jobs, ...confs].filter((j) => !have.has(j.applyUrl));
+  const added = [...found, ...confs].filter((j) => !have.has(j.applyUrl));
   ctx.ws.jobs = [...added, ...fresh.jobs];
   ctx.ws.fits = { ...fresh.fits };
   for (const j of added) ctx.ws.fits[j.id] = fitOf(ctx.ws, j);
+  for (const id of refilled) { const j = ctx.ws.jobs.find((x) => x.id === id); if (j && j.postingText) ctx.ws.fits[id] = fitOf(ctx.ws, j); }
   // Old openings the student never saved, applied to, rated or hid are dropped so the workspace stays under its size limit.
   // References are read from the latest stored copy, so an opening saved during this search is kept.
   ctx.ws.droppedJobUrls = fresh.droppedJobUrls;

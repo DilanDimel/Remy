@@ -70,7 +70,44 @@ export function kindOf(title: string): Job["kind"] {
   return program.test(title) ? "program" : "job";
 }
 
-type Raw = { title: string; location: string; url: string; text: string; posted?: string; company?: string; deadline?: string; student?: boolean; nearby?: boolean; detail?: () => Promise<{ text: string; location?: string }> };
+// Boards that list titles only keep where the full posting is (`more`), as plain data: the shared board cache stores
+// raws as JSON, so a `detail` function never survived it and every student after the first got postings with no text.
+type More = { kind: "workday" | "smartrecruiters" | "oracle" | "eightfold" | "phenom" | "schoolspring" | "taleo"; url: string; seq?: string; teaser?: string };
+type Raw = { title: string; location: string; url: string; text: string; posted?: string; company?: string; deadline?: string; student?: boolean; nearby?: boolean; more?: More; detail?: () => Promise<{ text: string; location?: string }> };
+/** Reads the full posting a title-only board points to. */
+async function readMore(m: More): Promise<{ text: string; location?: string }> {
+  switch (m.kind) {
+    case "workday": {
+      const d = await (await fetch(m.url, { headers: { accept: "application/json", "user-agent": BROWSER_UA }, signal: AbortSignal.timeout(5000) })).json();
+      const info = d.jobPostingInfo || {};
+      return { text: htmlToText(String(info.jobDescription || "")), location: [info.location, ...(info.additionalLocations || [])].filter(Boolean).join("; ") };
+    }
+    case "smartrecruiters": {
+      const sec = (await getJson(m.url)).jobAd?.sections || {};
+      return { text: htmlToText([sec.jobDescription?.text, sec.qualifications?.text, sec.additionalInformation?.text].filter(Boolean).join("\n")), location: "" };
+    }
+    case "oracle": {
+      const it = (await getJson(m.url)).items?.[0] || {};
+      return { text: htmlToText([it.ExternalDescriptionStr, it.ExternalQualificationsStr, it.ExternalResponsibilitiesStr].filter(Boolean).join("\n")), location: "" };
+    }
+    case "eightfold":
+      return { text: htmlToText(String((await getJson(m.url)).job_description || "")), location: "" };
+    case "phenom": {
+      const r = await fetch(m.url, { method: "POST", headers: { "content-type": "application/json", accept: "application/json", "user-agent": BROWSER_UA }, body: JSON.stringify({ lang: "en_us", deviceType: "desktop", country: "us", global: true, pageName: "job", ddoKey: "jobDetail", jobSeqNo: m.seq }), signal: AbortSignal.timeout(6000) });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return { text: htmlToText(String((await r.json()).jobDetail?.data?.job?.description || m.teaser || "")), location: "" };
+    }
+    case "schoolspring": {
+      const d = (await getJson(m.url)).value?.jobInfo || {};
+      const pay = d.payMin && d.payMax ? `Pay: $${d.payMin}–$${d.payMax} ${d.salaryCode || ""}` : "";
+      return { text: [htmlToText(String(d.jobDescription || "")), d.requirements && d.requirements !== "None" ? htmlToText(String(d.requirements)) : "", pay, d.shiftType ? `Schedule: ${d.shiftType}` : ""].filter(Boolean).join("\n") };
+    }
+    case "taleo":
+      return { text: taleoDescription(await (await fetch(m.url, { headers: { "user-agent": BROWSER_UA }, signal: AbortSignal.timeout(8000) })).text()) };
+  }
+}
+/** Gives every title-only posting its reader back (fresh from the board or from the cache). */
+export const withDetail = (raws: Raw[]): Raw[] => raws.map((r) => (r.more && !r.text ? { ...r, detail: () => readMore(r.more!) } : r));
 async function getJson(url: string): Promise<any> {
   const r = await fetch(url, { headers: { Accept: "application/json", "User-Agent": "RemyBot/1.0 (student career assistant)" }, signal: AbortSignal.timeout(5000) });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -111,11 +148,7 @@ async function workday(b: Board, field: string): Promise<Raw[]> {
     if (!page.length && !offset && param && query) page = (await list(applied, (query = ""), 0)).jobPostings || [];
     for (const x of page) out.push({
       title: String(x.title || ""), location: String(x.locationsText || ""), url: `${origin}/${site}${x.externalPath}`, text: "", posted: x.postedOn,
-      detail: async () => {
-        const d = await (await fetch(`${cxs}${x.externalPath}`, { headers: { accept: "application/json", "user-agent": BROWSER_UA }, signal: AbortSignal.timeout(5000) })).json();
-        const info = d.jobPostingInfo || {};
-        return { text: htmlToText(String(info.jobDescription || "")), location: [info.location, ...(info.additionalLocations || [])].filter(Boolean).join("; ") };
-      },
+      more: { kind: "workday", url: `${cxs}${x.externalPath}` },
     });
     if (page.length < 20) break;
   }
@@ -135,11 +168,7 @@ async function smartrecruitersQ(b: Board, q: string): Promise<Raw[]> {
   return (j.content || []).map((x: any) => ({
     title: String(x.name || ""), location: [x.location?.city, x.location?.region, x.location?.remote ? "Remote" : ""].filter(Boolean).join(", "),
     url: `https://jobs.smartrecruiters.com/${encodeURIComponent(b.slug)}/${x.id}`, text: "", posted: x.releasedDate,
-    detail: async () => {
-      const d = await getJson(String(x.ref));
-      const sec = d.jobAd?.sections || {};
-      return { text: htmlToText([sec.jobDescription?.text, sec.qualifications?.text, sec.additionalInformation?.text].filter(Boolean).join("\n")), location: "" };
-    },
+    more: { kind: "smartrecruiters", url: String(x.ref) },
   }));
 }
 // Oracle Cloud Recruiting's public candidate API (the requests its career site makes). Board = "host|siteNumber".
@@ -153,11 +182,7 @@ async function oracleQ(b: Board, q: string): Promise<Raw[]> {
   return (j.items?.[0]?.requisitionList || []).map((x: any) => ({
     title: String(x.Title || ""), location: [x.PrimaryLocation, ...(x.secondaryLocations || []).map((l: any) => l.Name)].filter(Boolean).join("; "),
     url: `https://${host}/hcmUI/CandidateExperience/en/sites/${site}/job/${x.Id}`, text: "", posted: x.PostedDate,
-    detail: async () => {
-      const d = await getJson(`${api}/recruitingCEJobRequisitionDetails?expand=all&onlyData=true&finder=ById;Id=%22${x.Id}%22,siteNumber=${encodeURIComponent(site)}`);
-      const it = d.items?.[0] || {};
-      return { text: htmlToText([it.ExternalDescriptionStr, it.ExternalQualificationsStr, it.ExternalResponsibilitiesStr].filter(Boolean).join("\n")), location: "" };
-    },
+    more: { kind: "oracle", url: `${api}/recruitingCEJobRequisitionDetails?expand=all&onlyData=true&finder=ById;Id=%22${x.Id}%22,siteNumber=${encodeURIComponent(site)}` },
   }));
 }
 // Eightfold career sites' public search API. Board = "<company>.eightfold.ai".
@@ -170,10 +195,7 @@ async function eightfoldQ(b: Board, q: string): Promise<Raw[]> {
   return (j.positions || []).map((x: any) => ({
     title: String(x.name || ""), location: String(x.location || (x.locations || []).join("; ") || ""),
     url: String(x.canonicalPositionUrl || `https://${b.slug}/careers/job/${x.id}`), text: "", posted: x.t_create ? new Date(x.t_create * 1000).toISOString() : undefined,
-    detail: async () => {
-      const d = await getJson(`https://${b.slug}/api/apply/v2/jobs/${x.id}?domain=${domain}`);
-      return { text: htmlToText(String(d.job_description || "")), location: "" };
-    },
+    more: { kind: "eightfold", url: `https://${b.slug}/api/apply/v2/jobs/${x.id}?domain=${domain}` },
   }));
 }
 // Phenom career sites' search widget (the request their own search page makes). Board = the career site host.
@@ -184,10 +206,7 @@ async function phenom(b: Board, field: string): Promise<Raw[]> {
     const j = await widgets({ pageName: "search-results", ddoKey: "refineSearch", from: 0, jobs: true, counts: false, size: 50, keywords: q, selected_fields: {} });
     return (j.refineSearch?.data?.jobs || []).map((x: any) => ({
       title: String(x.title || ""), location: String(x.location || x.cityStateCountry || ""), url: `https://${b.slug}/us/en/job/${encodeURIComponent(x.jobId)}`, text: "", posted: x.postedDate,
-      detail: async () => {
-        const d = await widgets({ pageName: "job", ddoKey: "jobDetail", jobSeqNo: x.jobSeqNo });
-        return { text: htmlToText(String(d.jobDetail?.data?.job?.description || x.descriptionTeaser || "")), location: "" };
-      },
+      more: { kind: "phenom", url: `https://${b.slug}/widgets`, seq: String(x.jobSeqNo || ""), teaser: String(x.descriptionTeaser || "") },
     }));
   });
 }
@@ -260,11 +279,7 @@ async function schoolspring(b: Board): Promise<Raw[]> {
     return (j.value?.jobsList || []).map((x: any): Raw => ({
       student: true, title: decodeEntities(String(x.title || "")), location: [decodeEntities(String(x.employer || "")), String(x.location || "")].filter(Boolean).join(", "),
       url: `https://${b.slug}/?jobid=${x.jobId}`, text: "", posted: x.displayDate,
-      detail: async () => {
-        const d = (await getJson(`https://api.schoolspring.com/api/Jobs/${encodeURIComponent(x.jobId)}`)).value?.jobInfo || {};
-        const pay = d.payMin && d.payMax ? `Pay: $${d.payMin}–$${d.payMax} ${d.salaryCode || ""}` : "";
-        return { text: [htmlToText(String(d.jobDescription || "")), d.requirements && d.requirements !== "None" ? htmlToText(String(d.requirements)) : "", pay, d.shiftType ? `Schedule: ${d.shiftType}` : ""].filter(Boolean).join("\n") };
-      },
+      more: { kind: "schoolspring", url: `https://api.schoolspring.com/api/Jobs/${encodeURIComponent(x.jobId)}` },
     }));
   });
   return raws.filter((r) => collegeRole(r.title));
@@ -295,7 +310,7 @@ async function taleo(b: Board): Promise<Raw[]> {
       const url = `https://${host}/careersection/${section}/jobdetail.ftl?job=${encodeURIComponent(x.contestNo || x.jobId)}&lang=en`;
       return {
         student: true, title: title || "", location: [where, city].filter(Boolean).join(", "), url, text: "",
-        detail: async () => ({ text: taleoDescription(await (await fetch(url, { headers: { "user-agent": BROWSER_UA }, signal: AbortSignal.timeout(8000) })).text()) }),
+        more: { kind: "taleo", url },
       };
     });
   });
@@ -360,21 +375,23 @@ export const slimForCache = (raws: Raw[]): Raw[] =>
 const BOARD_STALE = 3 * 24 * 60 * 60_000;
 export async function cachedBoard(b: Board, field: string, region: string, fetch = fetchBoard): Promise<Raw[]> {
   // Sources that search by field or place get one entry per search; whole-board sources get one entry.
-  const key = [b.ats, b.slug, ["workday", "phenom", "smartrecruiters", "oracle", "eightfold", "usajobs", "careeronestop"].includes(b.ats) ? field : "", ["usajobs", "careeronestop"].includes(b.ats) ? region : ""].join("|").toLowerCase();
+  // "v2" on title-only boards: entries saved before postings kept their reader (`more`) would stay textless for hours.
+  const TITLE_ONLY = ["workday", "smartrecruiters", "oracle", "eightfold", "phenom", "schoolspring", "taleo"];
+  const key = [...(TITLE_ONLY.includes(b.ats) ? ["v2"] : []), b.ats, b.slug, ["workday", "phenom", "smartrecruiters", "oracle", "eightfold", "usajobs", "careeronestop"].includes(b.ats) ? field : "", ["usajobs", "careeronestop"].includes(b.ats) ? region : ""].join("|").toLowerCase();
   const hit = await q1("SELECT raws, fetched_at FROM board_cache WHERE key = $1", [key]).catch(() => undefined);
   const age = hit ? Date.now() - new Date(hit.fetched_at).getTime() : Infinity;
-  if (hit && age < BOARD_FRESH) return hit.raws as Raw[];
+  if (hit && age < BOARD_FRESH) return withDetail(hit.raws as Raw[]);
   try {
     const raws = await fetch(b, field, region);
     // Empty answers aren't saved (a site under maintenance often answers with nothing); huge boards aren't either.
     const slim = JSON.stringify(slimForCache(raws));
     if (raws.length && slim.length < 3_000_000)
       await q("INSERT INTO board_cache (key, raws) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET raws = EXCLUDED.raws, fetched_at = now()", [key, slim]).catch(() => {});
-    if (raws.length || !hit || age > BOARD_STALE) return raws;
+    if (raws.length || !hit || age > BOARD_STALE) return withDetail(raws);
   } catch (e) {
     if (!hit || age > BOARD_STALE) throw e;
   }
-  return hit.raws as Raw[];
+  return withDetail(hit.raws as Raw[]);
 }
 /** Openings scout: reads every employer's site (cached copies count) and reports what each returned. */
 export async function scoutBoards(boards = EMPLOYERS, read = cachedBoard) {
@@ -427,6 +444,24 @@ export function boardsFor(company: string): Board[] {
   return (["greenhouse", "lever", "ashby"] as const).map((ats) => ({ ats, slug: base, company }));
 }
 
+/** An opening from an employer's job board that came in with no posting text, saved before the Nov 19, 2026 fix.
+ *  Each one is re-read until a search returns it once: a refill stamps checkedAt, so a posting that truly has no
+ *  text isn't read again on every search. */
+const EMPTY_BEFORE = "2026-11-20";
+export const isEmptyListing = (j: Job) => !j.postingText && / job board\)$/.test(j.sourceName || "") && (j.checkedAt || "") < EMPTY_BEFORE;
+/** Copies freshly read posting text onto saved openings that had none, keeping their id (saved, applied, rated stay
+ *  attached). Returns the found openings that weren't such a refill. */
+export function refillEmpty(jobs: Job[], found: Job[]): Job[] {
+  const empty = new Map(jobs.filter(isEmptyListing).map((j) => [j.applyUrl, j]));
+  return found.filter((f) => {
+    const old = empty.get(f.applyUrl);
+    if (!old) return true;
+    old.checkedAt = f.checkedAt; // read again: tried once, whatever came back
+    if (!f.postingText) return false;
+    Object.assign(old, { postingText: f.postingText, summary: f.summary, requirements: f.requirements, eligibility: f.eligibility, location: f.location !== "Not stated" ? f.location : old.location });
+    return false;
+  });
+}
 /** Scans boards in parallel and returns early-career postings that suit the student. */
 export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, enabled = interestEnabled()): Promise<{ jobs: Job[]; scanned: number; reached: string[] }> {
   // Only fields the student chose narrow the search (see chosenFieldText): "working with people" isn't the HR field.
@@ -435,7 +470,9 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, e
   // Workday needs a search word; use the student's first field ("finance").
   const field = FIELD_SEARCH.find((_, k) => FIELD_TITLES[k][0].test(fields.join(" "))) || "";
   const undergrad = !/grad/i.test(ws.profile.classYear);
-  const known = new Set([...ws.jobs.map((j) => j.applyUrl), ...ws.jobs.map((j) => j.sourceUrl), ...(ws.droppedJobUrls || [])]);
+  // An opening saved with no posting text (title-only boards before Nov 19, 2026) counts as unknown, so it's read again
+  // and the caller fills its text in place (refillEmpty) instead of keeping a card that can't say why it fits.
+  const known = new Set([...ws.jobs.filter((j) => !isEmptyListing(j)).flatMap((j) => [j.applyUrl, j.sourceUrl]), ...(ws.droppedJobUrls || [])]);
   const reached: string[] = [];
   const found: { job: Job; rel: number; preference: number }[] = [];
   let i = 0;
