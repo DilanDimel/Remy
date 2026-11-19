@@ -40,6 +40,9 @@ test("coursework claims need the student's own answer for that skill; honest stu
   assert.ok(claimCheck("Through my coursework, I built Python skills.", excelClass).some((f) => f.type === "scope"), "a class answer for Excel doesn't cover Python");
   assert.ok(claimCheck("In my finance classes I learned Excel.", excelClass).some((f) => f.type === "scope"), "the student never said finance");
   assert.ok(!claimCheck("I learned Excel through my coursework.", excelClass).some((f) => f.type === "scope"));
+  // Real Gemini, Nov 18: "Through my finance studies, I learned Excel in a class" and "allowed me to develop".
+  assert.ok(claimCheck("Through my finance studies, I learned Excel in a class.", excelClass).some((f) => f.type === "scope"));
+  assert.ok(claimCheck("Working retail allowed me to develop strong communication skills.", resume).some((f) => f.type === "scope"));
   for (const t of ["During my studies at TCU, I have worked 20 hours a week at Academy.", "In my studies I focus on corporate finance.", "We deliver best in class service."]) {
     assert.ok(!claimCheck(t, resume).some((f) => f.type === "scope" && /class|stud/i.test(f.term)), t);
   }
