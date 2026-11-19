@@ -106,3 +106,13 @@ test("story deck (second review): no prefix or word-family guesses, natural open
   assert.equal(sameLine("Tutored students in calculus", "Tutored students in calculus and statistics weekly"), false);
   assert.equal(sameLine("Tutored students in calculus.", "“Tutored students in calculus”"), true);
 });
+
+test("stories come from things the student did, not course lists or skills", async () => {
+  const { storyLines } = await import("./storyLines");
+  const doc = { contact: {}, skills: [], sections: [
+    { id: "s1", heading: "EDUCATION", entries: [{ id: "e1", org: "TCU", role: "BBA Finance", dates: "", bullets: [{ id: "b1", text: "Relevant Coursework: Financial Accounting, Statistics" }, { id: "b2", text: "Built a DCF model in Excel for a class project" }, { id: "b3", text: "GPA 3.6, Dean's List" }] }] },
+    { id: "s2", heading: "Relevant Coursework", entries: [{ id: "e2", org: "", role: "", dates: "", bullets: [{ id: "b4", text: "Corporate Finance" }] }] },
+    { id: "s3", heading: "EXPERIENCE", entries: [{ id: "e3", org: "Academy", role: "Sales Associate", dates: "", bullets: [{ id: "b5", text: "Ran the register" }] }] },
+  ] } as any;
+  assert.deepEqual(storyLines(doc).map((l) => l.text), ["Built a DCF model in Excel for a class project", "Ran the register"]);
+});
