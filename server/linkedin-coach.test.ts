@@ -84,3 +84,13 @@ test("linkedin (review cases): URLs, About-lead check and missing (LinkedIn) mar
   const p = parseLinkedin(raw(["Contact", "www.linkedin.com/in/maya-lee", "Top Skills", "Excel", "Maya Lee", "Analyst @ Fund", "Experience"]), ["Maya Lee"]);
   assert.equal(p.slug, "maya-lee");
 });
+
+test("LinkedIn coach: a headline field of study the resume's major doesn't say is flagged as a question (live test Nov 19)", async () => {
+  const { linkedinTips } = await import("../shared/linkedin");
+  const facts = { major: "Finance & BIS with Fintech Certification", school: "Texas Christian University", role: "", resumeSkills: [] };
+  const tips = (headline: string) => linkedinTips({ slug: "", topSkills: [], headline, about: "" } as any, facts).filter((t) => t.key === "headline" && !t.ok);
+  assert.match(tips("Finance & Accounting Student at TCU Neeley | Treasurer @ NABA")[0]?.title || "", /Finance & Accounting.*Finance & BIS/);
+  assert.equal(tips("Finance Student at TCU | Treasurer @ NABA").length, 0, "a shorter headline is fine");
+  assert.equal(tips("Finance & BIS Student at TCU Neeley | Treasurer @ NABA").length, 0);
+  assert.equal(tips("Treasurer @ NABA | Director of Travel").length, 0, "no field of study named");
+});

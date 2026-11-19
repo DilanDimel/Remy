@@ -1,3 +1,4 @@
+import { families } from "./words";
 import type { ResumeDoc } from "./types";
 
 // LinkedIn coach: what's on the resume but not on the student's LinkedIn PDF, with the exact words to paste.
@@ -103,6 +104,7 @@ export function parseLinkedin(text: string, names: string[]): LinkedInParsed {
 }
 
 export type LinkedInTip = { key: "headline" | "url" | "skills" | "about"; ok: boolean; title: string; detail: string; suggestion?: string };
+const STUDY_FILLER = new Set(["and", "the", "with", "tcu", "neeley", "university", "college", "school", "business", "dual", "double", "undergraduate", "sophomore", "junior", "senior", "freshman"].map((w) => [...families(w)][0]));
 const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** Specific coaching from what the PDF shows. `facts` come only from the student's resume and profile; `role` is a
@@ -120,6 +122,13 @@ export function linkedinTips(p: LinkedInParsed, facts: { major: string; school: 
     tips.push(generic
       ? { key: "headline", ok: false, title: p.headline ? `Your headline is generic: “${p.headline}”` : "Your headline is empty", detail: "It's the line recruiters see next to your name in search. Say what you study and one role you hold. Edit it to sound like you.", suggestion }
       : { key: "headline", ok: true, title: `Headline: “${p.headline.length > 90 ? p.headline.slice(0, 88) + "…" : p.headline}”`, detail: "Specific: people can tell what you do." });
+    // The field of study in the headline ("Finance & Accounting Student at…") vs the resume's major ("Finance & BIS"):
+    // recruiters notice when they disagree. A shorter headline ("Finance Student") is fine; the student decides which is right.
+    const studied = (p.headline || "").split(/\s*[|•·]\s*/)[0].match(/^(.{3,60}?)\s+(?:student|major)\b/i)?.[1] || "";
+    const majorWords = families(facts.major);
+    const extra = [...families(studied)].filter((w) => w.length > 2 && !STUDY_FILLER.has(w) && !majorWords.has(w));
+    if (studied && facts.major && extra.length)
+      tips.push({ key: "headline", ok: false, title: `Your headline says “${studied}”; your resume says “${facts.major}”`, detail: "Recruiters read both. Which is right? Update the other one so they match." });
   }
   // Web address: LinkedIn's default ends in a random code like "-3a9f21b7" (letters and digits mixed).
   if (p.slug) {
