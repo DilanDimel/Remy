@@ -81,6 +81,9 @@ test("coursework claims: any shortcut in the record doesn't unlock them, longer 
     assert.ok(claimCheck(t, ev).some((f) => f.type === "scope"), t);
   }
   assert.ok(!claimCheck("Through my coursework, I built strong Excel skills.", ev).some((f) => f.type === "scope"));
+  // Real Gemini, Nov 18.
+  assert.ok(claimCheck("Through my academic program, I have developed proficiencies in Microsoft Excel and Microsoft PowerPoint.", ev).some((f) => f.type === "scope"));
+  assert.ok(!claimCheck("Through my Finance major at TCU, I became interested in banking.", ev).some((f) => /where you learned/.test(f.message)));
 });
 
 test("skill names with parentheses or symbols: asked once, named cleanly", () => {

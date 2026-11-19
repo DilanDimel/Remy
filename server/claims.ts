@@ -207,7 +207,7 @@ export function claimCheck(
   const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const nameIn = (name: string, t: string) => new RegExp(String.raw`(?<![\w])${esc(name)}(?![\w+#])`, "i").test(t);
   const SKILL_TALK = /\b(?:learn\w*|buil[td]|develop\w*|gain\w*|proficien\w*|skills?|competenc\w*|experience\s+(?:with|in)|familiar\w*|master\w*)\b/i;
-  for (const m of text.matchAll(/\b(?:through|from|via|in|during)\s+(?:my|our)\s+((?:[\w-]+\s+){0,3}?)(?:course\s*work|courses?|classes|class|curriculum|studies)\b/gi)) {
+  for (const m of text.matchAll(/\b(?:through|from|via|in|during)\s+(?:my|our)\s+((?:[\w-]+\s+){0,3}?)(?:course\s*work|courses?|classes|class|curriculum|studies|program|major|degree)\b/gi)) {
     const sentence = sentenceAt(m.index!);
     if (!SKILL_TALK.test(sentence)) continue; // "Through my studies at TCU, I became interested in banking" says nothing about a skill
     if (/^(?:in|during)\b/i.test(m[0]) && /studies$/i.test(m[0])) continue; // "during my studies" is when, not where
