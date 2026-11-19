@@ -1,4 +1,5 @@
-import type { StoryPart } from "./types";
+import type { Entry, ResumeDoc, Story, StoryPart } from "./types";
+import { families } from "./words";
 
 export const STORY_PARTS: StoryPart[] = ["situation", "task", "action", "result"];
 /** Used when the AI didn't give a question of its own for an empty part. */
@@ -42,4 +43,42 @@ export function namesNew(question: string, line: string): boolean {
     start = false;
   }
   return (question.match(CONTEXT) || []).some((w) => { const b = base(w); return !known.has(b) && !(RELATED[b] || []).some((r) => known.has(r)); });
+}
+
+// Words that tie an answer to nothing in particular ("I", "the", "what we had").
+const COMMON = new Set(["the", "and", "for", "with", "that", "this", "was", "were", "had", "have", "has", "but", "not", "our", "out", "who", "what", "when", "where", "why", "how", "which", "they", "them", "their", "there", "then", "than", "from", "into", "onto", "about", "after", "before", "during", "because", "while", "just", "also", "very", "really", "some", "all", "any", "each", "every", "more", "most", "much", "many", "one", "two", "first", "get", "got", "make", "do", "did", "done", "be", "been", "being", "go", "can", "could", "would", "should", "will", "need", "want", "know", "think", "thing", "lot", "way", "time", "day", "year", "people", "work", "help", "able", "new", "good", "great", "my", "me", "we", "us", "you", "your", "it", "its", "an", "a", "i", "to", "of", "in", "on", "at", "by", "as", "or", "so", "if", "no", "up", "is", "are", "am"]);
+const keyWords = (text: string) => new Set([...families(text)].filter((w) => w.length > 2 && !COMMON.has(w)));
+const entryText = (e: Entry) => [e.org, e.role, ...e.bullets.map((b) => b.text)].join(" ");
+// Sections that aren't experiences: a school, major or tool named in an answer ("my finance class", "an Excel sheet")
+// says nothing about which experience it's about. "Activities and Leadership" or "Coursework & Projects" still count.
+const NOT_EXPERIENCE = /^(education|academics?|(technical |relevant |computer |additional )?(skills?|certifications?|licen[cs]es?|course\s*work|courses|languages?|interests|tools|awards?|honou?rs))$/i;
+const experienceSection = (heading: string) => !heading.split(/\s*(?:&|\band\b|,|\/|\|)\s*/i).filter(Boolean).every((part) => NOT_EXPERIENCE.test(part.trim()));
+/** The other experience on the resume a story answer is really about, or undefined when it fits its own story.
+ *  Flagged only when the answer shares no word with its own story (its resume entry, line, title, other parts) and
+ *  two or more words that belong to just ONE other experience: the treasurer job typed into the dorm-supplies
+ *  fundraiser story (live test Nov 19: "treasurer", "chapter", "SGA") is caught, while an on-topic answer in other
+ *  words, or one naming the school, a tool or a word several experiences share ("campus", "budget"), isn't. */
+export function otherExperience(answer: string, st: Pick<Story, "title" | "source" | "situation" | "task" | "action" | "result">, part: StoryPart, doc?: ResumeDoc): string | undefined {
+  if (!doc) return undefined;
+  const all = doc.sections.flatMap((sec) => sec.entries);
+  const entries = doc.sections.filter((sec) => experienceSection(sec.heading)).flatMap((sec) => sec.entries);
+  // The story's own entry: the bullet it came from, or (after the student reworded it) the closest one.
+  const src = keyWords(st.source);
+  const overlap = (e: Entry) => [...keyWords(entryText(e))].filter((w) => src.has(w)).length;
+  const own = all.find((e) => e.bullets.some((b) => sameLine(b.text, st.source) || (norm(b.text).length >= 20 && (norm(st.source).includes(norm(b.text)) || norm(b.text).includes(norm(st.source))))))
+    || [...all].sort((a, b) => overlap(b) - overlap(a)).find((e) => overlap(e) >= 2);
+  if (!own) return undefined; // can't tell which experience the story is about: don't guess
+  const ownWords = keyWords([entryText(own), st.source, st.title, ...STORY_PARTS.filter((p) => p !== part).map((p) => st[p])].join(" "));
+  const mine = keyWords(answer);
+  if ([...mine].some((w) => ownWords.has(w))) return undefined;
+  // A word counts toward another experience only if no other entry (education and skills included) has it.
+  const seen = new Map<string, number>();
+  for (const e of all) for (const w of keyWords(entryText(e))) seen.set(w, (seen.get(w) || 0) + 1);
+  let best: { label: string; n: number } | undefined;
+  for (const e of entries) {
+    if (e === own) continue;
+    const n = [...keyWords(entryText(e))].filter((w) => mine.has(w) && seen.get(w) === 1).length;
+    if (n >= 2 && (!best || n > best.n)) best = { label: [e.role, e.org].filter(Boolean).join(", "), n };
+  }
+  return best?.label;
 }
