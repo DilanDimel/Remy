@@ -63,3 +63,31 @@ test("the question names the skill as the resume does and skips soft skills and 
     assert.equal(skillOriginQuestion(job([k]), lines, d, []), null, k);
   }
 });
+
+// Review round 2, Nov 18: honest lines pass; wordings that slipped through are caught.
+test("plans, the student's own words and honest study lines are never flagged", () => {
+  const scopeOf = (t: string, ev = resume, o?: Parameters<typeof claimCheck>[2]) => claimCheck(t, ev, o).filter((f) => /taught you|where you learned/.test(f.message));
+  for (const t of ["I am interested in learning how to underwrite commercial loans.", "I look forward to learning how to build models with your team.", "I'm excited for an internship that will teach me how credit decisions are made.",
+    "Through my studies at TCU, I have become interested in commercial banking.", "I'd love to learn from world class analysts.", "We deliver best in class service."]) assert.deepEqual(scopeOf(t), [], t);
+  const said = resume + "\nRetail taught me patience";
+  for (const t of ["Academy taught me patience. I also handled cash.", "Retail taught me patience, which matters in banking.", "Retail taught me patience."]) assert.deepEqual(scopeOf(t, said), [], t);
+  assert.deepEqual(scopeOf("Learned how to reconcile daily cash accounts", resume, { original: "Learned how to reconcile accounts" }), []);
+});
+
+test("coursework claims: any shortcut in the record doesn't unlock them, longer class names need the student's words", () => {
+  const ev = resume + "\nThrough my coursework in finance, I studied valuation.\nWhere I learned Excel — In a class";
+  assert.ok(claimCheck("Through my coursework, I built strong Python skills.", ev).some((f) => f.type === "scope"));
+  for (const t of ["Through my corporate finance classes, I learned Excel.", "Through my undergraduate finance coursework, I built Excel skills.", "In my Financial Accounting course I learned Excel."]) {
+    assert.ok(claimCheck(t, ev).some((f) => f.type === "scope"), t);
+  }
+  assert.ok(!claimCheck("Through my coursework, I built strong Excel skills.", ev).some((f) => f.type === "scope"));
+});
+
+test("skill names with parentheses or symbols: asked once, named cleanly", () => {
+  const d = (items: string) => ({ ...doc, skills: [{ id: "k", label: "Skills", items }] });
+  assert.equal(skillOriginQuestion(job(["Excel"]), lines, d("Excel (pivot tables, VLOOKUP), Word"), [])?.label, "Where I learned Excel");
+  assert.equal(skillOriginQuestion(job(["C++"]), lines, d("C++, Java"), ["Where I learned C++ — In a class"]), null);
+  assert.equal(skillOriginQuestion(job(["C++"]), lines, d("C++, Java"), [])?.label, "Where I learned C++");
+  assert.ok(!claimCheck("Through my coursework, I built C++ skills.", resume + "\nWhere I learned C++ — In a class").some((f) => f.type === "scope"));
+  for (const k of ["Salesforce", "Microsoft Teams"]) assert.ok(skillOriginQuestion(job([k]), lines, d(k), []), k);
+});
