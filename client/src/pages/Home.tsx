@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ApplyLink } from "../components/ApplyLink";
-import { checkinDue, dayWeekDue, MomentAsk, WeeklyCheckin } from "../components/FeedbackAsks";
 import { SeasonCard } from "../components/SeasonCard";
 import { ApplyNudge } from "../components/ApplyNudge";
-import { CheckinCard } from "../components/CheckinCard";
 import { ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronUp, MapPin } from "lucide-react";
 import type { Job, Task, Workspace } from "@shared/types";
 import { api, daysUntil, fmtDate, rid, useStore } from "../lib/store";
@@ -183,8 +181,8 @@ export default function Home() {
         )) : <p className="muted small" style={{ padding: "14px 0" }}>{jobs ? "Nothing here yet." : "Loading…"}</p>)}
       </section>
       <ApplyNudge w={w} />
-      <CheckinCard w={w} />
-      {dayWeekDue(w) ? <MomentAsk ask="moment:day7" question="You've been using Remy for a week or more. What's the one thing that would make you open it more often?" /> : checkinDue(w) ? <WeeklyCheckin /> : null}
+      {/* The weekly check-in, the day-7 question and "What did you do this week?" were removed (Dilan, Nov 19: boxes
+          that ask for effort and give nothing back). Remy asks only when something happened (ApplyNudge: interviews, events). */}
       <SeasonCard w={w} />
     </>
   );

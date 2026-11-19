@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useRoute } from "../lib/router";
 import { GraduationCap, Mail, PenLine, Plus, Send, Sparkles, Trash2 } from "lucide-react";
 import type { Contact, OutreachDraft } from "@shared/types";
 import { api, fmtDate, rid, useStore } from "../lib/store";
@@ -19,6 +20,12 @@ export default function Community() {
   const today = new Date().toLocaleDateString("en-CA");
   const blank = { name: "", title: "", org: "", email: "", why: "", met: "", metOn: today };
   const [c, setC] = useState(blank);
+  // From Home's "Did you meet anyone at …?": open the form with where and when already filled in.
+  const { query } = useRoute();
+  useEffect(() => {
+    const met = query.get("met");
+    if (met) { setC({ ...blank, met: met.slice(0, 200), metOn: /^\d{4}-\d{2}-\d{2}$/.test(query.get("metOn") || "") ? query.get("metOn")! : today }); setAdding(true); }
+  }, [query.get("met")]);
   const [thank, setThank] = useState(true);
   const [review, setReview] = useState<OutreachDraft | null>(null);
   // When Remy finishes writing an email, open it for review.

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { CalItem, TrackItem, Workspace } from "@shared/types";
 import { rid, useStore } from "../lib/store";
+import { go } from "../lib/router";
 
 const DAY = 86_400_000;
 const ago = (iso?: string) => (iso ? (Date.now() - Date.parse(iso)) / DAY : 0);
@@ -14,6 +15,9 @@ export function ApplyNudge({ w }: { w: Workspace }) {
   const today = new Date().toLocaleDateString("en-CA");
   const interview = w.calendar.find((c) => c.kind === "Interview" && c.date < today && ago(c.date + "T12:00:00") <= 7 && !c.debriefed);
   if (interview) return <Debrief key={interview.id} w={w} c={interview} />;
+  // Then a career fair, info session or other event that just happened: the people met there are worth saving now.
+  const event = w.calendar.find((c) => c.kind === "Event" && c.date < today && ago(c.date + "T12:00:00") <= 7 && !c.debriefed);
+  if (event) return <MetAnyone key={event.id} w={w} c={event} />;
   const approvedAt = (t: TrackItem) => w.applications.find((a) => a.id === t.applicationId)?.versions.at(-1)?.at;
   const ask = w.tracker.find((t) => t.status === "Saved" && t.applicationId && ago(approvedAt(t)) >= 2 && !(t.askedAt && ago(t.askedAt) < 5));
   const lastEvent = (t: TrackItem) => t.events.reduce((m, e) => (e.at > m ? e.at : m), "");
@@ -48,28 +52,62 @@ export function ApplyNudge({ w }: { w: Workspace }) {
   );
 }
 
-/** After an interview: what they asked and what to do differently, written while it's fresh, plus a thank-you note to-do. */
+/** After an interview: one tap first (Dilan, Nov 19: boxes that ask for effort and give nothing back get ignored), and
+ *  each answer does something: a thank-you to-do, a story to build, or the new date if it moved. Notes are optional. */
 function Debrief({ w, c }: { w: Workspace; c: CalItem }) {
   const { save, run } = useStore();
+  const [how, setHow] = useState("");
   const [text, setText] = useState("");
-  const [thanks, setThanks] = useState(ago(c.date + "T12:00:00") <= 2);
   const who = c.title.replace(/^interview:?\s*/i, "");
-  const finish = (note: string, addThanks: boolean) => run(async () => {
-    const stamp = `Debrief ${c.date}: ${note}`;
+  const thanksTask = { id: rid("t"), title: `Send a thank-you note for your ${who} interview`, why: "Two or three sentences within a day: thank them, mention one thing you discussed, restate your interest.", due: new Date().toLocaleDateString("en-CA"), category: "Connect" as const, done: false, source: "Interview debrief" };
+  const finish = (note: string) => run(async () => {
     // Kept in its own field, not the event notes: those sync to Google Calendar and the .ics export, and a debrief is private.
-    await save("calendar", w.calendar.map((x) => (x.id === c.id ? { ...x, debriefed: true, ...(note ? { debrief: note } : {}) } : x)));
+    const full = [how && `Went: ${how}`, note].filter(Boolean).join(". ");
+    await save("calendar", w.calendar.map((x) => (x.id === c.id ? { ...x, debriefed: true, ...(full ? { debrief: full } : {}) } : x)));
     const t = w.tracker.find((x) => x.id === c.linkedId);
-    if (t && note) await save("tracker", w.tracker.map((x) => (x.id === t.id ? { ...x, notes: [x.notes, stamp].filter(Boolean).join("\n").slice(-3900) } : x)));
-    if (addThanks) await save("tasks", [{ id: rid("t"), title: `Send a thank-you note for your ${who} interview`, why: "Two or three sentences within a day: thank them, mention one thing you discussed, restate your interest.", due: "", category: "Connect", done: false, source: "Interview debrief (Home)" }, ...w.tasks]);
+    if (t && full) await save("tracker", w.tracker.map((x) => (x.id === t.id ? { ...x, notes: [x.notes, `Debrief ${c.date}: ${full}`].filter(Boolean).join("\n").slice(-3900) } : x)));
   }, note ? "Debrief saved" : undefined);
+  const fresh = ago(c.date + "T12:00:00") <= 3;
+  const thanks = fresh ? " I added a thank-you note to your to-dos." : "";
+  const reply: Record<string, string> = {
+    "Went well": `Nice.${thanks} What did they ask? Writing it down makes your next one easier.`,
+    "Okay": `Okay is normal.${thanks} Which question felt hardest? Write it down and we'll build a better answer.`,
+    "Rough": `That happens to everyone.${thanks} Note the question that threw you, so it can't again.`,
+  };
   return (
-    <section className="card card-pad stack-sm" data-testid="interview-debrief">
-      <b className="small">How did your interview go? {who}, {c.date}</b>
-      <textarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} placeholder="What did they ask? What went well? What would you do differently next time?" maxLength={1500} style={{ minHeight: 70 }} data-testid="input-debrief" />
-      <label className="row small"><input type="checkbox" checked={thanks} onChange={(e) => setThanks(e.target.checked)} /> Add a thank-you note to my to-dos</label>
+    <section className="card card-pad stack-sm" data-testid="interview-debrief" style={{ borderLeft: "3px solid var(--fox)" }}>
+      <b className="small">How did your interview with {who} go? ({c.date})</b>
+      {!how ? (
+        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          {["Went well", "Okay", "Rough"].map((k) => <button key={k} className="btn btn-secondary btn-sm" onClick={() => { setHow(k); if (fresh && !w.tasks.some((x) => x.title === thanksTask.title)) run(() => save("tasks", [thanksTask, ...w.tasks])); }} data-testid={`button-debrief-${k.toLowerCase().replace(/\s/g, "-")}`}>{k}</button>)}
+          <button className="btn btn-ghost btn-sm" onClick={() => { setHow("It didn't happen"); }} data-testid="button-debrief-moved">It didn't happen</button>
+        </div>
+      ) : how === "It didn't happen" ? (
+        <div className="stack-sm">
+          <span className="small">Was it moved? Paste the new email and Remy updates your calendar.</span>
+          <div className="row"><button className="btn btn-primary btn-sm" onClick={async () => { await finish(""); go("/progress?tab=email"); }}>Paste the new email</button><button className="btn btn-ghost btn-sm" onClick={() => finish("")}>It was canceled</button></div>
+        </div>
+      ) : (
+        <div className="stack-sm">
+          <span className="small">{reply[how]}</span>
+          <textarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} placeholder="Optional: what they asked, what you'd do differently" maxLength={1500} style={{ minHeight: 60 }} />
+          <div className="row"><button className="btn btn-primary btn-sm" onClick={() => finish(text.trim())} data-testid="button-save-debrief">{text.trim() ? "Save" : "Done"}</button></div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** After an event (career fair, info session): the people met there, saved while names are fresh. */
+function MetAnyone({ w, c }: { w: Workspace; c: CalItem }) {
+  const { save, run } = useStore();
+  const done = () => run(() => save("calendar", w.calendar.map((x) => (x.id === c.id ? { ...x, debriefed: true } : x))));
+  return (
+    <section className="card card-pad row-between" style={{ gap: 12, borderLeft: "3px solid var(--fox)" }} data-testid="event-met">
+      <span className="small"><b>Did you meet anyone at {c.title}?</b> Save them now while you remember names; Remy helps you follow up.</span>
       <div className="row">
-        <button className="btn btn-primary btn-sm" disabled={!text.trim()} onClick={() => finish(text.trim(), thanks)} data-testid="button-save-debrief">Save debrief</button>
-        <button className="btn btn-ghost btn-sm" onClick={() => finish("", false)} data-testid="button-skip-debrief">Skip</button>
+        <button className="btn btn-primary btn-sm" onClick={async () => { await done(); go(`/community?met=${encodeURIComponent(c.title)}&metOn=${c.date}`); }} data-testid="button-event-met-yes">Yes, add them</button>
+        <button className="btn btn-ghost btn-sm" onClick={done} data-testid="button-event-met-no">No</button>
       </div>
     </section>
   );
