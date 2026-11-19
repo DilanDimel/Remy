@@ -3,6 +3,7 @@ import { dreamWithoutOpenings } from "@shared/org";
 import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, BookmarkCheck, CalendarPlus, ChevronDown, ChevronUp, Link2, MapPin, RefreshCw, Search, Sparkles, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
 import type { Job, JobCheck, JobFit, JobInterestReason, JobRanking, Workspace } from "@shared/types";
 import { api, daysUntil, fmtDate, rid, useDraft, useStore } from "../lib/store";
+import { ApplyLink } from "../components/ApplyLink";
 import { go } from "../lib/router";
 import { kindLabel, reloadJobs, sameOrg, useJobs } from "../lib/jobs";
 import { shortTitle } from "@shared/org";
@@ -311,7 +312,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit
       )}
       <div className="row" style={{ marginTop: 4 }}>
         {j.kind !== "event" && <button className="btn btn-primary btn-sm" onClick={() => go(`/resume?tab=tailor&job=${j.id}&go=1`)} data-testid="button-tailor-job">Tailor resume</button>}
-        <a className="btn btn-secondary btn-sm" href={j.applyUrl || j.sourceUrl} target="_blank" rel="noreferrer" data-testid="link-apply">{j.kind === "event" ? "Register" : "Apply"} <ArrowUpRight size={13} /></a>
+        <ApplyLink j={j} />
         <button className="btn btn-ghost btn-sm" onClick={() => save("savedJobIds", saved ? w.savedJobIds.filter((x) => x !== j.id) : [...w.savedJobIds, j.id])} data-testid="button-save-job">{saved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />} {saved ? "Saved" : "Save"}</button>
         {j.deadline && <button className="btn btn-ghost btn-sm" onClick={addCal} disabled={onCal} data-testid="button-add-calendar"><CalendarPlus size={14} /> {onCal ? "On calendar" : "Add to calendar"}</button>}
         <button className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={() => setOpen((o) => !o)} data-testid="button-job-details">{open ? <ChevronUp size={14} /> : <ChevronDown size={14} />} Details</button>

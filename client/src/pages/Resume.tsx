@@ -4,7 +4,7 @@ import { shortTitle } from "@shared/org";
 import { dropDates, skillGroupName } from "@shared/words";
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, ArrowUpRight, Check, CheckCircle2, ChevronDown, ChevronUp, Download, FileText, Link2, Pencil, Plus, RotateCcw, ShieldAlert, ShieldCheck, Sparkles,
+  AlertTriangle, Check, CheckCircle2, ChevronDown, ChevronUp, Download, FileText, Link2, Pencil, Plus, RotateCcw, ShieldAlert, ShieldCheck, Sparkles,
   Star, Trash2, X,
 } from "lucide-react";
 import type { Application, BulletChange, ClaimFlag, Job, ResumeDoc, Workspace } from "@shared/types";
@@ -22,6 +22,7 @@ import { EvidencePassport } from "../components/EvidencePassport";
 import { StoryDeck } from "../components/StoryDeck";
 import { ResumeReview } from "../components/ResumeReview";
 import { PitchCard } from "../components/PitchCard";
+import { ApplyLink } from "../components/ApplyLink";
 import { LinkedInCoach } from "../components/LinkedInCoach";
 import { PdfPreview, WordPreview } from "../components/WordPreview";
 import { startTailor, useTailorSession } from "../lib/tailorChat";
@@ -116,7 +117,6 @@ function BaseResume({ subParam }: { subParam: string | null }) {
         </div>
       </div>
       {replace && <div className="card card-pad"><ResumeUpload compact onDone={() => setReplace(false)} /></div>}
-      {w.resume.confirmedAt && !dirty && recent(w.resume.confirmedAt) && <MomentAsk ask="moment:resume" question="What was the hardest or most confusing part of getting your resume into Remy?" />}
       <div className="tabs tabs-sub" role="tablist" aria-label="Base resume">
         {([["review", "Review"], ["edit", "Edit"], ["file", "File & export"]] as const).map(([k, l]) => (
           <button key={k} role="tab" className="tab" aria-selected={sub === k} onClick={() => setSub(k)} data-testid={`subtab-${k}`}>{l}</button>
@@ -127,7 +127,7 @@ function BaseResume({ subParam }: { subParam: string | null }) {
         <div className="row-between">
           <div className="stack-sm">
             <h3>Your resume, as a file</h3>
-            <span className="xs muted">{w.resume.original ? "Your original keeps your own layout. The export uses Remy's clean, ATS-friendly one-column format with your edits below, in your font and length." : "This resume was pasted, so there's no original file. Export it as a clean PDF or Word file."}</span>
+            <span className="xs muted">{w.resume.original ? "Your original keeps your own layout. The export uses Remy's clean, ATS-friendly one-column format with your edits below, in your font and length." : w.resume.parsedBy === "builder" ? "You built this resume with Remy, so there's no original file. Export it as a clean PDF or Word file." : "This resume was pasted, so there's no original file. Export it as a clean PDF or Word file."}</span>
           </div>
           <div className="row">
             {w.resume.original && <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/original?download=1", w.resume!.original!.name).catch((e) => toast(e.message, true))} data-testid="button-download-original"><Download size={14} /> Original</button>}
@@ -250,6 +250,8 @@ function BaseResume({ subParam }: { subParam: string | null }) {
           </div>
         </Modal>
       )}
+      {/* After the page, not above Remy's review: the student came to see their resume first. */}
+      {w.resume.confirmedAt && !dirty && recent(w.resume.confirmedAt) && <MomentAsk ask="moment:resume" question="What was the hardest or most confusing part of getting your resume into Remy?" />}
     </div>
   );
 }
@@ -386,7 +388,7 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
           <div className="stack-sm">
             <span className="xs muted">{job.company} · <StatusChip label={job.label} /></span>
             <h2 data-testid="text-app-title">{job.title}</h2>
-            <span className="xs muted">{job.deadlineText || "No deadline listed"} · <a className="src-link" href={job.applyUrl || job.sourceUrl} target="_blank" rel="noreferrer" style={{ color: "var(--plum)", fontWeight: 700 }}>Posting <ArrowUpRight size={12} style={{ display: "inline" }} /></a></span>
+            <span className="xs muted">{job.deadlineText || "No deadline listed"}{(job.applyUrl || job.sourceUrl) && " · "}<ApplyLink j={job} className="src-link" testid="link-apply-tailor" style={{ color: "var(--plum)", fontWeight: 700 }} /></span>
           </div>
           <button className="btn btn-primary" onClick={generate} disabled={!!busy || (!!mine && mine.stage !== "done") || !config?.ai.available || !w.resume} data-testid="button-generate">
             {mine?.stage === "working" ? <Spinner /> : a.generatedAt ? <RotateCcw size={16} /> : <Sparkles size={16} />} {mine?.stage === "working" ? "Tailoring…" : mine?.stage === "reading" ? "Reading the posting…" : mine?.stage === "asking" ? "Answering Remy…" : a.generatedAt ? "Regenerate" : "Tailor with AI"}
@@ -456,9 +458,14 @@ function FlagList({ flags }: { flags: ClaimFlag[] }) {
 }
 
 function Changes({ a }: { a: Application }) {
-  if (!a.changes.length) return <div className="card"><Empty title="No material changes proposed" body="Your resume already reads well for this posting. You can still write the cover letter and export." /></div>;
+  const n = a.skippedChanges || 0, one = n === 1;
+  const skipped = n ? <p className="xs muted" data-testid="text-skipped-changes">{a.skippedBusy
+    ? `Remy's AI was busy, so it left ${one ? "one line" : `${n} lines`} as you wrote ${one ? "it" : "them"}. Tailor again later to try rewording ${one ? "it" : "them"}.`
+    : `Remy left ${one ? "one line" : `${n} lines`} as you wrote ${one ? "it" : "them"}: it couldn't reword ${one ? "it" : "them"} for this posting without adding things your resume doesn't say.`}</p> : null;
+  if (!a.changes.length) return <div className="card">{skipped}<Empty title="No material changes proposed" body={(a.skippedChanges ? "" : "Your resume already reads well for this posting. ") + "You can still write the cover letter and export."} /></div>;
   return (
     <div className="stack">
+      {skipped}
       {a.changes.map((c, i) => <ChangeCard key={c.id} a={a} c={c} n={i + 1} />)}
       {a.gaps.length > 0 && (
         <div className="card card-pad stack-sm">
@@ -494,7 +501,7 @@ function ChangeCard({ a, c, n }: { a: Application; c: BulletChange; n: number })
       </div>
       <div className="grid-2">
         <div className="req-line"><Link2 size={15} style={{ marginTop: 3, color: "var(--plum)" }} /><div><div className="xs muted" style={{ fontWeight: 700 }}>POSTING REQUIREMENT</div><span className="small">“{c.requirementQuote}”</span></div></div>
-        <div className="req-line"><ShieldCheck size={15} style={{ marginTop: 3, color: "var(--sage)" }} /><div><div className="xs muted" style={{ fontWeight: 700 }}>WHY</div><span className="small">{c.reason}</span></div></div>
+        {c.reason && <div className="req-line"><ShieldCheck size={15} style={{ marginTop: 3, color: "var(--sage)" }} /><div><div className="xs muted" style={{ fontWeight: 700 }}>WHY</div><span className="small">{c.reason}</span></div></div>}
       </div>
       {c.status !== "rejected" && <FlagList flags={c.flags} />}
       {c.status !== "rejected" && c.flags.length > 0 && (

@@ -230,7 +230,7 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
           <>
             <div className="conn-row">
               <span className="conn-ico" aria-hidden><Mail size={18} /></span>
-              <div className="grow"><b>School email</b><span>Verify your student email to unlock your school's tools and alumni</span></div>
+              <div className="grow"><b>School email</b><span>Verify your student email to unlock your school's tools, like adding your degree plan</span></div>
               <button className="btn btn-secondary btn-sm" onClick={() => setOpen(open === "school" ? "" : "school")} data-testid="button-source-school">{open === "school" ? "Close" : "Verify"}</button>
             </div>
             {open === "school" && <div className="fade-up"><SchoolVerify /></div>}
@@ -380,6 +380,13 @@ function Preferences({ onBack }: { onBack: () => void }) {
     ? [!year.length && "your year", !allFields.length && !unsure && "at least one field (or \"I'm not sure yet\")", !types.length && "what kinds of opportunities"]
     : [!auth.length && "work authorization"]).filter(Boolean);
   const toPage = (n: number) => { setPage(n); window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); };
+  // Page 1's picks are saved before page 2, so a refresh there doesn't lose them (the rest saves on "Save and continue").
+  const nextPage = async () => {
+    const r = await run(() => save("profile", { ...p, classYear: year[0] || "", graduation: grad.trim(), timeline: timeline.join(", "), opportunityTypes: types.join(", "), targetRoles: allFields.join(", ") }));
+    // "I'm not sure yet" lives with setup, not the profile.
+    const o = r && unsure !== !!ws!.onboarding.exploring ? await run(() => save("onboarding", { ...ws!.onboarding, exploring: unsure })) : r;
+    if (r && o) toPage(1);
+  };
   const submit = async () => {
     const r = await run(() => save("profile", {
       ...p,
@@ -469,7 +476,7 @@ function Preferences({ onBack }: { onBack: () => void }) {
       <div className="row-between">
         <button className="btn btn-ghost" onClick={() => (page ? toPage(0) : onBack())}><ArrowLeft size={16} /> Back</button>
         {page === 0
-          ? <button className="btn btn-primary" onClick={() => toPage(1)} disabled={missing.length > 0} data-testid="button-ob-prefs-page">Next <ArrowRight size={16} /></button>
+          ? <button className="btn btn-primary" onClick={nextPage} disabled={missing.length > 0} data-testid="button-ob-prefs-page">Next <ArrowRight size={16} /></button>
           : <button className="btn btn-primary" onClick={submit} disabled={missing.length > 0} data-testid="button-ob-next-prefs">Save and continue <ArrowRight size={16} /></button>}
       </div>
     </div>

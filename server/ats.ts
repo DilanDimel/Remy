@@ -103,6 +103,14 @@ const SAME: [RegExp, RegExp][] = [
 export function hasKeyword(text: string, keyword: string): boolean {
   // "Python or Java or C++": the posting asks for any one of them.
   if (/\sor\s/i.test(keyword)) return keyword.split(/\s+or\s+/i).some((k) => hasKeyword(text, k));
+  // "Microsoft Excel" / "MS Excel" / "Advanced Excel" is the resume's "Excel": checked exactly as a plain "Excel" is, so it
+  // never misses a skill the plain word would find. (Telling the verb "excel" apart was tried and lost real skills
+  // in review; left for a separate change.) "Word" or "Project" alone are everyday words, so only distinct names.
+  const office = keyword.trim().match(/^(?:(?:advanced|intermediate|proficiency in|proficient in|microsoft|ms)\s+)+(excel|powerpoint|power point|outlook|visio)$/i);
+  if (office) return hasKeyword(text, /^power/i.test(office[1]) ? "PowerPoint" : office[1]);
+  if (/^power\s?point$/i.test(keyword.trim())) return /\bpower\s?point\b/i.test(text);
+  // "Microsoft Office" is shown by any of its apps on the resume.
+  if (/^(?:microsoft|ms)\s+office(?:\s+suite)?$/i.test(keyword.trim())) return /\b(?:microsoft|ms)\s+(?:office|word|365)\b/i.test(text) || ["Excel", "PowerPoint", "Outlook"].some((x) => hasKeyword(text, x));
   const plain = plainEnglish(text); // "excel at" isn't Excel, "react to" isn't React
   const low = lc(plain);
   const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
