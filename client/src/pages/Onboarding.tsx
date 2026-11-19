@@ -307,13 +307,13 @@ export function ProfileForm({ onSaved, hidePrefs, draft }: { onSaved?: () => voi
                 {["First-year", "Sophomore", "Junior", "Senior", "Graduate student"].map((o) => <option key={o}>{o}</option>)}
               </select>
             ) : (
-              <input className="input" value={p[k] ?? ""} placeholder={ph} onChange={(e) => setP({ ...p, [k]: e.target.value })} onFocus={() => setTyping(k)} onBlur={() => setTyping("")} data-testid={`input-profile-${k}`} />
+              <input className="input" maxLength={600} value={p[k] ?? ""} placeholder={ph} onChange={(e) => setP({ ...p, [k]: e.target.value })} onFocus={() => setTyping(k)} onBlur={() => setTyping("")} data-testid={`input-profile-${k}`} />
             )}
             {(k === "name" || k === "preferredName") && typing !== k && nameConcern(p[k] || "", k === "preferredName") && <span className="xs field-warn" role="note" data-testid={`warn-profile-${k}`}>{nameConcern(p[k] || "", k === "preferredName")}</span>}
           </label>
         ))}
       </div>
-      <label className="field"><span>Goals</span><textarea className="textarea" value={p.goals} onChange={(e) => setP({ ...p, goals: e.target.value })} placeholder="What would a great next year look like?" data-testid="input-profile-goals" /></label>
+      <label className="field"><span>Goals</span><textarea className="textarea" maxLength={600} value={p.goals} onChange={(e) => setP({ ...p, goals: e.target.value })} placeholder="What would a great next year look like?" data-testid="input-profile-goals" /></label>
       {!draft && (<div className="row">
         <button className="btn btn-primary btn-sm" disabled={!dirty} onClick={async () => { const r = await run(() => save("profile", p), "Profile saved"); if (r) onSaved?.(); }} data-testid="button-save-profile">Save profile</button>
         {dirty && <span className="xs muted">Unsaved changes</span>}
