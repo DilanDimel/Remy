@@ -32,8 +32,8 @@ export default function Onboarding() {
   const setStep = (s: number) => save("onboarding", { ...w.onboarding, step: s });
   const finish = async () => {
     uiFlags.flyIn = true;
-    const to = LAND[w.onboarding.focus || ""];
-    if (to) go(to);
+    // Setup ends on Home, where Remy's tutorial starts (it used to land on the page the student's goal pointed to).
+    go("/");
     // Remy's tutorial starts now (set here so students who finished setup before it existed aren't surprised by it).
     await save("settings", { tour: 0 }).catch(() => {});
     await save("onboarding", { ...w.onboarding, done: true });
@@ -76,7 +76,6 @@ export default function Onboarding() {
 // Where finishing setup lands, by what the student said would help most.
 // "Find openings" lands on Home, where the plan's first step and the best-fitting openings are (Opportunities alone
 // could be empty for fields Remy covers thinly); resume and interview go straight to the tool the student asked for.
-const LAND: Record<string, string> = { resume: "/resume?tab=base&checks=1", openings: "/", interview: "/interview", direction: "/path?tab=career" };
 
 /** First screen of setup: one question, so a student can get to what they came for. */
 // "What are you working toward?": tap one or write your own. "Not sure yet" is a real answer (Remy starts from exploring).

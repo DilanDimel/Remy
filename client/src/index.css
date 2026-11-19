@@ -268,8 +268,7 @@ label.row > input[type="checkbox"] { flex: none; margin-top: 3px; }
 .start-row:hover .start-box:not(.done) { border-color: var(--fox, #e2622b); }
 .start-box { width: 18px; height: 18px; border-radius: 6px; border: 2px solid rgba(255, 255, 255, 0.35); display: grid; place-items: center; flex: none; color: #fff; }
 .start-box.done { background: #2f8a5b; border-color: #2f8a5b; }
-@keyframes tour-pulse { 50% { box-shadow: 0 0 0 14px rgba(226, 98, 43, 0.05); } }
-@media (prefers-reduced-motion: reduce) { @media (max-width: 640px) { .item { display: flex; gap: 12px; align-items: flex-start; padding: 14px 0; border-top: 1px solid var(--line); }
+.item { display: flex; gap: 12px; align-items: flex-start; padding: 14px 0; border-top: 1px solid var(--line); }
 .item:first-child { border-top: 0; }
 .item-main { flex: 1; min-width: 0; }
 .why { font-size: var(--text-sm); color: var(--muted-text); }
@@ -1148,6 +1147,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 
 /* Remy's tutorial: four panels dim the page around one spot; the spot stays clickable, the bubble explains it. */
 .tour { position: fixed; inset: 0; z-index: 1000; pointer-events: none; }
+.save-status { z-index: 1001; } /* "Couldn't save… Retry" stays reachable above the tour */
 .tour-shade { position: fixed; pointer-events: auto; transition: all .25s ease; }
 .tour-spot { position: fixed; border-radius: 12px; box-shadow: 0 0 0 3px var(--fox), 0 0 0 9px rgba(232, 106, 42, 0.25); pointer-events: none; transition: all .25s ease; animation: tour-spot-pulse 1.6s ease-in-out infinite; }
 @keyframes tour-spot-pulse { 50% { box-shadow: 0 0 0 3px var(--fox), 0 0 0 15px rgba(232, 106, 42, 0.1); } }
