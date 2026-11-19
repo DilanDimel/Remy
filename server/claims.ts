@@ -195,13 +195,24 @@ export function claimCheck(
     }
   }
   // Where or how a skill was learned, or what a job taught them, is the student's to say (Dilan, Nov 18: ask, don't
-  // invent). "Through my coursework I built Excel skills" needs a class in the record; "it taught me to…" needs their words.
-  for (const m of text.matchAll(/\b(?:through|in|from|during|via)\s+(?:my\s+|our\s+)?(?:academic\s+|finance\s+|business\s+|college\s+|university\s+)?(?:course\s*work|courses?|classes|class|curriculum|studies)\b/gi)) {
-    if (!/\b(?:class|classes|course|courses|coursework|curriculum)\b/.test(ev)) add({ type: "scope", term: m[0], message: `“${m[0]}” says where you learned this, and your resume doesn't. Tell Remy where you learned it, or remove it.` });
+  // invent). Judged per sentence and per skill: "Through my coursework I built Excel skills" needs the student's own
+  // "Where I learned Excel — In a class" (a coursework section or a class answer for another skill doesn't count), and
+  // a named class ("my finance classes") needs that word in their answer. "It taught me to…" needs their own words.
+  const said = lc(evidence + " " + (opts.original || ""));
+  const learned = [...evidence.matchAll(/Where I learned ([^—\n]+?)\s+—\s+([^\n]+)/g)].map((f) => ({ skill: f[1].trim(), answer: f[2].trim() }));
+  const sentenceAt = (i: number) => { const a = text.slice(0, i).search(/[^.!?\n]*$/); const b = text.slice(i).search(/[.!?\n]/); return text.slice(a, b < 0 ? text.length : i + b); };
+  const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  for (const m of text.matchAll(/\b(?:(?:through|from|via)\s+(?:my\s+|our\s+)?|(?:in|during)\s+(?:my|our)\s+)((?:academic|finance|business|accounting|economics|college|university|[A-Z][a-z]+)\s+)?(?:course\s*work|courses?|classes|class|curriculum)\b/gi)) {
+    if (said.includes(lc(m[0]))) continue;
+    const sentence = sentenceAt(m.index!);
+    const mod = (m[1] || "").trim();
+    const ok = learned.some((f) => /\b(?:class|course)/i.test(f.answer) && new RegExp(String.raw`\b${esc(f.skill)}\b`, "i").test(sentence) && (!mod || new RegExp(String.raw`\b${esc(mod)}\b`, "i").test(f.answer)));
+    if (!ok) add({ type: "scope", term: m[0], message: `“${m[0]}” says where you learned this, and you haven't told Remy that. Tell Remy where you learned it, or remove it.` });
   }
-  for (const m of text.matchAll(/\b(?:(?:has|have|it's|it has|that|which|this)\s+)?taught\s+me\b|\blearn(?:ed|ing)\s+the\s+(?:importance|value)\s+of\b|\bhelped\s+me\s+(?:develop|build|learn|grow|strengthen|understand|realize)\b/gi)) {
-    const said = lc(evidence + " " + (opts.original || ""));
-    if (!said.includes(lc(m[0]).replace(/^(?:has|have|it's|it has|that|which|this)\s+/, ""))) add({ type: "scope", term: m[0], message: `“${m[0]}” says what an experience taught you, in Remy's words, not yours. Tell Remy in your own words, or remove it.` });
+  for (const m of text.matchAll(/\b(?:taught|teach(?:es|ing)?|showed|shown)\s+me\b|\bgave\s+me\s+an?\s+(?:\w+\s+)?(?:sense|appreciation|understanding)\b|\blearn(?:ed|ing)\s+(?:the\s+(?:importance|value)\s+of|how\s+to)\b|\bhelped\s+me\s+(?:to\s+)?(?:develop|build|learn|grow|strengthen|understand|realize|become|improve|gain)\b|\bwhere\s+I\s+learned\b/gi)) {
+    // The phrase plus the next three words ("taught me to communicate clearly") must be the student's own.
+    const tail = text.slice(m.index! + m[0].length).match(/^(?:\W+\w+){0,3}/)?.[0] || "";
+    if (!said.includes(lc(m[0] + tail).replace(/\s+/g, " ").trim())) add({ type: "scope", term: m[0], message: `“${m[0]}” says what an experience taught you, in Remy's words, not yours. Tell Remy in your own words, or remove it.` });
   }
   // Check-ins: every detail must come from what the student said, so even one new word is flagged.
   if (opts.strict) {

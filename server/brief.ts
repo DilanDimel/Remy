@@ -144,7 +144,7 @@ Return {"company":"","role":"","fits":[{"requirementId":"","bulletId":""}],"ques
 }
 
 // People skills ("customer service", "detail-oriented") aren't learned in one place; asking where would be odd.
-const SOFT = /communicat|customer|service|team|leader|detail|organi[sz]|problem|time management|interpersonal|ethic|multi-?task|adapt|motivat|collaborat|self-starter|critical|analytical thinking|initiative|professional|fast-paced|independen|work ethic|attitude|reliab|punctual|curio/i;
+const SOFT = /communicat|customer|service|team|leader|detail|organi[sz]|problem|time management|interpersonal|ethic|multi-?task|adapt|motivat|collaborat|self-starter|critical|analytical thinking|initiative|professional|fast-paced|independen|work ethic|attitude|reliab|punctual|curio|written|verbal|speaking|presentation|sales|negotiat|research|writing|listening|creativ|flexib|empath|bilingual|language|spanish|english|french|mandarin|chinese|german|portuguese|arabic|hindi|vietnamese|korean|japanese|italian|russian|tagalog|urdu/i;
 /** Ask, don't invent (Dilan, Nov 18): the posting asks for a skill the student lists only under Skills, with no line
  *  showing where it came from. Remy asks where they learned it (one skill per tailoring), so the letter can say it in
  *  their words instead of making up "through my coursework". Skipped when a fact already covers it. */
@@ -156,7 +156,11 @@ export function skillOriginQuestion(job: Job, lines: Line[], doc: ResumeDoc | un
     const k = r.keyword.trim();
     if (!k || k.length > 40 || SOFT.test(k)) continue;
     if (!hasKeyword(skills, k) || hasKeyword(said, k)) continue;
-    const name = k.replace(/^(?:microsoft|ms)\s+/i, "");
+    // Named the way the student's own Skills line says it ("Excel", not the posting's "Advanced Excel"), so the saved
+    // answer never claims more than the resume.
+    const item = skills.split(/[,;|\n•]+/).map((x) => x.replace(/\(.*?\)/g, "").trim()).find((x) => x && x.length <= 40 && hasKeyword(x, k));
+    if (!item) continue;
+    const name = item.replace(/^(?:microsoft|ms)\s+/i, "");
     const named = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
     if (facts.some((f) => named.test(f) && /\b(?:learn|class|course|job|taught myself|on my own)\w*/i.test(f))) continue;
     return { key: "skill", q: `The posting asks for ${name}, and your resume lists it. Where did you learn it? (So your letter can say it right.)`, label: `Where I learned ${name}`, options: ["In a class", "At a job or internship", "On my own"], pick: "Skip" };
