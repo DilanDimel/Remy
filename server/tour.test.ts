@@ -49,3 +49,11 @@ test("contacts: where we met and when are saved, email optional, a bad date refu
   assert.equal((await put("settings", { firstWin: 1, introsSeen: ["/opportunities"] })).status, 200);
   assert.equal((await put("settings", { firstWin: 5 })).status, 400);
 });
+
+test("Future of your field: the student's major comes first, even when roles or interests match other fields", async () => {
+  const { futureFor } = await import("./future");
+  const ws = (p: any) => ({ profile: { major: "", targetRoles: "", interests: "", ...p } }) as any;
+  const a = futureFor(ws({ major: "Nursing", interests: "data analysis" })).fields.map((f) => f.field);
+  assert.ok(a.length >= 1);
+  assert.match(a[0], /nurs|health/i, JSON.stringify(a));
+});

@@ -41,10 +41,14 @@ export default function Community() {
     // An email is optional, but one that can't be an address would end up in the draft's "To:" line.
     if (c.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email.trim())) { toast("That email doesn't look right. Fix it or leave it empty.", true); return; }
     const id = rid("c");
-    const ok = await run(() => save("contacts", [...w.contacts, { id, ...c, met: c.met.trim(), tags: [], label: "Student provided" }]), "Contact saved");
+    const met = c.met.trim();
+    const ok = await run(() => save("contacts", [...w.contacts, { id, ...c, met, metOn: met ? c.metOn : "", tags: [], label: "Student provided" }]), "Contact saved");
+    if (!ok) return; // keep the form open so nothing they typed is lost
     // Idea 18: a short thank-you within a day or two is what makes people remember you.
-    if (ok && thank && c.met.trim()) {
-      const due = new Date(Date.parse(c.metOn || today) + 864e5).toISOString().slice(0, 10);
+    if (thank && met) {
+      // The day after they met, or today if that's already passed (logging a fair from two weeks ago).
+      const next = new Date(Date.parse(c.metOn || today) + 864e5).toISOString().slice(0, 10);
+      const due = next < today ? today : next;
       await run(() => save("tasks", [{ id: rid("t"), title: `Send ${c.name.trim()} a short thank-you`, why: `You met at ${c.met.trim()}. Two or three sentences: thank them, mention one thing you talked about, and ask to stay in touch.`, due, category: "Connect" as const, done: false, source: "Community", link: "/community" }, ...w.tasks]), "Thank-you reminder added to your to-dos");
     }
     setAdding(false);
@@ -108,7 +112,7 @@ export default function Community() {
             {(["name", "title", "org", "email"] as const).map((k) => <label key={k} className="field"><span style={{ textTransform: "capitalize" }}>{k === "org" ? "Organization" : k === "email" ? "Email (optional)" : k}</span><input className="input" value={c[k]} onChange={(e) => setC({ ...c, [k]: e.target.value })} data-testid={`input-contact-new-${k}`} /></label>)}
           </div>
           <div className="grid-2">
-            <label className="field"><span>Where did you meet? (optional)</span><input className="input" value={c.met} onChange={(e) => setC({ ...c, met: e.target.value })} placeholder="e.g. TCU fall career fair" data-testid="input-contact-new-met" /></label>
+            <label className="field"><span>Where did you meet? (optional)</span><input className="input" value={c.met} onChange={(e) => setC({ ...c, met: e.target.value })} placeholder="e.g. TCU fall career fair" maxLength={200} data-testid="input-contact-new-met" /></label>
             <label className="field"><span>When</span><input className="input" type="date" value={c.metOn} max={today} onChange={(e) => setC({ ...c, metOn: e.target.value })} data-testid="input-contact-new-meton" /></label>
           </div>
           {c.met.trim() && <label className="row small" style={{ gap: 8 }}><input type="checkbox" checked={thank} onChange={(e) => setThank(e.target.checked)} data-testid="check-thank-you" /> Remind me to send a thank-you</label>}
@@ -155,7 +159,7 @@ function ReviewModal({ draft, onClose }: { draft: OutreachDraft; onClose: () => 
         </div>
       )}
       <div className="row" style={{ justifyContent: "space-between" }}>
-        <CopyButton text={`To: ${d.to}\nSubject: ${d.subject}\n\n${d.body}`} />
+        <CopyButton text={`${d.to ? `To: ${d.to}\n` : ""}Subject: ${d.subject}\n\n${d.body}`} />
         <div className="row">
           {d.status === "draft" ? (
             <button className="btn btn-primary" onClick={() => run(() => persist({ status: "approved", approvedAt: new Date().toISOString() }), "Approved")} data-testid="button-approve-outreach">Approve message</button>

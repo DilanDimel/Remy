@@ -50,7 +50,10 @@ const view = (o: Occ): FutureOcc => ({ title: o.t, change: o.chg ?? 0, openings:
 
 export function futureFor(ws: Workspace): { source: string; allJobsGrowth: number; fields: FutureField[] } {
   const wants = [ws.profile.targetRoles, ws.profile.major, ws.profile.interests].join(" ");
-  const fields = FIELD_SEARCH.filter((_, k) => FIELD_TITLES[k][0].test(wants)).slice(0, 3);
+  // The student's own major comes first (Path shows the first field open and the others folded).
+  const major = ws.profile.major || "";
+  const fields = FIELD_SEARCH.map((f, k) => ({ f, k })).filter(({ k }) => FIELD_TITLES[k][0].test(wants))
+    .sort((a, b) => Number(FIELD_TITLES[b.k][0].test(major)) - Number(FIELD_TITLES[a.k][0].test(major))).map(({ f }) => f).slice(0, 3);
   return {
     source: DATA.source,
     allJobsGrowth: ALL_JOBS_GROWTH,

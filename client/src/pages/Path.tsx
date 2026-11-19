@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Compass, HelpCircle, Plus, RotateCcw, Search, Sparkles, Trash2, TrendingDown, TrendingUp } from "lucide-react";
 import { FIELD_GROUPS } from "@shared/fields";
 import { NEED_LABEL, ROADS, roadFor, YEARS, yearNumber } from "@shared/roads";
@@ -293,6 +293,7 @@ function Explore({ above = false }: { above?: boolean }) {
   const { ws, save, run, config } = useStore();
   const p = ws!.profile;
   const [browse, setBrowse] = useState("");
+  const browseRef = useRef<HTMLDetailsElement>(null); // opened by the student or by picking an area; never closed for them
   const [data, setData] = useState<{ field: string; jobs: FutureOcc[] }[] | null>(null);
   const [open, setOpen] = useState<Explained | null>(null);
   const [asking, setAsking] = useState("");
@@ -316,7 +317,7 @@ function Explore({ above = false }: { above?: boolean }) {
       <div className="stack-sm">
         <h3 className="row"><HelpCircle size={18} /> Not sure what you want to do? Start here</h3>
         {ws!.plan?.careers.length ? <button className="xs" style={{ alignSelf: "flex-start", color: "var(--fox)", fontWeight: 700, padding: 0 }} onClick={() => document.getElementById("directions")?.scrollIntoView({ behavior: "smooth" })} data-testid="link-directions">See {ws!.plan.careers.length === 1 ? "the direction" : `the ${ws!.plan.careers.length} directions`} Remy suggests for you {above ? "↓" : "↑"}</button> : null}
-        <p className="small muted">{browse ? `Jobs in ${browse.toLowerCase()} that hire the most people.` : p.major ? `Jobs people with your major (${p.major}) often go into, the ones that hire the most first.` : "Pick an area to see the jobs in it."} Tap one to see what the work is really like.</p>
+        <p className="small muted">{browse ? `Jobs in ${browse.toLowerCase()} that hire the most people.` : p.major ? `Jobs people with your major (${p.major}) often go into, the ones that hire the most first.` : "Open “Browse jobs by major” below and pick an area."} Tap one to see what the work is really like.</p>
       </div>
       <form className="row" onSubmit={(e) => { e.preventDefault(); if (typed.trim().length > 2) explain(typed.trim()); }}>
         <input className="input grow" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Heard of a job but not sure what it is? e.g. actuary, UX researcher" aria-label="Job title to explain" data-testid="input-explain" />
@@ -338,7 +339,7 @@ function Explore({ above = false }: { above?: boolean }) {
           </>}
         </div>
       )}
-      <details className="stack-sm" data-testid="browse-jobs" open={!!browse || undefined}>
+      <details ref={browseRef} className="stack-sm" data-testid="browse-jobs">
       <summary style={{ cursor: "pointer", fontWeight: 700 }}>Browse jobs by major{data ? ` (${data.reduce((n, f) => n + f.jobs.length, 0)})` : ""}</summary>
       {data?.map((f) => (
         <div key={f.field} className="stack-sm" style={{ marginTop: 10 }}>
@@ -356,7 +357,7 @@ function Explore({ above = false }: { above?: boolean }) {
       <div className="stack-sm">
         {/* one grouped dropdown instead of ~70 small chips */}
         <label className="xs muted" htmlFor="browse-area">Browse another area</label>
-        <select id="browse-area" className="input" style={{ maxWidth: 360 }} value={browse} onChange={(e) => setBrowse(e.target.value)} data-testid="select-browse-area">
+        <select id="browse-area" className="input" style={{ maxWidth: 360 }} value={browse} onChange={(e) => { setBrowse(e.target.value); if (browseRef.current) browseRef.current.open = true; }} data-testid="select-browse-area">
           <option value="">My major</option>
           {FIELD_GROUPS.map(([g, opts]) => <optgroup key={g} label={g}>{opts.map((o) => <option key={o} value={o}>{o}</option>)}</optgroup>)}
         </select>
