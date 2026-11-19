@@ -229,6 +229,8 @@ export interface JobFit {
   /** Ranking: eligibility, requirement overlap, region and type preferences. */
   score?: number;
   regionMatch?: boolean | null;
+  /** Outside the student's places but shown because of their relocation answer: why ("the title is in your field"). */
+  relocate?: string;
   typeMatch?: boolean | null;
 }
 

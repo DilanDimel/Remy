@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { dreamWithoutOpenings } from "@shared/org";
 import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, BookmarkCheck, CalendarPlus, ChevronDown, ChevronUp, Link2, MapPin, RefreshCw, Search, Sparkles, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
 import type { Job, JobCheck, JobFit, JobInterestReason, JobRanking, Workspace } from "@shared/types";
@@ -80,11 +80,13 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
     .filter((j) => !q || `${j.title} ${j.company} ${j.location}`.toLowerCase().includes(q.toLowerCase()));
   // Postings that definitely rule the student out are hidden; elsewhere-only ones too, if asked.
   const ineligible = base.filter((j) => fits[j.id]?.excluded);
-  const elsewhere = base.filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch === false);
+  // Outside the student's places with no reason from their relocation answer: behind the "N more" link.
+  const elsewhere = base.filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch === false && !fits[j.id]?.relocate);
   const list = base
     .filter((j) => showIneligible || !fits[j.id]?.excluded)
-    .filter((j) => !myRegions || fits[j.id]?.regionMatch !== false)
-    .sort((a, b) => Number(pinned(b)) - Number(pinned(a)) || rank(b) - rank(a) || (a.deadline || "9999").localeCompare(b.deadline || "9999"));
+    .filter((j) => !myRegions || fits[j.id]?.regionMatch !== false || !!fits[j.id]?.relocate)
+    // The student's own places first, then the "Worth relocating for" group (relocation answer), each ranked by fit.
+    .sort((a, b) => Number(pinned(b)) - Number(pinned(a)) || (regions ? Number(fits[b.id]?.regionMatch !== false) - Number(fits[a.id]?.regionMatch !== false) : 0) || rank(b) - rank(a) || (a.deadline || "9999").localeCompare(b.deadline || "9999"));
   return (
     <>
       {needsProfile && <div className="notice" data-testid="needs-profile">{needsProfile}</div>}
@@ -142,7 +144,15 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
           const count = Math.max(shown, list.findIndex((j) => j.id === focus) + 1);
           return (
             <div className="stack">
-              {list.slice(0, count).map((j) => <JobCard key={j.id} j={j} fit={fits[j.id]} moved={interest[j.id]} canRate={interestEnabled} defaultOpen={focus === j.id} />)}
+              {list.slice(0, count).map((j, i, shownList) => (
+                <Fragment key={j.id}>
+                  {/* Openings outside the student's places come after theirs, under a line saying why (their relocation answer). */}
+                  {regions && fits[j.id]?.regionMatch === false && fits[shownList[i - 1]?.id]?.regionMatch !== false && (
+                    <div className="row small muted" style={{ gap: 8, margin: "6px 2px 0" }} data-testid="worth-relocating"><b style={{ color: "var(--text)" }}>Worth relocating for</b><span>outside {regions}</span></div>
+                  )}
+                  <JobCard j={j} fit={fits[j.id]} moved={interest[j.id]} canRate={interestEnabled} defaultOpen={focus === j.id} />
+                </Fragment>
+              ))}
               {list.length > count && (
                 <button className="btn btn-secondary" style={{ alignSelf: "center" }} onClick={() => {
                   setShown(count + 10);
@@ -261,6 +271,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit
         {j.deadline && <span className={"chip " + (d !== null && d < 0 ? "chip-bad" : d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d < 0 ? "Deadline passed" : `Due ${fmtDate(j.deadline)}${d === 0 ? " · today" : d !== null ? ` · ${d}d` : ""}`}</span>}
       </div>
       {fit && <p className="small job-why"><strong>Why it fits you: </strong>{fit.why}</p>}
+      {fit?.regionMatch === false && <p className="xs muted" data-testid="job-outside">Outside the places you chose{fit.relocate ? `, shown because ${fit.relocate}` : ""}.</p>}
       {(() => { const known = w.contacts.filter((c) => sameOrg(c.org, j.company)); return known.length > 0 && <button className="xs job-contact" style={{ textAlign: "left", color: "var(--fox)", fontWeight: 700 }} onClick={() => go("/community")} data-testid="job-known-contact">You know {known.map((c) => c.name).join(", ")} here: ask about the team before you apply →</button>; })()}
       {/* These wait under Details on every screen, so a closed card is short (audit section 6). */}
       <div className="job-more stack-sm">

@@ -4,7 +4,7 @@ import type { Job, Requirement, Workspace } from "@shared/types";
 import { htmlToText } from "./parse";
 import { topSkills } from "@shared/requirements";
 import { uid } from "./ids";
-import { abroad, COUNTRY_IN_TEXT, FIELD_SEARCH, FIELD_TITLES, regionMatch, chosenFieldText } from "./fit";
+import { abroad, COUNTRY_IN_TEXT, FIELD_SEARCH, FIELD_TITLES, regionMatch, chosenFieldText, relocateReason } from "./fit";
 import { q, q1 } from "./sql";
 import { interestEnabled, preferenceAdjustment } from "./ranking";
 
@@ -493,7 +493,15 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, e
         const generic = !FIELD_TITLES.some(([, t]) => t.test(r.title));
         if (titleFits.length && !titleFits.some((t) => t.test(r.title)) && !generic) continue;
         // Skip places the student didn't ask for before spending a detail read on them.
-        const where = (location: string) => { if (r.nearby) return true; const m = regionMatch(ws, { location, format: /remote/i.test(location) ? "Remote" : "" } as Job); return m ?? !abroad(location); };
+        const where = (location: string) => {
+          if (r.nearby) return true;
+          const m = regionMatch(ws, { location, format: /remote/i.test(location) ? "Remote" : "" } as Job);
+          if (m !== false) return m ?? !abroad(location);
+          // Outside the places they chose: their own "Open to relocating?" answer decides (council, Nov 19). "Yes" keeps
+          // it; "For the right role" keeps it only with a reason they'd recognize (a title in their own field words, or a
+          // dream employer), shown on the card; "No" or no answer keeps them to their places.
+          return !abroad(location) && !!relocateReason(ws, r.title, r.company || b.company);
+        };
         if (!/^\d+ locations?$/i.test(r.location) && !where(r.location)) continue;
         // Workday lists only titles; read the full posting for the few that pass the title checks.
         if (r.detail && !r.text) {
