@@ -35,3 +35,44 @@ test("career quest: XP from missions (all-three bonus) and real wins; levels", (
   assert.equal(levelOf(300).name, "Prospect");
   assert.equal(levelOf(5000).max, true);
 });
+
+test("career quest, skeptic fixes: the week's missions stay fixed; the freeze holds on a Monday; bonus needs this week's three", async () => {
+  const { missionsOf, xpOf } = await import("../shared/game");
+  const w = emptyWorkspace();
+  const key = "2026-11-23";
+  const g = { weeks: { [key]: { base: counters(w), done: [] as string[], missions: ["person", "save", "tailor"] } } };
+  w.contacts = [{ id: "c1" } as any];
+  w.resume = { doc: { sections: [], skills: [], contact: {} } } as any; // a resume arrives mid-week: the pool would change
+  assert.deepEqual(missionsOf(w, g, key).map((m) => m.key), ["person", "save", "tailor"]);
+  assert.deepEqual(doneThisWeek(w, g, key, counters(w)), ["person"]);
+  const wk = (done: string[]) => ({ base: {}, done });
+  assert.deepEqual(streak({ weeks: { "2026-11-23": wk([]), "2026-11-16": wk([]), "2026-11-09": wk(["rate"]), "2026-11-02": wk(["save"]) } }, "2026-11-23"), { weeks: 2, freezeUsed: true });
+  // Three done keys that aren't this week's list don't earn the all-three bonus.
+  assert.equal(xpOf(emptyWorkspace(), { weeks: { [key]: { base: {}, done: ["person", "save", "rate"], missions: ["person", "save", "tailor"] } } }), 40 + 35 + 45);
+});
+
+test("career quest: the server merges weeks, so a stale tab can't wipe a week or its finished missions", async () => {
+  const { registerRoutes } = await import("./routes");
+  const { createSession, ensureUser, saveWorkspace, loadWorkspace } = await import("./db");
+  const express = (await import("express")).default;
+  const { createServer } = await import("node:http");
+  const app = express(); app.use(express.json({ limit: "5mb" }));
+  const server = createServer(app); await registerRoutes(server, app);
+  await new Promise<void>((r) => server.listen(0, r));
+  const port = (server.address() as any).port;
+  try {
+    const me = { id: "g:gametest", kind: "google", email: "gametest@example.com", name: "", picture: "" } as any;
+    await ensureUser(me);
+    const ws = emptyWorkspace(); ws.game = { weeks: { "2026-11-16": { base: { saved: 1 }, done: ["save", "person"], missions: ["person", "save", "tailor"] } } };
+    await saveWorkspace(me.id, ws);
+    const s = await createSession(me.id);
+    const put = (value: unknown) => fetch(`http://localhost:${port}/api/ws/game`, { method: "PUT", headers: { "content-type": "application/json", cookie: `__Host-or_sid=${s.token}`, origin: `http://localhost:${port}` }, body: JSON.stringify({ value }) });
+    // A stale tab that never saw the week re-creates it empty with higher counts.
+    const r = await put({ weeks: { "2026-11-16": { base: { saved: 5 }, done: [], missions: ["rate", "save", "story"] } } });
+    assert.equal(r.status, 200);
+    const after = (await loadWorkspace(me.id)).game!.weeks["2026-11-16"];
+    assert.deepEqual(after.done, ["save", "person"]);
+    assert.deepEqual(after.base, { saved: 1 });
+    assert.deepEqual(after.missions, ["person", "save", "tailor"]);
+  } finally { server.close(); }
+});

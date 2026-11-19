@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { ArrowRight, Award, Check, Flame, Lock, Snowflake, Star, Zap } from "lucide-react";
 import type { Workspace } from "@shared/types";
-import { ALL_DONE_BONUS, badges, counters, doneThisWeek, levelOf, streak, weekKey, weekMissions, xpOf, type GameState } from "@shared/game";
+import { ALL_DONE_BONUS, badges, counters, doneThisWeek, levelOf, missionsOf, streak, weekKey, weekMissions, xpOf, type GameState } from "@shared/game";
 import { useStore } from "../lib/store";
 import { go } from "../lib/router";
 
@@ -20,7 +20,7 @@ export function useGameRecord(w: Workspace | null | undefined, on: boolean) {
   useEffect(() => {
     if (!on || !w) return;
     const week = g.weeks[key];
-    if (!week) { save("game", { weeks: { ...trim(g.weeks), [key]: { base: now, done: [] } } }).catch(() => {}); return; }
+    if (!week) { save("game", { weeks: { ...trim(g.weeks), [key]: { base: now, done: [], missions: weekMissions(w, key).map((m) => m.key) } } }).catch(() => {}); return; }
     if (done.length > week.done.length) save("game", { weeks: { ...g.weeks, [key]: { ...week, done } } }).catch(() => {});
   }, [on, sig]);
 }
@@ -38,14 +38,14 @@ export function GameSidebar({ w }: { w: Workspace }) {
         <span className="row xs" style={{ gap: 3, color: "#e8590c", fontWeight: 800 }}><Flame size={15} fill={s.weeks ? "#ff922b" : "none"} /> {s.weeks} wk</span>
       </div>
       <div className="game-bar"><div style={{ width: `${pct}%` }} /></div>
-      <div className="row-between xs muted"><span>{xpOf(w, g)}{lv.max ? "" : ` / ${lv.next}`} XP</span><span className="row" style={{ gap: 3 }}><Snowflake size={12} /> {s.freezeUsed ? "freeze used" : "1 freeze"}</span></div>
+      <div className="row-between xs muted"><span>{xpOf(w, g)}{lv.max ? "" : ` / ${lv.next}`} XP</span><span className="row" style={{ gap: 3 }}><Snowflake size={12} /> {s.freezeUsed ? "freeze holding" : "1 freeze"}</span></div>
     </button>
   );
 }
 
 export function MissionBoard({ w }: { w: Workspace }) {
   const g = stateOf(w), key = weekKey();
-  const missions = weekMissions(w, key);
+  const missions = missionsOf(w, g, key);
   const done = doneThisWeek(w, g, key, counters(w));
   const s = streak(g, key), lv = levelOf(xpOf(w, g));
   const n = missions.filter((m) => done.includes(m.key)).length;

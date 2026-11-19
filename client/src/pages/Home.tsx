@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ApplyLink } from "../components/ApplyLink";
 import { SeasonCard } from "../components/SeasonCard";
 import { ApplyNudge } from "../components/ApplyNudge";
-import { MissionBoard, useGameRecord } from "../components/Game";
+import { MissionBoard } from "../components/Game";
 import { ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronUp, MapPin } from "lucide-react";
 import type { Job, Task, Workspace } from "@shared/types";
 import { api, daysUntil, fmtDate, rid, useStore } from "../lib/store";
@@ -22,7 +22,6 @@ function greeting() {
 
 export default function Home() {
   const { ws, save, run, setWs, me } = useStore();
-  useGameRecord(ws, !!me?.owner); // Career quest: owners only while tested
   const w = ws!;
   const { jobs, fits } = useJobs();
   const [tab, setTab] = useState<Tab>("todos");

@@ -11,7 +11,7 @@ import { BetaBadge, Modal, Remy, Rich, Spinner, StatusChip } from "./components/
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { QuickRate } from "./components/QuickRate";
 import { WhatsNew } from "./components/WhatsNew";
-import { GameSidebar } from "./components/Game";
+import { GameSidebar, useGameRecord } from "./components/Game";
 import { Avatar } from "./components/ProfilePhoto";
 import { answer as answerTailor, endSession as endTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
@@ -143,6 +143,7 @@ function isMobileNow() {
 
 function Shell() {
   const { ws, save, me } = useStore();
+  useGameRecord(ws, !!me?.owner); // Career quest (owners only while tested): keeps the week on every page
   const { path, query } = useRoute();
   const [asstPage, setAsstPage] = useState<boolean | null>(null);
   const [more, setMore] = useState(false);

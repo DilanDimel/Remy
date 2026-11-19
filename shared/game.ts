@@ -5,7 +5,7 @@
 import type { Workspace } from "./types";
 
 export type Counters = Record<string, number>;
-export type GameWeek = { base: Counters; done: string[] };
+export type GameWeek = { base: Counters; done: string[]; missions?: string[] };
 export type GameState = { weeks: Record<string, GameWeek> };
 export type Mission = { key: string; title: string; counter: string; target: number; mins: number; xp: number; effect: string; link: string };
 
@@ -51,21 +51,30 @@ export function weekMissions(w: Workspace, key: string): Mission[] {
   return [...ok.slice(start), ...ok.slice(0, start)].slice(0, 3);
 }
 
+/** The week's 3 missions: fixed when the week is first recorded, so finishing a story or adding a resume mid-week
+ *  never reshuffles the board or drops a mission already done (skeptic review). */
+export function missionsOf(w: Workspace, g: GameState, key: string): Mission[] {
+  const keys = g.weeks[key]?.missions;
+  return keys?.length ? keys.map((k) => POOL.find((m) => m.key === k)).filter((m): m is Mission => !!m) : weekMissions(w, key);
+}
 /** Missions finished this week: the counter went up by the target since the week began (or recorded earlier). */
 export function doneThisWeek(w: Workspace, g: GameState, key: string, now: Counters): string[] {
   const week = g.weeks[key];
   if (!week) return [];
-  const fresh = weekMissions(w, key).filter((m) => (now[m.counter] || 0) - (week.base[m.counter] || 0) >= m.target).map((m) => m.key);
-  return [...new Set([...week.done, ...fresh])];
+  const mine = missionsOf(w, g, key);
+  const fresh = mine.filter((m) => (now[m.counter] || 0) - (week.base[m.counter] || 0) >= m.target).map((m) => m.key);
+  return [...new Set([...week.done, ...fresh])].filter((k) => mine.some((m) => m.key === k));
 }
 
 /** Weeks in a row with at least one mission, counting back from this week (or last week, while this one is open).
  *  One missed week inside the run is covered by the freeze. */
 export function streak(g: GameState, key: string): { weeks: number; freezeUsed: boolean } {
-  let k = (g.weeks[key]?.done.length || 0) > 0 ? key : prevWeek(key), n = 0, freezeUsed = false;
+  const has = (k: string) => (g.weeks[k]?.done.length || 0) > 0;
+  let k = has(key) ? key : prevWeek(key), n = 0, freezeUsed = false;
   for (let i = 0; i < 104; i++) {
-    if ((g.weeks[k]?.done.length || 0) > 0) n++;
-    else if (!freezeUsed && n > 0 && (g.weeks[prevWeek(k)]?.done.length || 0) > 0) freezeUsed = true;
+    if (has(k)) n++;
+    // One missed week is covered when the run continues right before it, also on a Monday when nothing's done yet.
+    else if (!freezeUsed && has(prevWeek(k))) freezeUsed = true;
     else break;
     k = prevWeek(k);
   }
@@ -75,7 +84,7 @@ export function streak(g: GameState, key: string): { weeks: number; freezeUsed: 
 /** XP: missions done (plus a bonus for all three in a week) and real wins. */
 export function xpOf(w: Workspace, g: GameState): number {
   const byKey = new Map(POOL.map((m) => [m.key, m.xp]));
-  const missions = Object.values(g.weeks).reduce((n, wk) => n + wk.done.reduce((t, k) => t + (byKey.get(k) || 0), 0) + (wk.done.length >= 3 ? ALL_DONE_BONUS : 0), 0);
+  const missions = Object.values(g.weeks).reduce((n, wk) => n + wk.done.reduce((t, k) => t + (byKey.get(k) || 0), 0) + (wk.done.length >= 3 && (!wk.missions || wk.missions.every((m) => wk.done.includes(m))) ? ALL_DONE_BONUS : 0), 0);
   const c = counters(w);
   const interviews = w.tracker.filter((t) => t.status === "Interview" || t.status === "Offer").length;
   return missions + (w.resume?.confirmedAt ? 100 : 0) + 120 * c.sent + 250 * interviews + (w.tracker.some((t) => t.status === "Offer") ? 500 : 0);
