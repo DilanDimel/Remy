@@ -1982,7 +1982,7 @@ STUDENT'S OWN ANSWERS FOR THIS APPLICATION (use them in the letter in place of p
 ${answers.map((x: any) => `${x.q} → ${x.a}`).join("\n") || "(none)"}
 
 Return JSON:
-{"strongestMatch":{"text":"one sentence: the single strongest truthful connection","requirementId":"r1","evidenceBulletId":"b..."},
+{"strongestMatch":{"text":"one sentence: the single strongest truthful connection, never saying where or how a skill was learned","requirementId":"r1","evidenceBulletId":"b..."},
  "changes":[{"bulletId":"","revised":"","requirementId":"","reason":"why this change helps for this posting"}],
  "gaps":[{"requirementId":"","note":"honest gap and how to address it without exaggerating, written to the student as you"}],
  "coverLetter":"3-4 short paragraphs separated by blank lines, under 330 words, starting 'Dear ${job.company} Recruiting Team,' and ending with a sign-off using the student's name",

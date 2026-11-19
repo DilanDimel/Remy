@@ -94,3 +94,10 @@ test("skill names with parentheses or symbols: asked once, named cleanly", () =>
   assert.ok(!claimCheck("Through my coursework, I built C++ skills.", resume + "\nWhere I learned C++ — In a class").some((f) => f.type === "scope"));
   for (const k of ["Salesforce", "Microsoft Teams"]) assert.ok(skillOriginQuestion(job([k]), lines, d(k), []), k);
 });
+
+test("Strongest match: 'while pursuing a Finance degree' is a where-learned claim unless the student said so", () => {
+  const t = "I have built skills in Excel, PowerPoint, and customer service while pursuing a Finance degree in Fort Worth.";
+  assert.ok(claimCheck(t, resume).some((f) => /where you learned/.test(f.message)));
+  assert.ok(!claimCheck("I am a sophomore pursuing a Finance degree.", resume).some((f) => /where you learned/.test(f.message)));
+  assert.ok(!claimCheck("I worked 20 hours a week while pursuing my degree.", resume).some((f) => /where you learned/.test(f.message)));
+});

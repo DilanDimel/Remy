@@ -207,12 +207,13 @@ export function claimCheck(
   const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const nameIn = (name: string, t: string) => new RegExp(String.raw`(?<![\w])${esc(name)}(?![\w+#])`, "i").test(t);
   const SKILL_TALK = /\b(?:learn\w*|buil[td]|develop\w*|gain\w*|proficien\w*|skills?|competenc\w*|experience\s+(?:with|in)|familiar\w*|master\w*)\b/i;
-  for (const m of text.matchAll(/\b(?:through|from|via|in|during)\s+(?:my|our)\s+((?:[\w-]+\s+){0,3}?)(?:course\s*work|courses?|classes|class|curriculum|studies|program|major|degree)\b/gi)) {
+  // Also "built Excel skills while pursuing a Finance degree" (the Strongest match card, Nov 18).
+  for (const m of text.matchAll(/\b(?:through|from|via|in|during)\s+(?:my|our)\s+((?:[\w-]+\s+){0,3}?)(?:course\s*work|courses?|classes|class|curriculum|studies|program|major|degree)\b|\bwhile\s+(?:pursuing|studying|earning|completing|working\s+toward)\s+(?:a|an|my|our)\s+((?:[\w-]+\s+){0,3}?)(?:degree|major|coursework|studies)\b/gi)) {
     const sentence = sentenceAt(m.index!);
     if (!SKILL_TALK.test(sentence)) continue; // "Through my studies at TCU, I became interested in banking" says nothing about a skill
     if (/^(?:in|during)\b/i.test(m[0]) && /studies$/i.test(m[0])) continue; // "during my studies" is when, not where
     if (ownWords && ownWords.includes(q(m[0]))) continue; // the student's own words (a rewrite or bullet keeping them)
-    const mods = (m[1] || "").trim().split(/\s+/).filter((w) => w && !/^(?:the|a|an|own)$/i.test(w));
+    const mods = (m[1] || m[2] || "").trim().split(/\s+/).filter((w) => w && !/^(?:the|a|an|own)$/i.test(w));
     const ok = learned.some((f) => /\b(?:class|course)/i.test(f.answer) && nameIn(f.skill, sentence) && mods.every((w) => nameIn(w, f.answer)));
     if (!ok) add({ type: "scope", term: m[0], message: `“${m[0]}” says where you learned this, and you haven't told Remy that. Tell Remy where you learned it, or remove it.` });
   }
