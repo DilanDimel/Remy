@@ -271,7 +271,18 @@ export function ProfileForm({ onSaved, hidePrefs, draft }: { onSaved?: () => voi
   const [typing, setTyping] = useState(""); // name notes wait until the student leaves the field
   const { ws, save, run } = useStore();
   const [p, setP] = useState<Profile>(ws!.profile);
-  useEffect(() => { setP(ws!.profile); }, [ws!.profile]);
+  // When the saved profile changes underneath (a conflict answered on the same page, a save elsewhere), take the new
+  // values but keep what the student typed and hasn't saved yet: "What should Remy call you?" was wiped this way.
+  const base = useRef<Profile>(ws!.profile);
+  useEffect(() => {
+    const before = base.current;
+    base.current = ws!.profile;
+    setP((cur) => {
+      const next: Record<string, unknown> = { ...ws!.profile };
+      for (const k of Object.keys(cur) as (keyof Profile)[]) if (JSON.stringify(cur[k]) !== JSON.stringify(before[k])) next[k] = cur[k];
+      return next as unknown as Profile;
+    });
+  }, [ws!.profile]);
   const dirty = JSON.stringify(p) !== JSON.stringify(ws!.profile);
   if (draft) draft.current = dirty ? p : null;
   return (
@@ -296,13 +307,13 @@ export function ProfileForm({ onSaved, hidePrefs, draft }: { onSaved?: () => voi
                 {["First-year", "Sophomore", "Junior", "Senior", "Graduate student"].map((o) => <option key={o}>{o}</option>)}
               </select>
             ) : (
-              <input className="input" value={p[k] ?? ""} placeholder={ph} onChange={(e) => setP({ ...p, [k]: e.target.value })} onFocus={() => setTyping(k)} onBlur={() => setTyping("")} data-testid={`input-profile-${k}`} />
+              <input className="input" maxLength={600} value={p[k] ?? ""} placeholder={ph} onChange={(e) => setP({ ...p, [k]: e.target.value })} onFocus={() => setTyping(k)} onBlur={() => setTyping("")} data-testid={`input-profile-${k}`} />
             )}
             {(k === "name" || k === "preferredName") && typing !== k && nameConcern(p[k] || "", k === "preferredName") && <span className="xs field-warn" role="note" data-testid={`warn-profile-${k}`}>{nameConcern(p[k] || "", k === "preferredName")}</span>}
           </label>
         ))}
       </div>
-      <label className="field"><span>Goals</span><textarea className="textarea" value={p.goals} onChange={(e) => setP({ ...p, goals: e.target.value })} placeholder="What would a great next year look like?" data-testid="input-profile-goals" /></label>
+      <label className="field"><span>Goals</span><textarea className="textarea" maxLength={600} value={p.goals} onChange={(e) => setP({ ...p, goals: e.target.value })} placeholder="What would a great next year look like?" data-testid="input-profile-goals" /></label>
       {!draft && (<div className="row">
         <button className="btn btn-primary btn-sm" disabled={!dirty} onClick={async () => { const r = await run(() => save("profile", p), "Profile saved"); if (r) onSaved?.(); }} data-testid="button-save-profile">Save profile</button>
         {dirty && <span className="xs muted">Unsaved changes</span>}
