@@ -150,30 +150,13 @@ test("an entry with no date isn't a different date format (the missing date has 
 // Nov 18: Opportunities said "Gaps: Microsoft Excel" for a student whose resume lists Excel.
 test("skills: Microsoft Excel / MS Excel is the resume's Excel; Microsoft Office is shown by its apps", () => {
   const r = "Sales Associate\nSKILLS\nExcel, PowerPoint, customer service";
-  for (const k of ["Microsoft Excel", "MS Excel", "Microsoft PowerPoint", "Microsoft Office", "Excel"]) assert.ok(hasKeyword(r, k), k);
+  for (const k of ["Microsoft Excel", "MS Excel", "Advanced Excel", "Microsoft PowerPoint", "Microsoft Office", "Excel"]) assert.ok(hasKeyword(r, k), k);
   for (const k of ["Microsoft Word", "Microsoft Project", "Power BI"]) assert.ok(!hasKeyword(r, k), k);
-  assert.ok(!hasKeyword("I excel at teamwork", "Microsoft Excel")); // "excel at" isn't Excel
-  // The everyday words aren't the programs (skeptic, Nov 18).
-  for (const [t, k] of [["Strive to excel", "Excel"], ["Strive to excel", "Microsoft Office"], ["Wrote a weekly market outlook", "Microsoft Outlook"], ["Wrote the Weekly Market Outlook", "Outlook"]]) assert.ok(!hasKeyword(t, k), `${t} / ${k}`);
-  assert.ok(hasKeyword("skills: excel, powerpoint", "Excel")); // lowercase, but clearly a list of programs
-  assert.ok(hasKeyword("Managed Outlook calendars for 3 managers", "Outlook"));
-  // Skeptic round 2: any capitalisation and "spreadsheets" still show Excel; "Word and Excel" too.
-  for (const [t, k] of [["Built spreadsheets to track inventory", "Excel"], ["Used excel to build models", "Excel"], ["PROFICIENT IN EXCEL AND WORD", "Excel"], ["managed outlook calendars", "Outlook"], ["Skills: Word and Excel", "Microsoft Excel"], ["Built spreadsheets for the club", "Microsoft Excel"]]) assert.ok(hasKeyword(t, k), `${t} / ${k}`);
-  for (const [t, k] of [["We excel in teamwork", "Excel"], ["I will excel as an analyst", "Excel"]]) assert.ok(!hasKeyword(t, k), `${t} / ${k}`);
-  // Skeptic round 3: "to Excel" (the program) vs "to excel" (the verb); "Excel in/with…" mid-line is the program; "credit outlook" isn't Outlook.
-  for (const t of ["Exported reports to Excel", "Migrated tracking from paper to Excel", "Built models in Excel in 2024", "Used Excel with VBA to automate reports", "Used Excel as a database for 200 members", "Tracked inventory in Excel when the POS failed", "Excel: pivot tables", "Excel modeling for 3 clients"]) assert.ok(hasKeyword(t, "Excel"), t);
-  for (const t of ["Students who excel academically", "Athletes who excel", "Eager to excel and grow", "Motivated student who wants to excel", "I can excel in fast-paced roles"]) assert.ok(!hasKeyword(t, "Excel"), t);
-  for (const k of ["Excel skills", "Advanced Excel"]) { assert.ok(!hasKeyword("Strive to excel", k), k); assert.ok(hasKeyword("Built budgets in Excel", k), k); }
-  for (const t of ["Authored quarterly credit outlook", "Wrote 2025 housing outlook report", "fresh outlook on problems", "Wrote the Weekly Market Outlook"]) assert.ok(!hasKeyword(t, "Outlook"), t);
-  assert.ok(hasKeyword("Scheduled meetings in Outlook", "Outlook"));
-  // Skeptic round 4: program context only, whatever the capitals.
-  for (const t of ["Hardworking finance major eager to learn and excel", "Ready to learn, grow, and excel", "Finance Student | Driven to Excel", "SUMMARY\nEager to Excel in Investment Banking", "STRIVE TO EXCEL", "Mentor, EXCEL Program for first-generation students", "● Excel at leading teams under pressure", "Lead teams and excel"]) assert.ok(!hasKeyword(t, "Excel"), t);
-  for (const t of ["Covered earnings, guidance, and outlook", "Analyzed changes in outlook for 10 REITs", "Wrote the Fed Outlook brief", "Outlook Magazine, staff writer"]) assert.ok(!hasKeyword(t, "Outlook"), t);
-  // Skeptic round 5: a strict rule lost real skills, so the program is the default; only the verb and org names are out.
-  for (const t of ["Skills Excel", "Excel, Spanish, customer service", "Excel-based tracker for 40 volunteers", "Trained staff on Excel", "Excel (pivot tables, VLOOKUP)", "Advanced Excel", "Completed the Excel Crash Course"]) assert.ok(hasKeyword(t, "Excel"), t);
-  for (const t of ["Helped students excel in math", "Coached players to excel", "Excel Club, treasurer", "Tutor, Excel Academy Charter School", "I excel, adapt, and lead", "Passion to lead/excel"]) assert.ok(!hasKeyword(t, "Excel"), t);
-  for (const t of ["Outlook, Teams, Zoom", "Skills Outlook"]) assert.ok(hasKeyword(t, "Outlook"), t);
-  for (const t of ["Skills\nExcel\nPython\nSQL", "excel", "Word and Excel", "Technical Skills: excel, python"]) assert.ok(hasKeyword(t, "Excel"), t);
-  for (const t of ["Sent 200+ client emails through Outlook", "Bloomberg Terminal, FactSet, Outlook"]) assert.ok(hasKeyword(t, "Outlook"), t);
   assert.ok(hasKeyword("Built Power Point slides", "PowerPoint"));
+  // Never worse than the plain word (review, Nov 18): "Microsoft Excel" finds exactly what "Excel" finds.
+  for (const t of ["i know word and excel", "Proficient in python, sql, and excel", "Develop Excel models to forecast inventory", "Skills Excel",
+    "Mentored 10 freshmen\nExcel, Word, PowerPoint", "Used the Excel program to reconcile 300 invoices", "Built spreadsheets to track inventory", "I excel at teamwork"]) {
+    assert.equal(hasKeyword(t, "Microsoft Excel"), hasKeyword(t, "Excel"), t);
+  }
+  for (const t of ["Skills: outlook", "Sent weekly Outlook invites", "gmail and outlook"]) assert.equal(hasKeyword(t, "Microsoft Outlook"), hasKeyword(t, "Outlook"), t);
 });

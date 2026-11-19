@@ -72,7 +72,7 @@ export function atsScore(doc: ResumeDoc, keywords: string[] | null, against: str
   ]);
 
   const kws = Array.from(new Set((keywords || []).map((k) => k.trim()).filter((k) => k && isSkillKeyword(k)))).slice(0, 15);
-  const hit = kws.filter((k) => hasKeyword(text, k)); // the original case: "Excel" the program isn't "excel" the verb
+  const hit = kws.filter((k) => hasKeyword(low, k));
   const missing = kws.filter((k) => !hit.includes(k));
   const keywordCat = cat("Keyword match", 25, [
     kws.length
@@ -100,59 +100,17 @@ const SAME: [RegExp, RegExp][] = [
   [/^excel$/, /\b(excel|spreadsheet\w*)\b/],
   [/^ehr$/, /\b(ehr|epic|cerner|electronic health record\w*)\b/],
 ];
-/** The Office program, not the everyday word. Any "Excel" counts as the program UNLESS it's clearly the verb: "excel
- *  at/under…", "strive/eager… to excel", "I/we/who/can excel", "learn, grow and excel". A missed skill (a false gap) is
- *  worse than the rare "EXCEL Program", so the default is the program (skeptic rounds 4–5: a strict "needs program
- *  context" rule missed 55 of 95 real lines). Outlook: capital "Outlook" unless after "market/credit/Q3…"; lowercase
- *  "outlook" only next to mail/calendar words, a tool word, or another program. Reads the student's own text. */
-const PROGRAMS = String.raw`(?:microsoft\s+)?(?:word|excel|powerpoint|outlook|teams|zoom|slack|onenote|sharepoint|(?:ms|microsoft)\s+office|google\s+(?:sheets|docs|slides)|sheets|tableau|power\s*bi|python|sql|vba|quickbooks|salesforce|canva|bloomberg|factset|workday|sap)`;
-// "<word> to excel" is the verb after these ("eager to excel", "Mentored freshmen to Excel"); "Exported reports to Excel" isn't.
-const TO_EXCEL_VERB = /^(?:eager|driven|strive|strives|striving|want|wants|wanting|ready|looking|hope|hoping|aim|aims|aiming|continue|continues|committed|motivated|passion|passionate|determined|ability|chance|opportunity|desire|goal|learn|grow|work|working|push|pushes|pushed|inspire|inspired|encourage|encouraged|helped|help|helping|students|them|others|me|us|freshmen|teammates|players|kids|children|peers|members|athletes|everyone|team|youth|mentees|scholars)$/i;
-// "learn, grow, and excel": the verb when "and/or" joins it to another verb.
-const GROW_VERB = /^(?:learn|grow|lead|contribute|adapt|thrive|succeed|develop|improve|serve|collaborate|innovate|achieve)$/i;
-const OUTLOOK_WORDS = /^(?:market|industry|economic|economy|financial|global|career|investment|sector|earnings|business|credit|housing|rate|rates|oil|energy|macro|fed|income|q[1-4]|weekly|monthly|quarterly|annual|positive|negative|fresh|optimistic|pessimistic|bright|long-term|short-term|future|growth|\d{4})$/i;
-// "Excel Club", "EXCEL Program", "Outlook Magazine": an organization's name, not the program.
-const ORG_NAME = /^\s+(?:club|scholars?|scholarship|program|programme|academy|charter|energy|staffing|sports|leadership|fellows?|fellowship|foundation|institute|center|centre|school|magazine|award|society|camp|partners|group|inc|llc)\b/i;
-function excelIsVerb(before: string, after: string, word = "Excel"): boolean {
-  if (ORG_NAME.test(after)) return true;
-  if (/^\s+(?:at|under|academically)\b/i.test(after)) return true;
-  const prev = (before.match(/([\w'-]+)\W*$/) || [])[1] || "";
-  if (GROW_VERB.test(prev)) return true; // "lead/excel", "grow & excel"
-  // "I excel", "students who excel in math", "players excel": a subject right before it.
-  if ((/^(?:i|we|you|they|who|can|will|would|always|consistently|strive|strives)$/i.test(prev) || (prev.toLowerCase() !== "to" && TO_EXCEL_VERB.test(prev))) && /^\s*(?:in|on|with|as|and|,|\.|;|$)/i.test(after + " ")) return true;
-  if (/^to$/i.test(prev)) {
-    const p2 = (before.replace(/\W*to\W*$/i, "").match(/([\w'-]+)\W*$/) || [])[1] || "";
-    return !p2 || TO_EXCEL_VERB.test(p2);
-  }
-  if (/^(?:and|or)$/i.test(prev)) {
-    const p2 = (before.replace(/\W*(?:and|or)\W*$/i, "").match(/([\w'-]+)\W*$/) || [])[1] || "";
-    // "Word and excel" is the program; "lead teams and excel" (lowercase, after a word that isn't a capitalised program) is the verb.
-    return GROW_VERB.test(p2) || (word === "excel" && !(/^[A-Z]/.test(p2) && new RegExp(String.raw`^${PROGRAMS}$`, "i").test(p2)));
-  }
-  return false;
-}
-function productIn(text: string, name: string): boolean {
-  const t = text, n = name.toLowerCase();
-  if (new RegExp(String.raw`\b(?:microsoft|ms)\s+${n}\b`, "i").test(t)) return true;
-  if (n === "powerpoint") return /\bpower\s?point\b/i.test(t);
-  if (n === "visio") return /\bvisio\b/i.test(t);
-  if (n === "excel") return /\bspreadsheets?\b/i.test(t) || [...t.matchAll(/\bexcel\b/gi)].some((m) => !excelIsVerb(t.slice(Math.max(0, m.index! - 60), m.index), t.slice(m.index! + m[0].length, m.index! + m[0].length + 30), m[0]));
-  // Outlook
-  if ([...t.matchAll(/\b(?:Outlook|OUTLOOK)\b/g)].some((m) => !ORG_NAME.test(t.slice(m.index! + m[0].length, m.index! + m[0].length + 20)) && !OUTLOOK_WORDS.test((t.slice(Math.max(0, m.index! - 40), m.index).match(/([\w'-]+)\W*$/) || [])[1] || ""))) return true;
-  if (/\boutlook\s+(?:calendars?|e-?mails?|inbox(?:es)?|invites?|meetings?|scheduling|contacts)\b|\b(?:in|using|with|via|through)\s+Outlook\b/.test(t)) return true;
-  if (t.trim().toLowerCase() === "outlook") return true;
-  const sep = String.raw`\s*(?:,\s*(?:and\s+|&\s*)?|;|\||/|&|\+|\band\b)\s*`;
-  return new RegExp(String.raw`\b${PROGRAMS}${sep}outlook\b|\boutlook${sep}${PROGRAMS}\b`, "i").test(t);
-}
-
 export function hasKeyword(text: string, keyword: string): boolean {
   // "Python or Java or C++": the posting asks for any one of them.
   if (/\sor\s/i.test(keyword)) return keyword.split(/\s+or\s+/i).some((k) => hasKeyword(text, k));
-  // "Microsoft Excel" / "MS Excel" is the resume's "Excel" (distinct product names only: "Word" or "Project" alone are everyday words).
-  const office = keyword.trim().match(/^(?:(?:advanced|basic|intermediate|strong|proficiency in|proficient in|experience with|knowledge of|microsoft|ms)\s+)*(excel|powerpoint|outlook|visio)(?:\s+(?:skills?|proficiency|experience|knowledge))?$/i);
-  if (office) return productIn(text, office[1]);
+  // "Microsoft Excel" / "MS Excel" / "Advanced Excel" is the resume's "Excel": checked exactly as a plain "Excel" is, so it
+  // never misses a skill the plain word would find. (Telling the verb "excel" apart was tried and lost real skills
+  // in review; left for a separate change.) "Word" or "Project" alone are everyday words, so only distinct names.
+  const office = keyword.trim().match(/^(?:(?:advanced|intermediate|proficiency in|proficient in|microsoft|ms)\s+)+(excel|powerpoint|power point|outlook|visio)$/i);
+  if (office) return hasKeyword(text, /^power/i.test(office[1]) ? "PowerPoint" : office[1]);
+  if (/^power\s?point$/i.test(keyword.trim())) return /\bpower\s?point\b/i.test(text);
   // "Microsoft Office" is shown by any of its apps on the resume.
-  if (/^(?:microsoft|ms)\s+office(?:\s+suite)?$/i.test(keyword.trim())) return /\b(?:microsoft|ms)\s+(?:office|word|365)\b/i.test(text) || ["excel", "powerpoint", "outlook"].some((x) => productIn(text, x));
+  if (/^(?:microsoft|ms)\s+office(?:\s+suite)?$/i.test(keyword.trim())) return /\b(?:microsoft|ms)\s+(?:office|word|365)\b/i.test(text) || ["Excel", "PowerPoint", "Outlook"].some((x) => hasKeyword(text, x));
   const plain = plainEnglish(text); // "excel at" isn't Excel, "react to" isn't React
   const low = lc(plain);
   const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
