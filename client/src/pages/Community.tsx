@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useRoute } from "../lib/router";
+import { replaceRoute, useRoute } from "../lib/router";
 import { GraduationCap, Mail, PenLine, Plus, Send, Sparkles, Trash2 } from "lucide-react";
 import type { Contact, OutreachDraft } from "@shared/types";
 import { api, fmtDate, rid, useStore } from "../lib/store";
@@ -24,8 +24,13 @@ export default function Community() {
   const { query } = useRoute();
   useEffect(() => {
     const met = query.get("met");
-    if (met) { setC({ ...blank, met: met.slice(0, 200), metOn: /^\d{4}-\d{2}-\d{2}$/.test(query.get("metOn") || "") ? query.get("metOn")! : today }); setAdding(true); }
+    if (!met) return;
+    const at = { met: met.slice(0, 200), metOn: /^\d{4}-\d{2}-\d{2}$/.test(query.get("metOn") || "") ? query.get("metOn")! : today };
+    setC({ ...blank, ...at }); setEvent(at); setAdding(true);
+    replaceRoute("/community"); // used once: a reload or Back doesn't reopen the form
   }, [query.get("met")]);
+  // People met at the same event, one after another: where and when stay filled in for the next one.
+  const [event, setEvent] = useState<{ met: string; metOn: string } | null>(null);
   const [thank, setThank] = useState(true);
   const [review, setReview] = useState<OutreachDraft | null>(null);
   // When Remy finishes writing an email, open it for review.
@@ -58,6 +63,7 @@ export default function Community() {
       const due = next < today ? today : next;
       await run(() => save("tasks", [{ id: rid("t"), title: `Send ${c.name.trim()} a short thank-you`, why: `You met at ${c.met.trim()}. Two or three sentences: thank them, mention one thing you talked about, and ask to stay in touch.`, due, category: "Connect" as const, done: false, source: "Community", link: "/community" }, ...w.tasks]), "Thank-you reminder added to your to-dos");
     }
+    if (event) { setC({ ...blank, ...event }); toast(`Saved. Add another person from ${event.met}, or close.`); return; }
     setAdding(false);
     setC(blank);
     setThank(true);
@@ -115,7 +121,7 @@ export default function Community() {
       )}
 
       {adding && (
-        <Modal title="Add a contact" onClose={() => setAdding(false)}>
+        <Modal title="Add a contact" onClose={() => { setAdding(false); if (event) { setEvent(null); setC(blank); } }}>
           <div className="grid-2">
             {(["name", "title", "org", "email"] as const).map((k) => <label key={k} className="field"><span style={{ textTransform: "capitalize" }}>{k === "org" ? "Organization" : k === "email" ? "Email (optional)" : k}</span><input className="input" value={c[k]} onChange={(e) => setC({ ...c, [k]: e.target.value })} data-testid={`input-contact-new-${k}`} /></label>)}
           </div>

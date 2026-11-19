@@ -43,7 +43,7 @@ export function reviewResume(doc: ResumeDoc): { todo: ReviewItem[]; good: string
   const words = [doc.contact.name, ...doc.sections.flatMap((s) => [s.heading, ...s.entries.flatMap((e) => [e.org, e.role, e.dates, ...e.bullets.map((b) => b.text)])]), ...doc.skills.map((k) => k.label + " " + k.items)].join(" ").split(/\s+/).filter(Boolean).length;
   if (words > 800) todo.push({ kind: "tip", title: `${words} words: longer than one page`, why: "Most student resumes fit one page (about 450 to 700 words). Trim older or weaker lines in the Edit tab." });
   else if (words < 250 && bullets.length) todo.push({ kind: "tip", title: `Only ${words} words`, why: "Add detail to your strongest roles in the Edit tab: what you did, for whom, and a real number if you know one." });
-  if (bullets.length && bullets.length < 6) todo.push({ kind: "tip", title: `Only ${bullets.length} bullet${bullets.length === 1 ? "" : "s"}`, why: "Aim for 3 to 5 under each role or project. Add them in the Edit tab, or tell Remy about something you did in the weekly check-in." });
+  if (bullets.length && bullets.length < 6) todo.push({ kind: "tip", title: `Only ${bullets.length} bullet${bullets.length === 1 ? "" : "s"}`, why: "Aim for 3 to 5 under each role or project. Add them in the Edit tab." });
   const formats = new Set(entries.filter(({ e }) => e.dates.trim()).map(({ e }) => (/[a-z]{3}\s+\d{4}/i.test(e.dates) ? "word" : /\d{1,2}\/\d{4}/.test(e.dates) ? "num" : "other")));
   if (formats.size > 1) todo.push({ kind: "tip", title: "Dates use different formats", why: "Use one format everywhere, like “Jun 2025 – Aug 2025”, in the Edit tab." });
   return { todo, good };

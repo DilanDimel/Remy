@@ -81,7 +81,7 @@ export async function markInvited(email: string) {
 export function welcomeEmail(host: string) {
   return {
     subject: "You're in: welcome to the Remy beta",
-    text: `You're in: you're one of Remy's beta testers.\n\nSign in at https://${host}/signin with exactly this email address: "Continue with Email" sends you a 6-digit code, or use Google if this is your Google account's address. Setup takes about 5 minutes.\n\nAs a founding member, you've agreed to use Remy about once a week and answer one short check-in. Tell us anything Remy gets wrong: that's how it gets better.\n\nThe Remy team\nremy.careercoach@gmail.com`,
+    text: `You're in: you're one of Remy's beta testers.\n\nSign in at https://${host}/signin with exactly this email address: "Continue with Email" sends you a 6-digit code, or use Google if this is your Google account's address. Setup takes about 5 minutes.\n\nAs a founding member, you've agreed to use Remy about once a week. Tell us anything Remy gets wrong: that's how it gets better.\n\nThe Remy team\nremy.careercoach@gmail.com`,
   };
 }
 

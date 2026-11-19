@@ -44,7 +44,6 @@ export function weeklyDigest(ws: Workspace, today: string, weekday: number, host
     fresh.length ? `${fresh.length} new opening${fresh.length > 1 ? "s" : ""} for you:\n${fresh.slice(0, 3).map((j) => `• ${j.title} at ${j.company}`).join("\n")}` : "",
     soon.length ? `Closing in the next 7 days:\n${soon.map((c) => `• ${c.title} (${c.date})`).join("\n")}` : "",
     closed.length ? `No longer open (Remy checked the pages):\n${closed.slice(0, 3).map((j) => `• ${j.title} at ${j.company}`).join("\n")}` : "",
-    `30-second check-in: what did you do this week? Tap it on Home and Remy turns it into a resume line, using only your words.`,
     ws.linkedin && days(ws.linkedin.at.slice(0, 10), today) >= LINKEDIN_RECHECK_DAYS ? `Your LinkedIn check is over a month old. Save a fresh PDF from LinkedIn and upload it on the Resume page to see what's missing.` : "",
   ].filter(Boolean);
   // A real employer in the subject is what gets an email opened ("Frost Bank and 2 more new openings for you").
