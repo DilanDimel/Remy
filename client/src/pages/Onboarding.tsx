@@ -271,7 +271,18 @@ export function ProfileForm({ onSaved, hidePrefs, draft }: { onSaved?: () => voi
   const [typing, setTyping] = useState(""); // name notes wait until the student leaves the field
   const { ws, save, run } = useStore();
   const [p, setP] = useState<Profile>(ws!.profile);
-  useEffect(() => { setP(ws!.profile); }, [ws!.profile]);
+  // When the saved profile changes underneath (a conflict answered on the same page, a save elsewhere), take the new
+  // values but keep what the student typed and hasn't saved yet: "What should Remy call you?" was wiped this way.
+  const base = useRef<Profile>(ws!.profile);
+  useEffect(() => {
+    const before = base.current;
+    base.current = ws!.profile;
+    setP((cur) => {
+      const next: Record<string, unknown> = { ...ws!.profile };
+      for (const k of Object.keys(cur) as (keyof Profile)[]) if (JSON.stringify(cur[k]) !== JSON.stringify(before[k])) next[k] = cur[k];
+      return next as unknown as Profile;
+    });
+  }, [ws!.profile]);
   const dirty = JSON.stringify(p) !== JSON.stringify(ws!.profile);
   if (draft) draft.current = dirty ? p : null;
   return (
