@@ -259,7 +259,7 @@ function Landing() {
             <div className="lp-tile-copy">
               <span className="lp-num">01</span>
               <h3>Openings you can actually get</h3>
-              <p>Remy reads 180+ employers&rsquo; own career sites and checks each posting against your year, field, location, start date and visa needs. If you can&rsquo;t apply, you don&rsquo;t see it. If you can, it says why.</p>
+              <p>Remy reads 180+ employers&rsquo; own career sites and checks each posting against your year, field, location, start date and visa needs. Postings you can&rsquo;t apply to are hidden, and ones that need a license or a different major say so up front. Every opening says why it fits you.</p>
             </div>
             <div className="lp-shot" aria-hidden>
               <span className="lp-ex-tag">Example</span>
@@ -341,7 +341,7 @@ function Landing() {
   );
 }
 
-const TICKER = ["Openings you qualify for", "Honest resume tailoring", "Cover letter drafts", "Weekly plan", "Deadlines on your calendar", "Interview practice", "Careers by major", "Hours log", "Follow-up nudges"];
+const TICKER = ["Openings you qualify for", "Honest resume tailoring", "Cover letter drafts", "Weekly plan", "Deadlines on your calendar", "Interview stories you practice out loud", "LinkedIn check", "Networking emails you approve", "Careers by major", "Hours log", "Follow-up nudges"];
 
 // The hero's example conversation, one per kind of student (fictional students; job numbers are real BLS figures).
 const EXAMPLES: { tab: string; ask: string; items: [ReactNode, string, ReactNode][] }[] = [
