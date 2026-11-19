@@ -880,7 +880,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     onboarding: z.object({ step: z.number().int().min(0).max(50), done: z.boolean(), answers: z.array(z.object({ q: str(500), a: str(2000), toConfirm: z.boolean().optional() })).max(50), questions: z.array(str(500)).max(20), targets: z.array(str(40)).max(20).optional(), options: z.array(z.array(str(80)).max(4)).max(20).optional(), exploring: z.boolean().optional(), focus: z.enum(["resume", "openings", "interview", "direction", "explore"]).optional() }),
     started: z.boolean(),
     plan: z.looseObject({ nextAction: z.looseObject({ title: str(300), why: str(2000), link: str(300) }), careers: z.array(z.looseObject({ id: str(120), title: str(300) })).max(20), skills: z.array(z.looseObject({ id: str(120), name: str(300) })).max(30), academic: z.array(z.looseObject({ id: str(120), term: str(100) })).max(20) }),
-    contacts: z.array(z.looseObject({ id: str(120), name: str(200), title: str(300), org: str(300), email: str(320), why: str(2000), tags: z.array(str(120)).max(30), label: str(40) })).max(1000),
+    contacts: z.array(z.looseObject({ id: str(120), name: str(200), title: str(300), org: str(300), email: str(320), why: str(2000), tags: z.array(str(120)).max(30), label: str(40), met: str(200).optional(), metOn: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/).optional() })).max(1000),
     pitch: z.object({ text: str(1200), at: str(40) }),
     hours: z.array(z.object({ id: str(120), activity: str(120), hours: z.number().min(0).max(168), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), note: str(500).optional() })).max(2000),
     builder: z.looseObject({

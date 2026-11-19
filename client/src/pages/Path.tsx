@@ -214,11 +214,16 @@ function FieldRoad() {
           <ul className="rows cred-list">
             {road.credentials.map((c) => (
               <li key={c.name} className="cred">
-                <div className="row" style={{ gap: 8 }}><b>{c.name}</b>{!/^No license needed/.test(c.name) && <span className={"chip " + (c.need === "required" ? "chip-setup" : c.need === "optional" ? "chip-plain" : "chip-live")}>{NEED_LABEL[c.need]}</span>}</div>
-                <p className="small">{c.who}</p>
-                {c.why && <p className="small muted"><strong>Why people get it: </strong>{c.why}</p>}
-                {c.learn && <p className="small muted"><strong>What you learn: </strong>{c.learn}</p>}
-                {c.when && <p className="xs muted"><strong>When: </strong>{c.when}{c.source ? <> · <a className="src-link" href={c.source} target="_blank" rel="noreferrer">Source</a></> : null}</p>}
+                {/* One line per exam (audit Nov 17: four dense cards); tap it for who needs it, why and when. */}
+                <details>
+                  <summary className="row" style={{ gap: 8, cursor: "pointer" }} data-testid="cred-summary"><b>{c.name}</b>{!/^No license needed/.test(c.name) && <span className={"chip " + (c.need === "required" ? "chip-setup" : c.need === "optional" ? "chip-plain" : "chip-live")}>{NEED_LABEL[c.need]}</span>}</summary>
+                  <div className="stack-sm" style={{ marginTop: 6 }}>
+                    <p className="small">{c.who}</p>
+                    {c.why && <p className="small muted"><strong>Why people get it: </strong>{c.why}</p>}
+                    {c.learn && <p className="small muted"><strong>What you learn: </strong>{c.learn}</p>}
+                    {c.when && <p className="xs muted"><strong>When: </strong>{c.when}{c.source ? <> · <a className="src-link" href={c.source} target="_blank" rel="noreferrer">Source</a></> : null}</p>}
+                  </div>
+                </details>
               </li>
             ))}
           </ul>
@@ -259,14 +264,21 @@ function Future() {
   return (
     <div className="stack">
       <p className="small muted">How jobs in your field are expected to change from 2025 to 2035. All U.S. jobs are projected to grow {data.allJobsGrowth}%.</p>
-      {data.fields.map((f) => (
-        <div key={f.field} className="card card-pad stack-sm" data-testid="card-future">
-          <h3 style={{ textTransform: "capitalize" }}>{f.field}</h3>
-          <p className="small muted">{f.fasterThanAverage} of {f.total} {f.field} jobs are expected to grow faster than average.</p>
-          {f.growing.length > 0 && <><b className="row small"><TrendingUp size={15} /> Growing</b><ul className="rows" style={{ margin: 0, padding: 0, listStyle: "none" }}>{f.growing.map(row)}</ul></>}
-          {f.shrinking.length > 0 && <><b className="row small"><TrendingDown size={15} /> Shrinking</b><ul className="rows" style={{ margin: 0, padding: 0, listStyle: "none" }}>{f.shrinking.map(row)}</ul></>}
-        </div>
-      ))}
+      {/* Audit Nov 17: the field closest to their major stays open with the top 3 each way; other fields (picked up from
+          interests or roles) are one tap away instead of a wall of tables. */}
+      {data.fields.map((f, i) => {
+        const body = (
+          <>
+            <p className="small muted">{f.fasterThanAverage} of {f.total} {f.field} jobs are expected to grow faster than average.</p>
+            {f.growing.length > 0 && <><b className="row small"><TrendingUp size={15} /> Growing</b><ul className="rows" style={{ margin: 0, padding: 0, listStyle: "none" }}>{f.growing.slice(0, 3).map(row)}</ul></>}
+            {f.shrinking.length > 0 && <><b className="row small"><TrendingDown size={15} /> Shrinking</b><ul className="rows" style={{ margin: 0, padding: 0, listStyle: "none" }}>{f.shrinking.slice(0, 3).map(row)}</ul></>}
+            {f.growing.length > 3 && <details className="small" data-testid="future-more"><summary style={{ cursor: "pointer", fontWeight: 700 }}>See {f.growing.length - 3} more growing</summary><ul className="rows" style={{ margin: 0, padding: 0, listStyle: "none" }}>{f.growing.slice(3).map(row)}</ul></details>}
+          </>
+        );
+        return i === 0
+          ? <div key={f.field} className="card card-pad stack-sm" data-testid="card-future"><h3 style={{ textTransform: "capitalize" }}>{f.field}</h3>{body}</div>
+          : <details key={f.field} className="card card-pad stack-sm" data-testid="card-future"><summary style={{ cursor: "pointer" }}><b style={{ textTransform: "capitalize" }}>{f.field}</b> <span className="small muted">· also from your profile</span></summary>{body}</details>;
+      })}
       <div className="notice"><div className="small"><b>What "AI tools can speed up" means:</b> the share of a job's tasks where AI could cut the time in half or more, from research by Eloundou, Manning, Mishkin and Rock (2023). It doesn't mean the job goes away. It means people in that job who use AI well will have an edge, so it's worth learning those tools now.</div></div>
       <p className="xs muted">Source: {data.source}. Click a job for the government's full guide to it.</p>
     </div>
@@ -326,8 +338,10 @@ function Explore({ above = false }: { above?: boolean }) {
           </>}
         </div>
       )}
+      <details className="stack-sm" data-testid="browse-jobs" open={!!browse || undefined}>
+      <summary style={{ cursor: "pointer", fontWeight: 700 }}>Browse jobs by major{data ? ` (${data.reduce((n, f) => n + f.jobs.length, 0)})` : ""}</summary>
       {data?.map((f) => (
-        <div key={f.field} className="stack-sm">
+        <div key={f.field} className="stack-sm" style={{ marginTop: 10 }}>
           <span className="eyebrow" style={{ textTransform: "capitalize" }}>{f.field}</span>
           <ul className="rows" style={{ margin: 0, padding: 0, listStyle: "none" }}>
             {f.jobs.map((o) => (
@@ -347,6 +361,7 @@ function Explore({ above = false }: { above?: boolean }) {
           {FIELD_GROUPS.map(([g, opts]) => <optgroup key={g} label={g}>{opts.map((o) => <option key={o} value={o}>{o}</option>)}</optgroup>)}
         </select>
       </div>
+      </details>
     </div>
   );
 }

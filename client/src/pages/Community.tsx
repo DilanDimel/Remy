@@ -16,7 +16,10 @@ export default function Community() {
   const openAt = (org: string) => (jobs || []).filter((j) => org && sameOrg(j.company, org) && !w.hiddenJobIds.includes(j.id));
   // Employers the student saved but knows nobody at: the people worth meeting next.
   const unknownOrgs = [...new Set((jobs || []).filter((j) => w.savedJobIds.includes(j.id)).map((j) => j.company))].filter((c) => !w.contacts.some((p) => sameOrg(p.org, c))).slice(0, 4);
-  const [c, setC] = useState({ name: "", title: "", org: "", email: "", why: "" });
+  const today = new Date().toLocaleDateString("en-CA");
+  const blank = { name: "", title: "", org: "", email: "", why: "", met: "", metOn: today };
+  const [c, setC] = useState(blank);
+  const [thank, setThank] = useState(true);
   const [review, setReview] = useState<OutreachDraft | null>(null);
   // When Remy finishes writing an email, open it for review.
   // Remy's "done" can arrive a render before the workspace with the new draft, so
@@ -37,9 +40,16 @@ export default function Community() {
   const addContact = async () => {
     // An email is optional, but one that can't be an address would end up in the draft's "To:" line.
     if (c.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email.trim())) { toast("That email doesn't look right. Fix it or leave it empty.", true); return; }
-    await run(() => save("contacts", [...w.contacts, { id: rid("c"), ...c, tags: [], label: "Student provided" }]), "Contact saved");
+    const id = rid("c");
+    const ok = await run(() => save("contacts", [...w.contacts, { id, ...c, met: c.met.trim(), tags: [], label: "Student provided" }]), "Contact saved");
+    // Idea 18: a short thank-you within a day or two is what makes people remember you.
+    if (ok && thank && c.met.trim()) {
+      const due = new Date(Date.parse(c.metOn || today) + 864e5).toISOString().slice(0, 10);
+      await run(() => save("tasks", [{ id: rid("t"), title: `Send ${c.name.trim()} a short thank-you`, why: `You met at ${c.met.trim()}. Two or three sentences: thank them, mention one thing you talked about, and ask to stay in touch.`, due, category: "Connect" as const, done: false, source: "Community", link: "/community" }, ...w.tasks]), "Thank-you reminder added to your to-dos");
+    }
     setAdding(false);
-    setC({ name: "", title: "", org: "", email: "", why: "" });
+    setC(blank);
+    setThank(true);
   };
   return (
     <>
@@ -62,6 +72,7 @@ export default function Community() {
             <div key={p.id} className="card card-pad stack-sm" data-testid="card-contact">
               <div className="row-between"><strong>{p.name}</strong><StatusChip label={p.label} /></div>
               <span className="small muted">{p.title}{p.org ? ` · ${p.org}` : ""}</span>
+              {p.met && <span className="xs muted" data-testid="contact-met">Met at {p.met}{p.metOn ? ` · ${fmtDate(p.metOn)}` : ""}</span>}
               <p className="small">{p.why}</p>
               {openAt(p.org).length > 0 && <button className="xs" style={{ textAlign: "left", color: "var(--fox)", fontWeight: 700, padding: 0 }} onClick={() => go(`/opportunities?kind=all&id=${openAt(p.org)[0].id}`)} data-testid="contact-openings">{openAt(p.org).length} opening{openAt(p.org).length > 1 ? "s" : ""} at {p.org} →</button>}
               <div className="row" style={{ marginTop: "auto" }}>
@@ -82,7 +93,7 @@ export default function Community() {
             return (
               <div key={d.id} className="item">
                 <Mail size={18} style={{ color: "var(--plum)", marginTop: 3 }} />
-                <div className="item-main"><strong className="small">{d.subject}</strong><div className="why">To {p?.name} · {d.to} · {fmtDate(d.createdAt)}</div></div>
+                <div className="item-main"><strong className="small">{d.subject}</strong><div className="why">To {p?.name}{d.to ? ` · ${d.to}` : ""} · {fmtDate(d.createdAt)}</div></div>
                 <span className={"chip " + (d.status === "draft" ? "chip-plain" : "chip-live")}>{d.status === "draft" ? "Draft" : d.status === "approved" ? "Approved" : "Opened in your email"}</span>
                 <button className="btn btn-secondary btn-sm" onClick={() => setReview(d)} data-testid="button-review-draft">Review</button>
               </div>
@@ -94,10 +105,16 @@ export default function Community() {
       {adding && (
         <Modal title="Add a contact" onClose={() => setAdding(false)}>
           <div className="grid-2">
-            {(["name", "title", "org", "email"] as const).map((k) => <label key={k} className="field"><span style={{ textTransform: "capitalize" }}>{k === "org" ? "Organization" : k}</span><input className="input" value={c[k]} onChange={(e) => setC({ ...c, [k]: e.target.value })} data-testid={`input-contact-new-${k}`} /></label>)}
+            {(["name", "title", "org", "email"] as const).map((k) => <label key={k} className="field"><span style={{ textTransform: "capitalize" }}>{k === "org" ? "Organization" : k === "email" ? "Email (optional)" : k}</span><input className="input" value={c[k]} onChange={(e) => setC({ ...c, [k]: e.target.value })} data-testid={`input-contact-new-${k}`} /></label>)}
           </div>
-          <label className="field"><span>Why this person?</span><textarea className="textarea" value={c.why} onChange={(e) => setC({ ...c, why: e.target.value })} placeholder="e.g. Met at the Neeley career fair; works in M&A" /></label>
-          <div className="row" style={{ justifyContent: "flex-end" }}><button className="btn btn-primary" disabled={!c.name || !c.email} onClick={addContact} data-testid="button-save-contact">Save contact</button></div>
+          <div className="grid-2">
+            <label className="field"><span>Where did you meet? (optional)</span><input className="input" value={c.met} onChange={(e) => setC({ ...c, met: e.target.value })} placeholder="e.g. TCU fall career fair" data-testid="input-contact-new-met" /></label>
+            <label className="field"><span>When</span><input className="input" type="date" value={c.metOn} max={today} onChange={(e) => setC({ ...c, metOn: e.target.value })} data-testid="input-contact-new-meton" /></label>
+          </div>
+          {c.met.trim() && <label className="row small" style={{ gap: 8 }}><input type="checkbox" checked={thank} onChange={(e) => setThank(e.target.checked)} data-testid="check-thank-you" /> Remind me to send a thank-you</label>}
+          <label className="field"><span>Why this person?</span><textarea className="textarea" value={c.why} onChange={(e) => setC({ ...c, why: e.target.value })} placeholder="e.g. Works in M&A; said to reach out about summer roles" /></label>
+          {/* Email is optional: people met at a fair often only give a name and a LinkedIn. */}
+          <div className="row" style={{ justifyContent: "flex-end" }}><button className="btn btn-primary" disabled={!c.name.trim()} onClick={addContact} data-testid="button-save-contact">Save contact</button></div>
         </Modal>
       )}
       {review && <ReviewModal draft={review} onClose={() => setReview(null)} />}
@@ -123,7 +140,7 @@ function ReviewModal({ draft, onClose }: { draft: OutreachDraft; onClose: () => 
   return (
     <Modal title="Review before anything is sent" onClose={onClose} wide>
       <div className="notice small"><Send size={16} style={{ color: "var(--plum)", marginTop: 2 }} /><div>Remy doesn't send email. After you approve, it opens the message in <strong>your</strong> email so you send it yourself.</div></div>
-      <dl className="kv"><dt>To</dt><dd data-testid="text-recipient">{p?.name} &lt;{d.to}&gt;</dd><dt>From</dt><dd>{w.profile.applicationEmail || "Your email account"}</dd></dl>
+      <dl className="kv"><dt>To</dt><dd data-testid="text-recipient">{p?.name} {d.to ? <>&lt;{d.to}&gt;</> : <span className="muted">(no email saved: type it in your email app, or send the note on LinkedIn)</span>}</dd><dt>From</dt><dd>{w.profile.applicationEmail || "Your email account"}</dd></dl>
       <label className="field"><span>Subject</span><input className="input" value={d.subject} onChange={(e) => setD({ ...d, subject: e.target.value, status: "draft" })} data-testid="input-outreach-subject" /></label>
       <label className="field"><span>Full message</span><textarea className="textarea" style={{ minHeight: 220 }} value={d.body} onChange={(e) => setD({ ...d, body: e.target.value, status: "draft" })} data-testid="input-outreach-body" /></label>
       <div className="stack-sm">
