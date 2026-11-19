@@ -187,7 +187,12 @@ function EmailUpdates() {
   const w = ws!;
   const [busy, setBusy] = useState("");
   // Calendar's "Paste an interview invite" and Remy's links open the paste box straight away (?paste=1).
-  const [paste, setPaste] = useState(() => new URLSearchParams(location.search).get("paste") === "1");
+  const [paste, setPasteRaw] = useState(() => new URLSearchParams(location.search).get("paste") === "1");
+  const setPaste = (open: boolean) => {
+    setPasteRaw(open);
+    if (!open && location.search.includes("paste=1")) history.replaceState(history.state, "", location.pathname + location.search.replace(/[&?]paste=1/, "").replace(/^&/, "?"));
+  };
+  const [reading, setReading] = useState(false);
   const [m, setM] = useState({ from: "", subject: "", body: "" });
   const classify = async (id: string) => {
     setBusy(id);
@@ -198,10 +203,11 @@ function EmailUpdates() {
   // One step (Dilan, Nov 19: nobody will paste emails as a chore, but an interview invite is worth it): paste, and Remy
   // reads it right away and shows what it would update. Nothing changes until the student confirms.
   const submitPaste = async () => {
+    if (reading) return;
+    setReading(true);
     const r = await run(() => api<Workspace>("POST", "/api/inbox/paste", m));
-    if (!r) return;
-    setWs(r); setPaste(false); setM({ from: "", subject: "", body: "" });
-    if (r.inbox[0]) await classify(r.inbox[0].id);
+    if (r) { setWs(r); setPaste(false); setM({ from: "", subject: "", body: "" }); if (r.inbox[0]) await classify(r.inbox[0].id); }
+    setReading(false);
   };
   return (
     <div className="stack">
@@ -229,7 +235,7 @@ function EmailUpdates() {
               <label className="field"><span>Subject</span><input className="input" value={m.subject} onChange={(e) => setM({ ...m, subject: e.target.value })} /></label>
             </div>
           </details>
-          <div className="row" style={{ justifyContent: "flex-end" }}><button className="btn btn-primary" disabled={m.body.trim().length < 30} onClick={submitPaste} data-testid="button-submit-email"><Wand2 size={14} /> Read it</button></div>
+          <div className="row" style={{ justifyContent: "flex-end" }}><button className="btn btn-primary" disabled={reading || m.body.trim().length < 30} onClick={submitPaste} data-testid="button-submit-email">{reading ? <Spinner /> : <Wand2 size={14} />} Read it</button></div>
         </Modal>
       )}
     </div>
@@ -243,7 +249,11 @@ function SuggestionBox({ s }: { s: Suggestion }) {
   const [trackId, setTrackId] = useState(s.trackId || "");
   const [company, setCompany] = useState(s.company);
   const [date, setDate] = useState(s.date || "");
-  const [time, setTime] = useState(s.time || "");
+  // A time in another zone ("2 PM ET" for a Central student) isn't filled in as theirs: they enter it in their own time.
+  const ownZone = zoneName(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const otherZone = !!s.zone && s.zone !== ownZone;
+  const [time, setTime] = useState(otherZone ? "" : s.time || "");
+  const moved = w.calendar.find((c) => c.kind === "Interview" && c.linkedId === (trackId || s.trackId) && c.source === "From an email you confirmed" && c.date >= new Date().toLocaleDateString("en-CA") && c.date !== date);
   const resolve = async (action: "apply" | "dismiss") => {
     const r = await run(() => api<Workspace>("POST", `/api/suggestions/${s.id}/resolve`, { action, status, trackId: trackId || undefined, company, role: s.role, ...(status === "Interview" ? { date, time } : {}) }), action === "apply" ? (status === "Interview" && date ? "Updated, and the interview is on your calendar" : "Status updated with evidence") : "Dismissed");
     if (r) setWs(r);
@@ -277,6 +287,8 @@ function SuggestionBox({ s }: { s: Suggestion }) {
             <label className="field"><span className="xs">Time (optional)</span><input className="input" type="time" value={time} onChange={(e) => setTime(e.target.value)} /></label>
           </div>
           <span className="xs muted">{s.dateQuote ? <>From the email: “{s.dateQuote}”. Check it before you confirm.</> : "The email didn't give one date. Add it once you've picked a time, and Remy puts it on your calendar."}</span>
+          {otherZone && <span className="xs" data-testid="interview-zone-note">The email gives the time in {s.zone} time. Enter it in your own time so you're not early or late.</span>}
+          {moved && date && <span className="xs" data-testid="interview-moved-note">This replaces the interview on {fmtDate(moved.date)} on your calendar.</span>}
         </div>
       )}
       <div className="row" style={{ justifyContent: "flex-end" }}>
@@ -371,4 +383,13 @@ function Hours() {
       ) : <div className="card"><Empty title="No hours yet" body="Add your first entry above. Totals per activity add up here." /></div>}
     </div>
   );
+}
+
+/** "America/New_York" → "Eastern", for comparing with the zone an email names. */
+function zoneName(tz: string): string {
+  if (/New_York|Detroit|Indiana|Kentucky|Toronto|Eastern/.test(tz)) return "Eastern";
+  if (/Chicago|Winnipeg|Menominee|Central/.test(tz)) return "Central";
+  if (/Denver|Phoenix|Boise|Edmonton|Mountain/.test(tz)) return "Mountain";
+  if (/Los_Angeles|Vancouver|Pacific/.test(tz)) return "Pacific";
+  return tz;
 }

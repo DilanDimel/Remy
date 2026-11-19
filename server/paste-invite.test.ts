@@ -35,4 +35,12 @@ test("confirming an interview email adds it to the calendar and dates the prep t
   w = await resolve("s2", {});
   assert.equal(w.calendar.filter((c: any) => /BDO/.test(c.title)).length, 0);
   assert.equal(w.tasks.find((x: any) => /BDO interview/.test(x.title))?.due, "");
+  // Review, Nov 19: "pick a time" first, then the confirmation with a date: the undated prep to-do gets the day.
+  w = await resolve("s2", { date: "2026-12-01", time: "10:00" });
+  assert.equal(w.tasks.find((x: any) => /BDO interview/.test(x.title))?.due, "2026-12-01");
+  // Rescheduled: Frost Bank moves to Dec 3; the old Nov 24 entry is replaced, not left behind.
+  w = await resolve("s1", { date: "2026-12-03", time: "09:00" });
+  const frost = w.calendar.filter((c: any) => c.kind === "Interview" && /Frost Bank/.test(c.title));
+  assert.equal(frost.length, 1); assert.equal(frost[0].date, "2026-12-03");
+  assert.equal(w.tasks.find((x: any) => /Frost Bank interview/.test(x.title))?.due, "2026-12-03");
 });

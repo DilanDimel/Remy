@@ -342,6 +342,8 @@ export interface Suggestion {
   date?: string;
   time?: string;
   dateQuote?: string;
+  /** The time zone the email's quote names ("Eastern"), so a time in another zone isn't filled in as the student's. */
+  zone?: string;
   createdAt: string;
   state: "open" | "applied" | "dismissed";
 }
