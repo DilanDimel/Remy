@@ -1,3 +1,4 @@
+import type React from "react";
 import { useState } from "react";
 import { ArrowUpRight } from "lucide-react";
 import type { Job } from "@shared/types";
@@ -6,7 +7,7 @@ import { rid, useStore } from "../lib/store";
 /** "Apply" (or "Register" for events) that opens the employer's site, then asks right away "Did you apply?" instead of
  *  days later, for any opening, tailored or not. "Yes" puts it in the tracker as applied (reusing an existing row,
  *  including one the student typed in by hand for the same company and role). */
-export function ApplyLink({ j, className = "btn btn-secondary btn-sm", testid = "link-apply" }: { j: Job; className?: string; testid?: string }) {
+export function ApplyLink({ j, className = "btn btn-secondary btn-sm", testid = "link-apply", style }: { j: Job; className?: string; testid?: string; style?: React.CSSProperties }) {
   const { ws, save, run } = useStore();
   const [ask, setAsk] = useState(false);
   const url = j.applyUrl || j.sourceUrl;
@@ -22,8 +23,8 @@ export function ApplyLink({ j, className = "btn btn-secondary btn-sm", testid = 
   }, "Added to your tracker as applied");
   return (
     <>
-      <a className={className} href={url} target="_blank" rel="noreferrer" onClick={() => { if (j.kind !== "event" && (!tracked || tracked.status === "Saved")) setAsk(true); }} data-testid={testid}>
-        {j.kind === "event" ? "Register" : "Apply"} <ArrowUpRight size={13} />
+      <a className={className} style={style} href={url} target="_blank" rel="noreferrer" onClick={() => { if (j.kind !== "event" && (!tracked || tracked.status === "Saved")) setAsk(true); }} data-testid={testid}>
+        {j.kind === "event" ? "Register" : "Apply"} <ArrowUpRight size={13} style={{ display: "inline" }} />
       </a>
       {ask && (
         <span className="row small" style={{ gap: 8, flexBasis: "100%", order: 99 }} data-testid="ask-applied">

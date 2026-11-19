@@ -18,6 +18,7 @@ test("tailor fix: the rejected rewrite really is flagged, and the prompt names t
   const p = rewriteFixPrompt([item]);
   assert.match(p.user, /Managed/);
   assert.match(p.user, /ch1/);
+  assert.match(rewriteFixPrompt([{ ...item, requirementQuote: "Strong customer service skills" }]).user, /POSTING ASKS: Strong customer service/);
   assert.match(letterFixPrompt("Dear team, I managed the register.", [{ type: "title", term: "managing", message: "x" }]).user, /managing/);
 });
 

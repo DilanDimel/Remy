@@ -157,4 +157,13 @@ test("skills: Microsoft Excel / MS Excel is the resume's Excel; Microsoft Office
   for (const [t, k] of [["Strive to excel", "Excel"], ["Strive to excel", "Microsoft Office"], ["Wrote a weekly market outlook", "Microsoft Outlook"], ["Wrote the Weekly Market Outlook", "Outlook"]]) assert.ok(!hasKeyword(t, k), `${t} / ${k}`);
   assert.ok(hasKeyword("skills: excel, powerpoint", "Excel")); // lowercase, but clearly a list of programs
   assert.ok(hasKeyword("Managed Outlook calendars for 3 managers", "Outlook"));
+  // Skeptic round 2: any capitalisation and "spreadsheets" still show Excel; "Word and Excel" too.
+  for (const [t, k] of [["Built spreadsheets to track inventory", "Excel"], ["Used excel to build models", "Excel"], ["PROFICIENT IN EXCEL AND WORD", "Excel"], ["managed outlook calendars", "Outlook"], ["Skills: Word and Excel", "Microsoft Excel"], ["Built spreadsheets for the club", "Microsoft Excel"]]) assert.ok(hasKeyword(t, k), `${t} / ${k}`);
+  for (const [t, k] of [["We excel in teamwork", "Excel"], ["I will excel as an analyst", "Excel"]]) assert.ok(!hasKeyword(t, k), `${t} / ${k}`);
+  // Skeptic round 3: "to Excel" (the program) vs "to excel" (the verb); "Excel in/with…" mid-line is the program; "credit outlook" isn't Outlook.
+  for (const t of ["Exported reports to Excel", "Migrated tracking from paper to Excel", "Built models in Excel in 2024", "Used Excel with VBA to automate reports", "Used Excel as a database for 200 members", "Tracked inventory in Excel when the POS failed", "Excel: pivot tables", "Excel modeling for 3 clients"]) assert.ok(hasKeyword(t, "Excel"), t);
+  for (const t of ["Students who excel academically", "Athletes who excel", "Eager to excel and grow", "Motivated student who wants to excel", "I can excel in fast-paced roles"]) assert.ok(!hasKeyword(t, "Excel"), t);
+  for (const k of ["Excel skills", "Advanced Excel"]) { assert.ok(!hasKeyword("Strive to excel", k), k); assert.ok(hasKeyword("Built budgets in Excel", k), k); }
+  for (const t of ["Authored quarterly credit outlook", "Wrote 2025 housing outlook report", "fresh outlook on problems", "Wrote the Weekly Market Outlook"]) assert.ok(!hasKeyword(t, "Outlook"), t);
+  assert.ok(hasKeyword("Scheduled meetings in Outlook", "Outlook"));
 });

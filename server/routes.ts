@@ -2015,6 +2015,7 @@ Return JSON:
     a.letterFlags = letterFlagsFor(ctx.ws, a, job);
     // Remy fixes what its own check rejects before the student sees it (server/tailorFix.ts): one more AI try for the
     // flagged rewrites and letter, in parallel. A rewrite that still fails isn't offered; the student keeps their line.
+    const draftModel = lastUsedModel(); // the model that wrote the draft, not the repair call
     const flagged = changes.filter((c) => c.flags.length);
     const letterProblems = a.letterFlags.filter((f) => f.type !== "placeholder");
     if (letterProblems.length) ctx.ws.incidents.unshift({ id: uid("inc"), at: nowIso(), kind: "AI overstatement caught", where: `${job.company} cover letter`, text: a.letter.slice(0, 600), flags: letterProblems });
@@ -2042,7 +2043,7 @@ Return JSON:
     a.letterApproved = false;
     a.personalize = []; // Remy asks before writing; the letter never carries fill-in-the-blank gaps
     a.generatedAt = nowIso();
-    a.generatedBy = lastUsedModel();
+    a.generatedBy = draftModel;
     a.audit = undefined;
     refreshAts(ctx.ws, a);
     await ctx.save();

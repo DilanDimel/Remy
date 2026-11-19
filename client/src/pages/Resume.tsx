@@ -4,7 +4,7 @@ import { shortTitle } from "@shared/org";
 import { dropDates, skillGroupName } from "@shared/words";
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, ArrowUpRight, Check, CheckCircle2, ChevronDown, ChevronUp, Download, FileText, Link2, Pencil, Plus, RotateCcw, ShieldAlert, ShieldCheck, Sparkles,
+  AlertTriangle, Check, CheckCircle2, ChevronDown, ChevronUp, Download, FileText, Link2, Pencil, Plus, RotateCcw, ShieldAlert, ShieldCheck, Sparkles,
   Star, Trash2, X,
 } from "lucide-react";
 import type { Application, BulletChange, ClaimFlag, Job, ResumeDoc, Workspace } from "@shared/types";
@@ -22,6 +22,7 @@ import { EvidencePassport } from "../components/EvidencePassport";
 import { StoryDeck } from "../components/StoryDeck";
 import { ResumeReview } from "../components/ResumeReview";
 import { PitchCard } from "../components/PitchCard";
+import { ApplyLink } from "../components/ApplyLink";
 import { LinkedInCoach } from "../components/LinkedInCoach";
 import { PdfPreview, WordPreview } from "../components/WordPreview";
 import { startTailor, useTailorSession } from "../lib/tailorChat";
@@ -387,7 +388,7 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
           <div className="stack-sm">
             <span className="xs muted">{job.company} · <StatusChip label={job.label} /></span>
             <h2 data-testid="text-app-title">{job.title}</h2>
-            <span className="xs muted">{job.deadlineText || "No deadline listed"} · <a className="src-link" href={job.applyUrl || job.sourceUrl} target="_blank" rel="noreferrer" style={{ color: "var(--plum)", fontWeight: 700 }}>Posting <ArrowUpRight size={12} style={{ display: "inline" }} /></a></span>
+            <span className="xs muted">{job.deadlineText || "No deadline listed"}{(job.applyUrl || job.sourceUrl) && " · "}<ApplyLink j={job} className="src-link" testid="link-apply-tailor" style={{ color: "var(--plum)", fontWeight: 700 }} /></span>
           </div>
           <button className="btn btn-primary" onClick={generate} disabled={!!busy || (!!mine && mine.stage !== "done") || !config?.ai.available || !w.resume} data-testid="button-generate">
             {mine?.stage === "working" ? <Spinner /> : a.generatedAt ? <RotateCcw size={16} /> : <Sparkles size={16} />} {mine?.stage === "working" ? "Tailoring…" : mine?.stage === "reading" ? "Reading the posting…" : mine?.stage === "asking" ? "Answering Remy…" : a.generatedAt ? "Regenerate" : "Tailor with AI"}
@@ -500,7 +501,7 @@ function ChangeCard({ a, c, n }: { a: Application; c: BulletChange; n: number })
       </div>
       <div className="grid-2">
         <div className="req-line"><Link2 size={15} style={{ marginTop: 3, color: "var(--plum)" }} /><div><div className="xs muted" style={{ fontWeight: 700 }}>POSTING REQUIREMENT</div><span className="small">“{c.requirementQuote}”</span></div></div>
-        <div className="req-line"><ShieldCheck size={15} style={{ marginTop: 3, color: "var(--sage)" }} /><div><div className="xs muted" style={{ fontWeight: 700 }}>WHY</div><span className="small">{c.reason}</span></div></div>
+        {c.reason && <div className="req-line"><ShieldCheck size={15} style={{ marginTop: 3, color: "var(--sage)" }} /><div><div className="xs muted" style={{ fontWeight: 700 }}>WHY</div><span className="small">{c.reason}</span></div></div>}
       </div>
       {c.status !== "rejected" && <FlagList flags={c.flags} />}
       {c.status !== "rejected" && c.flags.length > 0 && (

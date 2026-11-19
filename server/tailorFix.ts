@@ -4,14 +4,14 @@
 // itself would refuse at Approve.
 import type { ClaimFlag } from "@shared/types";
 
-export type FlaggedRewrite = { id: string; original: string; revised: string; flags: ClaimFlag[] };
+export type FlaggedRewrite = { id: string; original: string; revised: string; flags: ClaimFlag[]; requirementQuote?: string };
 
 const problems = (flags: ClaimFlag[]) => flags.filter((f) => f.type !== "placeholder").map((f) => `- "${f.term}": ${f.message}`).join("\n");
 
 export function rewriteFixPrompt(items: FlaggedRewrite[]) {
   return {
     system: `You repair resume bullet rewrites that an honesty check rejected. For each item, write a new version of the ORIGINAL bullet that fixes every listed problem: drop or replace each flagged word, never upgrade the student's verb (ran → managed, helped → led), and never add qualities, outcomes, numbers, tools or details the ORIGINAL doesn't state (no "with attention to detail", "ensuring", "efficiently"). Rewording is fine; adding is not. If the original can't be improved honestly, return it unchanged.`,
-    user: `${items.map((x) => `ID: ${x.id}\nORIGINAL: ${x.original}\nREJECTED REWRITE: ${x.revised}\nPROBLEMS:\n${problems(x.flags)}`).join("\n\n")}\n\nAlso give "reason": one short sentence on why the NEW version helps for this posting, claiming nothing the original doesn't say.\nReturn {"fixes":[{"id":"","revised":"","reason":""}]}`,
+    user: `${items.map((x) => `ID: ${x.id}\n${x.requirementQuote ? `POSTING ASKS: ${x.requirementQuote}\n` : ""}ORIGINAL: ${x.original}\nREJECTED REWRITE: ${x.revised}\nPROBLEMS:\n${problems(x.flags)}`).join("\n\n")}\n\nAlso give "reason": one short sentence on how the NEW version speaks to what POSTING ASKS, claiming nothing the original doesn't say.\nReturn {"fixes":[{"id":"","revised":"","reason":""}]}`,
   };
 }
 

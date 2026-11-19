@@ -100,22 +100,32 @@ const SAME: [RegExp, RegExp][] = [
   [/^excel$/, /\b(excel|spreadsheet\w*)\b/],
   [/^ehr$/, /\b(ehr|epic|cerner|electronic health record\w*)\b/],
 ];
-/** The Office program, not the everyday word: "Excel" or "MS Excel", or "excel" as an item in a list ("excel, powerpoint"),
- *  never "strive to excel"; "Outlook" but not "market outlook". */
+/** The Office program, not the everyday word. Reads the student's own text (not plainEnglish, which erases
+ *  "Excel in/with…"). Excel: "spreadsheets"; "Excel"/"EXCEL" mid-sentence ("Exported reports to Excel"); "Excel" opening a
+ *  line unless it's the verb ("Excel at/in/under…"); lowercase "excel" only after a tool word ("used excel", "in excel") or
+ *  in a list ("excel, powerpoint"). Never "strive to excel", "students who excel". Outlook: capital "Outlook" not after
+ *  "market/quarterly…"; lowercase only in a list or next to mail/calendar words. Never "credit outlook". */
+const LIST_ITEM = (n: string) => new RegExp(`(^|[,:;•|/(&]|\\band\\b)\\s*${n}\\s*($|[,;|/)&]|\\band\\b)`, "im");
+// "market outlook", "2025 housing outlook": the everyday word, whatever the capitals.
+const OUTLOOK_WORDS = /^(?:market|industry|economic|financial|global|career|investment|sector|earnings|business|credit|housing|rate|rates|oil|weekly|monthly|quarterly|annual|positive|negative|fresh|optimistic|long-term|short-term|\d{4})$/i;
 function productIn(text: string, name: string): boolean {
-  const t = plainEnglish(text), n = name.toLowerCase();
+  const t = text, n = name.toLowerCase();
   if (new RegExp(`\\b(?:microsoft|ms)\\s+${n}\\b`, "i").test(t)) return true;
   if (n === "powerpoint" || n === "visio") return new RegExp(`\\b${n}\\b`, "i").test(t);
-  const cap = n[0].toUpperCase() + n.slice(1);
-  if (n === "outlook") return /(?<!\b(?:market|industry|economic|financial|global|career|investment|sector|earnings|business|weekly|monthly|quarterly|annual|positive|negative|long-term|short-term)\s+)\bOutlook\b/i.test(t) && new RegExp(`\\b${cap}\\b`).test(t);
-  return new RegExp(`\\b${cap}\\b`).test(t) || new RegExp(`(^|[,:;•|/(])\\s*${n}\\s*($|[,;|/)])`, "im").test(t);
+  if (LIST_ITEM(n).test(t)) return true;
+  if (n === "outlook") return [...t.matchAll(/(\S+)\s+Outlook\b|^\s*Outlook\b/gm)].some((m) => !m[1] || !OUTLOOK_WORDS.test(m[1]))
+    || /\boutlook\s+(?:calendars?|email|e-mail|inbox|invites?|meetings?|scheduling)\b|\b(?:in|using|via|through|with)\s+outlook\b/i.test(t);
+  if (/\bspreadsheets?\b/i.test(t) || /\bEXCEL\b/.test(t)) return true;
+  if (/(?<![.!?•\-–]\s*|^\s*)(?<=\S\s+)\bExcel\b/m.test(t)) return true; // mid-sentence capital: the program
+  if (/(?:^|[.!?•\-–]\s*)\s*Excel\b(?!\s+(?:at|in|under|academically|as\s+an?)\b)/m.test(t)) return true; // opening a line
+  return /\b(?:use|used|uses|using|in|into|with|via|from|of|knowledge of)\s+excel\b/i.test(t);
 }
 
 export function hasKeyword(text: string, keyword: string): boolean {
   // "Python or Java or C++": the posting asks for any one of them.
   if (/\sor\s/i.test(keyword)) return keyword.split(/\s+or\s+/i).some((k) => hasKeyword(text, k));
   // "Microsoft Excel" / "MS Excel" is the resume's "Excel" (distinct product names only: "Word" or "Project" alone are everyday words).
-  const office = keyword.trim().match(/^(?:(?:microsoft|ms)\s+)?(excel|powerpoint|outlook|visio)$/i);
+  const office = keyword.trim().match(/^(?:(?:advanced|basic|intermediate|strong|proficiency in|proficient in|experience with|knowledge of|microsoft|ms)\s+)*(excel|powerpoint|outlook|visio)(?:\s+(?:skills?|proficiency|experience|knowledge))?$/i);
   if (office) return productIn(text, office[1]);
   // "Microsoft Office" is shown by any of its apps on the resume.
   if (/^(?:microsoft|ms)\s+office(?:\s+suite)?$/i.test(keyword.trim())) return /\b(?:microsoft|ms)\s+(?:office|word|365)\b/i.test(text) || ["excel", "powerpoint", "outlook"].some((x) => productIn(text, x));

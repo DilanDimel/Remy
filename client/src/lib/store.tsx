@@ -29,7 +29,6 @@ export class ApiError extends Error {
 let leaving = false;
 if (typeof window !== "undefined") {
   window.addEventListener("pagehide", () => { leaving = true; });
-  window.addEventListener("beforeunload", () => { leaving = true; });
   window.addEventListener("pageshow", () => { leaving = false; });
 }
 
