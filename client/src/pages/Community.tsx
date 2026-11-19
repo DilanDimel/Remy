@@ -67,7 +67,8 @@ export default function Community() {
           <button className="btn btn-secondary" onClick={() => setAdding(true)} data-testid="button-add-contact"><Plus size={16} /> Add a contact</button>
         </div>
       </div>
-      <div className="notice small" data-testid="alumni-coming-soon"><GraduationCap size={16} style={{ color: "var(--plum)", marginTop: 2 }} /><div><StatusChip label="Needs setup">Coming soon</StatusChip> <strong>Alumni connections.</strong> Remy will match you with alumni in your field once a school gives us permission to use its alumni list. Until then, add people you've met yourself.</div></div>
+      {/* Community is everyone who can help, not only alumni (Dilan, Nov 19); alumni matching is one later addition. */}
+      <div className="notice small" data-testid="community-intro"><GraduationCap size={16} style={{ color: "var(--plum)", marginTop: 2 }} /><div><strong>Anyone who can help counts:</strong> a recruiter from a career fair, a professor, an alum, a classmate, a coworker or a manager. Add them here and Remy reminds you to follow up and helps you write to them. <span className="muted">Coming soon: alumni from your school in your field, once your school shares its alumni list.</span></div></div>
       {unknownOrgs.length > 0 && <div className="notice small" data-testid="people-to-meet"><Sparkles size={16} style={{ color: "var(--fox)", marginTop: 2 }} /><div><strong>Worth meeting next:</strong> you saved or started applying to openings at {unknownOrgs.join(", ")} but don't know anyone there yet. A recruiter you met at a fair, an alum or a TA who interned there is worth adding, and Remy can draft the first message.</div></div>}
       <h2>Your contacts</h2>
       {w.contacts.length ? (
