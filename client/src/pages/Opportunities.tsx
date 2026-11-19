@@ -82,11 +82,13 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const ineligible = base.filter((j) => fits[j.id]?.excluded);
   // Outside the student's places with no reason from their relocation answer: behind the "N more" link.
   const elsewhere = base.filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch === false && !fits[j.id]?.relocate);
+  const group = (j: Job) => (!regions || fits[j.id]?.regionMatch !== false ? 0 : fits[j.id]?.relocate ? 1 : 2);
   const list = base
     .filter((j) => showIneligible || !fits[j.id]?.excluded)
     .filter((j) => !myRegions || fits[j.id]?.regionMatch !== false || !!fits[j.id]?.relocate)
-    // The student's own places first, then the "Worth relocating for" group (relocation answer), each ranked by fit.
-    .sort((a, b) => Number(pinned(b)) - Number(pinned(a)) || (regions ? Number(fits[b.id]?.regionMatch !== false) - Number(fits[a.id]?.regionMatch !== false) : 0) || rank(b) - rank(a) || (a.deadline || "9999").localeCompare(b.deadline || "9999"));
+    // The student's own places first, then "Worth relocating for" (their relocation answer), then other places (only
+    // when they show all locations); pinned and ranked within each group, so a group never splits (skeptic review).
+    .sort((a, b) => group(a) - group(b) || Number(pinned(b)) - Number(pinned(a)) || rank(b) - rank(a) || (a.deadline || "9999").localeCompare(b.deadline || "9999"));
   return (
     <>
       {needsProfile && <div className="notice" data-testid="needs-profile">{needsProfile}</div>}
@@ -147,8 +149,8 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
               {list.slice(0, count).map((j, i, shownList) => (
                 <Fragment key={j.id}>
                   {/* Openings outside the student's places come after theirs, under a line saying why (their relocation answer). */}
-                  {regions && fits[j.id]?.regionMatch === false && fits[shownList[i - 1]?.id]?.regionMatch !== false && (
-                    <div className="row small muted" style={{ gap: 8, margin: "6px 2px 0" }} data-testid="worth-relocating"><b style={{ color: "var(--text)" }}>Worth relocating for</b><span>outside {regions}</span></div>
+                  {group(j) > 0 && (i === 0 || group(shownList[i - 1]) !== group(j)) && (
+                    <div className="row small muted" style={{ gap: 8, margin: "6px 2px 0" }} data-testid={group(j) === 1 ? "worth-relocating" : "other-places"}><b style={{ color: "var(--text)" }}>{group(j) === 1 ? "Worth relocating for" : "Other places"}</b><span>outside {regions}</span></div>
                   )}
                   <JobCard j={j} fit={fits[j.id]} moved={interest[j.id]} canRate={interestEnabled} defaultOpen={focus === j.id} />
                 </Fragment>

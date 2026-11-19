@@ -1,3 +1,4 @@
+import { orgKey } from "@shared/org";
 import { postingSkills } from "@shared/requirements";
 import type { Job, JobFit, Workspace } from "@shared/types";
 import { hasKeyword } from "./ats";
@@ -305,9 +306,17 @@ function notWanted(ws: Workspace, job: Job): string {
 }
 
 // Words in a major or target role that say nothing about the field ("Bachelor of Science in…", "engineering intern").
-const GENERIC_TITLE_WORDS = new Set(["engineer", "engineering", "business", "intern", "internship", "analyst", "associate", "science", "sciences", "studies", "student", "program", "summer", "major", "minor", "degree", "bachelor", "master", "technology", "general", "role", "roles", "position", "entry", "level", "career", "work", "certificate", "and"].map(family));
+const GENERIC_TITLE_WORDS = new Set(["with", "and", "for", "certification", "certificate", "minor", "engineer", "engineering", "business", "intern", "internship", "analyst", "associate", "science", "sciences", "studies", "student", "program", "summer", "major", "minor", "degree", "bachelor", "master", "technology", "general", "role", "roles", "position", "entry", "level", "career", "work", "certificate", "and"].map(family));
 
 // Bump when the fit rules change, so verdicts saved under older rules are worked out again.
+/** A dream employer as the student wrote it is this company when it equals the company's first whole word(s):
+ *  "J.P. Morgan" = "JPMorgan Chase & Co.", "Goldman Sachs" = "Goldman Sachs Group"; "Apple" isn't "Applebee's",
+ *  "EY" isn't "Disney". */
+function sameEmployer(dream: string, company: string): boolean {
+  const key = orgKey(dream);
+  const words = company.toLowerCase().replace(/&/g, " and ").split(/[^a-z0-9]+/).filter((w) => w && !/^(inc|llc|llp|ltd|corp|corporation|company|co|the)$/.test(w));
+  return key.length >= 2 && words.some((_, k) => words.slice(0, k + 1).join("") === key);
+}
 /** Why an opening outside the student's places is still worth showing, from their own "Open to relocating?" answer
  *  (council, Nov 19): "Yes" keeps every one; "For the right role" keeps one with a reason they'd recognize (a dream
  *  employer, or a title in their own field words); "No" or no answer keeps them to their places (""). */
@@ -315,9 +324,10 @@ export function relocateReason(ws: Workspace, title: string, company: string): s
   const r = (ws.profile.relocation || "").trim().toLowerCase();
   if (r === "yes") return "you're open to relocating";
   if (r !== "for the right role") return "";
-  const co = company.toLowerCase().trim();
-  const dream = (ws.profile.dreamEmployers || "").split(/[,;]+/).map((d) => d.trim().toLowerCase()).filter((d) => d.length > 1);
-  if (co && dream.some((d) => co.includes(d) || d.includes(co))) return `${company} is a dream employer`;
+  // Same employer however it's written ("J.P. Morgan" = "JPMorgan Chase & Co."), never a short name inside another
+  // ("EY" isn't Disney): shared/org.ts.
+  const dream = (ws.profile.dreamEmployers || "").split(/[,;]+/).map((d) => d.trim()).filter((d) => d.length > 1);
+  if (company.trim() && dream.some((d) => sameEmployer(d, company))) return `${company} is a dream employer`;
   const own = [...families(`${ws.profile.major} ${ws.profile.targetRoles}`)].filter((f) => f.length >= 4 && !GENERIC_TITLE_WORDS.has(f));
   const hit = own.filter((f) => families(title).has(f));
   return hit.length ? "the title is in your field" : "";
