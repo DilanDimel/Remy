@@ -100,39 +100,50 @@ const SAME: [RegExp, RegExp][] = [
   [/^excel$/, /\b(excel|spreadsheet\w*)\b/],
   [/^ehr$/, /\b(ehr|epic|cerner|electronic health record\w*)\b/],
 ];
-/** The Office program, not the everyday word ("eager to learn and excel", "credit outlook", "EXCEL Program"). It counts
- *  only with clear program context, whatever the capitals: "Microsoft Excel"; "spreadsheets"; a tool word before it
- *  ("in/using/with Excel", "exported reports to Excel"); a program word after it ("Excel models", "Outlook calendars");
- *  a skills line ("Software: Excel"); or a list with another program ("Word and Excel"). Reads the student's own text. */
-const PROGRAMS = String.raw`(?:microsoft\s+)?(?:word|excel|powerpoint|outlook|onenote|sharepoint|(?:ms|microsoft)\s+office|google\s+(?:sheets|docs|slides)|sheets|tableau|power\s*bi|python|sql|vba|quickbooks|salesforce|canva|bloomberg(?:\s+terminal)?|factset|capital\s+iq|workday|netsuite|oracle|jira|hubspot|smartsheet|airtable|adobe\s+\w+|photoshop|illustrator|sap|spss|stata|matlab|r)`;
-const SKILLS_LINE = /^[^\S\n]*[^\n:]{0,30}\b(?:skills?|software|tools|technolog\w*|programs|computer|proficienc\w*|certifications?)[^\S\n]*:/i;
-const AFTER: Record<string, string> = {
-  excel: String.raw`models?|modell?ing|spreadsheets?|workbooks?|dashboards?|pivot|vlookups?|xlookup|macros?|vba|formulas?|functions|sheets?|templates?|files?|skills?|proficiency|certifi\w*|expert|trackers?|charts?|reports?`,
-  outlook: String.raw`calendars?|e-?mails?|inbox(?:es)?|invites?|invitations|meetings?|scheduling|contacts`,
-};
+/** The Office program, not the everyday word. Any "Excel" counts as the program UNLESS it's clearly the verb: "excel
+ *  at/under…", "strive/eager… to excel", "I/we/who/can excel", "learn, grow and excel". A missed skill (a false gap) is
+ *  worse than the rare "EXCEL Program", so the default is the program (skeptic rounds 4–5: a strict "needs program
+ *  context" rule missed 55 of 95 real lines). Outlook: capital "Outlook" unless after "market/credit/Q3…"; lowercase
+ *  "outlook" only next to mail/calendar words, a tool word, or another program. Reads the student's own text. */
+const PROGRAMS = String.raw`(?:microsoft\s+)?(?:word|excel|powerpoint|outlook|teams|zoom|slack|onenote|sharepoint|(?:ms|microsoft)\s+office|google\s+(?:sheets|docs|slides)|sheets|tableau|power\s*bi|python|sql|vba|quickbooks|salesforce|canva|bloomberg|factset|workday|sap)`;
+// "<word> to excel" is the verb after these ("eager to excel", "Mentored freshmen to Excel"); "Exported reports to Excel" isn't.
+const TO_EXCEL_VERB = /^(?:eager|driven|strive|strives|striving|want|wants|wanting|ready|looking|hope|hoping|aim|aims|aiming|continue|continues|committed|motivated|passion|passionate|determined|ability|chance|opportunity|desire|goal|learn|grow|work|working|push|pushes|pushed|inspire|inspired|encourage|encouraged|helped|help|helping|students|them|others|me|us|freshmen|teammates|players|kids|children|peers|members|athletes|everyone|team|youth|mentees|scholars)$/i;
+// "learn, grow, and excel": the verb when "and/or" joins it to another verb.
+const GROW_VERB = /^(?:learn|grow|lead|contribute|adapt|thrive|succeed|develop|improve|serve|collaborate|innovate|achieve)$/i;
+const OUTLOOK_WORDS = /^(?:market|industry|economic|economy|financial|global|career|investment|sector|earnings|business|credit|housing|rate|rates|oil|energy|macro|fed|income|q[1-4]|weekly|monthly|quarterly|annual|positive|negative|fresh|optimistic|pessimistic|bright|long-term|short-term|future|growth|\d{4})$/i;
+// "Excel Club", "EXCEL Program", "Outlook Magazine": an organization's name, not the program.
+const ORG_NAME = /^\s+(?:club|scholars?|scholarship|program|programme|academy|charter|energy|staffing|sports|leadership|fellows?|fellowship|foundation|institute|center|centre|school|magazine|award|society|camp|partners|group|inc|llc)\b/i;
+function excelIsVerb(before: string, after: string, word = "Excel"): boolean {
+  if (ORG_NAME.test(after)) return true;
+  if (/^\s+(?:at|under|academically)\b/i.test(after)) return true;
+  const prev = (before.match(/([\w'-]+)\W*$/) || [])[1] || "";
+  if (GROW_VERB.test(prev)) return true; // "lead/excel", "grow & excel"
+  // "I excel", "students who excel in math", "players excel": a subject right before it.
+  if ((/^(?:i|we|you|they|who|can|will|would|always|consistently|strive|strives)$/i.test(prev) || (prev.toLowerCase() !== "to" && TO_EXCEL_VERB.test(prev))) && /^\s*(?:in|on|with|as|and|,|\.|;|$)/i.test(after + " ")) return true;
+  if (/^to$/i.test(prev)) {
+    const p2 = (before.replace(/\W*to\W*$/i, "").match(/([\w'-]+)\W*$/) || [])[1] || "";
+    return !p2 || TO_EXCEL_VERB.test(p2);
+  }
+  if (/^(?:and|or)$/i.test(prev)) {
+    const p2 = (before.replace(/\W*(?:and|or)\W*$/i, "").match(/([\w'-]+)\W*$/) || [])[1] || "";
+    // "Word and excel" is the program; "lead teams and excel" (lowercase, after a word that isn't a capitalised program) is the verb.
+    return GROW_VERB.test(p2) || (word === "excel" && !(/^[A-Z]/.test(p2) && new RegExp(String.raw`^${PROGRAMS}$`, "i").test(p2)));
+  }
+  return false;
+}
 function productIn(text: string, name: string): boolean {
   const t = text, n = name.toLowerCase();
   if (new RegExp(String.raw`\b(?:microsoft|ms)\s+${n}\b`, "i").test(t)) return true;
   if (n === "powerpoint") return /\bpower\s?point\b/i.test(t);
   if (n === "visio") return /\bvisio\b/i.test(t);
-  if (n === "excel" && /\bspreadsheets?\b/i.test(t)) return true;
-  if (t.trim().toLowerCase() === n) return true; // a single skill the student typed ("excel")
-  const word = new RegExp(String.raw`\b${n}\b`, "i");
-  // A skills line ("Software: Excel"), or the program alone on its own line, capitalised (a skills column; a lowercase
-  // "excel" alone is more likely the end of a wrapped sentence).
-  if (t.split("\n").some((l) => (SKILLS_LINE.test(l) && word.test(l)) || new RegExp(String.raw`^[^\w\n]*(?:${n[0].toUpperCase() + n.slice(1)}|${n.toUpperCase()})[^\w\n]*$`).test(l))) return true;
-  const sep = String.raw`\s*(?:,\s*(?:and\s+|&\s*)?|;|\||/|&|\band\b)\s*`;
-  if (new RegExp(String.raw`\b${PROGRAMS}${sep}${n}\b|\b${n}${sep}${PROGRAMS}\b`, "i").test(t)) return true;
-  if (new RegExp(String.raw`${n === "excel" ? String.raw`\bexcel\s*:|` : ""}\b${n}\s+(?:${AFTER[n]})\b`, "i").test(t)) return true;
-  // "in Workday and Excel", "using SAP, Oracle, and Excel": a list of named tools after a tool word.
-  if (new RegExp(String.raw`\b(?:in|into|using|with|via|through)\s+[A-Z][\w.+-]*(?:\s*,\s*[A-Z][\w.+-]*)*\s*,?\s*(?:and|&)\s+${n[0].toUpperCase() + n.slice(1)}\b`).test(t)) return true;
-  // "in excel" is always the program; "in outlook" (changes in outlook) only when written "Outlook".
-  if (n === "excel" ? /\b(?:in|into|using|use|used|uses|with|via|from|through)\s+excel\b/i.test(t) : /\b(?:in|into|using|use|used|uses|with|via|from|through)\s+Outlook\b/.test(t)) return true;
-  // "Exported reports to Excel" is the program; "eager to excel" is the verb (lowercase, or after a wanting word).
-  return n === "excel" && [...t.matchAll(/(?:^|(\S+)\s+)to\s+Excel\b/gm)].some((m) => !!m[1] && !TO_EXCEL_VERB.test(m[1]));
+  if (n === "excel") return /\bspreadsheets?\b/i.test(t) || [...t.matchAll(/\bexcel\b/gi)].some((m) => !excelIsVerb(t.slice(Math.max(0, m.index! - 60), m.index), t.slice(m.index! + m[0].length, m.index! + m[0].length + 30), m[0]));
+  // Outlook
+  if ([...t.matchAll(/\b(?:Outlook|OUTLOOK)\b/g)].some((m) => !ORG_NAME.test(t.slice(m.index! + m[0].length, m.index! + m[0].length + 20)) && !OUTLOOK_WORDS.test((t.slice(Math.max(0, m.index! - 40), m.index).match(/([\w'-]+)\W*$/) || [])[1] || ""))) return true;
+  if (/\boutlook\s+(?:calendars?|e-?mails?|inbox(?:es)?|invites?|meetings?|scheduling|contacts)\b|\b(?:in|using|with|via|through)\s+Outlook\b/.test(t)) return true;
+  if (t.trim().toLowerCase() === "outlook") return true;
+  const sep = String.raw`\s*(?:,\s*(?:and\s+|&\s*)?|;|\||/|&|\+|\band\b)\s*`;
+  return new RegExp(String.raw`\b${PROGRAMS}${sep}outlook\b|\boutlook${sep}${PROGRAMS}\b`, "i").test(t);
 }
-// "<word> to excel": the verb after wanting words ("eager to Excel", "Driven to Excel"), whatever the capitals.
-const TO_EXCEL_VERB = /^(?:eager|driven|strive|strives|striving|want|wants|wanting|ready|looking|hope|hoping|aim|aims|aiming|continue|committed|motivated|passion|passionate|determined|ability|chance|opportunity|desire|goal|learn|grow|work|working|push|pushed|inspired|encouraged|helped|help|students|them|others|me|us)$/i;
 
 export function hasKeyword(text: string, keyword: string): boolean {
   // "Python or Java or C++": the posting asks for any one of them.

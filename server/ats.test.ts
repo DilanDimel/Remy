@@ -168,7 +168,11 @@ test("skills: Microsoft Excel / MS Excel is the resume's Excel; Microsoft Office
   assert.ok(hasKeyword("Scheduled meetings in Outlook", "Outlook"));
   // Skeptic round 4: program context only, whatever the capitals.
   for (const t of ["Hardworking finance major eager to learn and excel", "Ready to learn, grow, and excel", "Finance Student | Driven to Excel", "SUMMARY\nEager to Excel in Investment Banking", "STRIVE TO EXCEL", "Mentor, EXCEL Program for first-generation students", "● Excel at leading teams under pressure", "Lead teams and excel"]) assert.ok(!hasKeyword(t, "Excel"), t);
-  for (const t of ["Covered earnings, guidance, and outlook", "Analyzed changes in outlook for 10 REITs", "Wrote the Fed Outlook brief", "Outlook: positive"]) assert.ok(!hasKeyword(t, "Outlook"), t);
+  for (const t of ["Covered earnings, guidance, and outlook", "Analyzed changes in outlook for 10 REITs", "Wrote the Fed Outlook brief", "Outlook Magazine, staff writer"]) assert.ok(!hasKeyword(t, "Outlook"), t);
+  // Skeptic round 5: a strict rule lost real skills, so the program is the default; only the verb and org names are out.
+  for (const t of ["Skills Excel", "Excel, Spanish, customer service", "Excel-based tracker for 40 volunteers", "Trained staff on Excel", "Excel (pivot tables, VLOOKUP)", "Advanced Excel", "Completed the Excel Crash Course"]) assert.ok(hasKeyword(t, "Excel"), t);
+  for (const t of ["Helped students excel in math", "Coached players to excel", "Excel Club, treasurer", "Tutor, Excel Academy Charter School", "I excel, adapt, and lead", "Passion to lead/excel"]) assert.ok(!hasKeyword(t, "Excel"), t);
+  for (const t of ["Outlook, Teams, Zoom", "Skills Outlook"]) assert.ok(hasKeyword(t, "Outlook"), t);
   for (const t of ["Skills\nExcel\nPython\nSQL", "excel", "Word and Excel", "Technical Skills: excel, python"]) assert.ok(hasKeyword(t, "Excel"), t);
   for (const t of ["Sent 200+ client emails through Outlook", "Bloomberg Terminal, FactSet, Outlook"]) assert.ok(hasKeyword(t, "Outlook"), t);
   assert.ok(hasKeyword("Built Power Point slides", "PowerPoint"));
