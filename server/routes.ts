@@ -862,7 +862,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   });
 
   // ---------- simple app-owned sections ----------
-  const SECTIONS = ["profile", "settings", "tasks", "calendar", "tracker", "savedJobIds", "hiddenJobIds", "memory", "outreach", "onboarding", "started", "plan", "contacts", "builder", "pitch", "hours"] as const;
+  const SECTIONS = ["profile", "settings", "tasks", "calendar", "tracker", "savedJobIds", "hiddenJobIds", "memory", "outreach", "onboarding", "started", "plan", "contacts", "builder", "pitch", "hours", "game"] as const;
   // The shape each section must have, so one malformed save can't break later requests.
   // Objects keep unknown extra fields (loose) but every field the server relies on is checked.
   const str = (max = 600) => z.string().max(max);
@@ -889,6 +889,8 @@ export async function registerRoutes(_server: Server, app: Express) {
     contacts: z.array(z.looseObject({ id: str(120), name: str(200), title: str(300), org: str(300), email: str(320), why: str(2000), tags: z.array(str(120)).max(30), label: str(40), met: str(200).optional(), metOn: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/).optional() })).max(1000),
     pitch: z.object({ text: str(1200), at: str(40) }),
     hours: z.array(z.object({ id: str(120), activity: str(120), hours: z.number().min(0).max(168), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), note: str(500).optional() })).max(2000),
+    // Career quest: per week (Monday date) the starting counts and the missions finished; at most two years kept.
+    game: z.object({ weeks: z.record(z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.object({ base: z.record(str(20), z.number().int().min(0).max(100000)), done: z.array(str(20)).max(10) })).refine((r) => Object.keys(r).length <= 110, "too many weeks") }),
     builder: z.looseObject({
       step: z.number().int().min(0).max(20),
       basics: z.object(Object.fromEntries(["name", "email", "phone", "city", "school", "major", "graduation", "classYear", "gpa", "highSchool", "highSchoolYear"].map((k) => [k, str(200)]))),

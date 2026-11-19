@@ -1157,3 +1157,17 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .tour-dots i { flex: 1; height: 4px; border-radius: 2px; background: var(--line); }
 .tour-dots i.done { background: #2f8a5b; } .tour-dots i.on { background: var(--fox); }
 @media (prefers-reduced-motion: reduce) { .tour-spot, .tour-shade { animation: none; transition: none; } }
+
+/* Career quest (owners only while tested) */
+.game-side { margin: 0 10px 10px; padding: 12px; border-radius: 14px; background: hsl(var(--card)); border: 1px solid var(--line); text-align: left; width: calc(100% - 20px); color: var(--text); }
+.game-lv { width: 26px; height: 26px; border-radius: 8px; background: var(--fox); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 13px; }
+.game-bar { height: 6px; border-radius: 3px; background: var(--line); margin: 9px 0 4px; overflow: hidden; }
+.game-bar > div { height: 6px; border-radius: 3px; background: linear-gradient(90deg, #ff922b, var(--fox)); }
+.game-missions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 700px) { .game-missions { grid-template-columns: 1fr; } }
+.game-mission { border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+.game-mission.ok { border-color: #2f9e44; background: rgba(47, 158, 68, .06); }
+.game-ico { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--fox-soft); color: var(--fox); }
+.game-mission.ok .game-ico { background: #2f9e44; color: #fff; }
+.game-badge { gap: 4px; opacity: .45; font-weight: 700; }
+.game-badge.on { opacity: 1; background: var(--fox-soft); }
