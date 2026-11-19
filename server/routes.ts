@@ -55,6 +55,7 @@ import * as insights from "./insights";
 import * as services from "./services";
 import { pruneOpenings, recordFound, recordCheck, listOpenings, openingsSummary } from "./openings";
 import { askedLength, keepAskedLength } from "./outreachAsk";
+import { noUpgrade } from "./noUpgrade";
 import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, isEmptyListing, refillEmpty, kindOf, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
 import { docxStyle, editResumeDocx } from "./docxEdit";
@@ -1224,7 +1225,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   async function importProfile(ctx: Ctx, kind: string, raw: string, fileName: string) {
     const out = await withAi(ctx, `Import ${kind}`, () =>
       aiJson<{ facts: { text: string; category: MemoryFact["category"]; quote: string; conflict?: string; notOnResume?: boolean }[] }>(
-        "You extract factual statements about a student from their own exported profile text. Only include facts stated in the text. Keep each fact short and specific. Include a verbatim supporting quote. If a fact disagrees with the student's resume or profile (a different major, school, title, employer or dates), say how in \"conflict\" in plain words, e.g. \"Your resume says Finance & BIS\"; otherwise leave it empty. Name each source (\"your resume says…\", \"your setup answers say…\"); never write \"you said\" about the profile, because parts of it are filled in automatically. " + (ctx.ws.tasks.some((t) => t.source === NAME_CHECK) ? "Ignore name differences: Remy asks the student about their name separately." : "The profile name may come from the sign-in account, so for a different name say \"your sign-in account is under …\".") + " Something missing from the resume is not a conflict: instead set \"notOnResume\": true for experience, skills, certifications, awards or activities the resume doesn't mention.",
+        "You extract factual statements about a student from their own exported profile text. Only include facts stated in the text, in its own words: never add a skill level (proficient, skilled, expert, strong, fluent) the text doesn't state, so a bare skills list stays a list. Keep each fact short and specific. Include a verbatim supporting quote. If a fact disagrees with the student's resume or profile (a different major, school, title, employer or dates), say how in \"conflict\" in plain words, e.g. \"Your resume says Finance & BIS\"; otherwise leave it empty. Name each source (\"your resume says…\", \"your setup answers say…\"); never write \"you said\" about the profile, because parts of it are filled in automatically. " + (ctx.ws.tasks.some((t) => t.source === NAME_CHECK) ? "Ignore name differences: Remy asks the student about their name separately." : "The profile name may come from the sign-in account, so for a different name say \"your sign-in account is under …\".") + " Something missing from the resume is not a conflict: instead set \"notOnResume\": true for experience, skills, certifications, awards or activities the resume doesn't mention.",
         `Source: ${kind}\nRESUME AND PROFILE (for spotting disagreements only):\n${profileSummary(ctx.ws)}\n${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org, e.dates].filter(Boolean).join(", ")).join("; ")).join("\n") : "(no resume)"}\n\nReturn {"facts":[{"text":"","category":"background|goal|preference|skill|experience|constraint|other","quote":"exact words","conflict":"","notOnResume":false}]} with at most 15 facts.\n\nTEXT:\n"""${raw.slice(0, 12000)}"""`,
       ),
     );
@@ -1243,6 +1244,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       .filter((org) => org && !norm(ctx.ws.profile.school || "").includes(norm(org)) && !norm(org).includes(norm(ctx.ws.profile.school || "x")));
     for (const f2 of out.facts || []) {
       if (f2.quote && !n.includes(norm(f2.quote).slice(0, 80))) continue; // drop anything not grounded in the text
+      f2.text = noUpgrade(String(f2.text || ""), raw);
       const ok = !f2.conflict && wasApproved.has(norm(f2.text.trim()));
       if (addFact(ctx.ws, f2.text, f2.category || "other", `${kind} import`, ok ? "approved" : "suggested", String(f2.conflict || ""))) added++;
       if (f2.notOnResume && !f2.conflict && ctx.ws.resume && !disputed.some((org) => f2.text.includes(org))) missing.push(f2.text.trim());
