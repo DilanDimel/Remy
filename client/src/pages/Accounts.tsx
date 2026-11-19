@@ -109,7 +109,7 @@ function Memory() {
   const approved = w.memory.filter((m) => m.status === "approved");
   return (
     <div className="stack">
-      <div className="notice small"><div>Remy uses <strong>facts</strong> — not your chat history — when drafting and recommending, and its claim checker treats them as true. Answers you typed yourself (in setup, check-ins or while tailoring) are saved here automatically because they're your own words. If one isn't right anymore, edit or delete it.</div></div>
+      <div className="notice small"><div>Remy uses <strong>facts</strong> — not your chat history — when drafting and recommending, and its claim checker treats them as true. Answers you typed yourself (in setup, interview stories or while tailoring) are saved here automatically because they're your own words. If one isn't right anymore, edit or delete it.</div></div>
       {suggested.length > 0 && (
         <div className="card card-pad stack-sm">
           <h3>Waiting for your approval · {suggested.length}</h3>

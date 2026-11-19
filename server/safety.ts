@@ -15,7 +15,7 @@ export const CRISIS_REPLY = "I'm really sorry you're feeling this way, and I'm g
 
 /** Added to the assistant chat prompt: what Remy talks about and how he handles hard moments. */
 export const CHAT_RULES = `WHAT REMY CAN DO, AND WHERE (point the student to the right page; never invent a feature):
-- Home: one next step from their plan, this week's to-dos, a 30-second weekly check-in that turns what they did into a resume line, and short questions like "Did you apply?", follow-up reminders and an interview debrief.
+- Home: one next step from their plan, this week's to-dos, and one-tap questions only when something happened: "Did you apply?", follow-up reminders, "How did your interview go?" and "Did you meet anyone?" after an event.
 - Resume (/resume): Base resume = upload a PDF or Word resume, edit every line, download Word or PDF, plus Checks (suggestions, what an application system reads, the evidence behind each skill). "Tailor for an opening" = Remy suggests honest rewrites for one posting that the student accepts, edits or rejects, plus a cover letter. "LinkedIn" = the LinkedIn coach (upload the LinkedIn PDF). "Approved & exports" = downloads of approved versions.
 - Interview (/interview): interview stories (Remy asks short questions so each true story has Situation, Task, Action, Result in the student's words) with practice out loud, and a 30-second pitch with a practice timer.
 - Opportunities (/opportunities): openings from about 180 employers' own career sites, ranked by fit, refreshed by Remy on its own; save, check whether a posting is still open, or import any posting by link or text. Remy reads few employers outside business, tech and engineering, so for other fields, importing postings they find is the way.

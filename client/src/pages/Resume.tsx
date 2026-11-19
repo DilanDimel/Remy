@@ -13,7 +13,6 @@ import { go, replaceRoute } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Empty, Modal, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
 import { resumeDiff } from "@shared/resumeDiff";
-import { MomentAsk, recent } from "../components/FeedbackAsks";
 import { ResumeBuilder } from "../components/ResumeBuilder";
 import { ResumeUpload } from "../components/Uploaders";
 import { AtsCard } from "../components/AtsCard";
@@ -252,7 +251,6 @@ function BaseResume({ subParam }: { subParam: string | null }) {
         </Modal>
       )}
       {/* After the page, not above Remy's review: the student came to see their resume first. */}
-      {w.resume.confirmedAt && !dirty && recent(w.resume.confirmedAt) && <MomentAsk ask="moment:resume" question="What was the hardest or most confusing part of getting your resume into Remy?" />}
     </div>
   );
 }
@@ -437,7 +435,6 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
               </> : <button className="btn btn-primary" onClick={() => approve()} disabled={!!busy} data-testid="button-approve-app">{busy === "approve" ? <Spinner /> : <ShieldCheck size={16} />} {a.letterApproved && a.versions.length && !a.staleReason ? "Approve again" : "Approve this version"}</button>}
             </div>
           </div>
-          {a.versions.length > 0 && recent(a.versions[a.versions.length - 1].at) && <MomentAsk ask="moment:approved" question="You approved a tailored version. Would you send it as is? What would you change first?" />}
         </>
       )}
       {!a.generatedAt && !mine && (

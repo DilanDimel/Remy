@@ -1411,8 +1411,8 @@ Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), 
       name, classYear: p.classYear, major: p.major, school: p.school, interests: p.targetRoles || "",
     });
     if (!text) bad(ctx.ws.resume
-      ? "Remy's draft added details that aren't on your resume, so Remy held it back. Try again, or add an experience in your own words (Home → weekly check-in)."
-      : "Remy couldn't find one real experience it could put in your pitch. Upload your resume or add an experience (Home → weekly check-in), then try again.", 422);
+      ? "Remy's draft added details that aren't on your resume, so Remy held it back. Try again, or add an experience in your own words (Resume/CV → Base resume → Edit)."
+      : "Remy couldn't find one real experience it could put in your pitch. Upload your resume or add an experience (Resume/CV → Base resume → Edit), then try again.", 422);
     ctx.ws.pitch = { text, at: nowIso() };
     await ctx.save();
     res.json(ctx.ws);
