@@ -34,6 +34,8 @@ export default function Onboarding() {
     uiFlags.flyIn = true;
     const to = LAND[w.onboarding.focus || ""];
     if (to) go(to);
+    // Remy's first win starts now (set here so students who finished setup before it existed don't get it).
+    await save("settings", { firstWin: 0 }).catch(() => {});
     await save("onboarding", { ...w.onboarding, done: true });
   };
   // The first screen saves the path and goal and picks where setup ends; nobody skips setup, since everything

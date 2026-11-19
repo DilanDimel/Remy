@@ -1,7 +1,7 @@
 import { ArrowRight, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { Workspace } from "@shared/types";
-import { gettingStarted } from "@shared/progress";
-import { useStore } from "../lib/store";
+import { daysUntil, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { Remy } from "./common";
@@ -21,9 +21,9 @@ export function highlight(selector: string) {
 
 const setupDone = (w: Workspace) => w.onboarding.done;
 /** The first win is offered once, after setup, and not to students already past the first steps. */
-export const firstWinPending = (w: Workspace) =>
-  setupDone(w) && w.settings.firstWin !== "done"
-  && (typeof w.settings.firstWin === "number" || gettingStarted(w).filter((x) => x.done).length < 3); // a number = started or "show me around again"
+// Only for students who finish setup from now on, or who press "Show me around again" (both set a step number);
+// students who set up before it existed are never surprised by "right after setup" weeks later.
+export const firstWinPending = (w: Workspace) => setupDone(w) && typeof w.settings.firstWin === "number";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const time12 = (hhmm: string) => { const [h, m] = hhmm.split(":").map(Number); return `${((h + 11) % 12) + 1}${m ? `:${String(m).padStart(2, "0")}` : ""} ${h < 12 ? "am" : "pm"}`; };
@@ -36,7 +36,7 @@ export function FirstWin({ where }: { where: "panel" | "home" }) {
   if (!firstWinPending(w)) return null;
   const stepNo = typeof w.settings.firstWin === "number" ? w.settings.firstWin : 0;
   const best = (jobs || [])
-    .filter((j) => { const f = fits[j.id]; return !!f && !f.excluded && !f.closed && f.regionMatch !== false && f.eligibility !== "unlikely" && j.kind !== "event" && !w.hiddenJobIds.includes(j.id); })
+    .filter((j) => { const f = fits[j.id]; return !!f && !f.excluded && !f.closed && f.regionMatch !== false && f.eligibility !== "unlikely" && j.kind !== "event" && !w.hiddenJobIds.includes(j.id) && (!j.deadline || (daysUntil(j.deadline) ?? 1) >= 0); })
     .sort((a, b) => (fits[b.id]?.score || 0) - (fits[a.id]?.score || 0))[0];
   const ct = w.settings.careerTime;
   const steps = [
@@ -46,7 +46,7 @@ export function FirstWin({ where }: { where: "panel" | "home" }) {
     w.resume?.confirmedAt
       ? { text: <>Next, the one place on your resume I'd make stronger first. Everything I write for you is built from it.</>, cta: "Show me", link: "/resume?tab=base&checks=1" }
       : { text: <>Next, check that I read your resume right. Everything I write for you is built only from what you confirm.</>, cta: "Check my resume", link: "/resume?tab=base" },
-    { text: <>I check employers' sites every day and put what's new on Home. {ct ? <>See you <b>{DAYS[ct.day]} at {time12(ct.time)}</b>, your weekly career time.</> : <>Pick a weekly time for career work and I'll remind you.</>}</>, cta: ct ? "Done" : "Pick my weekly time", link: ct ? "" : "/calendar" },
+    { text: <>I check employers' sites every day and put what's new on Home. {ct ? <>Your weekly career time is <b>{DAYS[ct.day]} at {time12(ct.time)}</b>, a good moment to look.</> : <>Pick a weekly time for career work, so looking becomes a habit. It goes on your Remy calendar.</>}</>, cta: ct ? "Done" : "Set my weekly time", link: ct ? "" : "/accounts?tab=settings" },
   ];
   const step = steps[Math.min(stepNo, 2)];
   const advance = async () => {
@@ -56,14 +56,13 @@ export function FirstWin({ where }: { where: "panel" | "home" }) {
   };
   const skip = () => save("settings", { firstWin: "done" }).catch(() => {});
   const dots = (
-    <span className="row" style={{ gap: 4 }} aria-label={`Step ${stepNo + 1} of 3`}>
+    <span className="row" style={{ gap: 4 }} role="img" aria-label={`Step ${stepNo + 1} of 3`}>
       {[0, 1, 2].map((i) => <i key={i} style={{ width: 20, height: 5, borderRadius: 3, background: i < stepNo ? "#2f8a5b" : i === stepNo ? "var(--fox)" : "var(--line, #e6e2dd)" }} />)}
     </span>
   );
   const buttons = (
     <div className="row" style={{ gap: 6, flexWrap: "wrap", width: "100%" }}>
       <button className="btn btn-primary btn-sm" onClick={advance} data-testid="button-first-win">{step.cta} {step.link && <ArrowRight size={14} />}</button>
-      {stepNo === 2 && !ct && <button className="btn btn-ghost btn-sm" onClick={skip}>Not now</button>}
       <button className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={skip} data-testid="button-first-win-skip">Skip, I'll look around</button>
     </div>
   );
@@ -94,31 +93,39 @@ const INTROS: Record<string, { text: string; target?: string }> = {
   "/opportunities": { text: "These are openings you can actually apply to. Tap Details on one to see why it fits you. Found one on Handshake? Paste it with Import and I'll check if you qualify.", target: "[data-testid=button-job-details]" },
   "/resume": { text: "This is what I build everything from. Every change I suggest shows the line of your resume behind it, and you approve each one.", target: "[data-testid=tab-resume-tailor]" },
   "/interview": { text: "Let's build one story together. I'll ask a few short questions; you answer in your own words. It takes about 2 minutes.", target: "[data-testid=input-story-answer], [data-testid=button-make-stories]" },
-  "/path": { text: "Not sure what you want yet? Start with these directions from your resume. Pick one and I'll search for it.", target: "[data-testid=button-choose-career], [data-testid=button-refresh-path]" },
+  "/path": { text: "Not sure what you want yet? I can suggest a few directions from your resume. Pick one and I'll search for it and add first steps.", target: "[data-testid=button-choose-career], [data-testid=button-refresh-path]" },
   "/community": { text: "The people you know are your best way in. Add one person and I'll help you write to them in your own words.", target: "[data-testid=button-add-contact]" },
   "/calendar": { text: "Your deadlines and interviews in one place. Connect Google Calendar or export them." },
   "/progress": { text: "Every application you send, and where it stands. I move cards when you tell me, or when an email says so." },
 };
 
+const closedNow = new Set<string>(); // closed this visit, so two quick closes can't overwrite each other
 export function PageIntro({ path }: { path: string }) {
   const { ws, save } = useStore();
   const w = ws!;
   const intro = INTROS[path];
   const seen = w.settings.introsSeen || [];
+  // "Show me" only when the button it points at is on the page and usable (no openings yet, AI off…).
+  const [canShow, setCanShow] = useState(false);
+  useEffect(() => {
+    if (!intro?.target) { setCanShow(false); return; }
+    const t = setTimeout(() => { const el = document.querySelector<HTMLButtonElement>(intro.target!); setCanShow(!!el && !el.disabled); }, 600);
+    return () => clearTimeout(t);
+  }, [path, intro?.target, w.jobs.length, (w.stories || []).length]);
   // After setup and after the first win, so two Remy cards never stack.
-  if (!intro || !setupDone(w) || firstWinPending(w) || seen.includes(path)) return null;
-  const close = () => save("settings", { introsSeen: [...seen, path].slice(-20) }).catch(() => {});
+  if (!intro || !setupDone(w) || firstWinPending(w) || seen.includes(path) || closedNow.has(path)) return null;
+  const close = () => { closedNow.add(path); save("settings", { introsSeen: [...new Set([...seen, ...closedNow])].slice(-20) }).catch(() => {}); };
   return (
     <div className="intro-card fade-up" role="note" data-testid="page-intro">
       <Remy size={30} />
       <p className="small">{intro.text}</p>
       <div className="row" style={{ gap: 6 }}>
-        {intro.target && <button className="btn btn-primary btn-sm" onClick={() => { highlight(intro.target!); close(); }} data-testid="button-intro-show">Show me</button>}
-        <button className="btn btn-ghost btn-sm" onClick={close} aria-label="Got it, hide this" data-testid="button-intro-ok">{intro.target ? "Got it" : <><X size={14} /> Got it</>}</button>
+        {canShow && <button className="btn btn-primary btn-sm" onClick={() => { highlight(intro.target!); close(); }} data-testid="button-intro-show">Show me</button>}
+        <button className="btn btn-ghost btn-sm" onClick={close} aria-label="Got it, hide this" data-testid="button-intro-ok">{canShow ? "Got it" : <><X size={14} /> Got it</>}</button>
       </div>
     </div>
   );
 }
 
 /** "Show me around again": the first win and every page intro come back. */
-export const tourAgain = (save: ReturnType<typeof useStore>["save"]) => save("settings", { firstWin: 0, introsSeen: [] });
+export const tourAgain = (save: ReturnType<typeof useStore>["save"]) => { closedNow.clear(); return save("settings", { firstWin: 0, introsSeen: [] }).catch(() => {}); };

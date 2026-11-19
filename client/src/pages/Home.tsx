@@ -13,7 +13,6 @@ import { kindLabel, useJobs } from "../lib/jobs";
 import { StatusChip } from "../components/common";
 import { firstName } from "@shared/names";
 import { gettingStarted } from "@shared/progress";
-import { FirstWin } from "../components/Tour";
 
 type Tab = "todos" | "events" | "opps";
 
@@ -120,8 +119,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* The first win lives in Remy's panel; on phones or with the panel closed it shows here instead. */}
-      {(typeof window !== "undefined" && window.matchMedia("(max-width: 1020px)").matches || !w.settings.assistantOpen) && <FirstWin where="home" />}
       <section className="hero" aria-label="Next action">
         <div>
           <span className="eyebrow">Your next step</span>
@@ -142,7 +139,7 @@ export default function Home() {
                 {!x.done && <ArrowRight size={13} style={{ marginLeft: "auto", color: "rgba(255,255,255,.5)" }} />}
               </button>
             ))}
-            {sinceRows[0] && <button className="row-between xs" style={{ width: "100%", textAlign: "left", marginTop: 4, color: "rgba(255,255,255,.6)" }} onClick={() => go(sinceRows[0][2])}><span>{sinceRows[0][0]}</span><strong style={{ color: "#fff" }}>{sinceRows[0][1]} →</strong></button>}
+            {sinceRows.map(([k, v, link], i) => <button key={k} className="row-between xs" style={{ width: "100%", textAlign: "left", marginTop: i ? 0 : 6, color: "rgba(255,255,255,.65)" }} onClick={() => go(link)}><span>{k}</span><strong style={{ color: "#fff" }}>{v} →</strong></button>)}
           </div>
         ) : (
         <div className={"hero-side" + (sinceRows.length ? "" : " hide-phone")} data-testid="since-last">

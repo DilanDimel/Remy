@@ -218,7 +218,7 @@ function Shell() {
             )}
           </div>
         </div>
-        <div className="page fade-up" key={current.path}><ErrorBoundary where={`page:${current.path}`} resetKey={current.path}><PageIntro path={current.path} />{page}</ErrorBoundary></div>
+        <div className="page fade-up" key={current.path}><ErrorBoundary where={`page:${current.path}`} resetKey={current.path}>{!asstOpen && <FirstWin where="home" />}<PageIntro path={current.path} />{page}</ErrorBoundary></div>
       </main>
 
       {asstOpen && <aside className="assistant" aria-label="Remy assistant" data-testid="assistant-panel"><ErrorBoundary where="assistant" compact><Assistant page={current.label} onMinimize={() => setAsst(false)} flyIn={flyIn} /></ErrorBoundary></aside>}

@@ -30,7 +30,7 @@ test("chat: the feature map is in the rules, and links to Resume tabs are allowe
   const { CHAT_RULES, chatActions } = await import("./safety");
   assert.match(CHAT_RULES, /Tailor for an opening/);
   assert.match(CHAT_RULES, /can't apply or send messages/);
-  for (const link of ["/resume?tab=tailor", "/resume?tab=prep", "/progress?tab=tracker", "/accounts?tab=profile"])
+  for (const link of ["/resume?tab=tailor", "/resume?tab=linkedin", "/progress?tab=tracker", "/accounts?tab=profile"])
     assert.equal(chatActions([{ kind: "open", link, label: "Go" }]).length, 1, link);
   assert.equal(chatActions([{ kind: "open", link: "https://evil.example", label: "x" }]).length, 0);
 });
