@@ -54,6 +54,7 @@ import { storageReport, warnIfNearLimit } from "./storage";
 import * as insights from "./insights";
 import * as services from "./services";
 import { pruneOpenings, recordFound, recordCheck, listOpenings, openingsSummary } from "./openings";
+import { askedLength, keepAskedLength } from "./outreachAsk";
 import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, isEmptyListing, refillEmpty, kindOf, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
 import { docxStyle, editResumeDocx } from "./docxEdit";
@@ -2322,7 +2323,7 @@ Return JSON:
     if (aiStatus().available) {
       out = await withAi(ctx, "Draft outreach", () =>
         aiJson<{ subject: string; body: string; linkedin: string }>(
-          `You write a university student's networking email, following their career office's guidance for informational interviews: say who you are (school, year, major), how you found the person, why them specifically, ask for a 20-30 minute conversation (phone, Zoom or in person) and offer flexibility; warm, specific, professional, under 170 words. Use ONLY the facts and answers given — never invent experience, mutual connections or details. Never use placeholders or brackets of any kind: if a detail is unknown, leave it out. End with the student's sign-off exactly as given. Also write a LinkedIn connection note under 200 characters.`,
+          `You write a university student's networking email, following their career office's guidance for informational interviews: say who you are (school, year, major), how you found the person, why them specifically, ask for a short conversation (phone, Zoom or in person): if the student's answers name a length or format ("a 15-minute chat", "coffee"), ask for exactly that, otherwise 20-30 minutes; offer flexibility; warm, specific, professional, under 170 words. Use ONLY the facts and answers given — never invent experience, mutual connections or details. Never use placeholders or brackets of any kind: if a detail is unknown, leave it out. End with the student's sign-off exactly as given. Also write a LinkedIn connection note under 200 characters.`,
           `TO: ${c!.name}, ${c!.title} at ${c!.org}\nABOUT THEM: ${c!.why}\nHOW THE STUDENT FOUND THEM: ${c!.met ? `met at ${c!.met}${c!.metOn ? ` (${c!.metOn})` : ""}` : "student-added contact"}\nSTUDENT:\n${profileSummary(ctx.ws)}\nRESUME HIGHLIGHTS: ${ctx.ws.resume ? ctx.ws.resume.doc.sections.flatMap((s) => s.entries.map((e) => [e.role, e.org].filter(Boolean).join(" at "))).slice(0, 6).join("; ") : "(none)"}\nSTUDENT'S ANSWERS:\n${answers.map((x) => `${x.q} → ${x.a}`).join("\n") || `Purpose → ${purpose}`}\nSIGN-OFF:\nBest regards,\n${sig}\n\nReturn {"subject":"","body":"","linkedin":""}`,
           1200,
         ),
@@ -2336,13 +2337,13 @@ Return JSON:
       out = {
         subject: `${school ? school + " student" : "Student"} — ${ans(0) ? "quick question about your path" : "informational interview request"}`,
         body: [`Dear ${first},`, `I'm ${me}, a ${who}. I'm reaching out about your work at ${c!.org}${ans(1) ? ` and was especially interested in ${ans(1)}` : ""}.`,
-          ans(2), `Might you be available for a 20-30 minute conversation${ans(3) ? ` — I'm generally free ${ans(3)}` : ""}? ${ans(0) ? `I'd love to ${ans(0).replace(/^(to |i'd like to |i want to )/i, "")}.` : "I'd appreciate hearing about your experience and any advice you have."}`,
+          ans(2), `Might you be available for a ${askedLength(answers.map((x) => x.a).join(" ")) || "20-30 minute"} conversation${ans(3) ? ` — I'm generally free ${ans(3)}` : ""}? ${ans(0) ? `I'd love to ${ans(0).replace(/^(to |i'd like to |i want to )/i, "")}.` : "I'd appreciate hearing about your experience and any advice you have."}`,
           "Thank you in advance for your consideration.", `Best regards,\n${sig}`].filter(Boolean).join("\n\n"),
         linkedin: `Hi ${first}, I'm ${school ? `a ${school}` : "a"} student interested in ${c!.org} and your path into ${c!.title || "your field"}. I'd love to connect and learn from you. — ${me}`.slice(0, 199),
       };
     }
     const clean = (t: string) => t.replace(/\[[^\]]{2,80}\]/g, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
-    const d = { id: uid("o"), contactId: c!.id, to: c!.email, subject: clean(String(out.subject || "")), body: clean(String(out.body || "")), linkedin: clean(String(out.linkedin || "")).slice(0, 200), status: "draft" as const, createdAt: nowIso() };
+    const d = { id: uid("o"), contactId: c!.id, to: c!.email, subject: clean(String(out.subject || "")), body: keepAskedLength(clean(String(out.body || "")), answers.map((x) => x.a).join(" ")), linkedin: clean(String(out.linkedin || "")).slice(0, 200), status: "draft" as const, createdAt: nowIso() };
     ctx.ws.outreach.unshift(d);
     step(ctx.ws, "outreach", c!.id);
     await ctx.save();
