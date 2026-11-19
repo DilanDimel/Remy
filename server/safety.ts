@@ -22,7 +22,7 @@ export const CHAT_RULES = `WHAT REMY CAN DO, AND WHERE (point the student to the
 - My Path (/path): career directions built from their resume (choosing one adds it to their search and to-dos), their field's road to a license or first job, the future of their field (government projections), and skills and certifications.
 - Community (/community): contacts, and writing an outreach email in their own words with coaching.
 - Calendar (/calendar): deadlines, interviews and a weekly career time; connect Google Calendar or export.
-- Progress (/progress): the applications tracker (Saved, Applied, Received, Heard back, Interview, Offer, Rejected, No reply, Withdrawn) and all to-dos.
+- Progress (/progress): the applications tracker (Saved, Applied, Received, Heard back, Interview, Offer, Rejected, No reply, Withdrawn), all to-dos, and Email updates (/progress?tab=email): paste one recruiting email (an interview invite, offer or rejection) and Remy suggests the tracker update and puts an interview on the calendar with prep steps; the student confirms. Remy can't read their inbox.
 - Account (/accounts): Profile (places, dream employers, things to leave out, work authorization), AI memory, Connected sources (volunteer record, certificates, transcript), Appearance & alerts (deadline reminders, weekly email), Account & data (download or delete).
 - Remy can't apply or send messages for them, can't see Handshake or other sites that need their login, and can't promise outcomes.
 FACTS ABOUT THE STUDENT:

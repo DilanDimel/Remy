@@ -2342,13 +2342,13 @@ Return JSON:
     const m = ctx.ws.inbox.find((x) => x.id === req.params.id);
     if (!m) bad("Message not found", 404);
     const rules = rulesClassify(m!.body);
-    let ai: { status: TrackStatus | "Unclear"; evidence: string; company: string; role: string } | null = null;
+    let ai: { status: TrackStatus | "Unclear"; evidence: string; company: string; role: string; date?: string; time?: string; dateQuote?: string } | null = null;
     if (aiStatus().available) {
       try {
         ai = await withAi(ctx, "Classify email", () =>
           aiJson<any>(
-            "Classify a recruiting email. Distinguish carefully: an application receipt is NOT an interview; an interview invitation is NOT an offer; 'decisions about interviews and offers in the coming weeks' is Unclear. Quote the exact sentence that justifies the label.",
-            `FROM: ${m!.from}\nSUBJECT: ${m!.subject}\nBODY:\n${m!.body}\n\nReturn {"status":"Received|Heard back|Interview|Offer|Rejected|Unclear" (Heard back = a person wrote back, e.g. asks for more information or a quick chat, but it is not an interview invitation),"evidence":"exact sentence","company":"","role":""}`,
+            `Classify a recruiting email. Distinguish carefully: an application receipt is NOT an interview; an interview invitation is NOT an offer; 'decisions about interviews and offers in the coming weeks' is Unclear. Quote the exact sentence that justifies the label. If it is an interview invitation that states a specific date (and maybe a time), give it as "date" YYYY-MM-DD and "time" HH:MM (24h, the time zone the email uses) and copy the exact words that state it into "dateQuote"; today is ${centralToday()}. If it offers several slots, asks them to pick, or gives no date, leave date, time and dateQuote empty: never guess.`,
+            `FROM: ${m!.from}\nSUBJECT: ${m!.subject}\nBODY:\n${m!.body}\n\nReturn {"status":"Received|Heard back|Interview|Offer|Rejected|Unclear" (Heard back = a person wrote back, e.g. asks for more information or a quick chat, but it is not an interview invitation),"evidence":"exact sentence","company":"","role":"","date":"","time":"","dateQuote":""}`,
             500,
           ),
         );
@@ -2396,6 +2396,12 @@ Return JSON:
       proposed: proposed === "Unclear" ? "Applied" : proposed,
       confidence: proposed === "Unclear" || !evidence ? "low" : agree ? "high" : "medium",
       evidence, rulesSay: rules.status, aiSays: aiStatusVal, createdAt: nowIso(), state: "open",
+      // An interview date only when the email says it in words we can find (AI asks, never assumes), and not in the past.
+      ...(() => {
+        const q = String(ai?.dateQuote || "").trim(), d = String(ai?.date || ""), tm = String(ai?.time || "");
+        if (proposed !== "Interview" || !q || !norm(m!.body).includes(norm(q)) || !/^\d{4}-\d{2}-\d{2}$/.test(d) || d < centralToday()) return {};
+        return { date: d, dateQuote: q.slice(0, 200), ...(/^([01]\d|2[0-3]):[0-5]\d$/.test(tm) ? { time: tm } : {}) };
+      })(),
     };
     ctx.ws.suggestions = [s, ...ctx.ws.suggestions.filter((x) => !(x.messageId === m!.id && x.state === "open"))];
     await ctx.save();
@@ -2428,8 +2434,14 @@ Return JSON:
       t.status = status;
       s!.state = "applied";
       s!.trackId = t.id;
+      // The interview goes on the calendar with the date the student confirmed (the email's, or their own), and the
+      // prep to-do is due then.
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(String(req.body?.date || "")) ? String(req.body.date) : "";
+      const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(req.body?.time || "")) ? String(req.body.time) : "";
+      if (status === "Interview" && date && !ctx.ws.calendar.some((c) => c.kind === "Interview" && c.linkedId === t!.id && c.date === date))
+        ctx.ws.calendar.push({ id: uid("cal"), title: `Interview: ${t.company}${t.role ? ` (${t.role})` : ""}`, date, time, kind: "Interview", source: "From an email you confirmed", linkedId: t.id, notes: s!.dateQuote || "" });
       if (status === "Interview" && !ctx.ws.tasks.some((x) => x.title === `Prepare for ${t!.company} interview`))
-        ctx.ws.tasks.unshift({ id: uid("t"), title: `Prepare for ${t.company} interview`, why: "An interview invitation was confirmed from an email you reviewed.", due: "", category: "Prepare", done: false, source: "Status update" });
+        ctx.ws.tasks.unshift({ id: uid("t"), title: `Prepare for ${t.company} interview`, why: "An interview invitation was confirmed from an email you reviewed.", due: date, category: "Prepare", done: false, source: "Status update" });
     }
     await ctx.save();
     res.json(ctx.ws);

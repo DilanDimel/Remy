@@ -186,7 +186,8 @@ function EmailUpdates() {
   const { ws, setWs, run } = useStore();
   const w = ws!;
   const [busy, setBusy] = useState("");
-  const [paste, setPaste] = useState(false);
+  // Calendar's "Paste an interview invite" and Remy's links open the paste box straight away (?paste=1).
+  const [paste, setPaste] = useState(() => new URLSearchParams(location.search).get("paste") === "1");
   const [m, setM] = useState({ from: "", subject: "", body: "" });
   const classify = async (id: string) => {
     setBusy(id);
@@ -194,13 +195,17 @@ function EmailUpdates() {
     if (r) setWs(r.workspace);
     setBusy("");
   };
+  // One step (Dilan, Nov 19: nobody will paste emails as a chore, but an interview invite is worth it): paste, and Remy
+  // reads it right away and shows what it would update. Nothing changes until the student confirms.
   const submitPaste = async () => {
-    const r = await run(() => api<Workspace>("POST", "/api/inbox/paste", m), "Email added");
-    if (r) { setWs(r); setPaste(false); setM({ from: "", subject: "", body: "" }); }
+    const r = await run(() => api<Workspace>("POST", "/api/inbox/paste", m));
+    if (!r) return;
+    setWs(r); setPaste(false); setM({ from: "", subject: "", body: "" });
+    if (r.inbox[0]) await classify(r.inbox[0].id);
   };
   return (
     <div className="stack">
-      <div className="notice small"><StatusChip label="Needs setup">Inbox: coming soon</StatusChip><div>Remy doesn't read your inbox. Paste a recruiting email and Remy suggests a status update. Nothing changes until you confirm.</div></div>
+      <div className="notice small"><Mail size={16} style={{ marginTop: 2 }} /><div><b>Got an interview invite, an offer or a rejection?</b> Paste it and Remy updates your tracker, and puts an interview on your calendar with prep steps. Nothing changes until you confirm. (Remy doesn't read your inbox.)</div></div>
       <div className="row">
         <button className="btn btn-primary btn-sm" onClick={() => setPaste(true)} data-testid="button-paste-email"><Mail size={14} /> Paste an email</button>
       </div>
@@ -216,11 +221,15 @@ function EmailUpdates() {
         );
       }) : <div className="card"><Empty title="No emails yet" body="Paste a recruiting email (an interview invite, a rejection, a “we received your application”) and Remy suggests the status. Nothing changes until you confirm." /></div>}
       {paste && (
-        <Modal title="Paste a recruiting email" onClose={() => setPaste(false)}>
-          <label className="field"><span>From</span><input className="input" value={m.from} onChange={(e) => setM({ ...m, from: e.target.value })} placeholder="recruiting@company.com" /></label>
-          <label className="field"><span>Subject</span><input className="input" value={m.subject} onChange={(e) => setM({ ...m, subject: e.target.value })} /></label>
-          <label className="field"><span>Email text</span><textarea className="textarea" style={{ minHeight: 180 }} value={m.body} onChange={(e) => setM({ ...m, body: e.target.value })} data-testid="input-email-body" /></label>
-          <div className="row" style={{ justifyContent: "flex-end" }}><button className="btn btn-primary" disabled={m.body.length < 30} onClick={submitPaste} data-testid="button-submit-email">Add email</button></div>
+        <Modal title="Paste the email" onClose={() => setPaste(false)}>
+          <label className="field"><span>Copy the whole email (sender and subject too, if you can) and paste it here</span><textarea className="textarea" style={{ minHeight: 200 }} value={m.body} onChange={(e) => setM({ ...m, body: e.target.value })} placeholder={"From: recruiting@frostbank.com\nSubject: Interview invitation\n\nHi Chris, we'd like to invite you to…"} autoFocus data-testid="input-email-body" /></label>
+          <details className="small"><summary style={{ cursor: "pointer" }}>Sender or subject didn't copy? Add them (optional)</summary>
+            <div className="grid-2" style={{ marginTop: 8 }}>
+              <label className="field"><span>From</span><input className="input" value={m.from} onChange={(e) => setM({ ...m, from: e.target.value })} placeholder="recruiting@company.com" /></label>
+              <label className="field"><span>Subject</span><input className="input" value={m.subject} onChange={(e) => setM({ ...m, subject: e.target.value })} /></label>
+            </div>
+          </details>
+          <div className="row" style={{ justifyContent: "flex-end" }}><button className="btn btn-primary" disabled={m.body.trim().length < 30} onClick={submitPaste} data-testid="button-submit-email"><Wand2 size={14} /> Read it</button></div>
         </Modal>
       )}
     </div>
@@ -233,8 +242,10 @@ function SuggestionBox({ s }: { s: Suggestion }) {
   const [status, setStatus] = useState<TrackStatus>(s.proposed);
   const [trackId, setTrackId] = useState(s.trackId || "");
   const [company, setCompany] = useState(s.company);
+  const [date, setDate] = useState(s.date || "");
+  const [time, setTime] = useState(s.time || "");
   const resolve = async (action: "apply" | "dismiss") => {
-    const r = await run(() => api<Workspace>("POST", `/api/suggestions/${s.id}/resolve`, { action, status, trackId: trackId || undefined, company, role: s.role }), action === "apply" ? "Status updated with evidence" : "Dismissed");
+    const r = await run(() => api<Workspace>("POST", `/api/suggestions/${s.id}/resolve`, { action, status, trackId: trackId || undefined, company, role: s.role, ...(status === "Interview" ? { date, time } : {}) }), action === "apply" ? (status === "Interview" && date ? "Updated, and the interview is on your calendar" : "Status updated with evidence") : "Dismissed");
     if (r) setWs(r);
   };
   if (s.state === "applied") {
@@ -259,6 +270,15 @@ function SuggestionBox({ s }: { s: Suggestion }) {
         {!trackId && <label className="field"><span className="xs">Company</span><input className="input" value={company} onChange={(e) => setCompany(e.target.value)} /></label>}
         <label className="field"><span className="xs">Status</span><select className="select" value={status} onChange={(e) => setStatus(e.target.value as TrackStatus)} data-testid="select-suggestion-status">{STATUSES.map((x) => <option key={x}>{x}</option>)}</select></label>
       </div>
+      {status === "Interview" && (
+        <div className="stack-sm" data-testid="suggestion-interview-date">
+          <div className="grid-3">
+            <label className="field"><span className="xs">Interview date</span><input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} data-testid="input-interview-date" /></label>
+            <label className="field"><span className="xs">Time (optional)</span><input className="input" type="time" value={time} onChange={(e) => setTime(e.target.value)} /></label>
+          </div>
+          <span className="xs muted">{s.dateQuote ? <>From the email: “{s.dateQuote}”. Check it before you confirm.</> : "The email didn't give one date. Add it once you've picked a time, and Remy puts it on your calendar."}</span>
+        </div>
+      )}
       <div className="row" style={{ justifyContent: "flex-end" }}>
         <button className="btn btn-ghost btn-sm" onClick={() => resolve("dismiss")} data-testid="button-dismiss-suggestion">Dismiss</button>
         <button className="btn btn-primary btn-sm" onClick={() => resolve("apply")} data-testid="button-apply-suggestion">Confirm update</button>
