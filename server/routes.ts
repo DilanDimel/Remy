@@ -869,7 +869,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       theme: z.enum(["system", "light", "dark"]).optional(), themeChosen: z.boolean().optional(), lastSeenAt: z.string().max(40).optional(), careerTime: z.object({ day: z.number().int().min(0).max(6), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/) }).nullable().optional(), assistantOpen: z.boolean().optional(), navCollapsed: z.boolean().optional(),
       notify: z.object({ deadlines: z.boolean(), statusChanges: z.boolean(), weeklyPlan: z.boolean() }).partial().optional(),
       demoConnections: z.array(str(80)).max(20).optional(), newsSeen: str(40).optional(),
-      firstWin: z.union([z.number().int().min(0).max(2), z.literal("done")]).optional(), introsSeen: z.array(str(40)).max(20).optional(),
+      tour: z.union([z.number().int().min(0).max(20), z.literal("done")]).optional(), firstWin: z.union([z.number().int().min(0).max(2), z.literal("done")]).optional(), introsSeen: z.array(str(40)).max(20).optional(),
     }),
     tasks: z.array(z.looseObject({ id: str(120), title: str(300), why: str(2000), due: str(10), category: z.enum(["Explore", "Prepare", "Apply", "Connect", "Academic"]), done: z.boolean(), source: str(200), link: str(500).optional() })).max(500),
     calendar: z.array(z.looseObject({ id: str(120), title: str(300), date: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/), time: z.string().regex(/^(\d{2}:\d{2})?$/), kind: z.enum(["Deadline", "Event", "Task", "Interview", "Advising"]), source: str(200), linkedId: str(120).optional(), notes: str(4000).optional() })).max(1000),

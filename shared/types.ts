@@ -558,9 +558,10 @@ export interface Workspace {
     lastSeenAt?: string;
     /** Newest "What's new" item the student has opened. */
     newsSeen?: string;
-    /** "Your first win" after setup (Remy's 3 steps): the step reached (0-2), or done/skipped. Unset = not started. */
+    /** Remy's tutorial through the site (components/Tour.tsx): the step reached, or done/ended. Unset = never started. */
+    tour?: number | "done";
+    /** Older versions (first-win box, page cards); kept so saved settings still load. */
     firstWin?: number | "done";
-    /** Pages whose one-time Remy intro card the student has closed. */
     introsSeen?: string[];
   };
   updatedAt: string;

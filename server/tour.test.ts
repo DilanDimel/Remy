@@ -46,8 +46,9 @@ test("contacts: where we met and when are saved, email optional, a bad date refu
   assert.equal(saved.met, "TCU fall career fair");
   assert.equal(saved.metOn, "2026-11-18");
   assert.equal((await put("contacts", [{ ...person, metOn: "Nov 18" }])).status, 400);
-  assert.equal((await put("settings", { firstWin: 1, introsSeen: ["/opportunities"] })).status, 200);
-  assert.equal((await put("settings", { firstWin: 5 })).status, 400);
+  assert.equal((await put("settings", { tour: 3 })).status, 200);
+  assert.equal((await put("settings", { tour: "done" })).status, 200);
+  assert.equal((await put("settings", { tour: 99 })).status, 400);
 });
 
 test("Future of your field: the student's major comes first, even when roles or interests match other fields", async () => {
@@ -56,4 +57,17 @@ test("Future of your field: the student's major comes first, even when roles or 
   const a = futureFor(ws({ major: "Nursing", interests: "data analysis" })).fields.map((f) => f.field);
   assert.ok(a.length >= 1);
   assert.match(a[0], /nurs|health/i, JSON.stringify(a));
+});
+
+// Nov 19: a cleanup once left index.css with an unclosed block, so ~890 lines only applied on phones with reduced
+// motion — and no check reads CSS. This one does.
+test("the stylesheet's blocks are balanced and it parses", async () => {
+  const { readFileSync } = await import("node:fs");
+  const css = readFileSync(new URL("../client/src/index.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/"[^"]*"|'[^']*'/g, "");
+  let depth = 0;
+  for (const ch of css) { if (ch === "{") depth++; else if (ch === "}") { depth--; assert.ok(depth >= 0, "a } with no {"); } }
+  assert.equal(depth, 0, "unclosed { in index.css");
+  const { transform } = await import("esbuild");
+  const r = await transform(readFileSync(new URL("../client/src/index.css", import.meta.url), "utf8"), { loader: "css", logLevel: "silent" });
+  assert.equal(r.warnings.filter((w) => /Expected "}"|Unexpected "}"/.test(w.text)).length, 0, r.warnings.map((w) => w.text).join("; "));
 });

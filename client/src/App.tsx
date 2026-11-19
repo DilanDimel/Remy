@@ -29,7 +29,7 @@ import { About, Policies } from "./pages/Info";
 import Admin from "./pages/Admin";
 import type { ChatAction, Workspace } from "@shared/types";
 import { Celebrate } from "./components/Celebrate";
-import { FirstWin, PageIntro, firstWinPending, tourAgain } from "./components/Tour";
+import { RemyTour, tourAgain } from "./components/Tour";
 import { BETA_TERM_HEADS, BETA_TERMS, BETA_TERMS_LEAD, BETA_TERMS_VERSION } from "@shared/beta";
 import { knownName } from "@shared/names";
 
@@ -207,6 +207,7 @@ function Shell() {
       </aside>
 
       <Celebrate />
+      <RemyTour />
       <main className="main" id="main">
         <div className="topbar">
           <div className="crumb">Remy › <b>{current.label}</b></div>
@@ -218,7 +219,7 @@ function Shell() {
             )}
           </div>
         </div>
-        <div className="page fade-up" key={current.path}><ErrorBoundary where={`page:${current.path}`} resetKey={current.path}>{!asstOpen && <FirstWin where="home" />}<PageIntro path={current.path} />{page}</ErrorBoundary></div>
+        <div className="page fade-up" key={current.path}><ErrorBoundary where={`page:${current.path}`} resetKey={current.path}>{page}</ErrorBoundary></div>
       </main>
 
       {asstOpen && <aside className="assistant" aria-label="Remy assistant" data-testid="assistant-panel"><ErrorBoundary where="assistant" compact><Assistant page={current.label} onMinimize={() => setAsst(false)} flyIn={flyIn} /></ErrorBoundary></aside>}
@@ -333,8 +334,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
         <button className="btn btn-secondary btn-sm" onClick={onMinimize} aria-label="Minimize Remy" title="Minimize Remy" data-testid="button-close-assistant"><Minus size={15} /><span className="hide-sm">Minimize</span></button>
       </div>
       <div className="asst-body">
-        {!tailor && <FirstWin where="panel" />}
-        {chat.length === 0 && !tailor && !busy && !firstWinPending(ws!) && (
+        {chat.length === 0 && !tailor && !busy && (
           // Empty chat: a welcome in the middle of the panel instead of one bubble under a blank space.
           <div className="asst-welcome" data-testid="assistant-welcome">
             <Remy size={56} mood="wave" />
