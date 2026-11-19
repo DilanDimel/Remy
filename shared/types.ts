@@ -338,6 +338,12 @@ export interface Suggestion {
   evidence: string;
   rulesSay: TrackStatus | "Unclear";
   aiSays?: TrackStatus | "Unclear";
+  /** An interview's date and time (YYYY-MM-DD, HH:MM), only when the email states it: dateQuote is its exact words. */
+  date?: string;
+  time?: string;
+  dateQuote?: string;
+  /** The time zone the email's quote names ("Eastern"), so a time in another zone isn't filled in as the student's. */
+  zone?: string;
   createdAt: string;
   state: "open" | "applied" | "dismissed";
 }

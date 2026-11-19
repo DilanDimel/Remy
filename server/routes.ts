@@ -19,6 +19,7 @@ import { isNonAnswer } from "@shared/words";
 import { draftOk } from "./bulletDraft";
 import { STORY_ASK, STORY_PARTS, findLine, namesNew, sameLine } from "@shared/stories";
 import { storyLines } from "./storyLines";
+import { checkedInterviewDate, zoneIn } from "./interviewDate";
 import { briefMessages, briefPrompt, cleanBrief, skillOriginQuestion } from "./brief";
 import { betterLetter, keptFixes, letterFixPrompt, rewriteFixPrompt } from "./tailorFix";
 import { BUZZ, assemblePitch, type PitchParts } from "./pitch";
@@ -2359,13 +2360,13 @@ Return JSON:
     const m = ctx.ws.inbox.find((x) => x.id === req.params.id);
     if (!m) bad("Message not found", 404);
     const rules = rulesClassify(m!.body);
-    let ai: { status: TrackStatus | "Unclear"; evidence: string; company: string; role: string } | null = null;
+    let ai: { status: TrackStatus | "Unclear"; evidence: string; company: string; role: string; date?: string; time?: string; dateQuote?: string } | null = null;
     if (aiStatus().available) {
       try {
         ai = await withAi(ctx, "Classify email", () =>
           aiJson<any>(
-            "Classify a recruiting email. Distinguish carefully: an application receipt is NOT an interview; an interview invitation is NOT an offer; 'decisions about interviews and offers in the coming weeks' is Unclear. Quote the exact sentence that justifies the label.",
-            `FROM: ${m!.from}\nSUBJECT: ${m!.subject}\nBODY:\n${m!.body}\n\nReturn {"status":"Received|Heard back|Interview|Offer|Rejected|Unclear" (Heard back = a person wrote back, e.g. asks for more information or a quick chat, but it is not an interview invitation),"evidence":"exact sentence","company":"","role":""}`,
+            `Classify a recruiting email. Distinguish carefully: an application receipt is NOT an interview; an interview invitation is NOT an offer; 'decisions about interviews and offers in the coming weeks' is Unclear. Quote the exact sentence that justifies the label. If it is an interview invitation that states a specific date (and maybe a time), give it as "date" YYYY-MM-DD and "time" HH:MM (24h, the time zone the email uses) and copy the exact words that state it into "dateQuote"; today is ${centralToday()}. If it offers several slots, asks them to pick, or gives no date, leave date, time and dateQuote empty: never guess.`,
+            `FROM: ${m!.from}\nSUBJECT: ${m!.subject}\nBODY:\n${m!.body}\n\nReturn {"status":"Received|Heard back|Interview|Offer|Rejected|Unclear" (Heard back = a person wrote back, e.g. asks for more information or a quick chat, but it is not an interview invitation),"evidence":"exact sentence","company":"","role":"","date":"","time":"","dateQuote":""}`,
             500,
           ),
         );
@@ -2413,6 +2414,15 @@ Return JSON:
       proposed: proposed === "Unclear" ? "Applied" : proposed,
       confidence: proposed === "Unclear" || !evidence ? "low" : agree ? "high" : "medium",
       evidence, rulesSay: rules.status, aiSays: aiStatusVal, createdAt: nowIso(), state: "open",
+      // An interview date only when the email says it in words we can find (AI asks, never assumes), and not in the past.
+      // The quoted words must state that day and month, and the email must name only that one date (server/interviewDate.ts).
+      ...(() => {
+        const q = String(ai?.dateQuote || "").trim(), tm = String(ai?.time || "");
+        const d = proposed === "Interview" && q && norm(m!.body).includes(norm(q)) ? checkedInterviewDate(m!.body, q, String(ai?.date || ""), centralToday()) : "";
+        if (!d) return {};
+        const zone = zoneIn(q);
+        return { date: d, dateQuote: q.slice(0, 200), ...(zone ? { zone } : {}), ...(/^([01]\d|2[0-3]):[0-5]\d$/.test(tm) ? { time: tm } : {}) };
+      })(),
     };
     ctx.ws.suggestions = [s, ...ctx.ws.suggestions.filter((x) => !(x.messageId === m!.id && x.state === "open"))];
     await ctx.save();
@@ -2430,8 +2440,8 @@ Return JSON:
       const m = ctx.ws.inbox.find((x) => x.id === s!.messageId);
       let t = ctx.ws.tracker.find((x) => x.id === (req.body?.trackId || s!.trackId));
       if (!t) {
-        const company = String(req.body?.company || s!.company || "Unknown company");
-        const role = String(req.body?.role || s!.role || "");
+        const company = String(req.body?.company || s!.company || "Unknown company").slice(0, 200);
+        const role = String(req.body?.role || s!.role || "").slice(0, 300);
         t = ctx.ws.tracker.find((x) => norm(x.company) === norm(company) && norm(x.role) === norm(role));
         if (!t) {
           t = { id: uid("tr"), company, role, status, events: [], notes: "" };
@@ -2445,8 +2455,23 @@ Return JSON:
       t.status = status;
       s!.state = "applied";
       s!.trackId = t.id;
+      // The interview goes on the calendar with the date the student confirmed (the email's, or their own), and the
+      // prep to-do is due then.
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(String(req.body?.date || "")) ? String(req.body.date) : "";
+      const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(req.body?.time || "")) ? String(req.body.time) : "";
+      if (status === "Interview" && date) {
+        // A new date for the same interview (rescheduled, or "pick a time" then "confirmed for…") replaces the upcoming
+        // one from an email instead of leaving the old day on the calendar; the confirm box tells the student first.
+        const title = `Interview: ${t.company}${t.role ? ` (${t.role})` : ""}`.slice(0, 300);
+        const old = ctx.ws.calendar.find((c) => c.kind === "Interview" && c.linkedId === t!.id && c.source === "From an email you confirmed" && c.date >= centralToday());
+        if (old) Object.assign(old, { date, time, title, notes: (s!.dateQuote || "").slice(0, 4000) });
+        else if (!ctx.ws.calendar.some((c) => c.kind === "Interview" && c.linkedId === t!.id && c.date === date))
+          ctx.ws.calendar.push({ id: uid("cal"), title, date, time, kind: "Interview", source: "From an email you confirmed", linkedId: t.id, notes: (s!.dateQuote || "").slice(0, 4000) });
+      }
+      const prep = ctx.ws.tasks.find((x) => x.title === `Prepare for ${t!.company} interview` && !x.done);
+      if (status === "Interview" && prep && date) prep.due = date; // an undated (or moved) prep to-do gets the confirmed day
       if (status === "Interview" && !ctx.ws.tasks.some((x) => x.title === `Prepare for ${t!.company} interview`))
-        ctx.ws.tasks.unshift({ id: uid("t"), title: `Prepare for ${t.company} interview`, why: "An interview invitation was confirmed from an email you reviewed.", due: "", category: "Prepare", done: false, source: "Status update" });
+        ctx.ws.tasks.unshift({ id: uid("t"), title: `Prepare for ${t.company} interview`, why: "An interview invitation was confirmed from an email you reviewed.", due: date, category: "Prepare", done: false, source: "Status update" });
     }
     await ctx.save();
     res.json(ctx.ws);

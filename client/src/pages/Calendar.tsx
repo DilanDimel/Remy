@@ -1,6 +1,7 @@
 import { GoogleCalendarCard } from "../components/GoogleCalendar";
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Download, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, ExternalLink, Mail, Plus, Trash2 } from "lucide-react";
+import { go } from "../lib/router";
 import type { CalItem } from "@shared/types";
 import { download, fmtDate, rid, useStore } from "../lib/store";
 import { Modal, StatusChip } from "../components/common";
@@ -57,6 +58,7 @@ export default function CalendarPage() {
           <p>Items you approve live here. Export them to your own calendar whenever you like.</p>
         </div>
         <div className="row">
+          <button className="btn btn-ghost" onClick={() => go("/progress?tab=email&paste=1")} data-testid="button-paste-invite"><Mail size={16} /> Paste an interview invite</button>
           <button className="btn btn-secondary" onClick={() => download("/api/calendar.ics", "remy.ics").catch((e) => toast(e.message, true))} disabled={!w.calendar.length && !w.settings.careerTime} data-testid="button-export-ics"><Download size={16} /> Export .ics</button>
           <button className="btn btn-primary" onClick={() => setEdit({ id: rid("cal"), title: "", date: today, time: "", kind: "Event", source: "Added by you", notes: "" })} data-testid="button-add-event"><Plus size={16} /> Add</button>
         </div>
