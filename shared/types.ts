@@ -383,6 +383,9 @@ export interface Contact {
   why: string;
   tags: string[];
   label: Label;
+  /** Where the student met them ("TCU career fair") and the date, YYYY-MM-DD (idea 18). */
+  met?: string;
+  metOn?: string;
 }
 export interface OutreachDraft {
   id: string;

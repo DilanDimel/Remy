@@ -262,7 +262,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit
       </div>
       {fit && <p className="small job-why"><strong>Why it fits you: </strong>{fit.why}</p>}
       {(() => { const known = w.contacts.filter((c) => sameOrg(c.org, j.company)); return known.length > 0 && <button className="xs job-contact" style={{ textAlign: "left", color: "var(--fox)", fontWeight: 700 }} onClick={() => go("/community")} data-testid="job-known-contact">You know {known.map((c) => c.name).join(", ")} here: ask about the team before you apply →</button>; })()}
-      {/* On a phone these wait under Details, so a closed card is short. */}
+      {/* These wait under Details on every screen, so a closed card is short (audit section 6). */}
       <div className="job-more stack-sm">
       {postingSkills(j.requirements).length > 0 && (
         <div className="row" style={{ gap: 6, flexWrap: "wrap" }} data-testid="job-keywords">
@@ -317,7 +317,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit
         {j.deadline && <button className="btn btn-ghost btn-sm" onClick={addCal} disabled={onCal} data-testid="button-add-calendar"><CalendarPlus size={14} /> {onCal ? "On calendar" : "Add to calendar"}</button>}
         <button className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={() => setOpen((o) => !o)} data-testid="button-job-details">{open ? <ChevronUp size={14} /> : <ChevronDown size={14} />} Details</button>
       </div>
-      {last && <span className={"xs " + (last.result === "reachable" ? "pass" : "fail")} data-testid="text-last-check">Last re-check {new Date(last.at).toLocaleString()}: {last.result === "reachable" ? "reachable" : last.result === "closed-signal" ? "page suggests it's closed" : "couldn't reach"}{last.httpStatus ? ` (HTTP ${last.httpStatus})` : ""}</span>}
+      {last && open && <span className={"xs " + (last.result === "reachable" ? "pass" : "fail")} data-testid="text-last-check">Last re-check {new Date(last.at).toLocaleString()}: {last.result === "reachable" ? "reachable" : last.result === "closed-signal" ? "page suggests it's closed" : "couldn't reach"}{last.httpStatus ? ` (HTTP ${last.httpStatus})` : ""}</span>}
     </article>
   );
 }
