@@ -68,6 +68,46 @@ test("shared catalog: one site read serves the next student; a failed or empty r
   assert.equal((await cachedBoard(b, "", "", async () => [])).length, 1, "empty answer: last good copy");
 });
 
+test("title-only boards (Workday…): a student served from the shared cache still gets the full posting", async () => {
+  const { discoverJobs } = await import("./sources");
+  const { emptyWorkspace } = await import("./db");
+  const { q } = await import("./sql");
+  const detailUrl = "https://hpe.wd5.myworkdayjobs.com/wday/cxs/hpe/Jobsathpe/job/Spring-TX/Finance-Intern_1";
+  // What the cache holds after the first student's search: JSON, so no function, only where the posting is.
+  const raws = [{ title: "Finance Intern", location: "Spring, TX", url: "https://hpe.wd5.myworkdayjobs.com/Jobsathpe/job/Spring-TX/Finance-Intern_1", text: "", more: { kind: "workday", url: detailUrl } }];
+  await q("INSERT INTO board_cache (key, raws) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET raws = EXCLUDED.raws, fetched_at = now()", ["v2|workday|hpe|wd5|jobsathpe|finance|", JSON.stringify(raws)]);
+  const real = globalThis.fetch; const asked: string[] = [];
+  globalThis.fetch = (async (u: any) => { asked.push(String(u)); return new Response(JSON.stringify({ jobPostingInfo: { jobDescription: "<p>Build forecasts in Excel and support FP&amp;A month-end close.</p>", location: "Spring, TX" } }), { status: 200 }); }) as any;
+  try {
+    const ws = emptyWorkspace();
+    Object.assign(ws.profile, { targetRoles: "Finance", classYear: "Sophomore", regions: "Texas" });
+    const { jobs } = await discoverJobs(ws, [{ company: "Hewlett Packard Enterprise", ats: "workday", slug: "hpe|wd5|Jobsathpe" } as any], 10);
+    assert.deepEqual(asked, [detailUrl], "the posting was read from Workday, not the list page");
+    assert.equal(jobs.length, 1);
+    assert.match(jobs[0].postingText || "", /Build forecasts in Excel/);
+  } finally { globalThis.fetch = real; }
+});
+
+test("an opening saved with no posting text gets its text filled in place, keeping its id; others are added as new", async () => {
+  const { refillEmpty, isEmptyListing } = await import("./sources");
+  const base = { kind: "internship", company: "HPE", format: "", dates: "", deadline: "", deadlineText: "", eligibility: [], requirements: [], label: "Live", checks: [], origin: "imported", sourceName: "Hewlett Packard Enterprise careers (Workday job board)" } as any;
+  const saved = [{ ...base, id: "j-old", title: "Finance Intern", location: "Spring, TX", applyUrl: "u1", sourceUrl: "u1", summary: "", postingText: "" },
+                 { ...base, id: "j-full", title: "Strategy Intern", location: "Spring, TX", applyUrl: "u2", sourceUrl: "u2", summary: "x", postingText: "already here" }];
+  assert.equal(isEmptyListing(saved[0]), true); assert.equal(isEmptyListing(saved[1]), false);
+  const found = [{ ...base, id: "j-new1", title: "Finance Intern", location: "Spring, TX", applyUrl: "u1", sourceUrl: "u1", summary: "Build forecasts", postingText: "Build forecasts in Excel", requirements: [{ quote: "Excel" }] },
+                 { ...base, id: "j-new2", title: "Tax Intern", location: "Houston, TX", applyUrl: "u3", sourceUrl: "u3", summary: "Tax", postingText: "Tax work" }];
+  const added = refillEmpty(saved, found);
+  assert.deepEqual(added.map((j) => j.id), ["j-new2"], "the re-found posting fills the old card instead of duplicating it");
+  assert.equal(saved[0].id, "j-old");
+  assert.equal(saved[0].postingText, "Build forecasts in Excel");
+  assert.deepEqual(saved[0].requirements, [{ quote: "Excel" }]);
+  assert.equal(saved[1].postingText, "already here");
+  // Tried once: an opening whose re-read came back empty isn't read again on every search.
+  const blank = [{ ...base, id: "j-blank", title: "Ops Intern", location: "TX", applyUrl: "u9", sourceUrl: "u9", summary: "", postingText: "", checkedAt: "2026-11-10T00:00:00Z" }];
+  assert.deepEqual(refillEmpty(blank, [{ ...blank[0], id: "j-again", checkedAt: "2026-11-21T00:00:00Z" }]), []);
+  assert.equal(isEmptyListing(blank[0]), false);
+});
+
 test("Julio's 48 labeled postings: every relevant one is found, no unrelated or senior one is shown", async () => {
   const { RELEVANCE_CASES } = await import("./fixtures/job-relevance");
   const { discoverJobs } = await import("./sources");
