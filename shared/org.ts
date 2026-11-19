@@ -29,3 +29,13 @@ export function dreamWithoutOpenings(dreamEmployers: string | undefined, compani
   return (dreamEmployers || "").split(/[,;]+/).map((x) => x.trim()).filter((x) => x.length > 1 && orgKey(x)).slice(0, 5)
     .filter((d) => !companies.some((c) => sameOrg(d, c)));
 }
+
+/** A dream employer as the student wrote it is this company when it equals the company's first whole word(s):
+ *  "J.P. Morgan" = "JPMorgan Chase & Co.", "Goldman Sachs" = "Goldman Sachs Group"; "Apple" isn't "Applebee's",
+ *  "EY" isn't "Disney". */
+export function sameEmployer(dream: string, company: string): boolean {
+  // orgKey drops "us" ("Acme US Inc."), but in a name the student typed it can be the name itself ("US Bank").
+  const key = dream.toLowerCase().replace(/&/g, "and").replace(/\b(inc|llc|llp|ltd|corp|corporation|company|co|the)\b/g, "").replace(/[^a-z0-9]/g, "");
+  const words = company.toLowerCase().replace(/&/g, " and ").split(/[^a-z0-9]+/).filter((w) => w && !/^(inc|llc|llp|ltd|corp|corporation|company|co|the)$/.test(w));
+  return key.length >= 2 && words.some((_, k) => words.slice(0, k + 1).join("") === key);
+}

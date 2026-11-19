@@ -1,3 +1,4 @@
+import { sameEmployer } from "@shared/org";
 import { postingSkills } from "@shared/requirements";
 import type { Job, JobFit, Workspace } from "@shared/types";
 import { hasKeyword } from "./ats";
@@ -308,15 +309,6 @@ function notWanted(ws: Workspace, job: Job): string {
 const GENERIC_TITLE_WORDS = new Set(["with", "and", "for", "certification", "certificate", "minor", "engineer", "engineering", "business", "intern", "internship", "analyst", "associate", "science", "sciences", "studies", "student", "program", "summer", "major", "minor", "degree", "bachelor", "master", "technology", "general", "role", "roles", "position", "entry", "level", "career", "work", "certificate", "and"].map(family));
 
 // Bump when the fit rules change, so verdicts saved under older rules are worked out again.
-/** A dream employer as the student wrote it is this company when it equals the company's first whole word(s):
- *  "J.P. Morgan" = "JPMorgan Chase & Co.", "Goldman Sachs" = "Goldman Sachs Group"; "Apple" isn't "Applebee's",
- *  "EY" isn't "Disney". */
-function sameEmployer(dream: string, company: string): boolean {
-  // orgKey drops "us" ("Acme US Inc."), but in a name the student typed it can be the name itself ("US Bank").
-  const key = dream.toLowerCase().replace(/&/g, "and").replace(/\b(inc|llc|llp|ltd|corp|corporation|company|co|the)\b/g, "").replace(/[^a-z0-9]/g, "");
-  const words = company.toLowerCase().replace(/&/g, " and ").split(/[^a-z0-9]+/).filter((w) => w && !/^(inc|llc|llp|ltd|corp|corporation|company|co|the)$/.test(w));
-  return key.length >= 2 && words.some((_, k) => words.slice(0, k + 1).join("") === key);
-}
 /** Why an opening outside the student's places is still worth showing, from their own "Open to relocating?" answer
  *  (council, Nov 19): "Yes" keeps every one; "For the right role" keeps one with a reason they'd recognize (a dream
  *  employer, or a title in their own field words); "No" or no answer keeps them to their places (""). */

@@ -1,7 +1,7 @@
 import { useEffect, useState, Fragment } from "react";
 import { dreamWithoutOpenings } from "@shared/org";
 import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, BookmarkCheck, CalendarPlus, ChevronDown, ChevronUp, Link2, MapPin, RefreshCw, Search, Sparkles, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
-import { openingRanker } from "@shared/order";
+import { openingRanker, reasonLine } from "@shared/order";
 import type { Job, JobCheck, JobFit, JobInterestReason, JobRanking, Workspace } from "@shared/types";
 import { api, daysUntil, fmtDate, rid, useDraft, useStore } from "../lib/store";
 import { ApplyLink } from "../components/ApplyLink";
@@ -49,6 +49,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const [finding, setFinding] = useState(false);
   // Dream employers with nothing in the list: say so instead of staying silent. Only once the list has loaded
   // and no search is running, so it never claims "nothing" about openings that are still on their way.
+  const dreams = (w.profile.dreamEmployers || "").split(/[,;]+/).map((x) => x.trim()).filter((x) => x.length > 1).slice(0, 5);
   const noDream = jobs && !refreshing && !finding && w.lastSearch?.at ? dreamWithoutOpenings(w.profile.dreamEmployers, jobs.map((j) => j.company)) : [];
   const discover = async () => {
     setFinding(true);
@@ -118,12 +119,21 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
           {w.hiddenJobIds.length > 0 && <label className="row small"><input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} /> Show ones I'm not interested in</label>}
         </div>
       </div>
-      {(ineligible.length > 0 || (myRegions && elsewhere.length > 0) || noDream.length > 0) && (
+      {/* Dream employers at a glance (ranking council, Nov 19): how many openings each has right now; tap to see them. */}
+      {dreams.length > 0 && w.lastSearch?.at && (
+        <div className="row small" style={{ gap: 8, flexWrap: "wrap" }} data-testid="dream-row">
+          <b>Your dream employers</b>
+          {dreams.map((d) => { const n = (jobs || []).filter((j) => sameOrg(d, j.company) && !w.hiddenJobIds.includes(j.id)).length; return (
+            <button key={d} className={"chip " + (n ? "chip-live" : "chip-plain")} disabled={!n} onClick={() => setQ(d)} title={n ? `Show ${d}'s openings` : "Remy checks their career site each time it searches"} data-testid="dream-chip">{d} · {n ? `${n} open` : "none open now"}</button>
+          ); })}
+          {noDream.length > 0 && <span className="xs muted">Found one yourself? <button className="btn btn-ghost btn-sm" onClick={() => setShowImport(true)}>Import it</button></span>}
+        </div>
+      )}
+      {(ineligible.length > 0 || (myRegions && elsewhere.length > 0)) && (
         <div className="notice small" data-testid="notice-filtered">
           <div>
             {ineligible.length > 0 && <>{showIneligible ? "Showing" : "Hiding"} <strong>{ineligible.length}</strong> opening{ineligible.length > 1 ? "s" : ""} you can't apply to or that {ineligible.length > 1 ? "don't" : "doesn't"} fit your choices. <button className="btn btn-ghost btn-sm" onClick={() => setShowIneligible((v) => !v)} data-testid="button-toggle-ineligible">{showIneligible ? "Hide them" : "Show anyway"}</button></>}
             {myRegions && elsewhere.length > 0 && <div>{elsewhere.length} more {elsewhere.length > 1 ? "are" : "is"} outside {regions}. <button className="btn btn-ghost btn-sm" onClick={() => setMyRegions(false)}>Show all locations</button></div>}
-            {noDream.length > 0 && <div data-testid="notice-dream">Nothing from {noDream.join(", ")} in your list yet. Remy checks the career sites it can read each time it searches. Found an opening on {noDream.length > 1 ? "their sites" : "its site"}? <button className="btn btn-ghost btn-sm" onClick={() => setShowImport(true)}>Import it</button></div>}
             {!w.profile.classYear && !w.profile.graduation && <div>Add your class year in <a href="/accounts" style={{ fontWeight: 700 }}>Accounts</a> and Remy will check every opening's eligibility for you.</div>}
           </div>
         </div>
@@ -261,6 +271,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit
         {j.deadline && <span className={"chip " + (d !== null && d < 0 ? "chip-bad" : d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d < 0 ? "Deadline passed" : `Due ${fmtDate(j.deadline)}${d === 0 ? " · today" : d !== null ? ` · ${d}d` : ""}`}</span>}
       </div>
       {fit && <p className="small job-why"><strong>Why it fits you: </strong>{fit.why}</p>}
+      {(() => { const r = reasonLine(ws!, j, fit); return r.length ? <p className="xs muted" data-testid="job-reasons">{r.join(" · ")}</p> : null; })()}
       {fit?.regionMatch === false && <p className="xs muted" data-testid="job-outside">Outside the places you chose{fit.relocate ? `, shown because ${fit.relocate}` : ""}.</p>}
       {(() => { const known = w.contacts.filter((c) => sameOrg(c.org, j.company)); return known.length > 0 && <button className="xs job-contact" style={{ textAlign: "left", color: "var(--fox)", fontWeight: 700 }} onClick={() => go("/community")} data-testid="job-known-contact">You know {known.map((c) => c.name).join(", ")} here: ask about the team before you apply →</button>; })()}
       {/* These wait under Details on every screen, so a closed card is short (audit section 6). */}
