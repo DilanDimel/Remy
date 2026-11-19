@@ -3,16 +3,27 @@
 // wraps or moves text nodes behind React's back: React then removes or inserts relative to a node that's no longer
 // where it left it, and the whole page fails. The usual guard (facebook/react#11538): if the node isn't a child any more,
 // skip that one step instead of throwing, so the page keeps working (translated text may lag a moment behind).
+import { reportClientError } from "../components/ErrorBoundary";
+
+// The first skip per page load is still reported (node and parent names only), so the owners' dashboard shows whether
+// this keeps happening, or whether one of Remy's own components has a real bug the guard is papering over.
+let reported = false;
+const note = (what: string, node: Node, parent: Node) => {
+  if (reported) return;
+  reported = true;
+  reportClientError("dom-guard", new Error(`Skipped ${what}: ${node.nodeName} is no longer inside ${parent.nodeName} (browser translator or extension?)`));
+};
+
 export function guardDomAgainstTranslators() {
   if (typeof Node !== "function" || !Node.prototype) return;
   const remove = Node.prototype.removeChild;
   Node.prototype.removeChild = function <T extends Node>(this: Node, child: T): T {
-    if (child.parentNode !== this) return child;
+    if (child.parentNode !== this) { note("removeChild", child, this); return child; }
     return remove.call(this, child) as T;
   };
   const insert = Node.prototype.insertBefore;
   Node.prototype.insertBefore = function <T extends Node>(this: Node, node: T, ref: Node | null): T {
-    if (ref && ref.parentNode !== this) return insert.call(this, node, null) as T;
+    if (ref && ref.parentNode !== this) { note("insertBefore", ref, this); return insert.call(this, node, null) as T; }
     return insert.call(this, node, ref) as T;
   };
 }

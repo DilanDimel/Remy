@@ -131,10 +131,11 @@ function extractJson(text: string): any {
   throw new Error("AI response was not valid JSON");
 }
 
-/** `chainSpec` overrides OR_AI_CHAIN for one call (e.g. a stronger model just for tailoring); if none of its providers is configured, the default chain is used. */
 /** Why the last reply ended ("stop", or "length" when it hit the token limit and was cut off). */
 let lastFinish = "";
+/** `chainSpec` overrides OR_AI_CHAIN for one call (e.g. a stronger model just for tailoring); if none of its providers is configured, the default chain is used. */
 export async function aiText(system: string, user: string, maxTokens = 1200, chainSpec?: string): Promise<string> {
+  lastFinish = ""; // set again from this call's reply, so a value from an earlier call is never read
   const c = init();
   if (!c) throw new AiUnavailable();
   const ch0 = (chainSpec && chain(chainSpec).length && chain(chainSpec)) || chain();
