@@ -579,6 +579,11 @@ test("regions: setup's \"Anywhere in Texas\" means Texas, not anywhere (live tes
     ["Anywhere in Texas", "Remote", true],
     ["Anywhere in the US", "McLean, VA", null],
     ["Remote, Anywhere in the US", "Chicago, IL", null],
+    // Skeptic review: only an exact state counts; anything else keeps meaning no limit.
+    ["Anywhere in US", "Dallas, TX", null], ["Anywhere in USA", "Chicago, IL", null], ["DFW area, Anywhere in USA", "McLean, VA", null],
+    ["Anywhere in America", "Chicago, IL", null], ["Anywhere in Texas or Oklahoma", "Tulsa, OK", null],
+    ["Anywhere in TX", "Houston, Texas", true], ["Anywhere in TX", "Tulsa, OK", false],
+    ["Anywhere in Texas, Austin, TX", "Houston, TX", true],
   ];
   for (const [r, l, want] of cases) assert.equal(regionMatch(ws(r), job(l)), want, `${r} | ${l}`);
 });

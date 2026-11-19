@@ -39,7 +39,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const [showIneligible, setShowIneligible] = useState(false);
   const regions = w.profile.regions.trim();
   // Not remembered: "Show all locations" lasts this visit, so the student's places always apply when they come back.
-  const [myRegions, setMyRegions] = useState<boolean>(!!regions && !/anywhere/i.test(regions));
+  const [myRegions, setMyRegions] = useState<boolean>(!!regions && !regions.split(/[,;/]+/).some((r) => /^\s*anywhere\b/i.test(r) && !/^\s*anywhere in (?!the\b|us\b|usa\b|u\.s|united|america)[a-z]+\s*$/i.test(r))));
   useEffect(() => { try { localStorage.setItem("remy.opps", JSON.stringify({ savedOnly })); } catch {} }, [savedOnly]);
   // The best 10 first, then 10 more at a time (99 cards were 40 phone screens long); a new search or filter starts over.
   const [shown, setShown] = useState(10);

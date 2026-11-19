@@ -137,8 +137,11 @@ export function regionMatch(ws: Workspace, job: Job): boolean | null {
   let wants = (ws.profile.regions || "").toLowerCase().split(/[,;/]+/).map((x) => x.trim()).filter(Boolean);
   // "Anywhere in Texas" (a setup choice) means all of Texas, not anywhere at all: it used to switch location off,
   // so every opening scored as "place unknown" (live test Nov 19: 0 of 60 openings counted as in the student's area).
-  const wholeStates = wants.map((w) => w.match(/^anywhere in (?!the\b)(.+)$/)?.[1]?.trim()).filter((x): x is string => !!x);
-  wants = wants.filter((w) => !/^anywhere in (?!the\b)/.test(w));
+  // Only an exact state name or code counts ("Anywhere in TX" too); "Anywhere in USA", "…Texas or Oklahoma" and the
+  // like keep meaning no limit, as before (skeptic review).
+  const stateOf = (x: string) => { const t = x.trim(); const k = STATE.split("|").findIndex((c) => c.toLowerCase() === t); return k >= 0 ? STATE_NAMES[k] : STATE_NAMES.includes(t) ? t : ""; };
+  const wholeStates = wants.map((w) => stateOf(w.match(/^anywhere in (.+)$/)?.[1] || "")).filter(Boolean);
+  wants = wants.filter((w) => !stateOf(w.match(/^anywhere in (.+)$/)?.[1] || ""));
   if ((!wants.length && !wholeStates.length) || wants.some((w) => /^anywhere\b|open to (any|all)|united states|^us$|usa/.test(w))) return null;
   // "Dallas-Fort Worth, Texas": the state labels the metro; it doesn't mean anywhere in Texas.
   if (wants.some((w) => Object.keys(METRO).some((k) => !STATE_NAMES.includes(k) && k !== "remote" && w.includes(k)))) wants = wants.filter((w) => !STATE_NAMES.includes(w));
