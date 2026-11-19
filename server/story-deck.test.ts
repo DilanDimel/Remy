@@ -124,7 +124,8 @@ test("story lines keep experience under mixed headings and drop skills/certifica
     sec("Leadership, Skills & Activities", "President of Finance Club"), sec("Projects & Certifications", "Built a Tableau dashboard for a class"),
     sec("Coursework & Projects", "Built a budgeting app for Intro to IS"), sec("Education", "Honors Thesis on bank failures, 40 pages"),
     sec("Additional Information", "Skills: Excel, PowerPoint", "Certifications: Bloomberg Market Concepts", "Interests: golf", "Languages: Spanish"),
-    sec("Technical Proficiencies", "Excel, Python"), sec("Skills & Interests", "Excel"),
+    sec("Technical Proficiencies", "Excel, Python"), sec("Skills & Interests", "Excel"), sec("Licenses & Certifications", "Bloomberg Market Concepts (BMC), 2025"),
+    sec("Skills / Certifications", "SIE"), sec("Honors & Awards", "Dean's List"), sec("Experience", "Computer Skills: Excel", "Programming: Python", "   "),
   ] } as any;
   assert.deepEqual(storyLines(doc).map((l) => l.text), ["President of Finance Club", "Built a Tableau dashboard for a class", "Built a budgeting app for Intro to IS", "Honors Thesis on bank failures, 40 pages"]);
 });

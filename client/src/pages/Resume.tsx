@@ -571,7 +571,10 @@ function Checks({ a }: { a: Application }) {
   const letterIssues = a.letterFlags.filter((f) => f.type !== "placeholder");
   const ats = a.ats.filter((c) => c.id !== "layout" || ws?.resume?.style?.layout); // checks saved before Remy read the file's layout claimed a pass it never checked
   const atsFails = ats.filter((c) => !c.pass);
-  const toFix = letterIssues.length + flagged.length + atsFails.length;
+  // Matches what Approve checks: undecided changes, flagged changes, letter claims. ATS format notes don't block.
+  const undecided = a.changes.filter((c) => c.status === "pending" && !c.flags.length).length;
+  const toFix = undecided + letterIssues.length + flagged.length;
+  const auditFindings = a.audit?.findings.length || 0;
   const audit = async () => {
     setBusy(true);
     const r = await run(() => api<{ workspace: Workspace }>("POST", `/api/applications/${a.id}/audit`));
@@ -581,11 +584,14 @@ function Checks({ a }: { a: Application }) {
   return (
     <div className="stack">
       <div className="card card-pad stack-sm" data-testid="checks-summary">
-        {toFix ? <h3>{toFix} thing{toFix === 1 ? "" : "s"} to fix before you download</h3> : <h3 className="row" style={{ gap: 8 }}><CheckCircle2 size={18} className="pass" /> Nothing to fix. Your resume and letter pass every check.</h3>}
+        {toFix ? <h3>{toFix} thing{toFix === 1 ? "" : "s"} to fix before you approve</h3> : <h3 className="row" style={{ gap: 8 }}><CheckCircle2 size={18} className="pass" /> Nothing blocking your approval.</h3>}
+        {undecided > 0 && <span className="small" data-testid="checks-undecided"><b>{undecided} change{undecided === 1 ? "" : "s"}</b> still need{undecided === 1 ? "s" : ""} your decision (Changes tab).</span>}
         {letterIssues.length > 0 && <span className="small muted">In your cover letter (fix them in the Cover letter tab, or confirm they're true when you approve):</span>}
         {letterIssues.map((f, i) => <div key={"l" + i} className="flag" data-testid="letter-flags"><ShieldAlert size={15} /><span><strong>“{f.term}”</strong>: {f.message}</span></div>)}
         {flagged.map((c) => <div key={c.id} className="small"><strong>{c.entryLabel}</strong><FlagList flags={c.flags} /></div>)}
+        {atsFails.length > 0 && <span className="small muted" style={{ marginTop: 6 }}>Worth fixing (doesn't stop you approving):</span>}
         {atsFails.map((c) => <div key={c.id} className="ats-row"><AlertTriangle size={16} className="fail" /><div><strong>{c.label}</strong><div className="xs muted">{c.detail}</div></div></div>)}
+        {auditFindings > 0 && <span className="small muted">The AI second opinion found {auditFindings} thing{auditFindings === 1 ? "" : "s"} to look at (Show all checks).</span>}
       </div>
       <details className="card card-pad stack" data-testid="checks-all">
         <summary style={{ cursor: "pointer" }}><b>Show all checks</b> <span className="small muted">What an application system reads, the honesty check, and an AI second opinion</span></summary>
