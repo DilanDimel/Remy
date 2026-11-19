@@ -74,7 +74,7 @@ export default function Onboarding() {
 // Where finishing setup lands, by what the student said would help most.
 // "Find openings" lands on Home, where the plan's first step and the best-fitting openings are (Opportunities alone
 // could be empty for fields Remy covers thinly); resume and interview go straight to the tool the student asked for.
-const LAND: Record<string, string> = { resume: "/resume?tab=base&checks=1", openings: "/", interview: "/resume?tab=prep", direction: "/path?tab=career" };
+const LAND: Record<string, string> = { resume: "/resume?tab=base&checks=1", openings: "/", interview: "/interview", direction: "/path?tab=career" };
 
 /** First screen of setup: one question, so a student can get to what they came for. */
 // "What are you working toward?": tap one or write your own. "Not sure yet" is a real answer (Remy starts from exploring).

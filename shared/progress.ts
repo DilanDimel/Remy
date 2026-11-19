@@ -28,7 +28,7 @@ export function milestones(w: Workspace) {
     { label: "Openings picked", done: w.savedJobIds.length >= 3, detail: `${w.savedJobIds.length} of 3 saved`, link: "/opportunities" },
     { label: "First application", done: applied > 0, detail: applied ? `${applied} sent` : "Tailor and apply to one", link: "/opportunities" },
     { label: "Reached out", done: w.outreach.length > 0, detail: w.outreach.length ? `${w.outreach.length} message${w.outreach.length > 1 ? "s" : ""} drafted` : "Message one person", link: "/community" },
-    { label: "Interview stories", done: stories >= 2, detail: `${Math.min(stories, 2)} of 2 ready`, link: "/resume?tab=prep" },
+    { label: "Interview stories", done: stories >= 2, detail: `${Math.min(stories, 2)} of 2 ready`, link: "/interview" },
     { label: "Interviewing", done: interviewing, detail: interviewing ? "You're in" : "Comes from the steps above", link: "/progress" },
   ];
 }
@@ -59,4 +59,17 @@ export function replyStats(w: Pick<Workspace, "tracker">) {
   const plain = group(w.tracker.filter((t) => !t.applicationId));
   const pct = (g: Group) => (g.applied ? Math.round((100 * g.replied) / g.applied) : 0);
   return { ...all, rate: all.applied >= MIN_FOR_RATE ? pct(all) : null, split: tailored.applied >= 3 && plain.applied >= 3 ? { tailored: { ...tailored, rate: pct(tailored) }, plain: { ...plain, rate: pct(plain) } } : null };
+}
+
+/** "Getting started" on Home (audit 5C): five first real steps, each read from what the student did. The card goes
+ *  away once all five are done. No points or streaks. */
+export function gettingStarted(w: Workspace) {
+  const storyReady = (w.stories || []).some((s) => s.situation && s.task && s.action && s.result);
+  return [
+    { label: "Save an opening you like", done: w.savedJobIds.length > 0 || w.applications.length > 0, link: "/opportunities" },
+    { label: "Confirm your base resume", done: !!w.resume?.confirmedAt, link: "/resume?tab=base" },
+    { label: "Tailor one application", done: w.applications.some((a) => a.versions.length > 0), link: "/resume?tab=tailor" },
+    { label: "Build one interview story", done: storyReady, link: "/interview" },
+    { label: "Add one person you know", done: w.contacts.length > 0, link: "/community" },
+  ];
 }
