@@ -562,58 +562,65 @@ function Letter({ a }: { a: Application }) {
   );
 }
 
+/** Checks (audit, Nov 17: the most overwhelming screen): first only what needs fixing before download, the full
+ *  reports folded under "Show all checks". */
 function Checks({ a }: { a: Application }) {
   const { ws, setWs, run, config } = useStore();
-  const [busy, setBusy] = useState("");
-  const [test, setTest] = useState<ClaimFlag[] | null>(null);
-  const [testText, setTestText] = useState("Managed a $250,000 student investment fund using Python and Bloomberg Terminal as Investment Committee Chair.");
+  const [busy, setBusy] = useState(false);
   const flagged = a.changes.filter((c) => c.status !== "rejected" && c.flags.length);
+  const letterIssues = a.letterFlags.filter((f) => f.type !== "placeholder");
+  const ats = a.ats.filter((c) => c.id !== "layout" || ws?.resume?.style?.layout); // checks saved before Remy read the file's layout claimed a pass it never checked
+  const atsFails = ats.filter((c) => !c.pass);
+  // Matches what Approve checks: undecided changes, flagged changes, letter claims. ATS format notes don't block.
+  const undecided = a.changes.filter((c) => c.status === "pending" && !c.flags.length).length;
+  const toFix = undecided + letterIssues.length + flagged.length;
+  const auditFindings = a.audit?.findings.length || 0;
   const audit = async () => {
-    setBusy("audit");
+    setBusy(true);
     const r = await run(() => api<{ workspace: Workspace }>("POST", `/api/applications/${a.id}/audit`));
     if (r) setWs(r.workspace);
-    setBusy("");
-  };
-  const runTest = async () => {
-    setBusy("test");
-    const r = await run(() => api<{ flags: ClaimFlag[]; workspace: Workspace }>("POST", "/api/safeguard/test", { text: testText }));
-    if (r) { setTest(r.flags); setWs(r.workspace); }
-    setBusy("");
+    setBusy(false);
   };
   return (
-    <div className="grid-2" style={{ alignItems: "start" }}>
-      <div style={{ gridColumn: "1 / -1" }}><AtsCard appId={a.id} refreshKey={a.changes.map((c) => c.status + (c.edited || "")).join("|")} /></div>
-      <div className="stack">
-        <div className="card card-pad stack-sm">
-          <h3>Unsupported-claim check</h3>
-          <p className="xs muted">Rule-based and independent of the AI: flags numbers, tools, titles, names, class standing and added outcomes that aren't in your resume or approved facts.</p>
-          <div className="row"><span className={"chip " + (flagged.length ? "chip-bad" : "chip-live")}>{flagged.length} resume change(s) flagged</span><span className={"chip " + (a.letterFlags.length ? "chip-bad" : "chip-live")}>{a.letterFlags.length} letter issue(s)</span></div>
-          {a.letterFlags.length > 0 && <div className="stack-sm" data-testid="letter-flags">{a.letterFlags.map((f, i) => <div key={i} className="flag"><ShieldAlert size={15} /><span><strong>“{f.term}”</strong> in your letter: {f.message} Edit it in the Cover letter tab if it isn't true.</span></div>)}</div>}
-          {flagged.map((c) => <div key={c.id} className="small"><strong>{c.entryLabel}</strong><FlagList flags={c.flags} /></div>)}
-        </div>
-        <div className="card card-pad stack-sm">
-          <div className="row-between"><h3>AI second opinion</h3><button className="btn btn-secondary btn-sm" onClick={audit} disabled={!!busy || !config?.ai.available} data-testid="button-audit">{busy === "audit" && <Spinner />} Run audit</button></div>
-          <p className="xs muted">A separate AI pass compares the tailored documents with your evidence. Advisory — the rule-based check above is what blocks export.</p>
-          {a.audit ? (a.audit.findings.length ? a.audit.findings.map((f, i) => <div key={i} className="flag"><ShieldAlert size={15} /><span><strong>“{f.claim}”</strong> — {f.why}</span></div>) : <span className="small pass row"><CheckCircle2 size={16} /> No unsupported claims found ({fmtDate(a.audit.at)}).</span>) : <span className="small muted">Not run yet.</span>}
-        </div>
-        <div className="card card-pad stack-sm">
-          <h3>Test the safeguard</h3>
-          <p className="xs muted">Type a claim that isn't true and watch the checker catch it, so you know what it protects you from.</p>
-          <textarea className="textarea" style={{ minHeight: 60 }} value={testText} onChange={(e) => setTestText(e.target.value)} aria-label="Test claim" data-testid="input-safeguard" />
-          <div><button className="btn btn-secondary btn-sm" onClick={runTest} disabled={!!busy} data-testid="button-safeguard-test">{busy === "test" && <Spinner />} Check this claim</button></div>
-          {test && (test.length ? <FlagList flags={test} /> : <span className="small pass row"><CheckCircle2 size={16} /> Nothing unsupported — this is backed by your resume.</span>)}
-        </div>
+    <div className="stack">
+      <div className="card card-pad stack-sm" data-testid="checks-summary">
+        {toFix ? <h3>{toFix} thing{toFix === 1 ? "" : "s"} to fix before you approve</h3> : <h3 className="row" style={{ gap: 8 }}><CheckCircle2 size={18} className="pass" /> Nothing blocking your approval.</h3>}
+        {undecided > 0 && <span className="small" data-testid="checks-undecided"><b>{undecided} change{undecided === 1 ? "" : "s"}</b> still need{undecided === 1 ? "s" : ""} your decision (Changes tab).</span>}
+        {letterIssues.length > 0 && <span className="small muted">In your cover letter (fix them in the Cover letter tab, or confirm they're true when you approve):</span>}
+        {letterIssues.map((f, i) => <div key={"l" + i} className="flag" data-testid="letter-flags"><ShieldAlert size={15} /><span><strong>“{f.term}”</strong>: {f.message}</span></div>)}
+        {flagged.map((c) => <div key={c.id} className="small"><strong>{c.entryLabel}</strong><FlagList flags={c.flags} /></div>)}
+        {atsFails.length > 0 && <span className="small muted" style={{ marginTop: 6 }}>Worth fixing (doesn't stop you approving):</span>}
+        {atsFails.map((c) => <div key={c.id} className="ats-row"><AlertTriangle size={16} className="fail" /><div><strong>{c.label}</strong><div className="xs muted">{c.detail}</div></div></div>)}
+        {auditFindings > 0 && <span className="small muted">The AI second opinion found {auditFindings} thing{auditFindings === 1 ? "" : "s"} to look at (Show all checks).</span>}
       </div>
-      <div className="card card-pad stack-sm" data-testid="card-ats">
-        <h3>ATS format check</h3>
-        <p className="xs muted">For the resume as it will be exported, with the changes you accepted.</p>
-        {a.ats.filter((c) => c.id !== "layout" || ws?.resume?.style?.layout).map((c) => ( // checks saved before Remy read the file's layout claimed a pass it never checked
-          <div key={c.id} className="ats-row">
-            {c.pass ? <CheckCircle2 size={16} className="pass" /> : <AlertTriangle size={16} className="fail" />}
-            <div><strong>{c.label}</strong><div className="xs muted">{c.detail}</div></div>
+      <details className="card card-pad stack" data-testid="checks-all">
+        <summary style={{ cursor: "pointer" }}><b>Show all checks</b> <span className="small muted">What an application system reads, the honesty check, and an AI second opinion</span></summary>
+        <AtsCard appId={a.id} refreshKey={a.changes.map((c) => c.status + (c.edited || "")).join("|")} />
+        <div className="grid-2" style={{ alignItems: "start" }}>
+          <div className="stack">
+            <div className="card card-pad stack-sm" style={{ boxShadow: "none" }}>
+              <h3>Unsupported-claim check</h3>
+              <p className="xs muted">Rule-based and independent of the AI: flags numbers, tools, titles, names, class standing and added outcomes that aren't in your resume or approved facts.</p>
+              <div className="row"><span className={"chip " + (flagged.length ? "chip-bad" : "chip-live")}>{flagged.length} resume change(s) flagged</span><span className={"chip " + (letterIssues.length ? "chip-bad" : "chip-live")}>{letterIssues.length} letter issue(s)</span></div>
+            </div>
+            <div className="card card-pad stack-sm" style={{ boxShadow: "none" }}>
+              <div className="row-between"><h3>AI second opinion</h3><button className="btn btn-secondary btn-sm" onClick={audit} disabled={busy || !config?.ai.available} data-testid="button-audit">{busy && <Spinner />} Run audit</button></div>
+              <p className="xs muted">A separate AI pass compares the tailored documents with your evidence. Advisory — the rule-based check above is what blocks export.</p>
+              {a.audit ? (a.audit.findings.length ? a.audit.findings.map((f, i) => <div key={i} className="flag"><ShieldAlert size={15} /><span><strong>“{f.claim}”</strong> — {f.why}</span></div>) : <span className="small pass row"><CheckCircle2 size={16} /> No unsupported claims found ({fmtDate(a.audit.at)}).</span>) : <span className="small muted">Not run yet.</span>}
+            </div>
           </div>
-        ))}
-      </div>
+          <div className="card card-pad stack-sm" style={{ boxShadow: "none" }} data-testid="card-ats">
+            <h3>ATS format check</h3>
+            <p className="xs muted">For the resume as it will be exported, with the changes you accepted.</p>
+            {ats.map((c) => (
+              <div key={c.id} className="ats-row">
+                {c.pass ? <CheckCircle2 size={16} className="pass" /> : <AlertTriangle size={16} className="fail" />}
+                <div><strong>{c.label}</strong><div className="xs muted">{c.detail}</div></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </details>
     </div>
   );
 }
