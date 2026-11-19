@@ -132,6 +132,8 @@ function extractJson(text: string): any {
 }
 
 /** `chainSpec` overrides OR_AI_CHAIN for one call (e.g. a stronger model just for tailoring); if none of its providers is configured, the default chain is used. */
+/** Why the last reply ended ("stop", or "length" when it hit the token limit and was cut off). */
+let lastFinish = "";
 export async function aiText(system: string, user: string, maxTokens = 1200, chainSpec?: string): Promise<string> {
   const c = init();
   if (!c) throw new AiUnavailable();
@@ -160,6 +162,7 @@ export async function aiText(system: string, user: string, maxTokens = 1200, cha
             ...(orr ? { reasoning: { effort: "low" }, usage: { include: true } } : { reasoning_effort: "low" }),
           } as any);
           const out = r.choices?.[0]?.message?.content ?? "";
+          lastFinish = String(r.choices?.[0]?.finish_reason || "");
           if (!out) throw Object.assign(new Error("The AI returned an empty response."), { status: 502 });
           lastModel = m;
           lastVia = PROVIDERS[p]?.label || "";
@@ -205,13 +208,21 @@ export async function aiText(system: string, user: string, maxTokens = 1200, cha
 export async function aiJson<T = any>(system: string, user: string, maxTokens = 3000, chainSpec?: string): Promise<T> {
   const sys = system + "\n\n" + AI_SAFETY + "\n\nRespond with a single JSON object only. No markdown, no commentary.";
   let last: unknown;
+  let tokens = maxTokens;
   for (let i = 0; i < 2; i++) {
+    let text = "";
     try {
-      const text = await aiText(sys, i === 0 ? user : user + "\n\nYour previous reply was not valid JSON. Return only the JSON object.", maxTokens, chainSpec);
+      text = await aiText(sys, i === 0 ? user : user + "\n\nYour previous reply was not valid JSON. Return only the JSON object.", tokens, chainSpec);
       return extractJson(text) as T;
     } catch (e) {
       if (e instanceof AiUnavailable) throw e;
       last = e;
+      if (text) {
+        // Live error, Nov 18: a plan failed twice with "not valid JSON" and nothing said why. Log how it ended (never
+        // the content, which is about the student); a reply cut off at the limit gets twice the room on the retry.
+        console.warn(`AI JSON unreadable: finish=${lastFinish || "?"} length=${text.length} endsWithBrace=${/\}\s*$/.test(text)}`);
+        if (lastFinish === "length") tokens = maxTokens * 2;
+      }
     }
   }
   throw last instanceof Error ? last : new Error("AI request failed");
