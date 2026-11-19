@@ -1715,6 +1715,10 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
   // ---------- opportunities ----------
   app.get("/api/jobs", route(async (_req, res, ctx) => {
     if (!knowsStudent(ctx.ws)) return res.json({ jobs: [], fits: {}, interest: {}, needsProfile: NEEDS_PROFILE });
+    // Live, Nov 13 + 17: this request froze the server for 6-7 s (health checks went unanswered). Each step is timed and
+    // the breakdown logged when slow, so the next one says which step it was.
+    const t0 = Date.now(), lap: [string, number][] = [];
+    const mark = (what: string) => lap.push([what, Date.now()]);
     let changed = false;
     // Openings saved before the "program" label was tightened ("Launch Engineer", "Program Manager") become jobs again.
     for (const j of ctx.ws.jobs) if (j.kind === "program" && j.origin === "imported" && kindOf(j.title) === "job") { j.kind = "job"; delete ctx.ws.fits[j.id]; changed = true; }
@@ -1728,7 +1732,9 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       }
       return j;
     });
+    mark("fits");
     if (changed) await ctx.save();
+    mark("save");
     const last = Date.parse(ctx.ws.openingsCheckedAt || "");
     if (!(Date.now() - last < OPENINGS_EVERY) && !searching.has(ctx.me.id)) {
       let ok = true;
@@ -1741,13 +1747,24 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
         findOpenings(ctx).catch((e) => console.error("auto openings", e?.message)).finally(() => searching.delete(id));
       }
     }
+    mark("search");
     const fits: Record<string, JobFit> = {};
     for (const j of jobs) {
       const closed = closedReason(ctx.ws, j);
       fits[j.id] = closed ? { ...ctx.ws.fits[j.id], closed, excluded: true, score: 0, eligibilityNote: closed } : ctx.ws.fits[j.id];
     }
+    mark("closed");
+    const interest = ownInterest(ctx.ws, jobs);
+    mark("interest");
     // How many employers Remy reads for this student's field, so an empty list can say why honestly.
-    res.json({ jobs, fits, interest: ownInterest(ctx.ws, jobs), interestEnabled: interestEnabled(), refreshing: searching.has(ctx.me.id), fieldEmployers: fieldEmployers(ctx.ws).length });
+    const employers = fieldEmployers(ctx.ws).length;
+    mark("employers");
+    res.json({ jobs, fits, interest, interestEnabled: interestEnabled(), refreshing: searching.has(ctx.me.id), fieldEmployers: employers });
+    mark("send");
+    if (Date.now() - t0 > 2000 || process.env.OR_TIMING === "1") {
+      let prev = t0;
+      console.warn(`jobs timing ${Date.now() - t0}ms (${jobs.length} openings, ${changed ? "re-scored" : "cached"}): ` + lap.map(([w, at]) => { const d = at - prev; prev = at; return `${w} ${d}`; }).join(", "));
+    }
   }));
 
   app.post("/api/jobs/import", route(async (req, res, ctx) => {
