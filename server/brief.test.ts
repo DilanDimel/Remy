@@ -59,13 +59,17 @@ test("brief: tap options for why/learn must come from the posting; experience op
   assert.ok(!why.options.some((o) => /used their products|snacks/.test(o)), "claims about the student and unbacked reasons are dropped");
   assert.equal(b.questions.find((q) => q.key === "learn")!.options.length, 2);
   const proud = b.questions.find((q) => q.key === "proud")!;
-  const labels = cleanBrief({ questions: [{ key: "proud", bulletIds: ["c1", "t1"] }] }, job, [
-    { id: "c1", where: "Certifications › ", text: "Microsoft Office Specialist: Excel & PowerPoint" },
-    { id: "t1", where: "Experience › Treasurer, TCU NABA (National Association of Black Accountants)", text: "Oversee an estimated annual chapter budget of $5,000+, managing SGA funding allocations and reimbursements for 40 members" },
-  ])!.questions[0].options;
-  assert.equal(labels[0], "Certifications: Microsoft Office Specialist: Excel & PowerPoint");
-  assert.match(labels[1], /^Treasurer, TCU NABA: Oversee .*…$/);
-  assert.doesNotMatch(labels[1], /allocations an…/);
+  const cert = { id: "c1", where: "Certifications › ", text: "Microsoft Office Specialist: Excel & PowerPoint" };
+  const treasurer = { id: "t1", where: "Experience › Treasurer, TCU NABA (National Association of Black Accountants)", text: "Oversee an estimated annual chapter budget of $5,000+, managing SGA funding allocations and reimbursements for 40 members" };
+  const uno = { id: "u1", where: "Activities and Leadership › President & Founder, UNO Club – TCU", text: "Founded club from concept to active organization and led effort for official TCU recognition" };
+  // Live test Nov 19: the only choice was "CERTIFICATIONS: Microsoft Office Specialist…" (a section heading, not an experience).
+  const one = cleanBrief({ company: "Alcon makes contact lenses.", questions: [{ key: "proud", bulletIds: ["c1", "t1"] }] }, job, [cert, treasurer])!;
+  assert.equal(one.questions.find((q) => q.key === "proud"), undefined, "a certification isn't an experience, and one choice isn't a question");
+  const labels = cleanBrief({ questions: [{ key: "proud", bulletIds: ["c1", "t1", "u1"] }] }, job, [cert, treasurer, uno])!.questions[0].options;
+  assert.equal(labels.length, 2);
+  assert.match(labels[0], /^Treasurer, TCU NABA: Oversee .*…$/);
+  assert.doesNotMatch(labels[0], /allocations an…/);
+  assert.match(labels[1], /^President & Founder, UNO Club/);
   assert.deepEqual(proud.options, ["Remy AI: Presented an AI career coach to Neeley leadership and won first place", "Treasurer, NABA: Built budget trackers in Excel for a 40-member chapter"]);
 });
 

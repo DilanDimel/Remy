@@ -4,6 +4,7 @@
 import type { Job, ResumeDoc } from "@shared/types";
 import { families } from "@shared/words";
 import { hasKeyword } from "./ats";
+import { listOnlyHeading } from "./storyLines";
 
 export type BriefFit = { requirement: string; evidence: string; where: string };
 export type BriefQuestion = { key: "why" | "learn" | "proud" | "extra" | "skill"; q: string; options: string[]; label?: string; pick?: string };
@@ -98,8 +99,12 @@ export function cleanBrief(raw: any, job: Job, lines: Line[]): Brief | null {
   if (learnOpts.length >= 2) questions.push({ key: "learn", q: "What would you most want to do or learn here?", options: learnOpts });
   // Experience choices are the student's own resume lines, picked by id, so nothing about them is invented.
   const proudIds = (Array.isArray(q("proud")?.bulletIds) ? q("proud").bulletIds : []).map(String).filter((id: string) => byId.has(id));
-  const proudOpts = [...new Set(proudIds)].slice(0, 3).map((id) => byId.get(id as string)!).map((l) => `${label(l.where)}: ${clip(l.text, 90)}`);
-  if (proudOpts.length >= 1) questions.push({ key: "proud", q: "Which experience should your letter lead with?", options: proudOpts });
+  // Only real experiences (a job, club, project), named by their role or organization: a certification or skills
+  // line labeled with its section heading ("CERTIFICATIONS: Microsoft Office…") isn't something to lead a letter with.
+  // A choice of one isn't a question, so it's asked only with two or more (live test Nov 19).
+  const experience = (l: Line) => { const [section, entry = ""] = l.where.split(" › "); return !!entry.trim() && !listOnlyHeading(section); };
+  const proudOpts = [...new Set(proudIds)].map((id) => byId.get(id as string)!).filter(experience).slice(0, 3).map((l) => `${label(l.where)}: ${clip(l.text, 90)}`);
+  if (proudOpts.length >= 2) questions.push({ key: "proud", q: "Which experience should your letter lead with?", options: proudOpts });
 
   if (!company && !roleOk && !fits.length && !questions.length) return null;
   return { company, companySource, role: roleOk, fits, questions };
