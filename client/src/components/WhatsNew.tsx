@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Megaphone } from "lucide-react";
 import { NEWS, latestNewsId, unseenNews } from "@shared/news";
-import { useStore } from "../lib/store";
+import { useOwnerView, useStore } from "../lib/store";
 import { Modal } from "./common";
 
 const KIND: Record<string, string> = { New: "chip-live", Improved: "chip-student", Fixed: "chip-plain", Changed: "chip-demo" };
@@ -11,7 +11,7 @@ const fmt = (d: string) => new Date(d + "T12:00").toLocaleDateString("en-US", { 
 export function WhatsNew({ className = "nav-item", label = true }: { className?: string; label?: boolean }) {
   const { ws, me, save } = useStore();
   const [open, setOpen] = useState(false);
-  const owner = !!me?.owner;
+  const owner = useOwnerView();
   const unseen = unseenNews(ws?.settings.newsSeen, owner).length;
   const show = () => {
     setOpen(true);

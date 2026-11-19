@@ -549,6 +549,8 @@ export interface Workspace {
   settings: {
     /** "system" follows the device (the default). */
     theme: "system" | "light" | "dark";
+    /** Owners only: false = use Remy like a student (no owner features). Default on. */
+    ownerView?: boolean;
     /** The student's fixed weekly time for career work (day 0 = Sunday, time "HH:MM"); null = removed. */
     careerTime?: { day: number; time: string } | null;
     /** True once the student picked a theme themselves (older accounts stored "light" by default). */

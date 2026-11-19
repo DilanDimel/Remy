@@ -4,7 +4,7 @@ import {
   BarChart3, Briefcase, CalendarDays, ChevronsLeft, ChevronsRight, Compass, FileText, Home as HomeIcon, Menu, Send,
   Check, Gauge, Info, Mic, Minus, ShieldCheck, UserCog, Users,
 } from "lucide-react";
-import { StoreProvider, api, rid, useDraft, useStore, type Theme } from "./lib/store";
+import { StoreProvider, api, rid, useDraft, useOwnerView, useStore, type Theme } from "./lib/store";
 import { go, replaceRoute, useRoute } from "./lib/router";
 const PUBLIC = new Set(["/", "/signin", "/welcome", "/about", "/policies", "/privacy", "/terms"]);
 import { BetaBadge, Modal, Remy, Rich, Spinner, StatusChip } from "./components/common";
@@ -143,7 +143,8 @@ function isMobileNow() {
 
 function Shell() {
   const { ws, save, me } = useStore();
-  useGameRecord(ws, !!me?.owner); // Career quest (owners only while tested): keeps the week on every page
+  const ownerView = useOwnerView();
+  useGameRecord(ws, ownerView); // Career quest (owners only while tested): keeps the week on every page
   const { path, query } = useRoute();
   const [asstPage, setAsstPage] = useState<boolean | null>(null);
   const [more, setMore] = useState(false);
@@ -205,7 +206,7 @@ function Shell() {
           </a>
         ))}
         {/* Career quest: owners only while it's tested (Dilan, Nov 19); a big release later. */}
-        {me?.owner && ws && <GameSidebar w={ws} />}
+        {ownerView && ws && <GameSidebar w={ws} />}
         <div className="side-news"><WhatsNew /><a className="nav-item" href="/welcome" title="Remy's homepage" data-testid="nav-homepage"><Info size={19} /><span className="nav-label">Remy homepage</span></a></div>
         <ProfileMenu initials={initials} active={path.startsWith("/accounts")} />
       </aside>
@@ -252,7 +253,8 @@ function Shell() {
             <button className="nav-item" onClick={() => { setMore(false); go("/about"); }}><Info size={19} />About Remy</button>
             <button className="nav-item" onClick={() => { setMore(false); go("/policies"); }}><ShieldCheck size={19} />Privacy & terms</button>
             <button className="nav-item" onClick={() => { setMore(false); setFeedback(true); }}><Send size={19} />Send feedback</button>
-            {me?.owner && <button className="nav-item" onClick={() => { setMore(false); go("/admin"); }} data-testid="mobile-admin"><Gauge size={19} />Owners' dashboard</button>}
+            {ownerView && <button className="nav-item" onClick={() => { setMore(false); go("/admin"); }} data-testid="mobile-admin"><Gauge size={19} />Owners' dashboard</button>}
+            <OwnerViewSwitch className="nav-item" onDone={() => setMore(false)} />
             <WhatsNew />
           </div>
         </Modal>
@@ -425,6 +427,7 @@ const MENU: [string, string][] = [["profile", "Profile"], ["settings", "Settings
 /** The name at the bottom of the sidebar: opens Profile, Settings and the rest of Account. */
 function ProfileMenu({ initials, active }: { initials: string; active: boolean }) {
   const { ws, me, run, refresh, save } = useStore();
+  const ownerView = useOwnerView();
   const [open, setOpen] = useState(false);
   const [feedback, setFeedback] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -457,7 +460,8 @@ function ProfileMenu({ initials, active }: { initials: string; active: boolean }
           <button role="menuitem" onClick={() => { setOpen(false); go("/about"); }} data-testid="menu-about">About Remy</button>
           <button role="menuitem" onClick={() => { setOpen(false); go("/policies"); }} data-testid="menu-policies">Privacy & terms</button>
           <button role="menuitem" onClick={() => { setOpen(false); setFeedback(true); }} data-testid="menu-feedback">Send feedback</button>
-          {me?.owner && <button role="menuitem" onClick={() => { setOpen(false); go("/admin"); }} data-testid="menu-admin">Owners' dashboard</button>}
+          {ownerView && <button role="menuitem" onClick={() => { setOpen(false); go("/admin"); }} data-testid="menu-admin">Owners' dashboard</button>}
+          <OwnerViewSwitch onDone={() => setOpen(false)} />
           <div className="divider" />
           <button role="menuitem" onClick={signOut} data-testid="menu-sign-out">Sign out</button>
         </div>
@@ -488,4 +492,14 @@ function FeedbackModal({ onClose }: { onClose: () => void }) {
       </div>
     </Modal>
   );
+}
+
+/** Owners only: switch between owner view (Career quest, owner notes, the dashboard link) and seeing Remy exactly as a
+ *  student does. Saved on the account, so it holds on every device (Dilan, Nov 19). */
+function OwnerViewSwitch({ className, onDone }: { className?: string; onDone: () => void }) {
+  const { me, ws, save, run } = useStore();
+  const on = useOwnerView();
+  if (!me?.owner || !ws) return null;
+  const flip = async () => { onDone(); await run(() => save("settings", { ...ws.settings, ownerView: !on }), on ? "Student view: you see Remy like a student" : "Owner view is on"); };
+  return <button role="menuitem" className={className} onClick={flip} data-testid="button-owner-view">{className ? <Gauge size={19} /> : null}{on ? "Switch to student view" : "Switch to owner view"}</button>;
 }
