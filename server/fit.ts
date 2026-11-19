@@ -305,10 +305,35 @@ function notWanted(ws: Workspace, job: Job): string {
 }
 
 // Words in a major or target role that say nothing about the field ("Bachelor of Science in…", "engineering intern").
-const GENERIC_TITLE_WORDS = new Set(["engineer", "engineering", "business", "intern", "internship", "analyst", "associate", "science", "sciences", "studies", "student", "program", "summer", "major", "minor", "degree", "bachelor", "master", "technology", "general", "role", "roles", "position", "entry", "level", "career", "work", "certificate", "and"].map(family));
+const GENERIC_TITLE_WORDS = new Set(["with", "and", "for", "certification", "certificate", "minor", "engineer", "engineering", "business", "intern", "internship", "analyst", "associate", "science", "sciences", "studies", "student", "program", "summer", "major", "minor", "degree", "bachelor", "master", "technology", "general", "role", "roles", "position", "entry", "level", "career", "work", "certificate", "and"].map(family));
 
 // Bump when the fit rules change, so verdicts saved under older rules are worked out again.
-export const FIT_RULES_VERSION = 16; // 16: "Anywhere in Texas" means Texas, not anywhere (it switched location off). 15: "Microsoft Excel" is the resume's "Excel"; "Microsoft Office" is shown by its apps. 14: what a student enjoys never hides an opening, only fields they chose. 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
+/** A dream employer as the student wrote it is this company when it equals the company's first whole word(s):
+ *  "J.P. Morgan" = "JPMorgan Chase & Co.", "Goldman Sachs" = "Goldman Sachs Group"; "Apple" isn't "Applebee's",
+ *  "EY" isn't "Disney". */
+function sameEmployer(dream: string, company: string): boolean {
+  // orgKey drops "us" ("Acme US Inc."), but in a name the student typed it can be the name itself ("US Bank").
+  const key = dream.toLowerCase().replace(/&/g, "and").replace(/\b(inc|llc|llp|ltd|corp|corporation|company|co|the)\b/g, "").replace(/[^a-z0-9]/g, "");
+  const words = company.toLowerCase().replace(/&/g, " and ").split(/[^a-z0-9]+/).filter((w) => w && !/^(inc|llc|llp|ltd|corp|corporation|company|co|the)$/.test(w));
+  return key.length >= 2 && words.some((_, k) => words.slice(0, k + 1).join("") === key);
+}
+/** Why an opening outside the student's places is still worth showing, from their own "Open to relocating?" answer
+ *  (council, Nov 19): "Yes" keeps every one; "For the right role" keeps one with a reason they'd recognize (a dream
+ *  employer, or a title in their own field words); "No" or no answer keeps them to their places (""). */
+export function relocateReason(ws: Workspace, title: string, company: string): string {
+  const r = (ws.profile.relocation || "").trim().toLowerCase();
+  if (r === "yes") return "you're open to relocating";
+  if (r !== "for the right role") return "";
+  // Same employer however it's written ("J.P. Morgan" = "JPMorgan Chase & Co."), never a short name inside another
+  // ("EY" isn't Disney): shared/org.ts.
+  const dream = (ws.profile.dreamEmployers || "").split(/[,;]+/).map((d) => d.trim()).filter((d) => d.length > 1);
+  if (company.trim() && dream.some((d) => sameEmployer(d, company))) return `${company} is a dream employer`;
+  const own = [...families(`${ws.profile.major} ${ws.profile.targetRoles}`)].filter((f) => f.length >= 4 && !GENERIC_TITLE_WORDS.has(f));
+  const hit = own.filter((f) => families(title).has(f));
+  return hit.length ? "the title is in your field" : "";
+}
+
+export const FIT_RULES_VERSION = 17; // 17: out-of-area openings say why they're shown (relocation answer). 16: "Anywhere in Texas" means Texas, not anywhere (it switched location off). 15: "Microsoft Excel" is the resume's "Excel"; "Microsoft Office" is shown by its apps. 14: what a student enjoys never hides an opening, only fields they chose. 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const g = gradDate(ws);
   const year = classYearOf(ws);
@@ -422,7 +447,7 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
       // Discovery days and insight programs are built for first-years and sophomores (NABA: EY, PwC).
       (job.kind === "program" && (year === "First-year" || year === "Sophomore") ? 12 : 0),
   );
-  return { at: new Date().toISOString(), by: "rules", v: FIT_RULES_VERSION, eligibility, eligibilityNote: note, checked, ...(hidden ? { hidden } : {}), matched, gaps, why, excluded, score, regionMatch: region, typeMatch: type };
+  return { at: new Date().toISOString(), by: "rules", v: FIT_RULES_VERSION, eligibility, eligibilityNote: note, checked, ...(hidden ? { hidden } : {}), matched, gaps, why, excluded, score, regionMatch: region, ...(region === false && relocateReason(ws, job.title, job.company) ? { relocate: relocateReason(ws, job.title, job.company) } : {}), typeMatch: type };
 }
 
 // "Summer 2026" offered in October 2026: a term that has already started or ended (the AI doesn't always know the date).

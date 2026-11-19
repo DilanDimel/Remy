@@ -587,3 +587,22 @@ test("regions: setup's \"Anywhere in Texas\" means Texas, not anywhere (live tes
   ];
   for (const [r, l, want] of cases) assert.equal(regionMatch(ws(r), job(l)), want, `${r} | ${l}`);
 });
+
+test("relocation answer: out-of-area openings are kept only for a reason the student gave (council Nov 19)", async () => {
+  const { relocateReason } = await import("./fit");
+  const ws = (relocation: string) => ({ profile: { relocation, major: "Finance & BIS with Fintech Certification", targetRoles: "Finance, Investment banking", dreamEmployers: "J.P. Morgan, Goldman Sachs, Bank of America" } }) as any;
+  assert.equal(relocateReason(ws("No"), "Corporate Finance Intern", "Booz Allen Hamilton"), "");
+  assert.equal(relocateReason(ws(""), "Corporate Finance Intern", "Booz Allen Hamilton"), "");
+  assert.match(relocateReason(ws("For the right role"), "Corporate Finance Intern", "Booz Allen Hamilton"), /your field/);
+  assert.equal(relocateReason(ws("For the right role"), "Global Risk Solutions Claims Internship", "Liberty Mutual"), "", "no reason: not shown");
+  assert.match(relocateReason(ws("For the right role"), "Summer Analyst", "Bank of America"), /dream employer/);
+  assert.match(relocateReason(ws("Yes"), "Claims Internship", "Liberty Mutual"), /open to relocating/);
+  // Skeptic review: dream names match the same employer only, and "with"/"certification" aren't field words.
+  const dreams = (d: string) => ({ profile: { relocation: "For the right role", major: "Finance & BIS with Fintech Certification", targetRoles: "", dreamEmployers: d } }) as any;
+  assert.equal(relocateReason(dreams("EY"), "Operations Intern", "Disney"), "");
+  assert.equal(relocateReason(dreams("Apple"), "Operations Intern", "Applebee's"), "");
+  assert.match(relocateReason(dreams("J.P. Morgan"), "Operations Intern", "JPMorgan Chase & Co."), /dream employer/);
+  assert.equal(relocateReason(dreams(""), "Work With Us Intern", "Acme"), "");
+  assert.equal(relocateReason(dreams("US Bank"), "Operations Intern", "Bank of America"), "");
+  assert.match(relocateReason(dreams("US Bank"), "Operations Intern", "U.S. Bank"), /dream employer/);
+});

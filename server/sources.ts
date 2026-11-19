@@ -4,7 +4,7 @@ import type { Job, Requirement, Workspace } from "@shared/types";
 import { htmlToText } from "./parse";
 import { topSkills } from "@shared/requirements";
 import { uid } from "./ids";
-import { abroad, COUNTRY_IN_TEXT, FIELD_SEARCH, FIELD_TITLES, regionMatch, chosenFieldText } from "./fit";
+import { abroad, COUNTRY_IN_TEXT, FIELD_SEARCH, FIELD_TITLES, regionMatch, chosenFieldText, relocateReason } from "./fit";
 import { q, q1 } from "./sql";
 import { interestEnabled, preferenceAdjustment } from "./ranking";
 
@@ -474,7 +474,7 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, e
   // and the caller fills its text in place (refillEmpty) instead of keeping a card that can't say why it fits.
   const known = new Set([...ws.jobs.filter((j) => !isEmptyListing(j)).flatMap((j) => [j.applyUrl, j.sourceUrl]), ...(ws.droppedJobUrls || [])]);
   const reached: string[] = [];
-  const found: { job: Job; rel: number; preference: number }[] = [];
+  const found: { job: Job; rel: number; preference: number; inArea: boolean }[] = [];
   let i = 0;
   const worker = async () => {
     while (i < boards.length) {
@@ -483,8 +483,12 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, e
       try { raws = await cachedBoard(b, field, ws.profile.regions || ws.profile.location || ""); } catch { continue; }
       if (!raws.length) continue;
       reached.push(b.company);
-      let details = 0;
-      for (const r of raws) {
+      let details = 0, outsideReads = 0;
+      // The student's own places first: out-of-area postings (kept only by their relocation answer) never use the
+      // detail reads or the per-employer slots an in-area posting would have had (skeptic review).
+      const outsideAt = (location: string) => regionMatch(ws, { location, format: /remote/i.test(location) ? "Remote" : "" } as Job) === false;
+      const ordered = [...raws].sort((a, z) => Number(outsideAt(a.location)) - Number(outsideAt(z.location)));
+      for (const r of ordered) {
         if (!r.url || known.has(r.url) || (!r.student && (!EARLY.test(r.title) || (SENIOR.test(r.title) && !/intern|co-?op|new grad|student/i.test(r.title))))) continue;
         if (undergrad && GRAD_LEVEL.test(r.title)) continue;
         // A country in the title ("Key Account Trainee – Iberia (España y Portugal)") means abroad, even when the location is vague.
@@ -493,10 +497,19 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, e
         const generic = !FIELD_TITLES.some(([, t]) => t.test(r.title));
         if (titleFits.length && !titleFits.some((t) => t.test(r.title)) && !generic) continue;
         // Skip places the student didn't ask for before spending a detail read on them.
-        const where = (location: string) => { if (r.nearby) return true; const m = regionMatch(ws, { location, format: /remote/i.test(location) ? "Remote" : "" } as Job); return m ?? !abroad(location); };
+        const where = (location: string) => {
+          if (r.nearby) return true;
+          const m = regionMatch(ws, { location, format: /remote/i.test(location) ? "Remote" : "" } as Job);
+          if (m !== false) return m ?? !abroad(location);
+          // Outside the places they chose: their own "Open to relocating?" answer decides (council, Nov 19). "Yes" keeps
+          // it; "For the right role" keeps it only with a reason they'd recognize (a title in their own field words, or a
+          // dream employer), shown on the card; "No" or no answer keeps them to their places.
+          return !abroad(location) && !!relocateReason(ws, r.title, r.company || b.company);
+        };
         if (!/^\d+ locations?$/i.test(r.location) && !where(r.location)) continue;
         // Workday lists only titles; read the full posting for the few that pass the title checks.
         if (r.detail && !r.text) {
+          if (outsideAt(r.location) && outsideReads++ >= 2) continue;
           if (details++ >= 6) continue;
           try { const d = await r.detail(); r.text = d.text; if (d.location) r.location = d.location; } catch { continue; }
         }
@@ -517,14 +530,14 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, e
           label: "Live", checkedAt: new Date().toISOString(), foundAt: new Date().toISOString(), checks: [], origin: "imported", postingText: r.text.slice(0, 12000),
         };
         known.add(r.url);
-        found.push({ job, rel, preference: preferenceAdjustment(ws, job, enabled).adjustment });
+        found.push({ job, rel, preference: preferenceAdjustment(ws, job, enabled).adjustment, inArea: !outsideAt(r.location) });
       }
     }
   };
   await Promise.all(Array.from({ length: 12 }, worker));
   // Most relevant to the student's fields first; keep a few from each company.
   // The student's own likes count before the per-company and overall cuts; field checks and employer variety stay.
-  found.sort((a, b) => (b.rel + b.preference) - (a.rel + a.preference) || b.rel - a.rel || a.job.company.localeCompare(b.job.company) || a.job.title.localeCompare(b.job.title) || a.job.applyUrl.localeCompare(b.job.applyUrl));
+  found.sort((a, b) => Number(b.inArea) - Number(a.inArea) || (b.rel + b.preference) - (a.rel + a.preference) || b.rel - a.rel || a.job.company.localeCompare(b.job.company) || a.job.title.localeCompare(b.job.title) || a.job.applyUrl.localeCompare(b.job.applyUrl));
   const perCompany = new Map<string, number>();
   const jobs: Job[] = [];
   for (const f of found) {
