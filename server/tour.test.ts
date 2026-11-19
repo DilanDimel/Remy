@@ -46,8 +46,9 @@ test("contacts: where we met and when are saved, email optional, a bad date refu
   assert.equal(saved.met, "TCU fall career fair");
   assert.equal(saved.metOn, "2026-11-18");
   assert.equal((await put("contacts", [{ ...person, metOn: "Nov 18" }])).status, 400);
-  assert.equal((await put("settings", { firstWin: 1, introsSeen: ["/opportunities"] })).status, 200);
-  assert.equal((await put("settings", { firstWin: 5 })).status, 400);
+  assert.equal((await put("settings", { tour: 3 })).status, 200);
+  assert.equal((await put("settings", { tour: "done" })).status, 200);
+  assert.equal((await put("settings", { tour: 99 })).status, 400);
 });
 
 test("Future of your field: the student's major comes first, even when roles or interests match other fields", async () => {
