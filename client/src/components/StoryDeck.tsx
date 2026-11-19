@@ -39,8 +39,12 @@ export function StoryDeck() {
   // The story is named only when Remy moves on to a new one.
   const lead = (q: Ask) => (lastStory === q.st.id ? "" : `About “${q.st.title}”: `);
   const keep = (m: Msg[]) => setLog((l) => [...l, ...m].slice(-6)); // the last few lines only: the chat never becomes a wall
+  // A draft belongs to the question it was typed for: if the question changes (another story picked, a part cleared),
+  // the draft is cleared so it can never be saved into the wrong story.
+  const nextKey = next ? key(next) : "";
+  useEffect(() => { setText(""); }, [nextKey]);
   const answer = async (skip: boolean) => {
-    if (!next) return;
+    if (!next || sending) return;
     const q = next, asked = lead(q) + question(q);
     if (skip) { setSkipped((s) => [...s, key(q)]); keep([{ who: "ai", text: asked, story: q.st.id }, { who: "me", text: "Skipped for now" }]); return; }
     setSending(true);
@@ -59,7 +63,7 @@ export function StoryDeck() {
       <div className="row-between"><h3>Interview stories</h3>
         <span className="row" style={{ gap: 8 }}>
           {stories.length > 0 && <span className="xs muted" data-testid="story-summary">{ready} of {stories.length} ready{all.length ? ` · ${all.length} question${all.length === 1 ? "" : "s"} left` : ""}</span>}
-          <button className="btn btn-secondary btn-sm" disabled={busy || !config?.ai.available} onClick={make} data-testid="button-make-stories">{busy ? <Spinner /> : <Sparkles size={14} />} {stories.length ? "Rebuild" : "Build my interview stories"}</button>
+          <button className="btn btn-secondary btn-sm" disabled={busy || !config?.ai.available} onClick={make} title={stories.length ? "Find new stories in your resume. Your answers are kept." : undefined} data-testid="button-make-stories">{busy ? <Spinner /> : <Sparkles size={14} />} {stories.length ? "Rebuild" : "Build my interview stories"}</button>
         </span>
       </div>
       {busy && <WorkingSteps steps={["Finding moments in your resume", "Shaping them into stories", "Checking each part against your resume"]} />}
@@ -69,18 +73,18 @@ export function StoryDeck() {
         <div className="story-chat">
           <div className="card card-pad stack-sm" style={{ boxShadow: "none" }} data-testid="story-thread">
             <div className="ob-thread" aria-live="polite">
-              {!log.length && <div className="bubble bubble-ai">Interviewers ask “Tell me about a time when…”. I'll ask a few short questions so each story has all four parts. Answer in your own words; I never fill them in for you.</div>}
+              {!log.length && <div className="bubble bubble-ai">Interviewers ask “Tell me about a time when…”. I'll ask a few short questions so each story has all four parts. Answer in your own words; I never fill them in for you, and your answers stay if you rebuild.</div>}
               {log.map((m, i) => <div key={i} className={"bubble " + (m.who === "ai" ? "bubble-ai" : "bubble-user")}>{m.text}</div>)}
               {next ? (
                 <div className="bubble bubble-ai" data-testid="story-question"><span className="xs muted" style={{ display: "block" }}>{LABEL[next.part]}</span>{lead(next)}<b>{question(next)}</b></div>
               ) : all.length ? (
                 <div className="bubble bubble-ai">You skipped the rest for now. <button className="btn btn-ghost btn-sm" onClick={() => setSkipped([])} data-testid="button-ask-again">Ask me again</button></div>
               ) : (
-                <div className="bubble bubble-ai" data-testid="stories-all-ready">All your stories have four parts. Open one on the right and practice it out loud.</div>
+                <div className="bubble bubble-ai" data-testid="stories-all-ready">All your stories have four parts. Open one in Your stories and practice it out loud.</div>
               )}
             </div>
             {next && <>
-              <textarea className="input" rows={2} value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && text.trim().length >= 8) { e.preventDefault(); answer(false); } }} placeholder="Type your answer…" aria-label={`${LABEL[next.part]} for ${next.st.title}`} data-testid="input-story-answer" />
+              <textarea className="input" rows={2} value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && !sending && text.trim().length >= 8) { e.preventDefault(); answer(false); } }} placeholder="Type your answer…" aria-label={`${LABEL[next.part]} for ${next.st.title}`} data-testid="input-story-answer" />
               <div className="row-between">
                 <button className="btn btn-ghost btn-sm" onClick={() => answer(true)} disabled={sending} data-testid="button-story-skip">Skip</button>
                 <button className="btn btn-primary btn-sm" disabled={sending || text.trim().length < 8} onClick={() => answer(false)} data-testid="button-story-send">{sending ? <Spinner /> : null} Send</button>

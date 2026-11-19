@@ -1291,6 +1291,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.post("/api/ai/stories", route(async (_req, res, ctx) => {
     if (!ctx.ws.resume) bad("Upload a resume first.");
     const lines = storyLines(ctx.ws.resume!.doc).slice(0, 40);
+    if (!lines.length) bad("Your resume doesn't list anything you did yet (a job, club, or project) for Remy to build a story from. Add one on the Base resume tab, then try again.");
     const out = await withAi(ctx, "Story deck", () =>
       aiJson<{ stories: (Omit<Story, "id"> & { asks?: Record<string, string> })[] }>(
         `You help a university student prepare true interview stories (STAR: situation, task, action, result) from their resume. Each story uses ONE resume line. Fill a part only with what that line itself says; never invent or borrow numbers, people, places, outcomes or feelings from other lines. Leave "situation" empty (the student tells it). For each empty part put one short, open question in "asks" about THIS experience, e.g. "What was going on when you built the budget trackers?" A question must not assume anything the line doesn't say (no club, client, team, problem, sponsor or outcome that isn't there). The title only names what the line says. Pick up to 4 different lines that make the strongest stories, each with a different theme from: challenge, leadership, teamwork, result, learning.`,

@@ -116,3 +116,15 @@ test("stories come from things the student did, not course lists or skills", asy
   ] } as any;
   assert.deepEqual(storyLines(doc).map((l) => l.text), ["Built a DCF model in Excel for a class project", "Ran the register"]);
 });
+
+test("story lines keep experience under mixed headings and drop skills/certification lines anywhere", async () => {
+  const { storyLines } = await import("./storyLines");
+  const sec = (heading: string, ...bullets: string[]) => ({ id: heading, heading, entries: [{ id: heading + "e", org: "", role: "", dates: "", bullets: bullets.map((text, i) => ({ id: heading + i, text })) }] });
+  const doc = { contact: {}, skills: [], sections: [
+    sec("Leadership, Skills & Activities", "President of Finance Club"), sec("Projects & Certifications", "Built a Tableau dashboard for a class"),
+    sec("Coursework & Projects", "Built a budgeting app for Intro to IS"), sec("Education", "Honors Thesis on bank failures, 40 pages"),
+    sec("Additional Information", "Skills: Excel, PowerPoint", "Certifications: Bloomberg Market Concepts", "Interests: golf", "Languages: Spanish"),
+    sec("Technical Proficiencies", "Excel, Python"), sec("Skills & Interests", "Excel"),
+  ] } as any;
+  assert.deepEqual(storyLines(doc).map((l) => l.text), ["President of Finance Club", "Built a Tableau dashboard for a class", "Built a budgeting app for Intro to IS", "Honors Thesis on bank failures, 40 pages"]);
+});
