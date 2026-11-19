@@ -32,7 +32,8 @@ test("career quest: XP from missions (all-three bonus) and real wins; levels", (
   const g = { weeks: { "2026-11-16": { base: {}, done: ["rate", "save", "person"] } } };
   assert.equal(xpOf(w, g), 45 + 35 + 40 + 50);
   assert.equal(levelOf(0).name, "Rookie");
-  assert.equal(levelOf(300).name, "Prospect");
+  assert.equal(levelOf(300).name, "Explorer");
+  assert.equal(levelOf(0, 3).name, "Builder", "a level once reached is kept");
   assert.equal(levelOf(5000).max, true);
 });
 
@@ -75,4 +76,15 @@ test("career quest: the server merges weeks, so a stale tab can't wipe a week or
     assert.deepEqual(after.base, { saved: 1 });
     assert.deepEqual(after.missions, ["person", "save", "tailor"]);
   } finally { server.close(); }
+});
+
+test("career quest, council: a sent application keeps its XP when withdrawn; deleting the row removes it", () => {
+  const w = emptyWorkspace();
+  w.tracker = [{ id: "t1", status: "Withdrawn", events: [{ id: "e1", at: "2026-11-10T00:00:00Z", status: "Applied" }, { id: "e2", at: "2026-11-12T00:00:00Z", status: "Withdrawn" }] } as any,
+    { id: "t2", status: "Withdrawn", events: [{ id: "e3", at: "2026-11-10T00:00:00Z", status: "Saved" }] } as any];
+  assert.equal(counters(w).sent, 1, "withdrawn after applying still counts; withdrawn before applying doesn't");
+  const g = { weeks: {} };
+  assert.equal(xpOf(w, g), 120);
+  w.tracker = [];
+  assert.equal(xpOf(w, g), 0);
 });

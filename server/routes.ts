@@ -890,7 +890,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     pitch: z.object({ text: str(1200), at: str(40) }),
     hours: z.array(z.object({ id: str(120), activity: str(120), hours: z.number().min(0).max(168), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), note: str(500).optional() })).max(2000),
     // Career quest: per week (Monday date) the starting counts and the missions finished; at most two years kept.
-    game: z.object({ weeks: z.record(z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.object({ base: z.record(str(20), z.number().int().min(0).max(100000)), done: z.array(str(20)).max(10), missions: z.array(str(20)).max(5).optional() })).refine((r) => Object.keys(r).length <= 110, "too many weeks") }),
+    game: z.object({ weeks: z.record(z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.object({ base: z.record(str(20), z.number().int().min(0).max(100000)), done: z.array(str(20)).max(10), missions: z.array(str(20)).max(5).optional() })).refine((r) => Object.keys(r).length <= 110, "too many weeks"), bestLevel: z.number().int().min(1).max(5).optional() }),
     builder: z.looseObject({
       step: z.number().int().min(0).max(20),
       basics: z.object(Object.fromEntries(["name", "email", "phone", "city", "school", "major", "graduation", "classYear", "gpa", "highSchool", "highSchoolYear"].map((k) => [k, str(200)]))),
@@ -927,7 +927,8 @@ export async function registerRoutes(_server: Server, app: Express) {
         const old = had[k];
         weeks[k] = old ? { ...old, done: [...new Set([...old.done, ...wk.done])].slice(0, 10) } : wk;
       }
-      value = { weeks: Object.fromEntries(Object.entries(weeks).sort(([a], [b]) => b.localeCompare(a)).slice(0, 104)) };
+      const best = Math.max(ctx.ws.game?.bestLevel || 1, (value as NonNullable<Workspace["game"]>).bestLevel || 1);
+      value = { weeks: Object.fromEntries(Object.entries(weeks).sort(([a], [b]) => b.localeCompare(a)).slice(0, 104)), bestLevel: best };
     }
     if (section === "profile") {
       const before = JSON.stringify(ctx.ws.profile);

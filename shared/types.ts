@@ -525,7 +525,7 @@ export interface Workspace {
   /** The student's 30-second pitch (Remy's draft, then their edits). */
   pitch?: { text: string; at: string };
   /** Career quest (owners only while tested): each week's starting counts and the missions finished (shared/game.ts). */
-  game?: { weeks: Record<string, { base: Record<string, number>; done: string[] }> };
+  game?: { weeks: Record<string, { base: Record<string, number>; done: string[]; missions?: string[] }>; bestLevel?: number };
   /** Hours the student logged (volunteering, shadowing, clinical, shifts…), with running totals on Progress → Hours. */
   hours?: HoursEntry[];
   /** The text of the student's last LinkedIn PDF, for the LinkedIn coach (shared/linkedin.ts). Server-written. */

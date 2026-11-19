@@ -3,7 +3,7 @@
 // errors go to the Errors page like any other.
 import { q } from "./sql";
 
-const NAME = /^(page|rage|rate):[\w/:.\- ]{1,85}$/;
+const NAME = /^(page|rage|rate|quest):[\w/:.\- ]{1,85}$/;
 const centralDay = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
 
 /** Adds a batch of event names to today's counts. Unknown shapes are dropped. Returns how many were counted. */
