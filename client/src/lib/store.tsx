@@ -119,6 +119,11 @@ const THEME_KEY = "remy.theme";
 const readLocalTheme = (): Theme => { try { const t = localStorage.getItem(THEME_KEY); return t === "light" || t === "dark" ? t : "system"; } catch { return "system"; } };
 const Ctx = createContext<Store>(null as any);
 export const useStore = () => useContext(Ctx);
+/** Owner features show only in owner view: an owner can switch to seeing Remy exactly as a student does (Dilan, Nov 19). */
+export function useOwnerView() {
+  const { me, ws } = useContext(Ctx);
+  return !!me?.owner && ws?.settings.ownerView !== false;
+}
 
 /** Setup steps 1–2 (resume, review) are "not far yet"; from step 3 on, they get the welcome-back screen instead. */
 export const FAR_ENOUGH_STEP = 3;

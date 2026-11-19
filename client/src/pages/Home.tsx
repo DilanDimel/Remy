@@ -5,7 +5,7 @@ import { ApplyNudge } from "../components/ApplyNudge";
 import { MissionBoard } from "../components/Game";
 import { ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronUp, MapPin } from "lucide-react";
 import type { Job, Task, Workspace } from "@shared/types";
-import { api, daysUntil, fmtDate, rid, useStore } from "../lib/store";
+import { api, daysUntil, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
 import { useCompleting } from "../lib/completing";
 import { go } from "../lib/router";
 import { kindLabel, useJobs } from "../lib/jobs";
@@ -21,7 +21,8 @@ function greeting() {
 }
 
 export default function Home() {
-  const { ws, save, run, setWs, me } = useStore();
+  const { ws, save, run, setWs } = useStore();
+  const ownerView = useOwnerView();
   const w = ws!;
   const { jobs, fits } = useJobs();
   const [tab, setTab] = useState<Tab>("todos");
@@ -149,7 +150,7 @@ export default function Home() {
           </div>
         )}
       </section>
-      {me?.owner && <MissionBoard w={w} />}
+      {ownerView && <MissionBoard w={w} />}
 
       <section className="card card-pad">
         <div className="row-between" style={{ marginBottom: 8 }}>
