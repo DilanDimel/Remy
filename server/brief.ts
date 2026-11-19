@@ -3,9 +3,10 @@
 // questions they can answer with a tap. The AI only proposes; everything here is checked against the posting and resume.
 import type { Job, ResumeDoc } from "@shared/types";
 import { families } from "@shared/words";
+import { hasKeyword } from "./ats";
 
 export type BriefFit = { requirement: string; evidence: string; where: string };
-export type BriefQuestion = { key: "why" | "learn" | "proud" | "extra"; q: string; options: string[] };
+export type BriefQuestion = { key: "why" | "learn" | "proud" | "extra" | "skill"; q: string; options: string[]; label?: string; pick?: string };
 export type Brief = {
   company: string;
   /** "posting": the posting says it. "remy": Remy's general knowledge, so the student should check it. */
@@ -140,4 +141,29 @@ SKILLS: ${(doc?.skills || []).map((k) => k.label + ": " + k.items).join(" / ")}
 
 Return {"company":"","role":"","fits":[{"requirementId":"","bulletId":""}],"questions":[]}`;
   return { system, user };
+}
+
+// People skills ("customer service", "detail-oriented") aren't learned in one place; asking where would be odd.
+const SOFT = /\b(?:communicat\w*|customer\w*|service|teamwork|team|leader\w*|detail\w*|organi[sz]\w*|problem\w*|time management|interpersonal|ethics?|multi-?task\w*|adapt\w*|motivat\w*|collaborat\w*|self-starter|critical|analytical thinking|initiative|professional\w*|fast-paced|independen\w*|attitude|reliab\w*|punctual\w*|curio\w*|written|verbal|speaking|presentation\w*|sales|negotiat\w*|research\w*|writing|listening|creativ\w*|flexib\w*|empath\w*|bilingual|languages?|spanish|english|french|mandarin|chinese|german|portuguese|arabic|hindi|vietnamese|korean|japanese|italian|russian|tagalog|urdu)\b/i;
+/** Ask, don't invent (Dilan, Nov 18): the posting asks for a skill the student lists only under Skills, with no line
+ *  showing where it came from. Remy asks where they learned it (one skill per tailoring), so the letter can say it in
+ *  their words instead of making up "through my coursework". Skipped when a fact already covers it. */
+export function skillOriginQuestion(job: Job, lines: Line[], doc: ResumeDoc | undefined, facts: string[]): BriefQuestion | null {
+  const skills = (doc?.skills || []).map((k) => k.items).join("\n");
+  if (!skills.trim()) return null;
+  const said = lines.map((l) => l.text).join("\n");
+  for (const r of job.requirements) {
+    const k = r.keyword.trim();
+    if (!k || k.length > 40 || SOFT.test(k)) continue;
+    if (!hasKeyword(skills, k) || hasKeyword(said, k)) continue;
+    // Named the way the student's own Skills line says it ("Excel", not the posting's "Advanced Excel"), so the saved
+    // answer never claims more than the resume.
+    const item = skills.replace(/\([^)]*\)/g, "").split(/[,;|\n•]+/).map((x) => x.trim()).find((x) => x && x.length <= 40 && hasKeyword(x, k));
+    if (!item) continue;
+    const name = item.replace(/^(?:microsoft|ms)\s+/i, "");
+    const named = new RegExp(`(?<![\\w])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w+#])`, "i");
+    if (facts.some((f) => named.test(f) && /\b(?:learn|class|course|job|taught myself|on my own)\w*/i.test(f))) continue;
+    return { key: "skill", q: `The posting asks for ${name}, and your resume lists it. Where did you learn it? (So your letter can say it right.)`, label: `Where I learned ${name}`, options: ["In a class", "At a job or internship", "On my own"], pick: "Skip" };
+  }
+  return null;
 }

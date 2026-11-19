@@ -194,6 +194,38 @@ export function claimCheck(
       add({ type: "title", term, message: `Class standing “${term}” is not stated in your resume or profile. Set your class year in Accounts or remove it.` });
     }
   }
+  // Where or how a skill was learned, or what a job taught them, is the student's to say (Dilan, Nov 18: ask, don't
+  // invent). Judged per sentence and per skill: "Through my coursework I built Excel skills" needs the student's own
+  // "Where I learned Excel — In a class" (a coursework section or a class answer for another skill doesn't count), and
+  // every word naming the class ("my corporate finance classes") must be in their answer. "It taught me…" needs their
+  // own words. Plans and hopes ("I look forward to learning how to…") aren't claims about the past.
+  const q = (x: string) => lc(x).replace(/[’‘]/g, "'").replace(/\s+/g, " ");
+  const said = q(evidence + " " + (opts.original || ""));
+  const ownWords = q(opts.original || "");
+  const learned = [...evidence.matchAll(/Where I learned ([^—\n]+?)\s+—\s+([^\n]+)/g)].map((f) => ({ skill: f[1].trim(), answer: f[2].trim() }));
+  const sentenceAt = (i: number) => { const a = text.slice(0, i).search(/[^.!?\n]*$/); const b = text.slice(i).search(/[.!?\n]/); return text.slice(a, b < 0 ? text.length : i + b); };
+  const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const nameIn = (name: string, t: string) => new RegExp(String.raw`(?<![\w])${esc(name)}(?![\w+#])`, "i").test(t);
+  const SKILL_TALK = /\b(?:learn\w*|buil[td]|develop\w*|gain\w*|proficien\w*|skills?|competenc\w*|experience\s+(?:with|in)|familiar\w*|master\w*)\b/i;
+  // Also "built Excel skills while pursuing a Finance degree" (the Strongest match card, Nov 18).
+  for (const m of text.matchAll(/\b(?:through|from|via|in|during)\s+(?:my|our)\s+((?:[\w-]+\s+){0,3}?)(?:course\s*work|courses?|classes|class|curriculum|studies|program|major|degree)\b|\bwhile\s+(?:pursuing|studying|earning|completing|working\s+toward)\s+(?:a|an|my|our)\s+((?:[\w-]+\s+){0,3}?)(?:degree|major|coursework|studies)\b/gi)) {
+    const sentence = sentenceAt(m.index!);
+    if (!SKILL_TALK.test(sentence)) continue; // "Through my studies at TCU, I became interested in banking" says nothing about a skill
+    if (/^(?:in|during)\b/i.test(m[0]) && /studies$/i.test(m[0])) continue; // "during my studies" is when, not where
+    if (ownWords && ownWords.includes(q(m[0]))) continue; // the student's own words (a rewrite or bullet keeping them)
+    const mods = (m[1] || m[2] || "").trim().split(/\s+/).filter((w) => w && !/^(?:the|a|an|own)$/i.test(w));
+    const ok = learned.some((f) => /\b(?:class|course)/i.test(f.answer) && nameIn(f.skill, sentence) && mods.every((w) => nameIn(w, f.answer)));
+    if (!ok) add({ type: "scope", term: m[0], message: `“${m[0]}” says where you learned this, and you haven't told Remy that. Tell Remy where you learned it, or remove it.` });
+  }
+  for (const m of text.matchAll(/\b(?:taught|teaches|showed)\s+me\b|\bgave\s+me\s+an?\s+(?:\w+\s+)?(?:sense|appreciation|understanding)\b|\blearned\s+(?:the\s+(?:importance|value)\s+of|how\s+to)\b|\bhelped\s+me\s+(?:to\s+)?(?:develop|build|learn|grow|strengthen|understand|realize|become|improve|gain)\b|\b(?:allowed|enabled)\s+me\s+to\s+(?:develop|build|learn|gain|grow|strengthen|improve)\b|\bwhere\s+I\s+learned\b/gi)) {
+    const sentence = sentenceAt(m.index!);
+    const before = sentence.slice(0, Math.max(0, sentence.indexOf(m[0])));
+    if (/\b(?:will|would|could|can|hope|hoping|look(?:ing)?\s+forward|excited|eager|interested|want|wants|plan|aim|seek)\b/i.test(before)) continue;
+    if (ownWords && ownWords.includes(q(m[0]))) continue; // "Learned how to…" kept from the student's own bullet
+    // The phrase plus the words after it, up to the next comma or full stop, must be the student's own.
+    const tail = (text.slice(m.index! + m[0].length).match(/^[^.,;!?\n]*/)?.[0] || "").trim().split(/\s+/).slice(0, 3).join(" ");
+    if (!said.includes(q(`${m[0]} ${tail}`).trim())) add({ type: "scope", term: m[0], message: `“${m[0]}” says what an experience taught you, in Remy's words, not yours. Tell Remy in your own words, or remove it.` });
+  }
   // Check-ins: every detail must come from what the student said, so even one new word is flagged.
   if (opts.strict) {
     const u = unsaidWords(body, evidence + " " + (opts.original ?? ""));

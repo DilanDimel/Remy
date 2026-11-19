@@ -93,15 +93,17 @@ function readPosting(s: TailorSession) {
     });
 }
 
-type Brief = { questions: { key: string; q: string; options: string[] }[] };
+type Brief = { questions: { key: string; q: string; options: string[]; label?: string; pick?: string }[] };
 /** The questions for one tailoring: the brief's tap questions where it had good ones, the plain ones otherwise. */
 export function tailorQuestions(job: Job, brief: Brief | null): TailorSession["qs"] {
   const from = (key: string) => brief?.questions.find((x) => x.key === key);
-  const why = from("why"), learn = from("learn"), proud = from("proud");
+  const why = from("why"), learn = from("learn"), proud = from("proud"), skill = from("skill");
   return [
     why ? { key: "why", q: why.q, options: why.options, pick: "Not sure yet" } : { key: "why", q: `Is there anything about ${job.company} or this role that draws you? Even one reason helps. "Not sure" is fine.` },
     learn ? { key: "learn", q: learn.q, options: learn.options, pick: "Not sure yet" } : { key: "learn", q: "What do you most want to do or learn in this role?" },
     proud ? { key: "proud", q: proud.q, options: proud.options, pick: "You pick" } : { key: "proud", q: "Which experience of yours are you proudest of for this kind of work — and what did you do there?" },
+    // Ask, don't invent: where a listed skill came from, so the letter doesn't make it up.
+    ...(skill ? [{ key: "skill", q: skill.q, label: skill.label, options: skill.options, pick: skill.pick || "Skip" }] : []),
     { key: "extra", q: `Anything else ${job.company} should know — availability, someone you've talked to, why now? (Type "skip" if nothing.)`, options: [], pick: "Nothing to add" },
   ];
 }
@@ -125,7 +127,8 @@ export function startOutreach(c: Contact) {
 // When a student skips most tailoring questions, Remy says so once before writing a generic letter.
 export const NUDGE_KEY = "_reason";
 const NUDGE_Q = `You skipped most of these, so the cover letter would be generic, and recruiters notice. Give me one real reason you want this role (a class, a project, someone you talked to, what the team works on), or type "go" to write it anyway.`;
-export const realAnswers = (s: Pick<TailorSession, "qs" | "answers">) => s.qs.filter((x) => !x.key.startsWith("_") && s.answers[x.key]).length;
+// The skill question says where a skill came from, not why they want the job, so it doesn't count against the nudge.
+export const realAnswers = (s: Pick<TailorSession, "qs" | "answers">) => s.qs.filter((x) => !x.key.startsWith("_") && x.key !== "skill" && s.answers[x.key]).length;
 
 export async function answer(text: string, deps: Deps) {
   const s = session;
