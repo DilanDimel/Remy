@@ -100,26 +100,39 @@ const SAME: [RegExp, RegExp][] = [
   [/^excel$/, /\b(excel|spreadsheet\w*)\b/],
   [/^ehr$/, /\b(ehr|epic|cerner|electronic health record\w*)\b/],
 ];
-/** The Office program, not the everyday word. Reads the student's own text (not plainEnglish, which erases
- *  "Excel in/with…"). Excel: "spreadsheets"; "Excel"/"EXCEL" mid-sentence ("Exported reports to Excel"); "Excel" opening a
- *  line unless it's the verb ("Excel at/in/under…"); lowercase "excel" only after a tool word ("used excel", "in excel") or
- *  in a list ("excel, powerpoint"). Never "strive to excel", "students who excel". Outlook: capital "Outlook" not after
- *  "market/quarterly…"; lowercase only in a list or next to mail/calendar words. Never "credit outlook". */
-const LIST_ITEM = (n: string) => new RegExp(`(^|[,:;•|/(&]|\\band\\b)\\s*${n}\\s*($|[,;|/)&]|\\band\\b)`, "im");
-// "market outlook", "2025 housing outlook": the everyday word, whatever the capitals.
-const OUTLOOK_WORDS = /^(?:market|industry|economic|financial|global|career|investment|sector|earnings|business|credit|housing|rate|rates|oil|weekly|monthly|quarterly|annual|positive|negative|fresh|optimistic|long-term|short-term|\d{4})$/i;
+/** The Office program, not the everyday word ("eager to learn and excel", "credit outlook", "EXCEL Program"). It counts
+ *  only with clear program context, whatever the capitals: "Microsoft Excel"; "spreadsheets"; a tool word before it
+ *  ("in/using/with Excel", "exported reports to Excel"); a program word after it ("Excel models", "Outlook calendars");
+ *  a skills line ("Software: Excel"); or a list with another program ("Word and Excel"). Reads the student's own text. */
+const PROGRAMS = String.raw`(?:microsoft\s+)?(?:word|excel|powerpoint|outlook|onenote|sharepoint|(?:ms|microsoft)\s+office|google\s+(?:sheets|docs|slides)|sheets|tableau|power\s*bi|python|sql|vba|quickbooks|salesforce|canva|bloomberg(?:\s+terminal)?|factset|capital\s+iq|workday|netsuite|oracle|jira|hubspot|smartsheet|airtable|adobe\s+\w+|photoshop|illustrator|sap|spss|stata|matlab|r)`;
+const SKILLS_LINE = /^[^\S\n]*[^\n:]{0,30}\b(?:skills?|software|tools|technolog\w*|programs|computer|proficienc\w*|certifications?)[^\S\n]*:/i;
+const AFTER: Record<string, string> = {
+  excel: String.raw`models?|modell?ing|spreadsheets?|workbooks?|dashboards?|pivot|vlookups?|xlookup|macros?|vba|formulas?|functions|sheets?|templates?|files?|skills?|proficiency|certifi\w*|expert|trackers?|charts?|reports?`,
+  outlook: String.raw`calendars?|e-?mails?|inbox(?:es)?|invites?|invitations|meetings?|scheduling|contacts`,
+};
 function productIn(text: string, name: string): boolean {
   const t = text, n = name.toLowerCase();
-  if (new RegExp(`\\b(?:microsoft|ms)\\s+${n}\\b`, "i").test(t)) return true;
-  if (n === "powerpoint" || n === "visio") return new RegExp(`\\b${n}\\b`, "i").test(t);
-  if (LIST_ITEM(n).test(t)) return true;
-  if (n === "outlook") return [...t.matchAll(/(\S+)\s+Outlook\b|^\s*Outlook\b/gm)].some((m) => !m[1] || !OUTLOOK_WORDS.test(m[1]))
-    || /\boutlook\s+(?:calendars?|email|e-mail|inbox|invites?|meetings?|scheduling)\b|\b(?:in|using|via|through|with)\s+outlook\b/i.test(t);
-  if (/\bspreadsheets?\b/i.test(t) || /\bEXCEL\b/.test(t)) return true;
-  if (/(?<![.!?•\-–]\s*|^\s*)(?<=\S\s+)\bExcel\b/m.test(t)) return true; // mid-sentence capital: the program
-  if (/(?:^|[.!?•\-–]\s*)\s*Excel\b(?!\s+(?:at|in|under|academically|as\s+an?)\b)/m.test(t)) return true; // opening a line
-  return /\b(?:use|used|uses|using|in|into|with|via|from|of|knowledge of)\s+excel\b/i.test(t);
+  if (new RegExp(String.raw`\b(?:microsoft|ms)\s+${n}\b`, "i").test(t)) return true;
+  if (n === "powerpoint") return /\bpower\s?point\b/i.test(t);
+  if (n === "visio") return /\bvisio\b/i.test(t);
+  if (n === "excel" && /\bspreadsheets?\b/i.test(t)) return true;
+  if (t.trim().toLowerCase() === n) return true; // a single skill the student typed ("excel")
+  const word = new RegExp(String.raw`\b${n}\b`, "i");
+  // A skills line ("Software: Excel"), or the program alone on its own line, capitalised (a skills column; a lowercase
+  // "excel" alone is more likely the end of a wrapped sentence).
+  if (t.split("\n").some((l) => (SKILLS_LINE.test(l) && word.test(l)) || new RegExp(String.raw`^[^\w\n]*(?:${n[0].toUpperCase() + n.slice(1)}|${n.toUpperCase()})[^\w\n]*$`).test(l))) return true;
+  const sep = String.raw`\s*(?:,\s*(?:and\s+|&\s*)?|;|\||/|&|\band\b)\s*`;
+  if (new RegExp(String.raw`\b${PROGRAMS}${sep}${n}\b|\b${n}${sep}${PROGRAMS}\b`, "i").test(t)) return true;
+  if (new RegExp(String.raw`${n === "excel" ? String.raw`\bexcel\s*:|` : ""}\b${n}\s+(?:${AFTER[n]})\b`, "i").test(t)) return true;
+  // "in Workday and Excel", "using SAP, Oracle, and Excel": a list of named tools after a tool word.
+  if (new RegExp(String.raw`\b(?:in|into|using|with|via|through)\s+[A-Z][\w.+-]*(?:\s*,\s*[A-Z][\w.+-]*)*\s*,?\s*(?:and|&)\s+${n[0].toUpperCase() + n.slice(1)}\b`).test(t)) return true;
+  // "in excel" is always the program; "in outlook" (changes in outlook) only when written "Outlook".
+  if (n === "excel" ? /\b(?:in|into|using|use|used|uses|with|via|from|through)\s+excel\b/i.test(t) : /\b(?:in|into|using|use|used|uses|with|via|from|through)\s+Outlook\b/.test(t)) return true;
+  // "Exported reports to Excel" is the program; "eager to excel" is the verb (lowercase, or after a wanting word).
+  return n === "excel" && [...t.matchAll(/(?:^|(\S+)\s+)to\s+Excel\b/gm)].some((m) => !!m[1] && !TO_EXCEL_VERB.test(m[1]));
 }
+// "<word> to excel": the verb after wanting words ("eager to Excel", "Driven to Excel"), whatever the capitals.
+const TO_EXCEL_VERB = /^(?:eager|driven|strive|strives|striving|want|wants|wanting|ready|looking|hope|hoping|aim|aims|aiming|continue|committed|motivated|passion|passionate|determined|ability|chance|opportunity|desire|goal|learn|grow|work|working|push|pushed|inspired|encouraged|helped|help|students|them|others|me|us)$/i;
 
 export function hasKeyword(text: string, keyword: string): boolean {
   // "Python or Java or C++": the posting asks for any one of them.

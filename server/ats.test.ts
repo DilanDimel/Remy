@@ -166,4 +166,10 @@ test("skills: Microsoft Excel / MS Excel is the resume's Excel; Microsoft Office
   for (const k of ["Excel skills", "Advanced Excel"]) { assert.ok(!hasKeyword("Strive to excel", k), k); assert.ok(hasKeyword("Built budgets in Excel", k), k); }
   for (const t of ["Authored quarterly credit outlook", "Wrote 2025 housing outlook report", "fresh outlook on problems", "Wrote the Weekly Market Outlook"]) assert.ok(!hasKeyword(t, "Outlook"), t);
   assert.ok(hasKeyword("Scheduled meetings in Outlook", "Outlook"));
+  // Skeptic round 4: program context only, whatever the capitals.
+  for (const t of ["Hardworking finance major eager to learn and excel", "Ready to learn, grow, and excel", "Finance Student | Driven to Excel", "SUMMARY\nEager to Excel in Investment Banking", "STRIVE TO EXCEL", "Mentor, EXCEL Program for first-generation students", "● Excel at leading teams under pressure", "Lead teams and excel"]) assert.ok(!hasKeyword(t, "Excel"), t);
+  for (const t of ["Covered earnings, guidance, and outlook", "Analyzed changes in outlook for 10 REITs", "Wrote the Fed Outlook brief", "Outlook: positive"]) assert.ok(!hasKeyword(t, "Outlook"), t);
+  for (const t of ["Skills\nExcel\nPython\nSQL", "excel", "Word and Excel", "Technical Skills: excel, python"]) assert.ok(hasKeyword(t, "Excel"), t);
+  for (const t of ["Sent 200+ client emails through Outlook", "Bloomberg Terminal, FactSet, Outlook"]) assert.ok(hasKeyword(t, "Outlook"), t);
+  assert.ok(hasKeyword("Built Power Point slides", "PowerPoint"));
 });
