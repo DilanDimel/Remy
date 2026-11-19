@@ -1,4 +1,3 @@
-import { orgKey } from "@shared/org";
 import { postingSkills } from "@shared/requirements";
 import type { Job, JobFit, Workspace } from "@shared/types";
 import { hasKeyword } from "./ats";
@@ -313,7 +312,8 @@ const GENERIC_TITLE_WORDS = new Set(["with", "and", "for", "certification", "cer
  *  "J.P. Morgan" = "JPMorgan Chase & Co.", "Goldman Sachs" = "Goldman Sachs Group"; "Apple" isn't "Applebee's",
  *  "EY" isn't "Disney". */
 function sameEmployer(dream: string, company: string): boolean {
-  const key = orgKey(dream);
+  // orgKey drops "us" ("Acme US Inc."), but in a name the student typed it can be the name itself ("US Bank").
+  const key = dream.toLowerCase().replace(/&/g, "and").replace(/\b(inc|llc|llp|ltd|corp|corporation|company|co|the)\b/g, "").replace(/[^a-z0-9]/g, "");
   const words = company.toLowerCase().replace(/&/g, " and ").split(/[^a-z0-9]+/).filter((w) => w && !/^(inc|llc|llp|ltd|corp|corporation|company|co|the)$/.test(w));
   return key.length >= 2 && words.some((_, k) => words.slice(0, k + 1).join("") === key);
 }

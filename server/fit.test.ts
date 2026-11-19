@@ -603,4 +603,6 @@ test("relocation answer: out-of-area openings are kept only for a reason the stu
   assert.equal(relocateReason(dreams("Apple"), "Operations Intern", "Applebee's"), "");
   assert.match(relocateReason(dreams("J.P. Morgan"), "Operations Intern", "JPMorgan Chase & Co."), /dream employer/);
   assert.equal(relocateReason(dreams(""), "Work With Us Intern", "Acme"), "");
+  assert.equal(relocateReason(dreams("US Bank"), "Operations Intern", "Bank of America"), "");
+  assert.match(relocateReason(dreams("US Bank"), "Operations Intern", "U.S. Bank"), /dream employer/);
 });
