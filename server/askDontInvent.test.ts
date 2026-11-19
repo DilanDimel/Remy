@@ -31,3 +31,32 @@ test("Remy asks where a listed skill came from, once, for hard skills only", () 
   assert.equal(skillOriginQuestion(job(["Python"]), lines, doc, []), null);
   assert.equal(skillOriginQuestion(job(["Excel"]), lines, doc, ["Where I learned Excel — In a class"]), null);
 });
+
+// Review, Nov 18: judged per skill and sentence, not by anything anywhere on the resume.
+test("coursework claims need the student's own answer for that skill; honest study lines pass", () => {
+  const withCoursework = resume + "\nRelevant Coursework: Financial Accounting, Business Statistics";
+  assert.ok(claimCheck("Through my coursework, I built strong Excel skills.", withCoursework).some((f) => f.type === "scope"), "a coursework section isn't an answer");
+  const excelClass = resume + "\nWhere I learned Excel — In a class";
+  assert.ok(claimCheck("Through my coursework, I built Python skills.", excelClass).some((f) => f.type === "scope"), "a class answer for Excel doesn't cover Python");
+  assert.ok(claimCheck("In my finance classes I learned Excel.", excelClass).some((f) => f.type === "scope"), "the student never said finance");
+  assert.ok(!claimCheck("I learned Excel through my coursework.", excelClass).some((f) => f.type === "scope"));
+  for (const t of ["During my studies at TCU, I have worked 20 hours a week at Academy.", "In my studies I focus on corporate finance.", "We deliver best in class service."]) {
+    assert.ok(!claimCheck(t, resume).some((f) => f.type === "scope" && /class|stud/i.test(f.term)), t);
+  }
+});
+
+test("what-a-job-taught-me lines are caught in their other wordings, and one fact doesn't unlock them all", () => {
+  for (const t of ["Retail teaches me patience.", "The job showed me how to stay calm.", "It gave me a strong sense of attention to detail.", "I learned how to communicate with customers.", "Retail helped me to develop patience.", "Retail helped me become more patient."]) {
+    assert.ok(claimCheck(t, resume).some((f) => f.type === "scope"), t);
+  }
+  assert.ok(claimCheck("Retail taught me to communicate clearly.", resume + "\nmy manager taught me the inventory system").some((f) => f.type === "scope"));
+});
+
+test("the question names the skill as the resume does and skips soft skills and languages", () => {
+  const q = skillOriginQuestion(job(["Advanced Excel"]), lines, doc, []);
+  assert.equal(q?.label, "Where I learned Excel");
+  for (const k of ["written and verbal skills", "public speaking", "sales", "research", "Spanish"]) {
+    const d = { ...doc, skills: [{ id: "k", label: "Skills", items: k }] };
+    assert.equal(skillOriginQuestion(job([k]), lines, d, []), null, k);
+  }
+});
