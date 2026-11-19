@@ -150,6 +150,10 @@ test("story answers about another experience on the resume are caught; on-topic 
   const uno: any = { title: "Founding UNO Club", source: "Founded club from concept to active organization; organized inaugural tournament with 24 participants", situation: "", task: "", action: "", result: "" };
   assert.equal(otherExperience("24 players showed up and SGA approved us as an official org.", uno, "result", doc), undefined, "one shared word isn't enough");
   assert.match(otherExperience("Nobody tracked our SGA funding, so as treasurer I took over the chapter budget.", uno, "situation", doc) || "", /Treasurer/);
+  // Mixes the first version missed (skeptic round 2): one shared word ("students", "events") or just the other org's name.
+  for (const mix of ["As NABA treasurer I tracked what SGA funded for students.", "I was treasurer and handled the chapter budget for our events.", "I balanced the books for NABA."])
+    assert.match(otherExperience(mix, dorm, "action", doc) || "", /Treasurer/, mix);
+  assert.equal(otherExperience("I reserved a room, made a sign-up form, and recruited members at the student org fair.", uno, "action", doc), undefined, "generic words like member/student don't count");
   // The student reworded the story's bullet: its entry is still found, so its own words never count against it.
   const edited = JSON.parse(JSON.stringify(doc)); edited.sections[1].entries[0].bullets[1].text = "Raised $6,200 as Student Ambassador to buy dorm supplies for first-gen students";
   assert.equal(otherExperience("I pitched it to American Airlines people I met at a conference.", dorm, "action", edited), undefined);
