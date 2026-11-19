@@ -1,4 +1,4 @@
-import { ArrowRight, X } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Workspace } from "@shared/types";
 import { daysUntil, useStore } from "../lib/store";
@@ -121,7 +121,7 @@ export function PageIntro({ path }: { path: string }) {
       <p className="small">{intro.text}</p>
       <div className="row" style={{ gap: 6 }}>
         {canShow && <button className="btn btn-primary btn-sm" onClick={() => { highlight(intro.target!); close(); }} data-testid="button-intro-show">Show me</button>}
-        <button className="btn btn-ghost btn-sm" onClick={close} aria-label="Got it, hide this" data-testid="button-intro-ok">{canShow ? "Got it" : <><X size={14} /> Got it</>}</button>
+        <button className="btn btn-ghost btn-sm" onClick={close} aria-label="Got it, hide this" data-testid="button-intro-ok">Got it</button>
       </div>
     </div>
   );
