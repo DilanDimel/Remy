@@ -88,3 +88,34 @@ test("career quest, council: a sent application keeps its XP when withdrawn; del
   w.tracker = [];
   assert.equal(xpOf(w, g), 0);
 });
+
+test("career quest: Log a win is a bonus, done when a Check-in line is approved this week, worth its XP", async () => {
+  const { winThisWeek, WIN } = await import("../shared/game");
+  const w = emptyWorkspace();
+  assert.equal(winThisWeek(w, "2026-11-16"), false);
+  w.memory.push({ id: "f1", text: "Ran the tabling shift", category: "experience", source: "Check-in", status: "approved", createdAt: "2026-11-18T15:00:00Z", updatedAt: "" });
+  assert.equal(winThisWeek(w, "2026-11-16"), true);
+  assert.equal(winThisWeek(w, "2026-11-23"), false, "last week's win doesn't count this week");
+  assert.equal(xpOf(emptyWorkspace(), { weeks: { "2026-11-16": { base: {}, done: [WIN.key] } } }), WIN.xp);
+  assert.equal(streak({ weeks: { "2026-11-16": { base: {}, done: [WIN.key] } } }, "2026-11-16").weeks, 1, "a win also keeps the streak");
+});
+
+test("career quest: a Sunday-evening win (Monday in UTC) counts for its own week only (skeptic review)", async () => {
+  const { winThisWeek } = await import("../shared/game");
+  const tz = process.env.TZ; process.env.TZ = "America/Chicago";
+  try {
+    const w = emptyWorkspace();
+    w.memory.push({ id: "f1", text: "x", category: "experience", source: "Check-in", status: "approved", createdAt: "2026-11-23T02:00:00Z", updatedAt: "" });
+    assert.equal(winThisWeek(w, "2026-11-16"), true, "Sunday Nov 22, 8pm Central belongs to the week of Nov 16");
+    assert.equal(winThisWeek(w, "2026-11-23"), false, "and isn't counted again on Monday");
+  } finally { if (tz === undefined) delete process.env.TZ; else process.env.TZ = tz; }
+});
+
+test("Log a win: the student's own sentence becomes the line when the AI's adds words (only their words)", async () => {
+  const { ownLine, cleanCheckin } = await import("./checkin");
+  assert.equal(ownLine("Ran the NABA tabling shift at the spring org fair and signed up 15 new members."), "Ran the NABA tabling shift at the spring org fair and signed up 15 new members");
+  assert.equal(ownLine("I organized our club's first study night"), "Organized our club's first study night");
+  assert.equal(ownLine("it was a good week at work"), "", "not a resume line: no line offered");
+  const d = cleanCheckin("Club", "Ran the NABA tabling shift at the spring org fair and signed up 15 new members", { fact: "x", bullet: "Spearheaded NABA recruitment, driving 15 sign-ups" });
+  assert.equal(d.bullet, "Ran the NABA tabling shift at the spring org fair and signed up 15 new members");
+});

@@ -1,10 +1,11 @@
 // Career quest (owners only while it's tested, Nov 19): the left-menu level + streak, and Home's weekly missions.
 // Logic lives in shared/game.ts; this only shows it and keeps the week's record (starting counts, finished missions).
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight, Award, Check, Flame, Lock, Snowflake, Star, Zap } from "lucide-react";
 import type { Workspace } from "@shared/types";
-import { ALL_DONE_BONUS, badges, counters, doneThisWeek, levelOf, missionsOf, streak, weekKey, weekMissions, xpOf, type GameState } from "@shared/game";
-import { useStore } from "../lib/store";
+import { CHECKIN_KINDS } from "@shared/checkin";
+import { ALL_DONE_BONUS, WIN, winThisWeek, badges, counters, doneThisWeek, levelOf, missionsOf, streak, weekKey, weekMissions, xpOf, type GameState } from "@shared/game";
+import { api, useStore } from "../lib/store";
 import { count } from "../lib/signals";
 import { go } from "../lib/router";
 
@@ -16,7 +17,7 @@ export function useGameRecord(w: Workspace | null | undefined, on: boolean) {
   const key = weekKey();
   const g = w ? stateOf(w) : { weeks: {} };
   const now = w ? counters(w) : {};
-  const done = w ? doneThisWeek(w, g, key, now) : [];
+  const done = w ? [...doneThisWeek(w, g, key, now), ...(winThisWeek(w, key) ? [WIN.key] : [])] : [];
   const lvl = w ? levelOf(xpOf(w, g), g.bestLevel).n : 1;
   const sig = JSON.stringify([key, done, !!g.weeks[key], lvl]);
   useEffect(() => {
@@ -79,6 +80,7 @@ export function MissionBoard({ w }: { w: Workspace }) {
           );
         })}
       </div>
+      <LogWin w={w} weekKey={key} done={winThisWeek(w, key) || !!g.weeks[key]?.done.includes(WIN.key)} />
       <div className="row-between" style={{ borderTop: "1px solid var(--line)", paddingTop: 12, flexWrap: "wrap", gap: 8 }}>
         <span className="small"><b>Real wins</b> <span className="muted">· badges only for things that matter</span></span>
         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
@@ -86,5 +88,58 @@ export function MissionBoard({ w }: { w: Workspace }) {
         </div>
       </div>
     </section>
+  );
+}
+
+/** Bonus: one sentence about your week becomes a resume line you approve (council, Nov 19). Optional, so nobody types
+ *  junk to save a streak; Remy uses only the student's words (server/checkin.ts checks the draft). */
+function LogWin({ w, weekKey: key, done }: { w: Workspace; weekKey: string; done: boolean }) {
+  const { run, setWs, save } = useStore();
+  const [kind, setKind] = useState("");
+  const [said, setSaid] = useState("");
+  const [draft, setDraft] = useState<{ fact: string; bullet: string; linkedin: unknown } | null>(null);
+  const [busy, setBusy] = useState(false);
+  if (done) return <div className="game-win ok row small" data-testid="mission-win"><span className="game-ico"><Check size={16} /></span><b>Win logged this week</b><span className="muted">· +{WIN.xp} XP · the line is in your to-dos</span></div>;
+  const make = async () => { setBusy(true); const r = await run(() => api<{ fact: string; bullet: string; linkedin: unknown }>("POST", "/api/ai/checkin", { kind, said })); setBusy(false); if (r) setDraft(r); };
+  // The win is recorded in the game itself too, so the same sentence as an earlier week (no new fact) still counts.
+  const keep = async () => {
+    setBusy(true);
+    const r = await run(() => api<Workspace>("POST", "/api/checkin", { kind, said, ...draft }), "The line is in your to-dos");
+    if (r) {
+      const week = (r.game?.weeks || {})[key] || { base: counters(r), done: [], missions: weekMissions(r, key).map((m) => m.key) };
+      const saved = await run(() => save("game", { weeks: { [key]: { ...week, done: [...new Set([...week.done, WIN.key])] } } }));
+      setWs(saved || r); setDraft(null);
+    }
+    setBusy(false);
+  };
+  return (
+    <div className="game-win stack-sm" data-testid="mission-win">
+      <div className="row-between"><span className="small"><b>Bonus · {WIN.title}</b> <span className="muted">· one sentence about your week becomes a resume line you approve</span></span><span className="chip chip-plain xs" style={{ fontWeight: 800 }}>+{WIN.xp} XP</span></div>
+      {!draft ? (
+        <>
+          <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>{CHECKIN_KINDS.map((k) => <button key={k} className={"btn btn-sm " + (kind === k ? "btn-primary" : "btn-secondary")} onClick={() => setKind(k)}>{k}</button>)}</div>
+          {kind && <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            <input className="input" style={{ flex: 1, minWidth: 220 }} value={said} maxLength={600} onChange={(e) => setSaid(e.target.value)} placeholder="e.g. Ran the tabling shift for my club's spring recruitment" data-testid="input-win" />
+            <button className="btn btn-primary btn-sm" disabled={busy || said.trim().length < 8} onClick={make} data-testid="button-win-draft">Make it a resume line</button>
+          </div>}
+        </>
+      ) : (
+        <>
+          {draft.bullet ? (
+            <>
+              <span className="small">“{draft.bullet}”</span>
+              <span className="xs muted">Only your words. Change your sentence if something's off.</span>
+              <div className="row" style={{ gap: 8 }}><button className="btn btn-primary btn-sm" disabled={busy} onClick={keep} data-testid="button-win-keep">Keep it</button><button className="btn btn-ghost btn-sm" onClick={() => setDraft(null)}>Change my sentence</button></div>
+            </>
+          ) : (
+            // No resume line from only their words: never show a sentence as if it were one (skeptic review).
+            <>
+              <span className="small">Remy couldn't make a resume line from only your words. Add a detail, like what you did, for whom, or how many.</span>
+              <div className="row"><button className="btn btn-secondary btn-sm" onClick={() => setDraft(null)} data-testid="button-win-retry">Change my sentence</button></div>
+            </>
+          )}
+        </>
+      )}
+    </div>
   );
 }
