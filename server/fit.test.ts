@@ -566,3 +566,24 @@ test("picking part-time / campus jobs doesn't ask for full-time jobs (audit Nov 
   for (const typed of ["Part-time jobs", "part time", "Campus job", "on-campus jobs"]) assert.equal(typeMatch(student({ opportunityTypes: typed }), fullTime), false, typed);
   assert.equal(typeMatch(student({ opportunityTypes: "" }), fullTime), null);
 });
+
+test("regions: setup's \"Anywhere in Texas\" means Texas, not anywhere (live test Nov 19: location was switched off)", async () => {
+  const { regionMatch } = await import("./fit");
+  const ws = (regions: string) => ({ profile: { regions } }) as any;
+  const job = (location: string) => ({ location, format: "" }) as any;
+  const cases: [string, string, boolean | null][] = [
+    ["DFW area, Anywhere in Texas", "Dallas, TX, United States", true],
+    ["DFW area, Anywhere in Texas", "Spring, Texas, United States of America", true],
+    ["DFW area, Anywhere in Texas", "McLean, VA", false],
+    ["DFW area", "Spring, Texas, United States of America", false],
+    ["Anywhere in Texas", "Remote", true],
+    ["Anywhere in the US", "McLean, VA", null],
+    ["Remote, Anywhere in the US", "Chicago, IL", null],
+    // Skeptic review: only an exact state counts; anything else keeps meaning no limit.
+    ["Anywhere in US", "Dallas, TX", null], ["Anywhere in USA", "Chicago, IL", null], ["DFW area, Anywhere in USA", "McLean, VA", null],
+    ["Anywhere in America", "Chicago, IL", null], ["Anywhere in Texas or Oklahoma", "Tulsa, OK", null],
+    ["Anywhere in TX", "Houston, Texas", true], ["Anywhere in TX", "Tulsa, OK", false],
+    ["Anywhere in Texas, Austin, TX", "Houston, TX", true],
+  ];
+  for (const [r, l, want] of cases) assert.equal(regionMatch(ws(r), job(l)), want, `${r} | ${l}`);
+});

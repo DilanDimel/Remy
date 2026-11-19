@@ -135,12 +135,21 @@ function abroadOne(place: string): boolean {
 /** true / false when the student named regions; null when they didn't (or "anywhere"). */
 export function regionMatch(ws: Workspace, job: Job): boolean | null {
   let wants = (ws.profile.regions || "").toLowerCase().split(/[,;/]+/).map((x) => x.trim()).filter(Boolean);
-  if (!wants.length || wants.some((w) => /anywhere|open to (any|all)|united states|^us$|usa/.test(w))) return null;
+  // "Anywhere in Texas" (a setup choice) means all of Texas, not anywhere at all: it used to switch location off,
+  // so every opening scored as "place unknown" (live test Nov 19: 0 of 60 openings counted as in the student's area).
+  // Only an exact state name or code counts ("Anywhere in TX" too); "Anywhere in USA", "…Texas or Oklahoma" and the
+  // like keep meaning no limit, as before (skeptic review).
+  const stateOf = (x: string) => { const t = x.trim(); const k = STATE.split("|").findIndex((c) => c.toLowerCase() === t); return k >= 0 ? STATE_NAMES[k] : STATE_NAMES.includes(t) ? t : ""; };
+  const wholeStates = wants.map((w) => stateOf(w.match(/^anywhere in (.+)$/)?.[1] || "")).filter(Boolean);
+  wants = wants.filter((w) => !stateOf(w.match(/^anywhere in (.+)$/)?.[1] || ""));
+  if ((!wants.length && !wholeStates.length) || wants.some((w) => /^anywhere\b|open to (any|all)|united states|^us$|usa/.test(w))) return null;
   // "Dallas-Fort Worth, Texas": the state labels the metro; it doesn't mean anywhere in Texas.
   if (wants.some((w) => Object.keys(METRO).some((k) => !STATE_NAMES.includes(k) && k !== "remote" && w.includes(k)))) wants = wants.filter((w) => !STATE_NAMES.includes(w));
   // "Austin, TX": a state right after a city labels that city; it doesn't mean the whole state.
   const isState = (w: string) => STATE_NAMES.includes(w) || new RegExp(`^(${STATE})$`, "i").test(w);
   wants = wants.filter((w, i) => !(i > 0 && isState(w) && !isState(wants[i - 1])));
+  // A state the student chose as a whole ("Anywhere in Texas") stays, even next to a metro or after a city.
+  wants = [...wants, ...wholeStates];
   const loc = ` ${job.location} ${job.format} `.toLowerCase();
   // Virtual and remote postings can be done from anywhere, so they match every region.
   // ...unless the posting names another country ("Virtual, BR", "Remote - Canada").
@@ -299,7 +308,7 @@ function notWanted(ws: Workspace, job: Job): string {
 const GENERIC_TITLE_WORDS = new Set(["engineer", "engineering", "business", "intern", "internship", "analyst", "associate", "science", "sciences", "studies", "student", "program", "summer", "major", "minor", "degree", "bachelor", "master", "technology", "general", "role", "roles", "position", "entry", "level", "career", "work", "certificate", "and"].map(family));
 
 // Bump when the fit rules change, so verdicts saved under older rules are worked out again.
-export const FIT_RULES_VERSION = 15; // 15: "Microsoft Excel" is the resume's "Excel"; "Microsoft Office" is shown by its apps. 14: what a student enjoys never hides an opening, only fields they chose. 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
+export const FIT_RULES_VERSION = 16; // 16: "Anywhere in Texas" means Texas, not anywhere (it switched location off). 15: "Microsoft Excel" is the resume's "Excel"; "Microsoft Office" is shown by its apps. 14: what a student enjoys never hides an opening, only fields they chose. 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const g = gradDate(ws);
   const year = classYearOf(ws);
