@@ -158,14 +158,14 @@ function BaseResume({ subParam }: { subParam: string | null }) {
       </>}
       {sub === "review" && <div className="stack" id="resume-review">
         <ResumeReview doc={doc} upd={upd} needsConfirm={w.resume.confirmedAt ? null : unverified} onEdit={() => setSub("edit")} />
-        {/* Lines from weekly check-ins waiting to be placed live in More checks (AtsXray), so it opens when there are some. */}
-        <details className="card card-pad stack" data-testid="resume-checks" open={w.tasks.some((t) => t.source === "Check-in" && t.link?.startsWith("/resume") && !t.done) || undefined}>
-          <summary style={{ cursor: "pointer" }}><b>More checks</b> <span className="small muted">What an application system reads from your file, and the proof behind your skills</span></summary>
-          <div className="stack" style={{ marginTop: 12 }}>
+        {/* Always open (owner feedback, Nov 19: these matter too much to hide behind a click). */}
+        <div className="card card-pad stack" data-testid="resume-checks">
+          <div><b>More checks</b> <span className="small muted">What an application system reads from your file, and the proof behind your skills</span></div>
+          <div className="stack">
             <AtsXray doc={doc} quality={w.resume.quality} upd={upd} />
             <EvidencePassport doc={doc} memory={w.memory} />
           </div>
-        </details>
+        </div>
       </div>}
       {sub === "edit" && <>
         {(() => { // live from the current bullets, so it's gone as soon as the line is reworded

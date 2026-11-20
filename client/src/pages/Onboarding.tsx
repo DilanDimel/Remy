@@ -30,12 +30,13 @@ export default function Onboarding() {
   // Coming back partway through: say so and let the student choose, instead of dropping them mid-step.
   const [welcomeBack, setWelcomeBack] = useState(() => step >= FAR_ENOUGH_STEP);
   const setStep = (s: number) => save("onboarding", { ...w.onboarding, step: s });
-  const finish = async () => {
+  const finish = async (tour = true) => {
     uiFlags.flyIn = true;
     // Setup ends on Home, where Remy's tutorial starts (it used to land on the page the student's goal pointed to).
     go("/");
-    // Remy's tutorial starts now (set here so students who finished setup before it existed aren't surprised by it).
-    await save("settings", { tour: 0 }).catch(() => {});
+    // Remy's tutorial starts now (set here so students who finished setup before it existed aren't surprised by it),
+    // unless they skip it; "Show me around again" in the menu still starts it later.
+    await save("settings", { tour: tour ? 0 : "done" }).catch(() => {});
     await save("onboarding", { ...w.onboarding, done: true });
   };
   // The first screen saves the path and goal and picks where setup ends; nobody skips setup, since everything
@@ -670,7 +671,7 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
   );
 }
 
-function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: () => void }) {
+function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: (tour?: boolean) => void }) {
   const { ws, setWs, run, config } = useStore();
   const w = ws!;
   const { jobs, fits, refreshing } = useJobs();
@@ -717,7 +718,8 @@ function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: () => vo
         <button className="btn btn-ghost" onClick={onBack}><ArrowLeft size={16} /> Back</button>
         <div className="row">
           {w.plan && config?.ai.available && <button className="btn btn-secondary" onClick={make} disabled={busy}>Regenerate</button>}
-          <button className="btn btn-primary" onClick={onFinish} disabled={busy} data-testid="button-enter-workspace">Enter my workspace <ArrowRight size={16} /></button>
+          <button className="btn btn-ghost" onClick={() => onFinish(false)} disabled={busy} title="You can start it anytime from “Show me around again” in the menu under your name" data-testid="button-skip-tour">Skip the tour</button>
+          <button className="btn btn-primary" onClick={() => onFinish()} disabled={busy} data-testid="button-enter-workspace">Enter my workspace <ArrowRight size={16} /></button>
         </div>
       </div>
     </div>
