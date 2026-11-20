@@ -1,6 +1,7 @@
 import { FitTextarea } from "../components/FitTextarea";
 import { QuickRate } from "../components/QuickRate";
 import { shortTitle } from "@shared/org";
+import { reviewResume } from "@shared/review";
 import { dropDates, skillGroupName } from "@shared/words";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -58,6 +59,20 @@ export default function Resume({ query }: { query: URLSearchParams }) {
   );
 }
 
+/** Numbered steps instead of tabs (owner feedback, Nov 20: the Resume tabs didn't say what to do, or in what order). */
+function StepBar<K extends string>({ steps, at, onGo, label, testid }: { steps: [K, string, string, boolean][]; at: K; onGo: (k: K) => void; label: string; testid: (k: K) => string }) {
+  return (
+    <ol className="step-bar" role="tablist" aria-label={label}>
+      {steps.map(([k, l, note, done], i) => (
+        <li key={k} role="presentation"><button role="tab" aria-selected={at === k} aria-label={l} aria-describedby={`step-note-${k}`} className={"step" + (at === k ? " on" : "") + (done ? " done" : "")} onClick={() => onGo(k)} data-testid={testid(k)}>
+          <span className="step-n" aria-hidden="true">{done ? <Check size={14} /> : i + 1}</span>
+          <span className="step-text"><b>{l}</b><span className="xs muted" id={`step-note-${k}`}>{done ? `Done · ${note}` : note}</span></span>
+        </button></li>
+      ))}
+    </ol>
+  );
+}
+
 // ---------------------------------------------------------------- base resume
 function BaseResume({ subParam }: { subParam: string | null }) {
   // "Make my resume stronger" in setup lands here with the checks open.
@@ -77,14 +92,19 @@ function BaseResume({ subParam }: { subParam: string | null }) {
   const setPreview = (fn: (p: boolean) => boolean) => setPreviewState((p) => { const n = fn(p); try { localStorage.setItem("remy.resumePreview", n ? "shown" : "hidden"); } catch { /* private mode */ } return n; });
   const [building, setBuilding] = useState(false);
   // Review first (Remy's top fixes), then Edit, then the file itself. ?sub= opens one directly.
-  const [sub, setSubState] = useState<"review" | "edit" | "file">(() => { const v = new URLSearchParams(location.search).get("sub") || new URLSearchParams(location.hash.split("?")[1] || "").get("sub"); return v === "edit" || v === "file" ? v : "review"; });
+  const [sub, setSubState] = useState<"review" | "edit" | "file">(() => { const v = new URLSearchParams(location.search).get("sub") || new URLSearchParams(location.hash.split("?")[1] || "").get("sub"); return v === "edit" || v === "file" || v === "review" ? v : w.resume?.confirmedAt ? "review" : "edit"; });
   const setSub = (v: "review" | "edit" | "file") => { setSubState(v); window.scrollTo({ top: 0 }); };
   // A link to ?sub=… while this page is already open switches the tab too.
   useEffect(() => { if (subParam === "edit" || subParam === "file" || subParam === "review") setSubState(subParam); }, [subParam]);
   // Before saving edits, the student sees every change (before → after) and says yes. null = closed; else "confirm?".
   const [review, setReview] = useState<boolean | null>(null);
   const changes = useMemo(() => (review !== null && doc && w.resume ? resumeDiff(w.resume.doc, doc) : []), [review, doc, w.resume]);
-  useEffect(() => { setDoc(w.resume?.doc ? JSON.parse(JSON.stringify(w.resume.doc)) : null); }, [w.resume?.uploadedAt]);
+  const firstUpload = useState(w.resume?.uploadedAt)[0];
+  useEffect(() => {
+    setDoc(w.resume?.doc ? JSON.parse(JSON.stringify(w.resume.doc)) : null);
+    // A replaced resume needs checking again (step 1); one built with Remy is already confirmed (step 2). Skeptic review.
+    if (w.resume?.uploadedAt !== firstUpload) setSubState(w.resume?.confirmedAt ? "review" : "edit");
+  }, [w.resume?.uploadedAt]);
   if ((!w.resume || !doc) && building) return <div className="card card-pad"><ResumeBuilder onDone={() => setBuilding(false)} onCancel={() => setBuilding(false)} /></div>;
   if (!w.resume || !doc)
     return (
@@ -96,8 +116,9 @@ function BaseResume({ subParam }: { subParam: string | null }) {
     );
   const dirty = JSON.stringify(doc) !== JSON.stringify(w.resume.doc);
   const saveDoc = async (confirm: boolean) => {
-    const r = await run(() => api<Workspace>("PUT", "/api/resume/doc", { doc, confirm }), confirm ? "Base resume confirmed" : "Saved");
-    if (r) setWs(r);
+    const first = confirm && !w.resume?.confirmedAt;
+    const r = await run(() => api<Workspace>("PUT", "/api/resume/doc", { doc, confirm }), confirm ? (first ? "Base resume confirmed · next, make it stronger" : "Base resume confirmed") : "Saved");
+    if (r) { setWs(r); if (first) setSub("review"); } // confirming the first time moves on to step 2
     setReview(null);
   };
   const upd = (fn: (d: ResumeDoc) => void) => setDoc((d) => { const c = JSON.parse(JSON.stringify(d)); fn(c); return c; });
@@ -107,7 +128,7 @@ function BaseResume({ subParam }: { subParam: string | null }) {
       <div className="card card-pad row-between">
         <div className="stack-sm">
           <div className="row"><FileText size={18} style={{ color: "var(--plum)" }} /><strong data-testid="text-resume-file">{w.resume.fileName}</strong>
-            {w.resume.confirmedAt ? <span className="chip chip-live"><Check size={12} /> Confirmed {fmtDate(w.resume.confirmedAt)}</span> : <span className="chip chip-setup">Needs your review</span>}
+            {w.resume.confirmedAt ? <span className="chip chip-live"><Check size={12} /> Confirmed {fmtDate(w.resume.confirmedAt)}</span> : <span className="chip chip-setup">Not confirmed yet</span>}
           </div>
           <span className="xs muted">{w.resume.parsedBy === "builder" ? "Made" : "Uploaded"} {fmtDate(w.resume.uploadedAt)} · {w.resume.parsedBy === "builder" ? "built with Remy from your answers" : `read by ${w.resume.parsedBy === "ai" ? "AI, then checked word-for-word against your file" : "the built-in parser"}`}{unverified ? ` · ${unverified} line(s) need a look` : ""}</span>
         </div>
@@ -117,11 +138,17 @@ function BaseResume({ subParam }: { subParam: string | null }) {
         </div>
       </div>
       {replace && <div className="card card-pad"><ResumeUpload compact onDone={() => setReplace(false)} /></div>}
-      <div className="tabs tabs-sub" role="tablist" aria-label="Base resume">
-        {([["review", "Review"], ["edit", "Edit"], ["file", "File & export"]] as const).map(([k, l]) => (
-          <button key={k} role="tab" className="tab" aria-selected={sub === k} onClick={() => setSub(k)} data-testid={`subtab-${k}`}>{l}</button>
-        ))}
-      </div>
+      {(() => {
+        // 1 check what Remy read and confirm it, 2 make it stronger, 3 the file. New students start at 1.
+        const tips = reviewResume(doc).todo.length;
+        const confirmed = !!w.resume.confirmedAt && !dirty;
+        const steps: ["edit" | "review" | "file", string, string, boolean][] = [
+          ["edit", "Check what Remy read", confirmed ? `Confirmed ${fmtDate(w.resume.confirmedAt!)}` : unverified ? `${unverified} line${unverified > 1 ? "s" : ""} need a look` : dirty ? "Unsaved edits" : "Confirm every line", confirmed],
+          ["review", "Make it stronger", tips ? `${tips} suggestion${tips > 1 ? "s" : ""}` : "Looking good", confirmed && !tips],
+          ["file", "Your file", confirmed ? "Preview & download" : "After you confirm", false],
+        ];
+        return <StepBar steps={steps} at={sub} onGo={setSub} label="Base resume steps" testid={(k) => `subtab-${k}`} />;
+      })()}
       {sub === "file" && <>
       <div className="card card-pad stack" data-testid="card-resume-files">
         <div className="row-between">
@@ -157,7 +184,7 @@ function BaseResume({ subParam }: { subParam: string | null }) {
 
       </>}
       {sub === "review" && <div className="stack" id="resume-review">
-        <ResumeReview doc={doc} upd={upd} needsConfirm={w.resume.confirmedAt ? null : unverified} onEdit={() => setSub("edit")} />
+        <ResumeReview doc={doc} upd={upd} onEdit={() => setSub("edit")} />
         {/* Core checks, shown like every other section (owner feedback, Nov 19-20: not "more", not behind a click). */}
         <div className="stack" data-testid="resume-checks">
           <AtsXray doc={doc} quality={w.resume.quality} upd={upd} />
@@ -220,13 +247,20 @@ function BaseResume({ subParam }: { subParam: string | null }) {
         ))}
       </div>
       </>}
+      {/* With nothing to save, steps 2 and 3 say what's next instead of offering another confirm (owner feedback, Nov 20). */}
+      {!dirty && sub !== "edit" && w.resume.confirmedAt ? (
+        sub === "review" && <div className="card card-pad row-between approve-bar" data-testid="base-next-bar">
+          <span className="small muted">Step 2 of 3 · Fix what helps; your resume stays confirmed.</span>
+          <button className="btn btn-primary" onClick={() => setSub("file")} data-testid="button-base-next">Next: your file <ArrowRight size={16} /></button>
+        </div>
+      ) : (
       <div className={"card card-pad row-between approve-bar" + (dirty ? " floating" : "")}>
-        <span className="small muted">{dirty ? "You have unsaved edits. Your edits become the evidence Remy may use." : w.resume.confirmedAt ? "This is the evidence base for every tailored version." : "Confirm when every line is accurate."}</span>
+        <span className="small muted">{dirty ? "You have unsaved edits. Your edits become the evidence Remy may use." : w.resume.confirmedAt ? "This is the evidence base for every tailored version." : sub === "edit" ? "Step 1 of 3 · Read each line; when every one is accurate, confirm." : "Your resume isn't confirmed yet: check what Remy read in step 1, then confirm."}</span>
         <div className="row">
           <button className="btn btn-secondary" disabled={!dirty} onClick={() => setReview(false)} data-testid="button-save-resume">Save edits</button>
           <button className="btn btn-primary" onClick={() => (dirty ? setReview(true) : saveDoc(true))} data-testid="button-confirm-resume"><CheckCircle2 size={16} /> {w.resume.confirmedAt && !dirty ? "Re-confirm" : "Save & confirm"}</button>
         </div>
-      </div>
+      </div>)}
       {review !== null && (
         <Modal title="Review your changes" onClose={() => setReview(null)} wide>
           <div className="stack" data-testid="resume-changes">
@@ -427,16 +461,7 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
               ["letter", "Read your cover letter", readLetter || approved ? "Read" : "About a minute", readLetter || approved],
               ["export", "Approve & download", approved ? `Version ${a.versions.length} ready` : "Final check, then your files", approved],
             ];
-            return (
-              <ol className="step-bar" role="tablist" aria-label="Tailoring steps">
-                {steps.map(([k, l, note, done], i) => (
-                  <li key={k} role="presentation"><button role="tab" aria-selected={sub === k} aria-describedby={`step-note-${k}`} className={"step" + (sub === k ? " on" : "") + (done ? " done" : "")} onClick={() => goStep(k)} data-testid={`tab-app-${k}`}>
-                    <span className="step-n" aria-hidden="true">{done ? <Check size={14} /> : i + 1}</span>
-                    <span className="step-text"><b>{l}</b><span className="xs muted" id={`step-note-${k}`}>{done ? `Done · ${note}` : note}</span></span>
-                  </button></li>
-                ))}
-              </ol>
-            );
+            return <StepBar steps={steps} at={sub} onGo={goStep} label="Tailoring steps" testid={(k) => `tab-app-${k}`} />;
           })()}
           {sub === "changes" && <Changes a={a} />}
           {sub === "letter" && <Letter a={a} />}

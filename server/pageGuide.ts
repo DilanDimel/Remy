@@ -24,10 +24,10 @@ export const PAGE_GUIDE: Record<string, { page: string; tabs?: Record<string, st
   "/resume": {
     page: "Resume/CV: their base resume, versions tailored to openings, their LinkedIn, and approved files.",
     tabs: {
-      "Base resume": "The resume everything else is built from.",
-      Review: "Checks on the base resume: lines without a number, lines that don't start with what they did, very short or long lines, too few words or bullets, missing dates. ATS X-Ray shows what an applicant tracking system reads from their file (name, email, phone, sections, dates). Evidence passport shows which listed skills have a bullet proving them. \"Save & confirm\" marks every line accurate.",
-      Edit: "Edit the resume line by line. Edits are their own words and count as evidence.",
-      "File & export": "Their resume as a file and its downloads. If they uploaded a file, \"Show your resume\" opens a preview of that original file.",
+      "Base resume": "The resume everything else is built from, in three steps: check what Remy read and confirm it, make it stronger, your file.",
+      "Check what Remy read": "Step 1 of 3. Their resume line by line as Remy read it, to edit; lines Remy wasn't sure about are marked. \"Save & confirm\" says every line is accurate; Remy only uses a confirmed resume as evidence. Edits are their own words and count as evidence.",
+      "Make it stronger": "Step 2 of 3. Remy's suggestions on the base resume (lines without a number, lines that don't start with what they did, very short or long lines, too few words or bullets, missing dates or contact details), each fixable right there. ATS X-Ray shows what an applicant tracking system reads from their file (name, email, phone, sections, dates). Evidence passport shows which listed skills have a bullet proving them. Nothing saves until they press Save.",
+      "Your file": "Step 3 of 3. Their resume as a file and its downloads. If they uploaded a file, \"Show your resume\" opens a preview of that original file.",
       "Tailor for an opening": "One version of their resume and a cover letter per opening, in three steps: review Remy's changes, read the cover letter, approve & download. Every change shows the posting requirement behind it and their own evidence; they decide each one.",
       "Review Remy's changes": "Step 1 of 3. Remy's proposed changes to their resume lines, one at a time (\"Change 2 of 3\"): their original, Remy's wording, the posting requirement behind it and why. \"Use Remy's\", \"Keep mine\" or \"Edit\". Decided ones fold into one line each; tapping one opens it again. A kept change that says something their resume doesn't show is marked \"Needs a look\" until they fix it or confirm it's true.",
       "Read your cover letter": "Step 2 of 3. The cover letter draft for this opening, built only from their resume and approved facts; they edit anything that doesn't sound like them.",

@@ -7,7 +7,7 @@ import { pageGuide, PAGE_GUIDE } from "./pageGuide";
 const SCREENS: [string, string[]][] = [
   ["/", ["To-Dos", "Events", "Opportunities"]],
   ["/path", ["Career exploration", "Your field's road", "Future of your field", "Skills & certifications"]],
-  ["/resume", ["Base resume", "Review", "Edit", "File & export", "Tailor for an opening", "Review Remy's changes", "Read your cover letter", "Approve & download", "LinkedIn", "Approved & exports"]],
+  ["/resume", ["Base resume", "Check what Remy read", "Make it stronger", "Your file", "Tailor for an opening", "Review Remy's changes", "Read your cover letter", "Approve & download", "LinkedIn", "Approved & exports"]],
   ["/opportunities", ["All", "Jobs & internships", "Campus jobs", "Events"]],
   ["/interview", []], ["/community", []], ["/calendar", []],
   ["/progress", ["Applications", "Email updates", "To-dos", "Hours"]],
