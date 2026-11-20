@@ -112,7 +112,7 @@ export function Policies() {
       </Section>
       <Section title="Deleting your information">
         <p>Go to <b>Account → Account & data → Delete everything</b>. Your resume, files, profile, applications, calendar, contacts, chat, ratings, feedback and problem reports, verified school email, beta tester application, sign-in record and account are deleted immediately, the “Remy” calendar is deleted from your Google Calendar if you connected it, and you're signed out. Remy keeps nothing that identifies you. Combined statistics, if any, can't be traced back to you.</p>
-        <p>You can also <b>download all your data</b> from the same page at any time. Guest (demo) accounts are deleted automatically after 30 days without use. Applications the team declines are deleted after their cohort closes. Copies in our hosting providers' routine backups expire on their own schedule.</p>
+        <p>You can also <b>download all your data</b> from the same page at any time: your account, workspace, uploaded files, feedback and problem reports, AI use, beta application and whether Google Calendar is connected. Left out on purpose: sign-in secrets (sign-in codes and the Google Calendar key) and the team's internal notes on beta applications. Guest (demo) accounts are deleted automatically after 30 days without use. Applications the team declines are deleted after their cohort closes. Copies in our hosting providers' routine backups expire on their own schedule.</p>
       </Section>
 
       <h2 className="eyebrow" style={{ marginTop: 12 }}>Terms of use</h2>
