@@ -186,10 +186,14 @@ export async function errors() {
 }
 /** Marks every open report of one error as fixed. If it happens again, it shows up as open again. */
 export async function fixError(me: string, message: string, kind: string) {
-  const rows = await q("UPDATE error_reports SET fixed_at = now(), fixed_by = $3 WHERE message = $1 AND kind = $2 AND fixed_at IS NULL RETURNING id, user_id", [cut(message, MESSAGE_MAX), cut(kind, 20), me]);
+  const rows = await q("UPDATE error_reports SET fixed_at = now(), fixed_by = $3 WHERE message = $1 AND kind = $2 AND fixed_at IS NULL RETURNING id, user_id, place", [cut(message, MESSAGE_MAX), cut(kind, 20), me]);
   // A handled note's screenshot goes too: it may show the student's resume or chats, and nobody needs it any more.
   for (const r of kind === "feedback" ? rows : []) if (r.user_id) await q("DELETE FROM files WHERE user_id = $1 AND kind = $2", [r.user_id, `feedback:${r.id}`]);
-  if (rows.length) await log(me, kind === "feedback" ? "Handled feedback" : "Marked an error fixed", message);
+  // A student's words stay on their own note (exported and deleted with their account), not copied into the team's
+  // log, which outlives the account: feedback is logged as a reference only.
+  const places = [...new Set(rows.map((r: any) => r.place).filter(Boolean))];
+  const ref = `note${rows.length > 1 ? "s" : ""} #${rows.map((r: any) => r.id).join(", #")}${places.length ? ` on ${places.join(", ")}` : ""}`;
+  if (rows.length) await log(me, kind === "feedback" ? "Handled feedback" : "Marked an error fixed", kind === "feedback" ? ref : message);
 }
 
 // ---------- the team ----------

@@ -28,6 +28,8 @@ export async function sortFeedback(by: string) {
   }
   const output = { themes, reports: rows.reduce((s, r) => s + r.n, 0), note: !rows.length ? "No open errors or feedback in the last 30 days." : !themes.length ? "AI is unavailable, so reports weren't grouped. See Errors & feedback." : "" };
   await q("INSERT INTO agent_runs (id, agent, run_by, output) VALUES ($1, 'feedback', $2, $3)", [uid("ar"), by, JSON.stringify(output)]);
+  // Its themes can quote students, and these rows aren't tied to an account: older runs go after 30 days (privacy review).
+  await q("DELETE FROM agent_runs WHERE agent = 'feedback' AND at < now() - interval '30 days'");
   await logAction(by, "Ran an agent", "Feedback & bug sorter");
 }
 
