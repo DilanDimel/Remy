@@ -82,15 +82,16 @@ export function ProfileImport({ kind, hint, onDone, onBusy }: { kind: string; hi
     }
     setBusy(false);
   };
+  // Upload is the main way in; pasting is the fallback (owner feedback, Nov 20: two equal buttons didn't say what to do).
   return (
     <div className="stack-sm">
       <p className="xs muted">{hint}</p>
-      <textarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} placeholder={`Paste text from your ${kind} profile…`} aria-label={`${kind} text`} style={{ minHeight: 80 }} data-testid={`input-import-${kind.toLowerCase().replace(/\W/g, "")}`} />
       <div className="row">
-        <button className="btn btn-secondary btn-sm" disabled={busy || text.trim().length < 40 || !config?.ai.available} onClick={() => send()} data-testid={`button-import-${kind.toLowerCase().replace(/\W/g, "")}`}>{busy && <Spinner />} Extract facts</button>
-        <button className="btn btn-ghost btn-sm" disabled={busy || !config?.ai.available} onClick={() => file.current?.click()}>Upload PDF</button>
+        <button className="btn btn-primary btn-sm" disabled={busy || !config?.ai.available} onClick={() => file.current?.click()} data-testid="button-import-upload">{busy && <Spinner />} Upload PDF</button>
         <input ref={file} type="file" accept=".pdf,.docx,.txt" hidden onChange={(e) => send(e.target.files?.[0])} />
       </div>
+      <textarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} placeholder="Or paste the text here…" aria-label={`${kind} text`} style={{ minHeight: 80 }} data-testid={`input-import-${kind.toLowerCase().replace(/\W/g, "")}`} />
+      {text.trim().length > 0 && <div className="row"><button className="btn btn-secondary btn-sm" disabled={busy || text.trim().length < 40 || !config?.ai.available} onClick={() => send()} data-testid={`button-import-${kind.toLowerCase().replace(/\W/g, "")}`}>{busy && <Spinner />} Read pasted text</button></div>}
     </div>
   );
 }
