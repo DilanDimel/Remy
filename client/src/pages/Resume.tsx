@@ -4,7 +4,7 @@ import { shortTitle } from "@shared/org";
 import { dropDates, skillGroupName } from "@shared/words";
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, Check, CheckCircle2, ChevronDown, ChevronUp, Download, FileText, Link2, Pencil, Plus, RotateCcw, ShieldAlert, ShieldCheck, Sparkles,
+  AlertTriangle, ArrowRight, Check, CheckCircle2, ChevronDown, ChevronUp, Download, FileText, Link2, Pencil, Plus, RotateCcw, ShieldAlert, ShieldCheck, Sparkles,
   Star, Trash2, X,
 } from "lucide-react";
 import type { Application, BulletChange, ClaimFlag, Job, ResumeDoc, Workspace } from "@shared/types";
@@ -343,13 +343,20 @@ function Tailor({ query }: { query: URLSearchParams }) {
   );
 }
 
-type Sub = "changes" | "letter" | "checks" | "export";
+// Tailoring is three steps (owner feedback, Nov 20: "so many approve things, I don't know what to do there"):
+// review Remy's changes one at a time, read the letter, then the final checks + preview + approve on one screen.
+type Sub = "changes" | "letter" | "export";
 
 function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; autoStart?: boolean }) {
   const { ws, setWs, run, config } = useStore();
   const w = ws!;
   const [sub, setSub] = useState<Sub>("changes");
   const [busy, setBusy] = useState("");
+  const [readLetter, setReadLetter] = useState(false);
+  const goStep = (k: Sub) => { setSub(k); if (k === "letter") setReadLetter(true); };
+  // A new draft starts at step 1 with a letter they haven't read yet (skeptic review).
+  const firstDraft = useState(a.generatedAt)[0];
+  useEffect(() => { if (a.generatedAt !== firstDraft) { setSub("changes"); setReadLetter(false); } }, [a.generatedAt]);
   const call = async (key: string, fn: () => Promise<{ workspace: Workspace }>, ok?: string) => {
     setBusy(key);
     const r = await run(fn, ok);
@@ -369,6 +376,8 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
   }, []);
   const pending = a.changes.filter((c) => c.status === "pending").length;
   const blocking = a.changes.filter((c) => (c.status === "accepted" || c.status === "edited") && c.flags.length).length;
+  // "Approved" only while the draft still matches: nothing undecided or flagged since (skeptic review).
+  const approvedNow = !!(a.letterApproved && a.versions.length && !a.staleReason && !pending && !blocking);
   // A refusal over the letter carries the fresh flags, so the bar can show "Fix the letter / It's true" right away.
   const approve = (confirmLetter = false) => call("approve", () => api("POST", `/api/applications/${a.id}/approve`, confirmLetter ? { confirmLetter: true } : undefined)
     .catch((e) => { if (e?.code === "letter-unshown" && e.body?.workspace) setWs(e.body.workspace); throw e; }), "Approved — downloads are ready")
@@ -411,27 +420,50 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
               </div>
             </div>
           )}
-          <div className="tabs" role="tablist">
-            {([["changes", `Changes${pending ? ` (${pending})` : ""}`], ["letter", "Cover letter"], ["checks", "Checks"], ["export", "Preview & export"]] as [Sub, string][]).map(([k, l]) => (
-              <button key={k} role="tab" className="tab" aria-selected={sub === k} onClick={() => setSub(k)} data-testid={`tab-app-${k}`}>{l}</button>
-            ))}
-          </div>
+          {(() => {
+            const approved = approvedNow;
+            const steps: [Sub, string, string, boolean][] = [
+              ["changes", "Review Remy's changes", !a.changes.length ? "None proposed" : pending ? `${pending} left to decide` : blocking ? `${blocking} need${blocking > 1 ? "" : "s"} a look` : `All ${a.changes.length} decided`, !pending && !blocking],
+              ["letter", "Read your cover letter", readLetter || approved ? "Read" : "About a minute", readLetter || approved],
+              ["export", "Approve & download", approved ? `Version ${a.versions.length} ready` : "Final check, then your files", approved],
+            ];
+            return (
+              <ol className="step-bar" role="tablist" aria-label="Tailoring steps">
+                {steps.map(([k, l, note, done], i) => (
+                  <li key={k} role="presentation"><button role="tab" aria-selected={sub === k} aria-describedby={`step-note-${k}`} className={"step" + (sub === k ? " on" : "") + (done ? " done" : "")} onClick={() => goStep(k)} data-testid={`tab-app-${k}`}>
+                    <span className="step-n" aria-hidden="true">{done ? <Check size={14} /> : i + 1}</span>
+                    <span className="step-text"><b>{l}</b><span className="xs muted" id={`step-note-${k}`}>{done ? `Done · ${note}` : note}</span></span>
+                  </button></li>
+                ))}
+              </ol>
+            );
+          })()}
           {sub === "changes" && <Changes a={a} />}
           {sub === "letter" && <Letter a={a} />}
-          {sub === "checks" && <Checks a={a} />}
-          {sub === "export" && <ExportView a={a} job={job} />}
+          {sub === "export" && <><Checks a={a} /><ExportView a={a} job={job} /></>}
           <QuickRate place="tailor" id={"tailor:" + a.id + ":" + a.generatedAt} label="Is this tailored draft useful?" />
-          <div className={"card card-pad row-between approve-bar" + (a.letterApproved && a.versions.length && !a.staleReason ? "" : " floating")}>
+          {sub !== "export" ? (
+            <div className="card card-pad row-between approve-bar" data-testid="step-next-bar">
+              <span className="small">{sub === "changes"
+                ? (pending ? `Step 1 of 3 · ${pending} change${pending > 1 ? "s" : ""} left to decide.` : blocking ? `Step 1 of 3 · ${blocking} change${blocking > 1 ? "s" : ""} you kept say${blocking > 1 ? "" : "s"} something your resume doesn't show: tap it above to fix or confirm.` : "Step 1 of 3 · Done.")
+                : "Step 2 of 3 · Read it once and change anything that doesn't sound like you."}</span>
+              <button className="btn btn-primary" onClick={() => { goStep(sub === "changes" ? "letter" : "export"); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={sub === "changes" && pending > 0} data-testid="button-next-step">
+                {sub === "changes" ? "Next: your cover letter" : "Next: approve & download"} <ArrowRight size={16} />
+              </button>
+            </div>
+          ) : (
+          <div className={"card card-pad row-between approve-bar" + (approvedNow ? "" : " floating")}>
             <span className="small">
-              {pending ? `${pending} change(s) still need your decision.` : blocking ? `${blocking} accepted change(s) have unsupported claims.` : letterIssues ? `Your cover letter says ${letterIssues} thing(s) your resume doesn't show (see Checks). Fix the letter, or confirm they're true.` : a.letterApproved && a.versions.length && !a.staleReason ? `Approved as version ${a.versions.length}. Downloads are in Preview & export; change anything and approve again.` : "Ready to approve."}
+              {pending ? `${pending} change${pending > 1 ? "s" : ""} still need${pending > 1 ? "" : "s"} your decision in step 1.` : blocking ? `${blocking} change${blocking > 1 ? "s" : ""} you kept say${blocking > 1 ? "" : "s"} something your resume doesn't show. Fix ${blocking > 1 ? "them" : "it"} in step 1, or confirm ${blocking > 1 ? "they're" : "it's"} true there.` : letterIssues ? `Your cover letter says ${letterIssues} thing(s) your resume doesn't show (listed above). Fix the letter, or confirm they're true.` : approvedNow ? `Approved as version ${a.versions.length}. Your downloads are below; change anything and approve again.` : "Ready to approve."}
             </span>
             <div className="row">
-              {letterIssues > 0 && !pending && !blocking ? <>
-                <button className="btn btn-primary" onClick={() => setSub("letter")} data-testid="button-fix-letter">Fix the letter</button>
+              {pending || blocking ? <button className="btn btn-primary" onClick={() => { goStep("changes"); window.scrollTo({ top: 0, behavior: "smooth" }); }} data-testid="button-back-to-changes">Back to step 1</button>
+              : letterIssues > 0 ? <>
+                <button className="btn btn-primary" onClick={() => goStep("letter")} data-testid="button-fix-letter">Fix the letter</button>
                 <button className="btn btn-secondary" onClick={() => approve(true)} disabled={!!busy} data-testid="button-approve-confirm">{busy === "approve" ? <Spinner /> : <ShieldCheck size={16} />} It's true, approve</button>
-              </> : <button className="btn btn-primary" onClick={() => approve()} disabled={!!busy} data-testid="button-approve-app">{busy === "approve" ? <Spinner /> : <ShieldCheck size={16} />} {a.letterApproved && a.versions.length && !a.staleReason ? "Approve again" : "Approve this version"}</button>}
+              </> : <button className="btn btn-primary" onClick={() => approve()} disabled={!!busy} data-testid="button-approve-app">{busy === "approve" ? <Spinner /> : <ShieldCheck size={16} />} {approvedNow ? "Approve again" : "Approve this version"}</button>}
             </div>
-          </div>
+          </div>)}
         </>
       )}
       {!a.generatedAt && !mine && (
@@ -453,6 +485,7 @@ function FlagList({ flags }: { flags: ClaimFlag[] }) {
 }
 
 function Changes({ a }: { a: Application }) {
+  const [open, setOpen] = useState(""); // a decided change the student opened again
   const n = a.skippedChanges || 0, one = n === 1;
   const skipped = n ? <p className="xs muted" data-testid="text-skipped-changes">{a.skippedBusy
     ? `Remy's AI was busy, so it left ${one ? "one line" : `${n} lines`} as you wrote ${one ? "it" : "them"}. Tailor again later to try rewording ${one ? "it" : "them"}.`
@@ -461,7 +494,25 @@ function Changes({ a }: { a: Application }) {
   return (
     <div className="stack">
       {skipped}
-      {a.changes.map((c, i) => <ChangeCard key={c.id} a={a} c={c} n={i + 1} />)}
+      {(() => {
+        // One change at a time: the first undecided one, or one the student reopened. Decided ones are one line each.
+        const i = open ? a.changes.findIndex((c) => c.id === open) : a.changes.findIndex((c) => c.status === "pending");
+        const decided = a.changes.filter((c) => c.status !== "pending");
+        return <>
+          <div className="row-between"><b data-testid="change-progress">{i >= 0 ? `Change ${i + 1} of ${a.changes.length}` : a.changes.length === 1 ? "Your change is decided" : `All ${a.changes.length} changes decided`}</b><span className="xs muted">{decided.length} decided · {a.changes.length - decided.length} left</span></div>
+          {i >= 0 && <ChangeCard key={a.changes[i].id} a={a} c={a.changes[i]} n={i + 1} onDone={(flagged) => setOpen(flagged ? a.changes[i].id : "")} />}
+          {decided.length > 0 && (
+            <div className="card card-pad stack-sm" data-testid="changes-decided">
+              {decided.map((c) => { const k = a.changes.indexOf(c) + 1, flagged = c.status !== "rejected" && c.flags.length > 0; return (
+                <button key={c.id} className="row small decided-row" style={{ flexWrap: "nowrap", gap: 8, textAlign: "left" }} onClick={() => setOpen(open === c.id ? "" : c.id)} aria-expanded={open === c.id} data-testid="decided-change">
+                  {flagged ? <AlertTriangle size={14} className="fail" style={{ flex: "none" }} /> : <Check size={14} className="pass" style={{ flex: "none" }} />}
+                  <span style={{ flex: 1 }}><span className="xs muted">{k}. </span>{c.status === "rejected" ? c.original : c.status === "edited" ? c.edited : c.revised}</span>
+                  <span className="xs muted" style={{ flex: "none" }}>{flagged ? "Needs a look" : c.status === "rejected" ? "Kept yours" : c.status === "edited" ? "Your edit" : "Remy's wording"} · {open === c.id ? "Close" : "Change"}</span>
+                </button>); })}
+            </div>
+          )}
+        </>;
+      })()}
       {a.gaps.length > 0 && (
         <div className="card card-pad stack-sm">
           <h3>Honest gaps</h3>
@@ -473,7 +524,7 @@ function Changes({ a }: { a: Application }) {
   );
 }
 
-function ChangeCard({ a, c, n }: { a: Application; c: BulletChange; n: number }) {
+function ChangeCard({ a, c, n, onDone }: { a: Application; c: BulletChange; n: number; onDone?: (flagged: boolean) => void }) {
   const { setWs, run } = useStore();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(c.edited || c.revised);
@@ -481,10 +532,15 @@ function ChangeCard({ a, c, n }: { a: Application; c: BulletChange; n: number })
   const put = async (body: any, ok?: string) => {
     setBusy(true);
     const r = await run(() => api<{ workspace: Workspace }>("PUT", `/api/applications/${a.id}/change/${c.id}`, body), ok);
-    if (r) setWs(r.workspace);
+    if (r) {
+      setWs(r.workspace);
+      // The change folds into the decided list, unless the save left something to fix: then it stays open with its flags.
+      const now = r.workspace.applications.find((x) => x.id === a.id)?.changes.find((x) => x.id === c.id);
+      onDone?.(!!now && now.status !== "rejected" && now.flags.length > 0);
+    }
     setBusy(false);
   };
-  const statusChip = { pending: <span className="chip chip-plain">Your review</span>, accepted: <span className="chip chip-live">Accepted</span>, edited: <span className="chip chip-live">Edited by you</span>, rejected: <span className="chip chip-bad">Rejected — original kept</span> }[c.status];
+  const statusChip = { pending: <span className="chip chip-plain">Your call</span>, accepted: <span className="chip chip-live">Remy's wording</span>, edited: <span className="chip chip-live">Your edit</span>, rejected: <span className="chip chip-plain">Kept yours</span> }[c.status];
   return (
     <div className="card card-pad stack" data-testid="card-change">
       <div className="row-between"><span className="eyebrow">Change {n} · {c.entryLabel}</span>{statusChip}</div>
@@ -513,9 +569,9 @@ function ChangeCard({ a, c, n }: { a: Application; c: BulletChange; n: number })
           </>
         ) : (
           <>
-            <button className="btn btn-secondary btn-sm" onClick={() => put({ status: "rejected" })} disabled={busy} data-testid="button-reject"><X size={14} /> Reject</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => put({ status: "rejected" })} disabled={busy} data-testid="button-reject"><X size={14} /> Keep mine</button>
             <button className="btn btn-secondary btn-sm" onClick={() => setEditing(true)} disabled={busy} data-testid="button-edit"><Pencil size={14} /> Edit</button>
-            <button className="btn btn-primary btn-sm" onClick={() => put({ status: "accepted" })} disabled={busy || c.status === "accepted"} data-testid="button-accept"><Check size={14} /> Accept</button>
+            <button className="btn btn-primary btn-sm" onClick={() => put({ status: "accepted" })} disabled={busy || c.status === "accepted"} data-testid="button-accept"><Check size={14} /> Use Remy's</button>
           </>
         )}
       </div>
@@ -580,8 +636,8 @@ function Checks({ a }: { a: Application }) {
     <div className="stack">
       <div className="card card-pad stack-sm" data-testid="checks-summary">
         {toFix ? <h3>{toFix} thing{toFix === 1 ? "" : "s"} to fix before you approve</h3> : <h3 className="row" style={{ gap: 8 }}><CheckCircle2 size={18} className="pass" /> Nothing blocking your approval.</h3>}
-        {undecided > 0 && <span className="small" data-testid="checks-undecided"><b>{undecided} change{undecided === 1 ? "" : "s"}</b> still need{undecided === 1 ? "s" : ""} your decision (Changes tab).</span>}
-        {letterIssues.length > 0 && <span className="small muted">In your cover letter (fix them in the Cover letter tab, or confirm they're true when you approve):</span>}
+        {undecided > 0 && <span className="small" data-testid="checks-undecided"><b>{undecided} change{undecided === 1 ? "" : "s"}</b> still need{undecided === 1 ? "s" : ""} your decision (step 1).</span>}
+        {letterIssues.length > 0 && <span className="small muted">In your cover letter (fix them in step 2, or confirm they're true when you approve):</span>}
         {letterIssues.map((f, i) => <div key={"l" + i} className="flag" data-testid="letter-flags"><ShieldAlert size={15} /><span><strong>“{f.term}”</strong>: {f.message}</span></div>)}
         {flagged.map((c) => <div key={c.id} className="small"><strong>{c.entryLabel}</strong><FlagList flags={c.flags} /></div>)}
         {atsFails.length > 0 && <span className="small muted" style={{ marginTop: 6 }}>Worth fixing (doesn't stop you approving):</span>}
