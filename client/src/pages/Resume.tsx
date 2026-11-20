@@ -788,6 +788,7 @@ function Library() {
   const { jobs } = useJobs();
   const w = ws!;
   const approved = w.applications.filter((a) => a.versions.length);
+  const [log, setLog] = useState(false);
   return (
     <div className="stack-lg">
       <div className="card card-pad stack">
@@ -802,19 +803,25 @@ function Library() {
               <DownloadButtons a={a} v={v.v} />
             </div>
           );
-        }) : <span className="small muted">Nothing approved yet. Approved versions appear here with Word, PDF and text downloads.</span>}
+        }) : <div className="stack-sm" data-testid="library-empty"><span className="small muted">Nothing approved yet. Tailor your resume for an opening and approve it; the Word, PDF and text files land here.</span><button className="btn btn-primary btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => go("/resume?tab=tailor")}>Tailor for an opening</button></div>}
       </div>
-      <div className="card card-pad stack">
-        <h3>Safeguard log</h3>
-        <p className="xs muted">Every time the checker stopped an AI overstatement in your documents, or you tested it, it's listed here with the date.</p>
-        {w.incidents.length ? w.incidents.slice(0, 20).map((i) => (
-          <div key={i.id} className="stack-sm" style={{ borderTop: "1px solid var(--line)", paddingTop: 10 }}>
-            <div className="row"><span className={"chip " + (i.kind === "Safeguard test" ? "chip-demo" : "chip-bad")}>{i.kind}</span><span className="xs muted">{new Date(i.at).toLocaleString()} · {i.where}</span></div>
-            <span className="small quote">{i.text.slice(0, 300)}</span>
-            <span className="xs muted">Caught: {i.flags.map((f) => f.term).join(", ") || "nothing"}</span>
+      {/* The safety checker's log, as one calm line (owner feedback, Nov 20: red "AI overstatement caught" rows read like
+          something went wrong; nothing here needs the student to act). Tap to see each one. */}
+      {w.incidents.length > 0 && (
+        <div className="card card-pad stack-sm" data-testid="safeguard-log">
+          <div className="row-between" style={{ gap: 8 }}>
+            <span className="small row" style={{ gap: 8, flexWrap: "nowrap" }}><ShieldCheck size={16} className="pass" style={{ flex: "none" }} />{(() => { const n = w.incidents.filter((i) => i.kind !== "Safeguard test").length; return n ? `Remy's checker stopped ${n} overstatement${n > 1 ? "s" : ""} in AI drafts before you saw ${n > 1 ? "them" : "it"}.` : "Remy's checker reads every AI draft before you see it."; })()}</span>
+            <button className="btn btn-ghost btn-sm" style={{ flex: "none" }} onClick={() => setLog((v) => !v)} aria-expanded={log} data-testid="button-safeguard-log">{log ? "Hide" : "Show them"}</button>
           </div>
-        )) : <span className="small muted">No incidents yet.</span>}
-      </div>
+          {log && w.incidents.slice(0, 20).map((i) => (
+            <div key={i.id} className="stack-sm" style={{ borderTop: "1px solid var(--line)", paddingTop: 10 }}>
+              <span className="xs muted">{i.kind === "Safeguard test" ? "Your test" : "Stopped"} · {new Date(i.at).toLocaleString()} · {i.where}</span>
+              <span className="small quote">{i.text.slice(0, 300)}</span>
+              {i.flags.length > 0 && <span className="xs muted">Words it flagged as not on your resume: {i.flags.map((f) => f.term).join(", ")}</span>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
