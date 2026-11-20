@@ -60,7 +60,7 @@ import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs
 import { emailReady, sendEmail } from "./email";
 import { docxStyle, editResumeDocx } from "./docxEdit";
 import * as gcal from "./gcal";
-import { q, schema } from "./sql";
+import { q, q1, schema } from "./sql";
 import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./docs";
 import { pageGuide } from "./pageGuide";
 
@@ -611,6 +611,18 @@ export async function registerRoutes(_server: Server, app: Express) {
   const owner = (ctx: Ctx) => { if (!ctx.me.owner) bad("This page is only for Remy's owners.", 403); return ctx.me.email.toLowerCase(); };
   app.get("/api/admin/overview", route(async (_req, res, ctx) => { owner(ctx); res.json(await admin.overview()); }));
   app.get("/api/admin/errors", route(async (_req, res, ctx) => { owner(ctx); res.json(await admin.errors()); }));
+  // A feedback note's screenshot (owners only).
+  app.get("/api/admin/feedback/:id/screenshot", route(async (req, res, ctx) => {
+    owner(ctx);
+    const id = Number(req.params.id);
+    const r = Number.isInteger(id) ? await q1("SELECT user_id FROM error_reports WHERE id = $1 AND kind = 'feedback'", [id]) : null;
+    const f = r?.user_id ? await getFile(String(r.user_id), `feedback:${id}`) : null;
+    if (!f) bad("No screenshot.", 404);
+    res.setHeader("Content-Type", f!.mime);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", "private, no-store");
+    res.send(f!.data);
+  }));
   app.get("/api/admin/team", route(async (_req, res, ctx) => { res.json(await admin.team(owner(ctx))); }));
   app.get("/api/admin/agents", route(async (_req, res, ctx) => { owner(ctx); res.json(await agents.agentRuns()); }));
   // Database space used against the plan's limit, per table (owners only).
@@ -1552,11 +1564,27 @@ Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), 
     res.json({ ok: true });
   }));
   app.get("/api/admin/signals", route(async (_req, res, ctx) => { owner(ctx); res.json(await signals.signalsReport(7)); }));
-  app.post("/api/feedback", route(async (req, res, ctx) => {
+  // An optional screenshot (owner feedback #57) comes as a form upload; the browser shrinks it first. Only real
+  // JPEG/PNG/WebP bytes are kept, under the student's account (deleted with it) and the note's id; owners see it.
+  app.post("/api/feedback", uploadFile, route(async (req, res, ctx) => {
     const message = String(req.body?.message || "").replace(/\s+/g, " ").trim().slice(0, 1000);
     if (message.length < 3) bad("Write a few words first.");
+    const f = req.file;
+    // "RIFF" alone is also audio/video: a WebP says "WEBP" at byte 8.
+    const kind = f ? IMAGE.find(([m, sig]) => sig.every((b, i) => f.buffer[i] === b) && (m !== "image/webp" || f.buffer.toString("ascii", 8, 12) === "WEBP")) : undefined;
+    if (f && !kind) bad("Attach a screenshot as a JPG, PNG or WebP image.");
+    if (f && f.size > 2_000_000) bad("That screenshot is too large. Try a smaller one.", 413);
     if (!allow("feedback:" + ctx.me.id, 10, 60 * 60_000)) bad("Thanks! That's a lot of feedback at once; please wait a bit.", 429);
-    await recordError("feedback", String(req.body?.page || "").slice(0, 120), message, ctx.me.email || "", ctx.me.id);
+    const id = await recordError("feedback", String(req.body?.page || "").slice(0, 120), message, ctx.me.email || "", ctx.me.id);
+    if (f && kind && id) {
+      // Storage cap (skeptic review): all screenshots together stay under 50 MB, and each student keeps their newest 3.
+      const total = await q1("SELECT COALESCE(SUM(octet_length(data)), 0)::bigint AS n FROM files WHERE kind LIKE 'feedback:%'");
+      if (Number(total?.n || 0) + f.size <= 50_000_000) {
+        await saveFile(ctx.me.id, `feedback:${id}`, "screenshot", kind[0], f.buffer);
+        await q(`DELETE FROM files WHERE user_id = $1 AND kind LIKE 'feedback:%' AND kind NOT IN
+          (SELECT kind FROM files WHERE user_id = $1 AND kind LIKE 'feedback:%' ORDER BY at DESC, kind DESC LIMIT 3)`, [ctx.me.id]);
+      } else console.warn("feedback screenshot not kept: screenshot storage is full");
+    }
     res.json({ ok: true });
   }));
   // Feedback Remy asks for itself (founders can't interview everyone): one question at a moment that matters, and a

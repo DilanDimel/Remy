@@ -21,7 +21,7 @@ type Overview = {
   emails?: { ready: boolean; reminders: number; digest: number; digestsWeek: number };
 };
 type OpenError = { message: string; kind: string; place: string; places?: number; times: number; students: number; last: string; first: string; detail: string };
-type Errors = { open: OpenError[]; fixed: { message: string; kind: string; fixed_at: string; fixed_by: string; times: number }[]; feedback: { id: number; at: string; place: string; message: string; email: string }[] };
+type Errors = { open: OpenError[]; fixed: { message: string; kind: string; fixed_at: string; fixed_by: string; times: number }[]; feedback: { id: number; at: string; place: string; message: string; email: string; shot?: boolean }[] };
 type Status = "todo" | "doing" | "done";
 type TeamTask = { id: string; title: string; assignee: string; due: string; notes: string; done: boolean; status: Status; done_by: string; done_at: string | null; created_by: string };
 type Answer = "yes" | "maybe" | "no";
@@ -574,6 +574,8 @@ function ErrorsTab() {
             <div className="grow stack-sm" style={{ gap: 4 }}>
               <span className="small">{f.message}</span>
               <span className="xs muted">{f.email || "a student"} · {f.place || "somewhere in Remy"} · {ago(f.at)}</span>
+              {/* The student's screenshot (owners only); opens full size. */}
+              {f.shot && <a href={`/api/admin/feedback/${f.id}/screenshot`} target="_blank" rel="noreferrer" style={{ alignSelf: "flex-start" }} data-testid="feedback-shot-link"><img src={`/api/admin/feedback/${f.id}/screenshot`} alt="Screenshot from the student" loading="lazy" style={{ maxWidth: 220, maxHeight: 140, borderRadius: 8, border: "1px solid var(--line)", objectFit: "cover", display: "block" }} /></a>}
             </div>
             <button className="btn btn-secondary btn-sm" onClick={async () => { const r = await run(() => api<Errors>("POST", "/api/admin/errors/fix", { message: f.message, kind: "feedback" }), "Marked handled"); if (r) setD(r); }}><Check size={14} /> Handled</button>
           </div>
