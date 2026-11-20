@@ -264,6 +264,8 @@ function Shell() {
   );
 }
 
+// On every page: Remy explains the screen they're on, for them (the tour stays in the menu under their name).
+const LOOKING = "What am I looking at?";
 const STARTERS: Record<string, string[]> = {
   Home: ["What should I focus on this week?", "Which opening fits me best right now?", "I'm not sure what career I want. Where do I start?"],
   "My Path": ["What jobs does my major lead to?", "What skill gap matters most for me?"],
@@ -306,7 +308,10 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
     if (tailor?.stage === "done") endTailor();
     setBusy(true);
     setMsg("");
-    const w = await run(() => api<Workspace>("POST", "/api/ai/chat", { message: text, page }));
+    // The exact screen (address + the tabs and switches selected on it), so "what is this?" gets an answer about what's
+    // in front of them. Home and Opportunities use pressed switch buttons, not tabs.
+    const tabs = [...document.querySelectorAll(".main [role=tab][aria-selected=true], .main .seg [aria-pressed=true]")].map((t) => (t.textContent || "").trim()).filter(Boolean);
+    const w = await run(() => api<Workspace>("POST", "/api/ai/chat", { message: text, page, where: location.pathname + location.search, tabs }));
     if (w) setWs(w);
     setBusy(false);
   };
@@ -347,9 +352,8 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
             <b>Hi, I'm Remy.</b>
             <p className="small muted">I can explain recommendations, help you think through choices and suggest next steps. I only use what's in your approved profile, and I never send anything for you.</p>
             <div className="stack-sm">
-              {(STARTERS[page] || STARTERS.Home).map((s) => <button key={s} className="btn btn-secondary btn-sm asst-starter" onClick={() => send(s)}>{s}</button>)}
+              {[LOOKING, ...(STARTERS[page] || STARTERS.Home)].map((s) => <button key={s} className="btn btn-secondary btn-sm asst-starter" onClick={() => send(s)}>{s}</button>)}
             </div>
-            <button className="btn btn-ghost btn-sm" onClick={() => tourAgain(save)} data-testid="button-tour-again">Show me around again</button>
           </div>
         )}
         {chat.slice(-30).map((m) => (
