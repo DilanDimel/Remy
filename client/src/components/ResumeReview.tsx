@@ -11,7 +11,7 @@ const FIELD_LABEL = { name: "Full name", email: "Email", phone: "Phone", locatio
 /** Remy's review of the base resume: the few things worth fixing, each fixable right here. Remy asks for what it
  *  doesn't know, drafts the line from the student's own words, and the student approves. Nothing saves until they
  *  press Save (the usual "Review your changes"). */
-export function ResumeReview({ doc, upd, needsConfirm, onEdit }: { doc: ResumeDoc; upd: Upd; needsConfirm: number | null; onEdit: () => void }) {
+export function ResumeReview({ doc, upd, onEdit }: { doc: ResumeDoc; upd: Upd; onEdit: () => void }) {
   const { todo: live, good } = useMemo(() => reviewResume(doc), [doc]);
   // An open fix keeps the fields and lines it showed when opened, so a box doesn't vanish mid-typing once its value
   // passes ("maya@" → valid email); it updates when the student closes it.
@@ -21,20 +21,13 @@ export function ResumeReview({ doc, upd, needsConfirm, onEdit }: { doc: ResumeDo
   const rank = (it: ReviewItem) => { const i = order.indexOf(it.kind); return i < 0 ? 9 : i; };
   const todo = [...live.map((it) => frozen[keyOf(it)] || it), ...Object.entries(frozen).filter(([k]) => !live.some((it) => keyOf(it) === k)).map(([, it]) => it)].sort((a, b) => rank(a) - rank(b));
   const toggle = (it: ReviewItem) => setFrozen((f) => { const k = keyOf(it); const n = { ...f }; if (n[k]) delete n[k]; else n[k] = it; return n; });
-  const count = todo.length + (needsConfirm !== null ? 1 : 0);
+  const count = todo.length; // confirming what Remy read is step 1 of the base resume now
   return (
     <section className="card card-pad stack" data-testid="resume-review">
       <div className="stack-sm" style={{ gap: 4 }}>
         <h3>{count ? `Remy's review · ${count} thing${count > 1 ? "s" : ""} to fix` : "Remy's review · looking good"}</h3>
         <span className="xs muted">Remy's suggestions from your resume itself, not an employer's score. Fix them here; nothing changes until you press Save.</span>
       </div>
-      {needsConfirm !== null && (
-        <div className="review-item" data-testid="review-confirm">
-          <b className="small">Check what Remy read{needsConfirm ? ` (${needsConfirm} line${needsConfirm > 1 ? "s" : ""} need a look)` : ""}, then confirm</b>
-          <span className="xs muted">Remy only uses your resume once you've said every line is right.</span>
-          <button className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }} onClick={onEdit}>Go to Edit <ChevronRight size={14} /></button>
-        </div>
-      )}
       {todo.map((it) => <Item key={keyOf(it)} it={it} open={!!frozen[keyOf(it)]} onToggle={() => toggle(it)} doc={doc} upd={upd} onEdit={onEdit} />)}
       {good.length > 0 && (
         <div className="stack-sm" style={{ gap: 4 }} data-testid="review-good">
