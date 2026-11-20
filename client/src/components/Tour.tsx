@@ -59,8 +59,12 @@ export function RemyTour() {
   const active = setupDone(w) && typeof n === "number";
   const i = typeof n === "number" ? Math.min(n, STEPS.length - 1) : -1;
   const step = active && i >= 0 ? STEPS[i] : null;
-  const [rect, setRect] = useState<DOMRect | null>(null);
+  // The spot is measured per step and page ("at"), so a new page never shows the last page's spot for a frame.
+  const [found, setFound] = useState<{ at: string; b: DOMRect } | null>(null);
   const [missing, setMissing] = useState(false);
+  const [waited, setWaited] = useState(""); // the bubble waits briefly for its spot instead of appearing mid-screen and jumping
+  const at = `${i}|${path}`;
+  const rect = found?.at === at ? found.b : null;
   const bubble = useRef<HTMLDivElement>(null);
   const main = useRef<HTMLButtonElement>(null);
   const [bubbleH, setBubbleH] = useState(180);
@@ -80,19 +84,23 @@ export function RemyTour() {
       else setStep("done");
       return;
     }
-    setRect(null); setMissing(false);
-    let scrolled = false, tries = 0;
+    setMissing(false);
+    let scrolled = false, frame = 0, lostAt = Date.now();
+    const wait = setTimeout(() => setWaited(at), 700);
     const find = () => {
       const el = visible(step.spot);
-      if (!el) { if (++tries > 25) setMissing(true); return; } // ~5 s: explain it without the spotlight
+      if (!el) { if (Date.now() - lostAt > 5000) setMissing(true); return; } // gone 5 s in a row: explain it without the spotlight
+      lostAt = Date.now();
       setMissing(false);
       if (!scrolled) { el.scrollIntoView({ block: "center" }); scrolled = true; }
       const b = el.getBoundingClientRect();
-      setRect((old) => (old && old.top === b.top && old.left === b.left && old.width === b.width && old.height === b.height ? old : b));
+      setFound((old) => (old && old.at === at && old.b.top === b.top && old.b.left === b.left && old.b.width === b.width && old.b.height === b.height ? old : { at, b }));
     };
-    find();
-    const t = setInterval(find, 200); // follows the spot as the page loads, scrolls or resizes
-    return () => clearInterval(t);
+    // Every frame, so the spot moves with the page (its slide-in, scrolling, loading) instead of catching up in jumps.
+    // State only changes when the spot actually moved.
+    const loop = () => { find(); frame = requestAnimationFrame(loop); };
+    loop();
+    return () => { cancelAnimationFrame(frame); clearTimeout(wait); };
   }, [i, path, active]);
 
   // A "do it" step moves on when the student does the real thing (listening on the page, so a redrawn button still counts).
@@ -109,7 +117,8 @@ export function RemyTour() {
 
   useLayoutEffect(() => { if (bubble.current) setBubbleH(bubble.current.offsetHeight); });
   // Keyboard: the bubble's main button gets focus on each step; Escape ends the tour (not while typing in a form).
-  useEffect(() => { if (step && path === step.path) main.current?.focus({ preventScroll: true }); }, [i, path, !!step]);
+  // (once the bubble is up: it waits for its spot)
+  useEffect(() => { if (step && path === step.path) main.current?.focus({ preventScroll: true }); }, [i, path, !!step, !!rect, waited, missing]);
   useEffect(() => {
     if (!step) return;
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape" && !typing(e.target)) setStep("done"); };
@@ -117,7 +126,11 @@ export function RemyTour() {
     return () => window.removeEventListener("keydown", esc);
   }, [!!step]);
 
-  if (!step || path !== step.path) return null;
+  if (!step) return null;
+  const shade = "rgba(12, 10, 8, 0.6)";
+  // Moving to the step's page (or still looking for the spot): the page stays dimmed, so it doesn't flash bright between steps.
+  const looking = path !== step.path || (!rect && !missing && waited !== at);
+  if (looking) return <div className="tour" aria-hidden="true"><div className="tour-shade" style={{ inset: 0, background: shade }} /></div>;
   // The app is drawn at 85% on laptop-size screens (CSS zoom on .shell, which this sits inside): measured positions are
   // on-screen pixels, so they're divided by the zoom to land in the right place.
   const zoom = CSS.supports("zoom", "1") ? parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--app-zoom")) || 1 : 1;
@@ -131,7 +144,6 @@ export function RemyTour() {
     ? (r && r.top + r.height / 2 > vh / 2 ? { left: 12, right: 12, top: 12 } : { left: 12, right: 12, bottom: 12 })
     : !r ? { left: Math.max(12, (vw - bw) / 2), top: Math.max(12, (vh - bubbleH) / 2), width: bw }
     : { width: bw, left: Math.max(12, Math.min(r.left, vw - bw - 12)), top: below + bubbleH < vh - 12 ? below : Math.max(12, r.top - bubbleH - 14) };
-  const shade = "rgba(12, 10, 8, 0.6)";
   const text = missing && step.doIt ? step.text.replace(/(^| )Tap .*$/, "$1Once you have openings, you can do this right from here.") : step.text;
   return (
     <div className="tour" role="dialog" aria-label={`Remy's tour, step ${i + 1} of ${STEPS.length}: ${step.title}`} data-testid="remy-tour">
@@ -144,10 +156,10 @@ export function RemyTour() {
           <div className="tour-shade" style={{ top: r.top, left: 0, width: Math.max(0, r.left), height: r.height, background: shade }} />
           <div className="tour-shade" style={{ top: r.top, left: r.left + r.width, right: 0, height: r.height, background: shade }} />
           {!step.doIt && <div className="tour-shade" style={{ top: r.top, left: r.left, width: r.width, height: r.height }} />}
-          <div className="tour-spot" style={{ top: r.top, left: r.left, width: r.width, height: r.height }} />
+          <div key={at} className="tour-spot" style={{ top: r.top, left: r.left, width: r.width, height: r.height }} />
         </>
       ) : <div className="tour-shade" style={{ inset: 0, background: shade }} />}
-      <div ref={bubble} className="tour-bubble" style={pos} data-testid="tour-bubble">
+      <div key={at} ref={bubble} className="tour-bubble" style={pos} data-testid="tour-bubble">
         <div className="row" style={{ gap: 10, alignItems: "flex-start" }}>
           <Remy size={38} mood="wave" />
           <div className="stack-sm" style={{ flex: 1, gap: 4 }}>
