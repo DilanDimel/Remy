@@ -557,8 +557,8 @@ function Letter({ a }: { a: Application }) {
   );
 }
 
-/** Checks (audit, Nov 17: the most overwhelming screen): first only what needs fixing before download, the full
- *  reports folded under "Show all checks". */
+/** Checks: first what needs fixing before you approve, then every check in full, always shown (owner rule, Nov 20:
+ *  checks are core, never behind a "show all"/"more checks" click). */
 function Checks({ a }: { a: Application }) {
   const { ws, setWs, run, config } = useStore();
   const [busy, setBusy] = useState(false);
@@ -586,25 +586,24 @@ function Checks({ a }: { a: Application }) {
         {flagged.map((c) => <div key={c.id} className="small"><strong>{c.entryLabel}</strong><FlagList flags={c.flags} /></div>)}
         {atsFails.length > 0 && <span className="small muted" style={{ marginTop: 6 }}>Worth fixing (doesn't stop you approving):</span>}
         {atsFails.map((c) => <div key={c.id} className="ats-row"><AlertTriangle size={16} className="fail" /><div><strong>{c.label}</strong><div className="xs muted">{c.detail}</div></div></div>)}
-        {auditFindings > 0 && <span className="small muted">The AI second opinion found {auditFindings} thing{auditFindings === 1 ? "" : "s"} to look at (Show all checks).</span>}
+        {auditFindings > 0 && <span className="small muted">The AI second opinion found {auditFindings} thing{auditFindings === 1 ? "" : "s"} to look at (AI second opinion, below).</span>}
       </div>
-      <details className="card card-pad stack" data-testid="checks-all">
-        <summary style={{ cursor: "pointer" }}><b>Show all checks</b> <span className="small muted">What an application system reads, the honesty check, and an AI second opinion</span></summary>
+      <div className="stack" data-testid="checks-all">
         <AtsCard appId={a.id} refreshKey={a.changes.map((c) => c.status + (c.edited || "")).join("|")} />
         <div className="grid-2" style={{ alignItems: "start" }}>
           <div className="stack">
-            <div className="card card-pad stack-sm" style={{ boxShadow: "none" }}>
+            <div className="card card-pad stack-sm">
               <h3>Unsupported-claim check</h3>
               <p className="xs muted">Rule-based and independent of the AI: flags numbers, tools, titles, names, class standing and added outcomes that aren't in your resume or approved facts.</p>
               <div className="row"><span className={"chip " + (flagged.length ? "chip-bad" : "chip-live")}>{flagged.length} resume change(s) flagged</span><span className={"chip " + (letterIssues.length ? "chip-bad" : "chip-live")}>{letterIssues.length} letter issue(s)</span></div>
             </div>
-            <div className="card card-pad stack-sm" style={{ boxShadow: "none" }}>
+            <div className="card card-pad stack-sm">
               <div className="row-between"><h3>AI second opinion</h3><button className="btn btn-secondary btn-sm" onClick={audit} disabled={busy || !config?.ai.available} data-testid="button-audit">{busy && <Spinner />} Run audit</button></div>
               <p className="xs muted">A separate AI pass compares the tailored documents with your evidence. Advisory — the rule-based check above is what blocks export.</p>
               {a.audit ? (a.audit.findings.length ? a.audit.findings.map((f, i) => <div key={i} className="flag"><ShieldAlert size={15} /><span><strong>“{f.claim}”</strong> — {f.why}</span></div>) : <span className="small pass row"><CheckCircle2 size={16} /> No unsupported claims found ({fmtDate(a.audit.at)}).</span>) : <span className="small muted">Not run yet.</span>}
             </div>
           </div>
-          <div className="card card-pad stack-sm" style={{ boxShadow: "none" }} data-testid="card-ats">
+          <div className="card card-pad stack-sm" data-testid="card-ats">
             <h3>ATS format check</h3>
             <p className="xs muted">For the resume as it will be exported, with the changes you accepted.</p>
             {ats.map((c) => (
@@ -615,7 +614,7 @@ function Checks({ a }: { a: Application }) {
             ))}
           </div>
         </div>
-      </details>
+      </div>
     </div>
   );
 }
