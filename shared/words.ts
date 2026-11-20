@@ -18,7 +18,7 @@ const ENDINGS: [RegExp, string][] = [
 /** The word with common endings removed ("planned" → "plan", "studies" → "study"). */
 export function stem(word: string): string {
   let w = word.toLowerCase();
-  if (IRREG[w]) w = IRREG[w];
+  if (Object.hasOwn(IRREG, w)) w = IRREG[w]; // not "constructor"/"toString": those are on every object and crashed scoring
   else if (!KEEP_S.test(w)) {
     for (const [end, to] of ENDINGS) {
       if (!end.test(w)) continue;
@@ -58,8 +58,22 @@ const FAMILIES: [RegExp, string][] = [
   [/^schedul$/, "schedul"],
 ];
 
+// Live, Nov 19: scoring 154 openings froze the server for ~4 s, almost all of it here (the whole resume is re-read
+// for every opening, ~30 regexes per word). A word's family never changes, so each answer is remembered; the memory
+// is emptied when it gets big so odd text (pasted postings, typos) can't grow it forever.
+const known = new Map<string, string>();
+
 /** The family a word belongs to: its stem, joined with related forms ("Manager" and "management"). */
 export function family(word: string): string {
+  const hit = known.get(word);
+  if (hit !== undefined) return hit;
+  if (known.size >= 50_000) known.clear();
+  const out = familyOf(word);
+  if (word.length <= 40) known.set(word, out); // a pasted run with no spaces isn't worth keeping
+  return out;
+}
+
+function familyOf(word: string): string {
   // Accounting the skill, not "accounted for" or an "Account Executive".
   if (/^(accountan(t|ts|cy)|accounting)$/i.test(word)) return "accountancy";
   const s = stem(word);
