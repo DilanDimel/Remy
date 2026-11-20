@@ -1652,6 +1652,8 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       done: false, source: "AI plan (review)", link: String(t.link || ""),
     }));
     ctx.ws.tasks = [...ctx.ws.tasks.filter((t) => t.source !== "AI plan (review)" || t.done), ...tasks];
+    const old = ctx.ws.plan;
+    const pickedTitle = old?.careers.find((c) => c.id === old.chosenCareerId)?.title;
     ctx.ws.plan = {
       generatedAt: nowIso(), generatedBy: lastUsedModel(),
       nextAction: (() => {
@@ -1663,8 +1665,12 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       careers: (out.careers || []).slice(0, 4).map((c: any) => ({ id: uid("cp"), title: String(c.title), what: String(c.what || ""), fit: (c.fit || []).map(String), gaps: (c.gaps || []).map(String), steps: (c.steps || []).map(String) })),
       skills: (out.skills || []).slice(0, 8).map((s: any) => ({ id: uid("sk"), name: String(s.name), type: ["skill", "certification", "course"].includes(s.type) ? s.type : "skill", why: String(s.why || ""), verify: String(s.verify || "Illustrative suggestion") })),
       academic: (out.academic || []).slice(0, 4).map((a: any) => ({ id: uid("ac"), term: String(a.term), items: (a.items || []).map(String), note: String(a.note || "Illustrative — confirm with your academic advisor.") })),
-      chosenCareerId: ctx.ws.plan?.chosenCareerId,
+      chosenCareerId: undefined as string | undefined,
     };
+    // Refreshing gives every direction a new id: the student's pick carries over when the same direction comes back.
+    const back = pickedTitle ? ctx.ws.plan.careers.find((c) => c.title.toLowerCase() === pickedTitle.toLowerCase()) : undefined;
+    if (back) ctx.ws.plan.chosenCareerId = back.id;
+    else delete ctx.ws.plan.chosenCareerId;
     await ctx.save();
     res.json(ctx.ws);
   }));

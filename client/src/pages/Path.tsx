@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Compass, HelpCircle, Plus, RotateCcw, Search, Sparkles, Trash2, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowRight, Check, Compass, HelpCircle, Plus, RotateCcw, Search, Sparkles, Trash2, TrendingDown, TrendingUp } from "lucide-react";
 import { FIELD_GROUPS } from "@shared/fields";
 import { NEED_LABEL, ROADS, roadFor, YEARS, yearNumber } from "@shared/roads";
 import type { PathPlan, Task, Workspace } from "@shared/types";
 import { api, fmtDate, rid, useStore } from "../lib/store";
 import { go } from "../lib/router";
+import { useJobs } from "../lib/jobs";
+import { shownForRole } from "@shared/roleMatch";
 import { AiUnavailableNote, Empty, Remy, Spinner } from "../components/common";
 
 type Tab = "academic" | "career" | "skills" | "future" | "road";
@@ -48,15 +50,13 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
       ) : w.plan && !busy ? (
         <>
           <p className="xs muted">Made {fmtDate(w.plan.generatedAt)}. Changing your profile won't silently rewrite this — refresh when you're ready.</p>
-          {tab === "career" && unsure && <Explore above />}
-          {tab === "career" && <Careers plan={w.plan} />}
+          {tab === "career" && <Directions plan={w.plan} unsure={unsure} />}
           {(tab === "skills" || tab === "academic") && <><Skills plan={w.plan} /><YourTerms plan={w.plan} /></>}
 
         </>
       ) : null}
-      {/* Directions built from the student's own resume come first; general exploration follows. A student who said
-          they're not sure what they want gets "Start here" first instead (it was three screens down). */}
-      {tab === "career" && (!unsure || !(w.plan && !busy)) && <Explore />}
+      {/* No path yet: exploring by major still works. */}
+      {tab === "career" && !(w.plan && !busy) && <div className="card card-pad"><Explore /></div>}
     </>
   );
 }
@@ -69,52 +69,99 @@ function useAddTask() {
   };
 }
 
-function Careers({ plan }: { plan: PathPlan }) {
+/** Career exploration (owner feedback #61, Nov 19-20: the three tall cards "didn't do anything", and "not sure" sat in a
+ *  dropdown at the bottom). Directions are short rows with real numbers (openings Remy shows for that kind of job,
+ *  steps done); the one picked opens beside them. "Not sure" is a row like the others and opens the same way. */
+function Directions({ plan, unsure }: { plan: PathPlan; unsure: boolean }) {
   const { ws, save, run } = useStore();
+  const w = ws!;
+  const { jobs, fits } = useJobs();
   const add = useAddTask();
+  // A pick from before "Refresh suggestions" may name a direction that's gone: then nothing is picked.
+  const chosenId = plan.careers.some((x) => x.id === plan.chosenCareerId) ? plan.chosenCareerId : undefined;
+  const [sel, setSel] = useState<string>(() => (unsure && !chosenId ? "explore" : chosenId || plan.careers[0]?.id || "explore"));
+  const panel = useRef<HTMLDivElement>(null);
+  const open = (id: string) => { setSel(id); if (window.innerWidth < 900) setTimeout(() => panel.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50); };
+  const shown = (title: string) => (jobs ? shownForRole(title, jobs, fits, w.hiddenJobIds) : null);
+  const task = (s: string) => w.tasks.find((t) => t.title === s);
   // The toast says exactly what happened: which jobs Remy now searches for and how many steps were added.
   const choose = (id?: string) => {
     const c = plan.careers.find((x) => x.id === id);
-    const added = c && ws ? c.steps.filter((s) => !ws.tasks.some((t) => t.title === s)).slice(0, 3).length : 0;
+    const added = c ? c.steps.filter((s) => !task(s)).slice(0, 3).length : 0;
     return run(() => pick(id), c ? `Remy will now look for ${c.title} openings${added ? ` · ${added} step${added > 1 ? "s" : ""} added to your to-dos` : ""}` : "Removed from your search picks. Your target roles stay as they are (edit them in Profile)");
   };
   const pick = async (id?: string) => {
     const c = plan.careers.find((x) => x.id === id);
-    if (c && ws) {
+    if (c) {
       // Choosing a direction does something: Remy searches for it, and its next steps go on the to-do list.
-      const roles = ws.profile.targetRoles.split(/,\s*/).filter(Boolean);
-      if (!roles.some((r) => r.toLowerCase() === c.title.toLowerCase())) await save("profile", { ...ws.profile, targetRoles: [...roles, c.title].join(", ") });
-      const have = new Set(ws.tasks.map((t) => t.title));
-      const steps = c.steps.filter((s) => !have.has(s)).slice(0, 3);
-      if (steps.length) await save("tasks", [...steps.map((title) => ({ id: rid("t"), title, why: `Step toward ${c.title}`, due: "", category: "Explore" as const, done: false, source: "Added from My Path" })), ...ws.tasks]);
+      const roles = w.profile.targetRoles.split(/,\s*/).filter(Boolean);
+      if (!roles.some((r) => r.toLowerCase() === c.title.toLowerCase())) await save("profile", { ...w.profile, targetRoles: [...roles, c.title].join(", ") });
+      const steps = c.steps.filter((s) => !task(s)).slice(0, 3);
+      if (steps.length) await save("tasks", [...steps.map((title) => ({ id: rid("t"), title, why: `Step toward ${c.title}`, due: "", category: "Explore" as const, done: false, source: "Added from My Path" })), ...w.tasks]);
     }
     return save("plan", { ...plan, chosenCareerId: id });
   };
+  const c = plan.careers.find((x) => x.id === sel);
+  const roles = w.profile.targetRoles.split(/,\s*/).filter(Boolean);
+  const n = c ? shown(c.title) : null;
+  const picked = (id: string) => ({ borderColor: "var(--fox)", boxShadow: "0 0 0 1px var(--fox) inset", ...(id === "explore" ? { borderStyle: "solid" } : {}) });
   return (
     <section id="directions" className="stack">
-    <div className="stack-sm">
-      <h3 className="row"><Compass size={18} /> Directions that fit your resume</h3>
-      <p className="small muted">Pick one and Remy searches openings for that job and puts its first steps on your to-dos.</p>
-    </div>
-    <div className="grid-3" style={{ alignItems: "start" }}>
-      {plan.careers.map((c) => {
-        const chosen = plan.chosenCareerId === c.id;
-        return (
-          <div key={c.id} className="card card-pad stack" style={chosen ? { borderColor: "var(--plum)", boxShadow: "0 0 0 1px var(--plum) inset" } : undefined} data-testid="card-career">
-            <div className="row-between"><h3>{c.title}</h3>{chosen && <span className="chip"><Compass size={12} /> In your search</span>}</div>
-            <p className="small muted">{c.what}</p>
-            <div className="stack-sm"><span className="eyebrow">Fit · from your resume</span>{c.fit.map((f, i) => <span key={i} className="small row" style={{ alignItems: "flex-start", flexWrap: "nowrap" }}><Check size={14} className="pass" style={{ marginTop: 3 }} />{f}</span>)}</div>
-            <div className="stack-sm"><span className="eyebrow">Gaps</span>{c.gaps.map((f, i) => <span key={i} className="small">• {f}</span>)}</div>
-            <div className="stack-sm"><span className="eyebrow">Next steps · illustrative</span>
-              {c.steps.map((s, i) => (
-                <div key={i} className="row small" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}><span style={{ flex: 1 }}>{s}</span><button className="icon-btn" onClick={() => add(s, `Step toward ${c.title}`, "Explore")} aria-label="Add to to-dos" title="Add to to-dos"><Plus size={15} /></button></div>
-              ))}
-            </div>
-            <button className={"btn btn-sm " + (chosen ? "btn-secondary" : "btn-primary")} onClick={() => choose(chosen ? undefined : c.id)} data-testid="button-choose-career">{chosen ? "Remove from my search" : "Search for these jobs + add steps"}</button>
-          </div>
-        );
-      })}
-    </div>
+      <div className="stack-sm">
+        <h3 className="row"><Compass size={18} /> Where your resume can take you</h3>
+        <p className="small muted">Pick a direction: Remy searches openings for it and puts its first steps on your to-dos. Tap one to see why it fits.</p>
+      </div>
+      <div className="dir-grid">
+        <div className="stack-sm">
+          {plan.careers.map((x) => {
+            const count = shown(x.title)?.length, chosen = chosenId === x.id;
+            // Remy searches the student's target roles (Profile), so a direction already there has been searched.
+            const searched = chosen || roles.some((r) => r.toLowerCase() === x.title.toLowerCase());
+            const done = x.steps.filter((s) => task(s)?.done).length;
+            return (
+              <button key={x.id} className="card card-pad stack-sm dir-row" aria-pressed={sel === x.id} onClick={() => open(x.id)} style={sel === x.id ? picked(x.id) : undefined} data-testid="card-career">
+                <div className="row-between" style={{ gap: 8 }}><b>{x.title}</b>{chosen && <span className="chip chip-live"><Check size={12} /> In your search</span>}</div>
+                {x.fit[0] && <span className="xs muted">{x.fit[0]}</span>}
+                <div className="row" style={{ gap: 6 }}>
+                  {/* 0 for a direction Remy was never asked to search says nothing about the job market: say so instead. */}
+                  {count !== undefined && <span className="chip chip-plain" data-testid="dir-openings">{count || searched ? `${count} opening${count === 1 ? "" : "s"} now` : "Not searched yet"}</span>}
+                  {chosen ? <span className="chip chip-plain">{done} of {x.steps.length} step{x.steps.length === 1 ? "" : "s"} done</span> : x.gaps.length > 0 && <span className="chip chip-plain">{x.gaps.length} gap{x.gaps.length === 1 ? "" : "s"}</span>}
+                </div>
+              </button>
+            );
+          })}
+          <button className="card card-pad stack-sm dir-row" aria-pressed={sel === "explore"} onClick={() => open("explore")} style={{ borderStyle: "dashed", ...(sel === "explore" ? picked("explore") : {}) }} data-testid="dir-explore">
+            <b className="row"><HelpCircle size={16} /> None of these, or not sure yet?</b>
+            <span className="xs muted">See the jobs your major leads to most, or ask what any job is like.</span>
+          </button>
+        </div>
+        <div ref={panel} className="card card-pad stack" data-testid="dir-panel">
+          {c ? (
+            <>
+              <div className="stack-sm" style={{ gap: 4 }}><h2 style={{ margin: 0 }}>{c.title}</h2><span className="small muted">{c.what}</span></div>
+              <div className="grid-2" style={{ alignItems: "start" }}>
+                <div className="stack-sm"><span className="eyebrow">Why it fits you · from your resume</span>{c.fit.map((f, i) => <span key={i} className="small row" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}><Check size={14} className="pass" style={{ marginTop: 3, flex: "none" }} />{f}</span>)}</div>
+                {c.gaps.length > 0 && <div className="stack-sm"><span className="eyebrow">What's missing</span>{c.gaps.map((f, i) => <span key={i} className="small">• {f}</span>)}</div>}
+              </div>
+              <div className="stack-sm"><span className="eyebrow">First steps · suggested</span>
+                {c.steps.map((s, i) => { const t = task(s); return (
+                  <div key={i} className="row small" style={{ flexWrap: "nowrap", alignItems: "flex-start", gap: 8 }} data-testid="dir-step">
+                    <span style={{ flex: "none", marginTop: 2 }}>{t?.done ? <Check size={15} className="pass" /> : <span className="dir-box" />}</span>
+                    <span style={{ flex: 1 }}>{s}</span>
+                    {t ? <span className="xs muted" style={{ flex: "none" }}>{t.done ? "Done" : "On your to-dos"}</span> : <button className="icon-btn" onClick={() => add(s, `Step toward ${c.title}`, "Explore")} aria-label="Add to to-dos" title="Add to to-dos"><Plus size={15} /></button>}
+                  </div>); })}
+              </div>
+              <div className="row" style={{ gap: 8 }}>
+                {chosenId === c.id
+                  ? <><button className="btn btn-primary" onClick={() => go(`/opportunities?role=${encodeURIComponent(c.title)}`)} data-testid="button-see-openings">{n?.length ? `See ${n.length} opening${n.length === 1 ? "" : "s"}` : "See openings"} <ArrowRight size={15} /></button>
+                     <button className="btn btn-ghost" onClick={() => choose(undefined)} data-testid="button-choose-career">Remove from my search</button></>
+                  : <button className="btn btn-primary" onClick={() => choose(c.id)} data-testid="button-choose-career">Search for these jobs + add steps</button>}
+              </div>
+              {chosenId === c.id && n?.length === 0 && <span className="xs muted">None in your openings yet. Remy looks for {c.title} openings about once a day; new ones show up here and on Opportunities.</span>}
+            </>
+          ) : <Explore />}
+        </div>
+      </div>
     </section>
   );
 }
@@ -289,11 +336,10 @@ type Explained = { title: string; known?: boolean; what: string; day: string[]; 
 const facts = (o: FutureOcc) => [o.wage ? `$${o.wage.toLocaleString("en-US")} median pay` : "", o.openings ? `about ${Math.round(o.openings * 1000).toLocaleString("en-US")} openings a year` : "", o.change ? `${o.change > 0 ? "+" : ""}${o.change}% by 2035` : "", o.education].filter(Boolean).join(" · ");
 
 /** For students who have a major but no idea what jobs it leads to, or who've heard a job title but don't know what the work is. */
-function Explore({ above = false }: { above?: boolean }) {
+function Explore() {
   const { ws, save, run, config } = useStore();
   const p = ws!.profile;
   const [browse, setBrowse] = useState("");
-  const browseRef = useRef<HTMLDetailsElement>(null); // opened by the student or by picking an area; never closed for them
   const [data, setData] = useState<{ field: string; jobs: FutureOcc[] }[] | null>(null);
   const [open, setOpen] = useState<Explained | null>(null);
   const [asking, setAsking] = useState("");
@@ -313,11 +359,10 @@ function Explore({ above = false }: { above?: boolean }) {
   const want = (title: string) => roles.some((r) => r.toLowerCase() === title.toLowerCase());
   const addRole = (title: string) => run(() => save("profile", { ...p, targetRoles: [...roles, title].join(", ") }), `Remy will look for ${title} openings too`);
   return (
-    <div className="card card-pad stack" data-testid="explore-careers">
-      <div className="stack-sm">
-        <h3 className="row"><HelpCircle size={18} /> Not sure what you want to do? Start here</h3>
-        {ws!.plan?.careers.length ? <button className="xs" style={{ alignSelf: "flex-start", color: "var(--fox)", fontWeight: 700, padding: 0 }} onClick={() => document.getElementById("directions")?.scrollIntoView({ behavior: "smooth" })} data-testid="link-directions">See {ws!.plan.careers.length === 1 ? "the direction" : `the ${ws!.plan.careers.length} directions`} Remy suggests for you {above ? "↓" : "↑"}</button> : null}
-        <p className="small muted">{browse ? `Jobs in ${browse.toLowerCase()} that hire the most people.` : p.major ? `Jobs people with your major (${p.major}) often go into, the ones that hire the most first.` : "Open “Browse jobs by major” below and pick an area."} Tap one to see what the work is really like.</p>
+    <div className="stack" data-testid="explore-careers">
+      <div className="stack-sm" style={{ gap: 4 }}>
+        <h2 style={{ margin: 0 }}>{browse ? `Jobs in ${browse.toLowerCase()}` : "Jobs your major leads to"}</h2>
+        <p className="small muted">{browse ? `The ones that hire the most people first.` : p.major ? `Jobs people with your major (${p.major}) often go into, the ones that hire the most first.` : "Pick an area below."} Tap one to see what the work is really like.</p>
       </div>
       <form className="row" onSubmit={(e) => { e.preventDefault(); if (typed.trim().length > 2) explain(typed.trim()); }}>
         <input className="input grow" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Heard of a job but not sure what it is? e.g. actuary, UX researcher" aria-label="Job title to explain" data-testid="input-explain" />
@@ -339,8 +384,7 @@ function Explore({ above = false }: { above?: boolean }) {
           </>}
         </div>
       )}
-      <details ref={browseRef} className="stack-sm" data-testid="browse-jobs">
-      <summary style={{ cursor: "pointer", fontWeight: 700 }}>Browse jobs by major{data ? ` (${data.reduce((n, f) => n + f.jobs.length, 0)})` : ""}</summary>
+      <div className="stack-sm" data-testid="browse-jobs">
       {data?.map((f) => (
         <div key={f.field} className="stack-sm" style={{ marginTop: 10 }}>
           <span className="eyebrow" style={{ textTransform: "capitalize" }}>{f.field}</span>
@@ -357,12 +401,12 @@ function Explore({ above = false }: { above?: boolean }) {
       <div className="stack-sm">
         {/* one grouped dropdown instead of ~70 small chips */}
         <label className="xs muted" htmlFor="browse-area">Browse another area</label>
-        <select id="browse-area" className="input" style={{ maxWidth: 360 }} value={browse} onChange={(e) => { setBrowse(e.target.value); if (browseRef.current) browseRef.current.open = true; }} data-testid="select-browse-area">
+        <select id="browse-area" className="input" style={{ maxWidth: 360 }} value={browse} onChange={(e) => setBrowse(e.target.value)} data-testid="select-browse-area">
           <option value="">My major</option>
           {FIELD_GROUPS.map(([g, opts]) => <optgroup key={g} label={g}>{opts.map((o) => <option key={o} value={o}>{o}</option>)}</optgroup>)}
         </select>
       </div>
-      </details>
+      </div>
     </div>
   );
 }
