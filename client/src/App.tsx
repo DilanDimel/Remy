@@ -310,7 +310,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
     setMsg("");
     // The exact screen (address + the tabs and switches selected on it), so "what is this?" gets an answer about what's
     // in front of them. Home and Opportunities use pressed switch buttons, not tabs.
-    const tabs = [...document.querySelectorAll(".main [role=tab][aria-selected=true], .main .seg [aria-pressed=true]")].map((t) => (t.textContent || "").trim()).filter(Boolean);
+    const tabs = [...document.querySelectorAll(".main [role=tab][aria-selected=true], .main .seg [aria-pressed=true]")].map((t) => (t.getAttribute("aria-label") || t.textContent || "").trim()).filter(Boolean);
     const w = await run(() => api<Workspace>("POST", "/api/ai/chat", { message: text, page, where: location.pathname + location.search, tabs }));
     if (w) setWs(w);
     setBusy(false);
