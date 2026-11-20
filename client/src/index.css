@@ -1177,3 +1177,9 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .game-win.ok .game-ico { background: #2f9e44; color: #fff; }
 .game-badge { gap: 4px; opacity: .45; font-weight: 700; }
 .game-badge.on { opacity: 1; background: var(--fox-soft); }
+
+/* My Path → Career exploration: direction rows beside the open one; stacked on phones (feedback #61). */
+.dir-grid { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 16px; align-items: start; }
+.dir-row { text-align: left; cursor: pointer; width: 100%; }
+.dir-box { display: inline-block; width: 13px; height: 13px; border: 1.5px solid var(--muted-text); border-radius: 4px; opacity: .6; }
+@media (max-width: 900px) { .dir-grid { grid-template-columns: 1fr; } }

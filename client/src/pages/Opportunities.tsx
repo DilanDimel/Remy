@@ -10,6 +10,7 @@ import { kindLabel, reloadJobs, sameOrg, useJobs } from "../lib/jobs";
 import { shortTitle } from "@shared/org";
 import { screeningFor } from "@shared/screening";
 import { postingSkills, skillsIn } from "@shared/requirements";
+import { isRoleOpening } from "@shared/roleMatch";
 import { Empty, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
 
 type Kind = "all" | "jobs" | "campus" | "event";
@@ -26,6 +27,8 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const field = w.profile.targetRoles || w.profile.major || "your field";
   const kind = (query.get("kind") as Kind) || "all";
   const focus = query.get("id");
+  // From My Path: only openings of that kind of job (same rule as the count there, shared/roleMatch.ts).
+  const role = query.get("role") || "";
   // From Home's "New openings" / "Saved openings that closed": those cards come first.
   const show = query.get("show"), since = query.get("since") || "";
   const pinned = (j: Job) => show === "new" ? (j.foundAt || "") > since
@@ -44,8 +47,8 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   useEffect(() => { try { localStorage.setItem("remy.opps", JSON.stringify({ savedOnly })); } catch {} }, [savedOnly]);
   // The best 10 first, then 10 more at a time (99 cards were 40 phone screens long); a new search or filter starts over.
   const [shown, setShown] = useState(10);
-  useEffect(() => { setShown(10); }, [kind, q, savedOnly, myRegions, showHidden, showIneligible]);
-  const setKind = (k: Kind) => go(`/opportunities?kind=${k}`);
+  useEffect(() => { setShown(10); }, [kind, q, savedOnly, myRegions, showHidden, showIneligible, role]);
+  const setKind = (k: Kind) => go(`/opportunities?kind=${k}${role ? `&role=${encodeURIComponent(role)}` : ""}`);
   const [finding, setFinding] = useState(false);
   // Dream employers with nothing in the list: say so instead of staying silent. Only once the list has loaded
   // and no search is running, so it never claims "nothing" about openings that are still on their way.
@@ -66,8 +69,10 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const base = (jobs || [])
     .filter((j) => matchKind(j, kind))
     .filter((j) => (showHidden ? true : !w.hiddenJobIds.includes(j.id)))
-    .filter((j) => !savedOnly || w.savedJobIds.includes(j.id))
-    .filter((j) => !q || `${j.title} ${j.company} ${j.location}`.toLowerCase().includes(q.toLowerCase()));
+    // From My Path the list is exactly what was counted there, so a remembered "Saved only" doesn't apply.
+    .filter((j) => !savedOnly || !!role || w.savedJobIds.includes(j.id))
+    .filter((j) => !q || `${j.title} ${j.company} ${j.location}`.toLowerCase().includes(q.toLowerCase()))
+    .filter((j) => !role || isRoleOpening(role, j));
   // Postings that definitely rule the student out are hidden; elsewhere-only ones too, if asked.
   const ineligible = base.filter((j) => fits[j.id]?.excluded);
   // Outside the student's places with no reason from their relocation answer: behind the "N more" link.
@@ -81,6 +86,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   return (
     <>
       {needsProfile && <div className="notice" data-testid="needs-profile">{needsProfile}</div>}
+      {role && <div className="notice row-between" data-testid="role-filter"><span>Showing {list.length} <b>{role}</b> opening{list.length === 1 ? "" : "s"}, from My Path.</span><button className="btn btn-ghost btn-sm" onClick={() => go("/opportunities")}>Show all openings</button></div>}
       {refreshing && <div className="notice" data-testid="openings-refreshing"><Spinner /> Remy is checking employers' career sites for new openings that fit you. They'll appear here in a moment.</div>}
       <div className="page-head">
         <div>
@@ -141,7 +147,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
       {!jobs ? <div className="stack">{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 120 }} />)}</div> : list.length ? (
         (() => {
           // A link to one opening (?id=) shows the list down to it.
-          const count = Math.max(shown, list.findIndex((j) => j.id === focus) + 1);
+          const count = role ? list.length : Math.max(shown, list.findIndex((j) => j.id === focus) + 1); // from My Path: all of them
           return (
             <div className="stack">
               {list.slice(0, count).map((j, i, shownList) => (
