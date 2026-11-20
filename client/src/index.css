@@ -1148,15 +1148,17 @@ ul[class] > li, ol[class] > li { max-width: none; }
 /* Remy's tutorial: four panels dim the page around one spot; the spot stays clickable, the bubble explains it. */
 .tour { position: fixed; inset: 0; z-index: 1000; pointer-events: none; }
 .save-status { z-index: 1001; } /* "Couldn't save… Retry" stays reachable above the tour */
-.tour-shade { position: fixed; pointer-events: auto; transition: all .25s ease; }
-.tour-spot { position: fixed; border-radius: 12px; box-shadow: 0 0 0 3px var(--fox), 0 0 0 9px rgba(232, 106, 42, 0.25); pointer-events: none; transition: all .25s ease; animation: tour-spot-pulse 1.6s ease-in-out infinite; }
+.tour-shade { position: fixed; pointer-events: auto; }
+.tour-spot { position: fixed; border-radius: 12px; box-shadow: 0 0 0 3px var(--fox), 0 0 0 9px rgba(232, 106, 42, 0.25); pointer-events: none; animation: tour-in .2s ease-out, tour-spot-pulse 1.6s ease-in-out .2s infinite; }
+/* Spot and bubble appear in place with a short fade; they don't glide (gliding across a page change looked like flicker). */
+@keyframes tour-in { from { opacity: 0; } }
 @keyframes tour-spot-pulse { 50% { box-shadow: 0 0 0 3px var(--fox), 0 0 0 15px rgba(232, 106, 42, 0.1); } }
-.tour-bubble { position: fixed; pointer-events: auto; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35); display: flex; flex-direction: column; gap: 10px; }
+.tour-bubble { position: fixed; pointer-events: auto; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35); display: flex; flex-direction: column; gap: 10px; animation: tour-in .2s ease-out; }
 .tour-bubble p { max-width: none; }
 .tour-dots { display: flex; gap: 4px; }
 .tour-dots i { flex: 1; height: 4px; border-radius: 2px; background: var(--line); }
 .tour-dots i.done { background: #2f8a5b; } .tour-dots i.on { background: var(--fox); }
-@media (prefers-reduced-motion: reduce) { .tour-spot, .tour-shade { animation: none; transition: none; } }
+@media (prefers-reduced-motion: reduce) { .tour-spot, .tour-bubble { animation: none; } }
 
 /* Career quest (owners only while tested) */
 .game-side { margin: 0 10px 10px; padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); text-align: left; width: calc(100% - 20px); color: var(--ink); }
