@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   BarChart3, Briefcase, CalendarDays, ChevronsLeft, ChevronsRight, Compass, FileText, Home as HomeIcon, Menu, Send,
   Check, Gauge, Info, Mic, Minus, ShieldCheck, UserCog, Users,
+  ImagePlus,
 } from "lucide-react";
 import { StoreProvider, api, rid, useDraft, useOwnerView, useStore, type Theme } from "./lib/store";
 import { go, replaceRoute, useRoute } from "./lib/router";
@@ -475,27 +476,68 @@ function ProfileMenu({ initials, active }: { initials: string; active: boolean }
   );
 }
 
-/** "Send feedback": a few words about what's confusing or broken; it lands in the owners' dashboard. */
+/** "Send feedback": a few words about what's confusing or broken; it lands in the owners' dashboard. A screenshot can
+ *  go with it (owner feedback #57): chosen or pasted, shrunk here first (longest side 1600px, JPEG). */
 function FeedbackModal({ onClose }: { onClose: () => void }) {
-  const { run } = useStore();
+  const { run, toast } = useStore();
   const { path } = useRoute();
   const [text, setText] = useDraft("feedback");
   const [busy, setBusy] = useState(false);
+  const [shot, setShot] = useState<{ blob: Blob; url: string } | null>(null);
+  const pick = useRef<HTMLInputElement>(null);
+  useEffect(() => () => { if (shot) URL.revokeObjectURL(shot.url); }, [shot]);
+  const attach = async (file?: File | null) => {
+    if (!file) return;
+    if (!/^image\/(png|jpe?g|webp|gif|bmp)$/i.test(file.type)) { toast("Attach an image (a screenshot), like a PNG or JPG."); return; }
+    const blob = await shrink(file).catch(() => null);
+    if (!blob) { toast("Remy couldn't read that image. Try another screenshot."); return; }
+    setShot({ blob, url: URL.createObjectURL(blob) });
+  };
   const send = async () => {
     setBusy(true);
-    const ok = await run(() => api("POST", "/api/feedback", { message: text, page: path }), "Thanks! The Remy team reads every note.");
+    let body: unknown = { message: text, page: path };
+    if (shot) { const fd = new FormData(); fd.append("message", text); fd.append("page", path); fd.append("file", shot.blob, "screenshot.jpg"); body = fd; }
+    const ok = await run(() => api("POST", "/api/feedback", body), "Thanks! The Remy team reads every note.");
     setBusy(false);
-    if (ok) { setText(""); onClose(); }
+    if (ok) { setText(""); setShot(null); onClose(); }
   };
   return (
     <Modal title="Send feedback" onClose={onClose}>
       <div className="stack-sm">
-        <p className="small muted">Something confusing, broken, or missing? Tell the Remy team in a sentence or two. It's sent with the page you're on, not your resume or chats.</p>
-        <textarea className="textarea" autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. I couldn't find where to change my graduation date" aria-label="Your feedback" style={{ minHeight: 110 }} data-testid="input-feedback" />
-        <div className="row-between"><button className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button><button className="btn btn-primary btn-sm" onClick={send} disabled={busy || text.trim().length < 3} data-testid="button-send-feedback">{busy ? <Spinner /> : null} Send</button></div>
+        <p className="small muted">Something confusing, broken, or missing? Tell the Remy team in a sentence or two. It's sent with the page you're on, not your resume or chats (unless a screenshot you add shows them).</p>
+        <textarea className="textarea" autoFocus value={text} onChange={(e) => setText(e.target.value)} onPaste={(e) => { const f = [...e.clipboardData.files].find((x) => x.type.startsWith("image/")); if (f && !e.clipboardData.getData("text/plain")) { e.preventDefault(); attach(f); } }} placeholder="e.g. I couldn't find where to change my graduation date" aria-label="Your feedback" style={{ minHeight: 110 }} data-testid="input-feedback" />
+        {shot ? (
+          <div className="row" style={{ gap: 10, alignItems: "flex-start", flexWrap: "nowrap" }} data-testid="feedback-shot">
+            <img src={shot.url} alt="Your screenshot" style={{ maxWidth: 160, maxHeight: 110, borderRadius: 8, border: "1px solid var(--line)", objectFit: "cover" }} />
+            <div className="stack-sm" style={{ gap: 4 }}><span className="xs muted">Screenshot attached. Only the Remy team sees it.</span><button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setShot(null)} data-testid="button-remove-shot">Remove</button></div>
+          </div>
+        ) : (
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => pick.current?.click()} data-testid="button-add-shot"><ImagePlus size={15} /> Add a screenshot</button>
+            <span className="xs muted">Optional. You can also paste one into the box. Only the Remy team sees it.</span>
+            <input ref={pick} type="file" accept="image/*" hidden onChange={(e) => { attach(e.target.files?.[0]); e.target.value = ""; }} data-testid="input-shot" />
+          </div>
+        )}
+        <div className="row-between"><button className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button><button className="btn btn-primary btn-sm" onClick={send} disabled={busy || text.trim().length < 3} data-testid="button-send-feedback">{busy && <Spinner />} Send</button></div>
       </div>
     </Modal>
   );
+}
+
+/** A screenshot as a JPEG no wider or taller than 1600px, small enough to send (the server takes up to 2 MB). */
+async function shrink(file: File): Promise<Blob> {
+  const img = await createImageBitmap(file);
+  const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); // transparent PNGs get a white background, not black
+  g.drawImage(img, 0, 0, c.width, c.height);
+  for (const q of [0.85, 0.7, 0.5]) {
+    const b = await new Promise<Blob | null>((r) => c.toBlob(r, "image/jpeg", q));
+    if (b && b.size <= 1_900_000) return b;
+  }
+  throw new Error("too large");
 }
 
 /** Owners only: switch between owner view (Career quest, owner notes, the dashboard link) and seeing Remy exactly as a

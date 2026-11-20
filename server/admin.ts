@@ -36,12 +36,19 @@ const MESSAGE_MAX = 1000;
 /** Errors thrown by a visitor's browser extension (crypto wallets, ad blockers), not by Remy. */
 export const fromExtension = (stack: string) => /(chrome|moz|safari-web)-extension:\/\//.test(stack || "");
 /** Saves an error a student hit. Kept 60 days. */
-export async function recordError(kind: "browser" | "server" | "feedback", place: string, message: string, detail = "", userId = "") {
+/** Saves a report; returns its id (a feedback screenshot is stored under it), or undefined if it couldn't be saved. */
+export async function recordError(kind: "browser" | "server" | "feedback", place: string, message: string, detail = "", userId = ""): Promise<number | undefined> {
   try {
-    await q("INSERT INTO error_reports (kind, place, message, detail, user_id) VALUES ($1, $2, $3, $4, $5)", [kind, cut(place, 200), cut(message, MESSAGE_MAX), cut(detail, 2000), cut(userId, 80)]);
-    if (Math.random() < 0.02) await q("DELETE FROM error_reports WHERE at < now() - interval '60 days'");
+    const r = await q1("INSERT INTO error_reports (kind, place, message, detail, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING id", [kind, cut(place, 200), cut(message, MESSAGE_MAX), cut(detail, 2000), cut(userId, 80)]);
+    if (Math.random() < 0.02) {
+      await q("DELETE FROM error_reports WHERE at < now() - interval '60 days'");
+      // Screenshots go with their feedback note.
+      await q("DELETE FROM files WHERE kind LIKE 'feedback:%' AND NOT EXISTS (SELECT 1 FROM error_reports e WHERE 'feedback:' || e.id = files.kind)");
+    }
+    return r ? Number(r.id) : undefined;
   } catch (e: any) {
     console.error("could not record error", e?.message);
+    return undefined;
   }
 }
 
@@ -168,7 +175,9 @@ export async function errors() {
      FROM error_reports e WHERE fixed_at IS NULL AND kind <> 'feedback' AND at > now() - interval '30 days' GROUP BY message, kind ORDER BY MAX(at) DESC LIMIT 30`,
   );
   // What students wrote with "Send feedback": one row each, until someone marks it handled.
-  const feedback = await q("SELECT id, at, place, message, detail AS email FROM error_reports WHERE kind = 'feedback' AND fixed_at IS NULL ORDER BY at DESC LIMIT 200");
+  const feedback = await q(`SELECT e.id, e.at, e.place, e.message, e.detail AS email,
+     EXISTS (SELECT 1 FROM files f WHERE f.user_id = e.user_id AND f.kind = 'feedback:' || e.id) AS shot
+     FROM error_reports e WHERE e.kind = 'feedback' AND e.fixed_at IS NULL ORDER BY e.at DESC LIMIT 200`);
   const fixed = await q(
     `SELECT message, kind, MAX(fixed_at) AS fixed_at, MAX(fixed_by) AS fixed_by, COUNT(*)::int AS times
      FROM error_reports WHERE fixed_at > now() - interval '30 days' GROUP BY message, kind ORDER BY MAX(fixed_at) DESC LIMIT 15`,
@@ -177,8 +186,10 @@ export async function errors() {
 }
 /** Marks every open report of one error as fixed. If it happens again, it shows up as open again. */
 export async function fixError(me: string, message: string, kind: string) {
-  const r = await q1("WITH u AS (UPDATE error_reports SET fixed_at = now(), fixed_by = $3 WHERE message = $1 AND kind = $2 AND fixed_at IS NULL RETURNING 1) SELECT COUNT(*)::int AS n FROM u", [cut(message, MESSAGE_MAX), cut(kind, 20), me]);
-  if (r?.n) await log(me, kind === "feedback" ? "Handled feedback" : "Marked an error fixed", message);
+  const rows = await q("UPDATE error_reports SET fixed_at = now(), fixed_by = $3 WHERE message = $1 AND kind = $2 AND fixed_at IS NULL RETURNING id, user_id", [cut(message, MESSAGE_MAX), cut(kind, 20), me]);
+  // A handled note's screenshot goes too: it may show the student's resume or chats, and nobody needs it any more.
+  for (const r of kind === "feedback" ? rows : []) if (r.user_id) await q("DELETE FROM files WHERE user_id = $1 AND kind = $2", [r.user_id, `feedback:${r.id}`]);
+  if (rows.length) await log(me, kind === "feedback" ? "Handled feedback" : "Marked an error fixed", message);
 }
 
 // ---------- the team ----------
