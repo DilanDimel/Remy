@@ -2578,9 +2578,29 @@ Return JSON:
   }));
 
   // ---------- data controls ----------
+  // "Download my data": everything Remy stores about the student (the Privacy page promises all of it): account,
+  // workspace, uploaded files (resume, photo, feedback screenshots; base64), their feedback and error reports, AI use,
+  // their beta application and beta-list dates, and whether Google Calendar is connected. Left out on purpose:
+  // sign-in secrets (session and code hashes, the calendar refresh token) and the team's private notes about them.
   app.get("/api/export/data", route(async (_req, res, ctx) => {
+    // Up to ~20 MB per download (files as base64): a few an hour is plenty (skeptic review).
+    if (!allow("export:" + ctx.me.id, 5, 60 * 60_000)) bad("You've downloaded your data a few times just now. Please try again in an hour.", 429);
+    const id = ctx.me.id;
+    const user = await q1("SELECT id, kind, email, name, picture, created_at, school_email, school_email_at FROM users WHERE id = $1", [id]);
+    const email = String(user?.email || "").trim().toLowerCase();
+    const files = (await q("SELECT kind, name, mime, at, data FROM files WHERE user_id = $1 ORDER BY at", [id]))
+      .map((f: any) => ({ kind: f.kind, name: f.name, mime: f.mime, at: f.at, base64: Buffer.from(f.data).toString("base64") }));
+    const notes = await q("SELECT kind, at, place, message, fixed_at FROM error_reports WHERE user_id = $1 ORDER BY at", [id]);
+    const ai = await q1("SELECT COUNT(*)::int AS calls, MIN(at) AS first, MAX(at) AS last FROM ai_usage WHERE user_id = $1", [id]);
+    const application = email ? await q1(`SELECT email, name, school, major, class_year, goal, stuck, tools, feedback, source, terms, status, received_at, decided_at
+      FROM beta_applications WHERE lower(email) = $1`, [email]) : null;
+    const betaList = email ? await q1("SELECT email, added_at, invited_at FROM beta_list WHERE lower(email) = $1", [email]) : null;
+    const calendar = await q1("SELECT calendar_id, tz, connected_at FROM google_calendar WHERE user_id = $1", [id]);
     res.setHeader("Content-Disposition", 'attachment; filename="remy-my-data.json"');
-    res.json({ exportedAt: nowIso(), account: ctx.me, workspace: ctx.ws });
+    res.json({
+      exportedAt: nowIso(), account: user || ctx.me, workspace: ctx.ws, files, feedbackAndErrorReports: notes,
+      aiUsage: ai, betaApplication: application, betaList, googleCalendar: calendar ? { connected: true, ...calendar } : { connected: false },
+    });
   }));
   // Deletes everything Remy stores about the student — workspace, files, AI usage,
   // sessions and the account record — and signs them out.
