@@ -68,4 +68,8 @@ test("feedback screenshot: saved with the note, owners can open it, students can
   const fix = await fetch(base + "/api/admin/errors/fix", { method: "POST", headers: { Cookie: founder, "Content-Type": "application/json" }, body: JSON.stringify({ message: "Screenshot note number 4", kind: "feedback" }) });
   assert.equal(fix.status, 200);
   assert.equal(await shots(), 2);
+  // The team log keeps a reference, not the student's words (those leave with the account).
+  const logged = await q1("SELECT detail FROM team_activity WHERE action = 'Handled feedback' ORDER BY at DESC LIMIT 1");
+  assert.match(logged.detail, /^note #\d+ on \/resume$/);
+  assert.ok(!logged.detail.includes("Screenshot note number 4"));
 });

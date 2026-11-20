@@ -239,15 +239,18 @@ export async function editWorkspace(userId: string, edit: (ws: Workspace) => voi
   });
 }
 export async function deleteAccount(userId: string) {
-  const email = String((await q1("SELECT email FROM users WHERE id=$1", [userId]))?.email || "").trim().toLowerCase();
+  const u = await q1("SELECT email, school_email FROM users WHERE id=$1", [userId]);
+  const email = String(u?.email || "").trim().toLowerCase();
+  // Also the verified school email: a beta application made with it goes too, even when they sign in with Gmail.
+  const emails = [...new Set([email, String(u?.school_email || "").trim().toLowerCase()].filter(Boolean))];
   await tx(async (run) => {
     // Everything that identifies the student: their feedback and error reports, and (by email) their Founding Cohort
     // application and place on the beta list, so "Delete everything" leaves nothing behind.
     await run("DELETE FROM error_reports WHERE user_id=$1", [userId]);
-    if (email) {
-      await run("DELETE FROM beta_applications WHERE lower(email)=$1", [email]);
-      await run("DELETE FROM beta_list WHERE lower(email)=$1", [email]);
-      await run("DELETE FROM signin_codes WHERE lower(email)=$1", [email]);
+    for (const e of emails) {
+      await run("DELETE FROM beta_applications WHERE lower(email)=$1", [e]);
+      await run("DELETE FROM beta_list WHERE lower(email)=$1", [e]);
+      await run("DELETE FROM signin_codes WHERE lower(email)=$1", [e]);
     }
     await run("DELETE FROM workspaces WHERE user_id=$1", [userId]);
     await run("DELETE FROM files WHERE user_id=$1", [userId]);

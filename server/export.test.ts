@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import express from "express";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { createSession, emptyWorkspace, ensureUser, saveFile, saveWorkspace } from "./db";
+import { createSession, deleteAccount, emptyWorkspace, ensureUser, saveFile, saveWorkspace } from "./db";
 import { registerRoutes } from "./routes";
 import { q } from "./sql";
 
@@ -30,6 +30,10 @@ test("data export: account, workspace, files, feedback, AI use, calendar link; n
   await q("INSERT INTO error_reports (kind, place, message, detail, user_id) VALUES ('feedback', '/resume', 'Export test note', 'export.student@export.test', $1)", [id]);
   await q("INSERT INTO google_calendar (user_id, refresh, calendar_id) VALUES ($1, 'SECRET-REFRESH-TOKEN', 'cal-1') ON CONFLICT (user_id) DO NOTHING", [id]);
 
+  // Applied to the beta with the verified school email, signs in with another address.
+  await q("UPDATE users SET school_email = 'ex.port@school.test', school_email_at = now() WHERE id = $1", [id]);
+  await q("INSERT INTO beta_applications (email, name, goal) VALUES ('ex.port@school.test', 'Ex Port', 'An internship') ON CONFLICT (email) DO NOTHING");
+
   const r = await fetch(base + "/api/export/data", { headers: { Cookie: cookie } });
   assert.equal(r.status, 200);
   assert.match(r.headers.get("content-disposition") || "", /remy-my-data\.json/);
@@ -42,6 +46,7 @@ test("data export: account, workspace, files, feedback, AI use, calendar link; n
   assert.ok(d.feedbackAndErrorReports.some((n: any) => n.message === "Export test note"));
   assert.equal(d.googleCalendar.connected, true);
   assert.equal(typeof d.aiUsage.calls, "number");
+  assert.equal(d.betaApplications[0]?.goal, "An internship");
   // No sign-in secrets: not the calendar refresh token, not the session cookie or its hash.
   assert.ok(!raw.includes("SECRET-REFRESH-TOKEN"));
   assert.ok(!raw.includes(token));
@@ -53,4 +58,8 @@ test("data export: account, workspace, files, feedback, AI use, calendar link; n
   await q("INSERT INTO error_reports (kind, place, message, detail, user_id) VALUES ('feedback', '/', 'Someone else entirely', '', 'sb:export-other')");
   const again = await (await fetch(base + "/api/export/data", { headers: { Cookie: cookie } })).text();
   assert.ok(!again.includes("Someone else entirely") && !again.includes("other@export.test"));
+
+  // "Delete everything" also removes the application under the school email.
+  await deleteAccount(id);
+  assert.equal((await q("SELECT 1 FROM beta_applications WHERE email = 'ex.port@school.test'")).length, 0);
 });
