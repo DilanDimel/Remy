@@ -158,13 +158,10 @@ function BaseResume({ subParam }: { subParam: string | null }) {
       </>}
       {sub === "review" && <div className="stack" id="resume-review">
         <ResumeReview doc={doc} upd={upd} needsConfirm={w.resume.confirmedAt ? null : unverified} onEdit={() => setSub("edit")} />
-        {/* Always open (owner feedback, Nov 19: these matter too much to hide behind a click). */}
-        <div className="card card-pad stack" data-testid="resume-checks">
-          <div><b>More checks</b> <span className="small muted">What an application system reads from your file, and the proof behind your skills</span></div>
-          <div className="stack">
-            <AtsXray doc={doc} quality={w.resume.quality} upd={upd} />
-            <EvidencePassport doc={doc} memory={w.memory} />
-          </div>
+        {/* Core checks, shown like every other section (owner feedback, Nov 19-20: not "more", not behind a click). */}
+        <div className="stack" data-testid="resume-checks">
+          <AtsXray doc={doc} quality={w.resume.quality} upd={upd} />
+          <EvidencePassport doc={doc} memory={w.memory} />
         </div>
       </div>}
       {sub === "edit" && <>
