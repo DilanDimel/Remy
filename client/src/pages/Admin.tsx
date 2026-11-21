@@ -386,7 +386,7 @@ type Services = {
   errors: { server: number; browser: number };
   deploys: { available: false } | { available: true; error?: string; deploys?: { status: string; createdAt: string | null; finishedAt: string | null; message: string; commit: string }[] };
   ai: { available: false } | { available: true; error?: string; label?: string; freeTier?: boolean; usage?: number | null; limit?: number | null; remaining?: number | null; usageDaily?: number | null; usageWeekly?: number | null; usageMonthly?: number | null };
-  aiChain: { available: boolean; model: string; via: string };
+  aiChain: { available: boolean; model: string; via: string; ownerTrial?: string };
 };
 const money = (n?: number | null) => (n == null ? "—" : `$${n.toFixed(2)}`);
 /** Is the site healthy, which version is live, recent deploys, and how much AI money is left. Read-only. */
@@ -414,7 +414,7 @@ function ServicesTab() {
       </section>
       <section className="adm-card stack-sm">
         <h3>OpenRouter (AI)</h3>
-        <span className="small">AI is {d.aiChain.available ? "on" : "off"}: {d.aiChain.via} · {d.aiChain.model}</span>
+        <span className="small">AI is {d.aiChain.available ? "on" : "off"}: {d.aiChain.via} · {d.aiChain.model}{d.aiChain.ownerTrial ? <> · owners are trying <b>{d.aiChain.ownerTrial}</b> (private routing)</> : null}</span>
         {ai && !ai.error && <span className="small">Spent on this key: today {money(ai.usageDaily)} · this week {money(ai.usageWeekly)} · this month {money(ai.usageMonthly)} · all time {money(ai.usage)}{ai.freeTier ? " · free tier" : ""}</span>}
         <span className="xs muted">The whole account's balance (credits bought minus used) needs an OpenRouter management key, which can create and delete keys, so Remy doesn't hold one: see openrouter.ai/settings/credits. Overview also shows AI spend this week from Remy's own log.</span>
       </section>

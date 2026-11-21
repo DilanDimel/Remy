@@ -24,7 +24,7 @@ import { briefMessages, briefPrompt, cleanBrief, skillOriginQuestion } from "./b
 import { betterLetter, keptFixes, letterFixPrompt, rewriteFixPrompt } from "./tailorFix";
 import { BUZZ, assemblePitch, type PitchParts } from "./pitch";
 import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
-import { aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
+import { inOwnerTrial, runAiAs, aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./safety";
 import * as admin from "./admin";
 import * as beta from "./beta";
@@ -143,7 +143,8 @@ function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: 
       if (opts.serial) { const id = me.id; return await serially(id, () => route(fn)(req, res, next)); }
       const ws = await loadWorkspace(me.id);
       const ctx: Ctx = { me, ws, ip, save: sectionSaver(me, ws) };
-      await fn(req, res, ctx);
+      // Owners in owner view run the AI setup being trialled (OR_AI_CHAIN_OWNERS); students keep OR_AI_CHAIN.
+      await runAiAs(!!me.owner && ws.settings.ownerView !== false, () => fn(req, res, ctx) as Promise<unknown>);
     } catch (e: any) {
       if (e instanceof AiUnavailable) return res.status(503).json({ message: e.message, code: "ai-unavailable" });
       const status = e?.status || 500;
@@ -178,7 +179,7 @@ async function withAi<T>(ctx: Ctx, purpose: string, fn: () => Promise<T>): Promi
   const t = Date.now();
   try {
     const r = await fn();
-    markAiAuthFailure(false);
+    if (!inOwnerTrial()) markAiAuthFailure(false);
     logAi(ctx.ws, purpose, t, true);
     return r;
   } catch (e: any) {
@@ -186,7 +187,8 @@ async function withAi<T>(ctx: Ctx, purpose: string, fn: () => Promise<T>): Promi
     await ctx.save();
     if (e instanceof AiUnavailable) throw e;
     const st = Number(e?.status) || 0;
-    if (st === 401 || st === 403) markAiAuthFailure(true);
+    // An owner's trial setup failing its credentials must not mark AI as broken for every student.
+    if ((st === 401 || st === 403) && !inOwnerTrial()) markAiAuthFailure(true);
     if (st === 401 || st === 403) throw Object.assign(new Error("The AI service rejected this server's credentials. AI features are temporarily unavailable — everything else still works."), { status: 503, code: "ai-unavailable" });
     if (st === 402 || (st === 429 && /quota|daily limit|credits/i.test(String(e?.message)))) throw Object.assign(new Error("Today's AI allowance on this demo is used up. AI features come back automatically; everything else still works."), { status: 503, code: "ai-quota" });
     if (st === 429) throw Object.assign(new Error("The AI service is busy. Please try again in a minute."), { status: 503, code: "ai-busy" });

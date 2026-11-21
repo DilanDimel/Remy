@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { AI_SAFETY } from "./safety";
 
 // AI provider resolution, in order:
@@ -14,11 +15,11 @@ let lastModel = "";
 let lastVia = "";
 const exhausted = new Map<string, number>();
 const GEMINI_FALLBACKS = "gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-flash-latest,gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-flash-lite-latest,gemini-2.5-flash-lite";
-export const lastUsedModel = () => lastModel || model();
+export const lastUsedModel = () => aiScope.getStore()?.model || lastModel || model();
 // What the last AI call cost in US dollars, as OpenRouter reports it (other providers don't say).
 // shortcut: one value for the whole process, so two calls finishing together can swap costs; per-request tracking if exact billing matters.
 let lastSpend: number | undefined;
-export const lastCost = () => lastSpend;
+export const lastCost = () => { const st = aiScope.getStore(); return st ? st.spend : lastSpend; };
 let lastSources: { url: string; title: string }[] = [];
 /** Web pages the last answer cited (only web-search models like Perplexity Sonar return them). */
 export const lastCitations = () => lastSources;
@@ -49,7 +50,25 @@ function chainClient(p: string) {
   chainClients.set(p, c);
   return c;
 }
-function chain(spec = process.env.OR_AI_CHAIN): { p: string; m: string; c: OpenAI }[] {
+// Owners try new AI setups before students (redesign stage 1, Nov 21, 2026): while an owner's request runs, the
+// default chain is OR_AI_CHAIN_OWNERS (e.g. Claude Haiku 5.5, then Gemini) and OpenRouter calls carry the privacy rules.
+// Each web request runs in its own scope (routes.ts route()), which also holds the model and cost of that request's
+// last AI call, so a student's records never name a model an owner's request used at the same moment (skeptic, Nov 21).
+const aiScope = new AsyncLocalStorage<{ owner: boolean; model?: string; spend?: number }>();
+export const runAiAs = <T>(owner: boolean, fn: () => Promise<T>) => aiScope.run({ owner }, fn);
+export const inOwnerTrial = () => ownerTrial();
+const ownerTrial = () => !!aiScope.getStore()?.owner && !!process.env.OR_AI_CHAIN_OWNERS;
+const defaultChain = () => (ownerTrial() ? process.env.OR_AI_CHAIN_OWNERS : process.env.OR_AI_CHAIN);
+/** Student-data rules for OpenRouter (checked against its provider-routing docs, Nov 21): only zero-data-retention
+ *  endpoints, no providers that may store prompts, and only the providers chosen per model family, with no fallback to
+ *  others. Claude's zero-retention endpoint on OpenRouter is Amazon Bedrock; Gemini's are Google's own. */
+export function privacyRouting(model: string): Record<string, unknown> {
+  const order = model.startsWith("anthropic/") ? ["amazon-bedrock"] : model.startsWith("google/") ? ["google-ai-studio", "google-vertex"] : undefined;
+  return { zdr: true, data_collection: "deny", ...(order ? { order, allow_fallbacks: false } : {}) };
+}
+const privacyOn = () => ownerTrial() || process.env.OR_AI_PRIVACY === "on";
+
+function chain(spec = defaultChain()): { p: string; m: string; c: OpenAI }[] {
   return (spec || "")
     .split(",")
     .map((x) => x.trim())
@@ -60,7 +79,7 @@ function chain(spec = process.env.OR_AI_CHAIN): { p: string; m: string; c: OpenA
 
 function init() {
   if (client) return client;
-  const ch = chain();
+  const ch = chain(process.env.OR_AI_CHAIN); // students' chain decides whether AI is on; owners' trial rides on top
   if (ch.length) {
     client = ch[0].c;
     via = Array.from(new Set(ch.map((x) => PROVIDERS[x.p].label))).join(" → ");
@@ -95,7 +114,8 @@ export function markAiAuthFailure(failed: boolean) {
 export function aiStatus() {
   const c = init();
   const failed = authFailedAt > 0;
-  return { available: !!c && !failed, model: c ? model() : "", via: failed ? "Credentials rejected — needs setup" : via };
+  const trial = process.env.OR_AI_CHAIN_OWNERS ? chain(process.env.OR_AI_CHAIN_OWNERS)[0]?.m || "" : "";
+  return { available: !!c && !failed, model: c ? model() : "", via: failed ? "Credentials rejected — needs setup" : via, ...(trial ? { ownerTrial: trial } : {}) };
 }
 export function model() {
   const ch = chain();
@@ -148,8 +168,12 @@ export async function aiText(system: string, user: string, maxTokens = 1200, cha
     let lastErr: any;
     for (const { p, m, c } of steps) {
       const orr = p === "openrouter";
-      const key = p + ":" + m;
-      if ((exhausted.get(key) || 0) > Date.now() || (exhausted.get(p + ":*") || 0) > Date.now()) continue;
+      // Owners' private-routing calls and students' plain calls keep separate "this model is failing" records, so a
+      // failure under the owners' privacy rules never switches a model off for students (skeptic review, Nov 21).
+      const mode = privacyOn() ? "#private" : "";
+      const key = p + ":" + m + mode;
+      const anyKey = p + ":*" + mode;
+      if ((exhausted.get(key) || 0) > Date.now() || (exhausted.get(anyKey) || 0) > Date.now()) continue;
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
           const r: any = await c.chat.completions.create({
@@ -160,7 +184,7 @@ export async function aiText(system: string, user: string, maxTokens = 1200, cha
             ],
             // Thinking tokens count toward the limit; keep reasoning light and leave headroom.
             max_tokens: orr ? Math.max(1500, maxTokens * 2) : Math.max(2048, maxTokens * 3),
-            ...(orr ? { reasoning: { effort: "low" }, usage: { include: true } } : { reasoning_effort: "low" }),
+            ...(orr ? { reasoning: { effort: "low" }, usage: { include: true }, ...(privacyOn() ? { provider: privacyRouting(m) } : {}) } : { reasoning_effort: "low" }),
           } as any);
           const out = r.choices?.[0]?.message?.content ?? "";
           lastFinish = String(r.choices?.[0]?.finish_reason || "");
@@ -168,6 +192,8 @@ export async function aiText(system: string, user: string, maxTokens = 1200, cha
           lastModel = m;
           lastVia = PROVIDERS[p]?.label || "";
           lastSpend = typeof r.usage?.cost === "number" ? r.usage.cost : undefined;
+          const scope = aiScope.getStore();
+          if (scope) { scope.model = m; scope.spend = lastSpend; }
           const ann = (r.choices?.[0]?.message?.annotations || []).filter((a: any) => a?.type === "url_citation").map((a: any) => ({ url: String(a.url_citation?.url || ""), title: String(a.url_citation?.title || "") }));
           lastSources = ann.length ? ann : (Array.isArray(r.citations) ? r.citations : []).map((u: any) => ({ url: String(u), title: "" }));
           return out;
@@ -177,8 +203,8 @@ export async function aiText(system: string, user: string, maxTokens = 1200, cha
           // Which provider/model failed and why, so quota or key problems show up in the host's logs.
           console.warn(`AI ${p}:${m} failed — HTTP ${st || "?"}: ${String(e?.message || e).replace(/\s+/g, " ").slice(0, 220)}`);
           if (st === 400 && !ch0.length) throw e;
-          if (st === 401 || st === 403 || st === 400) { exhausted.set(p + ":*", Date.now() + 10 * 60_000); break; }
-          if (st === 402) { exhausted.set(p + ":*", Date.now() + 10 * 60_000); break; } // out of credits → next provider
+          if (st === 401 || st === 403 || st === 400) { exhausted.set(anyKey, Date.now() + 10 * 60_000); break; }
+          if (st === 402) { exhausted.set(anyKey, Date.now() + 10 * 60_000); break; } // out of credits → next provider
           if (st === 429) {
             const msg = String(e?.message || "") + JSON.stringify(e?.error || "");
             const h = /retry in (?:(\d+)h)?(?:(\d+)m)?(\d+(?:\.\d+)?)s/.exec(msg);
