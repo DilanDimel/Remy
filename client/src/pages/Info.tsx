@@ -72,7 +72,6 @@ export function About() {
             </figure>
           ))}
         </div>
-        <p className="small muted">Remy is an independent company. It isn't run by or affiliated with TCU or any other university.</p>
       </Section>
     </Page>
   );
