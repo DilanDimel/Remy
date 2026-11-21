@@ -1,5 +1,5 @@
 {
- "note": "Employers whose own career sites Remy reads live (Workday boards are tenant|wdN|site; Oracle host|site). Seeded from the open-source career-ops (MIT) and ever-jobs (MIT) lists, then Dallas-Fort Worth employers found from their careers pages on 2026-10-25; every board answered a live check; Texas school districts on Frontline AppliTrack added 2026-10-25; Dallas ISD (Taleo), Irving and Keller ISD (SchoolSpring) added 2026-10-26. \"metros\" (dfw, austin, houston) marks employers that hire in one Texas metro, so a student's own metro is read first. \"preview\": true entries (none right now) are read only for owners until they're checked on the live site. Austin and Houston districts plus Plains, Self Financial and Virtu added 2026-11-21.",
+ "note": "Employers whose own career sites Remy reads live (Workday boards are tenant|wdN|site; Oracle host|site). Seeded from the open-source career-ops (MIT) and ever-jobs (MIT) lists, then Dallas-Fort Worth employers found from their careers pages on 2026-10-25; every board answered a live check; Texas school districts on Frontline AppliTrack added 2026-10-25; Dallas ISD (Taleo), Irving and Keller ISD (SchoolSpring) added 2026-10-26. \"metros\" (dfw, austin, houston) marks employers that hire in one Texas metro, so a student's own metro is read first. \"preview\": true entries (none right now) are read only for owners until they're checked on the live site. Austin and Houston districts plus Plains, Self Financial and Virtu added 2026-11-21; Q2, Chevron and HNTB student sites, GlobalFoundries, Baker Hughes, Silicon Labs, Piper Sandler, Axiom Space and Corient added the same day after each board returned entry-level postings in its city.",
  "employers": [
   {
    "company": "Morgan Stanley",
@@ -1899,6 +1899,119 @@
    ],
    "metros": [
     "austin"
+   ]
+  },
+  {
+   "company": "Q2",
+   "ats": "workday",
+   "board": "q2ebanking|wd5|Q2",
+   "fields": [
+    "tech",
+    "finance",
+    "sales"
+   ],
+   "metros": [
+    "austin"
+   ]
+  },
+  {
+   "company": "Chevron (students)",
+   "ats": "workday",
+   "board": "chevron|wd5|University",
+   "fields": [
+    "energy",
+    "engineering",
+    "finance",
+    "accounting"
+   ],
+   "metros": [
+    "houston"
+   ]
+  },
+  {
+   "company": "GlobalFoundries",
+   "ats": "workday",
+   "board": "globalfoundries|wd1|External",
+   "fields": [
+    "engineering",
+    "tech",
+    "supply chain"
+   ],
+   "metros": [
+    "austin"
+   ]
+  },
+  {
+   "company": "Baker Hughes",
+   "ats": "workday",
+   "board": "bakerhughes|wd5|BakerHughes",
+   "fields": [
+    "energy",
+    "engineering",
+    "finance",
+    "supply chain"
+   ],
+   "metros": [
+    "houston"
+   ]
+  },
+  {
+   "company": "Silicon Labs",
+   "ats": "workday",
+   "board": "silabs|wd1|SiliconLabsCareers",
+   "fields": [
+    "engineering",
+    "tech"
+   ],
+   "metros": [
+    "austin"
+   ]
+  },
+  {
+   "company": "Piper Sandler",
+   "ats": "workday",
+   "board": "pipersandler|wd501|Piper_Sandler_Careers",
+   "fields": [
+    "finance"
+   ],
+   "metros": [
+    "houston"
+   ]
+  },
+  {
+   "company": "HNTB (students)",
+   "ats": "workday",
+   "board": "hntb|wd5|HNTB_University_Careers",
+   "fields": [
+    "engineering",
+    "construction"
+   ],
+   "metros": [
+    "austin",
+    "houston"
+   ]
+  },
+  {
+   "company": "Axiom Space",
+   "ats": "workday",
+   "board": "axiomspace|wd5|External_Career_Site",
+   "fields": [
+    "engineering",
+    "aviation"
+   ],
+   "metros": [
+    "houston"
+   ]
+  },
+  {
+   "company": "Corient",
+   "ats": "workday",
+   "board": "ci|wd3|CORIENT_EXTERNAL_CAREER-SITE",
+   "fields": [
+    "finance"
+   ],
+   "metros": [
+    "houston"
    ]
   }
  ]

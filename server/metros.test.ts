@@ -37,3 +37,7 @@ test("metros: 'Not for me' employers stay last even in the student's city; 'Anyw
   assert.deepEqual(preferMetros(list, "Dallas-Fort Worth", () => false, (e) => e.company === "Fort Worth ISD").map((e) => e.company), ["Plano ISD", "Deloitte", "Fort Worth ISD"]);
   assert.deepEqual(preferMetros(list, "Anywhere in Texas").map((e) => e.company), list.map((e) => e.company));
 });
+test("employers: the Nov 21 Austin/Houston companies are tagged with their city", () => {
+  for (const [c, m] of [["Q2", "austin"], ["GlobalFoundries", "austin"], ["Silicon Labs", "austin"], ["Chevron (students)", "houston"], ["Baker Hughes", "houston"], ["Piper Sandler", "houston"], ["Axiom Space", "houston"], ["Corient", "houston"], ["HNTB (students)", "houston"]] as const)
+    assert.ok(EMPLOYERS.find((e) => e.company === c)?.metros?.includes(m), c);
+});
