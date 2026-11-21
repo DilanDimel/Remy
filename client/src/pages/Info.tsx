@@ -32,8 +32,8 @@ function Page({ title, lead, children }: { title: string; lead: string; children
 const TEAM: { name: string; role: string; photo: string }[] = [
   { name: "Dilan Desman", role: "Technology lead", photo: "/team/dilan.jpg" },
   { name: "Ashton Wisecarver", role: "Brand, marketing & finance", photo: "" },
-  { name: "Lincoln Yoo", role: "Operations & partnerships", photo: "" },
-  { name: "Demetre Dondoladze", role: "Data & databases", photo: "" },
+  { name: "Lincoln Yoo", role: "Operations & partnerships", photo: "/team/lincoln.jpg" },
+  { name: "Demetre Dondoladze", role: "Data & databases", photo: "/team/demetre.jpg" },
   { name: "Julio Renovato", role: "Research & analytics", photo: "" },
 ];
 
