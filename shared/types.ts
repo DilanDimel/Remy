@@ -586,7 +586,7 @@ export interface Me {
 }
 export interface AppConfig {
   googleClientId: string | null;
-  ai: { available: boolean; model: string; via: string };
+  ai: { available: boolean; model: string; via: string; ownerTrial?: string };
   hosting: "preview" | "published" | "local";
   today: string;
   /** Supabase Auth, when configured: public URL + publishable key, and which sign-in providers are switched on. */
