@@ -56,7 +56,7 @@ import * as services from "./services";
 import { pruneOpenings, recordFound, recordCheck, listOpenings, openingsSummary } from "./openings";
 import { askedLength, keepAskedLength } from "./outreachAsk";
 import { noUpgrade } from "./noUpgrade";
-import { boardsFor, orderEmployers, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, isEmptyListing, refillEmpty, kindOf, USAJOBS } from "./sources";
+import { boardsFor, orderEmployers, preferMetros, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, isEmptyListing, refillEmpty, kindOf, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
 import { docxStyle, editResumeDocx } from "./docxEdit";
 import * as gcal from "./gcal";
@@ -321,18 +321,23 @@ function refreshAts(ws: Workspace, app: Application) {
 // "Find openings" button and by itself when the student opens Remy (see GET /api/jobs).
 /** Employers in Remy's directory that hire in the student's field: by their target roles when they named some (their
  *  real goal; "Welding Technology Certificate" would otherwise count every tech employer), else their major. */
-function fieldEmployers(ws: Workspace) {
+function fieldEmployers(ws: Workspace, directory: typeof EMPLOYERS) {
   const p = ws.profile;
   const wants = (p.targetRoles.trim() || p.major).toLowerCase();
-  return EMPLOYERS.filter((e) => (e.fields || []).some((f) => wants.includes(f) || FIELD_TITLES.some(([field, title]) => field.test(wants) && title.test(f))));
+  return directory.filter((e) => (e.fields || []).some((f) => wants.includes(f) || FIELD_TITLES.some(([field, title]) => field.test(wants) && title.test(f))));
 }
+
+/** The employers a search may read. Ones marked "preview" (new, being checked on the live site; Nov 21) are for owners in
+ *  owner view only: never read for, or counted toward, a student (skeptic review: the "N employers in your field" gap note). */
+const directoryFor = (ctx: Ctx) => (ctx.me.owner && ctx.ws.settings.ownerView !== false ? EMPLOYERS : EMPLOYERS.filter((e) => !e.preview));
 
 async function findOpenings(ctx: Ctx, named: string[] = [], opts: { background?: boolean } = {}) {
   // Which employers to read: the AI picks from the directory for this student's profile;
   // without AI, employers whose fields match the student's are used.
   const p = ctx.ws.profile;
+  const directory = directoryFor(ctx);
   const wants = [p.targetRoles, p.major, p.interests].join(" ").toLowerCase();
-  let picked = EMPLOYERS.filter((e) => (e.fields || []).some((f) => wants.includes(f) || FIELD_TITLES.some(([field, title]) => field.test(wants) && title.test(f))));
+  let picked = directory.filter((e) => (e.fields || []).some((f) => wants.includes(f) || FIELD_TITLES.some(([field, title]) => field.test(wants) && title.test(f))));
   // The AI's pick is reused for 7 days while the profile it was made from is unchanged, and always in a background
   // search (no AI calls when the student isn't on the site).
   const pickKey = JSON.stringify([p.targetRoles, p.major, p.interests, p.regions, p.opportunityTypes, p.classYear, p.path]);
@@ -341,23 +346,23 @@ async function findOpenings(ctx: Ctx, named: string[] = [], opts: { background?:
   const reuse = prev?.names.length && prev.key === pickKey && (opts.background || Date.now() - Date.parse(prev.at) < 7 * 24 * 60 * 60_000);
   if (!named.length && reuse) {
     const names = new Set(prev!.names);
-    const again = EMPLOYERS.filter((e) => names.has(e.company.toLowerCase()));
+    const again = directory.filter((e) => names.has(e.company.toLowerCase()));
     if (again.length) picked = again;
   } else if (!named.length && !opts.background && aiStatus().available) {
     try {
       const out = await withAi(ctx, "Pick employers", () =>
         aiJson<{ companies: string[] }>(
           "You pick employers for a university student's early-career search, only from the list given. Choose employers that hire for the student's fields and are realistic for their level and location.",
-          `STUDENT:\n${profileSummary(ctx.ws)}\n\nEMPLOYERS (name — fields):\n${EMPLOYERS.map((e) => `${e.company} — ${(e.fields || []).join(", ")}`).join("\n")}\n\nReturn {"companies":["exact name from the list", ...]} with up to 15 names.`,
+          `STUDENT:\n${profileSummary(ctx.ws)}\n\nEMPLOYERS (name — fields):\n${directory.map((e) => `${e.company} — ${(e.fields || []).join(", ")}${e.metros?.length ? ` (hires in ${e.metros.join(", ")})` : ""}`).join("\n")}\n\nReturn {"companies":["exact name from the list", ...]} with up to 15 names.`,
           600,
         ),
       );
       const names = new Set((out.companies || []).map((x) => String(x).toLowerCase()));
-      const ai = EMPLOYERS.filter((e) => names.has(e.company.toLowerCase()));
+      const ai = directory.filter((e) => names.has(e.company.toLowerCase()));
       if (ai.length) { picked = ai; ctx.ws.employerPick = { at: nowIso(), key: pickKey, names: ai.map((e) => e.company.toLowerCase()) }; }
     } catch {}
   }
-  if (!picked.length) picked = EMPLOYERS;
+  if (!picked.length) picked = directory;
   // Feedback loop: employers the student liked ("More like this … this employer") or saved or applied to are read
   // first; ones they keep hiding or marked "Not for me … this employer" go later (never skipped outright: one posting
   // shouldn't ban a company). Then employers read least recently come first, so "Find more openings" reaches new ones.
@@ -368,12 +373,15 @@ async function findOpenings(ctx: Ctx, named: string[] = [], opts: { background?:
   // A card hidden with "Not for me" counts through its reason (employerPreferences), not as a silent employer hide.
   for (const id of ctx.ws.hiddenJobIds) { if (interestEnabled() && ctx.ws.jobFeedback?.[id]) continue; const c = companyOf(id); if (c && !liked.has(c)) hides.set(c, (hides.get(c) || 0) + 1); }
   const lastRead = ctx.ws.employersRead || {};
-  const fieldMatched = EMPLOYERS.filter((e) => (e.fields || []).some((f) => wants.includes(f) || FIELD_TITLES.some(([field, title]) => field.test(wants) && title.test(f))));
-  picked = orderEmployers([...EMPLOYERS.filter((e) => liked.has(e.company.toLowerCase()) || (preferences.get(e.company.toLowerCase()) || 0) > 0), ...picked, ...fieldMatched], liked, hides, lastRead, preferences);
+  const fieldMatched = directory.filter((e) => (e.fields || []).some((f) => wants.includes(f) || FIELD_TITLES.some(([field, title]) => field.test(wants) && title.test(f))));
+  picked = orderEmployers([...directory.filter((e) => liked.has(e.company.toLowerCase()) || (preferences.get(e.company.toLowerCase()) || 0) > 0), ...picked, ...fieldMatched], liked, hides, lastRead, preferences);
+  // The student's own Texas metro first, so new Austin or Houston employers make the 15 read per search.
+  const leaning = (e: { company: string }) => { const k = e.company.toLowerCase(); return preferences.has(k) ? preferences.get(k)! : (liked.has(k) ? 2 : 0) - Math.min(3, hides.get(k) || 0) * 0.5; };
+  picked = preferMetros(picked, p.regions || p.location || "", (e) => leaning(e) > 0, (e) => leaning(e) < 0);
   // Employers the student named as dream employers are always read first: from the directory when
   // Remy knows their career site, otherwise by guessing their Greenhouse/Lever/Ashby board.
   const dream = (p.dreamEmployers || "").split(/[,;]+/).map((x) => x.trim()).filter((x) => x.length > 1).slice(0, 5);
-  const dreamBoards = dream.flatMap((d) => { const hit = EMPLOYERS.filter((e) => e.company.toLowerCase().includes(d.toLowerCase())); return hit.length ? hit : boardsFor(d); });
+  const dreamBoards = dream.flatMap((d) => { const hit = directory.filter((e) => e.company.toLowerCase().includes(d.toLowerCase())); return hit.length ? hit : boardsFor(d); });
   // Federal student roles (USAJOBS) and the Labor Department's job search (CareerOneStop) fit every field, so they're always included.
   const boards = [...named.flatMap(boardsFor), ...dreamBoards, ...picked.slice(0, 15), ...(process.env.USAJOBS_KEY ? [USAJOBS] : []), ...(process.env.COS_TOKEN ? [CAREERONESTOP] : [])];
   const seen = new Set<string>();
@@ -1837,7 +1845,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     const interest = ownInterest(ctx.ws, jobs);
     mark("interest");
     // How many employers Remy reads for this student's field, so an empty list can say why honestly.
-    const employers = fieldEmployers(ctx.ws).length;
+    const employers = fieldEmployers(ctx.ws, directoryFor(ctx)).length;
     mark("employers");
     res.json({ jobs, fits, interest, interestEnabled: interestEnabled(), refreshing: searching.has(ctx.me.id), fieldEmployers: employers });
     mark("send");

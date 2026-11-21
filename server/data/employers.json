@@ -1,5 +1,5 @@
 {
- "note": "Employers whose own career sites Remy reads live (Workday boards are tenant|wdN|site; Oracle host|site). Seeded from the open-source career-ops (MIT) and ever-jobs (MIT) lists, then Dallas-Fort Worth employers found from their careers pages on 2026-10-25; every board answered a live check; Texas school districts on Frontline AppliTrack added 2026-10-25; Dallas ISD (Taleo), Irving and Keller ISD (SchoolSpring) added 2026-10-26.",
+ "note": "Employers whose own career sites Remy reads live (Workday boards are tenant|wdN|site; Oracle host|site). Seeded from the open-source career-ops (MIT) and ever-jobs (MIT) lists, then Dallas-Fort Worth employers found from their careers pages on 2026-10-25; every board answered a live check; Texas school districts on Frontline AppliTrack added 2026-10-25; Dallas ISD (Taleo), Irving and Keller ISD (SchoolSpring) added 2026-10-26. \"metros\" (dfw, austin, houston) marks employers that hire in one Texas metro, so a student's own metro is read first. \"preview\": true entries (none right now) are read only for owners until they're checked on the live site. Austin and Houston districts plus Plains, Self Financial and Virtu added 2026-11-21.",
  "employers": [
   {
    "company": "Morgan Stanley",
@@ -1594,6 +1594,9 @@
    "board": "pisd|Plano, TX",
    "fields": [
     "education"
+   ],
+   "metros": [
+    "dfw"
    ]
   },
   {
@@ -1602,6 +1605,9 @@
    "board": "risd|Richardson, TX",
    "fields": [
     "education"
+   ],
+   "metros": [
+    "dfw"
    ]
   },
   {
@@ -1610,6 +1616,9 @@
    "board": "lewisvilleisd|Lewisville, TX",
    "fields": [
     "education"
+   ],
+   "metros": [
+    "dfw"
    ]
   },
   {
@@ -1618,6 +1627,9 @@
    "board": "garlandisd|Garland, TX",
    "fields": [
     "education"
+   ],
+   "metros": [
+    "dfw"
    ]
   },
   {
@@ -1626,6 +1638,9 @@
    "board": "mesquiteisd|Mesquite, TX",
    "fields": [
     "education"
+   ],
+   "metros": [
+    "dfw"
    ]
   },
   {
@@ -1634,6 +1649,9 @@
    "board": "cfbisd|Carrollton, TX",
    "fields": [
     "education"
+   ],
+   "metros": [
+    "dfw"
    ]
   },
   {
@@ -1651,6 +1669,9 @@
    "board": "fortworth|Fort Worth, TX",
    "fields": [
     "education"
+   ],
+   "metros": [
+    "dfw"
    ]
   },
   {
@@ -1659,6 +1680,9 @@
    "board": "aa142.taleo.net|ext|Dallas, TX",
    "fields": [
     "education"
+   ],
+   "metros": [
+    "dfw"
    ]
   },
   {
@@ -1667,6 +1691,9 @@
    "board": "irvingisd.schoolspring.com",
    "fields": [
     "education"
+   ],
+   "metros": [
+    "dfw"
    ]
   },
   {
@@ -1675,6 +1702,203 @@
    "board": "kellerisd.schoolspring.com",
    "fields": [
     "education"
+   ],
+   "metros": [
+    "dfw"
+   ]
+  },
+  {
+   "company": "Austin ISD",
+   "ats": "applitrack",
+   "board": "austin|Austin, TX",
+   "fields": [
+    "education"
+   ],
+   "metros": [
+    "austin"
+   ]
+  },
+  {
+   "company": "Leander ISD",
+   "ats": "applitrack",
+   "board": "leander|Leander, TX",
+   "fields": [
+    "education"
+   ],
+   "metros": [
+    "austin"
+   ]
+  },
+  {
+   "company": "Pflugerville ISD",
+   "ats": "applitrack",
+   "board": "pflugerville|Pflugerville, TX",
+   "fields": [
+    "education"
+   ],
+   "metros": [
+    "austin"
+   ]
+  },
+  {
+   "company": "Hays CISD",
+   "ats": "applitrack",
+   "board": "hayscisd|Kyle, TX",
+   "fields": [
+    "education"
+   ],
+   "metros": [
+    "austin"
+   ]
+  },
+  {
+   "company": "Lake Travis ISD",
+   "ats": "applitrack",
+   "board": "laketravis|Austin, TX",
+   "fields": [
+    "education"
+   ],
+   "metros": [
+    "austin"
+   ]
+  },
+  {
+   "company": "Klein ISD",
+   "ats": "applitrack",
+   "board": "kleinisd|Klein, TX",
+   "fields": [
+    "education"
+   ],
+   "metros": [
+    "houston"
+   ]
+  },
+  {
+   "company": "Humble ISD",
+   "ats": "applitrack",
+   "board": "humbleisd|Humble, TX",
+   "fields": [
+    "education"
+   ],
+   "metros": [
+    "houston"
+   ]
+  },
+  {
+   "company": "Pasadena ISD",
+   "ats": "applitrack",
+   "board": "pasadenaisd|Pasadena, TX",
+   "fields": [
+    "education"
+   ],
+   "metros": [
+    "houston"
+   ]
+  },
+  {
+   "company": "Clear Creek ISD",
+   "ats": "applitrack",
+   "board": "ccisd|League City, TX",
+   "fields": [
+    "education"
+   ],
+   "metros": [
+    "houston"
+   ]
+  },
+  {
+   "company": "Aldine ISD",
+   "ats": "applitrack",
+   "board": "aldineisd|Houston, TX",
+   "fields": [
+    "education"
+   ],
+   "metros": [
+    "houston"
+   ]
+  },
+  {
+   "company": "Galena Park ISD",
+   "ats": "applitrack",
+   "board": "galenaparkisd|Houston, TX",
+   "fields": [
+    "education"
+   ],
+   "metros": [
+    "houston"
+   ]
+  },
+  {
+   "company": "Pearland ISD",
+   "ats": "applitrack",
+   "board": "pearlandisd|Pearland, TX",
+   "fields": [
+    "education"
+   ],
+   "metros": [
+    "houston"
+   ]
+  },
+  {
+   "company": "Spring Branch ISD",
+   "ats": "applitrack",
+   "board": "springbranchisd|Houston, TX",
+   "fields": [
+    "education"
+   ],
+   "metros": [
+    "houston"
+   ]
+  },
+  {
+   "company": "Cypress-Fairbanks ISD",
+   "ats": "schoolspring",
+   "board": "cfisd.schoolspring.com",
+   "fields": [
+    "education"
+   ],
+   "metros": [
+    "houston"
+   ]
+  },
+  {
+   "company": "Plains All American",
+   "ats": "workday",
+   "board": "plains|wd1|Plains",
+   "fields": [
+    "finance",
+    "accounting",
+    "engineering",
+    "energy",
+    "supply chain"
+   ],
+   "metros": [
+    "houston"
+   ]
+  },
+  {
+   "company": "Self Financial",
+   "ats": "greenhouse",
+   "board": "selffinancial",
+   "fields": [
+    "tech",
+    "finance"
+   ],
+   "metros": [
+    "austin"
+   ]
+  },
+  {
+   "company": "Virtu Financial",
+   "ats": "greenhouse",
+   "board": "virtu",
+   "fields": [
+    "finance",
+    "tech",
+    "quant"
+   ],
+   "metros": [
+    "austin"
    ]
   }
  ]
