@@ -102,7 +102,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
             const ago = h < 1 ? "less than an hour ago" : h < 24 ? `${h}h ago` : `${d} day${d === 1 ? "" : "s"} ago`;
             const week = new Date(Date.now() - 7 * 864e5).toISOString();
             const fresh = (jobs || []).filter((j) => (j.foundAt || "") > week && !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false && !w.hiddenJobIds.includes(j.id)).length;
-            return <p className="xs muted" data-testid="openings-status">Updated {ago}{fresh ? ` · ${fresh} new this week` : ""} · Remy checks again by itself</p>;
+            return <p className="xs muted" data-testid="openings-status">Updated {ago}{fresh ? ` · ${fresh} new this week` : ""}<span className="opp-status-extra"> · Remy checks again by itself</span></p>;
           })()}
         </div>
         <div className="row opp-actions">
@@ -130,7 +130,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
         <div className="row small" style={{ gap: 8, flexWrap: "wrap" }} data-testid="dream-row">
           <b>Your dream employers</b>
           {dreams.map((d) => { const n = (jobs || []).filter((j) => sameOrg(d, j.company) && !w.hiddenJobIds.includes(j.id)).length; return (
-            <button key={d} className={"chip " + (n ? "chip-live" : "chip-plain")} disabled={!n} onClick={() => setQ(d)} title={n ? `Show ${d}'s openings` : "Remy checks their career site each time it searches"} data-testid="dream-chip">{d} · {n ? `${n} open` : "none open now"}</button>
+            <button key={d} className={"chip " + (n ? "chip-live" : "chip-plain")} disabled={!n} onClick={() => setQ(d)} title={n ? `Show ${d}'s openings` : "Remy checks their career site each time it searches"} data-testid="dream-chip">{d}<span className="dream-long"> · {n ? `${n} open` : "none open now"}</span><span className="dream-short" aria-hidden> · {n}</span></button>
           ); })}
           {noDream.length > 0 && <span className="xs muted">Found one yourself? <button className="btn btn-ghost btn-sm" onClick={() => setShowImport(true)}>Import it</button></span>}
         </div>

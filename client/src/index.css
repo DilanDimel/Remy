@@ -1214,10 +1214,23 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .design-preview[data-theme="dark"] .mobile-nav { background: linear-gradient(180deg, #1c1c1c, #121212) !important; }
 .design-preview[data-theme="dark"] { --surface: #1c1c1c; --surface-2: #161616; }
 /* Job-type filters: short labels on phones so all four fit in one row. */
-.opp-kind-short { display: none; }
+.opp-kind-short, .dream-short { display: none; }
 @media (max-width: 560px) {
   .design-preview .opp-filters .seg { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .design-preview .opp-filters .seg button { padding: 0 4px; }
   .design-preview .opp-kind-long { display: none; }
   .design-preview .opp-kind-short { display: inline; }
+  /* Opportunities on phones: the first opening on the first screen (council, Nov 21). Nothing is hidden behind a tap:
+     the same lines and buttons, set tighter. */
+  .design-preview .page:has(.opp-filters) { gap: 12px; }
+  .design-preview .opp-status-extra { display: none; }
+  .design-preview .opp-filters { gap: 8px; }
+  .design-preview .opp-filters > .row { gap: 4px 14px; }
+  .design-preview .opp-filters .opp-search { flex: 1 1 100%; min-width: 0; }
+  .design-preview [data-testid="dream-row"] { gap: 4px 6px !important; }
+  .design-preview [data-testid="dream-row"] .dream-long { display: none; }
+  .design-preview [data-testid="dream-row"] .dream-short { display: inline; }
+  .design-preview [data-testid="dream-row"] .chip { font-size: .72rem; padding: 2px 8px; }
+  .design-preview [data-testid="notice-filtered"] { padding: 8px 12px; line-height: 1.4; }
+  .design-preview [data-testid="notice-filtered"] .btn-sm { min-height: 0; padding: 0 2px; }
 }
