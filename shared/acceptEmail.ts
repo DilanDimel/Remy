@@ -36,6 +36,6 @@ export function acceptHtml(message: string, host: string) {
 </td></tr></table>
 <p style="margin:10px 0 0;font-size:12px;color:#8a837d">Or open ${esc(signin)}</p>
 </td></tr>
-<tr><td style="padding:18px 28px;border-top:1px solid #eee;font-size:12px;color:#8a837d">Remy · <a href="mailto:remy.careercoach@gmail.com" style="color:#8a837d">remy.careercoach@gmail.com</a></td></tr>
+<tr><td style="padding:18px 28px;border-top:1px solid #eee;font-size:12px;color:#8a837d">Remy · <a href="mailto:hello@remyai.org" style="color:#8a837d">hello@remyai.org</a></td></tr>
 </table></td></tr></table></body></html>`;
 }

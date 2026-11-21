@@ -234,7 +234,7 @@ function BetaTab() {
       <Head title="Beta list" sub="Founding Cohort: while beta-only mode is on, only these emails (and the team) can sign in. Students must sign in with the same email they put on the form." />
       <section className="adm-card stack-sm" data-testid="beta-status">
         <span><b>Beta-only mode is {d.on ? "ON" : "OFF"}</b> on this server{d.on ? "" : ": anyone can sign in right now. Turn it on with OR_BETA_ONLY=true in Render's environment settings"}.</span>
-        <span className="small muted">Application form: {d.formUrl ? <a href={d.formUrl} target="_blank" rel="noreferrer" style={{ overflowWrap: "anywhere" }}>{d.formUrl}</a> : "not set (set OR_BETA_FORM_URL; until then students are pointed to remy.careercoach@gmail.com)"}</span>
+        <span className="small muted">Application form: {d.formUrl ? <a href={d.formUrl} target="_blank" rel="noreferrer" style={{ overflowWrap: "anywhere" }}>{d.formUrl}</a> : "not set (set OR_BETA_FORM_URL; until then students are pointed to hello@remyai.org)"}</span>
       </section>
       <Applications emailReady={d.emailReady} onList={(list) => setD({ ...d, list })} />
       <form className="adm-card stack-sm" onSubmit={(e) => { e.preventDefault(); add(); }}>

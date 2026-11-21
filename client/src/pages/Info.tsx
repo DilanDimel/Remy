@@ -4,8 +4,8 @@ import { Remy } from "../components/common";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { BETA_TERMS, BETA_TERMS_LEAD } from "@shared/beta";
 
-const CONTACT = "remy.careercoach@gmail.com";
-const UPDATED = "November 7, 2026";
+const CONTACT = "hello@remyai.org";
+const UPDATED = "November 21, 2026";
 
 const Section = ({ title, children }: { title: string; children: ReactNode }) => (
   <section className="stack-sm"><h2 style={{ fontSize: "1.15rem" }}>{title}</h2>{children}</section>
