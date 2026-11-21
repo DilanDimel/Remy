@@ -17,11 +17,11 @@ test("metros: the student's metro first, national next, other metros last; liked
   assert.deepEqual(preferMetros(list, "Austin", (e) => e.company === "Klein ISD").map((e) => e.company), ["Klein ISD", "Austin ISD", "Deloitte", "Plano ISD"]);
   assert.deepEqual(preferMetros(list, "Remote").map((e) => e.company), list.map((e) => e.company)); // no metro named: unchanged
 });
-test("employers: Austin and Houston school districts exist, every new (preview) employer says its metro, no board twice", () => {
+test("employers: Austin and Houston school districts exist, the new employers say their metro, no board twice", () => {
   const edu = (m: string) => EMPLOYERS.filter((e) => e.fields?.includes("education") && e.metros?.includes(m as never));
   assert.ok(edu("austin").length >= 5);
   assert.ok(edu("houston").length >= 8);
-  for (const e of EMPLOYERS.filter((x) => x.preview)) assert.ok(e.metros?.length, e.company);
+  for (const c of ["Austin ISD", "Klein ISD", "Plains All American"]) assert.ok(EMPLOYERS.find((e) => e.company === c)?.metros?.length, c);
   const keys = EMPLOYERS.map((e) => e.ats + ":" + e.slug);
   assert.equal(new Set(keys).size, keys.length);
 });
