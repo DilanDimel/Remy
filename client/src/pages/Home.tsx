@@ -6,6 +6,7 @@ import { MissionBoard } from "../components/Game";
 import { ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronUp, MapPin } from "lucide-react";
 import type { Job, Task, Workspace } from "@shared/types";
 import { api, daysUntil, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
+import { CAREER_QUEST_ON } from "@shared/game";
 import { useCompleting } from "../lib/completing";
 import { go } from "../lib/router";
 import { kindLabel, useJobs } from "../lib/jobs";
@@ -150,7 +151,7 @@ export default function Home() {
           </div>
         )}
       </section>
-      {ownerView && <MissionBoard w={w} />}
+      {CAREER_QUEST_ON && ownerView && <MissionBoard w={w} />}
 
       <section className="card card-pad">
         <div className="row-between" style={{ marginBottom: 8 }}>

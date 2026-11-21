@@ -6,6 +6,7 @@ import {
   ImagePlus,
 } from "lucide-react";
 import { StoreProvider, api, rid, useDraft, useOwnerView, useStore, type Theme } from "./lib/store";
+import { CAREER_QUEST_ON } from "@shared/game";
 import { go, replaceRoute, useRoute } from "./lib/router";
 const PUBLIC = new Set(["/", "/signin", "/welcome", "/about", "/policies", "/privacy", "/terms"]);
 import { BetaBadge, Modal, Remy, Rich, Spinner, StatusChip } from "./components/common";
@@ -145,12 +146,12 @@ function isMobileNow() {
 function Shell() {
   const { ws, save, me } = useStore();
   const ownerView = useOwnerView();
-  useGameRecord(ws, ownerView); // Career quest (owners only while tested): keeps the week on every page
-  // Design preview (owners only while tested, Nov 21, from Demetre's redesign): plain page titles, phone filters
-  // that fit one row, neutral blacks. Styles live under .design-preview in index.css; students keep today's look.
+  useGameRecord(ws, CAREER_QUEST_ON && ownerView); // Career quest (paused Nov 21; owners only when on): keeps the week on every page
+  // Demetre's redesign (plain titles, phone layout, less "AI template" look): checked by owners on Nov 21 and released
+  // to everyone the same day. The styles still live under .design-preview in index.css, to fold in later.
   useEffect(() => {
-    document.documentElement.classList.toggle("design-preview", ownerView);
-  }, [ownerView]);
+    document.documentElement.classList.add("design-preview");
+  }, []);
   const { path, query } = useRoute();
   const [asstPage, setAsstPage] = useState<boolean | null>(null);
   const [more, setMore] = useState(false);
@@ -212,7 +213,7 @@ function Shell() {
           </a>
         ))}
         {/* Career quest: owners only while it's tested (Dilan, Nov 19); a big release later. */}
-        {ownerView && ws && <GameSidebar w={ws} />}
+        {CAREER_QUEST_ON && ownerView && ws && <GameSidebar w={ws} />}
         <div className="side-news"><WhatsNew /><a className="nav-item" href="/welcome" title="Remy's homepage" data-testid="nav-homepage"><Info size={19} /><span className="nav-label">Remy homepage</span></a></div>
         <ProfileMenu initials={initials} active={path.startsWith("/accounts")} />
       </aside>
@@ -300,7 +301,7 @@ const STARTERS: Record<string, string[]> = {
 
 function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () => void; flyIn: boolean }) {
   const { ws, setWs, run, save, config, theme, setTheme } = useStore();
-  const preview = useOwnerView();
+  const preview = true; // Remy's page-specific opening line, released to everyone Nov 21 (was owners only)
   const [msg, setMsg] = useDraft("chat");
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
