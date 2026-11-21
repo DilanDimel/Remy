@@ -41,7 +41,7 @@ export default function Resume({ query }: { query: URLSearchParams }) {
       <div className="page-head">
         <div>
           <span className="eyebrow">Resume/CV</span>
-          <h1>Your experience, clearly expressed.</h1>
+          <h1><span className="title-slogan">Your experience, clearly expressed.</span><span className="title-plain">Resume &amp; CV</span></h1>
           <p className="hide-phone">Every tailored change shows the posting requirement behind it and the evidence from your own resume.</p>
         </div>
       </div>

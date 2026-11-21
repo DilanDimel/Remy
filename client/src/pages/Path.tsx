@@ -31,7 +31,7 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
       <div className="page-head">
         <div>
           <span className="eyebrow">My Path</span>
-          <h1>Explore. Prepare. Pursue.</h1>
+          <h1><span className="title-slogan">Explore. Prepare. Pursue.</span><span className="title-plain">My Path</span></h1>
           <p>Suggestions grounded in your background — with clear labels for what's sourced and what's illustrative.</p>
         </div>
         {knows && <button className="btn btn-secondary" onClick={generate} disabled={busy || !config?.ai.available} data-testid="button-refresh-path">{busy ? <Spinner /> : w.plan ? <RotateCcw size={16} /> : <Sparkles size={16} />} {w.plan ? "Refresh suggestions" : "Build my path"}</button>}

@@ -146,6 +146,11 @@ function Shell() {
   const { ws, save, me } = useStore();
   const ownerView = useOwnerView();
   useGameRecord(ws, ownerView); // Career quest (owners only while tested): keeps the week on every page
+  // Design preview (owners only while tested, Nov 21, from Demetre's redesign): plain page titles, phone filters
+  // that fit one row, neutral blacks. Styles live under .design-preview in index.css; students keep today's look.
+  useEffect(() => {
+    document.documentElement.classList.toggle("design-preview", ownerView);
+  }, [ownerView]);
   const { path, query } = useRoute();
   const [asstPage, setAsstPage] = useState<boolean | null>(null);
   const [more, setMore] = useState(false);

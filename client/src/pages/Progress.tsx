@@ -27,7 +27,7 @@ export default function Progress() {
       <div className="page-head">
         <div>
           <span className="eyebrow">Progress</span>
-          <h1>Follow through, without the spreadsheet.</h1>
+          <h1><span className="title-slogan">Follow through, without the spreadsheet.</span><span className="title-plain">Progress</span></h1>
           <p className="hide-phone">Track every application, turn recruiting emails into reviewed status updates, and keep your to-dos honest.</p>
         </div>
       </div>

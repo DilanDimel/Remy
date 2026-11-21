@@ -91,7 +91,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
       <div className="page-head">
         <div>
           <span className="eyebrow">Opportunities</span>
-          <h1>Openings worth your time.</h1>
+          <h1><span className="title-slogan">Openings worth your time.</span><span className="title-plain">Opportunities</span></h1>
           <p className="hide-phone">Ranked for you: openings you're eligible for and that match your background come first.</p>
           {(() => {
             // A quiet status line instead of a button to press: when Remy last looked, and what's new this week.
@@ -114,8 +114,8 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
       {showImport && <ImportPanel onDone={() => setShowImport(false)} />}
       <div className="row-between opp-filters">
         <div className="seg" role="group" aria-label="Category">
-          {([["all", "All"], ["jobs", "Jobs & internships"], ["campus", "Campus jobs"], ["event", "Events"]] as [Kind, string][]).map(([k, l]) => (
-            <button key={k} aria-pressed={kind === k} onClick={() => setKind(k)} data-testid={`filter-${k}`}>{l}</button>
+          {([["all", "All", "All"], ["jobs", "Jobs & internships", "Jobs"], ["campus", "Campus jobs", "Campus"], ["event", "Events", "Events"]] as [Kind, string, string][]).map(([k, l, short]) => (
+            <button key={k} aria-pressed={kind === k} onClick={() => setKind(k)} aria-label={l} data-testid={`filter-${k}`}><span className="opp-kind-long">{l}</span><span className="opp-kind-short" aria-hidden>{short}</span></button>
           ))}
         </div>
         <div className="row">
