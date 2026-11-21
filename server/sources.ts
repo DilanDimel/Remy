@@ -14,11 +14,37 @@ import { interestEnabled, preferenceAdjustment } from "./ranking";
 // posting links straight back to the employer. No login, no scraping of
 // third-party aggregators.
 
-type Board = { ats: "greenhouse" | "lever" | "ashby" | "workday" | "smartrecruiters" | "oracle" | "eightfold" | "phenom" | "usajobs" | "applitrack" | "schoolspring" | "taleo" | "careeronestop"; slug: string; company: string; fields?: string[] };
+type Board = { ats: "greenhouse" | "lever" | "ashby" | "workday" | "smartrecruiters" | "oracle" | "eightfold" | "phenom" | "usajobs" | "applitrack" | "schoolspring" | "taleo" | "careeronestop"; slug: string; company: string; fields?: string[]; metros?: Metro[]; preview?: boolean };
 
 // Employers whose career sites Remy reads, with the fields they hire for (server/data/employers.json).
-export const EMPLOYERS: Board[] = (JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "server", "data", "employers.json"), "utf8")).employers as { company: string; ats: Board["ats"]; board: string; fields: string[] }[])
-  .map((e) => ({ ats: e.ats, slug: e.board, company: e.company, fields: e.fields }));
+export const EMPLOYERS: Board[] = (JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "server", "data", "employers.json"), "utf8")).employers as { company: string; ats: Board["ats"]; board: string; fields: string[]; metros?: Metro[]; preview?: boolean }[])
+  .map((e) => ({ ats: e.ats, slug: e.board, company: e.company, fields: e.fields, metros: e.metros, preview: e.preview }));
+
+// Texas metros an employer can be tagged with (employers.json "metros"). Austin and Houston were empty for every field
+// on Nov 21, 2026: all of Remy's school districts were in DFW and nothing preferred an employer in the student's city.
+export type Metro = "dfw" | "austin" | "houston";
+const METRO_WORDS: [Metro, RegExp][] = [
+  ["dfw", /\b(dallas|fort worth|ft\.? worth|dfw|arlington|plano|irving|frisco|denton|garland|mckinney|richardson|carrollton|lewisville|mesquite|grand prairie|keller|grapevine|southlake)\b/gi],
+  ["austin", /\b(austin|round rock|san marcos|cedar park|pflugerville|leander)\b/gi],
+  ["houston", /\b(houston|katy|sugar land|the woodlands|pasadena|pearland|league city|humble|galveston|baytown)\b/gi],
+];
+// A town name followed by another state ("Arlington, VA", "Pasadena, CA", "Austin, MN") isn't the Texas one.
+const OTHER_STATE = /^\s*,?\s*(?!tx\b|texas\b)(a[klrz]|c[aot]|d[ce]|fl|ga|hi|i[adln]|k[sy]|la|m[adeinost]|n[cdehjmvy]|o[hkr]|pa|ri|s[cd]|tn|ut|v[at]|w[aivy]|alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new \w+|north \w+|ohio|oklahoma|oregon|pennsylvania|rhode island|south \w+|tennessee|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming)\b/i;
+/** The Texas metros a student's places name. "Anywhere in Texas" means all three. */
+export function metrosIn(places: string): Metro[] {
+  if (/\banywhere in (texas|tx)\b|\ball of texas\b/i.test(places)) return ["dfw", "austin", "houston"];
+  return METRO_WORDS.filter(([, re]) => [...places.matchAll(re)].some((m) => !OTHER_STATE.test(places.slice((m.index || 0) + m[0].length)))).map(([m]) => m);
+}
+/** Employers in the student's metros first, then ones with no metro (national), then other metros' (a DFW student's
+ *  15 reads shouldn't go to Austin school districts). Order within each group is kept. No metro named, or all three
+ *  ("Anywhere in Texas", so national employers aren't crowded out): unchanged. Employers the student liked stay first
+ *  and ones they keep hiding or marked "Not for me" stay last, as orderEmployers put them (skeptic review). */
+export function preferMetros<T extends { metros?: Metro[] }>(list: T[], places: string, pinned: (e: T) => boolean = () => false, demoted: (e: T) => boolean = () => false): T[] {
+  const mine = metrosIn(places);
+  const rank = (e: T) => (pinned(e) ? -1 : demoted(e) ? 3 : !mine.length || mine.length === 3 || !e.metros?.length ? 1 : e.metros.some((m) => mine.includes(m)) ? 0 : 2);
+  return list.map((e, i) => ({ e, i, r: rank(e) })).sort((a, b) => a.r - b.r || a.i - b.i).map((x) => x.e);
+}
+
 
 // Fallback when the directory can't be read is the original starting set.
 export const DEFAULT_BOARDS: Board[] = EMPLOYERS.length ? EMPLOYERS : [
