@@ -29,12 +29,13 @@ function Page({ title, lead, children }: { title: string; lead: string; children
 }
 
 // Photos go in client/public/team/ (e.g. "/team/dilan.jpg"); until then each shows initials.
-const TEAM: { name: string; role: string; photo: string }[] = [
-  { name: "Dilan Desman", role: "Technology lead", photo: "/team/dilan.jpg" },
+// Work emails are each person's own @remyai.org address (Zoho); admin@ and hello@ are the shared company inbox.
+const TEAM: { name: string; role: string; photo: string; email?: string }[] = [
+  { name: "Dilan Desman", role: "Technology lead", photo: "/team/dilan.jpg", email: "d.desman@remyai.org" },
   { name: "Ashton Wisecarver", role: "Brand, marketing & finance", photo: "" },
-  { name: "Lincoln Yoo", role: "Operations & partnerships", photo: "/team/lincoln.jpg" },
-  { name: "Demetre Dondoladze", role: "Data & databases", photo: "/team/demetre.jpg" },
-  { name: "Julio Renovato", role: "Research & analytics", photo: "" },
+  { name: "Lincoln Yoo", role: "Operations & partnerships", photo: "/team/lincoln.jpg", email: "l.yoo@remyai.org" },
+  { name: "Demetre Dondoladze", role: "Data & databases", photo: "/team/demetre.jpg", email: "d.dondoladze@remyai.org" },
+  { name: "Julio Renovato", role: "Research & analytics", photo: "", email: "j.renovato@remyai.org" },
 ];
 
 export function About() {
@@ -68,7 +69,7 @@ export function About() {
               {m.photo
                 ? <img src={m.photo} alt={m.name} width={96} height={96} style={{ borderRadius: "50%", objectFit: "cover" }} />
                 : <div aria-hidden style={{ width: 96, height: 96, borderRadius: "50%", display: "grid", placeItems: "center", background: "var(--fox-soft)", color: "var(--fox)", fontWeight: 800, fontSize: 28 }}>{m.name.split(" ").map((w) => w[0]).join("")}</div>}
-              <figcaption className="stack-sm" style={{ gap: 2 }}><b>{m.name}</b><span className="xs muted">{m.role}</span></figcaption>
+              <figcaption className="stack-sm" style={{ gap: 2 }}><b>{m.name}</b><span className="xs muted">{m.role}</span>{m.email && <a className="xs" href={`mailto:${m.email}`} style={{ whiteSpace: "nowrap" }}>{m.email.split("@")[0]}<wbr />@{m.email.split("@")[1]}</a>}</figcaption>
             </figure>
           ))}
         </div>
