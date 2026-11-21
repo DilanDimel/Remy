@@ -1234,3 +1234,6 @@ ul[class] > li, ol[class] > li { max-width: none; }
   .design-preview [data-testid="notice-filtered"] { padding: 8px 12px; line-height: 1.4; }
   .design-preview [data-testid="notice-filtered"] .btn-sm { min-height: 0; padding: 0 2px; }
 }
+
+/* "No resume yet? Build one with Remy (about 10 minutes)" ran 7px past a 375px phone (page sweep, Nov 21): let it wrap. */
+[data-testid="button-build-resume"] { white-space: normal; height: auto; min-height: 36px; text-align: left; line-height: 1.3; padding-block: 8px; }
