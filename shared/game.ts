@@ -38,6 +38,9 @@ const POOL: Mission[] = [
 ];
 // "Log a win" (council, Nov 19): an optional bonus each week, never one of the three, so nobody types junk to save a
 // streak. Done when the student approves a resume line from one sentence about their week (a "Check-in" fact).
+// Career quest is paused while the team reworks it (Dilan, Nov 21, 2026): nothing of it shows, even to owners.
+export const CAREER_QUEST_ON = false;
+
 export const WIN = { key: "win", title: "Log a win", xp: 30 };
 // The fact's own local date, inside this week only: a Sunday-evening win (Monday in UTC) isn't counted twice (skeptic).
 const localDay = (iso: string) => { const d = new Date(iso); return isNaN(+d) ? "" : d.toLocaleDateString("en-CA"); };
