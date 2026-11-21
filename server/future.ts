@@ -43,10 +43,10 @@ const FIELD_SOC: Record<string, string[]> = {
   nonprofit: ["11-9151", "11-2033", "13-1131", "21-1"],
 };
 
-export type FutureOcc = { title: string; change: number; openings: number | null; wage: number | null; education: string; aiShare: number | null; link: string };
+export type FutureOcc = { soc: string; title: string; change: number; openings: number | null; wage: number | null; education: string; aiShare: number | null; link: string };
 export type FutureField = { field: string; growing: FutureOcc[]; shrinking: FutureOcc[]; total: number; fasterThanAverage: number };
 
-const view = (o: Occ): FutureOcc => ({ title: o.t, change: o.chg ?? 0, openings: o.open, wage: o.wage, education: o.edu, aiShare: o.ai ?? null, link: o.ooh });
+const view = (o: Occ): FutureOcc => ({ soc: o.soc, title: o.t, change: o.chg ?? 0, openings: o.open, wage: o.wage, education: o.edu, aiShare: o.ai ?? null, link: o.ooh });
 
 export function futureFor(ws: Workspace): { source: string; allJobsGrowth: number; fields: FutureField[] } {
   const wants = [ws.profile.targetRoles, ws.profile.major, ws.profile.interests].join(" ");
@@ -100,4 +100,42 @@ export function officialFor(title: string): FutureOcc | null {
     if (score > bestScore) { best = o; bestScore = score; }
   }
   return best ? view(best) : null;
+}
+
+// "What's the job?": the job's most important duties in the Labor Department's own words (O*NET 31.0, CC BY 4.0) and one sentence
+// from the government's job guide on why it's growing or shrinking (BLS Occupational Outlook Handbook). Quoted as
+// published, never rewritten, no AI call. Data files from Julio's forecast work (Nov 2026).
+type Tasks = { publication: { version: string; attribution: string; licenseUrl: string }; occupations: Record<string, { title: string; items: { text: string; importance?: number }[] }> };
+type Outlook = Record<string, { quote: string; url: string; retrievedAt: string }>;
+const read = <T,>(file: string) => JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "server", "data", file), "utf8")) as T;
+const TASKS = read<Tasks>("onet-tasks.json");
+const OUTLOOK = read<Outlook>("bls-published-outlook.json");
+// A quote older than this may no longer match the live guide, so it's left out rather than shown stale.
+const OUTLOOK_MAX_AGE_DAYS = 400;
+// One sentence can't carry a shrinking job's story: for jobs projected to shrink, the guide's "still needed" sentence
+// sat beside the number and read as the opposite (skeptic review, Nov 21), so only growing jobs show a quote.
+// A sentence that leans on the one before it ("However, …", "In addition, …") is left out too.
+const LEANS_ON_PREVIOUS = /^(however|in addition|additionally|moreover|furthermore|also|but|although|still|yet)\b/i;
+
+export type OccupationDetails = {
+  soc: string; title: string;
+  // ranked: the tasks O*NET rates most important; false when O*NET hasn't rated this job's tasks (shown as examples).
+  duties: string[]; ranked: boolean; dutiesSource: { label: string; url: string; attribution: string; licenseUrl: string } | null;
+  outlook: { quote: string; url: string } | null;
+};
+
+export function occupationDetails(soc: string, now = Date.now()): OccupationDetails | null {
+  if (!/^\d{2}-\d{4}$/.test(soc)) return null;
+  const occ = DATA.occupations.find((o) => o.soc === soc);
+  if (!occ) return null;
+  const t = TASKS.occupations[soc];
+  const o = OUTLOOK[soc];
+  const age = o ? (now - Date.parse(o.retrievedAt)) / 86_400_000 : NaN;
+  return {
+    soc, title: occ.t,
+    duties: t ? t.items.map((i) => i.text).filter(Boolean).slice(0, 5) : [],
+    ranked: !!t && t.items.length > 0 && t.items.every((i) => typeof i.importance === "number"),
+    dutiesSource: t ? { label: `O*NET ${TASKS.publication.version}, U.S. Department of Labor`, url: `https://www.onetonline.org/link/details/${soc}.00#Tasks`, attribution: TASKS.publication.attribution, licenseUrl: TASKS.publication.licenseUrl } : null,
+    outlook: o && age >= 0 && age <= OUTLOOK_MAX_AGE_DAYS && (occ.chg ?? 0) > 0 && !LEANS_ON_PREVIOUS.test(o.quote.trim()) ? { quote: o.quote, url: o.url } : null,
+  };
 }

@@ -1,0 +1,992 @@
+{
+  "11-2022": {
+    "quote": "As the economy grows, organizations will focus on generating new sales and will look to their sales strategy as a way to increase competitiveness.",
+    "url": "https://www.bls.gov/ooh/management/sales-managers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "11-3021": {
+    "quote": "Demand for computer and information systems managers is projected to grow as organizations increasingly rely on information technology (IT) services and require these workers to plan and oversee computer hardware and software needs.",
+    "url": "https://www.bls.gov/ooh/management/computer-and-information-systems-managers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "11-3031": {
+    "quote": "Services provided by financial managers, such as planning, directing, and coordinating investments, are likely to stay in demand as the economy grows.",
+    "url": "https://www.bls.gov/ooh/management/financial-managers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "11-3071": {
+    "quote": "As the growth of e-commerce makes supply chain management more dynamic and complex, transportation, storage, and distribution managers will be in demand for enhanced integration of logistics with business systems and processes.",
+    "url": "https://www.bls.gov/ooh/management/transportation-storage-and-distribution-managers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "11-3111": {
+    "quote": "Organizations are expected to continue to focus on reducing compensation and benefits costs, for example, by introducing pay-for-performance and health and wellness programs.",
+    "url": "https://www.bls.gov/ooh/management/compensation-and-benefits-managers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "11-3131": {
+    "quote": "In many occupations, employees are required to take continuing education and skill development courses throughout their careers, creating demand for workers who develop and provide training materials.",
+    "url": "https://www.bls.gov/ooh/management/training-and-development-managers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "11-9013": {
+    "quote": "Over the past several decades, increased efficiencies in crop production have led to consolidation and fewer, but larger, farms.",
+    "url": "https://www.bls.gov/ooh/management/farmers-ranchers-and-other-agricultural-managers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "11-9021": {
+    "quote": "Construction processes and building technology are becoming more complex, requiring greater oversight and spurring demand for specialized management personnel even as technology makes construction managers more productive.",
+    "url": "https://www.bls.gov/ooh/management/construction-managers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "11-9041": {
+    "quote": "Demand for civil engineering services is expected to continue to grow as the nation’s aging infrastructure requires repair and as the electrical grid requires updates and expansion.",
+    "url": "https://www.bls.gov/ooh/management/architectural-and-engineering-managers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "11-9051": {
+    "quote": "Greater consumer demand for meals from a variety of dining venues is expected to result in the opening of new food service establishments.",
+    "url": "https://www.bls.gov/ooh/management/food-service-managers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "11-9081": {
+    "quote": "Overall travel spending patterns could support demand for lodging managers in hotels and other lodging establishments.",
+    "url": "https://www.bls.gov/ooh/management/lodging-managers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "11-9111": {
+    "quote": "Because many health issues arise with age, an aging population will increase the demand for healthcare services.",
+    "url": "https://www.bls.gov/ooh/management/medical-and-health-services-managers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "11-9121": {
+    "quote": "Employment growth should be affected by many of the same factors that affect employment growth for the scientists whom these managers supervise.",
+    "url": "https://www.bls.gov/ooh/management/natural-sciences-managers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "11-9141": {
+    "quote": "Employment demand will be driven by the number of people living in buildings that property management companies operate, such as apartment buildings, condominiums, cooperatives, planned communities, and senior housing.",
+    "url": "https://www.bls.gov/ooh/management/property-real-estate-and-community-association-managers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "11-9151": {
+    "quote": "There will be a greater need for treatment program managers as people with substance abuse disorders may be directed to treatment programs rather than to jail.",
+    "url": "https://www.bls.gov/ooh/management/social-and-community-service-managers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "11-9161": {
+    "quote": "The importance of preparing for and minimizing the risks from emergencies will help sustain demand and employment opportunities for emergency management directors.",
+    "url": "https://www.bls.gov/ooh/management/emergency-management-directors.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-1041": {
+    "quote": "Demand for compliance officers will stem from the need for businesses and government agencies to comply with various laws and regulations.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/compliance-officers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-1051": {
+    "quote": "Cost estimation software is improving the productivity of these workers, requiring fewer estimators to do the same amount of work.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/cost-estimators.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-1071": {
+    "quote": "Firms that specialize in human resources services are likely to experience stronger growth than in-house human resources, as some companies increasingly contract out those services.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/human-resources-specialists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-1075": {
+    "quote": "If union membership rates remain stable or decline, overall demand for these specialists will be limited.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/labor-relations-specialists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-1081": {
+    "quote": "As the growth of e-commerce makes logistics more dynamic and complex, logisticians will be in demand to move products more efficiently, solve problems, and identify areas for improvement.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/logisticians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-1082": {
+    "quote": "As organizations seek ways to maintain and improve productivity, employment of project management specialists is expected to increase.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/project-management-specialists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-1111": {
+    "quote": "Demand for consulting services is expected to increase as organizations seek ways to improve efficiency and control costs.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/management-analysts.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-1121": {
+    "quote": "In addition, demand for professionally planned meetings and events will stem from businesses and organizations that host events.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/meeting-convention-and-event-planners.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-1131": {
+    "quote": "Employment growth is expected to be driven by the continued need of nonprofit organizations to collect donations in order to run their operations.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/fundraisers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-1141": {
+    "quote": "Organizations will need benefits specialists to design, evaluate, and administer policies to reduce rising healthcare costs due to the aging population and rising use of next-generation diabetes and weight-loss drugs.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/compensation-benefits-and-job-analysis-specialists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-1151": {
+    "quote": "Employees in many occupations are required to take training and development courses throughout their careers, creating demand for the specialists who lead these activities.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/training-and-development-specialists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-2011": {
+    "quote": "As the economy grows and new businesses are created, these workers will likely continue to be needed to prepare and examine financial records.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/accountants-and-auditors.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-2020": {
+    "quote": "Demand for appraisal services is linked to the real estate market, which may fluctuate in the short term.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/appraisers-and-assessors-of-real-estate.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-2031": {
+    "quote": "Calls for efficient use of public funds will lead to continued demand for budget analysts to estimate program costs, develop budgets, and explain their findings to legislators and the public.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/budget-analysts.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-2052": {
+    "quote": "Personal financial advisors are expected to be needed to help clients make informed financial decisions throughout all stages of life.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/personal-financial-advisors.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-2053": {
+    "quote": "As this technology continues to improve and become more widely adopted in the insurance industry, more underwriting decisions are expected to be made automatically.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/insurance-underwriters.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-2061": {
+    "quote": "Demand for these workers has risen, particularly in the financial industry, because of the need for banking institutions to comply with federal regulations.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/financial-examiners.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-2071": {
+    "quote": "Credit counselors will be needed to develop debt management plans to help consumers with repayment of a variety of debts, including student loans, credit cards, and mortgages.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/credit-counselors.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-2072": {
+    "quote": "Demand for loan officers is expected as both businesses and individuals seek credit to finance commercial investments and personal spending.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/loan-officers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "13-2081": {
+    "quote": "Because the salaries of tax examiners and collectors, and revenue agents are paid with public funds, budgetary constraints may directly impact governments' ability to hire these workers and, in turn, affect employment growth.",
+    "url": "https://www.bls.gov/ooh/business-and-financial/tax-examiners-and-collectors-and-revenue-agents.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "15-1211": {
+    "quote": "As organizations across the economy continue to rely on and expand information technology (IT), including artificial intelligence (AI), computer systems analysts will be hired to design and install new computer systems.",
+    "url": "https://www.bls.gov/ooh/computer-and-information-technology/computer-systems-analysts.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "15-1212": {
+    "quote": "As businesses focus on enhancing cybersecurity, they will need information security analysts to secure new technologies from outside threats or hacks.",
+    "url": "https://www.bls.gov/ooh/computer-and-information-technology/information-security-analysts.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "15-1221": {
+    "quote": "As demand for new and better technology grows, demand for computer and information research scientists is projected to grow as well.",
+    "url": "https://www.bls.gov/ooh/computer-and-information-technology/computer-and-information-research-scientists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "15-1241": {
+    "quote": "Demand for computer network architects is projected to grow as firms continue to design and build new information technology (IT) networks and upgrade existing ones.",
+    "url": "https://www.bls.gov/ooh/computer-and-information-technology/computer-network-architects.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "15-1244": {
+    "quote": "Network and computer systems administrators will continue to be needed throughout the economy to maintain and upgrade computer networks.",
+    "url": "https://www.bls.gov/ooh/computer-and-information-technology/network-and-computer-systems-administrators.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "15-1251": {
+    "quote": "To save time and money, many companies are expected to leverage technologies, including artificial intelligence (AI), to automate repetitive programming tasks.",
+    "url": "https://www.bls.gov/ooh/computer-and-information-technology/computer-programmers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "15-2011": {
+    "quote": "More actuaries also will be needed to help companies manage their own risk, a practice known as enterprise risk management.",
+    "url": "https://www.bls.gov/ooh/math/actuaries.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "15-2031": {
+    "quote": "As technology advances and companies and government agencies seek efficiency and cost savings, demand for operations research analysis is expected to continue to grow.",
+    "url": "https://www.bls.gov/ooh/math/operations-research-analysts.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "15-2051": {
+    "quote": "Employment growth for data scientists is expected to stem from an increased demand for data-driven decisions.",
+    "url": "https://www.bls.gov/ooh/math/data-scientists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-1012": {
+    "quote": "Landscape architects will be needed to plan and develop landscapes for commercial, industrial, and residential projects.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/landscape-architects.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-1021": {
+    "quote": "Cartographers and photogrammetrists also will be needed to map and locate areas that require help during natural disasters, often using Geographic Information Systems (GIS).",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/cartographers-and-photogrammetrists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-1022": {
+    "quote": "Although drones and other advancements make some aspects of survey work more efficient, surveyors will continue to be needed to review and interpret the output of these technologies to ensure accuracy and completeness.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/surveyors.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-2011": {
+    "quote": "Demand for aerospace engineers is expected to increase as space becomes more accessible, especially with developments in small satellites that have greater commercial viability.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/aerospace-engineers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-2021": {
+    "quote": "Farms will continue to need agricultural engineers to design more efficient machinery, equipment, and buildings and to help reduce environmental damage.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/agricultural-engineers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-2031": {
+    "quote": "Bioengineers and biomedical engineers are expected to see employment growth as demand for biomedical devices and procedures, such as hip and knee replacements, continues to increase.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/biomedical-engineers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-2041": {
+    "quote": "Demand for chemical engineers’ services depends largely on demand for the products that these workers help to develop.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/chemical-engineers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-2051": {
+    "quote": "Public projects may depend on funding from federal, state, and local governments.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/civil-engineers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-2061": {
+    "quote": "Demand for computer hardware engineers is expected to grow, as these workers are needed to design parts for manufactured products that use processors and other components, such as household appliances, medical devices, and automobiles.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/computer-hardware-engineers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-2081": {
+    "quote": "Heightened public awareness of the hazards facing the environment is expected to support demand for environmental engineers.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/environmental-engineers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-2112": {
+    "quote": "As more companies look to lower costs, demand is expected to increase for industrial engineers to optimize production processes, manage supply chains and logistics, and provide expertise on automation.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/industrial-engineers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-2121": {
+    "quote": "Marine engineers and naval architects are expected to be needed to help design ships and port facilities that meet increasingly strict international emissions standards.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/marine-engineers-and-naval-architects.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-2131": {
+    "quote": "As demand for new materials and manufacturing processes continues to increase, more materials engineers are expected to be needed to help develop these products and systems.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/materials-engineers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-2141": {
+    "quote": "Employment of mechanical engineers is expected to increase as automation and innovation create demand for these workers to design, develop, test, and maintain a variety of products and systems.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/mechanical-engineers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-2161": {
+    "quote": "The increased focus on renewable energy and the limited construction of new nuclear power plants is expected to limit demand for nuclear engineers.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/nuclear-engineers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-2171": {
+    "quote": "The need for petroleum engineers to help facilitate oil and gas extraction at existing operations is expected to create some demand for these workers.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/petroleum-engineers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-3021": {
+    "quote": "Demand for aerospace engineering and operations technologists and technicians is expected to increase as space becomes more accessible, especially with innovations that make small satellites commercially viable.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/aerospace-engineering-and-operations-technicians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-3022": {
+    "quote": "In addition, more waste treatment plants will be needed to help clean the nation’s waterways, and water systems must be maintained to reduce or eliminate the loss of potable water.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/civil-engineering-technicians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-3024": {
+    "quote": "An increase in autonomous systems and robotics is projected to increase demand for electro-mechanical and mechatronics technologists and technicians to develop, produce, and operate them.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/electro-mechanical-technicians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-3026": {
+    "quote": "An emphasis on cost control through increased efficiency, along with industrial engineering technologists and technicians' role in assisting with automation, is expected to sustain demand for these workers.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/industrial-engineering-technicians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-3027": {
+    "quote": "Mechanical engineering technologists and technicians will continue to be needed to help engineers plan for and design increasingly complex mechanical products, equipment, and systems.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/mechanical-engineering-technicians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-3028": {
+    "quote": "As automation increases the number and complexity of devices, calibration technologists and technicians will be needed to apply their knowledge of measurement science to evaluate and adjust a variety of equipment.",
+    "url": "https://www.bls.gov/ooh/installation-maintenance-and-repair/calibration-technologists-and-technicians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "17-3031": {
+    "quote": "Increased demand for map information is expected to require surveying and mapping technicians to gather and prepare related data.",
+    "url": "https://www.bls.gov/ooh/architecture-and-engineering/surveying-and-mapping-technicians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "19-1021": {
+    "quote": "Biochemists and biophysicists will continue to be needed to do basic research that increases scientific knowledge and to research and develop biological products and processes that improve people’s lives.",
+    "url": "https://www.bls.gov/ooh/life-physical-and-social-science/biochemists-and-biophysicists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "19-1022": {
+    "quote": "Microbiologists are expected to be needed to help pharmaceutical and biotechnology companies develop new drugs that are produced with the aid of microorganisms.",
+    "url": "https://www.bls.gov/ooh/life-physical-and-social-science/microbiologists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "19-1023": {
+    "quote": "Some zoologists and wildlife biologists are expected to be needed to help combat the loss of biodiversity caused by human activities, as well as to research changes in ecosystems.",
+    "url": "https://www.bls.gov/ooh/life-physical-and-social-science/zoologists-and-wildlife-biologists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "19-1041": {
+    "quote": "Demand for epidemiologists is expected to increase as enhancements in healthcare technology permit the discovery of new and emerging diseases.",
+    "url": "https://www.bls.gov/ooh/life-physical-and-social-science/epidemiologists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "19-2043": {
+    "quote": "Demand for the services of hydrologists will stem from ongoing human activities such as mining, construction, and hydraulic fracturing.",
+    "url": "https://www.bls.gov/ooh/life-physical-and-social-science/hydrologists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "19-3011": {
+    "quote": "Employment demand will stem from organizations that turn to economists to apply analysis of big data to pricing, advertising, and other areas.",
+    "url": "https://www.bls.gov/ooh/life-physical-and-social-science/economists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "19-3022": {
+    "quote": "The use of big data in market research is expected to continue to make survey research work more efficient and therefore will likely reduce the demand for survey researchers to gather survey information.",
+    "url": "https://www.bls.gov/ooh/life-physical-and-social-science/survey-researchers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "19-3051": {
+    "quote": "However, federal, state, and local government budgets may affect the employment of planners in government, because development projects are contingent on available funds.",
+    "url": "https://www.bls.gov/ooh/life-physical-and-social-science/urban-and-regional-planners.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "19-3091": {
+    "quote": "Demand for archeologists will likely stem from the need to ensure that builders, museums, and other organizations comply with federal regulations pertaining to the preservation and handling of archeological and historical artifacts.",
+    "url": "https://www.bls.gov/ooh/life-physical-and-social-science/anthropologists-and-archeologists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "19-3092": {
+    "quote": "Governments and businesses will need geographers to research topics such as natural hazards and the use of resources.",
+    "url": "https://www.bls.gov/ooh/life-physical-and-social-science/geographers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "19-3093": {
+    "quote": "Organizations that employ historians, such as historical societies and government agencies, often depend on donations or public funding.",
+    "url": "https://www.bls.gov/ooh/life-physical-and-social-science/historians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "19-3094": {
+    "quote": "Demand for these workers is tied to federal funding, as more than half of political scientists are employed in the federal government.",
+    "url": "https://www.bls.gov/ooh/life-physical-and-social-science/political-scientists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "19-4021": {
+    "quote": "Demand for biological and medical research is expected to contribute to the need for biological technicians.",
+    "url": "https://www.bls.gov/ooh/life-physical-and-social-science/biological-technicians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "19-4031": {
+    "quote": "In addition, demand for these technicians is projected due to greater interest in environmental issues such as pollution control, clean energy, and sustainability.",
+    "url": "https://www.bls.gov/ooh/life-physical-and-social-science/chemical-technicians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "19-4051": {
+    "quote": "Demand for nuclear technicians is expected to be limited as fewer nuclear power plants are constructed and as the production of renewable energy increases.",
+    "url": "https://www.bls.gov/ooh/life-physical-and-social-science/nuclear-technicians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "19-4092": {
+    "quote": "State and local governments are expected to continue to hire forensic science technicians to process their high caseloads.",
+    "url": "https://www.bls.gov/ooh/life-physical-and-social-science/forensic-science-technicians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "21-1013": {
+    "quote": "Employment growth of marriage and family therapists is expected due to the increasing use of integrated care, which is the treatment of multiple issues at one time by a group of specialists.",
+    "url": "https://www.bls.gov/ooh/community-and-social-service/marriage-and-family-therapists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "21-1015": {
+    "quote": "Demand for rehabilitation counselors is expected to grow with the increase in the older population and with the continued rehabilitation needs of other groups, such as veterans and people with disabilities.",
+    "url": "https://www.bls.gov/ooh/community-and-social-service/rehabilitation-counselors.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "21-1018": {
+    "quote": "Increased demand for these workers is expected because of a growth in the number of people, including youths, who have mental health and behavioral disorders.",
+    "url": "https://www.bls.gov/ooh/community-and-social-service/substance-abuse-behavioral-disorder-and-mental-health-counselors.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "21-1092": {
+    "quote": "Demand for probation officers and correctional treatment specialists could be strong as governments continue to recognize the advantages of community corrections over incarceration in certain situations.",
+    "url": "https://www.bls.gov/ooh/community-and-social-service/probation-officers-and-correctional-treatment-specialists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "21-1093": {
+    "quote": "A growing population of older people and rising demand for social services are expected to drive demand for these workers.",
+    "url": "https://www.bls.gov/ooh/community-and-social-service/social-and-human-service-assistants.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "21-1094": {
+    "quote": "Community health workers will continue to be needed to help organizations and government agencies provide people with health-related information, such as how to access medical services.",
+    "url": "https://www.bls.gov/ooh/community-and-social-service/community-health-workers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "23-1011": {
+    "quote": "Demand for legal work is expected to continue to increase as the economy continues to grow and individuals, businesses, and all levels of government require legal services in many areas.",
+    "url": "https://www.bls.gov/ooh/legal/lawyers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "23-1022": {
+    "quote": "However, because alternative dispute resolution in government is contingent on available funds, state and local government budgets may affect public sector employment of arbitrators, mediators, and conciliators.",
+    "url": "https://www.bls.gov/ooh/legal/arbitrators-mediators-and-conciliators.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "23-2011": {
+    "quote": "Law firms are expected to continue to be the largest employer of paralegals and legal assistants, as these workers are needed to help prepare and organize legal documents.",
+    "url": "https://www.bls.gov/ooh/legal/paralegals-and-legal-assistants.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "25-3041": {
+    "quote": "Employment growth for tutors will depend on the size of the student population requiring additional academic assistance.",
+    "url": "https://www.bls.gov/ooh/education-training-and-library/tutors.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-1011": {
+    "quote": "As traditional print publications lose ground to other media forms, art directors are shifting their focus to online advertising, video, and internet design.",
+    "url": "https://www.bls.gov/ooh/arts-and-design/art-directors.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-1014": {
+    "quote": "Employment of special effects artists and animators is projected to be supported by demand for animation and visual effects in video games, movies, and television.",
+    "url": "https://www.bls.gov/ooh/arts-and-design/multimedia-artists-and-animators.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-1022": {
+    "quote": "The demand for a constant flow of new fashion designs is supported by social media influencers and by retailers advertising and selling directly to consumers online.",
+    "url": "https://www.bls.gov/ooh/arts-and-design/fashion-designers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-1023": {
+    "quote": "Although there will likely continue to be demand for floral arrangements at events such as weddings and funerals, the need for floral designers is projected to decline along with the number of florist shops.",
+    "url": "https://www.bls.gov/ooh/arts-and-design/floral-designers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-1024": {
+    "quote": "Automated design tools, such as artificial intelligence (AI), are projected to make graphic designers more productive and reduce the need for these workers.",
+    "url": "https://www.bls.gov/ooh/arts-and-design/graphic-designers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-1025": {
+    "quote": "Homeowners and companies are expected to need services provided by interior designers to help with renovation projects.",
+    "url": "https://www.bls.gov/ooh/arts-and-design/interior-designers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-2011": {
+    "quote": "The television and film industry is likely to continue to shift its focus from growth in the number of programs and number of subscribers to profitability.",
+    "url": "https://www.bls.gov/ooh/entertainment-and-sports/actors.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-2012": {
+    "quote": "Demand for video advertising across platforms is projected to increase demand for these workers.",
+    "url": "https://www.bls.gov/ooh/entertainment-and-sports/producers-and-directors.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-2021": {
+    "quote": "As student athletes increasingly sign endorsements due to the Name, Image and Likeness (NIL) policy in college sports, the number of self-employed athletes and sports competitors is expected to grow.",
+    "url": "https://www.bls.gov/ooh/entertainment-and-sports/athletes-and-sports-competitors.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-2022": {
+    "quote": "The growing interest in college sports, professional sports, and sports recreation instruction is projected to increase demand for coaches and scouts.",
+    "url": "https://www.bls.gov/ooh/entertainment-and-sports/coaches-and-scouts.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-2023": {
+    "quote": "The demand for umpires, referees, and other sports officials is projected to increase with a growing interest in college sports, professional sports, and sports recreation and with more athletes participating in sports.",
+    "url": "https://www.bls.gov/ooh/entertainment-and-sports/umpires-referees-and-other-sports-officials.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-2041": {
+    "quote": "In addition, growth may be limited for music directors in schools due to struggles with school funding, and music programs may be cut.",
+    "url": "https://www.bls.gov/ooh/entertainment-and-sports/music-directors-and-composers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-2042": {
+    "quote": "Interest in live music is expected to support demand across the performing arts.",
+    "url": "https://www.bls.gov/ooh/entertainment-and-sports/musicians-and-singers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-3023": {
+    "quote": "As consolidations, mergers, and news sharing continue, the demand for journalists may decrease as organizations downsize.",
+    "url": "https://www.bls.gov/ooh/media-and-communication/reporters-correspondents-and-broadcast-news-analysts.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-3031": {
+    "quote": "The use of social media is expected to create new opportunities for public relations specialists, who will help clients use these platforms effectively to reach consumers and the general public in new ways.",
+    "url": "https://www.bls.gov/ooh/media-and-communication/public-relations-specialists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-3041": {
+    "quote": "However, as traditional print newspapers and magazines lose ground to other media formats, employment of editors who work for those publications is projected to decline.",
+    "url": "https://www.bls.gov/ooh/media-and-communication/editors.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-3042": {
+    "quote": "As product innovation continues, technical writers are expected to be needed to convert complex information into a format that nontechnical users of these products understand.",
+    "url": "https://www.bls.gov/ooh/media-and-communication/technical-writers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-3043": {
+    "quote": "Additionally, demand for reading for pleasure will continue to support some writers and authors.",
+    "url": "https://www.bls.gov/ooh/media-and-communication/writers-and-authors.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-3091": {
+    "quote": "A diverse U.S. population and increasing globalization are projected to create demand for interpreters and translators.",
+    "url": "https://www.bls.gov/ooh/media-and-communication/interpreters-and-translators.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-3092": {
+    "quote": "State and local government budgets may affect the employment of court reporters because judicial budgets are contingent on available funds.",
+    "url": "https://www.bls.gov/ooh/legal/court-reporters.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "27-4021": {
+    "quote": "The ease and quality of photos taken by smartphones may reduce the need for professional photographers.",
+    "url": "https://www.bls.gov/ooh/media-and-communication/photographers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-1011": {
+    "quote": "Demand is expected to increase for chiropractic services as a nonsurgical, drug-free way to treat pain and improve overall wellness.",
+    "url": "https://www.bls.gov/ooh/healthcare/chiropractors.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-1031": {
+    "quote": "Moreover, as the population ages and looks for ways to stay healthy, there will be more demand for dietetic and nutrition services.",
+    "url": "https://www.bls.gov/ooh/healthcare/dietitians-and-nutritionists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-1041": {
+    "quote": "Because vision problems tend to occur more frequently later in life, an aging population will lead to demand for optometrists.",
+    "url": "https://www.bls.gov/ooh/healthcare/optometrists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-1051": {
+    "quote": "As the roles of pharmacists expand beyond traditional drug-dispensing duties, these workers increasingly will be integrated into healthcare teams to provide medication management and other patient care services in these facilities.",
+    "url": "https://www.bls.gov/ooh/healthcare/pharmacists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-1071": {
+    "quote": "A rise in the number of older people, who are more likely than young people to require medical care, and of patients with chronic diseases, such as diabetes, will increase healthcare demand.",
+    "url": "https://www.bls.gov/ooh/healthcare/physician-assistants.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-1081": {
+    "quote": "However, demand for podiatrists is expected to be limited because many patients may acquire services from a non-podiatrist physician or other appropriate caregiver.",
+    "url": "https://www.bls.gov/ooh/healthcare/podiatrists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-1122": {
+    "quote": "Demand for occupational therapists is expected to rise as the size of the older adult population grows.",
+    "url": "https://www.bls.gov/ooh/healthcare/occupational-therapists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-1123": {
+    "quote": "More physical therapists will be needed to help people with these conditions maintain their mobility and manage symptoms.",
+    "url": "https://www.bls.gov/ooh/healthcare/physical-therapists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-1124": {
+    "quote": "Because the incidence of cancer increases as people age, a rise in the number of older people is likely to increase demand for radiation therapists.",
+    "url": "https://www.bls.gov/ooh/healthcare/radiation-therapists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-1125": {
+    "quote": "Recreational therapists will be needed to help these patients regain their physical and mental health and to support them in their recovery.",
+    "url": "https://www.bls.gov/ooh/healthcare/recreational-therapists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-1126": {
+    "quote": "Other respiratory conditions that affect people of all ages, such as problems due to smoking and air pollution or those arising from emergencies, will continue to create demand for respiratory therapists.",
+    "url": "https://www.bls.gov/ooh/healthcare/respiratory-therapists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-1127": {
+    "quote": "Speech-language pathologists will be needed to treat the increased number of speech and language disorders in the older population.",
+    "url": "https://www.bls.gov/ooh/healthcare/speech-language-pathologists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-1128": {
+    "quote": "As the prevalence of chronic conditions grows, more exercise physiologists will be needed to help patients manage their symptoms and improve their overall health through personalized exercise programs.",
+    "url": "https://www.bls.gov/ooh/healthcare/exercise-physiologists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-1131": {
+    "quote": "Increases in consumers’ pet-related spending, expanding treatment options, and a growing, aging pet population are expected to drive employment growth of veterinarians.",
+    "url": "https://www.bls.gov/ooh/healthcare/veterinarians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-1141": {
+    "quote": "Demand for healthcare services is projected to increase because of the large number of older people, who typically have more medical problems than younger people.",
+    "url": "https://www.bls.gov/ooh/healthcare/registered-nurses.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-1181": {
+    "quote": "Because health problems are prevalent in older age groups, an aging population will continue to increase the demand for most healthcare services.",
+    "url": "https://www.bls.gov/ooh/healthcare/audiologists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-1292": {
+    "quote": "Demand for dental services is expected to increase as the older adult population grows and as people keep more of their original teeth than in previous generations.",
+    "url": "https://www.bls.gov/ooh/healthcare/dental-hygienists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-2010": {
+    "quote": "Clinical laboratory technologists and technicians will be in demand to perform these laboratory tests and procedures.",
+    "url": "https://www.bls.gov/ooh/healthcare/clinical-laboratory-technologists-and-technicians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-2031": {
+    "quote": "The need to diagnose medical conditions that affect older adults, such as coronary artery disease, will likely increase as the population continues to age.",
+    "url": "https://www.bls.gov/ooh/healthcare/cardiovascular-technologists-and-technicians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-2032": {
+    "quote": "With an aging population, the need to diagnose medical conditions that affect older adults, such as tumors, will likely increase.",
+    "url": "https://www.bls.gov/ooh/healthcare/diagnostic-medical-sonographers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-2033": {
+    "quote": "Nuclear medicine technologists will continue to be needed to administer these tests due to the growing number of people entering older age groups, in which cancer is more prevalent.",
+    "url": "https://www.bls.gov/ooh/healthcare/nuclear-medicine-technologists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-2036": {
+    "quote": "Because radiotherapy plays a vital role in treating this disease, medical dosimetrists will be needed to help develop treatment plans for patients.",
+    "url": "https://www.bls.gov/ooh/healthcare/medical-dosimetrists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-2052": {
+    "quote": "Demand for pharmacy services is expected to increase because of the large number of older people, who typically use more prescription medicines than younger people.",
+    "url": "https://www.bls.gov/ooh/healthcare/pharmacy-technicians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-2056": {
+    "quote": "As the number of households with pets and spending on pets continues to rise, strong demand is expected for veterinary technologists and technicians.",
+    "url": "https://www.bls.gov/ooh/healthcare/veterinary-technologists-and-technicians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-2061": {
+    "quote": "As the population ages, the overall need for healthcare services is expected to increase.",
+    "url": "https://www.bls.gov/ooh/healthcare/licensed-practical-and-licensed-vocational-nurses.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-2072": {
+    "quote": "However, the increase in adoption of artificial intelligence (AI)-powered solutions that make the medical coding process more efficient may affect the demand for these workers.",
+    "url": "https://www.bls.gov/ooh/healthcare/medical-records-and-health-information-technicians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-2091": {
+    "quote": "Demand for orthotists and prosthetists is projected to rise due to the aging population, the growing prevalence of obesity and diabetes, and the continued occurrence of trauma events.",
+    "url": "https://www.bls.gov/ooh/healthcare/orthotists-and-prosthetists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-9021": {
+    "quote": "Similarly, the increasing availability of medical data will contribute to more demand for medical registrars to update clinical registries, abstract relevant details, and convert data into meaningful information.",
+    "url": "https://www.bls.gov/ooh/healthcare/health-information-technologists-and-medical-registrars.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-9091": {
+    "quote": "Sports programs at all ages and for all experience levels will continue to create demand for athletic trainers.",
+    "url": "https://www.bls.gov/ooh/healthcare/athletic-trainers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "29-9092": {
+    "quote": "As advances in genetic research and technology allow more genetic tests to be developed, more genetic counselors will be needed to help individuals understand results, assess their genetic risks, and make informed decisions.",
+    "url": "https://www.bls.gov/ooh/healthcare/genetic-counselors.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "31-1120": {
+    "quote": "The services that home health and personal care aides provide will be in high demand to care for the rising number of older people.",
+    "url": "https://www.bls.gov/ooh/healthcare/home-health-aides-and-personal-care-aides.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "31-9011": {
+    "quote": "Demand for massage therapists is expected to increase as more people look to massage to maintain overall health and well-being.",
+    "url": "https://www.bls.gov/ooh/healthcare/massage-therapists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "31-9091": {
+    "quote": "Ongoing research linking oral health and general health will continue to increase demand for preventive dental services.",
+    "url": "https://www.bls.gov/ooh/healthcare/dental-assistants.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "31-9092": {
+    "quote": "The growing size of the older adult population, which typically has more healthcare concerns than younger age groups, will increase demand for medical services.",
+    "url": "https://www.bls.gov/ooh/healthcare/medical-assistants.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "31-9096": {
+    "quote": "Demand for veterinary assistants is projected to be strong as the demand for these procedures increases.",
+    "url": "https://www.bls.gov/ooh/healthcare/veterinary-assistants-and-laboratory-animal-caretakers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "31-9097": {
+    "quote": "The growing population, with its rising share of older people, will continue to increase demand for medical services, including blood testing.",
+    "url": "https://www.bls.gov/ooh/healthcare/phlebotomists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "33-2011": {
+    "quote": "Although improved building materials and building codes have resulted in a long-term decrease in fires and fire fatalities, firefighters will still be needed to respond to fires.",
+    "url": "https://www.bls.gov/ooh/protective-service/firefighters.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "33-9021": {
+    "quote": "Continued lawsuits, fraud and other crimes, and interpersonal mistrust are expected to create demand for investigative services.",
+    "url": "https://www.bls.gov/ooh/protective-service/private-detectives-and-investigators.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "35-1011": {
+    "quote": "Income growth is expected to result in greater demand for dishes at a variety of dining venues.",
+    "url": "https://www.bls.gov/ooh/food-preparation-and-serving/chefs-and-head-cooks.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "35-2021": {
+    "quote": "Additionally, some establishments prefer to employ fast food and counter workers, who both prepare and serve food to customers, which also may reduce the need for food preparation workers.",
+    "url": "https://www.bls.gov/ooh/food-preparation-and-serving/food-preparation-workers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "35-3011": {
+    "quote": "More bartenders will be needed to meet this demand, especially in full-service restaurants and breweries.",
+    "url": "https://www.bls.gov/ooh/food-preparation-and-serving/bartenders.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "35-3031": {
+    "quote": "However, reduced need for these workers is expected due to increases in the use of self-service technology, such as kiosks that allow customers to order and pay for food, and in carryout.",
+    "url": "https://www.bls.gov/ooh/food-preparation-and-serving/waiters-and-waitresses.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "37-2021": {
+    "quote": "The growing number of invasive insect species is expected to create demand for pest control services.",
+    "url": "https://www.bls.gov/ooh/building-and-grounds-cleaning/pest-control-workers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "39-5092": {
+    "quote": "The projected increase in employment reflects demand for nail services, such as mini-sessions (quick manicures at a low cost) and mobile manicures and pedicures (nail services offered outside of the salon).",
+    "url": "https://www.bls.gov/ooh/personal-care-and-service/manicurists-and-pedicurists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "39-5094": {
+    "quote": "The projected increase in employment reflects demand for services being offered, such as mini-sessions (quick facials at a lower cost) and mobile facials (making house calls) directly from skincare specialists rather than hairdressers, hairstylists, and cosmetologists.",
+    "url": "https://www.bls.gov/ooh/personal-care-and-service/skincare-specialists.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "39-6012": {
+    "quote": "Growth in this occupation is expected to be driven by demand for concierge services in apartment buildings and senior living communities.",
+    "url": "https://www.bls.gov/ooh/personal-care-and-service/concierges.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "39-7010": {
+    "quote": "Participation in leisure activities at public buildings, art galleries, and other places of interest is expected to drive employment growth for tour and travel guides.",
+    "url": "https://www.bls.gov/ooh/personal-care-and-service/tour-and-travel-guides.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "39-9032": {
+    "quote": "An increased emphasis on the importance of lifelong well-being is expected to create demand for recreation workers in a variety of settings, including fitness and recreational sports centers, country clubs, and other organizations.",
+    "url": "https://www.bls.gov/ooh/personal-care-and-service/recreation-workers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "41-3011": {
+    "quote": "With the shift towards digital advertising and the decline in the number of consumers viewing advertisements in print media, fewer advertising sales agents are expected to be needed.",
+    "url": "https://www.bls.gov/ooh/sales/advertising-sales-agents.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "41-3021": {
+    "quote": "Because the profitability of insurance companies depends on a steady stream of new customers, the demand for insurance sales agents is expected to continue.",
+    "url": "https://www.bls.gov/ooh/sales/insurance-sales-agents.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "41-3031": {
+    "quote": "Services that investment bankers provide, such as helping with initial public offerings and mergers and acquisitions, will continue to be in demand as the economy grows.",
+    "url": "https://www.bls.gov/ooh/sales/securities-commodities-and-financial-services-sales-agents.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "41-3041": {
+    "quote": "Demand is projected to be flat for travel agents’ expertise in recommending options to clients seeking personalized travel experiences.",
+    "url": "https://www.bls.gov/ooh/sales/travel-agents.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "41-9012": {
+    "quote": "Less expensive digital and social media options are allowing companies to promote their products and brands directly to consumers, which may moderate employment demand for models.",
+    "url": "https://www.bls.gov/ooh/sales/models.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "41-9031": {
+    "quote": "Sales engineers are expected to be in demand to help promote an increasing number of technologically sophisticated products and services.",
+    "url": "https://www.bls.gov/ooh/sales/sales-engineers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "43-3011": {
+    "quote": "Continued use of enhanced software and automated calling systems is expected to increase productivity and allow collectors to handle more accounts.",
+    "url": "https://www.bls.gov/ooh/office-and-administrative-support/bill-and-account-collectors.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "43-3071": {
+    "quote": "As more people use online banking tools, such as mobile check deposits, fewer bank customers will visit the teller window.",
+    "url": "https://www.bls.gov/ooh/office-and-administrative-support/tellers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "43-4051": {
+    "quote": "There is expected to be less demand for customer service representatives, especially in retail trade, as their tasks continue to be automated.",
+    "url": "https://www.bls.gov/ooh/office-and-administrative-support/customer-service-representatives.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "43-9031": {
+    "quote": "Furthermore, as organizations continue to publish their materials electronically instead of printing them, fewer desktop publishers are expected to be needed.",
+    "url": "https://www.bls.gov/ooh/office-and-administrative-support/desktop-publishers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "45-3031": {
+    "quote": "Employment of fishing and hunting workers depends on the availability of fish stocks and wild animals.",
+    "url": "https://www.bls.gov/ooh/farming-fishing-and-forestry/fishers-and-related-fishing-workers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "45-4011": {
+    "quote": "As more people continue to build homes in western forests, there will be a need for workers to protect those areas from fires.",
+    "url": "https://www.bls.gov/ooh/farming-fishing-and-forestry/forest-and-conservation-workers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "47-2011": {
+    "quote": "However, the shift away from coal-fired electricity generation will reduce the need for boilermakers.",
+    "url": "https://www.bls.gov/ooh/construction-and-extraction/boilermakers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "47-2031": {
+    "quote": "Population growth should result in more new-home construction—one of the largest segments employing carpenters—which will create some jobs for carpenters.",
+    "url": "https://www.bls.gov/ooh/construction-and-extraction/carpenters.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "47-2111": {
+    "quote": "In addition, the increasing use of artificial intelligence (AI) technologies and demand for data centers to support this growth are expected to contribute to rising electricity demand.",
+    "url": "https://www.bls.gov/ooh/construction-and-extraction/electricians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "47-2121": {
+    "quote": "Demand for glaziers stems both from new construction and from the need to repair and replace windows and other glass in existing buildings.",
+    "url": "https://www.bls.gov/ooh/construction-and-extraction/glaziers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "47-2141": {
+    "quote": "However, many homeowners choose to do painting themselves rather than hire workers for it, which will temper employment growth for painters.",
+    "url": "https://www.bls.gov/ooh/construction-and-extraction/painters-construction-and-maintenance.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "47-2152": {
+    "quote": "Demand for plumbers will stem from new construction and from the need to maintain and repair plumbing systems in existing residences and other buildings.",
+    "url": "https://www.bls.gov/ooh/construction-and-extraction/plumbers-pipefitters-and-steamfitters.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "47-2181": {
+    "quote": "Replacement and repair of roofs, as well as the installation of new roofs, will create demand for roofers.",
+    "url": "https://www.bls.gov/ooh/construction-and-extraction/roofers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "47-2211": {
+    "quote": "However, the use of prefabricated duct systems will limit the need for sheet metal workers on residential construction sites.",
+    "url": "https://www.bls.gov/ooh/construction-and-extraction/sheet-metal-workers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "47-2231": {
+    "quote": "As the cost of PV systems continues to decrease, more households are expected to take advantage of these systems, resulting in greater demand for the workers who install and maintain them.",
+    "url": "https://www.bls.gov/ooh/construction-and-extraction/solar-photovoltaic-installers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "47-4011": {
+    "quote": "The increasing use of remote inspections is projected to reduce the need for inspectors in state and local government.",
+    "url": "https://www.bls.gov/ooh/construction-and-extraction/construction-and-building-inspectors.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "47-4021": {
+    "quote": "However, the need to regularly maintain, update, and repair old equipment; provide access for people with disabilities; and install increasingly sophisticated equipment and controls will sustain demand for elevator and escalator installers and repairers.",
+    "url": "https://www.bls.gov/ooh/construction-and-extraction/elevator-installers-and-repairers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "47-4041": {
+    "quote": "Employment growth will be driven by the need to safely remove and clean up hazardous materials (hazmat) at sites recognized by the U.S. Environmental Protection Agency.",
+    "url": "https://www.bls.gov/ooh/construction-and-extraction/hazardous-materials-removal-workers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "49-3023": {
+    "quote": "Many owners are keeping their vehicles longer, which should support demand for these workers to provide the service that older vehicles often require.",
+    "url": "https://www.bls.gov/ooh/installation-maintenance-and-repair/automotive-service-technicians-and-mechanics.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "49-9021": {
+    "quote": "The growing number of sophisticated climate-control systems is also expected to increase demand for heating, air conditioning, and refrigeration mechanics and installers (HVAC technicians).",
+    "url": "https://www.bls.gov/ooh/installation-maintenance-and-repair/heating-air-conditioning-and-refrigeration-mechanics-and-installers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "49-9051": {
+    "quote": "Employment of electrical power-line installers and repairers is expected to grow, largely due to increasing electricity demand and related electrical grid needs.",
+    "url": "https://www.bls.gov/ooh/installation-maintenance-and-repair/line-installers-and-repairers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "49-9062": {
+    "quote": "Medical equipment repairers will be needed to fix and maintain the medical equipment used in healthcare facilities.",
+    "url": "https://www.bls.gov/ooh/installation-maintenance-and-repair/medical-equipment-repairers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "51-3011": {
+    "quote": "Population and income growth are expected to result in greater demand for a variety of commercial and retail specialty baked goods, including cupcakes, pies, and cakes.",
+    "url": "https://www.bls.gov/ooh/production/bakers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "51-8021": {
+    "quote": "Stationary engineers and boiler operators will continue to be needed for routine maintenance and to ensure that the equipment is working properly.",
+    "url": "https://www.bls.gov/ooh/production/stationary-engineers-and-boiler-operators.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "51-8031": {
+    "quote": "As water and wastewater treatment plants become more advanced with automated systems to manage treatment processes, fewer workers may be needed.",
+    "url": "https://www.bls.gov/ooh/production/water-and-wastewater-treatment-plant-and-system-operators.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "51-9141": {
+    "quote": "In addition, federal funding for the construction of new semiconductor manufacturing facilities, expansions of existing plants, and tax credits for manufacturers’ equipment expenses are expected to spur new investments in U.S. semiconductor production, further increasing the need for semiconductor processing technicians.",
+    "url": "https://www.bls.gov/ooh/production/semiconductor-processing-technicians.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "53-2021": {
+    "quote": "Although air traffic is projected to increase in the coming years, the satellite-based Next Generation Air Transportation System (NextGen) allows individual controllers to handle more air traffic.",
+    "url": "https://www.bls.gov/ooh/transportation-and-material-moving/air-traffic-controllers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "53-2031": {
+    "quote": "Demand for air travel, particularly from leisure travelers, will continue to support employment growth for flight attendants.",
+    "url": "https://www.bls.gov/ooh/transportation-and-material-moving/flight-attendants.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  },
+  "53-3032": {
+    "quote": "Moreover, online shopping is expected to continue to remain a common way to shop for many types of products, which also supports demand for truck drivers who transport these goods.",
+    "url": "https://www.bls.gov/ooh/transportation-and-material-moving/heavy-and-tractor-trailer-truck-drivers.htm#tab-6",
+    "retrievedAt": "2026-11-19T22:18:02.539Z"
+  }
+}
