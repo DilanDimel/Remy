@@ -25,7 +25,7 @@ export default function Accounts({ query }: { query: URLSearchParams }) {
       <div className="page-head">
         <div>
           <span className="eyebrow">Accounts</span>
-          <h1>Your profile, sources and memory.</h1>
+          <h1><span className="title-slogan">Your profile, sources and memory.</span><span className="title-plain">Account</span></h1>
           <p className="hide-phone">See exactly what Remy knows, where it came from, and change or delete it.</p>
         </div>
       </div>

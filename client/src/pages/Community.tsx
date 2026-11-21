@@ -73,7 +73,7 @@ export default function Community() {
       <div className="page-head">
         <div>
           <span className="eyebrow">Community</span>
-          <h1>A few right people.</h1>
+          <h1><span className="title-slogan">A few right people.</span><span className="title-plain">Community</span></h1>
           <p>People you've met who can help with your career. Remy asks you a few questions, then writes the email — you approve every word and send it yourself.</p>
         </div>
         <div className="row">

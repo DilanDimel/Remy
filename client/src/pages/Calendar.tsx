@@ -54,7 +54,7 @@ export default function CalendarPage() {
       <div className="page-head">
         <div>
           <span className="eyebrow">Calendar</span>
-          <h1>Deadlines, events and prep — in one place.</h1>
+          <h1><span className="title-slogan">Deadlines, events and prep — in one place.</span><span className="title-plain">Calendar</span></h1>
           <p>Items you approve live here. Export them to your own calendar whenever you like.</p>
         </div>
         <div className="row">

@@ -9,7 +9,7 @@ export default function Interview() {
       <div className="page-head">
         <div>
           <span className="eyebrow">Interview</span>
-          <h1>Get ready to talk about yourself</h1>
+          <h1><span className="title-slogan">Get ready to talk about yourself</span><span className="title-plain">Interview</span></h1>
           <p className="hide-phone">True stories from your resume for "Tell me about a time when…", and a 30-second pitch for career fairs and coffee chats.</p>
         </div>
       </div>

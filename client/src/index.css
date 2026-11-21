@@ -1199,3 +1199,25 @@ ul[class] > li, ol[class] > li { max-width: none; }
   .step-bar .step-text b { font-size: 12px; line-height: 1.2; }
   .step-bar .step-text .muted { display: none; }
 }
+
+/* ---------- Design preview: owners only while tested (Nov 21, 2026, from Demetre's redesign pilot) ----------
+   App.tsx puts .design-preview on <html> for owners. When it goes to everyone: keep the "plain" titles, delete the
+   slogans and eyebrows, and move these rules up into the main styles. */
+.title-plain { display: none; }
+.design-preview .title-plain { display: inline; }
+.design-preview .title-slogan { display: none; }
+.design-preview .page-head .eyebrow { display: none; }
+/* No purple tint: the dark surfaces use Remy's own near-black (the orange glow stays). */
+.design-preview .hero { background: radial-gradient(70% 120% at 85% 0%, rgba(232, 106, 42, .12), transparent 60%), linear-gradient(180deg, #1c1c1c, #121212); }
+.design-preview[data-theme="dark"] .hero { background: radial-gradient(70% 120% at 85% 0%, rgba(232, 106, 42, .10), transparent 60%), linear-gradient(180deg, #1c1c1c, #121212); }
+.design-preview[data-theme="dark"] .sidebar { background: radial-gradient(140% 38% at 0% 0%, rgba(232, 106, 42, .08), transparent 62%), linear-gradient(180deg, #1c1c1c, #121212); }
+.design-preview[data-theme="dark"] .mobile-nav { background: linear-gradient(180deg, #1c1c1c, #121212) !important; }
+.design-preview[data-theme="dark"] { --surface: #1c1c1c; --surface-2: #161616; }
+/* Job-type filters: short labels on phones so all four fit in one row. */
+.opp-kind-short { display: none; }
+@media (max-width: 560px) {
+  .design-preview .opp-filters .seg { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .design-preview .opp-filters .seg button { padding: 0 4px; }
+  .design-preview .opp-kind-long { display: none; }
+  .design-preview .opp-kind-short { display: inline; }
+}
