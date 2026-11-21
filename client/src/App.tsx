@@ -272,6 +272,20 @@ function Shell() {
 
 // On every page: Remy explains the screen they're on, for them (the tour stays in the menu under their name).
 const LOOKING = "What am I looking at?";
+// Design preview (owners, Nov 21): Remy opens with one line about the page you're on, in his voice, instead of the
+// centred "Hi, I'm Remy." greeting every AI panel has (Demetre's redesign plan).
+const INTRO: Record<string, string> = {
+  Home: "The card on the left is the one thing I'd do next. Ask me about it, or about anything in your search.",
+  "My Path": "This is where you work out a direction. Ask me what your major leads to, or what a job is really like.",
+  "Resume/CV": "Everything here comes from your own resume; I never invent experience. Ask me which of yours is strongest.",
+  Opportunities: "These are ranked for you: openings you can apply to and that fit your background come first. Ask me why one fits.",
+  Interview: "Practice your stories here before the real thing. Ask me what they're likely to ask you.",
+  Community: "This is for the people who can help you. Ask me how to reach out to one of them.",
+  Calendar: "Your deadlines and events, together. Ask me to help you plan around them.",
+  Progress: "Every application you've sent and what comes next on each. Ask me what to do after a reply.",
+  Accounts: "Your profile and what I remember about you. Ask me what I know, or tell me what to forget.",
+};
+
 const STARTERS: Record<string, string[]> = {
   Home: ["What should I focus on this week?", "Which opening fits me best right now?", "I'm not sure what career I want. Where do I start?"],
   "My Path": ["What jobs does my major lead to?", "What skill gap matters most for me?"],
@@ -286,6 +300,7 @@ const STARTERS: Record<string, string[]> = {
 
 function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () => void; flyIn: boolean }) {
   const { ws, setWs, run, save, config, theme, setTheme } = useStore();
+  const preview = useOwnerView();
   const [msg, setMsg] = useDraft("chat");
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
@@ -351,7 +366,17 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
         <button className="btn btn-secondary btn-sm" onClick={onMinimize} aria-label="Minimize Remy" title="Minimize Remy" data-testid="button-close-assistant"><Minus size={15} /><span className="hide-sm">Minimize</span></button>
       </div>
       <div className="asst-body">
-        {chat.length === 0 && !tailor && !busy && (
+        {chat.length === 0 && !tailor && !busy && preview && (
+          <div className="asst-intro" data-testid="assistant-welcome">
+            <div className="bubble bubble-ai">{INTRO[page] || INTRO.Home}</div>
+            <p className="xs muted">I only use what's in your approved profile, and I never send anything for you.</p>
+            <div className="asst-asks">
+              <span className="xs muted">You could ask</span>
+              {[LOOKING, ...(STARTERS[page] || STARTERS.Home)].map((s) => <button key={s} className="asst-ask" onClick={() => send(s)}>{s}</button>)}
+            </div>
+          </div>
+        )}
+        {chat.length === 0 && !tailor && !busy && !preview && (
           // Empty chat: a welcome in the middle of the panel instead of one bubble under a blank space.
           <div className="asst-welcome" data-testid="assistant-welcome">
             <Remy size={56} mood="wave" />
