@@ -87,6 +87,27 @@ for (const u of unparsed) console.log(`  note: non-literal URL, not checked — 
 const unusedRoutes = routes.filter((r) => !used.has(r));
 if (unusedRoutes.length) console.log(`  info: server routes the client never calls: ${unusedRoutes.map((r) => `${r.method} ${r.path}`).join(", ")}`);
 errors.push(...effectErrors);
+
+// One colour set (design council, Nov 21, 2026): a raw colour (#abc / #aabbcc) outside a token definition
+// (--name: #...) in index.css, or in a page's code, must already be on script/color-allowlist.json. New colours
+// go in as tokens in index.css :root, so the palette can't drift back to 100+ one-offs.
+{
+  const allow = new Set<string>(JSON.parse(fs.readFileSync(path.join(root, "script/color-allowlist.json"), "utf8")).colors);
+  // Comments are blanked (newlines kept, so line numbers stay right) so "/* note */ --x: #fff" still reads as a definition.
+  const cssSrc = fs.readFileSync(path.join(root, "client/src/index.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, " "));
+  const found: { where: string; color: string }[] = [];
+  let line = 1;
+  for (const piece of cssSrc.split(/([;{}])/)) {
+    if (!/^\s*--[\w-]+\s*:/.test(piece)) for (const m of piece.matchAll(/#[0-9a-fA-F]{3,8}\b/g)) found.push({ where: `client/src/index.css:${line + (piece.slice(0, m.index).match(/\n/g)?.length || 0)}`, color: m[0].toLowerCase() });
+    line += piece.match(/\n/g)?.length || 0;
+  }
+  for (const f of walk(path.join(root, "client/src")).filter((f) => f.endsWith(".tsx") && !f.includes("/components/ui/"))) {
+    fs.readFileSync(f, "utf8").split("\n").forEach((text, i) => {
+      for (const m of text.matchAll(/(?<=["'`])#[0-9a-fA-F]{3,8}\b/g)) found.push({ where: `${path.relative(root, f)}:${i + 1}`, color: m[0].toLowerCase() });
+    });
+  }
+  for (const f of found) if (!allow.has(f.color)) errors.push(`${f.where}  new raw colour ${f.color}: use a token from client/src/index.css :root (e.g. var(--stage), var(--fox)) instead`);
+}
 if (errors.length) {
   console.error(`\ncontract FAILED (${errors.length}):`);
   for (const e of errors) console.error("  " + e);
