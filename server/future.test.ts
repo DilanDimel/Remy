@@ -39,3 +39,42 @@ test("careers: a typed job title finds its official occupation", () => {
   assert.match(officialFor("registered nurse")!.title, /Registered nurses/i);
   assert.equal(officialFor("zzz"), null);
 });
+
+// "What's the job?" details (O*NET duties + BLS outlook quote), Nov 21, 2026.
+import { occupationDetails } from "./future";
+test("occupation details: financial analysts get Labor Department duties, quoted with the source", () => {
+  const d = occupationDetails("13-2051")!;
+  assert.match(d.title, /financial/i);
+  assert.ok(d.duties.length >= 1 && d.duties.length <= 5);
+  assert.ok(d.duties.every((t) => t.length > 10));
+  assert.match(d.dutiesSource!.url, /^https:\/\/www\.onetonline\.org\/link\/details\/13-2051\.00/);
+  assert.match(d.dutiesSource!.licenseUrl, /creativecommons\.org\/licenses\/by\/4\.0/);
+});
+test("occupation details: every job the Future tab can show is a known code", () => {
+  for (const major of ["Finance", "Computer Science", "Nursing", "Education", "Marketing"]) {
+    for (const f of futureFor(student(major)).fields) for (const o of [...f.growing, ...f.shrinking]) {
+      assert.match(o.soc, /^\d{2}-\d{4}$/);
+      assert.ok(occupationDetails(o.soc), o.title);
+    }
+  }
+});
+test("occupation details: an outlook quote links to the government's guide and is dropped once it's over 400 days old", () => {
+  const d = occupationDetails("11-3031", Date.parse("2026-12-01"))!;
+  assert.ok(d.outlook);
+  assert.match(d.outlook!.url, /^https:\/\/www\.bls\.gov\/ooh\//);
+  assert.equal(occupationDetails("11-3031", Date.parse("2028-01-31"))!.outlook, null);
+});
+test("occupation details: bad or unknown codes return nothing", () => {
+  for (const soc of ["", "13-2051; drop", "../etc", "99-9999", "132051"]) assert.equal(occupationDetails(soc), null);
+});
+test("occupation details: duties are the tasks O*NET rates most important, or say they're examples", () => {
+  const acc = occupationDetails("13-2011")!; // Accountants and auditors: rated
+  assert.equal(acc.ranked, true);
+  assert.match(acc.duties[0], /accounting records|financial statements/i);
+  assert.equal(occupationDetails("13-2051")!.ranked, false); // Financial analysts: O*NET hasn't rated these tasks
+});
+test("occupation details: shrinking jobs and sentences that lean on the one before show no quote", () => {
+  const at = Date.parse("2026-12-01");
+  for (const soc of ["15-1244", "23-2011", "19-3092", "27-1014", "27-3043", "45-4011"]) assert.equal(occupationDetails(soc, at)!.outlook, null, soc);
+  for (const soc of ["29-2072", "35-3031", "47-2141", "13-1121"]) assert.equal(occupationDetails(soc, at)!.outlook, null, soc); // "However, …" / "In addition, …"
+});

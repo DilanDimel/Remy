@@ -31,7 +31,7 @@ import * as beta from "./beta";
 import * as signals from "./signals";
 import { acceptHtml } from "@shared/acceptEmail";
 import { recordError } from "./admin";
-import { careersFor, futureFor, officialFor } from "./future";
+import { careersFor, futureFor, occupationDetails, officialFor } from "./future";
 import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase } from "./auth";
 import { aiExtractPosting, CLOSED_SIGNALS, docxPreviewHtml, fetchPublic, fileToText, htmlToText, norm, pdfStyle } from "./parse";
 import {
@@ -1545,6 +1545,12 @@ Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), 
 
   // Official job projections for the student's fields (no AI call).
   app.get("/api/future", route(async (_req, res, ctx) => { res.json(futureFor(ctx.ws)); }));
+  // Public government facts about one job (no student data, no AI): duties and why it's changing.
+  app.get("/api/occupation/:soc", route(async (req, res) => {
+    const d = occupationDetails(String(req.params.soc || ""));
+    if (!d) bad("Remy doesn't have government details for that job.", 404);
+    res.json(d);
+  }));
   // The front page's "browse by field": public government numbers only, no student data, no sign-in.
   app.get("/api/public/careers", (req, res) => {
     if (!allow("public:" + clientIp(req), 120, 10 * 60_000)) return res.status(429).json({ message: "Too many requests. Please wait a minute." });

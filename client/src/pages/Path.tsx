@@ -281,7 +281,41 @@ function FieldRoad() {
   );
 }
 
-type FutureOcc = { title: string; change: number; openings: number | null; wage: number | null; education: string; aiShare: number | null; link: string };
+type FutureOcc = { soc: string; title: string; change: number; openings: number | null; wage: number | null; education: string; aiShare: number | null; link: string };
+type OccupationDetails = { soc: string; title: string; duties: string[]; ranked: boolean; dutiesSource: { label: string; url: string; attribution: string; licenseUrl: string } | null; outlook: { quote: string; url: string } | null };
+
+/** "What's the job?": a job's most important duties and one line from its outlook, in the government's own words. No AI. */
+function JobDetails({ soc }: { soc: string }) {
+  const [open, setOpen] = useState(false);
+  const [d, setD] = useState<OccupationDetails | "failed" | null>(null);
+  const load = () => {
+    setD(null);
+    api<OccupationDetails>("GET", `/api/occupation/${encodeURIComponent(soc)}`).then(setD, () => setD("failed"));
+  };
+  const toggle = () => {
+    setOpen(!open);
+    if (!open && (d === null || d === "failed")) load();
+  };
+  const shown = d !== null && d !== "failed" && (d.duties.length || d.outlook) ? d : null;
+  return (
+    <div>
+      <button className="xs" style={{ color: "var(--fox)", fontWeight: 700, padding: 0 }} onClick={toggle} aria-expanded={open} data-testid="button-job-details">{open ? "Hide details" : "What's the job?"}</button>
+      {open && (
+        <div className="notice stack-sm" style={{ marginTop: 6 }} data-testid="job-details">
+          {d === null ? <span className="row small muted"><Spinner /> Loading…</span>
+            : d === "failed" ? <span className="small muted">Couldn't load the details. <button className="xs" style={{ color: "var(--fox)", fontWeight: 700, padding: 0 }} onClick={load}>Try again</button></span>
+            : !shown ? <span className="small muted">The government doesn't publish duties for this exact job. Its name above links to the government's guide.</span>
+            : <>
+              {shown.duties.length > 0 && <div className="small"><b>What they do</b> <span className="xs muted">{shown.ranked ? "(the tasks the U.S. Department of Labor rates most important, in its words)" : "(examples from the U.S. Department of Labor, in its words; it hasn't rated which matter most)"}</span><ul style={{ margin: "2px 0 0", paddingLeft: 18, listStyle: "disc" }}>{shown.duties.map((t, i) => <li key={i}>{t}</li>)}</ul></div>}
+              {shown.outlook && <div className="small"><b>From the government's outlook</b> <span className="xs muted">(Bureau of Labor Statistics)</span><p style={{ margin: "2px 0 0" }}>“{shown.outlook.quote}” <a className="xs" href={shown.outlook.url} target="_blank" rel="noreferrer">Read the full outlook</a></p></div>}
+              {shown.dutiesSource && <span className="xs muted">{shown.dutiesSource.attribution} <a href={shown.dutiesSource.url} target="_blank" rel="noreferrer">See all tasks</a> · <a href={shown.dutiesSource.licenseUrl} target="_blank" rel="noreferrer">License</a></span>}
+            </>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 type FutureData = { source: string; allJobsGrowth: number; fields: { field: string; growing: FutureOcc[]; shrinking: FutureOcc[]; total: number; fasterThanAverage: number }[] };
 
 /** Official 10-year projections for the student's fields, with how much of each job AI can speed up. */
@@ -306,6 +340,7 @@ function Future() {
         {[o.wage ? `$${o.wage.toLocaleString("en-US")} median pay` : "", o.openings ? `about ${Math.round(o.openings * 1000).toLocaleString("en-US")} openings a year` : "", o.education].filter(Boolean).join(" · ")}
         {o.aiShare != null && <> · AI tools can speed up about {Math.round(o.aiShare * 100)}% of its tasks</>}
       </span>
+      <JobDetails soc={o.soc} />
     </li>
   );
   return (
