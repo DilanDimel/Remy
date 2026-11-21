@@ -229,7 +229,7 @@ function Landing() {
       <section className="lp-hero lp-dark">
         <div className="lp-beam" aria-hidden><span className="lp-beam-line" /><span className="lp-beam-floor" /></div>
         <div className="lp-hero-copy">
-          <span className="lp-award">Built by TCU students · Won first at TCU Neeley AI Forward, job recruitment category</span>
+          <span className="lp-award">Now in free beta</span>
           <h1>Don&rsquo;t Hunt For A Job <span className="lp-accent">Alone.</span></h1>
           <p className="lp-lede">A free career coach for college students: openings you can actually get, a resume that stays true, and what to do this week.</p>
           <div className="lp-ctas">
@@ -330,7 +330,7 @@ function Landing() {
       <footer className="lp-foot">
         <div className="lp-foot-brand">
           <span className="logo"><Remy size={26} mood="idle" /> Remy <BetaBadge /></span>
-          <p className="small">A free career coach for college students. Made by students at Texas Christian University.</p>
+          <p className="small">A free career coach for college students, based in Fort Worth, Texas.</p>
         </div>
         <nav aria-label="Product"><b>Product</b><a href="#get-openings">Openings</a><a href="#get-resume">Honest resume</a><a href="#get-explore">Explore careers</a><a href="#get-plan">Weekly plan</a></nav>
         <nav aria-label="Company"><b>Company</b><a href="/about">About the team</a><a href="mailto:remy.careercoach@gmail.com">remy.careercoach@gmail.com</a><a href="/signin">Sign in</a></nav>

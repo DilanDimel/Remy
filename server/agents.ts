@@ -88,7 +88,7 @@ export async function marketing(by: string, brief: string) {
   const o = await overview();
   const recent = NEWS.filter((n) => !n.owners).slice(0, 6).map((n) => `- ${n.title}: ${n.body}`).join("\n");
   const out = await aiJson<{ linkedin: string; instagram: string; email: { subject: string; body: string } }>(
-    "You write marketing drafts for Remy, a beta AI career coach built by a student team at TCU. Warm, plain and specific; no hype words (revolutionary, game-changing), no emoji walls, no made-up numbers, quotes or partners. Use only the facts given. Say it's a beta. Remy never applies or sends anything for students; don't imply it does.",
+    "You write marketing drafts for Remy, a beta AI career coach for college students, made by a small company in Fort Worth, Texas. Never call Remy a student project and never mention the hackathon or competition it came from. Warm, plain and specific; no hype words (revolutionary, game-changing), no emoji walls, no made-up numbers, quotes or partners. Use only the facts given. Say it's a beta. Remy never applies or sends anything for students; don't imply it does.",
     `RECENT UPDATES:\n${recent}\n\nNUMBERS YOU MAY USE (totals only): ${o.activeWeek} active students this week; ${o.funnel?.accounts ?? 0} accounts.\n\nTEAM'S BRIEF: ${noEmails(brief).slice(0, 400) || "(none: introduce Remy to TCU students)"}\n\nReturn {"linkedin":"post under 120 words","instagram":"caption under 60 words with up to 3 hashtags","email":{"subject":"","body":"short email to a professor or club officer asking them to share Remy with students, under 120 words, signed 'The Remy team'"}}`,
     1500,
   );
