@@ -1,10 +1,11 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, ShieldCheck } from "lucide-react";
 import { go } from "../lib/router";
 import { useOwnerView, useStore } from "../lib/store";
 import { BetaBadge, Remy } from "../components/common";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { TEAM } from "./Info";
-import { FieldBrowser, HeroExample, LinkedInMark, applyHref } from "./Welcome";
+import { FieldBrowser, LinkedInMark, applyHref } from "./Welcome";
 
 export const INSTAGRAM = "https://www.instagram.com/coachremyai/";
 export const LINKEDIN = "https://www.linkedin.com/company/remyai-org/";
@@ -25,6 +26,7 @@ function Top({ inside, what = "#what" }: { inside: boolean; what?: string }) {
       <nav className="lp2-nav" aria-label="Main">
         <a className="hide-sm" href={what}>What Remy does</a>
         <a className="hide-sm" href="/about">About</a>
+        <ThemeToggle className="lp2-theme" />
         <a className="lp2-btn lp2-btn-sm" href={inside ? "/" : "/signin"} data-testid="button-lp-signin">{inside ? "Open my Remy" : "Sign in"}</a>
       </nav>
     </header>
@@ -36,7 +38,7 @@ export function Careers() {
   const { me, ws } = useStore();
   if (!useOwnerView()) return <Landing2Fallback />;
   return (
-    <div className="lp2">
+    <div className={PAGE}>
       <div className="lp2-w">
         <Top inside={!!(me && ws?.started)} what="/welcome#what" />
         <main className="lp2-careers">
@@ -49,10 +51,13 @@ export function Careers() {
   );
 }
 
-export type HeroProps = { start: string; startLabel: string; ext: Record<string, string>; inside: boolean; beta: boolean };
+// The light/dark "Try it now" look Dilan picked (Nov 22); its colours live in the .lk-try block of index.css.
+const PAGE = "lp2 lk lk-try";
+const MAJORS = ["Marketing", "Finance", "Nursing", "Engineering", "Psychology & social work"];
+const YEARS = ["freshman", "sophomore", "junior", "senior"];
+type Occ = { title: string; change: number; wage: number | null };
 
-/** `hero` and `className` let the owner-only look switcher (LandingLooks) swap the top of the page and its colours. */
-export default function Landing2({ hero, className = "" }: { hero?: (p: HeroProps) => ReactNode; className?: string } = {}) {
+export default function Landing2() {
   const { config, me, ws } = useStore();
   const inside = !!(me && ws?.started);
   const beta = !!config?.beta?.on && !inside;
@@ -61,6 +66,15 @@ export default function Landing2({ hero, className = "" }: { hero?: (p: HeroProp
   const ext: Record<string, string> = beta ? { target: "_blank", rel: "noreferrer" } : {};
   const out = { target: "_blank", rel: "noreferrer" };
   const page = useRef<HTMLDivElement>(null);
+  const [major, setMajor] = useState(MAJORS[0]);
+  const [year, setYear] = useState(YEARS[1]);
+  const [jobs, setJobs] = useState<Occ[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    setJobs(null);
+    fetch("/api/public/careers?field=" + encodeURIComponent(major)).then((r) => r.json()).then((d) => live && setJobs(d?.[0]?.jobs?.slice(0, 3) || [])).catch(() => live && setJobs([]));
+    return () => { live = false; };
+  }, [major]);
   // Sections ease in as they scroll into view (CSS keeps them visible when motion is reduced or JS is off).
   useEffect(() => {
     const els = page.current?.querySelectorAll(".rv") || [];
@@ -70,30 +84,34 @@ export default function Landing2({ hero, className = "" }: { hero?: (p: HeroProp
     return () => io.disconnect();
   }, []);
   return (
-    <div className={"lp2 " + className} ref={page}>
+    <div className={PAGE} ref={page}>
       <div className="lp2-w">
         <Top inside={inside} />
 
         <main>
-          {hero ? hero({ start, startLabel, ext, inside, beta }) : (
-          <section className="lp2-hero">
-            <div className="lp2-hero-copy">
-              <p className="lp2-pre">Free for college students, now in beta</p>
-              <h1>Don&rsquo;t hunt for a job alone.</h1>
-              <p className="lp2-lede">Remy finds openings you can actually get, keeps your resume honest, and tells you what to do this week.</p>
-              <div className="lp2-ctas">
-                <a className="lp2-btn lp2-btn-lg" href={start} {...ext} data-testid="button-lp-start">{startLabel}</a>
-                {!inside && <a className="lp2-link" href="/signin">{beta ? "Already in? Sign in" : "I have an account"}</a>}
+          <section className="lk-hero lk-try-hero">
+            <h1>Find the jobs you can actually get.</h1>
+            <p className="lp2-lede">Tell Remy your year and major. It reads 180+ employers&rsquo; own career sites and shows what fits you.</p>
+            <div className="lk-ask">
+              <p><Remy size={32} mood="happy" /> I&rsquo;m a{" "}
+                <select aria-label="Year" value={year} onChange={(e) => setYear(e.target.value)} data-testid="select-lp-year">{YEARS.map((y) => <option key={y}>{y}</option>)}</select>{" "}studying{" "}
+                <select aria-label="Major" value={major} onChange={(e) => setMajor(e.target.value)} data-testid="select-lp-major">{MAJORS.map((m) => <option key={m}>{m}</option>)}</select>
+              </p>
+              <a className="lp2-btn lp2-btn-lg" href={start} {...ext} data-testid="button-lp-start">{inside ? "Open my Remy" : "Show me my matches"}</a>
+            </div>
+            <div className="lk-chips" role="group" aria-label="Pick a major">{MAJORS.map((m) => <button key={m} type="button" className="lk-chip" aria-pressed={m === major} onClick={() => setMajor(m)} data-testid={`chip-lp-major-${m.split(" ")[0].toLowerCase()}`}>{m}</button>)}</div>
+            <div className="lk-results">
+              <div className="lk-card"><p className="lk-small">Openings that fit a {year}</p>
+                <div className="lk-job"><div><b>Marketing Intern, Summer 2027</b><span>Dallas, TX &middot; closes Jan 31</span></div><span className="lk-ok">You qualify</span></div>
+                <p className="lk-why">It asks for sophomores in marketing. That&rsquo;s you.</p>
+                <div className="lk-job lk-hide"><div><b>Senior Marketing Associate</b><span>Hidden: needs 3 years of experience</span></div></div>
+              </div>
+              <div className="lk-card lk-say"><Remy size={44} mood="happy" /><p><b>Your next step:</b> add the budget you ran as treasurer. That bullet has no number yet.</p></div>
+              <div className="lk-card" aria-live="polite"><p className="lk-small">Where {major.toLowerCase()} leads</p>
+                {!jobs ? <p className="lk-occ"><span>Loading&hellip;</span></p> : jobs.map((o) => <p key={o.title} className="lk-occ"><b>{o.title}</b><span>{[o.wage ? `$${o.wage.toLocaleString("en-US")} median` : "", o.change ? `${o.change > 0 ? "+" : ""}${o.change}% by 2035` : ""].filter(Boolean).join(" · ")}</span></p>)}
               </div>
             </div>
-            <HeroExample />
-          </section>
-          )}
-          <section className="lp2-peek rv" aria-label="Inside Remy">
-            <p className="lp2-peek-cap"><Remy size={26} mood="happy" /> And this is what you see when you sign in.</p>
-            <div className="lp2-shot">
-              <img src="/landing/home.png" width={864} height={540} alt="Remy's Home screen: one next step, this week's to-dos and openings that fit" />
-            </div>
+            <p className="lk-note">The opening and next step are examples. Career numbers are live from the U.S. Bureau of Labor Statistics.</p>
           </section>
         </main>
       </div>
@@ -128,16 +146,6 @@ export default function Landing2({ hero, className = "" }: { hero?: (p: HeroProp
             </div>
           </div>
           <p className="lp2-never">Remy never makes up experience, applies or messages anyone for you, or sells your data.</p>
-        </div>
-      </section>
-
-      <section className="lp2-sec" aria-labelledby="explore-h">
-        <div className="lp2-w lp2-explore rv">
-          <div>
-            <h2 id="explore-h">No idea what you want yet? Good place to start.</h2>
-            <p className="lp2-sub">Pick a major and see the jobs it leads to, with real pay and growth from the U.S. Bureau of Labor Statistics. Try it, no account needed.</p>
-          </div>
-          <FieldBrowser />
         </div>
       </section>
 
