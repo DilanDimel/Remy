@@ -59,6 +59,7 @@ import { noUpgrade } from "./noUpgrade";
 import { boardsFor, orderEmployers, preferMetros, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, isEmptyListing, refillEmpty, kindOf, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
 import { currentResumeDocx, docxStyle, editResumeDocx } from "./docxEdit";
+import { keepDecided } from "./keepDecided";
 import * as gcal from "./gcal";
 import { q, q1, schema } from "./sql";
 import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./docs";
@@ -2123,6 +2124,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
   app.post("/api/applications/:id/generate", route(async (req, res, ctx) => {
     const a = getApp(ctx, String(req.params.id));
     const job = findJob(ctx.ws, a.jobId)!;
+    const before = a.changes;
     if (!ctx.ws.resume) bad("Upload your base resume first.");
     // Eligibility comes before polish: a clear conflict needs the student's OK first.
     const saved = ctx.ws.fits[job.id];
@@ -2237,8 +2239,9 @@ Return JSON:
     ]);
     const fixed = keptFixes(flagged, rw, (t, it) => !claimCheck(t, ev, { original: it.original, entryContext: entryContextOf(ctx.ws, changes.find((c) => c.id === it.id)!.bulletId), postingText: postingCtx }).length, norm,
       (why) => !claimCheck(why, ev, { postingText: postingCtx, postingNumbersOk: true, allowedNames: [job.company, job.title] }).length);
-    a.changes = changes.flatMap((c) => (!c.flags.length ? [c] : fixed.has(c.id) ? [{ ...c, revised: fixed.get(c.id)!.revised, reason: fixed.get(c.id)!.reason, flags: [] }] : []));
-    a.skippedChanges = changes.length - a.changes.length;
+    // A redo (draft-first answers, "Answer again") keeps the bullets the student already decided on.
+    a.changes = keepDecided(before, changes.flatMap((c) => (!c.flags.length ? [c] : fixed.has(c.id) ? [{ ...c, revised: fixed.get(c.id)!.revised, reason: fixed.get(c.id)!.reason, flags: [] }] : [])));
+    a.skippedChanges = changes.length - changes.filter((c) => !c.flags.length || fixed.has(c.id)).length;
     // Why they were left out: the AI was busy (try again later) or even its repair said more than the resume.
     a.skippedBusy = a.skippedChanges > 0 && !rw;
     const newLetter = stripPlaceholders(String(lt?.letter || "").trim());
