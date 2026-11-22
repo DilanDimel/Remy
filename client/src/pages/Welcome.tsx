@@ -6,6 +6,7 @@ import { BetaBadge, Remy, Spinner, StatusChip } from "../components/common";
 import { providerOn, sendMagicLink, startOAuth, type SupabaseProvider } from "../lib/supabase";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { isNativeApp } from "../lib/native";
+import Landing2 from "./Landing2";
 
 export function useGoogleButton(onCredential: (cred: string) => void) {
   const { config } = useStore();
@@ -40,13 +41,14 @@ const SB: Record<Exclude<Provider, "Work/School Email">, SupabaseProvider> = { G
 /** Signed out: the landing page at /, the sign-in page at /signin.
  * The phone app has no landing page: it opens straight to sign-in (signing in creates the account). */
 export default function Welcome() {
-  const { path } = useRoute();
+  const { path, query } = useRoute();
   const { betaBlocked } = useStore();
-  return isNativeApp || path === "/signin" || betaBlocked ? <SignIn /> : <Landing />;
+  // shortcut: the new homepage is a hidden preview at /?v=new until Dilan OKs it after Dec 1; then make it the default and delete Landing.
+  return isNativeApp || path === "/signin" || betaBlocked ? <SignIn /> : query.get("v") === "new" ? <Landing2 /> : <Landing />;
 }
 
 /** Where to apply to be a beta tester: the team's form, or Remy's inbox when the form isn't set yet. */
-const applyHref = (formUrl?: string) => formUrl || "mailto:hello@remyai.org?subject=Remy%20beta%20tester";
+export const applyHref = (formUrl?: string) => formUrl || "mailto:hello@remyai.org?subject=Remy%20beta%20tester";
 
 /** Invite-only beta: who can sign in, and why someone was turned away. */
 function BetaNote({ onOther }: { onOther: () => void }) {

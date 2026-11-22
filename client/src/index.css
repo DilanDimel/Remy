@@ -1565,3 +1565,72 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .path-pick-tile:hover { transform: translateY(-2px); border-color: var(--fox); }
 .path-pick-tile svg { color: var(--fox); }
 @media (prefers-reduced-motion: reduce) { .path-pick-tile { transition: none; } .path-pick-tile:hover { transform: none; } }
+
+/* Simpler homepage (Landing2, preview at /?v=new): always dark (council: dark landing until Demo Day), one surface, no glows or cards-in-cards. */
+.lp2 { --l2-ink: var(--paper); --l2-ink2: rgba(245, 245, 243, .78); --l2-muted: rgba(245, 245, 243, .56); --l2-line: rgba(255, 255, 255, .1);
+  background: var(--stage-deep); color: var(--l2-ink); min-height: 100dvh; font-size: 16px; line-height: 1.55; color-scheme: dark; }
+.lp2 a { color: inherit; text-decoration: none; }
+.lp2 a:focus-visible { outline: 2px solid var(--fox-light); outline-offset: 3px; border-radius: 6px; }
+.lp2 h1, .lp2 h2, .lp2 h3 { color: var(--l2-ink); margin: 0; text-wrap: balance; }
+.lp2 p { margin: 0; }
+.lp2-w { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+.lp2-top { display: flex; justify-content: space-between; align-items: center; height: 68px; }
+.lp2 .logo { color: var(--l2-ink); }
+.lp2 .beta-badge { color: var(--l2-muted); background: rgba(255, 255, 255, .08); }
+.lp2-nav { display: flex; gap: 22px; align-items: center; font-size: 14px; font-weight: 600; color: var(--l2-ink2); }
+.lp2-nav a:hover { color: var(--l2-ink); }
+.lp2-btn { display: inline-flex; align-items: center; justify-content: center; height: 46px; padding: 0 22px; border-radius: 12px; font-weight: 700; font-size: 15px; background: var(--paper); color: var(--stage-deep) !important; transition: transform .15s ease; }
+.lp2-btn:hover { transform: translateY(-1px); }
+.lp2-btn-sm { height: 36px; padding: 0 14px; font-size: 14px; border-radius: 10px; }
+.lp2-btn-lg { height: 50px; padding: 0 26px; font-size: 16px; }
+.lp2-hero { padding-top: 72px; text-align: center; }
+.lp2-pre { max-width: none; font-size: 14px; font-weight: 600; color: var(--l2-muted); }
+.lp2-hero h1 { font-size: clamp(2.5rem, 1.6rem + 3.6vw, 4.25rem); line-height: 1.04; letter-spacing: -0.035em; font-weight: 800; max-width: 14ch; margin: 14px auto 0; }
+.lp2-lede { font-size: 1.2rem; color: var(--l2-ink2); max-width: 36ch; margin: 20px auto 0 !important; }
+.lp2-ctas { display: flex; gap: 20px; justify-content: center; align-items: center; margin-top: 30px; }
+.lp2-link { font-size: 15px; font-weight: 600; color: var(--l2-ink2); text-decoration: underline !important; text-underline-offset: 4px; text-decoration-color: var(--l2-line) !important; }
+.lp2-shot { margin: 56px auto 0; max-width: 1000px; border: 1px solid var(--l2-line); border-bottom: 0; border-radius: 14px 14px 0 0; overflow: hidden; background: var(--white); max-height: 460px; }
+.lp2-shot img { display: block; width: 100%; height: auto; }
+.lp2-sec { border-top: 1px solid var(--l2-line); padding: 88px 0; }
+.lp2 h2 { font-size: clamp(1.75rem, 1.3rem + 1.5vw, 2.4rem); letter-spacing: -0.03em; line-height: 1.1; font-weight: 800; }
+.lp2-three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 48px; margin-top: 44px; }
+.lp2-three h3 { font-size: 1.2rem; letter-spacing: -0.015em; margin-bottom: 8px; }
+.lp2-three h3::before { content: ""; display: block; width: 28px; height: 3px; border-radius: 2px; background: var(--fox-light); margin-bottom: 18px; }
+.lp2-three p, .lp2-row p, .lp2-sub, .lp2-end p { color: var(--l2-ink2); }
+.lp2-never { margin-top: 52px !important; font-size: 14.5px; color: var(--l2-muted) !important; }
+.lp2-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
+.lp2-row p, .lp2-sub { margin-top: 12px !important; max-width: 46ch; }
+.lp2-more { font-weight: 700; font-size: 15px; color: var(--fox-light) !important; }
+.lp2-team { list-style: none; padding: 0; margin: 40px 0 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; }
+.lp2-team img, .lp2-ini { width: 100%; aspect-ratio: 1; height: auto; object-fit: cover; border-radius: 14px; display: grid; place-items: center; }
+.lp2-ini { background: var(--stage-2); border: 1px solid var(--l2-line); font-weight: 800; font-size: 28px; color: var(--l2-muted); }
+.lp2-team b { display: block; margin-top: 12px; font-size: 15px; }
+.lp2-team li > span:last-child { font-size: 13.5px; color: var(--l2-muted); }
+.lp2-social { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 36px; }
+.lp2-social a { display: flex; align-items: center; gap: 16px; padding: 22px 24px; border: 1px solid var(--l2-line); border-radius: 14px; background: var(--stage-2); transition: border-color .15s ease; }
+.lp2-social a:hover { border-color: rgba(255, 255, 255, .28); }
+.lp2-social a > span:nth-child(2) { display: grid; flex: 1; }
+.lp2-social b { font-size: 17px; }
+.lp2-social a > span:nth-child(2) > span { font-size: 14px; color: var(--l2-muted); }
+.lp2-go { font-size: 20px; color: var(--l2-muted); }
+.lp2-end { text-align: center; }
+.lp2-end .lp2-w { display: grid; justify-items: center; }
+.lp2-end h2 { margin-top: 18px; }
+.lp2-end p { margin: 12px 0 28px !important; }
+.lp2-foot { border-top: 1px solid var(--l2-line); padding: 28px 0 40px; display: flex; justify-content: space-between; gap: 16px 20px; flex-wrap: wrap; font-size: 13.5px; color: var(--l2-muted); }
+.lp2-foot nav { display: flex; gap: 8px 20px; flex-wrap: wrap; }
+.lp2-foot a:hover { color: var(--l2-ink); }
+@media (max-width: 720px) {
+  .lp2-w { padding: 0 16px; }
+  .lp2-hero { padding-top: 40px; }
+  .lp2-lede { font-size: 1.05rem; }
+  .lp2-ctas { flex-direction: column; gap: 14px; }
+  .lp2-ctas .lp2-btn { width: 100%; }
+  .lp2-shot { margin-top: 40px; max-height: 300px; }
+  .lp2-shot img { width: 170%; max-width: none; }
+  .lp2-sec { padding: 60px 0; }
+  .lp2-three { grid-template-columns: 1fr; gap: 30px; margin-top: 30px; }
+  .lp2-team { grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .lp2-social { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .lp2-btn, .lp2-social a { transition: none; } .lp2-btn:hover { transform: none; } }
