@@ -1,7 +1,7 @@
 // The owners' dashboard: who is an owner, the board, and errors marked fixed. Run with `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { addEvent, emails, overview, setEventPeople, addMember, errors, fixError, isOwner, recordError, removeMember, rsvp, saveTask, team, teamCalendarItems } from "./admin";
+import { addEvent, emails, overview, setEventPeople, addMember, errors, fixError, isOwner, recordError, removeMember, rsvp, saveTask, team, teamCalendarItems, logPast, removeEntry } from "./admin";
 
 process.env.OWNER_EMAILS = "founder@test.edu";
 const user = (email: string, kind: any = "supabase") => ({ kind, email });
@@ -86,14 +86,20 @@ test("overview: email counts are who left each email on and who got a digest thi
   assert.ok(o.emails.digestsWeek >= 1);
 });
 
-test("retention watcher: quiet means last visit 8–21 days ago; counts the step they stopped before", async () => {
-  const { emptyWorkspace } = await import("./db");
-  const { retentionReport } = await import("../ai/agents");
-  const mk = (done: boolean, visits: string[]) => { const w = emptyWorkspace(); w.onboarding.done = done; w.visits = visits; return w; };
-  const r = retentionReport([mk(true, ["2026-10-20"]), mk(true, ["2026-10-22"]), mk(true, ["2026-10-25"]), mk(true, ["2026-10-30"]), mk(true, ["2026-10-01"]), mk(false, [])], "2026-11-01");
-  assert.equal(r.quiet, 2);
-  assert.equal(r.noSetup, 1);
-  assert.equal(r.stoppedAt.reduce((s, x) => s + x.n, 0), 2);
+test("hours: past time is logged once, never overlapping or in the future, and only your own can be removed", async () => {
+  const me = "founder@test.edu", h = (n: number) => new Date(Date.now() - n * 3600_000).toISOString();
+  await logPast(me, { start: h(30), end: h(27), note: "Built the dashboard" });
+  await assert.rejects(logPast(me, { start: h(29), end: h(28) }), /overlaps/);
+  await assert.rejects(logPast(me, { start: h(2), end: h(-2) }), /past/);
+  await assert.rejects(logPast(me, { start: h(5), end: h(6) }), /after the start/);
+  await assert.rejects(logPast(me, { start: h(60), end: h(40) }), /16 hours/);
+  const t = await team(me);
+  assert.equal(t.hours.find((x: any) => x.member === me)?.hours, 3);
+  assert.ok(t.weeks.some((w: any) => w.member === me && w.hours === 3));
+  const id = t.entries.find((e: any) => e.member === me && e.note === "Built the dashboard").id;
+  await assert.rejects(removeEntry("someone@test.edu", id), /your own/);
+  await removeEntry(me, id);
+  assert.equal((await team(me)).entries.some((e: any) => e.id === id), false);
 });
 
 test("email rules: an interview invite with words in between is an interview, not a receipt", async () => {

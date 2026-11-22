@@ -45,7 +45,6 @@ import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, ski
 import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSION, planJobs, typeMatch } from "./jobs/fit";
 import { atsScore } from "./resume/ats";
 import { pastTerm } from "./jobs/fit";
-import * as agents from "./ai/agents";
 import { dueReminders, reminderEmail, weeklyDigest } from "./notify/reminders";
 import { answerNudge, overnightPicks, sendNudges } from "./coach/nudges";
 import { markDay } from "@shared/daily";
@@ -729,7 +728,6 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.send(f!.data);
   }));
   app.get("/api/admin/team", route(async (_req, res, ctx) => { res.json(await admin.team(owner(ctx))); }));
-  app.get("/api/admin/agents", route(async (_req, res, ctx) => { owner(ctx); res.json(await agents.agentRuns()); }));
   // Database space used against the plan's limit, per table (owners only).
   app.get("/api/admin/storage", route(async (_req, res, ctx) => { owner(ctx); await insights.flushDbBytes(); res.json({ ...(await storageReport()), workspaces: await insights.workspaceSizes(), transfer: await insights.dataTransfer() }); }));
   app.get("/api/admin/services", route(async (_req, res, ctx) => {
@@ -749,19 +747,6 @@ export async function registerRoutes(_server: Server, app: Express) {
       openings: await listOpenings({ company: s("company"), industry: s("industry"), careerPath: s("path"), status: status === "open" || status === "closed" || status === "unchecked" ? status : undefined, limit: Number(s("limit")) || undefined }),
     });
   }));
-  app.post("/api/admin/agents/:agent/run", route(async (req, res, ctx) => {
-    const me = owner(ctx);
-    if (!allow("agent:" + me, 10, 60 * 60_000)) bad("That's a lot of agent runs. Try again in an hour.", 429);
-    if (req.params.agent === "feedback") await agents.sortFeedback(me);
-    else if (req.params.agent === "weekly") await agents.weeklySummary(me);
-    else if (req.params.agent === "scout") await agents.scout(me);
-    else if (req.params.agent === "retention") await agents.retention(me);
-    else if (req.params.agent === "research") await agents.research(me, String(req.body?.question || ""));
-    else if (req.params.agent === "marketing") await agents.marketing(me, String(req.body?.brief || ""));
-    else bad("Unknown agent.", 404);
-    res.json(await agents.agentRuns());
-  }));
-  app.post("/api/admin/agents/suggestion", route(async (req, res, ctx) => { const me = owner(ctx); await agents.addSuggestion(me, String(req.body?.title || "")); res.json(await admin.team(me)); }));
   app.post("/api/admin/tasks", route(async (req, res, ctx) => { const me = owner(ctx); await admin.saveTask(me, req.body || {}); res.json(await admin.team(me)); }));
   app.delete("/api/admin/tasks/:id", route(async (req, res, ctx) => { const me = owner(ctx); await admin.deleteTask(me, String(req.params.id)); res.json(await admin.team(me)); }));
   // Founding Cohort list: owners add accepted emails (optionally emailing "You're in") and remove them.
@@ -840,6 +825,8 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.json({ removed, team: await admin.team(me) });
   }));
   app.post("/api/admin/clock", route(async (req, res, ctx) => { const me = owner(ctx); await admin.clock(me, req.body?.action === "out" ? "out" : "in", String(req.body?.note || "")); res.json(await admin.team(me)); }));
+  app.post("/api/admin/hours", route(async (req, res, ctx) => { const me = owner(ctx); await admin.logPast(me, req.body || {}); res.json(await admin.team(me)); }));
+  app.delete("/api/admin/hours/:id", route(async (req, res, ctx) => { const me = owner(ctx); await admin.removeEntry(me, String(req.params.id)); res.json(await admin.team(me)); }));
 
   app.get("/api/me", async (req, res, next) => {
     try {
