@@ -11,6 +11,12 @@ import { font, useTheme } from "@/lib/theme";
 
 const SITE = API_BASE || "https://remyai.org";
 
+// The sheet's title follows the page the student moves to (Resume → Opportunities), using the website's own nav labels (client/src/App.tsx).
+const TITLES: Record<string, string> = { path: "My Path", resume: "Resume", opportunities: "Opportunities", interview: "Interview", community: "People", calendar: "Calendar", progress: "Progress", settings: "Settings", accounts: "Account" };
+function titleFor(url: string): string | undefined {
+  try { return TITLES[new URL(url).pathname.split("/")[1] || ""]; } catch { return undefined; }
+}
+
 /** Somewhere other than Remy: web pages open in the in-app browser, mail/phone/text links in their own app. */
 function openOutside(url: string) {
   if (/^https?:/i.test(url)) WebBrowser.openBrowserAsync(url).catch(() => Linking.openURL(url).catch(() => {}));
@@ -24,6 +30,7 @@ export default function Web() {
   const { refresh } = useSession();
   const { c } = useTheme();
   const [busy, setBusy] = useState(true);
+  const [pageTitle, setPageTitle] = useState<string>();
   // Whatever changed on the page (a confirmed resume, a new to-do) shows up when the sheet closes.
   useEffect(() => () => { refresh(); }, [refresh]);
   const safe = path.startsWith("/") && !path.startsWith("//") ? path : "/";
@@ -45,15 +52,18 @@ export default function Web() {
   return (
     <View style={{ flex: 1, backgroundColor: c.paper }}>
       {/* A sheet always has a way out: swiping down is taken by the page's own scrolling. */}
-      <Stack.Screen options={{ title, headerBackTitle: "Back", headerRight: () => (
+      {/* Done is a solid orange pill: plain orange text sat on iOS's light-grey header pill and was hard to read. */}
+      <Stack.Screen options={{ title: pageTitle || title, headerBackTitle: "Back", headerRight: () => (
         <Pressable testID="button-close-sheet" accessibilityRole="button" accessibilityLabel="Done" hitSlop={10}
-          onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}>
-          <Text style={{ fontFamily: font.semi, fontSize: 17, color: c.fox }}>Done</Text>
+          onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
+          style={{ backgroundColor: c.fox, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 }}>
+          <Text style={{ fontFamily: font.bold, fontSize: 16, color: c.onFox }}>Done</Text>
         </Pressable>
       ) }} />
       {Platform.OS === "web"
         ? <iframe src={SITE + safe} style={{ border: 0, width: "100%", height: "100%" }} title={title} />
         : <WebView source={{ uri: SITE + safe }} sharedCookiesEnabled thirdPartyCookiesEnabled applicationNameForUserAgent="RemyApp" onLoadEnd={() => setBusy(false)}
+            onNavigationStateChange={(s) => { const t = titleFor(s.url); if (t) setPageTitle(t); }}
             originWhitelist={["*"]} onShouldStartLoadWithRequest={onNavigate} onOpenWindow={(e) => openOutside(e.nativeEvent.targetUrl)} onMessage={onMessage}
             style={{ backgroundColor: c.paper }} />}
       {busy && Platform.OS !== "web" && <ActivityIndicator color={c.fox} style={{ position: "absolute", top: 24, alignSelf: "center" }} />}

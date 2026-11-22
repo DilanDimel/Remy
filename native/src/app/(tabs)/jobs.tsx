@@ -16,7 +16,10 @@ export default function Jobs() {
   // Keep / Pass feel instant: the card goes at once, the server catches up, and Undo stays up for a few seconds.
   const [gone, setGone] = useState<Record<string, true>>({});
   const [last, setLast] = useState<{ job: Job; kept: boolean } | null>(null);
-  useEffect(() => { if (!last) return; const t = setTimeout(() => setLast(null), 5000); return () => clearTimeout(t); }, [last]);
+  // 8 seconds: the iPhone retest missed a 5-second Undo.
+  useEffect(() => { if (!last) return; const t = setTimeout(() => setLast(null), 8000); return () => clearTimeout(t); }, [last]);
+  // A Keep counts in Kept straight away, before the server answers.
+  const [keptNow, setKeptNow] = useState<Record<string, true>>({});
   const { c, look } = useTheme();
   const [filter, setFilter] = useState<Filter>("new");
   const [listMode, setListMode] = useState(false);
@@ -24,19 +27,20 @@ export default function Jobs() {
   const [refreshing, setRefreshing] = useState(false);
   const all = useMemo(() => (ws ? visibleJobs(ws, jobs, fits) : []), [ws, jobs, fits]);
   if (!ws) return null;
-  const kept = all.filter((j) => ws.savedJobIds.includes(j.id));
+  const kept = all.filter((j) => ws.savedJobIds.includes(j.id) || keptNow[j.id]);
   const fresh = all.filter((j) => !gone[j.id] && !ws.savedJobIds.includes(j.id) && !ws.jobFeedback?.[j.id]);
   const shown = filter === "kept" ? kept : fresh;
   const onRefresh = async () => { setRefreshing(true); await reload(); setRefreshing(false); };
   const decide = async (j: Job, yes: boolean) => {
     setErr(""); setGone((g) => ({ ...g, [j.id]: true })); setLast({ job: j, kept: yes });
+    if (yes) setKeptNow((k) => ({ ...k, [j.id]: true }));
     try { await (yes ? keep(j) : pass(j)); }
-    catch (e: any) { setErr(e.message); setLast(null); setGone(({ [j.id]: _, ...g }) => g); }
+    catch (e: any) { setErr(e.message); setLast(null); setGone(({ [j.id]: _, ...g }) => g); setKeptNow(({ [j.id]: _, ...k }) => k); }
   };
   const takeBack = async () => {
     if (!last) return;
     const { job, kept: k } = last; tap(); setLast(null);
-    try { await undo(job, k); setGone(({ [job.id]: _, ...g }) => g); } catch (e: any) { setErr(e.message); }
+    try { await undo(job, k); setGone(({ [job.id]: _, ...g }) => g); setKeptNow(({ [job.id]: _, ...n }) => n); } catch (e: any) { setErr(e.message); }
   };
   const toast = last && (
     <View style={{ position: "absolute", left: 16, right: 16, bottom: 104, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.ink, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 16 }} testID="toast-undo">
