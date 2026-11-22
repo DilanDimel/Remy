@@ -3,7 +3,7 @@ import { ApplyLink } from "../components/ApplyLink";
 import { SeasonCard } from "../components/SeasonCard";
 import { ApplyNudge } from "../components/ApplyNudge";
 import { MissionBoard } from "../components/Game";
-import { ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronUp, MapPin } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Briefcase, CalendarCheck, Check, ChevronDown, ChevronUp, Compass, FileText, Flame, ListChecks, MapPin, Mic } from "lucide-react";
 import type { Job, Task, Workspace } from "@shared/types";
 import { api, daysUntil, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
 import { CAREER_QUEST_ON } from "@shared/game";
@@ -13,8 +13,13 @@ import { kindLabel, useJobs } from "../lib/jobs";
 import { Remy, StatusChip } from "../components/common";
 import { firstName } from "@shared/names";
 import { gettingStarted } from "@shared/progress";
+import { many, remyLine } from "@shared/homeLine";
+import { dailyStreak, dayKey } from "@shared/daily";
 
 type Tab = "todos" | "events" | "opps";
+
+// A big faint drawing in the corner of the "one thing" card, picked from where the button goes.
+const nextArt = (link: string, interview: boolean) => interview || link.startsWith("/interview") ? Mic : link.startsWith("/resume") ? FileText : link.startsWith("/opportunities") ? Briefcase : link.startsWith("/path") ? Compass : link.startsWith("/calendar") ? CalendarCheck : ListChecks;
 
 function greeting() {
   const h = new Date().getHours();
@@ -73,7 +78,7 @@ export default function Home() {
     if (!w.resume.confirmedAt) return { title: "Confirm your base resume", why: "Check that every line was read correctly. Tailored versions are built only from what you confirm.", link: "/resume?tab=base", cta: "Review resume" };
     if (pending) {
       const j = jobs?.find((x) => x.id === pending.jobId);
-      return { title: `Finish reviewing your ${j?.company || ""} application`, why: `${pending.changes.filter((c) => c.status === "pending").length} suggested change(s) are waiting for your accept, edit or reject.`, link: `/resume?tab=tailor&app=${pending.id}`, cta: "Continue review" };
+      return { title: `Finish reviewing your ${j?.company || ""} application`, why: ownerView ? (() => { const n = pending.changes.filter((c) => c.status === "pending").length; return `${many(n, "suggested change")} ${n === 1 ? "is" : "are"} waiting for you to accept, edit or reject.`; })() : `${pending.changes.filter((c) => c.status === "pending").length} suggested change(s) are waiting for your accept, edit or reject.`, link: `/resume?tab=tailor&app=${pending.id}`, cta: "Continue review" };
     }
     // An interview coming up (beyond the 2-day prep plan) beats a general suggestion.
     const soon = w.calendar.filter((c) => c.kind === "Interview" && (daysUntil(c.date) ?? -1) > 2 && (daysUntil(c.date) ?? 99) <= 21).sort((a, b) => a.date.localeCompare(b.date))[0];
@@ -138,7 +143,7 @@ export default function Home() {
     </div>
   );
   const noTodos = <p className="muted small" style={{ padding: "14px 0" }}>No open to-dos. Your plan in My Path can suggest a few.</p>;
-  const jobRow = (j: Job) => <JobRow key={j.id} j={j} why={fits[j.id]?.why} open={open === j.id} onToggle={() => setOpen(open === j.id ? "" : j.id)} />;
+  const jobRow = (j: Job) => <JobRow key={j.id} j={j} why={fits[j.id]?.why} open={open === j.id} onToggle={() => setOpen(open === j.id ? "" : j.id)} mono={ownerView} />;
 
   return (
     <>
@@ -147,6 +152,7 @@ export default function Home() {
           <span className="eyebrow">Home</span>
           <h1 data-testid="text-greeting">{greeting()}{name ? `, ${name}` : ""}.</h1>
           {!ownerView && <p className="hide-phone">Here's the one thing worth doing next, and a few things that matter this week.</p>}
+          {ownerView && <p className="remy-line" data-testid="remy-line">{remyLine({ hour: new Date().getHours(), interviewSoon: !!interview, cheer, done: doneNow, total: starting.length, newJobs, deadlines: soon, pending: w.applications.filter((a) => a.changes.some((c) => c.status === "pending")).length })}</p>}
         </div>
       </div>
 
@@ -156,20 +162,39 @@ export default function Home() {
           {cheer && <div className="burst" aria-hidden="true">{Array.from({ length: 12 }, (_, i) => <i key={i} style={{ ["--a" as any]: `${i * 30}deg` }} />)}</div>}
           <div className="hero2-remy"><Remy size={92} mood={cheer ? "happy" : "wave"} /></div>
           <div className="hero2-bubble">
+            {(() => { const Art = nextArt(next.link, !!interview); return <Art className="hero2-art" aria-hidden="true" strokeWidth={1.25} />; })()}
             <span className="hero2-label">{cheer ? "Remy: nice, that's done. Next up" : "Remy says: your one thing right now"}</span>
             <h2 data-testid="text-next-action">{next.title}</h2>
             <p>{next.why}</p>
             <button className="btn btn-primary btn-lg" onClick={() => (interview ? addPrep() : go(next.link))} data-testid="button-next-action">{next.cta} <ArrowRight size={16} /></button>
           </div>
-          {starting.some((x) => !x.done) && (
-            <div className="hero2-steps" data-testid="getting-started">
-              <div className="hero2-dots" aria-label={`${doneNow} of ${starting.length} getting-started steps done`}>{starting.map((x) => <span key={x.label} className={x.done ? "on" : ""} />)}</div>
-              <span className="xs muted">{doneNow} of {starting.length} to get started</span>
-              {starting.filter((x) => !x.done).slice(0, 3).map((x) => (
-                <button key={x.label} className="hero2-step" onClick={() => go(x.link)} data-testid="getting-started-item">{x.label} <ArrowRight size={13} /></button>
-              ))}
-            </div>
-          )}
+          {(() => {
+            // Read-only peek at My Path's daily round (#161): the streak and today's three cards.
+            const g = w.game || ({ weeks: {} } as NonNullable<typeof w.game>);
+            const st = dailyStreak(g);
+            const today = (["openings", "role", "forecast"] as const).every((c) => w.game?.days?.[dayKey()]?.includes(c));
+            return (
+              <div className="hero2-steps">
+                <button className={"streak-peek" + (today ? " done" : "")} onClick={() => go(today ? "/path" : "/path?play=1")} data-testid="home-streak">
+                  <Flame size={20} aria-hidden="true" />
+                  <span><b>{st.days ? `${st.days}-day streak` : "Start a streak"}</b><span className="xs">{today ? "Done for today" : "Today's round · 3 cards"}</span></span>
+                  {!today && <ArrowRight size={14} aria-hidden="true" />}
+                </button>
+                {starting.some((x) => !x.done) && <div data-testid="getting-started">
+              <span className="xs muted sroad-head">Getting started · {doneNow} of {starting.length}</span>
+              {/* a small road: done steps ticked, the next one glowing, the rest waiting */}
+              <ol className="sroad" aria-label={`${doneNow} of ${starting.length} getting-started steps done`}>
+                {starting.map((x) => { const cur = !x.done && x === starting.find((y) => !y.done); return (
+                  <li key={x.label} className={x.done ? "done" : cur ? "cur" : ""}>
+                    <span className="sroad-dot">{x.done && <Check size={11} strokeWidth={3} />}</span>
+                    {x.done ? <span className="sroad-text">{x.label}</span> : <button className="sroad-text" onClick={() => go(x.link)} data-testid="getting-started-item">{x.label}</button>}
+                  </li>
+                ); })}
+              </ol>
+                </div>}
+              </div>
+            );
+          })()}
         </section>
       )}
       {!ownerView && <section className="hero" aria-label="Next action">
@@ -242,10 +267,11 @@ export default function Home() {
   );
 }
 
-function JobRow({ j, why, open, onToggle }: { j: Job; why?: string; open: boolean; onToggle: () => void }) {
+function JobRow({ j, why, open, onToggle, mono }: { j: Job; why?: string; open: boolean; onToggle: () => void; mono?: boolean }) {
   const d = daysUntil(j.deadline);
   return (
     <div className="item">
+      {mono && <span className="job-mono" aria-hidden="true">{j.company.replace(/[^A-Za-z ]/g, "").split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join("").toUpperCase() || "•"}</span>}
       <div className="item-main">
         <div className="row"><span className="xs muted">{j.company} · {kindLabel[j.kind]}</span><StatusChip label={j.label} /></div>
         <button style={{ textAlign: "left", padding: 0, fontWeight: 700 }} onClick={onToggle}>{j.title}</button>
