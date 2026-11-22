@@ -11,6 +11,7 @@
      new raw colour. script/contract.ts fails a PR that adds one. */
   --white: #ffffff; --black: #000000;
   --stage: #161616; --stage-2: #1c1c1c; --stage-3: #121212; --stage-deep: #111111; --paper: #f5f5f3;
+  --sch-fur: #e86a2a; --sch-cream: #fff7ed; --sch-ink: #1a120b; --sch-ear: #3a2317; --sch-line: #5a2a12; --sch-suit: #2b2f36; --sch-lapel: #1f2328; --sch-tie: #b4471c; --sch-cheek: #f59e8b;
   --fox-light: #ff8a4c; --fox-hot: #e2632a; --fox-700: #c2410c; --fox-800: #9a3412; --linkedin: #0a66c2; --online: #22a35a;
   /* Resume highlights (stage 3), like the reference: action words, hard skills, soft skills, numbers, results. */
   --hl-action: #fbc4b4; --hl-hard: #fde0a6; --hl-soft: #fdf3a7; --hl-number: #c9efc0; --hl-result: #c7e2fb;
@@ -2374,3 +2375,53 @@ html[data-theme="dark"] .lk { color-scheme: dark; }
 /* Inside the Expo app's website sheet: the app has its own tab bar and Remy chat (client/src/lib/native.ts). */
 html.in-app-sheet .mobile-nav, html.in-app-sheet .topbar { display: none !important; }
 html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+
+/* Scholar Remy (owner view, Nov 22): the fox in a business suit. Colours are fixed artwork, same in both themes. */
+.fox.scholar * { transform-box: view-box; }
+.fox.scholar .s-fur { fill: var(--sch-fur); }
+.fox.scholar .s-ol { stroke: var(--sch-line); stroke-width: 4; stroke-linejoin: round; }
+.fox.scholar .s-thin { stroke-width: 3; }
+.fox.scholar .s-ear-in { fill: var(--sch-ear); }
+.fox.scholar .s-cream { fill: var(--sch-cream); }
+.fox.scholar .s-ink { fill: var(--sch-ink); }
+.fox.scholar .s-white, .fox.scholar .s-shirt { fill: var(--white); }
+.fox.scholar .s-none { fill: none; }
+.fox.scholar .s-suit { fill: var(--sch-suit); }
+.fox.scholar .s-lapel { fill: var(--sch-lapel); }
+.fox.scholar .s-tie { fill: var(--sch-tie); }
+.fox.scholar .s-cheek { fill: var(--sch-cheek); opacity: 0; transition: opacity .3s; }
+.fox.scholar .s-stroke { fill: none; stroke: var(--sch-ink); stroke-width: 3.5; stroke-linecap: round; }
+.fox.scholar .s-lens { fill: var(--white); fill-opacity: .18; stroke: var(--sch-ink); stroke-width: 3.6; }
+.fox.scholar .s-smiley { opacity: 0; }
+.fox.scholar .s-hop, .fox.scholar .s-breathe { transform-origin: 100px 214px; }
+.fox.scholar .s-breathe { animation: sch-breathe 3.6s ease-in-out infinite; }
+.fox.scholar .s-head { transform-origin: 100px 156px; transform: rotate(calc(var(--lx, 0) * 4deg)) translateX(calc(var(--lx, 0) * 2px)); transition: transform .35s cubic-bezier(.3, 1.4, .5, 1); }
+.fox.scholar .s-bob { animation: sch-bob 3.6s ease-in-out infinite; }
+.fox.scholar .s-look { transform: translate(calc(var(--lx, 0) * 4px), calc(var(--ly, 0) * 3.5px)); transition: transform .18s ease-out; }
+.fox.scholar .s-pupil { transform-box: fill-box; transform-origin: center; animation: sch-blink 5.2s infinite; }
+.fox.scholar .s-ear-l { transform-origin: 72px 80px; animation: sch-ear-l 7s ease-in-out infinite; }
+.fox.scholar .s-ear-r { transform-origin: 128px 80px; animation: sch-ear-r 7s ease-in-out 2.3s infinite; }
+.fox.scholar .s-glasses { transition: transform .3s cubic-bezier(.3, 1.6, .5, 1); }
+.fox.scholar .s-mouth { transition: d .3s ease; }
+.fox.scholar.wave .s-hop { animation: sch-hop .7s cubic-bezier(.3, 1.5, .5, 1) 2; }
+.fox.scholar.wave .s-ear-l { animation: none; transform: rotate(-7deg); }
+.fox.scholar.wave .s-ear-r { animation: none; transform: rotate(7deg); }
+.fox.scholar.think .s-head { transform: rotate(-5deg); }
+.fox.scholar.think .s-look { transform: translate(3px, -4px); }
+.fox.scholar.think .s-glasses { transform: translateY(-1.5px); }
+.fox.scholar.think .s-mouth { d: path("M95 143 Q101 141 106 142.5"); }
+.fox.scholar.happy .s-hop { animation: sch-hop .7s cubic-bezier(.3, 1.5, .5, 1) 2; }
+.fox.scholar.happy .s-pupil { opacity: 0; }
+.fox.scholar.happy .s-smiley { opacity: 1; }
+.fox.scholar.happy .s-cheek { opacity: .55; }
+.fox.scholar.happy .s-glasses { transform: translateY(-3px); }
+.fox.scholar.happy .s-mouth { d: path("M89 139 Q100 148 111 139"); }
+@keyframes sch-breathe { 50% { transform: scaleY(1.012); } }
+@keyframes sch-bob { 50% { transform: translateY(-1.6px); } }
+@keyframes sch-blink { 0%, 93%, 97%, 100% { transform: none; } 95% { transform: scaleY(.1); } }
+@keyframes sch-ear-l { 0%, 58%, 66%, 100% { transform: none; } 62% { transform: rotate(-12deg); } }
+@keyframes sch-ear-r { 0%, 58%, 66%, 100% { transform: none; } 62% { transform: rotate(12deg); } }
+@keyframes sch-hop { 30% { transform: translateY(-9px) scaleY(1.02); } 60% { transform: translateY(1px) scaleY(.985); } }
+@media (prefers-reduced-motion: reduce) { .fox.scholar, .fox.scholar * { animation: none !important; transition: none !important; } }
+.asst-avatar:has(> .fox.scholar) { overflow: hidden; }
+.asst-avatar > .fox.scholar { width: 80px; height: auto; margin-top: 8px; }

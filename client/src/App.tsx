@@ -161,6 +161,12 @@ function Shell() {
   // Redesign stage 2 (owners first, Nov 21): one Remy, the Home "one thing now" card, moving sidebar icons.
   useEffect(() => {
     document.documentElement.classList.toggle("redesign-2", ownerView);
+    // Owners see the Scholar fox in the browser tab too.
+    document.querySelectorAll<HTMLLinkElement>('link[rel="icon"]').forEach((l) => {
+      l.dataset.base ||= l.getAttribute("href") || "";
+      l.href = ownerView ? "/remy-scholar.svg" : l.dataset.base;
+      if (l.type === "image/png") l.disabled = ownerView;
+    });
   }, [ownerView]);
   // A match email's Yes / Not now (redesign stage 5): read from the link once, before a page rewrites the address.
   // The answer is only counted (owners see the Yes rate); the workspace isn't replaced, so it can't race the page.
