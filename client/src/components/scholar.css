@@ -1,0 +1,158 @@
+/* Scholar Remy (owner view). Colours are the --sch-* tokens in index.css; the artwork looks the same in both themes.
+   All positions are in the drawing's own units (viewBox 0 -8 200 222). */
+.fox.scholar { overflow: hidden; }
+.fox.scholar * { transform-box: view-box; }
+.fox.scholar .s-fur { fill: var(--sch-fur); }
+.fox.scholar .s-ol { stroke: var(--sch-line); stroke-width: 4; stroke-linejoin: round; }
+.fox.scholar .s-thin { stroke-width: 3; }
+.fox.scholar .s-ear-in { fill: var(--sch-ear); }
+.fox.scholar .s-cream { fill: var(--sch-cream); }
+.fox.scholar .s-ink { fill: var(--sch-ink); }
+.fox.scholar .s-line { fill: var(--sch-line); }
+.fox.scholar .s-line-s { fill: none; stroke: var(--sch-line); stroke-width: 2; stroke-linecap: round; opacity: .5; }
+.fox.scholar .s-white { fill: var(--white); }
+.fox.scholar .s-black { fill: var(--sch-black); }
+.fox.scholar .s-none { fill: none; }
+.fox.scholar .s-shirt { fill: var(--o-shirt, var(--white)); }
+.fox.scholar .s-suit { fill: var(--o-jacket); }
+.fox.scholar .s-lapel { fill: var(--o-lapel); }
+.fox.scholar .s-tie { fill: var(--o-tie, var(--sch-tie)); }
+.fox.scholar .s-vest { fill: var(--o-vest); }
+.fox.scholar .s-trim { fill: var(--sch-fur); }
+.fox.scholar .s-tassel { fill: none; stroke: var(--sch-fur); stroke-width: 3; stroke-linecap: round; }
+.fox.scholar .s-cheek { fill: var(--sch-cheek); opacity: 0; transition: opacity .3s; }
+.fox.scholar .s-stroke { fill: none; stroke: var(--sch-ink); stroke-width: 3.5; stroke-linecap: round; }
+.fox.scholar .s-lens { fill: var(--white); fill-opacity: .18; stroke: var(--sch-ink); stroke-width: 3.6; }
+.fox.scholar .s-sleeve-ol { fill: none; stroke: var(--sch-line); stroke-width: 20; stroke-linecap: round; }
+.fox.scholar .s-sleeve { fill: none; stroke: var(--o-jacket); stroke-width: 13; stroke-linecap: round; }
+.fox.scholar .s-cuff { fill: none; stroke: var(--o-shirt, var(--white)); stroke-width: 3.5; stroke-linecap: round; }
+.fox.scholar .s-toe { fill: none; stroke: var(--sch-line); stroke-width: 1.6; stroke-linecap: round; }
+.fox.scholar .s-steam { fill: none; stroke: var(--sch-line); stroke-width: 2; stroke-linecap: round; opacity: .35; }
+.fox.scholar .s-spark { fill: var(--sch-fur); opacity: 0; transform-origin: 100px 100px; }
+.fox.scholar .s-bulb-glow { fill: var(--sch-bulb); opacity: .55; }
+.fox.scholar .s-smiley, .fox.scholar .s-yawn, .fox.scholar .s-book, .fox.scholar .s-bulb, .fox.scholar .s-mug, .fox.scholar .s-cloth { opacity: 0; }
+.fox.scholar .s-arm-l { transform: translate(64px, 300px); }
+.fox.scholar .s-arm-r { transform: translate(136px, 300px); }
+
+/* Always on: breathing, a soft bob, blinking, ear twitches, a smile, and eyes + head that follow the pointer. */
+.fox.scholar .s-hop, .fox.scholar .s-breathe { transform-origin: 100px 214px; }
+.fox.scholar .s-breathe { animation: sch-breathe 3.6s ease-in-out infinite; }
+.fox.scholar .s-head { transform-origin: 100px 156px; transform: rotate(calc(var(--lx, 0) * 4deg)) translateX(calc(var(--lx, 0) * 2px)); transition: transform .35s cubic-bezier(.3, 1.4, .5, 1); }
+.fox.scholar .s-bob { animation: sch-bob 3.6s ease-in-out infinite; }
+.fox.scholar .s-look { transform: translate(calc(var(--lx, 0) * 4px), calc(var(--ly, 0) * 3.5px)); transition: transform .18s ease-out; }
+.fox.scholar .s-pupil { transform-box: fill-box; transform-origin: center; animation: sch-blink 5.2s infinite; }
+.fox.scholar .s-ear-l { transform-origin: 72px 80px; animation: sch-ear-l 7s ease-in-out infinite; }
+.fox.scholar .s-ear-r { transform-origin: 128px 80px; animation: sch-ear-r 7s ease-in-out 2.3s infinite; }
+.fox.scholar .s-glasses { transform-origin: 100px 102px; transition: transform .3s cubic-bezier(.3, 1.6, .5, 1); }
+.fox.scholar .s-mouth { transition: d .3s ease; }
+.fox.scholar .s-tiegrp { transform-origin: 100px 166px; }
+
+/* Moods the app sets. */
+.fox.scholar.think .s-head { transform: rotate(-5deg); }
+.fox.scholar.think .s-look { transform: translate(3px, -4px); }
+.fox.scholar.think .s-glasses { transform: translateY(-1.5px); }
+.fox.scholar.think .s-mouth { d: path("M95 142 Q101 144 106 141.5"); }
+.fox.scholar.happy .s-hop { animation: sch-hop .7s cubic-bezier(.3, 1.5, .5, 1) 2; }
+.fox.scholar.happy .s-pupil, .fox.scholar.act-grin .s-pupil { animation: none; opacity: 0; }
+.fox.scholar.happy .s-smiley, .fox.scholar.act-grin .s-smiley { opacity: 1; }
+.fox.scholar.happy .s-cheek, .fox.scholar.act-grin .s-cheek { opacity: .55; }
+.fox.scholar.happy .s-glasses, .fox.scholar.act-grin .s-glasses { transform: translateY(-3px); }
+.fox.scholar.happy .s-mouth, .fox.scholar.act-grin .s-mouth { d: path("M87 137 Q100 152 113 137"); }
+.fox.scholar.happy .s-spark { animation: sch-spark .9s ease-out; }
+
+/* Things he does on his own (scholar.ts adds .act-NAME for the length of the act). */
+.fox.scholar.act-grin .s-hop { animation: sch-hop .6s cubic-bezier(.3, 1.5, .5, 1); }
+.fox.scholar.act-grin .s-ear-l { animation: none; transform: rotate(-6deg); }
+.fox.scholar.act-grin .s-ear-r { animation: none; transform: rotate(6deg); }
+
+.fox.scholar.act-coffee .s-arm-r { animation: sch-coffee-arm 3.6s ease-in-out; }
+.fox.scholar.act-coffee .s-mug { opacity: 1; }
+.fox.scholar.act-coffee .s-steam { animation: sch-steam 1.2s ease-in-out infinite; }
+.fox.scholar.act-coffee .s-pupil { animation: sch-sip-eyes 3.6s; }
+.fox.scholar.act-coffee .s-smiley { animation: sch-sip-smiley 3.6s; }
+.fox.scholar.act-coffee .s-cheek { animation: sch-sip-smiley 3.6s; }
+
+.fox.scholar.act-clean .s-glasses { animation: sch-clean-glasses 3.8s ease-in-out; }
+.fox.scholar.act-clean .s-arm-l { animation: sch-clean-l 3.8s ease-in-out; }
+.fox.scholar.act-clean .s-arm-r { animation: sch-clean-r 3.8s ease-in-out; }
+.fox.scholar.act-clean .s-cloth { opacity: 1; }
+.fox.scholar.act-clean .s-pupil { animation: sch-squint 3.8s; }
+
+.fox.scholar.act-read .s-book { animation: sch-book 4.2s ease-in-out; }
+.fox.scholar.act-read .s-page { transform-origin: 100px 195px; animation: sch-page 4.2s ease-in-out; }
+.fox.scholar.act-read .s-arm-l { animation: sch-read-l 4.2s ease-in-out; }
+.fox.scholar.act-read .s-arm-r { animation: sch-read-r 4.2s ease-in-out; }
+.fox.scholar.act-read .s-look { transform: translate(0, 4px); }
+.fox.scholar.act-read .s-head { transform: rotate(0) translateY(2px); }
+.fox.scholar.act-read .s-glasses { transform: translateY(3px); }
+
+.fox.scholar.act-tie .s-arm-r { animation: sch-tie-arm 2s ease-in-out; }
+.fox.scholar.act-tie .s-tiegrp { animation: sch-tie 2s ease-in-out; }
+.fox.scholar.act-tie .s-head { transform: rotate(-3deg) translateY(-2px); }
+
+.fox.scholar.act-push .s-arm-r { animation: sch-push-arm 1.4s ease-in-out; }
+.fox.scholar.act-push .s-glasses { animation: sch-push-glasses 1.4s ease-in-out; }
+
+.fox.scholar.act-look .s-look { animation: sch-look 2.4s ease-in-out; }
+.fox.scholar.act-look .s-head { animation: sch-look-head 2.4s ease-in-out; }
+
+.fox.scholar.act-wave .s-arm-r { animation: sch-wave 2.1s ease-in-out; }
+.fox.scholar.act-wave .s-ear-l { animation: none; transform: rotate(-7deg); }
+.fox.scholar.act-wave .s-ear-r { animation: none; transform: rotate(7deg); }
+
+.fox.scholar.act-yawn .s-yawn { animation: sch-yawn 2.5s ease-in-out; }
+.fox.scholar.act-yawn .s-mouth { animation: sch-yawn-hide 2.5s ease-in-out; }
+.fox.scholar.act-yawn .s-pupil { animation: sch-yawn-eyes 2.5s; }
+.fox.scholar.act-yawn .s-arm-r { animation: sch-yawn-arm 2.5s ease-in-out; }
+.fox.scholar.act-yawn .s-ear-l { animation: sch-droop-l 2.5s ease-in-out; }
+.fox.scholar.act-yawn .s-ear-r { animation: sch-droop-r 2.5s ease-in-out; }
+
+.fox.scholar.act-idea .s-bulb { transform-origin: 166px 34px; animation: sch-bulb 2.2s ease-out; }
+.fox.scholar.act-idea .s-look { transform: translate(3px, -3px); }
+.fox.scholar.act-idea .s-ear-l { animation: none; transform: rotate(-8deg); }
+.fox.scholar.act-idea .s-ear-r { animation: none; transform: rotate(8deg); }
+.fox.scholar.act-idea .s-mouth { d: path("M89 139 Q100 150 111 139"); }
+
+.fox.scholar.act-change .s-all { transform-origin: 100px 120px; animation: sch-change 1s ease-in-out; }
+.fox.scholar.act-change .s-spark { animation: sch-spark 1s ease-out; }
+
+@keyframes sch-breathe { 50% { transform: scaleY(1.012); } }
+@keyframes sch-bob { 50% { transform: translateY(-1.6px); } }
+@keyframes sch-blink { 0%, 93%, 97%, 100% { transform: none; } 95% { transform: scaleY(.1); } }
+@keyframes sch-ear-l { 0%, 58%, 66%, 100% { transform: none; } 62% { transform: rotate(-12deg); } }
+@keyframes sch-ear-r { 0%, 58%, 66%, 100% { transform: none; } 62% { transform: rotate(12deg); } }
+@keyframes sch-hop { 30% { transform: translateY(-9px) scaleY(1.02); } 60% { transform: translateY(1px) scaleY(.985); } }
+@keyframes sch-spark { 0% { opacity: 0; transform: scale(.4); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.25); } }
+@keyframes sch-coffee-arm { 0% { transform: translate(136px, 300px); } 20% { transform: translate(128px, 152px); } 32%, 72% { transform: translate(124px, 146px) rotate(-22deg); } 82% { transform: translate(128px, 160px); } 100% { transform: translate(136px, 300px); } }
+@keyframes sch-steam { 50% { transform: translateY(-3px); opacity: .1; } }
+@keyframes sch-sip-eyes { 0%, 30%, 74%, 100% { opacity: 1; } 34%, 70% { opacity: 0; } }
+@keyframes sch-sip-smiley { 0%, 30%, 74%, 100% { opacity: 0; } 34%, 70% { opacity: 1; } }
+@keyframes sch-clean-glasses { 0%, 15% { transform: none; } 30%, 75% { transform: translate(0, 74px) scale(.82); } 90%, 100% { transform: none; } }
+@keyframes sch-clean-l { 0% { transform: translate(64px, 300px); } 15% { transform: translate(56px, 108px); } 30%, 75% { transform: translate(62px, 170px); } 90% { transform: translate(58px, 112px); } 100% { transform: translate(64px, 300px); } }
+@keyframes sch-clean-r { 0% { transform: translate(136px, 300px); } 15% { transform: translate(144px, 108px); } 30% { transform: translate(138px, 172px); } 38% { transform: translate(112px, 168px); } 46% { transform: translate(134px, 174px); } 54% { transform: translate(108px, 168px); } 62% { transform: translate(134px, 174px); } 70% { transform: translate(112px, 168px); } 75% { transform: translate(138px, 172px); } 90% { transform: translate(142px, 112px); } 100% { transform: translate(136px, 300px); } }
+@keyframes sch-squint { 0%, 25%, 80%, 100% { transform: none; } 30%, 75% { transform: scaleY(.55); } }
+@keyframes sch-book { 0% { opacity: 1; transform: translateY(70px); } 15%, 85% { opacity: 1; transform: none; } 100% { opacity: 1; transform: translateY(70px); } }
+@keyframes sch-page { 0%, 45% { transform: none; } 60%, 100% { transform: scaleX(-1); } }
+@keyframes sch-read-l { 0% { transform: translate(64px, 300px); } 15%, 85% { transform: translate(68px, 200px); } 100% { transform: translate(64px, 300px); } }
+@keyframes sch-read-r { 0% { transform: translate(136px, 300px); } 15%, 40% { transform: translate(132px, 200px); } 50% { transform: translate(116px, 188px); } 62%, 85% { transform: translate(132px, 200px); } 100% { transform: translate(136px, 300px); } }
+@keyframes sch-tie-arm { 0% { transform: translate(140px, 300px) rotate(-20deg); } 25%, 75% { transform: translate(110px, 176px) rotate(-20deg); } 100% { transform: translate(140px, 300px) rotate(-20deg); } }
+@keyframes sch-tie { 0%, 25%, 75%, 100% { transform: none; } 35% { transform: rotate(8deg); } 50% { transform: rotate(-6deg); } 62% { transform: rotate(3deg); } }
+@keyframes sch-push-arm { 0% { transform: translate(150px, 300px) rotate(-30deg); } 40% { transform: translate(106px, 116px) rotate(-30deg); } 55% { transform: translate(106px, 110px) rotate(-30deg); } 100% { transform: translate(150px, 300px) rotate(-30deg); } }
+@keyframes sch-push-glasses { 0%, 40% { transform: translateY(2px); } 55%, 100% { transform: none; } }
+@keyframes sch-look { 0%, 100% { transform: none; } 20%, 40% { transform: translate(-4.5px, 0); } 58%, 80% { transform: translate(4.5px, 0); } }
+@keyframes sch-look-head { 0%, 100% { transform: none; } 20%, 40% { transform: rotate(-5deg); } 58%, 80% { transform: rotate(5deg); } }
+@keyframes sch-wave { 0% { transform: translate(136px, 300px); } 22% { transform: translate(172px, 122px) rotate(-14deg); } 34% { transform: translate(172px, 122px) rotate(14deg); } 46% { transform: translate(172px, 122px) rotate(-14deg); } 58% { transform: translate(172px, 122px) rotate(14deg); } 70% { transform: translate(172px, 122px) rotate(-6deg); } 100% { transform: translate(136px, 300px); } }
+@keyframes sch-yawn { 0%, 20%, 80%, 100% { opacity: 0; } 30%, 70% { opacity: 1; } }
+@keyframes sch-yawn-hide { 0%, 20%, 80%, 100% { opacity: 1; } 30%, 70% { opacity: 0; } }
+@keyframes sch-yawn-eyes { 0%, 22%, 78%, 100% { transform: none; } 30%, 70% { transform: scaleY(.1); } }
+@keyframes sch-yawn-arm { 0% { transform: translate(136px, 300px); } 30%, 68% { transform: translate(122px, 160px) rotate(-28deg); } 100% { transform: translate(136px, 300px); } }
+@keyframes sch-droop-l { 30%, 70% { transform: rotate(10deg); } }
+@keyframes sch-droop-r { 30%, 70% { transform: rotate(-10deg); } }
+@keyframes sch-bulb { 0% { opacity: 0; transform: scale(.3); } 20% { opacity: 1; transform: scale(1.15); } 30%, 80% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: translateY(-6px); } }
+@keyframes sch-change { 0% { transform: none; } 20% { transform: translateY(-8px); } 45% { transform: scaleX(0) translateY(-4px); } 75% { transform: scaleX(1.05); } 100% { transform: none; } }
+
+/* Small spots in the app. */
+.asst-avatar:has(> .fox.scholar) { overflow: hidden; }
+.asst-avatar > .fox.scholar { width: 80px; height: auto; margin-top: 8px; }
+.fox.scholar.still, .fox.scholar.still * { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) { .fox.scholar, .fox.scholar * { animation: none !important; transition: none !important; } }
