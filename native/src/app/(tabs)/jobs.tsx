@@ -1,5 +1,5 @@
 import * as WebBrowser from "expo-web-browser";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, PanResponder, Pressable, Text, useWindowDimensions, View } from "react-native";
 import type { Job } from "@shared/types";
 import { Button, EmployerTile, FitBadge, Group, Icon, Pill, Row, Screen, Sect, T, success, tap } from "@/components/ui";
@@ -12,7 +12,11 @@ type Filter = "new" | "kept";
 
 export default function Jobs() {
   const { ws } = useSession();
-  const { jobs, fits, loading, error, reload, keep, pass } = useJobs();
+  const { jobs, fits, loading, error, reload, keep, pass, undo } = useJobs();
+  // Keep / Pass feel instant: the card goes at once, the server catches up, and Undo stays up for a few seconds.
+  const [gone, setGone] = useState<Record<string, true>>({});
+  const [last, setLast] = useState<{ job: Job; kept: boolean } | null>(null);
+  useEffect(() => { if (!last) return; const t = setTimeout(() => setLast(null), 5000); return () => clearTimeout(t); }, [last]);
   const { c, look } = useTheme();
   const [filter, setFilter] = useState<Filter>("new");
   const [listMode, setListMode] = useState(false);
@@ -21,10 +25,25 @@ export default function Jobs() {
   const all = useMemo(() => (ws ? visibleJobs(ws, jobs, fits) : []), [ws, jobs, fits]);
   if (!ws) return null;
   const kept = all.filter((j) => ws.savedJobIds.includes(j.id));
-  const fresh = all.filter((j) => !ws.savedJobIds.includes(j.id) && !ws.jobFeedback?.[j.id]);
+  const fresh = all.filter((j) => !gone[j.id] && !ws.savedJobIds.includes(j.id) && !ws.jobFeedback?.[j.id]);
   const shown = filter === "kept" ? kept : fresh;
   const onRefresh = async () => { setRefreshing(true); await reload(); setRefreshing(false); };
-  const decide = async (j: Job, yes: boolean) => { try { setErr(""); await (yes ? keep(j) : pass(j)); } catch (e: any) { setErr(e.message); } };
+  const decide = async (j: Job, yes: boolean) => {
+    setErr(""); setGone((g) => ({ ...g, [j.id]: true })); setLast({ job: j, kept: yes });
+    try { await (yes ? keep(j) : pass(j)); }
+    catch (e: any) { setErr(e.message); setLast(null); setGone(({ [j.id]: _, ...g }) => g); }
+  };
+  const takeBack = async () => {
+    if (!last) return;
+    const { job, kept: k } = last; tap(); setLast(null);
+    try { await undo(job, k); setGone(({ [job.id]: _, ...g }) => g); } catch (e: any) { setErr(e.message); }
+  };
+  const toast = last && (
+    <View style={{ position: "absolute", left: 16, right: 16, bottom: 104, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.ink, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 16 }} testID="toast-undo">
+      <Text style={{ flex: 1, fontFamily: font.semi, fontSize: 14.5, color: c.onInk }} numberOfLines={1}>{last.kept ? "Kept" : "Passed"} · {last.job.title}</Text>
+      <Pressable testID="button-undo-decision" hitSlop={10} onPress={takeBack}><Text style={{ fontFamily: font.bold, fontSize: 14.5, color: c.fox }}>Undo</Text></Pressable>
+    </View>
+  );
   const open = (j: Job) => { tap(); WebBrowser.openBrowserAsync(j.applyUrl || j.sourceUrl); };
 
   const filters = (
@@ -41,6 +60,7 @@ export default function Jobs() {
   );
 
   if (look === "calm" || listMode || filter === "kept") return (
+    <View style={{ flex: 1 }}>
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
       {look === "calm" ? <T kind="display" style={{ fontSize: 34, marginTop: 28 }}>Jobs</T> : <Header c={c} onToggle={() => setListMode(false)} listMode />}
       {filters}
@@ -50,7 +70,7 @@ export default function Jobs() {
         <Group>
           {shown.slice(0, 40).map((j, i) => (
             <Row key={j.id} first={i === 0} title={j.title} sub={`${j.company} · ${j.location}`} left={<EmployerTile name={j.company} size={40} />} onPress={() => open(j)} testID="row-opening"
-              right={filter === "kept" ? <FitBadge score={fits[j.id]?.score} /> : (
+              right={filter === "kept" ? <FitBadge fit={fits[j.id]} /> : (
                 <View style={{ flexDirection: "row", gap: 6 }}>
                   <Pressable testID="button-pass" accessibilityLabel={`Pass on ${j.title}`} hitSlop={6} onPress={() => { tap(); decide(j, false); }} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.surface2, alignItems: "center", justifyContent: "center" }}><Icon name="x" size={18} color={c.muted} /></Pressable>
                   <Pressable testID="button-keep" accessibilityLabel={`Keep ${j.title}`} hitSlop={6} onPress={() => { success(); decide(j, true); }} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.foxSoft, alignItems: "center", justifyContent: "center" }}><Icon name="heart" size={18} color={c.foxDeep} /></Pressable>
@@ -60,15 +80,20 @@ export default function Jobs() {
         </Group>
       </> : empty}
     </Screen>
+    {toast}
+    </View>
   );
 
   return (
+    <View style={{ flex: 1 }}>
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
       <Header c={c} onToggle={() => setListMode(true)} />
       {filters}
       {!!err && <T kind="small" style={{ color: c.error, marginTop: 8 }}>{err}</T>}
       {shown.length ? <Deck key={shown[0].id} jobs={shown} onDecide={decide} onOpen={open} /> : empty}
     </Screen>
+    {toast}
+    </View>
   );
 }
 
@@ -110,11 +135,11 @@ function Deck({ jobs, onDecide, onOpen }: { jobs: Job[]; onDecide: (j: Job, yes:
   const card = { backgroundColor: c.surface, borderRadius: 28, borderWidth: 1, borderColor: c.line, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 20, shadowOffset: { width: 0, height: 12 }, elevation: 4 } as const;
   return (
     <View style={{ marginTop: 20 }}>
-      <View style={{ height: 470 }}>
-        {jobs[2] && <View style={[card, { position: "absolute", left: 16, right: 16, top: 16, height: 440, transform: [{ rotate: "3deg" }], opacity: 0.55 }]} />}
-        {jobs[1] && <View style={[card, { position: "absolute", left: 8, right: 8, top: 8, height: 450, transform: [{ rotate: "-2deg" }], opacity: 0.85 }]} />}
-        <Animated.View {...pan.panHandlers} style={[card, { position: "absolute", left: 0, right: 0, top: 0, height: 462, padding: 20, transform: [{ translateX: x }, { rotate }] }]} testID="card-opening">
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}><EmployerTile name={j.company} size={50} /><FitBadge score={f?.score} /></View>
+      <View>
+        {jobs[2] && <View style={[card, { position: "absolute", left: 16, right: 16, top: 16, bottom: 8, transform: [{ rotate: "3deg" }], opacity: 0.55 }]} />}
+        {jobs[1] && <View style={[card, { position: "absolute", left: 8, right: 8, top: 8, bottom: 4, transform: [{ rotate: "-2deg" }], opacity: 0.85 }]} />}
+        <Animated.View {...pan.panHandlers} style={[card, { minHeight: 462, padding: 20, transform: [{ translateX: x }, { rotate }] }]} testID="card-opening">
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}><EmployerTile name={j.company} size={50} /><FitBadge fit={f} /></View>
           <T kind="title" style={{ marginTop: 16 }} numberOfLines={3}>{j.title}</T>
           <T kind="muted" style={{ marginTop: 4 }} numberOfLines={2}>{[j.company, j.location, j.format].filter(Boolean).join(" · ")}</T>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 14 }}>
@@ -126,7 +151,8 @@ function Deck({ jobs, onDecide, onOpen }: { jobs: Job[]; onDecide: (j: Job, yes:
               <Text style={{ fontFamily: font.body, fontSize: 14.5, lineHeight: 20, color: c.ink }} numberOfLines={5}><Text style={{ fontFamily: font.bold, color: c.foxDeep }}>Why Remy picked it: </Text>{f.why}</Text>
             </View>
           )}
-          <View style={{ position: "absolute", left: 20, right: 20, bottom: 20, gap: 10 }}>
+          <View style={{ flexGrow: 1, minHeight: 16 }} />
+          <View style={{ gap: 10, marginTop: 8 }}>
             <Pressable testID="button-open-posting" onPress={() => onOpen(j)} style={{ alignSelf: "center", paddingVertical: 6 }}><Text style={{ fontFamily: font.semi, fontSize: 14, color: c.muted, textDecorationLine: "underline" }}>See the posting</Text></Pressable>
             <View style={{ flexDirection: "row", gap: 10 }}>
               <Button testID="button-pass" kind="ghost" label="Pass" onPress={() => fly(false)} flex style={{ flex: 1 }} />
