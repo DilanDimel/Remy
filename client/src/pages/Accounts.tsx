@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Check, Download, LogOut, Pencil, Trash2 } from "lucide-react";
 import type { MemoryFact, Workspace } from "@shared/types";
-import { api, download, fmtDate, rid, useStore } from "../lib/store";
+import { api, download, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { Modal, StatusChip } from "../components/common";
 import { ProfileForm } from "./Onboarding";
@@ -145,6 +145,7 @@ function Memory() {
 
 function Settings() {
   const { ws, save } = useStore();
+  const ownerView = useOwnerView(); // match emails: redesign stage 5, owners first
   const s = ws!.settings;
   const toggle = (k: keyof typeof s.notify) => save("settings", { notify: { ...s.notify, [k]: !s.notify[k] } });
   return (
@@ -163,7 +164,38 @@ function Settings() {
         {([["deadlines", "Deadline reminder emails (3 days before and on the day)"], ["weeklyPlan", "Weekly digest email: new openings and deadlines, on your career-time day"]] as const).map(([k, l]) => (
           <label key={k} className="row small"><input type="checkbox" checked={s.notify[k]} onChange={() => toggle(k)} data-testid={`toggle-${k}`} /> {l}</label>
         ))}
+        {ownerView && (
+          <label className="field">
+            <span>Emails about a new opening that fits you, with a Yes button that starts tailoring</span>
+            <select className="select" value={s.nudges || "weekly"} onChange={(e) => save("settings", { nudges: e.target.value as "daily" | "weekly" | "off" })} data-testid="select-nudges">
+              <option value="daily">At most once a day</option>
+              <option value="weekly">At most once a week</option>
+              <option value="off">Off</option>
+            </select>
+          </label>
+        )}
+        {ownerView && <UrgentTexts />}
       </div>
+    </div>
+  );
+}
+
+/** Opt-in texts for urgent deadlines (redesign stage 5, owners first). The number is saved when it's valid. */
+function UrgentTexts() {
+  const { ws, save, toast } = useStore();
+  const t = ws!.settings.texts || { on: false, phone: "" };
+  const [phone, setPhone] = useState(t.phone);
+  const valid = (p: string) => { const d = p.replace(/\D/g, ""); return /^1?[2-9]\d{2}[2-9]\d{6}$/.test(d); };
+  const keep = (next: { on: boolean; phone: string }) => {
+    if (next.on && !valid(next.phone)) { toast("Add a US phone number first, like (817) 555-0123.", true); return; }
+    save("settings", { texts: next });
+  };
+  return (
+    <div className="stack-sm" data-testid="urgent-texts">
+      <label className="row small"><input type="checkbox" checked={t.on} onChange={() => keep({ on: !t.on, phone })} data-testid="toggle-texts" /> Text me when an application closes today or tomorrow (at most one text a day)</label>
+      <input className="input" type="tel" inputMode="tel" autoComplete="tel" placeholder="(817) 555-0123" aria-label="Phone number for urgent texts" value={phone}
+        onChange={(e) => setPhone(e.target.value)} onBlur={() => { if (phone !== t.phone && (phone === "" || valid(phone))) keep({ on: t.on && phone !== "", phone }); }} data-testid="input-text-phone" />
+      {phone && !valid(phone) && <span className="xs bad">Use a US number with area code.</span>}
     </div>
   );
 }

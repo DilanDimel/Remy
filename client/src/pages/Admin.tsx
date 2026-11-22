@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { Activity, AlertTriangle, Bot, ArrowLeft, ArrowRight, BarChart3, Briefcase, CalendarDays, Check, Clock, Database, KanbanSquare, Server, Plus, RotateCcw, Trash2, TrendingUp, UserCheck, Users } from "lucide-react";
-import { api, useStore } from "../lib/store";
+import { api, fmtDate, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
 import { BetaBadge, CopyButton, Empty, Modal, Remy, Rich, Spinner } from "../components/common";
 import { acceptDraft, acceptHtml } from "@shared/acceptEmail";
@@ -18,7 +18,8 @@ type Overview = {
   funnel: { accounts: number; goal: number; resume: number; prefs: number; questions: number; plan: number; setup_done: number; chatted: number; applied: number };
   features: { name: string; students: number; uses: number }[];
   ai: { calls: number; failed: number; cost: number; priced: number; avgMs: number }; openErrors: number; feedback: number;
-  emails?: { ready: boolean; reminders: number; digest: number; digestsWeek: number };
+  texts?: { mode: "twilio" | "test"; recent: { at: string; to: string; body: string; mode: string }[] };
+  emails?: { ready: boolean; reminders: number; digest: number; digestsWeek: number; nudges?: { sent: number; yes: number; later: number } };
 };
 type OpenError = { message: string; kind: string; place: string; places?: number; times: number; students: number; last: string; first: string; detail: string };
 type Errors = { open: OpenError[]; fixed: { message: string; kind: string; fixed_at: string; fixed_by: string; times: number }[]; feedback: { id: number; at: string; place: string; message: string; email: string; shot?: boolean }[] };
@@ -475,8 +476,17 @@ function OverviewTab() {
         <Kpi n={`$${d.ai.cost.toFixed(2)}`} label="AI spend this week" note={d.ai.priced < d.ai.calls ? `${d.ai.calls} calls, ${d.ai.calls - d.ai.priced} without a price` : `${d.ai.calls} calls`} />
         {d.emails && <Kpi n={d.emails.ready ? d.emails.digestsWeek : "Off"} label={d.emails.ready ? "Weekly digests sent this week" : "Emails aren't set up on the server"}
           note={d.emails.ready ? `${d.emails.digest} get the digest, ${d.emails.reminders} get deadline reminders` : "Set SMTP_URL on Render to send reminders and digests"} />}
+        {d.emails?.nudges && <Kpi n={d.emails.nudges.sent ? `${Math.round((100 * d.emails.nudges.yes) / d.emails.nudges.sent)}%` : "None yet"} label="Match emails answered Yes (30 days)"
+          note={`${d.emails.nudges.sent} sent, ${d.emails.nudges.yes} Yes, ${d.emails.nudges.later} Not now. Owners only for now`} />}
         <Kpi n={d.openErrors} label="Open errors" note={d.feedback ? `${d.feedback} new feedback` : d.openErrors ? "see Errors" : "all clear"} />
       </div>
+      {d.texts && (
+        <section className="adm-card" data-testid="admin-texts">
+          <h3>Urgent texts {d.texts.mode === "test" ? "(test mode: nothing is sent)" : "(sending through Twilio)"}</h3>
+          <p className="xs muted">Owners only for now. {d.texts.mode === "test" ? "Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM on Render to send real texts." : "A Twilio trial texts only numbers verified in Twilio."}</p>
+          {d.texts.recent.length ? <ul className="stack-sm small">{d.texts.recent.map((t) => <li key={t.at + t.to}><span className="muted">{fmtDate(t.at.slice(0, 10))} to {t.to}{t.mode === "test" ? " (test)" : ""}:</span> {t.body}</li>)}</ul> : <p className="small muted">No texts yet. They go out when an owner with texts on has a deadline today or tomorrow.</p>}
+        </section>
+      )}
       <section className="adm-card">
         <h3>New sign-ups, last 14 days</h3>
         <div className="adm-bars" role="img" aria-label={`New sign-ups per day for the last 14 days, ${days.reduce((s, x) => s + (byDay.get(x) || 0), 0)} in total`}>

@@ -542,6 +542,10 @@ export interface Workspace {
   lastCheckin?: string;
   /** Days (YYYY-MM-DD, Central) the student opened Remy, newest last; owners see only return rates from it. */
   visits?: string[];
+  /** Match emails Remy sent (server/nudges.ts) and the student's Yes / Not now. Server-written. */
+  nudges?: { id: string; jobId: string; at: string; answer?: "yes" | "later"; answeredAt?: string }[];
+  /** Urgent texts Remy sent, or kept in test mode (server/texts.ts). Server-written. */
+  texts?: { key: string; day: string; at: string; to: string; body: string; mode: "twilio" | "test" }[];
   /** Deadline reminders already emailed (calendar id:date:soon|day), so each goes out once. */
   reminded?: string[];
   /** When the student last uploaded a profile photo (also busts the image cache); absent = no photo. */
@@ -564,6 +568,10 @@ export interface Workspace {
     assistantOpen: boolean;
     navCollapsed: boolean;
     notify: { deadlines: boolean; statusChanges: boolean; weeklyPlan: boolean };
+    /** How often Remy emails about a new opening that fits (server/nudges.ts). Unset = weekly. */
+    nudges?: "daily" | "weekly" | "off";
+    /** Opt-in texts for urgent deadlines (server/texts.ts): on/off and a US phone number. */
+    texts?: { on: boolean; phone: string };
     /** Connectors shown as connected in the demo (no data is read from them yet). */
     demoConnections?: string[];
     /** When the student last opened Home (for "Since you were last here"). */
