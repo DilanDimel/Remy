@@ -1,7 +1,7 @@
 // Redesign stage 3 (owners first, Nov 21, 2026): the base resume as ONE page, no steps. Dilan: "it needs to show
 // everyone's resume accurately to how it looks", "we just need to tell Remy what to add and not add, and it will change
 // it and show you how it looks", "everything should just be there", ATS back, no Evidence Passport.
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Download, FileText } from "lucide-react";
 import type { ResumeDoc, ResumeStyle, Workspace } from "@shared/types";
 import { API_BASE, api, download, fmtDate, useStore } from "../lib/store";
@@ -18,7 +18,7 @@ function CurrentPdf({ version, doc, look }: { version: string; doc: ResumeDoc; l
   return <><ResumeMarkup doc={doc} plain look={look} onFix={() => {}} /><a className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} href={src} target="_blank" rel="noreferrer">Open the PDF</a></>;
 }
 
-export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand }: { doc: ResumeDoc; upd: (fn: (d: ResumeDoc) => void) => void; dirty: boolean; onSave: () => void; onReplace: () => void; onEditByHand: () => void }) {
+export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand, approved }: { doc: ResumeDoc; upd: (fn: (d: ResumeDoc) => void) => void; dirty: boolean; onSave: () => void; onReplace: () => void; onEditByHand: () => void; approved?: ReactNode }) {
   const { ws, setWs, run, toast } = useStore();
   const r = ws!.resume!;
   const [view, setView] = useState<"resume" | "file">("resume");
@@ -56,7 +56,16 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
           </div>
           {view === "resume" ? (
             // Make it stronger lives beside the resume now (Dilan, Nov 21: "can't we just integrate it with this?").
-            <ResumeMarkup doc={doc} look={r.style} onFix={() => document.getElementById("r1-stronger")?.scrollIntoView({ behavior: "smooth", block: "nearest" })} side={<div id="r1-stronger"><ResumeReview doc={doc} upd={upd} onEdit={onEditByHand} beside /></div>} />
+            <ResumeMarkup doc={doc} look={r.style} onFix={() => document.getElementById("r1-stronger")?.scrollIntoView({ behavior: "smooth", block: "nearest" })} side={
+              // Dilan, Nov 21: Make it stronger, the ATS check and approved versions & downloads as smaller cards beside the resume.
+              <div className="r1-side-stack">
+                <div className="r1-side-card" id="r1-stronger"><ResumeReview doc={doc} upd={upd} onEdit={onEditByHand} beside /></div>
+                <div className="r1-side-card" data-testid="r1-side-ats">
+                  <AtsXray doc={doc} quality={r.quality} upd={upd} />
+                </div>
+                {approved && <div className="r1-side-card" data-testid="r1-approved">{approved}</div>}
+              </div>
+            } />
           ) : (
             <>
               <span className="xs muted">{showOriginal ? "Your original file, exactly as you uploaded it." : "Your current file, rebuilt in your font and length after your changes."}</span>
@@ -67,11 +76,6 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
 
       </div>
 
-      <section className="r1-section">
-        <h3>ATS check</h3>
-        <p className="xs muted">A general screening based on how common application systems (like Workday and Greenhouse) read resumes. It's not any one company's exact system, and no tool can promise you'll pass one.</p>
-        <AtsXray doc={doc} quality={r.quality} upd={upd} />
-      </section>
       <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={onEditByHand} data-testid="button-edit-by-hand">Edit every line by hand</button>
       {dirty && (
         <div className="r1-save" role="status" data-testid="r1-save">

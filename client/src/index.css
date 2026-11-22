@@ -1415,6 +1415,16 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .rm-paper li, .rm-paper p { max-width: none; }
 /* Stage 3: Remy's review (Make it stronger) in the side panel beside the resume, with its inline fixes. */
 .r1 .rm-body { grid-template-columns: minmax(0, 1fr) 360px; }
-.rm-side-review { max-height: calc(100vh - 90px); overflow-y: auto; }
+.rm-side-review { max-height: calc(100vh - 90px); overflow-y: auto; padding: 0; background: none; border: 0; }
 .rm-side-review .review-item input, .rm-side-review .review-item textarea { width: 100%; min-width: 0; }
 @media (max-width: 1100px) { .r1 .rm-body { grid-template-columns: 1fr; } .rm-side-review { max-height: none; } }
+/* Side column as stacked smaller cards (review, ATS, approved & downloads). */
+.r1-side-stack { display: flex; flex-direction: column; gap: 12px; }
+.r1-side-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.r1-side-card h3 { margin: 0; font-size: 1rem; }
+.r1-side-card > .card, .r1-side-card .card { border: 0; padding: 0; box-shadow: none; background: none; }
+/* The top bar's line no longer cuts beside the Remy face (Dilan: "the line makes it look weird"). */
+body:has(.remy-dock) .topbar { border-bottom-color: transparent; }
+.rm-side-review { max-height: none; overflow: visible; position: static; }
+.r1 .rm-paper { max-width: none; }
+.r1-side-card h3 { font-size: 1rem; }

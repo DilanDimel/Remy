@@ -139,9 +139,7 @@ function BaseResume({ subParam }: { subParam: string | null }) {
   if (stage3 && !byHand) return (
     <div className="stack">
       {replace && <div className="card card-pad"><ResumeUpload compact onDone={() => setReplace(false)} /></div>}
-      <ResumeOnePage doc={doc} upd={upd} dirty={dirty} onSave={() => saveDoc(true)} onReplace={() => setReplace((s) => !s)} onEditByHand={() => { setByHand(true); setSubState("edit"); }} />
-      {/* Approved & exports folded in (Dilan, Nov 21): approved tailored versions and downloads on the same page. */}
-      <section className="r1-section" data-testid="r1-approved"><h3>Approved versions &amp; downloads</h3><Library /></section>
+      <ResumeOnePage doc={doc} upd={upd} dirty={dirty} onSave={() => saveDoc(true)} onReplace={() => setReplace((s) => !s)} onEditByHand={() => { setByHand(true); setSubState("edit"); }} approved={<Library />} />
     </div>
   );
   const unverified = doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets)).filter((b) => b.verified === false).length;
