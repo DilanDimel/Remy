@@ -1,13 +1,13 @@
-import { Stack, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Platform, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Platform, Pressable, Text, View } from "react-native";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 import { API_BASE } from "@/lib/api";
 import { isSiteDownload, shareSiteDownload } from "@/lib/files";
 import { useSession } from "@/lib/session";
-import { useTheme } from "@/lib/theme";
+import { font, useTheme } from "@/lib/theme";
 
 const SITE = API_BASE || "https://remyai.org";
 
@@ -44,7 +44,13 @@ export default function Web() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.paper }}>
-      <Stack.Screen options={{ title, headerBackTitle: "Back" }} />
+      {/* A sheet always has a way out: swiping down is taken by the page's own scrolling. */}
+      <Stack.Screen options={{ title, headerBackTitle: "Back", headerRight: () => (
+        <Pressable testID="button-close-sheet" accessibilityRole="button" accessibilityLabel="Done" hitSlop={10}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}>
+          <Text style={{ fontFamily: font.semi, fontSize: 17, color: c.fox }}>Done</Text>
+        </Pressable>
+      ) }} />
       {Platform.OS === "web"
         ? <iframe src={SITE + safe} style={{ border: 0, width: "100%", height: "100%" }} title={title} />
         : <WebView source={{ uri: SITE + safe }} sharedCookiesEnabled thirdPartyCookiesEnabled applicationNameForUserAgent="RemyApp" onLoadEnd={() => setBusy(false)}

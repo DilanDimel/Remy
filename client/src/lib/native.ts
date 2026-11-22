@@ -7,6 +7,11 @@ import { Capacitor } from "@capacitor/core";
 
 export const isNativeApp = Capacitor.isNativePlatform();
 
+/** True when this page is open inside the Expo app's website sheet (native/src/app/web.tsx).
+ * The app has its own tab bar and Remy chat, so the site hides its tab bar and top bar there. */
+export const inAppSheet = typeof window !== "undefined" && !!(window as any).ReactNativeWebView;
+if (inAppSheet) document.documentElement.classList.add("in-app-sheet");
+
 /** Where Supabase sends the student back after the system browser sign-in.
  * Must also be listed under Authentication → URL Configuration → Redirect URLs in Supabase. */
 export const NATIVE_AUTH_RETURN = "org.remyai.app://auth";

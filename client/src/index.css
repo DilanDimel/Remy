@@ -2370,3 +2370,7 @@ html[data-theme="dark"] .lk { color-scheme: dark; }
 .adm-main { overflow-x: clip; } /* the last sign-up bar's hidden tooltip pushed phones 4px wide */
 .adm-band-people > span { white-space: nowrap; }
 @media (max-width: 600px) { .adm-band { display: grid; gap: 12px; } .adm-band-n { border-right: 0; padding-right: 0; } .adm-band-btn { justify-self: start; } }
+
+/* Inside the Expo app's website sheet: the app has its own tab bar and Remy chat (client/src/lib/native.ts). */
+html.in-app-sheet .mobile-nav, html.in-app-sheet .topbar { display: none !important; }
+html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
