@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Remy",
+    "slug": "remy",
+    "scheme": "remy",
+    "version": "0.2.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "org.remyai.app",
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "org.remyai.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#fff4ec",
+        "foregroundImage": "./assets/icon-foreground.png",
+        "backgroundImage": "./assets/icon-background.png"
+      },
+      "predictiveBackGestureEnabled": true
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon-foreground.png",
+          "imageWidth": 160,
+          "backgroundColor": "#fbf7f2",
+          "dark": {
+            "backgroundColor": "#161616"
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
