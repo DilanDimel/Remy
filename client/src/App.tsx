@@ -419,6 +419,8 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
     return run(() => save("profile", { ...ws!.profile, targetRoles: [...roles, a.title].join(", ") }), `Remy will look for ${a.title} openings too`);
   };
   const [view, setView] = useState<"chat" | "activity">("chat");
+  const [clearing, setClearing] = useState(false); // two taps: Clear chat, then Yes, clear it
+  const clearChat = async () => { setClearing(false); const w = await run(() => api<Workspace>("DELETE", "/api/chat"), "Chat cleared"); if (w) setWs(w); };
   return (
     <>
       {stage2 ? (<>
@@ -431,6 +433,9 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
           <button role="tab" aria-selected={view === "chat"} aria-pressed={view === "chat"} onClick={() => setView("chat")} data-testid="tab-remy-chat">Chat</button>
           <button role="tab" aria-selected={view === "activity"} aria-pressed={view === "activity"} onClick={() => setView("activity")} data-testid="tab-remy-activity">Activity</button>
         </div>
+        {view === "chat" && chat.length > 0 && (clearing
+          ? <span className="xs row" style={{ gap: 6, justifyContent: "center" }}>Clear the whole chat? <button className="btn btn-ghost btn-sm" onClick={clearChat} data-testid="button-clear-chat-yes">Yes, clear it</button><button className="btn btn-ghost btn-sm" onClick={() => setClearing(false)}>Keep</button></span>
+          : <button className="btn btn-ghost btn-sm xs" onClick={() => setClearing(true)} data-testid="button-clear-chat">Clear chat</button>)}
       </div>
       </>) : (<>
       <div className="asst-head">

@@ -1953,6 +1953,14 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     res.json(ctx.ws);
   }));
 
+  // Clear the Remy chat (owners first). ?since=<ISO time> clears only messages from then on. Done actions stay done.
+  app.delete("/api/chat", route(async (req, res, ctx) => {
+    const since = String(req.query.since || "");
+    if (since && Number.isNaN(Date.parse(since))) bad("since must be a date and time.");
+    ctx.ws.chat = since ? ctx.ws.chat.filter((m) => Date.parse(m.at) < Date.parse(since)) : [];
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
   // Undo one thing Remy did from a chat reply (stage 6).
   app.post("/api/chat/:mid/undo/:did", route(async (req, res, ctx) => {
     const d = ctx.ws.chat.find((m) => m.id === req.params.mid)?.did?.find((x) => x.id === req.params.did);
