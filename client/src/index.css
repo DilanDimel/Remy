@@ -1430,8 +1430,10 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .owner-seg { flex: 1; }
 .owner-tools + .side-foot { margin-top: 0; }
 .owner-seg button { flex: 1; min-height: 32px; font-size: var(--text-xs); }
-.nav-collapsed .owner-tools { flex-direction: column; }
-.nav-collapsed .owner-seg { flex-direction: column; width: 100%; }
+.owner-flip { display: none; }
+.nav-collapsed .owner-tools { flex-direction: column; gap: 2px; padding: 6px 0 2px; }
+.nav-collapsed .owner-seg { display: none; }
+.nav-collapsed .owner-flip { display: inline-grid; }
 .modal .owner-tools { padding: 4px 0; }
 .menu-links { display: flex; gap: 2px; padding: 0 4px; }
 .menu-links button { flex: 1; text-align: center !important; font-size: var(--text-xs); color: var(--muted-text); padding: 6px 4px; border-radius: 8px; }
