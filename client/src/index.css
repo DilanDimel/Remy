@@ -1539,6 +1539,10 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .cm-warm i { display: block; height: 100%; background: var(--fox); border-radius: 99px; }
 .cm-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-width: 0; }
 .cm-row strong { font-size: var(--text-sm); font-weight: 700; }
+/* Owner Interview: the job practice set is the peach highlight, like Home's Remy card; question rows stay plain cards. */
+.iv-stage { background: var(--fox-soft); border-radius: 20px; padding: 18px 20px; }
+.iv-stage h3 { font-size: var(--text-lg); }
+@media (max-width: 640px) { .iv-stage { padding: 16px; } }
 @media (max-width: 640px) { .redesign-2 .hero2-bubble p { max-width: none; } }
 /* Owner Home, reference pass (Nov 22): streak card by the greeting, getting started inside the card, job cards, season band */
 .streak-peek { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); animation: soul-in .45s ease both; }
