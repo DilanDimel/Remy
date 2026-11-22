@@ -238,7 +238,7 @@ function Shell() {
         {/* Redesign stage 2 (owners first): with his panel closed, Remy waits as a small avatar at the top centre (Muse-style). */}
         {!asstOpen && ownerView && (
           <button className="remy-dock hide-sm" onClick={() => setAsst(true)} data-testid="button-open-assistant" aria-label="Open Remy">
-            <span className="remy-dock-face"><Remy size={34} mood="idle" /></span><span className="remy-dock-name">Remy</span>
+            <span className="remy-dock-face"><Remy size={34} mood="idle" /></span>
           </button>
         )}
         <div className="page fade-up" key={current.path}><ErrorBoundary where={`page:${current.path}`} resetKey={current.path}>{page}</ErrorBoundary></div>
