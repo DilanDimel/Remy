@@ -1,0 +1,55 @@
+name: Native app in Expo Go
+# Opens the app in the real Expo Go on an Android emulator and checks it gets past the splash screen
+# (Dilan saw only Remy on a white screen, Nov 22). Uploads a screenshot and the app's logs.
+on:
+  push:
+    paths: ["native/**", ".github/workflows/native-expo-go.yml"]
+  workflow_dispatch:
+jobs:
+  expo-go:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: native/package-lock.json }
+      - run: npm ci
+        working-directory: native
+      - name: Download Expo Go for this SDK
+        run: |
+          url=$(curl -s https://api.expo.dev/v2/versions/latest | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const v=JSON.parse(s).data.sdkVersions[require("./native/node_modules/expo/package.json").version.split(".")[0]+".0.0"];console.log(v.androidClientUrl)})')
+          echo "Expo Go: $url"; curl -sL "$url" -o expo-go.apk
+      - name: Start the app's dev server
+        working-directory: native
+        run: (CI=1 npx expo start --port 8081 > ../metro.log 2>&1 &) ; for i in $(seq 1 60); do curl -s localhost:8081/status | grep -q running && break; sleep 2; done; curl -s localhost:8081/status
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Open it in Expo Go
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb install -r expo-go.apk
+            adb reverse tcp:8081 tcp:8081
+            adb shell am start -a android.intent.action.VIEW -d "exp://127.0.0.1:8081" host.exp.exponent
+            for i in $(seq 1 36); do sleep 5; adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb pull /sdcard/ui.xml ui.xml >/dev/null 2>&1; echo "after $((i*5))s: $(grep -o 'text="[^"]\+"' ui.xml | head -8 | tr '\n' ' ')"; grep -qi 'Welcome to Remy\|Email me a code\|Good morning\|Today' ui.xml && break; done
+            adb exec-out screencap -p > expo-go.png
+            echo "Text on screen:"; grep -o 'text="[^"]\+"' ui.xml | head -30 || true
+            adb logcat -d -s ReactNativeJS:* ReactNative:E AndroidRuntime:E ExpoGo:* | tail -n 80
+            grep -qi 'Welcome to Remy\|Email me a code' ui.xml && echo "EXPO GO OK: the sign-in screen is showing"
+      - name: Dev server log
+        if: always()
+        run: tail -n 60 metro.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: expo-go-screenshot
+          path: |
+            expo-go.png
+            ui.xml
+            metro.log
