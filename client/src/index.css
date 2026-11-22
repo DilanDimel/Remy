@@ -1329,7 +1329,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 @keyframes act-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 /* Panel closed: a small Remy waits at the top centre. */
 .main { position: relative; }
-.remy-dock { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.remy-dock { display: flex; align-items: center; border-radius: 50%; }
 .remy-dock-face { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); box-shadow: 0 0 0 2px var(--fox), 0 6px 18px -8px rgba(0, 0, 0, .35); transition: transform .18s ease; }
 .remy-dock:hover .remy-dock-face { transform: translateY(-2px) scale(1.05); }
 .remy-dock-name { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--ink); }
@@ -1340,7 +1340,8 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .redesign-2 .asst-open .hero2-remy { display: none; }
 .redesign-2 .asst-open .hero2 { grid-template-columns: 1fr auto; }
 .redesign-2 .asst-open .hero2-bubble::before { display: none; }
-@media (min-width: 1021px) { .redesign-2 .asst-fab { display: none; } }
+/* The top-right Remy face replaces the floating button at every width, so there is one way to open him. */
+.redesign-2 .asst-fab { display: none; }
 @media (max-width: 900px) { .redesign-2 .asst-open .hero2 { grid-template-columns: 1fr; } }
 .redesign-2 .hero2-remy { display: none; }
 .redesign-2 .hero2 { grid-template-columns: 1fr auto; }
@@ -1409,9 +1410,9 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .rm-plain .rm-paper { margin: 0 auto; width: 100%; }
 .chat-proposal { display: flex; flex-direction: column; gap: 8px; max-width: 92%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 @media (max-width: 560px) { .rm-paper { padding: 18px 16px; font-size: 13.5px; } }
-/* Bigger closed-panel Remy (Dilan: "too tight"): a 68px face that overlaps the top bar, like Muse. */
-.remy-dock { top: 8px; }
-.remy-dock-face { width: 68px; height: 68px; box-shadow: 0 0 0 3px var(--fox), 0 8px 22px -10px rgba(0, 0, 0, .4); }
+/* Closed-panel Remy sits in the top bar's right corner; a little smaller on phones. */
+.remy-dock-face { width: 44px; height: 44px; }
+@media (max-width: 760px) { .remy-dock-face { width: 38px; height: 38px; } .remy-dock-face .fox { width: 28px; height: auto; } }
 .remy-dock-face .fox { animation: none; }
 .remy-dock-face .fox .fox-body { animation: fox-bob 3.4s ease-in-out infinite; }
 .rm-paper li, .rm-paper p { max-width: none; }
@@ -1425,8 +1426,6 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .r1-side-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .r1-side-card h3 { margin: 0; font-size: 1rem; }
 .r1-side-card > .card, .r1-side-card .card { border: 0; padding: 0; box-shadow: none; background: none; }
-/* The top bar's line no longer cuts beside the Remy face (Dilan: "the line makes it look weird"). */
-body:has(.remy-dock) .topbar { border-bottom-color: transparent; }
 .rm-side-review { max-height: none; overflow: visible; position: static; }
 .r1 .rm-paper { max-width: none; }
 .r1-side-card h3 { font-size: 1rem; }
