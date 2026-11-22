@@ -6,7 +6,7 @@ The real iPhone and Android app, built with [Expo](https://expo.dev) (React Nati
 - Native tab bar (Liquid Glass on iOS, Material on Android): Today, Path, Remy, Jobs, You.
 - Two looks for owners to compare, switched on the You tab: **A · Calm** (Apple-style lists) and **B · Soul** (Remy's hero card, the road, swipe cards).
 - Sign-in: the 6-digit email code (Google's sign-in page doesn't work inside apps).
-- Screens not rebuilt natively yet (resume, interview, progress, settings) open the website in a signed-in sheet (`src/app/web.tsx`).
+- Screens not rebuilt natively yet (resume, interview, progress, settings) open the website in a signed-in sheet (`src/app/web.tsx`). In that sheet, outside links open in the in-app browser, mail and phone links open their own apps, and downloads open the share sheet (`src/lib/files.ts`; the site hands files over from `download()` in `client/src/lib/native.ts`).
 
 ## Run it
 

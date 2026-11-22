@@ -7,6 +7,11 @@ import { Capacitor } from "@capacitor/core";
 
 export const isNativeApp = Capacitor.isNativePlatform();
 
+/** True when this page is open inside the Expo app's website sheet (native/src/app/web.tsx).
+ * The app has its own tab bar and Remy chat, so the site hides its tab bar and top bar there. */
+export const inAppSheet = typeof window !== "undefined" && !!(window as any).ReactNativeWebView;
+if (inAppSheet) document.documentElement.classList.add("in-app-sheet");
+
 /** Where Supabase sends the student back after the system browser sign-in.
  * Must also be listed under Authentication → URL Configuration → Redirect URLs in Supabase. */
 export const NATIVE_AUTH_RETURN = "org.remyai.app://auth";
@@ -22,14 +27,17 @@ export async function openInBrowser(url: string) {
  * (Save to Files, Drive, Mail, AirDrop…). Returns false on the web so the caller
  * uses the normal download link. */
 export async function saveFileNative(blob: Blob, name: string): Promise<boolean> {
+  // Inside the Expo app's website sheet (native/src/app/web.tsx): hand the file to the app,
+  // which opens the share sheet. Resumes and calendar files are small enough to send whole.
+  const rn = (window as any).ReactNativeWebView as { postMessage(m: string): void } | undefined;
+  if (rn) {
+    const base64 = await blobToBase64(blob);
+    rn.postMessage(JSON.stringify({ type: "remy-download", name, mime: blob.type, base64 }));
+    return true;
+  }
   if (!isNativeApp) return false;
   const [{ Filesystem, Directory }, { Share }] = await Promise.all([import("@capacitor/filesystem"), import("@capacitor/share")]);
-  const data = await new Promise<string>((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result).split(",")[1] || "");
-    r.onerror = () => reject(r.error || new Error("Couldn't read the file."));
-    r.readAsDataURL(blob);
-  });
+  const data = await blobToBase64(blob);
   const safe = name.replace(/[\\/:*?"<>|]+/g, "-") || "download";
   const { uri } = await Filesystem.writeFile({ path: safe, data, directory: Directory.Cache });
   try {
@@ -39,6 +47,15 @@ export async function saveFileNative(blob: Blob, name: string): Promise<boolean>
     if (!/cancel/i.test(String(e?.message || e))) throw e;
   }
   return true;
+}
+
+function blobToBase64(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(",")[1] || "");
+    r.onerror = () => reject(r.error || new Error("Couldn't read the file."));
+    r.readAsDataURL(blob);
+  });
 }
 
 let started = false;
