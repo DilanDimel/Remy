@@ -1,10 +1,12 @@
 import type { Job, Workspace } from "@shared/types";
 import { roadFor } from "@shared/roads";
 import { aiJson } from "../ai/ai";
-import { RESEARCH_MODEL } from "../ai/agents";
 import { fetchPublic, htmlToText } from "../resume/parse";
 import { uid } from "../platform/ids";
 import { q, q1 } from "../platform/sql";
+
+/** Web-search model for conference research (was shared with the removed Agents tab). */
+const RESEARCH_MODEL = process.env.OR_RESEARCH_CHAIN || "openrouter:perplexity/sonar";
 
 // Conference finder: once a month per field, the researcher (Perplexity Sonar, live web) lists upcoming student
 // conferences; Remy opens each page and keeps only the ones whose page shows the start date. One search serves every student.

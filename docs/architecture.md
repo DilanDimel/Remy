@@ -33,7 +33,7 @@
 ```
 server/
   platform/   db sql storage auth admin beta services ids
-  ai/         ai agents chatDo claims safety tailorFix bulletDraft pageGuide
+  ai/         ai chatDo claims safety tailorFix bulletDraft pageGuide
   resume/     resume parse builder docxEdit docs ats trim
   jobs/       openings sources ranking fit future insights signals conferences
   coach/      checkin nudges pitch brief outreachAsk interviewDate keepDecided storyLines noUpgrade
