@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { api, useStore } from "../lib/store";
+import { api, useOwnerView, useStore } from "../lib/store";
 import { ArrowLeft, CalendarClock, Check, FileText, Search, ShieldCheck } from "lucide-react";
 import { go, useRoute } from "../lib/router";
 import { BetaBadge, Remy, Spinner, StatusChip } from "../components/common";
@@ -41,10 +41,11 @@ const SB: Record<Exclude<Provider, "Work/School Email">, SupabaseProvider> = { G
 /** Signed out: the landing page at /, the sign-in page at /signin.
  * The phone app has no landing page: it opens straight to sign-in (signing in creates the account). */
 export default function Welcome() {
-  const { path, query } = useRoute();
+  const { path } = useRoute();
   const { betaBlocked } = useStore();
-  // shortcut: the new homepage is a hidden preview at /?v=new until Dilan OKs it after Dec 1; then make it the default and delete Landing.
-  return isNativeApp || path === "/signin" || betaBlocked ? <SignIn /> : query.get("v") === "new" ? <Landing2 /> : <Landing />;
+  const ownerView = useOwnerView();
+  // Owners (owner view on) see the new homepage; visitors, students and search engines keep today's page until Dilan releases it.
+  return isNativeApp || path === "/signin" || betaBlocked ? <SignIn /> : ownerView ? <Landing2 /> : <Landing />;
 }
 
 /** Where to apply to be a beta tester: the team's form, or Remy's inbox when the form isn't set yet. */
@@ -434,7 +435,7 @@ function HeroExample() {
 // "What does my major lead to?" with real BLS numbers, before signing up (public data only).
 const BROWSE = ["Finance", "Accounting", "Marketing", "Nursing", "Software & computer science", "Education & teaching", "Psychology & social work", "Engineering", "Journalism & communications", "Entrepreneurship"];
 type Occ = { title: string; change: number; openings: number | null; wage: number | null; education: string };
-function FieldBrowser() {
+export function FieldBrowser() {
   const [field, setField] = useState(BROWSE[2]);
   const [jobs, setJobs] = useState<Occ[] | null>(null);
   useEffect(() => {

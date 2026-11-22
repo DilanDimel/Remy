@@ -1,7 +1,9 @@
-import { useStore } from "../lib/store";
+import { useEffect } from "react";
+import { go } from "../lib/router";
+import { useOwnerView, useStore } from "../lib/store";
 import { BetaBadge, Remy } from "../components/common";
 import { TEAM } from "./Info";
-import { LinkedInMark, applyHref } from "./Welcome";
+import { FieldBrowser, LinkedInMark, applyHref } from "./Welcome";
 
 export const INSTAGRAM = "https://www.instagram.com/coachremyai/";
 export const LINKEDIN = "https://www.linkedin.com/company/remyai-org/";
@@ -14,7 +16,38 @@ function InstagramMark({ size = 18 }: { size?: number }) {
   );
 }
 
-/** The simpler front page (preview at /?v=new until it replaces Landing after Dec 1): one message, the real app, the real team, our socials. */
+/** The simpler front page (owners only until Dilan releases it): one message, the real app, the real team, our socials. */
+function Top({ inside, what = "#what" }: { inside: boolean; what?: string }) {
+  return (
+    <header className="lp2-top">
+      <a className="logo" href="/" aria-label="Remy home"><Remy size={28} mood="idle" /> Remy <BetaBadge /></a>
+      <nav className="lp2-nav" aria-label="Main">
+        <a className="hide-sm" href={what}>What Remy does</a>
+        <a className="hide-sm" href="/about">About</a>
+        <a className="lp2-btn lp2-btn-sm" href={inside ? "/" : "/signin"} data-testid="button-lp-signin">{inside ? "Open my Remy" : "Sign in"}</a>
+      </nav>
+    </header>
+  );
+}
+
+/** "Where does my major lead?" with real BLS numbers, public (moved off the homepage to keep it short). Owners only for now. */
+export function Careers() {
+  const { me, ws } = useStore();
+  if (!useOwnerView()) return <Landing2Fallback />;
+  return (
+    <div className="lp2">
+      <div className="lp2-w">
+        <Top inside={!!(me && ws?.started)} what="/welcome#what" />
+        <main className="lp2-careers">
+          <h1>Where does your major lead?</h1>
+          <p className="lp2-sub">Pick a major and see the jobs people go into, with real pay and growth from the U.S. Bureau of Labor Statistics.</p>
+          <FieldBrowser />
+        </main>
+      </div>
+    </div>
+  );
+}
+
 export default function Landing2() {
   const { config, me, ws } = useStore();
   const inside = !!(me && ws?.started);
@@ -26,14 +59,7 @@ export default function Landing2() {
   return (
     <div className="lp2">
       <div className="lp2-w">
-        <header className="lp2-top">
-          <a className="logo" href="/" aria-label="Remy home"><Remy size={28} mood="idle" /> Remy <BetaBadge /></a>
-          <nav className="lp2-nav" aria-label="Main">
-            <a className="hide-sm" href="#what">What Remy does</a>
-            <a className="hide-sm" href="/about">About</a>
-            <a className="lp2-btn lp2-btn-sm" href={inside ? "/" : "/signin"} data-testid="button-lp-signin">{inside ? "Open my Remy" : "Sign in"}</a>
-          </nav>
-        </header>
+        <Top inside={inside} />
 
         <main>
           <section className="lp2-hero">
@@ -59,6 +85,7 @@ export default function Landing2() {
             <div><h3>A resume that stays true</h3><p>Suggestions for each job, line by line. Anything your resume can&rsquo;t back up gets flagged. You approve every word.</p></div>
             <div><h3>One next step, every week</h3><p>Deadlines become dated to-dos, in your Google Calendar if you like. Not sure what you want yet? Remy starts there.</p></div>
           </div>
+          <a className="lp2-more lp2-careers-link" href="/careers">Not sure what you want? See where your major leads <span aria-hidden>&rarr;</span></a>
           <p className="lp2-never">Remy never makes up experience, applies or messages anyone for you, or sells your data.</p>
         </div>
       </section>
@@ -112,4 +139,10 @@ export default function Landing2() {
       </div>
     </div>
   );
+}
+
+/** Not an owner: /careers isn't released yet, so send them home. */
+function Landing2Fallback() {
+  useEffect(() => { go("/"); }, []);
+  return null;
 }

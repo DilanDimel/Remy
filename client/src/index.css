@@ -1634,3 +1634,8 @@ ul[class] > li, ol[class] > li { max-width: none; }
   .lp2-social { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { .lp2-btn, .lp2-social a { transition: none; } .lp2-btn:hover { transform: none; } }
+.lp2-careers-link { display: inline-block; margin-top: 36px; }
+.lp2-careers { padding: 56px 0 96px; max-width: 760px; }
+.lp2-careers h1 { font-size: clamp(2rem, 1.4rem + 2.4vw, 3rem); letter-spacing: -0.03em; line-height: 1.08; font-weight: 800; }
+.lp2-careers .lp-shot { margin-top: 32px; color: var(--ink); }
+.lp2-careers .lp-shot .btn { color: var(--ink) !important; }
