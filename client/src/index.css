@@ -11,7 +11,7 @@
      new raw colour. script/contract.ts fails a PR that adds one. */
   --white: #ffffff; --black: #000000;
   --stage: #161616; --stage-2: #1c1c1c; --stage-3: #121212; --stage-deep: #111111; --paper: #f5f5f3;
-  --fox-light: #ff8a4c; --fox-hot: #e2632a; --fox-700: #c2410c; --fox-800: #9a3412; --linkedin: #0a66c2;
+  --fox-light: #ff8a4c; --fox-hot: #e2632a; --fox-700: #c2410c; --fox-800: #9a3412; --linkedin: #0a66c2; --online: #22a35a;
   --font-body: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
@@ -1265,3 +1265,79 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .design-preview[data-theme="light"] .sidebar, .design-preview[data-theme="light"] .mobile-nav { --surface-2: #f1efeb; --ink: #161616; --plum: #161616; --muted-text: #5f5f5f; --faint: #8a8a85; }
 /* Remy's opening line sits at the top of his panel, not at the bottom under an empty space. */
 .asst-body > .asst-intro:first-child { margin: 0 0 auto; }
+
+/* ---------- Redesign stage 2: one Remy (owners first, Nov 21, 2026; team-approved proposal) ---------- */
+/* One fox: the logo's fox goes (Remy lives in his panel); the wordmark stays. */
+.redesign-2 .sidebar .logo > svg.fox, .redesign-2 .mobile-top .logo > svg.fox { display: none; }
+/* Remy in his panel: bigger, gently alive. */
+.redesign-2 .asst-head { padding-block: 14px; }
+.redesign-2 .asst-head > svg.fox { width: 52px; height: auto; animation: remy-bob 3.2s ease-in-out infinite; transform-origin: 50% 90%; }
+@keyframes remy-bob { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-3px) rotate(-2deg); } }
+/* Sidebar icons move a little on hover; the current page's icon is orange. */
+.redesign-2 .nav-item svg { transition: transform .18s ease; }
+.redesign-2 .nav-item:hover svg { transform: translateY(-2px) rotate(-8deg) scale(1.08); }
+.redesign-2 .nav-item[aria-current="page"] svg { color: var(--fox); }
+@media (prefers-reduced-motion: reduce) { .redesign-2 .asst-head > svg.fox, .redesign-2 .nav-item svg { animation: none; transition: none; } }
+/* Home: Remy says the one thing to do now. */
+.hero2 { position: relative; display: grid; grid-template-columns: auto 1fr auto; gap: 18px 22px; align-items: center; padding: 22px 24px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.hero2-remy { align-self: end; }
+.hero2-bubble { position: relative; background: var(--fox-soft); border-radius: 18px; padding: 18px 20px; }
+.hero2-bubble::before { content: ""; position: absolute; left: -9px; bottom: 22px; border: 10px solid transparent; border-right-color: var(--fox-soft); border-left: 0; }
+.hero2-label { font-size: var(--text-xs); font-weight: 700; color: var(--fox-deep); }
+.hero2-bubble h2 { font-family: var(--font-display); font-size: clamp(1.3rem, 1.1rem + .8vw, 1.8rem); line-height: 1.15; margin: 4px 0 6px; color: var(--ink); }
+.hero2-bubble p { margin: 0 0 14px; color: var(--muted-text); max-width: 60ch; }
+.hero2-steps { display: flex; flex-direction: column; gap: 6px; min-width: 210px; }
+.hero2-dots { display: flex; gap: 6px; }
+.hero2-dots span { width: 26px; height: 6px; border-radius: 3px; background: var(--line); }
+.hero2-dots span.on { background: var(--fox); }
+.hero2-step { display: flex; justify-content: space-between; align-items: center; gap: 8px; text-align: left; font-size: var(--text-sm); font-weight: 600; padding: 7px 0; border-bottom: 1px solid var(--line); color: var(--ink); }
+.hero2-step:hover { color: var(--fox-deep); }
+.hero2 .burst { position: absolute; left: 70px; top: 40px; }
+@media (max-width: 900px) {
+  .hero2 { grid-template-columns: auto 1fr; }
+  .hero2-steps { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) {
+  .hero2 { grid-template-columns: 1fr; padding: 16px; }
+  .hero2-remy svg { width: 64px; height: auto; }
+  .hero2-bubble::before { display: none; }
+}
+
+/* Remy's panel, Muse-style (stage 2, owners first): his face in a ring at the top, his name and status, Chat / Activity. */
+.asst-profile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 18px 16px 12px; border-bottom: 1px solid var(--line); }
+.asst-x { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; color: var(--muted-text); }
+.asst-x:hover { background: var(--surface-2); color: var(--ink); }
+.asst-avatar { position: relative; width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 50% 40%, var(--fox-soft), var(--surface-2)); box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--fox); }
+.asst-avatar::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; border: 2px solid var(--fox); opacity: 0; }
+.asst-avatar:has(.fox.think)::after { animation: remy-ring 1.4s ease-out infinite; }
+@keyframes remy-ring { 0% { transform: scale(1); opacity: .7; } 100% { transform: scale(1.25); opacity: 0; } }
+.asst-avatar .fox.idle .fox-body { animation: fox-bob 3.4s ease-in-out infinite; }
+.asst-name { font-family: var(--font-display); font-size: 1.15rem; margin-top: 6px; }
+.asst-status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted-text); }
+.asst-status i { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+.asst-status.on i { background: var(--online); box-shadow: 0 0 0 3px rgba(34, 163, 90, .18); }
+.asst-tabs { margin-top: 10px; width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
+.asst-activity { display: flex; flex-direction: column; gap: 6px; }
+.act-row { display: flex; gap: 10px; align-items: flex-start; font-size: var(--text-sm); padding: 6px 0; border-bottom: 1px solid var(--line); animation: act-in .3s ease both; }
+.act-ico { flex: none; width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; background: var(--surface-2); color: var(--muted-text); }
+.act-ico.done { background: var(--fox-soft); color: var(--fox-deep); }
+@keyframes act-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+/* Panel closed: a small Remy waits at the top centre. */
+.main { position: relative; }
+.remy-dock { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.remy-dock-face { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); box-shadow: 0 0 0 2px var(--fox), 0 6px 18px -8px rgba(0, 0, 0, .35); transition: transform .18s ease; }
+.remy-dock:hover .remy-dock-face { transform: translateY(-2px) scale(1.05); }
+.remy-dock-name { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .asst-avatar::after, .act-row { animation: none !important; } }
+/* One Remy at a time (stage 2): the Activity list starts at the top; with the panel open, Home's card drops its own fox;
+   on desktop the corner button gives way to the top-centre avatar (phones keep the corner button). */
+.asst-body > .asst-activity:first-child { margin: 0 0 auto; }
+.redesign-2 .asst-open .hero2-remy { display: none; }
+.redesign-2 .asst-open .hero2 { grid-template-columns: 1fr auto; }
+.redesign-2 .asst-open .hero2-bubble::before { display: none; }
+@media (min-width: 1021px) { .redesign-2 .asst-fab { display: none; } }
+@media (max-width: 900px) { .redesign-2 .asst-open .hero2 { grid-template-columns: 1fr; } }
+.redesign-2 .hero2-remy { display: none; }
+.redesign-2 .hero2 { grid-template-columns: 1fr auto; }
+.redesign-2 .hero2-bubble::before { display: none; }
+@media (max-width: 900px) { .redesign-2 .hero2 { grid-template-columns: 1fr; } }

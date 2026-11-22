@@ -10,7 +10,7 @@ import { CAREER_QUEST_ON } from "@shared/game";
 import { useCompleting } from "../lib/completing";
 import { go } from "../lib/router";
 import { kindLabel, useJobs } from "../lib/jobs";
-import { StatusChip } from "../components/common";
+import { Remy, StatusChip } from "../components/common";
 import { firstName } from "@shared/names";
 import { gettingStarted } from "@shared/progress";
 
@@ -100,6 +100,15 @@ export default function Home() {
   }, [w, jobs, fits]);
 
   const starting = gettingStarted(w);
+  // Redesign stage 2 (owners first): a small celebration when a getting-started step gets done since the last visit.
+  const doneNow = starting.filter((x) => x.done).length;
+  const [cheer, setCheer] = useState(false);
+  useEffect(() => {
+    const key = "remy.startDone." + w.profile.email;
+    let before = -1;
+    try { before = Number(localStorage.getItem(key) ?? -1); localStorage.setItem(key, String(doneNow)); } catch {}
+    if (before >= 0 && doneNow > before) { setCheer(true); const t = setTimeout(() => setCheer(false), 3500); return () => clearTimeout(t); }
+  }, [doneNow]);
   const { isFading, mark } = useCompleting();
   const todos = w.tasks.filter((t) => !t.done || isFading(t.id)).sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999")).slice(0, 3);
   // Only places the student chose (Opportunities can still show the rest).
@@ -116,11 +125,33 @@ export default function Home() {
         <div>
           <span className="eyebrow">Home</span>
           <h1 data-testid="text-greeting">{greeting()}{name ? `, ${name}` : ""}.</h1>
-          <p className="hide-phone">Here's the one thing worth doing next, and a few things that matter this week.</p>
+          {!ownerView && <p className="hide-phone">Here's the one thing worth doing next, and a few things that matter this week.</p>}
         </div>
       </div>
 
-      <section className="hero" aria-label="Next action">
+      {ownerView && (
+        // Redesign stage 2 (owners first, Nov 21): Remy himself says the one thing to do now, with one button.
+        <section className="hero2" aria-label="Next action" data-testid="hero2">
+          {cheer && <div className="burst" aria-hidden="true">{Array.from({ length: 12 }, (_, i) => <i key={i} style={{ ["--a" as any]: `${i * 30}deg` }} />)}</div>}
+          <div className="hero2-remy"><Remy size={92} mood={cheer ? "happy" : "wave"} /></div>
+          <div className="hero2-bubble">
+            <span className="hero2-label">{cheer ? "Remy: nice, that's done. Next up" : "Remy says: your one thing right now"}</span>
+            <h2 data-testid="text-next-action">{next.title}</h2>
+            <p>{next.why}</p>
+            <button className="btn btn-primary btn-lg" onClick={() => (interview ? addPrep() : go(next.link))} data-testid="button-next-action">{next.cta} <ArrowRight size={16} /></button>
+          </div>
+          {starting.some((x) => !x.done) && (
+            <div className="hero2-steps" data-testid="getting-started">
+              <div className="hero2-dots" aria-label={`${doneNow} of ${starting.length} getting-started steps done`}>{starting.map((x) => <span key={x.label} className={x.done ? "on" : ""} />)}</div>
+              <span className="xs muted">{doneNow} of {starting.length} to get started</span>
+              {starting.filter((x) => !x.done).slice(0, 3).map((x) => (
+                <button key={x.label} className="hero2-step" onClick={() => go(x.link)} data-testid="getting-started-item">{x.label} <ArrowRight size={13} /></button>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+      {!ownerView && <section className="hero" aria-label="Next action">
         <div>
           <span className="eyebrow">Your next step</span>
           <h2 data-testid="text-next-action">{next.title}</h2>
@@ -150,7 +181,7 @@ export default function Home() {
             )) : <span className="small" style={{ color: "rgba(255,255,255,.75)" }}>Nothing new yet. Remy checks employers' sites about once a day, so new openings will show here.</span>}
           </div>
         )}
-      </section>
+      </section>}
       {CAREER_QUEST_ON && ownerView && <MissionBoard w={w} />}
 
       <section className="card card-pad">

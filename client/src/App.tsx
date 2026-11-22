@@ -5,7 +5,7 @@ import {
   Check, Gauge, Info, Mic, Minus, ShieldCheck, UserCog, Users,
   ImagePlus,
 } from "lucide-react";
-import { StoreProvider, api, rid, useDraft, useOwnerView, useStore, type Theme } from "./lib/store";
+import { StoreProvider, api, daysUntil, fmtDate, rid, useDraft, useOwnerView, useStore, type Theme } from "./lib/store";
 import { CAREER_QUEST_ON } from "@shared/game";
 import { go, replaceRoute, useRoute } from "./lib/router";
 const PUBLIC = new Set(["/", "/signin", "/welcome", "/about", "/policies", "/privacy", "/terms"]);
@@ -152,6 +152,10 @@ function Shell() {
   useEffect(() => {
     document.documentElement.classList.add("design-preview");
   }, []);
+  // Redesign stage 2 (owners first, Nov 21): one Remy, the Home "one thing now" card, moving sidebar icons.
+  useEffect(() => {
+    document.documentElement.classList.toggle("redesign-2", ownerView);
+  }, [ownerView]);
   const { path, query } = useRoute();
   const [asstPage, setAsstPage] = useState<boolean | null>(null);
   const [more, setMore] = useState(false);
@@ -224,13 +228,19 @@ function Shell() {
         <div className="topbar">
           <div className="crumb">Remy › <b>{current.label}</b></div>
           <div style={{ marginLeft: "auto" }} className="row">
-            {!asstOpen && (
+            {!asstOpen && !ownerView && (
               <button className="btn btn-secondary btn-sm hide-sm" onClick={() => setAsst(true)} data-testid="button-open-assistant">
                 <Remy size={18} /> Open Remy
               </button>
             )}
           </div>
         </div>
+        {/* Redesign stage 2 (owners first): with his panel closed, Remy waits as a small avatar at the top centre (Muse-style). */}
+        {!asstOpen && ownerView && (
+          <button className="remy-dock hide-sm" onClick={() => setAsst(true)} data-testid="button-open-assistant" aria-label="Open Remy">
+            <span className="remy-dock-face"><Remy size={34} mood="idle" /></span><span className="remy-dock-name">Remy</span>
+          </button>
+        )}
         <div className="page fade-up" key={current.path}><ErrorBoundary where={`page:${current.path}`} resetKey={current.path}>{page}</ErrorBoundary></div>
       </main>
 
@@ -276,7 +286,7 @@ const LOOKING = "What am I looking at?";
 // Design preview (owners, Nov 21): Remy opens with one line about the page you're on, in his voice, instead of the
 // centred "Hi, I'm Remy." greeting every AI panel has (Demetre's redesign plan).
 const INTRO: Record<string, string> = {
-  Home: "The card on the left is the one thing I'd do next. Ask me about it, or about anything in your search.",
+  Home: "The big card on Home is the one thing I'd do next. Ask me about it, or about anything in your search.",
   "My Path": "This is where you work out a direction. Ask me what your major leads to, or what a job is really like.",
   "Resume/CV": "Everything here comes from your own resume; I never invent experience. Ask me which of yours is strongest.",
   Opportunities: "These are ranked for you: openings you can apply to and that fit your background come first. Ask me why one fits.",
@@ -286,6 +296,34 @@ const INTRO: Record<string, string> = {
   Progress: "Every application you've sent and what comes next on each. Ask me what to do after a reply.",
   Accounts: "Your profile and what I remember about you. Ask me what I know, or tell me what to forget.",
 };
+
+// Redesign stage 2 (owners first): Remy's own record of what he did, in plain words (Muse-style activity list).
+const DID: [RegExp, (m: RegExpMatchArray) => string][] = [
+  [/^Parse resume/i, () => "Read your resume"], [/^Initial plan/i, () => "Built your career plan"], [/^Pick employers/i, () => "Picked employers to check for you"],
+  [/^Assistant chat/i, () => "Answered you in chat"], [/^Tailor for (.+)/i, (m) => `Tailored your resume for ${m[1]}`], [/^Import posting/i, () => "Read a posting you added"],
+  [/^Import LinkedIn/i, () => "Read your LinkedIn profile"], [/^Story deck/i, () => "Drafted interview stories"], [/^Explain fit/i, () => "Explained why an opening fits"],
+  [/^Fix (rewrites|letter) for (.+)/i, (m) => `Double-checked your ${m[1] === "letter" ? "cover letter" : "resume changes"} for ${m[2]}`], [/^Classify email/i, () => "Sorted a recruiting email"],
+];
+const didLabel = (purpose: string) => { for (const [re, f] of DID) { const m = purpose.match(re); if (m) return f(m); } return purpose; };
+function RemyActivity() {
+  const { ws } = useStore();
+  const w = ws!;
+  const soon = [
+    ...w.calendar.filter((c) => (daysUntil(c.date) ?? -1) >= 0).map((c) => ({ id: c.id, title: c.title, date: c.date })),
+    ...w.tasks.filter((t) => !t.done && t.due && (daysUntil(t.due) ?? -1) >= 0).map((t) => ({ id: t.id, title: t.title, date: t.due })),
+  ].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 4);
+  const did = [...w.aiLog].filter((x) => x.ok).reverse().slice(0, 6);
+  return (
+    <div className="asst-activity" data-testid="remy-activity">
+      <b className="small">Coming up</b>
+      {soon.length ? soon.map((s) => <div key={s.id} className="act-row"><span className="act-ico"><CalendarDays size={14} /></span><span>{s.title}<span className="xs muted"> · {fmtDate(s.date)}</span></span></div>)
+        : <p className="xs muted">Nothing due yet. When you save an opening or add a to-do with a date, it shows here.</p>}
+      <b className="small" style={{ marginTop: 10 }}>What I did</b>
+      {did.length ? did.map((x) => <div key={x.id} className="act-row"><span className="act-ico done"><Check size={13} /></span><span>{didLabel(x.purpose)}<span className="xs muted"> · {fmtDate(x.at.slice(0, 10))}</span></span></div>)
+        : <p className="xs muted">Nothing yet. As I read your resume, find openings and tailor applications, it's listed here.</p>}
+    </div>
+  );
+}
 
 const STARTERS: Record<string, string[]> = {
   Home: ["What should I focus on this week?", "Which opening fits me best right now?", "I'm not sure what career I want. Where do I start?"],
@@ -302,6 +340,7 @@ const STARTERS: Record<string, string[]> = {
 function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () => void; flyIn: boolean }) {
   const { ws, setWs, run, save, config, theme, setTheme } = useStore();
   const preview = true; // Remy's page-specific opening line, released to everyone Nov 21 (was owners only)
+  const stage2 = useOwnerView(); // redesign stage 2: profile header + Activity tab, owners first
   const [msg, setMsg] = useDraft("chat");
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
@@ -355,8 +394,21 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
     if (a.kind === "task") return run(() => save("tasks", [{ id: rid("t"), title: a.title, why: a.why, due: "", category: "Prepare", done: false, source: "Remy chat" }, ...ws!.tasks]), "Added to your to-dos");
     return run(() => save("profile", { ...ws!.profile, targetRoles: [...roles, a.title].join(", ") }), `Remy will look for ${a.title} openings too`);
   };
+  const [view, setView] = useState<"chat" | "activity">("chat");
   return (
     <>
+      {stage2 ? (<>
+      <div className="asst-profile">
+        <button className="asst-x" onClick={onMinimize} aria-label="Minimize Remy" title="Minimize Remy" data-testid="button-close-assistant"><Minus size={16} /></button>
+        <div className="asst-avatar"><Remy size={58} mood={mood} className={flyIn ? "fly-in" : ""} /></div>
+        <b className="asst-name">Remy</b>
+        <span className={"xs asst-status" + (config?.ai.available ? " on" : "")}><i />{config?.ai.available ? "Ready to help" : "AI off on this server"}</span>
+        <div className="seg asst-tabs" role="tablist" aria-label="Remy">
+          <button role="tab" aria-selected={view === "chat"} aria-pressed={view === "chat"} onClick={() => setView("chat")} data-testid="tab-remy-chat">Chat</button>
+          <button role="tab" aria-selected={view === "activity"} aria-pressed={view === "activity"} onClick={() => setView("activity")} data-testid="tab-remy-activity">Activity</button>
+        </div>
+      </div>
+      </>) : (<>
       <div className="asst-head">
         <Remy size={34} mood={mood} className={flyIn ? "fly-in" : ""} />
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -366,6 +418,8 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
         {config?.ai.available ? <StatusChip label="Live">Live AI</StatusChip> : <StatusChip label="Needs setup">AI off</StatusChip>}
         <button className="btn btn-secondary btn-sm" onClick={onMinimize} aria-label="Minimize Remy" title="Minimize Remy" data-testid="button-close-assistant"><Minus size={15} /><span className="hide-sm">Minimize</span></button>
       </div>
+      </>)}
+      {stage2 && view === "activity" ? <div className="asst-body"><RemyActivity /></div> : <>
       <div className="asst-body">
         {chat.length === 0 && !tailor && !busy && preview && (
           <div className="asst-intro" data-testid="assistant-welcome">
@@ -453,6 +507,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
         />
         <button className="btn btn-primary" disabled={(busy && !asking) || !msg.trim() || tailor?.stage === "reading"} aria-label="Send" data-testid="button-send-chat"><Send size={16} /></button>
       </form>
+      </>}
     </>
   );
 }
