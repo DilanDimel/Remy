@@ -2,7 +2,7 @@
 
 Remy is an AI career coach for college students. It reads your resume into a profile, finds real openings from employers' own career sites, checks your resume the way hiring software does, tailors resumes and cover letters without inventing anything, and keeps track of every application. Remy the fox is the guide; the brand is black, orange and white.
 
-Render deploys `main` (see `render.yaml`).
+Render deploys `main` (see `render.yaml`). The iPhone and Android apps (`ios/`, `android/`) wrap the live site; see `docs/mobile-app.md`.
 
 ## Run
 

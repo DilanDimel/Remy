@@ -1,0 +1,59 @@
+name: Android app
+# Builds the Android shell (see docs/mobile-app.md), then opens it on an Android
+# emulator and checks that Remy's page actually appears (not a blank or black screen).
+on:
+  push:
+    paths: ["android/**", "capacitor.config.ts", "mobile/**", "client/src/lib/native.ts", "package-lock.json", ".github/workflows/mobile.yml"]
+  pull_request:
+    paths: ["android/**", "capacitor.config.ts", "mobile/**", "client/src/lib/native.ts", "package-lock.json", ".github/workflows/mobile.yml"]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - run: npm ci
+      - run: npx cap sync android
+      - name: Build APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: remy-android
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+  launch-test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: remy-android }
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Open the app on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb install -r app-debug.apk
+            adb shell am start -W -n org.remyai.app/.MainActivity
+            for i in $(seq 1 18); do sleep 5; adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb pull /sdcard/ui.xml ui.xml >/dev/null 2>&1; n=$(grep -o 'text="[^" ][^"]*"' ui.xml | wc -l); echo "after $((i*5))s: $n pieces of text"; [ "$n" -ge 5 ] && break; done
+            adb exec-out screencap -p > launch.png
+            echo "Text on screen:"; grep -o 'text="[^"]\+"' ui.xml | head -25 || true
+            adb logcat -d -s Capacitor:* Capacitor/Console:* AndroidRuntime:E | tail -n 40
+            test "$(grep -o 'text="[^" ][^"]*"' ui.xml | wc -l)" -ge 5 && grep -qi 'remy' ui.xml && echo "LAUNCH OK: Remy's page is showing"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: remy-android-launch-screenshot
+          path: |
+            launch.png
+            ui.xml

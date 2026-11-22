@@ -5,6 +5,7 @@ import { go, useRoute } from "../lib/router";
 import { BetaBadge, Remy, Spinner, StatusChip } from "../components/common";
 import { providerOn, sendMagicLink, startOAuth, type SupabaseProvider } from "../lib/supabase";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { isNativeApp } from "../lib/native";
 
 export function useGoogleButton(onCredential: (cred: string) => void) {
   const { config } = useStore();
@@ -36,11 +37,12 @@ export function useGoogleButton(onCredential: (cred: string) => void) {
 type Provider = "Google" | "LinkedIn" | "Apple" | "Microsoft" | "Work/School Email";
 const SB: Record<Exclude<Provider, "Work/School Email">, SupabaseProvider> = { Google: "google", LinkedIn: "linkedin_oidc", Apple: "apple", Microsoft: "azure" };
 
-/** Signed out: the landing page at /, the sign-in page at /signin. */
+/** Signed out: the landing page at /, the sign-in page at /signin.
+ * The phone app has no landing page: it opens straight to sign-in (signing in creates the account). */
 export default function Welcome() {
   const { path } = useRoute();
   const { betaBlocked } = useStore();
-  return path === "/signin" || betaBlocked ? <SignIn /> : <Landing />;
+  return isNativeApp || path === "/signin" || betaBlocked ? <SignIn /> : <Landing />;
 }
 
 /** Where to apply to be a beta tester: the team's form, or Remy's inbox when the form isn't set yet. */
@@ -130,7 +132,7 @@ function SignIn() {
         </ol>
       </aside>
       <div className="landing-card fade-up">
-        <div className="row-between"><a className="btn btn-ghost auth-back" href="/"><ArrowLeft size={16} /> What Remy does</a><ThemeToggle /></div>
+        <div className="row-between">{isNativeApp ? <span /> : <a className="btn btn-ghost auth-back" href="/"><ArrowLeft size={16} /> What Remy does</a>}<ThemeToggle /></div>
         <div className="landing">
           <Remy size={72} mood="wave" />
           <h1 className="motto">Sign in to Remy</h1>
