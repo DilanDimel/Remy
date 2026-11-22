@@ -1,7 +1,9 @@
 name: Android release
-# Push a tag like app-v0.1.0 to build the Android APK and attach it to a GitHub release.
+# Push a branch like app-release/0.1.0 (or a tag like app-v0.1.0) to build the
+# Android APK and publish it as a GitHub release tagged app-v0.1.0.
 on:
   push:
+    branches: ["app-release/*"]
     tags: ["app-v*"]
 permissions:
   contents: write
@@ -22,9 +24,10 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          REF: ${{ github.ref_name }}
         run: |
-          VERSION="${TAG#app-v}"
+          VERSION="${REF#app-release/}"; VERSION="${VERSION#app-v}"
+          TAG="app-v${VERSION}"
           APK="Remy-${VERSION}-android.apk"
           cp android/app/build/outputs/apk/debug/app-debug.apk "$APK"
           sha256sum "$APK" > "$APK.sha256"
@@ -37,4 +40,4 @@ jobs:
 
           Needs Android 7.0 or newer.
           NOTES
-          gh release create "$TAG" "$APK" "$APK.sha256" --title "Remy for Android ${VERSION} (test build)" --notes-file notes.md --prerelease
+          gh release create "$TAG" "$APK" "$APK.sha256" --title "Remy for Android ${VERSION} (test build)" --notes-file notes.md --prerelease --target "$GITHUB_SHA"
