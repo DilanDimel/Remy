@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Sparkles } from "lucide-react";
 import type { Story, StoryPart, Workspace } from "@shared/types";
 import { otherExperience, STORY_ASK, STORY_PARTS } from "@shared/stories";
-import { api, useStore } from "../lib/store";
-import { Spinner, WorkingSteps } from "./common";
+import { api, useOwnerView, useStore } from "../lib/store";
+import { Example, Spinner, WorkingSteps } from "./common";
 import { PracticeOutLoud } from "./PracticeOutLoud";
 
 const LABEL: Record<StoryPart, string> = { situation: "Situation", task: "Task", action: "Action", result: "Result" };
@@ -17,6 +17,7 @@ const doneCount = (st: Story) => STORY_PARTS.filter((p) => st[p]).length;
  *  by Remy; a story opens on the right to read it, edit your parts, or practice it out loud. */
 export function StoryDeck() {
   const { ws, setWs, run, config } = useStore();
+  const owner = useOwnerView();
   const [busy, setBusy] = useState(false);
   const stories = ws!.stories || [];
   const ref = useRef<HTMLElement>(null);
@@ -72,7 +73,18 @@ export function StoryDeck() {
         </span>
       </div>
       {busy && <WorkingSteps steps={["Finding moments in your resume", "Shaping them into stories", "Checking each part against your resume"]} />}
-      {!stories.length ? (
+      {!stories.length && owner ? (
+        <Example testid="star-explainer">
+          <q className="example-q">Tell me about a time you led a team.</q>
+          <dl className="example-star">
+            <dt>S</dt><dd>A campus club needed a student ambassador program.</dd>
+            <dt>T</dt><dd>I was asked to recruit the first 10 ambassadors.</dd>
+            <dt>A</dt><dd>I ran two info sessions and a referral sign-up sheet.</dd>
+            <dt>R</dt><dd>14 students joined, and the program runs again this spring.</dd>
+          </dl>
+          <p className="xs muted">Remy finds moments like this on your resume and asks you a few short questions. It only uses facts you confirm.</p>
+        </Example>
+      ) : !stories.length ? (
         <p className="small muted" data-testid="star-explainer">Interviewers ask “Tell me about a time when…”. Remy finds moments on your resume and asks you a few short questions, so each becomes a one-minute story: what was going on, what you had to do, what <i>you</i> did, and what changed (called STAR).</p>
       ) : (
         <div className="story-chat">

@@ -74,6 +74,11 @@ export function Busy({ busy, children }: { busy: boolean; children: ReactNode })
   return <>{busy ? <Spinner /> : null}{children}</>;
 }
 
+/** A labelled sample of what a feature makes, shown in place of a paragraph before the student has their own (owners first, Nov 22, 2026). */
+export function Example({ children, testid }: { children: ReactNode; testid?: string }) {
+  return <div className="example" data-testid={testid}><span className="example-tag">Example</span>{children}</div>;
+}
+
 export function Empty({ title, body, action }: { title: string; body?: string; action?: ReactNode }) {
   return (
     <div className="empty">

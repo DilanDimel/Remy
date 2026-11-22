@@ -7,7 +7,7 @@ import { api, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { shownForRole } from "@shared/roleMatch";
-import { AiUnavailableNote, Empty, Remy, Spinner } from "../components/common";
+import { AiUnavailableNote, Empty, Example, Remy, Spinner } from "../components/common";
 
 type Tab = "academic" | "career" | "skills" | "future" | "road";
 
@@ -48,7 +48,16 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
       {busy && <div className="card card-pad row"><Remy size={40} mood="think" /><span className="muted">Building suggestions from your resume and answers…</span></div>}
       {tab === "future" ? <Future /> : tab === "road" ? <FieldRoad /> : !w.plan && !busy ? (
         <div className="card">{knows
-          ? <Empty title="No path yet" body="Remy will suggest roles that fit your resume and goals, with skills and next steps for each." action={<button className="btn btn-primary" onClick={generate} disabled={!config?.ai.available}>Build my path</button>} />
+          ? stage4 ? (
+            <div className="card-pad stack-sm" data-testid="path-empty-example">
+              <h3>No path yet</h3>
+              <Example>
+                <b className="example-role">Financial Analyst</b>
+                <p className="small muted">Fits your finance major and the Excel work on your resume. Next: learn SQL basics, then ask one analyst for a coffee chat.</p>
+              </Example>
+              <div><button className="btn btn-primary" onClick={generate} disabled={!config?.ai.available}>Build my path</button></div>
+            </div>
+          ) : <Empty title="No path yet" body="Remy will suggest roles that fit your resume and goals, with skills and next steps for each." action={<button className="btn btn-primary" onClick={generate} disabled={!config?.ai.available}>Build my path</button>} />
           : <Empty title="Tell Remy about yourself first" body="Your path is built from your resume and goals. Upload your resume, or add your major and the roles you want, and Remy will suggest roles, skills and next steps." action={<a className="btn btn-primary" href="/resume">Upload your resume</a>} />}</div>
       ) : w.plan && !busy ? (
         <>
