@@ -21,7 +21,10 @@ jobs:
           echo "Expo Go: $url"; curl -sL "$url" -o expo-go.apk
       - name: Start the app's dev server
         working-directory: native
-        run: (CI=1 npx expo start --port 8081 > ../metro.log 2>&1 &) ; for i in $(seq 1 60); do curl -s localhost:8081/status | grep -q running && break; sleep 2; done; curl -s localhost:8081/status
+        run: |
+          (CI=1 npx expo start --port 8081 --no-dev --minify > ../metro.log 2>&1 &) ; for i in $(seq 1 60); do curl -s localhost:8081/status | grep -q running && break; sleep 2; done; curl -s localhost:8081/status
+          # Bundle once up front (it takes ~90 s) so Expo Go doesn't time out waiting for it
+          curl -s -o /dev/null -w 'bundle %{http_code} %{size_download} bytes\n' 'http://localhost:8081/node_modules/expo-router/entry.bundle?platform=android&dev=false&minify=true'
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -37,7 +40,7 @@ jobs:
             adb install -r expo-go.apk
             adb reverse tcp:8081 tcp:8081
             adb shell am start -a android.intent.action.VIEW -d "exp://127.0.0.1:8081" host.exp.exponent
-            for i in $(seq 1 36); do sleep 5; adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb pull /sdcard/ui.xml ui.xml >/dev/null 2>&1; echo "after $((i*5))s: $(grep -o 'text="[^"]\+"' ui.xml | head -8 | tr '\n' ' ')"; grep -qi 'Welcome to Remy\|Email me a code\|Good morning\|Today' ui.xml && break; done
+            for i in $(seq 1 36); do sleep 5; adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb pull /sdcard/ui.xml ui.xml >/dev/null 2>&1; echo "after $((i*5))s: $(grep -o 'text="[^"]\+"' ui.xml | head -8 | tr '\n' ' ')"; grep -q 'developer menu' ui.xml && adb shell input keyevent 4; grep -qi 'Welcome to Remy\|Email me a code\|Good morning\|Today' ui.xml && break; done
             adb exec-out screencap -p > expo-go.png
             echo "Text on screen:"; grep -o 'text="[^"]\+"' ui.xml | head -30 || true
             adb logcat -d -s ReactNativeJS:* ReactNative:E AndroidRuntime:E ExpoGo:* | tail -n 80
