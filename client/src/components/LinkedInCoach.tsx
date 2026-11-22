@@ -112,3 +112,24 @@ function AboutDraft() {
     </div>
   );
 }
+
+/** Redesign stage 3 (owners first): the LinkedIn tab is gone; this card beside the resume flags what doesn't match,
+ *  and opens the full coach only when the student wants it. */
+export function LinkedInFlags() {
+  const { ws } = useStore();
+  const [open, setOpen] = useState(false);
+  const doc = ws!.resume?.doc, li = ws!.linkedin;
+  if (!doc) return null;
+  const n = li ? linkedinGaps(doc, li.text).length : null;
+  return (
+    <div className="stack-sm" data-testid="linkedin-flags">
+      <h3 className="row"><Linkedin size={16} /> LinkedIn</h3>
+      {!open && <p className="small" data-testid="linkedin-flag-text">{n === null ? "Upload your LinkedIn PDF and Remy flags anything on your resume that's missing from LinkedIn."
+        : n ? `${n} thing${n === 1 ? "" : "s"} on your resume ${n === 1 ? "isn't" : "aren't"} on your LinkedIn yet.` : "Your LinkedIn matches your resume."}</p>}
+      <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} aria-expanded={open} onClick={() => setOpen(!open)} data-testid="button-linkedin-flags">
+        {open ? "Hide" : n === null ? "Add your LinkedIn PDF" : n ? "See what to add" : "See LinkedIn tips"}
+      </button>
+      {open && <div className="r1-linkedin"><LinkedInCoach /></div>}
+    </div>
+  );
+}

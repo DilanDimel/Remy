@@ -96,6 +96,16 @@ test("interest API: ownership, strict inputs, concurrent updates, ranking and da
     await call(cookie, "PUT", "/api/jobs/a/interest", { rating: 5, reason: "role" });
     await call(cookie, "PUT", "/api/jobs/b/interest", { rating: 1, reason: "location" });
   });
+  await t.test("Keep (stage 3) rates and saves in one request, once", async () => {
+    const before = (await loadWorkspace("interest-a")).savedJobIds;
+    const r = await call(cookie, "PUT", "/api/jobs/a/interest", { rating: 5, keep: true });
+    assert.equal(r.status, 200);
+    assert.equal(r.data.jobFeedback.a.rating, 5);
+    const again = await call(cookie, "PUT", "/api/jobs/a/interest", { rating: 5, keep: true });
+    assert.equal(again.data.savedJobIds.filter((x: string) => x === "a").length, 1);
+    await saveSections("interest-a", { savedJobIds: before });
+    await call(cookie, "PUT", "/api/jobs/a/interest", { rating: 5, reason: "role" });
+  });
   await t.test("editing keeps createdAt; neutral is explicit and fit stays unchanged", async () => {
     const before = (await call(cookie, "GET", "/api/jobs")).data;
     assert.equal(before.interestEnabled, true);

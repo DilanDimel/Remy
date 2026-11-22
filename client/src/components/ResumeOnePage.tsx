@@ -8,6 +8,7 @@ import { API_BASE, api, download, fmtDate, useStore } from "../lib/store";
 import { ResumeMarkup, type Cat } from "./ResumeMarkup";
 import { ResumeReview } from "./ResumeReview";
 import { AtsXray } from "./AtsXray";
+import { LinkedInFlags } from "./LinkedInCoach";
 import { PdfPreview, WordPreview } from "./WordPreview";
 import { OwnPdfColoured, OwnWordColoured } from "./ResumeReal";
 
@@ -84,6 +85,7 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
                 <div className="r1-side-card" data-testid="r1-side-ats">
                   <AtsXray doc={doc} quality={r.quality} upd={upd} />
                 </div>
+                <div className="r1-side-card" data-testid="r1-side-linkedin"><LinkedInFlags /></div>
                 {approved && <div className="r1-side-card" data-testid="r1-approved">{approved}</div>}
               </div>
             } /></>
