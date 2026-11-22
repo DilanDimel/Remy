@@ -3,10 +3,24 @@
 // "Things to fix" list beside it. The checks are Remy's existing ones (shared/bullets.ts, shared/review.ts); the colours
 // only show what's already in the student's words, nothing is added or guessed.
 import { Fragment, useMemo, useState, type ReactNode } from "react";
-import type { ResumeDoc } from "@shared/types";
+import type { ResumeDoc, ResumeStyle } from "@shared/types";
 import { QUANT, WEAK, isAction, isListSection } from "@shared/bullets";
 import { reviewResume } from "@shared/review";
 import { splitList } from "@shared/words";
+
+// The look of the student's own file (font, size, margins Remy read from it), so the page looks like theirs.
+const FONTS: [RegExp, string][] = [
+  [/garamond/i, 'Garamond, "EB Garamond", "Times New Roman", serif'], [/calibri|carlito/i, 'Calibri, Carlito, "Segoe UI", Arial, sans-serif'],
+  [/cambria|caladea/i, 'Cambria, Caladea, Georgia, serif'], [/times/i, '"Times New Roman", Times, serif'], [/georgia/i, "Georgia, serif"],
+  [/palatino|antiqua/i, '"Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif'], [/helvetica|arial|liberation ?sans/i, "Arial, Helvetica, sans-serif"],
+  [/aptos/i, 'Aptos, Calibri, "Segoe UI", Arial, sans-serif'], [/roboto/i, "Roboto, Arial, sans-serif"], [/courier|mono|consolas/i, '"Courier New", Courier, monospace'],
+];
+export function paperStyle(st?: ResumeStyle): Record<string, string> | undefined {
+  if (!st) return undefined;
+  const named = st.font ? FONTS.find(([re]) => re.test(st.font!))?.[1] || `"${st.font.replace(/"/g, "")}", ${st.serif ? "Georgia, serif" : "Arial, sans-serif"}` : st.mono ? FONTS[9][1] : st.serif ? '"Times New Roman", Georgia, serif' : "Arial, Helvetica, sans-serif";
+  // Points to screen pixels (96/72); a Letter page is 8.5in = 816px wide.
+  return { fontFamily: named, fontSize: `${(st.size * 4) / 3}px`, padding: `${Math.round((st.margin * 4) / 3 * 0.75)}px ${Math.round((st.margin * 4) / 3)}px` };
+}
 
 type Cat = "action" | "hard" | "soft" | "number" | "result";
 const CATS: [Cat, string][] = [["action", "Action words"], ["hard", "Hard skills & tools"], ["soft", "Soft skills"], ["number", "Numbers"], ["result", "Results"]];
@@ -51,8 +65,9 @@ function issues(text: string): string[] {
   return out;
 }
 
-export function ResumeMarkup({ doc, onFix }: { doc: ResumeDoc; onFix: (where: "review" | "edit") => void }) {
-  const [on, setOn] = useState<Set<Cat>>(new Set(CATS.map(([c]) => c)));
+/** `plain`: just the page, no colours, tags or side list (the resume preview where a browser can't show the PDF). */
+export function ResumeMarkup({ doc, onFix, plain = false, look }: { doc: ResumeDoc; onFix: (where: "review" | "edit") => void; plain?: boolean; look?: ResumeStyle }) {
+  const [on, setOn] = useState<Set<Cat>>(new Set(plain ? [] : CATS.map(([c]) => c)));
   const tools = useMemo(() => {
     const own = doc.skills.flatMap((k) => splitList(k.items)).map((s) => s.trim()).filter((s) => s.length > 1 && s.length < 40).map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
     return new RegExp(`\\b(?:${[...own, ...TOOLS].join("|")})\\b`, "gi");
@@ -63,16 +78,16 @@ export function ResumeMarkup({ doc, onFix }: { doc: ResumeDoc; onFix: (where: "r
   const flip = (c: Cat) => setOn((s) => { const n = new Set(s); n.has(c) ? n.delete(c) : n.add(c); return n; });
   const c = doc.contact;
   return (
-    <section className="rm" data-testid="resume-markup">
-      <div className="rm-legend" role="group" aria-label="Highlight">
+    <section className={"rm" + (plain ? " rm-plain" : "")} data-testid={plain ? "resume-plain" : "resume-markup"}>
+      {!plain && <div className="rm-legend" role="group" aria-label="Highlight">
         {CATS.map(([k, label]) => (
           <button key={k} className={`rm-key rm-${k}`} aria-pressed={on.has(k)} onClick={() => flip(k)} data-testid={`rm-key-${k}`}>
             {label} <b>{count(k)}/{bullets.length}</b>
           </button>
         ))}
-      </div>
+      </div>}
       <div className="rm-body">
-        <article className="rm-paper" aria-label="Your resume, colour-coded">
+        <article className="rm-paper" aria-label="Your resume, colour-coded" style={paperStyle(look)}>
           <h2 className="rm-name">{c.name || "Your name"}</h2>
           <p className="rm-contact">{[c.location, c.phone, c.email, c.links].filter((x) => x.trim()).join(" | ")}</p>
           {doc.sections.map((s) => (
@@ -81,10 +96,10 @@ export function ResumeMarkup({ doc, onFix }: { doc: ResumeDoc; onFix: (where: "r
               {s.entries.map((e) => (
                 <div key={e.id} className="rm-entry">
                   <div className="rm-row"><b>{e.org}</b><span>{e.location}</span></div>
-                  <div className="rm-row rm-sub"><i>{e.role}</i><span>{e.dates || <span className="rm-flag">No dates</span>}</span></div>
+                  <div className="rm-row rm-sub"><i>{e.role}</i><span>{e.dates || (plain ? null : <span className="rm-flag">No dates</span>)}</span></div>
                   <ul>
                     {e.bullets.filter((b) => b.text.trim()).map((b) => {
-                      const probs = isListSection(s.heading) ? [] : issues(b.text);
+                      const probs = plain || isListSection(s.heading) ? [] : issues(b.text);
                       return (
                         <li key={b.id} className={probs.length ? "rm-has-issue" : ""}>
                           {marked(b.text.replace(/^[•\-–*]\s*/, ""), tools, on)}
@@ -102,7 +117,7 @@ export function ResumeMarkup({ doc, onFix }: { doc: ResumeDoc; onFix: (where: "r
             {doc.skills.map((k) => <p key={k.id} className="rm-skill"><b>{k.label ? k.label + ": " : ""}</b>{marked(k.items, tools, on)}</p>)}
           </>)}
         </article>
-        <aside className="rm-side" aria-label="What to fix">
+        {!plain && <aside className="rm-side" aria-label="What to fix">
           <h3>{review.todo.length ? `${review.todo.length} thing${review.todo.length === 1 ? "" : "s"} to fix` : "Nothing big to fix"}</h3>
           {review.todo.map((t, i) => (
             <div key={i} className="rm-todo">
@@ -113,7 +128,7 @@ export function ResumeMarkup({ doc, onFix }: { doc: ResumeDoc; onFix: (where: "r
           ))}
           {review.good.length > 0 && <div className="rm-good">{review.good.map((g) => <span key={g} className="xs">✓ {g}</span>)}</div>}
           <p className="xs muted">Colours show what's already in your words; Remy never adds anything you didn't write.</p>
-        </aside>
+        </aside>}
       </div>
     </section>
   );
