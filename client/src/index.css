@@ -1672,6 +1672,38 @@ button.sroad-text:hover { text-decoration: underline; text-underline-offset: 3px
 .lp2-careers h1 { font-size: clamp(2rem, 1.4rem + 2.4vw, 3rem); letter-spacing: -0.03em; line-height: 1.08; font-weight: 800; }
 .lp2-careers .lp-shot { margin-top: 32px; color: var(--ink); }
 .lp2-careers .lp-shot .btn { color: var(--ink) !important; }
+/* Homepage soul pass: the example chat, examples under each promise, the live major browser, Remy's voice. */
+.lp2-hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 56px; align-items: center; text-align: left; padding-top: 56px; }
+.lp2-hero h1, .lp2-lede { margin-left: 0 !important; margin-right: 0 !important; }
+.lp2-hero .lp2-ctas { justify-content: flex-start; }
+.lp2 .lp-chat { color: var(--ink); }
+.lp2 .lp-ex-note { color: var(--l2-muted); }
+.lp2 .lp-tabs { margin-bottom: 12px; }
+.lp2 .lp-tabs .pref-chip { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .14); color: var(--l2-ink2); }
+.lp2 .lp-tabs .pref-chip[aria-pressed="true"] { background: rgba(232, 106, 42, .18); border-color: var(--fox-light); color: var(--paper); }
+.lp2-peek { margin-top: 72px; }
+.lp2-peek-cap { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 600; color: var(--l2-ink2); }
+.lp2-peek .lp2-shot { margin-top: 20px; }
+.lp2-three .lp-shot { margin-top: 22px; color: var(--ink); box-shadow: none; }
+.lp2-explore { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 56px; align-items: start; }
+.lp2-explore .lp-shot { color: var(--ink); box-shadow: none; }
+.lp2-explore .lp-shot .btn { color: var(--ink) !important; }
+.lp2-follow-head { display: flex; gap: 16px; align-items: center; }
+.lp2-follow-head .lp2-sub { margin-top: 6px !important; }
+.lp2-three.rv > div { transition: opacity .5s ease, transform .5s ease; }
+.lp2-three.rv:not(.in) > div { opacity: 0; transform: translateY(14px); }
+.lp2-three.rv.in > div:nth-child(2) { transition-delay: .1s; }
+.lp2-three.rv.in > div:nth-child(3) { transition-delay: .2s; }
+@media (prefers-reduced-motion: reduce) { .lp2-three.rv:not(.in) > div { opacity: 1; transform: none; } }
+@media (max-width: 900px) {
+  .lp2-hero { grid-template-columns: 1fr; gap: 36px; padding-top: 32px; }
+  .lp2-explore { grid-template-columns: 1fr; gap: 24px; }
+  .lp2-peek { margin-top: 48px; }
+}
+.lp2 .lp2-three .lp-shot .lp-old { color: var(--faint); }
+.lp2 .lp2-three .lp-shot .lp-new { color: var(--sage); }
+.lp2 .lp2-three .lp-shot .lp-why { color: var(--sage); margin: -4px 4px 2px; }
+.lp2 .lp-chat { box-shadow: none; }
 
 /* Redesign stage 7 (owners first, Nov 22): My Path as a daily path. Road map of the field (Duolingo-style stops),
    today's round of cards and the daily streak. Only .dp-* classes; tokens only (script/contract.ts). */
