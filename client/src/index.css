@@ -1465,6 +1465,30 @@ ul[class] > li, ol[class] > li { max-width: none; }
   .doc-head { padding: 32px 0 20px; }
 }
 
+/* ---------- Home with more soul (owners first, Nov 22): Remy's line, card drawing, a small road, monograms ---------- */
+.remy-line { margin-top: 6px; max-width: 62ch; font-size: var(--text-lg); line-height: 1.45; color: var(--muted-text); animation: soul-in .5s ease .1s both; }
+.redesign-2 .hero2-bubble p { max-width: min(60ch, calc(100% - 110px)); }
+.redesign-2 .hero2-bubble { overflow: hidden; isolation: isolate; animation: soul-in .45s ease both; }
+.hero2-art { position: absolute; right: -10px; bottom: -34px; width: 150px; height: 150px; color: var(--fox-deep); opacity: .13; transform: rotate(-10deg); z-index: -1; pointer-events: none; }
+.sroad-head { font-weight: 700; color: var(--ink) !important; margin-bottom: 2px; }
+.sroad { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.sroad li { position: relative; display: grid; grid-template-columns: 20px 1fr; align-items: center; gap: 10px; min-height: 34px; }
+.sroad li:not(:last-child)::after { content: ""; position: absolute; left: 9px; top: 25px; bottom: -9px; width: 2px; border-radius: 1px; background: var(--line); }
+.sroad li.done:not(:last-child)::after { background: var(--fox); }
+.sroad-dot { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--line); background: var(--surface); color: var(--surface); position: relative; z-index: 1; }
+.sroad li.done .sroad-dot { background: var(--fox); border-color: var(--fox); animation: soul-pop .35s ease both; }
+.sroad li.cur .sroad-dot { border-color: var(--fox); box-shadow: 0 0 0 0 color-mix(in srgb, var(--fox) 45%, transparent); animation: soul-pulse 2.2s ease-out infinite; }
+.sroad-text { text-align: left; font-size: var(--text-sm); font-weight: 600; color: var(--ink); padding: 0; }
+.sroad li.done .sroad-text { color: var(--muted-text); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted-text) 50%, transparent); }
+.sroad li.cur .sroad-text { color: var(--fox-deep); }
+button.sroad-text:hover { text-decoration: underline; text-underline-offset: 3px; }
+.job-mono { width: 36px; height: 36px; flex: none; align-self: flex-start; margin-top: 2px; border-radius: 10px; display: grid; place-items: center; font-weight: 800; font-size: 12.5px; letter-spacing: .02em; background: var(--fox-soft); color: var(--fox-deep); }
+@media (max-width: 640px) { .redesign-2 .hero2-bubble p { max-width: none; } .hero2-art { width: 92px; height: 92px; bottom: -20px; right: -8px; opacity: .1; } }
+@keyframes soul-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes soul-pop { 0% { transform: scale(.6); } 70% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@keyframes soul-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--fox) 45%, transparent); } 70% { box-shadow: 0 0 0 8px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .remy-line, .redesign-2 .hero2-bubble, .sroad li.done .sroad-dot, .sroad li.cur .sroad-dot { animation: none; } }
+
 /* ---------- Redesign stage 3: the resume on one page, colour-coded (owners first, Nov 21) ---------- */
 .rm { display: flex; flex-direction: column; gap: 12px; }
 .rm-legend { display: flex; flex-wrap: wrap; gap: 8px; }
