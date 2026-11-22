@@ -40,7 +40,7 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
     <>
       <div className="pm-head">
         <h1>My Path</h1>
-        {knows && <button className="btn btn-secondary btn-sm" onClick={generate} disabled={busy || !config?.ai.available} data-testid="button-refresh-path">{busy ? <Spinner /> : w.plan ? <RotateCcw size={14} /> : <Sparkles size={14} />} {w.plan ? "Refresh Remy's suggestions" : "Build my path"}</button>}
+        {knows && <button className="btn btn-secondary" onClick={generate} disabled={busy || !config?.ai.available} data-testid="button-refresh-path">{busy ? <Spinner /> : w.plan ? <RotateCcw size={16} /> : <Sparkles size={16} />} {w.plan ? "Refresh Remy's suggestions" : "Build my path"}</button>}
       </div>
       <PathBoard />
     </>
