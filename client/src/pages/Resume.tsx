@@ -9,7 +9,8 @@ import {
   Star, Trash2, X,
 } from "lucide-react";
 import type { Application, BulletChange, ClaimFlag, Job, ResumeDoc, Workspace } from "@shared/types";
-import { API_BASE, api, download, fmtDate, rid, useStore } from "../lib/store";
+import { API_BASE, api, download, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
+import { ResumeMarkup } from "../components/ResumeMarkup";
 import { go, replaceRoute } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Empty, Modal, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
@@ -75,6 +76,7 @@ function StepBar<K extends string>({ steps, at, onGo, label, testid }: { steps: 
 
 // ---------------------------------------------------------------- base resume
 function BaseResume({ subParam }: { subParam: string | null }) {
+  const stage3 = useOwnerView(); // redesign stage 3: the colour-coded one-page view, owners first
   // "Make my resume stronger" in setup lands here with the checks open.
   useEffect(() => {
     if (!new URLSearchParams(location.search).has("checks")) return;
@@ -138,6 +140,7 @@ function BaseResume({ subParam }: { subParam: string | null }) {
         </div>
       </div>
       {replace && <div className="card card-pad"><ResumeUpload compact onDone={() => setReplace(false)} /></div>}
+      {stage3 && <ResumeMarkup doc={doc} onFix={(where) => { setSub(where); setTimeout(() => document.getElementById(where === "review" ? "resume-review" : "edit-resume")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60); }} />}
       {(() => {
         // 1 check what Remy read and confirm it, 2 make it stronger, 3 the file. New students start at 1.
         const tips = reviewResume(doc).todo.length;

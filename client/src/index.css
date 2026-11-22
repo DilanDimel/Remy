@@ -12,6 +12,8 @@
   --white: #ffffff; --black: #000000;
   --stage: #161616; --stage-2: #1c1c1c; --stage-3: #121212; --stage-deep: #111111; --paper: #f5f5f3;
   --fox-light: #ff8a4c; --fox-hot: #e2632a; --fox-700: #c2410c; --fox-800: #9a3412; --linkedin: #0a66c2; --online: #22a35a;
+  /* Resume highlights (stage 3), like the reference: action words, hard skills, soft skills, numbers, results. */
+  --hl-action: #fbc4b4; --hl-hard: #fde0a6; --hl-soft: #fdf3a7; --hl-number: #c9efc0; --hl-result: #c7e2fb;
   --font-body: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
@@ -67,6 +69,7 @@
   --secondary-foreground: 0 0% 9%;
 }
 [data-theme="dark"] {
+  --hl-action: #6b2f22; --hl-hard: #6a4a15; --hl-soft: #5e5718; --hl-number: #234f2a; --hl-result: #1f4462;
   --bg: #111111;
   --surface: #1c1c1c;
   --surface-2: #181818;
@@ -1341,3 +1344,33 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .redesign-2 .hero2 { grid-template-columns: 1fr auto; }
 .redesign-2 .hero2-bubble::before { display: none; }
 @media (max-width: 900px) { .redesign-2 .hero2 { grid-template-columns: 1fr; } }
+
+/* ---------- Redesign stage 3: the resume on one page, colour-coded (owners first, Nov 21) ---------- */
+.rm { display: flex; flex-direction: column; gap: 12px; }
+.rm-legend { display: flex; flex-wrap: wrap; gap: 8px; }
+.rm-key { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px; font-size: var(--text-xs); font-weight: 700; color: var(--ink); border: 1px solid transparent; }
+.rm-key b { font-weight: 600; opacity: .7; }
+.rm-key[aria-pressed="false"] { background: transparent !important; border-color: var(--line); color: var(--muted-text); }
+.rm-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+.rm-paper { background: var(--white); color: var(--stage); border: 1px solid var(--line); border-radius: var(--r-sm, 4px); padding: 28px 32px; font-family: Georgia, "Times New Roman", serif; font-size: 13.5px; line-height: 1.5; box-shadow: 0 1px 2px rgba(0, 0, 0, .05); }
+[data-theme="dark"] .rm-paper { background: var(--surface); color: var(--ink); }
+.rm-name { text-align: center; font-size: 22px; margin: 0; font-family: inherit; }
+.rm-contact { text-align: center; margin: 2px 0 10px; font-size: 12px; }
+.rm-head { font-size: 13px; letter-spacing: .04em; text-transform: uppercase; border-bottom: 1px solid currentColor; margin: 14px 0 6px; padding-bottom: 2px; font-family: inherit; }
+.rm-entry { margin-bottom: 8px; }
+.rm-row { display: flex; justify-content: space-between; gap: 12px; }
+.rm-sub { font-size: 12.5px; }
+.rm-entry ul { margin: 2px 0 0; padding-left: 18px; }
+.rm-entry li { margin: 2px 0; }
+.rm mark { color: inherit; border-radius: 2px; padding: 0 1px; }
+.rm-action { background: var(--hl-action); } .rm-hard { background: var(--hl-hard); } .rm-soft { background: var(--hl-soft); } .rm-number { background: var(--hl-number); } .rm-result { background: var(--hl-result); }
+.rm-key.rm-action { background: var(--hl-action); } .rm-key.rm-hard { background: var(--hl-hard); } .rm-key.rm-soft { background: var(--hl-soft); } .rm-key.rm-number { background: var(--hl-number); } .rm-key.rm-result { background: var(--hl-result); }
+.rm-flag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; font: 600 11px/1.6 var(--font-body); color: var(--error); border: 1px solid currentColor; background: transparent; vertical-align: 1px; }
+.rm-flag:hover { background: var(--error-bg); }
+.rm-skill { margin: 2px 0; }
+.rm-side { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+.rm-side h3 { margin: 0; font-size: 1.05rem; }
+.rm-todo { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; padding-bottom: 10px; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }
+.rm-good { display: flex; flex-direction: column; gap: 3px; color: var(--sage); }
+@media (max-width: 1100px) { .rm-body { grid-template-columns: 1fr; } .rm-side { position: static; } }
+@media (max-width: 560px) { .rm-paper { padding: 16px 14px; font-size: 13px; } .rm-row { flex-wrap: wrap; gap: 0 10px; } }
