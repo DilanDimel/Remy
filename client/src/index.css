@@ -1413,3 +1413,8 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .remy-dock-face .fox { animation: none; }
 .remy-dock-face .fox .fox-body { animation: fox-bob 3.4s ease-in-out infinite; }
 .rm-paper li, .rm-paper p { max-width: none; }
+/* Stage 3: Remy's review (Make it stronger) in the side panel beside the resume, with its inline fixes. */
+.r1 .rm-body { grid-template-columns: minmax(0, 1fr) 360px; }
+.rm-side-review { max-height: calc(100vh - 90px); overflow-y: auto; }
+.rm-side-review .review-item input, .rm-side-review .review-item textarea { width: 100%; min-width: 0; }
+@media (max-width: 1100px) { .r1 .rm-body { grid-template-columns: 1fr; } .rm-side-review { max-height: none; } }

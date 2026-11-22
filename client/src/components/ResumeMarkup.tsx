@@ -66,7 +66,8 @@ function issues(text: string): string[] {
 }
 
 /** `plain`: just the page, no colours, tags or side list (the resume preview where a browser can't show the PDF). */
-export function ResumeMarkup({ doc, onFix, plain = false, look }: { doc: ResumeDoc; onFix: (where: "review" | "edit") => void; plain?: boolean; look?: ResumeStyle }) {
+/** `side`: replaces the built-in "things to fix" list (stage 3 puts Remy's review with its inline fixes there). */
+export function ResumeMarkup({ doc, onFix, plain = false, look, side }: { doc: ResumeDoc; onFix: (where: "review" | "edit") => void; plain?: boolean; look?: ResumeStyle; side?: ReactNode }) {
   const [on, setOn] = useState<Set<Cat>>(new Set(plain ? [] : CATS.map(([c]) => c)));
   const tools = useMemo(() => {
     const own = doc.skills.flatMap((k) => splitList(k.items)).map((s) => s.trim()).filter((s) => s.length > 1 && s.length < 40).map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
@@ -117,7 +118,8 @@ export function ResumeMarkup({ doc, onFix, plain = false, look }: { doc: ResumeD
             {doc.skills.map((k) => <p key={k.id} className="rm-skill"><b>{k.label ? k.label + ": " : ""}</b>{marked(k.items, tools, on)}</p>)}
           </>)}
         </article>
-        {!plain && <aside className="rm-side" aria-label="What to fix">
+        {!plain && side && <aside className="rm-side rm-side-review" aria-label="What to fix">{side}</aside>}
+        {!plain && !side && <aside className="rm-side" aria-label="What to fix">
           <h3>{review.todo.length ? `${review.todo.length} thing${review.todo.length === 1 ? "" : "s"} to fix` : "Nothing big to fix"}</h3>
           {review.todo.map((t, i) => (
             <div key={i} className="rm-todo">

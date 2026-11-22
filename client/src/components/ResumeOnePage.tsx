@@ -55,7 +55,8 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
             <button aria-pressed={view === "file"} onClick={() => setView("file")} data-testid="r1-tab-file">{showOriginal ? "Original file" : "Your file"}</button>
           </div>
           {view === "resume" ? (
-            <ResumeMarkup doc={doc} look={r.style} onFix={() => document.getElementById("r1-stronger")?.scrollIntoView({ behavior: "smooth", block: "start" })} />
+            // Make it stronger lives beside the resume now (Dilan, Nov 21: "can't we just integrate it with this?").
+            <ResumeMarkup doc={doc} look={r.style} onFix={() => document.getElementById("r1-stronger")?.scrollIntoView({ behavior: "smooth", block: "nearest" })} side={<div id="r1-stronger"><ResumeReview doc={doc} upd={upd} onEdit={onEditByHand} beside /></div>} />
           ) : (
             <>
               <span className="xs muted">{showOriginal ? "Your original file, exactly as you uploaded it." : "Your current file, rebuilt in your font and length after your changes."}</span>
@@ -66,10 +67,6 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
 
       </div>
 
-      <section className="r1-section" id="r1-stronger">
-        <h3>Make it stronger</h3>
-        <ResumeReview doc={doc} upd={upd} onEdit={onEditByHand} />
-      </section>
       <section className="r1-section">
         <h3>ATS check</h3>
         <p className="xs muted">A general screening based on how common application systems (like Workday and Greenhouse) read resumes. It's not any one company's exact system, and no tool can promise you'll pass one.</p>
