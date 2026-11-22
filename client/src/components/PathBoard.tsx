@@ -1,8 +1,8 @@
 // My Path for owners (redesign stage 7, layout B picked by Dilan, Nov 22 2026): today's round and the streak on top,
 // the whole road as a four-year board, and one "Your field" view that merges career exploration, skills and
 // certifications and the forecast. Every stop and number comes from data Remy already has (DailyPath.tsx buildStops).
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Award, Check, Flame, Lock, Snowflake, TrendingDown, TrendingUp, Wrench, Zap } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowRight, Award, Briefcase, Check, Compass, DollarSign, Flag, Flame, Lock, Mountain, MountainSnow, Snowflake, Tent, TrendingDown, TrendingUp, Wrench, Zap } from "lucide-react";
 import { ROADS, roadFor, YEARS, yearNumber, NEED_LABEL } from "@shared/roads";
 import { levelOf, weekKey, weekMissions, doneThisWeek, counters, xpOf } from "@shared/game";
 import { CARD_LABEL, dailyStreak, dayKey, weekDots, type DailyCard } from "@shared/daily";
@@ -13,6 +13,9 @@ import { buildStops, KIND, money, shortTitle, stateOf, StopDetail, useFieldData,
 
 const CARDS: DailyCard[] = ["openings", "role", "forecast"];
 const play = () => go("/path?play=1");
+const STEP: Record<DailyCard, [string, string]> = { openings: ["Look", "Keep or pass new ones"], role: ["Decode", "Guess it from its duties"], forecast: ["Guess", "Which job grows more"] };
+// Each class year is a named chapter of the climb.
+const CHAPTER: Record<number, [string, typeof Tent]> = { 1: ["The base", Tent], 2: ["The climb", Mountain], 3: ["The ridge", MountainSnow], 4: ["The summit", Flag], 5: ["Beyond", Compass] };
 
 function usePathData() {
   const { ws } = useStore();
@@ -39,33 +42,38 @@ function RoundCard({ d }: { d: D }) {
   return (
     <section className="pm-round">
       <div className="pm-round-head"><span className="pm-kicker">Today's round</span><span className="pm-faint">{left ? `${3 - left} of 3 · about ${left} min` : "Done for today"}</span></div>
-      <ol className="pm-round-cards">{CARDS.map((c) => <li key={c} className={d.today.includes(c) ? "on" : ""}><i>{d.today.includes(c) ? <Check size={12} strokeWidth={3.5} /> : null}</i>{CARD_LABEL[c]}</li>)}</ol>
-      <button className="btn btn-primary pm-go" onClick={play}>{left === 3 ? "Start today's round" : left ? "Keep going" : "Play again"} <ArrowRight size={16} /></button>
+      <ol className="pm-round-cards">{CARDS.map((c, i) => <li key={c} className={d.today.includes(c) ? "on" : ""}>
+        <i>{d.today.includes(c) ? <Check size={12} strokeWidth={3.5} /> : i + 1}</i>
+        <span><small>{STEP[c][0]}</small><b>{CARD_LABEL[c]}</b><em>{STEP[c][1]}</em></span>
+      </li>)}</ol>
+      <div className="pm-round-go"><span>{left ? (d.streak.todayDone ? "Your streak is safe today" : "Keeps your streak alive tonight") : "All 3 done. Nice."}</span>
+        <button className="btn btn-primary pm-go" onClick={play}>{left === 3 ? "Start today's round" : left ? "Keep going" : "Play again"} <ArrowRight size={16} /></button></div>
     </section>
   );
 }
 
 function StreakCard({ d }: { d: D }) {
-  const pct = d.lv.max ? 100 : Math.round((100 * (d.xp - d.lv.floor)) / Math.max(1, d.lv.next - d.lv.floor));
+  const s = d.streak, now = dayKey();
+  const played = Object.keys(stateOf(d.w).days || {}).length;
   return (
     <section className="pm-streak">
-      <div className="pm-streak-n"><Flame size={28} className={d.streak.days ? "lit" : ""} fill="currentColor" /><b>{d.streak.days}</b><span>day streak</span></div>
-      <ol className="pm-dots">{d.dots.map((x) => <li key={x.key} className={x.status}><i>{x.status === "done" ? <Check size={10} strokeWidth={3.5} /> : x.status === "freeze" ? <Snowflake size={10} /> : null}</i>{x.label}</li>)}</ol>
-      <div className="pm-meta"><span><Snowflake size={13} /> {d.streak.freezes} freezes</span><span><Zap size={13} /> Lv {d.lv.n} {d.lv.name}</span></div>
-      <div className="pm-bar"><i style={{ width: `${pct}%` }} /></div>
+      <div className="pm-streak-n"><Flame size={30} className={s.days ? "lit" : ""} fill="currentColor" /><b>{s.days}</b>
+        <span><strong>day streak</strong>{s.todayDone ? "Done today. See you tomorrow" : s.days ? `Finish today to make it ${s.days + 1}` : "Play today to start one"}</span></div>
+      <ol className="pm-dots">{d.dots.map((x) => <li key={x.key} className={x.status + (x.key === now && x.status !== "done" ? " today" : "")}><i>{x.status === "done" ? <Check size={11} strokeWidth={3.5} /> : x.status === "freeze" ? <Snowflake size={11} /> : null}</i>{x.key === now ? "Today" : x.label}</li>)}</ol>
+      <div className="pm-splits"><div><b>{s.best}</b><span>Best streak</span></div><div><b>{played}</b><span>Days played</span></div><div><b>{s.freezes}</b><span>{s.freezes === 1 ? "Freeze" : "Freezes"} left</span></div></div>
     </section>
   );
 }
 
 /** Phone only: the streak as one line, so the round and the road fit on the first screen. */
 function MiniStreak({ d }: { d: D }) {
-  return <div className="pm-mini"><Flame size={18} className={d.streak.days ? "lit" : ""} fill="currentColor" /><b>{d.streak.days}</b><span>day streak</span><ol className="pm-dots">{d.dots.map((x) => <li key={x.key} className={x.status}><i>{x.status === "done" ? <Check size={9} strokeWidth={3.5} /> : null}</i></li>)}</ol></div>;
+  return <div className="pm-mini"><Flame size={18} className={d.streak.days ? "lit" : ""} fill="currentColor" /><b>{d.streak.days}</b><span>day streak · best {d.streak.best}</span><ol className="pm-dots">{d.dots.map((x) => <li key={x.key} className={x.status}><i>{x.status === "done" ? <Check size={9} strokeWidth={3.5} /> : null}</i></li>)}</ol></div>;
 }
 
 function QuestCard({ d }: { d: D }) {
   return (
     <section className="pm-quest">
-      <div className="pm-round-head"><span className="pm-kicker dark">This week's big moves</span><span className="pm-faint">{d.done.length} of {d.missions.length}</span></div>
+      <div className="pm-round-head"><span className="pm-kicker dark">This week's big moves</span><span className="pm-faint"><Zap size={12} /> Lv {d.lv.n} {d.lv.name} · {d.done.length} of {d.missions.length}</span></div>
       <ul>{d.missions.map((m) => <li key={m.key} className={d.done.includes(m.key) ? "on" : ""}><i>{d.done.includes(m.key) ? <Check size={12} strokeWidth={3.5} /> : null}</i><span>{m.title}</span><em>+{m.xp}</em></li>)}</ul>
     </section>
   );
@@ -93,6 +101,7 @@ function FieldView({ d }: { d: D }) {
         </div>
       </header>
       {tab === "roles" && <>
+        <FieldTiles jobs={jobs} />
         <ul className="pm-rows">
           {shown.map((o) => <RoleRow key={o.soc} o={o} avg={avg} max={max} known={known.has(o.title.toLowerCase())} mine={mine.has(o.title.toLowerCase())} open={open === o.soc} onOpen={() => setOpen(open === o.soc ? "" : o.soc)} />)}
         </ul>
@@ -117,6 +126,22 @@ function FieldView({ d }: { d: D }) {
   );
 }
 
+/** Three coloured headline numbers for the field's roles, all from BLS. */
+function FieldTiles({ jobs }: { jobs: Occ[] }) {
+  const pay = jobs.map((o) => o.wage || 0).filter((n) => n > 0).sort((a, b) => a - b);
+  const mid = pay.length ? pay[Math.floor(pay.length / 2)] : 0;
+  const open = Math.round(jobs.reduce((n, o) => n + (o.openings || 0), 0) * 1000);
+  const top = [...jobs].sort((a, b) => b.change - a.change)[0];
+  if (!jobs.length) return null;
+  return (
+    <div className="pm-tiles">
+      {mid > 0 && <div className="pm-tile sage"><DollarSign aria-hidden="true" /><b>{money(Math.round(mid / 1000))}k</b><span>median pay across {jobs.length} roles</span></div>}
+      {open > 0 && <div className="pm-tile blue"><Briefcase aria-hidden="true" /><b>{open >= 1000 ? `${Math.round(open / 1000)}k` : open}</b><span>openings a year</span></div>}
+      {top && <div className="pm-tile amber"><TrendingUp aria-hidden="true" /><b>{top.change > 0 ? "+" : ""}{top.change}%</b><span>fastest: {top.title.toLowerCase()}</span></div>}
+    </div>
+  );
+}
+
 function RoleRow({ o, avg, max, known, mine, open, onOpen }: { o: Occ; avg: number; max: number; known: boolean; mine: boolean; open: boolean; onOpen: () => void }) {
   const up = o.change >= avg, cls = up ? "up" : o.change < 0 ? "neg" : "down";
   return (
@@ -137,37 +162,57 @@ function RoleRow({ o, avg, max, known, mine, open, onOpen }: { o: Occ; avg: numb
 /* ------------------------------------------------------------------ the four-year board */
 
 function Board({ d }: { d: D }) {
-  const years = [1, 2, 3, 4, 5].filter((y) => d.stops.some((s) => s.year === y));
+  // Four chapters; after-college stops fold into the last one unless the student is already there.
+  const fold = d.year < 5;
+  const years = [1, 2, 3, 4, 5].filter((y) => (fold ? y < 5 : true) && d.stops.some((s) => s.year === y));
+  const after = fold ? d.stops.filter((s) => s.year === 5) : [];
   const [sel, setSel] = useState("");
   const [more, setMore] = useState(false); // columns show 5 stops until opened, so short years don't leave empty columns
+  const [tab, setTab] = useState(d.year); // phone: one chapter at a time
   const picked = d.stops.find((s) => s.id === sel);
   const total = d.stops.length, done = d.stops.filter((s) => s.status === "done").length;
-  // On a phone the board scrolls sideways; open it on the student's own year.
-  const cols = useRef<HTMLDivElement>(null);
-  useEffect(() => { const el = cols.current?.querySelector<HTMLElement>(".pm-col.here"); if (el && cols.current && cols.current.scrollWidth > cols.current.clientWidth) cols.current.scrollLeft = el.offsetLeft - 8; }, [d.road?.key]);
+  const of = (y: number) => d.stops.filter((s) => s.year === y && s.kind !== "checkpoint");
+  const shownTab = years.includes(tab) ? tab : years[years.length - 1];
+  const chip = (s: (typeof d.stops)[number]) => (
+    <li key={s.id}><button className={`pm-chip ${s.status}${sel === s.id ? " sel" : ""}`} onClick={() => setSel(sel === s.id ? "" : s.id)} aria-pressed={sel === s.id} title={s.title}>
+      <i>{s.status === "done" ? <Check size={10} strokeWidth={3.5} /> : s.status === "locked" ? <Lock size={8} /> : null}</i>
+      <span><b>{shortTitle(s)}</b><small>{KIND[s.kind].label}</small></span>
+      {s.status === "now" && <em>Next</em>}
+    </button></li>
+  );
   return (
     <section className="pm-board" aria-label="Your road">
       <header className="pm-board-head">
-        <div><h3>Your {d.road?.label.toLowerCase() || "field's"} road</h3><span className="pm-faint">{done} of {total} stops done · tap a stop to open it</span></div>
+        <h3>Your {d.road?.label.toLowerCase() || "field's"} road</h3>
+        <div className="pm-progress" aria-hidden="true"><i style={{ width: `${(done / Math.max(1, total)) * 100}%` }} /></div>
+        <span className="pm-count"><b>{done}</b> of {total} stops</span>
         <select className="input pm-select" value={d.road?.key || ""} onChange={(e) => { d.setKey(e.target.value); setSel(""); }} aria-label="Field">
           {ROADS.map((r) => <option key={r.key} value={r.key}>{r.label}{r.key === d.mine?.key ? " (yours)" : ""}</option>)}
         </select>
       </header>
-      <div className="pm-progress" aria-hidden="true"><i style={{ width: `${(done / Math.max(1, total)) * 100}%` }} /></div>
-      <div className="pm-cols" ref={cols} style={{ ["--n" as string]: years.length }}>
+      <div className="pm-ytabs" role="tablist" aria-label="Class year">
+        {years.map((y) => { const ys = of(y), n = ys.filter((s) => s.status === "done").length, [name, G] = CHAPTER[y]; return (
+          <button key={y} role="tab" aria-selected={shownTab === y} className={y === d.year ? "here" : ""} onClick={() => setTab(y)}>
+            <G size={20} aria-hidden="true" /><b>{name}</b><small>{y === 5 ? "After" : `Year ${y}`} · {n}/{ys.length}</small><i><u style={{ width: `${(n / Math.max(1, ys.length)) * 100}%` }} /></i>
+          </button>); })}
+      </div>
+      <div className="pm-cols" style={{ ["--n" as string]: years.length }}>
         {years.map((y) => {
-          const ys = d.stops.filter((s) => s.year === y && s.kind !== "checkpoint");
-          const n = ys.filter((s) => s.status === "done").length;
+          const ys = of(y), n = ys.filter((s) => s.status === "done").length, [name, G] = CHAPTER[y];
+          const past = y < d.year, last = y === years[years.length - 1];
           return (
-            <div key={y} className={"pm-col" + (y === d.year ? " here" : y < d.year ? " past" : "")}>
-              <div className="pm-col-head"><b>{YEARS[y]}</b><span>{y === d.year ? "You are here" : `${n}/${ys.length}`}</span></div>
-              <ul>{(more ? ys : ys.filter((s, i) => i < 5 || s.status === "now")).map((s) => (
-                <li key={s.id}><button className={`pm-chip ${s.status}${sel === s.id ? " sel" : ""}`} onClick={() => setSel(sel === s.id ? "" : s.id)} aria-pressed={sel === s.id} title={s.title}>
-                  <i>{s.status === "done" ? <Check size={11} strokeWidth={3.5} /> : s.status === "locked" ? <Lock size={9} /> : null}</i>
-                  <span><b>{shortTitle(s)}</b><small>{KIND[s.kind].label}</small></span>
-                  {s.status === "now" && <em>Next</em>}
-                </button></li>
-              ))}{!more && ys.length > 5 && <li><button className="pm-more" onClick={() => setMore(true)}>+{ys.filter((s, i) => i >= 5 && s.status !== "now").length} more</button></li>}</ul>
+            <div key={y} className={"pm-col" + (y === d.year ? " here" : past ? " past" : "") + (y === shownTab ? " shown" : "")}>
+              <div className="pm-col-head">
+                <span className="pm-glyph"><G size={17} aria-hidden="true" /></span>
+                <div><b>{name}</b><small>{YEARS[y]}</small></div>
+                {y === d.year ? <em className="pm-you">You</em> : <span className="pm-cnt">{n}/{ys.length}</span>}
+              </div>
+              <ul>{(more ? ys : ys.filter((s, i) => i < 5 || s.status === "now")).map(chip)}{!more && ys.length > 5 && <li><button className="pm-more" onClick={() => setMore(true)}>+{ys.filter((s, i) => i >= 5 && s.status !== "now").length} more</button></li>}</ul>
+              {past && n > 0 && <p className="pm-say">{n === ys.length ? "Chapter done." : `${n} of ${ys.length} done here.`}</p>}
+              {last && after.length > 0 && (
+                <div className="pm-after"><b>After college <span>{after.filter((s) => s.status === "done").length}/{after.length}</span></b>
+                  <div>{after.map((s) => <button key={s.id} className={sel === s.id ? "sel" : ""} onClick={() => setSel(sel === s.id ? "" : s.id)} aria-pressed={sel === s.id}>{shortTitle(s)}</button>)}</div></div>
+              )}
             </div>
           );
         })}
