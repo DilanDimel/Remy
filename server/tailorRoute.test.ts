@@ -44,4 +44,10 @@ test("generate: an eligibility conflict answers 409 before any AI call; reminder
   assert.deepEqual((await loadWorkspace("tr-1")).reminded, ["c1:2026-11-23:soon", "c1:2026-11-23:day", "c1:2026-11-23:skip"]);
   const none = await fetch(base + "/api/reminders/skip", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ keys: ["nope"] }) });
   assert.equal(none.status, 400);
+  // A match email's first answer counts as a streak day on My Path; a second click doesn't add another.
+  await saveWorkspace("tr-1", { ...(await loadWorkspace("tr-1")), nudges: [{ id: "n1", jobId: "j1", at: new Date().toISOString() }] });
+  for (const answer of ["later", "yes"]) assert.equal((await fetch(base + "/api/nudges/n1", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ answer }) })).status, 200);
+  const after = await loadWorkspace("tr-1");
+  assert.equal(after.nudges![0].answer, "later");
+  assert.deepEqual(Object.values(after.game?.days || {}).flat(), ["email"]);
 });

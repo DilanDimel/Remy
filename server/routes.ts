@@ -48,6 +48,7 @@ import { pastTerm } from "./fit";
 import * as agents from "./agents";
 import { dueReminders, reminderEmail, weeklyDigest } from "./reminders";
 import { answerNudge, overnightPicks, sendNudges } from "./nudges";
+import { markDay } from "@shared/daily";
 import { doActions, undoDid } from "./chatDo";
 import { sendTexts, usPhone } from "./texts";
 import { step } from "@shared/progress";
@@ -1637,6 +1638,8 @@ Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), 
     if (answer !== "yes" && answer !== "later") bad("Answer must be yes or later.");
     const list = answerNudge(ctx.ws.nudges, String(req.params.id), answer, nowIso());
     if (!list) bad("That email is from another account or is too old.", 404);
+    // The first answer, Yes or Not now, counts as that day's small action on My Path (stage 7 streak).
+    if (!ctx.ws.nudges?.find((n) => n.id === req.params.id)?.answer) ctx.ws.game = markDay(ctx.ws.game || { weeks: {} }, centralToday());
     ctx.ws.nudges = list!;
     await ctx.save();
     res.json(ctx.ws);
