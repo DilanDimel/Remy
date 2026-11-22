@@ -414,7 +414,8 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
     // The receipt says exactly what changed and where to undo it; run() reports a failed save instead.
     if (a.kind === "setting" && a.key === "theme") return run(() => setTheme(a.value as Theme), `${THEME_NAME[a.value as Theme]} is on. Change it anytime in Account → Appearance.`);
     if (a.kind === "setting") return run(() => save("settings", { notify: { ...ws!.settings.notify, [a.key.split(".")[1]]: a.value } }), `${NOTIFY_NAME[a.key]} ${a.value ? "on" : "off"}. Other reminders are unchanged.`);
-    if (a.kind === "task") return run(() => save("tasks", [{ id: rid("t"), title: a.title, why: a.why, due: "", category: "Prepare", done: false, source: "Remy chat" }, ...ws!.tasks]), "Added to your to-dos");
+    if (a.kind === "task") return run(() => save("tasks", [{ id: rid("t"), title: a.title, why: a.why, due: a.due || "", category: "Prepare", done: false, source: "Remy chat" }, ...ws!.tasks]), "Added to your to-dos");
+    if (a.kind !== "role") return; // save / tailor are done by Remy himself (owners), never offered as buttons
     return run(() => save("profile", { ...ws!.profile, targetRoles: [...roles, a.title].join(", ") }), `Remy will look for ${a.title} openings too`);
   };
   const [view, setView] = useState<"chat" | "activity">("chat");
@@ -490,12 +491,26 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
                 </div>
               );
             })()}
+            {/* What Remy did from this reply (redesign stage 6, owners first), each with Undo. */}
+            {!!m.did?.length && (
+              <div className="card" style={{ maxWidth: "92%", padding: "6px 10px" }} data-testid="chat-did">
+                {m.did.map((d) => (
+                  <div key={d.id} className="small" style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
+                    <Check size={14} style={{ flexShrink: 0, opacity: d.undone ? 0.4 : 1 }} />
+                    {d.undone ? <span className="muted" style={{ flex: 1 }}><s>{d.label}</s> · undone</span> : <>
+                      <span style={{ flex: 1 }}>{d.link ? <a href={d.link} onClick={(e) => { e.preventDefault(); go(d.link!); }} style={{ textDecoration: "underline" }}>{d.label}</a> : d.label}</span>
+                      <button className="btn btn-ghost btn-sm" style={{ flexShrink: 0 }} onClick={async () => { const w = await run(() => api<Workspace>("POST", `/api/chat/${m.id}/undo/${d.id}`), "Undone"); if (w) setWs(w); }} data-testid="button-chat-undo">Undo</button>
+                    </>}
+                  </div>
+                ))}
+              </div>
+            )}
             {m.role !== "user" && m.id === chat[chat.length - 1]?.id && !busy && <QuickRate place="coach" id={"coach:" + m.id} label="Helpful?" />}
             {!!m.actions?.length && (
               <div className="row" style={{ gap: 6, maxWidth: "92%" }}>
                 {m.actions.map((a, i) => isDone(a)
                   ? <span key={i} className="chip"><Check size={12} /> {a.kind === "task" ? "On your to-dos" : a.kind === "setting" ? "Done" : "In your search"}</span>
-                  : <button key={i} className="btn btn-secondary btn-sm" style={{ whiteSpace: "normal", height: "auto", textAlign: "left" }} onClick={() => act(a)} data-testid="button-chat-action">{a.kind === "task" ? <>Add to-do: {a.title}</> : a.kind === "role" ? <>Look for {a.title} openings</> : a.kind === "setting" ? settingLabel(a) : a.label}</button>)}
+                  : <button key={i} className="btn btn-secondary btn-sm" style={{ whiteSpace: "normal", height: "auto", textAlign: "left" }} onClick={() => act(a)} data-testid="button-chat-action">{a.kind === "task" ? <>Add to-do: {a.title}</> : a.kind === "role" ? <>Look for {a.title} openings</> : a.kind === "setting" ? settingLabel(a) : a.kind === "open" ? a.label : null}</button>)}
               </div>
             )}
             {m.memorySuggestions?.filter((s) => !remembered.has(s)).map((s) => (
