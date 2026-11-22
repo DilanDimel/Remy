@@ -703,6 +703,8 @@ function OwnerTools({ onDone }: { onDone?: () => void }) {
         <button aria-pressed={on} onClick={() => set(true)} data-testid="button-view-owner">Owner</button>
         <button aria-pressed={!on} onClick={() => set(false)} data-testid="button-view-student">Student</button>
       </div>
+      {/* collapsed side bar: one icon flips the view (the two-word switch doesn't fit 72px) */}
+      <button className="icon-btn owner-flip" onClick={() => set(!on)} title={on ? "Owner view (click for student view)" : "Student view (click for owner view)"} aria-label={on ? "Switch to student view" : "Switch to owner view"} data-testid="button-view-flip">{on ? <UserCog size={17} /> : <Users size={17} />}</button>
       <a className="icon-btn" href="/admin" onClick={() => onDone?.()} title="Owners' dashboard" aria-label="Owners' dashboard" data-testid="nav-admin"><Gauge size={17} /></a>
       <ThemeToggle />
     </div>
