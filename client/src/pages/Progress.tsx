@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Check, ChevronDown, ChevronUp, Inbox, Mail, Plus, Trash2, Wand2 } from "lucide-react";
 import type { HoursEntry, Suggestion, Task, TrackItem, TrackStatus, Workspace } from "@shared/types";
-import { api, fmtDate, rid, useStore } from "../lib/store";
+import { api, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
+import { orgInitials } from "../lib/jobs";
 import { useCompleting } from "../lib/completing";
 import { go, useRoute } from "../lib/router";
 import { Empty, Modal, Remy, Spinner, StatusChip } from "../components/common";
@@ -21,6 +22,7 @@ export default function Progress() {
   const { query } = useRoute();
   const tab = (query.get("tab") as Tab) || "tracker";
   const { ws } = useStore();
+  const owner = useOwnerView(); // tabs redesign (Nov 22), owners first
   const open = ws!.suggestions.filter((s) => s.state === "open").length;
   return (
     <>
@@ -28,7 +30,7 @@ export default function Progress() {
         <div>
           <span className="eyebrow">Progress</span>
           <h1><span className="title-slogan">Follow through, without the spreadsheet.</span><span className="title-plain">Progress</span></h1>
-          <p className="hide-phone">Track every application, turn recruiting emails into reviewed status updates, and keep your to-dos honest.</p>
+          {owner ? <ProgressLine w={ws!} /> : <p className="hide-phone">Track every application, turn recruiting emails into reviewed status updates, and keep your to-dos honest.</p>}
         </div>
       </div>
       <div className="tabs" role="tablist">
@@ -127,14 +129,16 @@ function Tracker() {
     setAdding(false);
     setN({ company: "", role: "" });
   };
+  const owner = useOwnerView();
+  const openRow = (id: string) => { setOpen(id); setTimeout(() => document.getElementById("tr-" + id)?.scrollIntoView({ block: "center", behavior: "smooth" }), 50); };
   return (
     <div className="stack">
-      <div className="pipeline">{counts.map(([s, c]) => <div key={s} className="pipe"><span className="xs muted">{s}</span><strong>{c}</strong></div>)}</div>
+      {owner ? <Board w={w} onOpen={openRow} /> : <div className="pipeline">{counts.map(([s, c]) => <div key={s} className="pipe"><span className="xs muted">{s}</span><strong>{c}</strong></div>)}</div>}
       <ReplyRate />
       <div className="card card-pad">
-        <div className="row-between" style={{ marginBottom: 8 }}><h3>Applications</h3><button className="btn btn-secondary btn-sm" onClick={() => setAdding(true)} data-testid="button-add-tracking"><Plus size={14} /> Track an application</button></div>
+        <div className="row-between" style={{ marginBottom: 8 }}><h3>{owner ? "Details and notes" : "Applications"}</h3><button className="btn btn-secondary btn-sm" onClick={() => setAdding(true)} data-testid="button-add-tracking"><Plus size={14} /> Track an application</button></div>
         {w.tracker.length ? w.tracker.map((t) => (
-          <div key={t.id} className="item" data-testid="row-tracker">
+          <div key={t.id} id={"tr-" + t.id} className="item" data-testid="row-tracker">
             <div className="item-main">
               <div className="row-between">
                 <div><strong>{t.company}</strong><div className="why">{t.role}</div></div>
@@ -164,6 +168,7 @@ function Tracker() {
           </div>
         )) : <Empty title="Nothing tracked yet" body="Approving tailored materials adds the opening here automatically. You can also add applications by hand." />}
       </div>
+      {owner && <NextUp w={w} />}
       {adding && (
         <Modal title="Track an application" onClose={() => setAdding(false)}>
           <label className="field"><span>Company</span><input className="input" value={n.company} onChange={(e) => setN({ ...n, company: e.target.value })} data-testid="input-track-company" /></label>
@@ -171,6 +176,69 @@ function Tracker() {
           <div className="row" style={{ justifyContent: "flex-end" }}><button className="btn btn-primary" disabled={!n.company.trim()} onClick={add} data-testid="button-save-tracking">Save</button></div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+// Owners (tabs redesign, Nov 22): the tracker as lanes, Remy's line from real counts, and what's next from email and to-dos.
+const LANES: [string, TrackStatus[], string][] = [["Saved", ["Saved"], "a"], ["Applied", ["Applied", "Received"], "b"], ["Heard back", ["Heard back"], "c"], ["Interview", ["Interview"], "d"], ["Offer", ["Offer"], ""]];
+const lastAt = (t: TrackItem) => t.events[t.events.length - 1]?.at || "";
+const daysSince = (iso: string) => (iso ? Math.floor((Date.now() - Date.parse(iso)) / 864e5) : 0);
+/** An application sent more than a week ago with no news since: worth a short follow-up. */
+const quiet = (t: TrackItem) => (t.status === "Applied" || t.status === "Received") && daysSince(lastAt(t)) >= 7;
+
+function ProgressLine({ w }: { w: Workspace }) {
+  const sent = w.tracker.filter((t) => !["Saved", "Withdrawn"].includes(t.status));
+  const replies = w.tracker.filter((t) => ["Heard back", "Interview", "Offer", "Rejected"].includes(t.status)).length;
+  const q = w.tracker.filter(quiet).sort((a, b) => lastAt(a).localeCompare(lastAt(b)))[0];
+  if (!w.tracker.length) return <p className="op-say"><b>Nothing tracked yet.</b> Approve tailored materials and Remy adds the opening here.</p>;
+  return (
+    <p className="op-say" data-testid="progress-line">
+      <b>{sent.length} application{sent.length === 1 ? "" : "s"} out, {replies} {replies === 1 ? "reply" : "replies"} in.</b>
+      {q ? ` ${q.company} hasn't answered in ${daysSince(lastAt(q))} days, so a short follow-up is worth it.` : ""}
+    </p>
+  );
+}
+
+function Board({ w, onOpen }: { w: Workspace; onOpen: (id: string) => void }) {
+  const closed = w.tracker.filter((t) => ["Rejected", "No reply", "Withdrawn"].includes(t.status));
+  return (
+    <>
+      <div className="pr-tiles">{LANES.map(([l, st, c]) => <div key={l} className={"op-tile " + (c || "pr-plain")}><b>{w.tracker.filter((t) => st.includes(t.status)).length}</b><span>{l}</span></div>)}</div>
+      <div className="op-card" data-testid="progress-board">
+        <div className="op-ch"><h3>Your applications</h3><span className="xs muted">{closed.length ? `${closed.length} closed (rejected or no reply) · ` : ""}Tap one for its timeline</span></div>
+        <div className="pr-flow">{LANES.map(([l, st]) => { const items = w.tracker.filter((t) => st.includes(t.status)); return (
+          <div key={l} className="pr-lane"><h4>{l} <em>{items.length}</em></h4>
+            {items.map((t) => (
+              <button key={t.id} className={"pr-mini" + (quiet(t) ? " hot" : "")} onClick={() => onOpen(t.id)} data-testid="button-board-card">
+                <span className="job-mono" aria-hidden="true">{orgInitials(t.company)}</span>
+                <span className="pr-mini-t"><b>{t.role || t.company}</b><small>{t.company}{quiet(t) ? ` · ${daysSince(lastAt(t))} days, no reply` : t.status === "Received" ? " · received" : ""}</small></span>
+              </button>
+            ))}
+            {!items.length && <span className="pr-ghost">{l === "Interview" ? "Your first one lands here. Interview has you ready." : l === "Offer" ? "Waits here" : "None yet"}</span>}
+          </div>
+        ); })}</div>
+      </div>
+    </>
+  );
+}
+
+function NextUp({ w }: { w: Workspace }) {
+  const mail = w.suggestions.filter((s) => s.state === "open").slice(0, 3);
+  const todos = w.tasks.filter((t) => !t.done).slice(0, 3);
+  return (
+    <div className="pr-cols">
+      <div className="op-card">
+        <div className="op-ch"><h3>From your email</h3><span className="xs muted">You confirm every change</span></div>
+        {mail.length ? <ul className="op-dl">{mail.map((m) => (
+          <li key={m.id}><span className="job-mono" aria-hidden="true">{orgInitials(m.company)}</span>
+            <button onClick={() => go("/progress?tab=email")}><strong>{m.company}{m.role ? `: ${m.role}` : ""}</strong><span>Looks like {m.proposed} · review it</span></button></li>
+        ))}</ul> : <p className="small muted">No status changes waiting. Remy reads recruiting emails you connect and asks before changing anything.</p>}
+      </div>
+      <div className="op-card">
+        <div className="op-ch"><h3>Next up</h3><button className="op-link" onClick={() => go("/progress?tab=todos")} data-testid="button-progress-todos">All to-dos →</button></div>
+        {todos.length ? <ul className="pr-todo">{todos.map((t) => <li key={t.id}><i />{t.title}{t.due && <em>{fmtDate(t.due)}</em>}</li>)}</ul> : <p className="small muted">No open to-dos.</p>}
+      </div>
     </div>
   );
 }
