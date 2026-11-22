@@ -1,54 +1,83 @@
 # Remy
 
-Remy is an AI career coach for college students. It reads your resume into a profile, finds real openings from employers' own career sites, checks your resume the way hiring software does, tailors resumes and cover letters without inventing anything, and keeps track of every application. Remy the fox is the guide; the brand is black, orange and white.
+Remy is an AI career coach for college students, starting at TCU. It reads a student's resume into a profile, finds real openings on employers' own career sites, scores the resume the way hiring software reads it, tailors resumes and cover letters without inventing anything, and tracks every application. Live at [remyai.org](https://remyai.org).
 
-Render deploys `main` (see `render.yaml`). The iPhone and Android apps (`ios/`, `android/`) wrap the live site; see `docs/mobile-app.md`.
+## Stack
 
-## Run
+TypeScript everywhere. React + Vite front end, Express server, Postgres (Supabase in production, PGlite locally and in tests), Supabase Auth for sign-in, and Capacitor shells for iPhone and Android that load the live site.
 
-- `npm ci`
-- `npm run dev` starts Express and Vite on port 5000.
-- `npm run check` runs TypeScript checks; `npm run check:contract` checks every client API call hits a real server route.
-- `npm test` runs the claim-checker and eligibility tests (`server/*.test.ts`). GitHub Actions runs all three on every push and pull request.
-- `npm run build` builds `dist/public` and the Node server; `NODE_ENV=production node dist/index.cjs` runs it.
-- `npm run check:persist` restarts a production build on a throwaway database and confirms a session keeps its workspace.
-- `npx tsx script/coverage.ts` rebuilds the 155-node coverage inventory.
-- `npm run check:resume` checks resume reading (PDF/Word/text extraction, the rules reader, the checks on AI output and profile prefill) against synthetic fixtures. No server, database or AI key needed.
+## Layout
 
-Sign-in: a guest workspace (secure cookie), or Google / LinkedIn / email link through Supabase Auth (the server verifies the Supabase token, then keeps its own session). Alumni matches are only shown to students who verify a school email.
-
-## Configuration (environment variables)
-
-| Variable | What it does |
+| Folder | What's in it |
 |---|---|
-| `OR_AI_CHAIN` | AI providers to try in order, e.g. `openrouter:google/gemini-3.8-flash,openrouter:openai/gpt-5-mini,gemini:gemini-3.8-flash`. Keys come from `OPENROUTER_API_KEY` / `GEMINI_API_KEY` (Render secrets, never committed). With no provider, AI features say "needs setup" and everything else works. |
-| `OR_AI_TAILOR_CHAIN` | Optional: a different (stronger) chain for resume tailoring only. Unset = use `OR_AI_CHAIN`. |
-| `OR_AI_DAILY_BUDGET` | AI requests allowed per 24 hours for the whole site (default 1500). Guests also get 40/day each, signed-in students 120/day, and each network 60/hour. |
-| `OR_ALUMNI_EMAIL_DOMAINS` | Email domains that may see TCU alumni matches (default `tcu.edu`). |
-| `SMTP_URL` | Sender for school-email verification codes, e.g. `smtps://remy.account%40gmail.com:<app-password>@smtp.gmail.com:465`. Unset: verification shows "coming soon" (local dev prints codes to the server log). `MAIL_FROM` optionally overrides the From line. |
-| `DATABASE_URL` | Postgres connection string (Supabase today). `DB_SCHEMA` picks the schema (default `remy`); `DB_SSL_CA_FILE` the certificate. Unset: PGlite (Postgres inside Node) in the `OR_DB_PATH` folder, or in memory for tests. |
-| `USAJOBS_KEY`, `USAJOBS_EMAIL` | Free USAJOBS API key for federal student and recent-graduate roles. Unset: federal roles are skipped. |
-| `COS_USER_ID`, `COS_TOKEN` | Free CareerOneStop (U.S. Department of Labor) key: city, county, state and other jobs from the National Labor Exchange. Unset: skipped. |
-| `GCAL_CLIENT_ID`, `GCAL_CLIENT_SECRET` | Google Calendar connection (adds deadlines and interviews to a calendar Remy creates). Unset: shows "coming soon". |
-| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Supabase Auth project (the publishable key is public by design). |
-| `GOOGLE_CLIENT_ID` | Optional Google Identity button (Google sign-in also works through Supabase without it). |
+| `client/src/pages/` | One file per screen (Home, Path, Resume, Opportunities, Interview, Admin, ...) |
+| `client/src/components/` | Shared pieces; `ui/` is shadcn/Radix primitives, `common.tsx` has `<Remy />` the fox |
+| `client/src/lib/` | API helpers (`store.tsx`: `api`, `save`, `download`), router, Supabase client |
+| `server/` | Express app. `index.ts` boots it, `routes.ts` holds every `/api` route, the other files are features (`resume.ts`, `openings.ts`, `ai.ts`, `claims.ts`, ...) with `*.test.ts` beside them |
+| `server/migrations/` | SQL migrations, run once each at startup |
+| `server/data/` | Static data: employer list, BLS projections, O*NET tasks |
+| `shared/` | Types and pure logic used by both sides (`types.ts`, roads, seasons, game) |
+| `script/` | Build and check scripts (`build.ts`, `contract.ts`, `resume-check.ts`, `persist.ts`) |
+| `ios/`, `android/`, `mobile/`, `capacitor.config.ts` | Native app shells, see `docs/mobile-app.md` |
+| `docs/` | Design notes and plans; `docs/archive/` is history |
 
-Rate limits that protect the shared AI budget (guest creation, AI per network, link fetching) are kept in memory: they reset on restart and assume one server process.
+`docs/architecture.md` explains how a request flows through the code and where to put new things.
 
-## What Remy does
+## Run it
 
-- **Profile from your resume:** reads a PDF or Word resume (or LinkedIn's Save-to-PDF) into a profile you confirm; first-year students can build one by tapping through a guided builder instead.
-- **Openings:** reads live student roles from about 180 employers' own career sites (Workday, Greenhouse, Lever, Ashby, SmartRecruiters, Oracle, Eightfold, Phenom, and school districts on Frontline AppliTrack, Taleo and SchoolSpring) plus federal roles from USAJOBS and, with a key, the Labor Department's CareerOneStop job search, and says whether you qualify and why.
-- **Resume check:** an ATS-readiness score based on how hiring software reads resumes, with the keywords for each posting.
-- **Tailoring and cover letters:** suggested changes you approve one by one; every claim must come from your own resume, and downloads keep your Word file's fonts and layout.
-- **Path, community and progress:** semester plan, alumni matches for verified school emails, Google Calendar deadlines and an application tracker.
+Needs Node 20 or newer.
 
-## Honest boundaries
+```bash
+npm ci
+npm run dev        # Express + Vite on http://localhost:5000
+```
 
-Remy never asks for passwords and never sends an application, email or message for you. Handshake, Stellic and similar school systems aren't connected: you upload or paste from them. Tailoring checks are rules plus your own review, not a guarantee. Job sites such as GovernmentJobs (NEOGOV) and Handshake don't allow automated reading, so their postings only appear when you import them.
+With no environment variables the app still runs: data goes to an in-memory PGlite database and AI features say "needs setup". Put local settings in `.env` (never committed).
 
-Deleting your account removes your workspace, files, AI usage, sessions and sign-in. Guest workspaces idle for 30 days are removed automatically. See `docs/database-plan.md` for how data is stored.
+## Test it
 
-## Checks
+```bash
+npm run check            # TypeScript
+npm run check:contract   # every client API call matches a real server route, colours follow the palette
+npm test                 # server unit tests (server/*.test.ts)
+npm run check:resume     # resume reading against fixtures, no server or AI key needed
+npm run check:persist    # builds, restarts on a throwaway database, confirms nothing is lost
+```
 
-`npm run check`, `npm run check:contract` and `npm test` run on every push (GitHub Actions). Design notes live in `docs/superpowers/specs/`.
+GitHub Actions runs the first three on every push and pull request. The iPhone and Android workflows run only when native files change.
+
+## Deploy
+
+Render deploys `main` automatically (`render.yaml`): `npm ci && npm run build`, then `node dist/index.cjs`. Merging a pull request is a deploy, so keep `main` green. An hourly GitHub Action (`tick.yml`) wakes the server for reminders and cleanup.
+
+Android test builds: push a branch named `app-release/<version>` and the APK is published as a GitHub release.
+
+## Configuration
+
+Secrets live in the Render dashboard, never in the repo.
+
+| Variable | Purpose |
+|---|---|
+| `OR_AI_CHAIN` | AI providers to try in order, e.g. `openrouter:google/gemini-3.8-flash,gemini:gemini-3.8-flash`. Keys: `OPENROUTER_API_KEY`, `GEMINI_API_KEY` |
+| `OR_AI_CHAIN_OWNERS` | Separate chain for owners' accounts (trial models) |
+| `OR_AI_TAILOR_CHAIN` | Optional stronger chain for resume tailoring only |
+| `OR_AI_DAILY_BUDGET` | Site-wide AI requests per 24 hours (default 1500) |
+| `DATABASE_URL`, `DB_SCHEMA`, `DB_SSL_CA_FILE` | Postgres connection (schema defaults to `remy`). Unset: PGlite in `OR_DB_PATH` or in memory |
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Supabase Auth (the publishable key is public by design) |
+| `OWNER_EMAILS` | Founders' emails; owners see owner view and the Owners' dashboard |
+| `RESEND_SMTP_URL`, `SMTP_URL`, `MAIL_FROM`, `MAIL_REPLY_TO` | Outgoing mail (Resend first, Gmail fallback) |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` | Text messages (optional) |
+| `OR_ALUMNI_EMAIL_DOMAINS` | Email domains that may see alumni matches (default `tcu.edu`) |
+| `USAJOBS_KEY`, `USAJOBS_EMAIL` | Federal student roles |
+| `COS_USER_ID`, `COS_TOKEN` | CareerOneStop job search |
+| `GCAL_CLIENT_ID`, `GCAL_CLIENT_SECRET` | Google Calendar connection |
+| `CRON_SECRET` | Shared secret for the hourly tick |
+| `RENDER_API_KEY` | Owners' dashboard deploy and health panel |
+
+`grep -oh "process.env.[A-Z_0-9]*" server/*.ts | sort -u` lists every variable the server reads.
+
+Anything unset turns its feature off with a "coming soon" or "needs setup" message instead of failing.
+
+## Working in this repo
+
+Read `CLAUDE.md` first: the rules every change must follow (owner-view gating, the colour contract, phone widths, no invented claims) and how pull requests are handled.
