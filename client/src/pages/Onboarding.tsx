@@ -1,10 +1,10 @@
 import { go, uiFlags } from "../lib/router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Check, ChevronDown, FileText, Mail, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, FileText, GraduationCap, Mail, Sparkles, Trash2 } from "lucide-react";
 import { PATHS, type Profile, type SetupFocus, type Workspace } from "@shared/types";
 import { FIELD_GROUPS, FIELD_MAJORS, splitFieldList } from "@shared/fields";
 import { alreadyIn, fitsField, inField, setupReply, tappedResumeClaim } from "@shared/setupReply";
-import { api, FAR_ENOUGH_STEP, fmtDate, rid, useStore } from "../lib/store";
+import { api, FAR_ENOUGH_STEP, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
 import { AiUnavailableNote, BetaBadge, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
 import { ProfileImport, ResumeUpload } from "../components/Uploaders";
@@ -42,19 +42,8 @@ export default function Onboarding() {
   // The first screen saves the path and goal and picks where setup ends; nobody skips setup, since everything
   // Remy does is built on knowing the student (resume upload or "Build one with Remy" is the next step).
   const pick = async (focus: SetupFocus, exploring?: boolean) => { await save("onboarding", { ...w.onboarding, focus, ...(exploring ? { exploring: true } : {}) }); };
-  return (
-    <div className="ob">
-      <div className="row-between" style={{ width: "100%", maxWidth: 740 }}>
-        <span className="logo"><Remy size={26} /><span>Remy<b>.</b></span><BetaBadge /></span>
-      </div>
-      {!welcomeBack && (
-        <div className="ob-progress-wrap">
-          <span className="ob-progress-label" aria-hidden>Step {shown + 1} of {STEPS.length} · <b>{STEPS[shown]}</b></span>
-          <ol className="ob-progress" aria-label={`Step ${shown + 1} of ${STEPS.length}: ${STEPS[shown]}`}>
-            {STEPS.map((s, i) => <li key={s} className={i <= shown ? "on" : ""} aria-current={i === shown ? "step" : undefined}><span /></li>)}
-          </ol>
-        </div>
-      )}
+  const ownerView = useOwnerView();
+  const card = (
       <div className="ob-card card card-pad fade-up" key={welcomeBack ? "back" : shown}>
         {welcomeBack ? (
           <WelcomeBack onContinue={() => setWelcomeBack(false)} onRestart={async () => { await save("onboarding", { ...w.onboarding, step: 1, answers: [], questions: [], targets: [] }); setWelcomeBack(false); }} />
@@ -69,8 +58,89 @@ export default function Onboarding() {
           </>
         )}
       </div>
+  );
+  // Owners (sign-up redesign, Nov 22): Remy's notebook beside the step, filling up with what the student has told Remy.
+  if (ownerView) return (
+    <div className="ob ob-owner" data-testid="setup-owner">
+      <SetupNotebook shown={shown} back={welcomeBack} />
+      <main className="ob-main">
+        {card}
+        {!config?.ai.available && <AiUnavailableNote />}
+      </main>
+    </div>
+  );
+  return (
+    <div className="ob">
+      <div className="row-between" style={{ width: "100%", maxWidth: 740 }}>
+        <span className="logo"><Remy size={26} /><span>Remy<b>.</b></span><BetaBadge /></span>
+      </div>
+      {!welcomeBack && (
+        <div className="ob-progress-wrap">
+          <span className="ob-progress-label" aria-hidden>Step {shown + 1} of {STEPS.length} · <b>{STEPS[shown]}</b></span>
+          <ol className="ob-progress" aria-label={`Step ${shown + 1} of ${STEPS.length}: ${STEPS[shown]}`}>
+            {STEPS.map((s, i) => <li key={s} className={i <= shown ? "on" : ""} aria-current={i === shown ? "step" : undefined}><span /></li>)}
+          </ol>
+        </div>
+      )}
+      {card}
       {!config?.ai.available && <div style={{ maxWidth: 720, width: "100%" }}><AiUnavailableNote /></div>}
     </div>
+  );
+}
+
+
+/** Same kind string Settings used, so earlier transcript imports still count. */
+const TRANSCRIPT = "Unofficial transcript";
+
+// Owner setup: each step is a chapter, with what Remy says about it.
+const CHAPTERS: [string, string][] = [
+  ["Hello", "Tell me where you are and where you're headed. That's all I need to start."],
+  ["Your story", "Your resume is my evidence. I only ever use what's on it, and what you tell me."],
+  ["Check my notes", "Here's what I read. Fix anything I got wrong before I build on it."],
+  ["Where to look", "Where should I look, and for what? You can change this any time."],
+  ["Getting to know you", "A few quick questions only you can answer."],
+  ["Your first step", "Here's where I'd start. Small steps, every day."],
+];
+
+/** Owner setup's side panel: Remy, the chapters, and every fact the student has given so far (all of it from them). */
+function SetupNotebook({ shown, back }: { shown: number; back: boolean }) {
+  const { ws } = useStore();
+  const w = ws!;
+  const p = w.profile;
+  const transcript = w.imports.find((i) => i.kind === TRANSCRIPT);
+  const facts = ([
+    ["Right now", PATHS.find(([k]) => k === p.path)?.[1] || ""],
+    ["Working toward", p.goal],
+    ["Resume", w.resume?.fileName || ""],
+    ["Studying", [p.major, p.school].filter(Boolean).join(" at ")],
+    ["Finishing", p.graduation],
+    ["Looking in", p.regions],
+    ["Looking for", p.opportunityTypes],
+    ["Transcript", transcript?.fileName || ""],
+    ["Answers", w.onboarding.answers.length ? `${w.onboarding.answers.length} of ${w.onboarding.questions.length || 3}` : ""],
+  ] as [string, string][]).filter(([, v]) => v && v.trim());
+  return (
+    <aside className="ob-note" aria-label="Your setup with Remy">
+      <span className="logo"><span>Remy<b>.</b></span><BetaBadge /></span>
+      <div className="ob-note-remy">
+        <Remy size={60} mood={shown === 5 ? "happy" : "wave"} />
+        <p className="ob-note-say" aria-live="polite">{back ? "Welcome back. Pick up where you left off, or start over." : CHAPTERS[shown][1]}</p>
+      </div>
+      <ol className="ob-chapters" aria-label={`Chapter ${shown + 1} of ${CHAPTERS.length}: ${CHAPTERS[shown][0]}`}>
+        {CHAPTERS.map(([c], i) => (
+          <li key={c} className={i < shown ? "done" : i === shown ? "now" : ""} aria-current={i === shown ? "step" : undefined}>
+            <span className="ob-dot" aria-hidden>{i < shown ? <Check size={12} strokeWidth={3} /> : i + 1}</span><span className="ob-ch-name">{c}</span>
+          </li>
+        ))}
+      </ol>
+      <div className="ob-known" data-testid="setup-known">
+        <span className="ob-known-h">What Remy knows so far <b>{facts.length}</b></span>
+        {facts.length ? (
+          <ul>{facts.map(([k, v]) => <li key={k} className="fade-up"><span>{k}</span><b>{v}</b></li>)}</ul>
+        ) : <p>Nothing yet. Everything here comes from you, and you can change it later.</p>}
+      </div>
+      <p className="ob-note-foot">Remy never asks for your passwords and never sends anything for you.</p>
+    </aside>
   );
 }
 
@@ -180,7 +250,9 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
   const { ws, me } = useStore();
   const first = firstName(ws!);
   const w = ws!;
-  const [open, setOpen] = useState<"" | "resume" | "school">(w.resume ? "" : "resume");
+  const [open, setOpen] = useState<"" | "resume" | "school" | "transcript">(w.resume ? "" : "resume");
+  const ownerView = useOwnerView();
+  const transcript = w.imports.find((i) => i.kind === TRANSCRIPT);
   const [busy, setBusy] = useState(false);
   const [page, setPage] = useState<"" | "build" | "linkedin">("");
   const linkedin = w.imports.find((i) => /linkedin/i.test(i.kind));
@@ -199,7 +271,7 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
       </div>
       <div className="remy-prompt">
         <Remy size={40} mood={busy ? "think" : "wave"} />
-        <p><b>Hi{first ? `, ${first}` : ""}! I'm Remy.</b> Setup takes about 5 minutes. Your resume is what I build everything on: your profile, the openings I find and every application I help with, and I only use what's on it. No resume yet? We can build one together.</p>
+        <p>{!ownerView && <b>Hi{first ? `, ${first}` : ""}! I'm Remy. </b>}Setup takes about 5 minutes. Your resume is what I build everything on: your profile, the openings I find and every application I help with, and I only use what's on it. No resume yet? We can build one together.</p>
       </div>
 
       <div className="stack-sm">
@@ -232,7 +304,7 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
           <>
             <div className="conn-row">
               <span className="conn-ico" aria-hidden><Mail size={18} /></span>
-              <div className="grow"><b>School email</b><span>Verify your student email to unlock your school's tools, like adding your degree plan</span></div>
+              <div className="grow"><b>School email</b><span>{ownerView ? "Verify your student email to see alumni from your school" : "Verify your student email to unlock your school's tools, like adding your degree plan"}</span></div>
               <button className="btn btn-secondary btn-sm" onClick={() => setOpen(open === "school" ? "" : "school")} data-testid="button-source-school">{open === "school" ? "Close" : "Verify"}</button>
             </div>
             {open === "school" && <div className="fade-up"><SchoolVerify /></div>}
@@ -245,7 +317,19 @@ function ResumeStep({ onNext }: { onNext: () => void }) {
             : gc.signedIn ? <button className="btn btn-secondary btn-sm" onClick={() => gc.connect("setup")} data-testid="button-source-gcal">Connect</button>
             : <span className="conn-badge">Sign in to connect</span>}
         </div>}
-        <p className="xs muted conn-soon" data-testid="conn-soon">Coming soon: {[...(gc.available ? [] : ["Google Calendar"]), ...soon.map(([, title]) => title)].join(", ")}.</p>
+        {ownerView ? (
+          <>
+            {/* Owners: the transcript moved here from Settings (Dilan, Nov 22). Optional; facts wait for approval on the next step. */}
+            <div className="conn-row">
+              <span className="conn-ico" aria-hidden><GraduationCap size={18} /></span>
+              <div className="grow"><b>Unofficial transcript</b><span>{transcript ? `${transcript.fileName} · ${transcript.factsAdded} fact${transcript.factsAdded === 1 ? "" : "s"} to review on the next step` : "Courses and honors you choose to keep. Nothing is added until you approve it."}</span></div>
+              {transcript ? <span className="conn-badge done"><Check size={13} /> Added</span> : <span className="conn-badge">Optional</span>}
+              <button className="btn btn-secondary btn-sm" onClick={() => setOpen(open === "transcript" ? "" : "transcript")} disabled={busy} aria-expanded={open === "transcript"} data-testid="button-source-transcript">{open === "transcript" ? "Close" : transcript ? "Add again" : "Add"}</button>
+            </div>
+            {open === "transcript" && <div className="conn-panel fade-up"><ProfileImport kind={TRANSCRIPT} hint="Upload the PDF from your school's student portal, or paste it. You'll approve each fact on the next step." onBusy={setBusy} onDone={() => setOpen("")} /></div>}
+            {!gc.available && <p className="xs muted conn-soon" data-testid="conn-soon">Coming soon: Google Calendar.</p>}
+          </>
+        ) : <p className="xs muted conn-soon" data-testid="conn-soon">Coming soon: {[...(gc.available ? [] : ["Google Calendar"]), ...soon.map(([, title]) => title)].join(", ")}.</p>}
       </div>
       <p className="xs muted">Remy never asks for your passwords. <a className="auth-link" href="/policies">How Remy handles your information</a></p>
       <div className="row-between">

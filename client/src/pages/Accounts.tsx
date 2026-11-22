@@ -43,9 +43,12 @@ export default function Accounts({ query }: { query: URLSearchParams }) {
   );
 }
 
+const OWNER_SOURCES = ["Resume", "LinkedIn"];
+
 function Sources() {
   const { ws, config, me } = useStore();
   const w = ws!;
+  const ownerView = useOwnerView();
   const [open, setOpen] = useState("");
   const signedIn = me?.kind === "google" || me?.kind === "supabase";
   const linkedin = w.imports.find((i) => /linkedin/i.test(i.kind));
@@ -69,7 +72,8 @@ function Sources() {
       const done = w.imports.find((i) => i.kind === kind);
       return { name, status: done ? "Student provided" : "Needs setup", chip: done ? "Added" : "Not added", label: done ? `${done.fileName} · ${fmtDate(done.at)}` : todo, detail, importKind: kind };
     }),
-  ];
+  ].filter((r) => !ownerView || OWNER_SOURCES.includes(r.name));
+  // Owners (Nov 22, Dilan): imports students never use or Remy can't really do are gone; the transcript moved to setup.
 
   return (
     <div className="stack">
