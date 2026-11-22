@@ -3,14 +3,14 @@ import { QuickRate } from "../components/QuickRate";
 import { shortTitle } from "@shared/org";
 import { reviewResume } from "@shared/review";
 import { dropDates, skillGroupName } from "@shared/words";
-import { useEffect, useMemo, useState } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowRight, Check, CheckCircle2, ChevronDown, ChevronUp, Download, FileText, Link2, Pencil, Plus, RotateCcw, ShieldAlert, ShieldCheck, Sparkles,
   Star, Trash2, X,
 } from "lucide-react";
 import type { Application, BulletChange, ClaimFlag, Job, ResumeDoc, Workspace } from "@shared/types";
 import { API_BASE, api, download, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
-import { ResumeMarkup } from "../components/ResumeMarkup";
+import { ResumeOnePage } from "../components/ResumeOnePage";
 import { go, replaceRoute } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Empty, Modal, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
@@ -35,7 +35,8 @@ export default function Resume({ query }: { query: URLSearchParams }) {
   // Interview prep moved to its own page (Nov 19); old links (saved to-dos, emails, "#story-deck") go there.
   const legacyPrep = (query.get("tab") as string) === "prep";
   useEffect(() => { if (legacyPrep) replaceRoute("/interview" + location.hash); }, [legacyPrep]);
-  const effective: Tab = !ws!.resume && tab !== "library" ? "base" : tab;
+  const ownerTabs = useOwnerView(); // stage 3: Approved & exports lives on the Base resume page for owners
+  const effective: Tab = ownerTabs && tab === "library" ? "base" : !ws!.resume && tab !== "library" ? "base" : tab;
   const setTab = (t: Tab) => go(`/resume?tab=${t}`);
   return (
     <>
@@ -48,7 +49,7 @@ export default function Resume({ query }: { query: URLSearchParams }) {
       </div>
       <LaptopNudge />
       <div className="tabs" role="tablist">
-        {([["base", "Base resume"], ["tailor", "Tailor for an opening"], ["linkedin", "LinkedIn"], ["library", "Approved & exports"]] as [Tab, string][]).map(([k, l]) => (
+        {([["base", "Base resume"], ["tailor", "Tailor for an opening"], ["linkedin", "LinkedIn"], ["library", "Approved & exports"]] as [Tab, string][]).filter(([k]) => !(ownerTabs && k === "library")).map(([k, l]) => (
           <button key={k} role="tab" className="tab" aria-selected={effective === k} onClick={() => setTab(k)} data-testid={`tab-resume-${k}`}>{l}</button>
         ))}
       </div>
@@ -76,7 +77,8 @@ function StepBar<K extends string>({ steps, at, onGo, label, testid }: { steps: 
 
 // ---------------------------------------------------------------- base resume
 function BaseResume({ subParam }: { subParam: string | null }) {
-  const stage3 = useOwnerView(); // redesign stage 3: the colour-coded one-page view, owners first
+  const stage3 = useOwnerView(); // redesign stage 3: the resume as one page (owners first); "by hand" opens the old editor
+  const [byHand, setByHand] = useState(false);
   // "Make my resume stronger" in setup lands here with the checks open.
   useEffect(() => {
     if (!new URLSearchParams(location.search).has("checks")) return;
@@ -107,6 +109,16 @@ function BaseResume({ subParam }: { subParam: string | null }) {
     // A replaced resume needs checking again (step 1); one built with Remy is already confirmed (step 2). Skeptic review.
     if (w.resume?.uploadedAt !== firstUpload) setSubState(w.resume?.confirmedAt ? "review" : "edit");
   }, [w.resume?.uploadedAt]);
+  // Saved somewhere else (Remy's chat "Use this", Looks right): take the new version if nothing here was changed yet,
+  // so this page never shows, or saves back, an older copy (skeptic review).
+  const serverDoc = JSON.stringify(w.resume?.doc ?? null);
+  const lastServer = useRef(serverDoc);
+  useEffect(() => {
+    if (serverDoc === lastServer.current) return;
+    const prev = lastServer.current; // read now: React runs the updater later, after the ref has moved on
+    lastServer.current = serverDoc;
+    setDoc((d) => (JSON.stringify(d) === prev ? JSON.parse(serverDoc) : d));
+  }, [serverDoc]);
   if ((!w.resume || !doc) && building) return <div className="card card-pad"><ResumeBuilder onDone={() => setBuilding(false)} onCancel={() => setBuilding(false)} /></div>;
   if (!w.resume || !doc)
     return (
@@ -124,6 +136,14 @@ function BaseResume({ subParam }: { subParam: string | null }) {
     setReview(null);
   };
   const upd = (fn: (d: ResumeDoc) => void) => setDoc((d) => { const c = JSON.parse(JSON.stringify(d)); fn(c); return c; });
+  if (stage3 && !byHand) return (
+    <div className="stack">
+      {replace && <div className="card card-pad"><ResumeUpload compact onDone={() => setReplace(false)} /></div>}
+      <ResumeOnePage doc={doc} upd={upd} dirty={dirty} onSave={() => saveDoc(true)} onReplace={() => setReplace((s) => !s)} onEditByHand={() => { setByHand(true); setSubState("edit"); }} />
+      {/* Approved & exports folded in (Dilan, Nov 21): approved tailored versions and downloads on the same page. */}
+      <section className="r1-section" data-testid="r1-approved"><h3>Approved versions &amp; downloads</h3><Library /></section>
+    </div>
+  );
   const unverified = doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets)).filter((b) => b.verified === false).length;
   return (
     <div className="stack-lg">
@@ -140,7 +160,7 @@ function BaseResume({ subParam }: { subParam: string | null }) {
         </div>
       </div>
       {replace && <div className="card card-pad"><ResumeUpload compact onDone={() => setReplace(false)} /></div>}
-      {stage3 && <ResumeMarkup doc={doc} onFix={(where) => { setSub(where); setTimeout(() => document.getElementById(where === "review" ? "resume-review" : "edit-resume")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60); }} />}
+      {stage3 && <button className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setByHand(false)} data-testid="button-back-simple">← Back to the simple view</button>}
       {(() => {
         // 1 check what Remy read and confirm it, 2 make it stronger, 3 the file. New students start at 1.
         const tips = reviewResume(doc).todo.length;

@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { StoreProvider, api, daysUntil, fmtDate, rid, useDraft, useOwnerView, useStore, type Theme } from "./lib/store";
 import { CAREER_QUEST_ON } from "@shared/game";
+import { resumeDiff } from "@shared/resumeDiff";
 import { go, replaceRoute, useRoute } from "./lib/router";
 const PUBLIC = new Set(["/", "/signin", "/welcome", "/about", "/policies", "/privacy", "/terms"]);
 import { BetaBadge, Modal, Remy, Rich, Spinner, StatusChip } from "./components/common";
@@ -238,7 +239,7 @@ function Shell() {
         {/* Redesign stage 2 (owners first): with his panel closed, Remy waits as a small avatar at the top centre (Muse-style). */}
         {!asstOpen && ownerView && (
           <button className="remy-dock hide-sm" onClick={() => setAsst(true)} data-testid="button-open-assistant" aria-label="Open Remy">
-            <span className="remy-dock-face"><Remy size={34} mood="idle" /></span>
+            <span className="remy-dock-face"><Remy size={50} mood="idle" /></span>
           </button>
         )}
         <div className="page fade-up" key={current.path}><ErrorBoundary where={`page:${current.path}`} resetKey={current.path}>{page}</ErrorBoundary></div>
@@ -343,6 +344,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   const stage2 = useOwnerView(); // redesign stage 2: profile header + Activity tab, owners first
   const [msg, setMsg] = useDraft("chat");
   const [busy, setBusy] = useState(false);
+  const [hiddenDrafts, setHiddenDrafts] = useState<string[]>([]); // chat resume drafts dismissed with "Not now"
   const end = useRef<HTMLDivElement>(null);
   const [greeting, setGreeting] = useState(true);
   useEffect(() => { const t = setTimeout(() => setGreeting(false), 2800); return () => clearTimeout(t); }, []);
@@ -445,6 +447,28 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
         {chat.slice(-30).map((m) => (
           <div key={m.id} className="stack-sm" style={{ alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
             <div className={`bubble ${m.role === "user" ? "bubble-user" : "bubble-ai"}`}>{m.role === "user" ? m.text : <Rich text={m.text} />}</div>
+            {m.resumeProposal && ws!.resume && (() => {
+              // A resume change drafted from this message (stage 3): before → after, saved only on "Use this".
+              const p = m.resumeProposal;
+              const saved = JSON.stringify(p.doc) === JSON.stringify(ws!.resume!.doc);
+              if (saved) return <span className="chip chip-live" data-testid="chat-resume-saved"><Check size={12} /> Saved to your resume</span>;
+              if (hiddenDrafts.includes(m.id)) return null;
+              // Built on an older version (edited or replaced since): saving it would undo those changes (skeptic review).
+              if (p.base !== (ws!.resume!.editedAt || ws!.resume!.uploadedAt)) return <span className="xs muted">Your resume changed since this draft. Ask again and Remy will draft it on your latest version.</span>;
+              const diff = resumeDiff(ws!.resume!.doc, p.doc);
+              if (!diff.length) return null;
+              return (
+                <div className="chat-proposal" data-testid="chat-resume-proposal">
+                  {diff.slice(0, 6).map((c, i) => (
+                    <div key={i} className="r1-change"><span className="xs muted">{c.where}</span>{c.before && <span className="r1-before">{c.before}</span>}{c.after && <span className="r1-after">{c.after}</span>}</div>
+                  ))}
+                  <div className="row" style={{ gap: 6 }}>
+                    <button className="btn btn-primary btn-sm" onClick={() => run(() => api<Workspace>("PUT", "/api/resume/doc", { doc: p.doc, base: p.base }).then(setWs), "Saved to your resume")} data-testid="button-chat-use-change">Use this</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setHiddenDrafts((h) => [...h, m.id])}>Not now</button>
+                  </div>
+                </div>
+              );
+            })()}
             {m.role !== "user" && m.id === chat[chat.length - 1]?.id && !busy && <QuickRate place="coach" id={"coach:" + m.id} label="Helpful?" />}
             {!!m.actions?.length && (
               <div className="row" style={{ gap: 6, maxWidth: "92%" }}>

@@ -1374,3 +1374,42 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .rm-good { display: flex; flex-direction: column; gap: 3px; color: var(--sage); }
 @media (max-width: 1100px) { .rm-body { grid-template-columns: 1fr; } .rm-side { position: static; } }
 @media (max-width: 560px) { .rm-paper { padding: 16px 14px; font-size: 13px; } .rm-row { flex-wrap: wrap; gap: 0 10px; } }
+
+/* Resume as one page (stage 3, owners first): the real resume big on the left, "Tell Remy" on the right, then
+   Make it stronger and the ATS check on the same page. No steps. */
+.r1 { display: flex; flex-direction: column; gap: 16px; }
+.r1-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.r1-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+.r1-view { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.r1-tabs { align-self: flex-start; }
+.r1-view .pdf-preview { width: 100%; height: min(1100px, 130vh); border: 1px solid var(--line); border-radius: var(--r-sm, 4px); background: var(--white); }
+.r1-side { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 12px; }
+.r1-card { display: flex; flex-direction: column; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+.r1-proposal { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; }
+.r1-change { display: flex; flex-direction: column; gap: 2px; font-size: var(--text-sm); }
+.r1-before { text-decoration: line-through; color: var(--muted-text); }
+.r1-after { background: var(--hl-number); border-radius: 3px; padding: 1px 4px; color: var(--ink); }
+.r1-section { display: flex; flex-direction: column; gap: 8px; }
+.r1-section > h3 { margin: 8px 0 0; }
+.r1-save { position: sticky; bottom: 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 14px; background: var(--stage); color: var(--paper); border-radius: var(--radius); z-index: 4; }
+@media (max-width: 1100px) { .r1-grid { grid-template-columns: 1fr; } .r1-side { position: static; } }
+@media (max-width: 640px) { .r1-view .pdf-preview { height: 80vh; } }
+.rm-plain .rm-body { grid-template-columns: 1fr; }
+
+/* Stage 3 revision (Dilan): no separate "Tell Remy" box (the chat does it), full-width resume, more room. */
+.r1 { gap: 22px; }
+.r1-grid { grid-template-columns: 1fr; }
+.r1-view .pdf-preview { height: min(1250px, 150vh); }
+.r1-hint { margin: -6px 0 0; }
+.r1-confirm { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; background: var(--fox-soft); border-radius: var(--radius); }
+.r1-section { gap: 12px; margin-top: 8px; }
+.rm-paper { padding: 40px 48px; font-size: 14.5px; line-height: 1.6; max-width: 900px; }
+.rm-plain .rm-paper { margin: 0 auto; width: 100%; }
+.chat-proposal { display: flex; flex-direction: column; gap: 8px; max-width: 92%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+@media (max-width: 560px) { .rm-paper { padding: 18px 16px; font-size: 13.5px; } }
+/* Bigger closed-panel Remy (Dilan: "too tight"): a 68px face that overlaps the top bar, like Muse. */
+.remy-dock { top: 8px; }
+.remy-dock-face { width: 68px; height: 68px; box-shadow: 0 0 0 3px var(--fox), 0 8px 22px -10px rgba(0, 0, 0, .4); }
+.remy-dock-face .fox { animation: none; }
+.remy-dock-face .fox .fox-body { animation: fox-bob 3.4s ease-in-out infinite; }
+.rm-paper li, .rm-paper p { max-width: none; }

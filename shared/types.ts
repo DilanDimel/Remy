@@ -62,6 +62,9 @@ export interface BaseResume {
   from?: "LinkedIn";
   doc: ResumeDoc;
   confirmedAt?: string;
+  /** Last time the student (or Remy, with their OK) changed the resume after upload; the preview then shows the rebuilt
+   *  file instead of the original. */
+  editedAt?: string;
   /** Skills and tools found on the resume, matched against posting requirements. */
   skills?: string[];
   /** The uploaded file itself is kept server-side for preview and download. */
@@ -444,6 +447,9 @@ export interface ChatMsg {
   memorySuggestions?: string[];
   /** Buttons under a reply; nothing happens until the student taps one. */
   actions?: ChatAction[];
+  /** A resume change Remy drafted from the student's chat message (redesign stage 3): shown as before → after with
+   *  "Use this"; nothing is saved until they tap it. Only the newest message keeps its draft. */
+  resumeProposal?: { doc: ResumeDoc; summary: string; base: string };
 }
 export type ChatAction = { kind: "task"; title: string; why: string } | { kind: "role"; title: string } | { kind: "open"; link: string; label: string }
   | { kind: "setting"; key: SettingKey; value: string | boolean };
