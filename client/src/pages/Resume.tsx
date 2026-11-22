@@ -35,8 +35,8 @@ export default function Resume({ query }: { query: URLSearchParams }) {
   // Interview prep moved to its own page (Nov 19); old links (saved to-dos, emails, "#story-deck") go there.
   const legacyPrep = (query.get("tab") as string) === "prep";
   useEffect(() => { if (legacyPrep) replaceRoute("/interview" + location.hash); }, [legacyPrep]);
-  const ownerTabs = useOwnerView(); // stage 3: Approved & exports lives on the Base resume page for owners
-  const effective: Tab = ownerTabs && tab === "library" ? "base" : !ws!.resume && tab !== "library" ? "base" : tab;
+  const ownerTabs = useOwnerView(); // stage 3: Approved & exports and LinkedIn live on the Base resume page for owners
+  const effective: Tab = ownerTabs && (tab === "library" || tab === "linkedin") ? "base" : !ws!.resume && tab !== "library" ? "base" : tab;
   const setTab = (t: Tab) => go(`/resume?tab=${t}`);
   return (
     <>
@@ -49,7 +49,7 @@ export default function Resume({ query }: { query: URLSearchParams }) {
       </div>
       <LaptopNudge />
       <div className="tabs" role="tablist">
-        {([["base", "Base resume"], ["tailor", "Tailor for an opening"], ["linkedin", "LinkedIn"], ["library", "Approved & exports"]] as [Tab, string][]).filter(([k]) => !(ownerTabs && k === "library")).map(([k, l]) => (
+        {([["base", "Base resume"], ["tailor", "Tailor for an opening"], ["linkedin", "LinkedIn"], ["library", "Approved & exports"]] as [Tab, string][]).filter(([k]) => !(ownerTabs && (k === "library" || k === "linkedin"))).map(([k, l]) => (
           <button key={k} role="tab" className="tab" aria-selected={effective === k} onClick={() => setTab(k)} data-testid={`tab-resume-${k}`}>{l}</button>
         ))}
       </div>

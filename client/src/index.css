@@ -1441,3 +1441,7 @@ body:has(.remy-dock) .topbar { border-bottom-color: transparent; }
 .rr-flag { position: absolute; margin: 0; white-space: nowrap; font-size: 10px; line-height: 1.4; background: var(--white); display: flex; align-items: center; }
 .rr-pdf, .rr-frame-box { min-width: 0; width: 100%; overflow: hidden; }
 .rr-page img { max-width: 100%; }
+/* Stage 3: the LinkedIn coach opened inside its side card, without a card inside a card. */
+.r1-linkedin > .card { box-shadow: none; border: 0; padding: 0; background: transparent; }
+.r1-linkedin > .card > h3:first-child, .r1-linkedin > .card > .row-between:first-child h3 { display: none; }
+[data-testid="ats-honest"] a { text-decoration: underline; }

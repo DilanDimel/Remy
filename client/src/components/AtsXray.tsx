@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { CheckCircle2, CircleAlert, Eye, ScanSearch } from "lucide-react";
 import type { ResumeDoc, ResumeQuality } from "@shared/types";
-import { rid, useStore } from "../lib/store";
+import { rid, useOwnerView, useStore } from "../lib/store";
 
 /** "ATS X-Ray": Remy's own extracted view of the resume (not any employer's screen), with the lines it couldn't place
  *  (and lines from weekly check-ins: the resume inbox) and a one-click way to put each one where it belongs. Edits go into the editor below; nothing saves until Save. */
@@ -20,13 +20,20 @@ export function AtsXray({ doc, quality, upd }: { doc: ResumeDoc; quality?: Resum
     ["Same date format everywhere", styles.size <= 1],
   ];
   const { ws, save } = useStore();
+  const honest = useOwnerView(); // redesign stage 3 (owners first): the ATS check says plainly what it is, with sources
   const inbox = (ws?.tasks || []).filter((t) => t.source === "Check-in" && t.link?.startsWith("/resume") && !t.done);
   const missing = [...inbox.map((t) => t.why), ...(quality?.missingLines || [])].filter((l) => !placed.includes(l)).slice(0, 8);
   const pct = quality ? Math.round(quality.coverage * 100) : null;
   return (
     <section className="card card-pad stack-sm" data-testid="ats-xray">
       <div className="row" style={{ gap: 8 }}><ScanSearch size={18} /><h3>ATS X-Ray</h3></div>
-      <p className="xs muted">What Remy read from your file{pct !== null ? `: ${pct}% of its words landed in a section` : ""}. Applicant tracking systems differ, so treat this as Remy's view, not an employer's screen.</p>
+      {honest ? (
+        <p className="xs muted" data-testid="ats-honest">
+          <b>A general check, not this employer's system.</b> Remy reads your file the way common applicant tracking systems such as Workday pull text into fields (name, sections, dates){pct !== null ? `; ${pct}% of your words landed in a section` : ""}. Each company sets up its own system, so no tool can promise how yours will score. Sources: <a href="https://www.workday.com/en-us/topics/hr/applicant-tracking-system.html" target="_blank" rel="noreferrer">Workday on ATS parsing</a>, <a href="https://doc.workday.com/admin-guide/en-us/human-capital-management/recruiting/candidates/set-up-prospects-and-candidates/hdc1552497830785.html" target="_blank" rel="noreferrer">Workday resume parsing docs</a>.
+        </p>
+      ) : (
+        <p className="xs muted">What Remy read from your file{pct !== null ? `: ${pct}% of its words landed in a section` : ""}. Applicant tracking systems differ, so treat this as Remy's view, not an employer's screen.</p>
+      )}
       <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
         {checks.map(([label, ok]) => <span key={label} className={"chip " + (ok ? "chip-live" : "chip-setup")}>{ok ? <CheckCircle2 size={12} /> : <CircleAlert size={12} />} {label}</span>)}
       </div>
