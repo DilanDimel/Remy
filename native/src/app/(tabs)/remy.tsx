@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useEffect, useState } from "react";
+import { useLocalSearchParams } from "expo-router";
+import { FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ChatDid, ChatMsg, Workspace } from "@shared/types";
 import { Fox, Icon, RichText, T, success, tap } from "@/components/ui";
@@ -16,6 +17,9 @@ export default function RemyChat() {
   const { c, look } = useTheme();
   const insets = useSafeAreaInsets();
   const [text, setText] = useState("");
+  // Opened from Today ("Help me with this: …"): the question waits in the box, ready to send or edit.
+  const { ask } = useLocalSearchParams<{ ask?: string }>();
+  useEffect(() => { if (ask) setText(ask); }, [ask]);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<ChatMsg | null>(null);
   const [err, setErr] = useState("");
@@ -26,7 +30,7 @@ export default function RemyChat() {
   const send = async (message: string) => {
     const m = message.trim();
     if (!m || busy) return;
-    tap(); setText(""); setErr(""); setBusy(true);
+    tap(); Keyboard.dismiss(); setText(""); setErr(""); setBusy(true);
     setPending({ id: "pending", role: "user", text: m, at: new Date().toISOString() });
     try { setWs(await api<Workspace>("POST", "/api/ai/chat", { message: m, page: "home", where: "native app: Remy tab" })); }
     catch (e: any) { setErr(e.message); setText(m); }
@@ -69,17 +73,18 @@ export default function RemyChat() {
           <View style={{ flex: 1 }}><Text style={{ fontFamily: font.display, fontSize: 18, color: c.ink }}>Remy</Text><T kind="small">Your career coach</T></View>
         ) : <Text style={{ fontFamily: font.semi, fontSize: 13, color: c.ink }}>Remy</Text>}
       </View>
-      <FlatList inverted data={msgs} keyExtractor={(m) => m.id} renderItem={({ item }) => bubble(item)} contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12 }} keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled"
+      <FlatList inverted data={msgs} keyExtractor={(m) => m.id} renderItem={({ item }) => bubble(item)} contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12 }} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" onTouchStart={() => Keyboard.dismiss()} style={{ flex: 1 }}
         ListHeaderComponent={busy ? <View style={{ alignSelf: "flex-start", backgroundColor: c.surface, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 8, borderWidth: 1, borderColor: c.line }}><Text style={{ color: c.faint, letterSpacing: 3 }}>●●●</Text></View> : undefined}
         ListEmptyComponent={<View style={{ transform: [{ scaleY: -1 }], paddingTop: 40, alignItems: "center", gap: 8 }}><T kind="h2">Ask Remy anything</T><T kind="muted" style={{ textAlign: "center" }}>About jobs, your resume, interviews or what to do next. Remy only uses what you've told it.</T></View>} />
       {!!err && <T kind="small" style={{ color: c.error, paddingHorizontal: 18, paddingBottom: 6 }}>{err}</T>}
       {soul && !text && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 14, paddingBottom: 8 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexGrow: 0, flexShrink: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 14, paddingTop: 4, paddingBottom: 8, alignItems: "center" }}>
           {QUICK.map((q) => <Pressable key={q} testID="button-quick-reply" onPress={() => send(q)} style={{ height: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, justifyContent: "center" }}><Text style={{ fontFamily: font.semi, fontSize: 13.5, color: c.ink }}>{q}</Text></Pressable>)}
         </ScrollView>
       )}
       <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, marginHorizontal: 12, marginBottom: insets.bottom + 70, paddingLeft: 16, paddingRight: 6, paddingVertical: 6, borderRadius: 26, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line }}>
         <TextInput testID="input-chat" value={text} onChangeText={setText} placeholder={soul ? "Ask Remy anything" : "Message Remy"} placeholderTextColor={c.faint} multiline maxLength={2000}
+          returnKeyType="send" submitBehavior="blurAndSubmit" onSubmitEditing={() => send(text)} enablesReturnKeyAutomatically
           style={{ flex: 1, fontFamily: font.body, fontSize: 16, color: c.ink, maxHeight: 120, paddingVertical: 9 }} />
         <Pressable testID="button-send" accessibilityLabel="Send" disabled={!text.trim() || busy} onPress={() => send(text)}
           style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: text.trim() ? c.fox : c.surface2, alignItems: "center", justifyContent: "center" }}>

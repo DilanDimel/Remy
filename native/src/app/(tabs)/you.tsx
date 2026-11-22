@@ -9,8 +9,8 @@ const LINKS: { title: string; sub: string; path: string; icon: IconName }[] = [
   { title: "Resume", sub: "Your base resume and tailored versions", path: "/resume", icon: "doc" },
   { title: "Interview practice", sub: "Stories and practice questions", path: "/interview", icon: "chat" },
   { title: "Progress", sub: "To-dos, applications and hours", path: "/progress", icon: "trend" },
-  { title: "People", sub: "Contacts and alumni", path: "/community", icon: "you" },
-  { title: "Settings", sub: "Emails, texts and your account", path: "/settings", icon: "flag" },
+  { title: "Community", sub: "Contacts and alumni", path: "/community", icon: "you" },
+  { title: "Settings", sub: "Your account, emails and texts", path: "/accounts", icon: "flag" },
 ];
 
 export default function You() {
@@ -34,7 +34,7 @@ export default function You() {
         {choice("soul", "B · Soul", "Remy's personality")}
       </View>
       <Sect title="More" />
-      <Group>{LINKS.map((l, i) => <Row key={l.path} first={i === 0} title={l.title} sub={l.sub} left={<Icon name={l.icon} color={c.muted} />} onPress={() => go(l.path, l.title)} testID={`row-${l.title.toLowerCase().split(" ")[0]}`} />)}</Group>
+      <Group>{LINKS.map((l, i) => <Row key={l.path} first={i === 0} title={l.title} sub={l.sub} left={<Icon name={l.icon} color={c.muted} />} onPress={() => go(l.path, l.title)} testID={`row-${l.title === "Community" ? "people" : l.title.toLowerCase().split(" ")[0]}`} />)}</Group>
       <Group style={{ marginTop: 24 }}><Row first title="Sign out" onPress={signOut} right={<View />} testID="button-sign-out" /></Group>
       <T kind="small" style={{ textAlign: "center", marginTop: 18 }}>Remy app {Constants.expoConfig?.version} · owners preview</T>
     </Screen>
