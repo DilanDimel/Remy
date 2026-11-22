@@ -1,4 +1,4 @@
-> Superseded: this file describes QA of the original prototype. Current QA and status are in docs/HANDOFF.md (Oct 18, 2026).
+> Superseded: this file describes QA of the original prototype. Current QA and status are in docs/archive/handoff-2026-10-18.md (Oct 18, 2026).
 
 # Remy demo QA
 
