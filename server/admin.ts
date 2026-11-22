@@ -7,6 +7,7 @@ import { loadWorkspace } from "./db";
 import { milestones } from "@shared/progress";
 import { uid } from "./ids";
 import { emailReady } from "./email";
+import { textMode } from "./texts";
 
 const cut = (v: unknown, n: number) => String(v ?? "").slice(0, n);
 const bad = (message: string, status = 400) => Object.assign(new Error(message), { status });
@@ -160,6 +161,12 @@ export async function overview() {
           jsonb_array_elements(CASE WHEN jsonb_typeof(w.data->'nudges') = 'array' THEN w.data->'nudges' ELSE '[]'::jsonb END) n
      WHERE ${SIGNED_IN} AND (n->>'at') > ${ts(30)}`,
   );
+  // Urgent texts (stage 5, owners only for now): the latest 10, so test mode can be checked without a phone.
+  const texts = (await q(
+    `SELECT t->>'at' AS at, t->>'to' AS "to", t->>'body' AS body, t->>'mode' AS mode
+     FROM workspaces w, jsonb_array_elements(CASE WHEN jsonb_typeof(w.data->'texts') = 'array' THEN w.data->'texts' ELSE '[]'::jsonb END) t
+     ORDER BY t->>'at' DESC LIMIT 10`,
+  )).map((r) => ({ at: String(r.at), to: "…" + String(r.to).slice(-4), body: String(r.body), mode: String(r.mode) }));
   const openErrors = await q1("SELECT COUNT(DISTINCT message) FILTER (WHERE kind <> 'feedback')::int AS n, COUNT(*) FILTER (WHERE kind = 'feedback')::int AS feedback FROM error_reports WHERE fixed_at IS NULL AND at > now() - interval '30 days'");
   return {
     students: totals?.students ?? 0, newWeek: totals?.new_week ?? 0, newPrev: totals?.new_prev ?? 0,
@@ -172,6 +179,7 @@ export async function overview() {
     openErrors: openErrors?.n ?? 0, feedback: openErrors?.feedback ?? 0,
     emails: { ready: emailReady(), reminders: mail?.reminders ?? 0, digest: mail?.digest ?? 0, digestsWeek: mail?.digests_week ?? 0,
       nudges: { sent: nudges?.sent ?? 0, yes: nudges?.yes ?? 0, later: nudges?.later ?? 0 } },
+    texts: { mode: textMode(), recent: texts },
   };
 }
 

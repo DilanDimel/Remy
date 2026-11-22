@@ -174,7 +174,28 @@ function Settings() {
             </select>
           </label>
         )}
+        {ownerView && <UrgentTexts />}
       </div>
+    </div>
+  );
+}
+
+/** Opt-in texts for urgent deadlines (redesign stage 5, owners first). The number is saved when it's valid. */
+function UrgentTexts() {
+  const { ws, save, toast } = useStore();
+  const t = ws!.settings.texts || { on: false, phone: "" };
+  const [phone, setPhone] = useState(t.phone);
+  const valid = (p: string) => { const d = p.replace(/\D/g, ""); return /^1?[2-9]\d{2}[2-9]\d{6}$/.test(d); };
+  const keep = (next: { on: boolean; phone: string }) => {
+    if (next.on && !valid(next.phone)) { toast("Add a US phone number first, like (817) 555-0123.", true); return; }
+    save("settings", { texts: next });
+  };
+  return (
+    <div className="stack-sm" data-testid="urgent-texts">
+      <label className="row small"><input type="checkbox" checked={t.on} onChange={() => keep({ on: !t.on, phone })} data-testid="toggle-texts" /> Text me when an application closes today or tomorrow (at most one text a day)</label>
+      <input className="input" type="tel" inputMode="tel" autoComplete="tel" placeholder="(817) 555-0123" aria-label="Phone number for urgent texts" value={phone}
+        onChange={(e) => setPhone(e.target.value)} onBlur={() => { if (phone !== t.phone && (phone === "" || valid(phone))) keep({ on: t.on && phone !== "", phone }); }} data-testid="input-text-phone" />
+      {phone && !valid(phone) && <span className="xs bad">Use a US number with area code.</span>}
     </div>
   );
 }

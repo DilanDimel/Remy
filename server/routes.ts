@@ -48,6 +48,7 @@ import { pastTerm } from "./fit";
 import * as agents from "./agents";
 import { dueReminders, reminderEmail, weeklyDigest } from "./reminders";
 import { answerNudge, sendNudges } from "./nudges";
+import { sendTexts, usPhone } from "./texts";
 import { step } from "@shared/progress";
 import { conferencesFor } from "./conferences";
 import { trimOpenings } from "./trim";
@@ -604,6 +605,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       warnIfNearLimit().catch((e) => console.error("storage check failed", e?.message)),
       pruneOpenings().then((n) => { if (n) console.log(`checked openings: discarded ${n} not seen for a while`); }).catch((e) => console.error("checked openings prune failed", e?.message)),
       deadlineReminders().catch((e) => console.error("deadline reminders failed", e?.message)),
+      sendTexts(daysBefore(centralToday(), 14), centralToday()).catch((e) => console.error("urgent texts failed", e?.message)),
       cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)),
       // One after the other: both write a student's openings, so they must not run at the same time.
       backgroundOpenings().catch((e) => console.error("background openings failed", e?.message))
@@ -948,6 +950,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       theme: z.enum(["system", "light", "dark"]).optional(), themeChosen: z.boolean().optional(), lastSeenAt: z.string().max(40).optional(), careerTime: z.object({ day: z.number().int().min(0).max(6), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/) }).nullable().optional(), assistantOpen: z.boolean().optional(), navCollapsed: z.boolean().optional(),
       notify: z.object({ deadlines: z.boolean(), statusChanges: z.boolean(), weeklyPlan: z.boolean() }).partial().optional(),
       nudges: z.enum(["daily", "weekly", "off"]).optional(),
+      texts: z.object({ on: z.boolean(), phone: z.string().max(30).refine((p) => p === "" || !!usPhone(p), "Use a US phone number, like (817) 555-0123.") }).optional(),
       demoConnections: z.array(str(80)).max(20).optional(), newsSeen: str(40).optional(), ownerView: z.boolean().optional(),
       tour: z.union([z.number().int().min(0).max(20), z.literal("done")]).optional(), firstWin: z.union([z.number().int().min(0).max(2), z.literal("done")]).optional(), introsSeen: z.array(str(40)).max(20).optional(),
     }),

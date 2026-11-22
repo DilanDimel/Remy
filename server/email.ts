@@ -10,5 +10,7 @@ export const emailReady = () => !!transport;
 export async function sendEmail(to: string, subject: string, text: string, html?: string) {
   if (!transport) throw Object.assign(new Error("Email isn't set up on this server yet."), { status: 503 });
   const from = process.env.MAIL_FROM || `Remy <${decodeURIComponent(new URL(url).username)}>`;
-  await transport.sendMail({ from, to, subject, text, ...(html ? { html } : {}) });
+  // MAIL_REPLY_TO (e.g. hello@remyai.org): replies reach a real inbox when sending from a no-inbox address like remy@mail.remyai.org.
+  const replyTo = process.env.MAIL_REPLY_TO;
+  await transport.sendMail({ from, to, subject, text, ...(html ? { html } : {}), ...(replyTo ? { replyTo } : {}) });
 }
