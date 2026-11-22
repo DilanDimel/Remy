@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Check, Download, LogOut, Pencil, Trash2 } from "lucide-react";
 import type { MemoryFact, Workspace } from "@shared/types";
-import { api, download, fmtDate, rid, useStore } from "../lib/store";
+import { api, download, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { Modal, StatusChip } from "../components/common";
 import { ProfileForm } from "./Onboarding";
@@ -145,6 +145,7 @@ function Memory() {
 
 function Settings() {
   const { ws, save } = useStore();
+  const ownerView = useOwnerView(); // match emails: redesign stage 5, owners first
   const s = ws!.settings;
   const toggle = (k: keyof typeof s.notify) => save("settings", { notify: { ...s.notify, [k]: !s.notify[k] } });
   return (
@@ -163,6 +164,16 @@ function Settings() {
         {([["deadlines", "Deadline reminder emails (3 days before and on the day)"], ["weeklyPlan", "Weekly digest email: new openings and deadlines, on your career-time day"]] as const).map(([k, l]) => (
           <label key={k} className="row small"><input type="checkbox" checked={s.notify[k]} onChange={() => toggle(k)} data-testid={`toggle-${k}`} /> {l}</label>
         ))}
+        {ownerView && (
+          <label className="field">
+            <span>Emails about a new opening that fits you, with a Yes button that starts tailoring</span>
+            <select className="select" value={s.nudges || "weekly"} onChange={(e) => save("settings", { nudges: e.target.value as "daily" | "weekly" | "off" })} data-testid="select-nudges">
+              <option value="daily">At most once a day</option>
+              <option value="weekly">At most once a week</option>
+              <option value="off">Off</option>
+            </select>
+          </label>
+        )}
       </div>
     </div>
   );

@@ -153,6 +153,13 @@ export async function overview() {
             COUNT(*) FILTER (WHERE (w.data->>'lastDigestAt') > ${ts(7)})::int AS digests_week
      FROM workspaces w JOIN users u ON u.id = w.user_id WHERE ${SIGNED_IN}`,
   );
+  // Match emails (stage 5) in the last 30 days, and how many got a Yes: the proposal's "useful or noise" number.
+  const nudges = await q1(
+    `SELECT COUNT(*)::int AS sent, COUNT(*) FILTER (WHERE n->>'answer' = 'yes')::int AS yes, COUNT(*) FILTER (WHERE n->>'answer' = 'later')::int AS later
+     FROM workspaces w JOIN users u ON u.id = w.user_id,
+          jsonb_array_elements(CASE WHEN jsonb_typeof(w.data->'nudges') = 'array' THEN w.data->'nudges' ELSE '[]'::jsonb END) n
+     WHERE ${SIGNED_IN} AND (n->>'at') > ${ts(30)}`,
+  );
   const openErrors = await q1("SELECT COUNT(DISTINCT message) FILTER (WHERE kind <> 'feedback')::int AS n, COUNT(*) FILTER (WHERE kind = 'feedback')::int AS feedback FROM error_reports WHERE fixed_at IS NULL AND at > now() - interval '30 days'");
   return {
     students: totals?.students ?? 0, newWeek: totals?.new_week ?? 0, newPrev: totals?.new_prev ?? 0,
@@ -163,7 +170,8 @@ export async function overview() {
     daily, funnel, features: features.filter((f) => f.uses).sort((a, b) => b.students - a.students || b.uses - a.uses),
     ai: { calls: ai?.calls ?? 0, failed: ai?.failed ?? 0, cost: ai?.cost ?? 0, priced: ai?.priced ?? 0, avgMs: ai?.avg_ms ?? 0 },
     openErrors: openErrors?.n ?? 0, feedback: openErrors?.feedback ?? 0,
-    emails: { ready: emailReady(), reminders: mail?.reminders ?? 0, digest: mail?.digest ?? 0, digestsWeek: mail?.digests_week ?? 0 },
+    emails: { ready: emailReady(), reminders: mail?.reminders ?? 0, digest: mail?.digest ?? 0, digestsWeek: mail?.digests_week ?? 0,
+      nudges: { sent: nudges?.sent ?? 0, yes: nudges?.yes ?? 0, later: nudges?.later ?? 0 } },
   };
 }
 

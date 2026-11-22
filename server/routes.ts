@@ -47,6 +47,7 @@ import { atsScore } from "./ats";
 import { pastTerm } from "./fit";
 import * as agents from "./agents";
 import { dueReminders, reminderEmail, weeklyDigest } from "./reminders";
+import { answerNudge, sendNudges } from "./nudges";
 import { step } from "@shared/progress";
 import { conferencesFor } from "./conferences";
 import { trimOpenings } from "./trim";
@@ -606,7 +607,9 @@ export async function registerRoutes(_server: Server, app: Express) {
       cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)),
       // One after the other: both write a student's openings, so they must not run at the same time.
       backgroundOpenings().catch((e) => console.error("background openings failed", e?.message))
-        .then(() => backgroundRechecks()).catch((e) => console.error("background rechecks failed", e?.message)),
+        .then(() => backgroundRechecks()).catch((e) => console.error("background rechecks failed", e?.message))
+        // After the openings search, so a nudge can name an opening found this run.
+        .then(() => sendNudges(daysBefore(centralToday(), 14))).catch((e) => console.error("match emails failed", e?.message)),
     ]).then(() => { lastSweep = new Date().toISOString(); }).finally(() => { sweeping = null; });
     return sweeping;
   };
@@ -944,6 +947,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     settings: z.object({
       theme: z.enum(["system", "light", "dark"]).optional(), themeChosen: z.boolean().optional(), lastSeenAt: z.string().max(40).optional(), careerTime: z.object({ day: z.number().int().min(0).max(6), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/) }).nullable().optional(), assistantOpen: z.boolean().optional(), navCollapsed: z.boolean().optional(),
       notify: z.object({ deadlines: z.boolean(), statusChanges: z.boolean(), weeklyPlan: z.boolean() }).partial().optional(),
+      nudges: z.enum(["daily", "weekly", "off"]).optional(),
       demoConnections: z.array(str(80)).max(20).optional(), newsSeen: str(40).optional(), ownerView: z.boolean().optional(),
       tour: z.union([z.number().int().min(0).max(20), z.literal("done")]).optional(), firstWin: z.union([z.number().int().min(0).max(2), z.literal("done")]).optional(), introsSeen: z.array(str(40)).max(20).optional(),
     }),
@@ -1572,6 +1576,16 @@ Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), 
     );
     // Plus what the sentence says Remy can update (hours, an application, an interview), for the student to approve.
     res.json({ ...cleanCheckin(kind, said, out), proposals: checkinProposals(ctx.ws, kind, said) });
+  }));
+  // Yes / Not now from a match email (the links open Remy signed in, and the page reports the answer here).
+  app.post("/api/nudges/:id", route(async (req, res, ctx) => {
+    const answer = req.body?.answer;
+    if (answer !== "yes" && answer !== "later") bad("Answer must be yes or later.");
+    const list = answerNudge(ctx.ws.nudges, String(req.params.id), answer, nowIso());
+    if (!list) bad("That email is from another account or is too old.", 404);
+    ctx.ws.nudges = list!;
+    await ctx.save();
+    res.json(ctx.ws);
   }));
   app.post("/api/checkin", route(async (req, res, ctx) => {
     if (req.body?.kind !== "Nothing new") {

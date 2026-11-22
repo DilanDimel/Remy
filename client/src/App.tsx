@@ -159,6 +159,15 @@ function Shell() {
   useEffect(() => {
     document.documentElement.classList.toggle("redesign-2", ownerView);
   }, [ownerView]);
+  // A match email's Yes / Not now (redesign stage 5): read from the link once, before a page rewrites the address.
+  // The answer is only counted (owners see the Yes rate); the workspace isn't replaced, so it can't race the page.
+  const { toast } = useStore();
+  const [nudgeAnswer] = useState(() => { const p = new URLSearchParams(location.search); const id = p.get("nudge"), a = p.get("a"); return id && (a === "yes" || a === "later") ? { id, a } : null; });
+  useEffect(() => {
+    if (!nudgeAnswer) return;
+    api("POST", `/api/nudges/${encodeURIComponent(nudgeAnswer.id)}`, { answer: nudgeAnswer.a }).catch(() => {});
+    if (nudgeAnswer.a === "later") toast("Okay, not now. Remy won't bring that opening up again.");
+  }, []);
   const { path, query } = useRoute();
   const [asstPage, setAsstPage] = useState<boolean | null>(null);
   const [more, setMore] = useState(false);
