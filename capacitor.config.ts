@@ -26,7 +26,9 @@ const config: CapacitorConfig = {
     allowMixedContent: false,
   },
   plugins: {
-    SplashScreen: { launchAutoHide: false, launchShowDuration: 3000, backgroundColor: "#fff4ec", showSpinner: false },
+    // Hides on its own: the live site may not have the native code yet, and a page
+    // that fails to load must never leave the app stuck on the launch screen.
+    SplashScreen: { launchAutoHide: true, launchShowDuration: 800, launchFadeOutDuration: 200, backgroundColor: "#fff4ec", showSpinner: false },
     SystemBars: { insetsHandling: "native", style: "LIGHT" },
   },
 };
