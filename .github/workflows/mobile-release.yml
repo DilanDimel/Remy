@@ -36,7 +36,7 @@ jobs:
 
           **Install:** open this page on your Android phone, tap **${APK}** below, then open the download. If Android asks, allow installs from your browser ("Install unknown apps").
 
-          This is a test build signed with a development key, not the Google Play version. To move to the Play Store build later, you'll need to uninstall this one first.
+          This is a test build, not the Google Play version. Test builds from 0.1.2 on install over each other; to move to the Play Store version later, uninstall this one first.
 
           Needs Android 7.0 or newer.
           NOTES

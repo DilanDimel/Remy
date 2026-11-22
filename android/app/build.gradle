@@ -7,8 +7,8 @@ android {
         applicationId "org.remyai.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "0.1.1"
+        versionCode 3
+        versionName "0.1.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,7 +16,22 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Test builds (the APKs in GitHub Releases) share this key so each new version
+    // installs over the last one. It is NOT the Google Play key: that one stays out
+    // of the repo (see docs/mobile-app.md). Anyone could sign with this key, so only
+    // ever use it for test builds.
+    signingConfigs {
+        test {
+            storeFile file("../test-signing.jks")
+            storePassword "remy-test-build"
+            keyAlias "remy-test"
+            keyPassword "remy-test-build"
+        }
+    }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.test
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

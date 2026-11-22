@@ -24,10 +24,13 @@ The apps in `ios/` and `android/` are [Capacitor](https://capacitorjs.com) shell
 2. **Apple:** an Apple Developer account ($99/year). In Xcode (`npm run app:ios`), choose the team under Signing & Capabilities, then Product → Archive → upload to App Store Connect.
 3. **Google Play:** a Play Console account ($25 one-time). In Android Studio (`npm run app:android`): Build → Generate Signed App Bundle, then upload the `.aab`. Keep the upload key safe and never commit it.
 
-## Building
+## Building and releasing
 
-- GitHub Actions (`.github/workflows/mobile.yml`) builds both apps on every change to the app files. Download **remy-android-debug** from the run to install the Android test build on a phone.
-- Locally: Node 20+, then `npm ci` and `npm run app:android` (needs Android Studio) or `npm run app:ios` (needs a Mac with Xcode 16+).
+- **Android app** (`.github/workflows/mobile.yml`): runs on every change to the app files. It builds the APK, opens it on an Android emulator and fails if Remy's page doesn't appear, which catches a black or blank screen.
+- **iPhone app** (`.github/workflows/mobile-ios.yml`): a simulator build. It runs only when `ios/` changes, or when started from the Actions tab, because macOS machines use up Actions minutes 10 times faster.
+- **Test releases:** push a branch named `app-release/<version>`, e.g. `git push origin HEAD:app-release/0.1.3`, after raising `versionCode` and `versionName` in `android/app/build.gradle`. `.github/workflows/mobile-release.yml` builds the APK and publishes it under Releases as `app-v<version>` (a pre-release).
+- **Signing:** test builds are signed with `android/test-signing.jks` (password in `android/app/build.gradle`), so each version installs over the last. That key is public, so it is for test builds only. The Google Play upload key must be a separate key kept out of the repo, e.g. as a GitHub secret.
+- **Locally:** Node 20+, then `npm ci` and `npm run app:android` (needs Android Studio) or `npm run app:ios` (needs a Mac with Xcode 16+).
 
 ## App review notes
 
