@@ -236,14 +236,15 @@ function Shell() {
                 <Remy size={18} /> Open Remy
               </button>
             )}
+            {/* Redesign stage 2 (owners first): with his panel closed, Remy waits as his face at the top right, the one way
+                to open him on every page and screen size (Dilan, Nov 22: the top-centre spot "looks weird"). */}
+            {!asstOpen && ownerView && (
+              <button className="remy-dock" onClick={() => setAsst(true)} data-testid="button-open-assistant" aria-label="Open Remy" title="Ask Remy">
+                <span className="remy-dock-face"><Remy size={36} mood="idle" /></span>
+              </button>
+            )}
           </div>
         </div>
-        {/* Redesign stage 2 (owners first): with his panel closed, Remy waits as a small avatar at the top centre (Muse-style). */}
-        {!asstOpen && ownerView && (
-          <button className="remy-dock hide-sm" onClick={() => setAsst(true)} data-testid="button-open-assistant" aria-label="Open Remy">
-            <span className="remy-dock-face"><Remy size={50} mood="idle" /></span>
-          </button>
-        )}
         <div className="page fade-up" key={current.path}><ErrorBoundary where={`page:${current.path}`} resetKey={current.path}>{page}</ErrorBoundary></div>
       </main>
 
