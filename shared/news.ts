@@ -3,6 +3,7 @@
 export type NewsItem = { id: string; date: string; kind: "New" | "Improved" | "Fixed" | "Changed"; title: string; body: string; owners?: boolean };
 
 export const NEWS: NewsItem[] = [
+  { id: "2026-11-22-01", date: "2026-11-22", kind: "New", title: "Your resume in your own file", body: "The colours and fixes now show on your own resume. For a Word file, your changes are written into your file so it keeps your exact design. For a PDF, the colours sit on your real pages until you make a change; upload a Word file to keep your design after edits.", owners: true },
   { id: "2026-11-21-08", date: "2026-11-21", kind: "Improved", title: "Everything beside your resume", body: "Make it stronger, the ATS check and your approved versions and downloads now sit as small cards next to your resume, so the whole page fits on one screen.", owners: true },
   { id: "2026-11-21-07", date: "2026-11-21", kind: "Improved", title: "Fixes right beside your resume", body: "Make it stronger now sits next to your resume instead of below it: open a fix, type the detail, and see it on the page.", owners: true },
   { id: "2026-11-21-06", date: "2026-11-21", kind: "New", title: "Your resume on one page, changed by asking Remy", body: "The Base resume tab is now one page: your resume colour-coded with every problem on its line, Make it stronger, the ATS check and your approved versions and downloads together. To change something, just ask Remy in the chat (\u201cadd Tableau to my skills\u201d); he shows the change first and saves it when you tap Use this.", owners: true },
