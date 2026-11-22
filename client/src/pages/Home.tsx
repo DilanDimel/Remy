@@ -119,6 +119,27 @@ export default function Home() {
   const toggleTask = (t: Task) => { if (!t.done) mark(t.id); return run(() => api<Workspace>("PATCH", `/api/tasks/${t.id}`, { done: !t.done }).then(setWs)); };
   const moreLink = tab === "todos" ? "/progress?tab=todos" : tab === "events" ? "/opportunities?kind=event" : "/opportunities?kind=jobs";
 
+  const todoRow = (t: Task) => (
+    <div key={t.id} className={"item todo-row" + (t.done ? " completing" : "")}>
+      <button className="check" role="checkbox" aria-checked={t.done} onClick={() => toggleTask(t)} aria-label={`Mark ${t.title} done`} data-testid="checkbox-task">{t.done && <Check size={13} />}</button>
+      <div className="item-main">
+        <button style={{ textAlign: "left", padding: 0, fontWeight: 700 }} onClick={() => setOpen(open === t.id ? "" : t.id)}>{t.title}</button>
+        <div className="why">{t.why}</div>
+        {open === t.id && (
+          <div className="row" style={{ marginTop: 8 }}>
+            <span className="chip chip-plain">{t.category}</span>
+            <span className="xs muted">Source: {t.source}</span>
+            {t.link && <button className="btn btn-secondary btn-sm" onClick={() => go(t.link!)}>Go <ArrowRight size={14} /></button>}
+          </div>
+        )}
+      </div>
+      {t.due && <span className="chip chip-plain">{fmtDate(t.due)}</span>}
+      <button className="icon-btn" onClick={() => setOpen(open === t.id ? "" : t.id)} aria-label="Details">{open === t.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>
+    </div>
+  );
+  const noTodos = <p className="muted small" style={{ padding: "14px 0" }}>No open to-dos. Your plan in My Path can suggest a few.</p>;
+  const jobRow = (j: Job) => <JobRow key={j.id} j={j} why={fits[j.id]?.why} open={open === j.id} onToggle={() => setOpen(open === j.id ? "" : j.id)} />;
+
   return (
     <>
       <div className="page-head">
@@ -184,6 +205,20 @@ export default function Home() {
       </section>}
       {CAREER_QUEST_ON && ownerView && <MissionBoard w={w} />}
 
+      {ownerView ? (
+        // Look polish A (owners first, Nov 22): this week's to-dos and the best openings side by side, nothing behind tabs.
+        <div className="home-lists" data-testid="home-lists">
+          <section aria-labelledby="h-week">
+            <div className="home-list-head"><h2 id="h-week">This week</h2><a href="/progress?tab=todos" className="btn btn-ghost btn-sm">All to-dos <ArrowUpRight size={14} /></a></div>
+            {todos.length ? todos.map(todoRow) : noTodos}
+          </section>
+          <section aria-labelledby="h-opps">
+            <div className="home-list-head"><h2 id="h-opps">Openings for you</h2><a href="/opportunities?kind=jobs" className="btn btn-ghost btn-sm">See all <ArrowUpRight size={14} /></a></div>
+            {opps.length ? opps.map(jobRow) : <p className="muted small" style={{ padding: "14px 0" }}>{jobs ? "Nothing here yet." : "Loading…"}</p>}
+            {events.length > 0 && <><h3 className="home-list-sub">Events</h3>{events.map(jobRow)}</>}
+          </section>
+        </div>
+      ) : (
       <section className="card card-pad">
         <div className="row-between" style={{ marginBottom: 8 }}>
           <div className="seg" role="group" aria-label="Show">
@@ -193,28 +228,12 @@ export default function Home() {
           </div>
           <a href={moreLink} className="btn btn-ghost btn-sm" data-testid="link-view-more">View more <ArrowUpRight size={14} /></a>
         </div>
-        {tab === "todos" && (todos.length ? todos.map((t) => (
-          <div key={t.id} className={"item todo-row" + (t.done ? " completing" : "")}>
-            <button className="check" role="checkbox" aria-checked={t.done} onClick={() => toggleTask(t)} aria-label={`Mark ${t.title} done`} data-testid="checkbox-task">{t.done && <Check size={13} />}</button>
-            <div className="item-main">
-              <button style={{ textAlign: "left", padding: 0, fontWeight: 700 }} onClick={() => setOpen(open === t.id ? "" : t.id)}>{t.title}</button>
-              <div className="why">{t.why}</div>
-              {open === t.id && (
-                <div className="row" style={{ marginTop: 8 }}>
-                  <span className="chip chip-plain">{t.category}</span>
-                  <span className="xs muted">Source: {t.source}</span>
-                  {t.link && <button className="btn btn-secondary btn-sm" onClick={() => go(t.link!)}>Go <ArrowRight size={14} /></button>}
-                </div>
-              )}
-            </div>
-            {t.due && <span className="chip chip-plain">{fmtDate(t.due)}</span>}
-            <button className="icon-btn" onClick={() => setOpen(open === t.id ? "" : t.id)} aria-label="Details">{open === t.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>
-          </div>
-        )) : <p className="muted small" style={{ padding: "14px 0" }}>No open to-dos. Your plan in My Path can suggest a few.</p>)}
+        {tab === "todos" && (todos.length ? todos.map(todoRow) : noTodos)}
         {tab !== "todos" && ((tab === "events" ? events : opps).length ? (tab === "events" ? events : opps).map((j) => (
-          <JobRow key={j.id} j={j} why={fits[j.id]?.why} open={open === j.id} onToggle={() => setOpen(open === j.id ? "" : j.id)} />
+          jobRow(j)
         )) : <p className="muted small" style={{ padding: "14px 0" }}>{jobs ? "Nothing here yet." : "Loading…"}</p>)}
       </section>
+      )}
       <ApplyNudge w={w} />
       {/* The weekly check-in, the day-7 question and "What did you do this week?" were removed (Dilan, Nov 19: boxes
           that ask for effort and give nothing back). Remy asks only when something happened (ApplyNudge: interviews, events). */}
