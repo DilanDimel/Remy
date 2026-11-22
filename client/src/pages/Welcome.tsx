@@ -6,7 +6,7 @@ import { BetaBadge, Remy, Spinner, StatusChip } from "../components/common";
 import { providerOn, sendMagicLink, startOAuth, type SupabaseProvider } from "../lib/supabase";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { isNativeApp } from "../lib/native";
-import Landing2 from "./Landing2";
+import LandingLooks from "./LandingLooks";
 
 export function useGoogleButton(onCredential: (cred: string) => void) {
   const { config } = useStore();
@@ -45,7 +45,7 @@ export default function Welcome() {
   const { betaBlocked } = useStore();
   const ownerView = useOwnerView();
   // Owners (owner view on) see the new homepage; visitors, students and search engines keep today's page until Dilan releases it.
-  return isNativeApp || path === "/signin" || betaBlocked ? <SignIn /> : ownerView ? <Landing2 /> : <Landing />;
+  return isNativeApp || path === "/signin" || betaBlocked ? <SignIn /> : ownerView ? <LandingLooks /> : <Landing />;
 }
 
 /** Where to apply to be a beta tester: the team's form, or Remy's inbox when the form isn't set yet. */

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Check, ShieldCheck } from "lucide-react";
 import { go } from "../lib/router";
 import { useOwnerView, useStore } from "../lib/store";
@@ -49,13 +49,16 @@ export function Careers() {
   );
 }
 
-export default function Landing2() {
+export type HeroProps = { start: string; startLabel: string; ext: Record<string, string>; inside: boolean; beta: boolean };
+
+/** `hero` and `className` let the owner-only look switcher (LandingLooks) swap the top of the page and its colours. */
+export default function Landing2({ hero, className = "" }: { hero?: (p: HeroProps) => ReactNode; className?: string } = {}) {
   const { config, me, ws } = useStore();
   const inside = !!(me && ws?.started);
   const beta = !!config?.beta?.on && !inside;
   const start = inside ? "/" : beta ? applyHref(config?.beta?.formUrl) : "/signin";
   const startLabel = inside ? "Open my Remy" : beta ? "Apply to be a beta tester" : "Create your free account";
-  const ext = beta ? { target: "_blank", rel: "noreferrer" } : {};
+  const ext: Record<string, string> = beta ? { target: "_blank", rel: "noreferrer" } : {};
   const out = { target: "_blank", rel: "noreferrer" };
   const page = useRef<HTMLDivElement>(null);
   // Sections ease in as they scroll into view (CSS keeps them visible when motion is reduced or JS is off).
@@ -67,11 +70,12 @@ export default function Landing2() {
     return () => io.disconnect();
   }, []);
   return (
-    <div className="lp2" ref={page}>
+    <div className={"lp2 " + className} ref={page}>
       <div className="lp2-w">
         <Top inside={inside} />
 
         <main>
+          {hero ? hero({ start, startLabel, ext, inside, beta }) : (
           <section className="lp2-hero">
             <div className="lp2-hero-copy">
               <p className="lp2-pre">Free for college students, now in beta</p>
@@ -84,6 +88,7 @@ export default function Landing2() {
             </div>
             <HeroExample />
           </section>
+          )}
           <section className="lp2-peek rv" aria-label="Inside Remy">
             <p className="lp2-peek-cap"><Remy size={26} mood="happy" /> And this is what you see when you sign in.</p>
             <div className="lp2-shot">
