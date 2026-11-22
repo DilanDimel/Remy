@@ -57,4 +57,10 @@ export const kindLabel: Record<Job["kind"], string> = {
   job: "Job", internship: "Internship", program: "Early-career program", campus: "Campus job", event: "Event",
 };
 export const isEvent = (j: Job) => j.kind === "event";
+/** Company initials for the owner job tiles ("Bread Financial" → "BF", "BDO" stays "BDO", "Google" → "G"). */
+export const orgInitials = (company: string) => {
+  const words = company.replace(/[^A-Za-z ]/g, "").split(/\s+/).filter(Boolean);
+  if (words.length === 1) return /^[A-Z]{2,4}$/.test(words[0]) ? words[0] : words[0][0].toUpperCase();
+  return words.slice(0, 2).map((x) => x[0]).join("").toUpperCase() || "•";
+};
 export { sameOrg } from "@shared/org";

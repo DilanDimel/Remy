@@ -14,7 +14,7 @@ export function SeasonCard({ w }: { w: Workspace }) {
   const s = seasonFor(w.profile.targetRoles) || seasonFor([w.profile.major, w.profile.interests].join(" "));
   if (!s) return null;
   if (owner) return (
-    // Owners: a dark band with the countdown up front.
+    // Owners: a plain band with the countdown up front (no dark bands, Dilan Nov 22).
     <section className="season-band" data-testid="season-card">
       <span className="season-cd"><b>{s.open ? "Now" : `~${s.monthsUntil}`}</b>{s.open ? "open" : s.monthsUntil === 1 ? "month" : "months"}</span>
       <span className="grow"><b>{s.open ? `${s.label} internship season is on now` : `${s.label} internship season opens in ${s.opens}`}</b><small>Usually {s.window}. {s.note} <a href={SEASON_SOURCE} target="_blank" rel="noreferrer">Source</a></small></span>
