@@ -78,3 +78,22 @@ test("sendNudges: owners only while testing, active in the window, and remembere
   assert.equal(await sendNudges("2026-11-08", fake, now), 0, "weekly: not again right away");
   assert.equal((await loadWorkspace("nd-student")).nudges, undefined);
 });
+
+test("overnight drafts: top fresh fits without an application; the email then offers the draft instead of redoing it", async () => {
+  const { overnightPicks } = await import("./nudges");
+  const w = ws();
+  assert.deepEqual(overnightPicks(w, now), [], "needs a confirmed resume");
+  w.resume = { confirmedAt: "2026-11-20T00:00:00Z" } as any;
+  assert.deepEqual(overnightPicks(w, now).map((j) => j.id), ["b", "a"]);
+  w.applications = [{ id: "app1", jobId: "b", overnight: hoursAgo(5), changes: [{ status: "pending" }] } as any];
+  assert.deepEqual(overnightPicks(w, now).map((j) => j.id), ["a"], "not drafted twice");
+  assert.equal(nudgeFor(w, now)?.id, "b", "a waiting overnight draft can still be emailed");
+  const e = nudgeEmail(w, w.jobs[1], "n_d", "remyai.org");
+  assert.match(e.text, /already drafted/);
+  assert.match(e.text, /resume\?tab=tailor&app=app1&nudge=n_d&a=yes/);
+  assert.ok(!e.text.includes("go=1"));
+  w.applications[0].changes = [{ status: "accepted" }] as any;
+  assert.equal(nudgeFor(w, now)?.id, "a", "once the student works on it, it's theirs, not a nudge");
+  w.nudges = [{ id: "n9", jobId: "a", at: hoursAgo(24 * 8), answer: "later" }];
+  assert.deepEqual(overnightPicks({ ...w, applications: [] }, now).map((j) => j.id), ["b"], "Not now means no draft either");
+});
