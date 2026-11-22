@@ -1762,6 +1762,18 @@ button.ms-text:hover { text-decoration: underline; text-underline-offset: 3px; }
 [data-theme="dark"] .dp-today-cards li { background: var(--surface-2); }
 .dp-today-cards li span { width: 22px; height: 22px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--paper) 40%, transparent); display: grid; place-items: center; }
 .dp-today-cards li.on span { background: var(--fox); border-color: var(--fox); color: var(--white); }
+/* Owner view: no dark bands with an orange glow (Dilan, Nov 22). Highlight cards are peach like Home's "Remy says"
+   card; info bands are plain cards. Covers Home's season band, the old daily header and the resume save bar. */
+.redesign-2 .dp-today, .redesign-2[data-theme="dark"] .dp-today { background: var(--fox-soft); color: var(--ink); border: 0; }
+.redesign-2 .dp-today .dp-kicker { color: var(--fox-deep); }
+.redesign-2 .dp-today-cards li { background: var(--surface); border: 1px solid var(--line); }
+.redesign-2 .dp-today-cards li span { border-color: var(--line); }
+.redesign-2 .season-band, .redesign-2[data-theme="dark"] .season-band { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+.redesign-2 .season-band small { opacity: 1; color: var(--muted-text); }
+.redesign-2 .season-cd { border-right-color: var(--line); }
+.redesign-2 .season-cd b { color: var(--fox-deep); }
+.redesign-2 .season-band .btn, .redesign-2[data-theme="dark"] .season-band .btn { background: var(--ink); color: var(--bg); }
+.redesign-2 .r1-save { background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: var(--shadow); }
 .btn.dp-start { grid-row: 1; grid-column: 2; height: 52px; padding: 0 26px; font-size: 1rem; border-radius: 16px; background: var(--fox); color: var(--white); box-shadow: 0 5px 0 var(--fox-800); transition: transform .08s, box-shadow .08s; }
 .btn.dp-start:hover:not(:disabled) { background: var(--fox-hot); }
 .btn.dp-start:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--fox-800); }
@@ -1940,27 +1952,23 @@ button.dp-unit-head { width: 100%; border: 0; font: inherit; text-align: left; c
 .pm { display: grid; gap: 14px; }
 .pm-faint { margin-left: auto; }
 .pm-faint { color: var(--faint); font-size: var(--text-xs); font-weight: 600; }
-.pm-kicker { font-size: var(--text-xs); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--fox-light); }
+.pm-kicker { font-size: var(--text-xs); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--fox-deep); }
 .pm-kicker.dark { color: var(--fox-800); }
-.pm-round { position: relative; overflow: hidden; background: var(--stage); color: var(--paper); border-radius: 18px; padding: 16px; display: grid; gap: 12px; }
-.pm-round::after { content: ""; position: absolute; right: -50px; top: -70px; width: 230px; height: 230px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--fox) 35%, transparent), transparent 70%); pointer-events: none; }
-.pm-round > * { position: relative; z-index: 1; }
-[data-theme="dark"] .pm-round { border: 1px solid var(--line); }
+.pm-round { position: relative; overflow: hidden; background: var(--fox-soft); color: var(--ink); border-radius: 18px; padding: 16px; display: grid; gap: 12px; }
 [data-theme="dark"] .pm-chip em, [data-theme="dark"] .pm-more, [data-theme="dark"] .pm-dots li.today, [data-theme="dark"] .pm-after button.sel { color: var(--fox-light); }
-.pm-round .pm-faint { color: rgba(245, 245, 243, .6); }
+.pm-round .pm-faint { color: var(--muted-text); }
 .pm-round-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .pm-round-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.pm-round-cards li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: start; padding: 9px 10px; border-radius: 14px; background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .1); }
+.pm-round-cards li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: start; padding: 9px 10px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
 .pm-round-cards li span { display: grid; min-width: 0; }
-.pm-round-cards small { font-size: var(--text-xs); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: rgba(245, 245, 243, .55); }
+.pm-round-cards small { font-size: var(--text-xs); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
 .pm-round-cards b { font-size: var(--text-sm); font-weight: 750; line-height: 1.25; }
-.pm-round-cards em { font-style: normal; font-size: var(--text-xs); color: rgba(245, 245, 243, .6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pm-round-cards li i { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .3); display: grid; place-items: center; font-style: normal; font-size: var(--text-xs); font-weight: 800; color: rgba(245, 245, 243, .7); }
+.pm-round-cards em { font-style: normal; font-size: var(--text-xs); color: var(--muted-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pm-round-cards li i { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-style: normal; font-size: var(--text-xs); font-weight: 800; color: var(--muted-text); }
 .pm-round-go { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.pm-round-go > span { font-size: var(--text-xs); color: rgba(245, 245, 243, .65); font-weight: 600; }
+.pm-round-go > span { font-size: var(--text-xs); color: var(--muted-text); font-weight: 600; }
 .pm-round-cards li.on i { background: var(--fox); border-color: var(--fox); color: var(--white); }
-.btn.pm-go { width: 100%; justify-content: center; background: var(--fox); border-color: var(--fox); color: var(--white); box-shadow: 0 4px 0 var(--fox-800); border-radius: 14px; padding: 12px 16px; }
-.btn.pm-go:hover { background: var(--fox-hot); border-color: var(--fox-hot); }
+.btn.pm-go { width: 100%; justify-content: center; }
 .pm-streak { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; display: grid; gap: 10px; align-content: space-between; }
 .pm-splits { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--surface-2); border-radius: 12px; padding: 7px 0; }
 .pm-splits div { text-align: center; border-left: 1px solid var(--line); display: grid; }
