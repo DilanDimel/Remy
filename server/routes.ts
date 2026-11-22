@@ -1009,7 +1009,10 @@ export async function registerRoutes(_server: Server, app: Express) {
     pitch: z.object({ text: str(1200), at: str(40) }),
     hours: z.array(z.object({ id: str(120), activity: str(120), hours: z.number().min(0).max(168), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), note: str(500).optional() })).max(2000),
     // Career quest: per week (Monday date) the starting counts and the missions finished; at most two years kept.
-    game: z.object({ weeks: z.record(z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.object({ base: z.record(str(20), z.number().int().min(0).max(100000)), done: z.array(str(20)).max(12), missions: z.array(str(20)).max(5).optional() })).refine((r) => Object.keys(r).length <= 110, "too many weeks"), bestLevel: z.number().int().min(1).max(5).optional() }),
+    game: z.object({ weeks: z.record(z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.object({ base: z.record(str(20), z.number().int().min(0).max(100000)), done: z.array(str(20)).max(12), missions: z.array(str(20)).max(5).optional() })).refine((r) => Object.keys(r).length <= 110, "too many weeks"), bestLevel: z.number().int().min(1).max(5).optional(),
+      // Daily path (stage 7): cards per local day, roles learned, rest weekdays (shared/daily.ts).
+      days: z.record(z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.array(str(20)).max(6)).refine((r) => Object.keys(r).length <= 430, "too many days").optional(),
+      known: z.array(str(120)).max(300).optional(), restDays: z.array(z.number().int().min(0).max(6)).max(3).optional() }),
     builder: z.looseObject({
       step: z.number().int().min(0).max(20),
       basics: z.object(Object.fromEntries(["name", "email", "phone", "city", "school", "major", "graduation", "classYear", "gpa", "highSchool", "highSchoolYear"].map((k) => [k, str(200)]))),
@@ -1047,7 +1050,14 @@ export async function registerRoutes(_server: Server, app: Express) {
         weeks[k] = old ? { ...old, done: [...new Set([...old.done, ...wk.done])].slice(0, 10) } : wk;
       }
       const best = Math.max(ctx.ws.game?.bestLevel || 1, (value as NonNullable<Workspace["game"]>).bestLevel || 1);
-      value = { weeks: Object.fromEntries(Object.entries(weeks).sort(([a], [b]) => b.localeCompare(a)).slice(0, 104)), bestLevel: best };
+      // Daily path: days and roles learned only add up too; rest days are the latest choice.
+      const v = value as NonNullable<Workspace["game"]>, old = ctx.ws.game || { weeks: {} };
+      const days: Record<string, string[]> = { ...(old.days || {}) };
+      for (const [k, d] of Object.entries(v.days || {})) days[k] = [...new Set([...(days[k] || []), ...d])].slice(0, 6);
+      const known = [...new Set([...(old.known || []), ...(v.known || [])])].slice(-300);
+      value = { weeks: Object.fromEntries(Object.entries(weeks).sort(([a], [b]) => b.localeCompare(a)).slice(0, 104)), bestLevel: best,
+        ...(Object.keys(days).length ? { days: Object.fromEntries(Object.keys(days).sort().slice(-430).map((k) => [k, days[k]])) } : {}),
+        ...(known.length ? { known } : {}), ...(v.restDays ? { restDays: v.restDays } : old.restDays ? { restDays: old.restDays } : {}) };
     }
     if (section === "profile") {
       const before = JSON.stringify(ctx.ws.profile);

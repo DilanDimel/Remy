@@ -8,6 +8,8 @@ import { go } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { shownForRole } from "@shared/roleMatch";
 import { AiUnavailableNote, Empty, Example, Remy, Spinner } from "../components/common";
+import { DailyHeader, RoadMap, Round } from "../components/DailyPath";
+import { MissionBoard, useGameRecord } from "../components/Game";
 
 type Tab = "academic" | "career" | "skills" | "future" | "road";
 
@@ -17,7 +19,10 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
   // Decided once per visit: adding a role from "Start here" mustn't make the card jump while the student is using it.
   const [unsure] = useState(() => !!w.onboarding.exploring || !w.profile.targetRoles.trim());
   const stage4 = useOwnerView(); // redesign stage 4 (owners first): Future of your field folds into the career tab
-  const asked = (query.get("tab") as Tab) || "career";
+  const asked = (query.get("tab") as Tab) || (stage4 ? "road" : "career");
+  // Redesign stage 7 (owners first): the daily round takes the page; the weekly career quest keeps its record here.
+  const play = stage4 && query.get("play") === "1";
+  useGameRecord(w, stage4);
   const tab: Tab = stage4 && asked === "future" ? "career" : asked;
   const [busy, setBusy] = useState(false);
   // Same rule as the server: no path until Remy knows something about the student.
@@ -30,23 +35,25 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
   };
   return (
     <>
-      <div className="page-head">
+      {!play && <div className="page-head">
         <div>
           <span className="eyebrow">My Path</span>
           <h1><span className="title-slogan">Explore. Prepare. Pursue.</span><span className="title-plain">My Path</span></h1>
           <p>Suggestions grounded in your background — with clear labels for what's sourced and what's illustrative.</p>
         </div>
         {knows && <button className="btn btn-secondary" onClick={generate} disabled={busy || !config?.ai.available} data-testid="button-refresh-path">{busy ? <Spinner /> : w.plan ? <RotateCcw size={16} /> : <Sparkles size={16} />} {w.plan ? "Refresh suggestions" : "Build my path"}</button>}
-      </div>
-      {!config?.ai.available && <AiUnavailableNote />}
+      </div>}
+      {play ? <Round onClose={() => go("/path")} /> : <>
+      {stage4 && <DailyHeader onPlay={() => go("/path?play=1")} />}
+      {!config?.ai.available && !(stage4 && tab === "road") && <AiUnavailableNote />}
       {stage4 && tab === "career" && knows && <PathCheck />}
       <div className="tabs" role="tablist">
-        {([["career", "Career exploration"], ["road", "Your field's road"], ["future", "Future of your field"], ["skills", "Skills & certifications"]] as [Tab, string][]).filter(([k]) => !(stage4 && k === "future")).map(([k, l]) => (
+        {(stage4 ? [["road", "Your field's road"], ["career", "Career exploration"], ["skills", "Skills & certifications"]] as [Tab, string][] : [["career", "Career exploration"], ["road", "Your field's road"], ["future", "Future of your field"], ["skills", "Skills & certifications"]] as [Tab, string][]).map(([k, l]) => (
           <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => go(`/path?tab=${k}`)} data-testid={`tab-path-${k}`}>{l}</button>
         ))}
       </div>
       {busy && <div className="card card-pad row"><Remy size={40} mood="think" /><span className="muted">Building suggestions from your resume and answers…</span></div>}
-      {tab === "future" ? <Future /> : tab === "road" ? <FieldRoad /> : !w.plan && !busy ? (
+      {tab === "future" ? <Future /> : tab === "road" ? (stage4 ? <><RoadMap onPlay={() => go("/path?play=1")} /><MissionBoard w={w} /></> : <FieldRoad />) : !w.plan && !busy ? (
         <div className="card">{knows
           ? stage4 ? (
             <div className="card-pad stack-sm" data-testid="path-empty-example">
@@ -69,6 +76,7 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
       ) : null}
       {/* No path yet: exploring by major still works. */}
       {tab === "career" && !(w.plan && !busy) && <div className="card card-pad" id="path-explore"><Explore /></div>}
+      </>}
     </>
   );
 }
