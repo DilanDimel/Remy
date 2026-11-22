@@ -198,6 +198,53 @@ async function withAi<T>(ctx: Ctx, purpose: string, fn: () => Promise<T>): Promi
   }
 }
 
+// Remy edits the resume from the student's own words (redesign stage 3: asked for in Remy's chat). Returns a draft;
+// nothing is saved until the student taps "Use this" (the page saves it with PUT /api/resume/doc). Remy never adds
+// facts the student didn't give: a missing detail comes back as a question instead (AI asks, never assumes).
+async function proposeResumeEdit(ctx: Ctx, instruction: string, source: string): Promise<{ doc: ResumeDoc; applied: number; summary: string; question: string }> {
+    const doc: ResumeDoc = JSON.parse(JSON.stringify(ctx.ws.resume!.doc));
+    const outline = {
+      contact: doc.contact,
+      sections: doc.sections.map((s) => ({ id: s.id, heading: s.heading, entries: s.entries.map((e) => ({ id: e.id, org: e.org, role: e.role, location: e.location, dates: e.dates, bullets: e.bullets.map((b) => ({ id: b.id, text: b.text })) })) })),
+      skills: doc.skills.map((k) => ({ id: k.id, label: k.label, items: k.items })),
+    };
+    type Op = { kind: string; id?: string; sectionId?: string; entryId?: string; field?: string; text?: string; org?: string; role?: string; location?: string; dates?: string; bullets?: string[]; heading?: string };
+    const out = await withAi(ctx, "Edit resume (from chat)", () => aiJson<{ question?: string; summary?: string; ops?: Op[] }>(
+      `You edit a student's resume exactly as they ask, using only facts that are in their request or already on the resume. Never invent numbers, dates, employers, titles or results, and never make a claim stronger than the student said ("helped" stays "helped"). If the request needs a detail you don't have (for example a date or what they did), make no edits and ask one short question instead. Keep the student's own wording where you can. Bullets start with what they did, past tense for past roles.
+Return {"summary":"one plain sentence of what you changed","question":"only when you need a detail, else empty","ops":[...]} where each op is one of:
+{"kind":"edit_bullet","id":"<bullet id>","text":"..."} · {"kind":"add_bullet","entryId":"<entry id>","text":"..."} · {"kind":"remove_bullet","id":"<bullet id>"} · {"kind":"edit_entry","id":"<entry id>","field":"org|role|location|dates","text":"..."} · {"kind":"add_entry","sectionId":"<section id>","org":"...","role":"...","location":"...","dates":"...","bullets":["..."]} · {"kind":"remove_entry","id":"<entry id>"} · {"kind":"add_section","heading":"..."} · {"kind":"edit_contact","field":"name|email|phone|location|links","text":"..."} · {"kind":"edit_skills","id":"<skill line id>","text":"comma-separated items"} · {"kind":"add_skills","text":"comma-separated items"}.
+Use the ids exactly as given.`,
+      `RESUME:\n${JSON.stringify(outline)}\n\nWHAT THE STUDENT ACTUALLY SAID (the only source of new facts; keep their verbs and scope): ${source}\n\nTHEIR REQUEST, SUMMARISED: ${instruction}`, 2500));
+    const entry = (id?: string) => doc.sections.flatMap((s) => s.entries).find((e) => e.id === id);
+    let applied = 0;
+    // Skeptic review: new text may only use numbers and leadership verbs found in the student's words or resume, and
+    // skill-level words ("proficient", "expert") the source doesn't use are dropped (noUpgrade).
+    const known = (source + " " + JSON.stringify(outline)).toLowerCase();
+    const STRONG_LEAD = /\b(led|lead|managed|manage|directed|headed|spearheaded|oversaw|oversee|ran|owned|founded|chaired)\b/gi;
+    const safe = (t: string) => {
+      if ((t.match(/\d[\d,.]*%?/g) || []).some((n) => !known.includes(n.toLowerCase()))) return "";
+      if ((t.match(STRONG_LEAD) || []).some((v) => !new RegExp(`\\b${v.toLowerCase()}`).test(known))) return "";
+      return noUpgrade(t, known);
+    };
+    for (const op of (Array.isArray(out.ops) ? out.ops : []).slice(0, 30)) {
+      const raw = String(op.text || "").trim().slice(0, 600);
+      const text = raw ? safe(raw) : "";
+      if (raw && !text) continue; // a claim the student didn't make: skipped, so nothing applies and Remy asks instead
+      if (op.kind === "edit_bullet") { for (const e of doc.sections.flatMap((s) => s.entries)) for (const b of e.bullets) if (b.id === op.id && text) { b.text = text; applied++; } }
+      else if (op.kind === "add_bullet") { const e = entry(op.entryId); if (e && text) { e.bullets.push({ id: uid("b"), text }); applied++; } }
+      else if (op.kind === "remove_bullet") { for (const e of doc.sections.flatMap((s) => s.entries)) { const n = e.bullets.length; e.bullets = e.bullets.filter((b) => b.id !== op.id); if (e.bullets.length < n) applied++; } }
+      else if (op.kind === "edit_entry") { const e = entry(op.id); if (e && text && ["org", "role", "location", "dates"].includes(String(op.field))) { (e as any)[op.field!] = text; applied++; } }
+      else if (op.kind === "add_entry") { const s = doc.sections.find((x) => x.id === op.sectionId); if (s && (op.org || op.role)) { s.entries.push({ id: uid("e"), org: String(op.org || "").slice(0, 200), role: String(op.role || "").slice(0, 200), location: String(op.location || "").slice(0, 120), dates: String(op.dates || "").slice(0, 80), bullets: (Array.isArray(op.bullets) ? op.bullets : []).map((t) => safe(String(t).trim().slice(0, 600))).filter(Boolean).slice(0, 8).map((t) => ({ id: uid("b"), text: t })) }); applied++; } }
+      else if (op.kind === "remove_entry") { for (const s of doc.sections) { const n = s.entries.length; s.entries = s.entries.filter((e) => e.id !== op.id); if (s.entries.length < n) applied++; } }
+      else if (op.kind === "add_section") { const h = String(op.heading || "").trim().slice(0, 80); if (h) { doc.sections.push({ id: uid("s"), heading: h, entries: [] }); applied++; } }
+      else if (op.kind === "edit_contact") { if (text && ["name", "email", "phone", "location", "links"].includes(String(op.field))) { (doc.contact as any)[op.field!] = text; applied++; } }
+      else if (op.kind === "edit_skills") { const k = doc.skills.find((x) => x.id === op.id); if (k && text) { k.items = text; applied++; } }
+      else if (op.kind === "add_skills") { if (text) { const k = doc.skills[0]; if (k) k.items = [k.items, text].filter(Boolean).join(", "); else doc.skills.push({ id: uid("k"), label: "Skills", items: text }); applied++; } }
+    }
+    return { doc, applied, summary: String(out.summary || "").slice(0, 300), question: applied ? "" : String(out.question || "").slice(0, 300) };
+}
+
+
 const LINKEDIN = "LinkedIn profile (PDF)";
 type CareerExplain = { known?: boolean; what: string; day: string[]; entry: string[]; majors: string[]; startNow: string[]; downside: string };
 // shortcut: in-memory cache of job explanations, emptied on restart; move to the database if AI cost matters.
@@ -1032,6 +1079,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       }
     }
     doc.skillsIndex = skillsPosition(raw, doc);
+    for (const m of ctx.ws.chat) delete m.resumeProposal; // a new resume makes old chat drafts meaningless
     ctx.ws.resume = { fileName, uploadedAt: nowIso(), rawText: raw.slice(0, 30000), parsedBy, doc, skills: extractSkills(doc, raw), quality: parseQuality(raw, doc, notes), fileLines: Object.fromEntries(doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => [b.id, b.text]))).slice(0, 300)), ...(from ? { from } : {}) };
     ctx.ws.imports.unshift({ id: uid("i"), kind: from ? LINKEDIN : "Resume", fileName, at: nowIso(), label: "Student provided", factsAdded: 0 });
     // Fill empty profile fields, and fields still holding what the replaced resume said. What the student typed stays.
@@ -1148,7 +1196,8 @@ export async function registerRoutes(_server: Server, app: Express) {
     const buf = fmt === "pdf" ? await resumePdf(doc, ctx.ws.resume!.style) : await resumeDocx(doc, ctx.ws.resume!.style);
     const name = (nameUnsure(ctx.ws) ? "Resume" : ctx.ws.profile.name || doc.contact.name || "Resume").replace(/[^A-Za-z]+/g, "-") + "-Resume";
     res.setHeader("Content-Type", fmt === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-    res.setHeader("Content-Disposition", `attachment; filename="${name}.${fmt}"`);
+    // ?inline=1 shows the current version inside the Resume page (redesign stage 3); downloads stay attachments.
+    res.setHeader("Content-Disposition", `${req.query.inline === "1" && fmt === "pdf" ? "inline" : "attachment"}; filename="${name}.${fmt}"`);
     res.send(buf);
   }));
 
@@ -1206,6 +1255,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (Object.values(b.draft || {}).flat().some((x) => hasBlank(x.text))) bad("Fill in or delete the highlighted blanks first, like [how many?].");
     const doc = buildDoc(b);
     const raw = resumeToText(doc);
+    for (const m of ctx.ws.chat) delete m.resumeProposal; // a new resume makes old chat drafts meaningless
     ctx.ws.resume = { fileName: "Built with Remy", uploadedAt: nowIso(), confirmedAt: nowIso(), rawText: raw, parsedBy: "builder", doc, skills: extractSkills(doc, raw) };
     ctx.ws.imports.unshift({ id: uid("i"), kind: "Resume", fileName: "Built with Remy", at: nowIso(), label: "Student provided", factsAdded: 0 });
     // The student typed these in the builder, so they're the profile.
@@ -1226,6 +1276,8 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!ctx.ws.resume) bad("Upload a resume first.");
     const d = req.body?.doc as ResumeDoc;
     if (!d || !Array.isArray(d.sections)) bad("Invalid resume");
+    // A chat draft carries the version it was built from; if the resume changed since, saving it would undo that change.
+    if (req.body?.base && req.body.base !== (ctx.ws.resume!.editedAt || ctx.ws.resume!.uploadedAt)) bad("Your resume changed since Remy drafted this. Ask Remy again and he'll draft it on your latest version.", 409);
     // A field the student retyped is theirs now; untouched AI-read text stays marked.
     const before = new Map(ctx.ws.resume!.doc.sections.flatMap((s) => s.entries).map((e) => [e.id, e]));
     for (const e of d.sections.flatMap((s) => s.entries || [])) {
@@ -1244,6 +1296,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       for (const b of d.sections.flatMap((s) => s.entries || []).flatMap((e) => e.bullets || [])) if (!had.has(b.id) && missing.has(b.text.trim())) fileLines[b.id] = b.text.trim();
     }
     if (gone.length) ctx.ws.resume!.removed = [...(ctx.ws.resume!.removed || []), ...gone].slice(-200);
+    if (JSON.stringify(ctx.ws.resume!.doc) !== JSON.stringify(d)) ctx.ws.resume!.editedAt = nowIso();
     ctx.ws.resume!.doc = d;
     const q = ctx.ws.resume!.quality;
     if (q) q.missingLines = stillMissing(q.missingLines, d);
@@ -1762,14 +1815,30 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       return `${j?.company} ${j?.title}: ${openApp.generatedAt ? `${changes.length} proposed change(s), ${pending} still undecided, ${flagged} flagged by the unsupported-claim check; ${(openApp.letterFlags ?? []).filter((f) => f.type !== "placeholder").length} cover letter issue(s); format checks failing: ${atsFails.join(", ") || "none"}; ${approval}` : "not tailored yet"}`;
     })() : "";
     const out = await withAi(ctx, "Assistant chat", () =>
-      aiJson<{ reply: string; remember: string[]; actions?: ChatAction[] }>(
+      aiJson<{ reply: string; remember: string[]; actions?: ChatAction[]; resumeEdit?: string }>(
         `You are Remy, a friendly fox career coach for university students. Be concise: under 110 words, at most 3 short bullet lines starting with "• ", and **bold** only for a few key words. Warm, practical and honest. Use only facts you are given; if you don't know something (like a specific university rule), say so and suggest who to ask. Never claim to have sent emails, applied, or changed calendars — you can only suggest. If the student shares a durable fact or preference worth remembering, propose it in "remember" (short third-person statements); otherwise return an empty list. Today is ${centralToday()}; the student's class standing is ${classYearOf(ctx.ws) || "unknown"}. Don't question dates that fit that standing. You know everything below about the student; use it so they never have to repeat themselves, and refer to their real experience by name.\n\nWhen a concrete next step would help, offer up to 2 buttons in "actions" (the student taps to do it; you never do it yourself): {"kind":"task","title":"short to-do","why":"one sentence"} adds a to-do; {"kind":"role","title":"job title"} adds a job to the roles Remy searches openings for; {"kind":"open","link":"/resume?tab=base|/resume?tab=tailor|/resume?tab=linkedin|/interview|/opportunities|/path?tab=career|/path?tab=road|/path?tab=future|/community|/calendar|/progress?tab=tracker|/accounts?tab=profile|/accounts?tab=memory","label":"button text"} opens a page. When they ask to change how Remy looks or reminds them, offer {"kind":"setting","key":"theme","value":"dark"|"light"|"system"} (system = match their device) or {"kind":"setting","key":"notify.deadlines"|"notify.weeklyPlan","value":true|false}; say it changes when they tap the button, never that it's already done. Otherwise return an empty list.\n\nWhen they ask what this page or tab is, what they're looking at, or how it works: explain the parts listed under THE SCREEN THEY'RE ON in plain words, tied to their own data (their openings, resume, applications, numbers), and say the one thing worth doing there now. Don't describe parts that aren't listed, and don't suggest the tour (they asked about this screen).\n\n${CHAT_RULES}`,
-        `Current page: ${page}\nTHE SCREEN THEY'RE ON:\n${guide || "(no guide for this page)"}${onApp ? `\nTHE APPLICATION OPEN ON SCREEN: ${onApp}` : ""}\nPROFILE:\n${profileSummary(ctx.ws)}\nAPPROVED MEMORY:\n${approvedFacts(ctx.ws).slice(0, 40).join("\n") || "(none)"}\nRESUME:\n${ctx.ws.resume ? resumeToText(ctx.ws.resume.doc, { verifiedOnly: true }).slice(0, 5000) : "(not uploaded)"}\nSETUP ANSWERS:\n${answers || "(none)"}\nOPEN TO-DOS: ${todos || "(none)"}\nNEXT 3 WEEKS ON THEIR CALENDAR: ${dates || "(nothing)"}\nAPPLICATIONS THEY'RE TRACKING: ${tracking || "(none)"}\nCAREER DIRECTIONS FROM MY PATH: ${direction || "(not built yet)"}\nJOBS THEIR FIELDS LEAD TO MOST OFTEN (U.S. Bureau of Labor Statistics; for "what can I do with my major" questions): ${careersFor(ctx.ws).flatMap((f) => f.jobs.slice(0, 4).map((j) => j.title)).join("; ") || "(no major or field yet)"}\nAPPLICATIONS: ${apps || "(none)"}\nSAVED OPENINGS: ${ctx.ws.savedJobIds.map((id) => findJob(ctx.ws, id)?.title).filter(Boolean).join("; ") || "(none)"}\nOPENINGS REMY FOUND THAT FIT (best first): ${found || "(none yet)"}\nFROM THEIR OTHER PROFILES, NOT YET CONFIRMED BY THE STUDENT (mention, don't rely on): ${ctx.ws.memory.filter((m) => m.status === "suggested" && !m.conflict).slice(0, 15).map((m) => m.text).join("; ") || "(none)"}\nRESUME VS OTHER PROFILES, NOT YET RESOLVED (ask the student which is right; never treat these as true): ${ctx.ws.memory.filter((m) => m.conflict).map((m) => `${m.text} (${m.conflict})`).join("; ") || "(none)"}\n\nRECENT CHAT:\n${history}\n\nStudent: ${message}\n\nReturn {"reply":"","remember":[],"actions":[]}`,
+        `Current page: ${page}\nTHE SCREEN THEY'RE ON:\n${guide || "(no guide for this page)"}${onApp ? `\nTHE APPLICATION OPEN ON SCREEN: ${onApp}` : ""}\nPROFILE:\n${profileSummary(ctx.ws)}\nAPPROVED MEMORY:\n${approvedFacts(ctx.ws).slice(0, 40).join("\n") || "(none)"}\nRESUME:\n${ctx.ws.resume ? resumeToText(ctx.ws.resume.doc, { verifiedOnly: true }).slice(0, 5000) : "(not uploaded)"}\nSETUP ANSWERS:\n${answers || "(none)"}\nOPEN TO-DOS: ${todos || "(none)"}\nNEXT 3 WEEKS ON THEIR CALENDAR: ${dates || "(nothing)"}\nAPPLICATIONS THEY'RE TRACKING: ${tracking || "(none)"}\nCAREER DIRECTIONS FROM MY PATH: ${direction || "(not built yet)"}\nJOBS THEIR FIELDS LEAD TO MOST OFTEN (U.S. Bureau of Labor Statistics; for "what can I do with my major" questions): ${careersFor(ctx.ws).flatMap((f) => f.jobs.slice(0, 4).map((j) => j.title)).join("; ") || "(no major or field yet)"}\nAPPLICATIONS: ${apps || "(none)"}\nSAVED OPENINGS: ${ctx.ws.savedJobIds.map((id) => findJob(ctx.ws, id)?.title).filter(Boolean).join("; ") || "(none)"}\nOPENINGS REMY FOUND THAT FIT (best first): ${found || "(none yet)"}\nFROM THEIR OTHER PROFILES, NOT YET CONFIRMED BY THE STUDENT (mention, don't rely on): ${ctx.ws.memory.filter((m) => m.status === "suggested" && !m.conflict).slice(0, 15).map((m) => m.text).join("; ") || "(none)"}\nRESUME VS OTHER PROFILES, NOT YET RESOLVED (ask the student which is right; never treat these as true): ${ctx.ws.memory.filter((m) => m.conflict).map((m) => `${m.text} (${m.conflict})`).join("; ") || "(none)"}\n\nRECENT CHAT:\n${history}\n\nStudent: ${message}\n\n${ctx.ws.resume && ctx.me.owner && ctx.ws.settings.ownerView !== false ? 'If the student asks to change their resume (add, remove or reword a line, job, skill or contact detail), put their request, in their own words, in "resumeEdit"; Remy drafts the exact change for them to approve, so keep "reply" to one short line and never say it is already changed. Otherwise leave "resumeEdit" empty.\n' : ""}Return {"reply":"","remember":[],"actions":[]${ctx.ws.resume && ctx.me.owner && ctx.ws.settings.ownerView !== false ? ',"resumeEdit":""' : ""}}`,
         1100,
       ),
     );
+    // Redesign stage 3 (owners first): "add Tableau to my skills" in chat drafts the resume edit right here.
+    let reply = String(out.reply || "Sorry — I couldn't form a reply.");
+    let resumeProposal: { doc: ResumeDoc; summary: string; base: string } | undefined;
+    const edit = String(out.resumeEdit || "").trim();
+    if (edit && ctx.ws.resume && ctx.me.owner && ctx.ws.settings.ownerView !== false) {
+      const said = [...ctx.ws.chat.slice(-4).filter((m) => m.role === "user").map((m) => m.text), message].join(" / ").slice(0, 2000);
+      try {
+        const p = await proposeResumeEdit(ctx, edit.slice(0, 1200), said);
+        if (p.question) reply = p.question;
+        else if (p.applied) { resumeProposal = { doc: p.doc, summary: p.summary, base: ctx.ws.resume.editedAt || ctx.ws.resume.uploadedAt }; reply = `${p.summary || "Here's the change."} Tap "Use this" to save it to your resume.`; }
+        else reply = "I couldn't make that change without adding something you didn't say. Which line or job do you mean, and what exactly should it say?";
+      } catch {
+        reply = "I couldn't draft that change just now. Try asking again in a minute.";
+      }
+    }
+    for (const m of ctx.ws.chat) delete m.resumeProposal; // only the newest draft is kept
     ctx.ws.chat.push({ id: uid("m"), role: "user", text: message, at: nowIso(), page });
-    ctx.ws.chat.push({ id: uid("m"), role: "assistant", text: String(out.reply || "Sorry — I couldn't form a reply."), at: nowIso(), page, memorySuggestions: (out.remember || []).slice(0, 3).map(String), actions: chatActions(out.actions) });
+    ctx.ws.chat.push({ id: uid("m"), role: "assistant", text: reply, at: nowIso(), page, memorySuggestions: (out.remember || []).slice(0, 3).map(String), actions: chatActions(out.actions), ...(resumeProposal ? { resumeProposal } : {}) });
     await ctx.save();
     res.json(ctx.ws);
   }));
