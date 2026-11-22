@@ -1444,3 +1444,9 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .r1-linkedin > .card { box-shadow: none; border: 0; padding: 0; background: transparent; }
 .r1-linkedin > .card > h3:first-child, .r1-linkedin > .card > .row-between:first-child h3 { display: none; }
 [data-testid="ats-honest"] a { text-decoration: underline; }
+/* Stage 4 (owners first): My Path's direction check, three picture answers. */
+.path-pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.path-pick-tile { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface, var(--white)); font-weight: 600; text-align: center; cursor: pointer; transition: transform .15s ease, border-color .15s ease; }
+.path-pick-tile:hover { transform: translateY(-2px); border-color: var(--fox); }
+.path-pick-tile svg { color: var(--fox); }
+@media (prefers-reduced-motion: reduce) { .path-pick-tile { transition: none; } .path-pick-tile:hover { transform: none; } }

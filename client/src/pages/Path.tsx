@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Check, Compass, HelpCircle, Plus, RotateCcw, Search, Sparkles, Trash2, TrendingDown, TrendingUp } from "lucide-react";
-import { FIELD_GROUPS } from "@shared/fields";
+import { FIELD_GROUPS, FIELD_MAJORS } from "@shared/fields";
 import { NEED_LABEL, ROADS, roadFor, YEARS, yearNumber } from "@shared/roads";
 import type { PathPlan, Task, Workspace } from "@shared/types";
-import { api, fmtDate, rid, useStore } from "../lib/store";
+import { api, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { shownForRole } from "@shared/roleMatch";
@@ -16,7 +16,9 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
   const w = ws!;
   // Decided once per visit: adding a role from "Start here" mustn't make the card jump while the student is using it.
   const [unsure] = useState(() => !!w.onboarding.exploring || !w.profile.targetRoles.trim());
-  const tab = (query.get("tab") as Tab) || "career";
+  const stage4 = useOwnerView(); // redesign stage 4 (owners first): Future of your field folds into the career tab
+  const asked = (query.get("tab") as Tab) || "career";
+  const tab: Tab = stage4 && asked === "future" ? "career" : asked;
   const [busy, setBusy] = useState(false);
   // Same rule as the server: no path until Remy knows something about the student.
   const knows = !!(w.resume || w.profile.major.trim() || w.profile.targetRoles.trim());
@@ -37,8 +39,9 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
         {knows && <button className="btn btn-secondary" onClick={generate} disabled={busy || !config?.ai.available} data-testid="button-refresh-path">{busy ? <Spinner /> : w.plan ? <RotateCcw size={16} /> : <Sparkles size={16} />} {w.plan ? "Refresh suggestions" : "Build my path"}</button>}
       </div>
       {!config?.ai.available && <AiUnavailableNote />}
+      {stage4 && tab === "career" && knows && <PathCheck />}
       <div className="tabs" role="tablist">
-        {([["career", "Career exploration"], ["road", "Your field's road"], ["future", "Future of your field"], ["skills", "Skills & certifications"]] as [Tab, string][]).map(([k, l]) => (
+        {([["career", "Career exploration"], ["road", "Your field's road"], ["future", "Future of your field"], ["skills", "Skills & certifications"]] as [Tab, string][]).filter(([k]) => !(stage4 && k === "future")).map(([k, l]) => (
           <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => go(`/path?tab=${k}`)} data-testid={`tab-path-${k}`}>{l}</button>
         ))}
       </div>
@@ -50,13 +53,13 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
       ) : w.plan && !busy ? (
         <>
           <p className="xs muted">Made {fmtDate(w.plan.generatedAt)}. Changing your profile won't silently rewrite this — refresh when you're ready.</p>
-          {tab === "career" && <Directions plan={w.plan} unsure={unsure} />}
+          {tab === "career" && <div id="path-explore"><Directions plan={w.plan} unsure={unsure} /></div>}
           {(tab === "skills" || tab === "academic") && <><Skills plan={w.plan} /><YourTerms plan={w.plan} /></>}
 
         </>
       ) : null}
       {/* No path yet: exploring by major still works. */}
-      {tab === "career" && !(w.plan && !busy) && <div className="card card-pad"><Explore /></div>}
+      {tab === "career" && !(w.plan && !busy) && <div className="card card-pad" id="path-explore"><Explore /></div>}
     </>
   );
 }
@@ -363,6 +366,45 @@ function Future() {
       })}
       <div className="notice"><div className="small"><b>What "AI tools can speed up" means:</b> the share of a job's tasks where AI could cut the time in half or more, from research by Eloundou, Manning, Mishkin and Rock (2023). It doesn't mean the job goes away. It means people in that job who use AI well will have an edge, so it's worth learning those tools now.</div></div>
       <p className="xs muted">Source: {data.source}. Click a job for the government's full guide to it.</p>
+    </div>
+  );
+}
+
+/** Redesign stage 4 (owners first): My Path opens with Remy checking the direction ("Your resume says finance. Still
+ *  where you want to go?") with picture answers, and the Future of your field tab folds in as a short outlook. */
+function PathCheck() {
+  const { ws, save, run } = useStore();
+  const w = ws!;
+  const about = [w.profile.major, w.profile.targetRoles].join(" ");
+  const field = Object.keys(FIELD_MAJORS).find((f) => FIELD_MAJORS[f].test(about));
+  const key = `path-check:${(field || "none").slice(0, 28)}`;
+  const seen = w.settings.introsSeen || [];
+  const [full, setFull] = useState(false);
+  const [data, setData] = useState<FutureData | null>(null);
+  useEffect(() => { let live = true; api<FutureData>("GET", "/api/future").then((d) => { if (live) setData(d); }, () => {}); return () => { live = false; }; }, [w.profile.major, w.profile.targetRoles, w.profile.interests]);
+  const answer = (then?: () => void) => run(() => save("settings", { ...w.settings, introsSeen: [...seen.filter((x) => !x.startsWith("path-check:")), key].slice(-20) })).then(() => then?.());
+  const f0 = data?.fields[0];
+  const top = f0?.growing.slice(0, 3) || [];
+  return (
+    <div className="stack">
+      {field && !seen.includes(key) && (
+        <div className="card card-pad stack-sm" data-testid="path-check">
+          <div className="row" style={{ flexWrap: "nowrap", gap: 12 }}><Remy size={44} mood="wave" /><b>Your resume says {field.toLowerCase()}. Still where you want to go?</b></div>
+          <div className="path-pick">
+            <button className="path-pick-tile" onClick={() => answer()} data-testid="path-check-yes"><Check size={26} /><span>Yes, {field.toLowerCase()}</span></button>
+            <button className="path-pick-tile" onClick={() => answer(() => document.getElementById("path-explore")?.scrollIntoView({ behavior: "smooth" }))} data-testid="path-check-other"><Compass size={26} /><span>Something else</span></button>
+            <button className="path-pick-tile" onClick={() => run(() => save("onboarding", { ...w.onboarding, exploring: true })).then(() => answer())} data-testid="path-check-unsure"><HelpCircle size={26} /><span>Not sure yet</span></button>
+          </div>
+        </div>
+      )}
+      {f0 && top.length > 0 && (
+        <div className="card card-pad stack-sm" data-testid="path-outlook">
+          <b className="row small"><TrendingUp size={15} /> Where {f0.field} is heading</b>
+          <span className="small">{f0.fasterThanAverage} of {f0.total} {f0.field} jobs are expected to grow faster than average (all U.S. jobs: {data!.allJobsGrowth}%). Growing fastest: {top.map((o) => `${o.title} (+${o.change}%)`).join(", ")}.</span>
+          <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} aria-expanded={full} onClick={() => setFull(!full)} data-testid="button-path-outlook">{full ? "Hide the full outlook" : "See the full outlook"}</button>
+          {full && <Future />}
+        </div>
+      )}
     </div>
   );
 }
