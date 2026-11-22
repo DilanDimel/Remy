@@ -28,6 +28,7 @@ test("doActions does in-app actions with Undo; open and settings stay buttons", 
   ], find, "2026-11-22");
   assert.deepEqual(r.did.map((d) => d.kind), ["save", "task", "tailor", "role"]);
   assert.deepEqual(r.buttons, [{ kind: "open", link: "/calendar", label: "Calendar" }]);
+  assert.deepEqual(r.notes, ["I couldn't find that opening on your list, so nothing was saved."], "the reply says what didn't happen");
   assert.deepEqual(ws.savedJobIds, ["j1"]);
   assert.equal(ws.calendar[0].linkedId, "j1", "saving puts the deadline on the calendar, as on Opportunities");
   assert.equal(ws.tasks[0].due, "2026-11-27");
@@ -48,6 +49,7 @@ test("doActions does in-app actions with Undo; open and settings stay buttons", 
   const twice = doActions(ws, [{ kind: "tailor", jobId: "j2" }], find, "2026-11-22");
   assert.equal(ws.applications.length, 1);
   assert.equal(twice.did.length, 0);
+  assert.match(twice.notes[0], /already started/);
   assert.equal(twice.buttons[0].kind, "open");
   // Work the student did isn't thrown away by an Undo.
   ws.applications[0].changes = [{ status: "accepted" }] as any;
