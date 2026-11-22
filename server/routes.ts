@@ -506,8 +506,9 @@ export async function registerRoutes(_server: Server, app: Express) {
       const ws = await loadWorkspace(u.id);
       const due = dueReminders(ws, today);
       if (!due.length) continue;
-      const { subject, text } = reminderEmail(firstName(ws) || "there", due, process.env.PUBLIC_HOST || "remyai.org");
-      try { await sendEmail(ws.profile.applicationEmail || u.email, subject, text); } catch (e: any) { console.error("deadline reminder failed", e?.message); continue; }
+      // Finish it / Not now buttons: redesign stage 5, owners only while it's tested.
+      const { subject, text, html } = reminderEmail(firstName(ws) || "there", due, process.env.PUBLIC_HOST || "remyai.org", await admin.isOwner({ kind: "google", email: u.email }));
+      try { await sendEmail(ws.profile.applicationEmail || u.email, subject, text, html); } catch (e: any) { console.error("deadline reminder failed", e?.message); continue; }
       await saveSections(u.id, { reminded: [...(ws.reminded || []), ...due.map((d) => d.key)].slice(-300) } as any);
     }
     // Weekly digest, after 7am Central on the student's day.
@@ -1628,6 +1629,14 @@ Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), 
     ctx.ws.nudges = list!;
     await ctx.save();
     res.json(ctx.ws);
+  }));
+  // Not now from a deadline reminder: no more reminder emails or texts for those deadlines (calendar id:date).
+  app.post("/api/reminders/skip", route(async (req, res, ctx) => {
+    const keys = (Array.isArray(req.body?.keys) ? req.body.keys : []).map(String).filter((k: string) => /^[\w-]{1,120}:\d{4}-\d{2}-\d{2}$/.test(k)).slice(0, 20);
+    if (!keys.length) bad("Nothing to skip.");
+    ctx.ws.reminded = [...new Set([...(ctx.ws.reminded || []), ...keys.flatMap((k: string) => [`${k}:soon`, `${k}:day`, `${k}:skip`])])].slice(-300);
+    await ctx.save();
+    res.json({ skipped: keys.length });
   }));
   app.post("/api/checkin", route(async (req, res, ctx) => {
     if (req.body?.kind !== "Nothing new") {

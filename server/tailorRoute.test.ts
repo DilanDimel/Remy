@@ -9,7 +9,7 @@ import { FIT_RULES_VERSION } from "./fit";
 import { registerRoutes } from "./routes";
 
 // The tailoring route after it was split into tailorApplication (stage 5b): the eligibility conflict still answers 409.
-test("generate: an eligibility conflict answers 409 with the posting's note, before any AI call", async (t) => {
+test("generate: an eligibility conflict answers 409 before any AI call; reminder Not now keeps only real keys", async (t) => {
   const app = express();
   app.use(express.json());
   const server = createServer(app);
@@ -36,4 +36,12 @@ test("generate: an eligibility conflict answers 409 with the posting's note, bef
   const body = await r.json() as any;
   assert.equal(body.code, "eligibility-conflict");
   assert.match(body.message, /Seniors only/);
+  // Not now from a reminder email (same harness): only well-formed deadline keys are kept.
+  const skip = await fetch(base + "/api/reminders/skip", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ keys: ["c1:2026-11-23", "bad key", "x:notadate"] }) });
+  assert.equal(skip.status, 200);
+  assert.equal((await skip.json() as any).skipped, 1);
+  const { loadWorkspace } = await import("./db");
+  assert.deepEqual((await loadWorkspace("tr-1")).reminded, ["c1:2026-11-23:soon", "c1:2026-11-23:day", "c1:2026-11-23:skip"]);
+  const none = await fetch(base + "/api/reminders/skip", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ keys: ["nope"] }) });
+  assert.equal(none.status, 400);
 });
