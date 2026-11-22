@@ -11,7 +11,7 @@
     "check:contract": "tsx script/contract.ts",
     "check:resume": "tsx script/resume-check.ts",
     "check:persist": "npm run build && tsx script/persist.ts",
-    "test": "tsx --test server/*.test.ts",
+    "test": "tsx --test server/*.test.ts server/*/*.test.ts",
     "app:sync": "cap sync",
     "app:android": "cap sync android && cap open android",
     "app:ios": "cap sync ios && cap open ios",

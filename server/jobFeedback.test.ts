@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { keepNewerJobFeedback } from "../client/src/lib/jobFeedback";
-import { emptyWorkspace } from "./db";
+import { emptyWorkspace } from "./platform/db";
 import type { JobInterest, Workspace } from "../shared/types";
 
 const interest = (rating: JobInterest["rating"]): JobInterest => ({

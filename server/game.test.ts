@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { counters, doneThisWeek, levelOf, streak, weekKey, weekMissions, xpOf } from "../shared/game";
-import { emptyWorkspace } from "./db";
+import { emptyWorkspace } from "./platform/db";
 
 test("career quest: a mission is done when its count goes up by the target this week", () => {
   const w = emptyWorkspace();
@@ -54,7 +54,7 @@ test("career quest, skeptic fixes: the week's missions stay fixed; the freeze ho
 
 test("career quest: the server merges weeks, so a stale tab can't wipe a week or its finished missions", async () => {
   const { registerRoutes } = await import("./routes");
-  const { createSession, ensureUser, saveWorkspace, loadWorkspace } = await import("./db");
+  const { createSession, ensureUser, saveWorkspace, loadWorkspace } = await import("./platform/db");
   const express = (await import("express")).default;
   const { createServer } = await import("node:http");
   const app = express(); app.use(express.json({ limit: "5mb" }));
@@ -112,7 +112,7 @@ test("career quest: a Sunday-evening win (Monday in UTC) counts for its own week
 });
 
 test("Log a win: the student's own sentence becomes the line when the AI's adds words (only their words)", async () => {
-  const { ownLine, cleanCheckin } = await import("./checkin");
+  const { ownLine, cleanCheckin } = await import("./coach/checkin");
   assert.equal(ownLine("Ran the NABA tabling shift at the spring org fair and signed up 15 new members."), "Ran the NABA tabling shift at the spring org fair and signed up 15 new members");
   assert.equal(ownLine("I organized our club's first study night"), "Organized our club's first study night");
   assert.equal(ownLine("it was a good week at work"), "", "not a resume line: no line offered");

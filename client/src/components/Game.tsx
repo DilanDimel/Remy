@@ -92,7 +92,7 @@ export function MissionBoard({ w }: { w: Workspace }) {
 }
 
 /** Bonus: one sentence about your week becomes a resume line you approve (council, Nov 19). Optional, so nobody types
- *  junk to save a streak; Remy uses only the student's words (server/checkin.ts checks the draft). */
+ *  junk to save a streak; Remy uses only the student's words (server/coach/checkin.ts checks the draft). */
 function LogWin({ w, weekKey: key, done }: { w: Workspace; weekKey: string; done: boolean }) {
   const { run, setWs, save } = useStore();
   const [kind, setKind] = useState("");

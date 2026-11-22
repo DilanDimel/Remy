@@ -214,7 +214,7 @@ export interface Job {
 export interface JobFit {
   at: string;
   by: "rules" | "ai";
-  /** Version of the fit rules this verdict came from (server/fit.ts FIT_RULES_VERSION). */
+  /** Version of the fit rules this verdict came from (server/jobs/fit.ts FIT_RULES_VERSION). */
   v?: number;
   eligibility: "likely" | "check" | "unlikely" | "unknown";
   eligibilityNote: string;
@@ -286,7 +286,7 @@ export interface AtsScore {
 }
 export interface Application {
   id: string;
-  /** Rewrites Remy dropped because even its repair try still said more than the resume (server/tailorFix.ts). */
+  /** Rewrites Remy dropped because even its repair try still said more than the resume (server/ai/tailorFix.ts). */
   skippedChanges?: number;
   /** Those were left out because the AI was busy, not because they overstated (try tailoring again later). */
   skippedBusy?: boolean;
@@ -452,7 +452,7 @@ export interface ChatMsg {
   /** A resume change Remy drafted from the student's chat message (redesign stage 3): shown as before → after with
    *  "Use this"; nothing is saved until they tap it. Only the newest message keeps its draft. */
   resumeProposal?: { doc: ResumeDoc; summary: string; base: string };
-  /** What Remy did from this reply (redesign stage 6, owners first), each with Undo (server/chatDo.ts). */
+  /** What Remy did from this reply (redesign stage 6, owners first), each with Undo (server/ai/chatDo.ts). */
   did?: ChatDid[];
 }
 export type ChatAction = { kind: "task"; title: string; why: string; due?: string } | { kind: "role"; title: string } | { kind: "open"; link: string; label: string }
@@ -505,7 +505,7 @@ export interface Workspace {
   openingsCheckedAt?: string;
   /** When Remy last read each employer's career site for this student (so "Find more" reaches new ones). */
   employersRead?: Record<string, string>;
-  /** Links of old openings removed from the list (server/trim.ts), so a search doesn't add them back as new. */
+  /** Links of old openings removed from the list (server/resume/trim.ts), so a search doesn't add them back as new. */
   droppedJobUrls?: string[];
   /** The AI's employer pick for openings searches, reused for 7 days while the profile it was made from is unchanged. */
   employerPick?: { at: string; key: string; names: string[] };
@@ -549,11 +549,11 @@ export interface Workspace {
   lastCheckin?: string;
   /** Days (YYYY-MM-DD, Central) the student opened Remy, newest last; owners see only return rates from it. */
   visits?: string[];
-  /** Match emails Remy sent (server/nudges.ts) and the student's Yes / Not now. Server-written. */
+  /** Match emails Remy sent (server/coach/nudges.ts) and the student's Yes / Not now. Server-written. */
   nudges?: { id: string; jobId: string; at: string; answer?: "yes" | "later"; answeredAt?: string }[];
   /** When Remy last drafted tailored resumes overnight (stage 5b). Server-written. */
   overnightAt?: string;
-  /** Urgent texts Remy sent, or kept in test mode (server/texts.ts). Server-written. */
+  /** Urgent texts Remy sent, or kept in test mode (server/notify/texts.ts). Server-written. */
   texts?: { key: string; day: string; at: string; to: string; body: string; mode: "twilio" | "test" }[];
   /** Deadline reminders already emailed (calendar id:date:soon|day), so each goes out once. */
   reminded?: string[];
@@ -577,9 +577,9 @@ export interface Workspace {
     assistantOpen: boolean;
     navCollapsed: boolean;
     notify: { deadlines: boolean; statusChanges: boolean; weeklyPlan: boolean };
-    /** How often Remy emails about a new opening that fits (server/nudges.ts). Unset = weekly. */
+    /** How often Remy emails about a new opening that fits (server/coach/nudges.ts). Unset = weekly. */
     nudges?: "daily" | "weekly" | "off";
-    /** Opt-in texts for urgent deadlines (server/texts.ts): on/off and a US phone number. */
+    /** Opt-in texts for urgent deadlines (server/notify/texts.ts): on/off and a US phone number. */
     texts?: { on: boolean; phone: string };
     /** Connectors shown as connected in the demo (no data is read from them yet). */
     demoConnections?: string[];

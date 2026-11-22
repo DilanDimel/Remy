@@ -7,7 +7,7 @@ import { acceptDraft, acceptHtml } from "@shared/acceptEmail";
 import { WhatsNew } from "../components/WhatsNew";
 import { ThemeToggle } from "../components/ThemeToggle";
 
-// The owners' dashboard (server/admin.ts). Numbers about use, errors students hit, and the team's
+// The owners' dashboard (server/platform/admin.ts). Numbers about use, errors students hit, and the team's
 // own board, meetings, hours and activity. Never anything a student wrote.
 type Overview = {
   northWeek: number; northPrev: number;

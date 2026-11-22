@@ -6,7 +6,7 @@
 // so running it twice is safe.
 import Database from "better-sqlite3";
 import pg from "pg";
-import { closeDb, q, sslFor } from "../server/sql";
+import { closeDb, q, sslFor } from "../server/platform/sql";
 
 const from = process.argv[process.argv.indexOf("--from") + 1];
 if (!from || from === process.argv[1]) {

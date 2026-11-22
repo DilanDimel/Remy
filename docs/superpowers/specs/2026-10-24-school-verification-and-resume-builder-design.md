@@ -145,7 +145,7 @@ PowerPoint, Google Sheets, languages). A skill goes on the resume only if the st
   like **`[how many customers a shift?]`** for them to fill in or delete. Blanks are highlighted and must be
   filled or removed before the resume is saved.
 - **Every bullet shows where it came from.** Tap it to see "from your answer: *'I trained the new hires'*".
-- Each bullet goes through the existing honesty check (`claimCheck` in `server/claims.ts`), with the student's
+- Each bullet goes through the existing honesty check (`claimCheck` in `server/ai/claims.ts`), with the student's
   answers as the evidence. Anything flagged is rewritten or dropped.
 
 **6. Wording choices.** For each bullet, 2–3 phrasings to tap between, plus free editing. These are different

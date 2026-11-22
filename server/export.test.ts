@@ -5,9 +5,9 @@ import assert from "node:assert/strict";
 import express from "express";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { createSession, deleteAccount, emptyWorkspace, ensureUser, saveFile, saveWorkspace } from "./db";
+import { createSession, deleteAccount, emptyWorkspace, ensureUser, saveFile, saveWorkspace } from "./platform/db";
 import { registerRoutes } from "./routes";
-import { q } from "./sql";
+import { q } from "./platform/sql";
 
 test("data export: account, workspace, files, feedback, AI use, calendar link; no secrets", async (t) => {
   const app = express();

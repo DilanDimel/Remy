@@ -14,7 +14,7 @@
 //    so "Health Education" gets CHES, not teacher certification.)
 //   (athletic-training before kinesiology also sends TCU's "Movement Science 3+2" (BS Kinesiology + MSAT) to athletic training.)
 //
-// Tests that must change in server/fit.test.ts (they encode the old combined road / the old "no dental road" rule):
+// Tests that must change in server/jobs/fit.test.ts (they encode the old combined road / the old "no dental road" rule):
 //   roadFor("Biochemistry (Pre-Dental)") → "pre-dental" (was null);  roadFor("dentistry") → "pre-dental" (was null)
 //   roadFor("Pre-Med Biology") → "pre-med";  roadFor("Pre-PT Kinesiology") → "pre-pt";  roadFor("Pharmacy") → "pre-pharmacy"
 //   "second review: lookalike fields get no road" (line ~409): "Veterinary Medicine" now → "pre-vet" (was null); take it out of that list.

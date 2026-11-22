@@ -12,62 +12,62 @@ import { PATHS } from "@shared/types";
 import { BETA_TERMS_VERSION } from "@shared/beta";
 import { NAME_CHECK, firstName, knownName, nameUnsure, sameName } from "@shared/names";
 import { JOB_INTEREST_REASONS, type JobInterestRating } from "@shared/types";
-import { employerPreferences, interestContext, interestEnabled, ownInterest } from "./ranking";
+import { employerPreferences, interestContext, interestEnabled, ownInterest } from "./jobs/ranking";
 import { keepQuestions, skippedPrefs } from "@shared/setupReply";
 import { latestNewsId } from "@shared/news";
 import { isNonAnswer } from "@shared/words";
-import { draftOk } from "./bulletDraft";
+import { draftOk } from "./ai/bulletDraft";
 import { STORY_ASK, STORY_PARTS, findLine, namesNew, sameLine } from "@shared/stories";
-import { storyLines } from "./storyLines";
-import { checkedInterviewDate, zoneIn } from "./interviewDate";
-import { briefMessages, briefPrompt, cleanBrief, skillOriginQuestion } from "./brief";
-import { betterLetter, keptFixes, letterFixPrompt, rewriteFixPrompt } from "./tailorFix";
-import { BUZZ, assemblePitch, type PitchParts } from "./pitch";
-import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./db";
-import { inOwnerTrial, runAiAs, aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai";
-import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./safety";
-import * as admin from "./admin";
-import * as beta from "./beta";
-import * as signals from "./signals";
+import { storyLines } from "./coach/storyLines";
+import { checkedInterviewDate, zoneIn } from "./coach/interviewDate";
+import { briefMessages, briefPrompt, cleanBrief, skillOriginQuestion } from "./coach/brief";
+import { betterLetter, keptFixes, letterFixPrompt, rewriteFixPrompt } from "./ai/tailorFix";
+import { BUZZ, assemblePitch, type PitchParts } from "./coach/pitch";
+import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./platform/db";
+import { inOwnerTrial, runAiAs, aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai/ai";
+import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./ai/safety";
+import * as admin from "./platform/admin";
+import * as beta from "./platform/beta";
+import * as signals from "./jobs/signals";
 import { acceptHtml } from "@shared/acceptEmail";
-import { recordError } from "./admin";
-import { careersFor, futureFor, occupationDetails, officialFor } from "./future";
-import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase } from "./auth";
-import { aiExtractPosting, CLOSED_SIGNALS, docxPreviewHtml, fetchPublic, fileToText, htmlToText, norm, pdfStyle } from "./parse";
+import { recordError } from "./platform/admin";
+import { careersFor, futureFor, occupationDetails, officialFor } from "./jobs/future";
+import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase } from "./platform/auth";
+import { aiExtractPosting, CLOSED_SIGNALS, docxPreviewHtml, fetchPublic, fileToText, htmlToText, norm, pdfStyle } from "./resume/parse";
 import {
   aiParseResume, chooseReading, extractSkills, skillsPosition, graduationOf, gpaOf, majorsOf, minorsOf, preCollegeIds, normalizeResumeText, parseQuality, primaryEducation, resumeToText, rulesParse, schoolName,
   stillMissing, nameCase,
-} from "./resume";
-import { atsChecks, claimCheck } from "./claims";
-import { CHECKIN_KINDS, cleanCheckin } from "./checkin";
+} from "./resume/resume";
+import { atsChecks, claimCheck } from "./ai/claims";
+import { CHECKIN_KINDS, cleanCheckin } from "./coach/checkin";
 import { checkinProposals } from "@shared/checkin";
-import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, skillSuggestions } from "./builder";
-import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSION, planJobs, typeMatch } from "./fit";
-import { atsScore } from "./ats";
-import { pastTerm } from "./fit";
-import * as agents from "./agents";
-import { dueReminders, reminderEmail, weeklyDigest } from "./reminders";
-import { answerNudge, overnightPicks, sendNudges } from "./nudges";
+import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, skillSuggestions } from "./resume/builder";
+import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSION, planJobs, typeMatch } from "./jobs/fit";
+import { atsScore } from "./resume/ats";
+import { pastTerm } from "./jobs/fit";
+import * as agents from "./ai/agents";
+import { dueReminders, reminderEmail, weeklyDigest } from "./notify/reminders";
+import { answerNudge, overnightPicks, sendNudges } from "./coach/nudges";
 import { markDay } from "@shared/daily";
-import { doActions, undoDid } from "./chatDo";
-import { sendTexts, usPhone } from "./texts";
+import { doActions, undoDid } from "./ai/chatDo";
+import { sendTexts, usPhone } from "./notify/texts";
 import { step } from "@shared/progress";
-import { conferencesFor } from "./conferences";
-import { trimOpenings } from "./trim";
-import { storageReport, warnIfNearLimit } from "./storage";
-import * as insights from "./insights";
-import * as services from "./services";
-import { pruneOpenings, recordFound, recordCheck, listOpenings, openingsSummary } from "./openings";
-import { askedLength, keepAskedLength } from "./outreachAsk";
-import { noUpgrade } from "./noUpgrade";
-import { boardsFor, orderEmployers, preferMetros, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, isEmptyListing, refillEmpty, kindOf, USAJOBS } from "./sources";
-import { emailReady, sendEmail } from "./email";
-import { currentResumeDocx, docxStyle, editResumeDocx } from "./docxEdit";
-import { keepDecided } from "./keepDecided";
-import * as gcal from "./gcal";
-import { q, q1, schema } from "./sql";
-import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./docs";
-import { pageGuide } from "./pageGuide";
+import { conferencesFor } from "./jobs/conferences";
+import { trimOpenings } from "./resume/trim";
+import { storageReport, warnIfNearLimit } from "./platform/storage";
+import * as insights from "./jobs/insights";
+import * as services from "./platform/services";
+import { pruneOpenings, recordFound, recordCheck, listOpenings, openingsSummary } from "./jobs/openings";
+import { askedLength, keepAskedLength } from "./coach/outreachAsk";
+import { noUpgrade } from "./coach/noUpgrade";
+import { boardsFor, orderEmployers, preferMetros, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, isEmptyListing, refillEmpty, kindOf, USAJOBS } from "./jobs/sources";
+import { emailReady, sendEmail } from "./notify/email";
+import { currentResumeDocx, docxStyle, editResumeDocx } from "./resume/docxEdit";
+import { keepDecided } from "./coach/keepDecided";
+import * as gcal from "./notify/gcal";
+import { q, q1, schema } from "./platform/sql";
+import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./resume/docs";
+import { pageGuide } from "./ai/pageGuide";
 
 // Email domains whose owners count as students of the partner school (TCU).
 const ALUMNI_DOMAINS = (process.env.OR_ALUMNI_EMAIL_DOMAINS || "tcu.edu").split(",").map((d) => d.trim().toLowerCase()).filter(Boolean);
@@ -300,7 +300,7 @@ function fromResume(doc: ResumeDoc) {
   };
 }
 
-// ---------- deterministic fit (server/fit.ts) ----------
+// ---------- deterministic fit (server/jobs/fit.ts) ----------
 const fitOf = (ws: Workspace, job: Job) => computeFit(ws, job, evidenceOf(ws));
 
 // Openings that can't be applied to anymore. Checked on every read rather than cached in
@@ -712,7 +712,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.json({ ok: true });
   });
 
-  // ---------- owners' dashboard (server/admin.ts) ----------
+  // ---------- owners' dashboard (server/platform/admin.ts) ----------
   const owner = (ctx: Ctx) => { if (!ctx.me.owner) bad("This page is only for Remy's owners.", 403); return ctx.me.email.toLowerCase(); };
   app.get("/api/admin/overview", route(async (_req, res, ctx) => { owner(ctx); res.json(await admin.overview()); }));
   app.get("/api/admin/errors", route(async (_req, res, ctx) => { owner(ctx); res.json(await admin.errors()); }));
@@ -1457,7 +1457,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       ),
     );
     const draft = String(out?.bullet || "").replace(/\s+/g, " ").trim().replace(/\.$/, "").slice(0, 300);
-    // Only the line plus the student's answer, never a hedged action upgraded (server/bulletDraft.ts).
+    // Only the line plus the student's answer, never a hedged action upgraded (server/ai/bulletDraft.ts).
     if (!draftOk(kind as "numbers" | "verbs", text, answer, draft)) {
       bad("Remy couldn't improve this line without adding something you didn't say. Edit it yourself in the Edit tab.", 422);
     }
@@ -1557,7 +1557,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.json({ tips: (out.tips || []).map((t) => String(t).trim().slice(0, 300)).filter(Boolean).slice(0, 3) });
   }));
 
-  // 30-second pitch from the student's own record, written to be spoken (server/pitch.ts). Each part is honesty-checked;
+  // 30-second pitch from the student's own record, written to be spoken (server/coach/pitch.ts). Each part is honesty-checked;
   // one that fails is replaced by a plain true sentence from the profile, so the pitch never turns choppy.
   app.post("/api/ai/pitch", route(async (_req, res, ctx) => {
     if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE);
@@ -1886,7 +1886,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       await ctx.save();
       return res.json(ctx.ws);
     }
-    // Redesign stage 6 (owners first): Remy does in-app actions itself (server/chatDo.ts), each with Undo.
+    // Redesign stage 6 (owners first): Remy does in-app actions itself (server/ai/chatDo.ts), each with Undo.
     const doer = !!ctx.me.owner && ctx.ws.settings.ownerView !== false;
     const history = ctx.ws.chat.slice(-12).map((m) => `${m.role === "user" ? "Student" : "Assistant"}: ${m.text}`).join("\n");
     // The openings shown on Opportunities (not hidden as a poor fit), so Remy can answer "which should I apply to?".
@@ -2214,7 +2214,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     return a!;
   };
 
-  // Before tailoring: a coach's brief (company, role, why you fit) and tap-to-answer questions (server/brief.ts).
+  // Before tailoring: a coach's brief (company, role, why you fit) and tap-to-answer questions (server/coach/brief.ts).
   // One AI call; if it fails the chat falls back to the plain questions, so tailoring never depends on it.
   app.post("/api/applications/:id/brief", route(async (req, res, ctx) => {
     const a = getApp(ctx, String(req.params.id));
@@ -2330,7 +2330,7 @@ Return JSON:
     a.gaps = (out.gaps || []).map((g: any) => ({ requirementQuote: reqById.get(String(g.requirementId))?.quote || "", note: String(g.note || "") })).filter((g: any) => g.note);
     a.letter = stripPlaceholders(String(out.coverLetter || "").trim());
     a.letterFlags = letterFlagsFor(ctx.ws, a, job);
-    // Remy fixes what its own check rejects before the student sees it (server/tailorFix.ts): one more AI try for the
+    // Remy fixes what its own check rejects before the student sees it (server/ai/tailorFix.ts): one more AI try for the
     // flagged rewrites and letter, in parallel. A rewrite that still fails isn't offered; the student keeps their line.
     const draftModel = lastUsedModel(); // the model that wrote the draft, not the repair call
     const flagged = changes.filter((c) => c.flags.length);
@@ -2709,7 +2709,7 @@ Return JSON:
       confidence: proposed === "Unclear" || !evidence ? "low" : agree ? "high" : "medium",
       evidence, rulesSay: rules.status, aiSays: aiStatusVal, createdAt: nowIso(), state: "open",
       // An interview date only when the email says it in words we can find (AI asks, never assumes), and not in the past.
-      // The quoted words must state that day and month, and the email must name only that one date (server/interviewDate.ts).
+      // The quoted words must state that day and month, and the email must name only that one date (server/coach/interviewDate.ts).
       ...(() => {
         const q = String(ai?.dateQuote || "").trim(), tm = String(ai?.time || "");
         const d = proposed === "Interview" && q && norm(m!.body).includes(norm(q)) ? checkedInterviewDate(m!.body, q, String(ai?.date || ""), centralToday()) : "";

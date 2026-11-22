@@ -1,10 +1,10 @@
 // "Delete everything" must leave nothing that identifies the student (privacy policy). Run with `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { deleteAccount, emptyWorkspace, ensureUser, saveWorkspace } from "./db";
-import { add, parseAnswers, saveApplication } from "./beta";
-import { recordError } from "./admin";
-import { q } from "./sql";
+import { deleteAccount, emptyWorkspace, ensureUser, saveWorkspace } from "./platform/db";
+import { add, parseAnswers, saveApplication } from "./platform/beta";
+import { recordError } from "./platform/admin";
+import { q } from "./platform/sql";
 
 test("delete account: feedback, error reports, beta application and beta-list entry go too; others stay", async () => {
   for (const [id, email] of [["sb:del-me", "Del.Me@tcu.edu"], ["sb:del-other", "other@tcu.edu"]]) {

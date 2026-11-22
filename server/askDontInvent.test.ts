@@ -1,8 +1,8 @@
 // Ask, don't invent (Dilan, Nov 18): Remy asks where a skill was learned instead of writing "through my coursework".
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { claimCheck } from "./claims";
-import { skillOriginQuestion } from "./brief";
+import { claimCheck } from "./ai/claims";
+import { skillOriginQuestion } from "./coach/brief";
 
 const resume = "Sales Associate, Academy Sports + Outdoors\nRan the register and handled cash and card payments\nSkills: Excel, PowerPoint, customer service";
 

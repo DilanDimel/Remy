@@ -83,7 +83,7 @@ try {
   // Remy has no built-in postings, so add two the way the live search would, with the server stopped.
   await stop();
   process.env.OR_DB_PATH = dbPath;
-  const db = await import("../server/db");
+  const db = await import("../server/platform/db");
   const seeded = await db.loadWorkspace(me.id);
   for (const n of [1, 2]) seeded.jobs.push({
     id: `job-persist-${n}`, kind: "internship", title: `Finance Intern ${n}`, company: "Example Co", location: "Dallas, TX", format: "", dates: "",
@@ -91,7 +91,7 @@ try {
     sourceName: "Example Co careers", label: "Live", checkedAt: "2026-10-23", checks: [], origin: "imported",
   });
   await db.saveWorkspace(me.id, seeded);
-  await (await import("../server/sql")).closeDb(); // PGlite allows one process per folder
+  await (await import("../server/platform/sql")).closeDb(); // PGlite allows one process per folder
   await start();
   const jobs = (await call(cookie, "GET", "/api/jobs")).json.jobs;
   assert.equal(jobs.length, 2, "the seeded openings should be listed");

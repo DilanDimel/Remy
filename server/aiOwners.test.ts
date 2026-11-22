@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 process.env.OPENROUTER_API_KEY ||= "test-key";
 process.env.OR_AI_CHAIN = "openrouter:google/gemini-3.8-flash";
 process.env.OR_AI_CHAIN_OWNERS = "openrouter:anthropic/claude-haiku-5.5,openrouter:google/gemini-3.8-flash";
-const { model, runAiAs, privacyRouting } = await import("./ai");
+const { model, runAiAs, privacyRouting } = await import("./ai/ai");
 
 test("ai owners: an owner's request uses the trial chain, a student's keeps today's", async () => {
   assert.equal(model(), "google/gemini-3.8-flash");
@@ -18,6 +18,6 @@ test("ai owners: privacy routing is zero-retention, no data collection, chosen p
   assert.deepEqual(privacyRouting("openai/gpt-5.6-luna"), { zdr: true, data_collection: "deny" });
 });
 test("ai owners: the dashboard status names the owners' trial model", async () => {
-  const { aiStatus } = await import("./ai");
+  const { aiStatus } = await import("./ai/ai");
   assert.equal(aiStatus().ownerTrial, "anthropic/claude-haiku-5.5");
 });

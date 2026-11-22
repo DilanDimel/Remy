@@ -8,12 +8,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { Document, Header, Packer, Paragraph, Tab, TextRun } from "docx";
 import type { ResumeDoc, Workspace } from "@shared/types";
-import { dropRunningLines, fileToText, layoutLines } from "../server/parse";
+import { dropRunningLines, fileToText, layoutLines } from "../server/resume/parse";
 import {
   chooseReading, graduationOf, headingOf, majorsOf, minorsOf, normalizeResumeText, parseQuality, primaryEducation, resumeToText, rulesParse, schoolName, splitDate,
   splitLocation, verifyAiDoc,
-} from "../server/resume";
-import { classYearOf, gradDate } from "../server/fit";
+} from "../server/resume/resume";
+import { classYearOf, gradDate } from "../server/jobs/fit";
 
 const root = path.resolve(import.meta.dirname, "..");
 const fixture = (name: string) => fs.readFileSync(path.join(root, "script/fixtures/resumes", name), "utf8").replace(/ ?⇥ ?/g, "\t");

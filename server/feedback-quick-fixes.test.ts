@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { errors, fixError, fromExtension, recordError } from "./admin";
+import { errors, fixError, fromExtension, recordError } from "./platform/admin";
 import { isNonAnswer, skillProof } from "@shared/words";
 import { linkedinBasics } from "@shared/linkedin";
 
@@ -65,5 +65,5 @@ test("pitch: the prompt no longer asks to end with a question", () => {
   const src = readFileSync(new URL("./routes.ts", import.meta.url), "utf8");
   const prompt = src.slice(src.indexOf('app.post("/api/ai/pitch"'), src.indexOf('app.post("/api/ai/pitch"') + 1200);
   assert.doesNotMatch(prompt, /End with one short question/);
-  assert.match(prompt, /No questions/); // and server/pitch.test.ts checks a question is never kept
+  assert.match(prompt, /No questions/); // and server/coach/pitch.test.ts checks a question is never kept
 });
