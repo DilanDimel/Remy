@@ -14,6 +14,8 @@
   --fox-light: #ff8a4c; --fox-hot: #e2632a; --fox-700: #c2410c; --fox-800: #9a3412; --linkedin: #0a66c2; --online: #22a35a;
   /* Resume highlights (stage 3), like the reference: action words, hard skills, soft skills, numbers, results. */
   --hl-action: #fbc4b4; --hl-hard: #fde0a6; --hl-soft: #fdf3a7; --hl-number: #c9efc0; --hl-result: #c7e2fb;
+  /* The same light highlights for the student's own file, which is white paper in both themes (dark ones hid the words). */
+  --paper-hl-action: #fbc4b4; --paper-hl-hard: #fde0a6; --paper-hl-soft: #fdf3a7; --paper-hl-number: #c9efc0; --paper-hl-result: #c7e2fb;
   --font-body: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
@@ -1428,3 +1430,14 @@ body:has(.remy-dock) .topbar { border-bottom-color: transparent; }
 .rm-side-review { max-height: none; overflow: visible; position: static; }
 .r1 .rm-paper { max-width: none; }
 .r1-side-card h3 { font-size: 1rem; }
+/* Stage 3: the colours on the student's own file (Word frame / PDF pages with highlight boxes). */
+.rr-frame-box { width: 100%; }
+.rr-frame { width: 100%; border: 0; display: block; background: transparent; }
+.rr-pdf { display: flex; flex-direction: column; gap: 12px; }
+.rr-page { position: relative; width: 100%; box-shadow: 0 1px 6px rgba(0, 0, 0, .15); background: var(--white); }
+.rr-page img { width: 100%; height: 100%; display: block; }
+.rr-hl { position: absolute; mix-blend-mode: multiply; border-radius: 2px; pointer-events: none; }
+.rr-hl.rm-action { background: var(--paper-hl-action); } .rr-hl.rm-hard { background: var(--paper-hl-hard); } .rr-hl.rm-soft { background: var(--paper-hl-soft); } .rr-hl.rm-number { background: var(--paper-hl-number); } .rr-hl.rm-result { background: var(--paper-hl-result); }
+.rr-flag { position: absolute; margin: 0; white-space: nowrap; font-size: 10px; line-height: 1.4; background: var(--white); display: flex; align-items: center; }
+.rr-pdf, .rr-frame-box { min-width: 0; width: 100%; overflow: hidden; }
+.rr-page img { max-width: 100%; }

@@ -220,3 +220,23 @@ test("Word download: a line reworded in Remy and then deleted is taken out of th
   assert.deepEqual(missed, []);
   assert.deepEqual(await lines(buf), ["Chick-fil-A", FILE[0][1], FILE[1][1]]);
 });
+
+// Stage 3: the Resume page shows the student's own Word file with their changes; nothing it can't place is guessed.
+test("current Word file: an added skill goes into the Skills line's own run, label and bold kept; unplaceable header is reported", async () => {
+  const { currentResumeDocx } = await import("./docxEdit");
+  const run = (text: string, bold = false) => new TextRun({ text, font: "Georgia", size: 22, bold });
+  const original = await Packer.toBuffer(new Document({ sections: [{ children: [
+    new Paragraph({ children: [run("Maya Lopez", true)] }),
+    new Paragraph({ children: [run("Chick-fil-A", true)] }),
+    new Paragraph({ bullet: { level: 0 }, children: [run("Trained new hires on the drive-thru line")] }),
+    new Paragraph({ children: [run("Technical Skills: ", true), run("Excel, PowerPoint")] }),
+  ] }] }));
+  const doc = { contact: { name: "Maya Lopez", email: "", phone: "", location: "", links: "" }, sections: [{ id: "s", heading: "", entries: [{ id: "e", org: "Chick-fil-A", role: "", location: "", dates: "", bullets: [{ id: "b", text: "Trained new hires on the drive-thru line" }] }] }], skills: [{ id: "k", label: "Technical Skills", items: "Excel, PowerPoint, Tableau" }] } as any;
+  const ok = await currentResumeDocx(original, doc);
+  assert.deepEqual(ok.missed, []);
+  const xml = await xmlOf(ok.buf);
+  assert.ok(xml.includes("Excel, PowerPoint, Tableau"));
+  assert.match(xml, /<w:b\/>[\s\S]*Technical Skills: /, "label run unchanged");
+  const bad = await currentResumeDocx(original, { ...doc, sections: [{ ...doc.sections[0], entries: [{ ...doc.sections[0].entries[0], org: "Starbucks" }] }] });
+  assert.deepEqual(bad.missed, ["Starbucks"]);
+});
