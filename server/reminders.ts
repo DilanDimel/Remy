@@ -19,11 +19,25 @@ export function dueReminders(ws: Workspace, today: string) {
   return out;
 }
 
-export function reminderEmail(name: string, items: { title: string; date: string; left: number }[], host: string) {
+const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+
+/** `buttons` (redesign stage 5, owners first): Finish it / Not now, where Not now stops reminders and texts for these deadlines. */
+export function reminderEmail(name: string, items: { key: string; title: string; date: string; left: number }[], host: string, buttons = false) {
   const when = (l: number) => (l === 0 ? "today" : l === 1 ? "tomorrow" : `in ${l} days`);
   const lines = items.map((i) => `• ${i.title}: closes ${when(i.left)} (${i.date})`).join("\n");
   const subject = items.length === 1 ? `${items[0].title} closes ${when(items[0].left)}` : `${items.length} deadlines coming up`;
-  return { subject, text: `Hi ${name},\n\n${lines}\n\nOpen Remy to finish: https://${host}/calendar\n\nYou get this because deadline reminders are on. Turn them off in Account → Appearance & alerts.\n\nRemy` };
+  const foot = "You get this because deadline reminders are on. Turn them off in Account → Appearance & alerts.";
+  const finish = `https://${host}/calendar`;
+  if (!buttons) return { subject, text: `Hi ${name},\n\n${lines}\n\nOpen Remy to finish: ${finish}\n\n${foot}\n\nRemy` };
+  // The deadline part of each key (calendar id:date), so Not now covers both the early and the day-of reminder.
+  const later = `https://${host}/calendar?skip=${encodeURIComponent(items.map((i) => i.key.split(":").slice(0, 2).join(":")).join(","))}`;
+  const btn = (href: string, label: string, primary: boolean) =>
+    `<a href="${esc(href)}" style="display:inline-block;padding:10px 18px;border-radius:8px;font-weight:600;text-decoration:none;${primary ? "background:#3b5bdb;color:#ffffff;" : "background:#f1f3f5;color:#212529;"}">${label}</a>`;
+  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.5;color:#212529;max-width:520px">
+<p>Hi ${esc(name)},</p><ul>${items.map((i) => `<li>${esc(i.title)}: closes ${when(i.left)} (${i.date})</li>`).join("")}</ul>
+<p>${btn(finish, "Finish it", true)} &nbsp; ${btn(later, "Not now", false)}</p>
+<p style="font-size:12px;color:#868e96">${esc(foot)} Not now stops reminders about ${items.length > 1 ? "these deadlines" : "this deadline"}.</p><p>Remy</p></div>`;
+  return { subject, text: `Hi ${name},\n\n${lines}\n\nFinish it: ${finish}\nNot now (no more reminders about ${items.length > 1 ? "these" : "this"}): ${later}\n\n${foot}\n\nRemy`, html };
 }
 
 /** Weekly digest: on the student's career-time day (Sunday if none), once a week, only when there's news. */

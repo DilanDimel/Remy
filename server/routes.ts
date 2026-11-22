@@ -47,7 +47,7 @@ import { atsScore } from "./ats";
 import { pastTerm } from "./fit";
 import * as agents from "./agents";
 import { dueReminders, reminderEmail, weeklyDigest } from "./reminders";
-import { answerNudge, sendNudges } from "./nudges";
+import { answerNudge, overnightPicks, sendNudges } from "./nudges";
 import { sendTexts, usPhone } from "./texts";
 import { step } from "@shared/progress";
 import { conferencesFor } from "./conferences";
@@ -506,8 +506,9 @@ export async function registerRoutes(_server: Server, app: Express) {
       const ws = await loadWorkspace(u.id);
       const due = dueReminders(ws, today);
       if (!due.length) continue;
-      const { subject, text } = reminderEmail(firstName(ws) || "there", due, process.env.PUBLIC_HOST || "remyai.org");
-      try { await sendEmail(ws.profile.applicationEmail || u.email, subject, text); } catch (e: any) { console.error("deadline reminder failed", e?.message); continue; }
+      // Finish it / Not now buttons: redesign stage 5, owners only while it's tested.
+      const { subject, text, html } = reminderEmail(firstName(ws) || "there", due, process.env.PUBLIC_HOST || "remyai.org", await admin.isOwner({ kind: "google", email: u.email }));
+      try { await sendEmail(ws.profile.applicationEmail || u.email, subject, text, html); } catch (e: any) { console.error("deadline reminder failed", e?.message); continue; }
       await saveSections(u.id, { reminded: [...(ws.reminded || []), ...due.map((d) => d.key)].slice(-300) } as any);
     }
     // Weekly digest, after 7am Central on the student's day.
@@ -597,6 +598,44 @@ export async function registerRoutes(_server: Server, app: Express) {
       } finally { searching.delete(u.id); }
     }
   };
+  // Overnight drafts (redesign stage 5b): between 1 and 6 am Central, a tailored resume and letter for the top 1 or 2
+  // new openings that fit, for students active in the last 14 days. All changes stay pending: nothing is used until the
+  // student approves it. Once a night per student, at most 4 students a run (each draft is a few AI calls).
+  // OWNERS ONLY while the redesign is tested.
+  const overnightDrafts = async () => {
+    const hour = Number(new Date().toLocaleString("en-US", { timeZone: "America/Chicago", hour: "numeric", hour12: false })) % 24;
+    if (hour < 1 || hour >= 6 || !aiStatus().available) return;
+    const now = new Date();
+    let n = 0;
+    for (const u of await recentStudents(daysBefore(centralToday(), 14), true)) {
+      if (n >= 4) break;
+      if (!(await admin.isOwner({ kind: u.kind as "google", email: u.email }))) continue;
+      const ws = await loadWorkspace(u.id);
+      if (Date.now() - Date.parse(ws.overnightAt || "") < 20 * 60 * 60_000) continue;
+      const picks = overnightPicks(ws, now);
+      if (!picks.length) continue;
+      n++;
+      const me = { id: u.id, kind: u.kind, email: u.email, name: "", picture: "", owner: true } as Me;
+      const ctx: Ctx = { me, ws, ip: "background", save: sectionSaver(me, ws) };
+      ws.overnightAt = nowIso(); // a failed night waits for the next one instead of retrying every hour
+      await ctx.save();
+      for (const job of picks) {
+        // Not saved for the student: they haven't chosen it yet. The draft waits on Resume → Tailor.
+        const a: Application = { id: uid("app"), jobId: job.id, createdAt: nowIso(), overnight: nowIso(), gaps: [], changes: [], letter: "", letterFlags: [], letterApproved: false, personalize: [], ats: [], versions: [] };
+        ws.applications.unshift(a);
+        try {
+          if (await runAiAs(true, () => tailorApplication(ctx, a, {}))) ws.applications = ws.applications.filter((x) => x.id !== a.id);
+          await ctx.save();
+          console.log(`overnight draft: ${u.id} ${job.id}`);
+        } catch (e: any) {
+          ws.applications = ws.applications.filter((x) => x.id !== a.id);
+          await ctx.save().catch(() => {});
+          console.error("overnight draft failed", u.id, e?.message);
+          break;
+        }
+      }
+    }
+  };
   let sweeping: Promise<void> | null = null;
   let lastSweep = "";
   const sweep = () => {
@@ -610,7 +649,8 @@ export async function registerRoutes(_server: Server, app: Express) {
       // One after the other: both write a student's openings, so they must not run at the same time.
       backgroundOpenings().catch((e) => console.error("background openings failed", e?.message))
         .then(() => backgroundRechecks()).catch((e) => console.error("background rechecks failed", e?.message))
-        // After the openings search, so a nudge can name an opening found this run.
+        // After the openings search, so a draft and a nudge can name an opening found this run.
+        .then(() => overnightDrafts()).catch((e) => console.error("overnight drafts failed", e?.message))
         .then(() => sendNudges(daysBefore(centralToday(), 14))).catch((e) => console.error("match emails failed", e?.message)),
     ]).then(() => { lastSweep = new Date().toISOString(); }).finally(() => { sweeping = null; });
     return sweeping;
@@ -1590,6 +1630,14 @@ Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), 
     await ctx.save();
     res.json(ctx.ws);
   }));
+  // Not now from a deadline reminder: no more reminder emails or texts for those deadlines (calendar id:date).
+  app.post("/api/reminders/skip", route(async (req, res, ctx) => {
+    const keys = (Array.isArray(req.body?.keys) ? req.body.keys : []).map(String).filter((k: string) => /^[\w-]{1,120}:\d{4}-\d{2}-\d{2}$/.test(k)).slice(0, 20);
+    if (!keys.length) bad("Nothing to skip.");
+    ctx.ws.reminded = [...new Set([...(ctx.ws.reminded || []), ...keys.flatMap((k: string) => [`${k}:soon`, `${k}:day`, `${k}:skip`])])].slice(-300);
+    await ctx.save();
+    res.json({ skipped: keys.length });
+  }));
   app.post("/api/checkin", route(async (req, res, ctx) => {
     if (req.body?.kind !== "Nothing new") {
       const { kind, said } = checkinInput(req.body);
@@ -2140,17 +2188,16 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     if (skillQ) brief = brief ? { ...brief, questions: [...brief.questions, skillQ] } : { company: "", companySource: "posting", role: "", fits: [], questions: [skillQ] };
     res.json({ brief, messages: brief ? briefMessages(brief, job.company) : [] });
   }));
-  app.post("/api/applications/:id/generate", route(async (req, res, ctx) => {
-    const a = getApp(ctx, String(req.params.id));
+  // Tailoring: Remy's draft of the bullet changes and letter for one application (all pending, nothing approved).
+  // Used by the Tailor button and by overnight drafts (stage 5b). A conflict = the posting rules the student out.
+  async function tailorApplication(ctx: Ctx, a: Application, body: { answers?: unknown; confirmEligible?: boolean }): Promise<{ conflict: string } | void> {
     const job = findJob(ctx.ws, a.jobId)!;
     const before = a.changes;
     if (!ctx.ws.resume) bad("Upload your base resume first.");
     // Eligibility comes before polish: a clear conflict needs the student's OK first.
     const saved = ctx.ws.fits[job.id];
     const fit = saved?.v === FIT_RULES_VERSION ? saved : computeFit(ctx.ws, job, evidenceOf(ctx.ws));
-    if (fit.eligibility === "unlikely" && !req.body?.confirmEligible) {
-      return res.status(409).json({ message: `Remy found an eligibility conflict: ${fit.eligibilityNote}`, code: "eligibility-conflict" });
-    }
+    if (fit.eligibility === "unlikely" && !body.confirmEligible) return { conflict: fit.eligibilityNote };
     // Don't tailor for a posting that has closed since Remy last looked (re-checked when over 3 days old).
     const lastCheck = job.checks?.[0]?.at || job.checkedAt;
     if ((job.sourceUrl || job.applyUrl) && (!lastCheck || Date.now() - Date.parse(lastCheck) > 3 * 86_400_000)) {
@@ -2160,7 +2207,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     }
     // Answers the student gave Remy before/while tailoring become approved facts,
     // so the letter can use them and the claim checker treats them as evidence.
-    const answers = (Array.isArray(req.body?.answers) ? req.body.answers : []).map((x: any) => ({ q: String(x?.q || "").slice(0, 200), a: String(x?.a || "").trim().slice(0, 800) })).filter((x: any) => x.a && !isNonAnswer(x.a));
+    const answers = (Array.isArray(body.answers) ? body.answers : []).map((x: any) => ({ q: String(x?.q || "").slice(0, 200), a: String(x?.a || "").trim().slice(0, 800) })).filter((x: any) => x.a && !isNonAnswer(x.a));
     for (const x of answers) {
       // A new answer to "Where I learned Excel" replaces the old one (same question, the student's latest word).
       if (/^Where I learned /.test(x.q)) ctx.ws.memory = ctx.ws.memory.filter((m) => !m.text.startsWith(`${x.q} — `));
@@ -2276,6 +2323,11 @@ Return JSON:
     a.audit = undefined;
     refreshAts(ctx.ws, a);
     await ctx.save();
+  }
+  app.post("/api/applications/:id/generate", route(async (req, res, ctx) => {
+    const a = getApp(ctx, String(req.params.id));
+    const r = await tailorApplication(ctx, a, { answers: req.body?.answers, confirmEligible: !!req.body?.confirmEligible });
+    if (r) return res.status(409).json({ message: `Remy found an eligibility conflict: ${r.conflict}`, code: "eligibility-conflict" });
     res.json({ application: a, workspace: ctx.ws });
   }));
 

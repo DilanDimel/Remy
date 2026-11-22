@@ -68,3 +68,19 @@ test("sendTexts: with Twilio keys it calls the sender, and a failed send isn't r
     assert.equal((await loadWorkspace("tx-owner2")).texts![0].mode, "twilio");
   } finally { for (const k of ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM"]) delete process.env[k]; }
 });
+
+test("deadline reminder: owners get Finish it / Not now, and Not now stops reminders and texts for that deadline", async () => {
+  const { reminderEmail, dueReminders } = await import("./reminders");
+  const w = ws();
+  const due = [{ key: "c1:2026-11-23:soon", title: "Chevron <Intern>", date: "2026-11-23", left: 1 }];
+  const plain = reminderEmail("Maya", due, "remyai.org");
+  assert.equal((plain as any).html, undefined, "students keep the plain email for now");
+  const e = reminderEmail("Maya", due, "remyai.org", true);
+  assert.match(e.text, /Not now .*https:\/\/remyai\.org\/calendar\?skip=c1%3A2026-11-23/);
+  assert.ok(e.html!.includes("Chevron &lt;Intern&gt;") && e.html!.includes("Finish it"));
+  // what POST /api/reminders/skip stores
+  w.reminded = ["c1:2026-11-23:soon", "c1:2026-11-23:day", "c1:2026-11-23:skip"];
+  w.settings.notify.deadlines = true;
+  assert.equal(urgentText(w, "2026-11-22", "remyai.org"), null, "no text either");
+  assert.equal(dueReminders(w, "2026-11-23").filter((d) => d.key.startsWith("c1:")).length, 0, "no day-of email");
+});

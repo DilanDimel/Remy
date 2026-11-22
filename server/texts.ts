@@ -38,7 +38,7 @@ export function urgentText(ws: Workspace, today: string, host: string): { key: s
   if (!t?.on || !usPhone(t.phone || "") || !ws.onboarding.done) return null;
   const sent = ws.texts || [];
   if (sent.some((x) => x.day === today)) return null;
-  const done = new Set(sent.map((x) => x.key));
+  const done = new Set([...sent.map((x) => x.key), ...(ws.reminded || []).filter((k) => k.endsWith(":skip")).map((k) => k.slice(0, -5))]); // Not now in a reminder email
   const due = ws.calendar
     .filter((c) => c.kind === "Deadline" && c.date && [0, 1].includes(days(today, c.date)) && !done.has(`${c.id}:${c.date}`))
     .sort((a, b) => a.date.localeCompare(b.date))[0];

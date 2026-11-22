@@ -14,19 +14,36 @@ const FRESH_DAYS = 3; // only openings Remy found in the last few days, so a nud
 
 const daysAgo = (iso: string, now: Date) => (now.getTime() - Date.parse(iso)) / 864e5;
 
-/** The opening worth one email now, or null: none due yet, nothing fits, or the student turned nudges off. */
+/** Fresh openings that fit, best first: found in the last few days, not passed or hidden, eligible, in the student's area. */
+function fitting(ws: Workspace, now: Date, skip: Set<string>): Job[] {
+  const fit = (j: Job) => ws.fits[j.id];
+  return ws.jobs
+    .filter((j) => j.kind !== "event" && !skip.has(j.id) && !!j.foundAt && daysAgo(j.foundAt, now) <= FRESH_DAYS)
+    .filter((j) => { const f = fit(j); return !!f && !f.excluded && !f.closed && f.eligibility !== "unlikely" && f.regionMatch !== false && (f.score || 0) >= MIN_SCORE; })
+    .sort((a, b) => (fit(b)!.score || 0) - (fit(a)!.score || 0));
+}
+
+/** Applications Remy drafted overnight that the student hasn't opened or decided on yet. */
+const waitingDraft = (ws: Workspace, jobId: string) => ws.applications.find((a) => a.jobId === jobId && a.overnight && !a.changes.some((c) => c.status !== "pending"));
+
+/** The opening worth one email now, or null: none due yet, nothing fits, or the student turned nudges off.
+ *  An opening Remy already drafted overnight still counts (the email then offers the draft). */
 export function nudgeFor(ws: Workspace, now: Date): Job | null {
   const every: NudgeEvery = ws.settings.nudges || "weekly";
   if (every === "off" || !ws.onboarding.done) return null;
   const sent = ws.nudges || [];
   const last = sent[sent.length - 1];
   if (last && daysAgo(last.at, now) < (every === "daily" ? 0.9 : 6.9)) return null;
-  const skip = new Set([...sent.map((n) => n.jobId), ...ws.savedJobIds, ...ws.hiddenJobIds, ...ws.applications.map((a) => a.jobId)]);
-  const fit = (j: Job) => ws.fits[j.id];
-  return ws.jobs
-    .filter((j) => j.kind !== "event" && !skip.has(j.id) && !!j.foundAt && daysAgo(j.foundAt, now) <= FRESH_DAYS)
-    .filter((j) => { const f = fit(j); return !!f && !f.excluded && !f.closed && f.eligibility !== "unlikely" && f.regionMatch !== false && (f.score || 0) >= MIN_SCORE; })
-    .sort((a, b) => (fit(b)!.score || 0) - (fit(a)!.score || 0))[0] || null;
+  const started = ws.applications.filter((a) => !waitingDraft(ws, a.jobId)).map((a) => a.jobId);
+  const skip = new Set([...sent.map((n) => n.jobId), ...ws.savedJobIds, ...ws.hiddenJobIds, ...started]);
+  return fitting(ws, now, skip)[0] || null;
+}
+
+/** Stage 5b: the openings worth a tailored draft overnight (top `max` fresh fits with no application yet). */
+export function overnightPicks(ws: Workspace, now: Date, max = 2): Job[] {
+  if (!ws.onboarding.done || !ws.resume?.confirmedAt) return [];
+  const skip = new Set([...ws.hiddenJobIds, ...ws.applications.map((a) => a.jobId), ...(ws.nudges || []).filter((n) => n.answer === "later").map((n) => n.jobId)]);
+  return fitting(ws, now, skip).slice(0, max);
 }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -35,20 +52,25 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 export function nudgeEmail(ws: Workspace, job: Job, nudgeId: string, host: string) {
   const name = firstName(ws) || "there";
   const where = job.company.trim() || "an employer";
-  const yes = `https://${host}/resume?tab=tailor&job=${encodeURIComponent(job.id)}&go=1&nudge=${nudgeId}&a=yes`;
+  const draft = waitingDraft(ws, job.id);
+  // A draft Remy already made opens as it is (go=1 would redo it).
+  const yes = draft ? `https://${host}/resume?tab=tailor&app=${draft.id}&nudge=${nudgeId}&a=yes` : `https://${host}/resume?tab=tailor&job=${encodeURIComponent(job.id)}&go=1&nudge=${nudgeId}&a=yes`;
   const later = `https://${host}/opportunities?nudge=${nudgeId}&a=later`;
   const why = ws.fits[job.id]?.why || "";
   const subject = `${where}: ${job.title} fits you`;
   const what = ({ job: "job", internship: "internship", program: "program", campus: "campus job", event: "event" } as const)[job.kind] || "opening";
-  const ask = `A new ${what} at ${where} fits you: ${job.title}. Want me to tailor your resume for it?`;
+  const ask = draft
+    ? `A new ${what} at ${where} fits you: ${job.title}. I already drafted a tailored resume and cover letter for it. Want to look?`
+    : `A new ${what} at ${where} fits you: ${job.title}. Want me to tailor your resume for it?`;
+  const yesLabel = draft ? "Yes, show me" : "Yes, tailor it";
   const how = { daily: "at most once a day", weekly: "at most once a week" }[ws.settings.nudges === "daily" ? "daily" : "weekly"];
   const foot = `You get this ${how} because Remy's match emails are on. Change how often in Account → Appearance & alerts.`;
-  const text = `Hi ${name},\n\n${ask}${why ? `\n\n${why}` : ""}\n\nYes, tailor it: ${yes}\nNot now: ${later}\n\n${foot}\n\nRemy`;
+  const text = `Hi ${name},\n\n${ask}${why ? `\n\n${why}` : ""}\n\n${yesLabel}: ${yes}\nNot now: ${later}\n\n${foot}\n\nRemy`;
   const btn = (href: string, label: string, primary: boolean) =>
     `<a href="${esc(href)}" style="display:inline-block;padding:10px 18px;border-radius:8px;font-weight:600;text-decoration:none;${primary ? "background:#3b5bdb;color:#ffffff;" : "background:#f1f3f5;color:#212529;"}">${label}</a>`;
   const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.5;color:#212529;max-width:520px">
 <p>Hi ${esc(name)},</p><p>${esc(ask)}</p>${why ? `<p style="color:#495057">${esc(why)}</p>` : ""}
-<p>${btn(yes, "Yes, tailor it", true)} &nbsp; ${btn(later, "Not now", false)}</p>
+<p>${btn(yes, yesLabel, true)} &nbsp; ${btn(later, "Not now", false)}</p>
 <p style="font-size:12px;color:#868e96">${esc(foot)}</p><p>Remy</p></div>`;
   return { subject, text, html };
 }

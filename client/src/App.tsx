@@ -168,6 +168,12 @@ function Shell() {
     api("POST", `/api/nudges/${encodeURIComponent(nudgeAnswer.id)}`, { answer: nudgeAnswer.a }).catch(() => {});
     if (nudgeAnswer.a === "later") toast("Okay, not now. Remy won't bring that opening up again.");
   }, []);
+  // Not now from a deadline reminder email: stop reminders for those deadlines.
+  useEffect(() => {
+    const skip = new URLSearchParams(location.search).get("skip");
+    if (!skip) return;
+    api("POST", "/api/reminders/skip", { keys: skip.split(",") }).then(() => toast("Okay. Remy won't remind you about that deadline again.")).catch(() => {});
+  }, []);
   const { path, query } = useRoute();
   const [asstPage, setAsstPage] = useState<boolean | null>(null);
   const [more, setMore] = useState(false);

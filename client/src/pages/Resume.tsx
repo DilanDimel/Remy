@@ -370,7 +370,7 @@ function Tailor({ query }: { query: URLSearchParams }) {
                 <span className="xs muted">{j?.company || "…"}</span>
                 <strong className="small">{j ? shortTitle(j.title, j.company) : "Loading"}</strong>
                 <span className="row xs">
-                  {a.versions.length ? <span className="chip chip-live">Approved v{a.versions.length}</span> : a.generatedAt ? <span className="chip chip-plain">Draft{pending ? ` · ${pending} to review` : ""}</span> : <span className="chip chip-plain">Not generated</span>}
+                  {a.versions.length ? <span className="chip chip-live">Approved v{a.versions.length}</span> : a.generatedAt ? <span className="chip chip-plain">{a.overnight ? "Remy's draft" : "Draft"}{pending ? ` · ${pending} to review` : ""}</span> : <span className="chip chip-plain">Not generated</span>}
                   {a.staleReason && <span className="chip chip-setup">Review</span>}
                 </span>
               </button>
@@ -457,6 +457,7 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
         </div>
         {mine?.stage === "working" && <WorkingSteps steps={["Reading the posting", "Matching it to your resume", "Writing suggested changes", "Checking every change is true to your experience"]} />}
         {a.staleReason && <div className="notice notice-warn" style={{ marginTop: 12 }}><AlertTriangle size={16} /><div>{a.staleReason}</div></div>}
+        {a.overnight && !a.versions.length && <p className="small" style={{ marginTop: 10 }} data-testid="overnight-note">Remy drafted this overnight because it's one of your best new matches. Nothing changes on your resume until you approve it.</p>}
         {a.generatedAt && <p className="xs muted" style={{ marginTop: 10 }}>Draft made {fmtDate(a.generatedAt)} · {a.versions.length ? `approved v${a.versions.length} on ${fmtDate(a.versions[a.versions.length - 1].at)}` : "not yet approved"}</p>}
       </div>
 
