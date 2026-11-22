@@ -2,7 +2,7 @@ import { useState } from "react";
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ChatDid, ChatMsg, Workspace } from "@shared/types";
-import { Fox, Icon, T, success, tap } from "@/components/ui";
+import { Fox, Icon, RichText, T, success, tap } from "@/components/ui";
 import { api } from "@/lib/api";
 import { go } from "@/lib/nav";
 import { useSession } from "@/lib/session";
@@ -41,7 +41,7 @@ export default function RemyChat() {
     return (
       <View style={{ marginBottom: 8 }}>
         <View style={{ maxWidth: "84%", alignSelf: me ? "flex-end" : "flex-start", backgroundColor: me ? c.ink : c.surface, borderRadius: 20, borderBottomRightRadius: me ? 6 : 20, borderBottomLeftRadius: me ? 20 : 6, paddingHorizontal: 15, paddingVertical: 11, borderWidth: me ? 0 : 1, borderColor: c.line }}>
-          <Text selectable style={{ fontFamily: font.body, fontSize: 15.5, lineHeight: 22, color: me ? c.onInk : c.ink }}>{m.text}</Text>
+          <RichText text={m.text} style={{ fontFamily: font.body, fontSize: 15.5, lineHeight: 22, color: me ? c.onInk : c.ink }} />
         </View>
         {m.resumeProposal && (
           <Pressable testID="button-review-resume-change" onPress={() => go("/resume?tab=base", "Resume")} style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.surface, borderRadius: 18, padding: 12, borderWidth: 1, borderColor: c.line, marginTop: 8 }}>

@@ -1,5 +1,6 @@
 import * as Haptics from "expo-haptics";
 import type { ReactNode } from "react";
+import type { JobFit } from "@shared/types";
 import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, SvgXml } from "react-native-svg";
@@ -16,10 +17,14 @@ export function Screen({ children, refreshing, onRefresh, scroll = true, style }
   const pad = { paddingTop: insets.top + 8, paddingHorizontal: 20, paddingBottom: insets.bottom + 110 };
   if (!scroll) return <View style={[{ flex: 1, backgroundColor: c.paper, paddingTop: insets.top + 8 }, style]}>{children}</View>;
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.paper }} contentContainerStyle={[pad, style]} contentInsetAdjustmentBehavior="never"
-      refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={c.fox} /> : undefined}>
-      {children}
-    </ScrollView>
+    <View style={{ flex: 1, backgroundColor: c.paper }}>
+      <ScrollView style={{ flex: 1, backgroundColor: c.paper }} contentContainerStyle={[pad, style]} contentInsetAdjustmentBehavior="never"
+        refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={c.fox} /> : undefined}>
+        {children}
+      </ScrollView>
+      {/* Content scrolls under a paper-coloured band, not under the bare clock and battery. */}
+      <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.paper, opacity: 0.96 }} />
+    </View>
   );
 }
 
@@ -60,16 +65,26 @@ export function Pill({ label, on, onPress, testID }: { label: string; on?: boole
   const { c } = useTheme();
   return (
     <Pressable testID={testID} onPress={onPress ? () => { tap(); onPress(); } : undefined} disabled={!onPress}
-      style={{ height: 32, paddingHorizontal: 13, borderRadius: 16, backgroundColor: on ? c.ink : c.surface2, justifyContent: "center" }}>
+      style={{ minHeight: 32, paddingHorizontal: 13, paddingVertical: 6, borderRadius: 16, backgroundColor: on ? c.ink : c.surface2, justifyContent: "center", maxWidth: "100%" }}>
       <Text style={{ fontFamily: font.semi, fontSize: 13.5, color: on ? c.onInk : c.ink }}>{label}</Text>
     </Pressable>
   );
 }
 
-export function FitBadge({ score }: { score?: number }) {
+/** The same outcome chip as the website's Opportunities page (eligChip). The fit score is an internal
+ * ranking (it can pass 100 or go below 0), so it is never shown as a percentage. */
+export function FitBadge({ fit }: { fit?: JobFit }) {
   const { c } = useTheme();
-  if (score === undefined) return null;
-  return <View style={{ backgroundColor: c.sageBg, borderRadius: 14, paddingHorizontal: 10, height: 28, justifyContent: "center" }}><Text style={{ fontFamily: font.bold, fontSize: 13, color: c.sage }}>{Math.round(score)}% fit</Text></View>;
+  if (!fit) return null;
+  const [label, bad] = fit.closed ? ["Closed", true] : fit.eligibility === "unlikely" ? ["Not eligible", true] : fit.checked && fit.eligibility !== "unknown" && !fit.hidden ? ["You qualify", false] : [null, false];
+  if (!label) return null;
+  return <View style={{ backgroundColor: bad ? c.surface2 : c.sageBg, borderRadius: 14, paddingHorizontal: 10, height: 28, justifyContent: "center" }}><Text style={{ fontFamily: font.bold, fontSize: 13, color: bad ? c.muted : c.sage }}>{label}</Text></View>;
+}
+
+/** Chat text with **bold** shown as bold instead of raw asterisks. */
+export function RichText({ text, style, boldStyle }: { text: string; style?: StyleProp<TextStyle>; boldStyle?: StyleProp<TextStyle> }) {
+  const parts = text.split(/\*\*(.+?)\*\*/g);
+  return <Text selectable style={style}>{parts.map((p, i) => (i % 2 ? <Text key={i} style={[{ fontFamily: font.bold }, boldStyle]}>{p}</Text> : p))}</Text>;
 }
 
 export function Fox({ size = 40 }: { size?: number }) {

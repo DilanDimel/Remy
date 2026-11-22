@@ -53,7 +53,7 @@ export default function Today() {
       </Group>
       {top.length > 0 && <>
         <Sect title="Openings for you" />
-        <Group>{top.map((j, i) => <Row key={j.id} first={i === 0} title={j.title} sub={`${j.company} · ${j.location}`} left={<EmployerTile name={j.company} size={32} />} right={<FitBadge score={fits[j.id]?.score} />} onPress={() => go("jobs")} testID="row-opening" />)}</Group>
+        <Group>{top.map((j, i) => <Row key={j.id} first={i === 0} title={j.title} sub={`${j.company} · ${j.location}`} left={<EmployerTile name={j.company} size={32} />} right={<FitBadge fit={fits[j.id]} />} onPress={() => go("jobs")} testID="row-opening" />)}</Group>
       </>}
     </Screen>
   );
@@ -93,6 +93,18 @@ export default function Today() {
           </Card>
         )) : <T kind="muted">Nothing due. Nice.</T>}
       </View>
+      {top.length > 0 && <>
+        <Sect title="Openings for you" right={<Pressable testID="button-all-openings" hitSlop={8} onPress={() => { tap(); go("jobs"); }}><Text style={{ fontFamily: font.bold, fontSize: 14, color: c.foxDeep }}>See all</Text></Pressable>} />
+        <View style={{ gap: 8 }}>
+          {top.map((j) => (
+            <Card key={j.id} onPress={() => go("jobs")} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14 }} testID="card-opening-today">
+              <EmployerTile name={j.company} size={40} />
+              <View style={{ flex: 1 }}><T numberOfLines={2} style={{ fontFamily: font.semi }}>{j.title}</T><T kind="small" numberOfLines={1}>{j.company}{j.location ? ` · ${j.location}` : ""}</T></View>
+              <FitBadge fit={fits[j.id]} />
+            </Card>
+          ))}
+        </View>
+      </>}
     </Screen>
   );
 }
