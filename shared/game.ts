@@ -3,11 +3,12 @@
 // only for real wins. Research (Duolingo, SDT "pointsification"): streaks must be easy to keep and forgiving, and
 // points must sit on actions that visibly change something. Weekly, not daily: nobody job-hunts every day.
 import type { Workspace } from "./types";
+import { dailyXp } from "./daily";
 
 export type Counters = Record<string, number>;
 const SENT = new Set(["Applied", "Received", "Heard back", "Interview", "Offer", "Rejected", "No reply"]);
 export type GameWeek = { base: Counters; done: string[]; missions?: string[] };
-export type GameState = { weeks: Record<string, GameWeek>; bestLevel?: number };
+export type GameState = { weeks: Record<string, GameWeek>; bestLevel?: number; days?: Record<string, string[]>; known?: string[]; restDays?: number[] };
 export type Mission = { key: string; title: string; counter: string; target: number; mins: number; xp: number; effect: string; link: string };
 
 /** What the student has done so far, counted from the workspace (nothing extra is tracked). */
@@ -104,7 +105,7 @@ export function xpOf(w: Workspace, g: GameState): number {
   const c = counters(w);
   const interviews = w.tracker.filter((t) => t.status === "Interview" || t.status === "Offer").length;
   // Each application counts once, as a real win; there's no "send an application" mission (council, Nov 19).
-  return missions + (w.resume?.confirmedAt ? 100 : 0) + 120 * c.sent + 250 * interviews + (w.tracker.some((t) => t.status === "Offer") ? 500 : 0);
+  return missions + dailyXp(g) + (w.resume?.confirmedAt ? 100 : 0) + 120 * c.sent + 250 * interviews + (w.tracker.some((t) => t.status === "Offer") ? 500 : 0);
 }
 /** Levels never drop (council, Nov 19): the best level reached is kept even if XP later goes down. */
 export function levelOf(xp: number, best = 0) {
