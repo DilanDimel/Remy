@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Check, Mail } from "lucide-react";
 import type { Me, Workspace } from "@shared/types";
-import { api, useStore } from "../lib/store";
+import { api, useOwnerView, useStore } from "../lib/store";
 import { Spinner } from "./common";
 
 /** The school with the alumni list, as students write it on a resume or profile. */
@@ -19,6 +19,7 @@ export function schoolVerified(me: Me | null, domains: string[]) {
 /** "Verify your TCU email to see TCU alumni": email → 6-digit code → verified. Optional everywhere it's shown. */
 export function SchoolVerify({ onSkip }: { onSkip?: () => void }) {
   const { me, ws, config, run, setSession } = useStore();
+  const ownerView = useOwnerView();
   const domains = config?.schoolEmail.domains || ["tcu.edu"];
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState("");
@@ -52,7 +53,7 @@ export function SchoolVerify({ onSkip }: { onSkip?: () => void }) {
         <p className="small muted">Sign in first, so the verification stays with your account.</p>
       ) : !sentTo ? (
         <>
-          <p className="small muted">Remy emails a 6-digit code to your {domains.map((d) => "@" + d).join(" or ")} address. Verifying unlocks your school's tools, like adding your degree plan. Remy supports {domains.join(", ")} for now; more schools are coming.</p>
+          <p className="small muted">Remy emails a 6-digit code to your {domains.map((d) => "@" + d).join(" or ")} address. {ownerView ? "Verifying lets Remy show alumni from your school." : "Verifying unlocks your school's tools, like adding your degree plan."} Remy supports {domains.join(", ")} for now; more schools are coming.</p>
           <div className="row">
             <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={`name@${domains[0]}`} aria-label="School email" data-testid="input-school-email" />
             <button className="btn btn-primary btn-sm" disabled={busy || !email.includes("@")} onClick={async () => { const r = await call(() => api("POST", "/api/school-email/start", { email })); if (r?.sent) setSentTo(r.email || email); }} data-testid="button-send-school-code">{busy && <Spinner />} Send code</button>

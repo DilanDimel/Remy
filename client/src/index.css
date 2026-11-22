@@ -2270,3 +2270,54 @@ html[data-theme="dark"] .lk-paper { box-shadow: 0 24px 50px -20px rgba(0, 0, 0, 
   .lk-doodle { position: absolute !important; width: 70px; height: auto; right: 8px !important; bottom: 8px !important; }
 }
 @media (prefers-reduced-motion: reduce) { .lk-stage .lk-card { animation: none; } }
+
+/* Owner sign-up (setup) redesign, Nov 22: Remy's notebook (paper) beside the step. Owners only, via .ob-owner.
+   No dark bands or orange glow bars (Dilan, Nov 22): paper, ink lines, orange only for done dots. */
+.ob-owner { display: grid; grid-template-columns: minmax(280px, 340px) 1fr; align-items: stretch; padding: 0; gap: 0; background: var(--bg); color: var(--ink); min-height: calc(100vh / var(--app-zoom, 1)); }
+.ob-note { position: sticky; top: 0; height: calc(100vh / var(--app-zoom, 1)); overflow-y: auto; display: flex; flex-direction: column; gap: 22px; padding: 28px 26px; background: var(--surface-2); border-right: 1px solid var(--line); color: var(--ink); }
+.ob-note .logo { color: var(--ink); font-size: 20px; }
+.ob-note-remy { display: grid; gap: 12px; justify-items: start; }
+.ob-note-remy > svg.fox { animation: remy-bob 3.2s ease-in-out infinite; transform-origin: 50% 90%; }
+.ob-note-say { position: relative; margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); font-size: 15px; line-height: 1.45; color: var(--ink); max-width: none; }
+.ob-note-say::before { content: ""; position: absolute; top: -7px; left: 22px; width: 12px; height: 12px; transform: rotate(45deg); background: var(--surface); border-left: 1px solid var(--line); border-top: 1px solid var(--line); }
+.ob-chapters { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; position: relative; }
+.ob-chapters li { display: flex; align-items: center; gap: 12px; padding: 7px 0; font-size: 14px; color: var(--faint); position: relative; }
+.ob-chapters li:not(:last-child)::after { content: ""; position: absolute; left: 12px; top: 33px; width: 2px; height: 14px; background: var(--line); }
+.ob-dot { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; border: 2px solid var(--line); background: var(--surface); }
+.ob-chapters li.done { color: var(--muted-text); }
+.ob-chapters li.done .ob-dot { background: var(--fox); border-color: var(--fox); color: var(--white); }
+.ob-chapters li.now { color: var(--ink); font-weight: 800; }
+.ob-chapters li.now .ob-dot { border-color: var(--ink); color: var(--ink); }
+.ob-known { display: grid; gap: 10px; padding-top: 18px; border-top: 1px solid var(--line); }
+.ob-known-h { font-size: 11.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted-text); display: flex; align-items: center; gap: 8px; }
+.ob-known-h b { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--ink); display: inline-grid; place-items: center; letter-spacing: 0; }
+.ob-known ul { list-style: none; margin: 0; padding: 0; display: grid; }
+.ob-known li { display: grid; gap: 1px; padding: 9px 0; border-bottom: 1px dashed var(--line); }
+.ob-known li span { font-size: 11.5px; color: var(--muted-text); }
+.ob-known li b { font-size: 13.5px; color: var(--ink); overflow-wrap: anywhere; }
+.ob-known p { margin: 0; font-size: 13px; color: var(--muted-text); }
+.ob-note-foot { margin: auto 0 0; font-size: 12px; color: var(--muted-text); }
+.ob-main { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 48px 32px 64px; min-width: 0; }
+.ob-main > .notice, .ob-main > div { max-width: 720px; width: 100%; }
+.ob-owner .ob-card { max-width: 720px; box-shadow: var(--shadow); border: 1px solid var(--line); }
+/* One fox: Remy lives in the notebook, so the step cards drop theirs. */
+.ob-owner .ob-card svg.fox { display: none; }
+@media (max-width: 860px) {
+  .ob-owner { grid-template-columns: 1fr; }
+  .ob-note { position: static; height: auto; padding: 16px 16px 14px; gap: 12px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .ob-note .logo { font-size: 17px; }
+  .ob-note-remy { grid-template-columns: auto 1fr; align-items: center; }
+  .ob-note-remy > svg.fox { width: 40px; height: auto; }
+  .ob-note-say { font-size: 13.5px; padding: 9px 12px; }
+  .ob-note-say::before { top: 50%; left: -7px; margin-top: -6px; border-top: 0; border-bottom: 1px solid var(--line); }
+  .ob-chapters { grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; padding-bottom: 18px; }
+  .ob-chapters li { flex-direction: column; gap: 4px; padding: 0; }
+  .ob-chapters li::after { display: none; }
+  .ob-ch-name { display: none; }
+  .ob-chapters li.now .ob-ch-name { display: block; position: absolute; top: 30px; white-space: nowrap; font-size: 11.5px; }
+  .ob-known { padding-top: 10px; }
+  .ob-known ul, .ob-known p, .ob-note-foot { display: none; }
+  .ob-main { padding: 16px 12px 40px; }
+  .ob-owner .ob-card { padding: 18px 16px; }
+  .ob-owner .btn-sm { min-height: 44px; }
+}
