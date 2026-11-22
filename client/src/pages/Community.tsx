@@ -1,18 +1,20 @@
 import { useEffect, useState } from "react";
 import { replaceRoute, useRoute } from "../lib/router";
 import { GraduationCap, Mail, PenLine, Plus, Send, Sparkles, Trash2 } from "lucide-react";
-import type { Contact, OutreachDraft } from "@shared/types";
-import { api, fmtDate, rid, useStore } from "../lib/store";
+import type { Contact, OutreachDraft, Workspace } from "@shared/types";
+import { api, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
 import { CopyButton, Empty, Modal, Spinner, StatusChip } from "../components/common";
 import { startOutreach, useTailorSession } from "../lib/tailorChat";
-import { sameOrg, useJobs } from "../lib/jobs";
+import { orgInitials, sameOrg, useJobs } from "../lib/jobs";
 import { go } from "../lib/router";
 
 
 export default function Community() {
   const { ws, save, run, toast } = useStore();
   const w = ws!;
+  const owner = useOwnerView(); // tabs redesign (Nov 22), owners first
   const [adding, setAdding] = useState(false);
+  const [notNow, setNotNow] = useState("");
   const { jobs } = useJobs();
   const openAt = (org: string) => (jobs || []).filter((j) => org && sameOrg(j.company, org) && !w.hiddenJobIds.includes(j.id));
   // Employers the student saved but knows nobody at: the people worth meeting next.
@@ -74,22 +76,38 @@ export default function Community() {
         <div>
           <span className="eyebrow">Community</span>
           <h1><span className="title-slogan">A few right people.</span><span className="title-plain">Community</span></h1>
-          <p>People you've met who can help with your career. Remy asks you a few questions, then writes the email — you approve every word and send it yourself.</p>
+          {owner ? <CommunityLine contacts={w.contacts} touched={(p) => lastTouch(w, p)} /> : <p>People you've met who can help with your career. Remy asks you a few questions, then writes the email — you approve every word and send it yourself.</p>}
         </div>
         <div className="row">
           <button className="btn btn-secondary" onClick={() => setAdding(true)} data-testid="button-add-contact"><Plus size={16} /> Add a contact</button>
         </div>
       </div>
       {/* Community is everyone who can help, not only alumni (Dilan, Nov 19); alumni matching is one later addition. */}
-      <div className="notice small" data-testid="community-intro"><GraduationCap size={16} style={{ color: "var(--plum)", marginTop: 2 }} /><div><strong>Anyone who can help counts:</strong> a recruiter from a career fair, a professor, an alum, a classmate, a coworker or a manager. Add them here and Remy reminds you to follow up and helps you write to them. <span className="muted">Coming soon: alumni from your school in your field, once your school shares its alumni list.</span></div></div>
-      {unknownOrgs.length > 0 && <div className="notice small" data-testid="people-to-meet"><Sparkles size={16} style={{ color: "var(--fox)", marginTop: 2 }} /><div><strong>Worth meeting next:</strong> you saved or started applying to openings at {unknownOrgs.join(", ")} but don't know anyone there yet. A recruiter you met at a fair, an alum or a TA who interned there is worth adding, and Remy can draft the first message.</div></div>}
-      <h2>Your contacts</h2>
+      {(!owner || !w.contacts.length) && <div className="notice small" data-testid="community-intro"><GraduationCap size={16} style={{ color: "var(--plum)", marginTop: 2 }} /><div><strong>Anyone who can help counts:</strong> a recruiter from a career fair, a professor, an alum, a classmate, a coworker or a manager. Add them here and Remy reminds you to follow up and helps you write to them. <span className="muted">Coming soon: alumni from your school in your field, once your school shares its alumni list.</span></div></div>}
+      {owner && (() => { const n = nudgeFor(w, openAt); return n && n.c.id !== notNow ? (
+        <section className="op-pick" data-testid="community-nudge">
+          <div className="op-pick-main">
+            <span className="op-kick">Remy's nudge</span>
+            <h2>{n.title}</h2>
+            <span className="small muted">{n.why} Remy drafts it; you edit and send it from your own email.</span>
+            <div className="row op-pick-acts" style={{ marginTop: 12 }}>
+              <button className="btn btn-primary" onClick={() => draftTo(n.c)} data-testid="button-nudge-draft"><Sparkles size={16} /> Draft it for me</button>
+              <button className="btn btn-secondary" onClick={() => writeTo(n.c)} data-testid="button-nudge-write"><PenLine size={16} /> Write it myself</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setNotNow(n.c.id)} data-testid="button-nudge-not-now">Not now</button>
+            </div>
+          </div>
+          <span className="op-pick-mono cm-face" aria-hidden="true">{initialsOf(n.c.name)}</span>
+        </section>
+      ) : null; })()}
+      {!owner && unknownOrgs.length > 0 && <div className="notice small" data-testid="people-to-meet"><Sparkles size={16} style={{ color: "var(--fox)", marginTop: 2 }} /><div><strong>Worth meeting next:</strong> you saved or started applying to openings at {unknownOrgs.join(", ")} but don't know anyone there yet. A recruiter you met at a fair, an alum or a TA who interned there is worth adding, and Remy can draft the first message.</div></div>}
+      <h2>{owner ? "Your people" : "Your contacts"}</h2>
       {w.contacts.length ? (
         <div className="grid-3">
           {w.contacts.map((p) => (
             <div key={p.id} className="card card-pad stack-sm" data-testid="card-contact">
-              <div className="row-between"><strong>{p.name}</strong><StatusChip label={p.label} /></div>
+              {owner ? <div className="cm-top"><span className="cm-av" aria-hidden="true">{initialsOf(p.name)}</span><strong>{p.name}</strong><StatusChip label={p.label} /></div> : <div className="row-between"><strong>{p.name}</strong><StatusChip label={p.label} /></div>}
               <span className="small muted">{p.title}{p.org ? ` · ${p.org}` : ""}</span>
+              {owner && (() => { const d = lastTouch(w, p); return d !== null && <div className="cm-warm" title="Warmth: how recently you were in touch"><i style={{ width: `${d < 7 ? 90 : d < 30 ? 60 : d < 90 ? 35 : 15}%` }} /></div>; })()}
               {p.met && <span className="xs muted" data-testid="contact-met">Met at {p.met}{p.metOn ? ` · ${fmtDate(p.metOn)}` : ""}</span>}
               <p className="small">{p.why}</p>
               {openAt(p.org).length > 0 && <button className="xs" style={{ textAlign: "left", color: "var(--fox)", fontWeight: 700, padding: 0 }} onClick={() => go(`/opportunities?kind=all&id=${openAt(p.org)[0].id}`)} data-testid="contact-openings">{openAt(p.org).length} opening{openAt(p.org).length > 1 ? "s" : ""} at {p.org} →</button>}
@@ -103,6 +121,7 @@ export default function Community() {
         </div>
       ) : <div className="card"><Empty title="No contacts yet" body="Add someone you've met at a career fair, in class or on LinkedIn." /></div>}
 
+      {owner && <MeetNext orgs={unknownOrgs} onAdd={(org) => { setC({ ...blank, org }); setAdding(true); }} />}
       {w.outreach.length > 0 && (
         <section className="card card-pad stack">
           <h3>Drafts</h3>
@@ -137,6 +156,60 @@ export default function Community() {
       )}
       {review && <ReviewModal draft={review} onClose={() => setReview(null)} />}
     </>
+  );
+}
+
+// Owners (tabs redesign, Nov 22): Remy's line, one nudge, warmth on each person, and where to meet more people.
+const initialsOf = (name: string) => name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join("").toUpperCase() || "•";
+/** Days since the student was last in touch with this person (met them or wrote to them), or null if unknown. */
+function lastTouch(w: Workspace, p: Contact): number | null {
+  const dates = [p.metOn || "", ...w.outreach.filter((o) => o.contactId === p.id).map((o) => o.createdAt.slice(0, 10))].filter(Boolean).sort();
+  const last = dates[dates.length - 1];
+  return last ? Math.max(0, Math.floor((Date.now() - Date.parse(last + "T12:00")) / 864e5)) : null;
+}
+
+function CommunityLine({ contacts, touched }: { contacts: Contact[]; touched: (p: Contact) => number | null }) {
+  if (!contacts.length) return <p className="op-say"><b>Start with one person.</b> A recruiter from a fair, a professor or an alum: Remy helps you write to them.</p>;
+  const warm = contacts.map((p) => ({ p, d: touched(p) })).filter((x) => x.d !== null).sort((a, b) => a.d! - b.d!)[0];
+  return (
+    <p className="op-say" data-testid="community-line">
+      <b>{contacts.length} {contacts.length === 1 ? "person" : "people"} can help you.</b>
+      {warm ? ` You were last in touch with ${warm.p.name.split(" ")[0]}${warm.d! < 1 ? " today" : ` ${warm.d} day${warm.d === 1 ? "" : "s"} ago`}, so start there.` : ""}
+    </p>
+  );
+}
+
+/** One person worth writing to now: someone met recently with no email yet, else someone at a company with open roles. */
+function nudgeFor(w: Workspace, openAt: (org: string) => unknown[]): { c: Contact; title: string; why: string } | null {
+  const unwritten = w.contacts.filter((p) => !w.outreach.some((o) => o.contactId === p.id));
+  const met = unwritten.filter((p) => p.met && p.metOn).sort((a, b) => (b.metOn || "").localeCompare(a.metOn || ""))[0];
+  if (met) return { c: met, title: `Thank ${met.name.split(" ")[0]} for meeting you`, why: `You met at ${met.met} on ${fmtDate(met.metOn!)}.` };
+  const hiring = unwritten.find((p) => p.org && openAt(p.org).length);
+  if (hiring) return { c: hiring, title: `Ask ${hiring.name.split(" ")[0]} about ${hiring.org}`, why: `${hiring.org} has ${openAt(hiring.org).length} opening${openAt(hiring.org).length === 1 ? "" : "s"} on your list.` };
+  return null;
+}
+
+function MeetNext({ orgs, onAdd }: { orgs: string[]; onAdd: (org: string) => void }) {
+  const { ws } = useStore();
+  const today = new Date().toLocaleDateString("en-CA");
+  const events = ws!.calendar.filter((c) => (c.kind === "Event" || c.kind === "Advising") && c.date >= today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3);
+  return (
+    <div className="pr-cols">
+      <div className="op-card">
+        <div className="op-ch"><h3>Companies you saved, nobody you know yet</h3></div>
+        {orgs.length ? <ul className="op-dl">{orgs.map((o) => (
+          <li key={o}><span className="job-mono" aria-hidden="true">{orgInitials(o)}</span>
+            <span className="cm-row"><strong>{o}</strong><button className="btn btn-ghost btn-sm" onClick={() => onAdd(o)} data-testid="button-add-contact-at">Add someone</button></span></li>
+        ))}</ul> : <p className="small muted">You know someone at every company you saved. Save more openings and Remy lists the ones where a contact would help.</p>}
+      </div>
+      <div className="op-card">
+        <div className="op-ch"><h3>Where to meet people</h3><button className="op-link" onClick={() => go("/calendar")} data-testid="button-community-calendar">Calendar →</button></div>
+        {events.length ? <ul className="op-dl">{events.map((e) => (
+          <li key={e.id}><span className="op-date"><small>{new Date(e.date + "T12:00").toLocaleDateString("en-US", { month: "short" })}</small><b>{new Date(e.date + "T12:00").getDate()}</b></span>
+            <span className="cm-row"><strong>{e.title}</strong></span></li>
+        ))}</ul> : <p className="small muted">No events on your calendar yet. Career fairs and coffee chats you add show up here.</p>}
+      </div>
+    </div>
   );
 }
 

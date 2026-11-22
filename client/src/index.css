@@ -1530,6 +1530,14 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .pr-todo em { font-style: normal; font-size: var(--text-xs); color: var(--faint); font-weight: 700; }
 @media (max-width: 900px) { .pr-flow { grid-template-columns: repeat(5, 78%); overflow-x: auto; scroll-snap-type: x mandatory; } .pr-lane { scroll-snap-align: start; } .pr-cols { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 640px) { .pr-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* Owner Community (tabs redesign, Nov 22): faces, warmth bars. Reuses .op-pick/.op-card/.pr-cols. */
+.cm-face { border-radius: 50%; }
+.cm-top { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.cm-av { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: var(--text-sm); background: var(--fox-soft); color: var(--fox-deep); }
+.cm-warm { height: 6px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.cm-warm i { display: block; height: 100%; background: var(--fox); border-radius: 99px; }
+.cm-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-width: 0; }
+.cm-row strong { font-size: var(--text-sm); font-weight: 700; }
 @media (max-width: 640px) { .redesign-2 .hero2-bubble p { max-width: none; } }
 /* Owner Home, reference pass (Nov 22): streak card by the greeting, getting started inside the card, job cards, season band */
 .streak-peek { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); animation: soul-in .45s ease both; }
