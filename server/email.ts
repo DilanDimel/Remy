@@ -1,10 +1,10 @@
 import nodemailer, { type Transporter } from "nodemailer";
 
 // SMTP_URL picks the sender. Today: Gmail (smtps://remy.account%40gmail.com:<app-password>@smtp.gmail.com:465).
-// Planned (Dilan, Nov 22): Resend on mail.remyai.org, i.e. SMTP_URL=smtps://resend:<api-key>@smtp.resend.com:465,
-// MAIL_FROM="Remy <remy@mail.remyai.org>", MAIL_REPLY_TO=hello@remyai.org.
-// SMTP_FALLBACK_URL (optional, e.g. the old Gmail URL): used only when the main sender fails, so a bad key or an
-// unverified domain can't stop sign-in codes. Its From is MAIL_FALLBACK_FROM or its own login.
+// Moving to Resend on mail.remyai.org (Dilan, Nov 22): RESEND_SMTP_URL=smtps://resend:<api-key>@smtp.resend.com:465,
+// MAIL_FROM="Remy <remy@mail.remyai.org>", MAIL_REPLY_TO=hello@remyai.org. Once RESEND_SMTP_URL is set, SMTP_URL
+// (Gmail) becomes the fallback, used only when Resend fails, so a bad key or an unverified domain can't stop sign-in
+// codes. The fallback's From is MAIL_FALLBACK_FROM or its own login. Remove SMTP_URL once Resend has run cleanly.
 type Sender = { transport: Transporter; from: string };
 
 const fromOf = (url: string, set?: string) => set || `Remy <${decodeURIComponent(new URL(url).username)}>`;
@@ -29,9 +29,10 @@ export function mailer(main: Sender | null, fallback: Sender | null, replyTo?: s
   };
 }
 
+const resend = process.env.RESEND_SMTP_URL || "";
 const live = mailer(
-  make(process.env.SMTP_URL || "", process.env.MAIL_FROM),
-  make(process.env.SMTP_FALLBACK_URL || "", process.env.MAIL_FALLBACK_FROM),
+  resend ? make(resend, process.env.MAIL_FROM) : make(process.env.SMTP_URL || "", process.env.MAIL_FROM),
+  resend ? make(process.env.SMTP_URL || "", process.env.MAIL_FALLBACK_FROM) : null,
   process.env.MAIL_REPLY_TO, // replies reach a real inbox when sending from a no-inbox address
 );
 
