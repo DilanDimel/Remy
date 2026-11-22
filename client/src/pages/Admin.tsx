@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
-import { Activity, AlertTriangle, Bot, ArrowLeft, ArrowRight, BarChart3, Briefcase, CalendarDays, Check, Clock, Database, KanbanSquare, Server, Plus, RotateCcw, Trash2, TrendingUp, UserCheck, Users } from "lucide-react";
+import { Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, Briefcase, CalendarDays, Check, Clock, Database, KanbanSquare, Server, Plus, RotateCcw, Trash2, TrendingUp, UserCheck, Users } from "lucide-react";
 import { api, fmtDate, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
 import { BetaBadge, CopyButton, Empty, Modal, Remy, Rich, Spinner } from "../components/common";
@@ -30,16 +30,16 @@ type TeamEvent = { id: string; title: string; date: string; time: string; who: s
 type Member = { email: string; name: string; founder: boolean; addedBy: string; addedAt: string | null };
 type Entry = { id: string; member: string; start_at: string; end_at: string | null; note: string };
 type Team = {
-  me: string; members: Member[]; tasks: TeamTask[]; events: TeamEvent[]; hours: { member: string; hours: number; week: number }[];
+  me: string; members: Member[]; tasks: TeamTask[]; events: TeamEvent[]; hours: { member: string; hours: number; week: number }[]; weeks: { member: string; week: string; hours: number }[];
   entries: Entry[]; activity: { id: number; at: string; actor: string; action: string; detail: string }[]; clockedIn: string | null;
   calendar: { available: boolean; connectedBy: string; connectedAt: string | null };
 };
 const ANSWERS: [Answer, string][] = [["yes", "Going"], ["maybe", "Maybe"], ["no", "Can't go"]];
 
-const TABS = [["overview", "Overview", BarChart3], ["beta", "Beta", UserCheck], ["outcomes", "Outcomes", TrendingUp], ["services", "Services", Server], ["database", "Database", Database], ["openings", "Openings", Briefcase], ["errors", "Errors & feedback", AlertTriangle], ["agents", "Agents", Bot], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity]] as const;
+const TABS = [["overview", "Overview", BarChart3], ["beta", "Beta", UserCheck], ["outcomes", "Outcomes", TrendingUp], ["services", "Services", Server], ["database", "Database", Database], ["openings", "Openings", Briefcase], ["errors", "Errors & feedback", AlertTriangle], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity]] as const;
 type Tab = (typeof TABS)[number][0];
-// The menu in three groups (Nov 7): students first, then data, then the team's own work.
-const NAV_GROUPS: [string, Tab[]][] = [["Students", ["overview", "beta", "outcomes"]], ["Data", ["services", "database", "openings", "errors", "agents"]], ["Team", ["board", "people", "calendar", "hours", "activity"]]];
+// The menu in three groups: students first, then data, then the team's own work (Hours first: the one the team checks).
+const NAV_GROUPS: [string, Tab[]][] = [["Students", ["overview", "beta", "outcomes"]], ["Data", ["services", "database", "openings", "errors"]], ["Team", ["hours", "people", "board", "calendar", "activity"]]];
 const HISTORY_AFTER = 3 * 86400_000;
 const COLS: [Status, string][] = [["todo", "To do"], ["doing", "In progress"], ["done", "Done"]];
 const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -83,7 +83,7 @@ export default function Admin() {
           {NAV_GROUPS.map(([group, keys]) => (
             <div key={group} className="adm-nav-group">
               <span className="adm-nav-label">{group}</span>
-              {TABS.filter(([k]) => keys.includes(k)).map(([k, l, Icon]) => <a key={k} href={`/admin?tab=${k}`} aria-current={tab === k ? "page" : undefined}><Icon size={17} /> {l}</a>)}
+              {keys.map((key) => TABS.find(([k]) => k === key)!).map(([k, l, Icon]) => <a key={k} href={`/admin?tab=${k}`} aria-current={tab === k ? "page" : undefined}><Icon size={17} /> {l}</a>)}
             </div>
           ))}
         </nav>
@@ -94,7 +94,6 @@ export default function Admin() {
       <main className="adm-main">
         {tab === "overview" && <OverviewTab />}
         {tab === "errors" && <ErrorsTab />}
-        {tab === "agents" && <AgentsTab />}
         {tab === "beta" && <><FunnelCard /><BetaTab /></>}
         {tab === "outcomes" && <OutcomesTab />}
         {tab === "services" && <ServicesTab />}
@@ -451,8 +450,29 @@ function Kpi({ n, label, prev, note }: { n: number | string; label: string; prev
   );
 }
 
+const greeting = () => {
+  const h = Number(new Date().toLocaleString("en-US", { hour: "numeric", hourCycle: "h23", timeZone: "America/Chicago" }));
+  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+};
+const pct = (x?: { cohort: number; back: number }) => (x && x.cohort ? `${Math.round((100 * x.back) / x.cohort)}%` : "–");
+const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? one : many}`;
+
+/** One coloured tile: a big number, what it counts, and the change against last week. */
+function Tile({ tone, n, label, prev, note }: { tone: "sage" | "blue" | "amber" | "fox"; n: number | string; label: string; prev?: number; note?: string }) {
+  const diff = typeof n === "number" && prev != null ? n - prev : null;
+  return (
+    <div className={`adm-tile adm-tile-${tone}`}>
+      <strong>{n}</strong>
+      <span className="small">{label}</span>
+      <span className="xs">{diff != null ? `${diff > 0 ? "▲" : diff < 0 ? "▼" : "="} ${Math.abs(diff)} vs last week` : note || " "}</span>
+    </div>
+  );
+}
+
 function OverviewTab() {
+  const { me } = useStore();
   const [d, reload] = useLoad<Overview>("/api/admin/overview");
+  const [t] = useLoad<Team>("/api/admin/team");
   if (!d) return <div className="row"><Spinner /> Loading…</div>;
   const f = d.funnel;
   // Setup step by step (where friend testers stop), then what they did after.
@@ -461,24 +481,59 @@ function OverviewTab() {
   const days = Array.from({ length: 14 }, (_, i) => new Date(Date.now() - (13 - i) * 86400_000).toLocaleDateString("en-CA", { timeZone: "America/Chicago" }));
   const byDay = new Map(d.daily.map((x) => [x.day, x.n]));
   const max = Math.max(1, ...days.map((x) => byDay.get(x) || 0));
+  const first = (me?.name || "").split(" ")[0];
+  const myTodos = t ? t.tasks.filter((x) => x.status !== "done" && list(x.assignee).includes(t.me)).length : 0;
+  const needs: [string, string, number, string, string][] = [
+    ["Open errors", "/admin?tab=errors", d.openErrors, "students hit these", "errors"],
+    ["New feedback", "/admin?tab=errors", d.feedback, "from the feedback button", "feedback"],
+    ["Your to-dos", "/admin?tab=board", myTodos, "on the team board", "todos"],
+  ];
+  const step = d.northWeek - d.northPrev;
+  // Remy's one-line read of the week, from the numbers only.
+  const line = d.activeWeek === 0 ? "Quiet week so far: no student has opened Remy yet."
+    : `${plural(d.activeWeek, "student")} opened Remy this week${d.newWeek ? `, ${d.newWeek} of them new` : ""}. ${d.openErrors ? `${plural(d.openErrors, "error")} to look at.` : "No open errors."}`;
+  const teamWeek = t ? t.members.map((m) => ({ m, h: t.hours.find((x) => x.member === m.email)?.week || 0 })).sort((a, b) => b.h - a.h) : [];
   return (
     <div className="stack-lg">
-      <Head title="Overview" sub="Real students only: team members and their “+” test addresses are left out. Counts, never anything a student wrote." action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
+      <div className="adm-head">
+        <div><h1 className="adm-hello">{greeting()}{first ? `, ${first}` : ""}.</h1><p className="muted">{line}</p></div>
+        <button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")} data-testid="button-overview-refresh"><RotateCcw size={14} /> Refresh</button>
+      </div>
+      <section className="adm-hero" data-testid="admin-hero">
+        <div className="adm-hero-main">
+          <span className="small adm-hero-label">North star this week</span>
+          <div className="adm-hero-n"><strong>{d.northWeek}</strong><span>{d.northWeek === 1 ? "student took" : "students took"} a career step</span></div>
+          <span className="small muted">{step > 0 ? `▲ ${step} more than last week` : step < 0 ? `▼ ${-step} fewer than last week` : "Same as last week"}. Real students only; counts, never anything a student wrote.</span>
+        </div>
+        <div className="adm-needs">
+          <span className="adm-hero-label small">Needs you</span>
+          {needs.map(([label, href, n, why, id]) => (
+            <a key={label} href={href} className={"adm-need" + (n ? "" : " adm-need-ok")} data-testid={`need-${id}`}>
+              <b>{n}</b><span className="grow stack-sm" style={{ gap: 0 }}><span className="small">{label}</span><span className="xs muted">{n ? why : "all clear"}</span></span><ArrowRight size={14} />
+            </a>
+          ))}
+        </div>
+      </section>
+      <div className="adm-tiles">
+        <Tile tone="sage" n={d.activeWeek} label="Active students this week" prev={d.activePrev} />
+        <Tile tone="blue" n={d.newWeek} label="New sign-ups this week" prev={d.newPrev} />
+        <Tile tone="amber" n={pct(d.returnWeek1)} label="Came back in their first week" note={d.returnWeek1?.cohort ? `${d.returnWeek1.back} of ${d.returnWeek1.cohort} who signed up 8–35 days ago` : "Counting visits since Oct 31"} />
+        <Tile tone="fox" n={`$${d.ai.cost.toFixed(2)}`} label="AI spend this week" note={d.ai.priced < d.ai.calls ? `${d.ai.calls} calls, ${d.ai.calls - d.ai.priced} without a price` : `${d.ai.calls} calls, ${d.ai.failed} failed`} />
+      </div>
+      {t && (
+        <a className="adm-band" href="/admin?tab=hours" data-testid="admin-team-band">
+          <span className="adm-band-n"><strong>{teamWeek.reduce((x, y) => x + y.h, 0).toFixed(1)}</strong><span className="xs">team hours this week</span></span>
+          <span className="adm-band-people">{teamWeek.map(({ m, h }) => <span key={m.email} className="adm-inline"><Avatar m={m} size={22} /> {m.name.split(" ")[0]} <b>{h}</b></span>)}</span>
+          <span className="btn btn-sm adm-band-btn">Hours <ArrowRight size={14} /></span>
+        </a>
+      )}
       <div className="adm-kpis">
-        <Kpi n={d.northWeek} label="North star: students who took a career step this week" prev={d.northPrev} />
-        {(() => { const r = (x?: { cohort: number; back: number }) => (x && x.cohort ? `${Math.round((100 * x.back) / x.cohort)}%` : "–"); return <>
-          <Kpi n={r(d.returnWeek1)} label="Came back in their first week" note={d.returnWeek1?.cohort ? `${d.returnWeek1.back} of ${d.returnWeek1.cohort} who signed up 8–35 days ago` : "Counting visits since Oct 31"} />
-          <Kpi n={r(d.returnWeek4)} label="Came back in week 4" note={d.returnWeek4?.cohort ? `${d.returnWeek4.back} of ${d.returnWeek4.cohort} who signed up 29–56 days ago` : "Counting visits since Oct 31"} />
-        </>; })()}
-        <Kpi n={d.activeWeek} label="Active students this week" prev={d.activePrev} />
-        <Kpi n={d.newWeek} label="New sign-ups this week" prev={d.newPrev} />
         <Kpi n={d.students} label="Students in total" note={`${d.activeToday} active today`} />
-        <Kpi n={`$${d.ai.cost.toFixed(2)}`} label="AI spend this week" note={d.ai.priced < d.ai.calls ? `${d.ai.calls} calls, ${d.ai.calls - d.ai.priced} without a price` : `${d.ai.calls} calls`} />
+        <Kpi n={pct(d.returnWeek4)} label="Came back in week 4" note={d.returnWeek4?.cohort ? `${d.returnWeek4.back} of ${d.returnWeek4.cohort} who signed up 29–56 days ago` : "Counting visits since Oct 31"} />
         {d.emails && <Kpi n={d.emails.ready ? d.emails.digestsWeek : "Off"} label={d.emails.ready ? "Weekly digests sent this week" : "Emails aren't set up on the server"}
           note={d.emails.ready ? `${d.emails.digest} get the digest, ${d.emails.reminders} get deadline reminders` : "Set SMTP_URL on Render to send reminders and digests"} />}
         {d.emails?.nudges && <Kpi n={d.emails.nudges.sent ? `${Math.round((100 * d.emails.nudges.yes) / d.emails.nudges.sent)}%` : "None yet"} label="Match emails answered Yes (30 days)"
           note={`${d.emails.nudges.sent} sent, ${d.emails.nudges.yes} Yes, ${d.emails.nudges.later} Not now. Owners only for now`} />}
-        <Kpi n={d.openErrors} label="Open errors" note={d.feedback ? `${d.feedback} new feedback` : d.openErrors ? "see Errors" : "all clear"} />
       </div>
       {d.texts && (
         <section className="adm-card" data-testid="admin-texts">
@@ -620,94 +675,6 @@ function ErrorsTab() {
   );
 }
 
-type Run<T> = { at: string; run_by: string; output: T } | null;
-type Agents = { ai: boolean; feedback: Run<{ themes: { title: string; count: number; severity: string; examples: string[]; todo: string }[]; reports: number; note: string }>; weekly: Run<{ lines: string[] }>;
-  scout: Run<{ reached: number; tried: number; early: number; broken: { company: string; error: string }[]; quiet?: string[]; thin: { field: string; employers: number; early: number }[] }>;
-  research: Run<{ question: string; answer: string; sources: { url: string; title: string }[]; web: boolean }>;
-  marketing: Run<{ brief: string; linkedin: string; instagram: string; email: { subject: string; body: string } }>;
-  retention?: Run<{ quiet: number; noSetup: number; stoppedAt: { step: string; n: number }[] }> };
-
-/** The team's agents: simple workflows that post results here; owners decide what becomes a board card. */
-function AgentsTab() {
-  const { run } = useStore();
-  const [d, , setD] = useLoad<Agents>("/api/admin/agents");
-  const [busy, setBusy] = useState("");
-  const [added, setAdded] = useState<string[]>([]);
-  const [question, setQuestion] = useState("");
-  const [brief, setBrief] = useState("");
-  const go = async (agent: string) => { setBusy(agent); const r = await run(() => api<Agents>("POST", `/api/admin/agents/${agent}/run`, { question, brief }), "Agent finished"); if (r) setD(r); setBusy(""); };
-  const add = async (title: string) => { if (await run(() => api("POST", "/api/admin/agents/suggestion", { title }), "Added to the board")) setAdded([...added, title]); };
-  if (!d) return <div className="row"><Spinner /> Loading…</div>;
-  const card = (key: string, name: string, what: string, body: ReactNode, last: Run<unknown>, needsAi = false) => (
-    <section className="adm-card stack-sm" key={key} data-testid={`agent-${key}`}>
-      <div className="row-between"><div><h3>{name}</h3><p className="xs muted">{what}</p></div>
-        <button className="btn btn-secondary btn-sm" disabled={!!busy || (needsAi && !d.ai)} onClick={() => go(key)}>{busy === key ? <Spinner /> : <RotateCcw size={14} />} Run now</button></div>
-      {last ? <span className="xs muted">Last run {ago(last.at)} by {last.run_by.split("@")[0]}</span> : <span className="xs muted">Not run yet.</span>}
-      {body}
-    </section>
-  );
-  const fb = d.feedback?.output, wk = d.weekly?.output, sc = d.scout?.output, rs = d.research?.output, mk = d.marketing?.output, rt = d.retention?.output;
-  const draft = (label: string, text: string) => (
-    <div className="stack-sm" style={{ gap: 4 }}>
-      <div className="row-between"><b className="small">{label}</b><CopyButton text={text} /></div>
-      <p className="small" style={{ whiteSpace: "pre-wrap" }}>{text}</p>
-    </div>
-  );
-  return (
-    <div className="stack-lg">
-      <Head title="Agents" sub="Step-by-step helpers for the team. They suggest; you decide. No student personal data is sent to them." />
-      {card("feedback", "Feedback & bug sorter", "Groups the last 30 days of open errors and student feedback into themes, most urgent first, each with a suggested to-do.", fb && (
-        <div className="stack-sm">
-          {fb.note && <p className="small muted">{fb.note}</p>}
-          {fb.themes.map((t) => (
-            <div key={t.title} className="adm-row" style={{ alignItems: "flex-start" }}>
-              <span className={"chip " + (t.severity === "high" ? "chip-bad" : t.severity === "medium" ? "chip-setup" : "chip-plain")}>{t.severity}</span>
-              <div className="grow stack-sm" style={{ gap: 2 }}><b className="small">{t.title} <span className="muted">({t.count})</span></b>{t.examples.map((e) => <span key={e} className="xs muted">“{e}”</span>)}<span className="xs">To-do: {t.todo}</span></div>
-              {added.includes(t.todo) ? <span className="xs muted"><Check size={12} /> On the board</span> : <button className="btn btn-ghost btn-sm" onClick={() => add(t.todo)}><Plus size={14} /> Add to board</button>}
-            </div>
-          ))}
-        </div>
-      ), d.feedback, true)}
-      {card("weekly", "Weekly analyst", "The week's numbers in plain sentences: north star, active students, setup, AI spend and open issues.", wk && <ul className="small stack-sm" style={{ paddingLeft: 18 }}>{wk.lines.map((l) => <li key={l}>{l}</li>)}</ul>, d.weekly)}
-      {card("retention", "Retention watcher", "Counts students who went quiet (last opened Remy 8–21 days ago) and the step most of them stopped before. Counts only, no names.", rt && (
-        <div className="stack-sm">
-          <p className="small">{rt.quiet} student{rt.quiet === 1 ? "" : "s"} went quiet; {rt.noSetup} never finished setup.</p>
-          {rt.stoppedAt.length > 0 && <ul className="small" style={{ paddingLeft: 18 }}>{rt.stoppedAt.map((x) => <li key={x.step}>Stopped before “{x.step}”: {x.n}</li>)}</ul>}
-          {rt.stoppedAt[0] && !added.includes(`Make “${rt.stoppedAt[0].step}” easier`) && <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => add(`Make “${rt.stoppedAt[0].step}” easier`)}><Plus size={14} /> Add to board</button>}
-        </div>
-      ), d.retention ?? null)}
-      {card("scout", "Openings scout", "Reads every employer career site Remy uses (recent copies count) and shows which ones failed and which fields have few early-career openings. Takes about a minute.", sc && (
-        <div className="stack-sm">
-          <p className="small">{sc.reached} of {sc.tried} employer sites answered, with {sc.early} early-career postings in all.</p>
-          {sc.thin.length > 0 && <><b className="small">Fields with the fewest early-career openings</b><ul className="small" style={{ paddingLeft: 18 }}>{sc.thin.map((t) => <li key={t.field}>{t.field}: {t.early} from {t.employers} employer{t.employers === 1 ? "" : "s"}</li>)}</ul></>}
-          {!!sc.quiet?.length && <p className="xs muted">No internships posted right now: {sc.quiet.join(", ")}.</p>}
-          {sc.broken.length > 0 && <details><summary className="small">{sc.broken.length} site{sc.broken.length === 1 ? "" : "s"} couldn't be read</summary><ul className="xs muted" style={{ paddingLeft: 18 }}>{sc.broken.map((b) => <li key={b.company}>{b.company}: {b.error}</li>)}</ul></details>}
-          {sc.broken.length > 0 && !added.includes("Fix the job readers the scout flagged") && <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => add("Fix the job readers the scout flagged")}><Plus size={14} /> Add to board</button>}
-        </div>
-      ), d.scout)}
-      {card("research", "Researcher", "Answers a team question from live web sources (Perplexity), with links. Don't paste student information.", (
-        <div className="stack-sm">
-          <textarea className="textarea" style={{ minHeight: 60 }} value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="e.g. What do Handshake and Teal charge colleges, and what do students say about them?" aria-label="Research question" data-testid="input-research" />
-          {rs && (
-            <div className="stack-sm">
-              <b className="small">{rs.question}</b>
-              {!rs.web && <span className="chip chip-setup" style={{ alignSelf: "flex-start" }}>No web sources: check before using</span>}
-              <div className="small stack-sm"><Rich text={rs.answer} /></div>
-              {rs.sources.length > 0 && <div className="xs stack-sm" style={{ gap: 2 }}>{rs.sources.map((s, i) => <a key={s.url} href={s.url} target="_blank" rel="noreferrer">[{i + 1}] {s.title || new URL(s.url).hostname}</a>)}</div>}
-            </div>
-          )}
-        </div>
-      ), d.research, true)}
-      {card("marketing", "Marketing drafter", "Drafts a LinkedIn post, an Instagram caption and an email to professors from the latest updates. You edit and send; it never posts anything.", (
-        <div className="stack-sm">
-          <input className="input" value={brief} onChange={(e) => setBrief(e.target.value)} placeholder="Optional brief, e.g. invite Neeley students to try the beta before finals" aria-label="Marketing brief" data-testid="input-marketing" />
-          {mk && <>{draft("LinkedIn", mk.linkedin)}{draft("Instagram", mk.instagram)}{draft(`Email: ${mk.email.subject}`, mk.email.body)}</>}
-        </div>
-      ), d.marketing, true)}
-    </div>
-  );
-}
-
 function Avatar({ m, size = 26 }: { m?: Member; size?: number }) {
   const text = m ? m.name.split(/\s+/).map((x) => x[0]).slice(0, 2).join("").toUpperCase() : "?";
   return <span className="adm-av" style={{ width: size, height: size, fontSize: size * 0.4 }} title={m ? `${m.name} (${m.email})` : "Nobody yet"} aria-hidden>{text}</span>;
@@ -750,6 +717,7 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
   const [over, setOver] = useState<Status | null>(null);
   const [member, setMember] = useState({ name: "", email: "" });
   const [note, setNote] = useState("");
+  const [past, setPast] = useState({ date: today(), from: "", to: "", note: "" });
   const [drag, setDrag] = useState<string | null>(null);
   const send = async (method: "POST" | "DELETE", path: string, body?: unknown, done?: string) => {
     const r = await run(() => api<Team>(method, path, body), done);
@@ -972,32 +940,68 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
     );
   }
 
+  // Monday of each of the last 8 weeks (Chicago time), oldest first, to match the server's weekly totals.
+  const mondays = Array.from({ length: 8 }, (_, i) => {
+    const x = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }));
+    x.setDate(x.getDate() - ((x.getDay() + 6) % 7) - 7 * (7 - i));
+    return x.toLocaleDateString("en-CA");
+  });
+  const top = Math.max(1, ...d.weeks.map((w) => w.hours));
+  const people = d.members.map((m) => ({ m, h: d.hours.find((x) => x.member === m.email) })).sort((a, b) => (b.h?.hours || 0) - (a.h?.hours || 0));
+  const addPast = async () => {
+    const at = (t: string) => new Date(`${past.date}T${t}`).toISOString();
+    if (!past.date || !past.from || !past.to) return;
+    if (await send("POST", "/api/admin/hours", { start: at(past.from), end: at(past.to), note: past.note }, "Time logged")) setPast({ ...past, from: "", to: "", note: "" });
+  };
   return (
     <div className="stack-lg">
-      <Head title="Hours" sub="Clock in when you start working on Remy and out when you stop. Each person clocks only themselves." />
-      <section className="adm-card stack-sm">
-        <h3 className="row"><Clock size={18} /> {d.clockedIn ? `You're clocked in since ${when(d.clockedIn)}` : "You're clocked out"}</h3>
-        <div className="row">
-          <input className="input grow" value={note} onChange={(e) => setNote(e.target.value)} placeholder={d.clockedIn ? "What did you work on? (optional)" : "What are you working on? (optional)"} aria-label="Note" />
-          <button className={"btn btn-sm " + (d.clockedIn ? "btn-secondary" : "btn-primary")} onClick={async () => { if (await send("POST", "/api/admin/clock", { action: d.clockedIn ? "out" : "in", note }, d.clockedIn ? "Clocked out" : "Clocked in")) setNote(""); }} data-testid="button-clock">{d.clockedIn ? "Clock out" : "Clock in"}</button>
-        </div>
-      </section>
-      <section className="adm-card">
-        <table className="table"><thead><tr><th>Who</th><th>This week</th><th>All time</th></tr></thead>
-          <tbody>{d.hours.map((h) => <tr key={h.member}><td><span className="row" style={{ gap: 8 }}><Avatar m={who(h.member)} size={24} /> {nameOf(h.member)}</span></td><td>{h.week} h</td><td>{h.hours} h</td></tr>)}</tbody></table>
-        {!d.hours.length && <p className="small muted">No hours logged yet.</p>}
-      </section>
+      <Head title="Hours" sub="Time each person put into Remy. Clock in and out as you work, or add time you forgot to clock. Each person logs only their own." />
+      <div className="adm-grid2">
+        <section className={"adm-card adm-clock" + (d.clockedIn ? " on" : "")}>
+          <span className="small muted">{d.clockedIn ? "You're working" : "You're clocked out"}</span>
+          <strong className="adm-clock-n">{d.clockedIn ? `since ${when(d.clockedIn)}` : `${people.find((x) => x.m.email === d.me)?.h?.week || 0} h this week`}</strong>
+          <div className="row">
+            <input className="input grow" value={note} onChange={(e) => setNote(e.target.value)} placeholder={d.clockedIn ? "What did you work on? (optional)" : "What are you working on? (optional)"} aria-label="Note" data-testid="input-clock-note" />
+            <button className={"btn btn-sm " + (d.clockedIn ? "btn-secondary" : "btn-primary")} onClick={async () => { if (await send("POST", "/api/admin/clock", { action: d.clockedIn ? "out" : "in", note }, d.clockedIn ? "Clocked out" : "Clocked in")) setNote(""); }} data-testid="button-clock">{d.clockedIn ? "Clock out" : "Clock in"}</button>
+          </div>
+        </section>
+        <section className="adm-card">
+          <h3>Add time you forgot to clock</h3>
+          <div className="adm-past">
+            <input className="input" type="date" max={today()} value={past.date} onChange={(e) => setPast({ ...past, date: e.target.value })} aria-label="Day" data-testid="input-past-date" />
+            <input className="input" type="time" value={past.from} onChange={(e) => setPast({ ...past, from: e.target.value })} aria-label="From" data-testid="input-past-from" />
+            <input className="input" type="time" value={past.to} onChange={(e) => setPast({ ...past, to: e.target.value })} aria-label="To" data-testid="input-past-to" />
+          </div>
+          <div className="row">
+            <input className="input grow" value={past.note} onChange={(e) => setPast({ ...past, note: e.target.value })} placeholder="What you worked on (optional)" aria-label="What you worked on" data-testid="input-past-note" />
+            <button className="btn btn-secondary btn-sm" disabled={!past.date || !past.from || !past.to} onClick={addPast} data-testid="button-add-past"><Plus size={14} /> Add</button>
+          </div>
+        </section>
+      </div>
+      <div className="adm-people">
+        {people.map(({ m, h }) => (
+          <section key={m.email} className="adm-card adm-hours-person" data-testid={`hours-${m.email.split("@")[0]}`}>
+            <div className="row" style={{ gap: 10 }}><Avatar m={m} size={34} /><div className="grow"><b>{m.name}</b><span className="xs muted" style={{ display: "block" }}>{h?.week || 0} h this week</span></div><strong className="adm-hours-n">{h?.hours || 0}<span className="xs muted"> h</span></strong></div>
+            <div className="adm-mini" role="img" aria-label={`${m.name}: hours per week for the last 8 weeks`}>
+              {mondays.map((w) => { const n = d.weeks.find((x) => x.member === m.email && x.week === w)?.hours || 0; return <span key={w} title={`Week of ${day(w)}: ${n} h`}><i style={{ height: `${(n / top) * 100}%` }} /></span>; })}
+            </div>
+            <span className="xs muted">Last 8 weeks</span>
+          </section>
+        ))}
+      </div>
       <section className="adm-card adm-list">
         <h3>Recent entries</h3>
         {d.entries.map((e) => (
           <div key={e.id} className="adm-row">
             <Avatar m={who(e.member)} size={26} />
             <div className="grow stack-sm" style={{ gap: 2 }}>
-              <span className="small"><b>{nameOf(e.member)}</b>: {when(e.start_at)} to {e.end_at ? when(e.end_at) : <span className="pass">still working</span>}</span>
+              <span className="small"><b>{nameOf(e.member)}</b>: {when(e.start_at)} to {e.end_at ? when(e.end_at) : <span className="pass">still working</span>}{e.end_at && <span className="muted"> · {((+new Date(e.end_at) - +new Date(e.start_at)) / 3600_000).toFixed(1)} h</span>}</span>
               {e.note && <span className="xs muted">{e.note}</span>}
             </div>
+            {e.member === d.me && e.end_at && <button className="icon-btn" onClick={() => send("DELETE", `/api/admin/hours/${e.id}`, undefined, "Entry removed")} aria-label="Remove this entry" data-testid={`button-remove-entry-${e.id}`}><Trash2 size={14} /></button>}
           </div>
         ))}
+        {!d.entries.length && <p className="small muted">No hours logged yet.</p>}
       </section>
     </div>
   );

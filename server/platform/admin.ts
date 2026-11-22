@@ -225,7 +225,7 @@ async function people() {
 }
 
 export async function team(me: string) {
-  const [members, tasks, events, hours, entries, activity, rsvps, calendar] = await Promise.all([
+  const [members, tasks, events, hours, entries, activity, rsvps, calendar, weeks] = await Promise.all([
     people(),
     q("SELECT * FROM team_tasks ORDER BY (due = ''), due, created_at"),
     q("SELECT * FROM team_events WHERE date >= to_char(now() - interval '30 days', 'YYYY-MM-DD') ORDER BY date, time"),
@@ -238,10 +238,16 @@ export async function team(me: string) {
     q("SELECT * FROM team_activity ORDER BY at DESC LIMIT 80"),
     q("SELECT event_id, member, answer FROM team_event_rsvps"),
     gcal.teamStatus(),
+    // Hours per member per week (Monday start) for the last 8 weeks, for the bars on the Hours page.
+    q(
+      `SELECT member, to_char(date_trunc('week', start_at AT TIME ZONE 'America/Chicago'), 'YYYY-MM-DD') AS week,
+              ROUND((SUM(EXTRACT(EPOCH FROM (COALESCE(end_at, now()) - start_at))) / 3600)::numeric, 1)::float AS hours
+       FROM time_entries WHERE start_at > now() - interval '56 days' GROUP BY 1, 2 ORDER BY 2`,
+    ),
   ]);
   const mine = entries.find((e) => e.member === me && !e.end_at);
   for (const e of events) e.rsvps = Object.fromEntries(rsvps.filter((r) => r.event_id === e.id).map((r) => [r.member, r.answer]));
-  return { me, members, tasks, events, hours, entries, activity, calendar, clockedIn: mine ? mine.start_at : null };
+  return { me, members, tasks, events, hours, weeks, entries, activity, calendar, clockedIn: mine ? mine.start_at : null };
 }
 
 export async function addMember(me: string, b: any) {
@@ -346,6 +352,28 @@ export async function teamCalendarItems(): Promise<CalItem[]> {
   });
 }
 export const syncTeamCalendar = () => { if (gcal.gcalReady()) gcal.syncTeamSoon(teamCalendarItems); };
+
+/** Logs time an owner forgot to clock: a finished block in the past, at most 16 hours. Each owner logs only themselves. */
+export async function logPast(me: string, b: any) {
+  const start = new Date(String(b?.start || "")), end = new Date(String(b?.end || ""));
+  if (isNaN(+start) || isNaN(+end)) throw bad("Pick a start and an end time.");
+  const h = (+end - +start) / 3600_000;
+  if (h <= 0) throw bad("The end has to come after the start.");
+  if (h > 16) throw bad("One entry can be at most 16 hours. Split longer stretches into several.");
+  if (+end > Date.now() + 60_000) throw bad("Only past time can be logged. Use Clock in for now.");
+  const clash = await q1("SELECT id FROM time_entries WHERE member = $1 AND start_at < $3 AND COALESCE(end_at, now()) > $2", [me, start.toISOString(), end.toISOString()]);
+  if (clash) throw bad("That overlaps time you already logged.", 409);
+  await q("INSERT INTO time_entries (id, member, start_at, end_at, note) VALUES ($1, $2, $3, $4, $5)", [uid("tm"), me, start.toISOString(), end.toISOString(), cut(b?.note, 300)]);
+  await log(me, "Logged past time", `${h.toFixed(1)} h${b?.note ? `: ${cut(b.note, 120)}` : ""}`);
+}
+
+/** Removes one of the owner's own finished entries (a mistake). Nobody can remove someone else's time. */
+export async function removeEntry(me: string, id: string) {
+  const row = await q1("SELECT start_at, end_at FROM time_entries WHERE id = $1 AND member = $2 AND end_at IS NOT NULL", [id, me]);
+  if (!row) throw bad("Only your own finished entries can be removed.", 404);
+  await q("DELETE FROM time_entries WHERE id = $1", [id]);
+  await log(me, "Removed time entry", `${((+new Date(row.end_at) - +new Date(row.start_at)) / 3600_000).toFixed(1)} h`);
+}
 
 /** Clock in starts an entry; clock out ends the open one. Each owner clocks only themselves. */
 export async function clock(me: string, action: "in" | "out", note = "") {
