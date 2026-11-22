@@ -496,11 +496,16 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
             {tailor.stage === "asking" && (() => {
               const q = tailor.qs[tailor.idx];
               const taps = [...(q?.options || []), ...(q?.pick ? [q.pick] : [])];
-              return taps.length > 0 && (
+              // Draft-first (stage 3): every question gets "Other" (write your own) and "Skip the rest".
+              const extra = tailor.drafted && q?.key !== "_ok";
+              const tapStyle = { justifyContent: "flex-start", whiteSpace: "normal", textAlign: "left", height: "auto", padding: "8px 12px" } as const;
+              return (taps.length > 0 || extra) && (
                 <div className="stack-sm" data-testid="tailor-options">
                   {taps.map((o) => (
-                    <button key={o} className={`btn ${o === q.pick ? "btn-ghost" : "btn-secondary"} btn-sm`} style={{ justifyContent: "flex-start", whiteSpace: "normal", textAlign: "left", height: "auto", padding: "8px 12px" }} onClick={() => send(o)} data-testid="tailor-option">{o}</button>
+                    <button key={o} className={`btn ${o === q.pick ? "btn-ghost" : "btn-secondary"} btn-sm`} style={tapStyle} onClick={() => send(o)} data-testid="tailor-option">{o}</button>
                   ))}
+                  {extra && <button className="btn btn-secondary btn-sm" style={tapStyle} onClick={() => { const el = document.querySelector<HTMLTextAreaElement>('[data-testid="input-chat"]'); el?.focus(); el?.setAttribute("placeholder", "Write your own answer…"); }} data-testid="tailor-other">Other (write your own)</button>}
+                  {extra && <button className="btn btn-ghost btn-sm" style={tapStyle} onClick={() => send("Skip the rest")} data-testid="tailor-skip-rest">Skip the rest</button>}
                 </div>
               );
             })()}
