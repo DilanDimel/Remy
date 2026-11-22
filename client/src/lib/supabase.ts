@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { AppConfig } from "@shared/types";
+import { isNativeApp, NATIVE_AUTH_RETURN, openInBrowser } from "./native";
 
 // Supabase Auth handles the OAuth hop (Google, LinkedIn, Apple, Microsoft) and
 // email magic links. Supabase's session is only used once: its access token is
@@ -15,7 +16,9 @@ function sb(cfg: NonNullable<AppConfig["supabase"]>) {
   return client;
 }
 
-const returnUrl = () => `${location.origin}/`;
+// In the phone app, sign-in happens in the system browser sheet (Google refuses
+// embedded web views), which hands the code back to the app through its URL scheme.
+const returnUrl = () => (isNativeApp ? NATIVE_AUTH_RETURN : `${location.origin}/`);
 
 export function providerOn(config: AppConfig | null, p: SupabaseProvider | "email") {
   return !!config?.supabase?.providers[p];
@@ -24,16 +27,17 @@ export function providerOn(config: AppConfig | null, p: SupabaseProvider | "emai
 /** Leaves the page for the provider's consent screen; comes back to returnUrl(). */
 export async function startOAuth(config: AppConfig, provider: SupabaseProvider, intent: Intent = "signin") {
   try { localStorage.setItem(INTENT_KEY, intent); } catch {}
-  const { error } = await sb(config.supabase!).auth.signInWithOAuth({
+  const { data, error } = await sb(config.supabase!).auth.signInWithOAuth({
     provider,
-    options: { redirectTo: returnUrl(), scopes: provider === "azure" ? "email" : undefined },
+    options: { redirectTo: returnUrl(), scopes: provider === "azure" ? "email" : undefined, skipBrowserRedirect: isNativeApp },
   });
   if (error) throw error;
+  if (isNativeApp && data?.url) await openInBrowser(data.url);
 }
 
 export async function sendMagicLink(config: AppConfig, email: string) {
   try { localStorage.setItem(INTENT_KEY, "signin"); } catch {}
-  const { error } = await sb(config.supabase!).auth.signInWithOtp({ email, options: { emailRedirectTo: returnUrl() } });
+  const { error } = await sb(config.supabase!).auth.signInWithOtp({ email, options: { emailRedirectTo: `${location.origin}/` } });
   if (error) throw error;
 }
 
