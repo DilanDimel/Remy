@@ -104,7 +104,7 @@ export function Policies() {
       <Section title="How your information is used">
         <p>Only to run Remy for you: building your profile, finding openings that fit, tailoring applications, drafting emails, and planning your next steps.</p>
         <p>Some of this uses AI. When it does, Remy sends only the text that task needs (for example, your resume and a job posting) to an AI provider through OpenRouter: currently Google's Gemini models, and for the team's own test accounts Anthropic's Claude models. Those providers' own privacy policies apply. Remy checks what the AI writes against your own words before showing it to you.</p>
-        <p>Remy emails you 6-digit sign-in codes and, unless you turn them off in Account → Appearance & alerts, deadline reminders and a weekly digest, from remy.careercoach@gmail.com. If you're accepted as a beta tester, the team sends you a welcome email with how to sign in.</p>
+        <p>Remy emails you 6-digit sign-in codes and, unless you turn them off in Account → Appearance & alerts, deadline reminders and a weekly digest, from remy@mail.remyai.org. These emails are sent through our email provider, Resend, and replies go to hello@remyai.org. If you're accepted as a beta tester, the team sends you a welcome email with how to sign in.</p>
         <p>The team's dashboard shows counts across students (for example, how many applications got an answer, or how many students opened a page), never what you wrote. We may keep combined statistics that can't identify anyone to improve Remy.</p>
       </Section>
       <Section title="Where it's stored">
