@@ -1,8 +1,9 @@
 import { PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold, useFonts } from "@expo-google-fonts/plus-jakarta-sans";
-import { Stack } from "expo-router";
+import { Stack, type ErrorBoundaryProps } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Pressable, ScrollView, Text } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { JobsProvider } from "@/lib/jobs";
@@ -28,9 +29,13 @@ function Root() {
 }
 
 export default function Layout() {
-  const [loaded] = useFonts({ PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold });
-  useEffect(() => { if (loaded) SplashScreen.hideAsync().catch(() => {}); }, [loaded]);
-  if (!loaded) return null;
+  const [loaded, fontError] = useFonts({ PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold });
+  // Never stay on the splash: go on with system fonts if the brand font fails or is slow (Dilan saw a frozen splash, Nov 22).
+  const [waited, setWaited] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setWaited(true), 3000); return () => clearTimeout(t); }, []);
+  const ready = loaded || !!fontError || waited;
+  useEffect(() => { if (ready) SplashScreen.hideAsync().catch(() => {}); }, [ready]);
+  if (!ready) return null;
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
@@ -43,5 +48,19 @@ export default function Layout() {
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
+  );
+}
+
+/** A startup error shows on screen (with Try again) instead of leaving the splash up. */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  useEffect(() => { SplashScreen.hideAsync().catch(() => {}); }, []);
+  return (
+    <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 24, gap: 12, backgroundColor: "#fbf7f2" }}>
+      <Text style={{ fontSize: 24, fontWeight: "800", color: "#161616" }}>Remy hit a snag</Text>
+      <Text selectable style={{ fontSize: 14, color: "#5f5f5f" }}>{error.message}</Text>
+      <Pressable testID="button-retry" onPress={retry} style={{ height: 48, borderRadius: 12, backgroundColor: "#161616", alignItems: "center", justifyContent: "center" }}>
+        <Text style={{ color: "#ffffff", fontWeight: "700", fontSize: 16 }}>Try again</Text>
+      </Pressable>
+    </ScrollView>
   );
 }
