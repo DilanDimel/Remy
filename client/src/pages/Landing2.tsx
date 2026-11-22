@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { Check, ShieldCheck } from "lucide-react";
 import { go } from "../lib/router";
 import { useOwnerView, useStore } from "../lib/store";
 import { BetaBadge, Remy } from "../components/common";
 import { TEAM } from "./Info";
-import { FieldBrowser, LinkedInMark, applyHref } from "./Welcome";
+import { FieldBrowser, HeroExample, LinkedInMark, applyHref } from "./Welcome";
 
 export const INSTAGRAM = "https://www.instagram.com/coachremyai/";
 export const LINKEDIN = "https://www.linkedin.com/company/remyai-org/";
@@ -56,20 +57,35 @@ export default function Landing2() {
   const startLabel = inside ? "Open my Remy" : beta ? "Apply to be a beta tester" : "Create your free account";
   const ext = beta ? { target: "_blank", rel: "noreferrer" } : {};
   const out = { target: "_blank", rel: "noreferrer" };
+  const page = useRef<HTMLDivElement>(null);
+  // Sections ease in as they scroll into view (CSS keeps them visible when motion is reduced or JS is off).
+  useEffect(() => {
+    const els = page.current?.querySelectorAll(".rv") || [];
+    if (!("IntersectionObserver" in window)) { els.forEach((e) => e.classList.add("in")); return; }
+    const io = new IntersectionObserver((list) => { for (const x of list) if (x.isIntersecting) { x.target.classList.add("in"); io.unobserve(x.target); } }, { rootMargin: "0px 0px -8% 0px" });
+    els.forEach((e) => io.observe(e));
+    return () => io.disconnect();
+  }, []);
   return (
-    <div className="lp2">
+    <div className="lp2" ref={page}>
       <div className="lp2-w">
         <Top inside={inside} />
 
         <main>
           <section className="lp2-hero">
-            <p className="lp2-pre">Free for college students, now in beta</p>
-            <h1>Don&rsquo;t hunt for a job alone.</h1>
-            <p className="lp2-lede">Remy finds openings you can actually get, keeps your resume honest, and tells you what to do this week.</p>
-            <div className="lp2-ctas">
-              <a className="lp2-btn lp2-btn-lg" href={start} {...ext} data-testid="button-lp-start">{startLabel}</a>
-              {!inside && <a className="lp2-link" href="/signin">{beta ? "Already in? Sign in" : "I have an account"}</a>}
+            <div className="lp2-hero-copy">
+              <p className="lp2-pre">Free for college students, now in beta</p>
+              <h1>Don&rsquo;t hunt for a job alone.</h1>
+              <p className="lp2-lede">Remy finds openings you can actually get, keeps your resume honest, and tells you what to do this week.</p>
+              <div className="lp2-ctas">
+                <a className="lp2-btn lp2-btn-lg" href={start} {...ext} data-testid="button-lp-start">{startLabel}</a>
+                {!inside && <a className="lp2-link" href="/signin">{beta ? "Already in? Sign in" : "I have an account"}</a>}
+              </div>
             </div>
+            <HeroExample />
+          </section>
+          <section className="lp2-peek rv" aria-label="Inside Remy">
+            <p className="lp2-peek-cap"><Remy size={26} mood="happy" /> And this is what you see when you sign in.</p>
             <div className="lp2-shot">
               <img src="/landing/home.png" width={864} height={540} alt="Remy's Home screen: one next step, this week's to-dos and openings that fit" />
             </div>
@@ -80,13 +96,43 @@ export default function Landing2() {
       <section className="lp2-sec" id="what" aria-labelledby="what-h">
         <div className="lp2-w">
           <h2 id="what-h">What Remy does</h2>
-          <div className="lp2-three">
-            <div><h3>Openings you can actually get</h3><p>Remy reads 180+ employers&rsquo; own career sites and hides postings you can&rsquo;t apply to. Every opening says why it fits you.</p></div>
-            <div><h3>A resume that stays true</h3><p>Suggestions for each job, line by line. Anything your resume can&rsquo;t back up gets flagged. You approve every word.</p></div>
-            <div><h3>One next step, every week</h3><p>Deadlines become dated to-dos, in your Google Calendar if you like. Not sure what you want yet? Remy starts there.</p></div>
+          <div className="lp2-three rv">
+            <div>
+              <h3>Openings you can actually get</h3><p>Remy reads 180+ employers&rsquo; own career sites and hides postings you can&rsquo;t apply to. Every opening says why it fits you.</p>
+              <div className="lp-shot" aria-hidden>
+                <div className="lp-job"><div><b>Marketing Intern, Summer 2027</b><span>Dallas, TX &middot; closes Jan 31</span></div><span className="chip chip-live">You qualify</span></div>
+                <p className="lp-why">It asks for sophomores in marketing. You&rsquo;re a sophomore in marketing.</p>
+                <div className="lp-job lp-hidden"><div><b>Senior Marketing Associate</b><span>Hidden: needs 3 years of experience</span></div></div>
+              </div>
+            </div>
+            <div>
+              <h3>A resume that stays true</h3><p>Suggestions for each job, line by line. Anything your resume can&rsquo;t back up gets flagged. You approve every word.</p>
+              <div className="lp-shot" aria-hidden>
+                <p className="lp-old">Posted on the club&rsquo;s Instagram</p>
+                <p className="lp-new">Grew the club&rsquo;s Instagram with a weekly posting calendar</p>
+                <div className="lp-flag"><ShieldCheck size={15} /><span><b>Flagged:</b> &ldquo;followers up 40%&rdquo; isn&rsquo;t on your resume.</span></div>
+              </div>
+            </div>
+            <div>
+              <h3>One next step, every week</h3><p>Deadlines become dated to-dos, in your Google Calendar if you like. Ask Remy anything; it knows your resume.</p>
+              <div className="lp-shot" aria-hidden>
+                <div className="lp-todo"><span className="lp-box" /><span><b>Apply: Marketing Intern</b><span className="xs muted"> &middot; due Jan 31</span></span></div>
+                <div className="lp-todo"><span className="lp-box" /><span><b>Ask your advisor for a reference</b></span></div>
+                <div className="lp-todo done"><span className="lp-box"><Check size={12} /></span><span>Add your LinkedIn</span></div>
+              </div>
+            </div>
           </div>
-          <a className="lp2-more lp2-careers-link" href="/careers">Not sure what you want? See where your major leads <span aria-hidden>&rarr;</span></a>
           <p className="lp2-never">Remy never makes up experience, applies or messages anyone for you, or sells your data.</p>
+        </div>
+      </section>
+
+      <section className="lp2-sec" aria-labelledby="explore-h">
+        <div className="lp2-w lp2-explore rv">
+          <div>
+            <h2 id="explore-h">No idea what you want yet? Good place to start.</h2>
+            <p className="lp2-sub">Pick a major and see the jobs it leads to, with real pay and growth from the U.S. Bureau of Labor Statistics. Try it, no account needed.</p>
+          </div>
+          <FieldBrowser />
         </div>
       </section>
 
@@ -96,7 +142,7 @@ export default function Landing2() {
             <div><h2 id="team-h">The people behind Remy</h2><p>A small team in Fort Worth, Texas. We read every message beta testers send.</p></div>
             <a className="lp2-more" href="/about">About the team <span aria-hidden>&rarr;</span></a>
           </div>
-          <ul className="lp2-team">
+          <ul className="lp2-team rv">
             {TEAM.map((m) => (
               <li key={m.name}>
                 {m.photo ? <img src={m.photo} alt="" width={200} height={200} loading="lazy" /> : <span className="lp2-ini" aria-hidden>{m.name.split(" ").map((w) => w[0]).join("")}</span>}
@@ -109,8 +155,10 @@ export default function Landing2() {
 
       <section className="lp2-sec" aria-labelledby="follow-h">
         <div className="lp2-w">
-          <h2 id="follow-h">Follow along</h2>
-          <p className="lp2-sub">What we&rsquo;re building, and tips for your search.</p>
+          <div className="lp2-follow-head">
+            <Remy size={44} mood="wave" />
+            <div><h2 id="follow-h">Follow along</h2><p className="lp2-sub">Job-search tips, what we shipped this week, and the occasional fox.</p></div>
+          </div>
           <div className="lp2-social">
             <a href={INSTAGRAM} {...out} data-testid="link-instagram"><InstagramMark size={26} /><span><b>Instagram</b><span>@coachremyai</span></span><span className="lp2-go" aria-hidden>&rarr;</span></a>
             <a href={LINKEDIN} {...out} data-testid="link-linkedin"><LinkedInMark /><span><b>LinkedIn</b><span>RemyAI company page</span></span><span className="lp2-go" aria-hidden>&rarr;</span></a>
