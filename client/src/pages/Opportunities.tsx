@@ -1,9 +1,9 @@
 import { useEffect, useState, Fragment } from "react";
 import { dreamWithoutOpenings } from "@shared/org";
-import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, BookmarkCheck, CalendarPlus, ChevronDown, ChevronUp, Link2, MapPin, RefreshCw, Search, Sparkles, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, BookmarkCheck, CalendarPlus, Check, X, ChevronDown, ChevronUp, Link2, MapPin, RefreshCw, Search, Sparkles, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
 import { openingRanker, reasonLine } from "@shared/order";
 import type { Job, JobCheck, JobFit, JobInterestReason, JobRanking, Workspace } from "@shared/types";
-import { api, daysUntil, fmtDate, rid, useDraft, useStore } from "../lib/store";
+import { api, daysUntil, fmtDate, rid, useDraft, useOwnerView, useStore } from "../lib/store";
 import { ApplyLink } from "../components/ApplyLink";
 import { go } from "../lib/router";
 import { kindLabel, reloadJobs, sameOrg, useJobs } from "../lib/jobs";
@@ -243,6 +243,7 @@ function eligChip(f?: JobFit) {
 }
 
 function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit; moved?: JobRanking; canRate: boolean; defaultOpen: boolean }) {
+  const keepPass = useOwnerView(); // redesign stage 3, owners first
   const { ws, save, setWs, run, config } = useStore();
   const w = ws!;
   const [open, setOpen] = useState(defaultOpen);
@@ -322,7 +323,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit
           <div className="row" style={{ gap: 6 }}>
             <button className="btn btn-secondary btn-sm" onClick={recheck} disabled={!!busy} data-testid="button-recheck">{busy === "check" ? <Spinner /> : <RefreshCw size={14} />} Re-check it's still open</button>
             <button className="btn btn-ghost btn-sm" onClick={explain} disabled={!!busy || !config?.ai.available || !w.resume}>{busy === "fit" ? <Spinner /> : <Sparkles size={14} />} Explain fit</button>
-            {canRate && j.kind !== "event" ? <Interest j={j} hidden={hidden} /> : <button className="btn btn-ghost btn-sm" onClick={() => save("hiddenJobIds", hidden ? w.hiddenJobIds.filter((x) => x !== j.id) : [...w.hiddenJobIds, j.id])}>{hidden ? "Show it again" : "Not interested"}</button>}
+            {canRate && j.kind !== "event" ? (keepPass ? null : <Interest j={j} hidden={hidden} />) : <button className="btn btn-ghost btn-sm" onClick={() => save("hiddenJobIds", hidden ? w.hiddenJobIds.filter((x) => x !== j.id) : [...w.hiddenJobIds, j.id])}>{hidden ? "Show it again" : "Not interested"}</button>}
             {/* Only postings the student added can be removed; a live one would come back on the next search. */}
             {j.origin === "imported" && !/job board/i.test(j.sourceName || "") && <button className="btn btn-ghost btn-sm" style={{ color: "var(--error)" }} onClick={async () => { const r = await run(() => api<Workspace>("DELETE", `/api/jobs/${j.id}`)); if (r) { setWs(r); reloadJobs(); } }}><Trash2 size={14} /> Remove</button>}
           </div>
@@ -331,7 +332,8 @@ function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit
       <div className="row" style={{ marginTop: 4 }}>
         {j.kind !== "event" && <button className="btn btn-primary btn-sm" onClick={() => go(`/resume?tab=tailor&job=${j.id}&go=1`)} data-testid="button-tailor-job">Tailor resume</button>}
         <ApplyLink j={j} />
-        <button className="btn btn-ghost btn-sm" onClick={() => save("savedJobIds", saved ? w.savedJobIds.filter((x) => x !== j.id) : [...w.savedJobIds, j.id])} data-testid="button-save-job">{saved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />} {saved ? "Saved" : "Save"}</button>
+        {keepPass && canRate && j.kind !== "event" ? <KeepPass j={j} saved={saved} hidden={hidden} /> : (
+        <button className="btn btn-ghost btn-sm" onClick={() => save("savedJobIds", saved ? w.savedJobIds.filter((x) => x !== j.id) : [...w.savedJobIds, j.id])} data-testid="button-save-job">{saved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />} {saved ? "Saved" : "Save"}</button>)}
         {j.deadline && <button className="btn btn-ghost btn-sm" onClick={addCal} disabled={onCal} data-testid="button-add-calendar"><CalendarPlus size={14} /> {onCal ? "On calendar" : "Add to calendar"}</button>}
         <button className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={() => setOpen((o) => !o)} data-testid="button-job-details">{open ? <ChevronUp size={14} /> : <ChevronDown size={14} />} Details</button>
       </div>
@@ -343,6 +345,24 @@ function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit
 // "More like this" / "Not for me" (Julio's interest system, Nov 6 2026): the student's own taps re-order their openings,
 // and an optional reason carries the like or pass over to similar openings. "Not for me" asks why first (or "Just hide it"),
 // then saves and hides the card in one step, so nothing is half-done if the student walks away.
+/** Redesign stage 3 (owners first): a plain Keep / Pass on every opening ("like dating apps"). Keep saves it and tells
+ *  Remy you want more like it; Pass hides it and tells Remy the opposite. Same signal swipe mode will use later. */
+function KeepPass({ j, saved, hidden }: { j: Job; saved: boolean; hidden: boolean }) {
+  const { ws, setWs, run } = useStore();
+  const kept = saved && (ws!.jobFeedback?.[j.id]?.rating ?? 0) >= 4;
+  const put = (body: object) => run(() => api<Workspace>("PUT", `/api/jobs/${j.id}/interest`, body)).then((r) => r && setWs(r));
+  const undo = () => run(() => api<Workspace>("DELETE", `/api/jobs/${j.id}/interest?unhide=1`)).then((r) => r && setWs(r));
+  if (hidden) return <button className="btn btn-ghost btn-sm" onClick={undo} data-testid="button-unpass">Passed · undo</button>;
+  return (
+    <>
+      <button className={`btn btn-sm ${kept ? "btn-secondary" : "btn-ghost"}`} aria-pressed={kept} onClick={() => (kept ? run(() => api<Workspace>("DELETE", `/api/jobs/${j.id}/interest`)).then((r) => r && run(() => api<Workspace>("PUT", "/api/ws/savedJobIds", { value: r.savedJobIds.filter((x) => x !== j.id) })).then((r2) => r2 && setWs(r2))) : put({ rating: 5, keep: true }))} data-testid="button-keep">
+        <Check size={14} /> {kept ? "Kept" : "Keep"}
+      </button>
+      <button className="btn btn-ghost btn-sm" onClick={() => put({ rating: 1, hide: true })} data-testid="button-pass"><X size={14} /> Pass</button>
+    </>
+  );
+}
+
 function Interest({ j, hidden }: { j: Job; hidden: boolean }) {
   const { ws, setWs, save, run } = useStore();
   const w = ws!;

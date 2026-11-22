@@ -2047,12 +2047,12 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
 
   // "More like this" (5) / "Not for me" (1), with an optional reason that carries over to similar openings.
   // Ported from Julio's interest system (Nov 6, 2026); the shared learned model stays on his branch.
-  const InterestInput = z.object({ rating: z.number().int().min(1).max(5), reason: z.enum(JOB_INTEREST_REASONS).optional(), hide: z.boolean().optional() }).strict();
+  const InterestInput = z.object({ rating: z.number().int().min(1).max(5), reason: z.enum(JOB_INTEREST_REASONS).optional(), hide: z.boolean().optional(), keep: z.boolean().optional() }).strict();
   app.put("/api/jobs/:id/interest", route(async (req, res, ctx) => {
     if (!interestEnabled()) bad("Interest ratings are paused right now.", 503);
     const input = InterestInput.safeParse(req.body);
     if (!input.success) bad("Choose an interest level from 1 to 5 and an optional reason.");
-    const { rating, reason, hide } = input.data!;
+    const { rating, reason, hide, keep } = input.data!;
     res.json(await editWorkspace(ctx.me.id, (fresh) => {
       const job = findJob(fresh, String(req.params.id));
       if (!job) bad("Opening not found", 404);
@@ -2063,6 +2063,8 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       feedback[job!.id] = { rating: rating as JobInterestRating, ...(reason ? { reason } : {}), createdAt: feedback[job!.id]?.createdAt || at, updatedAt: at, context: interestContext(fresh, job!, at) };
       // "Not for me" hides the card in the same locked edit, so two quick taps can't overwrite each other's hidden list.
       if (hide && !fresh.hiddenJobIds.includes(job!.id)) fresh.hiddenJobIds.push(job!.id);
+      // Keep (stage 3, owners first): rated and saved in the same edit.
+      if (keep && !fresh.savedJobIds.includes(job!.id)) fresh.savedJobIds.push(job!.id);
     }));
   }));
   // Literal route before /api/jobs/:id.
