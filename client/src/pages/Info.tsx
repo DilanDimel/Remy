@@ -1,17 +1,21 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Remy } from "../components/common";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { useOwnerView } from "../lib/store";
 import { BETA_TERMS, BETA_TERMS_LEAD } from "@shared/beta";
 
 const CONTACT = "hello@remyai.org";
 const UPDATED = "November 21, 2026";
 
+const slug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const Section = ({ title, children }: { title: string; children: ReactNode }) => (
-  <section className="stack-sm"><h2 style={{ fontSize: "1.15rem" }}>{title}</h2>{children}</section>
+  <section className="stack-sm info-sec" id={slug(title)}><h2 style={{ fontSize: "1.15rem" }}>{title}</h2>{children}</section>
 );
 
 function Page({ title, lead, children }: { title: string; lead: string; children: ReactNode }) {
+  const owner = useOwnerView();
+  if (owner) return <DocPage title={title} lead={lead}>{children}</DocPage>;
   return (
     <div className="ob">
       <div className="row-between" style={{ width: "100%", maxWidth: 740 }}>
@@ -24,6 +28,30 @@ function Page({ title, lead, children }: { title: string; lead: string; children
         {children}
         <p className="xs muted">Questions? Email <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.</p>
       </article>
+    </div>
+  );
+}
+
+/** Owners first (Dilan, Nov 22: these pages "look bad", one narrow card): a full-width reading page on the paper
+ *  background, with a contents list beside the text on wide screens. Built from the page's own section headings. */
+function DocPage({ title, lead, children }: { title: string; lead: string; children: ReactNode }) {
+  const body = useRef<HTMLDivElement>(null);
+  const [toc, setToc] = useState<{ id: string; text: string }[]>([]);
+  useEffect(() => { setToc([...(body.current?.querySelectorAll<HTMLElement>(".info-sec") || [])].map((el) => ({ id: el.id, text: el.querySelector("h2")?.textContent || "" }))); }, [title]);
+  return (
+    <div className="doc">
+      <header className="doc-top">
+        <a className="logo" href="/"><Remy size={26} /><span>Remy<b>.</b></span></a>
+        <nav className="row small"><a href="/" data-testid="link-back-to-remy"><ArrowLeft size={14} /> Back to Remy</a><a href="/about" aria-current={title.startsWith("About") ? "page" : undefined}>About</a><a href="/policies" aria-current={title.startsWith("About") ? undefined : "page"}>Privacy & terms</a><ThemeToggle /></nav>
+      </header>
+      <div className="doc-head"><h1>{title}</h1><p>{lead}</p></div>
+      <div className="doc-grid">
+        {toc.length > 2 && <nav className="doc-toc" aria-label="On this page"><b>On this page</b>{toc.map((t) => <a key={t.id} href={`#${t.id}`}>{t.text}</a>)}</nav>}
+        <article className="doc-body" ref={body}>
+          {children}
+          <p className="xs muted">Questions? Email <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.</p>
+        </article>
+      </div>
     </div>
   );
 }

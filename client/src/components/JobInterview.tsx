@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Briefcase, ChevronDown, ChevronUp } from "lucide-react";
 import { jobQuestions } from "@shared/jobInterview";
 import { useStore } from "../lib/store";
+import { useJobs } from "../lib/jobs";
 import { PracticeOutLoud } from "./PracticeOutLoud";
 
 export function JobInterview() {
@@ -12,7 +13,11 @@ export function JobInterview() {
   // Openings they're applying to first (newest first), then the ones they kept.
   const applying = [...w.applications].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((a) => a.jobId);
   const ids = [...new Set([...applying, ...w.savedJobIds])];
-  const jobs = ids.map((id) => w.jobs.find((j) => j.id === id)).filter((j): j is NonNullable<typeof j> => !!j && j.kind !== "event");
+  const mine = ids.map((id) => w.jobs.find((j) => j.id === id)).filter((j): j is NonNullable<typeof j> => !!j && j.kind !== "event");
+  // Nothing saved or started yet: practice for the best-fitting openings instead of a "save one first" note.
+  const { jobs: all, fits } = useJobs();
+  const best = (all || []).filter((j) => j.kind !== "event" && !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false).sort((x, y) => (fits[y.id]?.score ?? 0) - (fits[x.id]?.score ?? 0)).slice(0, 8);
+  const jobs = mine.length ? mine : best;
   const [pick, setPick] = useState(jobs[0]?.id || "");
   const [open, setOpen] = useState<number | null>(0);
   const job = jobs.find((j) => j.id === pick) || jobs[0];
@@ -29,11 +34,11 @@ export function JobInterview() {
       {jobs.length > 1 && (
         <label className="xs muted row" style={{ gap: 6 }}>For
           <select className="input" style={{ width: "auto", maxWidth: "min(360px, 100%)", minWidth: 0 }} value={job.id} onChange={(e) => { setPick(e.target.value); setOpen(0); }} aria-label="Opening to practice for" data-testid="select-interview-job">
-            {jobs.map((j) => <option key={j.id} value={j.id}>{j.company}: {j.title}</option>)}
+            {jobs.map((j) => <option key={j.id} value={j.id}>{j.company}: {j.title}{j.location ? ` (${j.location.split(",")[0]})` : ""}</option>)}
           </select>
         </label>
       )}
-      <p className="xs muted">From the {job.title} posting's own requirements. Every job is different, so practice these out loud with your real stories.</p>
+      <p className="xs muted">{!mine.length && "Top matches for you until you save or tailor for an opening. "}From the {job.title} posting's own requirements. Every job is different, so practice these out loud with your real stories.</p>
       {qs.map((q, i) => (
         <div key={q.q} className="card card-pad stack-sm" style={{ boxShadow: "none", padding: 10 }} data-testid="job-question">
           <button className="row-between small" style={{ textAlign: "left", gap: 8, flexWrap: "nowrap" }} onClick={() => setOpen(open === i ? null : i)} aria-expanded={open === i}>

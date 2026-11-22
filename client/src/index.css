@@ -1411,6 +1411,58 @@ ul[class] > li, ol[class] > li { max-width: none; }
   .redesign-2 .job-acts > [data-testid="button-job-details"] { margin-left: auto; }
 }
 
+/* ---------- Owners batch, Nov 22 evening: opening picker, owner tools, lighter name menu, reading pages ---------- */
+.tpick-now { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 14px; padding-bottom: 14px; }
+.tpick-now .xs { display: block; }
+.tpick-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tpick-search { position: relative; display: block; }
+.tpick-search svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted-text); pointer-events: none; }
+.tpick-search .input { padding-left: 40px; }
+.tpick-label { margin-top: 6px; font-size: var(--text-xs); font-weight: 700; color: var(--muted-text); }
+.tpick-row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); cursor: pointer; }
+.tpick-row:hover, .tpick-row[aria-pressed="true"] { border-color: var(--ink); }
+.tpick-row .mono { width: 36px; height: 36px; border-radius: 10px; flex: none; display: grid; place-items: center; font-weight: 800; font-size: 13px; background: var(--fox-soft); color: var(--fox-deep); }
+.tpick-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.tpick-text b, .tpick-text .xs { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tpick-go { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: var(--text-sm); white-space: nowrap; }
+@media (max-width: 640px) { .tpick-row .chip { display: none; } } /* the row keeps title, company and Tailor; the chip repeats Opportunities */
+.owner-tools { display: flex; align-items: center; gap: 6px; padding: 8px 4px 4px; }
+.owner-seg { flex: 1; }
+.owner-tools + .side-foot { margin-top: 0; }
+.owner-seg button { flex: 1; min-height: 32px; font-size: var(--text-xs); }
+.nav-collapsed .owner-tools { flex-direction: column; }
+.nav-collapsed .owner-seg { flex-direction: column; width: 100%; }
+.modal .owner-tools { padding: 4px 0; }
+.menu-links { display: flex; gap: 2px; padding: 0 4px; }
+.menu-links button { flex: 1; text-align: center !important; font-size: var(--text-xs); color: var(--muted-text); padding: 6px 4px; border-radius: 8px; }
+.menu-links button:hover { color: var(--ink); background: var(--surface-2); }
+.doc { min-height: 100vh; background: var(--bg); color: var(--ink); padding: 0 24px 64px; }
+.doc-top { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.doc-top nav { gap: 16px; }
+.doc-top nav a { display: inline-flex; align-items: center; gap: 6px; color: var(--muted-text); font-weight: 600; }
+.doc-top nav a[aria-current="page"], .doc-top nav a:hover { color: var(--ink); }
+.doc-head { max-width: 1120px; margin: 0 auto; padding: 48px 0 28px; }
+.doc-head h1 { font-size: clamp(2rem, 1.5rem + 2vw, 3rem); letter-spacing: -0.035em; line-height: 1.05; font-weight: 800; }
+.doc-head p { margin-top: 12px; max-width: 62ch; font-size: var(--text-lg); color: var(--muted-text); line-height: 1.5; }
+.doc-grid { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 56px; align-items: start; }
+.doc-toc { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 2px; font-size: var(--text-sm); }
+.doc-toc b { font-size: var(--text-xs); color: var(--muted-text); margin-bottom: 6px; }
+.doc-toc a { color: var(--muted-text); padding: 5px 0 5px 12px; border-left: 2px solid var(--line); }
+.doc-toc a:hover { color: var(--ink); border-left-color: var(--fox); }
+.doc-body { max-width: 70ch; display: flex; flex-direction: column; gap: 36px; line-height: 1.65; }
+.doc-body .info-sec { gap: 12px; padding-top: 28px; border-top: 1px solid var(--line); scroll-margin-top: 24px; }
+.doc-body .info-sec h2 { font-size: var(--text-xl, 1.4rem) !important; letter-spacing: -0.02em; font-weight: 800; }
+.doc-body .eyebrow { margin-bottom: -20px; font-size: var(--text-xs); color: var(--fox-deep); }
+.doc-body ul { padding-left: 0 !important; list-style: none; gap: 12px; }
+.doc-body ul > li { padding-left: 18px; position: relative; }
+.doc-body ul > li::before { content: ""; position: absolute; left: 0; top: 0.7em; width: 6px; height: 6px; border-radius: 50%; background: var(--fox); }
+@media (max-width: 860px) {
+  .doc { padding: 0 16px 48px; }
+  .doc-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .doc-toc { display: none; }
+  .doc-head { padding: 32px 0 20px; }
+}
+
 /* ---------- Redesign stage 3: the resume on one page, colour-coded (owners first, Nov 21) ---------- */
 .rm { display: flex; flex-direction: column; gap: 12px; }
 .rm-legend { display: flex; flex-wrap: wrap; gap: 8px; }

@@ -5,6 +5,7 @@ import {
   Check, Gauge, Info, Mic, Minus, ShieldCheck, UserCog, Users,
   ImagePlus,
 } from "lucide-react";
+import { ThemeToggle } from "./components/ThemeToggle";
 import { StoreProvider, api, daysUntil, fmtDate, rid, useDraft, useOwnerView, useStore, type Theme } from "./lib/store";
 import { CAREER_QUEST_ON } from "@shared/game";
 import { resumeDiff } from "@shared/resumeDiff";
@@ -231,6 +232,7 @@ function Shell() {
         {/* Career quest: owners only while it's tested (Dilan, Nov 19); a big release later. */}
         {CAREER_QUEST_ON && ownerView && ws && <GameSidebar w={ws} />}
         <div className="side-news"><WhatsNew /><a className="nav-item" href="/welcome" title="Remy's homepage" data-testid="nav-homepage"><Info size={19} /><span className="nav-label">Remy homepage</span></a></div>
+        <OwnerTools />
         <ProfileMenu initials={initials} active={path.startsWith("/accounts")} />
       </aside>
 
@@ -283,8 +285,7 @@ function Shell() {
             <button className="nav-item" onClick={() => { setMore(false); go("/about"); }}><Info size={19} />About Remy</button>
             <button className="nav-item" onClick={() => { setMore(false); go("/policies"); }}><ShieldCheck size={19} />Privacy & terms</button>
             <button className="nav-item" onClick={() => { setMore(false); setFeedback(true); }}><Send size={19} />Send feedback</button>
-            {ownerView && <button className="nav-item" onClick={() => { setMore(false); go("/admin"); }} data-testid="mobile-admin"><Gauge size={19} />Owners' dashboard</button>}
-            <OwnerViewSwitch className="nav-item" onDone={() => setMore(false)} />
+            {me?.owner ? <OwnerTools onDone={() => setMore(false)} /> : null}
             <WhatsNew />
           </div>
         </Modal>
@@ -584,6 +585,19 @@ function ProfileMenu({ initials, active }: { initials: string; active: boolean }
       </button>
       {open && (
         <div className="profile-menu fade-up" role="menu">
+          {ownerView ? <>
+            {/* Owners first (Dilan, Nov 22: "too much on there"): the account page has the other tabs; the view switch,
+                dashboard and theme now sit in the side bar. */}
+            <button role="menuitem" onClick={() => { setOpen(false); go("/accounts?tab=profile"); }} data-testid="menu-profile">Profile & account</button>
+            <button role="menuitem" onClick={() => { setOpen(false); go("/accounts?tab=settings"); }} data-testid="menu-settings">Settings</button>
+            <button role="menuitem" onClick={() => { setOpen(false); setFeedback(true); }} data-testid="menu-feedback">Send feedback</button>
+            <div className="divider" />
+            <div className="menu-links">
+              <button onClick={() => { setOpen(false); tourAgain(save); go("/"); }} data-testid="menu-tour">Tour</button>
+              <button onClick={() => { setOpen(false); go("/about"); }} data-testid="menu-about">About</button>
+              <button onClick={() => { setOpen(false); go("/policies"); }} data-testid="menu-policies">Privacy</button>
+            </div>
+          </> : <>
           {MENU.map(([k, l]) => (
             <button key={k} role="menuitem" onClick={() => { setOpen(false); go(`/accounts?tab=${k}`); }} data-testid={`menu-${k}`}>{l}</button>
           ))}
@@ -592,8 +606,7 @@ function ProfileMenu({ initials, active }: { initials: string; active: boolean }
           <button role="menuitem" onClick={() => { setOpen(false); go("/about"); }} data-testid="menu-about">About Remy</button>
           <button role="menuitem" onClick={() => { setOpen(false); go("/policies"); }} data-testid="menu-policies">Privacy & terms</button>
           <button role="menuitem" onClick={() => { setOpen(false); setFeedback(true); }} data-testid="menu-feedback">Send feedback</button>
-          {ownerView && <button role="menuitem" onClick={() => { setOpen(false); go("/admin"); }} data-testid="menu-admin">Owners' dashboard</button>}
-          <OwnerViewSwitch onDone={() => setOpen(false)} />
+          </>}
           <div className="divider" />
           <button role="menuitem" onClick={signOut} data-testid="menu-sign-out">Sign out</button>
         </div>
@@ -669,10 +682,22 @@ async function shrink(file: File): Promise<Blob> {
 
 /** Owners only: switch between owner view (Career quest, owner notes, the dashboard link) and seeing Remy exactly as a
  *  student does. Saved on the account, so it holds on every device (Dilan, Nov 19). */
-function OwnerViewSwitch({ className, onDone }: { className?: string; onDone: () => void }) {
+/** Owners only (Dilan, Nov 22): the owner/student view switch, the owners' dashboard and light/dark in plain sight in
+ *  the side bar (and the phone's More sheet) instead of inside the name menu. Shown in student view too, to switch back. */
+function OwnerTools({ onDone }: { onDone?: () => void }) {
   const { me, ws, save, run } = useStore();
   const on = useOwnerView();
   if (!me?.owner || !ws) return null;
-  const flip = async () => { onDone(); await run(() => save("settings", { ...ws.settings, ownerView: !on }), on ? "Student view: you see Remy like a student" : "Owner view is on"); };
-  return <button role="menuitem" className={className} onClick={flip} data-testid="button-owner-view">{className ? <Gauge size={19} /> : null}{on ? "Switch to student view" : "Switch to owner view"}</button>;
+  const set = (v: boolean) => { onDone?.(); if (v !== on) run(() => save("settings", { ...ws.settings, ownerView: v }), v ? "Owner view is on" : "Student view: you see Remy like a student"); };
+  return (
+    <div className="owner-tools" data-testid="owner-tools">
+      <div className="seg owner-seg" role="group" aria-label="View as">
+        <button aria-pressed={on} onClick={() => set(true)} data-testid="button-view-owner">Owner</button>
+        <button aria-pressed={!on} onClick={() => set(false)} data-testid="button-view-student">Student</button>
+      </div>
+      <a className="icon-btn" href="/admin" onClick={() => onDone?.()} title="Owners' dashboard" aria-label="Owners' dashboard" data-testid="nav-admin"><Gauge size={17} /></a>
+      <ThemeToggle />
+    </div>
+  );
 }
+

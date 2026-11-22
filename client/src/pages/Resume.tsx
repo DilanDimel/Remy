@@ -6,7 +6,7 @@ import { dropDates, skillGroupName } from "@shared/words";
 import { useRef, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowRight, Check, CheckCircle2, ChevronDown, ChevronUp, Download, FileText, Link2, Pencil, Plus, RotateCcw, ShieldAlert, ShieldCheck, Sparkles,
-  Star, Trash2, X,
+  Search, Star, Trash2, X,
 } from "lucide-react";
 import type { Application, BulletChange, ClaimFlag, Job, ResumeDoc, Workspace } from "@shared/types";
 import { API_BASE, api, download, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
@@ -322,6 +322,7 @@ function Tailor({ query }: { query: URLSearchParams }) {
   const { ws, setWs, run, config } = useStore();
   const w = ws!;
   const { jobs, fits } = useJobs();
+  const owner = useOwnerView();
   const jobParam = query.get("job");
   const appParam = query.get("app");
   // ?go=1 (from "Tailor resume" on an opening): start tailoring right away, one click instead of two.
@@ -347,6 +348,15 @@ function Tailor({ query }: { query: URLSearchParams }) {
     .filter((j) => j.kind !== "event" && !w.applications.some((a) => a.jobId === j.id) && !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false && !w.hiddenJobIds.includes(j.id))
     .sort((x, y) => (fits[y.id]?.score ?? 0) - (fits[x.id]?.score ?? 0));
   const shown = notStarted.slice(0, 8);
+  const editor = (
+    <div>
+      {!config?.ai.available && <div style={{ marginBottom: 12 }}><AiUnavailableNote /></div>}
+      {selected && jobOf(selected) ? <AppEditor key={selected.id} a={selected} job={jobOf(selected)!} autoStart={autoStart && selected.id === appParam} /> : (
+        <div className="card"><Empty title="Pick an opening to tailor for" body="Choose one of the openings above, or import any public posting. Remy will propose truthful changes for you to review." /></div>
+      )}
+    </div>
+  );
+  if (owner) return <div className="stack-lg"><OpeningPicker selected={selected} notStarted={notStarted} jobOf={jobOf} start={start} />{selected && jobOf(selected) && editor}</div>;
   return (
     <div className="stack-lg">
       <div className="stack-sm">
@@ -388,13 +398,64 @@ function Tailor({ query }: { query: URLSearchParams }) {
           {notStarted.length > shown.length && <button className="pick pick-new pick-more-wide" onClick={() => go("/opportunities")} data-testid="button-more-openings"><strong className="small">{notStarted.length - shown.length} more</strong><span className="xs muted">See them all in Opportunities</span></button>}
         </div>
       </div>
-      <div>
-        {!config?.ai.available && <div style={{ marginBottom: 12 }}><AiUnavailableNote /></div>}
-        {selected && jobOf(selected) ? <AppEditor key={selected.id} a={selected} job={jobOf(selected)!} autoStart={autoStart && selected.id === appParam} /> : (
-          <div className="card"><Empty title="Pick an opening to tailor for" body="Choose one of the openings above, or import any public posting. Remy will propose truthful changes for you to review." /></div>
-        )}
-      </div>
+      {editor}
     </div>
+  );
+}
+
+/** Owners first (Dilan, Nov 22: "I don't like how we have to scroll through all these openings"): one card to pick what
+ *  to tailor for. Search covers every opening that fits; with no search, your applications and the top 3 matches.
+ *  Once one is picked, the card folds to a single "Tailoring for …" line so the editor sits right under it. */
+function OpeningPicker({ selected, notStarted, jobOf, start }: { selected?: Application; notStarted: Job[]; jobOf: (a: Application) => Job | undefined; start: (jobId: string) => void }) {
+  const { ws } = useStore();
+  const { fits } = useJobs();
+  const w = ws!;
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const cur = selected && jobOf(selected);
+  const match = (j?: Job) => !!j && (!q.trim() || `${j.company} ${j.title}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const apps = w.applications.filter((a) => match(jobOf(a)));
+  const fresh = notStarted.filter((j) => match(j));
+  const top = q.trim() ? fresh.slice(0, 8) : fresh.slice(0, 3);
+  if (cur && !open) return (
+    <div className="card card-pad tpick-now" data-testid="tailor-picked">
+      <div style={{ minWidth: 0 }}><span className="xs muted">Tailoring for</span><b className="tpick-title">{cur.company}: {shortTitle(cur.title, cur.company)}</b></div>
+      <button className="btn btn-secondary btn-sm" onClick={() => setOpen(true)} data-testid="button-change-opening">Change opening</button>
+    </div>
+  );
+  const pick = (go_: () => void) => { setOpen(false); setQ(""); go_(); };
+  return (
+    <section className="card card-pad stack-sm tpick" data-testid="opening-picker">
+      <div className="row-between">
+        <h3>Pick an opening to tailor for</h3>
+        <span className="row" style={{ gap: 6 }}>
+          {cur && <button className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>Cancel</button>}
+          <button className="btn btn-ghost btn-sm" onClick={() => go("/opportunities?import=1")} data-testid="button-new-application"><Link2 size={14} /> Import a posting</button>
+        </span>
+      </div>
+      <label className="tpick-search"><Search size={16} aria-hidden /><input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${notStarted.length + w.applications.length} openings by company or role`} aria-label="Search openings" data-testid="input-opening-search" /></label>
+      {apps.length > 0 && <>
+        <span className="tpick-label">Your applications</span>
+        {apps.map((a) => { const j = jobOf(a)!; return (
+          <button key={a.id} className="tpick-row" aria-pressed={selected?.id === a.id} onClick={() => pick(() => go(`/resume?tab=tailor&app=${a.id}`))} data-testid="button-pick-application">
+            <span className="mono">{j.company.slice(0, 2).toUpperCase()}</span>
+            <span className="tpick-text"><b>{shortTitle(j.title, j.company)}</b><span className="xs muted">{j.company}</span></span>
+            {a.versions.length ? <span className="chip chip-live">Approved v{a.versions.length}</span> : a.generatedAt ? <span className="chip chip-plain">Draft</span> : <span className="chip chip-plain">Not started</span>}
+          </button>
+        ); })}
+      </>}
+      <span className="tpick-label">{q.trim() ? `${fresh.length} new opening${fresh.length === 1 ? "" : "s"} match` : "Top matches for you"}</span>
+      {top.map((j) => (
+        <button key={j.id} className="tpick-row" onClick={() => pick(() => start(j.id))} data-testid="button-choose-job">
+          <span className="mono">{j.company.slice(0, 2).toUpperCase()}</span>
+          <span className="tpick-text"><b>{shortTitle(j.title, j.company)}</b><span className="xs muted">{j.company}{j.location ? ` · ${j.location}` : ""}</span></span>
+          {fits[j.id]?.eligibility === "likely" && fits[j.id]?.checked && <span className="chip chip-live">You qualify</span>}
+          <span className="tpick-go">Tailor <ArrowRight size={14} /></span>
+        </button>
+      ))}
+      {!top.length && <p className="small muted">No openings match “{q}”. Try a company name, or import the posting.</p>}
+      {!q.trim() && fresh.length > 3 && <p className="xs muted">{fresh.length - 3} more fit you. Search above, or <a href="/opportunities">browse them in Opportunities</a>.</p>}
+    </section>
   );
 }
 
