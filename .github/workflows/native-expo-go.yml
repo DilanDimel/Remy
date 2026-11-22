@@ -65,3 +65,22 @@ jobs:
             ui2.xml
             ui.xml
             metro.log
+
+  # Same check on an iPhone simulator with the published preview, since Dilan may be on iOS.
+  ios-published:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Open the published preview in Expo Go on an iPhone simulator
+        run: |
+          url=$(curl -s https://api.expo.dev/v2/versions/latest | python3 -c 'import json,sys;print(json.load(sys.stdin)["data"]["sdkVersions"]["58.0.0"]["iosClientUrl"])')
+          echo "Expo Go: $url"; mkdir -p ExpoGo.app && curl -sL "$url" | tar -xz -C ExpoGo.app
+          udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];print(next(x["udid"] for k in sorted(d,reverse=True) if "iOS" in k for x in d[k] if x["name"].startswith("iPhone")))')
+          xcrun simctl boot "$udid"; xcrun simctl bootstatus "$udid" -b
+          xcrun simctl install "$udid" ExpoGo.app
+          xcrun simctl openurl "$udid" "exp://u.expo.dev/c31ef8cb-8425-4208-8dfa-bb9ce75864b5?channel-name=preview"
+          mkdir -p shots; for t in 10 20 30 45 60 90 120; do sleep 10; xcrun simctl io "$udid" screenshot "shots/ios-${t}s.png" >/dev/null 2>&1; done
+          xcrun simctl spawn "$udid" log show --last 3m --predicate 'process == "Expo Go" AND (messageType == error OR eventMessage CONTAINS[c] "error")' 2>/dev/null | tail -n 80 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: ios-screens, path: shots }
