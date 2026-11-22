@@ -371,7 +371,7 @@ const EXAMPLES: { tab: string; ask: string; items: [ReactNode, string, ReactNode
     [<FileText size={15} />, "To-do:", <>ask one alum in counseling for a 15-minute chat.</>],
   ] },
 ];
-function HeroExample() {
+export function HeroExample() {
   const [i, setI] = useState(0);
   const [typing, setTyping] = useState(true);
   const [picked, setPicked] = useState(false);
