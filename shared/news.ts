@@ -3,6 +3,7 @@
 export type NewsItem = { id: string; date: string; kind: "New" | "Improved" | "Fixed" | "Changed"; title: string; body: string; owners?: boolean };
 
 export const NEWS: NewsItem[] = [
+  { id: "2026-11-21-08", date: "2026-11-21", kind: "Improved", title: "Everything beside your resume", body: "Make it stronger, the ATS check and your approved versions and downloads now sit as small cards next to your resume, so the whole page fits on one screen.", owners: true },
   { id: "2026-11-21-07", date: "2026-11-21", kind: "Improved", title: "Fixes right beside your resume", body: "Make it stronger now sits next to your resume instead of below it: open a fix, type the detail, and see it on the page.", owners: true },
   { id: "2026-11-21-06", date: "2026-11-21", kind: "New", title: "Your resume on one page, changed by asking Remy", body: "The Base resume tab is now one page: your resume colour-coded with every problem on its line, Make it stronger, the ATS check and your approved versions and downloads together. To change something, just ask Remy in the chat (\u201cadd Tableau to my skills\u201d); he shows the change first and saves it when you tap Use this.", owners: true },
   { id: "2026-11-21-05", date: "2026-11-21", kind: "Improved", title: "More openings in Austin and Houston", body: "Remy now also reads Q2, GlobalFoundries and Silicon Labs in Austin, and Baker Hughes, Piper Sandler, Axiom Space, Corient and the Chevron and HNTB student career sites in Houston. Each one had entry-level openings in its city when we added it." },
