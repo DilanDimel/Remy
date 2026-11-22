@@ -123,8 +123,8 @@ const Ctx = createContext<Store>(null as any);
 export const useStore = () => useContext(Ctx);
 /** Owner features show only in owner view: an owner can switch to seeing Remy exactly as a student does (Dilan, Nov 19). */
 export function useOwnerView() {
-  const { me, ws } = useContext(Ctx);
-  return !!me?.owner && ws?.settings.ownerView !== false;
+  const store = useContext(Ctx); // null outside StoreProvider (public pages): never owner view there
+  return !!store?.me?.owner && store.ws?.settings.ownerView !== false;
 }
 
 /** Setup steps 1–2 (resume, review) are "not far yet"; from step 3 on, they get the welcome-back screen instead. */
