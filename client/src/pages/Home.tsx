@@ -3,7 +3,7 @@ import { ApplyLink } from "../components/ApplyLink";
 import { SeasonCard } from "../components/SeasonCard";
 import { ApplyNudge } from "../components/ApplyNudge";
 import { MissionBoard } from "../components/Game";
-import { ArrowRight, ArrowUpRight, Briefcase, CalendarCheck, Check, ChevronDown, ChevronUp, Compass, FileText, ListChecks, MapPin, Mic } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Briefcase, CalendarCheck, Check, ChevronDown, ChevronUp, Compass, FileText, Flame, ListChecks, MapPin, Mic } from "lucide-react";
 import type { Job, Task, Workspace } from "@shared/types";
 import { api, daysUntil, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
 import { CAREER_QUEST_ON } from "@shared/game";
@@ -14,6 +14,7 @@ import { Remy, StatusChip } from "../components/common";
 import { firstName } from "@shared/names";
 import { gettingStarted } from "@shared/progress";
 import { many, remyLine } from "@shared/homeLine";
+import { dailyStreak, dayKey } from "@shared/daily";
 
 type Tab = "todos" | "events" | "opps";
 
@@ -167,8 +168,19 @@ export default function Home() {
             <p>{next.why}</p>
             <button className="btn btn-primary btn-lg" onClick={() => (interview ? addPrep() : go(next.link))} data-testid="button-next-action">{next.cta} <ArrowRight size={16} /></button>
           </div>
-          {starting.some((x) => !x.done) && (
-            <div className="hero2-steps" data-testid="getting-started">
+          {(() => {
+            // Read-only peek at My Path's daily round (#161): the streak and today's three cards.
+            const g = w.game || ({ weeks: {} } as NonNullable<typeof w.game>);
+            const st = dailyStreak(g);
+            const today = (["openings", "role", "forecast"] as const).every((c) => w.game?.days?.[dayKey()]?.includes(c));
+            return (
+              <div className="hero2-steps">
+                <button className={"streak-peek" + (today ? " done" : "")} onClick={() => go(today ? "/path" : "/path?play=1")} data-testid="home-streak">
+                  <Flame size={20} aria-hidden="true" />
+                  <span><b>{st.days ? `${st.days}-day streak` : "Start a streak"}</b><span className="xs">{today ? "Done for today" : "Today's round · 3 cards"}</span></span>
+                  {!today && <ArrowRight size={14} aria-hidden="true" />}
+                </button>
+                {starting.some((x) => !x.done) && <div data-testid="getting-started">
               <span className="xs muted sroad-head">Getting started · {doneNow} of {starting.length}</span>
               {/* a small road: done steps ticked, the next one glowing, the rest waiting */}
               <ol className="sroad" aria-label={`${doneNow} of ${starting.length} getting-started steps done`}>
@@ -179,8 +191,10 @@ export default function Home() {
                   </li>
                 ); })}
               </ol>
-            </div>
-          )}
+                </div>}
+              </div>
+            );
+          })()}
         </section>
       )}
       {!ownerView && <section className="hero" aria-label="Next action">

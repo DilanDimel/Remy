@@ -1484,6 +1484,13 @@ ul[class] > li, ol[class] > li { max-width: none; }
 button.sroad-text:hover { text-decoration: underline; text-underline-offset: 3px; }
 .job-mono { width: 36px; height: 36px; flex: none; align-self: flex-start; margin-top: 2px; border-radius: 10px; display: grid; place-items: center; font-weight: 800; font-size: 12.5px; letter-spacing: .02em; background: var(--fox-soft); color: var(--fox-deep); }
 @media (max-width: 640px) { .redesign-2 .hero2-bubble p { max-width: none; } .hero2-art { width: 92px; height: 92px; bottom: -20px; right: -8px; opacity: .1; } }
+.streak-peek { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 10px 12px; margin-bottom: 8px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--fox) 30%, var(--line)); background: var(--fox-soft); color: var(--ink); }
+.streak-peek > svg:first-child { color: var(--fox); }
+.streak-peek b { display: block; font-size: var(--text-sm); }
+.streak-peek .xs { display: block; color: var(--muted-text); }
+.streak-peek:hover { border-color: var(--fox); }
+.streak-peek.done { background: var(--surface-2); border-color: var(--line); }
+.streak-peek.done > svg:first-child { color: var(--muted-text); }
 @keyframes soul-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes soul-pop { 0% { transform: scale(.6); } 70% { transform: scale(1.12); } 100% { transform: scale(1); } }
 @keyframes soul-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--fox) 45%, transparent); } 70% { box-shadow: 0 0 0 8px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
