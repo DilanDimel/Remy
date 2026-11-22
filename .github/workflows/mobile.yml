@@ -45,15 +45,11 @@ jobs:
           script: |
             adb install -r app-debug.apk
             adb shell am start -W -n org.remyai.app/.MainActivity
-            sleep 30
+            for i in $(seq 1 18); do sleep 5; adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb pull /sdcard/ui.xml ui.xml >/dev/null 2>&1; n=$(grep -o 'text="[^" ][^"]*"' ui.xml | wc -l); echo "after $((i*5))s: $n pieces of text"; [ "$n" -ge 5 ] && break; done
             adb exec-out screencap -p > launch.png
-            adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml ui.xml >/dev/null
-            echo "Text on screen:"; grep -o 'text="[^"]\+"' ui.xml | head -40 || true
-            adb shell dumpsys window | grep -m1 mCurrentFocus
-            echo "UI tree:"; head -c 3000 ui.xml; echo
-            python3 -c "import struct,zlib,sys; d=open('launch.png','rb').read(); print('screenshot bytes', len(d))"
-            echo "App log:"; adb logcat -d -s Capacitor:* Capacitor/Console:* chromium:* cr_*:* WebViewFactory:* AndroidRuntime:E | tail -n 80
-            grep -qi 'remy' ui.xml && grep -qiE 'sign in|hunt|career|offline|internet' ui.xml && echo "LAUNCH OK: Remy's page is showing"
+            echo "Text on screen:"; grep -o 'text="[^"]\+"' ui.xml | head -25 || true
+            adb logcat -d -s Capacitor:* Capacitor/Console:* AndroidRuntime:E | tail -n 40
+            test "$(grep -o 'text="[^" ][^"]*"' ui.xml | wc -l)" -ge 5 && grep -qi 'remy' ui.xml && echo "LAUNCH OK: Remy's page is showing"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
