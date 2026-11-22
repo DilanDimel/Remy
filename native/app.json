@@ -42,6 +42,23 @@
     ],
     "experiments": {
       "typedRoutes": false
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "c31ef8cb-8425-4208-8dfa-bb9ce75864b5"
+      }
+    },
+    "owner": "remyaicoach",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c31ef8cb-8425-4208-8dfa-bb9ce75864b5"
     }
   }
 }
