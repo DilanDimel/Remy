@@ -1,83 +1,54 @@
 # Remy
 
-Remy is an AI career coach for college students, starting at TCU. It reads a student's resume into a profile, finds real openings on employers' own career sites, scores the resume the way hiring software reads it, tailors resumes and cover letters without inventing anything, and tracks every application. Live at [remyai.org](https://remyai.org).
+**An AI career coach for college students.** Remy is a fox who helps students go from "I don't know what I want to do" to an offer: he figures out where they stand, shows them the road ahead in their field, finds real openings, and gets their resume, cover letters and interviews ready, without ever inventing a single thing about them.
 
-## Stack
+Built by RemyAI LLC, starting with students at TCU. Live at [remyai.org](https://remyai.org).
 
-TypeScript everywhere. React + Vite front end, Express server, Postgres (Supabase in production, PGlite locally and in tests), Supabase Auth for sign-in, and Capacitor shells for iPhone and Android that load the live site.
+## Why it exists
 
-## Layout
+Career centers are stretched thin, and most job tools either spam students with listings or write fake-sounding resumes for them. Remy is built around two ideas:
 
-| Folder | What's in it |
-|---|---|
-| `client/src/pages/` | One file per screen (Home, Path, Resume, Opportunities, Interview, Admin, ...) |
-| `client/src/components/` | Shared pieces; `ui/` is shadcn/Radix primitives, `common.tsx` has `<Remy />` the fox |
-| `client/src/lib/` | API helpers (`store.tsx`: `api`, `save`, `download`), router, Supabase client |
-| `server/` | Express app. `index.ts` boots it, `routes.ts` holds every `/api` route, the other files are features (`resume.ts`, `openings.ts`, `ai.ts`, `claims.ts`, ...) with `*.test.ts` beside them |
-| `server/migrations/` | SQL migrations, run once each at startup |
-| `server/data/` | Static data: employer list, BLS projections, O*NET tasks |
-| `shared/` | Types and pure logic used by both sides (`types.ts`, roads, seasons, game) |
-| `script/` | Build and check scripts (`build.ts`, `contract.ts`, `resume-check.ts`, `persist.ts`) |
-| `ios/`, `android/`, `mobile/`, `capacitor.config.ts` | Native app shells, see `docs/mobile-app.md` |
-| `docs/` | Design notes and plans; `docs/archive/` is history |
+- **Show up every day, a little at a time.** A short daily round, a streak that forgives a missed day, and a clear picture of what freshman through senior year should look like in your field.
+- **Honest by design.** Every AI suggestion is checked against the student's own resume and words. Remy never makes up a skill, number or title, never asks for passwords, and never sends anything on a student's behalf.
 
-`docs/architecture.md` explains how a request flows through the code and where to put new things.
+## What Remy does
 
-## Run it
+**Home.** A personal start page: what to do today, deadlines coming up, openings worth a look, and Remy's read on how things are going.
 
-Needs Node 20 or newer.
+**My Path.** A road map of the student's field: the roles, skills, exams and certifications that matter, the 10-year job outlook (BLS and O\*NET data), internship season timing, and a four-year board by semester. A daily round of a few real cards keeps it moving, and the weekly career quest adds bigger missions, levels and a streak.
 
-```bash
-npm ci
-npm run dev        # Express + Vite on http://localhost:5000
+**Resume.** Reads a PDF or Word resume (or LinkedIn's Save-to-PDF) into a profile the student confirms. First-years with no resume can build one by tapping through a guided builder. An ATS check scores the resume the way hiring software reads it, and a review explains what to fix.
+
+**Opportunities.** Live student roles pulled straight from about 180 employers' own career sites (Workday, Greenhouse, Lever and others), plus federal roles from USAJOBS and the Labor Department's job search. Each opening says whether the student qualifies and why, and they can import any posting by link.
+
+**Tailoring and cover letters.** Remy suggests changes for a specific posting, shown as the original line next to the proposed one, with the posting quote that motivated it. The student accepts, edits or rejects each change. Downloads keep their Word file's fonts and layout.
+
+**Interview.** Practice questions built from the actual posting, with the resume line to answer each one. Practice out loud, build a story deck from past experiences, and polish a short pitch.
+
+**Remy, the coach.** Remy lives in a side panel on every page. Students can chat with him about anything career-related, and he can take actions like adding a to-do or saving an opening. The Activity tab shows what he has done and lets them undo it.
+
+**Community, Calendar and Progress.** Alumni matches for students with a verified school email, Google Calendar deadlines and interviews, a LinkedIn coach, a weekly check-in that turns what they did into resume lines, and an application tracker.
+
+**Emails and texts.** Reminders, a weekly digest and sign-in codes by email, and optional text reminders.
+
+**Owners' dashboard.** For the team: sign-up funnel and outcomes, errors and feedback, the beta list, server health and deploys, storage use, and a small team of AI helpers that suggest work for the board.
+
+## How it's built
+
+```
+ Browser / iPhone / Android app
+            |
+   React + Vite front end  (client/)
+            |   /api
+   Express server  (server/)  ----  AI providers (OpenRouter, Gemini)
+            |                  ----  employer career sites, USAJOBS, BLS
+   Postgres on Supabase        ----  Supabase Auth, Resend email, Google Calendar
 ```
 
-With no environment variables the app still runs: data goes to an in-memory PGlite database and AI features say "needs setup". Put local settings in `.env` (never committed).
+- **One TypeScript codebase.** `client/` is the React app, `server/` is the Express API, and `shared/` holds the types and logic both sides use.
+- **AI with guardrails.** Every model call goes through one place that tries providers in order and enforces daily budgets. Every rewrite then passes a rules-based claim checker before the student sees it.
+- **Data.** Each student's workspace lives in Postgres on Supabase. Public job postings are cached in a shared table with no student data.
+- **Mobile.** The iPhone and Android apps are thin Capacitor shells around the live site, so every web update ships to phones at once.
+- **Hosting.** Render runs the server and deploys every merge to `main`. GitHub Actions runs the type checks and 400+ tests on every change.
 
-## Test it
-
-```bash
-npm run check            # TypeScript
-npm run check:contract   # every client API call matches a real server route, colours follow the palette
-npm test                 # server unit tests (server/*.test.ts)
-npm run check:resume     # resume reading against fixtures, no server or AI key needed
-npm run check:persist    # builds, restarts on a throwaway database, confirms nothing is lost
-```
-
-GitHub Actions runs the first three on every push and pull request. The iPhone and Android workflows run only when native files change.
-
-## Deploy
-
-Render deploys `main` automatically (`render.yaml`): `npm ci && npm run build`, then `node dist/index.cjs`. Merging a pull request is a deploy, so keep `main` green. An hourly GitHub Action (`tick.yml`) wakes the server for reminders and cleanup.
-
-Android test builds: push a branch named `app-release/<version>` and the APK is published as a GitHub release.
-
-## Configuration
-
-Secrets live in the Render dashboard, never in the repo.
-
-| Variable | Purpose |
-|---|---|
-| `OR_AI_CHAIN` | AI providers to try in order, e.g. `openrouter:google/gemini-3.8-flash,gemini:gemini-3.8-flash`. Keys: `OPENROUTER_API_KEY`, `GEMINI_API_KEY` |
-| `OR_AI_CHAIN_OWNERS` | Separate chain for owners' accounts (trial models) |
-| `OR_AI_TAILOR_CHAIN` | Optional stronger chain for resume tailoring only |
-| `OR_AI_DAILY_BUDGET` | Site-wide AI requests per 24 hours (default 1500) |
-| `DATABASE_URL`, `DB_SCHEMA`, `DB_SSL_CA_FILE` | Postgres connection (schema defaults to `remy`). Unset: PGlite in `OR_DB_PATH` or in memory |
-| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Supabase Auth (the publishable key is public by design) |
-| `OWNER_EMAILS` | Founders' emails; owners see owner view and the Owners' dashboard |
-| `RESEND_SMTP_URL`, `SMTP_URL`, `MAIL_FROM`, `MAIL_REPLY_TO` | Outgoing mail (Resend first, Gmail fallback) |
-| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` | Text messages (optional) |
-| `OR_ALUMNI_EMAIL_DOMAINS` | Email domains that may see alumni matches (default `tcu.edu`) |
-| `USAJOBS_KEY`, `USAJOBS_EMAIL` | Federal student roles |
-| `COS_USER_ID`, `COS_TOKEN` | CareerOneStop job search |
-| `GCAL_CLIENT_ID`, `GCAL_CLIENT_SECRET` | Google Calendar connection |
-| `CRON_SECRET` | Shared secret for the hourly tick |
-| `RENDER_API_KEY` | Owners' dashboard deploy and health panel |
-
-`grep -oh "process.env.[A-Z_0-9]*" server/*.ts | sort -u` lists every variable the server reads.
-
-Anything unset turns its feature off with a "coming soon" or "needs setup" message instead of failing.
-
-## Working in this repo
-
-Read `CLAUDE.md` first: the rules every change must follow (owner-view gating, the colour contract, phone widths, no invented claims) and how pull requests are handled.
+More detail is in [`docs/architecture.md`](docs/architecture.md). Setup, tests and configuration are in [`docs/development.md`](docs/development.md).
