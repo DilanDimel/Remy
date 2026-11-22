@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { api, useStore } from "../lib/store";
+import { api, useOwnerView, useStore } from "../lib/store";
 import { ArrowLeft, CalendarClock, Check, FileText, Search, ShieldCheck } from "lucide-react";
 import { go, useRoute } from "../lib/router";
 import { BetaBadge, Remy, Spinner, StatusChip } from "../components/common";
 import { providerOn, sendMagicLink, startOAuth, type SupabaseProvider } from "../lib/supabase";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { isNativeApp } from "../lib/native";
+import Landing2 from "./Landing2";
 
 export function useGoogleButton(onCredential: (cred: string) => void) {
   const { config } = useStore();
@@ -42,11 +43,13 @@ const SB: Record<Exclude<Provider, "Work/School Email">, SupabaseProvider> = { G
 export default function Welcome() {
   const { path } = useRoute();
   const { betaBlocked } = useStore();
-  return isNativeApp || path === "/signin" || betaBlocked ? <SignIn /> : <Landing />;
+  const ownerView = useOwnerView();
+  // Owners (owner view on) see the new homepage; visitors, students and search engines keep today's page until Dilan releases it.
+  return isNativeApp || path === "/signin" || betaBlocked ? <SignIn /> : ownerView ? <Landing2 /> : <Landing />;
 }
 
 /** Where to apply to be a beta tester: the team's form, or Remy's inbox when the form isn't set yet. */
-const applyHref = (formUrl?: string) => formUrl || "mailto:hello@remyai.org?subject=Remy%20beta%20tester";
+export const applyHref = (formUrl?: string) => formUrl || "mailto:hello@remyai.org?subject=Remy%20beta%20tester";
 
 /** Invite-only beta: who can sign in, and why someone was turned away. */
 function BetaNote({ onOther }: { onOther: () => void }) {
@@ -432,7 +435,7 @@ function HeroExample() {
 // "What does my major lead to?" with real BLS numbers, before signing up (public data only).
 const BROWSE = ["Finance", "Accounting", "Marketing", "Nursing", "Software & computer science", "Education & teaching", "Psychology & social work", "Engineering", "Journalism & communications", "Entrepreneurship"];
 type Occ = { title: string; change: number; openings: number | null; wage: number | null; education: string };
-function FieldBrowser() {
+export function FieldBrowser() {
   const [field, setField] = useState(BROWSE[2]);
   const [jobs, setJobs] = useState<Occ[] | null>(null);
   useEffect(() => {
