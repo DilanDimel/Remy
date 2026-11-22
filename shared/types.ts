@@ -294,6 +294,8 @@ export interface Application {
   createdAt: string;
   generatedAt?: string;
   generatedBy?: string;
+  /** Remy drafted this overnight for a top match (stage 5b); nothing is used until the student approves it. */
+  overnight?: string;
   strongestMatch?: { text: string; requirementQuote: string; evidence: string };
   gaps: { requirementQuote: string; note: string }[];
   changes: BulletChange[];
@@ -544,6 +546,8 @@ export interface Workspace {
   visits?: string[];
   /** Match emails Remy sent (server/nudges.ts) and the student's Yes / Not now. Server-written. */
   nudges?: { id: string; jobId: string; at: string; answer?: "yes" | "later"; answeredAt?: string }[];
+  /** When Remy last drafted tailored resumes overnight (stage 5b). Server-written. */
+  overnightAt?: string;
   /** Urgent texts Remy sent, or kept in test mode (server/texts.ts). Server-written. */
   texts?: { key: string; day: string; at: string; to: string; body: string; mode: "twilio" | "test" }[];
   /** Deadline reminders already emailed (calendar id:date:soon|day), so each goes out once. */
