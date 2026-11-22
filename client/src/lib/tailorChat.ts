@@ -24,6 +24,10 @@ export type TailorSession = {
   draftId?: string; // outreach draft created at the end
   job?: Job; // tailoring: the opening, for the brief that follows the eligibility question
   briefKey?: string; // the opening + this version of the resume: a changed resume means a fresh brief
+  /** Redesign stage 3 (owners first): Remy writes the whole draft first, then asks optional questions to make it
+   *  stronger ("encouraged, not mandatory"); answering redoes the draft with the answers. */
+  draftFirst?: boolean;
+  drafted?: boolean; // the first draft exists; the questions after it are optional
 };
 type Deps = { setWs: (w: Workspace) => void; run: <T>(fn: () => Promise<T>, ok?: string) => Promise<T | undefined> };
 
@@ -55,17 +59,36 @@ function begin(s: Omit<TailorSession, "stage" | "idx" | "answers" | "log">, intr
 /** `conflict`: the eligibility note when Remy found a clear conflict; the student confirms before any work.
  *  Then Remy reads the posting and briefs the student (company, role, why they fit) and asks questions they can
  *  answer with a tap. If the brief fails or is slow, the plain questions are used, so tailoring never depends on it. */
-export function startTailor(a: Application, job: Job, conflict?: string, resume?: unknown) {
+export function startTailor(a: Application, job: Job, conflict?: string, resume?: unknown, deps?: Deps) {
   const s: TailorSession = {
     kind: "tailor", targetId: a.id, appId: a.id, title: `Tailoring for ${job.company}`, job, briefKey: `${a.id}|${hash(JSON.stringify(resume ?? ""))}`,
+    draftFirst: !!deps,
     stage: "asking", idx: 0, answers: {}, log: [],
     qs: conflict ? [{ key: "_ok", q: `Heads up before we start: ${conflict} Do you still want to tailor for this one?`, options: ["Yes", "No"] }] : [],
   };
   session = s;
+  if (deps) draftDeps = deps;
   say(`Let's tailor your resume and cover letter for ${job.company}.`);
   openers.forEach((o) => o());
   if (conflict) { say(s.qs[0].q); emit(); return; }
   readPosting(s);
+}
+let draftDeps: Deps | null = null;
+
+/** Draft-first: write the draft from the resume alone, then offer the questions as optional. */
+async function firstDraft(s: TailorSession) {
+  s.stage = "working";
+  say(`Writing a full first draft from your resume now. This can take a minute.`);
+  emit();
+  const r = await draftDeps!.run(() => api<{ application: Application; workspace: Workspace }>("POST", `/api/applications/${s.targetId}/generate`, { answers: [], confirmEligible: !!s.answers._ok }));
+  if (session !== s) return;
+  if (!r) { s.stage = "done"; say("That didn't work. Press Tailor to try again."); emit(); return; }
+  draftDeps!.setWs(r.workspace);
+  s.drafted = true;
+  s.stage = "asking";
+  say(`Your first draft is ready on the page. Want it stronger? Answer a few quick questions and I'll update it. Each one is optional: tap an answer, choose Other to write your own, or skip.`);
+  say(s.qs[s.idx].q);
+  emit();
 }
 
 // One brief per opening and resume version while the page is open, so "Answer again" doesn't pay for the same reading twice.
@@ -86,6 +109,7 @@ function readPosting(s: TailorSession) {
       if (session !== s) return;
       messages.forEach((m) => say(m));
       s.qs = [...s.qs, ...tailorQuestions(job, brief)];
+      if (s.draftFirst) { void firstDraft(s); return; }
       s.stage = "asking";
       if (messages.length) say(`A few quick questions so the letter sounds like you. Tap an answer or type your own.`);
       say(s.qs[s.idx].q);
@@ -149,7 +173,15 @@ export async function answer(text: string, deps: Deps) {
   }
   s.idx += 1;
   if (q.key === "_ok") { readPosting(s); return; } // confirmed: now it's worth reading the posting
-  if (s.idx >= s.qs.length && s.kind === "tailor" && realAnswers(s) < 2 && !s.qs.some((x) => x.key === NUDGE_KEY)) {
+  // Draft-first: "Skip the rest" ends the optional questions; a draft with no answers simply stays as it is.
+  if (s.drafted && /^\s*skip (the )?rest\s*$/i.test(text)) { s.answers[q.key] = ""; s.idx = s.qs.length; }
+  if (s.drafted && s.idx >= s.qs.length && !realAnswers(s)) {
+    s.stage = "done";
+    say("No problem. Your draft stays as it is. Review each change on the page, then approve and download.");
+    emit();
+    return;
+  }
+  if (!s.drafted && s.idx >= s.qs.length && s.kind === "tailor" && realAnswers(s) < 2 && !s.qs.some((x) => x.key === NUDGE_KEY)) {
     s.qs = [...s.qs, { key: NUDGE_KEY, q: NUDGE_Q, label: "Why I want this role" }];
   }
   if (s.idx < s.qs.length) {
@@ -160,7 +192,7 @@ export async function answer(text: string, deps: Deps) {
   s.stage = "working";
   const answers = s.qs.filter((x) => x.key !== "_ok").map((x) => ({ q: x.label || x.q, a: s.answers[x.key] || "" })).filter((x) => x.a);
   if (s.kind === "tailor") {
-    say("Thanks! Tailoring your resume and writing your letter now — this can take a minute.");
+    say(s.drafted ? "Thanks! Updating your draft with your answers. This can take a minute." : "Thanks! Tailoring your resume and writing your letter now — this can take a minute.");
     emit();
     const r = await deps.run(() => api<{ application: Application; workspace: Workspace }>("POST", `/api/applications/${s.targetId}/generate`, { answers, confirmEligible: !!s.answers._ok }));
     if (session !== s) return;

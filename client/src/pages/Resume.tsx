@@ -423,7 +423,8 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
   const tailor = useTailorSession();
   const mine = tailor?.appId === a.id ? tailor : null;
   const conflict = ws!.fits[job.id]?.eligibility === "unlikely" ? ws!.fits[job.id]!.eligibilityNote : undefined;
-  const generate = () => startTailor(a, job, conflict, ws!.resume?.doc);
+  const draftFirst = useOwnerView(); // stage 3, owners first: the full draft first, questions after (optional)
+  const generate = () => startTailor(a, job, conflict, ws!.resume?.doc, draftFirst ? { setWs, run } : undefined);
   useEffect(() => {
     if (!autoStart) return;
     replaceRoute(`/resume?tab=tailor&app=${a.id}`); // so a reload doesn't start it again
@@ -460,7 +461,7 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
       </div>
 
       {mine?.stage === "reading" && <div className="card card-pad row" style={{ flexWrap: "nowrap" }}><Remy size={40} mood="think" /><span className="small"><b>Remy is reading the posting.</b> He'll tell you what {job.company} does and why you fit, then ask a few quick questions in the chat.</span></div>}
-      {mine?.stage === "asking" && <div className="card card-pad row" style={{ flexWrap: "nowrap" }} data-testid="tailor-asking"><Remy size={40} mood="wave" /><span className="small"><b>Remy is asking you a few questions in the chat.</b> Answer there (or type "skip") and he'll tailor as soon as you're done.</span></div>}
+      {mine?.stage === "asking" && <div className="card card-pad row" style={{ flexWrap: "nowrap" }} data-testid="tailor-asking"><Remy size={40} mood="wave" /><span className="small">{mine.drafted ? <><b>Your draft is below.</b> Remy has a few optional questions in the chat that would make it stronger.</> : <><b>Remy is asking you a few questions in the chat.</b> Answer there (or type "skip") and he'll tailor as soon as you're done.</>}</span></div>}
       {mine?.stage === "working" && <div className="card card-pad stack"><div className="row"><Remy size={40} mood="think" /><span className="muted">Remy is matching your experience to {job.company}'s requirements. This usually takes about a minute.</span></div>{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 70 }} />)}</div>}
 
       {a.generatedAt && mine?.stage !== "working" && (
