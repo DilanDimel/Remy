@@ -1,12 +1,13 @@
 import { useEffect, useState, Fragment } from "react";
 import { dreamWithoutOpenings } from "@shared/org";
-import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, BookmarkCheck, CalendarPlus, Check, X, ChevronDown, ChevronUp, Link2, MapPin, RefreshCw, Search, Sparkles, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUp, ArrowUpRight, Bookmark, BookmarkCheck, CalendarPlus, Check, X, ChevronDown, ChevronUp, Link2, MapPin, RefreshCw, Search, Sparkles, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
 import { openingRanker, reasonLine } from "@shared/order";
 import type { Job, JobCheck, JobFit, JobInterestReason, JobRanking, Workspace } from "@shared/types";
 import { api, daysUntil, fmtDate, rid, useDraft, useOwnerView, useStore } from "../lib/store";
 import { ApplyLink } from "../components/ApplyLink";
 import { go } from "../lib/router";
-import { kindLabel, reloadJobs, sameOrg, useJobs } from "../lib/jobs";
+import { kindLabel, orgInitials, reloadJobs, sameOrg, useJobs } from "../lib/jobs";
+import { SeasonCard } from "../components/SeasonCard";
 import { shortTitle } from "@shared/org";
 import { screeningFor } from "@shared/screening";
 import { postingSkills, skillsIn } from "@shared/requirements";
@@ -19,6 +20,7 @@ const matchKind = (j: Job, k: Kind) => k === "all" || (k === "event" ? j.kind ==
 export default function Opportunities({ query }: { query: URLSearchParams }) {
   const { ws, setWs, run, toast } = useStore();
   const w = ws!;
+  const owner = useOwnerView(); // tabs redesign (Nov 22), owners first
   const { jobs, fits, interest, interestEnabled, needsProfile, refreshing, fieldEmployers } = useJobs();
   // Remy's employer list is mostly business, tech and engineering; for other fields it says so instead of blaming filters.
   // An undecided student has no field, so "few employers hire in your field" would be untrue for them.
@@ -83,6 +85,10 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
     // The student's own places first, then "Worth relocating for" (their relocation answer), then other places (only
     // when they show all locations); pinned and ranked within each group, so a group never splits (skeptic review).
     .sort(compare(pinned));
+  // Owners: Remy's pick heads the page (the best unsaved job on the list as ranked), and is left out of the list below.
+  const visible = (jobs || []).filter((j) => !w.hiddenJobIds.includes(j.id) && !fits[j.id]?.excluded);
+  const pick = owner && !q && !focus && !role ? list.find((j) => j.kind !== "event" && !w.savedJobIds.includes(j.id)) : undefined;
+  const rest = pick ? list.filter((j) => j !== pick) : list;
   return (
     <>
       {needsProfile && <div className="notice" data-testid="needs-profile">{needsProfile}</div>}
@@ -92,7 +98,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
         <div>
           <span className="eyebrow">Opportunities</span>
           <h1><span className="title-slogan">Openings worth your time.</span><span className="title-plain">Opportunities</span></h1>
-          <p className="hide-phone">Ranked for you: openings you're eligible for and that match your background come first.</p>
+          {owner ? <OppLine visible={visible} fits={fits} /> : <p className="hide-phone">Ranked for you: openings you're eligible for and that match your background come first.</p>}
           {(() => {
             // A quiet status line instead of a button to press: when Remy last looked, and what's new this week.
             const at = w.lastSearch?.at || w.openingsCheckedAt;
@@ -102,7 +108,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
             const ago = h < 1 ? "less than an hour ago" : h < 24 ? `${h}h ago` : `${d} day${d === 1 ? "" : "s"} ago`;
             const week = new Date(Date.now() - 7 * 864e5).toISOString();
             const fresh = (jobs || []).filter((j) => (j.foundAt || "") > week && !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false && !w.hiddenJobIds.includes(j.id)).length;
-            return <p className="xs muted" data-testid="openings-status">Updated {ago}{fresh ? ` · ${fresh} new this week` : ""}<span className="opp-status-extra"> · Remy checks again by itself</span></p>;
+            return <p className="xs muted" data-testid="openings-status">Updated {ago}{fresh && !owner ? ` · ${fresh} new this week` : ""}<span className="opp-status-extra"> · Remy checks again by itself</span></p>;
           })()}
         </div>
         <div className="row opp-actions">
@@ -112,10 +118,11 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
       </div>
       {finding && <div className="notice small fade-up"><Remy size={28} mood="think" /><div className="stack-sm"><span>Remy is reading live job boards from employers that fit {w.profile.targetRoles || "your interests"}{w.profile.regions ? ` in ${w.profile.regions}` : ""}.</span><WorkingSteps steps={["Picking employers that fit you", "Reading their career sites", "Keeping internships and entry-level roles", "Ranking by how well they fit"]} every={3500} /></div></div>}
       {showImport && <ImportPanel onDone={() => setShowImport(false)} />}
+      {pick && <OwnerPick j={pick} fit={fits[pick.id]} canRate={interestEnabled} />}
       <div className="row-between opp-filters">
         <div className="seg" role="group" aria-label="Category">
           {([["all", "All", "All"], ["jobs", "Jobs & internships", "Jobs"], ["campus", "Campus jobs", "Campus"], ["event", "Events", "Events"]] as [Kind, string, string][]).map(([k, l, short]) => (
-            <button key={k} aria-pressed={kind === k} onClick={() => setKind(k)} aria-label={l} data-testid={`filter-${k}`}><span className="opp-kind-long">{l}</span><span className="opp-kind-short" aria-hidden>{short}</span></button>
+            <button key={k} aria-pressed={kind === k} onClick={() => setKind(k)} aria-label={l} data-testid={`filter-${k}`}><span className="opp-kind-long">{l}</span><span className="opp-kind-short" aria-hidden>{short}</span>{owner && <em className="op-n">{visible.filter((j) => matchKind(j, k)).length}</em>}</button>
           ))}
         </div>
         <div className="row">
@@ -144,13 +151,13 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
           </div>
         </div>
       )}
-      {!jobs ? <div className="stack">{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 120 }} />)}</div> : list.length ? (
+      {(() => { const listBlock = (!jobs ? <div className="stack">{[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 120 }} />)}</div> : list.length ? (
         (() => {
           // A link to one opening (?id=) shows the list down to it.
-          const count = role ? list.length : Math.max(shown, list.findIndex((j) => j.id === focus) + 1); // from My Path: all of them
+          const count = role ? rest.length : Math.max(shown, rest.findIndex((j) => j.id === focus) + 1); // from My Path: all of them
           return (
             <div className="stack">
-              {list.slice(0, count).map((j, i, shownList) => (
+              {rest.slice(0, count).map((j, i, shownList) => (
                 <Fragment key={j.id}>
                   {/* Openings outside the student's places come after theirs, under a line saying why (their relocation answer). */}
                   {group(j) > 0 && (i === 0 || group(shownList[i - 1]) !== group(j)) && (
@@ -159,19 +166,19 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
                   <JobCard j={j} fit={fits[j.id]} moved={interest[j.id]} canRate={interestEnabled} defaultOpen={focus === j.id} />
                 </Fragment>
               ))}
-              {list.length > count && (
+              {rest.length > count && (
                 <button className="btn btn-secondary" style={{ alignSelf: "center" }} onClick={() => {
                   setShown(count + 10);
                   // Keyboard users land on the first new card, not past it.
                   setTimeout(() => { const el = document.querySelectorAll<HTMLElement>(".job-card")[count]; if (el) { el.setAttribute("tabindex", "-1"); el.focus(); } }, 50);
                 }} data-testid="button-show-more-jobs">
-                  Show {Math.min(10, list.length - count)} more <span className="muted">({list.length - count} left)</span>
+                  Show {Math.min(10, rest.length - count)} more <span className="muted">({rest.length - count} left)</span>
                 </button>
               )}
             </div>
           );
         })()
-      ) : (
+      ) : rest.length === 0 && pick ? null : (
         <div className="card">
           <Empty
             title={kind === "campus" ? "No campus jobs added yet" : jobs.length ? "Nothing matches" : "No openings yet"}
@@ -182,8 +189,83 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
             action={kind !== "campus" && !jobs.length && !fewInField ? <button className="btn btn-primary" onClick={discover} disabled={finding}>{finding ? <Spinner /> : <Search size={16} />} {finding ? "Remy is checking job boards…" : "Find openings"}</button> : <button className="btn btn-secondary" onClick={() => setShowImport(true)}>Import a posting</button>}
           />
         </div>
-      )}
+      ));
+        // Owners: the list beside a rail with their search counts and what closes soon; the season band closes the page.
+        return owner ? <><div className="op-cols"><div className="stack">{listBlock}</div><OppRail jobs={jobs || []} /></div><SeasonCard w={w} /></> : listBlock;
+      })()}
     </>
+  );
+}
+
+/** Owners: Remy's line under the title, from real counts (never a made-up number). */
+function OppLine({ visible, fits }: { visible: Job[]; fits: Record<string, JobFit> }) {
+  const week = new Date(Date.now() - 7 * 864e5).toISOString();
+  const fresh = visible.filter((j) => (j.foundAt || "") > week).length;
+  const qualify = visible.filter((j) => fits[j.id]?.checked && fits[j.id]?.eligibility !== "unlikely" && !fits[j.id]?.closed).length;
+  const soon = visible.map((j) => ({ j, d: daysUntil(j.deadline) })).filter((x) => x.d !== null && x.d >= 0 && x.d <= 14).sort((a, b) => a.d! - b.d!)[0];
+  if (!visible.length) return <p className="op-say">Remy is looking for openings that fit you.</p>;
+  return (
+    <p className="op-say" data-testid="opp-line">
+      <b>{fresh ? `${fresh} new this week.` : `${visible.length} opening${visible.length === 1 ? "" : "s"} ranked for you.`}</b>
+      {qualify ? ` You qualify for ${qualify}.` : ""}
+      {soon ? ` ${soon.j.company} closes ${soon.d === 0 ? "today" : soon.d === 1 ? "tomorrow" : `in ${soon.d} days`}.` : ""}
+    </p>
+  );
+}
+
+/** Owners: the one opening Remy would look at first, with why it fits as checks and every action the card has. */
+function OwnerPick({ j, fit, canRate }: { j: Job; fit?: JobFit; canRate: boolean }) {
+  const { ws, save } = useStore();
+  const w = ws!;
+  const saved = w.savedJobIds.includes(j.id), hidden = w.hiddenJobIds.includes(j.id);
+  const d = daysUntil(j.deadline);
+  return (
+    <section className="op-pick" data-testid="opp-pick">
+      <div className="op-pick-main">
+        <span className="op-kick">Remy's pick today</span>
+        <h2 title={j.title}>{shortTitle(j.title, j.company)}</h2>
+        <span className="small muted">{j.company} · {kindLabel[j.kind]}{j.location ? ` · ${j.location}` : ""}</span>
+        <div className="op-fits">
+          {fit?.checked && fit.eligibility !== "unlikely" && <span className="op-fit"><i><Check size={10} strokeWidth={4} /></i>You qualify</span>}
+          {(fit?.matched || []).slice(0, 3).map((k) => <span key={k} className="op-fit"><i><Check size={10} strokeWidth={4} /></i>{k} on your resume</span>)}
+          {d !== null && d >= 0 && d <= 14 && <span className="op-fit warn"><i>!</i>Due {fmtDate(j.deadline)}</span>}
+          {!fit?.matched?.length && fit?.gaps?.[0] && fit.gaps[0].length < 30 && <span className="op-fit warn"><i>!</i>{fit.gaps[0]} not on your resume yet</span>}
+        </div>
+        <div className="row op-pick-acts">
+          <button className="btn btn-primary" onClick={() => go(`/resume?tab=tailor&job=${j.id}&go=1`)} data-testid="button-pick-tailor">Tailor my resume for it <ArrowRight size={16} /></button>
+          <ApplyLink j={j} />
+          {canRate ? <KeepPass j={j} saved={saved} hidden={hidden} /> : <button className="btn btn-ghost btn-sm" onClick={() => save("savedJobIds", saved ? w.savedJobIds.filter((x) => x !== j.id) : [...w.savedJobIds, j.id])} data-testid="button-pick-save">{saved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />} {saved ? "Saved" : "Save"}</button>}
+          <button className="btn btn-ghost btn-sm" onClick={() => go(`/opportunities?kind=all&id=${j.id}`)} data-testid="button-pick-details"><ChevronDown size={14} /> Details</button>
+        </div>
+      </div>
+      <span className="op-pick-mono" aria-hidden="true">{orgInitials(j.company)}</span>
+    </section>
+  );
+}
+
+/** Owners: where their search stands and the deadlines coming up, beside the list. */
+function OppRail({ jobs }: { jobs: Job[] }) {
+  const { ws } = useStore();
+  const w = ws!;
+  const sent = w.tracker.filter((t) => !["Saved", "Withdrawn"].includes(t.status));
+  const tiles: [string, number, string][] = [["Saved", w.savedJobIds.length, "a"], ["Tailored", w.applications.length, "b"], ["Applied", sent.length, "c"], ["Interview", sent.filter((t) => t.status === "Interview" || t.status === "Offer").length, "d"]];
+  const soon = jobs.filter((j) => !w.hiddenJobIds.includes(j.id)).map((j) => ({ j, d: daysUntil(j.deadline) }))
+    .filter((x) => x.d !== null && x.d >= 0 && x.d <= 30)
+    .sort((a, b) => Number(w.savedJobIds.includes(b.j.id)) - Number(w.savedJobIds.includes(a.j.id)) || a.d! - b.d!).slice(0, 3);
+  return (
+    <aside className="op-rail" data-testid="opp-rail">
+      <div className="op-card">
+        <div className="op-ch"><h3>Your search</h3><button className="op-link" onClick={() => go("/progress")} data-testid="button-rail-progress">Progress →</button></div>
+        <div className="op-tiles">{tiles.map(([l, n, c]) => <div key={l} className={"op-tile " + c}><b>{n}</b><span>{l}</span></div>)}</div>
+      </div>
+      <div className="op-card">
+        <div className="op-ch"><h3>Closing soon</h3><button className="op-link" onClick={() => go("/calendar")} data-testid="button-rail-calendar">Calendar →</button></div>
+        {soon.length ? <ul className="op-dl">{soon.map(({ j }) => (
+          <li key={j.id}><span className="op-date"><small>{new Date(j.deadline.slice(0, 10) + "T12:00").toLocaleDateString("en-US", { month: "short" })}</small><b>{new Date(j.deadline.slice(0, 10) + "T12:00").getDate()}</b></span>
+            <button onClick={() => go(`/opportunities?kind=all&id=${j.id}`)}><strong>{shortTitle(j.title, j.company)}</strong><span>{j.company}{w.savedJobIds.includes(j.id) ? " · saved" : ""}</span></button></li>
+        ))}</ul> : <p className="small muted">No deadlines in the next 30 days. Remy adds them here as openings post dates.</p>}
+      </div>
+    </aside>
   );
 }
 
@@ -270,6 +352,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit
   return (
     <article id={"job-" + j.id} className={"card card-pad stack-sm job-card" + (open ? " open" : "")} style={defaultOpen ? { borderColor: "var(--plum)" } : undefined} data-testid="card-job">
       <div className="row-between job-top" style={{ alignItems: "flex-start" }}>
+        {keepPass && <span className="job-mono" aria-hidden="true">{orgInitials(j.company)}</span>}
         <div className="stack-sm" style={{ minWidth: 0, flex: 1 }}>
           <div className="row"><span className="xs muted">{j.company} · {kindLabel[j.kind]}</span><StatusChip label={j.label} />{eligChip(fit)}</div>
           <h3 title={shortTitle(j.title, j.company) !== j.title ? j.title : undefined}>{shortTitle(j.title, j.company)}</h3>

@@ -9,7 +9,7 @@ import { api, daysUntil, fmtDate, rid, useOwnerView, useStore } from "../lib/sto
 import { CAREER_QUEST_ON } from "@shared/game";
 import { useCompleting } from "../lib/completing";
 import { go } from "../lib/router";
-import { kindLabel, useJobs } from "../lib/jobs";
+import { kindLabel, useJobs, orgInitials } from "../lib/jobs";
 import { Remy, StatusChip } from "../components/common";
 import { firstName } from "@shared/names";
 import { gettingStarted } from "@shared/progress";
@@ -280,7 +280,7 @@ function JobRow({ j, why, open, onToggle, mono, matched, top }: { j: Job; why?: 
   const due = j.deadline && <span className={"chip " + (d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d >= 0 ? (d === 0 ? "Due today" : `${d}d left`) : fmtDate(j.deadline)}</span>;
   return (
     <div className={"item" + (mono ? " job-card" : "") + (top ? " top" : "")}>
-      {mono && <span className="job-mono" aria-hidden="true">{j.company.replace(/[^A-Za-z ]/g, "").split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join("").toUpperCase() || "•"}</span>}
+      {mono && <span className="job-mono" aria-hidden="true">{orgInitials(j.company)}</span>}
       <div className="item-main">
         {mono ? <span className="xs muted">{j.company} · {kindLabel[j.kind]}</span> : <div className="row"><span className="xs muted">{j.company} · {kindLabel[j.kind]}</span><StatusChip label={j.label} /></div>}
         <button style={{ textAlign: "left", padding: 0, fontWeight: 700 }} onClick={onToggle}>{j.title}</button>
