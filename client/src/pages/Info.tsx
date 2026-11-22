@@ -59,10 +59,10 @@ function DocPage({ title, lead, children }: { title: string; lead: string; child
 // Photos go in client/public/team/ (e.g. "/team/dilan.jpg"); until then each shows initials.
 // Work emails are each person's own @remyai.org address (Zoho); admin@ and hello@ are the shared company inbox.
 export const TEAM: { name: string; role: string; photo: string; email?: string }[] = [
-  { name: "Dilan Desman", role: "Technology lead", photo: "/team/dilan.jpg", email: "d.desman@remyai.org" },
+  { name: "Dilan Desman", role: "Technology lead", photo: "/team/dilan-studio.jpg", email: "d.desman@remyai.org" },
   { name: "Ashton Wisecarver", role: "Brand, marketing & finance", photo: "" },
   { name: "Lincoln Yoo", role: "Operations & partnerships", photo: "/team/lincoln.jpg", email: "l.yoo@remyai.org" },
-  { name: "Demetre Dondoladze", role: "Data & databases", photo: "/team/demetre.jpg", email: "d.dondoladze@remyai.org" },
+  { name: "Demetre Dondoladze", role: "Data & databases", photo: "/team/demetre-studio.jpg", email: "d.dondoladze@remyai.org" },
   { name: "Julio Renovato", role: "Research & analytics", photo: "", email: "j.renovato@remyai.org" },
 ];
 
