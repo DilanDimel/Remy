@@ -11,7 +11,7 @@ const FIELD_LABEL = { name: "Full name", email: "Email", phone: "Phone", locatio
 /** Remy's review of the base resume: the few things worth fixing, each fixable right here. Remy asks for what it
  *  doesn't know, drafts the line from the student's own words, and the student approves. Nothing saves until they
  *  press Save (the usual "Review your changes"). */
-export function ResumeReview({ doc, upd, onEdit }: { doc: ResumeDoc; upd: Upd; onEdit: () => void }) {
+export function ResumeReview({ doc, upd, onEdit, beside = false }: { doc: ResumeDoc; upd: Upd; onEdit: () => void; beside?: boolean }) {
   const { todo: live, good } = useMemo(() => reviewResume(doc), [doc]);
   // An open fix keeps the fields and lines it showed when opened, so a box doesn't vanish mid-typing once its value
   // passes ("maya@" → valid email); it updates when the student closes it.
@@ -23,10 +23,10 @@ export function ResumeReview({ doc, upd, onEdit }: { doc: ResumeDoc; upd: Upd; o
   const toggle = (it: ReviewItem) => setFrozen((f) => { const k = keyOf(it); const n = { ...f }; if (n[k]) delete n[k]; else n[k] = it; return n; });
   const count = todo.length; // confirming what Remy read is step 1 of the base resume now
   return (
-    <section className="card card-pad stack" data-testid="resume-review">
+    <section className={beside ? "stack" : "card card-pad stack"} data-testid="resume-review">
       <div className="stack-sm" style={{ gap: 4 }}>
-        <h3>{count ? `Remy's review · ${count} thing${count > 1 ? "s" : ""} to fix` : "Remy's review · looking good"}</h3>
-        <span className="xs muted">Remy's suggestions from your resume itself, not an employer's score. Fix them here; nothing changes until you press Save.</span>
+        <h3>{beside ? (count ? `${count} thing${count > 1 ? "s" : ""} to make it stronger` : "Looking strong") : count ? `Remy's review · ${count} thing${count > 1 ? "s" : ""} to fix` : "Remy's review · looking good"}</h3>
+        <span className="xs muted">{beside ? "Fix them right here, or just ask Remy in the chat. Nothing changes until you save." : "Remy's suggestions from your resume itself, not an employer's score. Fix them here; nothing changes until you press Save."}</span>
       </div>
       {todo.map((it) => <Item key={keyOf(it)} it={it} open={!!frozen[keyOf(it)]} onToggle={() => toggle(it)} doc={doc} upd={upd} onEdit={onEdit} />)}
       {good.length > 0 && (
