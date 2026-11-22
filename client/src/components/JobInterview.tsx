@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { Briefcase, ChevronDown, ChevronUp } from "lucide-react";
 import { jobQuestions } from "@shared/jobInterview";
-import { useStore } from "../lib/store";
+import { useOwnerView, useStore } from "../lib/store";
 import { useJobs } from "../lib/jobs";
 import { PracticeOutLoud } from "./PracticeOutLoud";
 
 export function JobInterview() {
   const { ws } = useStore();
+  const owner = useOwnerView(); // owners: Remy's peach practice card (no dark bands, Dilan Nov 22)
   const w = ws!;
   // Openings they're applying to first (newest first), then the ones they kept.
   const applying = [...w.applications].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((a) => a.jobId);
@@ -29,8 +30,9 @@ export function JobInterview() {
   );
   const qs = jobQuestions(job, w.resume?.doc);
   return (
-    <section className="card card-pad stack-sm" data-testid="job-interview">
-      <h3 className="row"><Briefcase size={18} /> Questions {job.company} may ask</h3>
+    <section className={owner ? "iv-stage stack-sm" : "card card-pad stack-sm"} data-testid="job-interview">
+      {owner && <span className="op-kick">Practice set · {job.company}</span>}
+      <h3 className="row">{!owner && <Briefcase size={18} />} Questions {job.company} may ask</h3>
       {jobs.length > 1 && (
         <label className="xs muted row" style={{ gap: 6 }}>For
           <select className="input" style={{ width: "auto", maxWidth: "min(360px, 100%)", minWidth: 0 }} value={job.id} onChange={(e) => { setPick(e.target.value); setOpen(0); }} aria-label="Opening to practice for" data-testid="select-interview-job">
