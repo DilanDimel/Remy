@@ -1,0 +1,40 @@
+name: Android release
+# Push a tag like app-v0.1.0 to build the Android APK and attach it to a GitHub release.
+on:
+  push:
+    tags: ["app-v*"]
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - run: npm ci
+      - run: npx cap sync android
+      - name: Build APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG#app-v}"
+          APK="Remy-${VERSION}-android.apk"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "$APK"
+          sha256sum "$APK" > "$APK.sha256"
+          cat > notes.md <<NOTES
+          Test build of the Remy Android app (version ${VERSION}). It loads the live site, remyai.org.
+
+          **Install:** open this page on your Android phone, tap **${APK}** below, then open the download. If Android asks, allow installs from your browser ("Install unknown apps").
+
+          This is a test build signed with a development key, not the Google Play version. To move to the Play Store build later, you'll need to uninstall this one first.
+
+          Needs Android 7.0 or newer.
+          NOTES
+          gh release create "$TAG" "$APK" "$APK.sha256" --title "Remy for Android ${VERSION} (test build)" --notes-file notes.md --prerelease
