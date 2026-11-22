@@ -2,6 +2,8 @@
 
 The apps in `ios/` and `android/` are [Capacitor](https://capacitorjs.com) shells around the live site, https://remyai.org (`capacitor.config.ts`). Each deploy of `main` reaches the apps right away, with no app-store update. You only release a new app version when native code, icons or plugins change.
 
+**Coming next (owners only):** a truly native app built with Expo lives in `native/` (see `native/README.md`). It uses the same server and `shared/` code, with a native tab bar and screens. It replaces these shells once the team releases it.
+
 - App ID / bundle ID: `org.remyai.app`
 - Native-only code: `client/src/lib/native.ts`. On the web it does nothing.
 - Icons and splash screens: sources in `mobile/assets/`. Run `npm run app:assets` to regenerate them.

@@ -1,0 +1,26 @@
+name: Native app
+on:
+  push:
+    paths: ["native/**", "shared/**", ".github/workflows/native.yml"]
+  pull_request:
+    paths: ["native/**", "shared/**", ".github/workflows/native.yml"]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: native
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: native/package-lock.json
+      - run: npm ci
+      - name: Type check (app + shared code it imports)
+        run: npm run check
+      - name: Tests
+        run: npm test
+      - name: Bundles for iPhone and Android
+        run: npx expo export --platform ios --platform android --output-dir /tmp/native-export
