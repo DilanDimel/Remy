@@ -28,9 +28,13 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
   const raw = squash(r.rawText || "");
   const edited = (!!r.editedAt && r.editedAt > r.uploadedAt) || (!!raw && r.doc.sections.some((s) => s.entries.some((e) => e.bullets.some((b) => b.text.trim() && !raw.includes(squash(b.text))))));
   const isWord = !!r.original?.mime.includes("wordprocessingml"), isPdf = r.original?.mime === "application/pdf";
-  const [realFail, setRealFail] = useState<string | null>(null);
+  // A failed draw is kept per saved version, so the next save tries the student's own file again.
+  const version = (r.editedAt || r.uploadedAt) + JSON.stringify(r.doc).length;
+  const [fail, setFail] = useState<{ v: string; why: string } | null>(null);
+  const realFail = fail?.v === version ? fail.why : null;
+  const setRealFail = (why: string) => setFail({ v: version, why });
   const real = (on: Set<Cat>) => realFail || dirty ? null
-    : isWord ? <OwnWordColoured doc={r.doc} version={(r.editedAt || r.uploadedAt) + JSON.stringify(r.doc).length} on={on} onFail={setRealFail} />
+    : isWord ? <OwnWordColoured doc={r.doc} version={version} on={on} onFail={setRealFail} />
     : isPdf && !edited ? <OwnPdfColoured doc={r.doc} on={on} onFail={setRealFail} />
     : null;
   // Said plainly whenever the page is Remy's drawing instead of their own file.

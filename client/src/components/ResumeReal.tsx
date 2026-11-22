@@ -13,11 +13,11 @@ import { issues, ranges, toolsRegex, type Cat } from "./ResumeMarkup";
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 const norm = (s: string) => s.replace(/^[\s•●▪◦*–-]+/, "").replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, " ").trim().toLowerCase();
 const CAT_VARS: Cat[] = ["action", "hard", "soft", "number", "result"];
-/** The highlight colours from the app's own tokens, so the file's frame uses the same ones (no colours in code). */
+/** The paper highlight colours from the app's own tokens (light in both themes: the file is white paper). */
 function palette(): Record<Cat | "flag", string> {
   const css = getComputedStyle(document.documentElement);
   const out = {} as Record<Cat | "flag", string>;
-  for (const c of CAT_VARS) out[c] = css.getPropertyValue(`--hl-${c}`).trim();
+  for (const c of CAT_VARS) out[c] = css.getPropertyValue(`--paper-hl-${c}`).trim();
   out.flag = css.getPropertyValue("--error").trim();
   return out;
 }
