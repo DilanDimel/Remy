@@ -50,4 +50,10 @@ test("generate: an eligibility conflict answers 409 before any AI call; reminder
   const after = await loadWorkspace("tr-1");
   assert.equal(after.nudges![0].answer, "later");
   assert.deepEqual(Object.values(after.game?.days || {}).flat(), ["email"]);
+  // Clear chat: ?since keeps older messages, no since clears everything, a bad date is refused.
+  await saveWorkspace("tr-1", { ...after, chat: [{ id: "m1", role: "user", text: "old", at: "2026-11-20T10:00:00Z" }, { id: "m2", role: "user", text: "test", at: "2026-11-22T07:00:00Z" }] });
+  const del = (q: string) => fetch(base + "/api/chat" + q, { method: "DELETE", headers: { Cookie: cookie } });
+  assert.equal((await del("?since=nope")).status, 400);
+  assert.deepEqual(((await (await del("?since=2026-11-22T06:00:00Z")).json()) as any).chat.map((m: any) => m.id), ["m1"]);
+  assert.deepEqual(((await (await del("")).json()) as any).chat, []);
 });
