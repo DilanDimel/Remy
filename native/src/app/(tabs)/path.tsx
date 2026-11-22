@@ -30,7 +30,7 @@ export default function PathTab() {
     <Screen style={{ flexGrow: 1, justifyContent: "center", gap: 12 }}>
       <T kind="display">Your path</T>
       <T kind="muted">Remy builds it from your resume and what you want: the roles that fit, the steps to get there, and a 3-minute round each day.</T>
-      <Button testID="button-build-path" label="Build my path" icon="arrow" onPress={() => go("/path", "My Path")} flex />
+      <Button testID="button-build-path" label="Build my path" icon="arrow" onPress={() => go("/path", "My Path", { page: true })} flex />
     </Screen>
   );
 
@@ -44,7 +44,7 @@ export default function PathTab() {
         <Icon name="chev" size={18} color={c.faint} />
       </Card>
       <Sect title="Up next" />
-      <Group>{stops.map((s, i) => <Row key={s.key} first={i === 0} title={s.title} sub={s.sub} left={<Icon name={s.icon} color={i === 0 ? c.fox : c.muted} />} onPress={() => go(s.path, "My Path")} testID="row-path-step" />)}</Group>
+      <Group>{stops.map((s, i) => <Row key={s.key} first={i === 0} title={s.title} sub={s.sub} left={<Icon name={s.icon} color={i === 0 ? c.fox : c.muted} />} onPress={() => go(s.path, "My Path", { page: true })} testID="row-path-step" />)}</Group>
     </Screen>
   );
 
@@ -78,11 +78,11 @@ export default function PathTab() {
         </View>
         {stops.map((s, i) => (
           <View key={s.key} style={{ alignItems: "center", marginBottom: 26, transform: [{ translateX: xs[(i + 1) % xs.length] }] }}>
-            <Pressable testID="button-path-stop" accessibilityRole="button" onPress={() => { tap(); go(s.path, "My Path"); }}
+            <Pressable testID="button-path-stop" accessibilityRole="button" onPress={() => { tap(); go(s.path, "My Path", { page: true }); }}
               style={({ pressed }) => ({ width: 74, height: 74, borderRadius: 37, backgroundColor: c.surface, alignItems: "center", justifyContent: "center", shadowColor: c.nodeShadow, shadowOpacity: 1, shadowRadius: 0, shadowOffset: { width: 0, height: pressed ? 2 : 6 }, elevation: 3, transform: [{ translateY: pressed ? 4 : 0 }] })}>
               <Icon name={s.icon} size={26} />
             </Pressable>
-            <Text style={{ fontFamily: font.bold, fontSize: 14, color: c.ink, textAlign: "center", marginTop: 12, maxWidth: 220 }} numberOfLines={2}>{s.title}</Text>
+            <Text style={{ fontFamily: font.bold, fontSize: 14, color: c.ink, textAlign: "center", marginTop: 12, maxWidth: 240 }} numberOfLines={3}>{s.title}</Text>
             <Text style={{ fontFamily: font.semi, fontSize: 11, letterSpacing: 0.6, color: c.faint, textTransform: "uppercase", marginTop: 2 }}>{s.sub}</Text>
           </View>
         ))}

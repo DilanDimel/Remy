@@ -42,6 +42,11 @@ export default function Jobs() {
     const { job, kept: k } = last; tap(); setLast(null);
     try { await undo(job, k); setGone(({ [job.id]: _, ...g }) => g); setKeptNow(({ [job.id]: _, ...n }) => n); } catch (e: any) { setErr(e.message); }
   };
+  // Kept → remove: the same undo as after a Keep, so the opening goes back to For you.
+  const unkeep = async (j: Job) => {
+    tap(); setErr("");
+    try { await undo(j, true); setGone(({ [j.id]: _, ...g }) => g); setKeptNow(({ [j.id]: _, ...n }) => n); } catch (e: any) { setErr(e.message); }
+  };
   const toast = last && (
     <View style={{ position: "absolute", left: 16, right: 16, bottom: 104, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.ink, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 16 }} testID="toast-undo">
       <Text style={{ flex: 1, fontFamily: font.semi, fontSize: 14.5, color: c.onInk }} numberOfLines={1}>{last.kept ? "Kept" : "Passed"} · {last.job.title}</Text>
@@ -74,7 +79,12 @@ export default function Jobs() {
         <Group>
           {shown.slice(0, 40).map((j, i) => (
             <Row key={j.id} first={i === 0} title={j.title} sub={`${j.company} · ${j.location}`} left={<EmployerTile name={j.company} size={40} />} onPress={() => open(j)} testID="row-opening"
-              right={filter === "kept" ? <FitBadge fit={fits[j.id]} /> : (
+              right={filter === "kept" ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <FitBadge fit={fits[j.id]} />
+                  <Pressable testID="button-unkeep" accessibilityLabel={`Remove ${j.title} from Kept`} hitSlop={6} onPress={() => unkeep(j)} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.surface2, alignItems: "center", justifyContent: "center" }}><Icon name="x" size={18} color={c.muted} /></Pressable>
+                </View>
+              ) : (
                 <View style={{ flexDirection: "row", gap: 6 }}>
                   <Pressable testID="button-pass" accessibilityLabel={`Pass on ${j.title}`} hitSlop={6} onPress={() => { tap(); decide(j, false); }} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.surface2, alignItems: "center", justifyContent: "center" }}><Icon name="x" size={18} color={c.muted} /></Pressable>
                   <Pressable testID="button-keep" accessibilityLabel={`Keep ${j.title}`} hitSlop={6} onPress={() => { success(); decide(j, true); }} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.foxSoft, alignItems: "center", justifyContent: "center" }}><Icon name="heart" size={18} color={c.foxDeep} /></Pressable>

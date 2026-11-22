@@ -117,7 +117,7 @@ export function Row({ title, sub, left, right, onPress, first, testID }: { title
     <Pressable testID={testID} disabled={!onPress} onPress={onPress ? () => { tap(); onPress(); } : undefined} style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13, paddingHorizontal: 16, backgroundColor: pressed ? c.surface2 : c.surface })}>
       {!first && <View style={{ position: "absolute", top: 0, left: left ? 52 : 16, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: c.line }} />}
       {left}
-      <View style={{ flex: 1 }}><T numberOfLines={2}>{title}</T>{!!sub && <T kind="small" numberOfLines={1}>{sub}</T>}</View>
+      <View style={{ flex: 1 }}><T numberOfLines={3}>{title}</T>{!!sub && <T kind="small" numberOfLines={1}>{sub}</T>}</View>
       {right ?? (onPress ? <Icon name="chev" size={18} color={c.faint} /> : null)}
     </Pressable>
   );

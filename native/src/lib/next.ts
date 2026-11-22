@@ -40,6 +40,4 @@ export function greeting(d = new Date()) {
   return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
 }
 
-export function firstName(w: Workspace | null) {
-  return (w?.profile.name || "").trim().split(/\s+/)[0] || "";
-}
+

@@ -6,8 +6,9 @@ import { dailyStreak } from "@shared/daily";
 import { Button, Card, EmployerTile, FitBadge, Group, Icon, Row, Screen, Sect, T, success, tap, type IconName } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useJobs } from "@/lib/jobs";
-import { go } from "@/lib/nav";
-import { firstName, greeting, nextThing, visibleJobs } from "@/lib/next";
+import { askRemy, go } from "@/lib/nav";
+import { greeting, nextThing, visibleJobs } from "@/lib/next";
+import { firstName } from "@shared/names";
 import { useSession } from "@/lib/session";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
 
@@ -28,6 +29,8 @@ export default function Today() {
   const onRefresh = async () => { setRefreshing(true); await Promise.all([refresh(), reload()]); setRefreshing(false); };
   const toggle = async (t: Task) => { if (!t.done) success(); setWs(await api<Workspace>("PATCH", `/api/tasks/${t.id}`, { done: !t.done })); };
   const name = firstName(ws);
+  // A plan step like "Ask TCU's international office…" has no page of its own: Remy helps with it in chat.
+  const openNext = () => (next.path.split("?")[0] === "/path" ? askRemy(`Help me with this: ${next.title}`) : go(next.path, next.cta));
 
   const check = (t: Task) => (
     <Pressable testID="checkbox-task" accessibilityRole="checkbox" accessibilityState={{ checked: t.done }} accessibilityLabel={`Mark ${t.title} done`} onPress={() => toggle(t)} hitSlop={10}
@@ -44,7 +47,7 @@ export default function Today() {
         <T kind="label">Your one thing right now</T>
         <T kind="h2" style={{ marginTop: 6, fontSize: 20 }}>{next.title}</T>
         <T kind="muted" style={{ marginTop: 4 }}>{next.why}</T>
-        <Button testID="button-next-action" label={next.cta} onPress={() => go(next.path, next.cta)} style={{ marginTop: 14 }} flex />
+        <Button testID="button-next-action" label={next.cta} onPress={openNext} style={{ marginTop: 14 }} flex />
       </Card>
       <Sect title="This week" />
       <Group>
@@ -71,7 +74,7 @@ export default function Today() {
         <T kind="label">Remy says · your one thing</T>
         <T kind="title" style={{ marginTop: 8, maxWidth: 280 }}>{next.title}</T>
         <T kind="muted" style={{ marginTop: 6, maxWidth: 260 }}>{next.why}</T>
-        <Button testID="button-next-action" label={next.cta} icon="arrow" onPress={() => go(next.path, next.cta)} style={{ marginTop: 16 }} />
+        <Button testID="button-next-action" label={next.cta} icon="arrow" onPress={openNext} style={{ marginTop: 16 }} />
         <View style={{ position: "absolute", right: -18, bottom: -18, opacity: 0.16 }} pointerEvents="none"><Icon name={linkIcon(next.path)} size={120} color={c.foxDeep} strokeWidth={1.4} /></View>
       </View>
       <Sect title="Getting started" right={<Text style={{ fontFamily: font.bold, fontSize: 14, color: c.foxDeep }}>{done} of {steps.length}</Text>} />
