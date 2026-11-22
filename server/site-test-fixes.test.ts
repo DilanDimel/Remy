@@ -5,11 +5,11 @@ import express from "express";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { Job, Workspace } from "@shared/types";
-import { createSession, emptyWorkspace, ensureUser, loadWorkspace, saveWorkspace } from "./db";
+import { createSession, emptyWorkspace, ensureUser, loadWorkspace, saveWorkspace } from "./platform/db";
 import { registerRoutes } from "./routes";
-import { cautionFor, computeFit } from "./fit";
+import { cautionFor, computeFit } from "./jobs/fit";
 import { postingSkills } from "@shared/requirements";
-import { hasKeyword } from "./ats";
+import { hasKeyword } from "./resume/ats";
 
 const opening = (j: Partial<Job> = {}): Job => ({
   id: "job-1", kind: "internship", title: "Marketing Intern", company: "Bluebonnet Coffee Co.", location: "Fort Worth, TX",

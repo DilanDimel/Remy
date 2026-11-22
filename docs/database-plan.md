@@ -14,7 +14,7 @@ This is fine for a demo and a small pilot. It breaks down when:
 - we need backups, point-in-time recovery, or to answer "who can see this student's data" for TCU.
 
 ## Built: checked openings (Nov 2026, Demetre)
-`checked_openings` (migration 014, `server/openings.ts`) keeps one shared row per public posting Remy has found or re-checked, with no student data.
+`checked_openings` (migration 014, `server/jobs/openings.ts`) keeps one shared row per public posting Remy has found or re-checked, with no student data.
 - **Tags:** company (normalized like `sameOrg`), industry (the setup field chips, from the title, else the employer's directory field) and career path (the My Path road key, empty when no road really fits).
 - **Filled by:** every openings search (`recordFound`) and every page check, manual or background (`recordCheck`: reachable, closed wording or unreachable, with the HTTP status).
 - **Discarded:** the 6-hour sweep deletes rows not seen or checked for `OPENINGS_KEEP_DAYS` days (default 30).
@@ -22,10 +22,10 @@ This is fine for a demo and a small pilot. It breaks down when:
 - **Read:** `GET /api/admin/openings?industry=&path=&company=&status=open|closed|unchecked` (owners only) returns counts by industry and path plus the matching openings.
 
 ## Built: keeping the data small (Nov 2026, Demetre)
-- **Openings lists are trimmed** (`server/trim.ts`) whenever a search adds openings: imported openings nothing else refers to (not saved, applied to, rated, hidden, linked from a to-do or the calendar) are dropped after 30 days, and at most the newest 150 are kept. Their links go in `droppedJobUrls` so a search doesn't add them back as new. Before this, every search added up to 25 openings with up to 12 KB of text each and nothing was ever removed, so active accounts would hit the 4 MB limit.
+- **Openings lists are trimmed** (`server/resume/trim.ts`) whenever a search adds openings: imported openings nothing else refers to (not saved, applied to, rated, hidden, linked from a to-do or the calendar) are dropped after 30 days, and at most the newest 150 are kept. Their links go in `droppedJobUrls` so a search doesn't add them back as new. Before this, every search added up to 25 openings with up to 12 KB of text each and nothing was ever removed, so active accounts would hit the 4 MB limit.
 - **Background jobs filter in SQL** (`recentStudents`): the background openings search and the saved-openings re-check load only students who visited in the last 21 days (and, for the search, finished setup), longest-waiting first, instead of every signed-in account.
 - **Employer cache is slimmer:** `board_cache` keeps every posting's title, place and link, but description text only for student-level postings (capped at 20,000 characters). Search results are identical (tested on Julio's 48 labeled postings); senior roles' full text was the bulk of the cache.
-- **Space watch** (`server/storage.ts`): `GET /api/admin/storage` (owners) shows the database size against `DB_SIZE_LIMIT_MB` (default 500, the Supabase free plan) and each table's size. Past 80%, the sweep posts one warning a day on the owners' Errors page. Free-plan note: daily backups aren't included; check before launch.
+- **Space watch** (`server/platform/storage.ts`): `GET /api/admin/storage` (owners) shows the database size against `DB_SIZE_LIMIT_MB` (default 500, the Supabase free plan) and each table's size. Past 80%, the sweep posts one warning a day on the owners' Errors page. Free-plan note: daily backups aren't included; check before launch.
 - **Expired codes are cleaned up:** the sweep deletes sign-in and school-email codes nobody came back for.
 
 ## Proposal

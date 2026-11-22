@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import express from "express";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { createSession, emptyWorkspace, ensureUser, saveWorkspace } from "./db";
+import { createSession, emptyWorkspace, ensureUser, saveWorkspace } from "./platform/db";
 import { registerRoutes } from "./routes";
 
 test("confirming an interview email adds it to the calendar and dates the prep to-do; no date, no calendar entry", async (t) => {

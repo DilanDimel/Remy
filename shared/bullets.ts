@@ -1,4 +1,4 @@
-// What makes a resume bullet strong, shared by the resume checks (server/ats.ts) and the Review tab, so both judge
+// What makes a resume bullet strong, shared by the resume checks (server/resume/ats.ts) and the Review tab, so both judge
 // a line the same way.
 export const STRONG = /^(led|built|grew|launched|managed|created|designed|developed|analyz|organized|trained|presented|drove|owned|published|surveyed|coordinated|improved|increased|reduced|negotiated|founded|directed|executed|implemented|researched|modeled|forecast|automated|streamlined|delivered|won|raised|secured|mentored|wrote|produced|planned|conducted|evaluated|optimized|spearheaded|initiated|established|collaborated|supported|prepared|assisted|served|tutored|taught|volunteered|completed|calculated|reviewed|tracked|built)/i;
 // Past-tense verbs ("Organized", "Pitched") count too, minus a few that aren't actions.

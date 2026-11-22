@@ -1,5 +1,5 @@
 // The field chips students pick in setup, grouped so every kind of student sees their area
-// (each label must match a field in server/fit.ts FIELDS; fit.test.ts checks this).
+// (each label must match a field in server/jobs/fit.ts FIELDS; fit.test.ts checks this).
 export const FIELD_GROUPS: [string, string[]][] = [
   ["Business", ["Finance", "Investment banking", "Accounting", "Consulting", "Marketing", "Sales", "Business & management", "Entrepreneurship", "Human resources", "Supply chain & operations", "Real estate"]],
   ["Tech & engineering", ["Software & computer science", "Data & analytics", "Information systems & IT", "Cybersecurity", "Engineering", "Architecture & construction", "Aviation"]],
@@ -10,7 +10,7 @@ export const FIELD_GROUPS: [string, string[]][] = [
 ];
 
 /** Majors and goals that point to each field choice, so setup can open the right groups first
- *  (whole words and stems, after server/fit.ts FIELDS; "science" alone points nowhere). */
+ *  (whole words and stems, after server/jobs/fit.ts FIELDS; "science" alone points nowhere). */
 export const FIELD_MAJORS: Record<string, RegExp> = {
   "Finance": /financ|bank|invest|fintech|econ|wealth/i,
   "Investment banking": /investment bank|\bm&a\b/i,

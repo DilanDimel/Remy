@@ -4,8 +4,8 @@ import express from "express";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { Job } from "@shared/types";
-import { createSession, emptyWorkspace, ensureUser, saveWorkspace } from "./db";
-import { FIT_RULES_VERSION } from "./fit";
+import { createSession, emptyWorkspace, ensureUser, saveWorkspace } from "./platform/db";
+import { FIT_RULES_VERSION } from "./jobs/fit";
 import { registerRoutes } from "./routes";
 
 // The tailoring route after it was split into tailorApplication (stage 5b): the eligibility conflict still answers 409.
@@ -40,7 +40,7 @@ test("generate: an eligibility conflict answers 409 before any AI call; reminder
   const skip = await fetch(base + "/api/reminders/skip", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ keys: ["c1:2026-11-23", "bad key", "x:notadate"] }) });
   assert.equal(skip.status, 200);
   assert.equal((await skip.json() as any).skipped, 1);
-  const { loadWorkspace } = await import("./db");
+  const { loadWorkspace } = await import("./platform/db");
   assert.deepEqual((await loadWorkspace("tr-1")).reminded, ["c1:2026-11-23:soon", "c1:2026-11-23:day", "c1:2026-11-23:skip"]);
   const none = await fetch(base + "/api/reminders/skip", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ keys: ["nope"] }) });
   assert.equal(none.status, 400);

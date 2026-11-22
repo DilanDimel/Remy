@@ -14,14 +14,14 @@ Touched resume reading? Also `npm run check:resume`. Touched the database or ses
 
 ## Rules every change follows
 
-- **Owner view first.** New and redesigned features are owners-only until the team releases them. Gate client code with `useOwnerView()` (`client/src/lib/store.tsx`); owner styling hangs off the `html.redesign-2` class. Server checks use `isOwner` (`server/admin.ts`). Never ship a change to students without the team's explicit go-ahead.
+- **Owner view first.** New and redesigned features are owners-only until the team releases them. Gate client code with `useOwnerView()` (`client/src/lib/store.tsx`); owner styling hangs off the `html.redesign-2` class. Server checks use `isOwner` (`server/platform/admin.ts`). Never ship a change to students without the team's explicit go-ahead.
 - **Test and screenshot in owner view**, signed in as an owner with the owner/student toggle on owner.
-- **No invented claims.** Every AI rewrite is checked by `server/claims.ts` and shown as original vs. proposed for the student to accept, edit or reject. Only approved versions export.
+- **No invented claims.** Every AI rewrite is checked by `server/ai/claims.ts` and shown as original vs. proposed for the student to accept, edit or reject. Only approved versions export.
 - **Nothing is sent for the student.** Outreach opens in their own mail app; status changes from email wait for them to confirm.
 - **Colours come from tokens** in `client/src/index.css` ("paper, ink, one orange"). `check:contract` fails on raw colours not in `script/color-allowlist.json`.
 - **Phones:** every page works from 344 to 690 px wide.
 - **Client calls the server only through** `api()`, `save()` and `download()` in `client/src/lib/store.tsx`, with literal `/api/...` URLs so the contract check can read them. Shared shapes live in `shared/types.ts`.
-- **New `/api` route:** add it in `server/routes.ts` next to related routes, put the logic in a feature file, and add a `*.test.ts` beside it.
+- **New `/api` route:** add it in `server/routes.ts` next to related routes, put the logic in the matching `server/<area>/` file (see `docs/architecture.md`), and add a `*.test.ts` beside it.
 - **Database change:** add the next numbered file in `server/migrations/`. Never edit a migration that has shipped.
 - **Secrets** go in the Render dashboard or a local `.env`, never in the repo.
 - Keep existing `data-testid` attributes and add one to each new button or input.

@@ -1,5 +1,5 @@
 // Remy's review of the base resume: each problem with the exact line or field it's about, so the Review tab can help
-// fix it in place (ask → draft → approve) instead of listing generic advice. Same rules as server/ats.ts.
+// fix it in place (ask → draft → approve) instead of listing generic advice. Same rules as server/resume/ats.ts.
 import type { ResumeDoc } from "./types";
 import { QUANT, WEAK, isAction, isListSection } from "./bullets";
 

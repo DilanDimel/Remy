@@ -5,9 +5,9 @@ import assert from "node:assert/strict";
 import express from "express";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { createSession, emptyWorkspace, ensureUser, saveWorkspace } from "./db";
+import { createSession, emptyWorkspace, ensureUser, saveWorkspace } from "./platform/db";
 import { registerRoutes } from "./routes";
-import { q1 } from "./sql";
+import { q1 } from "./platform/sql";
 
 process.env.OWNER_EMAILS = [process.env.OWNER_EMAILS, "founder@shot.test"].filter(Boolean).join(",");
 

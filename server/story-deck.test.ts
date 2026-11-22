@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import express from "express";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { createSession, emptyWorkspace, ensureUser, loadWorkspace, saveWorkspace } from "./db";
+import { createSession, emptyWorkspace, ensureUser, loadWorkspace, saveWorkspace } from "./platform/db";
 import { registerRoutes } from "./routes";
 
 test("story deck: answer a missing part, edit or clear your own words, never overwrite what the resume says", async (t) => {
@@ -108,7 +108,7 @@ test("story deck (second review): no prefix or word-family guesses, natural open
 });
 
 test("stories come from things the student did, not course lists or skills", async () => {
-  const { storyLines } = await import("./storyLines");
+  const { storyLines } = await import("./coach/storyLines");
   const doc = { contact: {}, skills: [], sections: [
     { id: "s1", heading: "EDUCATION", entries: [{ id: "e1", org: "TCU", role: "BBA Finance", dates: "", bullets: [{ id: "b1", text: "Relevant Coursework: Financial Accounting, Statistics" }, { id: "b2", text: "Built a DCF model in Excel for a class project" }, { id: "b3", text: "GPA 3.6, Dean's List" }] }] },
     { id: "s2", heading: "Relevant Coursework", entries: [{ id: "e2", org: "", role: "", dates: "", bullets: [{ id: "b4", text: "Corporate Finance" }] }] },
@@ -118,7 +118,7 @@ test("stories come from things the student did, not course lists or skills", asy
 });
 
 test("story lines keep experience under mixed headings and drop skills/certification lines anywhere", async () => {
-  const { storyLines } = await import("./storyLines");
+  const { storyLines } = await import("./coach/storyLines");
   const sec = (heading: string, ...bullets: string[]) => ({ id: heading, heading, entries: [{ id: heading + "e", org: "", role: "", dates: "", bullets: bullets.map((text, i) => ({ id: heading + i, text })) }] });
   const doc = { contact: {}, skills: [], sections: [
     sec("Leadership, Skills & Activities", "President of Finance Club"), sec("Projects & Certifications", "Built a Tableau dashboard for a class"),

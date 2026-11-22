@@ -4,9 +4,9 @@ import express from "express";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { Job, Workspace } from "@shared/types";
-import { createSession, emptyWorkspace, ensureUser, loadWorkspace, saveSections, saveWorkspace } from "./db";
+import { createSession, emptyWorkspace, ensureUser, loadWorkspace, saveSections, saveWorkspace } from "./platform/db";
 import { registerRoutes } from "./routes";
-import { q } from "./sql";
+import { q } from "./platform/sql";
 
 const opening = (id: string, kind: Job["kind"] = "internship"): Job => ({
   id, kind, title: "Software Engineering Intern", company: "Synthetic Test Co", location: "Dallas, TX",

@@ -4,8 +4,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { computeFit } from "./fit";
-import { emptyWorkspace } from "./db";
+import { computeFit } from "./jobs/fit";
+import { emptyWorkspace } from "./platform/db";
 import { openingRanker } from "../shared/order";
 
 const FINANCE = /financ|bank|invest|account|valuation|treasury|fp&a|capital|m&a|audit|tax|controller|wealth|credit|fintech/i;

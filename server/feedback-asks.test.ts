@@ -4,9 +4,9 @@ import assert from "node:assert/strict";
 import express from "express";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { createSession, emptyWorkspace, ensureUser, loadWorkspace, saveWorkspace } from "./db";
+import { createSession, emptyWorkspace, ensureUser, loadWorkspace, saveWorkspace } from "./platform/db";
 import { registerRoutes } from "./routes";
-import { q } from "./sql";
+import { q } from "./platform/sql";
 
 test("feedback asks: known keys only, answers become feedback notes, each key asked once, follow-up is optional", async (t) => {
   const app = express();

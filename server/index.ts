@@ -2,7 +2,7 @@ import "dotenv/config";
 import express, { Response, NextFunction } from 'express';
 import type { Request } from 'express';
 import { registerRoutes } from "./routes";
-import { dbKind, dbReady } from "./sql";
+import { dbKind, dbReady } from "./platform/sql";
 import { serveStatic } from "./static";
 import { createServer } from "node:http";
 

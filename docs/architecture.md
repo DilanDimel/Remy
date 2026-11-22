@@ -20,25 +20,25 @@
 |---|---|
 | A screen | `client/src/pages/<Name>.tsx`, wired in `App.tsx` |
 | A reusable piece of UI | `client/src/components/` (primitives in `components/ui/`) |
-| An API route | `server/routes.ts`, logic in a feature file, test beside it |
+| An API route | `server/routes.ts`, logic in `server/<area>/`, test beside it |
 | A type both sides use | `shared/types.ts` |
 | Pure logic both sides use | `shared/<topic>.ts` with a test in `server/` |
 | A database table or column | next `server/migrations/NNN_name.sql` |
 | A check script | `script/`, plus an `npm run` entry |
 
-## Proposed folder structure (not done yet)
+## Server folders
 
-`server/` has about 50 feature files and 66 tests side by side in one folder, and `routes.ts` is about 2,800 lines. Grouping them by area would make it faster to find things. This is a proposal: the moves wait until the open feature PRs have merged so nothing collides, and they are purely mechanical (`git mv` plus import path updates, no logic changes).
+`index.ts`, `routes.ts`, `vite.ts` and `static.ts` stay at the top of `server/`, with the static data (`data/`, `migrations/`, `certs/`, `fixtures/`, `sample-resume.txt`) that the server reads by path. Features are grouped by area, each test beside the file it tests:
 
 ```
 server/
-  index.ts  routes.ts  vite.ts  static.ts
-  platform/   db.ts sql.ts storage.ts auth.ts admin.ts beta.ts services.ts ids.ts migrations/ certs/
-  ai/         ai.ts agents.ts chatDo.ts claims.ts safety.ts tailorFix.ts bulletDraft.ts pageGuide.ts
-  resume/     resume.ts parse.ts builder.ts docxEdit.ts docs.ts ats.ts trim.ts
-  jobs/       openings.ts sources.ts ranking.ts fit.ts future.ts insights.ts signals.ts conferences.ts data/
-  coach/      checkin.ts nudges.ts pitch.ts brief.ts outreachAsk.ts interviewDate.ts keepDecided.ts storyLines.ts noUpgrade.ts
-  notify/     email.ts texts.ts gcal.ts reminders.ts
+  platform/   db sql storage auth admin beta services ids
+  ai/         ai agents chatDo claims safety tailorFix bulletDraft pageGuide
+  resume/     resume parse builder docxEdit docs ats trim
+  jobs/       openings sources ranking fit future insights signals conferences
+  coach/      checkin nudges pitch brief outreachAsk interviewDate keepDecided storyLines noUpgrade
+  notify/     email texts gcal reminders
+  *.test.ts   tests of routes and of shared/ logic
 ```
 
-Tests move with the file they test, and `npm test` becomes `tsx --test 'server/**/*.test.ts'`. A later step could split `routes.ts` into one router file per folder. The client is already organized by pages, components and lib, so it stays as it is.
+`npm test` runs `server/*.test.ts` and `server/*/*.test.ts`. A later step could split `routes.ts` into one router per folder.

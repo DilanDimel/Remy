@@ -1,7 +1,7 @@
 // Austin and Houston employers, read first for students there (Nov 21, 2026). Run with `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { EMPLOYERS, metrosIn, preferMetros } from "./sources";
+import { EMPLOYERS, metrosIn, preferMetros } from "./jobs/sources";
 
 test("metros: a student's places name their Texas metros; 'Anywhere in Texas' means all three", () => {
   assert.deepEqual(metrosIn("Dallas-Fort Worth"), ["dfw"]);

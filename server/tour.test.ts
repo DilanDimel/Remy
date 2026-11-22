@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { gettingStarted } from "@shared/progress";
-import { chatActions } from "./safety";
+import { chatActions } from "./ai/safety";
 
 const ws = (over: any = {}) => ({ savedJobIds: [], applications: [], resume: undefined, stories: [], contacts: [], ...over }) as any;
 
@@ -27,7 +27,7 @@ test("Remy's chat can point to the new Interview page and the LinkedIn tab", () 
 test("contacts: where we met and when are saved, email optional, a bad date refused; tour settings accepted", async (t) => {
   const express = (await import("express")).default;
   const { createServer } = await import("node:http");
-  const { createSession, emptyWorkspace, ensureUser, saveWorkspace } = await import("./db");
+  const { createSession, emptyWorkspace, ensureUser, saveWorkspace } = await import("./platform/db");
   const { registerRoutes } = await import("./routes");
   const app = express(); app.use(express.json());
   const server = createServer(app);
@@ -52,7 +52,7 @@ test("contacts: where we met and when are saved, email optional, a bad date refu
 });
 
 test("Future of your field: the student's major comes first, even when roles or interests match other fields", async () => {
-  const { futureFor } = await import("./future");
+  const { futureFor } = await import("./jobs/future");
   const ws = (p: any) => ({ profile: { major: "", targetRoles: "", interests: "", ...p } }) as any;
   const a = futureFor(ws({ major: "Nursing", interests: "data analysis" })).fields.map((f) => f.field);
   assert.ok(a.length >= 1);
