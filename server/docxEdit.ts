@@ -154,6 +154,52 @@ export async function editResumeDocx(buf: Buffer, base: ResumeDoc, version: Resu
   return { buf: await z2.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }), missed };
 }
 
+/** The base resume as it stands now, written into the student's own Word file (redesign stage 3: the Resume page shows
+ *  their real file, colours on top). Bullets go through editResumeDocx; a changed Skills line has only the changed part
+ *  rewritten inside its own text run, so the bold label and fonts stay. Name, contact and job headers must already
+ *  match the file; anything that can't be placed is returned in `missed` and the caller shows Remy's rebuild instead. */
+export async function currentResumeDocx(buf: Buffer, doc: ResumeDoc, removed: string[] = [], fileLines: Record<string, string> = {}): Promise<{ buf: Buffer; missed: string[] }> {
+  const first = await editResumeDocx(buf, doc, doc, removed, fileLines);
+  const missed = [...first.missed];
+  const zip = await JSZip.loadAsync(first.buf);
+  let xml = await zip.file("word/document.xml")!.async("string");
+  const flatOf = (x: string) => norm(decode([...x.matchAll(T)].map((t) => t[1] || "").join(" ")).replace(/\s+/g, " "));
+  const flat0 = flatOf(xml), squash = (t: string) => norm(t).replace(/\s+/g, "");
+  const inFile = (t: string) => !t.trim() || flat0.includes(norm(t)) || flat0.replace(/\s+/g, "").includes(squash(t));
+  const c = doc.contact;
+  for (const v of [c.name, c.email, c.phone, c.location, c.links]) if (!inFile(v)) missed.push(v);
+  for (const s of doc.sections) {
+    if (!inFile(s.heading)) missed.push(s.heading);
+    for (const e of s.entries) for (const v of [e.org, e.role, e.location, e.dates]) if (!inFile(v)) missed.push(v);
+  }
+  for (const k of doc.skills) {
+    if (inFile(k.items)) continue;
+    // The Skills paragraph it came from: the one sharing the most words with the new line.
+    const paras = paragraphs(xml).filter((p) => p.text.trim() && !p.xml.includes("<w:br"));
+    const best = paras.map((p) => [p, overlap(k.items, p.text)] as const).sort((x, y) => y[1] - x[1])[0];
+    if (!best || best[1] < 0.4) { missed.push(k.items); continue; }
+    // Keep the file's own label ("Technical Skills: ") and change only the list after it.
+    const p = best[0], old = p.text, label = old.match(/^[^:]{0,40}:\s*/)?.[0] ?? "", want = label + k.items;
+    let pre = 0; while (pre < old.length && pre < want.length && old[pre] === want[pre]) pre++;
+    let suf = 0; while (suf < old.length - pre && suf < want.length - pre && old[old.length - 1 - suf] === want[want.length - 1 - suf]) suf++;
+    // Find the text run holding the changed span; a change across runs isn't guessed at.
+    let at = 0, done = false;
+    const out = p.xml.replace(T, (m, inner) => {
+      if (inner === undefined) return m;
+      const t = decode(inner), s0 = at, e0 = at + t.length;
+      at = e0;
+      if (done || pre < s0 || old.length - suf > e0 || (pre === e0 && old.length - suf === e0 && e0 !== old.length)) return m;
+      done = true;
+      const nt = t.slice(0, pre - s0) + want.slice(pre, want.length - suf) + t.slice(old.length - suf - s0);
+      return m.replace(/^<w:t(?:\s[^>]*)?>[\s\S]*<\/w:t>$/, `<w:t xml:space="preserve">${encode(nt)}</w:t>`);
+    });
+    if (!done) { missed.push(k.items); continue; }
+    xml = xml.slice(0, p.start) + out + xml.slice(p.start + p.xml.length);
+  }
+  zip.file("word/document.xml", xml);
+  return { buf: await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }), missed };
+}
+
 const SERIF = /times|georgia|garamond|cambria|book antiqua|palatino|baskerville|bodoni|century schoolbook|didot|minion|constantia|bookman|caslon/i;
 /** How the student's Word file looks (font family, body size, left margin, pages), so Remy's PDF can match it. */
 export async function docxStyle(buf: Buffer): Promise<ResumeStyle | null> {

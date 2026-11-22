@@ -22,16 +22,16 @@ export function paperStyle(st?: ResumeStyle): Record<string, string> | undefined
   return { fontFamily: named, fontSize: `${(st.size * 4) / 3}px`, padding: `${Math.round((st.margin * 4) / 3 * 0.75)}px ${Math.round((st.margin * 4) / 3)}px` };
 }
 
-type Cat = "action" | "hard" | "soft" | "number" | "result";
-const CATS: [Cat, string][] = [["action", "Action words"], ["hard", "Hard skills & tools"], ["soft", "Soft skills"], ["number", "Numbers"], ["result", "Results"]];
+export type Cat = "action" | "hard" | "soft" | "number" | "result";
+export const CATS: [Cat, string][] = [["action", "Action words"], ["hard", "Hard skills & tools"], ["soft", "Soft skills"], ["number", "Numbers"], ["result", "Results"]];
 // Common tools students list; the student's own Skills section is added on top of these.
 const TOOLS = ["Excel", "PowerPoint", "Word", "Outlook", "Google Sheets", "Google Slides", "G-Suite", "Microsoft Office", "SQL", "Python", "R", "Java", "JavaScript", "TypeScript", "C\\+\\+", "Tableau", "Power BI", "Salesforce", "HubSpot", "QuickBooks", "Bloomberg", "Capital IQ", "FactSet", "SAP", "Oracle", "Jira", "Figma", "Canva", "Adobe", "Photoshop", "AutoCAD", "SolidWorks", "MATLAB", "Zendesk", "CRM", "VBA", "DCF", "financial model\\w*", "pivot tables?"];
 const SOFT = /\b(communicat\w*|collaborat\w*|cross-functional\w*|team(?:work|s)?|leadership|led|mentor\w*|present\w*|negotiat\w*|problem[- ]solving|organiz\w*|coordinat\w*|customer service|public speaking|interpersonal|adaptab\w*|time management|partner\w*)\b/gi;
 const NUMBER = /(?:\$\s?\d[\d,.]*\s?[kKmMbB]?\+?|\b\d[\d,.]*\+?%?|\b\d+(?:st|nd|rd|th)\b|#\d+)/g;
 const RESULT = /\b(increas|reduc|improv|grow|grew|sav|rais|boost|cut|doubl|tripl|exceed|generat|drove|achiev)\w*\b[^.;]{0,70}?\b(?:by|to|over)\s+[$#]?\d[\d,.]*\+?%?[^.;,]{0,30}/gi;
 
-type Range = [number, number, Cat];
-function ranges(text: string, tools: RegExp): Range[] {
+export type Range = [number, number, Cat];
+export function ranges(text: string, tools: RegExp): Range[] {
   const out: Range[] = [];
   const add = (re: RegExp, cat: Cat) => { for (const m of text.matchAll(re)) out.push([m.index!, m.index! + m[0].length, cat]); };
   add(RESULT, "result");
@@ -55,7 +55,7 @@ function marked(text: string, tools: RegExp, on: Set<Cat>): ReactNode {
   return parts;
 }
 const words = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;
-function issues(text: string): string[] {
+export function issues(text: string): string[] {
   const t = text.trim().replace(/^[•\-–*]\s*/, "");
   const out: string[] = [];
   if (!isAction(t) || WEAK.test(t)) out.push("Starts weak");
@@ -67,12 +67,17 @@ function issues(text: string): string[] {
 
 /** `plain`: just the page, no colours, tags or side list (the resume preview where a browser can't show the PDF). */
 /** `side`: replaces the built-in "things to fix" list (stage 3 puts Remy's review with its inline fixes there). */
-export function ResumeMarkup({ doc, onFix, plain = false, look, side }: { doc: ResumeDoc; onFix: (where: "review" | "edit") => void; plain?: boolean; look?: ResumeStyle; side?: ReactNode }) {
+/** Hard skills to colour: the student's own Skills section plus common tools. */
+export function toolsRegex(doc: ResumeDoc): RegExp {
+  const own = doc.skills.flatMap((k) => splitList(k.items)).map((s) => s.trim()).filter((s) => s.length > 1 && s.length < 40).map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  return new RegExp(`\\b(?:${[...own, ...TOOLS].join("|")})\\b`, "gi");
+}
+
+/** `real`: draws the student's own file (with colours) in place of Remy's drawn page; null = use the drawn page. */
+export function ResumeMarkup({ doc, onFix, plain = false, look, side, real }: { doc: ResumeDoc; onFix: (where: "review" | "edit") => void; plain?: boolean; look?: ResumeStyle; side?: ReactNode; real?: (on: Set<Cat>) => ReactNode }) {
   const [on, setOn] = useState<Set<Cat>>(new Set(plain ? [] : CATS.map(([c]) => c)));
-  const tools = useMemo(() => {
-    const own = doc.skills.flatMap((k) => splitList(k.items)).map((s) => s.trim()).filter((s) => s.length > 1 && s.length < 40).map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-    return new RegExp(`\\b(?:${[...own, ...TOOLS].join("|")})\\b`, "gi");
-  }, [doc.skills]);
+  const tools = useMemo(() => toolsRegex(doc), [doc.skills]);
+  const ownFile = real?.(on) ?? null;
   const review = useMemo(() => reviewResume(doc), [doc]);
   const bullets = doc.sections.filter((s) => !isListSection(s.heading)).flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => b.text))).filter((t) => t.trim());
   const count = (c: Cat) => bullets.filter((b) => ranges(b, tools).some((r) => r[2] === c)).length;
@@ -88,7 +93,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side }: { doc: R
         ))}
       </div>}
       <div className="rm-body">
-        <article className="rm-paper" aria-label="Your resume, colour-coded" style={paperStyle(look)}>
+        {ownFile ?? <article className="rm-paper" aria-label="Your resume, colour-coded" style={paperStyle(look)}>
           <h2 className="rm-name">{c.name || "Your name"}</h2>
           <p className="rm-contact">{[c.location, c.phone, c.email, c.links].filter((x) => x.trim()).join(" | ")}</p>
           {doc.sections.map((s) => (
@@ -117,7 +122,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side }: { doc: R
             <h3 className="rm-head">Skills</h3>
             {doc.skills.map((k) => <p key={k.id} className="rm-skill"><b>{k.label ? k.label + ": " : ""}</b>{marked(k.items, tools, on)}</p>)}
           </>)}
-        </article>
+        </article>}
         {!plain && side && <aside className="rm-side rm-side-review" aria-label="What to fix">{side}</aside>}
         {!plain && !side && <aside className="rm-side" aria-label="What to fix">
           <h3>{review.todo.length ? `${review.todo.length} thing${review.todo.length === 1 ? "" : "s"} to fix` : "Nothing big to fix"}</h3>

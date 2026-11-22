@@ -58,7 +58,7 @@ import { askedLength, keepAskedLength } from "./outreachAsk";
 import { noUpgrade } from "./noUpgrade";
 import { boardsFor, orderEmployers, preferMetros, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, isEmptyListing, refillEmpty, kindOf, USAJOBS } from "./sources";
 import { emailReady, sendEmail } from "./email";
-import { docxStyle, editResumeDocx } from "./docxEdit";
+import { currentResumeDocx, docxStyle, editResumeDocx } from "./docxEdit";
 import * as gcal from "./gcal";
 import { q, q1, schema } from "./sql";
 import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./docs";
@@ -1189,11 +1189,31 @@ export async function registerRoutes(_server: Server, app: Express) {
   }));
 
   // The base resume as Remy reads it (including the student's edits), as a clean PDF or Word file.
+  // The base resume written into the student's own Word file (stage 3), or null with what couldn't be placed.
+  async function ownCurrentDocx(ctx: Ctx): Promise<{ buf: Buffer | null; missed: string[] }> {
+    const r = ctx.ws.resume;
+    if (!r?.original?.mime.includes("wordprocessingml")) return { buf: null, missed: [] };
+    const f = await getFile(ctx.me.id, "resume");
+    if (!f) return { buf: null, missed: [] };
+    return currentResumeDocx(f.data, r.doc, r.removed, r.fileLines).catch(() => ({ buf: null, missed: ["(file unreadable)"] }));
+  }
+  // Their own Word file with every change so far, for the Resume page to draw (409 + the lines when it can't be done).
+  app.get("/api/resume/current-docx", route(async (_req, res, ctx) => {
+    if (!ctx.ws.resume) bad("Upload a resume first.");
+    const out = await ownCurrentDocx(ctx);
+    if (!out.buf || out.missed.length) return void res.status(409).json({ missed: out.missed.slice(0, 8) });
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    res.setHeader("Cache-Control", "no-store");
+    res.send(out.buf);
+  }));
+
   app.get("/api/resume/export", route(async (req, res, ctx) => {
     if (!ctx.ws.resume) bad("Upload a resume first.");
     const fmt = req.query.format === "docx" ? "docx" : "pdf";
     const doc = ctx.ws.resume!.doc;
-    const buf = fmt === "pdf" ? await resumePdf(doc, ctx.ws.resume!.style) : await resumeDocx(doc, ctx.ws.resume!.style);
+    // Word download for owners (stage 3): their own file with the changes, when every change fits in it.
+    const own = fmt === "docx" && ctx.me.owner && ctx.ws.settings.ownerView !== false ? await ownCurrentDocx(ctx) : null;
+    const buf = own?.buf && !own.missed.length ? own.buf : fmt === "pdf" ? await resumePdf(doc, ctx.ws.resume!.style) : await resumeDocx(doc, ctx.ws.resume!.style);
     const name = (nameUnsure(ctx.ws) ? "Resume" : ctx.ws.profile.name || doc.contact.name || "Resume").replace(/[^A-Za-z]+/g, "-") + "-Resume";
     res.setHeader("Content-Type", fmt === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
     // ?inline=1 shows the current version inside the Resume page (redesign stage 3); downloads stay attachments.

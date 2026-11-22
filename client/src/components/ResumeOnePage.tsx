@@ -5,10 +5,11 @@ import { useState, type ReactNode } from "react";
 import { Download, FileText } from "lucide-react";
 import type { ResumeDoc, ResumeStyle, Workspace } from "@shared/types";
 import { API_BASE, api, download, fmtDate, useStore } from "../lib/store";
-import { ResumeMarkup } from "./ResumeMarkup";
+import { ResumeMarkup, type Cat } from "./ResumeMarkup";
 import { ResumeReview } from "./ResumeReview";
 import { AtsXray } from "./AtsXray";
 import { PdfPreview, WordPreview } from "./WordPreview";
+import { OwnPdfColoured, OwnWordColoured } from "./ResumeReal";
 
 function CurrentPdf({ version, doc, look }: { version: string; doc: ResumeDoc; look?: ResumeStyle }) {
   const canShow = typeof navigator !== "undefined" && (navigator as any).pdfViewerEnabled === true;
@@ -22,7 +23,22 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
   const { ws, setWs, run, toast } = useStore();
   const r = ws!.resume!;
   const [view, setView] = useState<"resume" | "file">("resume");
-  const edited = !!r.editedAt && r.editedAt > r.uploadedAt;
+  // Changed since upload: the saved stamp, or (for edits made before Remy kept one) a line that isn't in the file's text.
+  const squash = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const raw = squash(r.rawText || "");
+  const edited = (!!r.editedAt && r.editedAt > r.uploadedAt) || (!!raw && r.doc.sections.some((s) => s.entries.some((e) => e.bullets.some((b) => b.text.trim() && !raw.includes(squash(b.text))))));
+  const isWord = !!r.original?.mime.includes("wordprocessingml"), isPdf = r.original?.mime === "application/pdf";
+  const [realFail, setRealFail] = useState<string | null>(null);
+  const real = (on: Set<Cat>) => realFail || dirty ? null
+    : isWord ? <OwnWordColoured doc={r.doc} version={(r.editedAt || r.uploadedAt) + JSON.stringify(r.doc).length} on={on} onFail={setRealFail} />
+    : isPdf && !edited ? <OwnPdfColoured doc={r.doc} on={on} onFail={setRealFail} />
+    : null;
+  // Said plainly whenever the page is Remy's drawing instead of their own file.
+  const drawnWhy = !r.original ? "" : dirty ? "Showing your unsaved changes drawn by Remy; save to see them in your own file."
+    : realFail === "missed" ? "Some of your changes don't fit into your Word file automatically, so this is Remy's drawing of your resume in your font. Your original file is under Original file."
+    : realFail ? "Your file couldn't be drawn here, so this is Remy's drawing of it in your font."
+    : isPdf && edited ? "A PDF can't be edited in place, so after changes this is Remy's drawing in your font. Upload your resume as a Word file to keep your exact design."
+    : "";
   const showOriginal = !edited && !!r.original;
   // Saves what's on screen, unsaved fixes included, so the save bar never lingers (skeptic review).
   const looksRight = () => run(() => api<Workspace>("PUT", "/api/resume/doc", { doc, confirm: true }).then(setWs), "Thanks, that's your base resume now");
@@ -56,7 +72,8 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
           </div>
           {view === "resume" ? (
             // Make it stronger lives beside the resume now (Dilan, Nov 21: "can't we just integrate it with this?").
-            <ResumeMarkup doc={doc} look={r.style} onFix={() => document.getElementById("r1-stronger")?.scrollIntoView({ behavior: "smooth", block: "nearest" })} side={
+            <>{drawnWhy && <p className="xs muted" data-testid="r1-drawn-why">{drawnWhy}</p>}
+            <ResumeMarkup doc={doc} look={r.style} real={real} onFix={() => document.getElementById("r1-stronger")?.scrollIntoView({ behavior: "smooth", block: "nearest" })} side={
               // Dilan, Nov 21: Make it stronger, the ATS check and approved versions & downloads as smaller cards beside the resume.
               <div className="r1-side-stack">
                 <div className="r1-side-card" id="r1-stronger"><ResumeReview doc={doc} upd={upd} onEdit={onEditByHand} beside /></div>
@@ -65,7 +82,7 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
                 </div>
                 {approved && <div className="r1-side-card" data-testid="r1-approved">{approved}</div>}
               </div>
-            } />
+            } /></>
           ) : (
             <>
               <span className="xs muted">{showOriginal ? "Your original file, exactly as you uploaded it." : "Your current file, rebuilt in your font and length after your changes."}</span>
