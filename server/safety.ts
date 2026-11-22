@@ -39,7 +39,8 @@ export function chatActions(raw: unknown): ChatAction[] {
   if (!Array.isArray(raw)) return [];
   const clean = (v: unknown, n: number) => String(v || "").replace(/\s+/g, " ").trim().slice(0, n);
   return raw.flatMap((a: any): ChatAction[] => {
-    if (a?.kind === "task" && clean(a.title, 120)) return [{ kind: "task", title: clean(a.title, 120), why: clean(a.why, 300) }];
+    if (a?.kind === "task" && clean(a.title, 120)) return [{ kind: "task", title: clean(a.title, 120), why: clean(a.why, 300), ...(/^\d{4}-\d{2}-\d{2}$/.test(String(a.due)) ? { due: String(a.due) } : {}) }];
+    if ((a?.kind === "save" || a?.kind === "tailor") && /^[\w-]{1,120}$/.test(String(a.jobId))) return [{ kind: a.kind, jobId: String(a.jobId) }];
     if (a?.kind === "role" && clean(a.title, 60)) return [{ kind: "role", title: clean(a.title, 60) }];
     if (a?.kind === "open" && PAGE_LINK.test(String(a.link))) return [{ kind: "open", link: String(a.link), label: clean(a.label, 40) || "Open" }];
     if (a?.kind === "setting" && a.key === "theme" && ["system", "light", "dark"].includes(a.value)) return [{ kind: "setting", key: "theme", value: a.value }];

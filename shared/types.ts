@@ -452,9 +452,12 @@ export interface ChatMsg {
   /** A resume change Remy drafted from the student's chat message (redesign stage 3): shown as before → after with
    *  "Use this"; nothing is saved until they tap it. Only the newest message keeps its draft. */
   resumeProposal?: { doc: ResumeDoc; summary: string; base: string };
+  /** What Remy did from this reply (redesign stage 6, owners first), each with Undo (server/chatDo.ts). */
+  did?: ChatDid[];
 }
-export type ChatAction = { kind: "task"; title: string; why: string } | { kind: "role"; title: string } | { kind: "open"; link: string; label: string }
-  | { kind: "setting"; key: SettingKey; value: string | boolean };
+export type ChatAction = { kind: "task"; title: string; why: string; due?: string } | { kind: "role"; title: string } | { kind: "open"; link: string; label: string }
+  | { kind: "setting"; key: SettingKey; value: string | boolean } | { kind: "save"; jobId: string } | { kind: "tailor"; jobId: string };
+export interface ChatDid { id: string; kind: "task" | "save" | "tailor" | "role"; label: string; ref: string; link?: string; undone?: boolean }
 export type StoryPart = "situation" | "task" | "action" | "result";
 export interface Story {
   id: string; title: string; theme: string; situation: string; task: string; action: string; result: string; missing: string; source: string;
