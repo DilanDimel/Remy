@@ -36,6 +36,7 @@ import { Celebrate } from "./components/Celebrate";
 import { RemyTour, tourAgain } from "./components/Tour";
 import { BETA_TERM_HEADS, BETA_TERMS, BETA_TERMS_LEAD, BETA_TERMS_VERSION } from "@shared/beta";
 import { knownName } from "@shared/names";
+import { isNativeApp } from "./lib/native";
 
 const NAV = [
   { path: "/", label: "Home", icon: HomeIcon },
@@ -83,7 +84,8 @@ function Root() {
     return <SlowLoading />;
   if (path === "/admin" && me) return <Admin />;
   // The public homepage stays reachable while signed in (its buttons then open the student's Remy).
-  if (signedOut || path === "/welcome") return <Welcome />;
+  // (The phone app has no homepage, so signed in it goes straight to the student's Remy.)
+  if (signedOut || (path === "/welcome" && !isNativeApp)) return <Welcome />;
   if (ws.betaAgreed?.version !== BETA_TERMS_VERSION) return <BetaAgreement />;
   if (!ws.onboarding.done) return <Onboarding />;
   return <Shell />;

@@ -3,6 +3,7 @@ import type { AppConfig, Me, Workspace } from "@shared/types";
 import { finishSupabaseRedirect } from "./supabase";
 import { keepNewerJobFeedback } from "./jobFeedback";
 import { apiResult } from "./signals";
+import { saveFileNative } from "./native";
 
 declare global {
   interface Window { __API_BASE__?: string; google?: any }
@@ -87,6 +88,7 @@ export async function download(url: string, fallbackName: string) {
   const cd = res.headers.get("content-disposition") || "";
   const name = cd.match(/filename="([^"]+)"/)?.[1] || fallbackName;
   const blob = await res.blob();
+  if (await saveFileNative(blob, name)) return;
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = name;

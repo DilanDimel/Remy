@@ -1,0 +1,21 @@
+name: iPhone app
+# Builds the iPhone shell for the simulator (no signing). It runs on macOS, which
+# uses Actions minutes 10x faster, so it only runs when iPhone files change or by hand.
+on:
+  push:
+    paths: ["ios/**", ".github/workflows/mobile-ios.yml"]
+  pull_request:
+    paths: ["ios/**", ".github/workflows/mobile-ios.yml"]
+  workflow_dispatch:
+jobs:
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx cap sync ios
+      - name: Build for the simulator (no signing)
+        working-directory: ios/App
+        run: xcodebuild -project App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build | tail -n 40; test ${PIPESTATUS[0]} -eq 0
