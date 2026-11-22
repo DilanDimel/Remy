@@ -14,12 +14,15 @@ import { Remy, StatusChip } from "../components/common";
 import { firstName } from "@shared/names";
 import { gettingStarted } from "@shared/progress";
 import { many, remyLine } from "@shared/homeLine";
-import { dailyStreak, dayKey } from "@shared/daily";
+import { dailyStreak, dayKey, weekDots } from "@shared/daily";
 
 type Tab = "todos" | "events" | "opps";
 
 // A big faint drawing in the corner of the "one thing" card, picked from where the button goes.
 const nextArt = (link: string, interview: boolean) => interview || link.startsWith("/interview") ? Mic : link.startsWith("/resume") ? FileText : link.startsWith("/opportunities") ? Briefcase : link.startsWith("/path") ? Compass : link.startsWith("/calendar") ? CalendarCheck : ListChecks;
+
+// A rough time for the one thing, so it feels small (owners).
+const etaFor = (link: string, interview: boolean) => interview ? "about 15 min" : link === "/resume?tab=base" ? "about 4 min · unlocks Tailor" : link.startsWith("/resume?tab=tailor") ? "about 5 min" : link.startsWith("/interview") ? "about 10 min" : link.startsWith("/opportunities") ? "about 2 min" : "";
 
 function greeting() {
   const h = new Date().getHours();
@@ -143,7 +146,7 @@ export default function Home() {
     </div>
   );
   const noTodos = <p className="muted small" style={{ padding: "14px 0" }}>No open to-dos. Your plan in My Path can suggest a few.</p>;
-  const jobRow = (j: Job) => <JobRow key={j.id} j={j} why={fits[j.id]?.why} open={open === j.id} onToggle={() => setOpen(open === j.id ? "" : j.id)} mono={ownerView} />;
+  const jobRow = (j: Job, i = 0) => <JobRow key={j.id} j={j} why={fits[j.id]?.why} open={open === j.id} onToggle={() => setOpen(open === j.id ? "" : j.id)} mono={ownerView} matched={fits[j.id]?.matched} top={ownerView && i === 0 && j.kind !== "event"} />;
 
   return (
     <>
@@ -154,47 +157,52 @@ export default function Home() {
           {!ownerView && <p className="hide-phone">Here's the one thing worth doing next, and a few things that matter this week.</p>}
           {ownerView && <p className="remy-line" data-testid="remy-line">{remyLine({ hour: new Date().getHours(), interviewSoon: !!interview, cheer, done: doneNow, total: starting.length, newJobs, deadlines: soon, pending: w.applications.filter((a) => a.changes.some((c) => c.status === "pending")).length })}</p>}
         </div>
+        {ownerView && (() => {
+          // Read-only peek at My Path's daily round (#161): the streak, this week's days and today's three cards.
+          const g = w.game || ({ weeks: {} } as NonNullable<typeof w.game>);
+          const st = dailyStreak(g);
+          const today = (["openings", "role", "forecast"] as const).every((c) => w.game?.days?.[dayKey()]?.includes(c));
+          return (
+            <div className={"streak-peek" + (today ? " done" : "")} data-testid="home-streak">
+              <Flame size={22} aria-hidden="true" />
+              <span className="streak-num">{st.days}</span>
+              <span className="streak-lab"><b>day streak</b>{st.best > st.days ? `Best ${st.best}` : st.days ? "Your best yet" : "Start today"}</span>
+              <span className="streak-dots" aria-label="This week">{weekDots(g).map((d) => <i key={d.key} className={d.status} title={d.label} />)}</span>
+              <button className={"btn btn-sm " + (today ? "btn-secondary" : "btn-primary")} onClick={() => go(today ? "/path" : "/path?play=1")} data-testid="button-todays-round">{today ? "Done for today" : "Today's round"}</button>
+            </div>
+          );
+        })()}
       </div>
 
       {ownerView && (
         // Redesign stage 2 (owners first, Nov 21): Remy himself says the one thing to do now, with one button.
-        <section className="hero2" aria-label="Next action" data-testid="hero2">
+        <section className={"hero2" + (starting.some((x) => !x.done) ? " has-track" : "")} aria-label="Next action" data-testid="hero2">
           {cheer && <div className="burst" aria-hidden="true">{Array.from({ length: 12 }, (_, i) => <i key={i} style={{ ["--a" as any]: `${i * 30}deg` }} />)}</div>}
           <div className="hero2-remy"><Remy size={92} mood={cheer ? "happy" : "wave"} /></div>
           <div className="hero2-bubble">
-            {(() => { const Art = nextArt(next.link, !!interview); return <Art className="hero2-art" aria-hidden="true" strokeWidth={1.25} />; })()}
+            {/* a small drawing on a tilted sheet, picked from where the button goes */}
+            {(() => { const Art = nextArt(next.link, !!interview); return <span className="hero2-art" aria-hidden="true"><Art size={44} strokeWidth={1.75} /><i><Check size={16} strokeWidth={3} /></i></span>; })()}
             <span className="hero2-label">{cheer ? "Remy: nice, that's done. Next up" : "Remy says: your one thing right now"}</span>
             <h2 data-testid="text-next-action">{next.title}</h2>
             <p>{next.why}</p>
-            <button className="btn btn-primary btn-lg" onClick={() => (interview ? addPrep() : go(next.link))} data-testid="button-next-action">{next.cta} <ArrowRight size={16} /></button>
+            <div className="hero2-go">
+              <button className="btn btn-primary btn-lg" onClick={() => (interview ? addPrep() : go(next.link))} data-testid="button-next-action">{next.cta} <ArrowRight size={16} /></button>
+              {etaFor(next.link, !!interview) && <span className="xs muted">{etaFor(next.link, !!interview)}</span>}
+            </div>
           </div>
-          {(() => {
-            // Read-only peek at My Path's daily round (#161): the streak and today's three cards.
-            const g = w.game || ({ weeks: {} } as NonNullable<typeof w.game>);
-            const st = dailyStreak(g);
-            const today = (["openings", "role", "forecast"] as const).every((c) => w.game?.days?.[dayKey()]?.includes(c));
-            return (
-              <div className="hero2-steps">
-                <button className={"streak-peek" + (today ? " done" : "")} onClick={() => go(today ? "/path" : "/path?play=1")} data-testid="home-streak">
-                  <Flame size={20} aria-hidden="true" />
-                  <span><b>{st.days ? `${st.days}-day streak` : "Start a streak"}</b><span className="xs">{today ? "Done for today" : "Today's round · 3 cards"}</span></span>
-                  {!today && <ArrowRight size={14} aria-hidden="true" />}
-                </button>
-                {starting.some((x) => !x.done) && <div data-testid="getting-started">
-              <span className="xs muted sroad-head">Getting started · {doneNow} of {starting.length}</span>
-              {/* a small road: done steps ticked, the next one glowing, the rest waiting */}
-              <ol className="sroad" aria-label={`${doneNow} of ${starting.length} getting-started steps done`}>
-                {starting.map((x) => { const cur = !x.done && x === starting.find((y) => !y.done); return (
+          {starting.some((x) => !x.done) && (
+            <div className="hero2-track" data-testid="getting-started">
+              <div className="hero2-track-head"><span>Getting started</span><span>{doneNow}/{starting.length}</span></div>
+              <ol aria-label={`${doneNow} of ${starting.length} getting-started steps done`}>
+                {starting.map((x, i) => { const cur = !x.done && x === starting.find((y) => !y.done); return (
                   <li key={x.label} className={x.done ? "done" : cur ? "cur" : ""}>
-                    <span className="sroad-dot">{x.done && <Check size={11} strokeWidth={3} />}</span>
-                    {x.done ? <span className="sroad-text">{x.label}</span> : <button className="sroad-text" onClick={() => go(x.link)} data-testid="getting-started-item">{x.label}</button>}
+                    <span className="ms-box">{x.done ? <Check size={12} strokeWidth={3} /> : i + 1}</span>
+                    {x.done ? <span className="ms-text">{x.label}</span> : <button className="ms-text" onClick={() => go(x.link)} data-testid="getting-started-item">{x.label}</button>}
                   </li>
                 ); })}
               </ol>
-                </div>}
-              </div>
-            );
-          })()}
+            </div>
+          )}
         </section>
       )}
       {!ownerView && <section className="hero" aria-label="Next action">
@@ -267,17 +275,22 @@ export default function Home() {
   );
 }
 
-function JobRow({ j, why, open, onToggle, mono }: { j: Job; why?: string; open: boolean; onToggle: () => void; mono?: boolean }) {
+function JobRow({ j, why, open, onToggle, mono, matched, top }: { j: Job; why?: string; open: boolean; onToggle: () => void; mono?: boolean; matched?: string[]; top?: boolean }) {
   const d = daysUntil(j.deadline);
+  const due = j.deadline && <span className={"chip " + (d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d >= 0 ? (d === 0 ? "Due today" : `${d}d left`) : fmtDate(j.deadline)}</span>;
   return (
-    <div className="item">
+    <div className={"item" + (mono ? " job-card" : "") + (top ? " top" : "")}>
       {mono && <span className="job-mono" aria-hidden="true">{j.company.replace(/[^A-Za-z ]/g, "").split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join("").toUpperCase() || "•"}</span>}
       <div className="item-main">
-        <div className="row"><span className="xs muted">{j.company} · {kindLabel[j.kind]}</span><StatusChip label={j.label} /></div>
+        {mono ? <span className="xs muted">{j.company} · {kindLabel[j.kind]}</span> : <div className="row"><span className="xs muted">{j.company} · {kindLabel[j.kind]}</span><StatusChip label={j.label} /></div>}
         <button style={{ textAlign: "left", padding: 0, fontWeight: 700 }} onClick={onToggle}>{j.title}</button>
-        <div className="why">{why}</div>
+        {mono ? (
+          // Owners: the facts as small tags instead of a sentence (live, city, skills you already show, deadline).
+          <div className="job-tags"><StatusChip label={j.label} />{j.location && <span className="chip chip-plain">{j.location.split(/[,(]/)[0].trim()}</span>}{!!matched?.length && <span className="chip chip-plain">{matched[0]}{matched.length > 1 ? ` +${matched.length - 1}` : ""}</span>}{due}</div>
+        ) : <div className="why">{why}</div>}
         {open && (
           <div className="stack-sm" style={{ marginTop: 8 }}>
+            {mono && why && <span className="small muted">{why}</span>}
             <span className="small row"><MapPin size={14} /> {j.location}</span>
             <span className="small">{j.deadlineText}</span>
             <div className="row">
@@ -288,8 +301,10 @@ function JobRow({ j, why, open, onToggle, mono }: { j: Job; why?: string; open: 
           </div>
         )}
       </div>
-      {j.deadline && <span className={"chip " + (d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d >= 0 ? (d === 0 ? "Due today" : `${d}d left`) : fmtDate(j.deadline)}</span>}
-      <button className="icon-btn" onClick={onToggle} aria-label="Details">{open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>
+      {mono ? (
+        // Skills from the posting you already show: a real count, not a made-up score.
+        !!matched?.length && <span className="job-fit" title={`${many(matched.length, "skill")} from this posting are on your resume`}><b>{matched.length}</b>{matched.length === 1 ? "skill" : "skills"}</span>
+      ) : <>{due}<button className="icon-btn" onClick={onToggle} aria-label="Details">{open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button></>}
     </div>
   );
 }
