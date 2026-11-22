@@ -15,12 +15,12 @@ import { go } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { Spinner } from "./common";
 
-type Occ = { soc: string; title: string; change: number; openings: number | null; wage: number | null; education: string; aiShare: number | null; link: string };
-type FutureData = { source: string; allJobsGrowth: number; fields: { field: string; growing: Occ[]; shrinking: Occ[]; total: number; fasterThanAverage: number }[] };
+export type Occ = { soc: string; title: string; change: number; openings: number | null; wage: number | null; education: string; aiShare: number | null; link: string };
+export type FutureData = { source: string; allJobsGrowth: number; fields: { field: string; growing: Occ[]; shrinking: Occ[]; total: number; fasterThanAverage: number }[] };
 type Duties = { soc: string; title: string; duties: string[]; dutiesSource: { url: string; attribution: string } | null; outlook: { quote: string; url: string } | null };
 
-const stateOf = (w: Workspace): GameState => w.game || { weeks: {} };
-const money = (n: number) => "$" + n.toLocaleString("en-US");
+export const stateOf = (w: Workspace): GameState => w.game || { weeks: {} };
+export const money = (n: number) => "$" + n.toLocaleString("en-US");
 const occFacts = (o: Occ) => [o.wage ? `${money(o.wage)} median pay` : "", o.openings ? `about ${Math.round(o.openings * 1000).toLocaleString("en-US")} openings a year` : "", `${o.change > 0 ? "+" : ""}${o.change}% by 2035`].filter(Boolean).join(" · ");
 // A stable pick for the day, so a reload shows the same card.
 const seedOf = (s: string) => [...s].reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 7);
@@ -86,8 +86,8 @@ export function DailyHeader({ onPlay }: { onPlay: () => void }) {
 /* ------------------------------------------------------------------ the road map */
 
 type Kind = "role" | "step" | "skill" | "cert" | "forecast" | "season" | "semester" | "checkpoint";
-type Stop = { id: string; kind: Kind; year: number; title: string; sub: string; status: "done" | "now" | "open" | "locked"; progress: number; occ?: Occ; cred?: Road["credentials"][number]; source?: string; items?: string[]; optional?: boolean };
-const KIND: Record<Kind, { label: string; icon: ReactNode }> = {
+export type Stop = { id: string; kind: Kind; year: number; title: string; sub: string; status: "done" | "now" | "open" | "locked"; progress: number; occ?: Occ; cred?: Road["credentials"][number]; source?: string; items?: string[]; optional?: boolean };
+export const KIND: Record<Kind, { label: string; icon: ReactNode }> = {
   role: { label: "Know the role", icon: <Compass size={26} /> },
   step: { label: "Milestone", icon: <Flag size={24} /> },
   skill: { label: "Skill", icon: <Wrench size={24} /> },
@@ -100,7 +100,7 @@ const KIND: Record<Kind, { label: string; icon: ReactNode }> = {
 const credYear = (c: Road["credentials"][number]) => (c.need === "job" ? 5 : /after|graduat|hired|work/i.test(c.when) ? 5 : c.need === "optional" ? 3 : 4);
 
 // Road steps are sentences; the map shows the part before the first aside.
-const shortTitle = (s: Stop) => (s.kind === "step" ? s.title.split(/[;(]| — /)[0].trim() : s.title);
+export const shortTitle = (s: Stop) => (s.kind === "step" ? s.title.split(/[;(]| — /)[0].trim() : s.title);
 function useNarrow() {
   const q = "(max-width: 959px)";
   const [n, setN] = useState(() => typeof window !== "undefined" && window.matchMedia(q).matches);
@@ -108,7 +108,7 @@ function useNarrow() {
   return n;
 }
 
-function buildStops(w: Workspace, road: Road | undefined, careers: { field: string; jobs: Occ[] }[] | null, future: FutureData | null, plan?: PathPlan): Stop[] {
+export function buildStops(w: Workspace, road: Road | undefined, careers: { field: string; jobs: Occ[] }[] | null, future: FutureData | null, plan?: PathPlan): Stop[] {
   const year = Math.min(5, Math.max(1, yearNumber(w.profile.classYear) || 1));
   const g = stateOf(w), known = new Set((g.known || []).map((k) => k.toLowerCase()));
   const task = (t: string) => w.tasks.find((x) => x.title.toLowerCase() === t.toLowerCase());
@@ -221,7 +221,7 @@ export function RoadMap({ onPlay }: { onPlay: () => void }) {
   );
 }
 
-function StopDetail({ s, future, onPlay }: { s: Stop; future: FutureData | null; onPlay: () => void }) {
+export function StopDetail({ s, future, onPlay }: { s: Stop; future: FutureData | null; onPlay: () => void }) {
   const { ws, save, run } = useStore();
   const w = ws!;
   const [d, setD] = useState<Duties | null>(null);

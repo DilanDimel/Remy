@@ -9,6 +9,7 @@ import { useJobs } from "../lib/jobs";
 import { shownForRole } from "@shared/roleMatch";
 import { AiUnavailableNote, Empty, Example, Remy, Spinner } from "../components/common";
 import { DailyHeader, RoadMap, Round } from "../components/DailyPath";
+import { PathBoard } from "../components/PathBoard";
 import { MissionBoard, useGameRecord } from "../components/Game";
 
 type Tab = "academic" | "career" | "skills" | "future" | "road";
@@ -33,6 +34,17 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
     if (r) setWs(r);
     setBusy(false);
   };
+  // Owners (layout B, Nov 22): one page, no tabs. The old tabbed page stays reachable with ?tab= while it's checked.
+  if (stage4 && play) return <Round onClose={() => go("/path")} />;
+  if (stage4 && !query.get("tab")) return (
+    <>
+      <div className="pm-head">
+        <h1>My Path</h1>
+        {knows && <button className="btn btn-secondary btn-sm" onClick={generate} disabled={busy || !config?.ai.available} data-testid="button-refresh-path">{busy ? <Spinner /> : w.plan ? <RotateCcw size={14} /> : <Sparkles size={14} />} {w.plan ? "Refresh Remy's suggestions" : "Build my path"}</button>}
+      </div>
+      <PathBoard />
+    </>
+  );
   return (
     <>
       {!play && <div className="page-head">
