@@ -355,6 +355,9 @@ function CardShell({ kind, title, children }: { kind: DailyCard; title: string; 
   );
 }
 
+// Postings can list ten cities; the card shows the first and a count.
+const place = (loc: string) => { const all = (loc || "").split(";").map((x) => x.trim()).filter(Boolean); return all.length > 1 ? `${all[0]} +${all.length - 1} more` : all[0] || ""; };
+
 function OpeningsCard({ jobs, fits, put, onDone }: { jobs: Job[]; fits: Record<string, { score?: number; why?: string }>; put: (j: Job, body: object) => Promise<unknown>; onDone: (said: string) => void }) {
   const [i, setI] = useState(0);
   const [kept, setKept] = useState(0);
@@ -383,9 +386,10 @@ function OpeningsCard({ jobs, fits, put, onDone }: { jobs: Job[]; fits: Record<s
       <div className="dp-swipe">
         {jobs[i + 1] && <div className="dp-job back" aria-hidden="true" />}
         <article className={"dp-job" + (fly ? " fly-" + fly : "")}>
-          <div className="dp-job-co"><span className="dp-mono">{(j.company || "?").slice(0, 2).toUpperCase()}</span><div><b>{j.company || "An employer"}</b><span>{[j.location, j.format].filter(Boolean).join(" · ")}</span></div></div>
+          <div className="dp-job-co"><span className="dp-mono">{(j.company || "?").slice(0, 2).toUpperCase()}</span><div><b>{j.company || "An employer"}</b><span>{[place(j.location), j.format].filter(Boolean).join(" · ")}</span></div></div>
           <h3>{j.title}</h3>
           {why && <p>{why}</p>}
+          {(j.applyUrl || j.sourceUrl) && <a className="dp-job-link" href={j.applyUrl || j.sourceUrl} target="_blank" rel="noreferrer">See the posting <ArrowRight size={14} /></a>}
           <span className="dp-job-n">{i + 1} of {jobs.length} · arrow keys work too</span>
         </article>
       </div>

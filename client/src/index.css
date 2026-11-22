@@ -1770,6 +1770,8 @@ button.dp-unit-head { width: 100%; border: 0; font: inherit; text-align: left; c
 .dp-job h3 { font-size: 1.2rem; line-height: 1.25; }
 .dp-job p { margin: 0; font-size: var(--text-sm); color: var(--muted-text); }
 .dp-job-n { margin-top: auto; font-size: var(--text-xs); color: var(--faint); }
+.dp-job-link { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-sm); font-weight: 700; color: var(--fox-800); text-decoration: none; }
+.dp-job-link:hover { text-decoration: underline; }
 .dp-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .dp-pair .btn, .btn.dp-wide { height: 54px; font-size: 1rem; border-radius: 16px; }
 .dp-pair .btn-primary, .btn.dp-wide { background: var(--fox); color: var(--white); box-shadow: 0 5px 0 var(--fox-800); }
