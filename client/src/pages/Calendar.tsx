@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Download, ExternalLink, Mail, Plus, Trash2 } from "lucide-react";
 import { go } from "../lib/router";
 import type { CalItem } from "@shared/types";
-import { download, fmtDate, rid, useStore } from "../lib/store";
+import { download, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
 import { Modal, StatusChip } from "../components/common";
 import { careerItems } from "../components/CareerTime";
 
@@ -27,8 +27,41 @@ function gcalLink(c: CalItem) {
 /** "19:00" → "7:00 PM", the way setup shows times. */
 const clock = (t: string) => { const [h, m] = t.split(":").map(Number); return isNaN(h) ? t : `${h % 12 || 12}:${String(m || 0).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; };
 
+const daysTo = (date: string, today: string) => Math.round((new Date(date + "T12:00").getTime() - new Date(today + "T12:00").getTime()) / 864e5);
+const when = (n: number) => (n === 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`);
+
+/** Owners: Remy's one line, from the next real deadline or interview (career time and to-dos don't count). */
+function CalLine({ upcoming, today }: { upcoming: CalItem[]; today: string }) {
+  const big = upcoming.find((i) => i.kind === "Interview" || i.kind === "Deadline");
+  const week = upcoming.filter((i) => daysTo(i.date, today) <= 6).length;
+  return (
+    <p className="op-say" data-testid="calendar-line">
+      <b>{big ? `${big.title} is ${when(daysTo(big.date, today))}.` : "No deadlines or interviews coming up."}</b>
+      {week ? ` ${week} thing${week === 1 ? "" : "s"} on your calendar this week.` : " A quiet week: a good time to add a coffee chat."}
+    </p>
+  );
+}
+
+/** Owners: the next seven days as Remy's peach card (no dark bands, Dilan Nov 22); each row opens the item. */
+function ThisWeek({ items, onOpen }: { items: CalItem[]; onOpen: (c: CalItem) => void }) {
+  if (!items.length) return null;
+  return (
+    <section className="iv-stage" data-testid="calendar-week">
+      <span className="op-kick">This week</span>
+      <ul className="op-dl cal-week">{items.map((i) => {
+        const d = new Date(i.date + "T12:00");
+        return (
+          <li key={i.id}><span className="op-date"><small>{d.toLocaleDateString("en-US", { weekday: "short" })}</small><b>{d.getDate()}</b></span>
+            <button onClick={() => onOpen(i)} data-testid="button-week-item"><strong>{i.title}</strong><span>{i.kind}{i.time ? ` · ${clock(i.time)}` : ""}</span></button></li>
+        );
+      })}</ul>
+    </section>
+  );
+}
+
 export default function CalendarPage() {
   const { ws, save, run, toast } = useStore();
+  const owner = useOwnerView();
   const w = ws!;
   const [month, setMonth] = useState(() => { const d = new Date(); d.setDate(1); return d; });
   const [edit, setEdit] = useState<CalItem | null>(null);
@@ -55,7 +88,7 @@ export default function CalendarPage() {
         <div>
           <span className="eyebrow">Calendar</span>
           <h1><span className="title-slogan">Deadlines, events and prep — in one place.</span><span className="title-plain">Calendar</span></h1>
-          <p>Items you approve live here. Export them to your own calendar whenever you like.</p>
+          {owner ? <CalLine upcoming={upcoming} today={today} /> : <p>Items you approve live here. Export them to your own calendar whenever you like.</p>}
         </div>
         <div className="row">
           <button className="btn btn-ghost" onClick={() => go("/progress?tab=email&paste=1")} data-testid="button-paste-invite"><Mail size={16} /> Paste an interview invite</button>
@@ -65,6 +98,7 @@ export default function CalendarPage() {
       </div>
       <GoogleCalendarCard />
       <div className="stack-lg">
+        {owner && <ThisWeek items={upcoming.filter((i) => i.date <= iso(new Date(Date.now() + 6 * 864e5)))} onOpen={setSel} />}
         <div className="card card-pad stack">
           <div className="row-between">
             <h2>{month.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h2>
