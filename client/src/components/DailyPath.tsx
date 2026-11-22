@@ -15,12 +15,12 @@ import { go } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { Spinner } from "./common";
 
-type Occ = { soc: string; title: string; change: number; openings: number | null; wage: number | null; education: string; aiShare: number | null; link: string };
-type FutureData = { source: string; allJobsGrowth: number; fields: { field: string; growing: Occ[]; shrinking: Occ[]; total: number; fasterThanAverage: number }[] };
+export type Occ = { soc: string; title: string; change: number; openings: number | null; wage: number | null; education: string; aiShare: number | null; link: string };
+export type FutureData = { source: string; allJobsGrowth: number; fields: { field: string; growing: Occ[]; shrinking: Occ[]; total: number; fasterThanAverage: number }[] };
 type Duties = { soc: string; title: string; duties: string[]; dutiesSource: { url: string; attribution: string } | null; outlook: { quote: string; url: string } | null };
 
-const stateOf = (w: Workspace): GameState => w.game || { weeks: {} };
-const money = (n: number) => "$" + n.toLocaleString("en-US");
+export const stateOf = (w: Workspace): GameState => w.game || { weeks: {} };
+export const money = (n: number) => "$" + n.toLocaleString("en-US");
 const occFacts = (o: Occ) => [o.wage ? `${money(o.wage)} median pay` : "", o.openings ? `about ${Math.round(o.openings * 1000).toLocaleString("en-US")} openings a year` : "", `${o.change > 0 ? "+" : ""}${o.change}% by 2035`].filter(Boolean).join(" · ");
 // A stable pick for the day, so a reload shows the same card.
 const seedOf = (s: string) => [...s].reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 7);
@@ -86,8 +86,8 @@ export function DailyHeader({ onPlay }: { onPlay: () => void }) {
 /* ------------------------------------------------------------------ the road map */
 
 type Kind = "role" | "step" | "skill" | "cert" | "forecast" | "season" | "semester" | "checkpoint";
-type Stop = { id: string; kind: Kind; year: number; title: string; sub: string; status: "done" | "now" | "open" | "locked"; progress: number; occ?: Occ; cred?: Road["credentials"][number]; source?: string; items?: string[]; optional?: boolean };
-const KIND: Record<Kind, { label: string; icon: ReactNode }> = {
+export type Stop = { id: string; kind: Kind; year: number; title: string; sub: string; status: "done" | "now" | "open" | "locked"; progress: number; occ?: Occ; cred?: Road["credentials"][number]; source?: string; items?: string[]; optional?: boolean };
+export const KIND: Record<Kind, { label: string; icon: ReactNode }> = {
   role: { label: "Know the role", icon: <Compass size={26} /> },
   step: { label: "Milestone", icon: <Flag size={24} /> },
   skill: { label: "Skill", icon: <Wrench size={24} /> },
@@ -100,7 +100,7 @@ const KIND: Record<Kind, { label: string; icon: ReactNode }> = {
 const credYear = (c: Road["credentials"][number]) => (c.need === "job" ? 5 : /after|graduat|hired|work/i.test(c.when) ? 5 : c.need === "optional" ? 3 : 4);
 
 // Road steps are sentences; the map shows the part before the first aside.
-const shortTitle = (s: Stop) => (s.kind === "step" ? s.title.split(/[;(]| — /)[0].trim() : s.title);
+export const shortTitle = (s: Stop) => (s.kind === "step" ? s.title.split(/[;(]| — /)[0].trim() : s.title);
 function useNarrow() {
   const q = "(max-width: 959px)";
   const [n, setN] = useState(() => typeof window !== "undefined" && window.matchMedia(q).matches);
@@ -108,7 +108,7 @@ function useNarrow() {
   return n;
 }
 
-function buildStops(w: Workspace, road: Road | undefined, careers: { field: string; jobs: Occ[] }[] | null, future: FutureData | null, plan?: PathPlan): Stop[] {
+export function buildStops(w: Workspace, road: Road | undefined, careers: { field: string; jobs: Occ[] }[] | null, future: FutureData | null, plan?: PathPlan): Stop[] {
   const year = Math.min(5, Math.max(1, yearNumber(w.profile.classYear) || 1));
   const g = stateOf(w), known = new Set((g.known || []).map((k) => k.toLowerCase()));
   const task = (t: string) => w.tasks.find((x) => x.title.toLowerCase() === t.toLowerCase());
@@ -221,7 +221,7 @@ export function RoadMap({ onPlay }: { onPlay: () => void }) {
   );
 }
 
-function StopDetail({ s, future, onPlay }: { s: Stop; future: FutureData | null; onPlay: () => void }) {
+export function StopDetail({ s, future, onPlay }: { s: Stop; future: FutureData | null; onPlay: () => void }) {
   const { ws, save, run } = useStore();
   const w = ws!;
   const [d, setD] = useState<Duties | null>(null);
@@ -355,6 +355,9 @@ function CardShell({ kind, title, children }: { kind: DailyCard; title: string; 
   );
 }
 
+// Postings can list ten cities; the card shows the first and a count.
+const place = (loc: string) => { const all = (loc || "").split(";").map((x) => x.trim()).filter(Boolean); return all.length > 1 ? `${all[0]} +${all.length - 1} more` : all[0] || ""; };
+
 function OpeningsCard({ jobs, fits, put, onDone }: { jobs: Job[]; fits: Record<string, { score?: number; why?: string }>; put: (j: Job, body: object) => Promise<unknown>; onDone: (said: string) => void }) {
   const [i, setI] = useState(0);
   const [kept, setKept] = useState(0);
@@ -383,9 +386,10 @@ function OpeningsCard({ jobs, fits, put, onDone }: { jobs: Job[]; fits: Record<s
       <div className="dp-swipe">
         {jobs[i + 1] && <div className="dp-job back" aria-hidden="true" />}
         <article className={"dp-job" + (fly ? " fly-" + fly : "")}>
-          <div className="dp-job-co"><span className="dp-mono">{(j.company || "?").slice(0, 2).toUpperCase()}</span><div><b>{j.company || "An employer"}</b><span>{[j.location, j.format].filter(Boolean).join(" · ")}</span></div></div>
+          <div className="dp-job-co"><span className="dp-mono">{(j.company || "?").slice(0, 2).toUpperCase()}</span><div><b>{j.company || "An employer"}</b><span>{[place(j.location), j.format].filter(Boolean).join(" · ")}</span></div></div>
           <h3>{j.title}</h3>
           {why && <p>{why}</p>}
+          {(j.applyUrl || j.sourceUrl) && <a className="dp-job-link" href={j.applyUrl || j.sourceUrl} target="_blank" rel="noreferrer">See the posting <ArrowRight size={14} /></a>}
           <span className="dp-job-n">{i + 1} of {jobs.length} · arrow keys work too</span>
         </article>
       </div>
