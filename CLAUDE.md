@@ -1,6 +1,6 @@
 # Working on Remy
 
-Remy is an AI career coach for college students (remyai.org). Start with `README.md` for layout and commands, and `docs/architecture.md` for how the code fits together.
+Remy is an AI career coach for college students (remyai.org). `README.md` is the product overview. `docs/development.md` has how to run, test, deploy and configure it, and `docs/architecture.md` has the folder layout and how the code fits together.
 
 ## Before you push
 
