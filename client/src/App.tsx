@@ -19,6 +19,7 @@ import { GameSidebar, useGameRecord } from "./components/Game";
 import { Avatar } from "./components/ProfilePhoto";
 import { answer as answerTailor, endSession as endTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
+import { Careers } from "./pages/Landing2";
 import { count as countSignal, startSignals, tidyPath } from "./lib/signals";
 import Onboarding from "./pages/Onboarding";
 import Home from "./pages/Home";
@@ -86,6 +87,7 @@ function Root() {
   if (path === "/admin" && me) return <Admin />;
   // The public homepage stays reachable while signed in (its buttons then open the student's Remy).
   // (The phone app has no homepage, so signed in it goes straight to the student's Remy.)
+  if (path === "/careers" && !signedOut) return <Careers />;
   if (signedOut || (path === "/welcome" && !isNativeApp)) return <Welcome />;
   if (ws.betaAgreed?.version !== BETA_TERMS_VERSION) return <BetaAgreement />;
   if (!ws.onboarding.done) return <Onboarding />;
