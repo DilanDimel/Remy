@@ -329,7 +329,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit
           </div>
         </div>
       )}
-      <div className="row" style={{ marginTop: 4 }}>
+      <div className="row job-acts" style={{ marginTop: 4 }}>
         {j.kind !== "event" && <button className="btn btn-primary btn-sm" onClick={() => go(`/resume?tab=tailor&job=${j.id}&go=1`)} data-testid="button-tailor-job">Tailor resume</button>}
         <ApplyLink j={j} />
         {keepPass && canRate && j.kind !== "event" ? <KeepPass j={j} saved={saved} hidden={hidden} /> : (

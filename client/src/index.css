@@ -1394,6 +1394,23 @@ ul[class] > li, ol[class] > li { max-width: none; }
   .redesign-2 .page-head h1 { font-size: 1.9rem; }
 }
 
+/* ---------- Look polish B (owners first, Nov 22, 2026): examples instead of text walls, one main action per job ---------- */
+.example { position: relative; background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.example-tag { font-size: var(--text-xs); font-weight: 700; color: var(--muted-text); }
+.example-q { display: block; font-weight: 700; quotes: "\201C" "\201D"; }
+.example-star { display: grid; grid-template-columns: 22px 1fr; gap: 6px 10px; margin: 0; font-size: var(--text-sm); color: var(--ink); }
+.example-star dt { width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; font-size: 0.72rem; font-weight: 800; background: var(--fox-soft); color: var(--fox-deep); }
+.example-star dd { margin: 0; }
+.example-pitch { margin: 0; line-height: 1.6; }
+.example-role { font-size: var(--text-lg); }
+@media (max-width: 640px) {
+  /* Tailor is the one main action; the rest share one compact row under it, all still visible */
+  .redesign-2 .job-acts { gap: 6px; }
+  .redesign-2 .job-acts > [data-testid="button-tailor-job"] { flex: 1 0 100%; justify-content: center; min-height: 42px; }
+  .redesign-2 .job-acts > .btn:not([data-testid="button-tailor-job"]) { padding-inline: 8px; }
+  .redesign-2 .job-acts > [data-testid="button-job-details"] { margin-left: auto; }
+}
+
 /* ---------- Redesign stage 3: the resume on one page, colour-coded (owners first, Nov 21) ---------- */
 .rm { display: flex; flex-direction: column; gap: 12px; }
 .rm-legend { display: flex; flex-wrap: wrap; gap: 8px; }
