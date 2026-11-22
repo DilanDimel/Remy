@@ -31,7 +31,7 @@ export function Celebrate() {
   return (
     <div className="celebrate" role="status" aria-live="polite" data-testid="celebrate">
       <div className="burst" aria-hidden="true">{Array.from({ length: 12 }, (_, i) => <i key={i} style={{ ["--a" as any]: `${i * 30}deg` }} />)}</div>
-      <Remy size={40} mood="happy" />
+      <Remy size={40} mood="happy" outfit="gown" />
       <div className="stack-sm" style={{ gap: 2 }}>
         <b>Milestone: {now.label}</b>
         <span className="small muted">{SAY[now.label]} {now.done} of 6 on your road to an offer.</span>

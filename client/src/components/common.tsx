@@ -3,13 +3,14 @@ import { createPortal } from "react-dom";
 import { Check, Copy, X } from "lucide-react";
 import type { Label } from "@shared/types";
 import { useOwnerView } from "../lib/store";
+import { scholarMarkup, startScholar } from "./scholar";
 
 export type RemyMood = "idle" | "wave" | "think" | "happy";
 
 /** Remy, the fox coach (artwork from the Remy mockup). Split into parts so it can
  * bob, blink, twitch its ears, wave hello and tilt while thinking. */
-export function Remy({ size = 56, mood = "idle", className = "" }: { size?: number; mood?: RemyMood; className?: string }) {
-  if (useOwnerView()) return <ScholarRemy size={size} mood={mood} className={className} />;
+export function Remy({ size = 56, mood = "idle", className = "", outfit }: { size?: number; mood?: RemyMood; className?: string; outfit?: string }) {
+  if (useOwnerView()) return <ScholarRemy size={size} mood={mood} className={className} outfit={outfit} />;
   return (
     <svg className={`fox ${mood} ${className}`} width={size} height={Math.round(size * 84 / 72)} viewBox="0 0 72 84" role="img" aria-label="Remy the fox, your career coach">
       <g className="fox-body">
@@ -31,73 +32,19 @@ export function Remy({ size = 56, mood = "idle", className = "" }: { size?: numb
   );
 }
 
-// Owner view (Nov 22): the Scholar fox the team picked, in a business suit. Eyes and head follow the pointer;
-// blinking, ear twitches and moods are CSS (.fox.scholar in index.css). One listener serves every fox on the page.
-const scholars = new Set<SVGSVGElement>();
-function lookAt(e: PointerEvent) {
-  scholars.forEach((el) => {
-    const r = el.getBoundingClientRect();
-    const clamp = (n: number) => Math.max(-1, Math.min(1, n));
-    el.style.setProperty("--lx", clamp((e.clientX - (r.left + r.width / 2)) / (innerWidth / 2)).toFixed(2));
-    el.style.setProperty("--ly", clamp((e.clientY - (r.top + r.height * 0.45)) / (innerHeight / 2)).toFixed(2));
-  });
-}
-const SCH_HEAD = "M100 52 C133 52 153 70 157 96 L171 119 C157 122 147 130 139 140 C128 152 114 158 100 158 C86 158 72 152 61 140 C53 130 43 122 29 119 L43 96 C47 70 67 52 100 52 Z";
-const SCH_MASK = "M29 119 C43 122 53 130 61 140 C72 152 86 158 100 158 C114 158 128 152 139 140 C147 130 157 122 171 119 C162 107 148 103 134 107 C122 111 111 119 100 119 C89 119 78 111 66 107 C52 103 38 107 29 119 Z";
-const MIRROR = "translate(200 0) scale(-1 1)";
-function SchEar() {
-  return <><path className="s-fur s-ol" d="M54 90 C46 66 43 42 49 25 C51 19 57 18 61 21 C75 33 87 45 97 60 Z" /><path className="s-ear-in" d="M60 76 C56 60 55 46 57 35 C66 43 74 51 82 61 Z" /></>;
-}
-function SchEye({ x }: { x: number }) {
-  return (
-    <g className="s-look">
-      <ellipse className="s-pupil s-ink" cx={x} cy={103} rx={5.5} ry={7} />
-      <circle className="s-pupil s-white" cx={x + 2} cy={100} r={1.8} />
-      <path className="s-smiley s-stroke" d={`M${x - 6} 105 Q${x} 97 ${x + 6} 105`} />
-    </g>
-  );
-}
-function ScholarRemy({ size, mood, className }: { size: number; mood: RemyMood; className: string }) {
+// Owner view (Nov 22): the Scholar fox the team picked, in his business suit. Drawing, outfits and the things he
+// does on his own live in scholar.ts (shared with the mascot demo); moods arrive as classes.
+function ScholarRemy({ size, mood, className, outfit }: { size: number; mood: RemyMood; className: string; outfit?: string }) {
   const ref = useRef<SVGSVGElement>(null);
+  const life = useRef<ReturnType<typeof startScholar>>();
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (!scholars.size) addEventListener("pointermove", lookAt, { passive: true });
-    scholars.add(el);
-    return () => { scholars.delete(el); if (!scholars.size) removeEventListener("pointermove", lookAt); };
-  }, []);
-  const lapel = <path className="s-lapel s-ol" d="M84 157 L68 171 L80 177 L72 196 L100 177 Z" />;
-  return (
-    <svg ref={ref} className={`fox scholar ${mood} ${className}`} width={size} height={Math.round(size * 222 / 200)} viewBox="0 -8 200 222" role="img" aria-label="Remy the fox, your career coach">
-      <g className="s-hop">
-        <g className="s-breathe">
-          <path className="s-shirt" d="M86 158 L114 158 L114 214 L86 214 Z" />
-          <path className="s-shirt s-ol" d="M84 157 L100 177 L116 157 L108 152 L100 160 L92 152 Z" />
-          <path className="s-tie s-ol" d="M95 165 L105 165 L107 173 L104 203 L100 208 L96 203 L93 173 Z" />
-          <path className="s-suit s-ol" d="M30 214 C34 182 56 164 84 157 L100 177 L116 157 C144 164 166 182 170 214 Z" />
-          {lapel}<g transform={MIRROR}>{lapel}</g>
-          <path className="s-lapel s-ol s-thin" d="M128 190 L146 192 L145 198 L127 196 Z" /><path className="s-white" d="M134 190 L136 184 L139 185 L139 191 Z" />
-        </g>
-        <g className="s-head">
-          <g className="s-bob">
-            <g className="s-ear-l"><SchEar /></g>
-            <g className="s-ear-r"><g transform={MIRROR}><SchEar /></g></g>
-            <path className="s-fur s-ol" d={SCH_HEAD} />
-            <path className="s-cream" d={SCH_MASK} />
-            <path className="s-none s-ol" d={SCH_HEAD} />
-            <ellipse className="s-cheek" cx={58} cy={126} rx={8} ry={4.5} /><ellipse className="s-cheek" cx={142} cy={126} rx={8} ry={4.5} />
-            <SchEye x={75} /><SchEye x={125} />
-            <g className="s-glasses">
-              <circle className="s-lens" cx={75} cy={102} r={17} /><circle className="s-lens" cx={125} cy={102} r={17} />
-              <path className="s-stroke" d="M92 100 Q100 95 108 100 M58 99 L46 95 M142 99 L154 95" />
-            </g>
-            <path className="s-ink" d="M91 124 Q100 119 109 124 Q107 132 100 134 Q93 132 91 124 Z" />
-            <path className="s-mouth s-stroke" d="M92 142.5 Q100 143 108 142.5" />
-          </g>
-        </g>
-      </g>
-    </svg>
-  );
+    if (!ref.current) return;
+    ref.current.innerHTML = scholarMarkup(outfit);
+    life.current = startScholar(ref.current, { outfit, auto: size >= 30 }); // tiny icons stay calm
+    return () => life.current?.stop();
+  }, [size, outfit]);
+  useEffect(() => { if (mood === "wave") life.current?.play("wave", true); }, [mood]);
+  return <svg ref={ref} className={`fox scholar ${mood} ${className}`} width={size} height={Math.round(size * 222 / 200)} viewBox="0 -8 200 222" role="img" aria-label="Remy the fox, your career coach" />;
 }
 
 const LABEL_CLASS: Record<Label, string> = {
