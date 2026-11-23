@@ -1920,14 +1920,16 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     // Owners' app (?stream=1): Remy's reply is sent line by line as it is written ({"reply": text so far}), then the
     // saved workspace ({"ws": …}). Nothing is sent until the reply starts, so errors before then stay plain JSON.
     const streaming = doer && req.query.stream === "1";
-    let sent = "", sentAt = 0;
+    let sent = "", sentAt = 0, pieces = 0, lines = 0, firstAt = 0;
+    const askedAt = Date.now();
     const onText = streaming ? (soFar: string) => {
+      if (soFar) { pieces++; if (!firstAt) firstAt = Date.now(); }
       const r = partialReply(soFar);
       if (r === sent || (!r && !sent)) return;
       const now = Date.now();
       if (sent && r.startsWith(sent) && now - sentAt < 60 && r.length - sent.length < 40) return; // ~16 updates a second
       startStream(res);
-      sent = r; sentAt = now;
+      sent = r; sentAt = now; lines++;
       streamLine(res, { reply: r });
     } : undefined;
     // Owners: the name they asked Remy to use, every time (the resume and old replies say otherwise).
@@ -1970,6 +1972,8 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     const { did, buttons, notes } = doer ? doActions(ctx.ws, asked, findJob, centralToday()) : { did: [], buttons: asked.filter((a) => a.kind !== "save" && a.kind !== "tailor"), notes: [] };
     ctx.ws.chat.push({ id: uid("m"), role: "assistant", text: notes.length ? `${reply}\n\n${notes.join(" ")}` : reply, at: nowIso(), page, memorySuggestions: (out.remember || []).slice(0, 3).map(String), actions: buttons, ...(did.length ? { did } : {}), ...(resumeProposal ? { resumeProposal } : {}) });
     await ctx.save();
+    // Timing only (never the text): shows whether the model's answer really arrived in pieces.
+    if (streaming) console.log(`chat stream: ${pieces} model pieces, ${lines} lines sent, first piece ${firstAt ? firstAt - askedAt : -1}ms, done ${Date.now() - askedAt}ms`);
     if (res.headersSent) res.end(JSON.stringify({ ws: ctx.ws }) + "\n");
     else res.json(ctx.ws);
   }));

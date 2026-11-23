@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,21 +22,37 @@ export default function RemyChat() {
   useEffect(() => { if (ask) setText(ask); }, [ask]);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<ChatMsg | null>(null);
-  // Remy's reply while it is being written (streamed); replaced by the saved message when it's done.
+  // Remy's reply while it is being written (streamed): `live` is what has arrived, `shown` catches up a few
+  // characters at a time, so a reply that arrives in one burst still reads as being written. The saved message
+  // replaces it once `shown` has caught up.
   const [live, setLive] = useState("");
+  const [shown, setShown] = useState("");
+  const done = useRef<{ w?: Workspace; err?: string; m?: string } | null>(null);
+  const [doneTick, setDoneTick] = useState(0);
+  const finish = () => {
+    const d = done.current; done.current = null;
+    if (d?.w) setWs(d.w);
+    if (d?.err) { setErr(d.err); setText(d.m || ""); }
+    setLive(""); setShown(""); setPending(null); setBusy(false);
+  };
+  useEffect(() => {
+    if (shown.length >= live.length) { if (done.current) finish(); return; }
+    const t = setTimeout(() => setShown(live.slice(0, shown.length + Math.max(3, Math.ceil((live.length - shown.length) / 12)))), 24);
+    return () => clearTimeout(t);
+  }, [live, shown, doneTick]);
   const [err, setErr] = useState("");
   if (!ws) return null;
   const soul = look === "soul";
-  const msgs = [...ws.chat, ...(pending ? [pending] : []), ...(pending && live ? [{ id: "live", role: "assistant", text: live, at: pending.at } as ChatMsg] : [])].slice(-60).reverse();
+  const msgs = [...ws.chat, ...(pending ? [pending] : []), ...(pending && shown ? [{ id: "live", role: "assistant", text: shown, at: pending.at } as ChatMsg] : [])].slice(-60).reverse();
 
   const send = async (message: string) => {
     const m = message.trim();
     if (!m || busy) return;
     tap(); Keyboard.dismiss(); setText(""); setErr(""); setBusy(true);
     setPending({ id: "pending", role: "user", text: m, at: new Date().toISOString() });
-    try { setWs(await streamChat<Workspace>({ message: m, page: "home", where: "native app: Remy tab" }, setLive)); }
-    catch (e: any) { setErr(e.message); setText(m); }
-    setLive(""); setPending(null); setBusy(false);
+    try { done.current = { w: await streamChat<Workspace>({ message: m, page: "home", where: "native app: Remy tab" }, setLive) }; }
+    catch (e: any) { done.current = { err: e.message, m }; }
+    setDoneTick((n) => n + 1); // the effect above finishes once the shown text has caught up (at once if nothing streamed)
   };
   const undo = async (mid: string, d: ChatDid) => {
     try { setWs(await api<Workspace>("POST", `/api/chat/${mid}/undo/${d.id}`)); success(); } catch (e: any) { setErr(e.message); }
@@ -76,7 +92,7 @@ export default function RemyChat() {
         ) : <Text style={{ fontFamily: font.semi, fontSize: 13, color: c.ink }}>Remy</Text>}
       </View>
       <FlatList inverted data={msgs} keyExtractor={(m) => m.id} renderItem={({ item }) => bubble(item)} contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12 }} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" onTouchStart={() => Keyboard.dismiss()} style={{ flex: 1 }}
-        ListHeaderComponent={busy && !live ? <View style={{ alignSelf: "flex-start", backgroundColor: c.surface, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 8, borderWidth: 1, borderColor: c.line }}><Text style={{ color: c.faint, letterSpacing: 3 }}>●●●</Text></View> : undefined}
+        ListHeaderComponent={busy && !shown ? <View style={{ alignSelf: "flex-start", backgroundColor: c.surface, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 8, borderWidth: 1, borderColor: c.line }}><Text style={{ color: c.faint, letterSpacing: 3 }}>●●●</Text></View> : undefined}
         ListEmptyComponent={<View style={{ transform: [{ scaleY: -1 }], paddingTop: 40, alignItems: "center", gap: 8 }}><T kind="h2">Ask Remy anything</T><T kind="muted" style={{ textAlign: "center" }}>About jobs, your resume, interviews or what to do next. Remy only uses what you've told it.</T></View>} />
       {!!err && <T kind="small" style={{ color: c.error, paddingHorizontal: 18, paddingBottom: 6 }}>{err}</T>}
       {soul && !text && (
