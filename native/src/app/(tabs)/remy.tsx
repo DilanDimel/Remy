@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocalSearchParams } from "expo-router";
-import { Animated, Easing, FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Animated, Easing, FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ChatDid, ChatMsg, Workspace } from "@shared/types";
 import { Fox, Icon, RichText, T, success, tap } from "@/components/ui";
@@ -85,6 +85,11 @@ export default function RemyChat() {
     catch (e: any) { done.current = { err: e.message, m }; }
     setDoneTick((n) => n + 1); // the effect above finishes once the shown text has caught up (at once if nothing streamed)
   };
+  // Remy can't clear the chat from a reply (it used to say "I've cleared our chat" and didn't): this button does.
+  const clearChat = () => Alert.alert("Clear the whole chat?", "Things Remy already did for you stay done.", [
+    { text: "Keep", style: "cancel" },
+    { text: "Clear chat", style: "destructive", onPress: async () => { try { setWs(await api<Workspace>("DELETE", "/api/chat")); success(); } catch (e: any) { setErr(e.message); } } },
+  ]);
   const undo = async (mid: string, d: ChatDid) => {
     try { setWs(await api<Workspace>("POST", `/api/chat/${mid}/undo/${d.id}`)); success(); } catch (e: any) { setErr(e.message); }
   };
@@ -121,6 +126,12 @@ export default function RemyChat() {
         {soul ? (
           <View style={{ flex: 1 }}><Text style={{ fontFamily: font.display, fontSize: 18, color: c.ink }}>Remy</Text><T kind="small">Your career coach</T></View>
         ) : <Text style={{ fontFamily: font.semi, fontSize: 13, color: c.ink }}>Remy</Text>}
+        {ws.chat.length > 0 && !busy && (
+          <Pressable testID="button-clear-chat" accessibilityRole="button" accessibilityLabel="Clear chat" hitSlop={10} onPress={() => { tap(); clearChat(); }}
+            style={soul ? { paddingHorizontal: 12, height: 32, borderRadius: 16, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, justifyContent: "center" } : { position: "absolute", left: 18, top: insets.top + 16 }}>
+            <Text style={{ fontFamily: font.semi, fontSize: 13.5, color: c.muted }}>Clear</Text>
+          </Pressable>
+        )}
       </View>
       <FlatList inverted data={msgs} keyExtractor={(m) => m.id} renderItem={({ item }) => bubble(item)} contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12 }} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" onTouchStart={() => Keyboard.dismiss()} style={{ flex: 1 }}
         ListHeaderComponent={busy && !shown ? <TypingDots color={c.muted} bg={c.surface} line={c.line} /> : undefined}
