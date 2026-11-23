@@ -8,3 +8,4 @@
 - [ ] `npm run check`, `npm run check:contract`, `npm test`
 - [ ] Tried it in the browser in owner view, desktop and phone width
 - [ ] Screenshots attached for UI changes
+- [ ] Added a What's new note in `shared/news.ts` (`owners: true` until it's released to students)

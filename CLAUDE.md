@@ -24,6 +24,7 @@ Touched resume reading? Also `npm run check:resume`. Touched the database or ses
 - **New `/api` route:** add it in `server/routes.ts` next to related routes, put the logic in the matching `server/<area>/` file (see `docs/architecture.md`), and add a `*.test.ts` beside it.
 - **Database change:** add the next numbered file in `server/migrations/`. Never edit a migration that has shipped.
 - **Secrets** go in the Render dashboard or a local `.env`, never in the repo.
+- **What's new:** every PR that changes what people see adds a short, plain note at the top of `shared/news.ts` (next id, today's date, `owners: true` while it's owners-only). Drop `owners` when the team releases it.
 - Keep existing `data-testid` attributes and add one to each new button or input.
 
 ## Pull requests
