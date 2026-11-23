@@ -2234,19 +2234,9 @@ button.dp-unit-head { width: 100%; border: 0; font: inherit; text-align: left; c
 .pt-qb:hover b { text-decoration: underline; text-underline-offset: 3px; }
 
 .ps-bubble > p b { color: var(--fox-800); }
-.ps-job { display: grid; gap: 6px; text-align: left; border: 1px solid var(--line); background: var(--surface-2); border-radius: 14px; padding: 10px 12px; font: inherit; color: var(--ink); cursor: pointer; }
-.ps-job:hover { border-color: var(--faint); }
-.ps-job > b { font-size: var(--text-lg); font-weight: 800; letter-spacing: -0.01em; }
-.ps-facts { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: var(--text-sm); color: var(--muted-text); font-weight: 650; }
-.ps-facts span { display: inline-flex; align-items: center; gap: 4px; } .ps-facts .up { color: var(--sage); }
-.ps-roles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
-.ps-roles .ps-step, .ps-roles button { display: grid; text-align: left; gap: 2px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px; padding: 8px 10px; font: inherit; color: var(--ink); cursor: pointer; min-width: 0; }
-.ps-roles button:hover { border-color: var(--faint); }
-.ps-roles b { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: var(--text-sm); font-weight: 750; line-height: 1.25; }
-.ps-roles small { font-size: var(--text-xs); color: var(--muted-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ps-none { margin: 0; font-size: var(--text-sm); color: var(--muted-text); }
-.ps-nav { display: flex; align-items: center; gap: 8px; }
-.ps-dots { display: flex; gap: 5px; margin-right: auto; } .ps-dots i { width: 18px; height: 5px; border-radius: 9px; background: var(--line); } .ps-dots i.on { background: var(--fox); }
+.ps-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ps-dots { display: flex; gap: 5px; margin-right: auto; } .ps-dots i { width: 18px; height: 5px; border-radius: 9px; background: var(--line); } .ps-dots i.on { background: var(--fox); } .ps-dots i.done { background: color-mix(in srgb, var(--fox) 40%, var(--line)); }
 
 .ps-season { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 12px 16px 10px; display: grid; gap: 2px; }
 .ps-season-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
@@ -2297,27 +2287,54 @@ button.ps-rw { cursor: pointer; }
 .ps-again { margin-left: 4px; }
 .ps-office .pt-card-head { align-items: center; }
 .ps-office .pt-card-head .pm-faint { margin-left: auto; }
-.ps-ring { position: absolute; width: 15%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; border: 3px solid var(--fox); box-shadow: 0 0 0 6px color-mix(in srgb, var(--fox) 22%, transparent); animation: ps-ring 1.6s ease-in-out infinite; pointer-events: none; z-index: 1; }
+.ps-ring { position: absolute; width: 13%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; border: 3px solid var(--fox); box-shadow: 0 0 0 6px color-mix(in srgb, var(--fox) 22%, transparent); animation: ps-ring 1.6s ease-in-out infinite, ps-fade .3s ease-out both; pointer-events: none; z-index: 1; }
 @keyframes ps-ring { 50% { transform: translate(-50%, -50%) scale(1.08); } }
+@keyframes ps-fade { from { opacity: 0; } }
+/* While Remy walks you through his office, his seat in the side panel sits empty. */
+html.remy-away .asst-avatar > .fox { opacity: 0; transform: translateY(24px) scale(.8); transition: opacity .3s, transform .3s; }
+.asst-avatar > .fox { transition: opacity .3s, transform .3s; }
 .ps-room.guiding .ps-tag { opacity: 0; pointer-events: none; }
-.ps-desk-fox { transition: left .9s cubic-bezier(.4, 0, .2, 1); z-index: 2; }
-.ps-desk-fox.walking .fox { animation: ps-bob .22s ease-in-out 4 alternate; }
-@keyframes ps-bob { to { transform: translateY(-6%); } }
-.ps-bubble { position: absolute; top: 3%; width: 56%; grid-template-columns: minmax(0, 1fr); max-height: 92%; overflow: auto; z-index: 3; background: var(--surface); border: 1.5px solid var(--ink); box-shadow: 0 3px 0 var(--ink); border-radius: 16px; padding: 10px 12px; display: grid; gap: 8px; animation: ps-pop .35s cubic-bezier(.3, 1.4, .5, 1) both; }
-.ps-bubble.left { left: 3%; } .ps-bubble.right { right: 3%; }
-@keyframes ps-pop { from { opacity: 0; transform: scale(.94) translateY(6px); } }
+/* Remy in his office (PathBoard.tsx Office): he walks (x), sits and stands (y), and his legs step while he walks. */
+.ps-fox { transition: transform 1s linear; }
+.ps-fox-y { transition: transform .38s cubic-bezier(.3, 1.3, .5, 1); }
+.ps-legs { transition: opacity .2s; }
+.ps-fox.sit .ps-legs { opacity: 0; }
+.ps-trouser-ol { stroke: var(--sch-line); stroke-width: 34; stroke-linecap: round; }
+.ps-trouser { stroke: var(--o-jacket, var(--sch-suit)); stroke-width: 26; stroke-linecap: round; }
+.ps-shoe { fill: var(--sch-ink); }
+.ps-leg { transform-box: fill-box; transform-origin: 50% 0; }
+.ps-fox.walk .ps-leg.l { animation: ps-step .34s ease-in-out infinite alternate; }
+.ps-fox.walk .ps-leg.r { animation: ps-step .34s ease-in-out -.34s infinite alternate-reverse; }
+.ps-fox.walk .ps-fox-bob { animation: ps-bob .17s ease-in-out infinite alternate; }
+@keyframes ps-step { from { transform: rotate(13deg); } to { transform: rotate(-13deg); } }
+@keyframes ps-bob { to { transform: translateY(-7px); } }
+/* Poses: typing on the laptop, pointing up at something, pointing low. Acts he does on his own win over a pose. */
+.ps-scene .fox.scholar .s-arm { transition: transform .45s cubic-bezier(.3, 1.4, .5, 1); }
+.fox.scholar.o-type:not([class*="act-"]) .s-arm-l { animation: o-type-l .3s ease-in-out infinite alternate; }
+.fox.scholar.o-type:not([class*="act-"]) .s-arm-r { animation: o-type-r .3s ease-in-out -.15s infinite alternate; }
+.fox.scholar.o-type:not([class*="act-"]) .s-look { transform: translate(4px, 5px); }
+.fox.scholar.o-type:not([class*="act-"]) .s-head { transform: rotate(3deg) translateY(2px); }
+@keyframes o-type-l { from { transform: translate(74px, 192px); } to { transform: translate(78px, 182px); } }
+@keyframes o-type-r { from { transform: translate(128px, 192px); } to { transform: translate(124px, 182px); } }
+.fox.scholar.o-point:not([class*="act-"]) .s-arm-r { transform: translate(184px, 100px) rotate(22deg); }
+.fox.scholar.o-point-low:not([class*="act-"]) .s-arm-r { transform: translate(186px, 158px) rotate(50deg); }
+.fox.scholar.o-point .s-look, .fox.scholar.o-point .s-head { transform: rotate(4deg) translate(3px, -3px); }
+.fox.scholar.o-point-low .s-look { transform: translate(4px, 3px); }
+.fox.scholar[class*="o-point"] .s-ear-l { animation: none; transform: rotate(-7deg); }
+.fox.scholar[class*="o-point"] .s-ear-r { animation: none; transform: rotate(7deg); }
+.ps-cloud { animation: ps-cloud 46s linear infinite; } .ps-cloud.two { animation-duration: 64s; animation-delay: -30s; }
+@keyframes ps-cloud { from { transform: translateX(-60px); } to { transform: translateX(240px); } }
+.ps-sway { transform-box: fill-box; transform-origin: 50% 100%; animation: ps-sway 4.5s ease-in-out infinite; }
+@keyframes ps-sway { 50% { transform: rotate(4deg); } }
+.ps-steam { animation: sch-steam 1.6s ease-in-out infinite; }
+.ps-bubble { position: relative; margin-top: 12px; z-index: 3; background: var(--surface); border: 1.5px solid var(--ink); box-shadow: 0 3px 0 var(--ink); border-radius: 16px; padding: 10px 14px; display: grid; gap: 8px; animation: ps-pop .3s cubic-bezier(.3, 1.4, .5, 1) both; }
+.ps-bubble::before { content: ""; position: absolute; top: -8.5px; left: var(--tail, 50%); width: 14px; height: 14px; background: var(--surface); border-left: 1.5px solid var(--ink); border-top: 1.5px solid var(--ink); transform: translateX(-50%) rotate(45deg); transition: left .6s ease; }
+@keyframes ps-pop { from { opacity: 0; transform: scale(.96) translateY(4px); } }
 .ps-bubble > p { margin: 0; font-size: var(--text-sm); line-height: 1.4; color: var(--ink); }
-.ps-bubble .ps-roles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-.ps-bubble .ps-roles b { -webkit-line-clamp: 2; }
-.ps-bubble .ps-roles button { padding: 6px 8px; }
-.ps-bubble .ps-job { padding: 8px 10px; gap: 4px; }
-.ps-bubble .ps-job > b { font-size: var(--text-base); }
-.ps-office { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 14px 16px; display: grid; gap: 10px; }
+.ps-office { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 14px 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .ps-roomwrap { position: relative; }
 .ps-room { position: relative; aspect-ratio: 860 / 430; border-radius: 16px; overflow: hidden; background: var(--fox-soft); }
 .ps-scene { position: absolute; inset: 0; width: 100%; height: 100%; }
-.ps-desk-fox { position: absolute; left: 50%; bottom: 31%; width: 19%; transform: translateX(-50%); }
-.ps-desk-fox .fox { width: 100%; height: auto; }
 .ps-tag { position: absolute; transform: translateY(-50%); background: var(--surface); border: 1.5px solid var(--ink); box-shadow: 0 2px 0 var(--ink); border-radius: 999px; padding: 3px 9px; font: inherit; font-size: 11.5px; font-weight: 750; color: var(--ink); white-space: nowrap; cursor: pointer; }
 .ps-tag.ghost { border-style: dashed; box-shadow: none; color: var(--muted-text); font-weight: 650; }
 .ps-tag.still { cursor: default; }
@@ -2328,14 +2345,14 @@ button.ps-tag:hover { transform: translateY(calc(-50% - 1px)); }
 @container ps (max-width: 760px) {
   .ps-stage { grid-template-columns: minmax(0, 1fr); }
   .ps-side-body { max-height: 70vh; }
-  .ps-bubble { position: relative; top: auto; left: auto !important; right: auto !important; width: auto; max-height: none; margin-top: 10px; }
 }
 @container ps (max-width: 600px) {
   .ps-track { grid-template-columns: repeat(8, 92px); }
   .ps-tag { font-size: 9.5px; padding: 1px 6px; } .ps-tag.ghost { display: none; }
+  .ps-dots { flex-basis: 100%; }
   .ps-select { margin-left: 0; width: 100%; max-width: none; }
 }
-@media (prefers-reduced-motion: reduce) { .pt-chest.open svg, .ps-bubble, .ps-ring, .ps-desk-fox .fox { animation: none; } .ps-desk-fox { transition: none; } .ps-bar i, .pt-qbar i { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .pt-chest.open svg, .ps-bubble, .ps-ring, .ps-cloud, .ps-sway, .ps-steam { animation: none; } .ps-fox, .ps-fox-y { transition: none !important; } .ps-bar i, .pt-qbar i { transition: none; } }
 /* Owner homepage, "Try it now" look (pages/Landing2.tsx): light by default, dark with the theme toggle. */
 .lk-try { --lk-bg: #f6f5f1; --lk-card: #ffffff; --lk-ink: #141414; --lk-ink2: #3d3c39; --lk-muted: #6b6a65; --lk-line: #e4e1da; --lk-btn: #e86a2a; --lk-btn-ink: #ffffff; --lk-accent: #e86a2a; --lk-accent-ink: #c2410c; --lk-soft: #fdecdf; --lk-ok: #15803d; --lk-ok-bg: #e3f5e8; --lk-glow: rgba(232, 106, 42, .22); --lk-grid: rgba(20, 20, 20, .05); }
 html[data-theme="dark"] .lk-try { --lk-bg: #0f0f0e; --lk-card: #1a1918; --lk-ink: #f3f2ee; --lk-ink2: #d2d0ca; --lk-muted: #a19f98; --lk-line: #2e2c2a; --lk-btn: #ff8a3d; --lk-btn-ink: #140d0a; --lk-accent: #ff8a3d; --lk-accent-ink: #ffa366; --lk-soft: #33200f; --lk-ok: #5bd68a; --lk-ok-bg: #14301f; --lk-glow: rgba(255, 138, 61, .26); --lk-grid: rgba(255, 255, 255, .045); }
