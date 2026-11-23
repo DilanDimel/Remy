@@ -2,7 +2,7 @@
 // shared (action words, hard skills, soft skills, numbers, results), with every problem marked on its own line and one
 // "Things to fix" list beside it. The checks are Remy's existing ones (shared/bullets.ts, shared/review.ts); the colours
 // only show what's already in the student's words, nothing is added or guessed.
-import { Fragment, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ResumeDoc, ResumeStyle } from "@shared/types";
 import { QUANT, WEAK, isAction, isListSection } from "@shared/bullets";
 import { reviewResume } from "@shared/review";
@@ -106,17 +106,24 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real }: { 
   const review = useMemo(() => reviewResume(doc, { listLike: true }), [doc]); // owners' page: certifications listed like skills need no dates
   // Tap a highlight or a flag: Remy's reason and what to change, beside the tap.
   const [why, setWhy] = useState<{ kind: string; text: string; x: number; y: number } | null>(null);
-  const onTap = (e: React.MouseEvent) => {
-    if (plain) return;
-    const el = (e.target as HTMLElement).closest("mark, .rm-flag, .rr-hl") as HTMLElement | null;
-    if (!el) return setWhy(null);
-    e.preventDefault(); e.stopPropagation();
+  const tap = (target: EventTarget | null, x: number, y: number) => {
+    if (plain) return false;
+    const el = (target as Element | null)?.closest?.("mark, .rm-flag, .rr-hl") as HTMLElement | null;
+    if (!el) { setWhy(null); return false; }
     const flag = el.classList.contains("rm-flag");
     const cat = [...el.classList].find((k) => /^rm-(action|hard|soft|number|result)$/.test(k))?.slice(3);
     const text = el.dataset.t || el.textContent || "";
-    const kinds = flag ? text.split(" · ").map((x) => x.trim()) : [cat || ""];
-    setWhy({ kind: kinds.join("|"), text: flag ? "" : text, x: Math.min(e.clientX, window.innerWidth - 336), y: e.clientY + 290 > window.innerHeight ? Math.max(8, e.clientY - 290) : e.clientY + 14 });
+    const kinds = flag ? text.split(" · ").map((t) => t.trim()) : [cat || ""];
+    setWhy({ kind: kinds.join("|"), text: flag ? "" : text, x: Math.min(x, window.innerWidth - 336), y: y + 290 > window.innerHeight ? Math.max(8, y - 290) : y + 14 });
+    return true;
   };
+  const onTap = (e: React.MouseEvent) => { if (tap(e.target, e.clientX, e.clientY)) { e.preventDefault(); e.stopPropagation(); } };
+  const body = useRef<HTMLDivElement>(null);
+  useEffect(() => { // taps inside the Word-file frame (ResumeReal) arrive as "rr-tap"
+    const el = body.current; if (!el) return;
+    const on = (e: Event) => { const d = (e as CustomEvent).detail; tap(d.el, d.x, d.y); };
+    el.addEventListener("rr-tap", on); return () => el.removeEventListener("rr-tap", on);
+  });
   const bullets = doc.sections.filter((s) => !isListSection(s.heading)).flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => b.text))).filter((t) => t.trim());
   const count = (c: Cat) => bullets.filter((b) => ranges(b, tools).some((r) => r[2] === c)).length;
   const flip = (c: Cat) => setOn((s) => { const n = new Set(s); n.has(c) ? n.delete(c) : n.add(c); return n; });
@@ -130,7 +137,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real }: { 
           </button>
         ))}
       </div>}
-      <div className="rm-body" onClick={onTap}>
+      <div className="rm-body" ref={body} onClick={onTap}>
         {ownFile ?? <article className="rm-paper" aria-label="Your resume, colour-coded" style={paperStyle(look)}>
           <h2 className="rm-name">{c.name || "Your name"}</h2>
           <p className="rm-contact">{[c.location, c.phone, c.email, c.links].filter((x) => x.trim()).join(" | ")}</p>

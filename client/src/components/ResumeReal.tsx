@@ -132,7 +132,7 @@ export function OwnWordColoured({ doc, version, on, onFail }: { doc: ResumeDoc; 
         const c = palette();
         const css = `<style>html,body{margin:0;background:transparent;overflow:hidden}.docx-wrapper{background:transparent!important;padding:0!important}.docx-wrapper>section.docx{box-shadow:0 1px 6px rgba(0,0,0,.15)!important;margin:0 auto 12px!important}
           ${CAT_VARS.map((k) => `mark.rm-${k}{background:${c[k]};color:inherit;padding:0;border-radius:2px}`).join("")}
-          .rm-flag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:999px;font:600 7pt/1.5 system-ui,sans-serif;vertical-align:1px;color:${c.flag};border:1px solid currentColor;text-indent:0}</style>`;
+          .rm-flag,mark{cursor:pointer}.rm-flag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:999px;font:600 7pt/1.5 system-ui,sans-serif;vertical-align:1px;color:${c.flag};border:1px solid currentColor;text-indent:0}</style>`;
         clearTimeout(slow);
         if (live) setHtml(`<!doctype html><html><head><meta charset="utf-8">${styles.innerHTML}${css}</head><body>${body.innerHTML}</body></html>`);
       } catch (e) {
@@ -156,7 +156,12 @@ export function OwnWordColoured({ doc, version, on, onFail }: { doc: ResumeDoc; 
     <div ref={box} className="rr-frame-box">
       <iframe ref={frame} className="rr-frame" sandbox="allow-same-origin" style={{ height }} title="Your resume, colour-coded on your own file" data-testid="resume-real-word"
         srcDoc={html.replace("</head>", `<style>body{zoom:${zoom.toFixed(3)}}</style></head>`)}
-        onLoad={() => { const d = frame.current?.contentDocument; if (d) setHeight(Math.ceil(d.documentElement.scrollHeight) + 4); }} />
+        onLoad={() => {
+          const f = frame.current, d = f?.contentDocument; if (!f || !d) return;
+          setHeight(Math.ceil(d.documentElement.scrollHeight) + 4);
+          // Clicks inside the frame don't reach the page; hand taps on a highlight or flag to the page's "why" popover.
+          d.addEventListener("click", (ev) => { const r = f.getBoundingClientRect(); f.dispatchEvent(new CustomEvent("rr-tap", { bubbles: true, detail: { el: ev.target, x: r.left + ev.clientX, y: r.top + ev.clientY } })); });
+        }} />
     </div>
   );
 }
