@@ -908,7 +908,8 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!ws.profile.applicationEmail) ws.profile.applicationEmail = me.email;
     await saveWorkspace(me.id, ws);
     await startSession(res, me.id);
-    res.json({ me, workspace: ws });
+    // Owners get the owner flag right away (as /api/me gives it), so setup opens in owner view without a reload.
+    res.json({ me: (await admin.isOwner(me)) ? { ...me, owner: true } : me, workspace: ws });
   }
   app.post("/api/auth/supabase", async (req, res) => {
     try {
