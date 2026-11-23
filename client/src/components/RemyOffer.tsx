@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import type { Workspace } from "@shared/types";
 import { offerFor, remyOffers } from "@shared/remyOffers";
@@ -7,12 +8,27 @@ import { api, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
 import { Remy, Spinner } from "./common";
 
+// Where the offer goes: inside Remy's open panel (OfferSlot sits above his chat box), otherwise as a strip above the
+// page. It never floats over the page (Dilan, Nov 23: it covered the season banner and the resume list).
+let slotEl: HTMLElement | null = null;
+const subs = new Set<() => void>();
+const setSlot = (el: HTMLElement | null) => { slotEl = el; subs.forEach((f) => f()); };
+export function OfferSlot() {
+  return <div className="asst-offer-slot" ref={setSlot} />;
+}
+function useSlot() {
+  const [el, setEl] = useState(slotEl);
+  useEffect(() => { const f = () => setEl(slotEl); subs.add(f); f(); return () => { subs.delete(f); }; }, []);
+  return el;
+}
+
 /** Owners: Remy reaches out on the page you're on with one thing he can do for you (shared/remyOffers.ts). */
 export function RemyOffer() {
   const { ws, setWs, run, save } = useStore();
   const { path } = useRoute();
   const [busy, setBusy] = useState(false);
   const [gone, setGone] = useState<string[]>([]); // hidden at once, before the save returns
+  const slot = useSlot();
   const o = offerFor(remyOffers(ws!, dayKey(), new Date().getHours()).filter((x) => !gone.includes(x.id)), path);
   if (!o) return null;
   const doIt = async () => {
@@ -22,8 +38,8 @@ export function RemyOffer() {
     if (w) { setGone((g) => [...g, o.id]); setWs(w); }
   };
   const notNow = () => { setGone((g) => [...g, o.id]); void save("settings", { offersSeen: [...(ws!.settings.offersSeen || []), o.id].slice(-200) }); };
-  return (
-    <div className="remy-offer fade-up" role="status" data-testid="remy-offer">
+  const card = (
+    <div className={"remy-offer fade-up" + (slot ? " docked" : "")} role="status" data-testid="remy-offer">
       <Remy size={34} mood="wave" />
       <div className="stack-sm" style={{ gap: 8, minWidth: 0 }}>
         <span className="small">{o.text}</span>
@@ -35,4 +51,5 @@ export function RemyOffer() {
       <button className="remy-offer-x" onClick={notNow} aria-label="Dismiss" data-testid="button-offer-dismiss"><X size={14} /></button>
     </div>
   );
+  return slot ? createPortal(card, slot) : card;
 }
