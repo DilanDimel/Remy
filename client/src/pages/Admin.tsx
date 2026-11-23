@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
-import { Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, Briefcase, CalendarDays, Check, Clock, Database, KanbanSquare, Server, Plus, RotateCcw, Trash2, TrendingUp, UserCheck, Users } from "lucide-react";
+import { Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, Briefcase, CalendarDays, Check, Clock, Database, KanbanSquare, Server, Plus, RotateCcw, Trash2, UserCheck, Users } from "lucide-react";
 import { api, fmtDate, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
 import { BetaBadge, CopyButton, Empty, Modal, Remy, Rich, Spinner } from "../components/common";
@@ -36,10 +36,10 @@ type Team = {
 };
 const ANSWERS: [Answer, string][] = [["yes", "Going"], ["maybe", "Maybe"], ["no", "Can't go"]];
 
-const TABS = [["overview", "Overview", BarChart3], ["beta", "Beta", UserCheck], ["outcomes", "Outcomes", TrendingUp], ["services", "Services", Server], ["database", "Database", Database], ["openings", "Openings", Briefcase], ["errors", "Errors & feedback", AlertTriangle], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity]] as const;
+const TABS = [["overview", "Overview", BarChart3], ["beta", "Beta", UserCheck], ["services", "Services", Server], ["database", "Database", Database], ["openings", "Openings", Briefcase], ["errors", "Errors & feedback", AlertTriangle], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity]] as const;
 type Tab = (typeof TABS)[number][0];
 // The menu in three groups: students first, then data, then the team's own work (Hours first: the one the team checks).
-const NAV_GROUPS: [string, Tab[]][] = [["Students", ["overview", "beta", "outcomes"]], ["Data", ["services", "database", "openings", "errors"]], ["Team", ["hours", "people", "board", "calendar", "activity"]]];
+const NAV_GROUPS: [string, Tab[]][] = [["Students", ["overview", "beta"]], ["Data", ["services", "database", "openings", "errors"]], ["Team", ["hours", "people", "board", "calendar", "activity"]]];
 const HISTORY_AFTER = 3 * 86400_000;
 const COLS: [Status, string][] = [["todo", "To do"], ["doing", "In progress"], ["done", "Done"]];
 const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -95,7 +95,6 @@ export default function Admin() {
         {tab === "overview" && <OverviewTab />}
         {tab === "errors" && <ErrorsTab />}
         {tab === "beta" && <><FunnelCard /><BetaTab /></>}
-        {tab === "outcomes" && <OutcomesTab />}
         {tab === "services" && <ServicesTab />}
         {tab === "database" && <DatabaseTab />}
         {tab === "openings" && <OpeningsTab />}
@@ -292,33 +291,6 @@ function FunnelCard() {
 
 type Outcomes = { applied: number; answered: number; interviews: number; offers: number; applied_tailored: number; answered_tailored: number; students_applying: number; students_rating: number; ratings: number; students: number };
 /** What Remy is for: applications that got answers, interviews and offers, across real students (team left out). */
-function OutcomesTab() {
-  const [d, reload] = useLoad<Outcomes>("/api/admin/outcomes");
-  if (!d) return <Spinner />;
-  const plain = d.applied - d.applied_tailored, plainAnswered = d.answered - d.answered_tailored;
-  return (
-    <div className="stack">
-      <Head title="Outcomes" sub="Across real students (the team and its “+” test addresses are left out), from each application's history." action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
-      <div className="adm-kpis">
-        <Kpi n={d.applied} label="Applications sent" note={`by ${d.students_applying} of ${d.students} students`} />
-        <Kpi n={pctOf(d.answered, d.applied)} label="Got an answer" note={`${d.answered} of ${d.applied}`} />
-        <Kpi n={d.interviews} label="Interviews" />
-        <Kpi n={d.offers} label="Offers" />
-      </div>
-      <section className="adm-card stack-sm">
-        <h3>Tailored with Remy vs not</h3>
-        <span className="small">Materials approved in Remy: <b>{pctOf(d.answered_tailored, d.applied_tailored)}</b> got an answer ({d.answered_tailored} of {d.applied_tailored})</span>
-        <span className="small">Not tailored in Remy: <b>{pctOf(plainAnswered, plain)}</b> got an answer ({plainAnswered} of {plain})</span>
-        <span className="xs muted">Small numbers swing a lot: wait for 20+ applications on each side before reading anything into it.</span>
-      </section>
-      <section className="adm-card stack-sm">
-        <h3>More like this / Not for me</h3>
-        <span className="small"><b>{d.students_rating}</b> of {d.students} students have rated openings ({d.ratings} ratings in all).</span>
-      </section>
-    </div>
-  );
-}
-
 type Storage = { usedMb: number; limitMb: number; percent: number; tables: { name: string; mb: number; rows: number }[]; workspaces: { n: number; avg_kb: number; max_kb: number; p90_kb: number }; transfer: { monthMb: number; limitGb: number; days: { day: string; mb: number }[] } };
 /** How full the database is against the plan's limit, and what takes the space (Demetre's space watch). */
 function DatabaseTab() {
@@ -473,6 +445,7 @@ function OverviewTab() {
   const { me } = useStore();
   const [d, reload] = useLoad<Overview>("/api/admin/overview");
   const [t] = useLoad<Team>("/api/admin/team");
+  const [o] = useLoad<Outcomes>("/api/admin/outcomes");
   if (!d) return <div className="row"><Spinner /> Loading…</div>;
   const f = d.funnel;
   // Setup step by step (where friend testers stop), then what they did after.
@@ -526,6 +499,17 @@ function OverviewTab() {
           <span className="adm-band-people">{teamWeek.map(({ m, h }) => <span key={m.email} className="adm-inline"><Avatar m={m} size={22} /> {m.name.split(" ")[0]} <b>{h}</b></span>)}</span>
           <span className="btn btn-sm adm-band-btn">Hours <ArrowRight size={14} /></span>
         </a>
+      )}
+      {o && (
+        <section className="adm-card" data-testid="admin-outcomes">
+          <h3>Do students get jobs?</h3>
+          <div className="adm-kpis">
+            <Kpi n={o.applied} label="Applications sent" note={`by ${o.students_applying} of ${o.students} students`} />
+            <Kpi n={pctOf(o.answered, o.applied)} label="Got an answer" note={`${o.answered} of ${o.applied}; tailored in Remy: ${pctOf(o.answered_tailored, o.applied_tailored)}`} />
+            <Kpi n={o.interviews} label="Interviews" />
+            <Kpi n={o.offers} label="Offers" />
+          </div>
+        </section>
       )}
       <div className="adm-kpis">
         <Kpi n={d.students} label="Students in total" note={`${d.activeToday} active today`} />

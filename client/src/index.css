@@ -668,7 +668,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .adm-news + .adm-back, .adm-theme + .adm-back { margin-top: 0; }
 .adm-theme { justify-content: flex-start; }
 .adm-news .count { margin-left: 4px; }
-.adm-main { padding: 28px 32px 60px; max-width: 1180px; width: 100%; }
+.adm-main { padding: 28px 32px 60px; width: 100%; } /* full width: Dilan, Nov 22 */
 .adm-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 .adm-head h1 { font-size: 1.6rem; letter-spacing: -0.02em; }
 .adm-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; display: grid; gap: 10px; align-content: start; }
