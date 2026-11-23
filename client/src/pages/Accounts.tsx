@@ -221,7 +221,8 @@ function Data() {
       <div className="card card-pad stack">
         <h3>Account</h3>
         <dl className="kv">
-          <dt>Type</dt><dd>{me?.kind === "supabase" ? `Signed in (${me.email})` : me?.kind === "google" ? "Google account" : me?.kind === "visitor" ? "Private preview workspace (this browser)" : "Demo workspace (this browser)"}</dd>
+          {/* Owners (Nov 23 PM review): "Signed in (email)" then "Email: email" said it twice; dates read "Nov 23, 2026, 2:38 PM" like the rest of Remy. */}
+          <dt>Type</dt><dd>{me?.kind === "supabase" ? (owner ? "Signed in with email" : `Signed in (${me.email})`) : me?.kind === "google" ? "Google account" : me?.kind === "visitor" ? "Private preview workspace (this browser)" : "Demo workspace (this browser)"}</dd>
           {me?.email && <><dt>Email</dt><dd>{me.email}</dd></>}
           <dt>Last saved</dt><dd>{owner ? new Date(ws!.updatedAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : new Date(ws!.updatedAt).toLocaleString()}</dd>
         </dl>
