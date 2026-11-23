@@ -67,6 +67,7 @@ import { askedLength, keepAskedLength } from "./coach/outreachAsk";
 import { noUpgrade } from "./coach/noUpgrade";
 import { boardsFor, orderEmployers, preferMetros, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, isEmptyListing, refillEmpty, kindOf, USAJOBS } from "./jobs/sources";
 import { emailReady, sendEmail } from "./notify/email";
+import { codeEmail } from "./notify/layout";
 import { currentResumeDocx, docxStyle, editResumeDocx } from "./resume/docxEdit";
 import { keepDecided } from "./coach/keepDecided";
 import * as gcal from "./notify/gcal";
@@ -509,13 +510,14 @@ export async function registerRoutes(_server: Server, app: Express) {
   const deadlineReminders = async () => {
     if (!emailReady()) return;
     const today = centralToday();
-    for (const u of await q("SELECT u.id, u.email FROM users u WHERE u.kind IN ('google','supabase')")) {
+    for (const u of await q("SELECT u.id, u.email, u.name FROM users u WHERE u.kind IN ('google','supabase')")) {
       if (!(await beta.emailAllowed(u.email))) continue; // no emails to accounts outside the Founding Cohort
       const ws = await loadWorkspace(u.id);
       const due = dueReminders(ws, today);
       if (!due.length) continue;
-      // Finish it / Not now buttons: redesign stage 5, owners only while it's tested.
-      const { subject, text, html } = reminderEmail(firstName(ws) || "there", due, process.env.PUBLIC_HOST || "remyai.org", await admin.isOwner({ kind: "google", email: u.email }));
+      // Finish it / Not now buttons and the branded email: owners only while they're tested.
+      const isOwner = await admin.isOwner({ kind: "google", email: u.email });
+      const { subject, text, html } = reminderEmail(firstName(ws) || (isOwner && String(u.name || "").trim().split(/\s+/)[0]) || "there", due, process.env.PUBLIC_HOST || "remyai.org", isOwner);
       try { await sendEmail(ws.profile.applicationEmail || u.email, subject, text, html); } catch (e: any) { console.error("deadline reminder failed", e?.message); continue; }
       await saveSections(u.id, { reminded: [...(ws.reminded || []), ...due.map((d) => d.key)].slice(-300) } as any);
     }
@@ -523,12 +525,12 @@ export async function registerRoutes(_server: Server, app: Express) {
     const now = new Date(), hour = Number(now.toLocaleString("en-US", { timeZone: "America/Chicago", hour: "numeric", hour12: false }));
     if (hour < 7) return;
     const weekday = new Date(today + "T12:00:00Z").getUTCDay();
-    for (const u of await q("SELECT u.id, u.email FROM users u WHERE u.kind IN ('google','supabase')")) {
+    for (const u of await q("SELECT u.id, u.email, u.name FROM users u WHERE u.kind IN ('google','supabase')")) {
       if (!(await beta.emailAllowed(u.email))) continue; // no emails to accounts outside the Founding Cohort
       const ws = await loadWorkspace(u.id);
-      const d = weeklyDigest(ws, today, weekday, process.env.PUBLIC_HOST || "remyai.org");
+      const d = weeklyDigest(ws, today, weekday, process.env.PUBLIC_HOST || "remyai.org", await admin.isOwner({ kind: "google", email: u.email }), String(u.name || ""));
       if (!d) continue;
-      try { await sendEmail(ws.profile.applicationEmail || u.email, d.subject, d.text); } catch (e: any) { console.error("weekly digest failed", e?.message); continue; }
+      try { await sendEmail(ws.profile.applicationEmail || u.email, d.subject, d.text, d.html); } catch (e: any) { console.error("weekly digest failed", e?.message); continue; }
       await saveSections(u.id, { lastDigest: today, lastDigestAt: now.toISOString() } as any);
     }
   };
@@ -941,7 +943,13 @@ export async function registerRoutes(_server: Server, app: Express) {
     try {
       const code = await newSigninCode(email);
       if (devCodes()) console.log(`[dev] sign-in code for ${email}: ${code}`);
-      else await sendEmail(email, `${code} is your Remy sign-in code`, `Your Remy sign-in code is ${code}.\n\nType it on the Remy sign-in page. It works on any device and expires in 10 minutes.\n\nIf you didn't ask for this, you can ignore this email; no one can sign in without the code.\n\nRemy`);
+      else {
+        // Owners get the branded email while it's tested; students keep the plain one.
+        const html = (await admin.isOwner({ kind: "google", email }))
+          ? codeEmail({ host: process.env.PUBLIC_HOST || "remyai.org", code, name: ((await userByEmail(email))?.name || "").trim().split(/\s+/)[0], heading: "Your sign-in code", intro: "Here's your code to sign in to Remy.", why: "Didn't ask for this? You can ignore this email. No one can sign in without the code." })
+          : undefined;
+        await sendEmail(email, `${code} is your Remy sign-in code`, `Your Remy sign-in code is ${code}.\n\nType it on the Remy sign-in page. It works on any device and expires in 10 minutes.\n\nIf you didn't ask for this, you can ignore this email; no one can sign in without the code.\n\nRemy`, html);
+      }
       res.json({ sent: true, email });
     } catch (e: any) {
       console.error("sign-in code email failed", e?.message);
@@ -2664,7 +2672,8 @@ Return JSON:
     if (!allow("school-code-to:" + email, 3, 24 * 60 * 60_000)) bad("Several codes were already sent to this address today. Please try again tomorrow.", 429);
     const code = await newSchoolCode(ctx.me.id, email);
     if (devCodes()) console.log(`[dev] school email code for ${email}: ${code}`);
-    else await sendEmail(email, `Your Remy code: ${code}`, `Your Remy verification code is ${code}.\n\nIt expires in 10 minutes. If you didn't ask for this, you can ignore this email.`);
+    else await sendEmail(email, `Your Remy code: ${code}`, `Your Remy verification code is ${code}.\n\nIt expires in 10 minutes. If you didn't ask for this, you can ignore this email.`,
+      ctx.me.owner ? codeEmail({ host: process.env.PUBLIC_HOST || "remyai.org", code, name: firstName(ctx.ws), heading: "Confirm your school email", intro: "Here's your code to link this school email to your Remy account.", why: "Didn't ask for this? You can ignore this email. Nothing changes without the code." }) : undefined);
     res.json({ sent: true, email });
   }));
   app.post("/api/school-email/verify", route(async (req, res, ctx) => {
