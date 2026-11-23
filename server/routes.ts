@@ -12,6 +12,7 @@ import { PATHS } from "@shared/types";
 import { BETA_TERMS_VERSION } from "@shared/beta";
 import { NAME_CHECK, firstName, knownName, nameUnsure, sameName } from "@shared/names";
 import { partialReply } from "./ai/streamReply";
+import { startStream, streamLine } from "./platform/stream";
 import { JOB_INTEREST_REASONS, type JobInterestRating } from "@shared/types";
 import { employerPreferences, interestContext, interestEnabled, ownInterest } from "./jobs/ranking";
 import { keepQuestions, skippedPrefs } from "@shared/setupReply";
@@ -681,6 +682,13 @@ export async function registerRoutes(_server: Server, app: Express) {
     build = process.env.RENDER_GIT_COMMIT || (fs.existsSync(page) ? crypto.createHash("sha1").update(fs.readFileSync(page)).digest("hex").slice(0, 12) : "");
     return build;
   };
+  // Checks that streamed answers reach phones as they're written (5 lines, half a second apart). No data, no sign-in.
+  app.get("/api/stream-check", async (_req, res) => {
+    startStream(res);
+    for (let i = 1; i <= 5; i++) { streamLine(res, { n: i, at: Date.now() }); await new Promise((r) => setTimeout(r, 500)); }
+    res.end();
+  });
+
   app.get("/api/config", async (req, res) => {
     const host = String(req.headers.host || "");
     const sb = supabaseConfig();
@@ -1918,9 +1926,9 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       if (r === sent || (!r && !sent)) return;
       const now = Date.now();
       if (sent && r.startsWith(sent) && now - sentAt < 60 && r.length - sent.length < 40) return; // ~16 updates a second
-      if (!res.headersSent) res.writeHead(200, { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" });
+      startStream(res);
       sent = r; sentAt = now;
-      res.write(JSON.stringify({ reply: r }) + "\n");
+      streamLine(res, { reply: r });
     } : undefined;
     // Owners: the name they asked Remy to use, every time (the resume and old replies say otherwise).
     const callMe = doer && !nameUnsure(ctx.ws) ? firstName(ctx.ws) : "";

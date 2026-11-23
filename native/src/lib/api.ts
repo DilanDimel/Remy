@@ -37,7 +37,7 @@ export async function streamChat<T>(body: unknown, onReply: (soFar: string) => v
     r = await streamFetch(API_BASE + "/api/ai/chat?stream=1", {
       method: "POST",
       credentials: "include",
-      headers: { Accept: "application/x-ndjson, application/json", "Content-Type": "application/json", "X-Remy-App": "native" },
+      headers: { Accept: "text/event-stream, application/json", "Content-Type": "application/json", "X-Remy-App": "native" },
       body: JSON.stringify(body),
     });
   } catch {
@@ -45,7 +45,7 @@ export async function streamChat<T>(body: unknown, onReply: (soFar: string) => v
   }
   if (r.status === 401) return api<T>("POST", "/api/ai/chat", body);
   const type = r.headers.get("content-type") || "";
-  if (!r.ok || !type.includes("ndjson") || !r.body) {
+  if (!r.ok || !/event-stream|ndjson/.test(type) || !r.body) {
     const text = await r.text();
     let data: any = null;
     try { data = text ? JSON.parse(text) : null; } catch { /* not JSON */ }
