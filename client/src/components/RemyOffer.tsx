@@ -29,7 +29,7 @@ export function RemyOffer() {
   const [busy, setBusy] = useState(false);
   const [gone, setGone] = useState<string[]>([]); // hidden at once, before the save returns
   const slot = useSlot();
-  const o = offerFor(remyOffers(ws!, dayKey()).filter((x) => !gone.includes(x.id)), path);
+  const o = offerFor(remyOffers(ws!, dayKey(), new Date().getHours()).filter((x) => !gone.includes(x.id)), path);
   if (!o) return null;
   const doIt = async () => {
     setBusy(true);

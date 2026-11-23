@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Briefcase, ChevronDown, ChevronUp } from "lucide-react";
 import { jobQuestions } from "@shared/jobInterview";
+import { hospitalFirst } from "@shared/employer";
 import { useOwnerView, useStore } from "../lib/store";
 import { useJobs } from "../lib/jobs";
 import { PracticeOutLoud } from "./PracticeOutLoud";
@@ -13,7 +14,8 @@ export function useInterviewJobs() {
   // Openings they're applying to first (newest first), then the ones they kept.
   const applying = [...w.applications].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((a) => a.jobId);
   const ids = [...new Set([...applying, ...w.savedJobIds])];
-  const mine = ids.map((id) => w.jobs.find((j) => j.id === id)).filter((j): j is NonNullable<typeof j> => !!j && j.kind !== "event");
+  const owner = useOwnerView();
+  const mine = ids.map((id) => w.jobs.find((j) => j.id === id)).filter((j): j is NonNullable<typeof j> => !!j && j.kind !== "event").map((j) => owner ? hospitalFirst(j) : j); // owners: the hospital, not "Tenet Healthcare"
   // Nothing saved or started yet: practice for the best-fitting openings instead of a "save one first" note.
   const { jobs: all, fits } = useJobs();
   const best = (all || []).filter((j) => j.kind !== "event" && !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false).sort((x, y) => (fits[y.id]?.score ?? 0) - (fits[x.id]?.score ?? 0)).slice(0, 8);
