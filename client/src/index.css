@@ -2722,9 +2722,14 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 .rm-walk-start { margin-left: auto; }
 
 /* Owners: Remy's one offer on the page you're on (components/RemyOffer.tsx). */
-.remy-offer { position: fixed; right: calc(var(--asst-w, 0px) + 20px); bottom: 20px; z-index: 30; width: min(360px, calc(100vw - 24px)); display: flex; gap: 10px; align-items: flex-start; padding: 12px 34px 12px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
+.remy-offer { position: relative; width: min(1384px, calc(100% - 56px)); margin: 16px auto -6px; display: flex; gap: 10px; align-items: center; padding: 10px 40px 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.remy-offer > .stack-sm { flex-direction: row !important; flex-wrap: wrap; align-items: center; gap: 8px 14px !important; flex: 1; }
+.remy-offer > .stack-sm > .small { flex: 1 1 320px; }
+.remy-offer.docked { width: auto; margin: 0 12px 10px; align-items: flex-start; background: var(--surface-2); }
+.remy-offer.docked > .stack-sm { flex-direction: column !important; align-items: flex-start; }
+.remy-offer.docked > .stack-sm > .small { flex: none; }
 .remy-offer-x { position: absolute; top: 8px; right: 8px; padding: 4px; border-radius: 8px; color: var(--muted-text); }
-@media (max-width: 1020px) { .remy-offer { right: 12px; bottom: 76px; } }
+@media (max-width: 640px) { .remy-offer { width: calc(100% - 32px); margin-top: 12px; } }
 /* Owners: the menu link of a page Remy just changed glows for a moment (lib/remyDoes.ts). */
 @keyframes remy-touch { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 30%, 70% { box-shadow: 0 0 0 3px var(--fox); } }
 .remy-touched { animation: remy-touch 1.2s ease-in-out 2; border-radius: 10px; }
@@ -2749,3 +2754,26 @@ html.redesign-2 .cal-owner .cal-cell { min-height: clamp(56px, 7.5vh, 84px); }
    Now an orange outline; green stays for "You qualify" only. */
 .home-lists .job-card.item.top { border-color: var(--fox); background: var(--surface); box-shadow: 0 0 0 1px var(--fox) inset; }
 .job-card.top .job-fit b { color: var(--fox-800); }
+
+/* Owners (Dilan, Nov 23): dropdowns and tick boxes look like Remy's own on every browser instead of each system's
+   default (blue boxes on Windows, grey pills on Mac). The opened list stays the device's own picker, which is the
+   easiest one to use on phones. */
+html.redesign-2 select:not(.lk-ask select):not(.adm-assign select) {
+  appearance: none; -webkit-appearance: none; cursor: pointer; color: var(--ink); background-color: var(--surface);
+  border: 1px solid var(--line); border-radius: 10px; padding: 9px 36px 9px 12px; font-size: var(--text-sm); font-weight: 500; line-height: 1.3;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted-text) 50%), linear-gradient(135deg, var(--muted-text) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 52%, calc(100% - 13px) 52%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  transition: border-color .15s ease;
+}
+html.redesign-2 select:not(.lk-ask select):not(.adm-assign select):hover { border-color: var(--muted-text); }
+html.redesign-2 select:not(.lk-ask select):not(.adm-assign select):disabled { opacity: .55; cursor: default; }
+html.redesign-2 input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none; flex: none; width: 18px; height: 18px; margin: 0; border: 1.5px solid var(--muted-text); border-radius: 5px;
+  background: var(--surface); display: inline-grid; place-content: center; cursor: pointer; vertical-align: -3px; transition: background-color .12s ease, border-color .12s ease;
+}
+html.redesign-2 input[type="checkbox"]::before { content: ""; width: 10px; height: 10px; background: var(--surface); clip-path: polygon(14% 52%, 0 66%, 38% 100%, 100% 22%, 86% 8%, 38% 72%); transform: scale(0); transition: transform .12s ease; }
+html.redesign-2 input[type="checkbox"]:checked { background: var(--ink); border-color: var(--ink); }
+html.redesign-2 input[type="checkbox"]:checked::before { transform: scale(1); }
+html.redesign-2 input[type="checkbox"]:focus-visible { outline: 2px solid var(--fox); outline-offset: 2px; }
+html.redesign-2 input[type="checkbox"]:disabled { opacity: .5; cursor: default; }
+html.redesign-2 label.row > input[type="checkbox"] { margin-top: 2px; }
