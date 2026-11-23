@@ -2250,8 +2250,10 @@ button.ps-rw { cursor: pointer; }
 .ps-tag.still { cursor: default; }
 button.ps-tag:hover { transform: translateY(calc(-50% - 1px)); }
 .ps-select { width: auto; max-width: 220px; min-width: 0; margin-left: auto; }
-@media (max-width: 960px) { .ps-body { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 600px) {
+/* Sized by the page column, not the window: with the side panels open the column can be phone-narrow on a laptop. */
+.ps { container: ps / inline-size; }
+@container ps (max-width: 760px) { .ps-body { grid-template-columns: minmax(0, 1fr); } }
+@container ps (max-width: 600px) {
   .ps-hello { grid-template-columns: minmax(0, 1fr); padding: 12px; }
   .ps-walker { position: absolute; right: 6px; top: 4px; margin: 0; } .ps-walker .fox { width: 64px; height: auto; }
   .ps-bubble { margin-top: 52px; border-radius: 20px; }

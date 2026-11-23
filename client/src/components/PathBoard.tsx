@@ -203,7 +203,7 @@ function Hello({ d, onField }: { d: D; onField: (tab: FieldTab, open?: string) =
   const skills = [...todo].sort((a, b) => rank(a) - rank(b) || a.year - b.year).slice(0, 3);
   const avg = d.future?.allJobsGrowth ?? 0;
   const qLeft = d.quests.filter((q) => q.n < q.of).length;
-  const who = p.major ? `a ${p.major.toLowerCase().replace(/ major$/, "")} major` : "still exploring";
+  const who = p.major.trim() ? `studying ${p.major.trim()}` : "still exploring";
   const yearWord = d.year === 5 ? "out of college" : `in your ${YEARS[d.year].toLowerCase()} year`;
   const close = () => { markSeen(); setOpen(false); setStep(0); };
   const steps: { say: ReactNode; body: ReactNode }[] = [
