@@ -456,8 +456,17 @@ export interface ChatMsg {
   did?: ChatDid[];
 }
 export type ChatAction = { kind: "task"; title: string; why: string; due?: string } | { kind: "role"; title: string } | { kind: "open"; link: string; label: string }
-  | { kind: "setting"; key: SettingKey; value: string | boolean } | { kind: "save"; jobId: string } | { kind: "tailor"; jobId: string };
-export interface ChatDid { id: string; kind: "task" | "save" | "tailor" | "role"; label: string; ref: string; link?: string; undone?: boolean }
+  | { kind: "setting"; key: SettingKey; value: string | boolean } | { kind: "save"; jobId: string } | { kind: "tailor"; jobId: string }
+  // Owners (server/ai/chatDo.ts): done by Remy with Undo, except "profile", which changes fits and approved versions, so the student taps it.
+  | { kind: "name"; value: string } | { kind: "done"; taskId: string } | { kind: "unsave"; jobId: string }
+  | { kind: "event"; title: string; date: string; time?: string } | { kind: "remember"; text: string }
+  | { kind: "profile"; field: ProfileField; value: string };
+export type ProfileField = "major" | "minors" | "school" | "graduation" | "location";
+export interface ChatDid {
+  id: string; kind: "task" | "save" | "tailor" | "role" | "name" | "setting" | "done" | "unsave" | "event" | "remember"; label: string; ref: string; link?: string; undone?: boolean;
+  /** What it was before, so Undo can put it back (a name, a setting's value). */
+  old?: string | boolean;
+}
 export type StoryPart = "situation" | "task" | "action" | "result";
 export interface Story {
   id: string; title: string; theme: string; situation: string; task: string; action: string; result: string; missing: string; source: string;

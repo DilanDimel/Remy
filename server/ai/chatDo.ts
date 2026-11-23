@@ -1,6 +1,7 @@
 import type { ChatAction, ChatDid, Job, Workspace } from "@shared/types";
 import { step } from "@shared/progress";
 import { uid } from "../platform/ids";
+import { NAME_CHECK } from "@shared/names";
 
 // Redesign stage 6 (owners first): "save that job", "add a to-do for Friday", "tailor my resume for this" are done
 // right away, shown as what Remy did, each with Undo. Nothing here leaves Remy (no application, email or RSVP).
@@ -8,8 +9,11 @@ import { uid } from "../platform/ids";
 const SAVED_SOURCE = "Added when you saved it";
 const dueLabel = (d: string) => new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
 const roleList = (ws: Workspace) => ws.profile.targetRoles.split(/,\s*/).filter(Boolean);
+const THEMES: Record<string, string> = { dark: "Dark mode", light: "Light mode", system: "Matching your device's light or dark mode" };
+const NOTIFY: Record<string, string> = { deadlines: "Deadline reminder emails", statusChanges: "Status change emails", weeklyPlan: "Weekly plan email" };
+const timeLabel = (t: string) => { const [h, m] = t.split(":").map(Number); return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; };
 
-/** Does the actions that stay inside Remy and returns what was done; the rest (open a page, settings) stay as buttons. */
+/** Does the actions that stay inside Remy and returns what was done; the rest (open a page, a profile change) stay as buttons. */
 export function doActions(ws: Workspace, actions: ChatAction[], findJob: (ws: Workspace, id: string) => Job | undefined, today: string): { did: ChatDid[]; buttons: ChatAction[]; notes: string[] } {
   // notes: what didn't happen, so the reply never claims an action that was skipped.
   const did: ChatDid[] = [], buttons: ChatAction[] = [], notes: string[] = [];
@@ -43,6 +47,46 @@ export function doActions(ws: Workspace, actions: ChatAction[], findJob: (ws: Wo
       if (roleList(ws).some((r) => r.toLowerCase() === a.title.toLowerCase())) continue;
       ws.profile.targetRoles = [...roleList(ws), a.title].join(", ");
       did.push({ id: uid("d"), kind: "role", ref: a.title, label: `Remy will look for ${a.title} openings too`, link: "/opportunities" });
+    } else if (a.kind === "name") {
+      if (ws.profile.preferredName === a.value) { notes.push(`I already call you ${a.value}.`); continue; }
+      did.push({ id: uid("d"), kind: "name", ref: a.value, old: ws.profile.preferredName, label: `I'll call you ${a.value} from now on`, link: "/accounts?tab=profile" });
+      ws.profile.preferredName = a.value;
+      // Same as Settings: choosing a name answers "Which name should Remy use?".
+      for (const t of ws.tasks) if (t.source === NAME_CHECK && !t.done) t.done = true;
+    } else if (a.kind === "setting") {
+      if (a.key === "theme") {
+        if (ws.settings.theme === a.value && ws.settings.themeChosen) continue;
+        did.push({ id: uid("d"), kind: "setting", ref: a.key, old: ws.settings.themeChosen ? ws.settings.theme : "system", label: `${THEMES[String(a.value)]} is on`, link: "/accounts?tab=settings" });
+        ws.settings.theme = a.value as Workspace["settings"]["theme"];
+        ws.settings.themeChosen = true;
+      } else {
+        const k = a.key.split(".")[1] as keyof Workspace["settings"]["notify"];
+        if (ws.settings.notify[k] === a.value) continue;
+        did.push({ id: uid("d"), kind: "setting", ref: a.key, old: ws.settings.notify[k], label: `${NOTIFY[k]} turned ${a.value ? "on" : "off"}`, link: "/accounts?tab=settings" });
+        ws.settings.notify[k] = !!a.value;
+      }
+    } else if (a.kind === "done") {
+      const t = ws.tasks.find((x) => x.id === a.taskId);
+      if (!t) { notes.push("I couldn't find that to-do, so nothing was checked off."); continue; }
+      if (t.done) continue;
+      t.done = true;
+      did.push({ id: uid("d"), kind: "done", ref: t.id, label: `Checked off: ${t.title}`, link: "/" });
+    } else if (a.kind === "unsave") {
+      const j = findJob(ws, a.jobId);
+      if (!j || !ws.savedJobIds.includes(j.id)) { notes.push("That opening wasn't saved, so nothing changed."); continue; }
+      ws.savedJobIds = ws.savedJobIds.filter((x) => x !== j.id);
+      did.push({ id: uid("d"), kind: "unsave", ref: j.id, label: `Removed ${j.title} at ${j.company} from your saved openings`, link: "/opportunities" });
+    } else if (a.kind === "event") {
+      if (a.date < today) { notes.push("That date has already passed, so I didn't add it to your calendar."); continue; }
+      const id = uid("cal");
+      ws.calendar.push({ id, title: a.title, date: a.date, time: a.time || "", kind: /interview/i.test(a.title) ? "Interview" : "Event", source: "Remy chat", notes: "" });
+      did.push({ id: uid("d"), kind: "event", ref: id, label: `Added to your calendar: ${a.title}, ${dueLabel(a.date)}${a.time ? ` at ${timeLabel(a.time)}` : ""}`, link: "/calendar" });
+    } else if (a.kind === "remember") {
+      const norm = (x: string) => x.toLowerCase().replace(/\W+/g, " ").trim();
+      if (ws.memory.some((m) => norm(m.text) === norm(a.text))) continue;
+      const id = uid("f"), now = new Date().toISOString();
+      ws.memory.push({ id, text: a.text, category: "other", source: "Assistant chat (asked by student)", status: "approved", createdAt: now, updatedAt: now });
+      did.push({ id: uid("d"), kind: "remember", ref: id, label: `Remembered: ${a.text}`, link: "/accounts?tab=memory" });
     } else buttons.push(a);
   }
   return { did, buttons, notes };
@@ -57,6 +101,15 @@ export function undoDid(ws: Workspace, d: ChatDid): string | null {
     ws.savedJobIds = ws.savedJobIds.filter((x) => x !== d.ref);
     ws.calendar = ws.calendar.filter((c) => !(c.linkedId === d.ref && c.source === SAVED_SOURCE));
   }
+  else if (d.kind === "name") ws.profile.preferredName = String(d.old ?? "");
+  else if (d.kind === "setting") {
+    if (d.ref === "theme") { ws.settings.theme = (d.old || "system") as Workspace["settings"]["theme"]; ws.settings.themeChosen = d.old !== "system"; }
+    else ws.settings.notify[d.ref.split(".")[1] as keyof Workspace["settings"]["notify"]] = !!d.old;
+  }
+  else if (d.kind === "done") { const t = ws.tasks.find((x) => x.id === d.ref); if (t) t.done = false; }
+  else if (d.kind === "unsave") { if (!ws.savedJobIds.includes(d.ref)) ws.savedJobIds.push(d.ref); }
+  else if (d.kind === "event") ws.calendar = ws.calendar.filter((c) => c.id !== d.ref);
+  else if (d.kind === "remember") ws.memory = ws.memory.filter((m) => m.id !== d.ref);
   else if (d.kind === "role") ws.profile.targetRoles = roleList(ws).filter((r) => r.toLowerCase() !== d.ref.toLowerCase()).join(", ");
   else if (d.kind === "tailor") {
     const a = ws.applications.find((x) => x.id === d.ref);

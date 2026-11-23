@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { ArrowRight, Award, Briefcase, Check, Compass, DollarSign, Eye, Flame, Gift, Snowflake, TrendingDown, TrendingUp, Wrench, Zap } from "lucide-react";
 import { ROADS, roadFor, YEARS, yearNumber, NEED_LABEL } from "@shared/roads";
 import { rankOf, weekKey, weekMissions, doneThisWeek, counters, xpOf, nextOutfit, unlockedOutfits, levelReward, OFFICE, RANKS, WARDROBE } from "@shared/game";
-import { CARD_XP, dailyStreak, dayKey } from "@shared/daily";
+import { CARD_XP, dailyStreak, dayKey, streakDays } from "@shared/daily";
 import { api, useStore } from "../lib/store";
 import type { Workspace } from "@shared/types";
 import { go } from "../lib/router";
@@ -28,7 +28,7 @@ function usePathData() {
   const year = Math.min(5, Math.max(1, yearNumber(p.classYear) || 1));
   const g = stateOf(w);
   const today = g.days?.[dayKey()] || [];
-  const streak = dailyStreak(g);
+  const streak = dailyStreak(streakDays(w));
   const xp = xpOf(w, g), lv = rankOf(xp, g.bestRank);
   const wk = weekKey(), missions = weekMissions(w, wk), done = doneThisWeek(w, g, wk, counters(w));
   // Daily quests (reset at 4 AM with the day): each counts something the student really did today.
@@ -160,7 +160,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   const [mood, setMood] = useState<"idle" | "wave" | "think">("idle");
   // On My Path his side panel is closed (App.tsx): you talk to him here, and he answers in the room.
   const { config, setWs, run } = useStore();
-  const [q, setQ] = useState(""), [busy, setBusy] = useState(false), [said, setSaid] = useState<{ q: string; id?: string } | null>(null);
+  const [q, setQ] = useState(""), [busy, setBusy] = useState(false), [said, setSaid] = useState<{ q: string; id?: string; live?: string } | null>(null);
   const busyRef = useRef(false);
   const aiOn = !!config?.ai.available;
   const reply = said?.id ? d.w.chat.find((m) => m.id === said.id) : null;
@@ -170,7 +170,8 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
     setQ(""); setSaid({ q: text }); setBusy(true); busyRef.current = true;
     fox.moveTo("desk", "type"); setMood("think");
     const before = new Set(d.w.chat.map((m) => m.id));
-    const w = await run(() => api<Workspace>("POST", "/api/ai/chat", { message: text, page: "My Path", where: location.pathname + location.search, tabs: [] }));
+    // His answer appears as he writes it (owners' server streams it), like the Remy panel.
+    const w = await run(() => api<Workspace>("POST", "/api/ai/chat?stream=1", { message: text, page: "My Path", where: location.pathname + location.search, tabs: [] }, (l) => { if (typeof l.reply === "string") setSaid({ q: text, live: l.reply }); }));
     setBusy(false); busyRef.current = false; fox.setPose(""); setMood("idle");
     if (w) { setWs(w); setSaid({ q: text, id: [...w.chat].reverse().find((m) => m.role === "assistant" && !before.has(m.id))?.id }); }
   };
@@ -286,7 +287,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
           : <>
             {said && <div className="ps-bubble chat" style={{ "--tail": `${(fox.x / 860) * 100}%` } as CSSProperties} aria-live="polite" data-testid="office-reply">
               <div className="ps-chat-head"><span className="pm-kicker">You asked: {said.q}</span><button className="btn btn-ghost btn-sm" onClick={() => setSaid(null)} data-testid="button-office-reply-close">Close</button></div>
-              {busy ? <p className="pm-faint">Remy is thinking…</p> : reply ? <div className="ps-reply"><Rich text={reply.text} /></div> : <p className="pm-faint">I couldn't answer that one. Try asking again.</p>}
+              {busy ? (said.live ? <div className="ps-reply"><Rich text={said.live} /></div> : <p className="pm-faint">Remy is thinking…</p>) : reply ? <div className="ps-reply"><Rich text={reply.text} /></div> : <p className="pm-faint">I couldn't answer that one. Try asking again.</p>}
             </div>}
             <form className="ps-ask" onSubmit={(e) => { e.preventDefault(); ask(); }}>
               <input className="input" value={q} onChange={(e) => setQ(e.target.value)} disabled={!aiOn || busy} placeholder={aiOn ? "Ask Remy anything about your path…" : "Remy's chat is off on this server"} aria-label="Ask Remy" data-testid="input-office-ask" />

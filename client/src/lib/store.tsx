@@ -33,7 +33,9 @@ if (typeof window !== "undefined") {
   window.addEventListener("pageshow", () => { leaving = false; });
 }
 
-export async function api<T = any>(method: string, url: string, body?: unknown): Promise<T> {
+/** `onLine`, when given, reads a streamed answer (server/platform/stream.ts): each JSON line but the last goes to
+ *  onLine; a line with `ws` is the result and one with `error` fails the call. A plain JSON answer works as usual. */
+export async function api<T = any>(method: string, url: string, body?: unknown, onLine?: (line: any) => void): Promise<T> {
   if (API_BASE === "__UNRESOLVED__") throw new ApiError("Backend connection was not configured. Please reopen the app.", 0);
   const isForm = body instanceof FormData;
   const started = performance.now();
@@ -75,7 +77,32 @@ export async function api<T = any>(method: string, url: string, body?: unknown):
     throw new ApiError(msg, res.status, code, body);
   }
   const ct = res.headers.get("content-type") || "";
+  if (onLine && ct.includes("event-stream") && res.body) return readStream<T>(res.body, onLine);
   return (ct.includes("json") ? res.json() : res.blob()) as Promise<T>;
+}
+
+async function readStream<T>(body: ReadableStream<Uint8Array>, onLine: (line: any) => void): Promise<T> {
+  const reader = body.getReader();
+  const dec = new TextDecoder();
+  let buf = "", done: T | undefined;
+  for (;;) {
+    const { done: end, value } = await reader.read();
+    if (value) buf += dec.decode(value, { stream: !end });
+    let i: number;
+    while ((i = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, i).trim();
+      buf = buf.slice(i + 1);
+      if (!line) continue;
+      let d: any;
+      try { d = JSON.parse(line); } catch { continue; }
+      if (d.error) throw new ApiError(String(d.error), 502);
+      if (d.ws) done = d.ws as T;
+      else onLine(d);
+    }
+    if (end) break;
+  }
+  if (!done) throw new ApiError("Remy's reply was cut off. Please try again.", 502);
+  return done;
 }
 
 export async function download(url: string, fallbackName: string) {

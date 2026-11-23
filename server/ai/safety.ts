@@ -45,6 +45,11 @@ export function chatActions(raw: unknown): ChatAction[] {
     if (a?.kind === "open" && PAGE_LINK.test(String(a.link))) return [{ kind: "open", link: String(a.link), label: clean(a.label, 40) || "Open" }];
     if (a?.kind === "setting" && a.key === "theme" && ["system", "light", "dark"].includes(a.value)) return [{ kind: "setting", key: "theme", value: a.value }];
     if (a?.kind === "setting" && /^notify\.(deadlines|statusChanges|weeklyPlan)$/.test(String(a.key)) && typeof a.value === "boolean") return [{ kind: "setting", key: a.key, value: a.value }];
+    if (a?.kind === "name" && clean(a.value, 40)) return [{ kind: "name", value: clean(a.value, 40) }];
+    if ((a?.kind === "done" || a?.kind === "unsave") && /^[\w-]{1,120}$/.test(String(a.taskId ?? a.jobId))) return [a.kind === "done" ? { kind: "done", taskId: String(a.taskId) } : { kind: "unsave", jobId: String(a.jobId) }];
+    if (a?.kind === "event" && clean(a.title, 120) && /^\d{4}-\d{2}-\d{2}$/.test(String(a.date))) return [{ kind: "event", title: clean(a.title, 120), date: String(a.date), ...(/^\d{2}:\d{2}$/.test(String(a.time)) ? { time: String(a.time) } : {}) }];
+    if (a?.kind === "remember" && clean(a.text, 300)) return [{ kind: "remember", text: clean(a.text, 300) }];
+    if (a?.kind === "profile" && ["major", "minors", "school", "graduation", "location"].includes(a.field) && clean(a.value, 120)) return [{ kind: "profile", field: a.field, value: clean(a.value, 120) }];
     return [];
-  }).slice(0, 2);
+  }).slice(0, 3);
 }
