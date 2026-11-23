@@ -18,7 +18,7 @@ export function remyOffers(ws: Pick<Workspace, "jobs" | "savedJobIds" | "hiddenJ
   // An interview today or tomorrow: practice it now.
   for (const c of ws.calendar.filter((x) => x.kind === "Interview" && x.date >= today && daysBetween(today, x.date) <= 1)) {
     const job = c.linkedId ? ws.jobs.find((j) => j.id === c.linkedId) : ws.jobs.find((j) => c.title.toLowerCase().includes(j.company.toLowerCase()));
-    out.push({ id: `iv:${c.id}`, pages: ["/", "/calendar", "/interview", "/progress"], text: `Your interview "${c.title}" is ${when(daysBetween(today, c.date))}. Want a quick mock interview${job ? ` for ${job.company}` : ""} now?`, label: "Practice now", action: { kind: "start", what: "interview", ...(job ? { jobId: job.id } : {}) } });
+    out.push({ id: `iv:${c.id}`, pages: ["/", "/calendar", "/interview", "/progress"], text: `${/interview/i.test(c.title) ? c.title : `Your interview (${c.title})`} is ${when(daysBetween(today, c.date))}. Want a quick mock interview${job ? ` for ${job.company}` : ""} now?`, label: "Practice now", action: { kind: "start", what: "interview", ...(job ? { jobId: job.id } : {}) } });
   }
   // A saved opening closing within 3 days that isn't started.
   if (ws.resume) for (const id of ws.savedJobIds) {

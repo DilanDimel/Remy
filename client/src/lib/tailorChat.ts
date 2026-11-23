@@ -226,7 +226,7 @@ export function startResumeFix(ws: Workspace, deps: Deps) {
   const { todo } = reviewResume(r.doc, { listLike: true });
   const seen = new Set<string>();
   const lines = todo.flatMap((it) => (it.kind === "numbers" || it.kind === "verbs" ? it.bullets.map((b) => ({ ...b, kind: it.kind as "numbers" | "verbs" })) : []))
-    .filter((b) => b.id && !seen.has(b.id) && seen.add(b.id)).slice(0, 8);
+    .filter((b) => b.id && !seen.has(b.id) && seen.add(b.id)).slice(0, 12);
   const other = todo.filter((it) => it.kind !== "numbers" && it.kind !== "verbs").map((it) => it.title);
   session = { kind: "fix", targetId: "", appId: "", title: "Fixing your resume with Remy", stage: "asking", idx: 0, answers: {}, log: [], qs: [], drafted: true,
     fix: { lines, at: 0, draft: "", doc: structuredClone(r.doc), base: r.editedAt || r.uploadedAt, saved: 0, other } };
