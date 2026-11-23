@@ -4,6 +4,7 @@ import type { Job, JobFit, Workspace } from "@shared/types";
 import { hasKeyword } from "../resume/ats";
 import { families, family } from "@shared/words";
 import { norm } from "../resume/parse";
+import { inOwnerView } from "../ai/ai";
 import { graduationOf, primaryEducation } from "../resume/resume";
 
 // Deterministic fit: eligibility (graduation window, class year), where the
@@ -191,7 +192,8 @@ const FIELDS: [RegExp, RegExp, string][] = [
   [/aviation|pilot|flight|aerospace|air traffic/i, /aviation|pilot|flight|airport|aircraft|aerospace|air operations|maintenance/i, "aviation"],
   [/real estate|property/i, /real estate|property|leasing|appraisal|acquisitions|capital markets|valuation/i, "real estate"],
   [/health|pharma|biotech|medical|pre-?med|medicine|doctor|physician|dental|dentist|pharmacy|physical therapy|occupational therapy|\bpa\b|physician assistant|kinesiolog|nutrition|public health|pre-?health/i, /health|clinical|pharma|patient|medical|biotech|hospital|scribe|research assistant|lab|therapy|dental|pharmacy|care/i, "healthcare"],
-  [/nurs|\brn\b|\bbsn\b/i, /nurs|\brn\b|patient care|care (tech|assistant)|extern|clinical|\bcna\b|hospital/i, "nursing"],
+  // "Extern" as a word: a nurse extern is nursing, an "Underwriting Externship" isn't.
+  [/nurs|\brn\b|\bbsn\b/i, /nurs|\brn\b|patient care|care (tech|assistant)|\bextern\b|clinical|\bcna\b|hospital/i, "nursing"],
   [/psycholog|social work|counsel|human services|sociolog|child development|family studies/i, /social work|case manag|counsel|mental health|behavior|psych|advocate|family|youth|human services|community/i, "social work"],
   [/biology|chemistry|physics|neuroscience|environmental science|geology|research|lab science|biochem/i, /research|lab|scientist|chemist|biolog|science|technician|field/i, "research"],
   [/environment|sustainab|agricultur|ranch|conservation|energy|natural resources|wildlife|forestry/i, /environment|sustainab|energy|conservation|agricultur|ranch|wildlife|park|field|natural resources/i, "sustainability"],
@@ -227,6 +229,8 @@ export function fieldMatch(ws: Workspace, job: Job): boolean | null {
   // Conferences were found for the student's field already; their names ("NABA Convention") aren't job titles.
   if ((!chosen.length && !liked.length) || job.kind === "event") return null;
   if ([...chosen, ...liked].some((t) => t.test(job.title))) return true;
+  // Students keep the old rule (any "extern" is nursing) until the owners-only fix is released.
+  if (!inOwnerView() && /nurs|\brn\b|\bbsn\b/i.test(`${chosenFieldText(p)} ${p.interests || ""}`) && /extern/i.test(job.title)) return true;
   return chosen.length ? false : null;
 }
 
@@ -282,6 +286,10 @@ export function notEligible(ws: Workspace, job: Job, today = new Date()): string
   const takesStudents = /\b(pursuing|currently enrolled|working toward)\b[^.]{0,40}\bbachelor/i.test(text);
   if (job.kind === "job" && !studentRole && months > 12 && degreeNeeded && !takesStudents)
     return `This job asks for a finished bachelor's degree, and you expect to finish in ${ws.profile.graduation || g!.y}.`;
+  // "New Grad RN Residency", "Recent Graduate Program": for people who've finished, not a sophomore (Dilan, Nov 23).
+  // Owners only until Dilan releases it (Nov 23).
+  if (inOwnerView() && months > 12 && /\bnew[- ]grad(uate)?s?\b|\brecent (college )?grad(uate)?s?\b/i.test(job.title))
+    return `This one is for new graduates, and you expect to finish in ${ws.profile.graduation || g!.y}.`;
   return "";
 }
 
@@ -325,7 +333,9 @@ export function relocateReason(ws: Workspace, title: string, company: string): s
   return hit.length ? "the title is in your field" : "";
 }
 
-export const FIT_RULES_VERSION = 18; // 18: "degree conferred in 2025 or 2026" and "graduating in/by YYYY" are graduation rules. 17: out-of-area openings say why they're shown (relocation answer). 16: "Anywhere in Texas" means Texas, not anywhere (it switched location off). 15: "Microsoft Excel" is the resume's "Excel"; "Microsoft Office" is shown by its apps. 14: what a student enjoys never hides an opening, only fields they chose. 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
+export const FIT_RULES_VERSION = 19; // 19: "New Grad" titles are for graduates; "externship" alone isn't nursing. 18: "degree conferred in 2025 or 2026" and "graduating in/by YYYY" are graduation rules. 17: out-of-area openings say why they're shown (relocation answer). 16: "Anywhere in Texas" means Texas, not anywhere (it switched location off). 15: "Microsoft Excel" is the resume's "Excel"; "Microsoft Office" is shown by its apps. 14: what a student enjoys never hides an opening, only fields they chose. 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
+/** The version a verdict is saved under: owner view runs owners-only rules, so its verdicts are kept apart from students'. */
+export const fitVersion = () => FIT_RULES_VERSION + (inOwnerView() ? 1000 : 0);
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const g = gradDate(ws);
   const year = classYearOf(ws);
@@ -451,7 +461,7 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
       // Discovery days and insight programs are built for first-years and sophomores (NABA: EY, PwC).
       (job.kind === "program" && (year === "First-year" || year === "Sophomore") ? 12 : 0),
   );
-  return { at: new Date().toISOString(), by: "rules", v: FIT_RULES_VERSION, eligibility, eligibilityNote: note, checked, ...(hidden ? { hidden } : {}), matched, gaps, why, excluded, score, regionMatch: region, ...(region === false && relocateReason(ws, job.title, job.company) ? { relocate: relocateReason(ws, job.title, job.company) } : {}), typeMatch: type };
+  return { at: new Date().toISOString(), by: "rules", v: fitVersion(), eligibility, eligibilityNote: note, checked, ...(hidden ? { hidden } : {}), matched, gaps, why, excluded, score, regionMatch: region, ...(region === false && relocateReason(ws, job.title, job.company) ? { relocate: relocateReason(ws, job.title, job.company) } : {}), typeMatch: type };
 }
 
 // "Summer 2026" offered in October 2026: a term that has already started or ended (the AI doesn't always know the date).

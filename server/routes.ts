@@ -44,7 +44,7 @@ import { atsChecks, claimCheck } from "./ai/claims";
 import { CHECKIN_KINDS, cleanCheckin } from "./coach/checkin";
 import { checkinProposals } from "@shared/checkin";
 import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, skillSuggestions } from "./resume/builder";
-import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, FIT_RULES_VERSION, planJobs, typeMatch } from "./jobs/fit";
+import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, fitVersion, planJobs, typeMatch } from "./jobs/fit";
 import { atsScore } from "./resume/ats";
 import { pastTerm } from "./jobs/fit";
 import { dueReminders, reminderEmail, weeklyDigest } from "./notify/reminders";
@@ -2047,7 +2047,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     for (const j of ctx.ws.jobs) if (j.kind === "program" && j.origin === "imported" && kindOf(j.title) === "job") { j.kind = "job"; delete ctx.ws.fits[j.id]; changed = true; }
     const jobs = allJobs(ctx.ws).map((j) => {
       const f = ctx.ws.fits[j.id];
-      if (!f || (f.by === "rules" && f.score === undefined) || f.v !== FIT_RULES_VERSION) {
+      if (!f || (f.by === "rules" && f.score === undefined) || f.v !== fitVersion()) {
         const fresh = fitOf(ctx.ws, j);
         // A rules update keeps an "Explain fit" answer the student already asked for (its words don't depend on the rules).
         ctx.ws.fits[j.id] = f?.by === "ai" ? { ...fresh, by: "ai", why: f.why, matched: f.matched, gaps: f.gaps } : fresh;
@@ -2274,7 +2274,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     if (!ctx.ws.resume) bad("Upload your base resume first.");
     // Eligibility comes before polish: a clear conflict needs the student's OK first.
     const saved = ctx.ws.fits[job.id];
-    const fit = saved?.v === FIT_RULES_VERSION ? saved : computeFit(ctx.ws, job, evidenceOf(ctx.ws));
+    const fit = saved?.v === fitVersion() ? saved : computeFit(ctx.ws, job, evidenceOf(ctx.ws));
     if (fit.eligibility === "unlikely" && !body.confirmEligible) return { conflict: fit.eligibilityNote };
     // Don't tailor for a posting that has closed since Remy last looked (re-checked when over 3 days old).
     const lastCheck = job.checks?.[0]?.at || job.checkedAt;

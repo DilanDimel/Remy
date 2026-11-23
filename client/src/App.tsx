@@ -3,12 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import {
   BarChart3, Briefcase, CalendarDays, ChevronsLeft, ChevronsRight, Compass, FileText, Home as HomeIcon, Menu, Send,
   Check, Gauge, Info, Mic, Minus, ShieldCheck, UserCog, Users,
-  ImagePlus,
+  ImagePlus, MessageCircle, Search, ArrowRight, ChevronDown,
 } from "lucide-react";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { StoreProvider, api, daysUntil, fmtDate, rid, useDraft, useOwnerView, useStore, type Theme } from "./lib/store";
 import { CAREER_QUEST_ON } from "@shared/game";
 import { resumeDiff } from "@shared/resumeDiff";
+import { activityDays, dayOf, todayBrief } from "@shared/activity";
+import { useJobs } from "./lib/jobs";
 import { go, replaceRoute, useRoute } from "./lib/router";
 const PUBLIC = new Set(["/", "/signin", "/welcome", "/about", "/policies", "/privacy", "/terms"]);
 import { BetaBadge, Modal, Remy, Rich, Spinner, StatusChip } from "./components/common";
@@ -37,7 +39,7 @@ import type { ChatAction, Workspace } from "@shared/types";
 import { Celebrate } from "./components/Celebrate";
 import { RemyTour, tourAgain } from "./components/Tour";
 import { BETA_TERM_HEADS, BETA_TERMS, BETA_TERMS_LEAD, BETA_TERMS_VERSION } from "@shared/beta";
-import { knownName } from "@shared/names";
+import { firstName, knownName } from "@shared/names";
 import { isNativeApp } from "./lib/native";
 
 const NAV = [
@@ -329,30 +331,67 @@ const INTRO: Record<string, string> = {
   Accounts: "Your profile and what I remember about you. Ask me what I know, or tell me what to forget.",
 };
 
-// Redesign stage 2 (owners first): Remy's own record of what he did, in plain words (Muse-style activity list).
-const DID: [RegExp, (m: RegExpMatchArray) => string][] = [
-  [/^Parse resume/i, () => "Read your resume"], [/^Initial plan/i, () => "Built your career plan"], [/^Pick employers/i, () => "Picked employers to check for you"],
-  [/^Assistant chat/i, () => "Answered you in chat"], [/^Tailor for (.+)/i, (m) => `Tailored your resume for ${m[1]}`], [/^Import posting/i, () => "Read a posting you added"],
-  [/^Import LinkedIn/i, () => "Read your LinkedIn profile"], [/^Story deck/i, () => "Drafted interview stories"], [/^Explain fit/i, () => "Explained why an opening fits"],
-  [/^Fix (rewrites|letter) for (.+)/i, (m) => `Double-checked your ${m[1] === "letter" ? "cover letter" : "resume changes"} for ${m[2]}`], [/^Classify email/i, () => "Sorted a recruiting email"],
-];
-const didLabel = (purpose: string) => { for (const [re, f] of DID) { const m = purpose.match(re); if (m) return f(m); } return purpose; };
+// Redesign stage 2 (owners first): Coming up, then every past session by day (Dilan, Nov 23: "show all previous
+// sessions"). A day's chat folds open to its messages.
+const dayName = (day: string) => { const t = dayOf(new Date().toISOString()), y = dayOf(new Date(Date.now() - 864e5).toISOString()); return day === t ? "Today" : day === y ? "Yesterday" : fmtDate(day); };
+const ACT_ICO = { chat: MessageCircle, did: Check, found: Search, apply: FileText, step: Check } as const;
 function RemyActivity() {
   const { ws } = useStore();
   const w = ws!;
+  const [more, setMore] = useState(false);
+  const [openDay, setOpenDay] = useState("");
   const soon = [
     ...w.calendar.filter((c) => (daysUntil(c.date) ?? -1) >= 0).map((c) => ({ id: c.id, title: c.title, date: c.date })),
     ...w.tasks.filter((t) => !t.done && t.due && (daysUntil(t.due) ?? -1) >= 0).map((t) => ({ id: t.id, title: t.title, date: t.due })),
   ].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 4);
-  const did = [...w.aiLog].filter((x) => x.ok).reverse().slice(0, 6);
+  const { fits } = useJobs();
+  const days = activityDays(w, fits);
+  const shown = more ? days : days.slice(0, 5);
   return (
     <div className="asst-activity" data-testid="remy-activity">
       <b className="small">Coming up</b>
       {soon.length ? soon.map((s) => <div key={s.id} className="act-row"><span className="act-ico"><CalendarDays size={14} /></span><span>{s.title}<span className="xs muted"> · {fmtDate(s.date)}</span></span></div>)
         : <p className="xs muted">Nothing due yet. When you save an opening or add a to-do with a date, it shows here.</p>}
-      <b className="small" style={{ marginTop: 10 }}>What I did</b>
-      {did.length ? did.map((x) => <div key={x.id} className="act-row"><span className="act-ico done"><Check size={13} /></span><span>{didLabel(x.purpose)}<span className="xs muted"> · {fmtDate(x.at.slice(0, 10))}</span></span></div>)
-        : <p className="xs muted">Nothing yet. As I read your resume, find openings and tailor applications, it's listed here.</p>}
+      {!days.length && <><b className="small" style={{ marginTop: 10 }}>History</b><p className="xs muted">Nothing yet. As we talk, and as I read your resume, find openings and tailor applications, every session is kept here.</p></>}
+      {shown.map((d) => (
+        <section key={d.day} className="act-day" data-testid="activity-day">
+          <b className="small act-day-h">{dayName(d.day)}</b>
+          {d.events.map((e) => {
+            const Ico = ACT_ICO[e.kind];
+            const body = <><span className={"act-ico" + (e.kind === "did" ? " done" : "")}><Ico size={13} /></span><span className="grow">{e.text}{e.count && e.count > 1 ? <span className="xs muted"> · {e.kind === "chat" ? `${e.count} messages` : `×${e.count}`}</span> : null}</span></>;
+            if (e.kind === "chat") return (
+              <div key={e.kind + e.text}>
+                <button className="act-row act-btn" aria-expanded={openDay === d.day} onClick={() => setOpenDay(openDay === d.day ? "" : d.day)} data-testid="button-activity-chat">{body}<ChevronDown size={14} className="act-chev" /></button>
+                {openDay === d.day && <div className="act-chat">{d.chat.map((m) => <div key={m.id} className={`bubble ${m.role === "user" ? "bubble-user" : "bubble-ai"}`}>{m.role === "user" ? m.text : <Rich text={m.text} />}</div>)}</div>}
+              </div>
+            );
+            return e.link
+              ? <button key={e.kind + e.text} className="act-row act-btn" onClick={() => go(e.link!)} data-testid="button-activity-open">{body}</button>
+              : <div key={e.kind + e.text} className="act-row">{body}</div>;
+          })}
+        </section>
+      ))}
+      {days.length > 5 && <button className="btn btn-ghost btn-sm" onClick={() => setMore(!more)} data-testid="button-activity-more">{more ? "Show less" : `Show ${days.length - 5} earlier day${days.length - 5 === 1 ? "" : "s"}`}</button>}
+    </div>
+  );
+}
+
+/** Empty chat (owners): Remy opens with what happened today instead of waiting to be asked. */
+const TODAY_ICO = { new: Search, due: CalendarDays, did: Check, next: ArrowRight } as const;
+function RemyToday({ onActivity }: { onActivity: () => void }) {
+  const { ws } = useStore();
+  const { jobs, fits } = useJobs();
+  const rows = todayBrief({ ...ws!, jobs: jobs || ws!.jobs }, new Date(), fits);
+  const first = firstName(ws!);
+  const h = new Date().getHours();
+  return (
+    <div className="asst-today" data-testid="remy-today">
+      <b className="asst-today-h">{h < 12 ? "Morning" : h < 18 ? "Hi" : "Evening"}{first ? `, ${first}` : ""}. {rows.length ? "Here's today:" : "Quiet day so far. Nothing new since yesterday."}</b>
+      {rows.map((r) => {
+        const Ico = TODAY_ICO[r.kind];
+        const click = r.kind === "did" ? onActivity : r.link ? () => go(r.link!) : undefined;
+        return <button key={r.kind} className="act-row act-btn" onClick={click} disabled={!click} data-testid={`button-today-${r.kind}`}><span className={"act-ico" + (r.kind === "did" ? " done" : "")}><Ico size={13} /></span><span className="grow">{r.text}</span>{click && <ArrowRight size={13} className="act-chev" />}</button>;
+      })}
     </div>
   );
 }
@@ -462,6 +501,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
       <div className="asst-body">
         {chat.length === 0 && !tailor && !busy && preview && (
           <div className="asst-intro" data-testid="assistant-welcome">
+            {stage2 && <RemyToday onActivity={() => setView("activity")} />}
             <div className="bubble bubble-ai">{INTRO[page] || INTRO.Home}</div>
             <p className="xs muted">I only use what's in your approved profile, and I never send anything for you.</p>
             <div className="asst-asks">
