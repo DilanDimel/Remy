@@ -470,7 +470,12 @@ function Side({ d, tab, setTab, open, setOpen }: { d: D; tab: SideTab; setTab: (
   // (inside the panel only, so the page never jumps away from Remy's office on a phone)
   useEffect(() => { setTimeout(() => {
     const body = document.querySelector(".ps-side-body"), row = body?.querySelector(".pm-row.open");
-    body?.scrollTo({ top: row ? body.scrollTop + row.getBoundingClientRect().top - body.getBoundingClientRect().top - 8 : 0, behavior: "smooth" });
+    if (!body) return;
+    if (!row) return body.scrollTo({ top: 0, behavior: "smooth" });
+    // only as far as needed to show the whole row, so the summary chips above it aren't cut in half
+    const b = body.getBoundingClientRect(), r = row.getBoundingClientRect();
+    const by = r.top < b.top ? r.top - b.top - 8 : r.bottom > b.bottom ? Math.min(r.bottom - b.bottom + 8, r.top - b.top - 8) : 0;
+    if (by) body.scrollTo({ top: body.scrollTop + by, behavior: "smooth" });
   }, 80); }, [open, tab]);
   const tabs: [SideTab, string, number | null][] = [["today", "Today", null], ["roles", "Roles", jobs.length], ["skills", "Skills", skills.length], ["certs", "Certs", certs.length], ["forecast", "Forecast", null]];
   return (

@@ -177,6 +177,16 @@ function Shell() {
       if (l.type === "image/png") l.disabled = ownerView;
     });
   }, [ownerView]);
+  // Owners: the phone browser's bar (Android Chrome, iPhone Safari) matches the page instead of staying near-black over a light app.
+  const { theme } = useStore();
+  useEffect(() => {
+    const m = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (!m || !ownerView) return;
+    const base = m.content;
+    // next frame: the store sets the theme on <html> after this effect runs
+    const f = requestAnimationFrame(() => { m.content = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || base; });
+    return () => { cancelAnimationFrame(f); m.content = base; };
+  }, [ownerView, theme]);
   // A match email's Yes / Not now (redesign stage 5): read from the link once, before a page rewrites the address.
   // The answer is only counted (owners see the Yes rate); the workspace isn't replaced, so it can't race the page.
   const { toast } = useStore();

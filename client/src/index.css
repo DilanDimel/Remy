@@ -2670,6 +2670,39 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 .redesign-2 .page-real .resume-paper h4 { font-size: 1em; }
 .redesign-2 .page-real-key .changed { color: var(--stage-2); }
 @media (max-width: 690px) { .redesign-2 .page-real .resume-paper { min-height: 0; padding: 20px 16px !important; font-size: 12px !important; } }
+
+/* Every device (owners, Nov 23): phones, tablets, Safari, Chrome, Firefox. */
+@media (pointer: coarse) {
+  /* iPhone and iPad Safari zoom the page into any box typed in under 16px; the phone rule above stops at 640px, iPads are wider. */
+  .redesign-2 .input, .redesign-2 .textarea, .redesign-2 .select { font-size: 16px; }
+  /* Fingers need bigger targets than small text links give: the box grows, the layout doesn't. */
+  .redesign-2 :is(.op-link, .ps-tag, [data-testid="button-toggle-ineligible"]) { position: relative; }
+  .redesign-2 :is(.op-link, [data-testid="button-toggle-ineligible"])::after { content: ""; position: absolute; inset: -10px -6px; }
+  .redesign-2 .ps-tag::after { content: ""; position: absolute; inset: -8px -4px; }
+  .redesign-2 button.ms-text { min-height: 32px; }
+  .redesign-2 input[type="checkbox"] { min-width: 20px; min-height: 20px; }
+  /* No hover on touch: the owners' dashboard shows what it would only reveal on hover. */
+  .redesign-2 .adm-tip, .redesign-2 .adm-task-actions { opacity: 1; }
+}
+@media (max-width: 760px) {
+  /* Remy's panel takes the whole phone screen (it left a strip of page showing) with a smaller face, so the chat has room above the keyboard. */
+  .redesign-2 .assistant { width: 100vw; left: 0; }
+  .redesign-2 .asst-profile { padding: 10px 16px 8px; gap: 2px; }
+  .redesign-2 .asst-avatar { width: 56px; height: 56px; }
+  .redesign-2 .asst-avatar > svg { width: 44px; height: auto; }
+  .redesign-2 .asst-name { margin-top: 2px; }
+  .redesign-2 .asst-tabs { margin-top: 6px; }
+}
+@media (max-width: 380px) {
+  /* Narrow phones (344px): "Find more openings" and "Import" fit side by side. */
+  .redesign-2 .opp-actions .btn { padding-inline: 10px; gap: 6px; font-size: 13px; }
+}
+/* My Path side panel: a line under the tabs, so rows scrolled under them read as scrolled, not cut off. */
+.redesign-2 .ps-side-head { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+/* Phones: a pop-up's buttons stay pinned at its bottom (Save on "Add to calendar" sat below the fold on iPhone). */
+@media (max-width: 760px) {
+  .redesign-2 .modal > .row:last-child { position: sticky; bottom: -22px; margin: 0 -22px -22px; padding: 12px 22px 22px; background: var(--surface); border-top: 1px solid var(--line); }
+}
 /* Owners: Remy's question pinned under the line on the resume itself, one flagged line at a time (Nov 23). */
 .rm-body { position: relative; }
 .rm-tail { white-space: nowrap; }
