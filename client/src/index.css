@@ -2898,3 +2898,11 @@ html.redesign-2 label.row > input[type="checkbox"] { margin-top: 2px; }
 /* Owners, Progress: the five lanes end level, and an empty lane's dashed box fills it, whatever its words. */
 .redesign-2 .pr-flow > .pr-lane { align-self: stretch; }
 .redesign-2 .pr-lane > .pr-ghost { flex: 1; display: grid; place-items: center; }
+
+/* Account (Nov 23 PM review): Appearance cards the same height; approved AI memory facts in two columns of compact rows. */
+.redesign-2 .acc-settings { align-items: stretch !important; }
+@media (min-width: 900px) {
+  .redesign-2 .mem-card { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; row-gap: 0; }
+  .redesign-2 .mem-card > :first-child { grid-column: 1 / -1; margin-bottom: 6px; }
+  .redesign-2 .mem-card > .item { padding-block: 8px; }
+}
