@@ -1684,6 +1684,10 @@ button.ms-text:hover { text-decoration: underline; text-underline-offset: 3px; }
 .job-fit { flex: none; display: grid; justify-items: center; font-size: 10.5px; font-weight: 700; color: var(--muted-text); text-transform: uppercase; letter-spacing: .04em; }
 .job-fit b { font-size: 18px; letter-spacing: 0; color: var(--ink); }
 .job-card.top .job-fit b { color: var(--sage); }
+/* Owners: the company line sits above the title even when both are short (was "InternshipCath Lab Tech Extern"). */
+.redesign-2 .job-card .item-main > span.xs { display: block; }
+/* Owners: Remy's offer waits while the tour is open instead of floating above its dimmed backdrop. */
+html.redesign-2:has(.tour) .remy-offer { display: none; }
 .season-band { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-radius: 18px; background: var(--ink); color: var(--bg); }
 .season-band .grow { min-width: 0; font-size: var(--text-sm); line-height: 1.35; }
 .season-band .grow b { display: block; }
@@ -2385,6 +2389,7 @@ button.ps-tag:hover { transform: translateY(calc(-50% - 1px)); }
 /* Owner homepage, "Try it now" look (pages/Landing2.tsx): light by default, dark with the theme toggle. */
 .lk-try { --lk-bg: #f6f5f1; --lk-card: #ffffff; --lk-ink: #141414; --lk-ink2: #3d3c39; --lk-muted: #6b6a65; --lk-line: #e4e1da; --lk-btn: #e86a2a; --lk-btn-ink: #ffffff; --lk-accent: #e86a2a; --lk-accent-ink: #c2410c; --lk-soft: #fdecdf; --lk-ok: #15803d; --lk-ok-bg: #e3f5e8; --lk-glow: rgba(232, 106, 42, .22); --lk-grid: rgba(20, 20, 20, .05); }
 html[data-theme="dark"] .lk-try { --lk-bg: #0f0f0e; --lk-card: #1a1918; --lk-ink: #f3f2ee; --lk-ink2: #d2d0ca; --lk-muted: #a19f98; --lk-line: #2e2c2a; --lk-btn: #ff8a3d; --lk-btn-ink: #140d0a; --lk-accent: #ff8a3d; --lk-accent-ink: #ffa366; --lk-soft: #33200f; --lk-ok: #5bd68a; --lk-ok-bg: #14301f; --lk-glow: rgba(255, 138, 61, .26); --lk-grid: rgba(255, 255, 255, .045); }
+html[data-theme="dark"] .lk-try { --lk-glow: transparent; } /* no orange glow on dark (Dilan, Nov 22) */
 
 /* Re-point the shared homepage parts at this palette. */
 .lk { --l2-ink: var(--lk-ink); --l2-ink2: var(--lk-ink2); --l2-muted: var(--lk-muted); --l2-line: var(--lk-line); background: radial-gradient(60% 520px at 50% 0, var(--lk-glow), transparent 70%), var(--lk-bg); color-scheme: light; overflow-x: clip; }
@@ -2832,3 +2837,20 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 /* Nov 23 PM review: during the walk-through Remy's words sat under the office, below the fold at 1440x800.
    On wide screens they sit over the bottom of the office instead (the ask box is hidden while he guides). */
 @media (min-width: 900px) { .redesign-2 .ps-roomwrap > .ps-bubble:not(.chat) { position: absolute; left: 14px; right: 14px; bottom: 14px; margin: 0; } }
+/* Owners' Calendar (Nov 23 PM review): month beside "Coming up", one screen at 1440x800. */
+.cal-owner { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(260px, 1fr); gap: 16px; align-items: start; }
+.cal-owner > aside .cal-week { grid-template-columns: minmax(0, 1fr); max-height: 380px; overflow: auto; }
+.cal-owner > aside .conn-row { flex-wrap: wrap; }
+html.redesign-2 .cal-owner .cal-cell { min-height: clamp(56px, 7.5vh, 84px); }
+@media (max-width: 1100px) { .cal-owner { grid-template-columns: minmax(0, 1fr); } }
+/* Phones (Nov 23 PM review): "Refresh Remy's suggestions" beside the title squeezed "My Path" onto two lines and the
+   subtitle into a column of single words. The button goes under the subtitle, and the office header row wraps cleanly. */
+@media (max-width: 640px) {
+  .pm-head { flex-direction: column; align-items: flex-start; }
+  .ps-office > .pt-card-head { flex-wrap: wrap; row-gap: 2px; }
+  .ps-office > .pt-card-head .ps-again { margin-left: auto; }
+}
+/* "One orange" (Nov 23 PM review): the top opening on Home was a solid green card, very loud in dark mode.
+   Now an orange outline; green stays for "You qualify" only. */
+.home-lists .job-card.item.top { border-color: var(--fox); background: var(--surface); box-shadow: 0 0 0 1px var(--fox) inset; }
+.job-card.top .job-fit b { color: var(--fox-800); }

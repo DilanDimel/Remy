@@ -65,7 +65,7 @@ function more(rows: [string, string, string, string, string, string, string, str
 const ALL_MAJORS = FIELD_GROUPS.flatMap(([, o]) => o);
 // Example cards for "Try it now": every one follows the picked major (and the opening follows the year), so nothing says "marketing" to a nursing student.
 const EXAMPLES: Record<string, Ex> = {
-  Marketing: { field: "marketing", intern: ["Marketing Intern, Summer 2027", "Dallas, TX · closes Jan 31"], grad: ["Marketing Coordinator, new grad", "Dallas, TX · closes Feb 28"], hidden: ["Senior Marketing Associate", "needs 3 years of experience"], step: ["Add how much the club account you ran grew.", "That bullet has no number yet. A real figure makes it stand out."] },
+  Marketing: { field: "marketing", intern: ["Marketing Intern, Summer 2027", "Dallas, TX · closes Jan 31"], grad: ["Marketing Coordinator, new grad", "Dallas, TX · closes Feb 28"], hidden: ["Senior Marketing Associate", "needs 3 years of experience"], step: ["Add how many followers the club's Instagram gained.", "That bullet has no number yet. A real figure makes it stand out."] },
   Finance: { field: "finance", intern: ["Finance Intern, Summer 2027", "Fort Worth, TX · closes Feb 14"], grad: ["Financial Analyst I, new grad", "Fort Worth, TX · closes Mar 15"], hidden: ["Senior Financial Analyst", "needs 4 years of experience"], step: ["Add the size of the budget you managed.", "That bullet has no dollar figure yet. A real number makes it stand out."] },
   Nursing: { field: "nursing", intern: ["Nursing Student Summer Program, 2027", "Fort Worth, TX · closes Feb 1"], grad: ["New Grad RN Residency", "Fort Worth, TX · closes Mar 1"], hidden: ["ICU Registered Nurse", "needs an RN license and 2 years of experience"], step: ["Add your clinical hours and units.", "Hospitals look for them first, and your resume doesn't list them yet."], first: ["Add your CPR or BLS card.", "Hospitals look for it first, and your resume doesn't list it yet."] },
   Engineering: { field: "engineering", intern: ["Engineering Intern, Summer 2027", "Austin, TX · closes Jan 15"], grad: ["Associate Engineer, new grad", "Austin, TX · closes Feb 15"], hidden: ["Senior Mechanical Engineer", "needs 5 years of experience"], step: ["Add what your class design project achieved.", "That bullet says what you built, not how well it worked. A real result makes it stand out."] },
@@ -296,9 +296,9 @@ export default function Landing2() {
             <div>
               <span className="lk-num">02</span><h3>A resume that fits each job and stays true</h3><p>Line-by-line suggestions for each opening. Anything your resume can&rsquo;t back up gets flagged, and you approve every word before it&rsquo;s used.</p>
               <div className="lp-shot" aria-hidden>
-                <p className="lp-old">Posted on the club&rsquo;s Instagram</p>
-                <p className="lp-new">Grew the club&rsquo;s Instagram with a weekly posting calendar</p>
-                <div className="lp-flag"><ShieldCheck size={15} /><span><b>Flagged:</b> &ldquo;followers up 40%&rdquo; isn&rsquo;t on your resume.</span></div>
+                <p className="lp-old">{ex.tryIt[0]}</p>
+                <p className="lp-new">{ex.tryIt[3].replace("{x}", ex.tryIt[2])}</p>
+                <div className="lp-flag"><ShieldCheck size={15} /><span><b>Flagged:</b> &ldquo;{ex.tryIt[2]}&rdquo; isn&rsquo;t on your resume yet, so Remy asks you first.</span></div>
               </div>
             </div>
             <div>

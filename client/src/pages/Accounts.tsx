@@ -209,6 +209,7 @@ function UrgentTexts() {
 
 function Data() {
   const { ws, me, config, setSession, setWs, run, toast, refresh } = useStore();
+  const owner = useOwnerView();
   const [confirm, setConfirm] = useState(false);
   const google = useGoogleButton(async (credential) => {
     const r = await run(() => api("POST", "/api/auth/google", { credential }), "Signed in with Google");
@@ -220,9 +221,10 @@ function Data() {
       <div className="card card-pad stack">
         <h3>Account</h3>
         <dl className="kv">
-          <dt>Type</dt><dd>{me?.kind === "supabase" ? `Signed in (${me.email})` : me?.kind === "google" ? "Google account" : me?.kind === "visitor" ? "Private preview workspace (this browser)" : "Demo workspace (this browser)"}</dd>
+          {/* Owners (Nov 23 PM review): "Signed in (email)" then "Email: email" said it twice; dates read "Nov 23, 2026, 2:38 PM" like the rest of Remy. */}
+          <dt>Type</dt><dd>{me?.kind === "supabase" ? (owner ? "Signed in with email" : `Signed in (${me.email})`) : me?.kind === "google" ? "Google account" : me?.kind === "visitor" ? "Private preview workspace (this browser)" : "Demo workspace (this browser)"}</dd>
           {me?.email && <><dt>Email</dt><dd>{me.email}</dd></>}
-          <dt>Last saved</dt><dd>{new Date(ws!.updatedAt).toLocaleString()}</dd>
+          <dt>Last saved</dt><dd>{owner ? new Date(ws!.updatedAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : new Date(ws!.updatedAt).toLocaleString()}</dd>
         </dl>
         {(me?.kind === "guest" || me?.kind === "visitor") && <span className="small muted">You're using a demo account. Sign out, then sign in with Google or email on the home page to keep your work across devices.</span>}
         {(me?.kind === "google" || me?.kind === "supabase" || me?.kind === "guest") && <div><button className="btn btn-secondary btn-sm" onClick={signOut} data-testid="button-sign-out"><LogOut size={14} /> Sign out</button></div>}
