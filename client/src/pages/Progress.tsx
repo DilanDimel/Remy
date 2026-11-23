@@ -24,8 +24,12 @@ export default function Progress() {
   const { ws } = useStore();
   const owner = useOwnerView(); // tabs redesign (Nov 22), owners first
   const open = ws!.suggestions.filter((s) => s.state === "open").length;
-  const { jobs } = useJobs();
+  const { jobs, fits } = useJobs();
   const kept = owner ? keptUntracked(ws!, jobs || []) : [];
+  // Nothing tracked or kept yet: the board offers two openings to start from (Nov 23 review: half the page was empty).
+  const start = owner && !ws!.tracker.length && !kept.length ? (jobs || [])
+    .filter((j) => { const f = fits[j.id]; return !!f && !f.excluded && !f.closed && f.regionMatch !== false && f.eligibility !== "unlikely" && j.kind !== "event" && !ws!.hiddenJobIds.includes(j.id); })
+    .sort((a, b) => (fits[b.id]?.score || 0) - (fits[a.id]?.score || 0)).slice(0, 2) : []; // same pick as Home's main card
   return (
     <>
       <div className="page-head">
@@ -40,7 +44,7 @@ export default function Progress() {
           <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => go(`/progress?tab=${k}`)} data-testid={`tab-progress-${k}`}>{l}</button>
         ))}
       </div>
-      {tab === "tracker" && <Tracker kept={kept} />}
+      {tab === "tracker" && <Tracker kept={kept} start={start} />}
       {tab === "email" && <EmailUpdates />}
       {tab === "todos" && <Todos />}
       {tab === "hours" && <Hours />}
@@ -115,7 +119,7 @@ function InterviewDate({ t }: { t: TrackItem }) {
   );
 }
 
-function Tracker({ kept }: { kept: Job[] }) {
+function Tracker({ kept, start }: { kept: Job[]; start: Job[] }) {
   const { ws, save, run, toast } = useStore();
   const w = ws!;
   const [open, setOpen] = useState("");
@@ -136,7 +140,7 @@ function Tracker({ kept }: { kept: Job[] }) {
   const openRow = (id: string) => { setOpen(id); setDetails(true); setTimeout(() => document.getElementById("tr-" + id)?.scrollIntoView({ block: "center", behavior: "smooth" }), 50); };
   return (
     <div className="stack">
-      {owner ? <Board w={w} kept={kept} onOpen={openRow} onAdd={() => setAdding(true)} /> : <div className="pipeline">{counts.map(([s, c]) => <div key={s} className="pipe"><span className="xs muted">{s}</span><strong>{c}</strong></div>)}</div>}
+      {owner ? <Board w={w} kept={kept} start={start} onOpen={openRow} onAdd={() => setAdding(true)} /> : <div className="pipeline">{counts.map(([s, c]) => <div key={s} className="pipe"><span className="xs muted">{s}</span><strong>{c}</strong></div>)}</div>}
       {owner && <NextUp w={w} />}
       <ReplyRate />
       <div className="card card-pad">
@@ -207,7 +211,7 @@ function ProgressLine({ w, kept }: { w: Workspace; kept: Job[] }) {
 }
 
 const LANE_MAX = 3; // a lane shows its newest few; the rest open on tap, so the board fits on one screen
-function Board({ w, kept, onOpen, onAdd }: { w: Workspace; kept: Job[]; onOpen: (id: string) => void; onAdd: () => void }) {
+function Board({ w, kept, start, onOpen, onAdd }: { w: Workspace; kept: Job[]; start: Job[]; onOpen: (id: string) => void; onAdd: () => void }) {
   const [more, setMore] = useState<string[]>([]);
   const closed = w.tracker.filter((t) => ["Rejected", "No reply", "Withdrawn"].includes(t.status));
   return (
@@ -239,6 +243,19 @@ function Board({ w, kept, onOpen, onAdd }: { w: Workspace; kept: Job[]; onOpen: 
             {!cards.length && <span className="pr-ghost">{l === "Interview" ? "Your first one lands here. Interview has you ready." : l === "Offer" ? "Waits here" : "None yet"}</span>}
           </div>
         ); })}</div>
+        {start.length > 0 && (
+          <div className="pr-start" data-testid="progress-start">
+            <p className="small"><b>Start here.</b> Tailor your resume for one of these and it moves along the board as you go.</p>
+            {start.map((j) => (
+              <div key={j.id} className="pr-start-row">
+                <span className="job-mono" aria-hidden="true">{orgInitials(j.company)}</span>
+                <span className="pr-mini-t"><b>{j.title}</b><small>{j.company}</small></span>
+                <button className="btn btn-ghost btn-sm" onClick={() => go(`/opportunities?id=${j.id}`)} data-testid="button-start-see">See it</button>
+                <button className="btn btn-primary btn-sm" onClick={() => go(`/resume?tab=tailor&job=${j.id}&go=1`)} data-testid="button-start-tailor">Tailor resume</button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </>
   );
