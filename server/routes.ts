@@ -1945,6 +1945,8 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       sent = r; sentAt = now; lines++;
       streamLine(res, { reply: r });
     } : undefined;
+    // Streamed: the answer starts at once, so the panel knows Remy is on it (errors after this end the stream instead).
+    if (streaming) { startStream(res); streamLine(res, { stage: "thinking" }); }
     // Owners: the name they asked Remy to use, every time (the resume and old replies say otherwise).
     const callMe = doer && !nameUnsure(ctx.ws) ? firstName(ctx.ws) : "";
     let out: { reply: string; remember: string[]; actions?: ChatAction[]; resumeEdit?: string };
@@ -1988,7 +1990,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     await ctx.save();
     // Timing only (never the text): shows whether the model's answer really arrived in pieces.
     if (streaming) console.log(`chat stream: ${pieces} model pieces, ${lines} lines sent, first piece ${firstAt ? firstAt - askedAt : -1}ms, done ${Date.now() - askedAt}ms`);
-    if (res.headersSent) res.end(JSON.stringify({ ws: ctx.ws }) + "\n");
+    if (res.headersSent) { streamLine(res, { timing: { firstWord: firstAt ? firstAt - askedAt : -1, done: Date.now() - askedAt } }); res.end(JSON.stringify({ ws: ctx.ws }) + "\n"); }
     else res.json(ctx.ws);
   }));
 
