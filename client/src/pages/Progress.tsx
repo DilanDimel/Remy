@@ -7,6 +7,7 @@ import { useCompleting } from "../lib/completing";
 import { go, useRoute } from "../lib/router";
 import { Empty, Modal, Remy, Spinner, StatusChip } from "../components/common";
 import { MIN_FOR_RATE, keptUntracked, replyStats } from "@shared/progress";
+import { scoreInterview } from "@shared/interview";
 import { OrgLogo } from "../components/OrgLogo";
 
 const STATUSES: TrackStatus[] = ["Saved", "Applied", "Received", "Heard back", "Interview", "Offer", "Rejected", "No reply", "Withdrawn"];
@@ -101,6 +102,7 @@ function Recovery({ t }: { t: TrackItem }) {
 /** An interview: get its date on the calendar (which turns Home into a prep plan) and point to the Story deck. */
 function InterviewDate({ t }: { t: TrackItem }) {
   const { ws, save, run } = useStore();
+  const owner = useOwnerView();
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const add = () => run(() => save("calendar", [...ws!.calendar, { id: rid("cal"), title: `Interview: ${t.company}${t.role ? ` (${t.role})` : ""}`, date, time, kind: "Interview" as const, source: "From your applications", linkedId: t.id, notes: "" }]), "Interview added. Home will show a prep plan as it gets close");
@@ -113,7 +115,8 @@ function InterviewDate({ t }: { t: TrackItem }) {
           <input className="input" type="date" style={{ width: "auto" }} value={date} onChange={(e) => setDate(e.target.value)} aria-label="Interview date" data-testid="input-interview-date" />
           <input className="input" type="time" style={{ width: "auto" }} value={time} onChange={(e) => setTime(e.target.value)} aria-label="Interview time" />
           <button className="btn btn-primary btn-sm" disabled={!date} onClick={add} data-testid="button-interview-add">Add to calendar</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => go("/interview")}>Build interview stories</button>
+          {owner ? <button className="btn btn-ghost btn-sm" onClick={() => go(t.jobId ? `/interview?job=${t.jobId}` : "/interview")} data-testid="button-interview-mock">Practice a mock interview</button>
+            : <button className="btn btn-ghost btn-sm" onClick={() => go("/interview")}>Build interview stories</button>}
         </div>
       </div>
     </div>
@@ -202,14 +205,24 @@ function ProgressLine({ w, kept }: { w: Workspace; kept: Job[] }) {
   const sent = w.tracker.filter((t) => !["Saved", "Withdrawn"].includes(t.status));
   const replies = w.tracker.filter((t) => ["Heard back", "Interview", "Offer", "Rejected"].includes(t.status)).length;
   const q = w.tracker.filter(quiet).sort((a, b) => lastAt(a).localeCompare(lastAt(b)))[0];
-  if (!w.tracker.length && kept.length) return <p className="op-say" data-testid="progress-line"><b>{kept.length} opening{kept.length === 1 ? "" : "s"} saved, none applied yet.</b> Tailor one and apply, and Remy tracks it from there.</p>;
-  if (!w.tracker.length) return <p className="op-say"><b>Nothing tracked yet.</b> Approve tailored materials and Remy adds the opening here.</p>;
+  const mock = <MockLine w={w} />;
+  if (!w.tracker.length && kept.length) return <p className="op-say" data-testid="progress-line"><b>{kept.length} opening{kept.length === 1 ? "" : "s"} saved, none applied yet.</b> Tailor one and apply, and Remy tracks it from there.{mock}</p>;
+  if (!w.tracker.length) return <p className="op-say"><b>Nothing tracked yet.</b> Approve tailored materials and Remy adds the opening here.{mock}</p>;
   return (
     <p className="op-say" data-testid="progress-line">
       <b>{sent.length} application{sent.length === 1 ? "" : "s"} out, {replies} {replies === 1 ? "reply" : "replies"} in.</b>
-      {q ? ` ${q.company} hasn't answered in ${daysSince(lastAt(q))} days, so a short follow-up is worth it.` : ""}
+      {q ? ` ${q.company} hasn't answered in ${daysSince(lastAt(q))} days, so a short follow-up is worth it.` : ""}{mock}
     </p>
   );
+}
+
+/** Practice counts too: the latest finished mock interview, one tap from running it again (Julio's interview coach). */
+function MockLine({ w }: { w: Workspace }) {
+  const done = (w.interviews || []).filter((x) => x.finishedAt);
+  const last = done.at(-1);
+  if (!last) return null;
+  const sc = scoreInterview(last);
+  return <> {done.length} mock interview{done.length === 1 ? "" : "s"} so far, last for {last.company}{sc.overall !== null ? ` (${sc.overall} overall)` : ""}. <button className="ivc-link" onClick={() => go(`/interview?job=${last.jobId}`)} data-testid="button-progress-mock">Practice again →</button></>;
 }
 
 const LANE_MAX = 3; // a lane shows its newest few; the rest open on tap, so the board fits on one screen
