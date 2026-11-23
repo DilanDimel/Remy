@@ -87,3 +87,16 @@ export function otherExperience(answer: string, st: Pick<Story, "title" | "sourc
   }
   return best?.label;
 }
+
+const storyWords = (t: string) => new Set(t.toLowerCase().match(/[a-z]{4,}/g) || []);
+/** Mock interview hint: the ready story that shares the most words with the question; none when nothing overlaps. */
+export function storyFor(q: string, stories: Story[]): Story | undefined {
+  const qw = storyWords(q);
+  let best: Story | undefined, score = 0;
+  for (const st of stories) {
+    const n = [...storyWords([st.title, st.theme, st.situation, st.action].join(" "))].filter((x) => qw.has(x)).length;
+    if (n > score) { best = st; score = n; }
+  }
+  return best;
+}
+
