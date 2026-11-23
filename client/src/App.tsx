@@ -443,8 +443,9 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   useEffect(() => {
     if (!pending?.reply) { shownRef.current = 0; setShown(0); return; }
     if (shownRef.current >= pending.reply.length) return;
-    const t = requestAnimationFrame(() => { shownRef.current = Math.min(pending.reply.length, shownRef.current + 3); setShown(shownRef.current); });
-    return () => cancelAnimationFrame(t);
+    // A timer, not requestAnimationFrame: frames stop in a background tab and the typing would stall at 0.
+    const t = setTimeout(() => { shownRef.current = Math.min(pending.reply.length, shownRef.current + 3); setShown(shownRef.current); }, 16);
+    return () => clearTimeout(t);
   }, [pending?.reply, shown]);
   const [hiddenDrafts, setHiddenDrafts] = useState<string[]>([]); // chat resume drafts dismissed with "Not now"
   const end = useRef<HTMLDivElement>(null);
