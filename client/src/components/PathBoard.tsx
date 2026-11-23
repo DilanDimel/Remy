@@ -121,7 +121,8 @@ function OfficeThing({ k }: { k: string }) {
   return <svg className="ps-thing" viewBox="0 0 44 40" aria-hidden="true">{art[k] || <circle cx="22" cy="20" r="10" {...st} />}</svg>;
 }
 
-function Office({ d, onField }: { d: D; onField: (tab: FieldTab, open?: string) => void }) {
+function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) => void }) {
+  const g = useGuide(d, onField);
   const has = (k: string) => (OFFICE.find(([key]) => key === k)?.[2] || 99) <= d.lv.n;
   const known = (d.g.known || []).length, books = Math.min(8, known), resume = !!d.w.resume, applied = d.w.applications.length > 0;
   const cert = d.stops.some((s) => s.kind === "cert" && s.status === "done");
@@ -132,8 +133,10 @@ function Office({ d, onField }: { d: D; onField: (tab: FieldTab, open?: string) 
   const bookColors = ["var(--fox)", "var(--sage)", "var(--ink)", "var(--blue)", "var(--amber)", "var(--fox-deep)", "var(--sage)", "var(--fox)"];
   return (
     <section className="ps-office" aria-label="Remy's office" data-testid="path-office">
-      <div className="pt-card-head"><span className="pm-kicker dark">Remy's office</span><span className="pm-faint">{nextItem ? `Level ${nextItem[2]} adds a ${nextItem[1].toLowerCase()}` : "Fully furnished"}</span></div>
-      <div className="ps-room">
+      <div className="pt-card-head"><span className="pm-kicker dark">Remy's office</span><span className="pm-faint">{nextItem ? `Level ${nextItem[2]} adds a ${nextItem[1].toLowerCase()}` : "Fully furnished"}</span>
+        {!g.on && <button className="btn btn-ghost btn-sm ps-again" onClick={g.start} data-testid="button-hello-again">Walk me through it</button>}</div>
+      <div className="ps-roomwrap">
+      <div className={"ps-room" + (g.on ? " guiding" : "")} data-testid="path-hello">
         <svg className="ps-scene" viewBox="0 40 860 430" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
           <rect x="0" y="352" width="860" height="118" fill="color-mix(in srgb, var(--fox) 14%, var(--fox-soft))" />
           {has("rug") && <ellipse cx="430" cy="420" rx="220" ry="32" fill="var(--fox-soft)" stroke={ink} strokeWidth="2.5" />}
@@ -164,12 +167,15 @@ function Office({ d, onField }: { d: D; onField: (tab: FieldTab, open?: string) 
           {applied ? <g transform="translate(640 372)"><rect width="86" height="60" rx="8" fill="var(--fox-deep)" {...line} /><path d="M26 0v-12h34v12" fill="none" {...line} /></g>
             : <g transform="translate(640 372)"><rect width="86" height="60" rx="8" {...ghost} /><path d="M26 0v-12h34v12" {...ghost} /></g>}
         </svg>
-        <span className="ps-desk-fox"><Remy size={120} mood="idle" /></span>
+        {g.on && g.ring && <span className="ps-ring" style={at(g.ring[0], g.ring[1])} aria-hidden="true" />}
+        <span className={"ps-desk-fox" + (g.walking ? " walking" : "")} style={{ left: `${g.fox}%` }}><Remy size={120} mood={g.on && g.step === 0 ? "wave" : "idle"} /></span>
         <button className="ps-tag" style={at(78, 82)} onClick={() => onField("roles")} data-testid="button-office-books">{known ? `${known} job${known === 1 ? "" : "s"} decoded` : "Decode your first job"}</button>
         <button className={"ps-tag" + (cert ? "" : " ghost")} style={at(70, 282)} onClick={() => onField("certs")} data-testid="button-office-cert">{cert ? "Certificate earned" : "First certificate"}</button>
         <button className={"ps-tag" + (resume ? "" : " ghost")} style={at(318, 62)} onClick={() => go("/resume")} data-testid="button-office-resume">{resume ? "Resume on file" : "Add your resume"}</button>
         <span className="ps-tag still" style={at(236, 328)}>{d.streak.days ? `${d.streak.days}-day streak` : "Plant needs a streak"}</span>
         <button className={"ps-tag" + (applied ? "" : " ghost")} style={at(626, 440)} onClick={() => go("/opportunities")} data-testid="button-office-briefcase">{applied ? `${d.w.applications.length} applied` : "First application"}</button>
+      </div>
+        {g.on && <div className={"ps-bubble " + (g.fox > 50 ? "left" : "right")} aria-live="polite">{g.bubble}</div>}
       </div>
     </section>
   );
@@ -181,15 +187,18 @@ const HELLO_KEY = "remy-path-hello";
 const seenToday = () => { try { return localStorage.getItem(HELLO_KEY) === dayKey(); } catch { return false; } };
 const markSeen = () => { try { localStorage.setItem(HELLO_KEY, dayKey()); } catch { /* private mode: he greets again next time */ } };
 
-function Hello({ d, onField }: { d: D; onField: (tab: FieldTab, open?: string) => void }) {
+/** Remy's walk-through, played inside his office: he walks to each object, says what it means for you, and the panel
+ *  beside the office opens the matching list. First visit each day plays it; "Walk me through it" replays it. */
+function useGuide(d: D, onField: (tab: SideTab, open?: string) => void) {
   const p = d.w.profile, name = (p.preferredName || p.name || "").trim().split(/\s+/)[0];
-  const [open, setOpen] = useState(() => !seenToday());
+  const [on, setOn] = useState(() => !seenToday());
   const [step, setStep] = useState(0);
-  // While he's on the page, his seat in the side panel sits empty.
+  const [walking, setWalking] = useState(false);
+  // While he's in the office, his seat in the side panel sits empty.
   useEffect(() => {
-    document.documentElement.classList.toggle("remy-away", open);
+    document.documentElement.classList.toggle("remy-away", on);
     return () => document.documentElement.classList.remove("remy-away");
-  }, [open]);
+  }, [on]);
   const jobs = d.careers?.[0]?.jobs || [];
   const targets = (p.targetRoles || "").toLowerCase().split(/,\s*/).filter(Boolean);
   const byOpenings = [...jobs].sort((a, b) => (b.openings || 0) - (a.openings || 0));
@@ -197,54 +206,53 @@ function Hello({ d, onField }: { d: D; onField: (tab: FieldTab, open?: string) =
   const fits = (title: string) => targets.some((t) => t.split(/\s+/).every((wd) => title.toLowerCase().includes(wd.slice(0, 6))));
   const top = jobs.find((o) => fits(o.title)) || byOpenings[0];
   const roles = byOpenings.filter((o) => o !== top).slice(0, 4);
-  // Skills Remy's path suggested come first; without a path yet, this year's milestones and certifications from the road.
-  const todo = d.stops.filter((s) => s.status !== "done" && ["skill", "step", "cert"].includes(s.kind));
-  const rank = (s: (typeof todo)[number]) => (s.kind === "skill" ? 0 : 2) + (s.year <= d.year ? 0 : 4) + (s.kind === "cert" ? 1 : 0) + (s.optional ? 3 : 0);
-  const skills = [...todo].sort((a, b) => rank(a) - rank(b) || a.year - b.year).slice(0, 3);
-  const avg = d.future?.allJobsGrowth ?? 0;
+  // Skills Remy's path suggested come first; without a path yet, this year's milestones from the road.
+  const todo = d.stops.filter((s) => s.status !== "done" && (s.kind === "skill" || s.kind === "step"));
+  const rank = (s: (typeof todo)[number]) => (s.kind === "skill" ? 0 : 2) + (s.year <= d.year ? 0 : 4) + (s.optional ? 3 : 0);
+  const skills = [...todo].sort((a, b) => rank(a) - rank(b) || a.year - b.year).slice(0, 2);
+  const certs = d.stops.filter((s) => s.kind === "cert" && s.status !== "done").sort((a, b) => +!!a.optional - +!!b.optional).slice(0, 2);
+  const avg = d.future?.allJobsGrowth ?? 0, f0 = d.future?.fields[0];
+  const fastest = [...jobs].sort((a, b) => b.change - a.change)[0];
   const qLeft = d.quests.filter((q) => q.n < q.of).length;
   const who = p.major.trim() ? `studying ${p.major.trim()}` : "still exploring";
   const yearWord = d.year === 5 ? "out of college" : `in your ${YEARS[d.year].toLowerCase()} year`;
-  const close = () => { markSeen(); setOpen(false); setStep(0); };
-  const steps: { say: ReactNode; body: ReactNode }[] = [
-    { say: <><b>Hi{name ? ` ${name}` : ""}.</b> You're {who}, {yearWord}. Here's how your job could look.</>,
-      body: top ? <button className="ps-job" onClick={() => { onField("roles", top.soc); close(); }} data-testid="button-hello-job">
-        <b>{top.title}</b>
-        <span className="ps-facts">{top.wage ? <span><DollarSign size={14} />{money(top.wage)} median</span> : null}<span className={top.change >= avg ? "up" : ""}><TrendingUp size={14} />{top.change > 0 ? "+" : ""}{top.change}% by 2035</span>{top.openings ? <span><Briefcase size={14} />{Math.round(top.openings * 1000).toLocaleString("en-US")} openings a year</span> : null}</span>
-      </button> : <p className="ps-none">Tell me your major and I'll show you real pay and growth for your field.</p> },
-    { say: <>These are other jobs {p.major ? "your major" : "this field"} leads to. Tap one and I'll walk you through it.</>,
-      body: <div className="ps-roles">{roles.map((o) => <button key={o.soc} onClick={() => { onField("roles", o.soc); close(); }} data-testid="button-hello-role"><b>{shortRole(o.title)}</b>{o.wage ? <small>{money(o.wage)}</small> : null}</button>)}</div> },
-    { say: <>Here's what to work on now, while you're {d.year === 5 ? "starting out" : `a ${YEARS[d.year].toLowerCase()}`}. Tap one to see why it matters.</>,
-      body: skills.length ? <div className="ps-roles">{skills.map((s) => s.kind === "step"
-        ? <div key={s.id} className="ps-step"><b>{s.title}</b><small>{s.sub}</small></div>
-        : <button key={s.id} onClick={() => { onField(s.kind === "cert" ? "certs" : "skills", s.id); close(); }} data-testid="button-hello-skill"><b>{s.title}</b><small>{s.sub}</small></button>)}</div> : <p className="ps-none">You've covered the core skills for this stage. Nice.</p> },
-    { say: qLeft ? <>Today: {qLeft} quest{qLeft === 1 ? "" : "s"} left, about {qLeft * 2} minutes. Each one moves you up the season.</> : <>All three quests done today. Your streak is safe.</>,
-      body: <button className="btn btn-primary" onClick={() => { close(); play(); }} data-testid="button-hello-start">{qLeft ? "Start today's cards" : "Play again"} <ArrowRight size={15} /></button> },
+  const asA = d.year === 5 ? "starting out" : `a ${YEARS[d.year].toLowerCase()}`;
+  const close = () => { markSeen(); setOn(false); setStep(0); onField("today"); };
+  const pick = (tab: SideTab, open = "") => { onField(tab, open); };
+  const chip = (key: string, label: string, sub: string, act: () => void, testid: string) => <button key={key} onClick={act} data-testid={testid}><b>{label}</b><small>{sub}</small></button>;
+  // [what he says, what he shows, fox position (% across the room), the object he points at (room coords), the panel tab]
+  const steps: [ReactNode, ReactNode, number, [number, number] | null, SideTab][] = [
+    [<><b>Hi{name ? ` ${name}` : ""}.</b> You're {who}, {yearWord}. Out that window is where you're headed:</>,
+      top ? <button className="ps-job" onClick={() => pick("roles", top.soc)} data-testid="button-hello-job"><b>{top.title}</b>
+        <span className="ps-facts">{top.wage ? <span><DollarSign size={13} />{money(top.wage)} median</span> : null}<span className={top.change >= avg ? "up" : ""}><TrendingUp size={13} />{top.change > 0 ? "+" : ""}{top.change}% by 2035</span>{top.openings ? <span><Briefcase size={13} />{Math.round(top.openings * 1000).toLocaleString("en-US")} openings a year</span> : null}</span></button>
+        : <p className="ps-none">Tell me your major and I'll show you real pay and growth for your field.</p>, 66, [670, 145], "roles"],
+    [<>Every book on this shelf is a job you've decoded. Here are more your {p.major ? "major" : "field"} leads to:</>,
+      <div className="ps-roles">{roles.map((o) => chip(o.soc, shortRole(o.title), o.wage ? money(o.wage) : "", () => pick("roles", o.soc), "button-hello-role"))}</div>, 34, [170, 140], "roles"],
+    [<>What to work on now, while you're {asA}:</>,
+      skills.length ? <div className="ps-roles">{skills.map((s) => chip(s.id, s.title, s.sub, () => pick("skills", s.id), "button-hello-skill"))}</div> : <p className="ps-none">You've covered this stage. Nice.</p>, 52, [520, 276], "skills"],
+    [<>This frame is for your first certification. The ones that matter in your field:</>,
+      certs.length ? <div className="ps-roles">{certs.map((s) => chip(s.id, s.title, s.sub, () => pick("certs", s.id), "button-hello-cert"))}</div> : <p className="ps-none">Your field doesn't require one. Projects matter more.</p>, 30, [106, 247], "certs"],
+    [<>The forecast for your field: {f0 ? <><b>{f0.fasterThanAverage} of {f0.total}</b> jobs grow faster than average</> : "how jobs change by 2035"}{fastest ? <>, fastest is <b>{fastest.title.toLowerCase()}</b> ({fastest.change > 0 ? "+" : ""}{fastest.change}%)</> : null}.</>,
+      <button className="btn btn-secondary btn-sm" onClick={() => pick("forecast")} data-testid="button-hello-forecast">See the forecast <ArrowRight size={14} /></button>, 66, [670, 190], "forecast"],
+    [qLeft ? <>That's your office. Today: {qLeft} quest{qLeft === 1 ? "" : "s"} left, about {qLeft * 2} minutes. Each one adds to the room.</> : <>That's your office. All three quests done today, your streak is safe.</>,
+      <button className="btn btn-primary btn-sm" onClick={() => { close(); play(); }} data-testid="button-hello-start">{qLeft ? "Start today's cards" : "Play again"} <ArrowRight size={14} /></button>, 50, null, "today"],
   ];
-  if (!open) return (
-    <section className="ps-hello closed" aria-label="Remy" data-testid="path-hello">
-      <Remy size={40} mood="idle" />
-      <p><b>{qLeft ? `${qLeft} quest${qLeft === 1 ? "" : "s"} left today.` : "Done for today."}</b> {top ? `${top.title}: ${top.wage ? `${money(top.wage)} median, ` : ""}${top.change > 0 ? "+" : ""}${top.change}% by 2035.` : ""}</p>
-      <button className="btn btn-ghost btn-sm" onClick={() => setOpen(true)} data-testid="button-hello-again">Walk me through it</button>
-    </section>
-  );
-  const st = steps[step];
-  return (
-    <section className="ps-hello" aria-label="Remy walks you through My Path" data-testid="path-hello">
-      <span className="ps-walker"><Remy size={128} mood={step === 0 ? "wave" : "idle"} /></span>
-      <div className="ps-bubble" aria-live="polite">
-        <span className="pm-kicker">Remy · {step + 1} of {steps.length}</span>
-        <p>{st.say}</p>
-        {st.body}
-        <div className="ps-nav">
-          <span className="ps-dots" aria-hidden="true">{steps.map((_, i) => <i key={i} className={i === step ? "on" : ""} />)}</span>
-          <button className="btn btn-ghost btn-sm" onClick={close} data-testid="button-hello-skip">{step === steps.length - 1 ? "Close" : "Skip"}</button>
-          {step < steps.length - 1 && <button className="btn btn-secondary btn-sm" onClick={() => setStep(step + 1)} data-testid="button-hello-next">Next <ArrowRight size={14} /></button>}
-        </div>
-      </div>
-    </section>
-  );
+  const go2 = (i: number) => { setStep(i); setWalking(true); onField(steps[i][4]); setTimeout(() => setWalking(false), 900); };
+  const start = () => { setOn(true); go2(0); };
+  // the panel follows him on the first step too
+  useEffect(() => { if (on) onField(steps[step][4]); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [say, body, fox, ring] = steps[step];
+  const bubble = <>
+    <span className="pm-kicker">Remy · {step + 1} of {steps.length}</span>
+    <p>{say}</p>{body}
+    <div className="ps-nav">
+      <span className="ps-dots" aria-hidden="true">{steps.map((_, i) => <i key={i} className={i === step ? "on" : ""} />)}</span>
+      <button className="btn btn-ghost btn-sm" onClick={close} data-testid="button-hello-skip">{step === steps.length - 1 ? "Done" : "Skip"}</button>
+      {step < steps.length - 1 && <button className="btn btn-secondary btn-sm" onClick={() => go2(step + 1)} data-testid="button-hello-next">Next <ArrowRight size={14} /></button>}
+    </div></>;
+  return { on, step, start, walking, fox: on ? fox : 50, ring, bubble };
 }
+
 const shortRole = (t: string) => t.replace(/,.*$/, "").replace(/ and /g, " & ");
 
 
@@ -317,54 +325,64 @@ function LevelUp({ d }: { d: D }) {
 
 /* ------------------------------------------------------------------ your field */
 
-/** The merged view: the field's roles with their forecast, plus its skills and certifications, behind one switch. */
-function FieldView({ d, focus }: { d: D; focus: { tab: FieldTab; open: string; n: number } }) {
-  const [tab, setTab] = useState<FieldTab>(focus.tab);
-  const [open, setOpen] = useState(focus.open);
-  // Remy (or an office object) points here: switch to that list and open the row he named.
-  useEffect(() => { if (focus.n) { setTab(focus.tab); setOpen(focus.open); if ((d.careers?.[0]?.jobs || []).findIndex((o) => o.soc === focus.open) >= 8) setAll(true); } }, [focus.n]); // eslint-disable-line react-hooks/exhaustive-deps
+type SideTab = "today" | "roles" | "skills" | "certs" | "forecast";
+
+/** The panel beside the office: today's quests, then your field's roles, skills, certifications and forecast.
+ *  Office objects and Remy's walk-through switch it, so nothing opens far down the page. */
+function Side({ d, tab, setTab, open, setOpen }: { d: D; tab: SideTab; setTab: (t: SideTab) => void; open: string; setOpen: (s: string) => void }) {
   const jobs = d.careers?.[0]?.jobs || [];
   const avg = d.future?.allJobsGrowth ?? 0;
   const f0 = d.future?.fields[0];
   const known = new Set((stateOf(d.w).known || []).map((k) => k.toLowerCase()));
   const mine = new Set((d.w.profile.targetRoles || "").toLowerCase().split(/,\s*/).filter(Boolean));
-  const max = Math.max(10, ...jobs.map((o) => Math.abs(o.change)));
-  const skills = d.stops.filter((s) => s.kind === "skill"), certs = d.stops.filter((s) => s.kind === "cert");
-  const [all, setAll] = useState(false);
-  const shown = all ? jobs : jobs.slice(0, 8);
+  const max = Math.max(10, ...jobs.map((o) => Math.abs(o.change)), ...(f0 ? [...f0.growing, ...f0.shrinking].map((o) => Math.abs(o.change)) : []));
+  const skills = d.stops.filter((s) => s.kind === "skill" || s.kind === "step").sort((a, b) => a.year - b.year), certs = d.stops.filter((s) => s.kind === "cert");
+  const row = (o: Occ) => <RoleRow key={o.soc} o={o} avg={avg} max={max} known={known.has(o.title.toLowerCase())} mine={mine.has(o.title.toLowerCase())} open={open === o.soc} onOpen={() => setOpen(open === o.soc ? "" : o.soc)} />;
+  // the row Remy named scrolls into view inside the panel
+  useEffect(() => { if (open) setTimeout(() => document.querySelector(".ps-side .pm-row.open")?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 80); }, [open, tab]);
+  const tabs: [SideTab, string, number | null][] = [["today", "Today", null], ["roles", "Roles", jobs.length], ["skills", "Skills", skills.length], ["certs", "Certs", certs.length], ["forecast", "Forecast", null]];
   return (
-    <section className="pm-field" aria-label="Your field" id="path-field" data-testid="path-field">
-      <header className="pm-field-head">
-        <div><h3>Your field: {d.road?.label.toLowerCase() || d.careers?.[0]?.field}</h3>{f0 && <p><b>{f0.fasterThanAverage} of {f0.total}</b> jobs grow faster than the average job (+{avg}%) by 2035.</p>}</div>
-        <select className="input ps-select" value={d.road?.key || ""} onChange={(e) => { d.setKey(e.target.value); setOpen(""); }} aria-label="Field" data-testid="select-road">
-          {ROADS.map((r) => <option key={r.key} value={r.key}>{r.label}{r.key === d.mine?.key ? " (yours)" : ""}</option>)}
-        </select>
+    <section className="ps-side" aria-label="Today and your field" id="path-field" data-testid="path-field">
+      <header className="ps-side-head">
         <div className="pm-seg" role="tablist">
-          {([["roles", "Roles", jobs.length], ["skills", "Skills", skills.length], ["certs", "Certifications", certs.length]] as const).map(([k, l, n]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => { setTab(k); setOpen(""); }}>{l} <span>{n}</span></button>)}
+          {tabs.map(([k, l, n]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => { setTab(k); setOpen(""); }} data-testid={`tab-side-${k}`}>{l}{n !== null && <span>{n}</span>}</button>)}
         </div>
       </header>
-      {tab === "roles" && <>
-        <FieldTiles jobs={jobs} />
-        <ul className="pm-rows">
-          {shown.map((o) => <RoleRow key={o.soc} o={o} avg={avg} max={max} known={known.has(o.title.toLowerCase())} mine={mine.has(o.title.toLowerCase())} open={open === o.soc} onOpen={() => setOpen(open === o.soc ? "" : o.soc)} />)}
-        </ul>
-        {jobs.length > 8 && <button className="pm-link" onClick={() => setAll(!all)}>{all ? "Show fewer" : `Show all ${jobs.length} roles`} <ArrowRight size={14} /></button>}
-        <p className="pm-src">Pay, openings and growth: {d.future?.source || "U.S. Bureau of Labor Statistics"}. The line on each bar is the average job.</p>
-      </>}
-      {tab !== "roles" && (
-        <ul className="pm-rows">
-          {(tab === "skills" ? skills : certs).map((s) => (
-            <li key={s.id} className={"pm-row role" + (open === s.id ? " open" : "")}>
-              <button className="pm-row-btn two" onClick={() => setOpen(open === s.id ? "" : s.id)} aria-expanded={open === s.id}>
-                <span className={"pm-ico" + (s.status === "done" ? " known" : "")}>{s.status === "done" ? <Check size={16} strokeWidth={3} /> : tab === "skills" ? <Wrench size={16} /> : <Award size={16} />}</span>
-                <div className="pm-role-main"><b>{s.title}</b><small>{tab === "skills" ? s.sub : s.cred ? NEED_LABEL[s.cred.need] : ""} · usually {YEARS[s.year].toLowerCase()}</small></div>
-                <span className={"pm-pill " + s.status}>{s.status === "done" ? "Done" : s.progress ? "On your list" : "Open"}</span>
-              </button>
-              {open === s.id && <div className="pm-row-detail"><StopDetail s={s} future={d.future} onPlay={play} /></div>}
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="ps-side-body">
+        {tab === "today" && <><Quests d={d} /><BigMove d={d} /></>}
+        {tab !== "today" && <div className="ps-field-line">
+          <span>Your field</span>
+          <select className="input ps-select" value={d.road?.key || ""} onChange={(e) => { d.setKey(e.target.value); setOpen(""); }} aria-label="Field" data-testid="select-road">
+            {ROADS.map((r) => <option key={r.key} value={r.key}>{r.label}{r.key === d.mine?.key ? " (yours)" : ""}</option>)}
+          </select>
+        </div>}
+        {tab === "roles" && <>
+          <FieldTiles jobs={jobs} />
+          <ul className="pm-rows">{jobs.map(row)}</ul>
+          <p className="pm-src">Pay, openings and growth: {d.future?.source || "U.S. Bureau of Labor Statistics"}. The line on each bar is the average job.</p>
+        </>}
+        {(tab === "skills" || tab === "certs") && (
+          <ul className="pm-rows">
+            {(tab === "skills" ? skills : certs).map((s) => (
+              <li key={s.id} className={"pm-row role" + (open === s.id ? " open" : "")}>
+                <button className="pm-row-btn two" onClick={() => setOpen(open === s.id ? "" : s.id)} aria-expanded={open === s.id}>
+                  <span className={"pm-ico" + (s.status === "done" ? " known" : "")}>{s.status === "done" ? <Check size={16} strokeWidth={3} /> : s.kind === "skill" ? <Wrench size={16} /> : s.kind === "step" ? <Compass size={16} /> : <Award size={16} />}</span>
+                  <div className="pm-role-main"><b>{s.title}</b><small>{s.kind === "step" ? s.sub : `${s.kind === "cert" && s.cred ? NEED_LABEL[s.cred.need] : s.sub} · ${s.year === 5 ? "after college" : `usually ${YEARS[s.year].toLowerCase()}`}`}</small></div>
+                  <span className={"pm-pill " + s.status}>{s.status === "done" ? "Done" : s.progress ? "On your list" : s.year === d.year ? "This year" : "Open"}</span>
+                </button>
+                {open === s.id && <div className="pm-row-detail"><StopDetail s={s} future={d.future} onPlay={play} /></div>}
+              </li>
+            ))}
+            {!(tab === "skills" ? skills : certs).length && <p className="ps-none">Nothing here yet for this field. Build your path and Remy adds skills that fit you.</p>}
+          </ul>
+        )}
+        {tab === "forecast" && <>
+          {f0 && <p className="ps-fc"><b>{f0.fasterThanAverage} of {f0.total}</b> jobs in {d.road?.label.toLowerCase() || f0.field} grow faster than the average job (+{avg}%) by 2035.</p>}
+          {f0?.growing.length ? <><h4 className="ps-h4 up"><TrendingUp size={15} /> Growing</h4><ul className="pm-rows">{f0.growing.map(row)}</ul></> : null}
+          {f0?.shrinking.length ? <><h4 className="ps-h4 neg"><TrendingDown size={15} /> Shrinking</h4><ul className="pm-rows">{f0.shrinking.map(row)}</ul></> : null}
+          <p className="pm-src">Projections: {d.future?.source || "U.S. Bureau of Labor Statistics"}.</p>
+        </>}
+      </div>
     </section>
   );
 }
@@ -403,30 +421,20 @@ function RoleRow({ o, avg, max, known, mine, open, onOpen }: { o: Occ; avg: numb
 }
 
 
-type FieldTab = "roles" | "skills" | "certs";
-
 export function PathBoard() {
   const d = usePathData();
-  const [focus, setFocus] = useState<{ tab: FieldTab; open: string; n: number }>({ tab: "roles", open: "", n: 0 });
-  const onField = (tab: FieldTab, open = "") => {
-    setFocus((f) => ({ tab, open, n: f.n + 1 }));
-    setTimeout(() => document.getElementById("path-field")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
-  };
+  const [tab, setTab] = useState<SideTab>("today");
+  const [open, setOpen] = useState("");
+  const onField = (t: SideTab, o = "") => { setTab(t); setOpen(o); };
   if (!d.careers || !d.future) return <div className="card card-pad row"><Spinner /> <span className="muted">Remy is getting your path ready…</span></div>;
   return (
     <div className="pm ps" data-testid="path-board">
-      <Hello d={d} onField={onField} />
       <Season d={d} />
-      <div className="ps-body">
+      <div className="ps-stage">
         <Office d={d} onField={onField} />
-        <div className="ps-rail">
-          <Quests d={d} />
-          <BigMove d={d} />
-        </div>
+        <Side d={d} tab={tab} setTab={setTab} open={open} setOpen={setOpen} />
       </div>
-      <FieldView d={d} focus={focus} />
       <LevelUp d={d} />
     </div>
   );
 }
-
