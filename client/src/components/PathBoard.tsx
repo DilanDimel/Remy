@@ -3,7 +3,7 @@
 // gives a reward at every level (Remy's outfits or a new thing for his office); quests and the week's big move come from
 // every tab; "Your field" (roles, skills, certifications) sits on the page. Every number comes from data Remy already
 // has (DailyPath.tsx buildStops, shared/daily.ts, shared/game.ts, BLS via /api/careers and /api/future).
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { ArrowRight, Award, Briefcase, Check, Compass, DollarSign, Eye, Flame, Gift, Snowflake, TrendingDown, TrendingUp, Wrench, Zap } from "lucide-react";
 import { ROADS, roadFor, YEARS, yearNumber, NEED_LABEL } from "@shared/roads";
 import { rankOf, weekKey, weekMissions, doneThisWeek, counters, xpOf, nextOutfit, unlockedOutfits, levelReward, OFFICE, RANKS, WARDROBE } from "@shared/game";
@@ -121,16 +121,82 @@ function OfficeThing({ k }: { k: string }) {
   return <svg className="ps-thing" viewBox="0 0 44 40" aria-hidden="true">{art[k] || <circle cx="22" cy="20" r="10" {...st} />}</svg>;
 }
 
+/* Where Remy can be in his office (room units, viewBox 0 40 860 430). y is the top of his drawing: seated he shows
+   from the chest up behind the desk; standing, his feet touch the floor behind the desk's front edge. */
+const FOX_S = 0.62;
+type Spot = "desk" | "shelf" | "window";
+const SPOTS: Record<Spot, { x: number; y: number; sit?: boolean }> = { desk: { x: 455, y: 208, sit: true }, shelf: { x: 262, y: 192 }, window: { x: 668, y: 192 } };
+type Pose = "" | "type" | "point" | "point-low";
+const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** Remy in the room: sits at his desk and types, gets up and walks to things, points at them, and strolls to the window
+ *  now and then. Moves are a short chain of timers so a new move always cancels the one before it. */
+function useDeskFox() {
+  const [x, setX] = useState(SPOTS.desk.x), [y, setY] = useState(SPOTS.desk.y);
+  const [walk, setWalk] = useState(0), [face, setFace] = useState<1 | -1>(1), [pose, setPose] = useState<Pose>("");
+  const at = useRef<Spot>("desk"), timers = useRef<number[]>([]);
+  const later = (fn: () => void, ms: number) => { timers.current.push(window.setTimeout(fn, ms)); };
+  const stop = () => { timers.current.forEach(clearTimeout); timers.current = []; };
+  useEffect(() => { return stop; }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  /** Walk to a spot, then hold a pose there. Returns how long the walk takes. */
+  const moveTo = (to: Spot, endPose: Pose = "", endFace: 1 | -1 = 1, wait = 0) => {
+    stop(); setPose("");
+    const from = SPOTS[at.current], t = SPOTS[to], still = reduced();
+    const rise = from.sit && to !== at.current ? 380 : 0;
+    const ms = to === at.current || still ? 0 : Math.round(500 + Math.abs(t.x - from.x) * 2.4);
+    at.current = to;
+    if (rise) later(() => setY(SPOTS.shelf.y), wait); // stand up first
+    later(() => { if (ms) { setFace(t.x < from.x ? -1 : 1); setWalk(ms); } setX(t.x); }, wait + rise);
+    later(() => { setWalk(0); setY(t.y); setFace(endFace); setPose(endPose); }, wait + rise + ms + 40);
+    return wait + rise + ms + 40;
+  };
+  return { x, y, walk, face, pose, setPose, moveTo, later, stop, seated: () => at.current === "desk" };
+}
+
 function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) => void }) {
   const g = useGuide(d, onField);
+  const fox = useDeskFox();
+  const [mood, setMood] = useState<"idle" | "wave">("idle");
   const has = (k: string) => (OFFICE.find(([key]) => key === k)?.[2] || 99) <= d.lv.n;
   const known = (d.g.known || []).length, books = Math.min(8, known), resume = !!d.w.resume, applied = d.w.applications.length > 0;
   const cert = d.stops.some((s) => s.kind === "cert" && s.status === "done");
   const nextItem = OFFICE.find(([, , l]) => l > d.lv.n);
+  const owned = unlockedOutfits(d.g.bestRank || d.lv.n, d.w.profile.classYear), wearing = d.g.outfit && owned.includes(d.g.outfit) ? d.g.outfit : "suit";
+  const suit = Object.fromEntries((OUTFITS[wearing] || OUTFITS.suit).vars.split(";").map((kv) => kv.split(":"))) as CSSProperties;
   const ink = "var(--ink)", line = { stroke: ink, strokeWidth: 2.5, strokeLinejoin: "round" as const };
   const ghost = { fill: "none", stroke: "var(--fox-deep)", strokeOpacity: 0.45, strokeWidth: 2, strokeDasharray: "4 4" };
   const at = (x: number, y: number) => ({ left: `${(x / 860) * 100}%`, top: `${((y - 40) / 430) * 100}%` });
   const bookColors = ["var(--fox)", "var(--sage)", "var(--ink)", "var(--blue)", "var(--amber)", "var(--fox-deep)", "var(--sage)", "var(--fox)"];
+
+  // The walk-through moves him: each step names a spot and what he does there. Starting it, he waves first.
+  const stepKey = g.on ? g.step : -1;
+  useEffect(() => {
+    if (!g.on) { setMood("idle"); fox.moveTo("desk"); return; }
+    const s = g.steps[g.step];
+    const greet = g.step === 0 && fox.seated() && !reduced();
+    setMood(greet || s.wave ? "wave" : "idle");
+    const t = fox.moveTo(s.spot, s.pose, s.face, greet ? 1500 : 0);
+    if (greet) fox.later(() => setMood("idle"), t);
+  }, [stepKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // On his own: types for a while, now and then gets up to look out the window. Never during the walk-through.
+  useEffect(() => {
+    if (g.on || reduced()) return;
+    let t = 0;
+    fox.later(() => fox.setPose("type"), 1200);
+    const tick = () => { t = window.setTimeout(() => {
+      if (!document.hidden && fox.seated()) {
+        const r = Math.random();
+        if (r < 0.55) { fox.setPose("type"); fox.later(() => fox.setPose(""), 5000); }
+        else if (r < 0.8) { const ms = fox.moveTo("window"); fox.later(() => fox.moveTo("desk", "type"), ms + 3800); }
+      }
+      tick();
+    }, 9000 + Math.random() * 6000); };
+    tick();
+    return () => clearTimeout(t);
+  }, [g.on]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const arrived = !fox.walk;
+  const ring = g.on && arrived ? g.steps[g.step].ring : null;
   return (
     <section className="ps-office" aria-label="Remy's office" data-testid="path-office">
       <div className="pt-card-head"><span className="pm-kicker dark">Remy's office</span><span className="pm-faint">{nextItem ? `Level ${nextItem[2]} adds a ${nextItem[1].toLowerCase()}` : "Fully furnished"}</span>
@@ -138,62 +204,86 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
       <div className="ps-roomwrap">
       <div className={"ps-room" + (g.on ? " guiding" : "")} data-testid="path-hello">
         <svg className="ps-scene" viewBox="0 40 860 430" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+          <defs><clipPath id="ps-win"><rect x="560" y="56" width="220" height="152" rx="10" /></clipPath></defs>
+          {/* the wall */}
           <rect x="0" y="352" width="860" height="118" fill="color-mix(in srgb, var(--fox) 14%, var(--fox-soft))" />
-          {has("rug") && <ellipse cx="430" cy="420" rx="220" ry="32" fill="var(--fox-soft)" stroke={ink} strokeWidth="2.5" />}
           <line x1="0" y1="352" x2="860" y2="352" {...line} />
-          <rect x="560" y="60" width="220" height="170" rx="10" fill="var(--surface)" {...line} />
-          <path d={has("skyline") ? "M570 220V150h24v-40h20v110h18V90h26v130h14v-80h22v80h20v-50h16v50h20V220z" : "M570 220V180h24v-30h20v50h18v-70h26v70h14v-40h22v40h20v-20h16v20h20V220z"} fill={has("skyline") ? "var(--blue-bg)" : "color-mix(in srgb, var(--fox) 22%, var(--surface))"} />
-          <line x1="670" y1="60" x2="670" y2="230" {...line} /><line x1="560" y1="145" x2="780" y2="145" {...line} />
-          <rect x="70" y="178" width="200" height="10" rx="3" fill="var(--surface)" {...line} />
-          {Array.from({ length: 8 }, (_, i) => { const h = [62, 54, 66, 58, 62, 52, 60, 56][i], x = 82 + i * 22; return i < books
+          <rect x="560" y="56" width="220" height="152" rx="10" fill="var(--surface)" />
+          <g clipPath="url(#ps-win)">
+            <path className="ps-cloud" d="M560 96a11 11 0 0 1 20-6a13 13 0 0 1 24 4a9 9 0 0 1 0 18h-40a8 8 0 0 1-4-16z" fill="var(--blue-bg)" />
+            <path className="ps-cloud two" d="M560 74a8 8 0 0 1 14-4a10 10 0 0 1 18 3a7 7 0 0 1 0 14h-30a6 6 0 0 1-2-13z" fill="var(--blue-bg)" />
+            <path d={has("skyline") ? "M570 208V140h24v-40h20v108h18V82h26v126h14v-80h22v80h20v-50h16v50h20V208z" : "M570 208V170h24v-30h20v68h18v-80h26v80h14v-40h22v40h20v-20h16v20h20V208z"} fill={has("skyline") ? "var(--blue-bg)" : "color-mix(in srgb, var(--fox) 22%, var(--surface))"} />
+          </g>
+          <rect x="560" y="56" width="220" height="152" rx="10" fill="none" {...line} />
+          <line x1="670" y1="56" x2="670" y2="208" {...line} /><line x1="560" y1="132" x2="780" y2="132" {...line} />
+          <rect x="40" y="178" width="200" height="10" rx="3" fill="var(--surface)" {...line} />
+          {Array.from({ length: 8 }, (_, i) => { const h = [62, 54, 66, 58, 62, 52, 60, 56][i], x = 52 + i * 22; return i < books
             ? <rect key={i} x={x} y={178 - h} width="18" height={h} rx="2" fill={bookColors[i]} {...line} />
             : <rect key={i} x={x} y={178 - h} width="18" height={h} rx="2" {...ghost} />; })}
-          <rect x="70" y="268" width="200" height="10" rx="3" fill="var(--surface)" {...line} />
-          {cert ? <rect x="86" y="226" width="40" height="42" rx="4" fill="var(--amber-bg)" {...line} /> : <rect x="86" y="226" width="40" height="42" rx="4" {...ghost} />}
-          {has("trophy") && <g transform="translate(150 228)"><path d="M14 6h16v8a8 8 0 0 1-16 0z" fill="var(--amber-bg)" {...line} /><path d="M22 22v10M14 38h16" {...line} /></g>}
-          {resume ? <><rect x="330" y="70" width="92" height="116" rx="6" fill="var(--surface)" {...line} /><path d="M352 100h48M352 112h40M352 124h46M352 136h30M352 148h42" stroke="var(--muted-text)" strokeWidth="3" strokeLinecap="round" /></>
-            : <rect x="330" y="70" width="92" height="116" rx="6" {...ghost} />}
-          {has("painting") && <g transform="translate(450 84)"><rect width="70" height="54" rx="3" fill="var(--surface)" {...line} /><path d="M6 48l18-22 14 16 9-9 17 15z" fill="var(--sage)" /></g>}
-          {has("clock") && <g transform="translate(800 70)"><circle r="20" cx="0" cy="20" fill="var(--surface)" {...line} /><path d="M0 8v12l8 6" fill="none" {...line} /></g>}
-          <rect x="250" y="300" width="360" height="20" rx="5" fill="var(--surface)" {...line} />
-          <path d="M272 320v80M588 320v80" stroke={ink} strokeWidth="5" strokeLinecap="round" />
-          <path d="M470 300l12-48h86l-12 48z" fill="var(--ink)" {...line} />
-          <g transform="translate(-30 0)"><path d="M300 300h36l-5-26h-26z" fill="var(--fox)" {...line} />
-            {d.streak.days > 0 && <path d="M318 274C318 250 304 240 296 232M318 270C322 248 336 238 346 236M318 262C316 244 318 228 320 218" stroke="var(--sage)" strokeWidth="4" fill="none" strokeLinecap="round" />}</g>
-          {has("lamp") && <g transform="translate(566 248)"><path d="M10 52h26M23 52V22" {...line} /><path d="M8 22l8-16h14l6 16z" fill="var(--amber-bg)" {...line} /></g>}
-          {has("mug") && <g transform="translate(400 278)"><path d="M0 0h16v16a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4z" fill="var(--fox)" {...line} /></g>}
-          {has("globe") && <g transform="translate(700 300)"><circle cx="22" cy="22" r="20" fill="var(--blue-bg)" {...line} /><path d="M2 22h40M22 2c-8 10-8 30 0 40M22 2c8 10 8 30 0 40" fill="none" {...line} /><path d="M10 52h24M22 42v10" {...line} /></g>}
-          {has("bigplant") && <g transform="translate(780 330)"><path d="M0 70h40l-6-36H6z" fill="var(--fox)" {...line} /><path d="M20 34C20 10 2 0-6-10M20 34C20 10 38 0 46-10M20 34V-20" stroke="var(--sage)" strokeWidth="5" fill="none" strokeLinecap="round" /></g>}
-          {applied ? <g transform="translate(640 372)"><rect width="86" height="60" rx="8" fill="var(--fox-deep)" {...line} /><path d="M26 0v-12h34v12" fill="none" {...line} /></g>
-            : <g transform="translate(640 372)"><rect width="86" height="60" rx="8" {...ghost} /><path d="M26 0v-12h34v12" {...ghost} /></g>}
+          <rect x="40" y="268" width="200" height="10" rx="3" fill="var(--surface)" {...line} />
+          {cert ? <rect x="56" y="226" width="40" height="42" rx="4" fill="var(--amber-bg)" {...line} /> : <rect x="56" y="226" width="40" height="42" rx="4" {...ghost} />}
+          {has("trophy") && <g transform="translate(130 228)"><path d="M14 6h16v8a8 8 0 0 1-16 0z" fill="var(--amber-bg)" {...line} /><path d="M22 22v10M14 38h16" {...line} /></g>}
+          {resume ? <><rect x="282" y="70" width="92" height="116" rx="6" fill="var(--surface)" {...line} /><path d="M304 100h48M304 112h40M304 124h46M304 136h30M304 148h42" stroke="var(--muted-text)" strokeWidth="3" strokeLinecap="round" /></>
+            : <rect x="282" y="70" width="92" height="116" rx="6" {...ghost} />}
+          {has("painting") && <g transform="translate(410 84)"><rect width="70" height="54" rx="3" fill="var(--surface)" {...line} /><path d="M6 48l18-22 14 16 9-9 17 15z" fill="var(--sage)" /></g>}
+          {has("clock") && <g transform="translate(818 64)"><circle r="20" cx="0" cy="20" fill="var(--surface)" {...line} /><path className="ps-hand" d="M0 20V8" fill="none" {...line} /><path d="M0 20l8 6" fill="none" {...line} /></g>}
+          {has("rug") && <ellipse cx="470" cy="430" rx="230" ry="30" fill="var(--fox-soft)" stroke={ink} strokeWidth="2.5" />}
+          {has("globe") && <g transform="translate(790 300)"><circle cx="22" cy="22" r="20" fill="var(--blue-bg)" {...line} /><path d="M2 22h40M22 2c-8 10-8 30 0 40M22 2c8 10 8 30 0 40" fill="none" {...line} /><path d="M10 52h24M22 42v10" {...line} /></g>}
+          {/* his chair, then Remy, then the desk in front of him */}
+          <path d="M398 340V262c0-22 14-34 57-34s57 12 57 34v78z" fill="var(--fox-deep)" {...line} />
+          <path d="M414 330V266c0-12 10-22 41-22s41 10 41 22v64" fill="none" stroke="color-mix(in srgb, var(--white) 30%, transparent)" strokeWidth="2.5" />
+          <g className={"ps-fox" + (fox.walk ? " walk" : "") + (fox.y === SPOTS.desk.y && fox.x === SPOTS.desk.x ? " sit" : "")} style={{ transform: `translateX(${fox.x - 100 * FOX_S}px)`, transitionDuration: `${fox.walk || 0}ms` }}>
+            <g className="ps-fox-y" style={{ transform: `translateY(${fox.y}px)` }}>
+              <g transform={`scale(${FOX_S})`}><g transform={fox.face < 0 ? "translate(200 0) scale(-1 1)" : undefined}><g className="ps-fox-bob" style={suit}>
+                <g className="ps-legs">
+                  <g className="ps-leg l"><path d="M82 200v96" className="ps-trouser-ol" /><path d="M82 200v96" className="ps-trouser" /><ellipse cx="76" cy="310" rx="22" ry="10" className="ps-shoe" /></g>
+                  <g className="ps-leg r"><path d="M118 200v96" className="ps-trouser-ol" /><path d="M118 200v96" className="ps-trouser" /><ellipse cx="124" cy="310" rx="22" ry="10" className="ps-shoe" /></g>
+                </g>
+                <Remy size={200} mood={mood} outfit={wearing} className={fox.pose ? `o-${fox.pose}` : ""} />
+              </g></g></g>
+            </g>
+          </g>
+          <rect x="310" y="334" width="320" height="16" rx="5" fill="var(--surface)" {...line} />
+          <rect x="322" y="350" width="296" height="56" rx="3" fill="var(--surface-2)" {...line} />
+          <path d="M532 378h60" {...line} strokeLinecap="round" /><path d="M554 364h16M554 392h16" stroke={ink} strokeWidth="4" strokeLinecap="round" />
+          <g transform="translate(2 34)"><path d="M330 300h36l-5-26h-26z" fill="var(--fox)" {...line} />
+            {d.streak.days > 0 && <g className="ps-sway"><path d="M348 274C348 250 334 240 326 232M348 270C352 248 366 238 376 236M348 262C346 244 348 228 350 218" stroke="var(--sage)" strokeWidth="4" fill="none" strokeLinecap="round" /></g>}</g>
+          {has("lamp") && <g transform="translate(370 282)"><path d="M10 52h26M23 52V22" {...line} /><path d="M8 22l8-16h14l6 16z" fill="var(--amber-bg)" {...line} /></g>}
+          <path d="M498 334l10-46h82l-10 46z" fill="var(--ink)" {...line} /><circle cx="544" cy="310" r="4" fill="var(--fox)" />
+          {has("mug") && <g transform="translate(598 314)"><path d="M0 0h16v16a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4z" fill="var(--fox)" {...line} /><path className="ps-steam" d="M5-4q-3-5 0-9M11-4q3-5 0-9" stroke="var(--muted-text)" strokeWidth="2" fill="none" strokeLinecap="round" /></g>}
+          {/* the front of the room */}
+          {has("bigplant") && <g transform="translate(806 368)"><path d="M0 70h40l-6-36H6z" fill="var(--fox)" {...line} /><g className="ps-sway"><path d="M20 34C20 10 2 0-6-10M20 34C20 10 38 0 46-10M20 34V-20" stroke="var(--sage)" strokeWidth="5" fill="none" strokeLinecap="round" /></g></g>}
+          {applied ? <g transform="translate(60 386)"><rect width="86" height="60" rx="8" fill="var(--fox-deep)" {...line} /><path d="M26 0v-12h34v12" fill="none" {...line} /></g>
+            : <g transform="translate(60 386)"><rect width="86" height="60" rx="8" {...ghost} /><path d="M26 0v-12h34v12" {...ghost} /></g>}
         </svg>
-        {g.on && g.ring && <span className="ps-ring" style={at(g.ring[0], g.ring[1])} aria-hidden="true" />}
-        <span className={"ps-desk-fox" + (g.walking ? " walking" : "")} style={{ left: `${g.fox}%` }}><Remy size={120} mood={g.on && g.step === 0 ? "wave" : "idle"} /></span>
-        <button className="ps-tag" style={at(78, 82)} onClick={() => onField("roles")} data-testid="button-office-books">{known ? `${known} job${known === 1 ? "" : "s"} decoded` : "Decode your first job"}</button>
-        <button className={"ps-tag" + (cert ? "" : " ghost")} style={at(70, 282)} onClick={() => onField("certs")} data-testid="button-office-cert">{cert ? "Certificate earned" : "First certificate"}</button>
-        <button className={"ps-tag" + (resume ? "" : " ghost")} style={at(318, 62)} onClick={() => go("/resume")} data-testid="button-office-resume">{resume ? "Resume on file" : "Add your resume"}</button>
-        <span className="ps-tag still" style={at(236, 328)}>{d.streak.days ? `${d.streak.days}-day streak` : "Plant needs a streak"}</span>
-        <button className={"ps-tag" + (applied ? "" : " ghost")} style={at(626, 440)} onClick={() => go("/opportunities")} data-testid="button-office-briefcase">{applied ? `${d.w.applications.length} applied` : "First application"}</button>
+        {ring && <span className="ps-ring" style={at(ring[0], ring[1])} aria-hidden="true" />}
+        <button className="ps-tag" style={at(40, 92)} onClick={() => onField("roles")} data-testid="button-office-books">{known ? `${known} job${known === 1 ? "" : "s"} decoded` : "Decode your first job"}</button>
+        <button className={"ps-tag" + (cert ? "" : " ghost")} style={at(40, 296)} onClick={() => onField("certs")} data-testid="button-office-cert">{cert ? "Certificate earned" : "First certificate"}</button>
+        <button className={"ps-tag" + (resume ? "" : " ghost")} style={at(282, 58)} onClick={() => go("/resume")} data-testid="button-office-resume">{resume ? "Resume on file" : "Add your resume"}</button>
+        <span className="ps-tag still" style={at(334, 384)}>{d.streak.days ? `${d.streak.days}-day streak` : "Plant needs a streak"}</span>
+        <button className={"ps-tag" + (applied ? "" : " ghost")} style={at(156, 416)} onClick={() => go("/opportunities")} data-testid="button-office-briefcase">{applied ? `${d.w.applications.length} applied` : "First application"}</button>
       </div>
-        {g.on && <div className={"ps-bubble " + (g.fox > 50 ? "left" : "right")} aria-live="polite">{g.bubble}</div>}
+        {g.on && <div className="ps-bubble" style={{ "--tail": `${Math.min(92, Math.max(8, (fox.x / 860) * 100))}%` } as CSSProperties} aria-live="polite" data-testid="path-guide">{g.bubble}</div>}
       </div>
     </section>
   );
 }
 
-/* ------------------------------------------------------------------ Remy walks in and explains */
+/* ------------------------------------------------------------------ Remy walks you through his office */
 
 const HELLO_KEY = "remy-path-hello";
 const seenToday = () => { try { return localStorage.getItem(HELLO_KEY) === dayKey(); } catch { return false; } };
 const markSeen = () => { try { localStorage.setItem(HELLO_KEY, dayKey()); } catch { /* private mode: he greets again next time */ } };
 
+type GuideStep = { say: ReactNode; cta?: ReactNode; spot: Spot; pose: Pose; face?: 1 | -1; wave?: boolean; ring: [number, number] | null; tab: SideTab; open?: string };
+
 /** Remy's walk-through, played inside his office: he walks to each object, says what it means for you, and the panel
- *  beside the office opens the matching list. First visit each day plays it; "Walk me through it" replays it. */
+ *  beside the office opens the matching list with the thing he named. First visit each day plays it; "Walk me through
+ *  it" replays it. Arrow keys step through it and Escape ends it. */
 function useGuide(d: D, onField: (tab: SideTab, open?: string) => void) {
   const p = d.w.profile, name = (p.preferredName || p.name || "").trim().split(/\s+/)[0];
   const [on, setOn] = useState(() => !seenToday() && typeof d.w.settings.tour !== "number"); // waits while the site tour runs, so two guides never talk at once
   const [step, setStep] = useState(0);
-  const [walking, setWalking] = useState(false);
   // While he's in the office, his seat in the side panel sits empty.
   useEffect(() => {
     document.documentElement.classList.toggle("remy-away", on);
@@ -205,54 +295,67 @@ function useGuide(d: D, onField: (tab: SideTab, open?: string) => void) {
   // "Financial analyst" should find BLS's "Financial and investment analysts": every word's stem must appear.
   const fits = (title: string) => targets.some((t) => t.split(/\s+/).every((wd) => title.toLowerCase().includes(wd.slice(0, 6))));
   const top = jobs.find((o) => fits(o.title)) || byOpenings[0];
-  const roles = byOpenings.filter((o) => o !== top).slice(0, 4);
+  const roles = byOpenings.filter((o) => o !== top).slice(0, 2);
   // Skills Remy's path suggested come first; without a path yet, this year's milestones from the road.
   const todo = d.stops.filter((s) => s.status !== "done" && (s.kind === "skill" || s.kind === "step"));
   const rank = (s: (typeof todo)[number]) => (s.kind === "skill" ? 0 : 2) + (s.year <= d.year ? 0 : 4) + (s.optional ? 3 : 0);
   const skills = [...todo].sort((a, b) => rank(a) - rank(b) || a.year - b.year).slice(0, 2);
-  const certs = d.stops.filter((s) => s.kind === "cert" && s.status !== "done").sort((a, b) => +!!a.optional - +!!b.optional).slice(0, 2);
+  const certs = d.stops.filter((s) => s.kind === "cert" && s.status !== "done").sort((a, b) => +!!a.optional - +!!b.optional).slice(0, 1);
   const avg = d.future?.allJobsGrowth ?? 0, f0 = d.future?.fields[0];
   const fastest = [...jobs].sort((a, b) => b.change - a.change)[0];
   const qLeft = d.quests.filter((q) => q.n < q.of).length;
   const who = p.major.trim() ? `studying ${p.major.trim()}` : "still exploring";
   const yearWord = d.year === 5 ? "out of college" : `in your ${YEARS[d.year].toLowerCase()} year`;
   const asA = d.year === 5 ? "starting out" : `a ${YEARS[d.year].toLowerCase()}`;
+  const and = (xs: string[]) => xs.map((x, i) => <span key={i}>{i ? " and " : ""}<b>{x}</b></span>);
   const close = () => { markSeen(); setOn(false); setStep(0); onField("today"); };
-  const pick = (tab: SideTab, open = "") => { onField(tab, open); };
-  const chip = (key: string, label: string, sub: string, act: () => void, testid: string) => <button key={key} onClick={act} data-testid={testid}><b>{label}</b><small>{sub}</small></button>;
-  // [what he says, what he shows, fox position (% across the room), the object he points at (room coords), the panel tab]
-  const steps: [ReactNode, ReactNode, number, [number, number] | null, SideTab][] = [
-    [<><b>Hi{name ? ` ${name}` : ""}.</b> You're {who}, {yearWord}. Out that window is where you're headed:</>,
-      top ? <button className="ps-job" onClick={() => pick("roles", top.soc)} data-testid="button-hello-job"><b>{top.title}</b>
-        <span className="ps-facts">{top.wage ? <span><DollarSign size={13} />{money(top.wage)} median</span> : null}<span className={top.change >= avg ? "up" : ""}><TrendingUp size={13} />{top.change > 0 ? "+" : ""}{top.change}% by 2035</span>{top.openings ? <span><Briefcase size={13} />{Math.round(top.openings * 1000).toLocaleString("en-US")} openings a year</span> : null}</span></button>
-        : <p className="ps-none">Tell me your major and I'll show you real pay and growth for your field.</p>, 66, [670, 145], "roles"],
-    [<>Every book on this shelf is a job you've decoded. Here are more your {p.major ? "major" : "field"} leads to:</>,
-      <div className="ps-roles">{roles.map((o) => chip(o.soc, shortRole(o.title), o.wage ? money(o.wage) : "", () => pick("roles", o.soc), "button-hello-role"))}</div>, 34, [170, 140], "roles"],
-    [<>What to work on now, while you're {asA}:</>,
-      skills.length ? <div className="ps-roles">{skills.map((s) => chip(s.id, s.title, s.sub, () => pick("skills", s.id), "button-hello-skill"))}</div> : <p className="ps-none">You've covered this stage. Nice.</p>, 52, [520, 276], "skills"],
-    [<>This frame is for your first certification. The ones that matter in your field:</>,
-      certs.length ? <div className="ps-roles">{certs.map((s) => chip(s.id, s.title, s.sub, () => pick("certs", s.id), "button-hello-cert"))}</div> : <p className="ps-none">Your field doesn't require one. Projects matter more.</p>, 30, [106, 247], "certs"],
-    [<>The forecast for your field: {f0 ? <><b>{f0.fasterThanAverage} of {f0.total}</b> jobs grow faster than average</> : "how jobs change by 2035"}{fastest ? <>, fastest is <b>{fastest.title.toLowerCase()}</b> ({fastest.change > 0 ? "+" : ""}{fastest.change}%)</> : null}.</>,
-      <button className="btn btn-secondary btn-sm" onClick={() => pick("forecast")} data-testid="button-hello-forecast">See the forecast <ArrowRight size={14} /></button>, 66, [670, 190], "forecast"],
-    [qLeft ? <>That's your office. Today: {qLeft} quest{qLeft === 1 ? "" : "s"} left, about {qLeft * 2} minutes. Each one adds to the room.</> : <>That's your office. All three quests done today, your streak is safe.</>,
-      <button className="btn btn-primary btn-sm" onClick={() => { close(); play(); }} data-testid="button-hello-start">{qLeft ? "Start today's cards" : "Play again"} <ArrowRight size={14} /></button>, 50, null, "today"],
+  const steps: GuideStep[] = [
+    { say: <><b>Hi{name ? ` ${name}` : ""}!</b> You're {who}, {yearWord}. Out that window is where you're headed: {top
+        ? <><b>{top.title.toLowerCase()}</b>{top.wage ? <>, {money(top.wage)} median</> : null}, {top.change > 0 ? "+" : ""}{top.change}% by 2035.</>
+        : <>tell me your major and I'll show you real pay and growth for your field.</>}</>,
+      spot: "window", pose: "point", ring: [670, 118], tab: "roles", open: top?.soc },
+    { say: <>Every book on this shelf is a job you've decoded. {roles.length ? <>Your {p.major ? "major" : "field"} also leads to {and(roles.map((o) => shortRole(o.title).toLowerCase()))}.</> : null} The full list is on the right.</>,
+      spot: "shelf", pose: "point", face: -1, ring: [140, 140], tab: "roles" },
+    { say: skills.length ? <>What I'd work on now, while you're {asA}: {and(skills.map((s) => clip(s.title)))}.</> : <>You've covered this stage. Nice.</>,
+      spot: "desk", pose: "type", ring: null, tab: "skills", open: skills[0]?.id },
+    { say: certs.length ? <>This frame is for your first certification. In your field, start with <b>{clip(certs[0].title)}</b>.</> : <>This frame is for a certification. Your field doesn't require one; projects matter more.</>,
+      spot: "shelf", pose: "point-low", face: -1, ring: [76, 247], tab: "certs", open: certs[0]?.id },
+    { say: <>The forecast for your field: {f0 ? <><b>{f0.fasterThanAverage} of {f0.total}</b> jobs grow faster than average</> : "how jobs change by 2035"}{fastest ? <>, and the fastest is <b>{fastest.title.toLowerCase()}</b> ({fastest.change > 0 ? "+" : ""}{fastest.change}%)</> : null}.</>,
+      spot: "window", pose: "point", ring: [670, 118], tab: "forecast" },
+    { say: qLeft ? <>That's my office. Today you have {qLeft} quest{qLeft === 1 ? "" : "s"} left, about {qLeft * 2} minutes. Each level adds something to the room.</> : <>That's my office. All three quests are done today, so your streak is safe.</>,
+      cta: <button className="btn btn-primary btn-sm" onClick={() => { close(); play(); }} data-testid="button-hello-start">{qLeft ? "Start today's cards" : "Play again"} <ArrowRight size={14} /></button>,
+      spot: "desk", pose: "", wave: true, ring: null, tab: "today" },
   ];
-  const go2 = (i: number) => { setStep(i); setWalking(true); onField(steps[i][4]); setTimeout(() => setWalking(false), 900); };
+  const go2 = (i: number) => { const s = steps[Math.max(0, Math.min(steps.length - 1, i))]; setStep(steps.indexOf(s)); onField(s.tab, s.open || ""); };
   const start = () => { setOn(true); go2(0); };
   // the panel follows him on the first step too
-  useEffect(() => { if (on) onField(steps[step][4]); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const [say, body, fox, ring] = steps[step];
+  useEffect(() => { if (on) go2(step); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!on) return;
+    const key = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.closest?.("input, textarea, select, [contenteditable=true], [role=dialog]")) return;
+      if (e.key === "Escape") close();
+      else if (e.key === "ArrowRight" && step < steps.length - 1) go2(step + 1);
+      else if (e.key === "ArrowLeft" && step > 0) go2(step - 1);
+    };
+    addEventListener("keydown", key);
+    return () => removeEventListener("keydown", key);
+  });
+  const s = steps[step];
   const bubble = <>
     <span className="pm-kicker">Remy · {step + 1} of {steps.length}</span>
-    <p>{say}</p>{body}
+    <p>{s.say}</p>{s.cta}
     <div className="ps-nav">
-      <span className="ps-dots" aria-hidden="true">{steps.map((_, i) => <i key={i} className={i === step ? "on" : ""} />)}</span>
+      <span className="ps-dots" aria-hidden="true">{steps.map((_, i) => <i key={i} className={i === step ? "on" : i < step ? "done" : ""} />)}</span>
+      {step > 0 && step < steps.length - 1 && <button className="btn btn-ghost btn-sm" onClick={() => go2(step - 1)} data-testid="button-hello-back">Back</button>}
       <button className="btn btn-ghost btn-sm" onClick={close} data-testid="button-hello-skip">{step === steps.length - 1 ? "Done" : "Skip"}</button>
       {step < steps.length - 1 && <button className="btn btn-secondary btn-sm" onClick={() => go2(step + 1)} data-testid="button-hello-next">Next <ArrowRight size={14} /></button>}
     </div></>;
-  return { on, step, start, walking, fox: on ? fox : 50, ring, bubble };
+  return { on, step, steps, start, bubble };
 }
 
+/** A stop's title without its aside: "Some students take the SIE (mostly for ...)" → "Some students take the SIE". */
+const clip = (t: string) => t.replace(/\s*[(;:].*$/, "");
 const shortRole = (t: string) => t.replace(/,.*$/, "").replace(/ and /g, " & ");
 
 
@@ -339,7 +442,11 @@ function Side({ d, tab, setTab, open, setOpen }: { d: D; tab: SideTab; setTab: (
   const skills = d.stops.filter((s) => s.kind === "skill" || s.kind === "step").sort((a, b) => a.year - b.year), certs = d.stops.filter((s) => s.kind === "cert");
   const row = (o: Occ) => <RoleRow key={o.soc} o={o} avg={avg} max={max} known={known.has(o.title.toLowerCase())} mine={mine.has(o.title.toLowerCase())} open={open === o.soc} onOpen={() => setOpen(open === o.soc ? "" : o.soc)} />;
   // the row Remy named scrolls into view inside the panel
-  useEffect(() => { if (open) setTimeout(() => document.querySelector(".ps-side .pm-row.open")?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 80); }, [open, tab]);
+  // (inside the panel only, so the page never jumps away from Remy's office on a phone)
+  useEffect(() => { setTimeout(() => {
+    const body = document.querySelector(".ps-side-body"), row = body?.querySelector(".pm-row.open");
+    body?.scrollTo({ top: row ? body.scrollTop + row.getBoundingClientRect().top - body.getBoundingClientRect().top - 8 : 0, behavior: "smooth" });
+  }, 80); }, [open, tab]);
   const tabs: [SideTab, string, number | null][] = [["today", "Today", null], ["roles", "Roles", jobs.length], ["skills", "Skills", skills.length], ["certs", "Certs", certs.length], ["forecast", "Forecast", null]];
   return (
     <section className="ps-side" aria-label="Today and your field" id="path-field" data-testid="path-field">
