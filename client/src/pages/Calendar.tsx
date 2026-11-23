@@ -161,7 +161,7 @@ export default function CalendarPage() {
       {sel && (
         <Modal title={sel.title} onClose={() => setSel(null)}>
           <dl className="kv"><dt>When</dt><dd>{fmtDate(sel.date)}{sel.time ? ` at ${sel.time}` : " (all day)"}</dd><dt>Type</dt><dd>{sel.kind}</dd><dt>Source</dt><dd>{sel.source}</dd></dl>
-          {sel.notes && <p className="small">{sel.notes}</p>}
+          {sel.notes && <p className="small" style={{ whiteSpace: "pre-line" }}>{sel.notes}</p>}
           <div className="row">
             <a className="btn btn-secondary btn-sm" href={gcalLink(sel)} target="_blank" rel="noreferrer" data-testid="link-gcal"><ExternalLink size={14} /> Add to Google Calendar</a>
             {sel.id.startsWith("career-") && <button className="btn btn-secondary btn-sm" onClick={() => download("/api/calendar.ics?id=career", "career-time.ics").catch((e) => toast(e.message, true))}><Download size={14} /> Repeating .ics</button>}

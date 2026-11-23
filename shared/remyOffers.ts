@@ -1,6 +1,7 @@
 import type { ChatAction, Workspace } from "./types";
 import { reviewResume } from "./review";
 import { sameEmployer } from "./org";
+import { dailyStreak, streakDays } from "./daily";
 
 // Owners (Nov 23, "Remy feels alive" #1): Remy notices something on the page you're on and offers to do it, one tap.
 // "Do it" runs the same action as asking him in chat (POST /api/remy/act), so it shows in his chat with Undo.
@@ -9,16 +10,21 @@ import { sameEmployer } from "./org";
 /** "Quiet week" (owners): through settings.quietUntil, Remy keeps to himself. */
 export const quietOn = (s: { quietUntil?: string }, today: string) => !!s.quietUntil && s.quietUntil >= today;
 
+export const PREP_HEAD = "Prep sheet from Remy";
+
 export interface Offer { id: string; pages: string[]; text: string; label: string; action: ChatAction }
 
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(b.slice(0, 10) + "T12:00:00Z") - Date.parse(a.slice(0, 10) + "T12:00:00Z")) / 864e5);
 const when = (n: number) => (n === 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`);
 
 /** Every offer Remy could make now, most urgent first. `today` is the student's local day, YYYY-MM-DD. */
-export function remyOffers(ws: Pick<Workspace, "jobs" | "savedJobIds" | "hiddenJobIds" | "applications" | "tracker" | "calendar" | "resume" | "profile" | "settings">, today: string): Offer[] {
+export function remyOffers(ws: Pick<Workspace, "jobs" | "savedJobIds" | "hiddenJobIds" | "applications" | "tracker" | "calendar" | "resume" | "profile" | "settings" | "game" | "jobFeedback" | "steps" | "chat">, today: string, hour = 12): Offer[] {
   if (quietOn(ws.settings, today)) return [];
   const seen = new Set(ws.settings.offersSeen || []);
   const out: Offer[] = [];
+  // An interview within 3 days with no prep sheet yet (on Calendar, where the sheet lands).
+  for (const c of ws.calendar.filter((x) => x.kind === "Interview" && x.date >= today && daysBetween(today, x.date) <= 3 && !(x.notes || "").startsWith(PREP_HEAD)))
+    out.push({ id: `prep:${c.id}`, pages: ["/calendar"], text: `Want a one-page prep sheet for ${c.title}? Your pitch, your best stories and good questions to ask, right on the event.`, label: "Make it", action: { kind: "prep", calId: c.id } });
   // An interview today or tomorrow: practice it now.
   for (const c of ws.calendar.filter((x) => x.kind === "Interview" && x.date >= today && daysBetween(today, x.date) <= 1)) {
     const job = c.linkedId ? ws.jobs.find((j) => j.id === c.linkedId) : ws.jobs.find((j) => c.title.toLowerCase().includes(j.company.toLowerCase()));
@@ -47,6 +53,9 @@ export function remyOffers(ws: Pick<Workspace, "jobs" | "savedJobIds" | "hiddenJ
     const weak = reviewResume(ws.resume.doc, { listLike: true }).todo.filter((x) => x.kind === "numbers" || x.kind === "verbs").reduce((n, x) => n + ("bullets" in x ? x.bullets.length : 0), 0);
     if (weak >= 2) out.push({ id: `fix:${ws.resume.editedAt || ws.resume.uploadedAt}`, pages: ["/", "/resume"], text: `${weak} lines on your resume could be stronger. Want to fix them together? I'll ask about one at a time.`, label: "Let's fix them", action: { kind: "start", what: "resumeFix" } });
   }
+  // Evening, a streak of 2+ days and nothing yet today: one quick thing keeps it (no guilt, just the offer).
+  const st = dailyStreak(streakDays(ws), today);
+  if (hour >= 17 && st.days >= 2 && !st.todayDone) out.push({ id: `streak:${today}`, pages: ["/", "/path", "/opportunities"], text: `Your ${st.days}-day streak is still open today. One minute keeps it going: want to Keep or Pass one opening?`, label: "Show me one", action: { kind: "go", link: "/opportunities", label: "Opportunities" } });
   return out.filter((o) => !seen.has(o.id));
 }
 

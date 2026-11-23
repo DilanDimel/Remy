@@ -100,8 +100,25 @@ test("quiet week stops offers, check-ins and opening emails, and undoes; a passe
   assert.equal(nudgeFor(ws, new Date(TODAY + "T12:00:00Z")), null);
   assert.equal(undoDid(ws, r.did[0]), null);
   assert.equal(ws.settings.quietUntil, undefined);
-  assert.equal(remyOffers(ws, TODAY).length, 1);
+  assert.equal(remyOffers(ws, TODAY).length, 2); // prep + practice
   assert.match(reachOut(ws, TODAY, "t1"), /How did TCU Career Fair go\?/);
   assert.equal(reachOut(ws, TODAY, "t2"), "");
   assert.equal(doActions(ws, [{ kind: "quiet", days: 0 }], find, TODAY).notes[0], "I wasn't being quiet.");
+});
+
+test("prep sheet on an interview, from the student's own pitch and stories, with Undo", () => {
+  const ws = emptyWorkspace();
+  ws.jobs = [job("j1")];
+  ws.pitch = { text: "I'm a finance junior who builds models.", at: "t" };
+  ws.stories = [{ id: "s1", title: "Budget model", theme: "", situation: "", task: "", action: "Built a model", result: "Saved 10%", missing: "", source: "" }];
+  ws.calendar = [{ id: "c1", title: "Q2 interview", date: "2026-11-25", time: "", kind: "Interview", source: "x", notes: "Bring ID" }];
+  const r = doActions(ws, [{ kind: "prep", calId: "c1" }], find, TODAY);
+  const n = ws.calendar[0].notes;
+  assert.match(n, /^Prep sheet from Remy/);
+  assert.match(n, /Finance Intern at Q2/);
+  assert.match(n, /builds models/);
+  assert.match(n, /Budget model: Built a model Saved 10%/);
+  assert.match(n, /Bring ID$/);
+  assert.equal(undoDid(ws, r.did[0]), null);
+  assert.equal(ws.calendar[0].notes, "Bring ID");
 });
