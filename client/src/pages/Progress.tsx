@@ -132,14 +132,18 @@ function Tracker({ kept }: { kept: Job[] }) {
     setN({ company: "", role: "" });
   };
   const owner = useOwnerView();
-  const openRow = (id: string) => { setOpen(id); setTimeout(() => document.getElementById("tr-" + id)?.scrollIntoView({ block: "center", behavior: "smooth" }), 50); };
+  const [details, setDetails] = useState(false); // owners: the full list stays folded so the page fits on one screen
+  const openRow = (id: string) => { setOpen(id); setDetails(true); setTimeout(() => document.getElementById("tr-" + id)?.scrollIntoView({ block: "center", behavior: "smooth" }), 50); };
   return (
     <div className="stack">
-      {owner ? <Board w={w} kept={kept} onOpen={openRow} /> : <div className="pipeline">{counts.map(([s, c]) => <div key={s} className="pipe"><span className="xs muted">{s}</span><strong>{c}</strong></div>)}</div>}
+      {owner ? <Board w={w} kept={kept} onOpen={openRow} onAdd={() => setAdding(true)} /> : <div className="pipeline">{counts.map(([s, c]) => <div key={s} className="pipe"><span className="xs muted">{s}</span><strong>{c}</strong></div>)}</div>}
+      {owner && <NextUp w={w} />}
       <ReplyRate />
       <div className="card card-pad">
-        <div className="row-between" style={{ marginBottom: 8 }}><h3>{owner ? "Details and notes" : "Applications"}</h3><button className="btn btn-secondary btn-sm" onClick={() => setAdding(true)} data-testid="button-add-tracking"><Plus size={14} /> Track an application</button></div>
-        {w.tracker.length ? w.tracker.map((t) => (
+        <div className="row-between" style={{ marginBottom: owner && !details ? 0 : 8 }}><h3>{owner ? "Details and notes" : "Applications"}</h3>
+          {owner ? <button className="btn btn-ghost btn-sm" onClick={() => setDetails(!details)} aria-expanded={details} data-testid="button-toggle-details">{details ? "Hide" : `Show all ${w.tracker.length}`}</button>
+            : <button className="btn btn-secondary btn-sm" onClick={() => setAdding(true)} data-testid="button-add-tracking"><Plus size={14} /> Track an application</button>}</div>
+        {owner && !details ? null : w.tracker.length ? w.tracker.map((t) => (
           <div key={t.id} id={"tr-" + t.id} className="item" data-testid="row-tracker">
             <div className="item-main">
               <div className="row-between">
@@ -170,7 +174,6 @@ function Tracker({ kept }: { kept: Job[] }) {
           </div>
         )) : <Empty title="Nothing tracked yet" body="Approving tailored materials adds the opening here automatically. You can also add applications by hand." />}
       </div>
-      {owner && <NextUp w={w} />}
       {adding && (
         <Modal title="Track an application" onClose={() => setAdding(false)}>
           <label className="field"><span>Company</span><input className="input" value={n.company} onChange={(e) => setN({ ...n, company: e.target.value })} data-testid="input-track-company" /></label>
@@ -203,30 +206,37 @@ function ProgressLine({ w, kept }: { w: Workspace; kept: Job[] }) {
   );
 }
 
-function Board({ w, kept, onOpen }: { w: Workspace; kept: Job[]; onOpen: (id: string) => void }) {
+const LANE_MAX = 3; // a lane shows its newest few; the rest open on tap, so the board fits on one screen
+function Board({ w, kept, onOpen, onAdd }: { w: Workspace; kept: Job[]; onOpen: (id: string) => void; onAdd: () => void }) {
+  const [more, setMore] = useState<string[]>([]);
   const closed = w.tracker.filter((t) => ["Rejected", "No reply", "Withdrawn"].includes(t.status));
-  // Kept openings that aren't tracked yet count as Saved and open on Opportunities.
-  const extra = (l: string) => (l === "Saved" ? kept.length : 0);
   return (
     <>
-      <div className="pr-tiles">{LANES.map(([l, st, c]) => <div key={l} className={"op-tile " + (c || "pr-plain")}><b>{w.tracker.filter((t) => st.includes(t.status)).length + extra(l)}</b><span>{l}</span></div>)}</div>
+      {/* Lane headers carry the counts, so the count tiles are gone: one screen, no scrolling (Dilan, Nov 22). */}
       <div className="op-card" data-testid="progress-board">
-        <div className="op-ch"><h3>Your applications</h3><span className="xs muted">{closed.length ? `${closed.length} closed (rejected or no reply) · ` : ""}Tap one for its timeline</span></div>
-        <div className="pr-flow">{LANES.map(([l, st]) => { const items = w.tracker.filter((t) => st.includes(t.status)); return (
-          <div key={l} className="pr-lane"><h4>{l} <em>{items.length + extra(l)}</em></h4>
-            {items.map((t) => (
+        <div className="op-ch"><h3>Your applications</h3><span className="row" style={{ gap: 8 }}><span className="xs muted hide-phone">{closed.length ? `${closed.length} closed · ` : ""}Tap one for its timeline</span><button className="btn btn-secondary btn-sm" onClick={onAdd} data-testid="button-add-tracking"><Plus size={14} /> Track one</button></span></div>
+        <div className="pr-flow">{LANES.map(([l, st]) => {
+          const items = w.tracker.filter((t) => st.includes(t.status));
+          const cards = [
+            ...items.map((t) => (
               <button key={t.id} className={"pr-mini" + (quiet(t) ? " hot" : "")} onClick={() => onOpen(t.id)} data-testid="button-board-card">
                 <span className="job-mono" aria-hidden="true">{orgInitials(t.company)}</span>
                 <span className="pr-mini-t"><b>{t.role || t.company}</b><small>{t.company}{quiet(t) ? ` · ${daysSince(lastAt(t))} days, no reply` : t.status === "Received" ? " · received" : ""}</small></span>
               </button>
-            ))}
-            {l === "Saved" && kept.map((j) => (
+            )),
+            ...(l === "Saved" ? kept.map((j) => (
               <button key={j.id} className="pr-mini" onClick={() => go(`/opportunities?id=${j.id}`)} data-testid="button-board-kept">
                 <span className="job-mono" aria-hidden="true">{orgInitials(j.company)}</span>
                 <span className="pr-mini-t"><b>{j.title}</b><small>{j.company} · kept</small></span>
               </button>
-            ))}
-            {!items.length && !extra(l) && <span className="pr-ghost">{l === "Interview" ? "Your first one lands here. Interview has you ready." : l === "Offer" ? "Waits here" : "None yet"}</span>}
+            )) : []),
+          ];
+          const all = more.includes(l), hidden = cards.length - LANE_MAX;
+          return (
+          <div key={l} className="pr-lane"><h4>{l} <em>{cards.length}</em></h4>
+            {all ? cards : cards.slice(0, LANE_MAX)}
+            {hidden > 0 && <button className="pr-more" onClick={() => setMore(all ? more.filter((x) => x !== l) : [...more, l])} aria-expanded={all} data-testid="button-lane-more">{all ? "Show fewer" : `+${hidden} more`}</button>}
+            {!cards.length && <span className="pr-ghost">{l === "Interview" ? "Your first one lands here. Interview has you ready." : l === "Offer" ? "Waits here" : "None yet"}</span>}
           </div>
         ); })}</div>
       </div>
@@ -292,7 +302,7 @@ function EmailUpdates() {
   return (
     <div className="stack">
       {owner ? (
-        <section className="op-pick" data-testid="email-hero">
+        <section className="op-pick op-quiet" data-testid="email-hero">
           <div className="stack-sm">
             <span className="op-kick">Email updates</span>
             <b className="iv-q-t">Got an interview invite, an offer or a rejection?</b>
@@ -355,7 +365,7 @@ function SuggestionBox({ s }: { s: Suggestion }) {
   }
   const unclear = s.rulesSay === "Unclear" && (!s.aiSays || s.aiSays === "Unclear");
   return (
-    <div className={owner ? "iv-stage stack-sm" : "card card-pad stack-sm"} style={owner ? undefined : { background: "var(--lav-2)", boxShadow: "none" }} data-testid="suggestion">
+    <div className={owner ? "op-card op-accent stack-sm" : "card card-pad stack-sm"} style={owner ? undefined : { background: "var(--lav-2)", boxShadow: "none" }} data-testid="suggestion">
       <div className="row-between">
         <strong className="small">{unclear ? "This email doesn't clearly change your status" : `Suggested status: ${s.proposed}`}</strong>
         <span className={"chip " + (s.confidence === "high" ? "chip-live" : s.confidence === "medium" ? "chip-setup" : "chip-bad")}>{s.confidence} confidence</span>

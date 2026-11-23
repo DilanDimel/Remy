@@ -40,14 +40,14 @@ export function MockInterview() {
   const start = () => { setResults([]); setStep(0); };
 
   const kitTiles: { id: "stories" | "pitch" | "questions"; n: string; label: string; c: string }[] = [
-    { id: "stories", n: stories.length ? `${ready.length}/${stories.length}` : "0", label: "Stories ready", c: "a" },
-    { id: "pitch", n: w.pitch?.text ? "Ready" : "To do", label: "30-second pitch", c: "b" },
-    { id: "questions", n: String(job ? jobQuestions(job, w.resume?.doc).length : 0), label: "Questions to expect", c: "c" },
+    { id: "stories", n: stories.length ? `${ready.length} of ${stories.length} ready` : "none yet", label: "Stories", c: "a" },
+    { id: "pitch", n: w.pitch?.text ? "ready" : "to write", label: "Pitch", c: "b" },
+    { id: "questions", n: String(job ? jobQuestions(job, w.resume?.doc).length : 0), label: "Questions", c: "c" },
   ];
 
   return (
     <div className="stack-lg">
-      <section className="iv-stage mi-room stack-sm" data-testid="mock-interview">
+      <section className="op-card mi-room stack-sm" data-testid="mock-interview">
         {!job ? (
           <>
             <span className="op-kick">Mock interview</span>
@@ -119,10 +119,11 @@ export function MockInterview() {
       </section>
 
       <section className="stack-sm" data-testid="interview-kit">
-        <h3>Prep kit</h3>
-        <div className="mi-kit">{kitTiles.map((t) => (
-          <button key={t.id} className={`op-tile ${t.c}` + (kit === t.id ? " on" : "")} aria-expanded={kit === t.id} onClick={() => setKit(kit === t.id ? null : t.id)} data-testid={`kit-${t.id}`}><b>{t.n}</b><span>{t.label}</span></button>
+        <div className="row-between" style={{ gap: 8 }}><h3>Prep before you practice</h3></div>
+        <div className="mi-seg" role="tablist" aria-label="Prep">{kitTiles.map((t) => (
+          <button key={t.id} role="tab" aria-selected={kit === t.id} className={kit === t.id ? "on" : ""} onClick={() => setKit(kit === t.id ? null : t.id)} data-testid={`kit-${t.id}`}>{t.label} <em>{t.n}</em></button>
         ))}</div>
+        {!kit && <p className="small muted" data-testid="kit-hint">Stories are your answers to “tell me about a time”. The pitch is your warm-up. Questions shows everything this opening may ask.</p>}
         {kit === "stories" && <StoryDeck />}
         {kit === "pitch" && <PitchCard />}
         {kit === "questions" && <JobInterview />}

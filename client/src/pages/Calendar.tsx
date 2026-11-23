@@ -46,7 +46,7 @@ function CalLine({ upcoming, today }: { upcoming: CalItem[]; today: string }) {
  *  Peach like Home's Remy card; items in the next seven days are marked; each row opens the item. */
 function ComingUp({ items, weekEnd, onOpen }: { items: CalItem[]; weekEnd: string; onOpen: (c: CalItem) => void }) {
   return (
-    <section className="iv-stage" data-testid="calendar-week">
+    <section className="op-card" data-testid="calendar-week">
       <span className="op-kick">Coming up</span>
       {items.length ? <ul className="op-dl cal-week">{items.map((i) => {
         const d = new Date(i.date + "T12:00");

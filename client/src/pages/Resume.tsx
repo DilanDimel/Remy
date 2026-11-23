@@ -535,7 +535,7 @@ function AppEditor({ a, job, autoStart = false, onChangeOpening }: { a: Applicat
       {a.generatedAt && mine?.stage !== "working" && (
         <>
           {a.strongestMatch?.text && (
-            <div className={onChangeOpening ? "iv-stage stack-sm" : "card card-pad stack-sm"} style={onChangeOpening ? undefined : { borderColor: "var(--plum)" }} data-testid="card-strongest-match">
+            <div className={onChangeOpening ? "op-card op-accent stack-sm" : "card card-pad stack-sm"} style={onChangeOpening ? undefined : { borderColor: "var(--plum)" }} data-testid="card-strongest-match">
               {onChangeOpening ? <span className="op-kick">Your strongest match</span> : <span className="eyebrow row" style={{ color: "var(--plum)" }}><Star size={14} /> Strongest match</span>}
               <strong>{a.strongestMatch.text}</strong>
               <div className="grid-2 small">
