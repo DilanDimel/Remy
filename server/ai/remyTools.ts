@@ -247,4 +247,32 @@ export function moreContext(ws: Workspace, today: string, findJob: (ws: Workspac
 
 export const MORE_TOOLS = `More things you DO yourself with "actions" (each shows with Undo): {"kind":"interest","jobId":"<id>","more":true|false} = Keep it (saves it, more like it) or Pass on it (hides it, fewer like it); {"kind":"unhide","jobId":"<id>"} brings back an opening they PASSED ON; {"kind":"prefs","field":"regions"|"opportunityTypes"|"timeline"|"avoid"|"dreamEmployers"|"interests"|"goals"|"classYear"|"relocation"|"workAuth","value":"text","mode":"set"|"add"|"remove"} changes their SEARCH PREFERENCES (add/remove for comma lists like "Austin" or "Internships"); {"kind":"nudges","value":"daily"|"weekly"|"off"} how often Remy emails new openings; {"kind":"careerTime","day":0-6 (0 = Sunday),"time":"HH:MM"} or {"kind":"careerTime","off":true} their weekly career time; {"kind":"textsOff"} stops deadline texts (turning texts ON needs their phone, so open /accounts?tab=settings); {"kind":"track","trackId":"<id>","status":"Applied"|"Interview"|"Offer"|"Rejected"|"Heard back"|"No reply"|"Withdrawn"|"Saved"|"Received"} moves a PROGRESS BOARD card, or {"kind":"track","company":"","role":"","jobId":"<id or empty>","status":"..."} adds one when they tell you they applied, got an interview, an offer or a rejection; {"kind":"moveEvent","calId":"<id>","date":"YYYY-MM-DD","time":"HH:MM or empty"} reschedules; {"kind":"removeEvent","calId":"<id>"} takes something off their calendar; {"kind":"due","taskId":"<id>","due":"YYYY-MM-DD or empty"} changes a to-do's due date; {"kind":"hours","activity":"Volunteering","hours":2,"date":"YYYY-MM-DD","note":""} logs hours they already did; {"kind":"career","careerId":"<id>"} picks a career on My Path; {"kind":"contact","name":"","org":"","title":"","why":"","met":"where they met","metOn":"YYYY-MM-DD"} adds someone they met to Community (never an email address they didn't give); {"kind":"forget","factId":"<id>"} forgets something Remy remembers.
 Things the app does as soon as you reply: {"kind":"go","link":"/opportunities?kind=jobs|campus|event|all&role=<title>","label":"Opportunities"} (or any page: /, /resume?tab=base|tailor|linkedin, /interview, /path?tab=career|road|future, /community, /calendar, /progress?tab=tracker|hours, /accounts?tab=profile|settings|memory) takes them there when they say "take me to", "show me" or "open"; {"kind":"start","what":"resumeFix"} when they ask you to fix, improve or strengthen their (base) resume: you then ask about one weak line at a time in this chat and draft each from their answer, so reply with one short line like "Let's do it, one line at a time."; {"kind":"start","what":"interview","jobId":"<id or empty>"} starts a mock interview; {"kind":"start","what":"tour"} replays the tour. For a cover letter, use "tailor" (it writes the resume and the letter).
-Ask first, and only offer an "open" button, for anything that can't be undone or leaves Remy: deleting their account or data, clearing their resume, sending an email or applying (they do those themselves). Use ids only from the lists given. Up to 4 actions.`;
+When the student mentions something coming up that you should ask about later (an interview, a career fair, a decision, a worry about an exam), also return "followUp":{"ask":"the warm question you'll ask, e.g. How did the PwC interview go?","on":"YYYY-MM-DD, the day after it"}; otherwise leave it out.\nAsk first, and only offer an "open" button, for anything that can't be undone or leaves Remy: deleting their account or data, clearing their resume, sending an email or applying (they do those themselves). Use ids only from the lists given. Up to 4 actions.`;
+
+// ---------- Remy reaches out (owners, "Remy feels alive" #3 and #6) ----------
+const daysApart = (a: string, b: string) => Math.round((Date.parse(b + "T12:00:00Z") - Date.parse(a + "T12:00:00Z")) / 864e5);
+
+/** The chat model's "followUp" ({ask, on}): something the student mentioned that Remy should ask about on that day. */
+export function addLoop(ws: Workspace, raw: any, today: string) {
+  const ask = clean(raw?.ask, 200), on = String(raw?.on || "");
+  if (!ask || !isDate(on) || on <= today || daysApart(today, on) > 60) return;
+  const loops = (ws.loops ||= []);
+  if (loops.some((l) => !l.askedAt && same(l.ask, ask))) return;
+  loops.push({ id: uid("lp"), ask, on });
+  ws.loops = loops.slice(-30);
+}
+
+export const WEEKLY_CHECKIN = "Quick weekly check-in, 2 minutes: did you apply anywhere this week? Any news, like an interview, an offer or a no? And is anything stressing you? Tell me in your own words and I'll update your board, calendar and to-dos.";
+
+/** At most one message Remy starts himself when the student opens the app: a question he promised to ask, else the
+ *  weekly check-in. Returns the text pushed into chat, or "" when there's nothing to say. */
+export function reachOut(ws: Workspace, today: string, nowIso: string): string {
+  const due = (ws.loops || []).find((l) => !l.askedAt && l.on <= today);
+  let text = "";
+  if (due) { due.askedAt = nowIso; text = due.ask; }
+  // shortcut: any day 7+ days after the last one (or a week into a busy account), not tied to the weekly career time yet.
+  else if (ws.chat.length >= 2 && (ws.tracker.length || ws.savedJobIds.length) && (!ws.remyCheckin || daysApart(ws.remyCheckin, today) >= 7)
+    && !ws.chat.slice(-6).some((m) => m.role === "assistant" && m.text === WEEKLY_CHECKIN)) { ws.remyCheckin = today; text = WEEKLY_CHECKIN; }
+  if (text) ws.chat.push({ id: uid("m"), role: "assistant", text, at: nowIso, page: "Remy" });
+  return text;
+}

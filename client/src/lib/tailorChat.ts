@@ -49,6 +49,8 @@ export function onOpenRequest(fn: () => void) {
   openers.add(fn);
   return () => { openers.delete(fn); };
 }
+/** Opens Remy's panel (Remy starting a conversation himself). */
+export const openRemy = () => openers.forEach((o) => o());
 export const isAsking = (s: TailorSession | null) => !!s && s.stage === "asking";
 
 function begin(s: Omit<TailorSession, "stage" | "idx" | "answers" | "log">, intro: string) {

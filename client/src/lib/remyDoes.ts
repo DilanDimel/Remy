@@ -2,8 +2,8 @@ import { useEffect } from "react";
 import type { Workspace } from "@shared/types";
 import { reloadJobs } from "./jobs";
 import { go } from "./router";
-import { startResumeFix } from "./tailorChat";
-import { useStore } from "./store";
+import { openRemy, startResumeFix } from "./tailorChat";
+import { api, useStore } from "./store";
 import { tourAgain } from "../components/Tour";
 
 // Owners: what Remy said he'd do from chat (side panel or the My Path office) happens on screen as soon as his reply
@@ -38,4 +38,21 @@ function touch(path: string) {
     el.classList.add("remy-touched");
     setTimeout(() => el.classList.remove("remy-touched"), 2600);
   }
+}
+
+// Owners (#3, #6): once per page load Remy may start the conversation himself (a question he promised, or the weekly
+// check-in); his panel opens so it reads as him reaching out.
+let reached = false;
+export function useRemyReachOut(on: boolean) {
+  const { ws, setWs } = useStore();
+  const ready = !!ws?.onboarding.done;
+  useEffect(() => {
+    if (!on || !ready || reached) return;
+    const t = setTimeout(() => {
+      if (reached) return;
+      reached = true;
+      api<{ said: string; ws?: Workspace }>("POST", "/api/remy/reachout").then((r) => { if (r.said && r.ws) { setWs(r.ws); openRemy(); } }).catch(() => {});
+    }, 2500); // after the page has settled
+    return () => clearTimeout(t);
+  }, [on, ready]);
 }

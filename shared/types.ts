@@ -571,6 +571,11 @@ export interface Workspace {
   lastCheckin?: string;
   /** Days (YYYY-MM-DD, Central) the student opened Remy, newest last; owners see only return rates from it. */
   visits?: string[];
+  /** Owners ("Remy feels alive" #3): things the student mentioned that Remy will ask about later ("How did the PwC
+   *  interview go?"), and the day to ask. Server-written (server/ai/remyTools.ts). */
+  loops?: { id: string; ask: string; on: string; askedAt?: string }[];
+  /** Owners (#6): day (YYYY-MM-DD) Remy last started his weekly check-in in chat. Server-written. */
+  remyCheckin?: string;
   /** Match emails Remy sent (server/coach/nudges.ts) and the student's Yes / Not now. Server-written. */
   nudges?: { id: string; jobId: string; at: string; answer?: "yes" | "later"; answeredAt?: string }[];
   /** When Remy last drafted tailored resumes overnight (stage 5b). Server-written. */

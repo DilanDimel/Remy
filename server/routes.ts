@@ -51,7 +51,7 @@ import { dueReminders, reminderEmail, weeklyDigest } from "./notify/reminders";
 import { answerNudge, overnightPicks, sendNudges } from "./coach/nudges";
 import { markDay } from "@shared/daily";
 import { doActions, undoDid } from "./ai/chatDo";
-import { MORE_TOOLS, moreContext } from "./ai/remyTools";
+import { addLoop, MORE_TOOLS, moreContext, reachOut } from "./ai/remyTools";
 import { sendTexts, usPhone } from "./notify/texts";
 import { step } from "@shared/progress";
 import { conferencesFor } from "./jobs/conferences";
@@ -1982,6 +1982,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     ctx.ws.chat.push({ id: uid("m"), role: "user", text: message, at: nowIso(), page });
     // Owners: in-app actions are done now and shown with Undo; students still tap a button (no save/tailor for them yet).
     const asked = chatActions(out.actions);
+    if (doer) addLoop(ctx.ws, (out as { followUp?: unknown }).followUp, today); // Remy asks about it later
     const { did, buttons, notes } = doer ? doActions(ctx.ws, asked, findJob, centralToday()) : { did: [], buttons: asked.filter((a) => ["task", "role", "open", "setting"].includes(a.kind)).slice(0, 2), notes: [] };
     ctx.ws.chat.push({ id: uid("m"), role: "assistant", text: notes.length ? `${reply}\n\n${notes.join(" ")}` : reply, at: nowIso(), page, memorySuggestions: (out.remember || []).slice(0, 3).map(String), actions: buttons, ...(did.length ? { did } : {}), ...(resumeProposal ? { resumeProposal } : {}) });
     await ctx.save();
@@ -2021,6 +2022,14 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     if (offerId) ctx.ws.settings.offersSeen = [...(ctx.ws.settings.offersSeen || []).filter((x) => x !== offerId), offerId].slice(-200);
     await ctx.save();
     res.json(ctx.ws);
+  }));
+
+  // Owners (#3, #6): on opening the app, Remy may start the talk himself: a question he said he'd ask, or the weekly check-in.
+  app.post("/api/remy/reachout", route(async (_req, res, ctx) => {
+    if (!ctx.me.owner || ctx.ws.settings.ownerView === false || !ctx.ws.onboarding.done) return res.json({ said: "" });
+    const said = reachOut(ctx.ws, centralToday(), nowIso());
+    if (said) await ctx.save();
+    res.json(said ? { said, ws: ctx.ws } : { said: "" });
   }));
 
   // An imported fact that disagrees with the resume: the student says which is right, and Remy
