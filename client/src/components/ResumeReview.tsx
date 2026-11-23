@@ -11,47 +11,26 @@ const FIELD_LABEL = { name: "Full name", email: "Email", phone: "Phone", locatio
 /** Remy's review of the base resume: the few things worth fixing, each fixable right here. Remy asks for what it
  *  doesn't know, drafts the line from the student's own words, and the student approves. Nothing saves until they
  *  press Save (the usual "Review your changes"). */
-export function ResumeReview({ doc, upd, onEdit, beside = false, focus }: { doc: ResumeDoc; upd: Upd; onEdit: () => void; beside?: boolean; focus?: { text: string; kind: string; n: number } | null }) {
+export function ResumeReview({ doc, upd, onEdit, beside = false, onWalk }: { doc: ResumeDoc; upd: Upd; onEdit: () => void; beside?: boolean; onWalk?: () => void }) {
   const owner = useOwnerView();
   const { todo: live, good } = useMemo(() => reviewResume(doc, { listLike: owner }), [doc, owner]);
   // An open fix keeps the fields and lines it showed when opened, so a box doesn't vanish mid-typing once its value
   // passes ("maya@" → valid email); it updates when the student closes it.
   // Owners: Remy doesn't wait to be asked; his first question is already open (Remy reaches out first, Dilan Nov 22).
-  const [frozen, setFrozen] = useState<Record<string, ReviewItem>>(() => { const first = owner && beside ? live.find((x) => x.kind === "numbers" || x.kind === "verbs") : undefined; return first ? { [first.kind]: first } : {}; });
+  const [frozen, setFrozen] = useState<Record<string, ReviewItem>>(() => { const first = owner && beside && !onWalk ? live.find((x) => x.kind === "numbers" || x.kind === "verbs") : undefined; return first ? { [first.kind]: first } : {}; });
   const keyOf = (it: ReviewItem) => (it.kind === "tip" ? "tip:" + it.title : it.kind);
   const order = ["contact", "dates", "numbers", "verbs"];
   const rank = (it: ReviewItem) => { const i = order.indexOf(it.kind); return i < 0 ? 9 : i; };
   const todo = [...live.map((it) => frozen[keyOf(it)] || it), ...Object.entries(frozen).filter(([k]) => !live.some((it) => keyOf(it) === k)).map(([, it]) => it)].sort((a, b) => rank(a) - rank(b));
   const toggle = (it: ReviewItem) => setFrozen((f) => { const k = keyOf(it); const n = { ...f }; if (n[k]) delete n[k]; else n[k] = it; return n; });
   const count = todo.length; // confirming what Remy read is step 1 of the base resume now
-  // A tapped line's "Fix with Remy" (Nov 23: it did nothing when the line wasn't in an open list): that line gets
-  // Remy's question at the top, whatever the lists say.
-  const [tapped, setTapped] = useState<{ b: BulletRef; kind: "numbers" | "verbs"; n: number } | null>(null);
-  useEffect(() => {
-    if (!focus) return;
-    const sq = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, "");
-    const line = sq(focus.text);
-    for (const s of doc.sections) for (const e of s.entries) for (const x of e.bullets) {
-      const t = x.text.trim().replace(/^[•\-–*]\s*/, "");
-      if (t && line.includes(sq(t).slice(0, 40))) {
-        setTapped({ b: { id: x.id, text: t, where: [e.role, e.org].filter(Boolean).join(", ") || s.heading }, kind: /weak/i.test(focus.kind) ? "verbs" : "numbers", n: focus.n });
-        return;
-      }
-    }
-  }, [focus?.n]);
   return (
     <section className={beside ? "stack" : "card card-pad stack"} data-testid="resume-review">
       <div className="stack-sm" style={{ gap: 4 }}>
         <h3 className={owner && beside ? "row" : undefined} style={owner && beside ? { gap: 8, flexWrap: "nowrap" } : undefined}>{owner && beside && <Remy size={28} mood={count ? "think" : "happy"} />}{beside ? (count ? `${count} thing${count > 1 ? "s" : ""} to make it stronger` : "Looking strong") : count ? `Remy's review · ${count} thing${count > 1 ? "s" : ""} to fix` : "Remy's review · looking good"}</h3>
-        <span className="xs muted">{owner && beside && count ? "I'll ask about one line at a time and draft it from your answer. Nothing changes until you save." : beside ? "Fix them right here, or just ask Remy in the chat. Nothing changes until you save." : "Remy's suggestions from your resume itself, not an employer's score. Fix them here; nothing changes until you press Save."}</span>
+        <span className="xs muted">{owner && beside && count ? onWalk ? "Press Fix and I'll ask about each line right on your resume, then draft it from your answer. Nothing changes until you save." : "I'll ask about one line at a time and draft it from your answer. Nothing changes until you save." : beside ? "Fix them right here, or just ask Remy in the chat. Nothing changes until you save." : "Remy's suggestions from your resume itself, not an employer's score. Fix them here; nothing changes until you press Save."}</span>
       </div>
-      {tapped && (
-        <div className="review-item review-tapped" data-testid="review-tapped">
-          <div className="row-between small"><b>The line you tapped</b><button className="btn btn-ghost btn-sm" onClick={() => setTapped(null)} data-testid="button-tapped-close">Close</button></div>
-          <BulletFix key={tapped.b.id + tapped.n} b={tapped.b} kind={tapped.kind} upd={upd} autoFocus />
-        </div>
-      )}
-      {todo.map((it) => <Item key={keyOf(it)} it={it} open={!!frozen[keyOf(it)]} onToggle={() => toggle(it)} doc={doc} upd={upd} onEdit={onEdit} oneAtATime={owner} />)}
+      {todo.map((it) => <Item key={keyOf(it)} it={it} open={!!frozen[keyOf(it)]} onToggle={() => (onWalk && (it.kind === "numbers" || it.kind === "verbs") ? onWalk() : toggle(it))} doc={doc} upd={upd} onEdit={onEdit} oneAtATime={owner} />)}
       {good.length > 0 && (
         <div className="stack-sm" style={{ gap: 4 }} data-testid="review-good">
           {good.map((g) => <span key={g} className="xs row" style={{ gap: 6, flexWrap: "nowrap" }}><CheckCircle2 size={14} style={{ color: "var(--success, #22a05a)", flex: "none" }} /> {g}</span>)}
@@ -119,7 +98,7 @@ function Item({ it, open, onToggle, doc, upd, onEdit, oneAtATime = false }: { it
   );
 }
 
-function BulletFix({ b, kind, upd, onNext, autoFocus }: { b: BulletRef; kind: "numbers" | "verbs"; upd: Upd; onNext?: () => void; autoFocus?: boolean }) {
+export function BulletFix({ b, kind, upd, onNext, autoFocus, compact }: { b: BulletRef; kind: "numbers" | "verbs"; upd: Upd; onNext?: () => void; autoFocus?: boolean; compact?: boolean }) {
   const { run } = useStore();
   const [draftFor, setDraftFor] = useState(""); // the line text the draft was made from
   const [answer, setAnswer] = useState("");
@@ -140,9 +119,9 @@ function BulletFix({ b, kind, upd, onNext, autoFocus }: { b: BulletRef; kind: "n
   // Enter drafts, like any one-line question (Nov 23 live test: Enter did nothing).
   const enter = (ok: boolean) => (e: KeyboardEvent) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && ok && !busy) { e.preventDefault(); ask(); } };
   return (
-    <div className="card card-pad stack-sm" style={{ boxShadow: "none", padding: 10 }} data-testid="bullet-fix">
-      <span className="xs muted">{b.where}</span>
-      <span className="small">“{b.text}”</span>
+    <div className={compact ? "stack-sm" : "card card-pad stack-sm"} style={compact ? undefined : { boxShadow: "none", padding: 10 }} data-testid="bullet-fix">
+      {!compact && <><span className="xs muted">{b.where}</span>
+      <span className="small">“{b.text}”</span></>}
       {!draft && kind === "numbers" && (
         <>
           <span className="xs">Is there a real number here? How many people, events, dollars, hours or percent. Only if you know it.</span>

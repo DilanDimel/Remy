@@ -57,10 +57,24 @@ function colourWord(root: HTMLElement, doc: ResumeDoc, on: Set<Cat>) {
         r.surroundContents(m);
       }
     }
-    if (isBullet && [...tagged].some((b) => same(b, key))) for (const t of issues(text)) {
-      const f = document.createElement("span");
-      f.className = "rm-flag"; f.textContent = t;
-      p.appendChild(f);
+    if (isBullet && [...tagged].some((b) => same(b, key))) {
+      // The tags ride with the line's last word, so a tag never wraps onto a line of its own (Dilan, Nov 23: "misaligned").
+      const tail = document.createElement("span");
+      tail.className = "rm-tail"; tail.style.whiteSpace = "nowrap"; // inline: the file's own span styles win over a class
+      const w = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+      let last: Text | null = null;
+      for (let n = w.nextNode() as Text | null; n; n = w.nextNode() as Text | null) if (n.data.trim()) last = n;
+      const m = last?.data.match(/\S+\s*$/);
+      if (last && m) {
+        const word = last.parentElement?.tagName === "MARK" ? last.parentElement : last.splitText(m.index!);
+        word.parentNode!.insertBefore(tail, word);
+        tail.appendChild(word);
+      } else p.appendChild(tail);
+      for (const t of issues(text)) {
+        const f = document.createElement("span");
+        f.className = "rm-flag"; f.textContent = t;
+        tail.appendChild(f);
+      }
     }
   }
 }

@@ -25,8 +25,6 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
   const { ws, setWs, run, toast } = useStore();
   const r = ws!.resume!;
   const [view, setView] = useState<"resume" | "file">("resume");
-  // "Fix with Remy" on a tapped line opens Remy's question for that exact line (Nov 23 live test: it only closed the popover).
-  const [focus, setFocus] = useState<{ text: string; kind: string; n: number } | null>(null);
   // Changed since upload: the saved stamp, or (for edits made before Remy kept one) a line that isn't in the file's text.
   const squash = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, "");
   const raw = squash(r.rawText || "");
@@ -83,10 +81,10 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
           {view === "resume" ? (
             // Make it stronger lives beside the resume now (Dilan, Nov 21: "can't we just integrate it with this?").
             <>{drawnWhy && <p className="xs muted" data-testid="r1-drawn-why">{drawnWhy}</p>}
-            <ResumeMarkup doc={doc} look={r.style} real={real} onFix={(_, line) => { if (line?.text) setFocus({ ...line, n: Date.now() }); document.getElementById("r1-stronger")?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }} side={
+            <ResumeMarkup doc={doc} look={r.style} real={real} upd={upd} onFix={() => document.getElementById("r1-stronger")?.scrollIntoView({ behavior: "smooth", block: "nearest" })} side={(walk: () => void) =>
               // Dilan, Nov 21: Make it stronger, the ATS check and approved versions & downloads as smaller cards beside the resume.
               <div className="r1-side-stack">
-                <div className="r1-side-card" id="r1-stronger"><ResumeReview doc={doc} upd={upd} onEdit={onEditByHand} beside focus={focus} /></div>
+                <div className="r1-side-card" id="r1-stronger"><ResumeReview doc={doc} upd={upd} onEdit={onEditByHand} beside onWalk={walk} /></div>
                 <div className="r1-side-card" data-testid="r1-side-ats">
                   <AtsXray doc={doc} quality={r.quality} upd={upd} />
                 </div>
