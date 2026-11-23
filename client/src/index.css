@@ -2732,3 +2732,20 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 /* Nov 23 PM review: during the walk-through Remy's words sat under the office, below the fold at 1440x800.
    On wide screens they sit over the bottom of the office instead (the ask box is hidden while he guides). */
 @media (min-width: 900px) { .redesign-2 .ps-roomwrap > .ps-bubble:not(.chat) { position: absolute; left: 14px; right: 14px; bottom: 14px; margin: 0; } }
+/* Owners' Calendar (Nov 23 PM review): month beside "Coming up", one screen at 1440x800. */
+.cal-owner { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(260px, 1fr); gap: 16px; align-items: start; }
+.cal-owner > aside .cal-week { grid-template-columns: minmax(0, 1fr); max-height: 380px; overflow: auto; }
+.cal-owner > aside .conn-row { flex-wrap: wrap; }
+html.redesign-2 .cal-owner .cal-cell { min-height: clamp(56px, 7.5vh, 84px); }
+@media (max-width: 1100px) { .cal-owner { grid-template-columns: minmax(0, 1fr); } }
+/* Phones (Nov 23 PM review): "Refresh Remy's suggestions" beside the title squeezed "My Path" onto two lines and the
+   subtitle into a column of single words. The button goes under the subtitle, and the office header row wraps cleanly. */
+@media (max-width: 640px) {
+  .pm-head { flex-direction: column; align-items: flex-start; }
+  .ps-office > .pt-card-head { flex-wrap: wrap; row-gap: 2px; }
+  .ps-office > .pt-card-head .ps-again { margin-left: auto; }
+}
+/* "One orange" (Nov 23 PM review): the top opening on Home was a solid green card, very loud in dark mode.
+   Now an orange outline; green stays for "You qualify" only. */
+.home-lists .job-card.item.top { border-color: var(--fox); background: var(--surface); box-shadow: 0 0 0 1px var(--fox) inset; }
+.job-card.top .job-fit b { color: var(--fox-800); }

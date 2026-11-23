@@ -89,6 +89,32 @@ export default function CalendarPage() {
     await run(() => save("calendar", exists ? w.calendar.map((x) => (x.id === c.id ? c : x)) : [...w.calendar, c]), "Saved to your Remy calendar");
     setEdit(null);
   };
+  const monthCard = (
+        <div className="card card-pad stack">
+      <div className="row-between">
+        <h2>{month.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h2>
+        <div className="row">
+          <button className="icon-btn" onClick={() => setMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))} aria-label="Previous month"><ChevronLeft size={18} /></button>
+          <button className="btn btn-ghost btn-sm" onClick={() => { const d = new Date(); d.setDate(1); setMonth(d); }}>Today</button>
+          <button className="icon-btn" onClick={() => setMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))} aria-label="Next month"><ChevronRight size={18} /></button>
+        </div>
+      </div>
+      <div className="cal-grid">
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <div key={d} className="xs muted" style={{ textAlign: "center", fontWeight: 700 }}>{d}</div>)}
+        {days.map((d) => {
+          const k = iso(d);
+          const evs = items.filter((i) => i.date === k);
+          return (
+            <div key={k} className={`cal-cell ${d.getMonth() !== month.getMonth() ? "out" : ""} ${k === today ? "today" : ""}`}>
+              <span className="muted">{d.getDate()}</span>
+              {evs.slice(0, 4).map((e) => <button key={e.id} className={`cal-ev ${e.kind}`} onClick={() => setSel(e)} title={e.title}>{e.title}</button>)}
+              {evs.length > 4 && <span className="faint">+{evs.length - 4} more</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
   return (
     <>
       <div className="page-head">
@@ -103,9 +129,12 @@ export default function CalendarPage() {
           <button className="btn btn-primary" onClick={() => setEdit({ id: rid("cal"), title: "", date: today, time: "", kind: "Event", source: "Added by you", notes: "" })} data-testid="button-add-event"><Plus size={16} /> Add</button>
         </div>
       </div>
-      <GoogleCalendarCard />
-      <div className="stack-lg">
-        {owner && upcoming.length > 0 && <ComingUp items={upcoming} weekEnd={iso(new Date(Date.now() + 6 * 864e5))} onOpen={setSel} />}
+      {!owner && <GoogleCalendarCard />}
+      {/* Owners (Nov 23 PM review): the month left and Coming up beside it, Google Calendar under the list, so the page
+          fits 1440x800 instead of three full-width bands with a mostly empty grid at the bottom. */}
+      <div className={owner ? "cal-owner" : "stack-lg"}>
+        {owner && monthCard}
+        {owner ? <aside className="stack">{owner && upcoming.length > 0 && <ComingUp items={upcoming} weekEnd={iso(new Date(Date.now() + 6 * 864e5))} onOpen={setSel} />}
         {owner && !upcoming.length && (
           <section className="op-card stack-sm" data-testid="calendar-worth-adding">
             <h3>Worth putting on your calendar</h3>
@@ -118,31 +147,7 @@ export default function CalendarPage() {
             ))}
             {w.settings.careerTime && !deadlines.length && <p className="small muted">None of your openings list a deadline yet. Remy adds them here as postings date them.</p>}
           </section>
-        )}
-        <div className="card card-pad stack">
-          <div className="row-between">
-            <h2>{month.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h2>
-            <div className="row">
-              <button className="icon-btn" onClick={() => setMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))} aria-label="Previous month"><ChevronLeft size={18} /></button>
-              <button className="btn btn-ghost btn-sm" onClick={() => { const d = new Date(); d.setDate(1); setMonth(d); }}>Today</button>
-              <button className="icon-btn" onClick={() => setMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))} aria-label="Next month"><ChevronRight size={18} /></button>
-            </div>
-          </div>
-          <div className="cal-grid">
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <div key={d} className="xs muted" style={{ textAlign: "center", fontWeight: 700 }}>{d}</div>)}
-            {days.map((d) => {
-              const k = iso(d);
-              const evs = items.filter((i) => i.date === k);
-              return (
-                <div key={k} className={`cal-cell ${d.getMonth() !== month.getMonth() ? "out" : ""} ${k === today ? "today" : ""}`}>
-                  <span className="muted">{d.getDate()}</span>
-                  {evs.slice(0, 4).map((e) => <button key={e.id} className={`cal-ev ${e.kind}`} onClick={() => setSel(e)} title={e.title}>{e.title}</button>)}
-                  {evs.length > 4 && <span className="faint">+{evs.length - 4} more</span>}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        )}<GoogleCalendarCard /></aside> : monthCard}
         {!owner && <div className="card card-pad stack-sm">
           <h3>Upcoming</h3>
           {upcoming.length ? <div className="upcoming-grid">{upcoming.map((i) => (
