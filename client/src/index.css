@@ -1366,6 +1366,10 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .redesign-2 .chip, .redesign-2 .count, .redesign-2 .hero2-steps, .redesign-2 time { font-variant-numeric: tabular-nums; }
 /* The small orange label above the page title repeats the page name (the breadcrumb already says it). */
 .redesign-2 .page-head .eyebrow { display: none; }
+/* Keep the title block flexible and the streak card fixed-width, so a longer Remy line wraps inside the title
+   column instead of pushing the streak card from beside the greeting to below it (it jumped during the tour). */
+.redesign-2 .page-head > div:first-child { flex: 1 1 300px; min-width: 0; }
+.redesign-2 .page-head .streak-peek { flex: 0 0 auto; }
 /* Nav: the current page is a filled ink item, not a thin orange bar down one side. */
 .redesign-2 .nav-item[aria-current="page"] { background: var(--ink); color: var(--bg); }
 .redesign-2 .nav-item[aria-current="page"]::before { display: none; }
