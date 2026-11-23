@@ -348,6 +348,7 @@ function Tailor({ query }: { query: URLSearchParams }) {
     .filter((j) => j.kind !== "event" && !w.applications.some((a) => a.jobId === j.id) && !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false && !w.hiddenJobIds.includes(j.id))
     .sort((x, y) => (fits[y.id]?.score ?? 0) - (fits[x.id]?.score ?? 0));
   const shown = notStarted.slice(0, 8);
+  const [picking, setPicking] = useState(false);
   const editor = (
     <div>
       {!config?.ai.available && <div style={{ marginBottom: 12 }}><AiUnavailableNote /></div>}
@@ -356,7 +357,17 @@ function Tailor({ query }: { query: URLSearchParams }) {
       )}
     </div>
   );
-  if (owner) return <div className="stack-lg"><OpeningPicker selected={selected} notStarted={notStarted} jobOf={jobOf} start={start} />{selected && jobOf(selected) && editor}</div>;
+  // Owners (Dilan Nov 22: tailoring was confusing): once an opening is picked, the picker folds away and the job card
+  // below says "Tailoring for …" with Change opening, so the job isn't named twice.
+  if (owner) return (
+    <div className="stack-lg tl-owner">
+      {(picking || !(selected && jobOf(selected))) && <OpeningPicker selected={selected} notStarted={notStarted} jobOf={jobOf} start={start} onClose={selected && jobOf(selected) ? () => setPicking(false) : undefined} />}
+      {selected && jobOf(selected) && <div>
+        {!config?.ai.available && <div style={{ marginBottom: 12 }}><AiUnavailableNote /></div>}
+        <AppEditor key={selected.id} a={selected} job={jobOf(selected)!} autoStart={autoStart && selected.id === appParam} onChangeOpening={() => { setPicking(true); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
+      </div>}
+    </div>
+  );
   return (
     <div className="stack-lg">
       <div className="stack-sm">
@@ -406,30 +417,22 @@ function Tailor({ query }: { query: URLSearchParams }) {
 /** Owners first (Dilan, Nov 22: "I don't like how we have to scroll through all these openings"): one card to pick what
  *  to tailor for. Search covers every opening that fits; with no search, your applications and the top 3 matches.
  *  Once one is picked, the card folds to a single "Tailoring for …" line so the editor sits right under it. */
-function OpeningPicker({ selected, notStarted, jobOf, start }: { selected?: Application; notStarted: Job[]; jobOf: (a: Application) => Job | undefined; start: (jobId: string) => void }) {
+function OpeningPicker({ selected, notStarted, jobOf, start, onClose }: { selected?: Application; notStarted: Job[]; jobOf: (a: Application) => Job | undefined; start: (jobId: string) => void; onClose?: () => void }) {
   const { ws } = useStore();
   const { fits } = useJobs();
   const w = ws!;
-  const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
-  const cur = selected && jobOf(selected);
   const match = (j?: Job) => !!j && (!q.trim() || `${j.company} ${j.title}`.toLowerCase().includes(q.trim().toLowerCase()));
   const apps = w.applications.filter((a) => match(jobOf(a)));
   const fresh = notStarted.filter((j) => match(j));
   const top = q.trim() ? fresh.slice(0, 8) : fresh.slice(0, 3);
-  if (cur && !open) return (
-    <div className="card card-pad tpick-now" data-testid="tailor-picked">
-      <div style={{ minWidth: 0 }}><span className="xs muted">Tailoring for</span><b className="tpick-title">{cur.company}: {shortTitle(cur.title, cur.company)}</b></div>
-      <button className="btn btn-secondary btn-sm" onClick={() => setOpen(true)} data-testid="button-change-opening">Change opening</button>
-    </div>
-  );
-  const pick = (go_: () => void) => { setOpen(false); setQ(""); go_(); };
+  const pick = (go_: () => void) => { onClose?.(); setQ(""); go_(); };
   return (
     <section className="card card-pad stack-sm tpick" data-testid="opening-picker">
       <div className="row-between">
         <h3>Pick an opening to tailor for</h3>
         <span className="row" style={{ gap: 6 }}>
-          {cur && <button className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>Cancel</button>}
+          {onClose && <button className="btn btn-ghost btn-sm" onClick={onClose} data-testid="button-cancel-opening">Cancel</button>}
           <button className="btn btn-ghost btn-sm" onClick={() => go("/opportunities?import=1")} data-testid="button-new-application"><Link2 size={14} /> Import a posting</button>
         </span>
       </div>
@@ -463,7 +466,7 @@ function OpeningPicker({ selected, notStarted, jobOf, start }: { selected?: Appl
 // review Remy's changes one at a time, read the letter, then the final checks + preview + approve on one screen.
 type Sub = "changes" | "letter" | "export";
 
-function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; autoStart?: boolean }) {
+function AppEditor({ a, job, autoStart = false, onChangeOpening }: { a: Application; job: Job; autoStart?: boolean; onChangeOpening?: () => void }) {
   const { ws, setWs, run, config } = useStore();
   const w = ws!;
   const [sub, setSub] = useState<Sub>("changes");
@@ -508,13 +511,16 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
       <div className="card card-pad">
         <div className="row-between" style={{ alignItems: "flex-start" }}>
           <div className="stack-sm">
-            <span className="xs muted">{job.company} · <StatusChip label={job.label} /></span>
+            {onChangeOpening ? <span className="op-kick">Tailoring for · {job.company}</span> : <span className="xs muted">{job.company} · <StatusChip label={job.label} /></span>}
             <h2 data-testid="text-app-title">{job.title}</h2>
             <span className="xs muted">{job.deadlineText || "No deadline listed"}{(job.applyUrl || job.sourceUrl) && " · "}<ApplyLink j={job} className="src-link" testid="link-apply-tailor" style={{ color: "var(--plum)", fontWeight: 700 }} /></span>
           </div>
+          <span className="row" style={{ gap: 8 }}>
+          {onChangeOpening && <button className="btn btn-ghost btn-sm" onClick={onChangeOpening} data-testid="button-change-opening">Change opening</button>}
           <button className="btn btn-primary" onClick={generate} disabled={!!busy || (!!mine && mine.stage !== "done") || !config?.ai.available || !w.resume} data-testid="button-generate">
             {mine?.stage === "working" ? <Spinner /> : a.generatedAt ? <RotateCcw size={16} /> : <Sparkles size={16} />} {mine?.stage === "working" ? "Tailoring…" : mine?.stage === "reading" ? "Reading the posting…" : mine?.stage === "asking" ? "Answering Remy…" : a.generatedAt ? "Regenerate" : "Tailor with AI"}
           </button>
+          </span>
         </div>
         {mine?.stage === "working" && <WorkingSteps steps={["Reading the posting", "Matching it to your resume", "Writing suggested changes", "Checking every change is true to your experience"]} />}
         {a.staleReason && <div className="notice notice-warn" style={{ marginTop: 12 }}><AlertTriangle size={16} /><div>{a.staleReason}</div></div>}
@@ -529,8 +535,8 @@ function AppEditor({ a, job, autoStart = false }: { a: Application; job: Job; au
       {a.generatedAt && mine?.stage !== "working" && (
         <>
           {a.strongestMatch?.text && (
-            <div className="card card-pad stack-sm" style={{ borderColor: "var(--plum)" }} data-testid="card-strongest-match">
-              <span className="eyebrow row" style={{ color: "var(--plum)" }}><Star size={14} /> Strongest match</span>
+            <div className={onChangeOpening ? "iv-stage stack-sm" : "card card-pad stack-sm"} style={onChangeOpening ? undefined : { borderColor: "var(--plum)" }} data-testid="card-strongest-match">
+              {onChangeOpening ? <span className="op-kick">Your strongest match</span> : <span className="eyebrow row" style={{ color: "var(--plum)" }}><Star size={14} /> Strongest match</span>}
               <strong>{a.strongestMatch.text}</strong>
               <div className="grid-2 small">
                 <div className="stack-sm"><span className="xs muted">Posting says</span><span className="quote">{a.strongestMatch.requirementQuote}</span></div>
