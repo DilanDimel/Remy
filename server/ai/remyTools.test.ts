@@ -130,3 +130,24 @@ test("Remy's context lists the emails he sent this student, newest first", async
   ws.emails = [{ at: "2026-11-21T09:00:00Z", kind: "digest", subject: "Frost and 2 more" }, { at: "2026-11-22T09:00:00Z", kind: "match", subject: "Ally Financial: Intern fits you" }];
   assert.match(moreContext(ws, "2026-11-23", find), /2026-11-22 match: "Ally Financial: Intern fits you"; 2026-11-21 digest/);
 });
+
+test("remove a to-do or contact, stop a role, note on a board card, rest days: all undo", () => {
+  const ws = emptyWorkspace();
+  ws.tasks = [{ id: "k1", title: "Email Dr. Kim", why: "", done: false, due: "" } as any, { id: "k2", title: "Update LinkedIn", why: "", done: false, due: "" } as any];
+  ws.contacts = [{ id: "p1", name: "Ana Ruiz", title: "", org: "Deloitte", email: "", why: "", tags: [], label: "x" } as any];
+  ws.profile.targetRoles = "Financial Analyst, Treasury Analyst";
+  ws.tracker = [{ id: "t1", company: "Q2", role: "Intern", status: "Applied", events: [], notes: "" }];
+  const before = JSON.stringify({ t: ws.tasks, c: ws.contacts, r: ws.profile.targetRoles, n: ws.tracker[0].notes, g: ws.game?.restDays || [] });
+  const r = doActions(ws, [{ kind: "dropTask", taskId: "k1" }, { kind: "roleOff", title: "treasury analyst" }, { kind: "cardNote", trackId: "t1", note: "Recruiter is Sam" }, { kind: "restDays", days: [0] }], find, TODAY);
+  const r2 = doActions(ws, [{ kind: "dropContact", contactId: "p1" }, { kind: "roleOff", title: "Nurse" }], find, TODAY);
+  assert.equal(r.did.length + r2.did.length, 5);
+  assert.match(r2.notes[0], /wasn't in the roles/);
+  assert.deepEqual(ws.tasks.map((t) => t.id), ["k2"]);
+  assert.equal(ws.profile.targetRoles, "Financial Analyst");
+  assert.equal(ws.tracker[0].notes, "Recruiter is Sam");
+  assert.deepEqual(ws.game!.restDays, [0]);
+  assert.equal(ws.contacts.length, 0);
+  for (const d of [...r.did, ...r2.did].reverse()) assert.equal(undoDid(ws, d), null);
+  assert.equal(JSON.stringify({ t: ws.tasks, c: ws.contacts, r: ws.profile.targetRoles, n: ws.tracker[0].notes, g: ws.game?.restDays || [] }), before);
+  assert.deepEqual(chatActions([{ kind: "restDays", days: [0, 1, 2, 3] }, { kind: "cardNote", trackId: "t1", note: "" }]), []);
+});
