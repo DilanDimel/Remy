@@ -1,7 +1,8 @@
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Platform, Pressable, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Keyboard, Linking, Platform, Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 import { API_BASE } from "@/lib/api";
@@ -23,12 +24,35 @@ function openOutside(url: string) {
   else Linking.openURL(url).catch(() => Alert.alert("Couldn't open that link", "No app on this phone can open it."));
 }
 
+/** Android: the keyboard covers the bottom of the page without the page knowing, so a field and the button under it
+ *  (Progress → To-dos "Add") end up behind the keys. The app tells the page how many pixels are still visible, and the
+ *  page scrolls the field to a third of the way down that space, which shows what sits under it too. */
+const keepFieldInView = (visible: number) => `(function(){
+  var el = document.activeElement; if (!el || (!/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && !el.isContentEditable)) return;
+  var r = el.getBoundingClientRect(), v = ${Math.max(120, Math.round(visible))};
+  if (r.top > v * 0.12 && r.bottom + 90 < v) return;
+  // The site scrolls inside a panel (.main), not the window: move whichever box holds the field.
+  var box = el.parentElement;
+  while (box && !(box.scrollHeight > box.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+  (box || document.scrollingElement || document.documentElement).scrollBy({ top: r.top - v * 0.3, behavior: "smooth" });
+})(); true;`;
+
 /** A website page inside the app, already signed in (the web view shares the app's sign-in cookie).
  *  shortcut: for screens not rebuilt natively yet (resume, interview, settings); replace each with a native screen over time. */
 export default function Web() {
   const { path = "/", title = "Remy" } = useLocalSearchParams<{ path?: string; title?: string }>();
   const { refresh } = useSession();
   const { c } = useTheme();
+  // Android draws its gesture bar over the bottom of the page: leave that much room so the last field isn't under it.
+  const insets = useSafeAreaInsets();
+  const web = useRef<any>(null); // the WebView, to tell the page how much of it the keyboard leaves visible
+  const box = useRef<any>(null); // the sheet's View, measured to know where the page starts on screen
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const bring = (kbTop: number) => box.current?.measureInWindow((_x: number, y: number) => { const v = kbTop - y; if (v > 0) web.current?.injectJavaScript(keepFieldInView(v)); });
+    const a = Keyboard.addListener("keyboardDidShow", (e) => setTimeout(() => bring(e.endCoordinates.screenY), 150));
+    return () => a.remove();
+  }, []);
   const [busy, setBusy] = useState(true);
   const [pageTitle, setPageTitle] = useState<string>();
   // Whatever changed on the page (a confirmed resume, a new to-do) shows up when the sheet closes.
@@ -50,7 +74,7 @@ export default function Web() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View ref={box} collapsable={false} style={{ flex: 1, backgroundColor: c.paper, paddingBottom: Platform.OS === "android" ? insets.bottom : 0 }}>
       {/* A sheet always has a way out: swiping down is taken by the page's own scrolling. */}
       {/* Done is a solid orange pill: plain orange text sat on iOS's light-grey header pill and was hard to read. */}
       <Stack.Screen options={{ title: pageTitle || title, headerBackTitle: "Back", headerRight: () => (
@@ -65,6 +89,7 @@ export default function Web() {
         : <WebView source={{ uri: SITE + safe }} sharedCookiesEnabled thirdPartyCookiesEnabled applicationNameForUserAgent="RemyApp" onLoadEnd={() => setBusy(false)}
             onNavigationStateChange={(s) => { const t = titleFor(s.url); if (t) setPageTitle(t); }}
             originWhitelist={["*"]} onShouldStartLoadWithRequest={onNavigate} onOpenWindow={(e) => openOutside(e.nativeEvent.targetUrl)} onMessage={onMessage}
+            ref={web}
             style={{ backgroundColor: c.paper }} />}
       {busy && Platform.OS !== "web" && <ActivityIndicator color={c.fox} style={{ position: "absolute", top: 24, alignSelf: "center" }} />}
     </View>

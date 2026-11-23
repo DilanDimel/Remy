@@ -325,7 +325,7 @@ export function relocateReason(ws: Workspace, title: string, company: string): s
   return hit.length ? "the title is in your field" : "";
 }
 
-export const FIT_RULES_VERSION = 17; // 17: out-of-area openings say why they're shown (relocation answer). 16: "Anywhere in Texas" means Texas, not anywhere (it switched location off). 15: "Microsoft Excel" is the resume's "Excel"; "Microsoft Office" is shown by its apps. 14: what a student enjoys never hides an opening, only fields they chose. 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
+export const FIT_RULES_VERSION = 18; // 18: "degree conferred in 2025 or 2026" and "graduating in/by YYYY" are graduation rules. 17: out-of-area openings say why they're shown (relocation answer). 16: "Anywhere in Texas" means Texas, not anywhere (it switched location off). 15: "Microsoft Excel" is the resume's "Excel"; "Microsoft Office" is shown by its apps. 14: what a student enjoys never hides an opening, only fields they chose. 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const g = gradDate(ws);
   const year = classYearOf(ws);
@@ -337,6 +337,11 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const elig = [job.eligibility.join(" "), job.title].join(" ");
   const range = elig.match(/between\s+([A-Za-z]+)\s+(\d{4})\s+and\s+([A-Za-z]+)\s+(\d{4})/i) || elig.match(/graduating\s+([A-Za-z]+)\s+(\d{4})\s*[–-]\s*([A-Za-z]+)\s+(\d{4})/i);
   const classOf = elig.match(/class of (\d{4})/i);
+  // "Undergraduate degree conferred in 2025 or 2026", "graduating in 2027", "degree completed by 2026": a list of
+  // graduation years ("by" = that year or earlier). Live, Nov 22: Point72's fellowship said it, and Remy told a 2030
+  // graduate the posting "doesn't limit class year".
+  const conferred = elig.match(/\b(?:degree\s+(?:conferred|completed|awarded|earned)|conferred|graduat(?:e|es|ing|ion))\s+(in|by|during)\s+((?:(?:spring|summer|fall|winter|may|june|december|[a-z]+)\s+)?20\d\d(?:\s*(?:,|or|and|\/)\s*(?:(?:spring|summer|fall|winter|[a-z]+)\s+)?20\d\d)*)/i);
+  const conferredYears = conferred ? [...conferred[2].matchAll(/20\d\d/g)].map((m) => +m[0]) : [];
   const years = requiredYears(elig);
   // A class year in the title ("Sophomore Summer Analyst") is a restriction, not a hint.
   if (years && requiredYears(job.title)) years.definite = true;
@@ -358,6 +363,13 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
     checked = eligibility === "likely";
     excluded = eligibility === "unlikely";
     note = `This posting is for the Class of ${classOf[1]}; you expect to graduate in ${g.y}.`;
+  } else if (g && conferredYears.length) {
+    const by = conferred![1].toLowerCase() === "by";
+    const ok = by ? g.y <= Math.max(...conferredYears) : conferredYears.includes(g.y);
+    eligibility = ok ? "likely" : "unlikely";
+    checked = ok;
+    excluded = !ok;
+    note = `This posting is for students whose degree is finished ${by ? "by" : "in"} ${conferredYears.join(" or ")}; you expect to graduate in ${g.y}.`;
   } else if (years) {
     const list = [...years.years].join(" or ");
     if (ws.profile.path === "high-school") {
