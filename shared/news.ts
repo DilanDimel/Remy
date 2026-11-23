@@ -3,6 +3,7 @@
 export type NewsItem = { id: string; date: string; kind: "New" | "Improved" | "Fixed" | "Changed"; title: string; body: string; owners?: boolean };
 
 export const NEWS: NewsItem[] = [
+  { id: "2026-11-23-65", date: "2026-11-23", kind: "Improved", title: "Remy asks right on your resume", body: "On Resume, Remy asks about each flagged line right next to it on your resume, so you don\u2019t have to look back and forth. The little tags stay with their line, and Remy\u2019s note moves with the line when you scroll.", owners: true },
   { id: "2026-11-23-62", date: "2026-11-23", kind: "Improved", title: "Keep is instant, and a better major menu", body: "Keep and Pass react the moment you tap them. On the homepage, “I’m a ___ studying ___” opens a proper menu with 32 majors grouped by area, or you can type your own.", owners: true },
   { id: "2026-11-23-61", date: "2026-11-23", kind: "Changed", title: "Remy’s office is My Path", body: "On My Path, Remy’s office fills the page and the side panel steps aside. Ask Remy in the box under the room, and he answers in a speech bubble while he types at his desk. He also looks better standing up, tail and all.", owners: true },
   { id: "2026-11-23-60", date: "2026-11-23", kind: "Improved", title: "Pick the name on your resume", body: "Remy asks which name to use right on the Resume page and first thing when you finish tailoring. Words Remy changed are marked as one piece, “Fix with Remy” opens the exact line you tapped, and the last step shows your resume and cover letter as real-size pages.", owners: true },
