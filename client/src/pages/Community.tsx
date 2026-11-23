@@ -123,7 +123,21 @@ export default function Community() {
             </div>
           ))}
         </div>
-      ) : <div className="card"><Empty title="No contacts yet" body={owner ? "Met someone at a career fair, in class or at a coffee chat? Add them and Remy tells you what to talk about, when to email and when to check in again." : "Add someone you've met at a career fair, in class or on LinkedIn."} /></div>}
+      ) : owner ? (
+        // Owners (Nov 23 review): half the page was empty. Three kinds of people to start with, each opening the form.
+        <div className="cm-starters" data-testid="community-starters">
+          {([["Recruiter", "Someone from a career fair", "A two-minute chat counts. Remy reminds you to thank them the next day.", { met: "Career fair" }],
+            ["Professor", "A professor in your major", "They know who's hiring and write the references.", { title: "Professor", org: w.profile.school || "" }],
+            ["Alum", "An alum in your field", "Alumni answer students from their own school more than anyone else.", { why: "Alum in my field" }]] as const).map(([k, t, why, pre]) => (
+            <button key={k} className="cm-starter" onClick={() => { setC({ ...blank, ...pre }); setAdding(true); }} data-testid={`button-starter-${k.toLowerCase()}`}>
+              <span className="op-pick-mono cm-face" aria-hidden="true">{k[0]}</span>
+              <b>{t}</b>
+              <span className="small muted">{why}</span>
+              <span className="cm-starter-go"><Plus size={14} /> Add someone like this</span>
+            </button>
+          ))}
+        </div>
+      ) : <div className="card"><Empty title="No contacts yet" body="Add someone you've met at a career fair, in class or on LinkedIn." /></div>}
       {w.outreach.length > 0 && (
         <section className="card card-pad stack">
           <h3>Drafts</h3>

@@ -39,7 +39,7 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
   if (stage4 && !query.get("tab")) return (
     <>
       <div className="pm-head">
-        <div><h1>My Path</h1><p className="pt-sub"><b>Every step anywhere in Remy earns XP.</b> Every level gives you something new.</p></div>
+        <div><h1>My Path</h1><p className="op-say"><b>Every step anywhere in Remy earns XP.</b> Every level gives you something new.</p></div>
         {knows && <button className="btn btn-secondary" onClick={generate} disabled={busy || !config?.ai.available} data-testid="button-refresh-path">{busy ? <Spinner /> : w.plan ? <RotateCcw size={16} /> : <Sparkles size={16} />} {w.plan ? "Refresh Remy's suggestions" : "Build my path"}</button>}
       </div>
       <PathBoard />

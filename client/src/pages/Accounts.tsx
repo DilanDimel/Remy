@@ -20,13 +20,16 @@ type Tab = "profile" | "sources" | "memory" | "settings" | "data";
 export default function Accounts({ query }: { query: URLSearchParams }) {
   const tab = (query.get("tab") as Tab) || "profile";
   const { ws } = useStore();
+  const owner = useOwnerView();
   return (
     <>
       <div className="page-head">
         <div>
           <span className="eyebrow">Accounts</span>
           <h1><span className="title-slogan">Your profile, sources and memory.</span><span className="title-plain">Account</span></h1>
-          <p className="hide-phone">See exactly what Remy knows, where it came from, and change or delete it.</p>
+          {owner
+            ? <p className="op-say"><b>Everything Remy knows about you.</b> See where it came from, change it or delete it.</p>
+            : <p className="hide-phone">See exactly what Remy knows, where it came from, and change or delete it.</p>}
         </div>
       </div>
       <div className="tabs" role="tablist">

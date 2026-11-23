@@ -20,6 +20,12 @@ export type Road = { key: string; label: string; field: RegExp; credentials: Cre
 export const NEED_LABEL: Record<CredentialNeed, string> = { required: "Required", job: "Comes with the job", depends: "Depends on the job", optional: "Optional" };
 
 export const YEARS = ["", "First-year", "Sophomore", "Junior", "Senior", "After college"] as const;
+/** Class year from an expected graduation ("May 2029" in fall 2026 is a sophomore). "" when it can't tell. */
+export function guessYear(graduation = "", now = new Date()): string {
+  const y = Number(/\b(20\d\d)\b/.exec(graduation)?.[1]);
+  const left = y - (now.getMonth() >= 6 ? now.getFullYear() + 1 : now.getFullYear());
+  return y && left >= 0 && left <= 3 ? YEARS[4 - left] : "";
+}
 
 const TXCPA = "https://www.tx.cpa/news/todays-cpa-magazine/current-issue/article/september-october-2026/2026/09/03/a-new-era-for-cpa-licensure-in-texas-and-a-look-ahead";
 const FINRA = "https://www.finra.org/sie";
