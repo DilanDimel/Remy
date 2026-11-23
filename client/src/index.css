@@ -257,6 +257,8 @@ label.row > input[type="checkbox"] { flex: none; margin-top: 3px; }
 .bubble-ai { background: var(--fox-soft); border: 1px solid transparent; align-self: flex-start; border-bottom-left-radius: 4px; }
 .asst-foot { border-top: 1px solid var(--line); padding: 12px; display: flex; gap: 8px;  align-items: flex-end; }
 .asst-card { border: 1px solid var(--line); border-radius: 14px; padding: 12px; background: var(--surface-2); }
+.remy-thinking { display: flex; align-items: center; gap: 10px; align-self: flex-start; }
+.remy-thinking .lp-typing { padding: 12px 14px; }
 /* Owners: what Remy did reads as a line under his reply, not a box. */
 .chat-did { max-width: 92%; display: flex; flex-direction: column; gap: 2px; padding-left: 4px; }
 .chat-did .small { padding: 2px 0 !important; }
