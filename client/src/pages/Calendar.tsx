@@ -42,19 +42,19 @@ function CalLine({ upcoming, today }: { upcoming: CalItem[]; today: string }) {
   );
 }
 
-/** Owners: the next seven days as Remy's peach card (no dark bands, Dilan Nov 22); each row opens the item. */
-function ThisWeek({ items, onOpen }: { items: CalItem[]; onOpen: (c: CalItem) => void }) {
-  if (!items.length) return null;
+/** Owners: one "Coming up" list above the month (Dilan Nov 22: This week and Upcoming were the same thing twice).
+ *  Peach like Home's Remy card; items in the next seven days are marked; each row opens the item. */
+function ComingUp({ items, weekEnd, onOpen }: { items: CalItem[]; weekEnd: string; onOpen: (c: CalItem) => void }) {
   return (
     <section className="iv-stage" data-testid="calendar-week">
-      <span className="op-kick">This week</span>
-      <ul className="op-dl cal-week">{items.map((i) => {
+      <span className="op-kick">Coming up</span>
+      {items.length ? <ul className="op-dl cal-week">{items.map((i) => {
         const d = new Date(i.date + "T12:00");
         return (
-          <li key={i.id}><span className="op-date"><small>{d.toLocaleDateString("en-US", { weekday: "short" })}</small><b>{d.getDate()}</b></span>
-            <button onClick={() => onOpen(i)} data-testid="button-week-item"><strong>{i.title}</strong><span>{i.kind}{i.time ? ` · ${clock(i.time)}` : ""}</span></button></li>
+          <li key={i.id}><span className={"op-date" + (i.date <= weekEnd ? " soon" : "")}><small>{d.toLocaleDateString("en-US", i.date <= weekEnd ? { weekday: "short" } : { month: "short" })}</small><b>{d.getDate()}</b></span>
+            <button onClick={() => onOpen(i)} data-testid="button-upcoming"><strong>{i.title}</strong><span>{i.kind}{i.time ? ` · ${clock(i.time)}` : ""}</span></button></li>
         );
-      })}</ul>
+      })}</ul> : <p className="small muted" style={{ marginTop: 6 }}>Nothing scheduled. Save an opening with a deadline, or press Add.</p>}
     </section>
   );
 }
@@ -98,7 +98,7 @@ export default function CalendarPage() {
       </div>
       <GoogleCalendarCard />
       <div className="stack-lg">
-        {owner && <ThisWeek items={upcoming.filter((i) => i.date <= iso(new Date(Date.now() + 6 * 864e5)))} onOpen={setSel} />}
+        {owner && <ComingUp items={upcoming} weekEnd={iso(new Date(Date.now() + 6 * 864e5))} onOpen={setSel} />}
         <div className="card card-pad stack">
           <div className="row-between">
             <h2>{month.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h2>
@@ -123,7 +123,7 @@ export default function CalendarPage() {
             })}
           </div>
         </div>
-        <div className="card card-pad stack-sm">
+        {!owner && <div className="card card-pad stack-sm">
           <h3>Upcoming</h3>
           {upcoming.length ? <div className="upcoming-grid">{upcoming.map((i) => (
             <button key={i.id} className="pick" onClick={() => setSel(i)} data-testid="button-upcoming">
@@ -131,7 +131,7 @@ export default function CalendarPage() {
               <strong className="small">{i.title}</strong>
             </button>
           ))}</div> : <span className="small muted">Nothing scheduled. Add deadlines from Opportunities.</span>}
-        </div>
+        </div>}
       </div>
       {sel && (
         <Modal title={sel.title} onClose={() => setSel(null)}>

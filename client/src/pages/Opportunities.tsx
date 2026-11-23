@@ -1,6 +1,6 @@
 import { useEffect, useState, Fragment } from "react";
 import { dreamWithoutOpenings } from "@shared/org";
-import { ArrowDown, ArrowRight, ArrowUp, ArrowUpRight, Bookmark, BookmarkCheck, CalendarPlus, Check, X, ChevronDown, ChevronUp, Link2, MapPin, RefreshCw, Search, Sparkles, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, BookmarkCheck, CalendarPlus, Check, X, ChevronDown, ChevronUp, Link2, MapPin, RefreshCw, Search, Sparkles, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
 import { openingRanker, reasonLine } from "@shared/order";
 import type { Job, JobCheck, JobFit, JobInterestReason, JobRanking, Workspace } from "@shared/types";
 import { api, daysUntil, fmtDate, rid, useDraft, useOwnerView, useStore } from "../lib/store";
@@ -85,10 +85,8 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
     // The student's own places first, then "Worth relocating for" (their relocation answer), then other places (only
     // when they show all locations); pinned and ranked within each group, so a group never splits (skeptic review).
     .sort(compare(pinned));
-  // Owners: Remy's pick heads the page (the best unsaved job on the list as ranked), and is left out of the list below.
   const visible = (jobs || []).filter((j) => !w.hiddenJobIds.includes(j.id) && !fits[j.id]?.excluded);
-  const pick = owner && !q && !focus && !role ? list.find((j) => j.kind !== "event" && !w.savedJobIds.includes(j.id)) : undefined;
-  const rest = pick ? list.filter((j) => j !== pick) : list;
+  const rest = list; // Dilan Nov 22: no "Remy's pick" card on owner Opportunities, it was doing too much
   return (
     <>
       {needsProfile && <div className="notice" data-testid="needs-profile">{needsProfile}</div>}
@@ -118,7 +116,6 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
       </div>
       {finding && <div className="notice small fade-up"><Remy size={28} mood="think" /><div className="stack-sm"><span>Remy is reading live job boards from employers that fit {w.profile.targetRoles || "your interests"}{w.profile.regions ? ` in ${w.profile.regions}` : ""}.</span><WorkingSteps steps={["Picking employers that fit you", "Reading their career sites", "Keeping internships and entry-level roles", "Ranking by how well they fit"]} every={3500} /></div></div>}
       {showImport && <ImportPanel onDone={() => setShowImport(false)} />}
-      {pick && <OwnerPick j={pick} fit={fits[pick.id]} canRate={interestEnabled} />}
       <div className="row-between opp-filters">
         <div className="seg" role="group" aria-label="Category">
           {([["all", "All", "All"], ["jobs", "Jobs & internships", "Jobs"], ["campus", "Campus jobs", "Campus"], ["event", "Events", "Events"]] as [Kind, string, string][]).map(([k, l, short]) => (
@@ -178,7 +175,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
             </div>
           );
         })()
-      ) : rest.length === 0 && pick ? null : (
+      ) : (
         <div className="card">
           <Empty
             title={kind === "campus" ? "No campus jobs added yet" : jobs.length ? "Nothing matches" : "No openings yet"}
@@ -210,36 +207,6 @@ function OppLine({ visible, fits }: { visible: Job[]; fits: Record<string, JobFi
       {qualify ? ` You qualify for ${qualify}.` : ""}
       {soon ? ` ${soon.j.company} closes ${soon.d === 0 ? "today" : soon.d === 1 ? "tomorrow" : `in ${soon.d} days`}.` : ""}
     </p>
-  );
-}
-
-/** Owners: the one opening Remy would look at first, with why it fits as checks and every action the card has. */
-function OwnerPick({ j, fit, canRate }: { j: Job; fit?: JobFit; canRate: boolean }) {
-  const { ws, save } = useStore();
-  const w = ws!;
-  const saved = w.savedJobIds.includes(j.id), hidden = w.hiddenJobIds.includes(j.id);
-  const d = daysUntil(j.deadline);
-  return (
-    <section className="op-pick" data-testid="opp-pick">
-      <div className="op-pick-main">
-        <span className="op-kick">Remy's pick today</span>
-        <h2 title={j.title}>{shortTitle(j.title, j.company)}</h2>
-        <span className="small muted">{j.company} · {kindLabel[j.kind]}{j.location ? ` · ${j.location}` : ""}</span>
-        <div className="op-fits">
-          {fit?.checked && fit.eligibility !== "unlikely" && <span className="op-fit"><i><Check size={10} strokeWidth={4} /></i>You qualify</span>}
-          {(fit?.matched || []).slice(0, 3).map((k) => <span key={k} className="op-fit"><i><Check size={10} strokeWidth={4} /></i>{k} on your resume</span>)}
-          {d !== null && d >= 0 && d <= 14 && <span className="op-fit warn"><i>!</i>Due {fmtDate(j.deadline)}</span>}
-          {!fit?.matched?.length && fit?.gaps?.[0] && fit.gaps[0].length < 30 && <span className="op-fit warn"><i>!</i>{fit.gaps[0]} not on your resume yet</span>}
-        </div>
-        <div className="row op-pick-acts">
-          <button className="btn btn-primary" onClick={() => go(`/resume?tab=tailor&job=${j.id}&go=1`)} data-testid="button-pick-tailor">Tailor my resume for it <ArrowRight size={16} /></button>
-          <ApplyLink j={j} />
-          {canRate ? <KeepPass j={j} saved={saved} hidden={hidden} /> : <button className="btn btn-ghost btn-sm" onClick={() => save("savedJobIds", saved ? w.savedJobIds.filter((x) => x !== j.id) : [...w.savedJobIds, j.id])} data-testid="button-pick-save">{saved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />} {saved ? "Saved" : "Save"}</button>}
-          <button className="btn btn-ghost btn-sm" onClick={() => go(`/opportunities?kind=all&id=${j.id}`)} data-testid="button-pick-details"><ChevronDown size={14} /> Details</button>
-        </div>
-      </div>
-      <span className="op-pick-mono" aria-hidden="true">{orgInitials(j.company)}</span>
-    </section>
   );
 }
 
