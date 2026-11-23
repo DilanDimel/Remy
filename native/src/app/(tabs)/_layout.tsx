@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { Keyboard, Platform } from "react-native";
 import { Redirect } from "expo-router";
 import { NativeTabs } from "expo-router/native-tabs";
 import { Loading } from "@/components/ui";
@@ -7,12 +9,20 @@ import { font, useTheme } from "@/lib/theme";
 export default function Tabs() {
   const { status, me, ws } = useSession();
   const { c } = useTheme();
+  // Android: the window shrinks for the keyboard, so the tab bar would sit on top of the keys; hide it meanwhile.
+  const [kb, setKb] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const a = Keyboard.addListener("keyboardDidShow", () => setKb(true));
+    const b = Keyboard.addListener("keyboardDidHide", () => setKb(false));
+    return () => { a.remove(); b.remove(); };
+  }, []);
   if (status === "loading") return <Loading />;
   if (status === "signed-out" || status === "error") return <Redirect href="/sign-in" />;
   // Owners-only until the team releases the new app.
   if (!isOwnerView(me, ws)) return <Redirect href="/not-yet" />;
   return (
-    <NativeTabs tintColor={c.fox} minimizeBehavior="onScrollDown" labelStyle={{ fontFamily: font.semi }}>
+    <NativeTabs tintColor={c.fox} minimizeBehavior="onScrollDown" labelStyle={{ fontFamily: font.semi }} labelVisibilityMode="labeled" indicatorColor={c.foxSoft} hidden={kb}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Icon sf={{ default: "house", selected: "house.fill" }} md="home" />
         <NativeTabs.Trigger.Label>Today</NativeTabs.Trigger.Label>
