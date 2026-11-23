@@ -69,7 +69,7 @@ export default function Jobs() {
     <View style={{ paddingVertical: 50, alignItems: "center", gap: 8 }}>
       <T kind="h2">{loading ? "Finding openings…" : filter === "kept" ? "Nothing kept yet" : "You're all caught up"}</T>
       <T kind="muted" style={{ textAlign: "center" }}>{error || (filter === "kept" ? "Keep openings you like and they'll wait here." : "Remy checks employers' sites every few hours. Pull down to check now.")}</T>
-      {!loading && !error && filter === "new" && kept.length > 0 && <Button testID="button-see-kept" label={`See your ${kept.length} kept`} icon="arrow" onPress={() => { tap(); setFilter("kept"); }} style={{ marginTop: 12 }} />}
+      {!loading && !error && filter === "new" && kept.length > 0 && <Button testID="button-see-kept" label={`See your ${kept.length} kept`} icon="arrow" onPress={() => setFilter("kept")} style={{ marginTop: 12, alignSelf: "center" }} />}
     </View>
   );
 
