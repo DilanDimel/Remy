@@ -12,10 +12,10 @@ test("crisis check: ignores everyday career stress", () => {
     assert.ok(!CRISIS.test(m), m);
 });
 
-test("chat buttons: only Remy's own pages and the three kinds, at most three (students still see two)", () => {
+test("chat buttons: only Remy's own pages and the three kinds, at most four (students still see two)", () => {
   assert.deepEqual(chatActions([{ kind: "open", link: "https://evil.example", label: "x" }, { kind: "open", link: "javascript:alert(1)" }, { kind: "delete" }]), []);
   assert.deepEqual(chatActions([{ kind: "open", link: "/path?tab=career", label: "Explore" }]), [{ kind: "open", link: "/path?tab=career", label: "Explore" }]);
-  assert.equal(chatActions([{ kind: "task", title: "a", why: "" }, { kind: "role", title: "Actuary" }, { kind: "task", title: "c" }, { kind: "task", title: "d" }]).length, 3);
+  assert.equal(chatActions([{ kind: "task", title: "a", why: "" }, { kind: "role", title: "Actuary" }, { kind: "task", title: "c" }, { kind: "task", title: "d" }, { kind: "task", title: "e" }]).length, 4);
   assert.deepEqual(chatActions("nope"), []);
 });
 

@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
-import type { Application, Contact, Job, OutreachDraft, Workspace } from "@shared/types";
+import type { Application, Contact, Job, OutreachDraft, ResumeDoc, Workspace } from "@shared/types";
+import { reviewResume, type BulletRef } from "@shared/review";
 import { isNonAnswer } from "@shared/words";
 import { api } from "./store";
 
@@ -10,7 +11,7 @@ import { api } from "./store";
 type Msg = { role: "remy" | "me"; text: string };
 type Stage = "reading" | "asking" | "working" | "done"; // reading: Remy is reading the posting before asking
 export type TailorSession = {
-  kind: "tailor" | "outreach";
+  kind: "tailor" | "outreach" | "fix";
   targetId: string; // application id or contact id
   appId: string; // kept for the Resume page; "" for outreach
   title: string; // shown above the conversation
@@ -28,6 +29,8 @@ export type TailorSession = {
    *  stronger ("encouraged, not mandatory"); answering redoes the draft with the answers. */
   draftFirst?: boolean;
   drafted?: boolean; // the first draft exists; the questions after it are optional
+  /** "Fix my resume" (owners): the weak lines, the one being asked about, Remy's draft of it, and the resume it saves to. */
+  fix?: { lines: (BulletRef & { kind: "numbers" | "verbs" })[]; at: number; draft: string; doc: ResumeDoc; base: string; saved: number; other: string[] };
 };
 type Deps = { setWs: (w: Workspace) => void; run: <T>(fn: () => Promise<T>, ok?: string) => Promise<T | undefined> };
 
@@ -157,6 +160,7 @@ export const realAnswers = (s: Pick<TailorSession, "qs" | "answers">) => s.qs.fi
 export async function answer(text: string, deps: Deps) {
   const s = session;
   if (!s || s.stage !== "asking") return;
+  if (s.kind === "fix") return answerFix(s, text, deps);
   const q = s.qs[s.idx];
   say(text.trim() || "skip", "me");
   if (q.pick && text.trim().toLowerCase() === q.pick.toLowerCase() && q.key === "proud" && q.options?.length) {
@@ -209,6 +213,81 @@ export async function answer(text: string, deps: Deps) {
   if (r) { deps.setWs(r.workspace); s.draftId = r.draft.id; }
   s.stage = "done";
   say(r ? "Your email is ready to review in Community. Nothing is sent until you open it in your own email." : "That didn't work — try Draft email again.");
+  emit();
+}
+
+/** Owners, from chat ("fix my base resume"): Remy goes through the weak lines one at a time, asks what really happened,
+ *  drafts the line from the answer (the same checked draft as Resume → Review) and saves it only on "Use it". */
+export function startResumeFix(ws: Workspace, deps: Deps) {
+  const r = ws.resume;
+  if (!r) return;
+  const { todo } = reviewResume(r.doc, { listLike: true });
+  const seen = new Set<string>();
+  const lines = todo.flatMap((it) => (it.kind === "numbers" || it.kind === "verbs" ? it.bullets.map((b) => ({ ...b, kind: it.kind as "numbers" | "verbs" })) : []))
+    .filter((b) => b.id && !seen.has(b.id) && seen.add(b.id)).slice(0, 8);
+  const other = todo.filter((it) => it.kind !== "numbers" && it.kind !== "verbs").map((it) => it.title);
+  session = { kind: "fix", targetId: "", appId: "", title: "Fixing your resume with Remy", stage: "asking", idx: 0, answers: {}, log: [], qs: [], drafted: true,
+    fix: { lines, at: 0, draft: "", doc: structuredClone(r.doc), base: r.editedAt || r.uploadedAt, saved: 0, other } };
+  draftDeps = deps;
+  if (!lines.length) {
+    session.stage = "done";
+    say(`Your lines already read strong: action verbs and real details.${other.length ? ` Still worth doing on this page: ${other.join("; ")}.` : ""}`);
+  } else {
+    say(`Let's make your resume stronger together. I found ${lines.length} line${lines.length > 1 ? "s" : ""} worth fixing. One at a time: tell me what really happened and I'll write the line from your words. Nothing changes until you tap "Use it".`);
+    askLine(session);
+  }
+  emit();
+  openers.forEach((o) => o());
+}
+function askLine(s: TailorSession) {
+  const f = s.fix!, l = f.lines[f.at];
+  const q = `Line ${f.at + 1} of ${f.lines.length} (${l.where}): "${l.text}"\n${l.kind === "numbers" ? "Is there a real number here? How many people, events, dollars, hours or percent. Only if you know it." : "What exactly did you do here? A few words in your own terms."}`;
+  s.qs = [...s.qs, { key: "line", q, pick: "Skip this line" }];
+  s.idx = s.qs.length - 1;
+  s.stage = "asking";
+  say(q);
+}
+function nextLine(s: TailorSession) {
+  const f = s.fix!;
+  f.at += 1;
+  f.draft = "";
+  if (f.at < f.lines.length) { askLine(s); return; }
+  s.stage = "done";
+  say(`${f.saved ? `Done. I updated ${f.saved} line${f.saved > 1 ? "s" : ""} on your resume.` : "Done. Nothing on your resume changed."}${f.other.length ? ` Still worth doing on the Resume tab: ${f.other.join("; ")}.` : ""} Ask me anytime to go again.`);
+}
+async function answerFix(s: TailorSession, text: string, deps: Deps) {
+  const f = s.fix!, q = s.qs[s.idx], l = f.lines[f.at];
+  say(text.trim() || "skip", "me");
+  if (/^\s*(skip the rest|stop|i'?m done|that'?s all|done)\s*[.!]?\s*$/i.test(text)) { f.at = f.lines.length; nextLine(s); emit(); return; }
+  if (/^\s*skip( this( line)?)?\s*[.!]?\s*$/i.test(text) || (q.key === "line" && isNonAnswer(text))) { nextLine(s); emit(); return; }
+  if (q.key === "ok" && /^\s*(use it|yes|yep|yeah|sure|ok|okay|looks good|perfect)\b/i.test(text)) {
+    s.stage = "working";
+    emit();
+    const doc = structuredClone(f.doc);
+    for (const sec of doc.sections) for (const e of sec.entries) for (const b of e.bullets) if (b.id === l.id) b.text = f.draft;
+    const w = await deps.run(() => api<Workspace>("PUT", "/api/resume/doc", { doc, base: f.base }));
+    if (session !== s) return;
+    if (!w?.resume) { s.stage = "done"; say("I couldn't save that line. Your resume may have changed in another tab; ask me again and I'll start from your latest version."); emit(); return; }
+    deps.setWs(w);
+    f.doc = structuredClone(w.resume.doc);
+    f.base = w.resume.editedAt || w.resume.uploadedAt;
+    f.saved += 1;
+    say("Saved to your resume.");
+    nextLine(s);
+    emit();
+    return;
+  }
+  if (q.key === "ok" && /^\s*(try again|no|nope|no thanks)\b/i.test(text)) { f.draft = ""; s.qs = [...s.qs, { key: "line", q: "Okay. Tell me a bit more about it, in your own words, and I'll try again.", pick: "Skip this line" }]; s.idx = s.qs.length - 1; say(s.qs[s.idx].q); emit(); return; }
+  // An answer about the line (or a new one instead of "Use it"): Remy drafts it from their words.
+  s.stage = "working";
+  emit();
+  const r = await deps.run(() => api<{ draft: string }>("POST", "/api/resume/bullet-draft", { kind: l.kind, text: l.text, answer: text }));
+  if (session !== s) return;
+  if (!r) { s.qs = [...s.qs, { key: "line", q: l.kind === "numbers" ? "I need the real number to work it in (like \"40 members\" or \"$5,000\"). What is it? Or skip this line." : "Say in a few words what you actually did (like \"wrote and scheduled the posts\"), or skip this line.", pick: "Skip this line" }]; }
+  else { f.draft = r.draft; s.qs = [...s.qs, { key: "ok", q: `How about this?\n"${r.draft}"`, options: ["Use it", "Try again"], pick: "Skip this line" }]; }
+  s.idx = s.qs.length - 1;
+  s.stage = "asking";
+  say(s.qs[s.idx].q);
   emit();
 }
 

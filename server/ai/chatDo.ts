@@ -1,7 +1,8 @@
-import type { ChatAction, ChatDid, Job, Workspace } from "@shared/types";
+import type { ChatAction, ChatDid, Job, MoreAction, Workspace } from "@shared/types";
 import { step } from "@shared/progress";
 import { uid } from "../platform/ids";
 import { NAME_CHECK } from "@shared/names";
+import { doMore, MORE_KINDS, undoMore } from "./remyTools";
 
 // Redesign stage 6 (owners first): "save that job", "add a to-do for Friday", "tailor my resume for this" are done
 // right away, shown as what Remy did, each with Undo. Nothing here leaves Remy (no application, email or RSVP).
@@ -87,6 +88,10 @@ export function doActions(ws: Workspace, actions: ChatAction[], findJob: (ws: Wo
       const id = uid("f"), now = new Date().toISOString();
       ws.memory.push({ id, text: a.text, category: "other", source: "Assistant chat (asked by student)", status: "approved", createdAt: now, updatedAt: now });
       did.push({ id: uid("d"), kind: "remember", ref: id, label: `Remembered: ${a.text}`, link: "/accounts?tab=memory" });
+    } else if (MORE_KINDS.has(a.kind)) {
+      const r = doMore(ws, a as MoreAction, findJob, today);
+      if (r.did) did.push(r.did);
+      if (r.note) notes.push(r.note);
     } else buttons.push(a);
   }
   return { did, buttons, notes };
@@ -96,6 +101,8 @@ export function doActions(ws: Workspace, actions: ChatAction[], findJob: (ws: Wo
 /** Undo one thing Remy did. Returns why it can't be undone, or null when it was. */
 export function undoDid(ws: Workspace, d: ChatDid): string | null {
   if (d.undone) return null;
+  const more = undoMore(ws, d);
+  if (more !== false) { if (more) return more; d.undone = true; return null; }
   if (d.kind === "task") ws.tasks = ws.tasks.filter((t) => t.id !== d.ref);
   else if (d.kind === "save") {
     ws.savedJobIds = ws.savedJobIds.filter((x) => x !== d.ref);
