@@ -84,3 +84,10 @@ test("future: a field the student browses replaces their own major's outlook", (
   assert.ok(f.length > 0);
   assert.ok(!f.some((x) => x.field === "nursing"), f.map((x) => x.field).join(","));
 });
+
+test("examples follow the student's major: nursing never gets the finance example", async () => {
+  const { fieldExample } = await import("@shared/fields");
+  assert.equal(fieldExample("Nursing").role, "Registered Nurse");
+  assert.equal(fieldExample("Mechanical Engineering").subject, "engineering");
+  assert.ok(!/financ/i.test(JSON.stringify(fieldExample("Undeclared"))));
+});
