@@ -14,12 +14,13 @@ import { Remy, StatusChip } from "../components/common";
 import { firstName } from "@shared/names";
 import { gettingStarted } from "@shared/progress";
 import { many, remyLine } from "@shared/homeLine";
-import { dailyStreak, dayKey, weekDots } from "@shared/daily";
+import { dailyStreak, dayKey, streakDays, weekDots } from "@shared/daily";
 import { OrgLogo } from "../components/OrgLogo";
 
 type Tab = "todos" | "events" | "opps";
 
 // A big faint drawing in the corner of the "one thing" card, picked from where the button goes.
+const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const nextArt = (link: string, interview: boolean) => interview || link.startsWith("/interview") ? Mic : link.startsWith("/resume") ? FileText : link.startsWith("/opportunities") ? Briefcase : link.startsWith("/path") ? Compass : link.startsWith("/calendar") ? CalendarCheck : ListChecks;
 
 // A rough time for the one thing, so it feels small (owners).
@@ -172,7 +173,7 @@ export default function Home() {
         </div>
         {ownerView && (() => {
           // Read-only peek at My Path's daily round (#161): the streak, this week's days and today's three cards.
-          const g = w.game || ({ weeks: {} } as NonNullable<typeof w.game>);
+          const g = streakDays(w); // same days as My Path: any real step counts, not only the round's cards
           const st = dailyStreak(g);
           const today = (["openings", "role", "forecast"] as const).every((c) => w.game?.days?.[dayKey()]?.includes(c));
           return (
@@ -180,7 +181,7 @@ export default function Home() {
               <Flame size={22} aria-hidden="true" />
               <span className="streak-num">{st.days}</span>
               <span className="streak-lab"><b>day streak</b>{st.best > st.days ? `Best ${st.best}` : st.days ? "Your best yet" : "Start today"}</span>
-              <span className="streak-dots" aria-label="This week">{weekDots(g).map((d) => <i key={d.key} className={d.status} title={d.label} />)}</span>
+              <span className="streak-dots" aria-label="This week">{weekDots(g).map((d, i) => <i key={d.key} className={d.status} title={DAY_NAMES[i] + (d.status === "done" ? ": done" : d.status === "today" ? ": today" : "")}>{d.label}</i>)}</span>
               <button className={"btn btn-sm " + (today ? "btn-secondary" : "btn-primary")} onClick={() => go(today ? "/path" : "/path?play=1")} data-testid="button-todays-round">{today ? "Done for today" : "Today's round"}</button>
             </div>
           );

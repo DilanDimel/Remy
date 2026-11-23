@@ -1,7 +1,7 @@
 // Daily path (stage 7): one card keeps the streak, rest days skip, a freeze covers one missed day, cards add XP once.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dailyStreak, dailyXp, dayKey, markDay, shiftDay, weekDots, withCard } from "../shared/daily";
+import { dailyStreak, dailyXp, dayKey, markDay, shiftDay, weekDots, withCard, streakDays } from "../shared/daily";
 
 const run = (from: string, n: number, skip: string[] = []) => {
   let g = { weeks: {} } as Parameters<typeof withCard>[0];
@@ -41,4 +41,15 @@ test("the day rolls over at 4 AM, so a 1 AM round counts for the evening before"
   assert.equal(dayKey(new Date(2026, 10, 23, 1, 30)), "2026-11-22");
   assert.equal(dayKey(new Date(2026, 10, 23, 4, 0)), "2026-11-23");
   assert.equal(dayKey(new Date(2026, 10, 22, 23, 59)), "2026-11-22");
+});
+
+test("the streak counts any real step that day, not only My Path's cards (Home and My Path agree)", () => {
+  const today = "2026-11-23", y = "2026-11-22";
+  const at = (k: string) => new Date(k + "T15:00:00").toISOString();
+  const w = { game: { weeks: {}, days: {} }, jobFeedback: { j1: { createdAt: at(y), updatedAt: at(y) } }, steps: [], chat: [{ role: "user", at: at(today) }, { role: "assistant", at: at("2026-11-20") }] } as any;
+  const s = dailyStreak(streakDays(w), today);
+  assert.equal(s.days, 2);
+  assert.ok(s.todayDone);
+  assert.equal(weekDots(streakDays(w), today)[0].status, "done", "Monday (today) fills in");
+  assert.deepEqual(w.game.days, {}, "the saved cards are untouched");
 });

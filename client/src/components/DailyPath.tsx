@@ -9,7 +9,7 @@ import type { Job, PathPlan, Workspace } from "@shared/types";
 import { NEED_LABEL, ROADS, roadFor, YEARS, yearNumber, type Road } from "@shared/roads";
 import { seasonFor, SEASON_SOURCE } from "@shared/seasons";
 import { levelOf, xpOf, type GameState } from "@shared/game";
-import { CARD_LABEL, CARD_XP, dailyStreak, dayKey, weekDots, withCard, type DailyCard } from "@shared/daily";
+import { CARD_LABEL, CARD_XP, dailyStreak, dayKey, streakDays, weekDots, withCard, type DailyCard } from "@shared/daily";
 import { api, rid, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { useJobs } from "../lib/jobs";
@@ -48,7 +48,7 @@ export function useFieldData(field = "") {
 export function DailyHeader({ onPlay }: { onPlay: () => void }) {
   const { ws } = useStore();
   const w = ws!, g = stateOf(w);
-  const s = dailyStreak(g), dots = weekDots(g);
+  const s = dailyStreak(streakDays(w)), dots = weekDots(streakDays(w));
   const xp = xpOf(w, g), lv = levelOf(xp, g.bestLevel);
   const pct = lv.max ? 100 : Math.round((100 * (xp - lv.floor)) / Math.max(1, lv.next - lv.floor));
   const today = g.days?.[dayKey()] || [];
@@ -312,7 +312,7 @@ export function Round({ onClose }: { onClose: () => void }) {
   const today = dayKey();
   const [step, setStep] = useState(0);
   const [log, setLog] = useState<string[]>([]);
-  const [before] = useState(() => dailyStreak(stateOf(w)).days);
+  const [before] = useState(() => dailyStreak(streakDays(w)).days);
   // Openings Remy hasn't heard about from the student yet, best fit first. Fixed once loaded, so a Keep doesn't reshuffle.
   const [pool, setPool] = useState<Job[] | null>(null);
   useEffect(() => {
@@ -468,7 +468,7 @@ function ForecastCard({ future, onDone }: { future: FutureData; onDone: (said: s
 function RoundDone({ before, log, onClose }: { before: number; log: string[]; onClose: () => void }) {
   const { ws } = useStore();
   const g = stateOf(ws!);
-  const s = dailyStreak(g), dots = weekDots(g);
+  const s = dailyStreak(streakDays(ws!)), dots = weekDots(streakDays(ws!));
   const n = (g.days?.[dayKey()] || []).length;
   return (
     <div className="dp-done">
