@@ -79,6 +79,10 @@ function Root() {
   }, [loading, signedOut, path]);
   // Signed-in students: automatic signals for the owners (page visits, rage clicks, errors). Counts only.
   useEffect(() => { if (!loading && !signedOut) { startSignals(); countSignal("page:" + tidyPath(path)); } }, [loading, signedOut, path]);
+  // Owner styling has to live here, not in Shell: /about and /admin render outside Shell, so they'd otherwise
+  // keep the student look. Shell still owns the favicon swap.
+  const ownerView = useOwnerView();
+  useEffect(() => { document.documentElement.classList.toggle("redesign-2", ownerView); }, [ownerView]);
   // Public pages: readable without signing in.
   if (path === "/about") return <About />;
   if (path === "/policies" || path === "/privacy" || path === "/terms") return <Policies />;
