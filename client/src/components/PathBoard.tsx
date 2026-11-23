@@ -13,6 +13,7 @@ import type { Workspace } from "@shared/types";
 import { go } from "../lib/router";
 import { Modal, Remy, Rich, Spinner } from "./common";
 import { OUTFITS } from "./scholar";
+import { OfficeOpens, RemyDid } from "./RemyDid";
 import { buildStops, money, stateOf, StopDetail, useFieldData, type Occ } from "./DailyPath";
 
 const play = () => go("/path?play=1");
@@ -287,7 +288,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
           : <>
             {said && <div className="ps-bubble chat" style={{ "--tail": `${(fox.x / 860) * 100}%` } as CSSProperties} aria-live="polite" data-testid="office-reply">
               <div className="ps-chat-head"><span className="pm-kicker">You asked: {said.q}</span><button className="btn btn-ghost btn-sm" onClick={() => setSaid(null)} data-testid="button-office-reply-close">Close</button></div>
-              {busy ? (said.live ? <div className="ps-reply"><Rich text={said.live} /></div> : <p className="pm-faint">Remy is thinking…</p>) : reply ? <div className="ps-reply"><Rich text={reply.text} /></div> : <p className="pm-faint">I couldn't answer that one. Try asking again.</p>}
+              {busy ? (said.live ? <div className="ps-reply"><Rich text={said.live} /></div> : <p className="pm-faint">Remy is thinking…</p>) : reply ? <div className="ps-reply"><Rich text={reply.text} /><RemyDid m={reply} /><OfficeOpens actions={reply.actions} /></div> : <p className="pm-faint">I couldn't answer that one. Try asking again.</p>}
             </div>}
             <form className="ps-ask" onSubmit={(e) => { e.preventDefault(); ask(); }}>
               <input className="input" value={q} onChange={(e) => setQ(e.target.value)} disabled={!aiOn || busy} placeholder={aiOn ? "Ask Remy anything about your path…" : "Remy's chat is off on this server"} aria-label="Ask Remy" data-testid="input-office-ask" />

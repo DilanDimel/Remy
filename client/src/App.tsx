@@ -20,6 +20,7 @@ import { WhatsNew } from "./components/WhatsNew";
 import { GameSidebar, useGameRecord } from "./components/Game";
 import { Avatar } from "./components/ProfilePhoto";
 import { useRemyDoes } from "./lib/remyDoes";
+import { RemyDid } from "./components/RemyDid";
 import { answer as answerTailor, endSession as endTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
 import { Careers } from "./pages/Landing2";
@@ -564,19 +565,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
               );
             })()}
             {/* What Remy did from this reply (redesign stage 6, owners first), each with Undo. */}
-            {!!m.did?.length && (
-              <div className={stage2 ? "chat-did" : "card"} style={stage2 ? undefined : { maxWidth: "92%", padding: "6px 10px" }} data-testid="chat-did">
-                {m.did.map((d) => (
-                  <div key={d.id} className="small" style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
-                    <Check size={14} style={{ flexShrink: 0, opacity: d.undone ? 0.4 : 1 }} />
-                    {d.undone ? <span className="muted" style={{ flex: 1 }}><s>{d.label}</s> · undone</span> : <>
-                      <span style={{ flex: 1 }}>{d.link ? <a href={d.link} onClick={(e) => { e.preventDefault(); go(d.link!); }} style={{ textDecoration: "underline" }}>{d.label}</a> : d.label}</span>
-                      {!d.noUndo && <button className="btn btn-ghost btn-sm" style={{ flexShrink: 0 }} onClick={async () => { const w = await run(() => api<Workspace>("POST", `/api/chat/${m.id}/undo/${d.id}`), "Undone"); if (w) setWs(w); }} data-testid="button-chat-undo">Undo</button>}
-                    </>}
-                  </div>
-                ))}
-              </div>
-            )}
+            <RemyDid m={m} card={!stage2} />
             {m.role !== "user" && m.id === chat[chat.length - 1]?.id && !busy && <QuickRate place="coach" id={"coach:" + m.id} label="Helpful?" />}
             {!!m.actions?.length && (
               <div className="row" style={{ gap: 6, maxWidth: "92%" }}>
