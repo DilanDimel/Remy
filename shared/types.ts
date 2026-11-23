@@ -614,6 +614,8 @@ export interface Workspace {
     /** Older versions (first-win box, page cards); kept so saved settings still load. */
     firstWin?: number | "done";
     introsSeen?: string[];
+    /** Remy's in-page offers the student answered (shared/remyOffers.ts), so each is offered once. */
+    offersSeen?: string[];
   };
   updatedAt: string;
 }

@@ -2709,3 +2709,8 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 .rm-coach { position: absolute; z-index: 20; display: grid; gap: 10px; padding: 12px 14px; border-radius: 14px; background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: var(--shadow); font-family: var(--font-body); font-size: 14px; line-height: 1.4; }
 .rm-paper li.rm-coach-line { outline: 2px solid var(--fox); outline-offset: 2px; border-radius: 2px; }
 .rm-walk-start { margin-left: auto; }
+
+/* Owners: Remy's one offer on the page you're on (components/RemyOffer.tsx). */
+.remy-offer { position: fixed; right: calc(var(--asst-w, 0px) + 20px); bottom: 20px; z-index: 30; width: min(360px, calc(100vw - 24px)); display: flex; gap: 10px; align-items: flex-start; padding: 12px 34px 12px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12); }
+.remy-offer-x { position: absolute; top: 8px; right: 8px; padding: 4px; border-radius: 8px; color: var(--muted-text); }
+@media (max-width: 1020px) { .remy-offer { right: 12px; bottom: 76px; } }

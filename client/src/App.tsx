@@ -21,6 +21,7 @@ import { GameSidebar, useGameRecord } from "./components/Game";
 import { Avatar } from "./components/ProfilePhoto";
 import { useRemyDoes } from "./lib/remyDoes";
 import { RemyDid } from "./components/RemyDid";
+import { RemyOffer } from "./components/RemyOffer";
 import { answer as answerTailor, endSession as endTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
 import { Careers } from "./pages/Landing2";
@@ -292,6 +293,7 @@ function Shell() {
             )}
           </div>
         </div>
+        {ownerView && <RemyOffer />}
         <div className="page fade-up" key={current.path}><ErrorBoundary where={`page:${current.path}`} resetKey={current.path}>{page}</ErrorBoundary></div>
       </main>
 
