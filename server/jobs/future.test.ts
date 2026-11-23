@@ -78,3 +78,9 @@ test("occupation details: shrinking jobs and sentences that lean on the one befo
   for (const soc of ["15-1244", "23-2011", "19-3092", "27-1014", "27-3043", "45-4011"]) assert.equal(occupationDetails(soc, at)!.outlook, null, soc);
   for (const soc of ["29-2072", "35-3031", "47-2141", "13-1121"]) assert.equal(occupationDetails(soc, at)!.outlook, null, soc); // "However, …" / "In addition, …"
 });
+
+test("future: a field the student browses replaces their own major's outlook", () => {
+  const f = futureFor(student("Nursing"), "Marketing").fields;
+  assert.ok(f.length > 0);
+  assert.ok(!f.some((x) => x.field === "nursing"), f.map((x) => x.field).join(","));
+});

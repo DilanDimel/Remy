@@ -18,3 +18,9 @@ test("job questions: tied to the posting's skills, with the resume line that ans
   assert.equal(mid[2].line, undefined);
   assert.match(mid[2].tip, /Nothing on your resume/);
 });
+
+test("a posting about patients asks about a patient, not a customer", () => {
+  const qs = jobQuestions({ company: "Tenet Healthcare", title: "Nurse Extern", requirements: [req("patient care")] });
+  assert.ok(qs.some((x) => /difficult patient/.test(x.q)), qs.map((x) => x.q).join(" | "));
+  assert.ok(!qs.some((x) => /customer/.test(x.q)));
+});

@@ -19,10 +19,10 @@ const play = () => go("/path?play=1");
 function usePathData() {
   const { ws } = useStore();
   const w = ws!, p = w.profile;
-  const { careers, future } = useFieldData();
   const mine = roadFor(p.major, p.path) || roadFor([p.targetRoles, p.interests].join(" "), p.path);
   const [key, setKey] = useState(mine?.key || "");
   const road = ROADS.find((r) => r.key === key);
+  const { careers, future } = useFieldData(road && road.key !== mine?.key ? road.label : "");
   const stops = useMemo(() => buildStops(w, road, careers, future, w.plan), [w, road, careers, future]);
   const year = Math.min(5, Math.max(1, yearNumber(p.classYear) || 1));
   const g = stateOf(w);

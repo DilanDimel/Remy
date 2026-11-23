@@ -48,10 +48,11 @@ export type FutureField = { field: string; growing: FutureOcc[]; shrinking: Futu
 
 const view = (o: Occ): FutureOcc => ({ soc: o.soc, title: o.t, change: o.chg ?? 0, openings: o.open, wage: o.wage, education: o.edu, aiShare: o.ai ?? null, link: o.ooh });
 
-export function futureFor(ws: Workspace): { source: string; allJobsGrowth: number; fields: FutureField[] } {
-  const wants = [ws.profile.targetRoles, ws.profile.major, ws.profile.interests].join(" ");
+export function futureFor(ws: Workspace, browse = ""): { source: string; allJobsGrowth: number; fields: FutureField[] } {
+  // A field the student browses ("Your field" on My Path) replaces their own fields.
+  const wants = browse || [ws.profile.targetRoles, ws.profile.major, ws.profile.interests].join(" ");
   // The student's own major comes first (Path shows the first field open and the others folded).
-  const major = ws.profile.major || "";
+  const major = browse || ws.profile.major || "";
   const fields = FIELD_SEARCH.map((f, k) => ({ f, k })).filter(({ k }) => FIELD_TITLES[k][0].test(wants))
     .sort((a, b) => Number(FIELD_TITLES[b.k][0].test(major)) - Number(FIELD_TITLES[a.k][0].test(major))).map(({ f }) => f).slice(0, 3);
   return {
