@@ -18,6 +18,8 @@ type Step = {
   text: string;
   /** Inside the lit-up area: tapping this does the real thing and moves the tutorial on. */
   doIt?: string;
+  /** The spot can be used (no cover), but the tour waits for Next. */
+  live?: boolean;
 };
 const STEPS: Step[] = [
   { path: "/", spot: "[data-testid=button-next-action]", title: "Your next step", text: "Every time you come back, I put the one thing worth doing right here. Everything else can wait." },
@@ -32,13 +34,24 @@ const STEPS: Step[] = [
   { path: "/", spot: "[data-testid=assistant-panel], [data-testid=button-fab-assistant], [data-testid=button-open-assistant]", title: "And I'm always here", text: "Ask me anything: about an opening, your resume, or what to do next. That's the tour. Let's get you that first offer." },
 ];
 
-// Owner view (Nov 23 review): the owner pages changed under the tour. Job cards say Keep (not Save), Interview is a
-// mock interview (no story deck), and My Path is the season and Remy's office.
-const OWNER_STEPS: Step[] = STEPS.map((s, k) =>
-  k === 2 ? { ...s, doIt: "[data-testid=button-keep]", text: "These are ranked for you, best fit first. Tap Keep on one you like." }
-  : k === 5 ? { ...s, spot: "[data-testid=button-start-mock]", title: "Practice the real interview", text: "I play the interviewer for your top opening and ask the questions its posting points to. Answer out loud, then see how you did." }
-  : k === 6 ? { ...s, spot: "[data-testid=path-season]", title: "Your season", text: "Everything you do in Remy earns XP here. Every level unlocks something for my office, and after the tour I'll walk you through it." }
-  : s);
+// Owner view. Nov 23 review: job cards say Keep (not Save), Interview is a mock interview. Nov 23 PM review: the tour
+// skipped Resume and Calendar but stopped on Opportunities three times, Details jumped ahead before it could be read,
+// and it promised Remy's office walk-through without starting it. Now it ends in the office and starts the walk-through.
+const PANEL = STEPS[9].spot;
+const OWNER_STEPS: Step[] = [
+  STEPS[0],
+  { ...STEPS[1], text: "Five real steps to get you ready. They tick themselves off as you do them." },
+  { ...STEPS[2], doIt: "[data-testid=button-keep]", text: "These are ranked for you, best fit first. Tap Keep on one you like." },
+  { ...STEPS[3], doIt: undefined, live: true, text: "Tap Details to see why you qualify, what the posting asks for and anything you're missing. Press Next when you've read it." },
+  { path: "/resume", spot: "[data-testid=button-walk-start], main h1", title: "Your resume, fixed with you", text: "I go through your resume one line at a time, say what's weak and suggest a fix. Nothing changes until you accept it." },
+  { path: "/interview", spot: "[data-testid=button-start-mock]", title: "Practice the real interview", text: "I play the interviewer for your top opening and ask the questions its posting points to. Answer out loud, then see how you did." },
+  { path: "/calendar", spot: "[data-testid=calendar-week], [data-testid=button-add-event]", title: "Every date in one place", text: "Deadlines, interviews and to-dos land here by themselves. Connect Google Calendar and they show up there too." },
+  { ...STEPS[8], text: "Track where each one stands. Got an interview invite? Paste it under Email updates and I'll move it along and add it to your calendar." },
+  { path: "/progress", spot: PANEL, title: "And I'm always here", text: "Ask me anything, or tell me to do it: \"fix my resume\", \"add a coffee chat Friday\", \"call me Dee\"." },
+  { path: "/path", spot: "[data-testid=path-season]", title: "Your season", text: "Everything you do in Remy earns XP here, and every level adds something to my office. Come in, I'll show you around." },
+];
+/** The tour's last button on My Path: Remy's office walk-through takes over (PathBoard listens). */
+export const PATH_WALK = "remy-path-walk";
 
 const setupDone = (w: Workspace) => w.onboarding.done;
 /** Only for students who finish setup from now on, or who press "Show me around again" (both set a step number). */
@@ -52,7 +65,10 @@ export const tourAgain = (save: ReturnType<typeof useStore>["save"]) => {
 };
 
 /** The first match that's actually on screen ("a, b, c": on phones the hidden desktop button comes before the fox). */
-const visible = (sel: string) => [...document.querySelectorAll<HTMLElement>(sel)].find((el) => el.offsetParent !== null || getComputedStyle(el).position === "fixed");
+const shown = (el: HTMLElement) => el.offsetParent !== null || getComputedStyle(el).position === "fixed";
+const visible = (sel: string) => [...document.querySelectorAll<HTMLElement>(sel)].find(shown);
+/** Owners: "a, b" means a, else b (a fallback), not whichever comes first on the page. */
+const firstOf = (sel: string) => { for (const one of sel.split(",")) { const el = visible(one); if (el) return el; } return undefined; };
 const typing = (t: EventTarget | null) => t instanceof HTMLElement && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable);
 
 const PAD = 8;
@@ -60,7 +76,10 @@ export function RemyTour() {
   const { ws, save } = useStore();
   const { path } = useRoute();
   const w = ws!;
-  const steps = useOwnerView() ? OWNER_STEPS : STEPS;
+  const owner = useOwnerView();
+  const steps = owner ? OWNER_STEPS : STEPS;
+  // Owners: the spot shows only once it has stopped moving, so it never flashes on the wrong thing while a page loads.
+  const [settled, setSettled] = useState("");
   // The step lives here and moves right away; the server copy follows. So a slow or failed save can't freeze the
   // tour (or trap the student behind the shade), and another save's reply can't bounce it back a step.
   const [n, setN] = useState<number | "done" | undefined>(w.settings.tour);
@@ -80,7 +99,10 @@ export function RemyTour() {
   const lastStep = useRef(-1); // a new step means the tour moves pages; the same step on another page means the student left
 
   const setStep = (to: number | "done") => { setN(to); save("settings", { tour: to }).catch(() => {}); };
-  const next = () => setStep(i + 1 >= steps.length ? "done" : i + 1);
+  const next = () => {
+    if (i + 1 >= steps.length && owner && step?.path === "/path") setTimeout(() => window.dispatchEvent(new Event(PATH_WALK)), 50);
+    setStep(i + 1 >= steps.length ? "done" : i + 1);
+  };
 
   // Go to the step's page. If the student leaves it themselves (a nav link, a button, Remy's chat), the tour ends
   // instead of pulling them back.
@@ -94,15 +116,17 @@ export function RemyTour() {
       return;
     }
     setMissing(false);
-    let scrolled = false, frame = 0, lostAt = Date.now();
+    let scrolled = false, frame = 0, lostAt = Date.now(), movedAt = Date.now(), last = "";
     const wait = setTimeout(() => setWaited(at), 700);
     const find = () => {
-      const el = visible(step.spot);
+      const el = owner ? firstOf(step.spot) : visible(step.spot);
       if (!el) { if (Date.now() - lostAt > 5000) setMissing(true); return; } // gone 5 s in a row: explain it without the spotlight
       lostAt = Date.now();
       setMissing(false);
       if (!scrolled) { el.scrollIntoView({ block: "center" }); scrolled = true; }
       const b = el.getBoundingClientRect();
+      const sig = `${b.top}|${b.left}|${b.width}|${b.height}`;
+      if (sig !== last) { last = sig; movedAt = Date.now(); } else if (Date.now() - movedAt > 250) setSettled(at);
       setFound((old) => (old && old.at === at && old.b.top === b.top && old.b.left === b.left && old.b.width === b.width && old.b.height === b.height ? old : { at, b }));
     };
     // Every frame, so the spot moves with the page (its slide-in, scrolling, loading) instead of catching up in jumps.
@@ -138,19 +162,22 @@ export function RemyTour() {
   if (!step) return null;
   const shade = "rgba(12, 10, 8, 0.6)";
   // Moving to the step's page (or still looking for the spot): the page stays dimmed, so it doesn't flash bright between steps.
-  const looking = path !== step.path || (!rect && !missing && waited !== at);
+  const looking = path !== step.path || (!rect && !missing && waited !== at) || (owner && rect && !missing && settled !== at);
   if (looking) return <div className="tour" aria-hidden="true"><div className="tour-shade" style={{ inset: 0, background: shade }} /></div>;
   // The app is drawn at 85% on laptop-size screens (CSS zoom on .shell, which this sits inside): measured positions are
   // on-screen pixels, so they're divided by the zoom to land in the right place.
   const zoom = CSS.supports("zoom", "1") ? parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--app-zoom")) || 1 : 1;
   const vw = window.innerWidth / zoom, vh = window.innerHeight / zoom, phone = window.innerWidth < 700;
-  const r = rect && !missing ? { top: rect.top / zoom - PAD, left: rect.left / zoom - PAD, width: rect.width / zoom + PAD * 2, height: rect.height / zoom + PAD * 2 } : null;
+  // Owners: whole pixels, so the four dim panels meet without hairline gaps (Nov 23 PM review).
+  const px = owner ? Math.round : (v: number) => v;
+  const r = rect && !missing ? { top: px(rect.top / zoom - PAD), left: px(rect.left / zoom - PAD), width: px(rect.width / zoom + PAD * 2), height: px(rect.height / zoom + PAD * 2) } : null;
   // The bubble sits under the spot, or above it when there's no room; on phones it's a sheet at the bottom, or at the
   // top when the spot is in the lower half (the fox button on the last step).
   const bw = Math.min(380, vw - 24);
   const below = r ? r.top + r.height + 14 : 0;
   const pos: React.CSSProperties = phone
     ? (r && r.top + r.height / 2 > vh / 2 ? { left: 12, right: 12, top: 12 } : { left: 12, right: 12, bottom: 12 })
+    : owner && r && r.height > vh * 0.5 && r.left > bw + 36 ? { width: bw, left: r.left - bw - 16, top: Math.max(12, Math.min(r.top + 40, vh - bubbleH - 12)) }
     : !r ? { left: Math.max(12, (vw - bw) / 2), top: Math.max(12, (vh - bubbleH) / 2), width: bw }
     : { width: bw, left: Math.max(12, Math.min(r.left, vw - bw - 12)), top: below + bubbleH < vh - 12 ? below : Math.max(12, r.top - bubbleH - 14) };
   const text = missing && step.doIt ? step.text.replace(/(^| )Tap .*$/, "$1Once you have openings, you can do this right from here.") : step.text;
@@ -164,7 +191,7 @@ export function RemyTour() {
           <div className="tour-shade" style={{ top: r.top + r.height, left: 0, right: 0, bottom: 0, background: shade }} />
           <div className="tour-shade" style={{ top: r.top, left: 0, width: Math.max(0, r.left), height: r.height, background: shade }} />
           <div className="tour-shade" style={{ top: r.top, left: r.left + r.width, right: 0, height: r.height, background: shade }} />
-          {!step.doIt && <div className="tour-shade" style={{ top: r.top, left: r.left, width: r.width, height: r.height }} />}
+          {!step.doIt && !step.live && <div className="tour-shade" style={{ top: r.top, left: r.left, width: r.width, height: r.height }} />}
           <div key={at} className="tour-spot" style={{ top: r.top, left: r.left, width: r.width, height: r.height }} />
         </>
       ) : <div className="tour-shade" style={{ inset: 0, background: shade }} />}

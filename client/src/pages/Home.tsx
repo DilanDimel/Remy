@@ -256,7 +256,7 @@ export default function Home() {
         // Look polish A (owners first, Nov 22): this week's to-dos and the best openings side by side, nothing behind tabs.
         <div className="home-lists" data-testid="home-lists">
           <section aria-labelledby="h-week">
-            <div className="home-list-head"><h2 id="h-week">This week</h2><a href="/progress?tab=todos" className="btn btn-ghost btn-sm">All to-dos <ArrowUpRight size={14} /></a></div>
+            <div className="home-list-head"><h2 id="h-week">Coming up</h2>{/* Nov 23 PM review: it listed December to-dos under "This week" */}<a href="/progress?tab=todos" className="btn btn-ghost btn-sm">All to-dos <ArrowUpRight size={14} /></a></div>
             {todos.length ? todos.map(todoRow) : noTodos}
           </section>
           <section aria-labelledby="h-opps">

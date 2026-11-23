@@ -30,11 +30,12 @@ export function openingRanker(w: Workspace, jobs: Job[], fits: Record<string, Jo
 
 /** The plain reasons behind a card's place in the list, from facts Remy already has (council, Nov 19):
  *  "In your area · Title in your field · You show 4 of 6 skills · Dream employer". Nothing is guessed. */
-export function reasonLine(w: Workspace, job: Job, fit: JobFit | undefined): string[] {
+export function reasonLine(w: Workspace, job: Job, fit: JobFit | undefined, owner = false): string[] {
   if (!fit) return [];
   const out: string[] = [];
   if ((w.profile.regions || "").trim()) out.push(fit.regionMatch === true ? (/remote|virtual/i.test(`${job.location} ${job.format}`) ? "Remote" : "In your area") : fit.regionMatch === false ? "Outside your area" : "");
-  const goal = [...new Set(`${w.profile.targetRoles} ${w.profile.major}`.toLowerCase().split(/[^a-z&]+/).filter((x) => x.length > 3 && !GENERIC.test(x)))];
+  // Owners (Nov 23 PM review): "management" from "Business & management" made "Emergency Management" a "Title in your field".
+  const goal = [...new Set(`${w.profile.targetRoles} ${w.profile.major}`.toLowerCase().split(/[^a-z&]+/).filter((x) => x.length > 3 && !GENERIC.test(x) && !(owner && /^(management|manager|operations|services?)$/.test(x))))];
   if (goal.some((x) => new RegExp(`\\b${x}`, "i").test(job.title))) out.push("Title in your field");
   const total = fit.matched.length + fit.gaps.length;
   if (total > 0) out.push(`You show ${fit.matched.length} of ${total} skills`);
