@@ -21,10 +21,21 @@ export function useRemyDoes(on: boolean) {
     done.add(last.id);
     if (!last.did?.length || Date.parse(last.at) < since) return;
     if (last.did.some((d) => JOB_KINDS.has(d.kind) && !d.undone)) reloadJobs().catch(() => {});
+    // Remy "touches" where each change landed: that page's link in the menu glows for a moment.
+    for (const d of last.did) if (d.link && !d.noUndo && !d.undone) touch("/" + (d.link.split(/[?#]/)[0].split("/")[1] || ""));
     const act = last.did.find((d) => d.noUndo && !d.undone);
     if (!act) return;
     if (act.kind === "start" && act.ref === "tour") { void tourAgain(save); return; }
     if (act.link) go(act.link);
     if (act.kind === "start" && act.ref === "resumeFix") startResumeFix(ws as Workspace, { setWs, run });
   }, [on, last?.id]);
+}
+
+function touch(path: string) {
+  for (const el of document.querySelectorAll<HTMLElement>(`a.nav-item[href="${path}"], .mobile-nav a[href="${path}"]`)) {
+    el.classList.remove("remy-touched");
+    void el.offsetWidth; // restart the animation
+    el.classList.add("remy-touched");
+    setTimeout(() => el.classList.remove("remy-touched"), 2600);
+  }
 }
