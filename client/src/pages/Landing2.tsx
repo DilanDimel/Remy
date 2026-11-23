@@ -22,7 +22,7 @@ function InstagramMark({ size = 18 }: { size?: number }) {
 function Top({ inside, what = "#what" }: { inside: boolean; what?: string }) {
   return (
     <header className="lp2-top">
-      <a className="logo" href="/" aria-label="Remy home"><Remy size={28} mood="idle" /> Remy <BetaBadge /></a>
+      <a className="logo" href="/" aria-label="Remy home">Remy <BetaBadge /></a>
       <nav className="lp2-nav" aria-label="Main">
         <a className="hide-sm" href={what}>What Remy does</a>
         <a className="hide-sm" href="/about">About</a>
@@ -90,14 +90,22 @@ export default function Landing2() {
 
         <main>
           <section className="lk-hero lk-try-hero">
+            <div className="lk-top">
+            <div>
             <h1>Find the jobs you can actually get.</h1>
             <p className="lp2-lede">Tell Remy your year and major. It reads 180+ employers&rsquo; own career sites and shows what fits you.</p>
             <div className="lk-ask">
-              <p><Remy size={32} mood="happy" /> I&rsquo;m a{" "}
+              <p>I&rsquo;m a{" "}
                 <select aria-label="Year" value={year} onChange={(e) => setYear(e.target.value)} data-testid="select-lp-year">{YEARS.map((y) => <option key={y}>{y}</option>)}</select>{" "}studying{" "}
                 <select aria-label="Major" value={major} onChange={(e) => setMajor(e.target.value)} data-testid="select-lp-major">{MAJORS.map((m) => <option key={m}>{m}</option>)}</select>
               </p>
               <a className="lp2-btn lp2-btn-lg" href={start} {...ext} data-testid="button-lp-start">{inside ? "Open my Remy" : "Show me my matches"}</a>
+            </div>
+            </div>
+            <figure className="lk-remy" aria-hidden>
+              <span className="lk-bubble">Hi, I&rsquo;m Remy. Tell me your year and major and I&rsquo;ll show you what fits.</span>
+              <span className="lk-medal"><Remy size={250} mood="wave" /></span>
+            </figure>
             </div>
             <div className="lk-chips" role="group" aria-label="Pick a major">{MAJORS.map((m) => <button key={m} type="button" className="lk-chip" aria-pressed={m === major} onClick={() => setMajor(m)} data-testid={`chip-lp-major-${m.split(" ")[0].toLowerCase()}`}>{m}</button>)}</div>
             <div className="lk-results">
@@ -106,7 +114,11 @@ export default function Landing2() {
                 <p className="lk-why">It asks for sophomores in marketing. That&rsquo;s you.</p>
                 <div className="lk-job lk-hide"><div><b>Senior Marketing Associate</b><span>Hidden: needs 3 years of experience</span></div></div>
               </div>
-              <div className="lk-card lk-say"><Remy size={44} mood="happy" /><p><b>Your next step:</b> add the budget you ran as treasurer. That bullet has no number yet.</p></div>
+              <div className="lk-card lk-say"><p className="lk-small">Remy&rsquo;s next step for you</p>
+                <p className="lk-step">Add the budget you ran as treasurer.</p>
+                <p className="lk-why">That bullet has no number yet. A real figure makes it stand out.</p>
+                <p className="lk-check"><Check size={14} /> Takes about two minutes</p>
+              </div>
               <div className="lk-card" aria-live="polite"><p className="lk-small">Where {major.toLowerCase()} leads</p>
                 {!jobs ? <p className="lk-occ"><span>Loading&hellip;</span></p> : jobs.map((o) => <p key={o.title} className="lk-occ"><b>{o.title}</b><span>{[o.wage ? `$${o.wage.toLocaleString("en-US")} median` : "", o.change ? `${o.change > 0 ? "+" : ""}${o.change}% by 2035` : ""].filter(Boolean).join(" · ")}</span></p>)}
               </div>
@@ -121,7 +133,7 @@ export default function Landing2() {
           <h2 id="what-h">What Remy does</h2>
           <div className="lp2-three rv">
             <div>
-              <h3>Openings you can actually get</h3><p>Remy reads 180+ employers&rsquo; own career sites and hides postings you can&rsquo;t apply to. Every opening says why it fits you.</p>
+              <span className="lk-num">01</span><h3>Openings you can actually get</h3><p>Remy reads 180+ employers&rsquo; own career sites and checks each posting against your year, field, location, start date and visa needs. Postings you can&rsquo;t apply to are hidden, and every opening says why it fits you.</p>
               <div className="lp-shot" aria-hidden>
                 <div className="lp-job"><div><b>Marketing Intern, Summer 2027</b><span>Dallas, TX &middot; closes Jan 31</span></div><span className="chip chip-live">You qualify</span></div>
                 <p className="lp-why">It asks for sophomores in marketing. You&rsquo;re a sophomore in marketing.</p>
@@ -129,7 +141,7 @@ export default function Landing2() {
               </div>
             </div>
             <div>
-              <h3>A resume that stays true</h3><p>Suggestions for each job, line by line. Anything your resume can&rsquo;t back up gets flagged. You approve every word.</p>
+              <span className="lk-num">02</span><h3>A resume that fits each job and stays true</h3><p>Line-by-line suggestions for each opening. Anything your resume can&rsquo;t back up gets flagged, and you approve every word before it&rsquo;s used.</p>
               <div className="lp-shot" aria-hidden>
                 <p className="lp-old">Posted on the club&rsquo;s Instagram</p>
                 <p className="lp-new">Grew the club&rsquo;s Instagram with a weekly posting calendar</p>
@@ -137,7 +149,7 @@ export default function Landing2() {
               </div>
             </div>
             <div>
-              <h3>One next step, every week</h3><p>Deadlines become dated to-dos, in your Google Calendar if you like. Ask Remy anything; it knows your resume.</p>
+              <span className="lk-num">03</span><h3>A plan for this week</h3><p>Deadlines and next steps become dated to-dos, in your Google Calendar if you like. Ask Remy anything; it knows your resume and your deadlines.</p>
               <div className="lp-shot" aria-hidden>
                 <div className="lp-todo"><span className="lp-box" /><span><b>Apply: Marketing Intern</b><span className="xs muted"> &middot; due Jan 31</span></span></div>
                 <div className="lp-todo"><span className="lp-box" /><span><b>Ask your advisor for a reference</b></span></div>
@@ -145,7 +157,21 @@ export default function Landing2() {
               </div>
             </div>
           </div>
-          <p className="lp2-never">Remy never makes up experience, applies or messages anyone for you, or sells your data.</p>
+        </div>
+      </section>
+
+      <section className="lp2-sec" aria-labelledby="how-h">
+        <div className="lp2-w">
+          <h2 id="how-h">Three steps, about five minutes</h2>
+          <ol className="lk-steps rv">
+            <li><b>Add your resume.</b> Upload it, add your LinkedIn, or answer a few questions and Remy builds your first one.</li>
+            <li><b>Say what you want, or that you don&rsquo;t know yet.</b> Pick fields, places and dates, or let Remy show you where your major leads.</li>
+            <li><b>Get openings and a plan.</b> Remy checks for new openings about once a day and turns what it finds into to-dos and deadlines.</li>
+          </ol>
+          <div className="lk-nevers" aria-label="What Remy will never do">
+            <ShieldCheck size={18} /><b>Remy never</b>
+            <span>makes up experience</span><span>applies or messages anyone for you</span><span>asks for passwords or sells your data</span>
+          </div>
         </div>
       </section>
 
@@ -169,7 +195,6 @@ export default function Landing2() {
       <section className="lp2-sec" aria-labelledby="follow-h">
         <div className="lp2-w">
           <div className="lp2-follow-head">
-            <Remy size={44} mood="wave" />
             <div><h2 id="follow-h">Follow along</h2><p className="lp2-sub">Job-search tips, what we shipped this week, and the occasional fox.</p></div>
           </div>
           <div className="lp2-social">
@@ -181,7 +206,7 @@ export default function Landing2() {
 
       <section className="lp2-sec lp2-end">
         <div className="lp2-w">
-          <Remy size={52} mood="wave" />
+          <span className="lk-medal lk-medal-sm"><Remy size={84} mood="wave" /></span>
           <h2>Ready when you are.</h2>
           <p>Free, no credit card. About five minutes to set up.</p>
           <a className="lp2-btn lp2-btn-lg" href={start} {...ext}>{startLabel}</a>
