@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
 import type { Workspace } from "@shared/types";
-import { useStore } from "../lib/store";
+import { useOwnerView, useStore } from "../lib/store";
 import { go, useRoute } from "../lib/router";
 import { Remy } from "./common";
 
@@ -32,6 +32,14 @@ const STEPS: Step[] = [
   { path: "/", spot: "[data-testid=assistant-panel], [data-testid=button-fab-assistant], [data-testid=button-open-assistant]", title: "And I'm always here", text: "Ask me anything: about an opening, your resume, or what to do next. That's the tour. Let's get you that first offer." },
 ];
 
+// Owner view (Nov 23 review): the owner pages changed under the tour. Job cards say Keep (not Save), Interview is a
+// mock interview (no story deck), and My Path is the season and Remy's office.
+const OWNER_STEPS: Step[] = STEPS.map((s, k) =>
+  k === 2 ? { ...s, doIt: "[data-testid=button-keep]", text: "These are ranked for you, best fit first. Tap Keep on one you like." }
+  : k === 5 ? { ...s, spot: "[data-testid=button-start-mock]", title: "Practice the real interview", text: "I play the interviewer for your top opening and ask the questions its posting points to. Answer out loud, then see how you did." }
+  : k === 6 ? { ...s, spot: "[data-testid=path-season]", title: "Your season", text: "Everything you do in Remy earns XP here. Every level unlocks something for my office, and after the tour I'll walk you through it." }
+  : s);
+
 const setupDone = (w: Workspace) => w.onboarding.done;
 /** Only for students who finish setup from now on, or who press "Show me around again" (both set a step number). */
 export const tourOn = (w: Workspace) => setupDone(w) && typeof w.settings.tour === "number";
@@ -52,13 +60,14 @@ export function RemyTour() {
   const { ws, save } = useStore();
   const { path } = useRoute();
   const w = ws!;
+  const steps = useOwnerView() ? OWNER_STEPS : STEPS;
   // The step lives here and moves right away; the server copy follows. So a slow or failed save can't freeze the
   // tour (or trap the student behind the shade), and another save's reply can't bounce it back a step.
   const [n, setN] = useState<number | "done" | undefined>(w.settings.tour);
   useEffect(() => { const start = () => setN(0); window.addEventListener(START, start); return () => window.removeEventListener(START, start); }, []);
   const active = setupDone(w) && typeof n === "number";
-  const i = typeof n === "number" ? Math.min(n, STEPS.length - 1) : -1;
-  const step = active && i >= 0 ? STEPS[i] : null;
+  const i = typeof n === "number" ? Math.min(n, steps.length - 1) : -1;
+  const step = active && i >= 0 ? steps[i] : null;
   // The spot is measured per step and page ("at"), so a new page never shows the last page's spot for a frame.
   const [found, setFound] = useState<{ at: string; b: DOMRect } | null>(null);
   const [missing, setMissing] = useState(false);
@@ -71,7 +80,7 @@ export function RemyTour() {
   const lastStep = useRef(-1); // a new step means the tour moves pages; the same step on another page means the student left
 
   const setStep = (to: number | "done") => { setN(to); save("settings", { tour: to }).catch(() => {}); };
-  const next = () => setStep(i + 1 >= STEPS.length ? "done" : i + 1);
+  const next = () => setStep(i + 1 >= steps.length ? "done" : i + 1);
 
   // Go to the step's page. If the student leaves it themselves (a nav link, a button, Remy's chat), the tour ends
   // instead of pulling them back.
@@ -146,7 +155,7 @@ export function RemyTour() {
     : { width: bw, left: Math.max(12, Math.min(r.left, vw - bw - 12)), top: below + bubbleH < vh - 12 ? below : Math.max(12, r.top - bubbleH - 14) };
   const text = missing && step.doIt ? step.text.replace(/(^| )Tap .*$/, "$1Once you have openings, you can do this right from here.") : step.text;
   return (
-    <div className="tour" role="dialog" aria-label={`Remy's tour, step ${i + 1} of ${STEPS.length}: ${step.title}`} data-testid="remy-tour">
+    <div className="tour" role="dialog" aria-label={`Remy's tour, step ${i + 1} of ${steps.length}: ${step.title}`} data-testid="remy-tour">
       {/* Four panels dim everything around the spot. On explainer steps a clear cover keeps the spot from being clicked
           (so "Tailor resume" isn't started by accident); on do-it steps the spot is live. */}
       {r ? (
@@ -163,18 +172,18 @@ export function RemyTour() {
         <div className="row" style={{ gap: 10, alignItems: "flex-start" }}>
           <Remy size={38} mood="wave" />
           <div className="stack-sm" style={{ flex: 1, gap: 4 }}>
-            <div className="row-between"><b>{step.title}</b><span className="xs muted">{i + 1} of {STEPS.length}</span></div>
+            <div className="row-between"><b>{step.title}</b><span className="xs muted">{i + 1} of {steps.length}</span></div>
             <p className="small" style={{ margin: 0 }} aria-live="polite">{text}</p>
           </div>
         </div>
-        <div className="tour-dots" aria-hidden="true">{STEPS.map((_, k) => <i key={k} className={k < i ? "done" : k === i ? "on" : ""} />)}</div>
+        <div className="tour-dots" aria-hidden="true">{steps.map((_, k) => <i key={k} className={k < i ? "done" : k === i ? "on" : ""} />)}</div>
         <div className="row" style={{ gap: 6 }}>
           <button className="btn btn-ghost btn-sm" onClick={() => setStep("done")} data-testid="tour-end"><X size={14} /> End tour</button>
           <span style={{ flex: 1 }} />
           {i > 0 && <button className="btn btn-ghost btn-sm" onClick={() => setStep(i - 1)} data-testid="tour-back"><ArrowLeft size={14} /> Back</button>}
           {step.doIt && !missing
             ? <button ref={main} className="btn btn-secondary btn-sm" onClick={next} data-testid="tour-skip">Skip this</button>
-            : <button ref={main} className="btn btn-primary btn-sm" onClick={next} data-testid="tour-next">{i + 1 === STEPS.length ? "Let's go" : <>Next <ArrowRight size={14} /></>}</button>}
+            : <button ref={main} className="btn btn-primary btn-sm" onClick={next} data-testid="tour-next">{i + 1 === steps.length ? "Let's go" : <>Next <ArrowRight size={14} /></>}</button>}
         </div>
       </div>
     </div>

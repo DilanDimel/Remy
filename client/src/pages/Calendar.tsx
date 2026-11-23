@@ -71,7 +71,9 @@ export default function CalendarPage() {
     return [...w.calendar, ...fromTasks, ...careerItems(w)].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
   }, [w.calendar, w.tasks, w.settings.careerTime]);
   const start = new Date(month); start.setDate(1 - start.getDay());
-  const days = Array.from({ length: 42 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
+  // Owners: only the weeks this month needs (a 6th row of next month's days was empty space, Nov 23 review).
+  const weeks = owner ? Math.ceil((month.getDay() + new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate()) / 7) : 6;
+  const days = Array.from({ length: weeks * 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
   const today = iso(new Date());
   // The weekly career time repeats; Upcoming shows only its next one, so real deadlines and interviews aren't pushed out.
   const upcoming = items.filter((i) => i.date >= today).filter((i, n, all) => !i.id.startsWith("career-") || all.findIndex((x) => x.id.startsWith("career-")) === n).slice(0, 8);
