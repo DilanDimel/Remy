@@ -46,7 +46,7 @@ export function JobInterview() {
   if (owner) {
     const i = open ?? 0, q = qs[i];
     return (
-      <section className="iv-stage stack-sm" data-testid="job-interview">
+      <section className="op-card stack-sm" data-testid="job-interview">
         <span className="op-kick">Practice set · {job.company}</span>
         <h2 className="iv-title">Questions {job.company} will likely ask</h2>
         <p className="small muted">{!mine.length && "Top match for you until you save or tailor for an opening. "}Picked from the {job.title} posting. Answer out loud with your real stories.</p>
