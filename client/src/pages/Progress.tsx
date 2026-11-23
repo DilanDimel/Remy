@@ -263,6 +263,7 @@ function highlight(body: string, quote: string) {
 
 function EmailUpdates() {
   const { ws, setWs, run } = useStore();
+  const owner = useOwnerView();
   const w = ws!;
   const [busy, setBusy] = useState("");
   // Calendar's "Paste an interview invite" and Remy's links open the paste box straight away (?paste=1).
@@ -290,21 +291,31 @@ function EmailUpdates() {
   };
   return (
     <div className="stack">
+      {owner ? (
+        <section className="op-pick" data-testid="email-hero">
+          <div className="stack-sm">
+            <span className="op-kick">Email updates</span>
+            <b className="iv-q-t">Got an interview invite, an offer or a rejection?</b>
+            <span className="small muted">Paste it and Remy updates your tracker, and puts an interview on your calendar with prep steps. Nothing changes until you confirm. Remy doesn't read your inbox.</span>
+          </div>
+          <button className="btn btn-primary" onClick={() => setPaste(true)} data-testid="button-paste-email"><Mail size={16} /> Paste an email</button>
+        </section>
+      ) : <>
       <div className="notice small"><Mail size={16} style={{ marginTop: 2 }} /><div><b>Got an interview invite, an offer or a rejection?</b> Paste it and Remy updates your tracker, and puts an interview on your calendar with prep steps. Nothing changes until you confirm. (Remy doesn't read your inbox.)</div></div>
       <div className="row">
         <button className="btn btn-primary btn-sm" onClick={() => setPaste(true)} data-testid="button-paste-email"><Mail size={14} /> Paste an email</button>
-      </div>
+      </div></>}
       {w.inbox.length ? w.inbox.map((msg) => {
         const s = w.suggestions.find((x) => x.messageId === msg.id && x.state !== "dismissed");
         return (
-          <div key={msg.id} className="card card-pad stack-sm" data-testid="card-email">
+          <div key={msg.id} className={owner ? "op-card stack-sm" : "card card-pad stack-sm"} data-testid="card-email">
             <div className="row-between"><div><strong className="small">{msg.subject}</strong><div className="xs muted">{msg.from} · {fmtDate(msg.date)}</div></div><span className={"chip " + (msg.label === "Sample email" ? "chip-demo" : "chip-student")}>{msg.label}</span></div>
             <p className="small" style={{ whiteSpace: "pre-wrap" }}>{s ? highlight(msg.body, s.evidence) : msg.body}</p>
             {!s && <div><button className="btn btn-secondary btn-sm" onClick={() => classify(msg.id)} disabled={!!busy} data-testid="button-classify">{busy === msg.id ? <Spinner /> : <Wand2 size={14} />} Suggest a status</button></div>}
             {s && <SuggestionBox s={s} />}
           </div>
         );
-      }) : <div className="card"><Empty title="No emails yet" body="Paste a recruiting email (an interview invite, a rejection, a “we received your application”) and Remy suggests the status. Nothing changes until you confirm." /></div>}
+      }) : <div className={owner ? "op-card" : "card"}><Empty title="No emails yet" body="Paste a recruiting email (an interview invite, a rejection, a “we received your application”) and Remy suggests the status. Nothing changes until you confirm." /></div>}
       {paste && (
         <Modal title="Paste the email" onClose={() => setPaste(false)}>
           <label className="field"><span>Copy the whole email (sender and subject too, if you can) and paste it here</span><textarea className="textarea" style={{ minHeight: 200 }} value={m.body} onChange={(e) => setM({ ...m, body: e.target.value })} placeholder={"From: recruiting@frostbank.com\nSubject: Interview invitation\n\nHi Chris, we'd like to invite you to…"} autoFocus data-testid="input-email-body" /></label>
@@ -323,6 +334,7 @@ function EmailUpdates() {
 
 function SuggestionBox({ s }: { s: Suggestion }) {
   const { ws, setWs, run } = useStore();
+  const owner = useOwnerView();
   const w = ws!;
   const [status, setStatus] = useState<TrackStatus>(s.proposed);
   const [trackId, setTrackId] = useState(s.trackId || "");
@@ -343,7 +355,7 @@ function SuggestionBox({ s }: { s: Suggestion }) {
   }
   const unclear = s.rulesSay === "Unclear" && (!s.aiSays || s.aiSays === "Unclear");
   return (
-    <div className="card card-pad stack-sm" style={{ background: "var(--lav-2)", boxShadow: "none" }} data-testid="suggestion">
+    <div className={owner ? "iv-stage stack-sm" : "card card-pad stack-sm"} style={owner ? undefined : { background: "var(--lav-2)", boxShadow: "none" }} data-testid="suggestion">
       <div className="row-between">
         <strong className="small">{unclear ? "This email doesn't clearly change your status" : `Suggested status: ${s.proposed}`}</strong>
         <span className={"chip " + (s.confidence === "high" ? "chip-live" : s.confidence === "medium" ? "chip-setup" : "chip-bad")}>{s.confidence} confidence</span>
@@ -388,8 +400,11 @@ function Todos() {
   const [showDone, setShowDone] = useState(false);
   const doneCount = w.tasks.filter((t) => t.done && !isFading(t.id)).length;
   const sorted = [...w.tasks].filter((t) => !t.done || isFading(t.id) || showDone).sort((a, b) => Number(a.done && !isFading(a.id)) - Number(b.done && !isFading(b.id)) || (a.due || "9999").localeCompare(b.due || "9999"));
-  return (
-    <div className="card card-pad stack">
+  const owner = useOwnerView();
+  const today = new Date().toLocaleDateString("en-CA"), week = new Date(Date.now() + 6 * 864e5).toLocaleDateString("en-CA");
+  const open = w.tasks.filter((t) => !t.done);
+  const list = (
+    <div className={owner ? "op-card stack" : "card card-pad stack"}>
       <form className="row" onSubmit={(e) => { e.preventDefault(); if (title.trim()) add(); }}>
         <input className="input" style={{ flex: 1, minWidth: 180 }} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Add a to-do" aria-label="New to-do" data-testid="input-new-todo" />
         <input className="input" style={{ width: 160 }} type="date" value={due} onChange={(e) => setDue(e.target.value)} aria-label="Due date" />
@@ -406,6 +421,19 @@ function Todos() {
       {doneCount > 0 && <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setShowDone((v) => !v)} data-testid="button-show-done">{showDone ? "Hide" : "Show"} completed ({doneCount})</button>}
     </div>
   );
+  if (!owner) return list;
+  // Owners (Dilan Nov 22: the other Progress tabs should match Applications): count tiles above the same list.
+  return (
+    <div className="stack">
+      <div className="op-tiles pr-tiles" data-testid="todo-tiles">
+        <div className="op-tile a"><b>{open.filter((t) => t.due && t.due < today).length}</b><span>Overdue</span></div>
+        <div className="op-tile d"><b>{open.filter((t) => t.due && t.due >= today && t.due <= week).length}</b><span>Due this week</span></div>
+        <div className="op-tile b"><b>{open.length}</b><span>Open</span></div>
+        <div className="op-tile c"><b>{w.tasks.length - open.length}</b><span>Done</span></div>
+      </div>
+      {list}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------- hours
@@ -414,6 +442,8 @@ const ACTIVITIES = ["Volunteering", "Shadowing", "Clinical hours", "Research", "
 /** A simple hours log: what pre-health, volunteer and apprenticeship students are asked to total up. */
 function Hours() {
   const { ws, save, run } = useStore();
+  const owner = useOwnerView();
+  const card = owner ? "op-card stack-sm" : "card card-pad stack-sm";
   const list = [...(ws!.hours || [])].sort((a, b) => b.date.localeCompare(a.date));
   const [activity, setActivity] = useState("");
   const [hours, setHours] = useState("");
@@ -431,7 +461,13 @@ function Hours() {
   const fmt = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(2).replace(/0$/, ""));
   return (
     <div className="stack">
-      <div className="card card-pad stack-sm">
+      {owner && list.length > 0 && (
+        <div className="op-tiles pr-tiles" data-testid="hours-tiles">
+          <div className="op-tile a"><b>{fmt(list.reduce((x, h) => x + h.hours, 0))}</b><span>Hours in all</span></div>
+          {totals.slice(0, 4).map(([a, t], i) => <div key={a} className={"op-tile " + "bcdb"[i]}><b>{fmt(t)}</b><span>{a}</span></div>)}
+        </div>
+      )}
+      <div className={card}>
         <h3>Log hours</h3>
         <span className="small muted">Volunteering, shadowing, clinical, research or shifts: many programs and applications ask for totals, so keep them as you go.</span>
         <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
@@ -445,11 +481,11 @@ function Hours() {
       </div>
       {list.length ? (
         <>
-          <div className="card card-pad stack-sm" data-testid="hours-totals">
+          {!owner && <div className="card card-pad stack-sm" data-testid="hours-totals">
             <h3>Totals</h3>
             {totals.map(([a, t]) => <div key={a} className="row-between small"><span>{a}</span><strong>{fmt(t)} h</strong></div>)}
-          </div>
-          <div className="card card-pad stack-sm">
+          </div>}
+          <div className={card}>
             <h3>Log</h3>
             {list.map((h) => (
               <div key={h.id} className="row-between small" style={{ borderTop: "1px solid var(--line)", paddingTop: 8 }}>
@@ -459,7 +495,7 @@ function Hours() {
             ))}
           </div>
         </>
-      ) : <div className="card"><Empty title="No hours yet" body="Add your first entry above. Totals per activity add up here." /></div>}
+      ) : <div className={owner ? "op-card" : "card"}><Empty title="No hours yet" body="Add your first entry above. Totals per activity add up here." /></div>}
     </div>
   );
 }

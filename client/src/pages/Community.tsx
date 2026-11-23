@@ -5,7 +5,7 @@ import type { Contact, OutreachDraft, Workspace } from "@shared/types";
 import { api, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
 import { CopyButton, Empty, Modal, Spinner, StatusChip } from "../components/common";
 import { startOutreach, useTailorSession } from "../lib/tailorChat";
-import { orgInitials, sameOrg, useJobs } from "../lib/jobs";
+import { sameOrg, useJobs } from "../lib/jobs";
 import { go } from "../lib/router";
 
 
@@ -83,7 +83,7 @@ export default function Community() {
         </div>
       </div>
       {/* Community is everyone who can help, not only alumni (Dilan, Nov 19); alumni matching is one later addition. */}
-      {(!owner || !w.contacts.length) && <div className="notice small" data-testid="community-intro"><GraduationCap size={16} style={{ color: "var(--plum)", marginTop: 2 }} /><div><strong>Anyone who can help counts:</strong> a recruiter from a career fair, a professor, an alum, a classmate, a coworker or a manager. Add them here and Remy reminds you to follow up and helps you write to them. <span className="muted">Coming soon: alumni from your school in your field, once your school shares its alumni list.</span></div></div>}
+      {!owner && <div className="notice small" data-testid="community-intro"><GraduationCap size={16} style={{ color: "var(--plum)", marginTop: 2 }} /><div><strong>Anyone who can help counts:</strong> a recruiter from a career fair, a professor, an alum, a classmate, a coworker or a manager. Add them here and Remy reminds you to follow up and helps you write to them. <span className="muted">Coming soon: alumni from your school in your field, once your school shares its alumni list.</span></div></div>}
       {owner && (() => { const n = nudgeFor(w, openAt); return n && n.c.id !== notNow ? (
         <section className="op-pick" data-testid="community-nudge">
           <div className="op-pick-main">
@@ -100,7 +100,8 @@ export default function Community() {
         </section>
       ) : null; })()}
       {!owner && unknownOrgs.length > 0 && <div className="notice small" data-testid="people-to-meet"><Sparkles size={16} style={{ color: "var(--fox)", marginTop: 2 }} /><div><strong>Worth meeting next:</strong> you saved or started applying to openings at {unknownOrgs.join(", ")} but don't know anyone there yet. A recruiter you met at a fair, an alum or a TA who interned there is worth adding, and Remy can draft the first message.</div></div>}
-      <h2>{owner ? "Your people" : "Your contacts"}</h2>
+      {owner && <Alumni onAdd={() => { setC({ ...blank, why: `${w.profile.school || "School"} alum` }); setAdding(true); }} />}
+      <h2>{owner ? "People you met" : "Your contacts"}</h2>
       {w.contacts.length ? (
         <div className="grid-3">
           {w.contacts.map((p) => (
@@ -110,6 +111,9 @@ export default function Community() {
               {owner && (() => { const d = lastTouch(w, p); return d !== null && <div className="cm-warm" title="Warmth: how recently you were in touch"><i style={{ width: `${d < 7 ? 90 : d < 30 ? 60 : d < 90 ? 35 : 15}%` }} /></div>; })()}
               {p.met && <span className="xs muted" data-testid="contact-met">Met at {p.met}{p.metOn ? ` · ${fmtDate(p.metOn)}` : ""}</span>}
               <p className="small">{p.why}</p>
+              {owner && (() => { const g = keepInTouch(w, p, openAt(p.org).length); return (
+                <dl className="cm-guide" data-testid="contact-guide"><dt>Next</dt><dd>{g.when}</dd><dt>Talk about</dt><dd>{g.talk}</dd></dl>
+              ); })()}
               {openAt(p.org).length > 0 && <button className="xs" style={{ textAlign: "left", color: "var(--fox)", fontWeight: 700, padding: 0 }} onClick={() => go(`/opportunities?kind=all&id=${openAt(p.org)[0].id}`)} data-testid="contact-openings">{openAt(p.org).length} opening{openAt(p.org).length > 1 ? "s" : ""} at {p.org} →</button>}
               <div className="row" style={{ marginTop: "auto" }}>
                 <button className="btn btn-primary btn-sm" onClick={() => writeTo(p)} data-testid="button-write-outreach"><PenLine size={14} /> Write an email</button>
@@ -119,9 +123,7 @@ export default function Community() {
             </div>
           ))}
         </div>
-      ) : <div className="card"><Empty title="No contacts yet" body="Add someone you've met at a career fair, in class or on LinkedIn." /></div>}
-
-      {owner && <MeetNext orgs={unknownOrgs} onAdd={(org) => { setC({ ...blank, org }); setAdding(true); }} />}
+      ) : <div className="card"><Empty title="No contacts yet" body={owner ? "Met someone at a career fair, in class or at a coffee chat? Add them and Remy tells you what to talk about, when to email and when to check in again." : "Add someone you've met at a career fair, in class or on LinkedIn."} /></div>}
       {w.outreach.length > 0 && (
         <section className="card card-pad stack">
           <h3>Drafts</h3>
@@ -189,28 +191,46 @@ function nudgeFor(w: Workspace, openAt: (org: string) => unknown[]): { c: Contac
   return null;
 }
 
-function MeetNext({ orgs, onAdd }: { orgs: string[]; onAdd: (org: string) => void }) {
+/** Owners: alumni from the student's school. Remy has no alumni directory yet (the old list had no permission to use),
+ *  so this says so plainly and offers what works today: a LinkedIn search the student runs themselves, and Add an alum. */
+function Alumni({ onAdd }: { onAdd: () => void }) {
   const { ws } = useStore();
-  const today = new Date().toLocaleDateString("en-CA");
-  const events = ws!.calendar.filter((c) => (c.kind === "Event" || c.kind === "Advising") && c.date >= today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3);
+  const p = ws!.profile;
+  const school = p.school || "your school";
+  const role = (p.targetRoles || "").split(",")[0].trim().toLowerCase();
+  const alums = ws!.contacts.filter((c) => /\balum/i.test(c.why) || /\balum/i.test(c.title)).length;
   return (
-    <div className="pr-cols">
-      <div className="op-card">
-        <div className="op-ch"><h3>Companies you saved, nobody you know yet</h3></div>
-        {orgs.length ? <ul className="op-dl">{orgs.map((o) => (
-          <li key={o}><span className="job-mono" aria-hidden="true">{orgInitials(o)}</span>
-            <span className="cm-row"><strong>{o}</strong><button className="btn btn-ghost btn-sm" onClick={() => onAdd(o)} data-testid="button-add-contact-at">Add someone</button></span></li>
-        ))}</ul> : <p className="small muted">You know someone at every company you saved. Save more openings and Remy lists the ones where a contact would help.</p>}
+    <section className="op-card cm-alumni" data-testid="community-alumni">
+      <div className="stack-sm">
+        <span className="op-kick">Alumni from {school}</span>
+        <b className="iv-q-t">{alums ? `${alums} ${alums === 1 ? "alum" : "alumni"} in your people.` : "Alumni answer students from their own school."}</b>
+        <span className="small muted">Remy will connect you with {school} alumni in {role || "your field"} automatically once your school shares its alumni directory. Until then, find them on LinkedIn and add the ones you write to.</span>
       </div>
-      <div className="op-card">
-        <div className="op-ch"><h3>Where to meet people</h3><button className="op-link" onClick={() => go("/calendar")} data-testid="button-community-calendar">Calendar →</button></div>
-        {events.length ? <ul className="op-dl">{events.map((e) => (
-          <li key={e.id}><span className="op-date"><small>{new Date(e.date + "T12:00").toLocaleDateString("en-US", { month: "short" })}</small><b>{new Date(e.date + "T12:00").getDate()}</b></span>
-            <span className="cm-row"><strong>{e.title}</strong></span></li>
-        ))}</ul> : <p className="small muted">No events on your calendar yet. Career fairs and coffee chats you add show up here.</p>}
+      <div className="row">
+        <a className="btn btn-secondary" href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(`${p.school || ""} ${role}`.trim())}`} target="_blank" rel="noreferrer" data-testid="link-alumni-linkedin">Find alumni on LinkedIn</a>
+        <button className="btn btn-ghost" onClick={onAdd} data-testid="button-add-alum">Add an alum</button>
       </div>
-    </div>
+    </section>
   );
+}
+
+/** Remy's keep-in-touch advice for one person: a thank-you within two days of meeting, then a check-in about every
+ *  six weeks after the last email, and one thing worth talking about. shortcut: fixed six-week rhythm, make it per person if students ask. */
+function keepInTouch(w: Workspace, p: Contact, openings: number): { when: string; talk: string } {
+  const today = new Date().toLocaleDateString("en-CA");
+  const sent = w.outreach.filter((o) => o.contactId === p.id && o.status !== "draft").map((o) => o.createdAt.slice(0, 10)).sort().pop();
+  const first = p.name.split(" ")[0];
+  let when: string;
+  if (!sent && p.metOn && Date.parse(today) - Date.parse(p.metOn) <= 2 * 864e5) when = "Send a thank-you today or tomorrow, while they remember you.";
+  else if (!sent) when = `Write ${first} a short hello this week.`;
+  else {
+    const next = new Date(Date.parse(sent + "T12:00") + 42 * 864e5).toLocaleDateString("en-CA");
+    when = next <= today ? `Check in now: it's been six weeks since your last email.` : `Check in around ${fmtDate(next)} with a short update.`;
+  }
+  const talk = openings ? `The ${openings === 1 ? "opening" : `${openings} openings`} at ${p.org} on your list: ask what the team is like.`
+    : p.met ? `Something you talked about at ${p.met}, then one question about their work${p.org ? ` at ${p.org}` : ""}.`
+    : `What their work${p.org ? ` at ${p.org}` : ""} is like day to day, and how they got there.`;
+  return { when, talk };
 }
 
 function ReviewModal({ draft, onClose }: { draft: OutreachDraft; onClose: () => void }) {
