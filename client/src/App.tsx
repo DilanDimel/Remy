@@ -399,6 +399,7 @@ function RemyToday({ onActivity }: { onActivity: () => void }) {
   );
 }
 
+const PROFILE_NAME: Record<string, string> = { major: "Major", minors: "Minor", school: "School", graduation: "Graduation", location: "Location" };
 const STARTERS: Record<string, string[]> = {
   Home: ["What should I focus on this week?", "Which opening fits me best right now?", "I'm not sure what career I want. Where do I start?"],
   "My Path": ["What jobs does my major lead to?", "What skill gap matters most for me?"],
@@ -417,6 +418,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   const stage2 = useOwnerView(); // redesign stage 2: profile header + Activity tab, owners first
   const [msg, setMsg] = useDraft("chat");
   const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<{ text: string; reply: string } | null>(null); // owners: sent, not saved yet
   const [hiddenDrafts, setHiddenDrafts] = useState<string[]>([]); // chat resume drafts dismissed with "Not now"
   const end = useRef<HTMLDivElement>(null);
   const [greeting, setGreeting] = useState(true);
@@ -435,7 +437,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
     return () => clearTimeout(t);
   }, [lastAi]);
   const mood = busy || tailor?.stage === "working" || tailor?.stage === "reading" ? "think" : greeting || asking ? "wave" : lastAi && lastAi !== cheer ? "happy" : "idle";
-  useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [chat.length, busy]);
+  useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [chat.length, busy, pending?.reply.length]);
   const send = async (text: string) => {
     if (asking) { setMsg(""); await answerTailor(text, { setWs, run }); return; }
     if (!text.trim() || busy) return;
@@ -444,11 +446,18 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
     if (tailor?.stage === "done") endTailor();
     setBusy(true);
     setMsg("");
+    // Owners: their message shows at once and Remy's reply appears as it is written (?stream=1).
+    if (stage2) setPending({ text, reply: "" });
     // The exact screen (address + the tabs and switches selected on it), so "what is this?" gets an answer about what's
     // in front of them. Home and Opportunities use pressed switch buttons, not tabs.
     const tabs = [...document.querySelectorAll(".main [role=tab][aria-selected=true], .main .seg [aria-pressed=true]")].map((t) => (t.getAttribute("aria-label") || t.textContent || "").trim()).filter(Boolean);
-    const w = await run(() => api<Workspace>("POST", "/api/ai/chat", { message: text, page, where: location.pathname + location.search, tabs }));
+    const body = { message: text, page, where: location.pathname + location.search, tabs };
+    const w = await run(() => stage2
+      ? api<Workspace>("POST", "/api/ai/chat?stream=1", body, (d) => { if (typeof d.reply === "string") setPending({ text, reply: d.reply }); })
+      : api<Workspace>("POST", "/api/ai/chat", body));
     if (w) setWs(w);
+    else if (stage2) setMsg(text); // it failed: give them their words back to try again
+    setPending(null);
     setBusy(false);
   };
   const remember = async (text: string) => {
@@ -459,7 +468,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   // A button Remy offered under a reply. Already-done ones show as done, so a second tap can't add it twice.
   const roles = ws!.profile.targetRoles.split(/,\s*/).filter(Boolean);
   const isDone = (a: ChatAction) => a.kind === "task" ? ws!.tasks.some((t) => t.title === a.title) : a.kind === "role" ? roles.some((r) => r.toLowerCase() === a.title.toLowerCase())
-    : a.kind === "setting" ? settingNow(a.key) === a.value : false;
+    : a.kind === "setting" ? settingNow(a.key) === a.value : a.kind === "profile" ? ws!.profile[a.field] === a.value : false;
   const settingNow = (key: string) => key === "theme" ? theme : ws!.settings.notify[key.split(".")[1] as keyof Workspace["settings"]["notify"]];
   const act = (a: ChatAction) => {
     if (a.kind === "open") return go(a.link);
@@ -467,7 +476,9 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
     if (a.kind === "setting" && a.key === "theme") return run(() => setTheme(a.value as Theme), `${THEME_NAME[a.value as Theme]} is on. Change it anytime in Account → Appearance.`);
     if (a.kind === "setting") return run(() => save("settings", { notify: { ...ws!.settings.notify, [a.key.split(".")[1]]: a.value } }), `${NOTIFY_NAME[a.key]} ${a.value ? "on" : "off"}. Other reminders are unchanged.`);
     if (a.kind === "task") return run(() => save("tasks", [{ id: rid("t"), title: a.title, why: a.why, due: a.due || "", category: "Prepare", done: false, source: "Remy chat" }, ...ws!.tasks]), "Added to your to-dos");
-    if (a.kind !== "role") return; // save / tailor are done by Remy himself (owners), never offered as buttons
+    // Owners: a profile change re-checks openings and approved versions, so Remy asks and the student taps.
+    if (a.kind === "profile") return run(() => save("profile", { ...ws!.profile, [a.field]: a.value }), `${PROFILE_NAME[a.field]} updated to ${a.value}`);
+    if (a.kind !== "role") return; // save / tailor and the rest are done by Remy himself (owners), never offered as buttons
     return run(() => save("profile", { ...ws!.profile, targetRoles: [...roles, a.title].join(", ") }), `Remy will look for ${a.title} openings too`);
   };
   const [view, setView] = useState<"chat" | "activity">("chat");
@@ -551,7 +562,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
             })()}
             {/* What Remy did from this reply (redesign stage 6, owners first), each with Undo. */}
             {!!m.did?.length && (
-              <div className="card" style={{ maxWidth: "92%", padding: "6px 10px" }} data-testid="chat-did">
+              <div className={stage2 ? "chat-did" : "card"} style={stage2 ? undefined : { maxWidth: "92%", padding: "6px 10px" }} data-testid="chat-did">
                 {m.did.map((d) => (
                   <div key={d.id} className="small" style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
                     <Check size={14} style={{ flexShrink: 0, opacity: d.undone ? 0.4 : 1 }} />
@@ -567,8 +578,8 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
             {!!m.actions?.length && (
               <div className="row" style={{ gap: 6, maxWidth: "92%" }}>
                 {m.actions.map((a, i) => isDone(a)
-                  ? <span key={i} className="chip"><Check size={12} /> {a.kind === "task" ? "On your to-dos" : a.kind === "setting" ? "Done" : "In your search"}</span>
-                  : <button key={i} className="btn btn-secondary btn-sm" style={{ whiteSpace: "normal", height: "auto", textAlign: "left" }} onClick={() => act(a)} data-testid="button-chat-action">{a.kind === "task" ? <>Add to-do: {a.title}</> : a.kind === "role" ? <>Look for {a.title} openings</> : a.kind === "setting" ? settingLabel(a) : a.kind === "open" ? a.label : null}</button>)}
+                  ? <span key={i} className="chip"><Check size={12} /> {a.kind === "task" ? "On your to-dos" : a.kind === "setting" || a.kind === "profile" ? "Done" : "In your search"}</span>
+                  : <button key={i} className="btn btn-secondary btn-sm" style={{ whiteSpace: "normal", height: "auto", textAlign: "left" }} onClick={() => act(a)} data-testid="button-chat-action">{a.kind === "task" ? <>Add to-do: {a.title}</> : a.kind === "role" ? <>Look for {a.title} openings</> : a.kind === "setting" ? settingLabel(a) : a.kind === "open" ? a.label : a.kind === "profile" ? <>Change {PROFILE_NAME[a.field].toLowerCase()} to {a.value}</> : null}</button>)}
               </div>
             )}
             {m.memorySuggestions?.filter((s) => !remembered.has(s)).map((s) => (
@@ -582,10 +593,13 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
             ))}
           </div>
         ))}
-        {busy && <div className="bubble bubble-ai row"><Spinner /> Thinking…</div>}
+        {pending && <div className="stack-sm" style={{ alignItems: "flex-end" }}><div className="bubble bubble-user" data-testid="chat-pending">{pending.text}</div></div>}
+        {pending?.reply ? <div className="bubble bubble-ai" data-testid="chat-streaming"><Rich text={pending.reply} /></div>
+          : busy && <div className="bubble bubble-ai row"><Spinner /> Thinking…</div>}
         {tailor && (
-          <div className="asst-card stack-sm" data-testid="tailor-chat">
-            <span className="eyebrow">{tailor.title}</span>
+          // Owners: the tailoring talk is part of the chat, not a box inside it (Dilan, Nov 23).
+          <div className={stage2 ? "stack-sm" : "asst-card stack-sm"} data-testid="tailor-chat">
+            <span className={stage2 ? "xs muted" : "eyebrow"}>{tailor.title}</span>
             {tailor.log.map((m, i) => <div key={i} className={`bubble ${m.role === "me" ? "bubble-user" : "bubble-ai"}`}>{m.text}</div>)}
             {tailor.stage === "asking" && (() => {
               const q = tailor.qs[tailor.idx];

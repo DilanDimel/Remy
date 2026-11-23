@@ -3,6 +3,7 @@
 // from ending it (people who lose a long streak often quit), and every card must change something real (Dilan, Oct 31:
 // a days counter alone "didn't feel worth anything"). The weekly career quest (shared/game.ts) stays the layer above.
 import type { GameState } from "./game";
+import type { Workspace } from "./types";
 
 export type DailyCard = "openings" | "role" | "forecast";
 export const CARD_LABEL: Record<DailyCard, string> = { openings: "Today's openings", role: "What's the job?", forecast: "Higher or lower" };
@@ -45,6 +46,18 @@ export function dailyStreak(g: Pick<GameState, "days" | "restDays">, today = day
   status[today] = todayDone ? "done" : "today";
   best = Math.max(best, run);
   return { days: run, best, freezes, todayDone, status };
+}
+
+/** The days that count for the streak: a daily card, or anything real done in Remy that day (rating an opening, a
+ *  career step like saving or tailoring, a message to Remy). Before Nov 23 only My Path cards counted, so a student
+ *  who used Remy two days running still saw "0 day streak" and empty dots. For reading only: never save this. */
+export function streakDays(w: Pick<Workspace, "game" | "jobFeedback" | "steps" | "chat">): Pick<GameState, "days" | "restDays"> {
+  const days: Record<string, string[]> = { ...(w.game?.days || {}) };
+  const add = (at?: string) => { if (!at) return; const t = new Date(at); if (isNaN(+t)) return; const k = dayKey(t); days[k] = [...(days[k] || []), "did"]; };
+  for (const f of Object.values(w.jobFeedback || {})) add(f.updatedAt || f.createdAt);
+  for (const s of w.steps || []) add(s.at);
+  for (const m of w.chat || []) if (m.role === "user") add(m.at);
+  return { days, restDays: w.game?.restDays };
 }
 
 /** This week's seven days (Monday first) with their status, for the dots under the streak. */
