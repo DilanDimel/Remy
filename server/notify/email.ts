@@ -38,3 +38,7 @@ const live = mailer(
 
 export const emailReady = live.ready;
 export const sendEmail = (to: string, subject: string, text: string, html?: string) => live.send(to, subject, text, html);
+
+/** The student's own email log with one more sent email (newest last, at most 30). */
+export const logEmail = (ws: { emails?: { at: string; kind: "match" | "reminder" | "digest"; subject: string }[] }, kind: "match" | "reminder" | "digest", subject: string, at = new Date().toISOString()) =>
+  [...(ws.emails || []), { at, kind, subject: subject.slice(0, 200) }].slice(-30);

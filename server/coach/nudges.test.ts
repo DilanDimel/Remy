@@ -75,6 +75,7 @@ test("sendNudges: owners only while testing, active in the window, and remembere
   assert.deepEqual(to, ["owner@nudge.test"], "a real student gets nothing");
   const saved = await loadWorkspace("nd-owner");
   assert.equal(saved.nudges?.[0].jobId, "b");
+  assert.match(saved.emails?.[0].subject || "", /Finance Intern fits you/, "Remy remembers the email he sent");
   assert.equal(await sendNudges("2026-11-08", fake, now), 0, "weekly: not again right away");
   assert.equal((await loadWorkspace("nd-student")).nudges, undefined);
 });

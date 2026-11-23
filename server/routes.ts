@@ -66,7 +66,7 @@ import { pruneOpenings, recordFound, recordCheck, listOpenings, openingsSummary 
 import { askedLength, keepAskedLength } from "./coach/outreachAsk";
 import { noUpgrade } from "./coach/noUpgrade";
 import { boardsFor, orderEmployers, preferMetros, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, isEmptyListing, refillEmpty, kindOf, USAJOBS } from "./jobs/sources";
-import { emailReady, sendEmail } from "./notify/email";
+import { emailReady, logEmail, sendEmail } from "./notify/email";
 import { codeEmail } from "./notify/layout";
 import { currentResumeDocx, docxStyle, editResumeDocx } from "./resume/docxEdit";
 import { keepDecided } from "./coach/keepDecided";
@@ -519,7 +519,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       const isOwner = await admin.isOwner({ kind: "google", email: u.email });
       const { subject, text, html } = reminderEmail(firstName(ws) || (isOwner && String(u.name || "").trim().split(/\s+/)[0]) || "there", due, process.env.PUBLIC_HOST || "remyai.org", isOwner);
       try { await sendEmail(ws.profile.applicationEmail || u.email, subject, text, html); } catch (e: any) { console.error("deadline reminder failed", e?.message); continue; }
-      await saveSections(u.id, { reminded: [...(ws.reminded || []), ...due.map((d) => d.key)].slice(-300) } as any);
+      await saveSections(u.id, { reminded: [...(ws.reminded || []), ...due.map((d) => d.key)].slice(-300), ...(isOwner ? { emails: logEmail(ws, "reminder", subject) } : {}) } as any);
     }
     // Weekly digest, after 7am Central on the student's day.
     const now = new Date(), hour = Number(now.toLocaleString("en-US", { timeZone: "America/Chicago", hour: "numeric", hour12: false }));
@@ -528,10 +528,11 @@ export async function registerRoutes(_server: Server, app: Express) {
     for (const u of await q("SELECT u.id, u.email, u.name FROM users u WHERE u.kind IN ('google','supabase')")) {
       if (!(await beta.emailAllowed(u.email))) continue; // no emails to accounts outside the Founding Cohort
       const ws = await loadWorkspace(u.id);
-      const d = weeklyDigest(ws, today, weekday, process.env.PUBLIC_HOST || "remyai.org", await admin.isOwner({ kind: "google", email: u.email }), String(u.name || ""));
+      const isOwner = await admin.isOwner({ kind: "google", email: u.email });
+      const d = weeklyDigest(ws, today, weekday, process.env.PUBLIC_HOST || "remyai.org", isOwner, String(u.name || ""));
       if (!d) continue;
       try { await sendEmail(ws.profile.applicationEmail || u.email, d.subject, d.text, d.html); } catch (e: any) { console.error("weekly digest failed", e?.message); continue; }
-      await saveSections(u.id, { lastDigest: today, lastDigestAt: now.toISOString() } as any);
+      await saveSections(u.id, { lastDigest: today, lastDigestAt: now.toISOString(), ...(isOwner ? { emails: logEmail(ws, "digest", d.subject) } : {}) } as any);
     }
   };
   // Background jobs: reminder emails, weekly digest, idle-guest cleanup, cache prune. They run at boot, every 6 hours

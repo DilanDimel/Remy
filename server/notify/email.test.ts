@@ -25,3 +25,11 @@ test("mailer: main sender with reply-to; falls back when the main one fails; err
   await assert.rejects(mailer(null, null).send("a@x.test", "s", "t"), /isn't set up/);
   assert.equal(mailer(null, null).ready(), false);
 });
+
+test("logEmail keeps the student's last 30 emails, newest last", async () => {
+  const { logEmail } = await import("./email");
+  let ws: { emails?: any[] } = {};
+  for (let i = 0; i < 35; i++) ws = { emails: logEmail(ws, "match", `s${i}`, `2026-11-${String(i % 28 + 1).padStart(2, "0")}T00:00:00Z`) };
+  assert.equal(ws.emails!.length, 30);
+  assert.equal(ws.emails!.at(-1).subject, "s34");
+});

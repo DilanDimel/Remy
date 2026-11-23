@@ -3,7 +3,7 @@ import { firstName } from "@shared/names";
 import { quietOn } from "@shared/remyOffers";
 import { isOwner } from "../platform/admin";
 import { loadWorkspace, recentStudents, saveSections, uid } from "../platform/db";
-import { emailReady, sendEmail } from "../notify/email";
+import { emailReady, logEmail, sendEmail } from "../notify/email";
 import { brandEmail, opening, para } from "../notify/layout";
 
 // Stage 5 of the redesign: Remy reaches out first. One email about the best new opening, with Yes (opens tailoring
@@ -99,7 +99,7 @@ export async function sendNudges(activeSince: string, send: typeof sendEmail = s
     const id = uid("n");
     const { subject, text, html } = nudgeEmail(ws, job, id, host, u.name);
     try { await send(ws.profile.applicationEmail || u.email, subject, text, html); } catch (e: any) { console.error("match email failed", e?.message); continue; }
-    await saveSections(u.id, { nudges: [...(ws.nudges || []), { id, jobId: job.id, at: now.toISOString() }].slice(-100) });
+    await saveSections(u.id, { nudges: [...(ws.nudges || []), { id, jobId: job.id, at: now.toISOString() }].slice(-100), emails: logEmail(ws, "match", subject, now.toISOString()) });
     sent++;
   }
   return sent;

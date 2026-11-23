@@ -265,6 +265,7 @@ export function moreContext(ws: Workspace, today: string, findJob: (ws: Workspac
   const careers = ws.plan?.careers.map((c) => `[id:${c.id}] ${c.title}${c.id === ws.plan!.chosenCareerId ? " (their pick)" : ""}`).join("; ");
   const hidden = ws.hiddenJobIds.slice(-15).map((id) => { const j = findJob(ws, id); return j ? `[id:${j.id}] ${j.title} at ${j.company}` : ""; }).filter(Boolean).join("; ");
   const facts = ws.memory.filter((m) => m.status === "approved").slice(0, 25).map((m) => `[id:${m.id}] ${m.text}`).join("; ");
+  const emails = (ws.emails || []).slice(-8).reverse().map((e) => `${e.at.slice(0, 10)} ${e.kind}: "${e.subject}"`).join("; ");
   const p = ws.profile, s = ws.settings;
   return [
     `UPCOMING ON THEIR CALENDAR (ids): ${cal || "(nothing)"}`,
@@ -272,6 +273,7 @@ export function moreContext(ws: Workspace, today: string, findJob: (ws: Workspac
     `CAREERS ON MY PATH (ids): ${careers || "(not built yet)"}`,
     `OPENINGS THEY PASSED ON (ids): ${hidden || "(none)"}`,
     `WHAT REMY REMEMBERS (ids): ${facts || "(nothing)"}`,
+    `EMAILS YOU (REMY) SENT THEM, newest first (say so if they ask; never claim others): ${emails || "(none yet)"}`,
     `SEARCH PREFERENCES: regions="${p.regions}"; opportunityTypes="${p.opportunityTypes}"; timeline="${p.timeline || ""}"; avoid="${p.avoid || ""}"; dreamEmployers="${p.dreamEmployers || ""}"; interests="${p.interests}"; goals="${p.goals}"; classYear="${p.classYear}"`,
     `SETTINGS: theme=${s.theme}; opening emails=${s.nudges || "weekly"}; deadline emails=${s.notify.deadlines ? "on" : "off"}; weekly plan email=${s.notify.weeklyPlan ? "on" : "off"}; texts=${s.texts?.on ? "on" : "off"}; weekly career time=${s.careerTime ? `${DAYS[s.careerTime.day]} ${s.careerTime.time}` : "none"}; quiet=${quietOn(s, today) ? `until ${s.quietUntil}` : "off"}`,
   ].join("\n");

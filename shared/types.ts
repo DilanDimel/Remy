@@ -580,6 +580,9 @@ export interface Workspace {
   interviews?: import("./interview").Interview[];
   /** Match emails Remy sent (server/coach/nudges.ts) and the student's Yes / Not now. Server-written. */
   nudges?: { id: string; jobId: string; at: string; answer?: "yes" | "later"; answeredAt?: string }[];
+  /** Owners: emails Remy sent this student (subject and kind), newest last, at most 30, so Remy's chat knows what
+   *  he already emailed them. Only this student's own emails. Server-written (server/notify/email.ts logEmail). */
+  emails?: { at: string; kind: "match" | "reminder" | "digest"; subject: string }[];
   /** When Remy last drafted tailored resumes overnight (stage 5b). Server-written. */
   overnightAt?: string;
   /** Urgent texts Remy sent, or kept in test mode (server/notify/texts.ts). Server-written. */
