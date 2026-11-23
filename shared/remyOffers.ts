@@ -6,6 +6,9 @@ import { sameEmployer } from "./org";
 // "Do it" runs the same action as asking him in chat (POST /api/remy/act), so it shows in his chat with Undo.
 // At most one offer per page; "Not now" hides that offer for good (settings.offersSeen).
 
+/** "Quiet week" (owners): through settings.quietUntil, Remy keeps to himself. */
+export const quietOn = (s: { quietUntil?: string }, today: string) => !!s.quietUntil && s.quietUntil >= today;
+
 export interface Offer { id: string; pages: string[]; text: string; label: string; action: ChatAction }
 
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(b.slice(0, 10) + "T12:00:00Z") - Date.parse(a.slice(0, 10) + "T12:00:00Z")) / 864e5);
@@ -13,6 +16,7 @@ const when = (n: number) => (n === 0 ? "today" : n === 1 ? "tomorrow" : `in ${n}
 
 /** Every offer Remy could make now, most urgent first. `today` is the student's local day, YYYY-MM-DD. */
 export function remyOffers(ws: Pick<Workspace, "jobs" | "savedJobIds" | "hiddenJobIds" | "applications" | "tracker" | "calendar" | "resume" | "profile" | "settings">, today: string): Offer[] {
+  if (quietOn(ws.settings, today)) return [];
   const seen = new Set(ws.settings.offersSeen || []);
   const out: Offer[] = [];
   // An interview today or tomorrow: practice it now.

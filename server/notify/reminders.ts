@@ -1,5 +1,6 @@
 import type { Workspace } from "@shared/types";
 import { firstName } from "@shared/names";
+import { quietOn } from "@shared/remyOffers";
 import { LINKEDIN_RECHECK_DAYS } from "@shared/linkedin";
 
 const days = (from: string, to: string) => Math.round((Date.parse(to + "T12:00:00Z") - Date.parse(from + "T12:00:00Z")) / 864e5);
@@ -42,7 +43,7 @@ export function reminderEmail(name: string, items: { key: string; title: string;
 
 /** Weekly digest: on the student's career-time day (Sunday if none), once a week, only when there's news. */
 export function weeklyDigest(ws: Workspace, today: string, weekday: number, host: string) {
-  if (!ws.settings.notify.weeklyPlan || !ws.onboarding.done) return null;
+  if (!ws.settings.notify.weeklyPlan || !ws.onboarding.done || quietOn(ws.settings, today)) return null;
   if (weekday !== (ws.settings.careerTime?.day ?? 0) || ws.lastDigest === today) return null;
   const since = ws.lastDigestAt || new Date(Date.parse(today + "T12:00:00Z") - 7 * 864e5).toISOString();
   // Best fits first, so the subject and the top of the list name the opening most worth opening.
