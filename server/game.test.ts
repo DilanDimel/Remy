@@ -75,6 +75,11 @@ test("career quest: the server merges weeks, so a stale tab can't wipe a week or
     assert.deepEqual(after.done, ["save", "person"]);
     assert.deepEqual(after.base, { saved: 1 });
     assert.deepEqual(after.missions, ["person", "save", "tailor"]);
+    // Owner pins: a seen tier never goes back down, so a stale tab can't replay the new-pin moment.
+    assert.equal((await put({ weeks: {}, pins: { tailor: 2, story: 1 } })).status, 200);
+    assert.equal((await put({ weeks: {}, pins: { tailor: 1 } })).status, 200);
+    assert.deepEqual((await loadWorkspace(me.id)).game!.pins, { tailor: 2, story: 1 });
+    assert.equal((await put({ weeks: {}, pins: { tailor: 9 } })).status, 400, "tiers are 0 to 3");
   } finally { server.close(); }
 });
 

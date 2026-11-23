@@ -1025,7 +1025,8 @@ export async function registerRoutes(_server: Server, app: Express) {
       // Daily path (stage 7): cards per local day, roles learned, rest weekdays (shared/daily.ts).
       days: z.record(z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.array(str(20)).max(6)).refine((r) => Object.keys(r).length <= 430, "too many days").optional(),
       known: z.array(str(120)).max(300).optional(), restDays: z.array(z.number().int().min(0).max(6)).max(3).optional(),
-      bestRank: z.number().int().min(1).max(30).optional(), outfit: z.string().regex(/^[a-z]{1,20}$/).optional() }),
+      bestRank: z.number().int().min(1).max(30).optional(), outfit: z.string().regex(/^[a-z]{1,20}$/).optional(),
+      pins: z.record(z.string().regex(/^[a-z]{1,20}$/), z.number().int().min(0).max(3)).refine((r) => Object.keys(r).length <= 60, "too many pins").optional() }),
     builder: z.looseObject({
       step: z.number().int().min(0).max(20),
       basics: z.object(Object.fromEntries(["name", "email", "phone", "city", "school", "major", "graduation", "classYear", "gpa", "highSchool", "highSchoolYear"].map((k) => [k, str(200)]))),
@@ -1072,7 +1073,9 @@ export async function registerRoutes(_server: Server, app: Express) {
         ...(Object.keys(days).length ? { days: Object.fromEntries(Object.keys(days).sort().slice(-430).map((k) => [k, days[k]])) } : {}),
         ...(known.length ? { known } : {}), ...(v.restDays ? { restDays: v.restDays } : old.restDays ? { restDays: old.restDays } : {}),
         // Owner trail: the best rank never drops; the outfit is the latest choice.
-        ...(v.bestRank || old.bestRank ? { bestRank: Math.max(v.bestRank || 1, old.bestRank || 1) } : {}), ...(v.outfit || old.outfit ? { outfit: v.outfit || old.outfit } : {}) };
+        ...(v.bestRank || old.bestRank ? { bestRank: Math.max(v.bestRank || 1, old.bestRank || 1) } : {}), ...(v.outfit || old.outfit ? { outfit: v.outfit || old.outfit } : {}),
+        // Owner pins: a tier once seen stays seen, so a stale tab can't replay the new-pin moment.
+        ...(v.pins || old.pins ? { pins: Object.fromEntries([...new Set([...Object.keys(old.pins || {}), ...Object.keys(v.pins || {})])].map((k) => [k, Math.max(old.pins?.[k] || 0, v.pins?.[k] || 0)])) } : {}) };
     }
     if (section === "profile") {
       const before = JSON.stringify(ctx.ws.profile);

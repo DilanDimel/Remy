@@ -77,6 +77,7 @@ function Season({ d }: { d: D }) {
           <span className="ps-chip" title={s.todayDone ? "Done today" : "Do one thing today to keep it"}><Flame size={16} className={"pt-flame" + (s.days ? " lit" : "")} fill="currentColor" aria-hidden="true" /><b>{s.days}</b> day{s.days === 1 ? "" : "s"}</span>
           <span className="ps-chip ice" title="A freeze covers one missed day. You earn one every 7 days."><Snowflake size={16} aria-hidden="true" /><b>{s.freezes}</b> {s.freezes === 1 ? "freeze" : "freezes"}</span>
           <span className="ps-chip"><i className="pt-badge">{lv.n}</i>{lv.name}</span>
+          <a className="ps-chip link" href="/rewards" data-testid="link-path-rewards"><Award size={16} aria-hidden="true" />All rewards</a>
         </div>
       </div>
       <ol className="ps-track" aria-label="Level rewards">
@@ -108,7 +109,7 @@ function Season({ d }: { d: D }) {
 /* ------------------------------------------------------------------ Remy's office: fills up from levels and real steps */
 
 /** Small drawings of the office rewards, used on the season track and in the room. Strokes and fills are tokens. */
-function OfficeThing({ k }: { k: string }) {
+export function OfficeThing({ k }: { k: string }) {
   const st = { stroke: "var(--ink)", strokeWidth: 2.2, strokeLinejoin: "round" as const, fill: "var(--surface)" };
   const art: Record<string, JSX.Element> = {
     lamp: <><path d="M14 30h16" {...st} /><path d="M22 30V16" {...st} /><path d="M12 16l6-10h10l4 10z" {...st} fill="var(--amber-bg)" /></>,

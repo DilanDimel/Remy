@@ -560,7 +560,9 @@ export interface Workspace {
     /** Daily path (stage 7, owners first): cards finished per local day (shared/daily.ts), roles learned, rest weekdays. */
     days?: Record<string, string[]>; known?: string[]; restDays?: number[];
     /** Owner trail (Nov 23): best rank reached on the longer ladder (shared/game.ts RANKS) and the outfit Remy wears. */
-    bestRank?: number; outfit?: string };
+    bestRank?: number; outfit?: string;
+    /** Owners (Nov 23): the tier of each career pin the student has already seen (shared/pins.ts), for the new-pin moment. */
+    pins?: Record<string, number> };
   /** Hours the student logged (volunteering, shadowing, clinical, shifts…), with running totals on Progress → Hours. */
   hours?: HoursEntry[];
   /** The text of the student's last LinkedIn PDF, for the LinkedIn coach (shared/linkedin.ts). Server-written. */
