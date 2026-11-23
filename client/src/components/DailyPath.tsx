@@ -27,17 +27,19 @@ const occFacts = (o: Occ) => [o.wage ? `${money(o.wage)} median pay` : "", o.ope
 const seedOf = (s: string) => [...s].reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 7);
 
 /** Career data the map and the cards share: jobs in the student's field (BLS) and the field's 10-year outlook. */
-export function useFieldData() {
+export function useFieldData(field = "") {
   const { ws } = useStore();
   const p = ws!.profile;
+  // A field the student picks to look at ("Your field" menu) brings that field's jobs and outlook, not their own major's.
+  const q = encodeURIComponent(field);
   const [careers, setCareers] = useState<{ field: string; jobs: Occ[] }[] | null>(null);
   const [future, setFuture] = useState<FutureData | null>(null);
   useEffect(() => {
     let live = true;
-    api<{ field: string; jobs: Occ[] }[]>("GET", "/api/careers").then((d) => live && setCareers(d), () => live && setCareers([]));
-    api<FutureData>("GET", "/api/future").then((d) => live && setFuture(d), () => {});
+    api<{ field: string; jobs: Occ[] }[]>("GET", `/api/careers?field=${q}`).then((d) => live && setCareers(d), () => live && setCareers([]));
+    api<FutureData>("GET", `/api/future?field=${q}`).then((d) => live && setFuture(d), () => {});
     return () => { live = false; };
-  }, [p.major, p.targetRoles, p.interests]);
+  }, [p.major, p.targetRoles, p.interests, q]);
   return { careers, future };
 }
 
@@ -149,10 +151,10 @@ export function buildStops(w: Workspace, road: Road | undefined, careers: { fiel
 export function RoadMap({ onPlay }: { onPlay: () => void }) {
   const { ws } = useStore();
   const w = ws!, p = w.profile;
-  const { careers, future } = useFieldData();
   const mine = roadFor(p.major, p.path) || roadFor([p.targetRoles, p.interests].join(" "), p.path);
   const [key, setKey] = useState(mine?.key || "");
   const road = ROADS.find((r) => r.key === key);
+  const { careers, future } = useFieldData(road && road.key !== mine?.key ? road.label : "");
   const stops = useMemo(() => buildStops(w, road, careers, future, w.plan), [w, road, careers, future]);
   const year = Math.min(5, Math.max(1, yearNumber(p.classYear) || 1));
   const [sel, setSel] = useState<string>("");

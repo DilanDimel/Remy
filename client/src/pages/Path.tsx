@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Check, Compass, HelpCircle, Plus, RotateCcw, Search, Sparkles, Trash2, TrendingDown, TrendingUp } from "lucide-react";
-import { FIELD_GROUPS, FIELD_MAJORS } from "@shared/fields";
+import { FIELD_GROUPS, FIELD_MAJORS, fieldExample } from "@shared/fields";
 import { NEED_LABEL, ROADS, roadFor, YEARS, yearNumber } from "@shared/roads";
 import type { PathPlan, Task, Workspace } from "@shared/types";
 import { api, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
@@ -28,6 +28,7 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
   const [busy, setBusy] = useState(false);
   // Same rule as the server: no path until Remy knows something about the student.
   const knows = !!(w.resume || w.profile.major.trim() || w.profile.targetRoles.trim());
+  const ex = fieldExample(w.profile.major || w.profile.targetRoles);
   const generate = async () => {
     setBusy(true);
     const r = await run(() => api<Workspace>("POST", "/api/ai/plan"), "Your path was refreshed");
@@ -71,8 +72,8 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
             <div className="card-pad stack-sm" data-testid="path-empty-example">
               <h3>No path yet</h3>
               <Example>
-                <b className="example-role">Financial Analyst</b>
-                <p className="small muted">Fits your finance major and the Excel work on your resume. Next: learn SQL basics, then ask one analyst for a coffee chat.</p>
+                <b className="example-role">{ex.role}</b>
+                <p className="small muted">Fits {ex.subject ? `a ${ex.subject} major` : "your major"} with {ex.proof} on the resume. Next: {ex.next}.</p>
               </Example>
               <div><button className="btn btn-primary" onClick={generate} disabled={!config?.ai.available}>Build my path</button></div>
             </div>

@@ -56,6 +56,21 @@ const PAGE = "lp2 lk lk-try";
 const MAJORS = ["Marketing", "Finance", "Nursing", "Engineering", "Psychology & social work"];
 const YEARS = ["freshman", "sophomore", "junior", "senior"];
 type Occ = { title: string; change: number; wage: number | null };
+type Ex = { field: string; intern: [string, string]; grad: [string, string]; hidden: [string, string]; step: [string, string]; first?: [string, string] };
+// Example cards for "Try it now": every one follows the picked major (and the opening follows the year), so nothing says "marketing" to a nursing student.
+const EXAMPLES: Record<string, Ex> = {
+  Marketing: { field: "marketing", intern: ["Marketing Intern, Summer 2027", "Dallas, TX · closes Jan 31"], grad: ["Marketing Coordinator, new grad", "Dallas, TX · closes Feb 28"], hidden: ["Senior Marketing Associate", "needs 3 years of experience"], step: ["Add how much the club account you ran grew.", "That bullet has no number yet. A real figure makes it stand out."] },
+  Finance: { field: "finance", intern: ["Finance Intern, Summer 2027", "Fort Worth, TX · closes Feb 14"], grad: ["Financial Analyst I, new grad", "Fort Worth, TX · closes Mar 15"], hidden: ["Senior Financial Analyst", "needs 4 years of experience"], step: ["Add the size of the budget you managed.", "That bullet has no dollar figure yet. A real number makes it stand out."] },
+  Nursing: { field: "nursing", intern: ["Nursing Student Summer Program, 2027", "Fort Worth, TX · closes Feb 1"], grad: ["New Grad RN Residency", "Fort Worth, TX · closes Mar 1"], hidden: ["ICU Registered Nurse", "needs an RN license and 2 years of experience"], step: ["Add your clinical hours and units.", "Hospitals look for them first, and your resume doesn't list them yet."], first: ["Add your CPR or BLS card.", "Hospitals look for it first, and your resume doesn't list it yet."] },
+  Engineering: { field: "engineering", intern: ["Engineering Intern, Summer 2027", "Austin, TX · closes Jan 15"], grad: ["Associate Engineer, new grad", "Austin, TX · closes Feb 15"], hidden: ["Senior Mechanical Engineer", "needs 5 years of experience"], step: ["Add what your class design project achieved.", "That bullet says what you built, not how well it worked. A real result makes it stand out."] },
+  "Psychology & social work": { field: "psychology and social work", intern: ["Research Assistant Intern, Summer 2027", "Dallas, TX · closes Mar 1"], grad: ["Case Manager, new grad", "Dallas, TX · closes Apr 1"], hidden: ["Licensed Clinical Social Worker", "needs a master's degree and a license"], step: ["Add the hours you volunteered on the crisis line.", "That bullet has no number yet. A real figure makes it stand out."] },
+};
+/** The example opening for a year: seniors see a full-time new-grad role, everyone else a summer internship. */
+export const example = (major: string, year: string) => {
+  const ex = EXAMPLES[major] || EXAMPLES.Marketing;
+  const [title, where] = year === "senior" ? ex.grad : ex.intern;
+  return { ...ex, step: year === "freshman" && ex.first || ex.step, title, where, short: title.split(",")[0], due: where.split("· ")[1].replace("closes", "due"), years: year === "freshman" ? "freshmen" : year + "s" };
+};
 
 export default function Landing2() {
   const { config, me, ws } = useStore();
@@ -69,6 +84,7 @@ export default function Landing2() {
   const [major, setMajor] = useState(MAJORS[0]);
   const [year, setYear] = useState(YEARS[1]);
   const [jobs, setJobs] = useState<Occ[] | null>(null);
+  const ex = example(major, year);
   useEffect(() => {
     let live = true;
     setJobs(null);
@@ -110,13 +126,13 @@ export default function Landing2() {
             <div className="lk-chips" role="group" aria-label="Pick a major">{MAJORS.map((m) => <button key={m} type="button" className="lk-chip" aria-pressed={m === major} onClick={() => setMajor(m)} data-testid={`chip-lp-major-${m.split(" ")[0].toLowerCase()}`}>{m}</button>)}</div>
             <div className="lk-results">
               <div className="lk-card"><p className="lk-small">Openings that fit a {year}</p>
-                <div className="lk-job"><div><b>Marketing Intern, Summer 2027</b><span>Dallas, TX &middot; closes Jan 31</span></div><span className="lk-ok">You qualify</span></div>
-                <p className="lk-why">It asks for sophomores in marketing. That&rsquo;s you.</p>
-                <div className="lk-job lk-hide"><div><b>Senior Marketing Associate</b><span>Hidden: needs 3 years of experience</span></div></div>
+                <div className="lk-job"><div><b>{ex.title}</b><span>{ex.where}</span></div><span className="lk-ok">You qualify</span></div>
+                <p className="lk-why">It&rsquo;s open to {ex.years} in {ex.field}. That&rsquo;s you.</p>
+                <div className="lk-job lk-hide"><div><b>{ex.hidden[0]}</b><span>Hidden: {ex.hidden[1]}</span></div></div>
               </div>
               <div className="lk-card lk-say"><p className="lk-small">Remy&rsquo;s next step for you</p>
-                <p className="lk-step">Add the budget you ran as treasurer.</p>
-                <p className="lk-why">That bullet has no number yet. A real figure makes it stand out.</p>
+                <p className="lk-step">{ex.step[0]}</p>
+                <p className="lk-why">{ex.step[1]}</p>
                 <p className="lk-check"><Check size={14} /> Takes about two minutes</p>
               </div>
               <div className="lk-card" aria-live="polite"><p className="lk-small">Where {major.toLowerCase()} leads</p>
@@ -135,9 +151,9 @@ export default function Landing2() {
             <div>
               <span className="lk-num">01</span><h3>Openings you can actually get</h3><p>Remy reads 180+ employers&rsquo; own career sites and checks each posting against your year, field, location, start date and visa needs. Postings you can&rsquo;t apply to are hidden, and every opening says why it fits you.</p>
               <div className="lp-shot" aria-hidden>
-                <div className="lp-job"><div><b>Marketing Intern, Summer 2027</b><span>Dallas, TX &middot; closes Jan 31</span></div><span className="chip chip-live">You qualify</span></div>
-                <p className="lp-why">It asks for sophomores in marketing. You&rsquo;re a sophomore in marketing.</p>
-                <div className="lp-job lp-hidden"><div><b>Senior Marketing Associate</b><span>Hidden: needs 3 years of experience</span></div></div>
+                <div className="lp-job"><div><b>{ex.title}</b><span>{ex.where}</span></div><span className="chip chip-live">You qualify</span></div>
+                <p className="lp-why">It&rsquo;s open to {ex.years} in {ex.field}. You&rsquo;re a {year} in {ex.field}.</p>
+                <div className="lp-job lp-hidden"><div><b>{ex.hidden[0]}</b><span>Hidden: {ex.hidden[1]}</span></div></div>
               </div>
             </div>
             <div>
@@ -151,7 +167,7 @@ export default function Landing2() {
             <div>
               <span className="lk-num">03</span><h3>A plan for this week</h3><p>Deadlines and next steps become dated to-dos, in your Google Calendar if you like. Ask Remy anything; it knows your resume and your deadlines.</p>
               <div className="lp-shot" aria-hidden>
-                <div className="lp-todo"><span className="lp-box" /><span><b>Apply: Marketing Intern</b><span className="xs muted"> &middot; due Jan 31</span></span></div>
+                <div className="lp-todo"><span className="lp-box" /><span><b>Apply: {ex.short}</b><span className="xs muted"> &middot; {ex.due}</span></span></div>
                 <div className="lp-todo"><span className="lp-box" /><span><b>Ask your advisor for a reference</b></span></div>
                 <div className="lp-todo done"><span className="lp-box"><Check size={12} /></span><span>Add your LinkedIn</span></div>
               </div>

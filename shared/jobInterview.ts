@@ -37,7 +37,9 @@ export function jobQuestions(job: Pick<Job, "company" | "title" | "requirements"
     const beh = BEHAVIOR.find(([re]) => re.test(k));
     const line = beh ? lines.find((l) => beh[2].test(l)) ?? skillProof(k, lines) : skillProof(k, skillLines);
     const tip = line ? "Use this line from your resume: say the situation, what you did, and how it turned out." : "Nothing on your resume shows this yet. Think of a class, project, job or club where you did it.";
-    out.push(beh ? { q: `Tell me about a time you ${beh[1]}`, why, line, tip } : { q: `How have you used ${k}? Walk me through a specific example.`, why, line, tip });
+    // Say who the posting serves: a nurse extern helps patients, not customers.
+    const who = /patient/i.test(k) ? "patient or a worried family member" : /guest/i.test(k) ? "guest" : "customer or client";
+    out.push(beh ? { q: `Tell me about a time you ${beh[1].replace("customer or client", who)}`, why, line, tip } : { q: `How have you used ${k}? Walk me through a specific example.`, why, line, tip });
   }
   out.push({ q: "What questions do you have for us?", why: "Usually the last question.", tip: "Have two ready: what a good first month looks like, and what the team is working on now." });
   return out;

@@ -86,6 +86,8 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
     // when they show all locations); pinned and ranked within each group, so a group never splits (skeptic review).
     .sort(compare(pinned));
   const visible = (jobs || []).filter((j) => !w.hiddenJobIds.includes(j.id) && !fits[j.id]?.excluded);
+  // The tab counts follow "Show anyway" / "Show ones I'm not interested in", like the list under them (Nov 23).
+  const counted = (jobs || []).filter((j) => (showHidden || !w.hiddenJobIds.includes(j.id)) && (showIneligible || !fits[j.id]?.excluded));
   const rest = list; // Dilan Nov 22: no "Remy's pick" card on owner Opportunities, it was doing too much
   return (
     <>
@@ -119,7 +121,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
       <div className="row-between opp-filters">
         <div className="seg" role="group" aria-label="Category">
           {([["all", "All", "All"], ["jobs", "Jobs & internships", "Jobs"], ["campus", "Campus jobs", "Campus"], ["event", "Events", "Events"]] as [Kind, string, string][]).map(([k, l, short]) => (
-            <button key={k} aria-pressed={kind === k} onClick={() => setKind(k)} aria-label={l} data-testid={`filter-${k}`}><span className="opp-kind-long">{l}</span><span className="opp-kind-short" aria-hidden>{short}</span>{owner && <em className="op-n">{visible.filter((j) => matchKind(j, k)).length}</em>}</button>
+            <button key={k} aria-pressed={kind === k} onClick={() => setKind(k)} aria-label={l} data-testid={`filter-${k}`}><span className="opp-kind-long">{l}</span><span className="opp-kind-short" aria-hidden>{short}</span>{owner && <em className="op-n">{counted.filter((j) => matchKind(j, k)).length}</em>}</button>
           ))}
         </div>
         <div className="row">

@@ -1712,7 +1712,7 @@ Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), 
   }));
 
   // Official job projections for the student's fields (no AI call).
-  app.get("/api/future", route(async (_req, res, ctx) => { res.json(futureFor(ctx.ws)); }));
+  app.get("/api/future", route(async (req, res, ctx) => { res.json(futureFor(ctx.ws, String(req.query.field || "").slice(0, 80))); }));
   // Public government facts about one job (no student data, no AI): duties and why it's changing.
   app.get("/api/occupation/:soc", route(async (req, res) => {
     const d = occupationDetails(String(req.params.soc || ""));

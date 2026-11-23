@@ -53,3 +53,33 @@ export function splitFieldList(s: string): string[] {
   for (const o of FIELD_GROUPS.flatMap(([, opts]) => opts).filter((o) => o.includes(","))) if (rest.includes(o)) { found.push(o); rest = rest.split(o).join(""); }
   return [...found, ...rest.split(",").map((x) => x.trim()).filter(Boolean)];
 }
+
+/** The field a major or goal points to (first match in FIELD_MAJORS order), or "". */
+export const fieldFor = (text: string) => Object.entries(FIELD_MAJORS).find(([, re]) => re.test(text || ""))?.[0] || "";
+
+// Illustrative examples (labelled "Example" in the app) that follow the student's own field, so a nursing
+// student never sees "your finance major": [role, what on a resume backs it, a next step, a pitch line].
+const FIELD_EXAMPLES: Record<string, [string, string, string, string]> = {
+  "Finance": ["Financial Analyst", "Excel work", "learn SQL basics, then ask one analyst for a coffee chat", "built a DCF model in a banking simulation"],
+  "Investment banking": ["Investment Banking Analyst", "Excel modeling", "practice a DCF, then ask one analyst for a coffee chat", "built a DCF model in a banking simulation"],
+  "Accounting": ["Audit Associate", "bookkeeping work", "start CPA exam prep, then ask one auditor for a coffee chat", "reconciled my club's budget every month"],
+  "Marketing": ["Marketing Coordinator", "social media work", "learn Google Analytics, then ask one marketer for a coffee chat", "grew my club's Instagram with a weekly posting plan"],
+  "Software & computer science": ["Software Engineer", "class projects", "ship one small app, then ask one engineer for a coffee chat", "built a web app for a class project"],
+  "Data & analytics": ["Data Analyst", "statistics coursework", "learn SQL basics, then ask one analyst for a coffee chat", "analyzed survey data for a class project"],
+  "Engineering": ["Design Engineer", "CAD project", "learn SolidWorks basics, then ask one engineer for a coffee chat", "built a working prototype in my design class"],
+  "Healthcare & medicine": ["Medical Scribe", "patient care volunteering", "shadow one clinician, then ask them for a coffee chat", "volunteered at a community clinic"],
+  "Nursing": ["Registered Nurse", "patient care volunteering", "keep your BLS card current, then ask one nurse for a coffee chat", "volunteered on a hospital unit helping nurses with patient rounds"],
+  "Science & research": ["Research Assistant", "lab coursework", "ask one professor about joining their lab", "ran experiments in a research lab"],
+  "Education & teaching": ["Teacher", "tutoring", "observe one classroom, then ask the teacher for a coffee chat", "tutored middle schoolers in math"],
+  "Psychology & social work": ["Case Manager", "volunteering", "volunteer at a crisis line, then ask one social worker for a coffee chat", "volunteered at a youth center"],
+  "Law & government": ["Legislative Aide", "research papers", "attend one city council meeting, then ask a staffer for a coffee chat", "wrote a policy brief for a class"],
+  "Journalism & communications": ["Communications Coordinator", "writing samples", "publish one article, then ask one editor for a coffee chat", "wrote for the student newspaper"],
+  "Art & design": ["Graphic Designer", "portfolio pieces", "post your portfolio, then ask one designer for a coffee chat", "designed posters for campus events"],
+};
+/** An example that matches the student's major, or a field-neutral one. */
+export function fieldExample(major: string) {
+  const field = fieldFor(major);
+  const [role, proof, next, did] = FIELD_EXAMPLES[field] || ["Program Coordinator", "club leadership", "ask one person in a role you like for a coffee chat", "organized a campus event for 200 students"];
+  const subject = FIELD_EXAMPLES[field] ? field.split(" &")[0].toLowerCase() : (major || "").trim().toLowerCase();
+  return { role, proof, next, did, subject };
+}
