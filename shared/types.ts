@@ -460,10 +460,21 @@ export type ChatAction = { kind: "task"; title: string; why: string; due?: strin
   // Owners (server/ai/chatDo.ts): done by Remy with Undo, except "profile", which changes fits and approved versions, so the student taps it.
   | { kind: "name"; value: string } | { kind: "done"; taskId: string } | { kind: "unsave"; jobId: string }
   | { kind: "event"; title: string; date: string; time?: string } | { kind: "remember"; text: string }
-  | { kind: "profile"; field: ProfileField; value: string };
+  | { kind: "profile"; field: ProfileField; value: string } | MoreAction;
+/** Owners: the rest of the site, done by Remy from chat (server/ai/remyTools.ts). */
+export type MoreAction = { kind: "interest"; jobId: string; more: boolean } | { kind: "unhide"; jobId: string }
+  | { kind: "prefs"; field: "regions" | "opportunityTypes" | "timeline" | "avoid" | "dreamEmployers" | "interests" | "goals" | "classYear" | "relocation" | "workAuth"; value: string; mode: "set" | "add" | "remove" }
+  | { kind: "nudges"; value: "daily" | "weekly" | "off" } | { kind: "careerTime"; day?: number; time?: string; off?: boolean } | { kind: "textsOff" }
+  | { kind: "track"; trackId?: string; company?: string; role?: string; jobId?: string; status: TrackStatus }
+  | { kind: "moveEvent"; calId: string; date: string; time?: string } | { kind: "removeEvent"; calId: string } | { kind: "due"; taskId: string; due: string }
+  | { kind: "hours"; activity: string; hours: number; date: string; note?: string } | { kind: "career"; careerId: string }
+  | { kind: "contact"; name: string; org: string; title: string; why: string; met?: string; metOn?: string } | { kind: "forget"; factId: string }
+  | { kind: "go"; link: string; label: string } | { kind: "start"; what: "resumeFix" | "interview" | "tour"; jobId?: string };
 export type ProfileField = "major" | "minors" | "school" | "graduation" | "location";
 export interface ChatDid {
-  id: string; kind: "task" | "save" | "tailor" | "role" | "name" | "setting" | "done" | "unsave" | "event" | "remember"; label: string; ref: string; link?: string; undone?: boolean;
+  id: string; kind: "task" | "save" | "tailor" | "role" | "name" | "setting" | "done" | "unsave" | "event" | "remember" | MoreAction["kind"]; label: string; ref: string; link?: string; undone?: boolean;
+  /** Opened a page or started something: nothing to undo. */
+  noUndo?: boolean;
   /** What it was before, so Undo can put it back (a name, a setting's value). */
   old?: string | boolean;
 }
