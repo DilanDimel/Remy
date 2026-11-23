@@ -26,6 +26,7 @@ import { LinkedInCoach } from "../components/LinkedInCoach";
 import { PdfPreview, WordPreview } from "../components/WordPreview";
 import { startTailor, useTailorSession } from "../lib/tailorChat";
 import { textConcern } from "@shared/junk";
+import { OrgLogo } from "../components/OrgLogo";
 
 type Tab = "base" | "tailor" | "linkedin" | "library";
 
@@ -443,7 +444,7 @@ function OpeningPicker({ selected, notStarted, jobOf, start, onClose }: { select
         <span className="tpick-label">Your applications</span>
         {apps.map((a) => { const j = jobOf(a)!; return (
           <button key={a.id} className="tpick-row" aria-pressed={selected?.id === a.id} onClick={() => pick(() => go(`/resume?tab=tailor&app=${a.id}`))} data-testid="button-pick-application">
-            <span className="mono">{j.company.slice(0, 2).toUpperCase()}</span>
+            <OrgLogo company={j.company} url={j.applyUrl} className="mono" text={j.company.slice(0, 2).toUpperCase()} />
             <span className="tpick-text"><b>{shortTitle(j.title, j.company)}</b><span className="xs muted">{j.company}</span></span>
             {a.versions.length ? <span className="chip chip-live">Approved v{a.versions.length}</span> : a.generatedAt ? <span className="chip chip-plain">Draft</span> : <span className="chip chip-plain">Not started</span>}
           </button>
@@ -452,7 +453,7 @@ function OpeningPicker({ selected, notStarted, jobOf, start, onClose }: { select
       <span className="tpick-label">{q.trim() ? `${fresh.length} new opening${fresh.length === 1 ? "" : "s"} match` : "Top matches for you"}</span>
       {top.map((j) => (
         <button key={j.id} className="tpick-row" onClick={() => pick(() => start(j.id))} data-testid="button-choose-job">
-          <span className="mono">{j.company.slice(0, 2).toUpperCase()}</span>
+          <OrgLogo company={j.company} url={j.applyUrl} className="mono" text={j.company.slice(0, 2).toUpperCase()} />
           <span className="tpick-text"><b>{shortTitle(j.title, j.company)}</b><span className="xs muted">{j.company}{j.location ? ` · ${j.location}` : ""}</span></span>
           {fits[j.id]?.eligibility === "likely" && fits[j.id]?.checked && <span className="chip chip-live">You qualify</span>}
           <span className="tpick-go">Tailor <ArrowRight size={14} /></span>
