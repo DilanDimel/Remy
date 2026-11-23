@@ -606,3 +606,22 @@ test("relocation answer: out-of-area openings are kept only for a reason the stu
   assert.equal(relocateReason(dreams("US Bank"), "Operations Intern", "Bank of America"), "");
   assert.match(relocateReason(dreams("US Bank"), "Operations Intern", "U.S. Bank"), /dream employer/);
 });
+
+test("'degree conferred in 2025 or 2026' rules out a 2030 graduate and fits a 2026 one", () => {
+  const j = job({ eligibility: ["Undergraduate degree conferred in 2025 or 2026"] });
+  const f = computeFit(student({ graduation: "May 2030" }), j, "");
+  assert.equal(f.eligibility, "unlikely");
+  assert.equal(f.excluded, true);
+  assert.match(f.eligibilityNote, /2025 or 2026/);
+  const ok = computeFit(student({ graduation: "May 2026" }), j, "");
+  assert.equal(ok.eligibility, "likely");
+  assert.equal(ok.checked, true);
+});
+test("'graduating by 2027' fits earlier graduates, not later ones", () => {
+  const j = job({ eligibility: ["Candidates graduating by December 2027"] });
+  assert.equal(computeFit(student({ graduation: "May 2027" }), j, "").eligibility, "likely");
+  assert.equal(computeFit(student({ graduation: "May 2028" }), j, "").eligibility, "unlikely");
+});
+test("a posting with no graduation rule still says nothing limits class year", () => {
+  assert.match(computeFit(student({ graduation: "May 2030" }), job({ eligibility: ["Strong Python skills"] }), "").eligibilityNote, /doesn't limit class year/);
+});
