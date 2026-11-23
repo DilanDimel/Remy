@@ -2664,3 +2664,9 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 .redesign-2 .page-real .resume-paper h4 { font-size: 1em; }
 .redesign-2 .page-real-key .changed { color: var(--stage-2); }
 @media (max-width: 690px) { .redesign-2 .page-real .resume-paper { min-height: 0; padding: 20px 16px !important; font-size: 12px !important; } }
+/* Owners: Remy's question pinned under the line on the resume itself, one flagged line at a time (Nov 23). */
+.rm-body { position: relative; }
+.rm-tail { white-space: nowrap; }
+.rm-coach { position: absolute; z-index: 20; display: grid; gap: 10px; padding: 12px 14px; border-radius: 14px; background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: var(--shadow); font-family: var(--font-body); font-size: 14px; line-height: 1.4; }
+.rm-paper li.rm-coach-line { outline: 2px solid var(--fox); outline-offset: 2px; border-radius: 2px; }
+.rm-walk-start { margin-left: auto; }
