@@ -122,3 +122,11 @@ test("prep sheet on an interview, from the student's own pitch and stories, with
   assert.equal(undoDid(ws, r.did[0]), null);
   assert.equal(ws.calendar[0].notes, "Bring ID");
 });
+
+test("Remy's context lists the emails he sent this student, newest first", async () => {
+  const { moreContext } = await import("./remyTools");
+  const ws = emptyWorkspace();
+  assert.match(moreContext(ws, "2026-11-23", find), /EMAILS YOU \(REMY\) SENT THEM.*\(none yet\)/);
+  ws.emails = [{ at: "2026-11-21T09:00:00Z", kind: "digest", subject: "Frost and 2 more" }, { at: "2026-11-22T09:00:00Z", kind: "match", subject: "Ally Financial: Intern fits you" }];
+  assert.match(moreContext(ws, "2026-11-23", find), /2026-11-22 match: "Ally Financial: Intern fits you"; 2026-11-21 digest/);
+});
