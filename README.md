@@ -52,3 +52,9 @@ Career centers are stretched thin, and most job tools either spam students with 
 - **Hosting.** Render runs the server and deploys every merge to `main`. GitHub Actions runs the type checks and 400+ tests on every change.
 
 More detail is in [`docs/architecture.md`](docs/architecture.md). Setup, tests and configuration are in [`docs/development.md`](docs/development.md).
+
+## Copyright and license
+
+Copyright © 2026 RemyAI LLC. All rights reserved.
+
+This code is proprietary. It is public on GitHub so people can see it, not so they can use it. No permission is given to copy, use, run, modify or distribute any part of it without written permission from RemyAI LLC. See [`LICENSE`](LICENSE) for the full terms. Infringement will be pursued, including through DMCA takedowns and legal action. For licensing questions, write to hello@remyai.org.
