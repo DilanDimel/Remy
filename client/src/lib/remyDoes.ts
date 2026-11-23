@@ -10,16 +10,18 @@ import { tourAgain } from "../components/Tour";
 // arrives: "take me to…" opens the page, "fix my resume" starts asking one line at a time, a Keep/Pass or a changed
 // search preference refreshes the openings. Each reply is acted on once, and only while it is new.
 const done = new Set<string>();
-const since = Date.now() - 10_000; // replies from before this page load were acted on already
+let primed = false; // the newest reply when the app opens was acted on already (no clock comparison: devices drift)
 const JOB_KINDS = new Set(["interest", "unhide", "prefs", "save", "unsave", "role"]);
 
 export function useRemyDoes(on: boolean) {
   const { ws, setWs, run, save } = useStore();
   const last = ws?.chat[ws.chat.length - 1];
   useEffect(() => {
-    if (!on || !ws || !last || last.role !== "assistant" || done.has(last.id)) return;
+    if (!on || !ws) return;
+    if (!primed) { primed = true; if (last) done.add(last.id); return; }
+    if (!last || last.role !== "assistant" || done.has(last.id)) return;
     done.add(last.id);
-    if (!last.did?.length || Date.parse(last.at) < since) return;
+    if (!last.did?.length) return;
     if (last.did.some((d) => JOB_KINDS.has(d.kind) && !d.undone)) reloadJobs().catch(() => {});
     // Remy "touches" where each change landed: that page's link in the menu glows for a moment.
     for (const d of last.did) if (d.link && !d.noUndo && !d.undone) touch("/" + (d.link.split(/[?#]/)[0].split("/")[1] || ""));
