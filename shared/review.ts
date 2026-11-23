@@ -12,7 +12,9 @@ export type ReviewItem =
 
 const clean = (t: string) => t.trim().replace(/^[•\-–*]\s*/, "");
 
-export function reviewResume(doc: ResumeDoc): { todo: ReviewItem[]; good: string[] } {
+/** `listLike` (owners first, Dilan Nov 22): certifications, licenses, awards and courses are listed like skills, so
+ *  they aren't asked for dates. */
+export function reviewResume(doc: ResumeDoc, { listLike = false } = {}): { todo: ReviewItem[]; good: string[] } {
   const todo: ReviewItem[] = [], good: string[] = [];
   const c = doc.contact;
   const missing = ([["name", !!c.name.trim()], ["email", /@/.test(c.email)], ["phone", /\d{3}.*\d{4}/.test(c.phone)], ["location", !!c.location.trim()], ["links", /linkedin|github|http/i.test(c.links)]] as const)
@@ -20,7 +22,7 @@ export function reviewResume(doc: ResumeDoc): { todo: ReviewItem[]; good: string
   if (missing.length) todo.push({ kind: "contact", title: `Add your ${missing.map((k) => (k === "links" ? "LinkedIn link" : k)).join(", ").replace(/, ([^,]*)$/, " and $1")}`, fields: [...missing] });
   else good.push("Contact details are complete.");
 
-  const entries = doc.sections.filter((s) => !/skill|interest|language/i.test(s.heading)).flatMap((s) => s.entries.map((e) => ({ s, e })));
+  const entries = doc.sections.filter((s) => !(listLike ? /skill|interest|language|certif|licen[cs]e|award|honou?r|course/i : /skill|interest|language/i).test(s.heading)).flatMap((s) => s.entries.map((e) => ({ s, e })));
   const undated = entries.filter(({ e }) => !/\d{4}|present/i.test(e.dates));
   if (undated.length) todo.push({ kind: "dates", title: `${undated.length} entr${undated.length === 1 ? "y has" : "ies have"} no dates`, entries: undated.map(({ s, e }) => ({ sectionId: s.id, entryId: e.id, label: [e.role, e.org].filter(Boolean).join(", ") || s.heading })) });
   else if (entries.length) good.push("Every entry has dates.");

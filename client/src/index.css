@@ -1729,6 +1729,9 @@ button.ms-text:hover { text-decoration: underline; text-underline-offset: 3px; }
 .rr-page { position: relative; width: 100%; box-shadow: 0 1px 6px rgba(0, 0, 0, .15); background: var(--white); }
 .rr-page img { width: 100%; height: 100%; display: block; }
 .rr-hl { position: absolute; mix-blend-mode: multiply; border-radius: 2px; pointer-events: none; }
+.rm-body .rr-hl { pointer-events: auto; cursor: pointer; }
+.rm-body mark[class*="rm-"], .rm-body .rm-flag { cursor: pointer; }
+.rm-why { position: fixed; z-index: 60; width: min(320px, calc(100vw - 16px)); display: grid; gap: 10px; padding: 14px 16px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
 .rr-hl.rm-action { background: var(--paper-hl-action); } .rr-hl.rm-hard { background: var(--paper-hl-hard); } .rr-hl.rm-soft { background: var(--paper-hl-soft); } .rr-hl.rm-number { background: var(--paper-hl-number); } .rr-hl.rm-result { background: var(--paper-hl-result); }
 .rr-flag { position: absolute; margin: 0; white-space: nowrap; font-size: 10px; line-height: 1.4; background: var(--white); display: flex; align-items: center; }
 .rr-pdf, .rr-frame-box { min-width: 0; width: 100%; overflow: hidden; }

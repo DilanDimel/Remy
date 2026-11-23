@@ -21,6 +21,14 @@ const doc = (): ResumeDoc => ({
   skills: [{ id: "k1", label: "Tools", items: "Excel" }],
 } as unknown as ResumeDoc);
 
+test("review: owners' listLike rule doesn't ask certifications for dates (they're listed like skills)", () => {
+  const d = doc();
+  d.sections.push({ id: "s3", heading: "Certifications", entries: [{ id: "e4", org: "Bloomberg Market Concepts", role: "", location: "", dates: "", bullets: [] }] } as any);
+  const undated = (opts?: { listLike: boolean }) => (reviewResume(d, opts).todo.find((t) => t.kind === "dates") as any).entries.map((e: any) => e.entryId);
+  assert.deepEqual(undated(), ["e2", "e4"]);
+  assert.deepEqual(undated({ listLike: true }), ["e2"]);
+});
+
 test("review: points at the missing fields, the undated entry and the bullets without numbers or an action", () => {
   const { todo, good } = reviewResume(doc());
   const contact = todo.find((t) => t.kind === "contact") as any;
