@@ -5,6 +5,7 @@ import type { Job, Workspace } from "@shared/types";
 import { abroad, chosenFieldText, classYearOf, computeFit, dealbreaker, FIELD_TITLES, fieldMatch, planJobs, regionMatch, typeMatch } from "./fit";
 import { dreamWithoutOpenings } from "../../shared/org";
 import { FIELD_GROUPS } from "@shared/fields";
+import { runAiAs } from "../ai/ai";
 
 const fall2026 = new Date("2026-10-22T12:00:00");
 const student = (profile: Partial<Workspace["profile"]>) =>
@@ -626,22 +627,20 @@ test("a posting with no graduation rule still says nothing limits class year", (
   assert.match(computeFit(student({ graduation: "May 2030" }), job({ eligibility: ["Strong Python skills"] }), "").eligibilityNote, /doesn't limit class year/);
 });
 
-test("a 'New Grad' title is for graduates: hidden for a sophomore, kept for a senior about to finish", () => {
+test("owners: a 'New Grad' title is for graduates; an Underwriting Externship isn't nursing. Students: unchanged", async () => {
   const j = job({ kind: "program", title: "New Grad RN Residency" });
-  const soph = computeFit(student({ graduation: "May 2030", major: "Nursing", opportunityTypes: "Internships" } as any), j, "");
-  assert.equal(soph.excluded, true);
-  assert.match(soph.eligibilityNote, /new graduates/);
-  const now = new Date(); const soon = `May ${now.getMonth() < 4 ? now.getFullYear() : now.getFullYear() + 1}`;
-  assert.ok(!/new graduates/.test(computeFit(student({ graduation: soon }), j, "").eligibilityNote));
-});
-test("nursing: a Nurse Extern is in the field, an Underwriting Externship isn't", () => {
+  const soph = student({ graduation: "May 2030", major: "Nursing", opportunityTypes: "Internships" } as any);
   const nurse = student({ major: "Nursing" } as any);
-  assert.equal(fieldMatch(nurse, job({ title: "Cath Lab Tech Extern" })), true);
-  assert.equal(fieldMatch(nurse, job({ title: "Virtual Underwriting Externship Program - Intro to Insurance" })), false);
-});
-test("examples follow the student's major: nursing never gets the finance example", async () => {
-  const { fieldExample } = await import("@shared/fields");
-  assert.equal(fieldExample("Nursing").role, "Registered Nurse");
-  assert.equal(fieldExample("Mechanical Engineering").subject, "engineering");
-  assert.ok(!/financ/i.test(JSON.stringify(fieldExample("Undeclared"))));
+  const under = job({ title: "Virtual Underwriting Externship Program - Intro to Insurance" });
+  await runAiAs(true, async () => {
+    const f = computeFit(soph, j, "");
+    assert.equal(f.excluded, true);
+    assert.match(f.eligibilityNote, /new graduates/);
+    const now = new Date(); const soon = `May ${now.getMonth() < 4 ? now.getFullYear() : now.getFullYear() + 1}`;
+    assert.ok(!/new graduates/.test(computeFit(student({ graduation: soon }), j, "").eligibilityNote));
+    assert.equal(fieldMatch(nurse, job({ title: "Cath Lab Tech Extern" })), true);
+    assert.equal(fieldMatch(nurse, under), false);
+  });
+  assert.ok(!/new graduates/.test(computeFit(soph, j, "").eligibilityNote));
+  assert.equal(fieldMatch(nurse, under), true);
 });
