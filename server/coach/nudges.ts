@@ -4,6 +4,7 @@ import { quietOn } from "@shared/remyOffers";
 import { isOwner } from "../platform/admin";
 import { loadWorkspace, recentStudents, saveSections, uid } from "../platform/db";
 import { emailReady, sendEmail } from "../notify/email";
+import { brandEmail, opening, para } from "../notify/layout";
 
 // Stage 5 of the redesign: Remy reaches out first. One email about the best new opening, with Yes (opens tailoring
 // for that opening) and Not now. How often is the student's choice (daily, weekly, off; weekly by default).
@@ -47,11 +48,10 @@ export function overnightPicks(ws: Workspace, now: Date, max = 2): Job[] {
   return fitting(ws, now, skip).slice(0, max);
 }
 
-const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-
-/** The email: plain text plus HTML with two buttons. Both links open Remy (signed in) on the exact step. */
-export function nudgeEmail(ws: Workspace, job: Job, nudgeId: string, host: string) {
-  const name = firstName(ws) || "there";
+/** The email: plain text plus Remy's branded HTML with two buttons. Both links open Remy (signed in) on the exact step.
+ *  `account` is the sign-in account's name, used when the workspace has no name yet (no more "Hi there"). */
+export function nudgeEmail(ws: Workspace, job: Job, nudgeId: string, host: string, account = "") {
+  const name = firstName(ws) || account.trim().split(/\s+/)[0] || "";
   const where = job.company.trim() || "an employer";
   const draft = waitingDraft(ws, job.id);
   // A draft Remy already made opens as it is (go=1 would redo it).
@@ -61,18 +61,18 @@ export function nudgeEmail(ws: Workspace, job: Job, nudgeId: string, host: strin
   const subject = `${where}: ${job.title} fits you`;
   const what = ({ job: "job", internship: "internship", program: "program", campus: "campus job", event: "event" } as const)[job.kind] || "opening";
   const ask = draft
-    ? `A new ${what} at ${where} fits you: ${job.title}. I already drafted a tailored resume and cover letter for it. Want to look?`
-    : `A new ${what} at ${where} fits you: ${job.title}. Want me to tailor your resume for it?`;
+    ? `I already drafted a tailored resume and cover letter for it. Want to look?`
+    : `Want me to tailor your resume for it? You'll see every change before anything is saved.`;
   const yesLabel = draft ? "Yes, show me" : "Yes, tailor it";
   const how = { daily: "at most once a day", weekly: "at most once a week" }[ws.settings.nudges === "daily" ? "daily" : "weekly"];
-  const foot = `You get this ${how} because Remy's match emails are on. Change how often in Account → Appearance & alerts.`;
-  const text = `Hi ${name},\n\n${ask}${why ? `\n\n${why}` : ""}\n\n${yesLabel}: ${yes}\nNot now: ${later}\n\n${foot}\n\nRemy`;
-  const btn = (href: string, label: string, primary: boolean) =>
-    `<a href="${esc(href)}" style="display:inline-block;padding:10px 18px;border-radius:8px;font-weight:600;text-decoration:none;${primary ? "background:#3b5bdb;color:#ffffff;" : "background:#f1f3f5;color:#212529;"}">${label}</a>`;
-  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.5;color:#212529;max-width:520px">
-<p>Hi ${esc(name)},</p><p>${esc(ask)}</p>${why ? `<p style="color:#495057">${esc(why)}</p>` : ""}
-<p>${btn(yes, yesLabel, true)} &nbsp; ${btn(later, "Not now", false)}</p>
-<p style="font-size:12px;color:#868e96">${esc(foot)}</p><p>Remy</p></div>`;
+  const foot = `You get this ${how} because Remy's match emails are on.`;
+  const text = `Hi ${name || "there"},\n\nA new ${what} at ${where} fits you: ${job.title}. ${ask}${why ? `\n\n${why}` : ""}\n\n${yesLabel}: ${yes}\nNot now: ${later}\n\n${foot} Change how often in Account → Appearance & alerts.\n\nRemy`;
+  const html = brandEmail({
+    host, name, heading: `A new ${what} fits you`, preheader: `${job.title} at ${where}. ${ask}`,
+    blocks: [opening({ kicker: where, title: job.title, why }), para(ask)],
+    primary: { href: yes, label: yesLabel }, secondary: { href: later, label: "Not now" },
+    why: foot, manage: { href: `https://${host}/accounts?tab=settings`, label: "Change how often" },
+  });
   return { subject, text, html };
 }
 
@@ -97,7 +97,7 @@ export async function sendNudges(activeSince: string, send: typeof sendEmail = s
     const job = nudgeFor(ws, now);
     if (!job) continue;
     const id = uid("n");
-    const { subject, text, html } = nudgeEmail(ws, job, id, host);
+    const { subject, text, html } = nudgeEmail(ws, job, id, host, u.name);
     try { await send(ws.profile.applicationEmail || u.email, subject, text, html); } catch (e: any) { console.error("match email failed", e?.message); continue; }
     await saveSections(u.id, { nudges: [...(ws.nudges || []), { id, jobId: job.id, at: now.toISOString() }].slice(-100) });
     sent++;
