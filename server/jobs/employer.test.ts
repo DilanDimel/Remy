@@ -9,7 +9,7 @@ test("hospital in the title becomes the employer", () => {
 });
 
 test("ordinary titles are left alone", () => {
-  for (const title of ["Cath Lab Tech Extern", "Analyst - Corporate Finance", "Software Engineer – Backend"]) {
+  for (const title of ["Cath Lab Tech Extern", "Operations Center Analyst - Intern", "Data Center Technician – Nights", "Analyst - Corporate Finance", "Software Engineer – Backend"]) {
     assert.equal(hospitalFirst({ title, company: "Acme" }).title, title);
   }
 });
