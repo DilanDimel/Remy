@@ -417,6 +417,19 @@ function RemyToday({ onActivity }: { onActivity: () => void }) {
   );
 }
 
+// Owners: while Remy starts his answer, bouncing dots and what he's doing, so the wait doesn't look frozen.
+const THINKING = ["Remy is reading your message", "Looking at your profile", "Checking your openings", "Writing his answer"];
+function RemyThinking() {
+  const [i, setI] = useState(0);
+  useEffect(() => { const t = setInterval(() => setI((n) => Math.min(n + 1, THINKING.length - 1)), 1100); return () => clearInterval(t); }, []);
+  return (
+    <div className="remy-thinking" role="status" aria-live="polite" data-testid="chat-thinking">
+      <span className="lp-typing"><i /><i /><i /></span>
+      <span key={i} className="xs muted fade-up">{THINKING[i]}…</span>
+    </div>
+  );
+}
+
 const PROFILE_NAME: Record<string, string> = { major: "Major", minors: "Minor", school: "School", graduation: "Graduation", location: "Location" };
 const STARTERS: Record<string, string[]> = {
   Home: ["What should I focus on this week?", "Which opening fits me best right now?", "I'm not sure what career I want. Where do I start?"],
@@ -617,7 +630,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
         {stage2 && chat.length > 0 && !pending && <RemyAway />}
         {pending && <div className="stack-sm" style={{ alignItems: "flex-end" }}><div className="bubble bubble-user" data-testid="chat-pending">{pending.text}</div></div>}
         {pending?.reply ? <div className="bubble bubble-ai" data-testid="chat-streaming"><Rich text={pending.reply.slice(0, shown)} /></div>
-          : busy && <div className="bubble bubble-ai row"><Spinner /> Thinking…</div>}
+          : busy && (stage2 ? <RemyThinking /> : <div className="bubble bubble-ai row"><Spinner /> Thinking…</div>)}
         {tailor && (
           // Owners: the tailoring talk is part of the chat, not a box inside it (Dilan, Nov 23).
           <div className={stage2 ? "stack-sm" : "asst-card stack-sm"} data-testid="tailor-chat">
