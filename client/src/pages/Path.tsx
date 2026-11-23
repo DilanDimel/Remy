@@ -39,7 +39,7 @@ export default function PathPage({ query }: { query: URLSearchParams }) {
   if (stage4 && !query.get("tab")) return (
     <>
       <div className="pm-head">
-        <h1>My Path</h1>
+        <div><h1>My Path</h1><p className="pt-sub"><b>One stop a day.</b> Your road through {w.profile.classYear ? w.profile.classYear.toLowerCase() + " year" : "college"}, a minute at a time.</p></div>
         {knows && <button className="btn btn-secondary" onClick={generate} disabled={busy || !config?.ai.available} data-testid="button-refresh-path">{busy ? <Spinner /> : w.plan ? <RotateCcw size={16} /> : <Sparkles size={16} />} {w.plan ? "Refresh Remy's suggestions" : "Build my path"}</button>}
       </div>
       <PathBoard />

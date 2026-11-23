@@ -10,9 +10,12 @@ export const CARD_XP = 10;
 export const FREEZE_EVERY = 7; // one freeze earned per 7 streak days
 export const FREEZE_MAX = 2;
 
-/** The student's own calendar day, like "2026-11-22". */
+/** The student's own day, like "2026-11-22". It rolls over at 4 AM, not midnight, so a late-night round still counts
+ *  for the evening it belongs to (Dilan, Nov 22). */
+export const DAY_STARTS_AT = 4;
 export function dayKey(d = new Date()): string {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).toLocaleDateString("en-CA");
+  const x = new Date(d.getTime() - DAY_STARTS_AT * 3600_000);
+  return new Date(x.getFullYear(), x.getMonth(), x.getDate()).toLocaleDateString("en-CA");
 }
 export const shiftDay = (key: string, n: number) => { const d = new Date(key + "T12:00:00"); d.setDate(d.getDate() + n); return d.toLocaleDateString("en-CA"); };
 const weekday = (key: string) => new Date(key + "T12:00:00").getDay(); // 0 = Sunday
