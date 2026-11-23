@@ -1701,6 +1701,12 @@ button.ms-text:hover { text-decoration: underline; text-underline-offset: 3px; }
 .cm-starter:hover { border-style: solid; border-color: var(--fox); }
 .cm-starter .op-pick-mono { width: 40px; height: 40px; font-size: var(--text-base); margin-bottom: 4px; background: var(--bg); box-shadow: none; transform: none; }
 .cm-starter-go { margin-top: auto; padding-top: 8px; font-size: var(--text-sm); font-weight: 700; color: var(--fox-deep); display: inline-flex; align-items: center; gap: 4px; }
+.pr-start { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+.pr-start p { margin: 0 0 2px; color: var(--muted-text); }
+.pr-start p b { color: var(--ink); }
+.pr-start-row { display: flex; align-items: center; gap: 10px; }
+.pr-start-row .pr-mini-t { flex: 1; min-width: 0; }
+@media (max-width: 640px) { .pr-start-row { flex-wrap: wrap; } .pr-start-row .pr-mini-t { flex-basis: calc(100% - 50px); } }
 @keyframes soul-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes soul-pop { 0% { transform: scale(.6); } 70% { transform: scale(1.12); } 100% { transform: scale(1); } }
 @keyframes soul-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--fox) 45%, transparent); } 70% { box-shadow: 0 0 0 8px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }

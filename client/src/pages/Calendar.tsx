@@ -5,7 +5,8 @@ import { go } from "../lib/router";
 import type { CalItem } from "@shared/types";
 import { download, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
 import { Modal, StatusChip } from "../components/common";
-import { careerItems } from "../components/CareerTime";
+import { CareerTime, careerItems } from "../components/CareerTime";
+import { useJobs } from "../lib/jobs";
 
 const KINDS: CalItem["kind"][] = ["Deadline", "Event", "Task", "Interview", "Advising"];
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -77,6 +78,9 @@ export default function CalendarPage() {
   const today = iso(new Date());
   // The weekly career time repeats; Upcoming shows only its next one, so real deadlines and interviews aren't pushed out.
   const upcoming = items.filter((i) => i.date >= today).filter((i, n, all) => !i.id.startsWith("career-") || all.findIndex((x) => x.id.startsWith("career-")) === n).slice(0, 8);
+  const { jobs } = useJobs();
+  // Owners with nothing coming up (Nov 23 review): posting deadlines from their openings, ready to add.
+  const deadlines = owner && !upcoming.length ? (jobs || []).filter((j) => j.deadline && j.deadline >= today && !w.hiddenJobIds.includes(j.id)).sort((a, b) => a.deadline.localeCompare(b.deadline)).slice(0, 3) : [];
   const saveItem = async (c: CalItem) => {
     const exists = w.calendar.some((x) => x.id === c.id);
     const dupe = w.calendar.find((x) => x.id !== c.id && x.title.trim().toLowerCase() === c.title.trim().toLowerCase() && x.date === c.date);
@@ -101,6 +105,19 @@ export default function CalendarPage() {
       <GoogleCalendarCard />
       <div className="stack-lg">
         {owner && upcoming.length > 0 && <ComingUp items={upcoming} weekEnd={iso(new Date(Date.now() + 6 * 864e5))} onOpen={setSel} />}
+        {owner && !upcoming.length && (
+          <section className="op-card stack-sm" data-testid="calendar-worth-adding">
+            <h3>Worth putting on your calendar</h3>
+            {!w.settings.careerTime && <CareerTime />}
+            {deadlines.map((j) => (
+              <div key={j.id} className="row" style={{ gap: 10 }}>
+                <span className="small" style={{ flex: 1, minWidth: 0 }}><b>{j.company} closes {fmtDate(j.deadline)}</b> · {j.title}</span>
+                <button className="btn btn-secondary btn-sm" onClick={() => saveItem({ id: rid("cal"), title: `${j.company} deadline: ${j.title}`, date: j.deadline, time: "", kind: "Deadline", source: "Opportunities", notes: "" })} data-testid="button-add-deadline"><Plus size={14} /> Add</button>
+              </div>
+            ))}
+            {w.settings.careerTime && !deadlines.length && <p className="small muted">None of your openings list a deadline yet. Remy adds them here as postings date them.</p>}
+          </section>
+        )}
         <div className="card card-pad stack">
           <div className="row-between">
             <h2>{month.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h2>
