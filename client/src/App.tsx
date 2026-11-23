@@ -435,7 +435,8 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
     return () => clearTimeout(t);
   }, [lastAi]);
   const mood = busy || tailor?.stage === "working" || tailor?.stage === "reading" ? "think" : greeting || asking ? "wave" : lastAi && lastAi !== cheer ? "happy" : "idle";
-  useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [chat.length, busy]);
+  // Owners: an empty chat starts at the top, so "Here's today" isn't scrolled out of view on short screens.
+  useEffect(() => { if (stage2 && !chat.length && !busy) return; end.current?.scrollIntoView({ block: "end" }); }, [chat.length, busy]);
   const send = async (text: string) => {
     if (asking) { setMsg(""); await answerTailor(text, { setWs, run }); return; }
     if (!text.trim() || busy) return;
