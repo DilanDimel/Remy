@@ -8,7 +8,7 @@ import { dailyXp } from "./daily";
 export type Counters = Record<string, number>;
 const SENT = new Set(["Applied", "Received", "Heard back", "Interview", "Offer", "Rejected", "No reply"]);
 export type GameWeek = { base: Counters; done: string[]; missions?: string[] };
-export type GameState = { weeks: Record<string, GameWeek>; bestLevel?: number; days?: Record<string, string[]>; known?: string[]; restDays?: number[] };
+export type GameState = { weeks: Record<string, GameWeek>; bestLevel?: number; days?: Record<string, string[]>; known?: string[]; restDays?: number[]; bestRank?: number; outfit?: string };
 export type Mission = { key: string; title: string; counter: string; target: number; mins: number; xp: number; effect: string; link: string };
 
 /** What the student has done so far, counted from the workspace (nothing extra is tracked). */
@@ -108,12 +108,21 @@ export function xpOf(w: Workspace, g: GameState): number {
   return missions + dailyXp(g) + (w.resume?.confirmedAt ? 100 : 0) + 120 * c.sent + 250 * interviews + (w.tracker.some((t) => t.status === "Offer") ? 500 : 0);
 }
 /** Levels never drop (council, Nov 19): the best level reached is kept even if XP later goes down. */
-export function levelOf(xp: number, best = 0) {
-  let i = 0; for (let k = 0; k < LEVELS.length; k++) if (xp >= LEVELS[k][1]) i = k;
-  i = Math.max(i, Math.min(LEVELS.length - 1, Math.max(0, best - 1)));
-  const next = LEVELS[Math.min(i + 1, LEVELS.length - 1)][1];
-  return { n: i + 1, name: LEVELS[i][0], floor: LEVELS[i][1], next, max: i === LEVELS.length - 1 };
+export function levelOf(xp: number, best = 0, ladder = LEVELS) {
+  let i = 0; for (let k = 0; k < ladder.length; k++) if (xp >= ladder[k][1]) i = k;
+  i = Math.max(i, Math.min(ladder.length - 1, Math.max(0, best - 1)));
+  const next = ladder[Math.min(i + 1, ladder.length - 1)][1];
+  return { n: i + 1, name: ladder[i][0], floor: ladder[i][1], next, max: i === ladder.length - 1 };
 }
+/** Owner view (Nov 23, the trail): a longer ladder, about a level a week at three cards a day, and levels unlock Remy's outfits. */
+export const RANKS: [string, number][] = [["Rookie", 0], ["Explorer", 100], ["Scout", 250], ["Analyst in training", 450], ["Analyst", 700], ["Builder", 1000],
+  ["Associate", 1350], ["Pro", 1750], ["Senior", 2200], ["Specialist", 2700], ["Lead", 3250], ["Manager", 3850], ["Director", 4500], ["Partner", 5200], ["Legend", 6000]];
+export const rankOf = (xp: number, best = 0) => levelOf(xp, best, RANKS);
+/** Which level unlocks which outfit (keys of OUTFITS in client/src/components/scholar.ts). The gown comes with graduating. */
+export const WARDROBE: [string, number][] = [["suit", 1], ["tweed", 3], ["navy", 5], ["camel", 8], ["cardigan", 11], ["oxblood", 15]];
+export const graduated = (classYear = "") => /grad|alum/i.test(classYear);
+export const unlockedOutfits = (rank: number, classYear = "") => [...WARDROBE.filter(([, l]) => rank >= l).map(([o]) => o), ...(graduated(classYear) ? ["gown"] : [])];
+export const nextOutfit = (rank: number) => WARDROBE.find(([, l]) => l > rank);
 /** Badges only for wins a recruiter would recognize. */
 export function badges(w: Workspace) {
   const c = counters(w);

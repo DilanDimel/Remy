@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Check, Copy, X } from "lucide-react";
 import type { Label } from "@shared/types";
-import { useOwnerView } from "../lib/store";
+import { unlockedOutfits } from "@shared/game";
+import { useOwnerView, useStore } from "../lib/store";
 import { scholarMarkup, startScholar } from "./scholar";
 
 export type RemyMood = "idle" | "wave" | "think" | "happy";
@@ -34,15 +35,18 @@ export function Remy({ size = 56, mood = "idle", className = "", outfit }: { siz
 
 // Owner view (Nov 22): the Scholar fox the team picked, in his business suit. Drawing, outfits and the things he
 // does on his own live in scholar.ts (shared with the mascot demo); moods arrive as classes.
-function ScholarRemy({ size, mood, className, outfit }: { size: number; mood: RemyMood; className: string; outfit?: string }) {
+function ScholarRemy({ size, mood, className, outfit: asked }: { size: number; mood: RemyMood; className: string; outfit?: string }) {
   const ref = useRef<SVGSVGElement>(null);
   const life = useRef<ReturnType<typeof startScholar>>();
+  // He wears what the student picked from what they've earned (levels unlock outfits), and only changes into those.
+  const ws = useStore()?.ws, g = ws?.game, owned = unlockedOutfits(g?.bestRank || 1, ws?.profile.classYear);
+  const outfit = asked || (g?.outfit && owned.includes(g.outfit) ? g.outfit : "suit"), pool = owned.join();
   useEffect(() => {
     if (!ref.current) return;
     ref.current.innerHTML = scholarMarkup(outfit);
-    life.current = startScholar(ref.current, { outfit, auto: size >= 30 }); // tiny icons stay calm
+    life.current = startScholar(ref.current, { outfit, outfits: pool.split(","), auto: size >= 30 }); // tiny icons stay calm
     return () => life.current?.stop();
-  }, [size, outfit]);
+  }, [size, outfit, pool]);
   useEffect(() => { if (mood === "wave") life.current?.play("wave", true); }, [mood]);
   return <svg ref={ref} className={`fox scholar ${mood} ${className}`} width={size} height={Math.round(size * 222 / 200)} viewBox="0 -8 200 222" role="img" aria-label="Remy the fox, your career coach" />;
 }
