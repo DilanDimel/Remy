@@ -341,12 +341,12 @@ function OpeningsTab() {
         <input className="input" style={{ width: 180 }} placeholder="Company, then Enter" defaultValue={f.company} onKeyDown={(e) => { if (e.key === "Enter") setF({ ...f, company: (e.target as HTMLInputElement).value.trim() }); }} aria-label="Company (press Enter)" />
       </div>
       <section className="adm-card adm-list">
-        {d.openings.map((o) => (
+        <More items={d.openings} render={(o) => (
           <div key={o.url} className="row-between small" style={{ gap: 10 }}>
             <span><a href={o.url} target="_blank" rel="noreferrer"><b>{o.title}</b></a> · {o.company}{o.location ? ` · ${o.location}` : ""}<span className="xs muted"> · {[o.industry, o.career_path].filter(Boolean).join(" / ") || "untagged"}</span></span>
             <span className="xs muted" style={{ whiteSpace: "nowrap" }}>{o.check_result === "closed-signal" ? "looks closed" : o.check_result === "reachable" ? "open" : o.check_result || "not checked"} · seen {o.times_seen}× · {ago(o.last_seen)}</span>
           </div>
-        ))}
+        )} />
         {!d.openings.length && <p className="small muted">Nothing matches.</p>}
       </section>
     </div>
@@ -912,12 +912,12 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
       <div className="stack-lg">
         <Head title="Activity" sub="Who did what on the team, newest first." />
         <section className="adm-card adm-list">
-          {d.activity.map((a) => (
+          <More items={d.activity} render={(a) => (
             <div key={a.id} className="adm-row">
               <Avatar m={who(a.actor)} size={30} />
               <div className="grow stack-sm" style={{ gap: 2 }}><span className="small"><b>{nameOf(a.actor)}</b> {a.action.toLowerCase()}{a.detail ? <>: <span className="muted">{pretty(a.detail)}</span></> : null}</span><span className="xs muted">{ago(a.at)}</span></div>
             </div>
-          ))}
+          )} />
           {!d.activity.length && <Empty title="No activity yet" body="Adding to-dos, finishing them, meetings and hours all show up here." />}
         </section>
       </div>
@@ -975,7 +975,7 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
       </div>
       <section className="adm-card adm-list">
         <h3>Recent entries</h3>
-        {d.entries.map((e) => (
+        <More items={d.entries} render={(e) => (
           <div key={e.id} className="adm-row">
             <Avatar m={who(e.member)} size={26} />
             <div className="grow stack-sm" style={{ gap: 2 }}>
@@ -984,9 +984,15 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
             </div>
             {e.member === d.me && e.end_at && <button className="icon-btn" onClick={() => send("DELETE", `/api/admin/hours/${e.id}`, undefined, "Entry removed")} aria-label="Remove this entry" data-testid={`button-remove-entry-${e.id}`}><Trash2 size={14} /></button>}
           </div>
-        ))}
+        )} />
         {!d.entries.length && <p className="small muted">No hours logged yet.</p>}
       </section>
     </div>
   );
+}
+
+/** Long dashboard lists show 20 at a time (Nov 23 PM review: Activity ran 5,300 px). */
+function More<T>({ items, render, step = 20 }: { items: T[]; render: (x: T) => ReactNode; step?: number }) {
+  const [n, setN] = useState(step);
+  return <>{items.slice(0, n).map(render)}{items.length > n && <button className="btn btn-ghost btn-sm" style={{ justifySelf: "start" }} onClick={() => setN(n + step)} data-testid="button-show-more">Show {Math.min(step, items.length - n)} more</button>}</>;
 }

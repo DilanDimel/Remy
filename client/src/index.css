@@ -2741,7 +2741,7 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 @media (prefers-reduced-motion: reduce) { .remy-listening { animation: none; } }
 
 /* Owners: Julio's interview coach in Remy (components/MockInterview.tsx). Fits 1440x800 and phones without scrolling. */
-.ivc { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.ivc { display: flex; flex-direction: column; gap: 14px; min-width: 0; container: ivc / inline-size; }
 .ivc-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
 .ivc-head h1 { font-size: clamp(2rem, 1.6rem + 1.2vw, 2.5rem); font-weight: 800; letter-spacing: -.03em; margin: 0; line-height: 1.05; }
 .ivc-say { font-size: var(--text-lg); color: var(--muted-text); margin: 6px 0 0; letter-spacing: -.01em; }
@@ -2813,7 +2813,9 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 .ivc-again { margin-top: 10px; }
 .ivc-spark { display: flex; gap: 4px; align-items: flex-end; height: 44px; margin-top: 6px; }
 .ivc-spark i { flex: 1; border-radius: 4px 4px 0 0; background: var(--surface-2); } .ivc-spark i.n { background: var(--fox); }
-@media (max-width: 1000px) { .ivc-grid { grid-template-columns: minmax(0, 1fr); } }
+/* Stack by the room the page really has (both side panels open on a laptop squeeze it), not the window width. */
+@container ivc (max-width: 760px) { .ivc-grid { grid-template-columns: minmax(0, 1fr); } }
+@container ivc (max-width: 520px) { .ivc-seat { grid-template-columns: minmax(0, 1fr); } .ivc-fox { display: none; } }
 @media (max-height: 760px) and (min-width: 1001px) { .ivc-hide-short { display: none; } }
 @media (max-width: 690px) {
   .ivc { gap: 10px; }

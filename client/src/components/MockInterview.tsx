@@ -24,7 +24,11 @@ type View = { id: string; qi: number; fb: boolean } | null;
 export function MockInterview() {
   const { ws, setWs, run } = useStore();
   const w = ws!;
-  const { mine, jobs } = useInterviewJobs();
+  const { mine, jobs: listed } = useInterviewJobs();
+  // An opening picked from its card (/interview?job=<id>) joins the list even if it isn't saved.
+  const [extra, setExtra] = useState("");
+  const xj = extra && !listed.some((j) => j.id === extra) ? ws!.jobs.find((j) => j.id === extra) : undefined;
+  const jobs = xj ? [xj, ...listed] : listed;
   const [pick, setPick] = useState("");
   const [mode, setMode] = useState<IvMode>("coach");
   const [view, setView] = useState<View>(null);
@@ -46,11 +50,15 @@ export function MockInterview() {
   };
   // Remy started it from chat or an offer ("give me a mock interview for Deloitte"): /interview?start=1&job=<id>.
   const { query } = useRoute();
-  const asked = query.get("start") === "1" ? query.get("job") || "*" : "";
+  const start = query.get("start") === "1";
+  const asked = query.get("job") || (start ? "*" : "");
   useEffect(() => {
     if (!asked) return;
-    const id = asked !== "*" && jobs.some((j) => j.id === asked) ? asked : job?.id;
-    if (id) { setPick(id); void plan(id); }
+    const known = asked !== "*" && w.jobs.some((j) => j.id === asked && j.kind !== "event");
+    if (known) setExtra(asked);
+    const id = known ? asked : job?.id;
+    // Only Remy's "start" link plans right away; a card's link just picks the opening.
+    if (id) { setPick(id); if (start) void plan(id); }
     replaceRoute("/interview");
   }, [asked]);
 
@@ -106,7 +114,7 @@ export function MockInterview() {
             <section className="ivc-card">
               <p className="ivc-label">How should I run it?</p>
               <div className="ivc-modes" role="radiogroup" aria-label="Interview style">
-                {([["coach", "Coach me as we go", "A quick take after each answer, then the next question."], ["real", "Like the real thing", "No hints, no pauses. Your scorecard comes at the end."]] as const).map(([m, t, d]) => (
+                {([["coach", "Coach me as we go", "A quick take after each answer, then the next question."], ["real", "Like the real thing", "Remy asks out loud, no hints. Your scorecard comes at the end."]] as const).map(([m, t, d]) => (
                   <button key={m} role="radio" aria-checked={mode === m} className={"ivc-mode" + (mode === m ? " on" : "")} onClick={() => setMode(m)} data-testid={`mode-${m}`}><i /><span><b>{t}</b><span>{d}</span></span></button>
                 ))}
               </div>
@@ -176,7 +184,7 @@ function Room({ iv, view, setView }: { iv: Interview; view: NonNullable<View>; s
             <div className="ivc-q">
               <div className="row" style={{ justifyContent: "space-between", gap: 8, flexWrap: "nowrap" }}>
                 <span className="ivc-kick">{KIND[q.kind]}{q.from ? ` · ${q.kind === "resume" ? "your line" : "from the posting"}: “${q.from}”` : ""}</span>
-                <ReadAloud text={q.q} />
+                <ReadAloud text={q.q} auto={iv.mode === "real"} />
               </div>
               <p className="ivc-ask" data-testid="mock-question">“{q.q}”</p>
               {q.table && <div className="ivc-material"><b>Practice material</b> <span className="xs muted">· made up for this exercise</span>
@@ -240,10 +248,12 @@ function Answer({ initial, hint, onSend, skip, stop, last }: { initial: string; 
 }
 
 /** Reads the question out loud with the browser's voice (nothing leaves the browser beyond what it does itself). */
-function ReadAloud({ text }: { text: string }) {
+function ReadAloud({ text, auto }: { text: string; auto?: boolean }) {
   const ok = typeof window !== "undefined" && "speechSynthesis" in window;
-  if (!ok) return null;
   const say = () => { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = "en-US"; u.rate = 0.98; speechSynthesis.speak(u); };
+  // "Like the real thing": the interviewer asks out loud, as in Julio's voice interview. Stops when the question changes.
+  useEffect(() => { if (!ok || !auto) return; say(); return () => speechSynthesis.cancel(); }, [text, auto]);
+  if (!ok) return null;
   return <button className="btn btn-ghost btn-sm" style={{ flex: "none" }} onClick={say} data-testid="button-read-aloud"><Volume2 size={14} /> Hear it</button>;
 }
 
