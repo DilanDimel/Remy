@@ -20,7 +20,7 @@ function InstagramMark({ size = 18 }: { size?: number }) {
 }
 
 /** The simpler front page (owners only until Dilan releases it): one message, the real app, the real team, our socials. */
-function Top({ inside, what = "#what" }: { inside: boolean; what?: string }) {
+export function Top({ inside, what = "#what" }: { inside: boolean; what?: string }) {
   return (
     <header className="lp2-top">
       <a className="logo" href="/" aria-label="Remy home">Remy <BetaBadge /></a>

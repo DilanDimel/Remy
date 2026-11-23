@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Remy } from "../components/common";
 import { ThemeToggle } from "../components/ThemeToggle";
-import { useOwnerView } from "../lib/store";
+import { useOwnerView, useStore } from "../lib/store";
+import { Top } from "./Landing2";
 import { BETA_TERMS, BETA_TERMS_LEAD } from "@shared/beta";
 
 const CONTACT = "hello@remyai.org";
@@ -13,37 +14,25 @@ const Section = ({ title, children }: { title: string; children: ReactNode }) =>
   <section className="stack-sm info-sec" id={slug(title)}><h2 style={{ fontSize: "1.15rem" }}>{title}</h2>{children}</section>
 );
 
-function Page({ title, lead, children }: { title: string; lead: string; children: ReactNode }) {
-  const owner = useOwnerView();
-  if (owner) return <DocPage title={title} lead={lead}>{children}</DocPage>;
-  return (
-    <div className="ob">
-      <div className="row-between" style={{ width: "100%", maxWidth: 740 }}>
-        <a className="logo" href="/"><Remy size={26} /><span>Remy<b>.</b></span></a>
-        <nav className="row small"><a href="/about">About</a><a href="/policies">Policies</a><ThemeToggle /></nav>
-      </div>
-      <article className="ob-card card card-pad stack-lg" style={{ lineHeight: 1.6 }}>
-        <a className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start", padding: 0 }} href="/"><ArrowLeft size={14} /> Back to Remy</a>
-        <div className="stack-sm"><h1 className="conn-title">{title}</h1><p className="muted">{lead}</p></div>
-        {children}
-        <p className="xs muted">Questions? Email <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.</p>
-      </article>
-    </div>
-  );
-}
+// Nov 23 (Dilan: fix About for everyone): every visitor gets the full-width reading page.
+const Page = DocPage;
 
 /** Owners first (Dilan, Nov 22: these pages "look bad", one narrow card): a full-width reading page on the paper
  *  background, with a contents list beside the text on wide screens. Built from the page's own section headings. */
 function DocPage({ title, lead, children }: { title: string; lead: string; children: ReactNode }) {
   const body = useRef<HTMLDivElement>(null);
   const [toc, setToc] = useState<{ id: string; text: string }[]>([]);
+  const owner = useOwnerView();
+  const { me, ws } = useStore();
   useEffect(() => { setToc([...(body.current?.querySelectorAll<HTMLElement>(".info-sec") || [])].map((el) => ({ id: el.id, text: el.querySelector("h2")?.textContent || "" }))); }, [title]);
   return (
     <div className="doc">
+      {owner ? <Top inside={!!(me && ws?.started)} what="/welcome#what" /> : (
       <header className="doc-top">
         <a className="logo" href="/"><Remy size={26} /><span>Remy<b>.</b></span></a>
         <nav className="row small"><a href="/" data-testid="link-back-to-remy"><ArrowLeft size={14} /> Back to Remy</a><a href="/about" aria-current={title.startsWith("About") ? "page" : undefined}>About</a><a href="/policies" aria-current={title.startsWith("About") ? undefined : "page"}>Privacy & terms</a><ThemeToggle /></nav>
       </header>
+      )}
       <div className="doc-head"><h1>{title}</h1><p>{lead}</p></div>
       <div className="doc-grid">
         {toc.length > 2 && <nav className="doc-toc" aria-label="On this page"><b>On this page</b>{toc.map((t) => <a key={t.id} href={`#${t.id}`}>{t.text}</a>)}</nav>}
@@ -91,13 +80,13 @@ export function About() {
       </Section>
       <Section title="Who we are">
         <p>Remy is a career coach for college students, built by a small team in Fort Worth, Texas. We started it in October 2026 and ship improvements every week.</p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(118px, 1fr))", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(128px, 1fr))", gap: 12 }}>
           {TEAM.map((m) => (
             <figure key={m.name} className="stack-sm" style={{ margin: 0, alignItems: "center", textAlign: "center" }}>
               {m.photo
                 ? <img src={m.photo} alt={m.name} width={96} height={96} style={{ borderRadius: "50%", objectFit: "cover" }} />
                 : <div aria-hidden style={{ width: 96, height: 96, borderRadius: "50%", display: "grid", placeItems: "center", background: "var(--fox-soft)", color: "var(--fox)", fontWeight: 800, fontSize: 28 }}>{m.name.split(" ").map((w) => w[0]).join("")}</div>}
-              <figcaption className="stack-sm" style={{ gap: 2 }}><b>{m.name}</b><span className="xs muted">{m.role}</span>{m.email && <a className="xs" href={`mailto:${m.email}`} style={{ whiteSpace: "nowrap" }}>{m.email.split("@")[0]}<wbr />@{m.email.split("@")[1]}</a>}</figcaption>
+              <figcaption className="stack-sm" style={{ gap: 2 }}><b>{m.name}</b><span className="xs muted">{m.role}</span>{m.email && <a className="xs" href={`mailto:${m.email}`} title={m.email}>Email {m.name.split(" ")[0]}</a>}</figcaption>
             </figure>
           ))}
         </div>
