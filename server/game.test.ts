@@ -1,7 +1,7 @@
 // Career quest: missions finish from real actions, the weekly streak forgives one missed week, XP and levels add up.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { counters, doneThisWeek, levelOf, nextOutfit, rankOf, streak, unlockedOutfits, weekKey, weekMissions, xpOf } from "../shared/game";
+import { counters, doneThisWeek, levelOf, levelReward, nextOutfit, rankOf, streak, unlockedOutfits, weekKey, weekMissions, xpOf } from "../shared/game";
 import { emptyWorkspace } from "./platform/db";
 
 test("career quest: a mission is done when its count goes up by the target this week", () => {
@@ -129,4 +129,11 @@ test("owner trail: ranks never drop and levels unlock Remy's outfits", () => {
   assert.ok(unlockedOutfits(1, "Graduated").includes("gown"));
   assert.deepEqual(nextOutfit(4), ["navy", 5]);
   assert.equal(nextOutfit(15), undefined);
+});
+
+test("season rewards: every level from 2 to 15 gives an outfit or an office item", () => {
+  for (let n = 2; n <= 15; n++) assert.ok(levelReward(n), `level ${n} has a reward`);
+  assert.deepEqual(levelReward(5), { kind: "outfit", key: "navy", level: 5 });
+  assert.equal(levelReward(2)?.kind, "item");
+  assert.equal(levelReward(16), null);
 });
