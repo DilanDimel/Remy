@@ -55,6 +55,31 @@ function marked(text: string, tools: RegExp, on: Set<Cat>): ReactNode {
   return parts;
 }
 const words = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;
+/** What a highlight or a flag means, for the explanation that opens when a student taps it (Dilan, Nov 22: "if I click
+ *  on it I want to see what Remy wants me to change"). Only explains and suggests; nothing is written into the resume. */
+const STRONGER: [RegExp, string][] = [
+  [/^provid/i, "Delivered, Prepared, Supplied"], [/^(assist|help|support)/i, "Ran, Built, Prepared, Handled"], [/^manag/i, "Led, Ran, Oversaw"],
+  [/^(work|did|do)\b/i, "Built, Ran, Analyzed"], [/^(responsible|tasked|in charge|duties)/i, "Led, Ran, Owned"], [/^handl/i, "Resolved, Processed, Ran"],
+  [/^(use|utiliz)/i, "Built, Analyzed, Modeled"], [/^(participat|involv)/i, "Organized, Presented, Built"],
+];
+export function explain(kind: string, text: string): { title: string; body: string; alt?: string; fix?: boolean } {
+  const word = text.trim().split(/\s+/)[0] || text;
+  const alt = STRONGER.find(([re]) => re.test(word))?.[1];
+  switch (kind) {
+    case "action": return { title: `Action word: “${text.trim()}”`, body: "Good: the line starts with what you did, and recruiters scan the first word. The colour marks it as an action word, not a mistake.", alt: alt && `If it's true, a more specific word reads stronger: ${alt}.` };
+    case "hard": return { title: `Hard skill or tool: “${text.trim()}”`, body: "Postings and resume filters look for these. Keep it where you really used it, and name what you did with it." };
+    case "soft": return { title: `Soft skill: “${text.trim()}”`, body: "Recruiters believe a soft skill when a line shows it. Pair it with what happened, like a number or a result." };
+    case "number": return { title: `Number: “${text.trim()}”`, body: "Numbers make a line easy to believe and easy to remember." };
+    case "result": return { title: "Result", body: "This shows what changed because of you: the strongest kind of line." };
+    case "No number": return { title: "No number", body: "This line has no number. If you know a real one (people, events, dollars, hours, percent), adding it makes the line easier to believe. Remy asks you for it and drafts the line; you approve every word. Only add a number you actually know.", fix: true };
+    case "Starts weak": return { title: "Starts weak", body: "The line doesn't start with what you did (or starts with words like “Responsible for” or “Helped with”). Start with the action you took.", alt: alt && `If it's true: ${alt}.`, fix: true };
+    case "Too short": return { title: "Too short", body: "Under 8 words usually leaves out what you did or what came of it. Add the how or the result.", fix: true };
+    case "Too long": return { title: "Too long", body: "Over 32 words is hard to scan. Keep the action, the how and the result; cut the rest.", fix: true };
+    case "No dates": return { title: "No dates", body: "Experience entries need dates so recruiters can see when you did them. Add them in Edit." };
+    default: return { title: kind, body: "" };
+  }
+}
+
 export function issues(text: string): string[] {
   const t = text.trim().replace(/^[•\-–*]\s*/, "");
   const out: string[] = [];
@@ -78,7 +103,20 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real }: { 
   const [on, setOn] = useState<Set<Cat>>(new Set(plain ? [] : CATS.map(([c]) => c)));
   const tools = useMemo(() => toolsRegex(doc), [doc.skills]);
   const ownFile = real?.(on) ?? null;
-  const review = useMemo(() => reviewResume(doc), [doc]);
+  const review = useMemo(() => reviewResume(doc, { listLike: true }), [doc]); // owners' page: certifications listed like skills need no dates
+  // Tap a highlight or a flag: Remy's reason and what to change, beside the tap.
+  const [why, setWhy] = useState<{ kind: string; text: string; x: number; y: number } | null>(null);
+  const onTap = (e: React.MouseEvent) => {
+    if (plain) return;
+    const el = (e.target as HTMLElement).closest("mark, .rm-flag, .rr-hl") as HTMLElement | null;
+    if (!el) return setWhy(null);
+    e.preventDefault(); e.stopPropagation();
+    const flag = el.classList.contains("rm-flag");
+    const cat = [...el.classList].find((k) => /^rm-(action|hard|soft|number|result)$/.test(k))?.slice(3);
+    const text = el.dataset.t || el.textContent || "";
+    const kinds = flag ? text.split(" · ").map((x) => x.trim()) : [cat || ""];
+    setWhy({ kind: kinds.join("|"), text: flag ? "" : text, x: Math.min(e.clientX, window.innerWidth - 336), y: e.clientY + 290 > window.innerHeight ? Math.max(8, e.clientY - 290) : e.clientY + 14 });
+  };
   const bullets = doc.sections.filter((s) => !isListSection(s.heading)).flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => b.text))).filter((t) => t.trim());
   const count = (c: Cat) => bullets.filter((b) => ranges(b, tools).some((r) => r[2] === c)).length;
   const flip = (c: Cat) => setOn((s) => { const n = new Set(s); n.has(c) ? n.delete(c) : n.add(c); return n; });
@@ -92,7 +130,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real }: { 
           </button>
         ))}
       </div>}
-      <div className="rm-body">
+      <div className="rm-body" onClick={onTap}>
         {ownFile ?? <article className="rm-paper" aria-label="Your resume, colour-coded" style={paperStyle(look)}>
           <h2 className="rm-name">{c.name || "Your name"}</h2>
           <p className="rm-contact">{[c.location, c.phone, c.email, c.links].filter((x) => x.trim()).join(" | ")}</p>
@@ -102,14 +140,14 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real }: { 
               {s.entries.map((e) => (
                 <div key={e.id} className="rm-entry">
                   <div className="rm-row"><b>{e.org}</b><span>{e.location}</span></div>
-                  <div className="rm-row rm-sub"><i>{e.role}</i><span>{e.dates || (plain ? null : <span className="rm-flag">No dates</span>)}</span></div>
+                  <div className="rm-row rm-sub"><i>{e.role}</i><span>{e.dates || (plain || isListSection(s.heading) ? null : <span className="rm-flag">No dates</span>)}</span></div>
                   <ul>
                     {e.bullets.filter((b) => b.text.trim()).map((b) => {
                       const probs = plain || isListSection(s.heading) ? [] : issues(b.text);
                       return (
                         <li key={b.id} className={probs.length ? "rm-has-issue" : ""}>
                           {marked(b.text.replace(/^[•\-–*]\s*/, ""), tools, on)}
-                          {probs.map((p) => <button key={p} className="rm-flag" onClick={() => onFix("review")} title="Fix with Remy">{p}</button>)}
+                          {probs.map((p) => <button key={p} className="rm-flag" title="Why?" data-testid="rm-flag">{p}</button>)}
                         </li>
                       );
                     })}
@@ -123,6 +161,22 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real }: { 
             {doc.skills.map((k) => <p key={k.id} className="rm-skill"><b>{k.label ? k.label + ": " : ""}</b>{marked(k.items, tools, on)}</p>)}
           </>)}
         </article>}
+        {why && (
+          <div className="rm-why" role="dialog" aria-label="Why Remy marked this" style={{ left: why.x, top: why.y }} onClick={(e) => e.stopPropagation()} data-testid="rm-why">
+            {why.kind.split("|").map((k) => { const x = explain(k, why.text); return (
+              <div key={k} className="stack-sm">
+                <b>{x.title}</b>
+                <span className="small">{x.body}</span>
+                {x.alt && <span className="small"><b>Try:</b> {x.alt}</span>}
+              </div>
+            ); })}
+            <div className="row" style={{ gap: 6 }}>
+              {why.kind.split("|").some((k) => explain(k, "").fix) && <button className="btn btn-primary btn-sm" onClick={() => { setWhy(null); onFix("review"); }} data-testid="button-why-fix">Fix with Remy</button>}
+              {why.kind === "No dates" && <button className="btn btn-primary btn-sm" onClick={() => { setWhy(null); onFix("edit"); }} data-testid="button-why-edit">Add dates</button>}
+              <button className="btn btn-ghost btn-sm" onClick={() => setWhy(null)} data-testid="button-why-close">Close</button>
+            </div>
+          </div>
+        )}
         {!plain && side && <aside className="rm-side rm-side-review" aria-label="What to fix">{side}</aside>}
         {!plain && !side && <aside className="rm-side" aria-label="What to fix">
           <h3>{review.todo.length ? `${review.todo.length} thing${review.todo.length === 1 ? "" : "s"} to fix` : "Nothing big to fix"}</h3>

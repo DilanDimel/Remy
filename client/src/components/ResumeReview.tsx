@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Check, CheckCircle2, ChevronRight, Sparkles } from "lucide-react";
 import type { ResumeDoc } from "@shared/types";
 import { reviewResume, type BulletRef, type ReviewItem } from "@shared/review";
-import { api, useStore } from "../lib/store";
+import { api, useOwnerView, useStore } from "../lib/store";
 import { Spinner } from "./common";
 
 type Upd = (fn: (d: ResumeDoc) => void) => void;
@@ -12,7 +12,8 @@ const FIELD_LABEL = { name: "Full name", email: "Email", phone: "Phone", locatio
  *  doesn't know, drafts the line from the student's own words, and the student approves. Nothing saves until they
  *  press Save (the usual "Review your changes"). */
 export function ResumeReview({ doc, upd, onEdit, beside = false }: { doc: ResumeDoc; upd: Upd; onEdit: () => void; beside?: boolean }) {
-  const { todo: live, good } = useMemo(() => reviewResume(doc), [doc]);
+  const owner = useOwnerView();
+  const { todo: live, good } = useMemo(() => reviewResume(doc, { listLike: owner }), [doc, owner]);
   // An open fix keeps the fields and lines it showed when opened, so a box doesn't vanish mid-typing once its value
   // passes ("maya@" → valid email); it updates when the student closes it.
   const [frozen, setFrozen] = useState<Record<string, ReviewItem>>({});

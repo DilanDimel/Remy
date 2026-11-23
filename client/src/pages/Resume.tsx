@@ -161,7 +161,7 @@ function BaseResume({ subParam }: { subParam: string | null }) {
       {stage3 && <button className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setByHand(false)} data-testid="button-back-simple">← Back to the simple view</button>}
       {(() => {
         // 1 check what Remy read and confirm it, 2 make it stronger, 3 the file. New students start at 1.
-        const tips = reviewResume(doc).todo.length;
+        const tips = reviewResume(doc, { listLike: stage3 }).todo.length;
         const confirmed = !!w.resume.confirmedAt && !dirty;
         const steps: ["edit" | "review" | "file", string, string, boolean][] = [
           ["edit", "Check what Remy read", confirmed ? `Confirmed ${fmtDate(w.resume.confirmedAt!)}` : unverified ? `${unverified} line${unverified > 1 ? "s" : ""} need a look` : dirty ? "Unsaved edits" : "Confirm every line", confirmed],
