@@ -216,6 +216,9 @@ function OppLine({ visible, any, fits }: { visible: Job[]; any: boolean; fits: R
   );
 }
 
+// Owners: a posting listing four cities reads "West Palm Beach, FL + 3 more" (hover shows them all).
+const shortPlace = (loc?: string) => { const all = (loc || "").split(";").map((x) => x.replace(/,\s*United States$/, "").trim()).filter(Boolean); return !all.length ? "Location not stated" : all.length > 1 ? `${all[0]} + ${all.length - 1} more` : all[0]; };
+
 /** Owners: where their search stands and the deadlines coming up, beside the list. */
 function OppRail({ jobs }: { jobs: Job[] }) {
   const { ws } = useStore();
@@ -229,7 +232,7 @@ function OppRail({ jobs }: { jobs: Job[] }) {
     <aside className="op-rail" data-testid="opp-rail">
       <div className="op-card">
         <div className="op-ch"><h3>Your search</h3><button className="op-link" onClick={() => go("/progress")} data-testid="button-rail-progress">Progress →</button></div>
-        <p className="small" data-testid="opp-search-line">{tiles.map(([l, n], k) => <span key={l} style={{ whiteSpace: "nowrap" }}>{k ? " · " : ""}{n} {l.toLowerCase()}</span>)}. The full board is on Progress.</p>
+        <div className="op-stats" data-testid="opp-search-line">{tiles.map(([l, n]) => <span key={l}><b>{n}</b>{l}</span>)}</div>
       </div>
       <div className="op-card">
         <div className="op-ch"><h3>Closing soon</h3><button className="op-link" onClick={() => go("/calendar")} data-testid="button-rail-calendar">Calendar →</button></div>
@@ -329,7 +332,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit
         <div className="stack-sm" style={{ minWidth: 0, flex: 1 }}>
           <div className="row"><span className="xs muted">{j.company} · {kindLabel[j.kind]}</span><StatusChip label={j.label} />{eligChip(fit)}</div>
           <h3 title={shortTitle(j.title, j.company) !== j.title ? j.title : undefined}>{shortTitle(j.title, j.company)}</h3>
-          <div className="row small muted"><span className="row" style={{ gap: 4 }}><MapPin size={14} />{j.location || "Location not stated"}</span>{j.dates && <span>· {j.dates}</span>}</div>
+          <div className="row small muted"><span className="row" style={{ gap: 4 }} title={j.location}><MapPin size={14} style={{ flex: "none" }} />{keepPass ? shortPlace(j.location) : j.location || "Location not stated"}</span>{j.dates && <span>· {j.dates}</span>}</div>
         </div>
         {j.deadline && <span className={"chip " + (d !== null && d < 0 ? "chip-bad" : d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d < 0 ? "Deadline passed" : `Due ${fmtDate(j.deadline)}${d === 0 ? " · today" : d !== null ? ` · ${d}d` : ""}`}</span>}
       </div>

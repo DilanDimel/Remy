@@ -257,8 +257,8 @@ export default function Landing2() {
             </div>
             <div className="lk-ask">
               <p>I&rsquo;m a{" "}
-                <Pick label="Year" value={year} options={YEARS} onPick={setYear} testid="select-lp-year" />{" "}studying{" "}
-                <Pick label="Major" value={major} options={ALL_MAJORS} groups={FIELD_GROUPS} onPick={setMajor} testid="select-lp-major" search />
+                <Pick label="Year" value={year} options={YEARS} onPick={setYear} testid="select-lp-year" />{" "}
+                <span className="lk-ask-m">studying <Pick label="Major" value={major} options={ALL_MAJORS} groups={FIELD_GROUPS} onPick={setMajor} testid="select-lp-major" search /></span>
               </p>
               <a className="lp2-btn lp2-btn-lg" href={start} {...ext} data-testid="button-lp-start">{inside ? "Open my Remy" : "Show me my matches"}</a>
             </div>
@@ -267,6 +267,8 @@ export default function Landing2() {
                 <div className="lk-job"><div><b>{ex.title}</b><span>{ex.where}</span></div><span className="lk-ok">You qualify</span></div>
                 <p className="lk-why">It&rsquo;s open to {ex.years} in {ex.field}. That&rsquo;s you.</p>
                 <div className="lk-job lk-hide"><div><b>{ex.hidden[0]}</b><span>Hidden: {ex.hidden[1]}</span></div></div>
+                {/* A second hidden one fills the card level with the other two and shows the year rule at work. */}
+                <div className="lk-job lk-hide"><div><b>{year === "senior" ? ex.intern[0] : ex.grad[0]}</b><span>Hidden: {year === "senior" ? "for students returning next fall" : "starts after you graduate"}</span></div></div>
               </div>
               <div className="lk-card lk-say"><p className="lk-small">Remy&rsquo;s next step for you</p>
                 <p className="lk-step">{ex.step[0]}</p>
