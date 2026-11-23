@@ -29,17 +29,43 @@ export function JobInterview() {
     </section>
   );
   const qs = jobQuestions(job, w.resume?.doc);
+  const picker = jobs.length > 1 && (
+    <label className="xs muted row" style={{ gap: 6 }}>For
+      <select className="input" style={{ width: "auto", maxWidth: "min(360px, 100%)", minWidth: 0 }} value={job.id} onChange={(e) => { setPick(e.target.value); setOpen(0); }} aria-label="Opening to practice for" data-testid="select-interview-job">
+        {jobs.map((j) => <option key={j.id} value={j.id}>{j.company}: {j.title}{j.location ? ` (${j.location.split(",")[0]})` : ""}</option>)}
+      </select>
+    </label>
+  );
+  // Owners (tabs redesign, Nov 23): the practice set as numbered steps, one question open at a time, with a Next button.
+  if (owner) {
+    const i = open ?? 0, q = qs[i];
+    return (
+      <section className="iv-stage stack-sm" data-testid="job-interview">
+        <span className="op-kick">Practice set · {job.company}</span>
+        <h2 className="iv-title">Questions {job.company} will likely ask</h2>
+        <p className="small muted">{!mine.length && "Top match for you until you save or tailor for an opening. "}Picked from the {job.title} posting. Answer out loud with your real stories.</p>
+        {picker}
+        <div className="iv-play">
+        <ol className="iv-steps">{qs.map((x, n) => (
+          <li key={x.q}><button className={n === i ? "on" : ""} onClick={() => setOpen(n)} aria-current={n === i} data-testid="job-question"><small>{n + 1}</small><b>{x.q}</b></button></li>
+        ))}</ol>
+        {q && <div className="iv-q stack-sm" data-testid="job-question-open">
+          <span className="op-kick">Question {i + 1} of {qs.length}</span>
+          <b className="iv-q-t">{q.q}</b>
+          <span className="small muted">{q.why}</span>
+          {q.line && <span className="small" data-testid="job-question-line">Your line: “{q.line}”</span>}
+          <span className="small">{q.tip}</span>
+          <PracticeOutLoud key={q.q} goal={[45, 120]} label="Answer out loud" />
+          {i < qs.length - 1 && <button className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setOpen(i + 1)} data-testid="button-next-question">Next question →</button>}
+        </div>}
+        </div>
+      </section>
+    );
+  }
   return (
-    <section className={owner ? "iv-stage stack-sm" : "card card-pad stack-sm"} data-testid="job-interview">
-      {owner && <span className="op-kick">Practice set · {job.company}</span>}
-      <h3 className="row">{!owner && <Briefcase size={18} />} Questions {job.company} may ask</h3>
-      {jobs.length > 1 && (
-        <label className="xs muted row" style={{ gap: 6 }}>For
-          <select className="input" style={{ width: "auto", maxWidth: "min(360px, 100%)", minWidth: 0 }} value={job.id} onChange={(e) => { setPick(e.target.value); setOpen(0); }} aria-label="Opening to practice for" data-testid="select-interview-job">
-            {jobs.map((j) => <option key={j.id} value={j.id}>{j.company}: {j.title}{j.location ? ` (${j.location.split(",")[0]})` : ""}</option>)}
-          </select>
-        </label>
-      )}
+    <section className="card card-pad stack-sm" data-testid="job-interview">
+      <h3 className="row"><Briefcase size={18} /> Questions {job.company} may ask</h3>
+      {picker}
       <p className="xs muted">{!mine.length && "Top matches for you until you save or tailor for an opening. "}From the {job.title} posting's own requirements. Every job is different, so practice these out loud with your real stories.</p>
       {qs.map((q, i) => (
         <div key={q.q} className="card card-pad stack-sm" style={{ boxShadow: "none", padding: 10 }} data-testid="job-question">
