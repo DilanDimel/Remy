@@ -326,6 +326,7 @@ label.row > input[type="checkbox"] { flex: none; margin-top: 3px; }
 .upcoming-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
 .cal-cell { min-height: clamp(96px, 13vh, 140px); border: 1px solid var(--line); border-radius: 10px; padding: 8px; font-size: var(--text-sm); background: var(--surface); display: flex; flex-direction: column; gap: 3px; }
 .cal-cell.out { opacity: 0.45; }
+html.redesign-2 .cal-cell { min-height: clamp(64px, 8vh, 96px); } /* owners: a shorter month, less scrolling (site review Nov 23) */
 .cal-cell.today { border-color: var(--fox); box-shadow: 0 0 0 1px var(--fox) inset; }
 .cal-ev { border-radius: 6px; padding: 3px 7px; font-size: var(--text-xs); background: var(--lav); color: var(--plum); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
 .cal-ev.Deadline { background: var(--amber-bg); color: var(--amber); }
@@ -1515,7 +1516,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .pr-tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 .op-tile.pr-plain { background: var(--surface); border: 1px dashed var(--line); }
 .pr-flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
-.pr-lane { background: var(--surface-2); border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-height: 120px; min-width: 0; }
+.pr-lane { background: var(--surface-2); border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 0; align-self: start; }
 .pr-lane h4 { display: flex; justify-content: space-between; font-size: var(--text-sm); font-weight: 800; margin: 2px 4px; }
 .pr-lane h4 em { font-style: normal; color: var(--faint); }
 .pr-more { font-size: var(--text-xs); font-weight: 700; color: var(--fox-deep); text-align: left; padding: 4px 6px; }
@@ -1565,6 +1566,11 @@ ul[class] > li, ol[class] > li { max-width: none; }
 /* Peach is for Remy's one highlight per page (Dilan, Nov 22: "you don't need to use it everywhere"). Other treatments: */
 .op-accent { border-left: 4px solid var(--fox); }
 .op-pick.op-quiet { background: var(--surface); border: 1px solid var(--line); }
+.mi-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.mi-rows li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.mi-rows li.on { border-color: var(--ink); }
+.mi-rows li > span { display: grid; gap: 2px; min-width: 0; }
+.mi-rows b { font-size: var(--text-base); } .mi-rows small { font-size: var(--text-xs); color: var(--muted-text); }
 .mi-seg { display: flex; flex-wrap: wrap; gap: 6px; }
 .mi-seg button { display: inline-flex; align-items: baseline; gap: 6px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: inherit; font-size: var(--text-sm); font-weight: 700; cursor: pointer; }
 .mi-seg button em { font-style: normal; font-weight: 600; font-size: var(--text-xs); color: var(--muted-text); }

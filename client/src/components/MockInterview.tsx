@@ -39,10 +39,10 @@ export function MockInterview() {
   const done = results.filter(Boolean) as PracticeResult[];
   const start = () => { setResults([]); setStep(0); };
 
-  const kitTiles: { id: "stories" | "pitch" | "questions"; n: string; label: string; c: string }[] = [
-    { id: "stories", n: stories.length ? `${ready.length} of ${stories.length} ready` : "none yet", label: "Stories", c: "a" },
-    { id: "pitch", n: w.pitch?.text ? "ready" : "to write", label: "Pitch", c: "b" },
-    { id: "questions", n: String(job ? jobQuestions(job, w.resume?.doc).length : 0), label: "Questions", c: "c" },
+  const kitTiles: { id: "stories" | "pitch" | "questions"; n: string; label: string; act: string }[] = [
+    { id: "stories", n: stories.length ? `${ready.length} of ${stories.length} ready · your answers to “tell me about a time”` : "Your answers to “tell me about a time”", label: "Stories", act: !stories.length ? "Find my stories" : ready.length < stories.length ? "Finish a story" : "Review" },
+    { id: "pitch", n: w.pitch?.text ? "Ready · your warm-up answer" : "Not written yet · your warm-up answer", label: "30-second pitch", act: w.pitch?.text ? "Practice" : "Write it" },
+    { id: "questions", n: `${job ? jobQuestions(job, w.resume?.doc).length : 0} from this posting, with your resume line for each`, label: "Questions to expect", act: "See them" },
   ];
 
   return (
@@ -60,8 +60,8 @@ export function MockInterview() {
             <h2 className="iv-title">I'll be your interviewer for {job.title.split(/ [-–(]|, /)[0]}</h2>
             <p className="small">{iv ? `You have a real interview with ${iv.company}, so this is a dress rehearsal. ` : !mine.length ? "This is your top match until you save or apply to an opening. " : ""}{rounds.length} questions, about {Math.round(rounds.reduce((a, x) => a + x.goal[0] + 20, 0) / 60)} minutes. Answer out loud, like it's real.</p>
             {jobs.length > 1 && (
-              <label className="xs muted row" style={{ gap: 6 }}>Interview for
-                <select className="input" style={{ width: "auto", maxWidth: "min(360px, 100%)", minWidth: 0 }} value={job.id} onChange={(e) => setPick(e.target.value)} aria-label="Opening to interview for" data-testid="select-mock-job">
+              <label className="xs muted stack-sm" style={{ gap: 4 }}>Interview for
+                <select className="input" style={{ width: "100%", maxWidth: 640, minWidth: 0 }} value={job.id} onChange={(e) => setPick(e.target.value)} aria-label="Opening to interview for" data-testid="select-mock-job">
                   {jobs.map((j) => <option key={j.id} value={j.id}>{j.company}: {j.title}</option>)}
                 </select>
               </label>
@@ -119,11 +119,13 @@ export function MockInterview() {
       </section>
 
       <section className="stack-sm" data-testid="interview-kit">
-        <div className="row-between" style={{ gap: 8 }}><h3>Prep before you practice</h3></div>
-        <div className="mi-seg" role="tablist" aria-label="Prep">{kitTiles.map((t) => (
-          <button key={t.id} role="tab" aria-selected={kit === t.id} className={kit === t.id ? "on" : ""} onClick={() => setKit(kit === t.id ? null : t.id)} data-testid={`kit-${t.id}`}>{t.label} <em>{t.n}</em></button>
-        ))}</div>
-        {!kit && <p className="small muted" data-testid="kit-hint">Stories are your answers to “tell me about a time”. The pitch is your warm-up. Questions shows everything this opening may ask.</p>}
+        <h3>Prep before you practice</h3>
+        <ul className="mi-rows">{kitTiles.map((t) => (
+          <li key={t.id} className={kit === t.id ? "on" : ""}>
+            <span><b>{t.label}</b><small>{t.n}</small></span>
+            <button className="btn btn-secondary btn-sm" aria-expanded={kit === t.id} onClick={() => setKit(kit === t.id ? null : t.id)} data-testid={`kit-${t.id}`}>{kit === t.id ? "Close" : t.act}</button>
+          </li>
+        ))}</ul>
         {kit === "stories" && <StoryDeck />}
         {kit === "pitch" && <PitchCard />}
         {kit === "questions" && <JobInterview />}
