@@ -6,7 +6,7 @@ import { dailyStreak } from "@shared/daily";
 import { Button, Card, EmployerTile, FitBadge, Group, Icon, Row, Screen, Sect, T, success, tap, type IconName } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useJobs } from "@/lib/jobs";
-import { askRemy, go } from "@/lib/nav";
+import { askRemy, go, openJobs } from "@/lib/nav";
 import { greeting, nextThing, visibleJobs } from "@/lib/next";
 import { firstName } from "@shared/names";
 import { useSession } from "@/lib/session";
@@ -30,7 +30,12 @@ export default function Today() {
   const toggle = async (t: Task) => { if (!t.done) success(); setWs(await api<Workspace>("PATCH", `/api/tasks/${t.id}`, { done: !t.done })); };
   const name = firstName(ws);
   // A plan step like "Ask TCU's international office…" has no page of its own: Remy helps with it in chat.
-  const openNext = () => (next.path.split("?")[0] === "/path" ? askRemy(`Help me with this: ${next.title}`) : go(next.path, next.cta));
+  // Kept openings aren't in Jobs → For you, so an opening (or "browse openings" when For you is empty) opens where it is.
+  const isKept = (id: string) => ws.savedJobIds.includes(id);
+  const freshLeft = visibleJobs(ws, jobs, fits).some((j) => !isKept(j.id) && !ws.jobFeedback?.[j.id]);
+  const openJob = (id: string) => openJobs(isKept(id) ? "kept" : "new");
+  const base = next.path.split("?")[0];
+  const openNext = () => (base === "/path" ? askRemy(`Help me with this: ${next.title}`) : base === "jobs" || base === "/opportunities" ? openJobs(freshLeft ? "new" : "kept") : go(next.path, next.cta));
 
   const check = (t: Task) => (
     <Pressable testID="checkbox-task" accessibilityRole="checkbox" accessibilityState={{ checked: t.done }} accessibilityLabel={`Mark ${t.title} done`} onPress={() => toggle(t)} hitSlop={10}
@@ -56,7 +61,7 @@ export default function Today() {
       </Group>
       {top.length > 0 && <>
         <Sect title="Openings for you" />
-        <Group>{top.map((j, i) => <Row key={j.id} first={i === 0} title={j.title} sub={`${j.company} · ${j.location}`} left={<EmployerTile name={j.company} size={32} />} right={<FitBadge fit={fits[j.id]} />} onPress={() => go("jobs")} testID="row-opening" />)}</Group>
+        <Group>{top.map((j, i) => <Row key={j.id} first={i === 0} title={j.title} sub={`${j.company} · ${j.location}`} left={<EmployerTile name={j.company} size={32} />} right={<FitBadge fit={fits[j.id]} />} onPress={() => openJob(j.id)} testID="row-opening" />)}</Group>
       </>}
     </Screen>
   );
@@ -97,10 +102,10 @@ export default function Today() {
         )) : <T kind="muted">Nothing due. Nice.</T>}
       </View>
       {top.length > 0 && <>
-        <Sect title="Openings for you" right={<Pressable testID="button-all-openings" hitSlop={8} onPress={() => { tap(); go("jobs"); }}><Text style={{ fontFamily: font.bold, fontSize: 14, color: c.foxDeep }}>See all</Text></Pressable>} />
+        <Sect title="Openings for you" right={<Pressable testID="button-all-openings" hitSlop={8} onPress={() => { tap(); openJobs(freshLeft ? "new" : "kept"); }}><Text style={{ fontFamily: font.bold, fontSize: 14, color: c.foxDeep }}>See all</Text></Pressable>} />
         <View style={{ gap: 8 }}>
           {top.map((j) => (
-            <Card key={j.id} onPress={() => go("jobs")} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14 }} testID="card-opening-today">
+            <Card key={j.id} onPress={() => openJob(j.id)} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14 }} testID="card-opening-today">
               <EmployerTile name={j.company} size={40} />
               <View style={{ flex: 1 }}><T numberOfLines={2} style={{ fontFamily: font.semi }}>{j.title}</T><T kind="small" numberOfLines={1}>{j.company}{j.location ? ` · ${j.location}` : ""}</T></View>
               <FitBadge fit={fits[j.id]} />

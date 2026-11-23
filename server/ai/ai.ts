@@ -154,7 +154,9 @@ function extractJson(text: string): any {
 /** Why the last reply ended ("stop", or "length" when it hit the token limit and was cut off). */
 let lastFinish = "";
 /** `chainSpec` overrides OR_AI_CHAIN for one call (e.g. a stronger model just for tailoring); if none of its providers is configured, the default chain is used. */
-export async function aiText(system: string, user: string, maxTokens = 1200, chainSpec?: string): Promise<string> {
+/** `onText`, when given, streams the reply: it is called with the whole text so far as each piece arrives (a retry or
+ * the next model in the chain starts again from ""). Chat uses it to show Remy's answer as it is written. */
+export async function aiText(system: string, user: string, maxTokens = 1200, chainSpec?: string, onText?: (soFar: string) => void): Promise<string> {
   lastFinish = ""; // set again from this call's reply, so a value from an earlier call is never read
   const c = init();
   if (!c) throw new AiUnavailable();
@@ -176,7 +178,7 @@ export async function aiText(system: string, user: string, maxTokens = 1200, cha
       if ((exhausted.get(key) || 0) > Date.now() || (exhausted.get(anyKey) || 0) > Date.now()) continue;
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          const r: any = await c.chat.completions.create({
+          const req = {
             model: m,
             messages: [
               { role: "system", content: system },
@@ -185,8 +187,27 @@ export async function aiText(system: string, user: string, maxTokens = 1200, cha
             // Thinking tokens count toward the limit; keep reasoning light and leave headroom.
             max_tokens: orr ? Math.max(1500, maxTokens * 2) : Math.max(2048, maxTokens * 3),
             ...(orr ? { reasoning: { effort: "low" }, usage: { include: true }, ...(privacyOn() ? { provider: privacyRouting(m) } : {}) } : { reasoning_effort: "low" }),
-          } as any);
-          const out = r.choices?.[0]?.message?.content ?? "";
+          };
+          let r: any;
+          let out = "";
+          if (onText) {
+            // Streamed: the same request, read piece by piece; usage and finish reason arrive with the last pieces.
+            onText("");
+            const s: any = await c.chat.completions.create({ ...req, stream: true } as any);
+            let finish = "", usage: any, annotations: any[] = [];
+            for await (const chunk of s) {
+              const ch = chunk?.choices?.[0];
+              const piece = ch?.delta?.content;
+              if (typeof piece === "string" && piece) { out += piece; onText(out); }
+              if (ch?.finish_reason) finish = String(ch.finish_reason);
+              if (Array.isArray(ch?.delta?.annotations)) annotations = annotations.concat(ch.delta.annotations);
+              if (chunk?.usage) usage = chunk.usage;
+            }
+            r = { choices: [{ finish_reason: finish, message: { content: out, annotations } }], usage };
+          } else {
+            r = await c.chat.completions.create(req as any);
+            out = r.choices?.[0]?.message?.content ?? "";
+          }
           lastFinish = String(r.choices?.[0]?.finish_reason || "");
           if (!out) throw Object.assign(new Error("The AI returned an empty response."), { status: 502 });
           lastModel = m;
@@ -232,14 +253,14 @@ export async function aiText(system: string, user: string, maxTokens = 1200, cha
   return out;
 }
 
-export async function aiJson<T = any>(system: string, user: string, maxTokens = 3000, chainSpec?: string): Promise<T> {
+export async function aiJson<T = any>(system: string, user: string, maxTokens = 3000, chainSpec?: string, onText?: (soFar: string) => void): Promise<T> {
   const sys = system + "\n\n" + AI_SAFETY + "\n\nRespond with a single JSON object only. No markdown, no commentary.";
   let last: unknown;
   let tokens = maxTokens;
   for (let i = 0; i < 2; i++) {
     let text = "";
     try {
-      text = await aiText(sys, i === 0 ? user : user + "\n\nYour previous reply was not valid JSON. Return only the JSON object.", tokens, chainSpec);
+      text = await aiText(sys, i === 0 ? user : user + "\n\nYour previous reply was not valid JSON. Return only the JSON object.", tokens, chainSpec, onText);
       return extractJson(text) as T;
     } catch (e) {
       if (e instanceof AiUnavailable) throw e;

@@ -14,3 +14,8 @@ export function go(path: string, title = "Remy", opts: { page?: boolean } = {}) 
 export function askRemy(question: string) {
   router.navigate({ pathname: "/remy", params: { ask: question } } as any);
 }
+
+/** Open the Jobs tab on For you ("new") or Kept. `at` makes a second tap work after the student switched tabs. */
+export function openJobs(show: "new" | "kept") {
+  router.navigate({ pathname: "/jobs", params: { show, at: String(Date.now()) } } as any);
+}
