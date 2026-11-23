@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Check, ChevronDown, ChevronUp, Inbox, Mail, Plus, Trash2, Wand2 } from "lucide-react";
-import type { HoursEntry, Suggestion, Task, TrackItem, TrackStatus, Workspace } from "@shared/types";
+import type { HoursEntry, Job, Suggestion, Task, TrackItem, TrackStatus, Workspace } from "@shared/types";
 import { api, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
-import { orgInitials } from "../lib/jobs";
+import { orgInitials, useJobs } from "../lib/jobs";
 import { useCompleting } from "../lib/completing";
 import { go, useRoute } from "../lib/router";
 import { Empty, Modal, Remy, Spinner, StatusChip } from "../components/common";
-import { MIN_FOR_RATE, replyStats } from "@shared/progress";
+import { MIN_FOR_RATE, keptUntracked, replyStats } from "@shared/progress";
 
 const STATUSES: TrackStatus[] = ["Saved", "Applied", "Received", "Heard back", "Interview", "Offer", "Rejected", "No reply", "Withdrawn"];
 const STATUS_HELP: Record<string, string> = {
@@ -24,13 +24,15 @@ export default function Progress() {
   const { ws } = useStore();
   const owner = useOwnerView(); // tabs redesign (Nov 22), owners first
   const open = ws!.suggestions.filter((s) => s.state === "open").length;
+  const { jobs } = useJobs();
+  const kept = owner ? keptUntracked(ws!, jobs || []) : [];
   return (
     <>
       <div className="page-head">
         <div>
           <span className="eyebrow">Progress</span>
           <h1><span className="title-slogan">Follow through, without the spreadsheet.</span><span className="title-plain">Progress</span></h1>
-          {owner ? <ProgressLine w={ws!} /> : <p className="hide-phone">Track every application, turn recruiting emails into reviewed status updates, and keep your to-dos honest.</p>}
+          {owner ? <ProgressLine w={ws!} kept={kept} /> : <p className="hide-phone">Track every application, turn recruiting emails into reviewed status updates, and keep your to-dos honest.</p>}
         </div>
       </div>
       <div className="tabs" role="tablist">
@@ -38,7 +40,7 @@ export default function Progress() {
           <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => go(`/progress?tab=${k}`)} data-testid={`tab-progress-${k}`}>{l}</button>
         ))}
       </div>
-      {tab === "tracker" && <Tracker />}
+      {tab === "tracker" && <Tracker kept={kept} />}
       {tab === "email" && <EmailUpdates />}
       {tab === "todos" && <Todos />}
       {tab === "hours" && <Hours />}
@@ -113,7 +115,7 @@ function InterviewDate({ t }: { t: TrackItem }) {
   );
 }
 
-function Tracker() {
+function Tracker({ kept }: { kept: Job[] }) {
   const { ws, save, run, toast } = useStore();
   const w = ws!;
   const [open, setOpen] = useState("");
@@ -133,7 +135,7 @@ function Tracker() {
   const openRow = (id: string) => { setOpen(id); setTimeout(() => document.getElementById("tr-" + id)?.scrollIntoView({ block: "center", behavior: "smooth" }), 50); };
   return (
     <div className="stack">
-      {owner ? <Board w={w} onOpen={openRow} /> : <div className="pipeline">{counts.map(([s, c]) => <div key={s} className="pipe"><span className="xs muted">{s}</span><strong>{c}</strong></div>)}</div>}
+      {owner ? <Board w={w} kept={kept} onOpen={openRow} /> : <div className="pipeline">{counts.map(([s, c]) => <div key={s} className="pipe"><span className="xs muted">{s}</span><strong>{c}</strong></div>)}</div>}
       <ReplyRate />
       <div className="card card-pad">
         <div className="row-between" style={{ marginBottom: 8 }}><h3>{owner ? "Details and notes" : "Applications"}</h3><button className="btn btn-secondary btn-sm" onClick={() => setAdding(true)} data-testid="button-add-tracking"><Plus size={14} /> Track an application</button></div>
@@ -187,10 +189,11 @@ const daysSince = (iso: string) => (iso ? Math.floor((Date.now() - Date.parse(is
 /** An application sent more than a week ago with no news since: worth a short follow-up. */
 const quiet = (t: TrackItem) => (t.status === "Applied" || t.status === "Received") && daysSince(lastAt(t)) >= 7;
 
-function ProgressLine({ w }: { w: Workspace }) {
+function ProgressLine({ w, kept }: { w: Workspace; kept: Job[] }) {
   const sent = w.tracker.filter((t) => !["Saved", "Withdrawn"].includes(t.status));
   const replies = w.tracker.filter((t) => ["Heard back", "Interview", "Offer", "Rejected"].includes(t.status)).length;
   const q = w.tracker.filter(quiet).sort((a, b) => lastAt(a).localeCompare(lastAt(b)))[0];
+  if (!w.tracker.length && kept.length) return <p className="op-say" data-testid="progress-line"><b>{kept.length} opening{kept.length === 1 ? "" : "s"} saved, none applied yet.</b> Tailor one and apply, and Remy tracks it from there.</p>;
   if (!w.tracker.length) return <p className="op-say"><b>Nothing tracked yet.</b> Approve tailored materials and Remy adds the opening here.</p>;
   return (
     <p className="op-say" data-testid="progress-line">
@@ -200,22 +203,30 @@ function ProgressLine({ w }: { w: Workspace }) {
   );
 }
 
-function Board({ w, onOpen }: { w: Workspace; onOpen: (id: string) => void }) {
+function Board({ w, kept, onOpen }: { w: Workspace; kept: Job[]; onOpen: (id: string) => void }) {
   const closed = w.tracker.filter((t) => ["Rejected", "No reply", "Withdrawn"].includes(t.status));
+  // Kept openings that aren't tracked yet count as Saved and open on Opportunities.
+  const extra = (l: string) => (l === "Saved" ? kept.length : 0);
   return (
     <>
-      <div className="pr-tiles">{LANES.map(([l, st, c]) => <div key={l} className={"op-tile " + (c || "pr-plain")}><b>{w.tracker.filter((t) => st.includes(t.status)).length}</b><span>{l}</span></div>)}</div>
+      <div className="pr-tiles">{LANES.map(([l, st, c]) => <div key={l} className={"op-tile " + (c || "pr-plain")}><b>{w.tracker.filter((t) => st.includes(t.status)).length + extra(l)}</b><span>{l}</span></div>)}</div>
       <div className="op-card" data-testid="progress-board">
         <div className="op-ch"><h3>Your applications</h3><span className="xs muted">{closed.length ? `${closed.length} closed (rejected or no reply) · ` : ""}Tap one for its timeline</span></div>
         <div className="pr-flow">{LANES.map(([l, st]) => { const items = w.tracker.filter((t) => st.includes(t.status)); return (
-          <div key={l} className="pr-lane"><h4>{l} <em>{items.length}</em></h4>
+          <div key={l} className="pr-lane"><h4>{l} <em>{items.length + extra(l)}</em></h4>
             {items.map((t) => (
               <button key={t.id} className={"pr-mini" + (quiet(t) ? " hot" : "")} onClick={() => onOpen(t.id)} data-testid="button-board-card">
                 <span className="job-mono" aria-hidden="true">{orgInitials(t.company)}</span>
                 <span className="pr-mini-t"><b>{t.role || t.company}</b><small>{t.company}{quiet(t) ? ` · ${daysSince(lastAt(t))} days, no reply` : t.status === "Received" ? " · received" : ""}</small></span>
               </button>
             ))}
-            {!items.length && <span className="pr-ghost">{l === "Interview" ? "Your first one lands here. Interview has you ready." : l === "Offer" ? "Waits here" : "None yet"}</span>}
+            {l === "Saved" && kept.map((j) => (
+              <button key={j.id} className="pr-mini" onClick={() => go(`/opportunities?id=${j.id}`)} data-testid="button-board-kept">
+                <span className="job-mono" aria-hidden="true">{orgInitials(j.company)}</span>
+                <span className="pr-mini-t"><b>{j.title}</b><small>{j.company} · kept</small></span>
+              </button>
+            ))}
+            {!items.length && !extra(l) && <span className="pr-ghost">{l === "Interview" ? "Your first one lands here. Interview has you ready." : l === "Offer" ? "Waits here" : "None yet"}</span>}
           </div>
         ); })}</div>
       </div>

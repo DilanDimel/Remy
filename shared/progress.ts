@@ -1,4 +1,4 @@
-import type { Step, Workspace } from "./types";
+import type { Job, Step, Workspace } from "./types";
 
 // Real career steps, recorded on the server for the owners' north star. Never opening the app, chatting,
 // regenerating AI text or mass-saving. Each step is recorded once (kind + ref), so a retry or a
@@ -72,4 +72,13 @@ export function gettingStarted(w: Workspace) {
     { label: "Build one interview story", done: storyReady, link: "/interview" },
     { label: "Add one person you know", done: w.contacts.length > 0, link: "/community" },
   ];
+}
+
+/** Openings the student kept (Jobs → Kept, Opportunities → Saved) that aren't in their application tracker yet, so
+ *  Progress can count and show them as Saved (owners first, Nov 22: Progress said "Nothing tracked yet" with 11 kept). */
+export function keptUntracked(w: Pick<Workspace, "savedJobIds" | "tracker">, jobs: Job[]): Job[] {
+  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  return w.savedJobIds
+    .map((id) => jobs.find((j) => j.id === id))
+    .filter((j): j is Job => !!j && !w.tracker.some((t) => t.jobId === j.id || (same(t.company, j.company) && same(t.role, j.title))));
 }

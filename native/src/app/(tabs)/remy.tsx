@@ -4,7 +4,7 @@ import { FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollVi
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ChatDid, ChatMsg, Workspace } from "@shared/types";
 import { Fox, Icon, RichText, T, success, tap } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, streamChat } from "@/lib/api";
 import { go } from "@/lib/nav";
 import { useSession } from "@/lib/session";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
@@ -22,19 +22,21 @@ export default function RemyChat() {
   useEffect(() => { if (ask) setText(ask); }, [ask]);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<ChatMsg | null>(null);
+  // Remy's reply while it is being written (streamed); replaced by the saved message when it's done.
+  const [live, setLive] = useState("");
   const [err, setErr] = useState("");
   if (!ws) return null;
   const soul = look === "soul";
-  const msgs = [...ws.chat, ...(pending ? [pending] : [])].slice(-60).reverse();
+  const msgs = [...ws.chat, ...(pending ? [pending] : []), ...(pending && live ? [{ id: "live", role: "assistant", text: live, at: pending.at } as ChatMsg] : [])].slice(-60).reverse();
 
   const send = async (message: string) => {
     const m = message.trim();
     if (!m || busy) return;
     tap(); Keyboard.dismiss(); setText(""); setErr(""); setBusy(true);
     setPending({ id: "pending", role: "user", text: m, at: new Date().toISOString() });
-    try { setWs(await api<Workspace>("POST", "/api/ai/chat", { message: m, page: "home", where: "native app: Remy tab" })); }
+    try { setWs(await streamChat<Workspace>({ message: m, page: "home", where: "native app: Remy tab" }, setLive)); }
     catch (e: any) { setErr(e.message); setText(m); }
-    setPending(null); setBusy(false);
+    setLive(""); setPending(null); setBusy(false);
   };
   const undo = async (mid: string, d: ChatDid) => {
     try { setWs(await api<Workspace>("POST", `/api/chat/${mid}/undo/${d.id}`)); success(); } catch (e: any) { setErr(e.message); }
@@ -74,7 +76,7 @@ export default function RemyChat() {
         ) : <Text style={{ fontFamily: font.semi, fontSize: 13, color: c.ink }}>Remy</Text>}
       </View>
       <FlatList inverted data={msgs} keyExtractor={(m) => m.id} renderItem={({ item }) => bubble(item)} contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12 }} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" onTouchStart={() => Keyboard.dismiss()} style={{ flex: 1 }}
-        ListHeaderComponent={busy ? <View style={{ alignSelf: "flex-start", backgroundColor: c.surface, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 8, borderWidth: 1, borderColor: c.line }}><Text style={{ color: c.faint, letterSpacing: 3 }}>●●●</Text></View> : undefined}
+        ListHeaderComponent={busy && !live ? <View style={{ alignSelf: "flex-start", backgroundColor: c.surface, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 8, borderWidth: 1, borderColor: c.line }}><Text style={{ color: c.faint, letterSpacing: 3 }}>●●●</Text></View> : undefined}
         ListEmptyComponent={<View style={{ transform: [{ scaleY: -1 }], paddingTop: 40, alignItems: "center", gap: 8 }}><T kind="h2">Ask Remy anything</T><T kind="muted" style={{ textAlign: "center" }}>About jobs, your resume, interviews or what to do next. Remy only uses what you've told it.</T></View>} />
       {!!err && <T kind="small" style={{ color: c.error, paddingHorizontal: 18, paddingBottom: 6 }}>{err}</T>}
       {soul && !text && (

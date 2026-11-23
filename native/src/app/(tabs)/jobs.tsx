@@ -1,4 +1,5 @@
 import * as WebBrowser from "expo-web-browser";
+import { useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, PanResponder, Pressable, Text, useWindowDimensions, View } from "react-native";
 import type { Job } from "@shared/types";
@@ -22,6 +23,9 @@ export default function Jobs() {
   const [keptNow, setKeptNow] = useState<Record<string, true>>({});
   const { c, look } = useTheme();
   const [filter, setFilter] = useState<Filter>("new");
+  // Opened from Today: on the tab that has the opening (a kept one is under Kept, not For you).
+  const { show, at } = useLocalSearchParams<{ show?: string; at?: string }>();
+  useEffect(() => { if (show === "new" || show === "kept") setFilter(show); }, [show, at]);
   const [listMode, setListMode] = useState(false);
   const [err, setErr] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -65,6 +69,7 @@ export default function Jobs() {
     <View style={{ paddingVertical: 50, alignItems: "center", gap: 8 }}>
       <T kind="h2">{loading ? "Finding openings…" : filter === "kept" ? "Nothing kept yet" : "You're all caught up"}</T>
       <T kind="muted" style={{ textAlign: "center" }}>{error || (filter === "kept" ? "Keep openings you like and they'll wait here." : "Remy checks employers' sites every few hours. Pull down to check now.")}</T>
+      {!loading && !error && filter === "new" && kept.length > 0 && <Button testID="button-see-kept" label={`See your ${kept.length} kept`} icon="arrow" onPress={() => { tap(); setFilter("kept"); }} style={{ marginTop: 12 }} />}
     </View>
   );
 
