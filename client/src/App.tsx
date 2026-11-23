@@ -447,6 +447,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   const { ws, setWs, run, save, config, theme, setTheme } = useStore();
   const preview = true; // Remy's page-specific opening line, released to everyone Nov 21 (was owners only)
   const stage2 = useOwnerView(); // redesign stage 2: profile header + Activity tab, owners first
+  const pg = stage2 && page === "Account" ? "Accounts" : page; // owners: Account had Home's intro (the nav label is "Account")
   const [msg, setMsg] = useDraft("chat");
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{ text: string; reply: string } | null>(null); // owners: sent, not saved yet
@@ -561,11 +562,11 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
         {chat.length === 0 && !tailor && !busy && preview && (
           <div className="asst-intro" data-testid="assistant-welcome">
             {stage2 && <RemyToday onActivity={() => setView("activity")} />}
-            <div className="bubble bubble-ai">{INTRO[page] || INTRO.Home}</div>
+            <div className="bubble bubble-ai">{INTRO[pg] || INTRO.Home}</div>
             <p className="xs muted">I only use what's in your approved profile, and I never send anything for you.</p>
             <div className="asst-asks">
               <span className="xs muted">You could ask</span>
-              {[LOOKING, ...(STARTERS[page] || STARTERS.Home)].map((s) => <button key={s} className="asst-ask" onClick={() => send(s)}>{s}</button>)}
+              {[LOOKING, ...(STARTERS[pg] || STARTERS.Home)].map((s) => <button key={s} className="asst-ask" onClick={() => send(s)}>{s}</button>)}
             </div>
           </div>
         )}
