@@ -1,19 +1,18 @@
-// My Path for owners (redesign stage 7, layout B picked by Dilan, Nov 22 2026): today's round and the streak on top,
-// the whole road as a four-year board, and one "Your field" view that merges career exploration, skills and
-// certifications and the forecast. Every stop and number comes from data Remy already has (DailyPath.tsx buildStops).
-import { useMemo, useState } from "react";
-import { ArrowRight, Award, Briefcase, Check, Compass, DollarSign, Flag, Flame, Lock, Mountain, MountainSnow, Snowflake, Tent, TrendingDown, TrendingUp, Wrench, Zap } from "lucide-react";
+// My Path for owners (Nov 23 2026, "the trail", picked by Dilan from the proactive-Remy proposal): one trail you walk a
+// stop a day, with Remy standing on today's stop. Streak, level, freezes and today's quests sit in one strip; three daily
+// quests and the week's big move sit beside the trail; "Your field" (roles, skills, certifications, forecast) opens below.
+// Every stop and number comes from data Remy already has (DailyPath.tsx buildStops, shared/daily.ts, shared/game.ts).
+import { Fragment, useMemo, useState } from "react";
+import { ArrowRight, Award, Briefcase, Check, Compass, DollarSign, Eye, Flag, Flame, Gift, Lock, Mountain, MountainSnow, Snowflake, Tent, TrendingDown, TrendingUp, Wrench, Zap } from "lucide-react";
 import { ROADS, roadFor, YEARS, yearNumber, NEED_LABEL } from "@shared/roads";
 import { levelOf, weekKey, weekMissions, doneThisWeek, counters, xpOf } from "@shared/game";
-import { CARD_LABEL, dailyStreak, dayKey, weekDots, type DailyCard } from "@shared/daily";
+import { CARD_XP, dailyStreak, dayKey } from "@shared/daily";
 import { useStore } from "../lib/store";
 import { go } from "../lib/router";
-import { Spinner } from "./common";
-import { buildStops, KIND, money, shortTitle, stateOf, StopDetail, useFieldData, type Occ } from "./DailyPath";
+import { Remy, Spinner } from "./common";
+import { buildStops, KIND, money, shortTitle, stateOf, StopDetail, useFieldData, type Occ, type Stop } from "./DailyPath";
 
-const CARDS: DailyCard[] = ["openings", "role", "forecast"];
 const play = () => go("/path?play=1");
-const STEP: Record<DailyCard, [string, string]> = { openings: ["Look", "Keep or pass new ones"], role: ["Decode", "Guess it from its duties"], forecast: ["Guess", "Which job grows more"] };
 // Each class year is a named chapter of the climb.
 const CHAPTER: Record<number, [string, typeof Tent]> = { 1: ["The base", Tent], 2: ["The climb", Mountain], 3: ["The ridge", MountainSnow], 4: ["The summit", Flag], 5: ["Beyond", Compass] };
 
@@ -28,56 +27,156 @@ function usePathData() {
   const year = Math.min(5, Math.max(1, yearNumber(p.classYear) || 1));
   const g = stateOf(w);
   const today = g.days?.[dayKey()] || [];
-  const streak = dailyStreak(g), dots = weekDots(g);
+  const streak = dailyStreak(g);
   const xp = xpOf(w, g), lv = levelOf(xp, g.bestLevel);
   const wk = weekKey(), missions = weekMissions(w, wk), done = doneThisWeek(w, g, wk, counters(w));
-  return { w, mine, setKey, road, stops, year, careers, future, today, streak, dots, xp, lv, missions, done };
+  // Daily quests (reset at 4 AM with the day): each counts something the student really did today.
+  const now = dayKey();
+  const rated = Object.values(w.jobFeedback || {}).filter((f) => f.createdAt && dayKey(new Date(f.createdAt)) === now).length;
+  const quests = [
+    { key: "rate", icon: Eye, title: "Keep or pass 3 openings", n: Math.min(3, rated), of: 3 },
+    { key: "role", icon: Compass, title: "Decode one job", n: today.includes("role") ? 1 : 0, of: 1 },
+    { key: "xp", icon: Zap, title: `Earn ${3 * CARD_XP} XP`, n: Math.min(3 * CARD_XP, today.length * CARD_XP), of: 3 * CARD_XP },
+  ];
+  return { w, mine, setKey, road, stops, year, careers, future, today, streak, xp, lv, missions, done, quests };
 }
 type D = ReturnType<typeof usePathData>;
+const roundDone = (d: D) => (["openings", "role", "forecast"] as const).every((c) => d.today.includes(c));
 
-/* ------------------------------------------------------------------ shared small pieces */
+/* ------------------------------------------------------------------ the strip: streak, level, freezes, quests */
 
-function RoundCard({ d }: { d: D }) {
-  const left = CARDS.filter((c) => !d.today.includes(c)).length;
+function Hud({ d }: { d: D }) {
+  const s = d.streak, lv = d.lv;
+  const pct = lv.max ? 100 : Math.round(((d.xp - lv.floor) / Math.max(1, lv.next - lv.floor)) * 100);
+  const qDone = d.quests.filter((q) => q.n >= q.of).length;
   return (
-    <section className="pm-round">
-      <div className="pm-round-head"><span className="pm-kicker">Today's round</span><span className="pm-faint">{left ? `${3 - left} of 3 · about ${left} min` : "Done for today"}</span></div>
-      <ol className="pm-round-cards">{CARDS.map((c, i) => <li key={c} className={d.today.includes(c) ? "on" : ""}>
-        <i>{d.today.includes(c) ? <Check size={12} strokeWidth={3.5} /> : i + 1}</i>
-        <span><small>{STEP[c][0]}</small><b>{CARD_LABEL[c]}</b><em>{STEP[c][1]}</em></span>
-      </li>)}</ol>
-      <div className="pm-round-go"><span>{left ? (d.streak.todayDone ? "Your streak is safe today" : "Keeps your streak alive tonight") : "All 3 done. Nice."}</span>
-        <button className="btn btn-primary pm-go" onClick={play}>{left === 3 ? "Start today's round" : left ? "Keep going" : "Play again"} <ArrowRight size={16} /></button></div>
+    <section className="pt-hud" aria-label="Your progress" data-testid="path-hud">
+      <span className="pt-hud-it" title={s.todayDone ? "Done today" : "Play today to keep it"}><Flame size={20} className={"pt-flame" + (s.days ? " lit" : "")} fill="currentColor" aria-hidden="true" /><b>{s.days}</b><small>day streak</small></span>
+      <span className="pt-hud-lvl"><i className="pt-badge">{lv.n}</i><span><b>{lv.name}</b><small>{d.xp} / {lv.max ? d.xp : lv.next} XP</small></span>
+        <span className="pt-bar" role="progressbar" aria-label="XP to next level" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${pct}%` }} /></span></span>
+      <span className="pt-hud-it ice" title="A freeze covers one missed day. You earn one every 7 days."><Snowflake size={18} aria-hidden="true" /><b>{s.freezes}</b><small>{s.freezes === 1 ? "freeze" : "freezes"}</small></span>
+      <span className="pt-hud-it gold"><Gift size={18} aria-hidden="true" /><b>{qDone} / 3</b><small>quests</small></span>
     </section>
   );
 }
 
-function StreakCard({ d }: { d: D }) {
-  const s = d.streak, now = dayKey();
-  const played = Object.keys(stateOf(d.w).days || {}).length;
+/* ------------------------------------------------------------------ the trail */
+
+const WAVE = [0, 1, 0, -1];
+const STEP = 108, TOP = 64;
+
+function Trail({ d }: { d: D }) {
+  const years = [1, 2, 3, 4, 5].filter((y) => d.stops.some((s) => s.year === y && s.kind !== "checkpoint"));
+  const [pick, setChap] = useState(0);
+  const [sel, setSel] = useState("");
+  // stops can arrive after first render, so the chapter is derived, never stale
+  const chap = years.includes(pick) ? pick : years.includes(d.year) ? d.year : years[0] || 1;
+  const ys = d.stops.filter((s) => s.year === chap && s.kind !== "checkpoint");
+  const pts = ys.map((_, i) => ({ x: 50 + WAVE[i % WAVE.length] * 24, y: TOP + i * STEP }));
+  const h = TOP + Math.max(0, ys.length - 1) * STEP + 76;
+  const seg = (a: { x: number; y: number }, b: { x: number; y: number }) => `M${a.x} ${a.y} C${a.x} ${(a.y + b.y) / 2} ${b.x} ${(a.y + b.y) / 2} ${b.x} ${b.y}`;
+  const nowI = ys.findIndex((s) => s.status === "now");
+  const picked = ys.find((s) => s.id === sel);
+  // Remy stands on the side away from the next stop so the bubble never covers it
+  const flip = nowI >= 0 && (pts[nowI].x > 50 || (pts[nowI + 1]?.x ?? 0) > pts[nowI].x);
+  const done = roundDone(d), [name] = CHAPTER[chap] || CHAPTER[1];
+  const say = <TodaySay d={d} stop={ys[nowI]} done={done} />;
   return (
-    <section className="pm-streak">
-      <div className="pm-streak-n"><Flame size={30} className={s.days ? "lit" : ""} fill="currentColor" /><b>{s.days}</b>
-        <span><strong>day streak</strong>{s.todayDone ? "Done today. See you tomorrow" : s.days ? `Finish today to make it ${s.days + 1}` : "Play today to start one"}</span></div>
-      <ol className="pm-dots">{d.dots.map((x) => <li key={x.key} className={x.status + (x.key === now && x.status !== "done" ? " today" : "")}><i>{x.status === "done" ? <Check size={11} strokeWidth={3.5} /> : x.status === "freeze" ? <Snowflake size={11} /> : null}</i>{x.key === now ? "Today" : x.label}</li>)}</ol>
-      <div className="pm-splits"><div><b>{s.best}</b><span>Best streak</span></div><div><b>{played}</b><span>Days played</span></div><div><b>{s.freezes}</b><span>{s.freezes === 1 ? "Freeze" : "Freezes"} left</span></div></div>
+    <section className="pt-trail" aria-label="Your trail" data-testid="path-trail">
+      <header className="pt-chap">
+        <span className="pt-chap-n">Chapter {chap}</span><h3>{name}</h3>
+        <span className="pt-chap-meta">{chap === 5 ? "After college" : YEARS[chap]} · {ys.filter((s) => s.status === "done").length} of {ys.length} stops</span>
+        <select className="input pt-select" value={d.road?.key || ""} onChange={(e) => { d.setKey(e.target.value); setSel(""); }} aria-label="Field" data-testid="select-road">
+          {ROADS.map((r) => <option key={r.key} value={r.key}>{r.label}{r.key === d.mine?.key ? " (yours)" : ""}</option>)}
+        </select>
+      </header>
+      <div className="pt-chaps" role="tablist" aria-label="Chapters">
+        {years.map((y) => { const [n, G] = CHAPTER[y]; const all = d.stops.filter((s) => s.year === y && s.kind !== "checkpoint"); return (
+          <button key={y} role="tab" aria-selected={chap === y} className={y === d.year ? "here" : ""} onClick={() => { setChap(y); setSel(""); }} data-testid={`button-chapter-${y}`}>
+            <G size={15} aria-hidden="true" />{n}<small>{all.filter((s) => s.status === "done").length}/{all.length}</small>
+          </button>); })}
+      </div>
+      {nowI >= 0 && <div className="pt-say-top">{say}</div>}
+      <div className="pt-map" style={{ height: h }}>
+        <svg className="pt-road" viewBox={`0 0 100 ${h}`} preserveAspectRatio="none" aria-hidden="true">
+          {pts.slice(1).map((p, i) => <path key={i} d={seg(pts[i], p)} className={ys[i].status === "done" && ys[i + 1].status === "done" ? "on" : ""} vectorEffect="non-scaling-stroke" />)}
+        </svg>
+        {ys.map((s, i) => {
+          const p = pts[i];
+          return (
+            <Fragment key={s.id}>
+              <button className={`pt-node ${s.status}${sel === s.id ? " sel" : ""}`} style={{ left: `${p.x}%`, top: p.y }} onClick={() => setSel(sel === s.id ? "" : s.id)} aria-pressed={sel === s.id} aria-label={`${KIND[s.kind].label}: ${s.title}`} data-testid="road-stop">
+                <span className="pt-dot">
+                  {s.status !== "done" && s.progress > 0 && <svg className="pt-ring" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" pathLength="100" strokeDasharray={`${s.progress * 100} 100`} /></svg>}
+                  {s.status === "done" ? <Check size={24} strokeWidth={3} /> : s.status === "locked" ? <Lock size={18} /> : KIND[s.kind].icon}
+                </span>
+                <span className="pt-lbl"><b>{shortTitle(s)}</b><small>{s.status === "now" ? "Today's stop" : KIND[s.kind].label}</small></span>
+              </button>
+              {i === nowI && (
+                <div className={"pt-guide" + (flip ? " flip" : "")} style={flip ? { right: `calc(${100 - p.x}% + 44px)`, top: p.y - 64 } : { left: `calc(${p.x}% + 44px)`, top: p.y - 64 }}>
+                  <Remy size={84} mood={done ? "happy" : "idle"} className="pt-fox" />
+                  <div className="pt-say-side">{say}</div>
+                </div>
+              )}
+            </Fragment>
+          );
+        })}
+      </div>
+      {picked && <div className="pm-b-detail"><button className="pm-x" onClick={() => setSel("")} aria-label="Close this stop">Close</button><StopDetail s={picked} future={d.future} onPlay={play} /></div>}
+      <p className="pm-src">Usual timelines, mostly Texas rules. Each stop links to where it came from; check it and your advisor before you plan around a step.</p>
     </section>
   );
 }
 
-/** Phone only: the streak as one line, so the round and the road fit on the first screen. */
-function MiniStreak({ d }: { d: D }) {
-  return <div className="pm-mini"><Flame size={18} className={d.streak.days ? "lit" : ""} fill="currentColor" /><b>{d.streak.days}</b><span>day streak · best {d.streak.best}</span><ol className="pm-dots">{d.dots.map((x) => <li key={x.key} className={x.status}><i>{x.status === "done" ? <Check size={9} strokeWidth={3.5} /> : null}</i></li>)}</ol></div>;
+/** Remy's line next to today's stop. */
+function TodaySay({ d, stop, done }: { d: D; stop?: Stop; done: boolean }) {
+  const s = d.streak;
+  return (
+    <div className="pt-say" data-testid="path-today">
+      {done
+        ? <p><b>Done for today.</b> {s.days > 1 ? `That's ${s.days} days in a row.` : "Streak started."} New cards at 4 AM.</p>
+        : <p><b>Today's stop{stop ? `: ${shortTitle(stop)}` : ""}.</b> Three one-minute cards. {s.todayDone ? "Your streak is safe; keep going for XP." : s.days ? `Keeps your ${s.days}-day streak.` : "Starts your streak."}</p>}
+      <button className="btn btn-primary pt-go" onClick={play} data-testid="button-start-round">{done ? "Play again" : d.today.length ? "Keep going" : "Start"} <ArrowRight size={15} /></button>
+    </div>
+  );
 }
 
-function QuestCard({ d }: { d: D }) {
+/* ------------------------------------------------------------------ beside the trail */
+
+function Quests({ d }: { d: D }) {
+  const all = d.quests.every((q) => q.n >= q.of);
   return (
-    <section className="pm-quest">
-      <div className="pm-round-head"><span className="pm-kicker dark">This week's big moves</span><span className="pm-faint"><Zap size={12} /> Lv {d.lv.n} {d.lv.name} · {d.done.length} of {d.missions.length}</span></div>
-      <ul>{d.missions.map((m) => <li key={m.key} className={d.done.includes(m.key) ? "on" : ""}><i>{d.done.includes(m.key) ? <Check size={12} strokeWidth={3.5} /> : null}</i><span>{m.title}</span><em>+{m.xp}</em></li>)}</ul>
+    <section className="pt-card" aria-label="Daily quests" data-testid="path-quests">
+      <div className="pt-card-head"><span className="pm-kicker dark">Daily quests</span><span className="pm-faint">New at 4 AM</span></div>
+      <ul className="pt-quests">
+        {d.quests.map((q) => { const ok = q.n >= q.of, I = q.icon; return (
+          <li key={q.key} className={ok ? "ok" : ""}>
+            <span className="pt-qi">{ok ? <Check size={17} strokeWidth={3} /> : <I size={17} />}</span>
+            <span className="pt-qb"><b>{q.title}</b><span className="pt-qbar"><i style={{ width: `${(q.n / q.of) * 100}%` }} /></span></span>
+            <span className="pt-qn">{q.n} / {q.of}</span>
+          </li>); })}
+      </ul>
+      <div className={"pt-chest" + (all ? " open" : "")}><Gift size={22} aria-hidden="true" /><span>{all ? "Chest open. All three done today, nice." : "Finish all three to open today's chest."}</span></div>
     </section>
   );
 }
+
+function BigMove({ d }: { d: D }) {
+  const m = d.missions.find((x) => !d.done.includes(x.key));
+  return (
+    <section className="pt-card peach" aria-label="This week's big move" data-testid="path-big-move">
+      <div className="pt-card-head"><span className="pm-kicker">This week's big move</span>{m && <span className="pt-xp">+{m.xp} XP</span>}</div>
+      {m ? <>
+        <b className="pt-move">{m.title}</b>
+        <p className="pt-move-why">{m.effect}. About {m.mins} minutes.</p>
+        <button className="btn btn-primary" onClick={() => go(m.link)} data-testid="button-big-move">Let's do it <ArrowRight size={15} /></button>
+      </> : <p className="pt-move-why"><b>All {d.missions.length} done this week.</b> Next week's move comes Monday.</p>}
+      {d.done.length > 0 && m && <p className="pm-faint pt-move-left">{d.done.length} of {d.missions.length} done this week</p>}
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ your field */
 
 /** The merged view: the field's roles with their forecast, plus its skills and certifications, behind one switch. */
 function FieldView({ d }: { d: D }) {
@@ -159,80 +258,25 @@ function RoleRow({ o, avg, max, known, mine, open, onOpen }: { o: Occ; avg: numb
   );
 }
 
-/* ------------------------------------------------------------------ the four-year board */
-
-function Board({ d }: { d: D }) {
-  // Four chapters; after-college stops fold into the last one unless the student is already there.
-  const fold = d.year < 5;
-  const years = [1, 2, 3, 4, 5].filter((y) => (fold ? y < 5 : true) && d.stops.some((s) => s.year === y));
-  const after = fold ? d.stops.filter((s) => s.year === 5) : [];
-  const [sel, setSel] = useState("");
-  const [more, setMore] = useState(false); // columns show 5 stops until opened, so short years don't leave empty columns
-  const [tab, setTab] = useState(d.year); // phone: one chapter at a time
-  const picked = d.stops.find((s) => s.id === sel);
-  const total = d.stops.length, done = d.stops.filter((s) => s.status === "done").length;
-  const of = (y: number) => d.stops.filter((s) => s.year === y && s.kind !== "checkpoint");
-  const shownTab = years.includes(tab) ? tab : years[years.length - 1];
-  const chip = (s: (typeof d.stops)[number]) => (
-    <li key={s.id}><button className={`pm-chip ${s.status}${sel === s.id ? " sel" : ""}`} onClick={() => setSel(sel === s.id ? "" : s.id)} aria-pressed={sel === s.id} title={s.title}>
-      <i>{s.status === "done" ? <Check size={10} strokeWidth={3.5} /> : s.status === "locked" ? <Lock size={8} /> : null}</i>
-      <span><b>{shortTitle(s)}</b><small>{KIND[s.kind].label}</small></span>
-      {s.status === "now" && <em>Next</em>}
-    </button></li>
-  );
-  return (
-    <section className="pm-board" aria-label="Your road">
-      <header className="pm-board-head">
-        <h3>Your {d.road?.label.toLowerCase() || "field's"} road</h3>
-        <div className="pm-progress" aria-hidden="true"><i style={{ width: `${(done / Math.max(1, total)) * 100}%` }} /></div>
-        <span className="pm-count"><b>{done}</b> of {total} stops</span>
-        <select className="input pm-select" value={d.road?.key || ""} onChange={(e) => { d.setKey(e.target.value); setSel(""); }} aria-label="Field">
-          {ROADS.map((r) => <option key={r.key} value={r.key}>{r.label}{r.key === d.mine?.key ? " (yours)" : ""}</option>)}
-        </select>
-      </header>
-      <div className="pm-ytabs" role="tablist" aria-label="Class year">
-        {years.map((y) => { const ys = of(y), n = ys.filter((s) => s.status === "done").length, [name, G] = CHAPTER[y]; return (
-          <button key={y} role="tab" aria-selected={shownTab === y} className={y === d.year ? "here" : ""} onClick={() => setTab(y)}>
-            <G size={20} aria-hidden="true" /><b>{name}</b><small>{y === 5 ? "After" : `Year ${y}`} · {n}/{ys.length}</small><i><u style={{ width: `${(n / Math.max(1, ys.length)) * 100}%` }} /></i>
-          </button>); })}
-      </div>
-      <div className="pm-cols" style={{ ["--n" as string]: years.length }}>
-        {years.map((y) => {
-          const ys = of(y), n = ys.filter((s) => s.status === "done").length, [name, G] = CHAPTER[y];
-          const past = y < d.year, last = y === years[years.length - 1];
-          return (
-            <div key={y} className={"pm-col" + (y === d.year ? " here" : past ? " past" : "") + (y === shownTab ? " shown" : "")}>
-              <div className="pm-col-head">
-                <span className="pm-glyph"><G size={17} aria-hidden="true" /></span>
-                <div><b>{name}</b><small>{YEARS[y]}</small></div>
-                {y === d.year ? <em className="pm-you">You</em> : <span className="pm-cnt">{n}/{ys.length}</span>}
-              </div>
-              <ul>{(more ? ys : ys.filter((s, i) => i < 5 || s.status === "now")).map(chip)}{!more && ys.length > 5 && <li><button className="pm-more" onClick={() => setMore(true)}>+{ys.filter((s, i) => i >= 5 && s.status !== "now").length} more</button></li>}</ul>
-              {past && n > 0 && <p className="pm-say">{n === ys.length ? "Chapter done." : `${n} of ${ys.length} done here.`}</p>}
-              {last && after.length > 0 && (
-                <div className="pm-after"><b>After college <span>{after.filter((s) => s.status === "done").length}/{after.length}</span></b>
-                  <div>{after.map((s) => <button key={s.id} className={sel === s.id ? "sel" : ""} onClick={() => setSel(sel === s.id ? "" : s.id)} aria-pressed={sel === s.id}>{shortTitle(s)}</button>)}</div></div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      {picked && <div className="pm-b-detail"><button className="pm-x" onClick={() => setSel("")} aria-label="Close this stop">Close</button><StopDetail s={picked} future={d.future} onPlay={play} /></div>}
-      <p className="pm-src">Usual timelines, mostly Texas rules. Each stop links to where it came from; check it and your advisor before you plan around a step.</p>
-    </section>
-  );
-}
 
 export function PathBoard() {
   const d = usePathData();
-  if (!d.careers || !d.future) return <div className="card card-pad row"><Spinner /> <span className="muted">Laying out your road…</span></div>;
+  const [field, setField] = useState(false);
+  if (!d.careers || !d.future) return <div className="card card-pad row"><Spinner /> <span className="muted">Laying out your trail…</span></div>;
   return (
-    <div className="pm" data-testid="path-board">
-      <MiniStreak d={d} />
-      <div className="pm-b-top"><RoundCard d={d} /><StreakCard d={d} /></div>
-      <Board d={d} />
-      <FieldView d={d} />
-      <QuestCard d={d} />
+    <div className="pm pt" data-testid="path-board">
+      <Hud d={d} />
+      <div className="pt-body">
+        <Trail d={d} />
+        <div className="pt-rail">
+          <Quests d={d} />
+          <BigMove d={d} />
+          <button className="pt-card pt-fieldbtn" onClick={() => setField(!field)} aria-expanded={field} data-testid="button-your-field">
+            <TrendingUp size={20} aria-hidden="true" /><span><b>Your field</b><small>Roles, pay, skills and certifications</small></span><ArrowRight size={16} className={field ? "turn" : ""} />
+          </button>
+        </div>
+      </div>
+      {field && <FieldView d={d} />}
     </div>
   );
 }

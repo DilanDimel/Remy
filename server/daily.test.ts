@@ -1,7 +1,7 @@
 // Daily path (stage 7): one card keeps the streak, rest days skip, a freeze covers one missed day, cards add XP once.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dailyStreak, dailyXp, markDay, shiftDay, weekDots, withCard } from "../shared/daily";
+import { dailyStreak, dailyXp, dayKey, markDay, shiftDay, weekDots, withCard } from "../shared/daily";
 
 const run = (from: string, n: number, skip: string[] = []) => {
   let g = { weeks: {} } as Parameters<typeof withCard>[0];
@@ -35,4 +35,10 @@ test("daily cards: once per card per day, XP at 10 each, the match email counts 
   g = markDay(g, "2026-11-23");
   assert.equal(dailyXp(g), 20);
   assert.equal(dailyStreak(g, "2026-11-23").days, 2);
+});
+
+test("the day rolls over at 4 AM, so a 1 AM round counts for the evening before", () => {
+  assert.equal(dayKey(new Date(2026, 10, 23, 1, 30)), "2026-11-22");
+  assert.equal(dayKey(new Date(2026, 10, 23, 4, 0)), "2026-11-23");
+  assert.equal(dayKey(new Date(2026, 10, 22, 23, 59)), "2026-11-22");
 });
