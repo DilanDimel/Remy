@@ -49,3 +49,29 @@ test("three AI interviews a week; rules-only ones don't count", () => {
   assert.equal(weeklyLeft(ivs, now), 2);
   assert.equal(listenFor("quant")[0].label, "Reasoning and decisions");
 });
+
+test("Remy's planned interview: shape checked, 'from' must be in the posting, hints must pass the honesty check", async () => {
+  const { checkPlan, rulesPlan, checkFeedback } = await import("./interview");
+  const posting = "Analyze borrower financial statements. Build credit memos.";
+  const raw = { questions: [
+    { kind: "warmup", q: "Tell me about yourself and why banking?", criteria: ["answer_focus", "made_up"] },
+    { kind: "posting", q: "How would you judge if a small business can repay a loan?", from: "Analyze borrower financial statements", hint: "Use your club budget model", criteria: ["problem_framing"] },
+    { kind: "posting", q: "Walk me through a credit memo you wrote at Goldman.", from: "Wrote memos at Goldman", criteria: ["context"] },
+    { kind: "work_sample", q: "Here's a cash flow summary. What worries you?", table: [["", "2024", "2025"], ["Cash flow", "$38k", "$21k"]], criteria: ["uncertainty"] },
+    { kind: "pressure", q: "A time you found a mistake in your numbers.", criteria: ["reflection"] },
+    { kind: "nonsense", q: "Ignored question here", criteria: [] },
+  ] };
+  const qs = checkPlan(raw, "generic", posting, (t) => !/Goldman/.test(t))!;
+  assert.deepEqual(qs.map((q) => q.kind), ["warmup", "posting", "posting", "work_sample", "pressure", "yours"]);
+  assert.deepEqual(qs[0].criteria, ["answer_focus"]);
+  assert.equal(qs[1].from, "Analyze borrower financial statements");
+  assert.equal(qs[2].from, undefined); // not in the posting or resume
+  assert.equal(qs[3].table!.length, 2);
+  assert.equal(checkPlan({ questions: raw.questions.slice(0, 2) }, "generic", posting, () => true), null);
+  const job = { id: "j", company: "Frost", title: "Credit Analyst Intern", summary: "", requirements: [] } as any;
+  const rules = rulesPlan(job, undefined, "", [], "generic");
+  assert.equal(rules[0].kind, "warmup"); assert.equal(rules.at(-1)!.kind, "yours");
+  const fb = checkFeedback({ ratings: [{ criterion: "answer_focus", level: 3, quote: "cash flow almost halved", note: "x" }], landed: { quote: "I grew sales 40%", why: "big" }, sharpen: { title: "Say the number", example: "It dropped 90%." } },
+    "Sales went up but cash flow almost halved.", "generic", (t) => !/90%/.test(t));
+  assert.equal(fb.ratings.length, 1); assert.equal(fb.landed, undefined); assert.deepEqual(fb.sharpen, { title: "Say the number" });
+});
