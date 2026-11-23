@@ -1,7 +1,7 @@
 import { uiFlags } from "./lib/router";
 import { useEffect, useRef, useState } from "react";
 import {
-  BarChart3, Briefcase, CalendarDays, ChevronsLeft, ChevronsRight, Compass, FileText, Home as HomeIcon, Menu, Send,
+  Award, BarChart3, Briefcase, CalendarDays, ChevronsLeft, ChevronsRight, Compass, FileText, Home as HomeIcon, Menu, Send,
   Check, Gauge, Info, Mic, Minus, ShieldCheck, UserCog, Users,
   ImagePlus, MessageCircle, Search, ArrowRight, ChevronDown, Square,
 } from "lucide-react";
@@ -36,6 +36,8 @@ import Opportunities from "./pages/Opportunities";
 import Community from "./pages/Community";
 import CalendarPage from "./pages/Calendar";
 import Progress from "./pages/Progress";
+import Rewards from "./pages/Rewards";
+import { PinMoment } from "./components/PinMoment";
 import Interview from "./pages/Interview";
 import Accounts from "./pages/Accounts";
 import { About, Policies } from "./pages/Info";
@@ -47,9 +49,11 @@ import { BETA_TERM_HEADS, BETA_TERMS, BETA_TERMS_LEAD, BETA_TERMS_VERSION } from
 import { firstName, knownName } from "@shared/names";
 import { isNativeApp } from "./lib/native";
 
-const NAV = [
+const NAV: { path: string; label: string; icon: typeof HomeIcon; owners?: boolean }[] = [
   { path: "/", label: "Home", icon: HomeIcon },
   { path: "/path", label: "My Path", icon: Compass },
+  // Owners (Nov 23): every reward in one place, so nobody has to find titles and pins inside My Path (Dilan).
+  { path: "/rewards", label: "Rewards", icon: Award, owners: true },
   { path: "/resume", label: "Resume/CV", icon: FileText },
   { path: "/opportunities", label: "Opportunities", icon: Briefcase },
   { path: "/interview", label: "Interview", icon: Mic },
@@ -234,7 +238,8 @@ function Shell() {
   // A tailoring conversation opens Remy so the student can answer him.
   useEffect(() => { return onOpenRequest(() => setAsstPage(true)); }, []);
   const collapsed = w.settings.navCollapsed;
-  const current = path.startsWith("/accounts") ? ACCOUNTS : NAV.find((n) => (n.path === "/" ? path === "/" : path.startsWith(n.path))) || NAV[0];
+  const nav = NAV.filter((n) => !n.owners || ownerView);
+  const current = path.startsWith("/accounts") ? ACCOUNTS : nav.find((n) => (n.path === "/" ? path === "/" : path.startsWith(n.path))) || NAV[0];
   const pendingReview = w.applications.reduce((s, a) => s + a.changes.filter((c) => c.status === "pending").length, 0);
   const openSuggestions = w.suggestions.filter((s) => s.state === "open").length;
   const page = (() => {
@@ -245,6 +250,7 @@ function Shell() {
       case "/community": return <Community />;
       case "/calendar": return <CalendarPage />;
       case "/progress": return <Progress />;
+      case "/rewards": return <Rewards query={query} />;
       case "/interview": return <Interview />;
       case "/accounts": return <Accounts query={query} />;
       default: return <Home />;
@@ -261,7 +267,7 @@ function Shell() {
             {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
           </button>
         </div>
-        {NAV.map((n) => (
+        {nav.map((n) => (
           <a key={n.path} href={n.path} className="nav-item" aria-current={current.path === n.path ? "page" : undefined} title={n.label} data-testid={`nav-${n.label.toLowerCase().replace(/[^a-z]/g, "")}`}>
             <n.icon size={19} />
             <span className="nav-label">{n.label}</span>
@@ -277,6 +283,7 @@ function Shell() {
       </aside>
 
       <Celebrate />
+      {ownerView && <PinMoment />}
       <RemyTour />
       <main className="main" id="main">
         <div className="topbar">
@@ -319,7 +326,7 @@ function Shell() {
       {more && (
         <Modal title="More" onClose={() => setMore(false)}>
           <div className="stack-sm">
-            {[...NAV.filter((n) => ["/interview", "/community", "/calendar"].includes(n.path)), ACCOUNTS].map((n) => (
+            {[...nav.filter((n) => ["/rewards", "/interview", "/community", "/calendar"].includes(n.path)), ACCOUNTS].map((n) => (
               <button key={n.path} className="nav-item" onClick={() => { setMore(false); go(n.path); }}><n.icon size={19} />{n.label}</button>
             ))}
             <button className="nav-item" onClick={() => { setMore(false); tourAgain(save); go("/"); }} data-testid="mobile-tour"><Compass size={19} />Show me around again</button>
