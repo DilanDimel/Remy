@@ -4,7 +4,7 @@
 // every tab; "Your field" (roles, skills, certifications) sits on the page. Every number comes from data Remy already
 // has (DailyPath.tsx buildStops, shared/daily.ts, shared/game.ts, BLS via /api/careers and /api/future).
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { ArrowRight, Award, Briefcase, Check, Compass, DollarSign, Eye, Flame, Gift, Snowflake, TrendingDown, TrendingUp, Wrench, Zap } from "lucide-react";
+import { ArrowRight, Award, Briefcase, Check, Compass, DollarSign, Eye, Flame, Gift, Mic, Snowflake, Square, TrendingDown, TrendingUp, Wrench, Zap } from "lucide-react";
 import { ROADS, roadFor, YEARS, yearNumber, NEED_LABEL } from "@shared/roads";
 import { rankOf, weekKey, weekMissions, doneThisWeek, counters, xpOf, nextOutfit, unlockedOutfits, levelReward, OFFICE, RANKS, WARDROBE } from "@shared/game";
 import { CARD_XP, dailyStreak, dayKey, streakDays } from "@shared/daily";
@@ -15,6 +15,7 @@ import { Modal, Remy, Rich, Spinner } from "./common";
 import { PATH_WALK } from "./Tour";
 import { OUTFITS } from "./scholar";
 import { OfficeOpens, RemyDid } from "./RemyDid";
+import { canListen, speak, useVoice } from "../lib/voice";
 import { buildStops, money, stateOf, StopDetail, useFieldData, type Occ } from "./DailyPath";
 
 const play = () => go("/path?play=1");
@@ -166,8 +167,10 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   const busyRef = useRef(false);
   const aiOn = !!config?.ai.available;
   const reply = said?.id ? d.w.chat.find((m) => m.id === said.id) : null;
-  const ask = async () => {
-    const text = q.trim();
+  // Talk to him here too: what you say is sent when you stop, and his answer is read back.
+  const voice = useVoice(setQ, (t) => ask(t, true));
+  const ask = async (said0?: string, spoken = false) => {
+    const text = (said0 ?? q).trim();
     if (!text || busy) return;
     setQ(""); setSaid({ q: text }); setBusy(true); busyRef.current = true;
     fox.moveTo("desk", "type"); setMood("think");
@@ -175,7 +178,12 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
     // His answer appears as he writes it (owners' server streams it), like the Remy panel.
     const w = await run(() => api<Workspace>("POST", "/api/ai/chat?stream=1", { message: text, page: "My Path", where: location.pathname + location.search, tabs: [] }, (l) => { if (typeof l.reply === "string") setSaid({ q: text, live: l.reply }); }));
     setBusy(false); busyRef.current = false; fox.setPose(""); setMood("idle");
-    if (w) { setWs(w); setSaid({ q: text, id: [...w.chat].reverse().find((m) => m.role === "assistant" && !before.has(m.id))?.id }); }
+    if (w) {
+      setWs(w);
+      const m = [...w.chat].reverse().find((x) => x.role === "assistant" && !before.has(x.id));
+      setSaid({ q: text, id: m?.id });
+      if (spoken && m) speak(m.text);
+    }
   };
   const has = (k: string) => (OFFICE.find(([key]) => key === k)?.[2] || 99) <= d.lv.n;
   const known = (d.g.known || []).length, books = Math.min(8, known), resume = !!d.w.resume, applied = d.w.applications.length > 0;
@@ -293,6 +301,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
             </div>}
             <form className="ps-ask" onSubmit={(e) => { e.preventDefault(); ask(); }}>
               <input className="input" value={q} onChange={(e) => setQ(e.target.value)} disabled={!aiOn || busy} placeholder={aiOn ? "Ask Remy anything about your path…" : "Remy's chat is off on this server"} aria-label="Ask Remy" data-testid="input-office-ask" />
+              {canListen && aiOn && <button type="button" className={"btn " + (voice.on ? "btn-primary remy-listening" : "btn-secondary")} onClick={voice.toggle} disabled={busy} aria-label={voice.on ? "Stop listening" : "Talk to Remy"} aria-pressed={voice.on} data-testid="button-office-mic">{voice.on ? <Square size={16} /> : <Mic size={16} />}</button>}
               <button className="btn btn-primary" disabled={!aiOn || busy || !q.trim()} data-testid="button-office-ask">Ask</button>
             </form>
           </>}
