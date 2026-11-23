@@ -114,7 +114,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real }: { 
     const cat = [...el.classList].find((k) => /^rm-(action|hard|soft|number|result)$/.test(k))?.slice(3);
     const text = el.dataset.t || el.textContent || "";
     const kinds = flag ? text.split(" · ").map((t) => t.trim()) : [cat || ""];
-    setWhy({ kind: kinds.join("|"), text: flag ? "" : text, x: Math.min(x, window.innerWidth - 336), y: y + 290 > window.innerHeight ? Math.max(8, y - 290) : y + 14 });
+    setWhy({ kind: kinds.join("|"), text: flag ? "" : text, x: Math.max(8, Math.min(x, (body.current?.getBoundingClientRect().right ?? window.innerWidth) - 328)), y: y + 290 > window.innerHeight ? Math.max(8, y - 290) : y + 14 });
     return true;
   };
   const onTap = (e: React.MouseEvent) => { if (tap(e.target, e.clientX, e.clientY)) { e.preventDefault(); e.stopPropagation(); } };
