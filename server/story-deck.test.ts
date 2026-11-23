@@ -159,3 +159,11 @@ test("story answers about another experience on the resume are caught; on-topic 
   assert.equal(otherExperience("I pitched it to American Airlines people I met at a conference.", dorm, "action", edited), undefined);
   assert.equal(otherExperience("anything", dorm, "situation", undefined), undefined, "no resume: nothing to compare");
 });
+
+test("mock interview: storyFor picks the story that shares words with the question, none when nothing overlaps", async () => {
+  const { storyFor } = await import("@shared/stories");
+  const st = (id: string, title: string, action = "") => ({ id, title, theme: "", situation: "", task: "", action, result: "" }) as any;
+  const all = [st("a", "Chapter budget at NABA", "tracked spending in Excel"), st("b", "Weekend rush at the cafe", "served tables")];
+  assert.equal(storyFor("How have you used Excel? Walk me through a specific example.", all)?.id, "a");
+  assert.equal(storyFor("Tell me about a time you worked under pressure on a team", all), undefined);
+});

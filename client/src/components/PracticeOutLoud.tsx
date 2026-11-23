@@ -7,7 +7,8 @@ const Speech = (window as any).SpeechRecognition || (window as any).webkitSpeech
 /** Say it out loud: a timer, and where the browser can transcribe, what Remy heard: pace, filler words, whether it
  *  was recited word for word, and which names or numbers from the script were skipped (shared/speech.ts).
  *  Everything stays in the browser; nothing is recorded or saved. */
-export function PracticeOutLoud({ goal, label = "Practice out loud", script = "" }: { goal: [number, number]; label?: string; script?: string }) {
+export type PracticeResult = { secs: number; fillers: number; wpm: number | null };
+export function PracticeOutLoud({ goal, label = "Practice out loud", script = "", onDone, primary }: { goal: [number, number]; label?: string; script?: string; onDone?: (r: PracticeResult) => void; primary?: boolean }) {
   const [secs, setSecs] = useState<number | null>(null);
   const [on, setOn] = useState(false);
   const [heard, setHeard] = useState("");
@@ -29,7 +30,7 @@ export function PracticeOutLoud({ goal, label = "Practice out loud", script = ""
     r.onerror = () => {};
     rec.current = r; r.start();
   };
-  const stop = () => { setOn(false); rec.current?.stop(); rec.current = null; };
+  const stop = () => { setOn(false); rec.current?.stop(); rec.current = null; onDone?.({ secs: secs || 0, fillers: heard ? fb.fillers.length : 0, wpm: fb.wpm }); };
   // Talking time, not the stopwatch (+1s for the first words before the first result). Android's recognizer repeats
   // results, which would inflate word counts, so pace and "word for word" aren't shown there.
   const talked = span.current.first ? (span.current.last - span.current.first) / 1000 + 1 : secs || 0;
@@ -41,8 +42,8 @@ export function PracticeOutLoud({ goal, label = "Practice out loud", script = ""
   return (
     <div className="stack-sm" style={{ gap: 4 }} data-testid="practice-out-loud">
       {on
-        ? <button className="btn btn-ghost btn-sm" onClick={stop} data-testid="button-practice-stop"><Square size={14} /> {secs}s · Stop</button>
-        : <button className="btn btn-ghost btn-sm" onClick={start} data-testid="button-practice"><Mic size={14} /> {secs === null ? label : "Try again"}</button>}
+        ? <button className={primary ? "btn btn-secondary" : "btn btn-ghost btn-sm"} onClick={stop} data-testid="button-practice-stop"><Square size={14} /> {secs}s · Stop</button>
+        : <button className={primary ? "btn btn-primary" : "btn btn-ghost btn-sm"} onClick={start} data-testid="button-practice"><Mic size={14} /> {secs === null ? label : "Try again"}</button>}
       {!on && secs !== null && (
         <div className="xs stack-sm" style={{ gap: 2 }} data-testid="practice-result">
           <span>{secs} seconds: {secs < lo ? `a bit short, aim for ${lo} to ${hi}` : secs > hi ? `a bit long, aim for ${lo} to ${hi}` : "right on time"}.</span>

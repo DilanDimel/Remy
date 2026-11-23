@@ -7,10 +7,9 @@ import { useOwnerView, useStore } from "../lib/store";
 import { useJobs } from "../lib/jobs";
 import { PracticeOutLoud } from "./PracticeOutLoud";
 
-export function JobInterview() {
-  const { ws } = useStore();
-  const owner = useOwnerView(); // owners: Remy's peach practice card (no dark bands, Dilan Nov 22)
-  const w = ws!;
+/** The openings to practice for: ones they're applying to (newest first), then kept ones, else the best fits. */
+export function useInterviewJobs() {
+  const w = useStore().ws!;
   // Openings they're applying to first (newest first), then the ones they kept.
   const applying = [...w.applications].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((a) => a.jobId);
   const ids = [...new Set([...applying, ...w.savedJobIds])];
@@ -18,7 +17,14 @@ export function JobInterview() {
   // Nothing saved or started yet: practice for the best-fitting openings instead of a "save one first" note.
   const { jobs: all, fits } = useJobs();
   const best = (all || []).filter((j) => j.kind !== "event" && !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false).sort((x, y) => (fits[y.id]?.score ?? 0) - (fits[x.id]?.score ?? 0)).slice(0, 8);
-  const jobs = mine.length ? mine : best;
+  return { mine, jobs: mine.length ? mine : best };
+}
+
+export function JobInterview() {
+  const { ws } = useStore();
+  const owner = useOwnerView(); // owners: Remy's peach practice card (no dark bands, Dilan Nov 22)
+  const w = ws!;
+  const { mine, jobs } = useInterviewJobs();
   const [pick, setPick] = useState(jobs[0]?.id || "");
   const [open, setOpen] = useState<number | null>(0);
   const job = jobs.find((j) => j.id === pick) || jobs[0];
