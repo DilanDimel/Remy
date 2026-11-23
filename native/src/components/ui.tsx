@@ -23,7 +23,7 @@ export function Screen({ children, refreshing, onRefresh, scroll = true, style }
         {children}
       </ScrollView>
       {/* Content scrolls under a paper-coloured band, not under the bare clock and battery. */}
-      <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.paper, opacity: 0.96 }} />
+      <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.paper }} />
     </View>
   );
 }
