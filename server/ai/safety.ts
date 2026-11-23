@@ -1,3 +1,4 @@
+import { parseMore } from "./remyTools";
 import type { ChatAction } from "@shared/types";
 // Safeguards shared by every AI call, plus a crisis check that doesn't depend on the AI at all.
 
@@ -50,6 +51,7 @@ export function chatActions(raw: unknown): ChatAction[] {
     if (a?.kind === "event" && clean(a.title, 120) && /^\d{4}-\d{2}-\d{2}$/.test(String(a.date))) return [{ kind: "event", title: clean(a.title, 120), date: String(a.date), ...(/^\d{2}:\d{2}$/.test(String(a.time)) ? { time: String(a.time) } : {}) }];
     if (a?.kind === "remember" && clean(a.text, 300)) return [{ kind: "remember", text: clean(a.text, 300) }];
     if (a?.kind === "profile" && ["major", "minors", "school", "graduation", "location"].includes(a.field) && clean(a.value, 120)) return [{ kind: "profile", field: a.field, value: clean(a.value, 120) }];
-    return [];
-  }).slice(0, 3);
+    const more = parseMore(a);
+    return more ? [more] : [];
+  }).slice(0, 4);
 }

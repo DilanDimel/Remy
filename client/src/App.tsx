@@ -19,6 +19,7 @@ import { QuickRate } from "./components/QuickRate";
 import { WhatsNew } from "./components/WhatsNew";
 import { GameSidebar, useGameRecord } from "./components/Game";
 import { Avatar } from "./components/ProfilePhoto";
+import { useRemyDoes } from "./lib/remyDoes";
 import { answer as answerTailor, endSession as endTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
 import { Careers } from "./pages/Landing2";
@@ -158,6 +159,7 @@ function isMobileNow() {
 function Shell() {
   const { ws, save, me } = useStore();
   const ownerView = useOwnerView();
+  useRemyDoes(ownerView); // owners: what Remy does from chat shows on screen right away (lib/remyDoes.ts)
   useGameRecord(ws, CAREER_QUEST_ON && ownerView); // Career quest (paused Nov 21; owners only when on): keeps the week on every page
   // Demetre's redesign (plain titles, phone layout, less "AI template" look): checked by owners on Nov 21 and released
   // to everyone the same day. The styles still live under .design-preview in index.css, to fold in later.
@@ -569,7 +571,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
                     <Check size={14} style={{ flexShrink: 0, opacity: d.undone ? 0.4 : 1 }} />
                     {d.undone ? <span className="muted" style={{ flex: 1 }}><s>{d.label}</s> · undone</span> : <>
                       <span style={{ flex: 1 }}>{d.link ? <a href={d.link} onClick={(e) => { e.preventDefault(); go(d.link!); }} style={{ textDecoration: "underline" }}>{d.label}</a> : d.label}</span>
-                      <button className="btn btn-ghost btn-sm" style={{ flexShrink: 0 }} onClick={async () => { const w = await run(() => api<Workspace>("POST", `/api/chat/${m.id}/undo/${d.id}`), "Undone"); if (w) setWs(w); }} data-testid="button-chat-undo">Undo</button>
+                      {!d.noUndo && <button className="btn btn-ghost btn-sm" style={{ flexShrink: 0 }} onClick={async () => { const w = await run(() => api<Workspace>("POST", `/api/chat/${m.id}/undo/${d.id}`), "Undone"); if (w) setWs(w); }} data-testid="button-chat-undo">Undo</button>}
                     </>}
                   </div>
                 ))}

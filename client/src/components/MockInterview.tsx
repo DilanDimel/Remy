@@ -2,12 +2,13 @@
 // Remy picks the opening, plans the rounds from its posting, asks one question at a time, hints with your own
 // resume line or story, listens (PracticeOutLoud) and ends with a short scorecard. Stories, pitch and the full
 // question list are the prep kit underneath, opened one at a time.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Mic, RotateCcw } from "lucide-react";
 import type { Story } from "@shared/types";
 import { jobQuestions } from "@shared/jobInterview";
 import { STORY_PARTS, storyFor } from "@shared/stories";
 import { useStore } from "../lib/store";
+import { replaceRoute, useRoute } from "../lib/router";
 import { useInterviewJobs, JobInterview } from "./JobInterview";
 import { PracticeOutLoud, type PracticeResult } from "./PracticeOutLoud";
 import { StoryDeck } from "./StoryDeck";
@@ -39,6 +40,15 @@ export function MockInterview() {
   const r = rounds[step];
   const done = results.filter(Boolean) as PracticeResult[];
   const start = () => { setResults([]); setStep(0); };
+  // Remy started it from chat ("give me a mock interview for Deloitte"): /interview?start=1&job=<id>.
+  const { query } = useRoute();
+  const asked = query.get("start") === "1" ? query.get("job") || "*" : "";
+  useEffect(() => {
+    if (!asked) return;
+    if (asked !== "*" && jobs.some((j) => j.id === asked)) setPick(asked);
+    setResults([]); setStep(0);
+    replaceRoute("/interview");
+  }, [asked]);
 
   const kitTiles: { id: "stories" | "pitch" | "questions"; n: string; label: string; act: string }[] = [
     { id: "stories", n: stories.length ? `${ready.length} of ${stories.length} ready · your answers to “tell me about a time”` : "Your answers to “tell me about a time”", label: "Stories", act: !stories.length ? "Find my stories" : ready.length < stories.length ? "Finish a story" : "Review" },
