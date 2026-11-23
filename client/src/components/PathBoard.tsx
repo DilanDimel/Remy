@@ -12,6 +12,7 @@ import { api, useStore } from "../lib/store";
 import type { Workspace } from "@shared/types";
 import { go } from "../lib/router";
 import { Modal, Remy, Rich, Spinner } from "./common";
+import { PATH_WALK } from "./Tour";
 import { OUTFITS } from "./scholar";
 import { OfficeOpens, RemyDid } from "./RemyDid";
 import { buildStops, money, stateOf, StopDetail, useFieldData, type Occ } from "./DailyPath";
@@ -353,6 +354,8 @@ function useGuide(d: D, onField: (tab: SideTab, open?: string) => void) {
   ];
   const go2 = (i: number) => { const s = steps[Math.max(0, Math.min(steps.length - 1, i))]; setStep(steps.indexOf(s)); onField(s.tab, s.open || ""); };
   const start = () => { setOn(true); go2(0); };
+  // The site tour ends here and hands over to this walk-through (it promised to).
+  useEffect(() => { const f = () => start(); addEventListener(PATH_WALK, f); return () => removeEventListener(PATH_WALK, f); });
   // the panel follows him on the first step too
   useEffect(() => { if (on) go2(step); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {

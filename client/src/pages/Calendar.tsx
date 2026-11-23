@@ -31,13 +31,14 @@ const clock = (t: string) => { const [h, m] = t.split(":").map(Number); return i
 const daysTo = (date: string, today: string) => Math.round((new Date(date + "T12:00").getTime() - new Date(today + "T12:00").getTime()) / 864e5);
 const when = (n: number) => (n === 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`);
 
-/** Owners: Remy's one line, from the next real deadline or interview (career time and to-dos don't count). */
+/** Owners: Remy's one line, from the next real deadline or interview, else the next thing on the list. */
 function CalLine({ upcoming, today }: { upcoming: CalItem[]; today: string }) {
   const big = upcoming.find((i) => i.kind === "Interview" || i.kind === "Deadline");
   const week = upcoming.filter((i) => daysTo(i.date, today) <= 6).length;
   return (
     <p className="op-say" data-testid="calendar-line">
-      <b>{big ? `${big.title} is ${when(daysTo(big.date, today))}.` : "No deadlines or interviews coming up."}</b>
+      {/* Nov 23 PM review: it said "No deadlines or interviews coming up" right above a list of five to-dos. */}
+      <b>{big ? `${big.title} is ${when(daysTo(big.date, today))}.` : upcoming[0] ? `Next: ${upcoming[0].title.replace(/\.$/, "")}, ${when(daysTo(upcoming[0].date, today))}.` : "Nothing coming up yet."}</b>
       {week ? ` ${week} thing${week === 1 ? "" : "s"} on your calendar this week.` : " A quiet week: a good time to add a coffee chat."}
     </p>
   );
