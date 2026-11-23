@@ -24,19 +24,20 @@ export function ResumeReview({ doc, upd, onEdit, beside = false, focus }: { doc:
   const todo = [...live.map((it) => frozen[keyOf(it)] || it), ...Object.entries(frozen).filter(([k]) => !live.some((it) => keyOf(it) === k)).map(([, it]) => it)].sort((a, b) => rank(a) - rank(b));
   const toggle = (it: ReviewItem) => setFrozen((f) => { const k = keyOf(it); const n = { ...f }; if (n[k]) delete n[k]; else n[k] = it; return n; });
   const count = todo.length; // confirming what Remy read is step 1 of the base resume now
-  // A tapped line's "Fix with Remy": open the fix that lists that line and go straight to it.
-  const [jump, setJump] = useState<{ key: string; id: string; n: number } | null>(null);
+  // A tapped line's "Fix with Remy" (Nov 23: it did nothing when the line wasn't in an open list): that line gets
+  // Remy's question at the top, whatever the lists say.
+  const [tapped, setTapped] = useState<{ b: BulletRef; kind: "numbers" | "verbs"; n: number } | null>(null);
   useEffect(() => {
     if (!focus) return;
     const sq = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, "");
     const line = sq(focus.text);
-    const want = /number/i.test(focus.kind) ? "numbers" : /weak/i.test(focus.kind) ? "verbs" : "";
-    const it = live.filter((x) => x.kind === "numbers" || x.kind === "verbs").sort((a) => (a.kind === want ? -1 : 1))
-      .find((x) => (x as Extract<ReviewItem, { bullets: BulletRef[] }>).bullets.some((b) => line.includes(sq(b.text).slice(0, 40))));
-    if (!it) return;
-    const b = (it as Extract<ReviewItem, { bullets: BulletRef[] }>).bullets.find((x) => line.includes(sq(x.text).slice(0, 40)))!;
-    setFrozen((f) => (f[keyOf(it)] ? f : { ...f, [keyOf(it)]: it }));
-    setJump({ key: keyOf(it), id: b.id, n: focus.n });
+    for (const s of doc.sections) for (const e of s.entries) for (const x of e.bullets) {
+      const t = x.text.trim().replace(/^[•\-–*]\s*/, "");
+      if (t && line.includes(sq(t).slice(0, 40))) {
+        setTapped({ b: { id: x.id, text: t, where: [e.role, e.org].filter(Boolean).join(", ") || s.heading }, kind: /weak/i.test(focus.kind) ? "verbs" : "numbers", n: focus.n });
+        return;
+      }
+    }
   }, [focus?.n]);
   return (
     <section className={beside ? "stack" : "card card-pad stack"} data-testid="resume-review">
@@ -44,7 +45,13 @@ export function ResumeReview({ doc, upd, onEdit, beside = false, focus }: { doc:
         <h3 className={owner && beside ? "row" : undefined} style={owner && beside ? { gap: 8, flexWrap: "nowrap" } : undefined}>{owner && beside && <Remy size={28} mood={count ? "think" : "happy"} />}{beside ? (count ? `${count} thing${count > 1 ? "s" : ""} to make it stronger` : "Looking strong") : count ? `Remy's review · ${count} thing${count > 1 ? "s" : ""} to fix` : "Remy's review · looking good"}</h3>
         <span className="xs muted">{owner && beside && count ? "I'll ask about one line at a time and draft it from your answer. Nothing changes until you save." : beside ? "Fix them right here, or just ask Remy in the chat. Nothing changes until you save." : "Remy's suggestions from your resume itself, not an employer's score. Fix them here; nothing changes until you press Save."}</span>
       </div>
-      {todo.map((it) => <Item key={keyOf(it)} it={it} open={!!frozen[keyOf(it)]} onToggle={() => toggle(it)} doc={doc} upd={upd} onEdit={onEdit} oneAtATime={owner} jumpTo={jump?.key === keyOf(it) ? jump : null} />)}
+      {tapped && (
+        <div className="review-item review-tapped" data-testid="review-tapped">
+          <div className="row-between small"><b>The line you tapped</b><button className="btn btn-ghost btn-sm" onClick={() => setTapped(null)} data-testid="button-tapped-close">Close</button></div>
+          <BulletFix key={tapped.b.id + tapped.n} b={tapped.b} kind={tapped.kind} upd={upd} autoFocus />
+        </div>
+      )}
+      {todo.map((it) => <Item key={keyOf(it)} it={it} open={!!frozen[keyOf(it)]} onToggle={() => toggle(it)} doc={doc} upd={upd} onEdit={onEdit} oneAtATime={owner} />)}
       {good.length > 0 && (
         <div className="stack-sm" style={{ gap: 4 }} data-testid="review-good">
           {good.map((g) => <span key={g} className="xs row" style={{ gap: 6, flexWrap: "nowrap" }}><CheckCircle2 size={14} style={{ color: "var(--success, #22a05a)", flex: "none" }} /> {g}</span>)}
@@ -54,11 +61,9 @@ export function ResumeReview({ doc, upd, onEdit, beside = false, focus }: { doc:
   );
 }
 
-function Item({ it, open, onToggle, doc, upd, onEdit, oneAtATime = false, jumpTo }: { it: ReviewItem; open: boolean; onToggle: () => void; doc: ResumeDoc; upd: Upd; onEdit: () => void; oneAtATime?: boolean; jumpTo?: { id: string; n: number } | null }) {
+function Item({ it, open, onToggle, doc, upd, onEdit, oneAtATime = false }: { it: ReviewItem; open: boolean; onToggle: () => void; doc: ResumeDoc; upd: Upd; onEdit: () => void; oneAtATime?: boolean }) {
   // Owners (Nov 23 live test: 8 question cards stacked into a long column): Remy asks about one line at a time.
   const [at, setAt] = useState(0);
-  const lines = "bullets" in it ? it.bullets : [];
-  useEffect(() => { if (jumpTo) { const i = lines.findIndex((b) => b.id === jumpTo.id); if (i >= 0) setAt(i); } }, [jumpTo?.n]);
   return (
     <div className="review-item" data-testid={`review-${it.kind}`}>
       <button className="row-between small" style={{ textAlign: "left", gap: 8, flexWrap: "nowrap", width: "100%" }} onClick={() => (it.kind === "tip" ? onEdit() : onToggle())} aria-expanded={it.kind === "tip" ? undefined : open}>
@@ -114,7 +119,7 @@ function Item({ it, open, onToggle, doc, upd, onEdit, oneAtATime = false, jumpTo
   );
 }
 
-function BulletFix({ b, kind, upd, onNext }: { b: BulletRef; kind: "numbers" | "verbs"; upd: Upd; onNext?: () => void }) {
+function BulletFix({ b, kind, upd, onNext, autoFocus }: { b: BulletRef; kind: "numbers" | "verbs"; upd: Upd; onNext?: () => void; autoFocus?: boolean }) {
   const { run } = useStore();
   const [draftFor, setDraftFor] = useState(""); // the line text the draft was made from
   const [answer, setAnswer] = useState("");
@@ -142,7 +147,7 @@ function BulletFix({ b, kind, upd, onNext }: { b: BulletRef; kind: "numbers" | "
         <>
           <span className="xs">Is there a real number here? How many people, events, dollars, hours or percent. Only if you know it.</span>
           <div className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
-            <input className="input" value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="e.g. 40 members, $5,000" aria-label="The real number" onKeyDown={enter(/\d/.test(answer))} data-testid="input-bullet-number" />
+            <input className="input" value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="e.g. 40 members, $5,000" aria-label="The real number" autoFocus={autoFocus} onKeyDown={enter(/\d/.test(answer))} data-testid="input-bullet-number" />
             <button className="btn btn-secondary btn-sm" disabled={busy || !/\d/.test(answer)} onClick={ask} data-testid="button-draft-bullet">{busy ? <Spinner /> : <Sparkles size={14} />} Draft</button>
           </div>
         </>
@@ -151,7 +156,7 @@ function BulletFix({ b, kind, upd, onNext }: { b: BulletRef; kind: "numbers" | "
         <>
           <span className="xs">What exactly did you do here? A few words in your own terms.</span>
           <div className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
-            <input className="input" value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="e.g. wrote and scheduled the posts" aria-label="What you did" onKeyDown={enter(answer.trim().length >= 4)} data-testid="input-bullet-action" />
+            <input className="input" value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="e.g. wrote and scheduled the posts" aria-label="What you did" autoFocus={autoFocus} onKeyDown={enter(answer.trim().length >= 4)} data-testid="input-bullet-action" />
             <button className="btn btn-secondary btn-sm" disabled={busy || answer.trim().length < 4} onClick={ask} data-testid="button-draft-bullet">{busy ? <Spinner /> : <Sparkles size={14} />} Draft</button>
           </div>
         </>

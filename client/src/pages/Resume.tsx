@@ -28,6 +28,7 @@ import { startTailor, useTailorSession } from "../lib/tailorChat";
 import { textConcern } from "@shared/junk";
 import { NameChoice } from "../components/NameChoice";
 import { OrgLogo } from "../components/OrgLogo";
+import { paperStyle } from "../components/ResumeMarkup";
 
 type Tab = "base" | "tailor" | "linkedin" | "library";
 
@@ -807,9 +808,9 @@ function Checks({ a }: { a: Application }) {
   );
 }
 
-function ResumePaper({ doc, changed }: { doc: ResumeDoc; changed?: Set<string> }) {
+function ResumePaper({ doc, changed, style }: { doc: ResumeDoc; changed?: Set<string>; style?: Record<string, string> }) {
   return (
-    <div className="resume-paper" data-testid="resume-preview">
+    <div className="resume-paper" data-testid="resume-preview" style={style}>
       <div style={{ textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700 }}>{doc.contact.name}</div><div>{[doc.contact.location, doc.contact.email, doc.contact.phone, doc.contact.links].filter(Boolean).join(" | ")}</div></div>
       {doc.sections.map((s) => (
         <div key={s.id}>
@@ -863,6 +864,9 @@ function DownloadButtons({ a, v }: { a: Application; v: number }) {
 function ExportView({ a, job }: { a: Application; job: Job }) {
   const { ws } = useStore();
   const { doc, changed } = useMemo(() => composeClient(ws!, a), [ws, a]);
+  const owner = useOwnerView();
+  const [page, setPage] = useState<"resume" | "letter">("resume");
+  const look = paperStyle(ws!.resume?.style);
   return (
     <div className="stack">
       <div className="card card-pad stack-sm">
@@ -881,10 +885,25 @@ function ExportView({ a, job }: { a: Application; job: Job }) {
             ? `Remy rebuilds your resume in a clean, ATS-friendly layout using your ${ws!.resume.style.serif ? "serif" : "sans-serif"} font, size and margins, kept to ${ws!.resume.style.pages === 1 ? "one page" : `${ws!.resume.style.pages} pages`} like your original. Upload a Word file instead to keep your exact design.`
             : "Downloads use Remy's clean, ATS-friendly one-column layout."}</span>
       </div>
+      {owner ? (
+        // Owners: one real-size page at a time, in the student's own font, size and margins.
+        <div className="stack-sm">
+          <div className="row-between">
+            <div className="tabs" role="tablist" style={{ margin: 0 }}>
+              {(["resume", "letter"] as const).map((k) => <button key={k} role="tab" className="tab" aria-selected={page === k} onClick={() => setPage(k)} data-testid={`tab-preview-${k}`}>{k === "resume" ? "Resume" : "Cover letter"}</button>)}
+            </div>
+            {page === "resume" && <span className="xs muted page-real-key"><span className="changed" style={{ padding: "0 6px" }}>Highlighted</span> lines changed for {job.company}</span>}
+          </div>
+          <div className="page-real" data-testid={`preview-page-${page}`}>
+            {page === "resume" ? <ResumePaper doc={doc} changed={changed} style={look} /> : <div className="resume-paper" style={{ ...look, whiteSpace: "pre-wrap" }}>{a.letter}</div>}
+          </div>
+        </div>
+      ) : (
       <div className="grid-2" style={{ alignItems: "start" }}>
         <div className="stack-sm"><span className="eyebrow">Resume preview · highlighted lines changed for {job.company}</span><ResumePaper doc={doc} changed={changed} /></div>
         <div className="stack-sm"><span className="eyebrow">Cover letter preview</span><div className="resume-paper" style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{a.letter}</div></div>
       </div>
+      )}
     </div>
   );
 }
