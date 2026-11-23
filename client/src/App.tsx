@@ -3,9 +3,10 @@ import { useEffect, useRef, useState } from "react";
 import {
   BarChart3, Briefcase, CalendarDays, ChevronsLeft, ChevronsRight, Compass, FileText, Home as HomeIcon, Menu, Send,
   Check, Gauge, Info, Mic, Minus, ShieldCheck, UserCog, Users,
-  ImagePlus, MessageCircle, Search, ArrowRight, ChevronDown,
+  ImagePlus, MessageCircle, Search, ArrowRight, ChevronDown, Square,
 } from "lucide-react";
 import { ThemeToggle } from "./components/ThemeToggle";
+import { canListen, speak, useVoice } from "./lib/voice";
 import { StoreProvider, api, daysUntil, fmtDate, rid, useDraft, useOwnerView, useStore, type Theme } from "./lib/store";
 import { CAREER_QUEST_ON } from "@shared/game";
 import { resumeDiff } from "@shared/resumeDiff";
@@ -473,6 +474,14 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   const tailorEnd = useRef<HTMLDivElement>(null);
   useEffect(() => { tailorEnd.current?.scrollIntoView({ block: "end" }); }, [tailor?.log.length]);
   const lastAi = [...chat].reverse().find((m) => m.role !== "user")?.id;
+  // Owners: talk to Remy. A message you said out loud gets its answer read back.
+  const talked = useRef<string | null>(null);
+  const voice = useVoice(setMsg, (t) => { talked.current = lastAi || ""; send(t); });
+  useEffect(() => {
+    if (talked.current === null || !lastAi || lastAi === talked.current || busy) return;
+    talked.current = null;
+    speak(chat.find((m) => m.id === lastAi)?.text || "");
+  }, [lastAi, busy]);
   const [cheer, setCheer] = useState<string | undefined>(undefined);
   useEffect(() => {
     if (!lastAi || lastAi === cheer) return;
@@ -678,6 +687,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
           aria-label="Message Remy"
           data-testid="input-chat"
         />
+        {stage2 && canListen && config?.ai.available && !asking && <button type="button" className={"btn " + (voice.on ? "btn-primary remy-listening" : "btn-secondary")} onClick={voice.toggle} disabled={busy} aria-label={voice.on ? "Stop listening" : "Talk to Remy"} aria-pressed={voice.on} data-testid="button-chat-mic">{voice.on ? <Square size={16} /> : <Mic size={16} />}</button>}
         <button className="btn btn-primary" disabled={(busy && !asking) || !msg.trim() || tailor?.stage === "reading"} aria-label="Send" data-testid="button-send-chat"><Send size={16} /></button>
       </form>
       </>}

@@ -2737,6 +2737,8 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 @keyframes remy-touch { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 30%, 70% { box-shadow: 0 0 0 3px var(--fox); } }
 .remy-touched { animation: remy-touch 1.2s ease-in-out 2; border-radius: 10px; }
 @media (prefers-reduced-motion: reduce) { .remy-touched { animation: none; outline: 2px solid var(--fox); } }
+.remy-listening { animation: remy-touch 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .remy-listening { animation: none; } }
 
 /* Owners: Julio's interview coach in Remy (components/MockInterview.tsx). Fits 1440x800 and phones without scrolling. */
 .ivc { display: flex; flex-direction: column; gap: 14px; min-width: 0; }

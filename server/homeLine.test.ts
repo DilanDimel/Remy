@@ -19,3 +19,14 @@ test("remyLine picks the most urgent line first", () => {
   assert.equal(remyLine({ ...base }), "2 of 5 getting-started steps done. 3 to go, and none take long.");
   assert.match(remyLine({ ...base, done: 5 }), /^Here's where things stand/);
 });
+
+test("a different tip each day when nothing is urgent, and the same one all day", async () => {
+  const { remyLine, tipOfDay, TIPS } = await import("@shared/homeLine");
+  const calm = { hour: 12, interviewSoon: false, cheer: false, done: 5, total: 5, newJobs: 0, deadlines: 0, pending: 0 };
+  assert.equal(remyLine({ ...calm, day: "2026-11-23" }), tipOfDay("2026-11-23"));
+  assert.notEqual(tipOfDay("2026-11-23"), tipOfDay("2026-11-24"));
+  assert.equal(new Set(Array.from({ length: TIPS.length }, (_, i) => tipOfDay(`2026-12-${String(i + 1).padStart(2, "0")}`))).size, TIPS.length);
+  assert.match(remyLine({ ...calm, deadlines: 1, day: "2026-11-23" }), /deadline/); // urgent things still win
+  const { spoken } = await import("../client/src/lib/voice");
+  assert.equal(spoken("• **Saved** it. See [Calendar](/calendar)."), "Saved it. See Calendar.");
+});

@@ -169,7 +169,7 @@ export default function Home() {
           <span className="eyebrow">Home</span>
           <h1 data-testid="text-greeting">{greeting()}{name ? `, ${name}` : ""}.</h1>
           {!ownerView && <p className="hide-phone">Here's the one thing worth doing next, and a few things that matter this week.</p>}
-          {ownerView && <p className="remy-line" data-testid="remy-line">{remyLine({ hour: new Date().getHours(), interviewSoon: !!interview, cheer, done: doneNow, total: starting.length, newJobs, deadlines: soon, pending: w.applications.filter((a) => a.changes.some((c) => c.status === "pending")).length })}</p>}
+          {ownerView && <p className="remy-line" data-testid="remy-line">{remyLine({ day: dayKey(), hour: new Date().getHours(), interviewSoon: !!interview, cheer, done: doneNow, total: starting.length, newJobs, deadlines: soon, pending: w.applications.filter((a) => a.changes.some((c) => c.status === "pending")).length })}</p>}
         </div>
         {ownerView && (() => {
           // Read-only peek at My Path's daily round (#161): the streak, this week's days and today's three cards.
