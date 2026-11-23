@@ -65,3 +65,22 @@ test("a new board card from chat, and opening or starting something has no Undo"
   assert.equal(none.did.length, 0);
   assert.match(none.notes[0], /resume first/);
 });
+
+test("Remy reaches out: a promised question on its day, else the weekly check-in, once", async () => {
+  const { addLoop, reachOut, WEEKLY_CHECKIN } = await import("./remyTools");
+  const ws = emptyWorkspace();
+  addLoop(ws, { ask: "How did the PwC interview go?", on: "2026-11-25" }, TODAY);
+  addLoop(ws, { ask: "How did the PwC interview go?", on: "2026-11-25" }, TODAY); // once
+  addLoop(ws, { ask: "Old", on: "2026-11-01" }, TODAY); // past: ignored
+  assert.equal(ws.loops!.length, 1);
+  assert.equal(reachOut(ws, TODAY, "t"), ""); // not due, and a new account gets no check-in
+  assert.equal(reachOut(ws, "2026-11-25", "t1"), "How did the PwC interview go?");
+  assert.equal(reachOut(ws, "2026-11-25", "t2"), "");
+  ws.savedJobIds = ["j1"];
+  ws.chat.push({ id: "x", role: "user", text: "hi", at: "t" }, { id: "y", role: "assistant", text: "a", at: "t" });
+  assert.equal(reachOut(ws, "2026-11-26", "t3"), WEEKLY_CHECKIN);
+  assert.equal(reachOut(ws, "2026-11-30", "t4"), ""); // a week apart
+  assert.equal(reachOut(ws, "2026-12-03", "t5"), ""); // last one still unanswered
+  for (let i = 0; i < 6; i++) ws.chat.push({ id: "m" + i, role: i % 2 ? "assistant" : "user", text: "x", at: "t" });
+  assert.equal(reachOut(ws, "2026-12-03", "t6"), WEEKLY_CHECKIN);
+});

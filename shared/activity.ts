@@ -65,3 +65,8 @@ export function todayBrief(w: Pick<Workspace, "jobs" | "hiddenJobIds" | "calenda
   return rows;
 }
 const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+
+/** Owners ("Remy feels alive" #2): what happened while the student was away, in Remy's words, newest first (max 4). */
+export function awayBrief(w: Pick<Workspace, "chat" | "aiLog" | "jobs" | "applications" | "steps">, since: string, fits: Fits = {}): ActEvent[] {
+  return activityDays(w, fits).flatMap((d) => d.events).filter((e) => e.at > since && e.kind !== "chat" && e.kind !== "step").slice(0, 4);
+}

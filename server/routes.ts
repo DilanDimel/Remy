@@ -51,7 +51,7 @@ import { dueReminders, reminderEmail, weeklyDigest } from "./notify/reminders";
 import { answerNudge, overnightPicks, sendNudges } from "./coach/nudges";
 import { markDay } from "@shared/daily";
 import { doActions, undoDid } from "./ai/chatDo";
-import { MORE_TOOLS, moreContext } from "./ai/remyTools";
+import { addLoop, MORE_TOOLS, moreContext, reachOut } from "./ai/remyTools";
 import { sendTexts, usPhone } from "./notify/texts";
 import { step } from "@shared/progress";
 import { conferencesFor } from "./jobs/conferences";
@@ -993,7 +993,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       nudges: z.enum(["daily", "weekly", "off"]).optional(),
       texts: z.object({ on: z.boolean(), phone: z.string().max(30).refine((p) => p === "" || !!usPhone(p), "Use a US phone number, like (817) 555-0123.") }).optional(),
       demoConnections: z.array(str(80)).max(20).optional(), newsSeen: str(40).optional(), ownerView: z.boolean().optional(),
-      tour: z.union([z.number().int().min(0).max(20), z.literal("done")]).optional(), firstWin: z.union([z.number().int().min(0).max(2), z.literal("done")]).optional(), introsSeen: z.array(str(40)).max(20).optional(),
+      tour: z.union([z.number().int().min(0).max(20), z.literal("done")]).optional(), firstWin: z.union([z.number().int().min(0).max(2), z.literal("done")]).optional(), introsSeen: z.array(str(40)).max(20).optional(), offersSeen: z.array(str(160)).max(200).optional(),
     }),
     tasks: z.array(z.looseObject({ id: str(120), title: str(300), why: str(2000), due: str(10), category: z.enum(["Explore", "Prepare", "Apply", "Connect", "Academic"]), done: z.boolean(), source: str(200), link: str(500).optional() })).max(500),
     calendar: z.array(z.looseObject({ id: str(120), title: str(300), date: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/), time: z.string().regex(/^(\d{2}:\d{2})?$/), kind: z.enum(["Deadline", "Event", "Task", "Interview", "Advising"]), source: str(200), linkedId: str(120).optional(), notes: str(4000).optional() })).max(1000),
@@ -1982,6 +1982,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     ctx.ws.chat.push({ id: uid("m"), role: "user", text: message, at: nowIso(), page });
     // Owners: in-app actions are done now and shown with Undo; students still tap a button (no save/tailor for them yet).
     const asked = chatActions(out.actions);
+    if (doer) addLoop(ctx.ws, (out as { followUp?: unknown }).followUp, today); // Remy asks about it later
     const { did, buttons, notes } = doer ? doActions(ctx.ws, asked, findJob, centralToday()) : { did: [], buttons: asked.filter((a) => ["task", "role", "open", "setting"].includes(a.kind)).slice(0, 2), notes: [] };
     ctx.ws.chat.push({ id: uid("m"), role: "assistant", text: notes.length ? `${reply}\n\n${notes.join(" ")}` : reply, at: nowIso(), page, memorySuggestions: (out.remember || []).slice(0, 3).map(String), actions: buttons, ...(did.length ? { did } : {}), ...(resumeProposal ? { resumeProposal } : {}) });
     await ctx.save();
@@ -2007,6 +2008,28 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     if (why) bad(why, 409);
     await ctx.save();
     res.json(ctx.ws);
+  }));
+
+  // Owners ("Remy feels alive" #1, shared/remyOffers.ts): "Do it" on one of Remy's in-page offers runs the same action
+  // as asking him in chat, and lands in his chat with Undo, so it reads as something he did.
+  app.post("/api/remy/act", route(async (req, res, ctx) => {
+    if (!ctx.me.owner || ctx.ws.settings.ownerView === false) bad("This is only for owners right now.", 403);
+    const [action] = chatActions([req.body?.action]);
+    if (!action) bad("Remy can't do that one.");
+    const offerId = String(req.body?.offerId || "").slice(0, 160);
+    const { did, buttons, notes } = doActions(ctx.ws, [action], findJob, centralToday());
+    ctx.ws.chat.push({ id: uid("m"), role: "assistant", text: [did.length ? "On it." : "", ...notes].filter(Boolean).join(" ") || "Done.", at: nowIso(), page: "Remy", actions: buttons, ...(did.length ? { did } : {}) });
+    if (offerId) ctx.ws.settings.offersSeen = [...(ctx.ws.settings.offersSeen || []).filter((x) => x !== offerId), offerId].slice(-200);
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
+
+  // Owners (#3, #6): on opening the app, Remy may start the talk himself: a question he said he'd ask, or the weekly check-in.
+  app.post("/api/remy/reachout", route(async (_req, res, ctx) => {
+    if (!ctx.me.owner || ctx.ws.settings.ownerView === false || !ctx.ws.onboarding.done) return res.json({ said: "" });
+    const said = reachOut(ctx.ws, centralToday(), nowIso());
+    if (said) await ctx.save();
+    res.json(said ? { said, ws: ctx.ws } : { said: "" });
   }));
 
   // An imported fact that disagrees with the resume: the student says which is right, and Remy

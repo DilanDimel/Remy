@@ -19,8 +19,10 @@ import { QuickRate } from "./components/QuickRate";
 import { WhatsNew } from "./components/WhatsNew";
 import { GameSidebar, useGameRecord } from "./components/Game";
 import { Avatar } from "./components/ProfilePhoto";
-import { useRemyDoes } from "./lib/remyDoes";
+import { useRemyDoes, useRemyReachOut } from "./lib/remyDoes";
 import { RemyDid } from "./components/RemyDid";
+import { RemyOffer } from "./components/RemyOffer";
+import { RemyAway } from "./components/RemyAway";
 import { answer as answerTailor, endSession as endTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
 import { Careers } from "./pages/Landing2";
@@ -160,6 +162,7 @@ function isMobileNow() {
 function Shell() {
   const { ws, save, me } = useStore();
   const ownerView = useOwnerView();
+  useRemyReachOut(ownerView);
   useRemyDoes(ownerView); // owners: what Remy does from chat shows on screen right away (lib/remyDoes.ts)
   useGameRecord(ws, CAREER_QUEST_ON && ownerView); // Career quest (paused Nov 21; owners only when on): keeps the week on every page
   // Demetre's redesign (plain titles, phone layout, less "AI template" look): checked by owners on Nov 21 and released
@@ -292,6 +295,7 @@ function Shell() {
             )}
           </div>
         </div>
+        {ownerView && <RemyOffer />}
         <div className="page fade-up" key={current.path}><ErrorBoundary where={`page:${current.path}`} resetKey={current.path}>{page}</ErrorBoundary></div>
       </main>
 
@@ -607,6 +611,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
             ))}
           </div>
         ))}
+        {stage2 && chat.length > 0 && !pending && <RemyAway />}
         {pending && <div className="stack-sm" style={{ alignItems: "flex-end" }}><div className="bubble bubble-user" data-testid="chat-pending">{pending.text}</div></div>}
         {pending?.reply ? <div className="bubble bubble-ai" data-testid="chat-streaming"><Rich text={pending.reply.slice(0, shown)} /></div>
           : busy && <div className="bubble bubble-ai row"><Spinner /> Thinking…</div>}
