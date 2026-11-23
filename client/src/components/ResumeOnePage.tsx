@@ -11,6 +11,7 @@ import { AtsXray } from "./AtsXray";
 import { LinkedInFlags } from "./LinkedInCoach";
 import { PdfPreview, WordPreview } from "./WordPreview";
 import { OwnPdfColoured, OwnWordColoured } from "./ResumeReal";
+import { NameChoice } from "./NameChoice";
 
 function CurrentPdf({ version, doc, look }: { version: string; doc: ResumeDoc; look?: ResumeStyle }) {
   const canShow = typeof navigator !== "undefined" && (navigator as any).pdfViewerEnabled === true;
@@ -62,6 +63,7 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
         </div>
       </div>
 
+      <NameChoice />
       {!r.confirmedAt && (
         <div className="r1-confirm" data-testid="r1-confirm">
           <span className="small"><b>Does this look like your resume?</b> Remy builds every tailored version from it.</span>

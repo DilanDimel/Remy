@@ -26,7 +26,7 @@ import { LinkedInCoach } from "../components/LinkedInCoach";
 import { PdfPreview, WordPreview } from "../components/WordPreview";
 import { startTailor, useTailorSession } from "../lib/tailorChat";
 import { textConcern } from "@shared/junk";
-import { NAME_CHECK, nameUnsure } from "@shared/names";
+import { NameChoice } from "../components/NameChoice";
 import { OrgLogo } from "../components/OrgLogo";
 
 type Tab = "base" | "tailor" | "linkedin" | "library";
@@ -561,7 +561,7 @@ function AppEditor({ a, job, autoStart = false, onChangeOpening }: { a: Applicat
           })()}
           {sub === "changes" && <Changes a={a} />}
           {sub === "letter" && <Letter a={a} />}
-          {sub === "export" && <><Checks a={a} /><ExportView a={a} job={job} /></>}
+          {sub === "export" && <>{onChangeOpening && <NameChoice />}<Checks a={a} /><ExportView a={a} job={job} /></>}
           <QuickRate place="tailor" id={"tailor:" + a.id + ":" + a.generatedAt} label="Is this tailored draft useful?" />
           {sub !== "export" ? (
             <div className="card card-pad row-between approve-bar" data-testid="step-next-bar">
@@ -676,7 +676,7 @@ function ChangeCard({ a, c, n, onDone }: { a: Application; c: BulletChange; n: n
         <div className="rev"><div className="xs muted" style={{ marginBottom: 4, fontWeight: 700 }}>{c.status === "edited" ? "YOUR EDIT" : "PROPOSED"}</div>
           {editing ? (owner ? <FitTextarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} aria-label="Edit wording" data-testid="input-edit-change" autoFocus /> : <textarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} aria-label="Edit wording" data-testid="input-edit-change" />)
             // Owners (Nov 23 live test: two near-identical paragraphs): the words Remy changed are marked.
-            : owner && c.status !== "edited" ? <span data-testid="change-diff">{wordDiff(c.original, c.revised).map((x, i) => <Fragment key={i}>{i > 0 && " "}{x.added ? <mark className="diff-add">{x.w}</mark> : x.w}</Fragment>)}</span>
+            : owner && c.status !== "edited" ? <span data-testid="change-diff">{wordDiff(c.original, c.revised).reduce<{ w: string; added: boolean }[]>((runs, x) => { const last = runs[runs.length - 1]; if (last && last.added === x.added) last.w += " " + x.w; else runs.push({ ...x }); return runs; }, []).map((x, i) => <Fragment key={i}>{i > 0 && " "}{x.added ? <mark className="diff-add">{x.w}</mark> : x.w}</Fragment>)}</span>
             : c.status === "edited" ? c.edited : c.revised}
         </div>
       </div>
@@ -860,35 +860,11 @@ function DownloadButtons({ a, v }: { a: Application; v: number }) {
   );
 }
 
-/** Owners (Nov 23 live test: the letter ended "Sincerely," with no name and the file was "Student-Alcon-Resume"):
- *  while "Which name should Remy use?" is open, ask it right here, where the name is needed. */
-function NameChoice() {
-  const { ws, save } = useStore();
-  const w = ws!;
-  if (!nameUnsure(w)) return null;
-  const onResume = w.resume!.doc.contact.name.trim(), account = w.profile.name.trim();
-  const pick = async (name: string) => {
-    if (name !== account) await save("profile", { ...w.profile, name }); // a new name answers the question on the server
-    else await save("tasks", w.tasks.map((t) => (t.source === NAME_CHECK && !t.done ? { ...t, done: true } : t)));
-  };
-  return (
-    <div className="card card-pad row-between" data-testid="name-choice">
-      <span className="small"><b>Which name goes on your letter and files?</b> Your resume says “{onResume}”{account ? `, your account says “${account}”` : ""}. Until you pick, Remy leaves it off.</span>
-      <span className="row" style={{ gap: 6 }}>
-        <button className="btn btn-primary btn-sm" onClick={() => pick(onResume)} data-testid="button-name-resume">{onResume}</button>
-        {account && <button className="btn btn-secondary btn-sm" onClick={() => pick(account)} data-testid="button-name-account">{account}</button>}
-      </span>
-    </div>
-  );
-}
-
 function ExportView({ a, job }: { a: Application; job: Job }) {
   const { ws } = useStore();
   const { doc, changed } = useMemo(() => composeClient(ws!, a), [ws, a]);
-  const owner = useOwnerView();
   return (
     <div className="stack">
-      {owner && <NameChoice />}
       <div className="card card-pad stack-sm">
         <h3>Downloads</h3>
         {a.versions.length ? (
