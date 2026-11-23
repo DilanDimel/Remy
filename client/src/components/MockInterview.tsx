@@ -32,7 +32,8 @@ export function MockInterview() {
 
   const rounds: Round[] = !job ? [] : [
     { kind: "Warm-up", q: "Tell me about yourself.", hint: w.pitch?.text ? "Start from your pitch, then add why this role." : "Who you are, one real thing you did, and why this role.", line: w.pitch?.text, tip: "Keep it under a minute and end on why you're here.", goal: [45, 90] },
-    ...jobQuestions(job, w.resume?.doc).slice(0, -1).slice(0, 4).map((x) => ({ kind: "From the posting", q: x.q, hint: x.why, line: x.line, story: storyFor(x.q + " " + x.why, ready), tip: x.tip, goal: [45, 120] as [number, number] })),
+    // Two posting lines can lead to the same question (Nov 23 review), so each question is asked once.
+    ...jobQuestions(job, w.resume?.doc).slice(0, -1).filter((x, k, all) => all.findIndex((y) => y.q === x.q) === k).slice(0, 4).map((x) => ({ kind: "From the posting", q: x.q, hint: x.why, line: x.line, story: storyFor(x.q + " " + x.why, ready), tip: x.tip, goal: [45, 120] as [number, number] })),
     { kind: "Your turn", q: `What questions do you have for us?`, hint: "Ask two. For example:", line: `What does a strong first month look like in this role? · What do people in this role usually work on at ${job.company}?`, tip: "Never say \"No, I'm good.\" Asking shows you care about the job.", goal: [20, 60] },
   ];
   const r = rounds[step];

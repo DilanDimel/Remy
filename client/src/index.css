@@ -1677,6 +1677,19 @@ button.ms-text:hover { text-decoration: underline; text-underline-offset: 3px; }
   .redesign-2 .hero2-bubble h2 { padding-right: 70px; }
   .season-band { flex-wrap: wrap; }
 }
+/* Owner Home at laptop width with both side panels open: the page column, not the window, decides when the hero
+   stacks (at 1024 px the title broke one word per line and the text ran down in single letters). */
+.redesign-2 .page { container: page / inline-size; }
+@container page (max-width: 760px) {
+  .redesign-2 .hero2.has-track { grid-template-columns: 1fr; }
+  .redesign-2 .hero2.has-track .hero2-track { border-left: 0; border-top: 1px solid color-mix(in srgb, var(--fox-deep) 16%, transparent); }
+  .redesign-2 .hero2-bubble p { max-width: calc(100% - 90px); }
+}
+/* Owner phones: up to four tabs sit in one row (the 2x2 grid underlined just one cell; Progress, Nov 23 review). */
+@media (max-width: 640px) {
+  .redesign-2 .tabs:not(:has(> :nth-child(5))) { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: auto; }
+  .redesign-2 .tabs:not(:has(> :nth-child(5))) .tab { text-align: center; padding-left: 4px; padding-right: 4px; }
+}
 @keyframes soul-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes soul-pop { 0% { transform: scale(.6); } 70% { transform: scale(1.12); } 100% { transform: scale(1); } }
 @keyframes soul-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--fox) 45%, transparent); } 70% { box-shadow: 0 0 0 8px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }

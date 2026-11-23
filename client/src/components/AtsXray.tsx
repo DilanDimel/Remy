@@ -13,14 +13,16 @@ export function AtsXray({ doc, quality, upd }: { doc: ResumeDoc; quality?: Resum
   // "May 2024" vs "05/2024" vs "Summer 2024": recruiters notice mixed date styles. "Present" and bare years fit any style.
   const dateStyle = (d: string) => /\d{1,2}\/\d{2,4}/.test(d) ? "numeric" : /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4}/i.test(d) ? "month" : /\b(spring|summer|fall|autumn|winter)\b/i.test(d) ? "season" : "";
   const styles = new Set(doc.sections.flatMap((s) => s.entries.map((e) => dateStyle(e.dates))).filter(Boolean));
+  const honest = useOwnerView(); // redesign stage 3 (owners first): the ATS check says plainly what it is, with sources
+  // Owners list certifications, awards and courses like skills (no dates, #201), same as the review card beside this.
+  const dated = doc.sections.filter((s) => !(honest && /skill|interest|language|certif|licen[cs]e|award|honou?r|course/i.test(s.heading)));
   const checks: [string, boolean][] = [
     ["Name", !!doc.contact.name.trim()], ["Email", /@/.test(doc.contact.email)], ["Phone", /\d{3}/.test(doc.contact.phone)],
     ["Education section", doc.sections.some((s) => /educat/i.test(s.heading))], ["Experience section", doc.sections.some((s) => /experien|employ|work/i.test(s.heading))],
-    ["Dates on every entry", entries.length > 0 && doc.sections.every((s) => s.entries.every((e) => !!e.dates.trim()))], ["Skills", doc.skills.length > 0],
+    ["Dates on every entry", entries.length > 0 && dated.every((s) => s.entries.every((e) => !!e.dates.trim()))], ["Skills", doc.skills.length > 0],
     ["Same date format everywhere", styles.size <= 1],
   ];
   const { ws, save } = useStore();
-  const honest = useOwnerView(); // redesign stage 3 (owners first): the ATS check says plainly what it is, with sources
   const inbox = (ws?.tasks || []).filter((t) => t.source === "Check-in" && t.link?.startsWith("/resume") && !t.done);
   const missing = [...inbox.map((t) => t.why), ...(quality?.missingLines || [])].filter((l) => !placed.includes(l)).slice(0, 8);
   const pct = quality ? Math.round(quality.coverage * 100) : null;

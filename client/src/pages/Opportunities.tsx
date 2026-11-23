@@ -7,7 +7,6 @@ import { api, daysUntil, fmtDate, rid, useDraft, useOwnerView, useStore } from "
 import { ApplyLink } from "../components/ApplyLink";
 import { go } from "../lib/router";
 import { kindLabel, orgInitials, reloadJobs, sameOrg, useJobs } from "../lib/jobs";
-import { SeasonCard } from "../components/SeasonCard";
 import { shortTitle } from "@shared/org";
 import { screeningFor } from "@shared/screening";
 import { postingSkills, skillsIn } from "@shared/requirements";
@@ -188,7 +187,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
         </div>
       ));
         // Owners: the list beside a rail with their search counts and what closes soon; the season band closes the page.
-        return owner ? <><div className="op-cols"><div className="stack">{listBlock}</div><OppRail jobs={jobs || []} /></div><SeasonCard w={w} /></> : listBlock;
+        return owner ? <><div className="op-cols"><div className="stack">{listBlock}</div><OppRail jobs={jobs || []} /></div></> : listBlock; // season band lives on Home only (it showed on both, Nov 23 review)
       })()}
     </>
   );
@@ -223,7 +222,7 @@ function OppRail({ jobs }: { jobs: Job[] }) {
     <aside className="op-rail" data-testid="opp-rail">
       <div className="op-card">
         <div className="op-ch"><h3>Your search</h3><button className="op-link" onClick={() => go("/progress")} data-testid="button-rail-progress">Progress →</button></div>
-        <p className="small" data-testid="opp-search-line">{tiles.map(([l, n]) => `${n} ${l.toLowerCase()}`).join(" · ")}. The full board is on Progress.</p>
+        <p className="small" data-testid="opp-search-line">{tiles.map(([l, n], k) => <span key={l} style={{ whiteSpace: "nowrap" }}>{k ? " · " : ""}{n} {l.toLowerCase()}</span>)}. The full board is on Progress.</p>
       </div>
       <div className="op-card">
         <div className="op-ch"><h3>Closing soon</h3><button className="op-link" onClick={() => go("/calendar")} data-testid="button-rail-calendar">Calendar →</button></div>

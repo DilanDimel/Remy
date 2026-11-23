@@ -191,7 +191,7 @@ const markSeen = () => { try { localStorage.setItem(HELLO_KEY, dayKey()); } catc
  *  beside the office opens the matching list. First visit each day plays it; "Walk me through it" replays it. */
 function useGuide(d: D, onField: (tab: SideTab, open?: string) => void) {
   const p = d.w.profile, name = (p.preferredName || p.name || "").trim().split(/\s+/)[0];
-  const [on, setOn] = useState(() => !seenToday());
+  const [on, setOn] = useState(() => !seenToday() && typeof d.w.settings.tour !== "number"); // waits while the site tour runs, so two guides never talk at once
   const [step, setStep] = useState(0);
   const [walking, setWalking] = useState(false);
   // While he's in the office, his seat in the side panel sits empty.
