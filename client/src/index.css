@@ -1563,6 +1563,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .pr-todo { list-style: none; margin: 0; padding: 0; }
 .pr-todo li { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 0; border-top: 1px solid var(--line); font-size: var(--text-sm); font-weight: 600; }
 .pr-todo li:first-child { border-top: 0; }
+.pr-todo-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pr-todo i { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); }
 .pr-todo em { font-style: normal; font-size: var(--text-xs); color: var(--faint); font-weight: 700; }
 @media (max-width: 900px) { .pr-flow { grid-template-columns: repeat(5, 78%); overflow-x: auto; scroll-snap-type: x mandatory; } .pr-lane { scroll-snap-align: start; } .pr-cols { grid-template-columns: minmax(0, 1fr); } }
@@ -2844,8 +2845,10 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 @media (min-width: 900px) { .redesign-2 .ps-roomwrap > .ps-bubble:not(.chat) { position: absolute; left: 14px; right: 14px; bottom: 14px; margin: 0; } }
 /* Owners' Calendar (Nov 23 PM review): month beside "Coming up", one screen at 1440x800. */
 .cal-owner { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(260px, 1fr); gap: 16px; align-items: start; }
-.cal-owner > aside .cal-week { grid-template-columns: minmax(0, 1fr); max-height: 380px; overflow: auto; }
-.cal-owner > aside .conn-row { flex-wrap: wrap; }
+.cal-owner > aside .cal-week { grid-template-columns: minmax(0, 1fr); max-height: 300px; overflow: auto; }
+.cal-owner > aside .conn-row { flex-wrap: wrap; gap: 8px 12px; }
+.cal-owner > aside .conn-row .grow { flex: 1 1 140px; min-width: 0; }
+.cal-owner > aside .conn-row .grow > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 html.redesign-2 .cal-owner .cal-cell { min-height: clamp(56px, 7.5vh, 84px); }
 @media (max-width: 1100px) { .cal-owner { grid-template-columns: minmax(0, 1fr); } }
 /* Phones (Nov 23 PM review): "Refresh Remy's suggestions" beside the title squeezed "My Path" onto two lines and the
