@@ -6,7 +6,7 @@ import { useOwnerView } from "../lib/store";
 import { BETA_TERMS, BETA_TERMS_LEAD } from "@shared/beta";
 
 const CONTACT = "hello@remyai.org";
-const UPDATED = "November 21, 2026";
+const UPDATED = "November 23, 2026";
 
 const slug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const Section = ({ title, children }: { title: string; children: ReactNode }) => (
@@ -118,6 +118,7 @@ export function Policies() {
           <li><b>Your beta tester application</b>, if you apply with our Google Form: your name, school, the email you'll sign in with, major, class year, what you're looking for, where you're stuck, the tools you use, whether you'll give weekly feedback and how you heard about Remy. The team uses it to choose who joins the beta. Google Forms' own privacy policy applies to the form itself.</li>
           <li><b>Your ratings and feedback:</b> “More like this” / “Not for me” on openings, one-tap 👍 / 👎, anything you send with Send feedback, and your one-tap answers to Remy's questions after something happens (like how an interview went).</li>
           <li><b>Automatic problem reports:</b> when something breaks for you (a page error, or a request that fails or is very slow), your browser tells Remy which page and what failed, linked to your account so we can fix it. Remy also counts which pages are opened and when a button is clicked over and over (a sign it's broken), without your name. Remy never records your screen or what you type.</li>
+          <li><b>Your phone number</b>, only if you turn on texts for urgent deadlines in Account. You can turn them off or remove the number at any time.</li>
           <li><b>A sign-in cookie</b> that keeps you signed in. Remy uses your network address briefly to stop abuse (like too many requests at once) and doesn't store it.</li>
         </ul>
       </Section>
@@ -131,8 +132,9 @@ export function Policies() {
       </Section>
       <Section title="How your information is used">
         <p>Only to run Remy for you: building your profile, finding openings that fit, tailoring applications, drafting emails, and planning your next steps.</p>
-        <p>Some of this uses AI. When it does, Remy sends only the text that task needs (for example, your resume and a job posting) to an AI provider through OpenRouter: currently Google's Gemini models, and for the team's own test accounts Anthropic's Claude models. Those providers' own privacy policies apply. Remy checks what the AI writes against your own words before showing it to you.</p>
-        <p>Remy emails you 6-digit sign-in codes and, unless you turn them off in Account → Appearance & alerts, deadline reminders and a weekly digest, from remy@mail.remyai.org. These emails are sent through our email provider, Resend, and replies go to hello@remyai.org. If you're accepted as a beta tester, the team sends you a welcome email with how to sign in.</p>
+        <p>Some of this uses AI. When it does, Remy sends only the text that task needs (for example, your resume and a job posting) to an AI provider, either directly or through OpenRouter: currently Google's Gemini models, and for the team's own test accounts Anthropic's Claude models. Those providers' own privacy policies apply. Remy checks what the AI writes against your own words before showing it to you.</p>
+        <p>If you practice an interview answer out loud, your browser's own speech recognition turns your voice into text (in Chrome, Google handles this). Remy receives only the text, never a recording.</p>
+        <p>Remy emails you 6-digit sign-in codes and, unless you turn them off in Account → Appearance & alerts, deadline reminders and a weekly digest, from remy@mail.remyai.org. These emails are sent through our email provider, Resend (with a Gmail account as a backup only if Resend fails), and replies go to hello@remyai.org. If you turn on deadline texts, they're sent through our text provider, Twilio. If you're accepted as a beta tester, the team sends you a welcome email with how to sign in.</p>
         <p>The team's dashboard shows counts across students (for example, how many applications got an answer, or how many students opened a page), never what you wrote. We may keep combined statistics that can't identify anyone to improve Remy.</p>
       </Section>
       <Section title="Where it's stored">
@@ -141,6 +143,16 @@ export function Policies() {
       <Section title="Deleting your information">
         <p>Go to <b>Account → Account & data → Delete everything</b>. Your resume, files, profile, applications, calendar, contacts, chat, ratings, feedback and problem reports, verified school email, beta tester application, sign-in record and account are deleted immediately, the “Remy” calendar is deleted from your Google Calendar if you connected it, and you're signed out. Remy keeps nothing that identifies you. Combined statistics, if any, can't be traced back to you.</p>
         <p>You can also <b>download all your data</b> from the same page at any time: your account, workspace, uploaded files, feedback and problem reports, AI use, beta application and whether Google Calendar is connected. Left out on purpose: sign-in secrets (sign-in codes and the Google Calendar key) and the team's internal notes on beta applications. Guest (demo) accounts are deleted automatically after 30 days without use. Applications the team declines are deleted after their cohort closes. Copies in our hosting providers' routine backups expire on their own schedule.</p>
+      </Section>
+
+      <Section title="Keeping it safe">
+        <p>Remy only talks to your browser over encrypted connections (HTTPS), and only the Remy team and our hosting providers can reach the database. No system is perfectly secure. If a breach ever affects your information, we'll tell you as the law requires.</p>
+      </Section>
+      <Section title="Age">
+        <p>Remy is for college students and isn't meant for anyone under 16. If we learn that someone under 13 gave us information, we'll delete it.</p>
+      </Section>
+      <Section title="Questions and requests">
+        <p>Remy is run by RemyAI LLC in Fort Worth, Texas. To ask what we hold about you, fix something, or have it deleted, use the tools in Account or email <a href="mailto:hello@remyai.org">hello@remyai.org</a>. We answer within 30 days. If we change this policy, we'll update the date at the top, and we'll tell you in the app before a big change to how your information is used.</p>
       </Section>
 
       <h2 className="eyebrow" style={{ marginTop: 12 }}>Terms of use</h2>
@@ -155,7 +167,9 @@ export function Policies() {
           <li>Remy can be wrong. Check openings, deadlines and requirements with the employer before you apply. Remy can't promise any interview or job.</li>
           <li>Use contacts respectfully: one thoughtful email, no spam, and never share someone's information.</li>
           <li>Don't misuse Remy: no fake accounts, no scraping, no trying to get around its limits or see other students' data. We may remove accounts that do.</li>
+          <li>You can stop using Remy and delete your account at any time from Account → Account & data.</li>
           <li>We may change Remy and these terms as it grows. If we make a big change to how your information is used, we'll tell you in the app.</li>
+          <li>Remy is run by RemyAI LLC, a Texas company. Texas law governs these terms. Questions: <a href="mailto:hello@remyai.org">hello@remyai.org</a>.</li>
         </ul>
       </Section>
     </Page>
