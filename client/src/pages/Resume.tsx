@@ -3,7 +3,7 @@ import { QuickRate } from "../components/QuickRate";
 import { shortTitle } from "@shared/org";
 import { reviewResume } from "@shared/review";
 import { dropDates, skillGroupName } from "@shared/words";
-import { useRef, useEffect, useMemo, useState } from "react";
+import { Fragment, useRef, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowRight, Check, CheckCircle2, ChevronDown, ChevronUp, Download, FileText, Link2, Pencil, Plus, RotateCcw, ShieldAlert, ShieldCheck, Sparkles,
   Search, Star, Trash2, X,
@@ -14,7 +14,7 @@ import { ResumeOnePage } from "../components/ResumeOnePage";
 import { go, replaceRoute } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Empty, Modal, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
-import { resumeDiff } from "@shared/resumeDiff";
+import { resumeDiff, wordDiff } from "@shared/resumeDiff";
 import { ResumeBuilder } from "../components/ResumeBuilder";
 import { ResumeUpload } from "../components/Uploaders";
 import { AtsCard } from "../components/AtsCard";
@@ -26,6 +26,7 @@ import { LinkedInCoach } from "../components/LinkedInCoach";
 import { PdfPreview, WordPreview } from "../components/WordPreview";
 import { startTailor, useTailorSession } from "../lib/tailorChat";
 import { textConcern } from "@shared/junk";
+import { NAME_CHECK, nameUnsure } from "@shared/names";
 import { OrgLogo } from "../components/OrgLogo";
 
 type Tab = "base" | "tailor" | "linkedin" | "library";
@@ -475,7 +476,9 @@ function AppEditor({ a, job, autoStart = false, onChangeOpening }: { a: Applicat
   const [sub, setSub] = useState<Sub>("changes");
   const [busy, setBusy] = useState("");
   const [readLetter, setReadLetter] = useState(false);
-  const goStep = (k: Sub) => { setSub(k); if (k === "letter") setReadLetter(true); };
+  const ownerSteps = useOwnerView();
+  // Owners (Nov 23 live test): step 2 said "Done · Read" the moment it opened; it's read once they move on from it.
+  const goStep = (k: Sub) => { setSub(k); if (ownerSteps ? sub === "letter" && k !== "letter" : k === "letter") setReadLetter(true); };
   // A new draft starts at step 1 with a letter they haven't read yet (skeptic review).
   const firstDraft = useState(a.generatedAt)[0];
   useEffect(() => { if (a.generatedAt !== firstDraft) { setSub("changes"); setReadLetter(false); } }, [a.generatedAt]);
@@ -516,7 +519,7 @@ function AppEditor({ a, job, autoStart = false, onChangeOpening }: { a: Applicat
           <div className="stack-sm">
             {onChangeOpening ? <span className="op-kick">Tailoring for · {job.company}</span> : <span className="xs muted">{job.company} · <StatusChip label={job.label} /></span>}
             <h2 data-testid="text-app-title">{job.title}</h2>
-            <span className="xs muted">{job.deadlineText || "No deadline listed"}{(job.applyUrl || job.sourceUrl) && " · "}<ApplyLink j={job} className="src-link" testid="link-apply-tailor" style={{ color: "var(--plum)", fontWeight: 700 }} /></span>
+            <span className="xs muted">{onChangeOpening && /^not stated/i.test(job.deadlineText || "") ? "No closing date listed" : job.deadlineText || "No deadline listed"}{(job.applyUrl || job.sourceUrl) && " · "}<ApplyLink j={job} className="src-link" testid="link-apply-tailor" style={{ color: "var(--plum)", fontWeight: 700 }} /></span>
           </div>
           <span className="row" style={{ gap: 8 }}>
           {onChangeOpening && <button className="btn btn-ghost btn-sm" onClick={onChangeOpening} data-testid="button-change-opening">Change opening</button>}
@@ -541,10 +544,10 @@ function AppEditor({ a, job, autoStart = false, onChangeOpening }: { a: Applicat
             <div className={onChangeOpening ? "op-card op-accent stack-sm" : "card card-pad stack-sm"} style={onChangeOpening ? undefined : { borderColor: "var(--plum)" }} data-testid="card-strongest-match">
               {onChangeOpening ? <span className="op-kick">Your strongest match</span> : <span className="eyebrow row" style={{ color: "var(--plum)" }}><Star size={14} /> Strongest match</span>}
               <strong>{a.strongestMatch.text}</strong>
-              <div className="grid-2 small">
+              {!(onChangeOpening && a.changes.some((c) => c.original.trim() === a.strongestMatch!.evidence.trim())) && <div className="grid-2 small">
                 <div className="stack-sm"><span className="xs muted">Posting says</span><span className="quote">{a.strongestMatch.requirementQuote}</span></div>
                 <div className="stack-sm"><span className="xs muted">Your evidence</span><span className="quote" style={{ borderColor: "var(--sage)" }}>{a.strongestMatch.evidence}</span></div>
-              </div>
+              </div>}
             </div>
           )}
           {(() => {
@@ -602,8 +605,13 @@ function FlagList({ flags }: { flags: ClaimFlag[] }) {
   );
 }
 
+// A posting's intro ("Position Description: Alcon is seeking…") isn't a requirement the student can be missing.
+const INTRO = /^\s*(position|job|role) description\s*:|^\s*(about (us|the (role|company|team|position))|overview|who we are)\s*:|\b(is|are) (seeking|looking for|hiring)\b/i;
+
 function Changes({ a }: { a: Application }) {
   const [open, setOpen] = useState(""); // a decided change the student opened again
+  const owner = useOwnerView();
+  const gaps = owner ? a.gaps.filter((g) => !INTRO.test(g.requirementQuote)) : a.gaps;
   const n = a.skippedChanges || 0, one = n === 1;
   const skipped = n ? <p className="xs muted" data-testid="text-skipped-changes">{a.skippedBusy
     ? `Remy's AI was busy, so it left ${one ? "one line" : `${n} lines`} as you wrote ${one ? "it" : "them"}. Tailor again later to try rewording ${one ? "it" : "them"}.`
@@ -631,11 +639,11 @@ function Changes({ a }: { a: Application }) {
           )}
         </>;
       })()}
-      {a.gaps.length > 0 && (
-        <div className="card card-pad stack-sm">
+      {gaps.length > 0 && (
+        <div className="card card-pad stack-sm" data-testid="card-gaps">
           <h3>Honest gaps</h3>
           <p className="xs muted">Requirements your resume doesn't show yet. Remy won't paper over these.</p>
-          {a.gaps.map((g, i) => <div key={i} className="small"><span className="muted">“{g.requirementQuote}”</span><div>{g.note}</div></div>)}
+          {gaps.map((g, i) => <div key={i} className="small"><span className="muted">“{g.requirementQuote}”</span><div>{g.note}</div></div>)}
         </div>
       )}
     </div>
@@ -658,6 +666,7 @@ function ChangeCard({ a, c, n, onDone }: { a: Application; c: BulletChange; n: n
     }
     setBusy(false);
   };
+  const owner = useOwnerView();
   const statusChip = { pending: <span className="chip chip-plain">Your call</span>, accepted: <span className="chip chip-live">Remy's wording</span>, edited: <span className="chip chip-live">Your edit</span>, rejected: <span className="chip chip-plain">Kept yours</span> }[c.status];
   return (
     <div className="card card-pad stack" data-testid="card-change">
@@ -665,7 +674,10 @@ function ChangeCard({ a, c, n, onDone }: { a: Application; c: BulletChange; n: n
       <div className="compare">
         <div className="orig"><div className="xs muted" style={{ marginBottom: 4, fontWeight: 700 }}>YOUR ORIGINAL</div>{c.original}</div>
         <div className="rev"><div className="xs muted" style={{ marginBottom: 4, fontWeight: 700 }}>{c.status === "edited" ? "YOUR EDIT" : "PROPOSED"}</div>
-          {editing ? <textarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} aria-label="Edit wording" data-testid="input-edit-change" /> : c.status === "edited" ? c.edited : c.revised}
+          {editing ? (owner ? <FitTextarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} aria-label="Edit wording" data-testid="input-edit-change" autoFocus /> : <textarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} aria-label="Edit wording" data-testid="input-edit-change" />)
+            // Owners (Nov 23 live test: two near-identical paragraphs): the words Remy changed are marked.
+            : owner && c.status !== "edited" ? <span data-testid="change-diff">{wordDiff(c.original, c.revised).map((x, i) => <Fragment key={i}>{i > 0 && " "}{x.added ? <mark className="diff-add">{x.w}</mark> : x.w}</Fragment>)}</span>
+            : c.status === "edited" ? c.edited : c.revised}
         </div>
       </div>
       <div className="grid-2">
@@ -744,6 +756,8 @@ function Checks({ a }: { a: Application }) {
   const undecided = a.changes.filter((c) => c.status === "pending" && !c.flags.length).length;
   const toFix = undecided + letterIssues.length + flagged.length;
   const auditFindings = a.audit?.findings.length || 0;
+  // Owners (Nov 23 live test): the check names read like engineering notes; say what each does for the student.
+  const owner = useOwnerView();
   const audit = async () => {
     setBusy(true);
     const r = await run(() => api<{ workspace: Workspace }>("POST", `/api/applications/${a.id}/audit`));
@@ -760,26 +774,26 @@ function Checks({ a }: { a: Application }) {
         {flagged.map((c) => <div key={c.id} className="small"><strong>{c.entryLabel}</strong><FlagList flags={c.flags} /></div>)}
         {atsFails.length > 0 && <span className="small muted" style={{ marginTop: 6 }}>Worth fixing (doesn't stop you approving):</span>}
         {atsFails.map((c) => <div key={c.id} className="ats-row"><AlertTriangle size={16} className="fail" /><div><strong>{c.label}</strong><div className="xs muted">{c.detail}</div></div></div>)}
-        {auditFindings > 0 && <span className="small muted">The AI second opinion found {auditFindings} thing{auditFindings === 1 ? "" : "s"} to look at (AI second opinion, below).</span>}
+        {auditFindings > 0 && <span className="small muted">{owner ? "The second read" : "The AI second opinion"} found {auditFindings} thing{auditFindings === 1 ? "" : "s"} to look at ({owner ? "below" : "AI second opinion, below"}).</span>}
       </div>
       <div className="stack" data-testid="checks-all">
         <AtsCard appId={a.id} refreshKey={a.changes.map((c) => c.status + (c.edited || "")).join("|")} />
         <div className="grid-2" style={{ alignItems: "start" }}>
           <div className="stack">
             <div className="card card-pad stack-sm">
-              <h3>Unsupported-claim check</h3>
-              <p className="xs muted">Rule-based and independent of the AI: flags numbers, tools, titles, names, class standing and added outcomes that aren't in your resume or approved facts.</p>
+              <h3>{owner ? "Remy's honesty check" : "Unsupported-claim check"}</h3>
+              <p className="xs muted">{owner ? "Every number, tool, title and result is checked against your resume and the facts you approved. Anything Remy can't find stops the download until you fix it or say it's true." : "Rule-based and independent of the AI: flags numbers, tools, titles, names, class standing and added outcomes that aren't in your resume or approved facts."}</p>
               <div className="row"><span className={"chip " + (flagged.length ? "chip-bad" : "chip-live")}>{flagged.length} resume change(s) flagged</span><span className={"chip " + (letterIssues.length ? "chip-bad" : "chip-live")}>{letterIssues.length} letter issue(s)</span></div>
             </div>
             <div className="card card-pad stack-sm">
-              <div className="row-between"><h3>AI second opinion</h3><button className="btn btn-secondary btn-sm" onClick={audit} disabled={busy || !config?.ai.available} data-testid="button-audit">{busy && <Spinner />} Run audit</button></div>
-              <p className="xs muted">A separate AI pass compares the tailored documents with your evidence. Advisory — the rule-based check above is what blocks export.</p>
+              <div className="row-between"><h3>{owner ? "A second read" : "AI second opinion"}</h3><button className="btn btn-secondary btn-sm" onClick={audit} disabled={busy || !config?.ai.available} data-testid="button-audit">{busy && <Spinner />} {owner ? "Double-check" : "Run audit"}</button></div>
+              <p className="xs muted">{owner ? "Remy's AI reads your files once more against your resume. It's advice only; the honesty check above is what stops a download." : "A separate AI pass compares the tailored documents with your evidence. Advisory — the rule-based check above is what blocks export."}</p>
               {a.audit ? (a.audit.findings.length ? a.audit.findings.map((f, i) => <div key={i} className="flag"><ShieldAlert size={15} /><span><strong>“{f.claim}”</strong> — {f.why}</span></div>) : <span className="small pass row"><CheckCircle2 size={16} /> No unsupported claims found ({fmtDate(a.audit.at)}).</span>) : <span className="small muted">Not run yet.</span>}
             </div>
           </div>
           <div className="card card-pad stack-sm" data-testid="card-ats">
-            <h3>ATS format check</h3>
-            <p className="xs muted">For the resume as it will be exported, with the changes you accepted.</p>
+            <h3>{owner ? "Will application systems read it?" : "ATS format check"}</h3>
+            <p className="xs muted">{owner ? "Checked on the resume you'll download, with the changes you accepted." : "For the resume as it will be exported, with the changes you accepted."}</p>
             {ats.map((c) => (
               <div key={c.id} className="ats-row">
                 {c.pass ? <CheckCircle2 size={16} className="pass" /> : <AlertTriangle size={16} className="fail" />}
@@ -846,11 +860,35 @@ function DownloadButtons({ a, v }: { a: Application; v: number }) {
   );
 }
 
+/** Owners (Nov 23 live test: the letter ended "Sincerely," with no name and the file was "Student-Alcon-Resume"):
+ *  while "Which name should Remy use?" is open, ask it right here, where the name is needed. */
+function NameChoice() {
+  const { ws, save } = useStore();
+  const w = ws!;
+  if (!nameUnsure(w)) return null;
+  const onResume = w.resume!.doc.contact.name.trim(), account = w.profile.name.trim();
+  const pick = async (name: string) => {
+    if (name !== account) await save("profile", { ...w.profile, name }); // a new name answers the question on the server
+    else await save("tasks", w.tasks.map((t) => (t.source === NAME_CHECK && !t.done ? { ...t, done: true } : t)));
+  };
+  return (
+    <div className="card card-pad row-between" data-testid="name-choice">
+      <span className="small"><b>Which name goes on your letter and files?</b> Your resume says “{onResume}”{account ? `, your account says “${account}”` : ""}. Until you pick, Remy leaves it off.</span>
+      <span className="row" style={{ gap: 6 }}>
+        <button className="btn btn-primary btn-sm" onClick={() => pick(onResume)} data-testid="button-name-resume">{onResume}</button>
+        {account && <button className="btn btn-secondary btn-sm" onClick={() => pick(account)} data-testid="button-name-account">{account}</button>}
+      </span>
+    </div>
+  );
+}
+
 function ExportView({ a, job }: { a: Application; job: Job }) {
   const { ws } = useStore();
   const { doc, changed } = useMemo(() => composeClient(ws!, a), [ws, a]);
+  const owner = useOwnerView();
   return (
     <div className="stack">
+      {owner && <NameChoice />}
       <div className="card card-pad stack-sm">
         <h3>Downloads</h3>
         {a.versions.length ? (

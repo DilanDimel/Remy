@@ -26,7 +26,7 @@ import { briefMessages, briefPrompt, cleanBrief, skillOriginQuestion } from "./c
 import { betterLetter, keptFixes, letterFixPrompt, rewriteFixPrompt } from "./ai/tailorFix";
 import { BUZZ, assemblePitch, type PitchParts } from "./coach/pitch";
 import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./platform/db";
-import { inOwnerTrial, runAiAs, aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai/ai";
+import { inOwnerTrial, inOwnerView, runAiAs, aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai/ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./ai/safety";
 import * as admin from "./platform/admin";
 import * as beta from "./platform/beta";
@@ -344,7 +344,7 @@ function changeFlags(ws: Workspace, c: BulletChange): ClaimFlag[] {
   if (c.confirmedTrue) return [];
   const text = c.status === "edited" ? c.edited || "" : c.revised;
   const job = ws.applications.flatMap((a) => (a.changes.includes(c) ? [findJob(ws, a.jobId)] : []))[0];
-  return claimCheck(text, evidenceOf(ws), { original: c.original, entryContext: entryContextOf(ws, c.bulletId), postingText: job ? [job.summary, ...job.requirements.map((r) => r.quote)].join(" ") : "" });
+  return claimCheck(text, evidenceOf(ws), { original: c.original, entryContext: entryContextOf(ws, c.bulletId), postingText: job ? [job.summary, ...job.requirements.map((r) => r.quote)].join(" ") : "", owner: inOwnerView() });
 }
 function letterFlagsFor(ws: Workspace, app: Application, job: Job) {
   // A "Dear Hiring Manager," greeting isn't a claim; it's set aside before checking (a "manager" claim elsewhere still counts).
@@ -357,6 +357,7 @@ function letterFlagsFor(ws: Workspace, app: Application, job: Job) {
     allowedNames: [job.company, job.title, job.location, job.dates, ws.profile.school, ws.profile.name, ws.profile.preferredName, ws.profile.classYear, ...job.requirements.map((r) => r.keyword)].filter(Boolean),
     postingText: [job.summary, job.dates, job.deadlineText, ...job.requirements.map((r) => r.quote), ...job.eligibility].filter(Boolean).join("\n"),
     postingNumbersOk: true,
+    owner: inOwnerView(),
   }).filter((f) => {
     if (f.type !== "name") return true;
     const t = words(f.term).trim();
@@ -1241,16 +1242,17 @@ export async function registerRoutes(_server: Server, app: Express) {
     const appId = String(req.query.app || "");
     const a = appId ? ctx.ws.applications.find((x) => x.id === appId) : undefined;
     const job = a ? findJob(ctx.ws, a.jobId) : undefined;
+    const opts = { owner: !!ctx.me.owner && ctx.ws.settings.ownerView !== false };
     if (a && job) {
       const kws = postingSkills(job.requirements);
       res.json({
-        tailored: atsScore(composeResume(ctx.ws, a), kws, `in the ${job.company} posting`),
-        base: atsScore(ctx.ws.resume!.doc, kws, `in the ${job.company} posting`),
+        tailored: atsScore(composeResume(ctx.ws, a), kws, `in the ${job.company} posting`, opts),
+        base: atsScore(ctx.ws.resume!.doc, kws, `in the ${job.company} posting`, opts),
       });
       return;
     }
     // The base resume is scored on its own; keywords depend on the posting, so they're checked per opening.
-    res.json({ base: atsScore(ctx.ws.resume!.doc, null, "") });
+    res.json({ base: atsScore(ctx.ws.resume!.doc, null, "", opts) });
   }));
 
   // The base resume as Remy reads it (including the student's edits), as a clean PDF or Word file.

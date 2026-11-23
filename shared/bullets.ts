@@ -9,4 +9,7 @@ export const isAction = (b: string) => STRONG.test(b) || PAST_VERB.test(b) || PR
 export const WEAK = /^(responsible for|helped|assisted with|worked on|duties included|tasked with|was in charge of|handled|did)\b/i;
 export const QUANT = /\d|%|\$/;
 /** Coursework, honors and skills lines aren't achievement bullets. */
-export const isListSection = (h: string) => /educ|skill|course|honou?r|award|interest|certif|language|activit/i.test(h);
+/** `owner` (owners first, Nov 23): "Activities and Leadership" holds real roles (Treasurer, President), so its lines are
+ *  judged like experience; a plain "Activities" list still isn't. */
+export const isListSection = (h: string, owner = false) =>
+  /educ|skill|course|honou?r|award|interest|certif|language|activit/i.test(h) && !(owner && /leader|involvement|experience/i.test(h));
