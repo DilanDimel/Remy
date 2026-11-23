@@ -2724,13 +2724,123 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 .rm-walk-start { margin-left: auto; }
 
 /* Owners: Remy's one offer on the page you're on (components/RemyOffer.tsx). */
-.remy-offer { position: fixed; right: calc(var(--asst-w, 0px) + 20px); bottom: 20px; z-index: 30; width: min(360px, calc(100vw - 24px)); display: flex; gap: 10px; align-items: flex-start; padding: 12px 34px 12px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
+.remy-offer { position: relative; width: min(1384px, calc(100% - 56px)); margin: 16px auto -6px; display: flex; gap: 10px; align-items: center; padding: 10px 40px 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.remy-offer > .stack-sm { flex-direction: row !important; flex-wrap: wrap; align-items: center; gap: 8px 14px !important; flex: 1; }
+.remy-offer > .stack-sm > .small { flex: 1 1 320px; }
+.remy-offer.docked { width: auto; margin: 0 12px 10px; align-items: flex-start; background: var(--surface-2); }
+.remy-offer.docked > .stack-sm { flex-direction: column !important; align-items: flex-start; }
+.remy-offer.docked > .stack-sm > .small { flex: none; }
 .remy-offer-x { position: absolute; top: 8px; right: 8px; padding: 4px; border-radius: 8px; color: var(--muted-text); }
-@media (max-width: 1020px) { .remy-offer { right: 12px; bottom: 76px; } }
+@media (max-width: 640px) { .remy-offer { width: calc(100% - 32px); margin-top: 12px; } }
 /* Owners: the menu link of a page Remy just changed glows for a moment (lib/remyDoes.ts). */
 @keyframes remy-touch { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 30%, 70% { box-shadow: 0 0 0 3px var(--fox); } }
 .remy-touched { animation: remy-touch 1.2s ease-in-out 2; border-radius: 10px; }
 @media (prefers-reduced-motion: reduce) { .remy-touched { animation: none; outline: 2px solid var(--fox); } }
+
+/* Owners: Julio's interview coach in Remy (components/MockInterview.tsx). Fits 1440x800 and phones without scrolling. */
+.ivc { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.ivc-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.ivc-head h1 { font-size: clamp(2rem, 1.6rem + 1.2vw, 2.5rem); font-weight: 800; letter-spacing: -.03em; margin: 0; line-height: 1.05; }
+.ivc-say { font-size: var(--text-lg); color: var(--muted-text); margin: 6px 0 0; letter-spacing: -.01em; }
+.ivc-say b { color: var(--ink); }
+.ivc-quota { font-size: var(--text-xs); font-weight: 700; color: var(--muted-text); display: inline-flex; gap: 6px; align-items: center; padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); white-space: nowrap; }
+.ivc-quota i { width: 8px; height: 8px; border-radius: 50%; background: var(--fox); } .ivc-quota i.o { background: var(--line); }
+.ivc-card { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 18px 20px; min-width: 0; }
+.ivc-peach { background: var(--fox-soft); border-color: transparent; }
+.ivc-kick { font-size: var(--text-xs); font-weight: 800; color: var(--fox-deep); min-width: 0; }
+.ivc-h2 { font-size: var(--text-xl); font-weight: 800; letter-spacing: -.015em; margin: 2px 0 4px; line-height: 1.15; }
+.ivc-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 14px; }
+.ivc-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ivc-seat { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 16px; align-items: start; }
+.ivc-fox { display: grid; justify-items: center; gap: 2px; }
+.ivc-fox small { font-size: var(--text-xs); font-weight: 700; color: var(--fox-deep); text-align: center; line-height: 1.2; }
+.ivc-q { min-width: 0; display: grid; gap: 10px; }
+.ivc-plan { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 5px; counter-reset: p; }
+.ivc-plan li { counter-increment: p; display: grid; grid-template-columns: 22px 104px minmax(0, 1fr); gap: 8px; align-items: baseline; padding: 7px 12px; border-radius: 12px; background: var(--surface-2); font-size: var(--text-sm); }
+.ivc-plan li::before { content: counter(p); font-weight: 800; color: var(--fox-deep); }
+.ivc-plan small { font-size: var(--text-xs); font-weight: 700; color: var(--muted-text); }
+.ivc-plan em { display: block; font-style: normal; font-size: var(--text-xs); color: var(--blue); font-weight: 650; margin-top: 2px; }
+.ivc-label { font-size: var(--text-xs); font-weight: 800; color: var(--muted-text); margin: 0 0 6px; }
+.ivc-modes { display: grid; gap: 6px; }
+.ivc-mode { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; padding: 9px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: inherit; text-align: left; font-size: var(--text-sm); cursor: pointer; }
+.ivc-mode.on { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink) inset; }
+.ivc-mode i { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); margin-top: 2px; }
+.ivc-mode.on i { border: 5px solid var(--ink); }
+.ivc-mode b { display: block; } .ivc-mode span span { font-size: var(--text-xs); color: var(--muted-text); }
+.ivc-listen { display: grid; gap: 6px; }
+.ivc-sk { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; font-size: var(--text-sm); }
+.ivc-sk .w, .ivc-sb .w { grid-column: 1 / -1; height: 6px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.ivc-sk .w b, .ivc-sb .w b { display: block; height: 100%; background: var(--ink); border-radius: 99px; }
+.ivc-sk small, .ivc-sb small { font-size: var(--text-xs); font-weight: 700; color: var(--muted-text); }
+.ivc-prep { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+.ivc-prep > div { border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; background: var(--surface); display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: var(--text-sm); min-width: 0; }
+.ivc-prep > div.on { border-color: var(--ink); }
+.ivc-prep b { display: block; } .ivc-prep small { font-size: var(--text-xs); color: var(--muted-text); }
+.ivc-link { font-size: var(--text-xs); font-weight: 800; color: var(--fox-deep); white-space: nowrap; background: none; border: 0; padding: 6px 0; cursor: pointer; }
+.ivc-bar { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; margin-bottom: 10px; }
+.ivc-bar i { height: 6px; border-radius: 99px; background: var(--surface-2); } .ivc-bar i.d { background: var(--fox-deep); } .ivc-bar i.on { background: var(--fox); }
+.ivc-ask { font-size: clamp(1.2rem, 1rem + 1vw, 1.7rem); font-weight: 800; letter-spacing: -.02em; line-height: 1.22; margin: 0; }
+.ivc-material { border: 1px dashed var(--line); border-radius: 14px; padding: 8px 14px; font-size: var(--text-sm); overflow-x: auto; }
+.ivc-material table { border-collapse: collapse; width: 100%; font-size: var(--text-xs); margin-top: 4px; }
+.ivc-material td, .ivc-material th { padding: 3px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+.ivc-material th { color: var(--muted-text); }
+.ivc-ans { width: 100%; border: 1px solid var(--ink); border-radius: 14px; padding: 10px 14px; font: inherit; font-size: var(--text-base); line-height: 1.5; background: var(--surface); color: var(--ink); resize: vertical; min-height: 84px; }
+.ivc-live { display: inline-flex; align-items: center; gap: 8px; font-size: var(--text-xs); font-weight: 800; color: var(--sage); white-space: nowrap; }
+.ivc-wave { display: inline-flex; gap: 2px; align-items: center; height: 14px; }
+.ivc-wave i { width: 3px; height: 6px; border-radius: 2px; background: var(--sage); animation: ivc-wave .9s ease-in-out infinite; }
+.ivc-wave i:nth-child(2) { animation-delay: .15s; } .ivc-wave i:nth-child(3) { animation-delay: .3s; }
+@keyframes ivc-wave { 50% { height: 14px; } }
+@media (prefers-reduced-motion: reduce) { .ivc-wave i { animation: none; height: 10px; } }
+.ivc-hint { margin-left: auto; max-width: 46ch; }
+.ivc-quote { border-left: 3px solid var(--fox); padding: 4px 0 4px 12px; font-size: var(--text-sm); margin: 0; }
+.ivc-checks { display: grid; gap: 6px; }
+.ivc-check { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 8px 12px; border-radius: 12px; background: var(--surface-2); font-size: var(--text-sm); }
+.ivc-check.none { background: var(--surface); border: 1px dashed var(--line); }
+.ivc-check small { grid-column: 1 / -1; font-size: var(--text-xs); color: var(--muted-text); }
+.ivc-dots { display: inline-flex; gap: 3px; } .ivc-dots i { width: 18px; height: 6px; border-radius: 99px; background: var(--line); } .ivc-dots i.f { background: var(--fox-deep); }
+.ivc-lvl { font-size: var(--text-xs); font-weight: 800; color: var(--muted-text); white-space: nowrap; }
+.ivc-lvl.l3, .ivc-lvl.l4 { color: var(--sage); } .ivc-lvl.l1, .ivc-lvl.l2 { color: var(--amber); }
+.ivc-score { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 18px; }
+.ivc-sb { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; font-size: var(--text-sm); align-items: baseline; }
+.ivc-sb .w { height: 8px; } .ivc-sb .w b.hi { background: var(--sage); } .ivc-sb .w b.lo { background: var(--amber); }
+.ivc-big { font-size: 2.4rem; font-weight: 800; letter-spacing: -.04em; line-height: 1; }
+.ivc-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ivc-tile { border-radius: 14px; padding: 10px 12px; background: var(--surface-2); }
+.ivc-tile b { display: block; font-size: 1.35rem; font-weight: 800; letter-spacing: -.03em; } .ivc-tile span { font-size: var(--text-xs); color: var(--muted-text); font-weight: 650; }
+.ivc-again { margin-top: 10px; }
+.ivc-spark { display: flex; gap: 4px; align-items: flex-end; height: 44px; margin-top: 6px; }
+.ivc-spark i { flex: 1; border-radius: 4px 4px 0 0; background: var(--surface-2); } .ivc-spark i.n { background: var(--fox); }
+@media (max-width: 1000px) { .ivc-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-height: 760px) and (min-width: 1001px) { .ivc-hide-short { display: none; } }
+@media (max-width: 690px) {
+  .ivc { gap: 10px; }
+  .ivc-head h1 { font-size: 1.6rem; }
+  .ivc-say { font-size: var(--text-sm); margin-top: 2px; }
+  .ivc-quota { display: none; }
+  .ivc-card { padding: 12px 14px; border-radius: 16px; }
+  .ivc-seat { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .ivc-fox { display: none; }
+  .ivc-plan li { grid-template-columns: 18px minmax(0, 1fr); padding: 5px 10px; } .ivc-plan small { display: none; }
+  .ivc-ask { font-size: 1.15rem; }
+  .ivc-hide-phone, .ivc-hide-short, .ivc-prep > div:nth-child(n+2) { display: none; }
+  .ivc-hint { margin-left: 0; }
+  .ivc-ans { min-height: 72px; font-size: var(--text-sm); }
+  .ivc-score { grid-template-columns: minmax(0, 1fr); gap: 4px; } .ivc-sb { gap: 2px 8px; } .ivc-sb .w { height: 5px; }
+  .ivc-tile { padding: 8px 10px; } .ivc-tile b { font-size: 1.1rem; }
+  .ivc-big { font-size: 1.9rem; }
+  /* Phones fit each screen without scrolling (Dilan): the top bar already says "Interview". */
+  .ivc-head h1 { display: none; }
+  .ivc-say { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 0; }
+  .ivc-h2 { font-size: 1.1rem; }
+  .ivc-kick { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ivc-plan li > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ivc-plan em { display: none; }
+  .ivc-modes { grid-template-columns: 1fr 1fr; } .ivc-mode { padding: 8px 10px; } .ivc-mode span span { display: none; }
+  .ivc-ask { font-size: 1.05rem; }
+  .ivc-material { padding: 6px 10px; } .ivc-material td, .ivc-material th { padding: 2px 6px; }
+  .ivc-ans { min-height: 64px; }
+  .ivc-acts .ivc-hint { flex-basis: 100%; }
+  .ivc-again { margin-top: 0; }
+}
 /* Nov 23 PM review: during the walk-through Remy's words sat under the office, below the fold at 1440x800.
    On wide screens they sit over the bottom of the office instead (the ask box is hidden while he guides). */
 @media (min-width: 900px) { .redesign-2 .ps-roomwrap > .ps-bubble:not(.chat) { position: absolute; left: 14px; right: 14px; bottom: 14px; margin: 0; } }
@@ -2751,3 +2861,26 @@ html.redesign-2 .cal-owner .cal-cell { min-height: clamp(56px, 7.5vh, 84px); }
    Now an orange outline; green stays for "You qualify" only. */
 .home-lists .job-card.item.top { border-color: var(--fox); background: var(--surface); box-shadow: 0 0 0 1px var(--fox) inset; }
 .job-card.top .job-fit b { color: var(--fox-800); }
+
+/* Owners (Dilan, Nov 23): dropdowns and tick boxes look like Remy's own on every browser instead of each system's
+   default (blue boxes on Windows, grey pills on Mac). The opened list stays the device's own picker, which is the
+   easiest one to use on phones. */
+html.redesign-2 select:not(.lk-ask select):not(.adm-assign select) {
+  appearance: none; -webkit-appearance: none; cursor: pointer; color: var(--ink); background-color: var(--surface);
+  border: 1px solid var(--line); border-radius: 10px; padding: 9px 36px 9px 12px; font-size: var(--text-sm); font-weight: 500; line-height: 1.3;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted-text) 50%), linear-gradient(135deg, var(--muted-text) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 52%, calc(100% - 13px) 52%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  transition: border-color .15s ease;
+}
+html.redesign-2 select:not(.lk-ask select):not(.adm-assign select):hover { border-color: var(--muted-text); }
+html.redesign-2 select:not(.lk-ask select):not(.adm-assign select):disabled { opacity: .55; cursor: default; }
+html.redesign-2 input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none; flex: none; width: 18px; height: 18px; margin: 0; border: 1.5px solid var(--muted-text); border-radius: 5px;
+  background: var(--surface); display: inline-grid; place-content: center; cursor: pointer; vertical-align: -3px; transition: background-color .12s ease, border-color .12s ease;
+}
+html.redesign-2 input[type="checkbox"]::before { content: ""; width: 10px; height: 10px; background: var(--surface); clip-path: polygon(14% 52%, 0 66%, 38% 100%, 100% 22%, 86% 8%, 38% 72%); transform: scale(0); transition: transform .12s ease; }
+html.redesign-2 input[type="checkbox"]:checked { background: var(--ink); border-color: var(--ink); }
+html.redesign-2 input[type="checkbox"]:checked::before { transform: scale(1); }
+html.redesign-2 input[type="checkbox"]:focus-visible { outline: 2px solid var(--fox); outline-offset: 2px; }
+html.redesign-2 input[type="checkbox"]:disabled { opacity: .5; cursor: default; }
+html.redesign-2 label.row > input[type="checkbox"] { margin-top: 2px; }
