@@ -26,8 +26,9 @@ import { LinkedInCoach } from "../components/LinkedInCoach";
 import { PdfPreview, WordPreview } from "../components/WordPreview";
 import { startTailor, useTailorSession } from "../lib/tailorChat";
 import { textConcern } from "@shared/junk";
-import { NAME_CHECK, nameUnsure } from "@shared/names";
+import { NameChoice } from "../components/NameChoice";
 import { OrgLogo } from "../components/OrgLogo";
+import { paperStyle } from "../components/ResumeMarkup";
 
 type Tab = "base" | "tailor" | "linkedin" | "library";
 
@@ -561,7 +562,7 @@ function AppEditor({ a, job, autoStart = false, onChangeOpening }: { a: Applicat
           })()}
           {sub === "changes" && <Changes a={a} />}
           {sub === "letter" && <Letter a={a} />}
-          {sub === "export" && <><Checks a={a} /><ExportView a={a} job={job} /></>}
+          {sub === "export" && <>{onChangeOpening && <NameChoice />}<Checks a={a} /><ExportView a={a} job={job} /></>}
           <QuickRate place="tailor" id={"tailor:" + a.id + ":" + a.generatedAt} label="Is this tailored draft useful?" />
           {sub !== "export" ? (
             <div className="card card-pad row-between approve-bar" data-testid="step-next-bar">
@@ -676,7 +677,7 @@ function ChangeCard({ a, c, n, onDone }: { a: Application; c: BulletChange; n: n
         <div className="rev"><div className="xs muted" style={{ marginBottom: 4, fontWeight: 700 }}>{c.status === "edited" ? "YOUR EDIT" : "PROPOSED"}</div>
           {editing ? (owner ? <FitTextarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} aria-label="Edit wording" data-testid="input-edit-change" autoFocus /> : <textarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} aria-label="Edit wording" data-testid="input-edit-change" />)
             // Owners (Nov 23 live test: two near-identical paragraphs): the words Remy changed are marked.
-            : owner && c.status !== "edited" ? <span data-testid="change-diff">{wordDiff(c.original, c.revised).map((x, i) => <Fragment key={i}>{i > 0 && " "}{x.added ? <mark className="diff-add">{x.w}</mark> : x.w}</Fragment>)}</span>
+            : owner && c.status !== "edited" ? <span data-testid="change-diff">{wordDiff(c.original, c.revised).reduce<{ w: string; added: boolean }[]>((runs, x) => { const last = runs[runs.length - 1]; if (last && last.added === x.added) last.w += " " + x.w; else runs.push({ ...x }); return runs; }, []).map((x, i) => <Fragment key={i}>{i > 0 && " "}{x.added ? <mark className="diff-add">{x.w}</mark> : x.w}</Fragment>)}</span>
             : c.status === "edited" ? c.edited : c.revised}
         </div>
       </div>
@@ -807,9 +808,9 @@ function Checks({ a }: { a: Application }) {
   );
 }
 
-function ResumePaper({ doc, changed }: { doc: ResumeDoc; changed?: Set<string> }) {
+function ResumePaper({ doc, changed, style }: { doc: ResumeDoc; changed?: Set<string>; style?: Record<string, string> }) {
   return (
-    <div className="resume-paper" data-testid="resume-preview">
+    <div className="resume-paper" data-testid="resume-preview" style={style}>
       <div style={{ textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700 }}>{doc.contact.name}</div><div>{[doc.contact.location, doc.contact.email, doc.contact.phone, doc.contact.links].filter(Boolean).join(" | ")}</div></div>
       {doc.sections.map((s) => (
         <div key={s.id}>
@@ -860,35 +861,14 @@ function DownloadButtons({ a, v }: { a: Application; v: number }) {
   );
 }
 
-/** Owners (Nov 23 live test: the letter ended "Sincerely," with no name and the file was "Student-Alcon-Resume"):
- *  while "Which name should Remy use?" is open, ask it right here, where the name is needed. */
-function NameChoice() {
-  const { ws, save } = useStore();
-  const w = ws!;
-  if (!nameUnsure(w)) return null;
-  const onResume = w.resume!.doc.contact.name.trim(), account = w.profile.name.trim();
-  const pick = async (name: string) => {
-    if (name !== account) await save("profile", { ...w.profile, name }); // a new name answers the question on the server
-    else await save("tasks", w.tasks.map((t) => (t.source === NAME_CHECK && !t.done ? { ...t, done: true } : t)));
-  };
-  return (
-    <div className="card card-pad row-between" data-testid="name-choice">
-      <span className="small"><b>Which name goes on your letter and files?</b> Your resume says “{onResume}”{account ? `, your account says “${account}”` : ""}. Until you pick, Remy leaves it off.</span>
-      <span className="row" style={{ gap: 6 }}>
-        <button className="btn btn-primary btn-sm" onClick={() => pick(onResume)} data-testid="button-name-resume">{onResume}</button>
-        {account && <button className="btn btn-secondary btn-sm" onClick={() => pick(account)} data-testid="button-name-account">{account}</button>}
-      </span>
-    </div>
-  );
-}
-
 function ExportView({ a, job }: { a: Application; job: Job }) {
   const { ws } = useStore();
   const { doc, changed } = useMemo(() => composeClient(ws!, a), [ws, a]);
   const owner = useOwnerView();
+  const [page, setPage] = useState<"resume" | "letter">("resume");
+  const look = paperStyle(ws!.resume?.style);
   return (
     <div className="stack">
-      {owner && <NameChoice />}
       <div className="card card-pad stack-sm">
         <h3>Downloads</h3>
         {a.versions.length ? (
@@ -905,10 +885,25 @@ function ExportView({ a, job }: { a: Application; job: Job }) {
             ? `Remy rebuilds your resume in a clean, ATS-friendly layout using your ${ws!.resume.style.serif ? "serif" : "sans-serif"} font, size and margins, kept to ${ws!.resume.style.pages === 1 ? "one page" : `${ws!.resume.style.pages} pages`} like your original. Upload a Word file instead to keep your exact design.`
             : "Downloads use Remy's clean, ATS-friendly one-column layout."}</span>
       </div>
+      {owner ? (
+        // Owners: one real-size page at a time, in the student's own font, size and margins.
+        <div className="stack-sm">
+          <div className="row-between">
+            <div className="tabs" role="tablist" style={{ margin: 0 }}>
+              {(["resume", "letter"] as const).map((k) => <button key={k} role="tab" className="tab" aria-selected={page === k} onClick={() => setPage(k)} data-testid={`tab-preview-${k}`}>{k === "resume" ? "Resume" : "Cover letter"}</button>)}
+            </div>
+            {page === "resume" && <span className="xs muted page-real-key"><span className="changed" style={{ padding: "0 6px" }}>Highlighted</span> lines changed for {job.company}</span>}
+          </div>
+          <div className="page-real" data-testid={`preview-page-${page}`}>
+            {page === "resume" ? <ResumePaper doc={doc} changed={changed} style={look} /> : <div className="resume-paper" style={{ ...look, whiteSpace: "pre-wrap" }}>{a.letter}</div>}
+          </div>
+        </div>
+      ) : (
       <div className="grid-2" style={{ alignItems: "start" }}>
         <div className="stack-sm"><span className="eyebrow">Resume preview · highlighted lines changed for {job.company}</span><ResumePaper doc={doc} changed={changed} /></div>
         <div className="stack-sm"><span className="eyebrow">Cover letter preview</span><div className="resume-paper" style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{a.letter}</div></div>
       </div>
+      )}
     </div>
   );
 }
