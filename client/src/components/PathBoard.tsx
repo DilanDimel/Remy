@@ -2,14 +2,15 @@
 // stop a day, with Remy standing on today's stop. Streak, level, freezes and today's quests sit in one strip; three daily
 // quests and the week's big move sit beside the trail; "Your field" (roles, skills, certifications, forecast) opens below.
 // Every stop and number comes from data Remy already has (DailyPath.tsx buildStops, shared/daily.ts, shared/game.ts).
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { ArrowRight, Award, Briefcase, Check, Compass, DollarSign, Eye, Flag, Flame, Gift, Lock, Mountain, MountainSnow, Snowflake, Tent, TrendingDown, TrendingUp, Wrench, Zap } from "lucide-react";
 import { ROADS, roadFor, YEARS, yearNumber, NEED_LABEL } from "@shared/roads";
-import { levelOf, weekKey, weekMissions, doneThisWeek, counters, xpOf } from "@shared/game";
+import { rankOf, weekKey, weekMissions, doneThisWeek, counters, xpOf, nextOutfit, unlockedOutfits, WARDROBE } from "@shared/game";
 import { CARD_XP, dailyStreak, dayKey } from "@shared/daily";
 import { useStore } from "../lib/store";
 import { go } from "../lib/router";
-import { Remy, Spinner } from "./common";
+import { Modal, Remy, Spinner } from "./common";
+import { OUTFITS } from "./scholar";
 import { buildStops, KIND, money, shortTitle, stateOf, StopDetail, useFieldData, type Occ, type Stop } from "./DailyPath";
 
 const play = () => go("/path?play=1");
@@ -28,7 +29,7 @@ function usePathData() {
   const g = stateOf(w);
   const today = g.days?.[dayKey()] || [];
   const streak = dailyStreak(g);
-  const xp = xpOf(w, g), lv = levelOf(xp, g.bestLevel);
+  const xp = xpOf(w, g), lv = rankOf(xp, g.bestRank);
   const wk = weekKey(), missions = weekMissions(w, wk), done = doneThisWeek(w, g, wk, counters(w));
   // Daily quests (reset at 4 AM with the day): each counts something the student really did today.
   const now = dayKey();
@@ -38,7 +39,7 @@ function usePathData() {
     { key: "role", icon: Compass, title: "Decode one job", n: today.includes("role") ? 1 : 0, of: 1 },
     { key: "xp", icon: Zap, title: `Earn ${3 * CARD_XP} XP`, n: Math.min(3 * CARD_XP, today.length * CARD_XP), of: 3 * CARD_XP },
   ];
-  return { w, mine, setKey, road, stops, year, careers, future, today, streak, xp, lv, missions, done, quests };
+  return { w, g, mine, setKey, road, stops, year, careers, future, today, streak, xp, lv, missions, done, quests };
 }
 type D = ReturnType<typeof usePathData>;
 const roundDone = (d: D) => (["openings", "role", "forecast"] as const).every((c) => d.today.includes(c));
@@ -97,7 +98,8 @@ function Trail({ d }: { d: D }) {
           </button>); })}
       </div>
       {nowI >= 0 && <div className="pt-say-top">{say}</div>}
-      <div className="pt-map" style={{ height: h }}>
+      {!ys.length && <p className="pt-empty" data-testid="path-empty">No stops in this chapter yet. Pick your road above, or tell Remy your major and class year so he can lay out your trail.</p>}
+      {ys.length > 0 && <div className="pt-map" style={{ height: h }}>
         <svg className="pt-road" viewBox={`0 0 100 ${h}`} preserveAspectRatio="none" aria-hidden="true">
           {pts.slice(1).map((p, i) => <path key={i} d={seg(pts[i], p)} className={ys[i].status === "done" && ys[i + 1].status === "done" ? "on" : ""} vectorEffect="non-scaling-stroke" />)}
         </svg>
@@ -121,7 +123,7 @@ function Trail({ d }: { d: D }) {
             </Fragment>
           );
         })}
-      </div>
+      </div>}
       {picked && <div className="pm-b-detail"><button className="pm-x" onClick={() => setSel("")} aria-label="Close this stop">Close</button><StopDetail s={picked} future={d.future} onPlay={play} /></div>}
       <p className="pm-src">Usual timelines, mostly Texas rules. Each stop links to where it came from; check it and your advisor before you plan around a step.</p>
     </section>
@@ -173,6 +175,62 @@ function BigMove({ d }: { d: D }) {
       </> : <p className="pt-move-why"><b>All {d.missions.length} done this week.</b> Next week's move comes Monday.</p>}
       {d.done.length > 0 && m && <p className="pm-faint pt-move-left">{d.done.length} of {d.missions.length} done this week</p>}
     </section>
+  );
+}
+
+/* ------------------------------------------------------------------ wardrobe: levels unlock Remy's outfits */
+
+function Wardrobe({ d }: { d: D }) {
+  const { save } = useStore();
+  const [open, setOpen] = useState(false);
+  const owned = unlockedOutfits(d.lv.n, d.w.profile.classYear), wearing = d.g.outfit && owned.includes(d.g.outfit) ? d.g.outfit : "suit";
+  const next = nextOutfit(d.lv.n), toGo = next ? Math.max(0, rankXp(next[1]) - d.xp) : 0;
+  const wear = (o: string) => save("game", { ...d.g, outfit: o }).catch(() => {});
+  const all: [string, string][] = [...WARDROBE.map(([o, l]) => [o, `Level ${l}`] as [string, string]), ["gown", "At graduation"]];
+  return (
+    <section className="pt-card pt-ward" aria-label="Remy's wardrobe" data-testid="path-wardrobe">
+      <button className="pt-ward-head" onClick={() => setOpen(!open)} aria-expanded={open} data-testid="button-wardrobe">
+        <span className="pt-ward-fox"><Remy size={52} outfit={next ? next[0] : wearing} /></span>
+        <span>{next ? <><b>Level {next[1]} unlocks {OUTFITS[next[0]].name}</b><small>{toGo} XP to go. Remy wears what you earn.</small></>
+          : <><b>Every outfit unlocked</b><small>Pick what Remy wears.</small></>}</span>
+        <ArrowRight size={16} className={open ? "turn" : ""} aria-hidden="true" />
+      </button>
+      {open && <div className="pt-ward-grid" role="radiogroup" aria-label="What Remy wears">
+        {all.map(([o, when]) => { const has = owned.includes(o); return (
+          <button key={o} role="radio" aria-checked={wearing === o} disabled={!has} className={wearing === o ? "on" : ""} onClick={() => wear(o)} data-testid={`button-outfit-${o}`}>
+            <span className="pt-ward-fox"><Remy size={44} outfit={o} /></span><small>{has ? OUTFITS[o].name : when}</small>{!has && <Lock size={12} className="pt-ward-lock" aria-hidden="true" />}
+          </button>); })}
+      </div>}
+    </section>
+  );
+}
+const rankXp = (n: number) => rankOf(0, n).floor;
+
+/** The level-up moment: a new level (and maybe an outfit) the moment it happens, never for levels earned before this existed. */
+function LevelUp({ d }: { d: D }) {
+  const { save } = useStore();
+  const [up, setUp] = useState<{ n: number; fresh: string } | null>(null);
+  const best = d.g.bestRank;
+  useEffect(() => {
+    if (best && d.lv.n <= best) return;
+    save("game", { ...d.g, bestRank: d.lv.n }).catch(() => {});
+    // the first visit only records where they are; after that, say it and offer any outfit this climb unlocked
+    if (best) setUp({ n: d.lv.n, fresh: WARDROBE.find(([, l]) => l > best && l <= d.lv.n)?.[0] || "" });
+  }, [d.lv.n, best]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!up) return null;
+  const { n: shown, fresh } = up, after = nextOutfit(shown);
+  const close = () => setUp(null);
+  return (
+    <Modal title={`Level ${shown}: ${rankOf(0, shown).name}`} onClose={close}>
+      <div className="pt-lvlup" data-testid="path-level-up">
+        <Remy size={120} mood="happy" outfit={fresh || undefined} />
+        <p>{fresh ? <>You unlocked <b>{OUTFITS[fresh].name}</b>. Want Remy to put it on?</> : <>Nice climbing. {after ? `Level ${after[1]} unlocks ${OUTFITS[after[0]].name}.` : ""}</>}</p>
+        <div className="row">
+          {fresh && <button className="btn btn-primary" onClick={() => { save("game", { ...d.g, bestRank: shown, outfit: fresh }).catch(() => {}); close(); }} data-testid="button-wear-outfit">Put it on</button>}
+          <button className="btn btn-ghost" onClick={close} data-testid="button-level-up-close">{fresh ? "Later" : "Keep going"}</button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -271,12 +329,14 @@ export function PathBoard() {
         <div className="pt-rail">
           <Quests d={d} />
           <BigMove d={d} />
+          <Wardrobe d={d} />
           <button className="pt-card pt-fieldbtn" onClick={() => setField(!field)} aria-expanded={field} data-testid="button-your-field">
             <TrendingUp size={20} aria-hidden="true" /><span><b>Your field</b><small>Roles, pay, skills and certifications</small></span><ArrowRight size={16} className={field ? "turn" : ""} />
           </button>
         </div>
       </div>
       {field && <FieldView d={d} />}
+      <LevelUp d={d} />
     </div>
   );
 }

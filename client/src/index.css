@@ -2222,6 +2222,22 @@ button.dp-unit-head { width: 100%; border: 0; font: inherit; text-align: left; c
 .pt-fieldbtn { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
 .pt-fieldbtn > svg:first-child { color: var(--sage); }
 .pt-fieldbtn span { display: grid; } .pt-fieldbtn b { font-size: var(--text-sm); font-weight: 800; } .pt-fieldbtn small { font-size: var(--text-xs); color: var(--muted-text); }
+.pt-empty { margin: 0; padding: 28px 20px; text-align: center; color: var(--muted-text); font-size: var(--text-sm); }
+.pt-ward { padding: 10px 12px; }
+.pt-ward-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; background: none; border: 0; padding: 0; font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
+.pt-ward-head span:nth-child(2) { display: grid; } .pt-ward-head b { font-size: var(--text-sm); font-weight: 800; } .pt-ward-head small { font-size: var(--text-xs); color: var(--muted-text); }
+.pt-ward-head .turn { transform: rotate(90deg); }
+.pt-ward-fox { width: 56px; height: 56px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; display: grid; place-items: end center; flex-shrink: 0; }
+.pt-ward-fox .fox { margin-bottom: -6px; }
+.pt-ward-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; padding-top: 4px; }
+.pt-ward-grid button { position: relative; display: grid; justify-items: center; gap: 4px; padding: 6px 4px; border-radius: 14px; border: 1.5px solid transparent; background: none; font: inherit; color: var(--ink); cursor: pointer; }
+.pt-ward-grid button.on { border-color: var(--fox); background: var(--fox-soft); }
+.pt-ward-grid button:disabled { cursor: default; color: var(--muted-text); }
+.pt-ward-grid button:disabled .pt-ward-fox { filter: grayscale(1); opacity: .5; }
+.pt-ward-grid small { font-size: 11px; line-height: 1.2; text-align: center; }
+.pt-ward-lock { position: absolute; top: 8px; right: 10px; }
+.pt-lvlup { display: grid; justify-items: center; gap: 12px; text-align: center; padding: 4px 0 2px; }
+.pt-lvlup p { margin: 0; font-size: var(--text-base); color: var(--ink); max-width: 34ch; }
 .pt-fieldbtn .turn { transform: rotate(90deg); }
 .pt-fieldbtn:hover { border-color: var(--faint); }
 @media (max-width: 960px) {

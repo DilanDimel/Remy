@@ -1,7 +1,7 @@
 // Career quest: missions finish from real actions, the weekly streak forgives one missed week, XP and levels add up.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { counters, doneThisWeek, levelOf, streak, weekKey, weekMissions, xpOf } from "../shared/game";
+import { counters, doneThisWeek, levelOf, nextOutfit, rankOf, streak, unlockedOutfits, weekKey, weekMissions, xpOf } from "../shared/game";
 import { emptyWorkspace } from "./platform/db";
 
 test("career quest: a mission is done when its count goes up by the target this week", () => {
@@ -118,4 +118,15 @@ test("Log a win: the student's own sentence becomes the line when the AI's adds 
   assert.equal(ownLine("it was a good week at work"), "", "not a resume line: no line offered");
   const d = cleanCheckin("Club", "Ran the NABA tabling shift at the spring org fair and signed up 15 new members", { fact: "x", bullet: "Spearheaded NABA recruitment, driving 15 sign-ups" });
   assert.equal(d.bullet, "Ran the NABA tabling shift at the spring org fair and signed up 15 new members");
+});
+
+test("owner trail: ranks never drop and levels unlock Remy's outfits", () => {
+  assert.equal(rankOf(0).n, 1);
+  assert.equal(rankOf(700).name, "Analyst");
+  assert.equal(rankOf(100, 9).n, 9, "the best rank reached is kept");
+  assert.deepEqual(unlockedOutfits(1), ["suit"]);
+  assert.deepEqual(unlockedOutfits(5), ["suit", "tweed", "navy"]);
+  assert.ok(unlockedOutfits(1, "Graduated").includes("gown"));
+  assert.deepEqual(nextOutfit(4), ["navy", 5]);
+  assert.equal(nextOutfit(15), undefined);
 });
