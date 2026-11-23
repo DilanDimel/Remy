@@ -422,6 +422,16 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   const [msg, setMsg] = useDraft("chat");
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{ text: string; reply: string } | null>(null); // owners: sent, not saved yet
+  // The streamed reply is typed out at a steady pace: the model often sends it in one or two big pieces after a pause.
+  const [shown, setShown] = useState(0);
+  const shownRef = useRef(0), targetRef = useRef(0);
+  targetRef.current = pending?.reply.length || 0;
+  useEffect(() => {
+    if (!pending?.reply) { shownRef.current = 0; setShown(0); return; }
+    if (shownRef.current >= pending.reply.length) return;
+    const t = requestAnimationFrame(() => { shownRef.current = Math.min(pending.reply.length, shownRef.current + 3); setShown(shownRef.current); });
+    return () => cancelAnimationFrame(t);
+  }, [pending?.reply, shown]);
   const [hiddenDrafts, setHiddenDrafts] = useState<string[]>([]); // chat resume drafts dismissed with "Not now"
   const end = useRef<HTMLDivElement>(null);
   const [greeting, setGreeting] = useState(true);
@@ -459,6 +469,8 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
     const w = await run(() => stage2
       ? api<Workspace>("POST", "/api/ai/chat?stream=1", body, (d) => { if (typeof d.reply === "string") setPending({ text, reply: d.reply }); })
       : api<Workspace>("POST", "/api/ai/chat", body));
+    // Let the typing finish before the saved message replaces it (at most a few seconds).
+    for (let i = 0; w && stage2 && i < 150 && shownRef.current < targetRef.current; i++) await new Promise((r) => setTimeout(r, 30));
     if (w) setWs(w);
     else if (stage2) setMsg(text); // it failed: give them their words back to try again
     setPending(null);
@@ -586,7 +598,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
           </div>
         ))}
         {pending && <div className="stack-sm" style={{ alignItems: "flex-end" }}><div className="bubble bubble-user" data-testid="chat-pending">{pending.text}</div></div>}
-        {pending?.reply ? <div className="bubble bubble-ai" data-testid="chat-streaming"><Rich text={pending.reply} /></div>
+        {pending?.reply ? <div className="bubble bubble-ai" data-testid="chat-streaming"><Rich text={pending.reply.slice(0, shown)} /></div>
           : busy && <div className="bubble bubble-ai row"><Spinner /> Thinking…</div>}
         {tailor && (
           // Owners: the tailoring talk is part of the chat, not a box inside it (Dilan, Nov 23).
