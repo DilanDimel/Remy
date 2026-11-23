@@ -29,7 +29,7 @@ import { checkFeedback, checkPlan, feedbackPrompt, planPrompt, rulesPlan } from 
 import { AI_CALLS_PER_INTERVIEW, pickProfile, weeklyLeft, type Interview, type IvMode } from "@shared/interview";
 import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./platform/db";
 import { hospitalFirst } from "@shared/employer";
-import { inOwnerTrial, inOwnerView, runAiAs, aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai/ai";
+import { inOwnerTrial, inOwnerView, runAiAs, aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, lastUsage, markAiAuthFailure, model } from "./ai/ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./ai/safety";
 import * as admin from "./platform/admin";
 import * as beta from "./platform/beta";
@@ -2067,7 +2067,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     await ctx.save();
     // Timing only (never the text): shows whether the model's answer really arrived in pieces.
     if (streaming) console.log(`chat stream: ${pieces} model pieces, ${lines} lines sent, first piece ${firstAt ? firstAt - askedAt : -1}ms, done ${Date.now() - askedAt}ms`);
-    if (res.headersSent) { streamLine(res, { timing: { firstWord: firstAt ? firstAt - askedAt : -1, done: Date.now() - askedAt } }); res.end(JSON.stringify({ ws: ctx.ws }) + "\n"); }
+    if (res.headersSent) { streamLine(res, { timing: { firstWord: firstAt ? firstAt - askedAt : -1, done: Date.now() - askedAt, model: lastUsedModel(), ...lastUsage() } }); res.end(JSON.stringify({ ws: ctx.ws }) + "\n"); }
     else res.json(ctx.ws);
   }));
 

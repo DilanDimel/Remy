@@ -54,7 +54,9 @@ function chainClient(p: string) {
 // default chain is OR_AI_CHAIN_OWNERS (e.g. Claude Haiku 5.5, then Gemini) and OpenRouter calls carry the privacy rules.
 // Each web request runs in its own scope (routes.ts route()), which also holds the model and cost of that request's
 // last AI call, so a student's records never name a model an owner's request used at the same moment (skeptic, Nov 21).
-const aiScope = new AsyncLocalStorage<{ owner: boolean; model?: string; spend?: number }>();
+const aiScope = new AsyncLocalStorage<{ owner: boolean; model?: string; spend?: number; usage?: any }>();
+/** Token counts of this request's last AI call (prompt, reasoning), for the owners' chat timing line. */
+export const lastUsage = () => { const u = aiScope.getStore()?.usage; return u ? { tokensIn: u.prompt_tokens, cached: u.prompt_tokens_details?.cached_tokens, reasoning: u.completion_tokens_details?.reasoning_tokens } : undefined; };
 export const runAiAs = <T>(owner: boolean, fn: () => Promise<T>) => aiScope.run({ owner }, fn);
 export const inOwnerTrial = () => ownerTrial();
 /** This request is an owner in owner view (owners-first checks outside the AI calls). */
@@ -217,7 +219,7 @@ export async function aiText(system: string, user: string, maxTokens = 1200, cha
           lastVia = PROVIDERS[p]?.label || "";
           lastSpend = typeof r.usage?.cost === "number" ? r.usage.cost : undefined;
           const scope = aiScope.getStore();
-          if (scope) { scope.model = m; scope.spend = lastSpend; }
+          if (scope) { scope.model = m; scope.spend = lastSpend; scope.usage = r.usage; }
           const ann = (r.choices?.[0]?.message?.annotations || []).filter((a: any) => a?.type === "url_citation").map((a: any) => ({ url: String(a.url_citation?.url || ""), title: String(a.url_citation?.title || "") }));
           lastSources = ann.length ? ann : (Array.isArray(r.citations) ? r.citations : []).map((u: any) => ({ url: String(u), title: "" }));
           return out;

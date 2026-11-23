@@ -129,7 +129,7 @@ function Memory() {
           ))}
         </div>
       )}
-      <div className="card card-pad stack-sm">
+      <div className="card card-pad stack-sm mem-card">
         <div className="row-between"><h3>Approved facts · {approved.length}</h3><button className="btn btn-secondary btn-sm" onClick={() => setEdit({ id: rid("f"), text: "", category: "other", source: "Added by you", status: "approved", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() })} data-testid="button-add-memory">Add a fact</button></div>
         {approved.length ? approved.map((m) => (
           <div key={m.id} className="item" data-testid="row-memory">
@@ -156,7 +156,7 @@ function Settings() {
   const s = ws!.settings;
   const toggle = (k: keyof typeof s.notify) => save("settings", { notify: { ...s.notify, [k]: !s.notify[k] } });
   return (
-    <div className="grid-2" style={{ alignItems: "start" }}>
+    <div className="grid-2 acc-settings" style={{ alignItems: "start" }}>
       <div className="card card-pad stack">
         <h3>Theme</h3>
         <ThemeChoice />
