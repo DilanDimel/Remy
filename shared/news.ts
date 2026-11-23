@@ -3,6 +3,7 @@
 export type NewsItem = { id: string; date: string; kind: "New" | "Improved" | "Fixed" | "Changed"; title: string; body: string; owners?: boolean; to?: string };
 
 export const NEWS: NewsItem[] = [
+  { id: "2026-11-23-94", date: "2026-11-23", kind: "Changed", title: "Clearer beta note", body: "The \u201cBefore you start\u201d screen and the terms on the About page now simply say Remy is in beta and still improving. The terms themselves haven\u2019t changed, so you won\u2019t be asked to agree again.", to: "/about" },
   { id: "2026-11-23-91", date: "2026-11-23", kind: "Improved", title: "Clear chat is instant", body: "Tapping Clear empties Remy's chat right away instead of after a pause. If it doesn't save, your messages come back.", owners: true },
   { id: "2026-11-23-86", date: "2026-11-23", kind: "Improved", title: "Emails that look like Remy", body: "Remy\u2019s emails now look like the rest of Remy: the fox up top, warm paper colours, your name, one clear orange button and a big, easy-to-read sign-in code. That covers sign-in and school-email codes, new-opening emails, deadline reminders and the weekly digest, and they look right in dark mode on Gmail, Outlook and iPhone Mail.", owners: true },
   { id: "2026-11-23-88", date: "2026-11-23", kind: "Improved", title: "A cleaner About page", body: "About and Privacy now use the full page with a contents list beside the text, and the team row no longer squeezes names or splits email addresses.", to: "/about" },
