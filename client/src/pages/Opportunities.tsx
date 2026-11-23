@@ -76,7 +76,10 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
     .filter((j) => !q || `${j.title} ${j.company} ${j.location}`.toLowerCase().includes(q.toLowerCase()))
     .filter((j) => !role || isRoleOpening(role, j));
   // Postings that definitely rule the student out are hidden; elsewhere-only ones too, if asked.
-  const ineligible = base.filter((j) => fits[j.id]?.excluded);
+  // Owners (Nov 23 PM review): "All 21", 7 cards, "Hiding 10", "14 more outside DFW" didn't add up. With "Only where I
+  // want to work" on, the tab counts and the hidden line count only your places, so cards + hidden = the tab count.
+  const inArea = (j: { id: string }) => !myRegions || fits[j.id]?.regionMatch !== false || !!fits[j.id]?.relocate;
+  const ineligible = base.filter((j) => fits[j.id]?.excluded && (!owner || inArea(j)));
   // Outside the student's places with no reason from their relocation answer: behind the "N more" link.
   const elsewhere = base.filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch === false && !fits[j.id]?.relocate);
   const list = base
@@ -87,7 +90,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
     .sort(compare(pinned));
   const visible = (jobs || []).filter((j) => !w.hiddenJobIds.includes(j.id) && !fits[j.id]?.excluded);
   // The tab counts follow "Show anyway" / "Show ones I'm not interested in", like the list under them (Nov 23).
-  const counted = (jobs || []).filter((j) => (showHidden || !w.hiddenJobIds.includes(j.id)) && (showIneligible || !fits[j.id]?.excluded));
+  const counted = (jobs || []).filter((j) => (showHidden || !w.hiddenJobIds.includes(j.id)) && (showIneligible || !fits[j.id]?.excluded) && inArea(j));
   const rest = list; // Dilan Nov 22: no "Remy's pick" card on owner Opportunities, it was doing too much
   return (
     <>
@@ -331,7 +334,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit
         {j.deadline && <span className={"chip " + (d !== null && d < 0 ? "chip-bad" : d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d < 0 ? "Deadline passed" : `Due ${fmtDate(j.deadline)}${d === 0 ? " · today" : d !== null ? ` · ${d}d` : ""}`}</span>}
       </div>
       {fit && <p className="small job-why"><strong>Why it fits you: </strong>{fit.why}</p>}
-      {(() => { const r = reasonLine(ws!, j, fit); return r.length ? <p className="xs muted" data-testid="job-reasons">{r.join(" · ")}</p> : null; })()}
+      {(() => { const r = reasonLine(ws!, j, fit, keepPass); return r.length ? <p className="xs muted" data-testid="job-reasons">{r.join(" · ")}</p> : null; })()}
       {fit?.regionMatch === false && <p className="xs muted" data-testid="job-outside">Outside the places you chose{fit.relocate ? `, shown because ${fit.relocate}` : ""}.</p>}
       {(() => { const known = w.contacts.filter((c) => sameOrg(c.org, j.company)); return known.length > 0 && <button className="xs job-contact" style={{ textAlign: "left", color: "var(--fox)", fontWeight: 700 }} onClick={() => go("/community")} data-testid="job-known-contact">You know {known.map((c) => c.name).join(", ")} here: ask about the team before you apply →</button>; })()}
       {/* These wait under Details on every screen, so a closed card is short (audit section 6). */}

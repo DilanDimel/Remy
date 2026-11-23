@@ -2829,3 +2829,6 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
   .ivc-acts .ivc-hint { flex-basis: 100%; }
   .ivc-again { margin-top: 0; }
 }
+/* Nov 23 PM review: during the walk-through Remy's words sat under the office, below the fold at 1440x800.
+   On wide screens they sit over the bottom of the office instead (the ask box is hidden while he guides). */
+@media (min-width: 900px) { .redesign-2 .ps-roomwrap > .ps-bubble:not(.chat) { position: absolute; left: 14px; right: 14px; bottom: 14px; margin: 0; } }

@@ -333,7 +333,7 @@ export function relocateReason(ws: Workspace, title: string, company: string): s
   return hit.length ? "the title is in your field" : "";
 }
 
-export const FIT_RULES_VERSION = 19; // 19: "New Grad" titles are for graduates; "externship" alone isn't nursing. 18: "degree conferred in 2025 or 2026" and "graduating in/by YYYY" are graduation rules. 17: out-of-area openings say why they're shown (relocation answer). 16: "Anywhere in Texas" means Texas, not anywhere (it switched location off). 15: "Microsoft Excel" is the resume's "Excel"; "Microsoft Office" is shown by its apps. 14: what a student enjoys never hides an opening, only fields they chose. 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
+export const FIT_RULES_VERSION = 20; // 20 (owners): a "…or related field" major list that shares nothing with the major is "check", not "You qualify"; "management" alone isn't a field word. 19: "New Grad" titles are for graduates; "externship" alone isn't nursing. 18: "degree conferred in 2025 or 2026" and "graduating in/by YYYY" are graduation rules. 17: out-of-area openings say why they're shown (relocation answer). 16: "Anywhere in Texas" means Texas, not anywhere (it switched location off). 15: "Microsoft Excel" is the resume's "Excel"; "Microsoft Office" is shown by its apps. 14: what a student enjoys never hides an opening, only fields they chose. 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
 /** The version a verdict is saved under: owner view runs owners-only rules, so its verdicts are kept apart from students'. */
 export const fitVersion = () => FIT_RULES_VERSION + (inOwnerView() ? 1000 : 0);
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
@@ -419,6 +419,11 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   // Rules Remy can't fully check from the profile (a license, a list of majors): said plainly, not hidden.
   const caution = cautionFor(ws, job, evidence);
   if (caution && eligibility !== "unlikely") note = `${note} ${caution}`.trim();
+  // Owners (Nov 23 PM review): "Must be in a degree program in Emergency Management, Public Administration, or related
+  // field" showed "You qualify" to a finance student. A "…or related field" list that shares nothing with their major
+  // isn't a firm no, but it isn't a yes either: it says so and asks them to check.
+  const looseList = !caution && inOwnerView() ? looseMajorList(ws, job) : "";
+  if (looseList && eligibility === "likely") { eligibility = "check"; checked = false; note = `${note} It asks for a degree in ${looseList}, and your major is ${ws.profile.major.trim()}; check yours counts.`.trim(); }
   // Remy doesn't show what the student clearly can't apply for (they can still choose "Show anyway").
   if (eligibility === "unlikely") excluded = true;
 
@@ -450,7 +455,8 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   // "Economic Research") ranks well above one that only fits their broad field ("Hardware Engineer").
   const own = [...families(`${ws.profile.major} ${ws.profile.targetRoles}`)].filter((f) => f.length >= 4 && !GENERIC_TITLE_WORDS.has(f));
   const titleWords = families(job.title);
-  const specific = own.some((f) => titleWords.has(f));
+  // Owners: "management" alone ("Business & management") isn't the field of "Emergency Management" or "Risk Management".
+  const specific = own.some((f) => titleWords.has(f) && !(inOwnerView() && OWNER_GENERIC.has(f)));
   const score = Math.round(
     (specific ? 20 : field === true ? 6 : 0) +
     ({ likely: 40, check: 22, unknown: 18, unlikely: 0 } as const)[eligibility] +
@@ -500,6 +506,19 @@ export function cautionFor(ws: Workspace, job: Job, evidence: string): string {
       out.push(`It asks for a degree in ${list.slice(0, 120)}, and your major is ${major}; check before applying.`);
   }
   return out.join(" ");
+}
+
+const OWNER_GENERIC = new Set(["management", "manager", "operations", "services", "service"].map(family));
+/** A "…or related field" list of majors that shares no word with the student's major ("Emergency Management, Public
+ *  Administration" for a finance major), or "". Firm lists are cautionFor's job. */
+export function looseMajorList(ws: Workspace, job: Job): string {
+  const major = (ws.profile.major || "").trim();
+  const sentence = job.eligibility.join(". ").split(/(?<=[.!?])\s+|\n+/).find((x) => /\b(?:majoring in|majors? in|major(?:s)?:|degree (?:program )?in)\b/i.test(x));
+  if (!major || !sentence || !/\brelated\b|similar|equivalent/i.test(sentence) || /any major|all majors|any discipline/i.test(sentence)) return "";
+  const list = sentence.replace(/^.*?\b(?:majoring in|majors? in|majors?:|degree (?:program )?in)\s*/i, "").replace(/,?\s*(?:or|and)?\s*(?:a\s+)?(?:closely\s+)?(?:related|similar|equivalent)\b.*$/i, "").replace(/[.;,]+$/, "").trim();
+  const mine = [...families(major)].filter((f) => f.length >= 4 && !/^(bachelor|science|studi|degree|major|minor|master|art)/.test(f));
+  const theirs = families(list);
+  return list && mine.length && theirs.size && !mine.some((f) => theirs.has(f)) ? list.slice(0, 120) : "";
 }
 
 /** The sentence that limits a posting to U.S. citizens, or "". A sentence that also lets others in ("citizens or

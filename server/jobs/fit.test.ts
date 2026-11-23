@@ -644,3 +644,16 @@ test("owners: a 'New Grad' title is for graduates; an Underwriting Externship is
   assert.ok(!/new graduates/.test(computeFit(soph, j, "").eligibilityNote));
   assert.equal(fieldMatch(nurse, under), true);
 });
+
+test("owners: an 'Emergency Management … or related field' degree list isn't 'You qualify' for a finance major. Students: unchanged", async () => {
+  const fin = student({ graduation: "May 2029", major: "Finance & BIS", targetRoles: "Business & management", gpa: "3.8" } as any);
+  const j = job({ title: "2027 Undergraduate Summer Internship - Emergency Management", eligibility: ["Must be an active student in a bachelor's degree program in Emergency Management, Public Administration, or related field.", "Current, cumulative GPA of 3.0 or higher"] });
+  const ok = job({ eligibility: ["Must be pursuing a degree in Finance, Accounting, or a related field."] });
+  await runAiAs(true, async () => {
+    const f = computeFit(fin, j, "");
+    assert.equal(f.checked, false);
+    assert.match(f.eligibilityNote, /Emergency Management, Public Administration.*check yours counts/);
+    assert.ok(!/check yours counts/.test(computeFit(fin, ok, "").eligibilityNote));
+  });
+  assert.equal(computeFit(fin, j, "").checked, true);
+});
