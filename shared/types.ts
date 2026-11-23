@@ -576,6 +576,8 @@ export interface Workspace {
   loops?: { id: string; ask: string; on: string; askedAt?: string }[];
   /** Owners (#6): day (YYYY-MM-DD) Remy last started his weekly check-in in chat. Server-written. */
   remyCheckin?: string;
+  /** Owners (Julio's interview coach): mock interviews, newest last, at most 20. Server-written (/api/interviews). */
+  interviews?: import("./interview").Interview[];
   /** Match emails Remy sent (server/coach/nudges.ts) and the student's Yes / Not now. Server-written. */
   nudges?: { id: string; jobId: string; at: string; answer?: "yes" | "later"; answeredAt?: string }[];
   /** When Remy last drafted tailored resumes overnight (stage 5b). Server-written. */
