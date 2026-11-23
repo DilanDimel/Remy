@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocalSearchParams } from "expo-router";
-import { FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Animated, Easing, FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ChatDid, ChatMsg, Workspace } from "@shared/types";
 import { Fox, Icon, RichText, T, success, tap } from "@/components/ui";
@@ -11,6 +11,28 @@ import { useSession } from "@/lib/session";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
 
 const QUICK = ["What should I do this week?", "Which opening fits me best?", "Help me practice an interview"];
+
+/** "Remy is writing": three dots that rise and fade in turn, so a slow first word never looks stuck. */
+function TypingDots({ color, bg, line }: { color: string; bg: string; line: string }) {
+  const dots = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
+  useEffect(() => {
+    const loops = dots.map((v, i) => Animated.loop(Animated.sequence([
+      Animated.delay(i * 160),
+      Animated.timing(v, { toValue: 1, duration: 320, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(v, { toValue: 0, duration: 320, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+      Animated.delay((2 - i) * 160 + 200),
+    ])));
+    loops.forEach((l) => l.start());
+    return () => loops.forEach((l) => l.stop());
+  }, [dots]);
+  return (
+    <View testID="typing-dots" accessibilityLabel="Remy is writing" style={{ alignSelf: "flex-start", flexDirection: "row", gap: 5, backgroundColor: bg, borderRadius: 20, borderBottomLeftRadius: 6, paddingHorizontal: 16, paddingVertical: 15, marginBottom: 8, borderWidth: 1, borderColor: line }}>
+      {dots.map((v, i) => (
+        <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: color, opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }), transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }] }} />
+      ))}
+    </View>
+  );
+}
 
 /** Remy's chat. The fox lives here only (owner view rule). Everything Remy does from a reply shows with Undo. */
 export default function RemyChat() {
@@ -42,6 +64,14 @@ export default function RemyChat() {
     return () => clearTimeout(t);
   }, [live, shown, doneTick]);
   const [err, setErr] = useState("");
+  // Inside the native tabs the bottom inset already includes the tab bar, so the box sits just above it; with the
+  // keyboard up it sits just above the keyboard instead (the keyboard covers the tab bar).
+  const [kb, setKb] = useState(false);
+  useEffect(() => {
+    const a = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", () => setKb(true));
+    const b = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => setKb(false));
+    return () => { a.remove(); b.remove(); };
+  }, []);
   if (!ws) return null;
   const soul = look === "soul";
   const msgs = [...ws.chat, ...(pending ? [pending] : []), ...(pending && shown ? [{ id: "live", role: "assistant", text: tidyPartial(shown), at: pending.at } as ChatMsg] : [])].slice(-60).reverse();
@@ -93,7 +123,7 @@ export default function RemyChat() {
         ) : <Text style={{ fontFamily: font.semi, fontSize: 13, color: c.ink }}>Remy</Text>}
       </View>
       <FlatList inverted data={msgs} keyExtractor={(m) => m.id} renderItem={({ item }) => bubble(item)} contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12 }} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" onTouchStart={() => Keyboard.dismiss()} style={{ flex: 1 }}
-        ListHeaderComponent={busy && !shown ? <View style={{ alignSelf: "flex-start", backgroundColor: c.surface, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 8, borderWidth: 1, borderColor: c.line }}><Text style={{ color: c.faint, letterSpacing: 3 }}>●●●</Text></View> : undefined}
+        ListHeaderComponent={busy && !shown ? <TypingDots color={c.muted} bg={c.surface} line={c.line} /> : undefined}
         ListEmptyComponent={<View style={{ transform: [{ scaleY: -1 }], paddingTop: 40, alignItems: "center", gap: 8 }}><T kind="h2">Ask Remy anything</T><T kind="muted" style={{ textAlign: "center" }}>About jobs, your resume, interviews or what to do next. Remy only uses what you've told it.</T></View>} />
       {!!err && <T kind="small" style={{ color: c.error, paddingHorizontal: 18, paddingBottom: 6 }}>{err}</T>}
       {soul && !text && (
@@ -101,13 +131,13 @@ export default function RemyChat() {
           {QUICK.map((q) => <Pressable key={q} testID="button-quick-reply" onPress={() => send(q)} style={{ height: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, justifyContent: "center" }}><Text style={{ fontFamily: font.semi, fontSize: 13.5, color: c.ink }}>{q}</Text></Pressable>)}
         </ScrollView>
       )}
-      <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, marginHorizontal: 12, marginBottom: insets.bottom + 70, paddingLeft: 16, paddingRight: 6, paddingVertical: 6, borderRadius: 26, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line }}>
+      <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, marginHorizontal: 12, marginTop: 4, marginBottom: kb ? 8 : insets.bottom + 10, paddingLeft: 18, paddingRight: 5, paddingVertical: 5, minHeight: 50, borderRadius: 25, borderCurve: "continuous", backgroundColor: c.surface, borderWidth: 1, borderColor: text.trim() ? c.fox + "55" : c.line, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 3 }}>
         <TextInput testID="input-chat" value={text} onChangeText={setText} placeholder={soul ? "Ask Remy anything" : "Message Remy"} placeholderTextColor={c.faint} multiline maxLength={2000}
-          returnKeyType="send" submitBehavior="blurAndSubmit" onSubmitEditing={() => send(text)} enablesReturnKeyAutomatically
-          style={{ flex: 1, fontFamily: font.body, fontSize: 16, color: c.ink, maxHeight: 120, paddingVertical: 9 }} />
-        <Pressable testID="button-send" accessibilityLabel="Send" disabled={!text.trim() || busy} onPress={() => send(text)}
-          style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: text.trim() ? c.fox : c.surface2, alignItems: "center", justifyContent: "center" }}>
-          <Icon name="up" size={20} color={text.trim() ? c.onFox : c.faint} strokeWidth={2.4} />
+          returnKeyType="send" submitBehavior="blurAndSubmit" onSubmitEditing={() => send(text)} enablesReturnKeyAutomatically selectionColor={c.fox}
+          style={{ flex: 1, alignSelf: "center", fontFamily: font.body, fontSize: 16, lineHeight: 21, color: c.ink, maxHeight: 120, paddingTop: 9, paddingBottom: 9 }} />
+        <Pressable testID="button-send" accessibilityLabel="Send" disabled={!text.trim() || busy} onPress={() => send(text)} hitSlop={6}
+          style={({ pressed }) => ({ width: 38, height: 38, borderRadius: 19, backgroundColor: text.trim() ? c.fox : c.surface2, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
+          <Icon name="up" size={19} color={text.trim() ? c.onFox : c.faint} strokeWidth={2.6} />
         </Pressable>
       </View>
     </KeyboardAvoidingView>
