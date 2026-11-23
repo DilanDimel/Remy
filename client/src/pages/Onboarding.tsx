@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Check, ChevronDown, FileText, GraduationCap, Mai
 import { PATHS, type Profile, type SetupFocus, type Workspace } from "@shared/types";
 import { FIELD_GROUPS, FIELD_MAJORS, splitFieldList } from "@shared/fields";
 import { alreadyIn, fitsField, inField, setupReply, tappedResumeClaim } from "@shared/setupReply";
+import { guessYear } from "@shared/roads";
 import { api, FAR_ENOUGH_STEP, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
 import { AiUnavailableNote, BetaBadge, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
@@ -446,10 +447,12 @@ const WORRY_OPTS = ["No experience yet", "Not sure what I want", "Feeling behind
 function Preferences({ onBack }: { onBack: () => void }) {
   const { ws, save, run, setWs } = useStore();
   const p = ws!.profile;
-  const [year, setYear] = useState(p.classYear ? [p.classYear] : []);
+  const owner = useOwnerView();
+  // Owners (Nov 23 review): start from what the resume already says (graduation year, home city) instead of blanks.
+  const [year, setYear] = useState(p.classYear ? [p.classYear] : owner ? [guessYear(p.graduation)].filter(Boolean) : []);
   const [grad, setGrad] = useState(p.graduation);
   const [timeline, setTimeline] = useState(splitList(p.timeline || ""));
-  const [regions, setRegions] = useState(splitList(p.regions));
+  const [regions, setRegions] = useState(p.regions || !owner ? splitList(p.regions) : REGION_OPTS.filter((r) => r === (p.location || "").split(",")[0].trim()));
   const [otherRegion, setOtherRegion] = useState("");
   const [types, setTypes] = useState(p.opportunityTypes ? splitList(p.opportunityTypes) : ["Internships"]);
   const [fields, setFields] = useState(splitFieldList(p.targetRoles));

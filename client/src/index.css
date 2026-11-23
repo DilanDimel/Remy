@@ -1690,6 +1690,17 @@ button.ms-text:hover { text-decoration: underline; text-underline-offset: 3px; }
   .redesign-2 .tabs:not(:has(> :nth-child(5))) { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: auto; }
   .redesign-2 .tabs:not(:has(> :nth-child(5))) .tab { text-align: center; padding-left: 4px; padding-right: 4px; }
 }
+/* Owner desktop: the big page title already names the page, so the "Remy › Page" bar goes (60 px back at the top).
+   It stays when it holds Remy's face (panel closed) and on phones. */
+@media (min-width: 761px) {
+  .redesign-2 .topbar:not(:has(.remy-dock)) { display: none; }
+  .redesign-2 .topbar .crumb { visibility: hidden; }
+}
+.cm-starters { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.cm-starter { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left; padding: 18px; background: var(--surface); border: 1px dashed var(--line); border-radius: var(--radius); color: var(--ink); }
+.cm-starter:hover { border-style: solid; border-color: var(--fox); }
+.cm-starter .op-pick-mono { width: 40px; height: 40px; font-size: var(--text-base); margin-bottom: 4px; background: var(--bg); box-shadow: none; transform: none; }
+.cm-starter-go { margin-top: auto; padding-top: 8px; font-size: var(--text-sm); font-weight: 700; color: var(--fox-deep); display: inline-flex; align-items: center; gap: 4px; }
 @keyframes soul-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes soul-pop { 0% { transform: scale(.6); } 70% { transform: scale(1.12); } 100% { transform: scale(1); } }
 @keyframes soul-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--fox) 45%, transparent); } 70% { box-shadow: 0 0 0 8px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
@@ -2174,8 +2185,6 @@ button.dp-unit-head { width: 100%; border: 0; font: inherit; text-align: left; c
   .pm-tile.amber { grid-column: 1 / -1; }
 }
 /* My Path season (owners, Nov 23): Remy's walk-in, the season reward track, Remy's office, quests. Tokens only. */
-.pt-sub { margin: 4px 0 0; font-size: var(--text-sm); color: var(--muted-text); }
-.pt-sub b { color: var(--ink); }
 .pt-flame { color: var(--line); } .pt-flame.lit { color: var(--fox); }
 .pt-badge { width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; background: var(--ink); color: var(--bg); display: grid; place-items: center; font-style: normal; font-weight: 800; font-size: var(--text-sm); }
 .pt-card { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 14px 16px; display: grid; gap: 8px; }

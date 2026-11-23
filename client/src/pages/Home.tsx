@@ -145,7 +145,19 @@ export default function Home() {
       <button className="icon-btn" onClick={() => setOpen(open === t.id ? "" : t.id)} aria-label="Details">{open === t.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>
     </div>
   );
-  const noTodos = <p className="muted small" style={{ padding: "14px 0" }}>No open to-dos. Your plan in My Path can suggest a few.</p>;
+  // Owners (Nov 23 review): an empty "This week" card was dead space, so it offers today's My Path quests instead.
+  const rated = Object.values(w.jobFeedback || {}).filter((f) => f.createdAt && dayKey(new Date(f.createdAt)) === dayKey()).length;
+  const noTodos = !ownerView ? <p className="muted small" style={{ padding: "14px 0" }}>No open to-dos. Your plan in My Path can suggest a few.</p> : (
+    <div data-testid="home-quests">
+      <p className="muted small" style={{ margin: "10px 0 2px" }}>No to-dos yet. Today's quests from My Path:</p>
+      {([["Keep or pass 3 openings", `${Math.min(3, rated)}/3`, "/opportunities"], ["Decode one job", w.game?.days?.[dayKey()]?.includes("role") ? "1/1" : "0/1", "/path?play=1"]] as const).map(([t, n, link]) => (
+        <div key={t} className="item todo-row">
+          <div className="item-main"><b>{t}</b><div className="why">{n} today · counts toward your season</div></div>
+          <button className="btn btn-secondary btn-sm" onClick={() => go(link)} data-testid="button-home-quest">Go <ArrowRight size={14} /></button>
+        </div>
+      ))}
+    </div>
+  );
   const jobRow = (j: Job, i = 0) => <JobRow key={j.id} j={j} why={fits[j.id]?.why} open={open === j.id} onToggle={() => setOpen(open === j.id ? "" : j.id)} mono={ownerView} matched={fits[j.id]?.matched} top={ownerView && i === 0 && j.kind !== "event"} />;
 
   return (

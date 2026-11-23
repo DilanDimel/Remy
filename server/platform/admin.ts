@@ -3,7 +3,7 @@
 import type { CalItem, Me } from "@shared/types";
 import * as gcal from "../notify/gcal";
 import { q, q1 } from "./sql";
-import { loadWorkspace } from "./db";
+import { emptyWorkspace, loadWorkspace } from "./db";
 import { milestones } from "@shared/progress";
 import { uid } from "./ids";
 import { emailReady } from "../notify/email";
@@ -144,7 +144,7 @@ export async function overview() {
   const w1 = await q1(back(1, 7, 8, 35)), w4 = await q1(back(22, 28, 29, 56));
   // Road to an offer: how many students reached each milestone (counts only).
   // shortcut: reads every signed-in workspace; move to SQL past ~1,000 students.
-  const road = new Map<string, number>();
+  const road = new Map<string, number>(milestones(emptyWorkspace()).map((m) => [m.label, 0])); // every milestone shows, even at 0 students
   for (const r of await q(`SELECT w.user_id FROM workspaces w JOIN users u ON u.id = w.user_id WHERE ${SIGNED_IN}`))
     for (const m of milestones(await loadWorkspace(String(r.user_id)))) road.set(m.label, (road.get(m.label) || 0) + (m.done ? 1 : 0));
   // Emails: who left each one on, and how many got a weekly digest in the last 7 days.
