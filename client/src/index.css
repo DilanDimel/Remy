@@ -2691,3 +2691,9 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
   /* Narrow phones (344px): "Find more openings" and "Import" fit side by side. */
   .redesign-2 .opp-actions .btn { padding-inline: 10px; gap: 6px; font-size: 13px; }
 }
+/* My Path side panel: a line under the tabs, so rows scrolled under them read as scrolled, not cut off. */
+.redesign-2 .ps-side-head { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+/* Phones: a pop-up's buttons stay pinned at its bottom (Save on "Add to calendar" sat below the fold on iPhone). */
+@media (max-width: 760px) {
+  .redesign-2 .modal > .row:last-child { position: sticky; bottom: -22px; margin: 0 -22px -22px; padding: 12px 22px 22px; background: var(--surface); border-top: 1px solid var(--line); }
+}
