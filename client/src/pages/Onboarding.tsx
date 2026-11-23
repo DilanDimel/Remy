@@ -171,13 +171,13 @@ function SetupPreview({ shown, reading }: { shown: number; reading: boolean }) {
           {doc && !reading ? (
             <>
               <b className="ob-paper-name">{doc.contact.name || first || "Your resume"}</b>
-              {sections.slice(0, 6).map((s, i) => (
+              {sections.slice(0, 8).map((s, i) => (
                 <div key={s.id} className="ob-paper-sec" style={{ animationDelay: `${i * 140}ms` }}>
                   <span>{s.heading}</span>
-                  {s.entries.slice(0, 3).map((e) => <p key={e.id}>{e.role || e.org ? <><b>{e.role || e.org}</b>{e.role && e.org ? ` · ${e.org}` : ""}</> : e.bullets[0]?.text}</p>)}
+                  {s.entries.slice(0, 3).map((e) => <div key={e.id}><p>{e.role || e.org ? <><b>{e.role || e.org}</b>{e.role && e.org ? ` · ${e.org}` : ""}</> : e.bullets[0]?.text}</p>{(e.role || e.org) && e.bullets[0] && <p className="ob-paper-bullet">{e.bullets[0].text}</p>}</div>)}
                 </div>
               ))}
-              {!!doc.skills.length && <div className="ob-paper-sec" style={{ animationDelay: `${Math.min(sections.length, 6) * 140}ms` }}><span>Skills</span><p>{doc.skills.map((k) => k.items).join(", ").slice(0, 120)}</p></div>}
+              {!!doc.skills.length && <div className="ob-paper-sec" style={{ animationDelay: `${Math.min(sections.length, 8) * 140}ms` }}><span>Skills</span><p>{doc.skills.map((k) => k.items).join(", ").slice(0, 120)}</p></div>}
             </>
           ) : (
             <>{[70, 40, 92, 84, 60, 0, 48, 90, 76, 82, 0, 55, 88].map((n, i) => <i key={i} className={n ? "" : "sp"} style={{ width: `${n}%` }} />)}{reading && <em className="ob-scan" aria-hidden />}</>
@@ -193,7 +193,7 @@ function SetupPreview({ shown, reading }: { shown: number; reading: boolean }) {
     <aside className="ob-pv" aria-label="Your first openings" data-testid="setup-preview">
       <span className="ob-pv-h">{looking ? "Checking employers' career sites" : matches.length ? `${matches.length} opening${matches.length === 1 ? "" : "s"} so far` : "Your first openings"}</span>
       <ul className="ob-pv-jobs">
-        {matches.slice(0, 6).map((j, i) => (
+        {matches.slice(0, 8).map((j, i) => (
           <li key={j.id} style={{ animationDelay: `${i * 160}ms` }} data-testid="setup-preview-job">
             <span className="ob-pv-logo" aria-hidden>{j.company.slice(0, 1)}</span>
             <span><b>{j.title}</b><span>{j.company}{j.location ? ` · ${j.location}` : ""}</span></span>
@@ -334,7 +334,7 @@ function ResumeStep({ onNext, onBusy }: { onNext: () => void; onBusy?: (busy: bo
       </div>
       <div className="remy-prompt">
         <Remy size={40} mood={busy ? "think" : "wave"} />
-        <p>{!ownerView && <b>Hi{first ? `, ${first}` : ""}! I'm Remy. </b>}Setup takes about 5 minutes. Your resume is what I build everything on: your profile, the openings I find and every application I help with, and I only use what's on it. No resume yet? We can build one together.</p>
+        <p>{ownerView ? "About 5 minutes. Your resume is what I build everything on, and I only use what's on it." : <><b>Hi{first ? `, ${first}` : ""}! I'm Remy. </b>Setup takes about 5 minutes. Your resume is what I build everything on: your profile, the openings I find and every application I help with, and I only use what's on it. No resume yet? We can build one together.</>}</p>
       </div>
 
       <div className="stack-sm">
@@ -587,8 +587,8 @@ function Preferences({ onBack }: { onBack: () => void }) {
       </div>
       <div className="stack-lg fade-up" key={page}>
         {page === 0 ? <>
-          <Q n={1}><strong>What year are you in?</strong><Chips options={YEAR_OPTS} value={year} onChange={setYear} multi={false} testid="pref-year" />
-            <label className="field" style={{ maxWidth: 260 }}><span className="xs muted">Expected graduation</span><input className="input" value={grad} onChange={(e) => setGrad(e.target.value)} placeholder="e.g. May 2029" data-testid="input-pref-grad" /></label></Q>
+          <Q n={1}><strong>What year are you in?</strong><div className="pref-inline"><Chips options={YEAR_OPTS} value={year} onChange={setYear} multi={false} testid="pref-year" />
+            <label className="field" style={{ maxWidth: 260 }}><span className="xs muted">Expected graduation</span><input className="input" value={grad} onChange={(e) => setGrad(e.target.value)} placeholder="e.g. May 2029" data-testid="input-pref-grad" /></label></div></Q>
           <Q n={2}><strong>Which fields or roles interest you?</strong>
             <div className="stack-sm" style={{ gap: 6 }}>
               <button type="button" className="pref-chip pref-unsure" aria-pressed={unsure} onClick={() => setUnsure(!unsure)} data-testid="pref-unsure">I'm not sure yet</button>
@@ -611,25 +611,33 @@ function Preferences({ onBack }: { onBack: () => void }) {
               })}
             </div>
             <input className="input" value={otherField} onChange={(e) => setOtherField(e.target.value)} placeholder="Something more specific?" aria-label="Other fields" data-testid="input-pref-field" /></Q>
+          <div className="pref-pair">
           <Q n={3}><strong>What kinds of opportunities do you want?</strong><Chips options={TYPE_OPTS} value={types} onChange={setTypes} testid="pref-type" /></Q>
           <Q n={4}><strong>When do you want to start?</strong><Chips options={timelineOptions()} value={timeline} onChange={setTimeline} testid="pref-when" />
             <span className="xs muted">Pick all that work. Leave empty if you're open to anything.</span></Q>
+          </div>
         </> : <>
           <Q n={5}><strong>Where should I look for you?</strong><Chips options={REGION_OPTS} value={regions} onChange={setRegions} testid="pref-region" />
-            <input className="input" value={otherRegion} onChange={(e) => setOtherRegion(e.target.value)} placeholder="Somewhere else? e.g. Chicago" aria-label="Other regions" data-testid="input-pref-region" />
-            <span className="xs muted">Open to relocating?</span><Chips options={RELOC_OPTS} value={reloc} onChange={setReloc} multi={false} testid="pref-reloc" /></Q>
+            <div className="pref-inline"><input className="input pref-grow" value={otherRegion} onChange={(e) => setOtherRegion(e.target.value)} placeholder="Somewhere else? e.g. Chicago" aria-label="Other regions" data-testid="input-pref-region" />
+            <span className="xs muted">Open to relocating?</span><Chips options={RELOC_OPTS} value={reloc} onChange={setReloc} multi={false} testid="pref-reloc" /></div></Q>
+          <div className="pref-pair">
           <Q n={6}><strong>Work authorization</strong><Chips options={AUTH_OPTS} value={auth} onChange={setAuth} multi={false} testid="pref-auth" />
             <span className="xs muted">If you'll need sponsorship, Remy hides postings that say they won't sponsor.</span></Q>
           <Q n={7}><strong>Dream employers <span className="muted xs">(optional)</span></strong>
             <input className="input" value={dream} onChange={(e) => setDream(e.target.value)} placeholder="e.g. Goldman Sachs" aria-label="Dream employers" data-testid="input-pref-dream" />
             <span className="xs muted">Remy checks their career sites first.</span></Q>
+          </div>
+          <div className="pref-pair">
           <Q n={8}><strong>Anything to leave out? <span className="muted xs">(optional)</span></strong>
             <input className="input" value={avoid} onChange={(e) => setAvoid(e.target.value)} placeholder="e.g. tobacco, cold calling" aria-label="Things to avoid" data-testid="input-pref-avoid" /></Q>
           <Q n={9}><strong>Anything that limits what you can take? <span className="muted xs">(optional)</span></strong><Chips options={LIMIT_OPTS} value={limits} onChange={setLimits} testid="pref-limit" /></Q>
+          </div>
+          <div className="pref-pair">
           <Q n={10}><strong>What have you tried so far? <span className="muted xs">(optional)</span></strong><Chips options={TRIED_OPTS} value={tried} onChange={setTried} testid="pref-tried" /></Q>
           <Q n={11}><strong>What worries you most about this? <span className="muted xs">(optional)</span></strong><Chips options={WORRY_OPTS} value={worries} onChange={setWorries} testid="pref-worry" />
             <input className="input" value={worryText} onChange={(e) => setWorryText(e.target.value)} maxLength={200} placeholder="Or in your own words" aria-label="Your worry" data-testid="input-pref-worry" />
             <span className="xs muted">Your plan's first step will start there.</span></Q>
+          </div>
           {/* Remy repeats it back in one line before saving, so the student can catch anything wrong. */}
           <p className="small" data-testid="prefs-summary"><b>So:</b> {[year[0], allFields.slice(0, 3).join(", ") || (unsure ? "still exploring" : ""), types.join(", "), timeline.join(", "), [...regions, ...splitList(otherRegion)].join(", "), limits.join(", "), [...worries, worryText.trim()].filter(Boolean).length ? `worried about ${[...worries, worryText.trim()].filter(Boolean).join(", ").toLowerCase()}` : ""].filter(Boolean).join(" · ")}. <span className="muted">Change anything above if it's off.</span></p>
         </>}
