@@ -1,5 +1,6 @@
 import type { ChatDid, Job, MoreAction, TrackStatus, Workspace } from "@shared/types";
 import { uid } from "../platform/ids";
+import { quietOn } from "@shared/remyOffers";
 
 // Owners (Nov 23, Dilan: "every feature on the website connected to the AI"): the rest of what a student can do on
 // the site, done by Remy from chat with Undo. Builds on server/ai/chatDo.ts (save, tailor, to-dos, name, theme…).
@@ -13,7 +14,7 @@ export const TRACK_STATUSES: TrackStatus[] = ["Saved", "Applied", "Received", "H
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const GO_LINK = /^\/(resume|interview|opportunities|path|community|calendar|progress|accounts)?(\?[\w=&%.+-]{0,160})?$/;
 const START = ["resumeFix", "interview", "tour"] as const;
-export const MORE_KINDS = new Set<string>(["interest", "unhide", "prefs", "nudges", "careerTime", "textsOff", "track", "moveEvent", "removeEvent", "due", "hours", "career", "contact", "forget", "go", "start"]);
+export const MORE_KINDS = new Set<string>(["interest", "unhide", "prefs", "nudges", "careerTime", "textsOff", "quiet", "track", "moveEvent", "removeEvent", "due", "hours", "career", "contact", "forget", "go", "start"]);
 
 const clean = (v: unknown, n: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, n);
 const isId = (v: unknown) => /^[\w-]{1,120}$/.test(String(v ?? ""));
@@ -38,6 +39,7 @@ export function parseMore(a: any): MoreAction | null {
     case "nudges": return ["daily", "weekly", "off"].includes(a.value) ? { kind: "nudges", value: a.value } : null;
     case "careerTime": return a.off === true ? { kind: "careerTime", off: true } : Number.isInteger(a.day) && a.day >= 0 && a.day <= 6 && isTime(a.time) ? { kind: "careerTime", day: a.day, time: String(a.time) } : null;
     case "textsOff": return { kind: "textsOff" };
+    case "quiet": return Number.isInteger(a.days) && a.days >= 0 && a.days <= 30 ? { kind: "quiet", days: a.days } : null;
     case "track": {
       if (!TRACK_STATUSES.includes(a.status)) return null;
       if (isId(a.trackId)) return { kind: "track", trackId: String(a.trackId), status: a.status };
@@ -114,6 +116,12 @@ export function doMore(ws: Workspace, a: MoreAction, findJob: (ws: Workspace, id
     if (!ws.settings.texts?.on) return { note: "Texts were already off." };
     ws.settings.texts = { ...ws.settings.texts, on: false };
     return did("textsOff", "texts", "Deadline texts turned off", "/accounts?tab=settings");
+  }
+  if (a.kind === "quiet") {
+    const was = ws.settings.quietUntil || "";
+    if (!a.days) { if (!quietOn(ws.settings, today)) return { note: "I wasn't being quiet." }; delete ws.settings.quietUntil; return did("quiet", "quiet", "I'm back: offers, check-ins and opening emails are on again", "/", was); }
+    ws.settings.quietUntil = new Date(Date.parse(today + "T12:00:00Z") + (a.days - 1) * 864e5).toISOString().slice(0, 10);
+    return did("quiet", "quiet", `Quiet through ${new Date(ws.settings.quietUntil + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" })}: no offers, check-ins or opening emails (deadline reminders still come)`, "/", was);
   }
   if (a.kind === "track") {
     const t = a.trackId ? ws.tracker.find((x) => x.id === a.trackId)
@@ -205,6 +213,7 @@ export function undoMore(ws: Workspace, d: ChatDid): string | null | false {
     case "prefs": ws.profile[d.ref as PrefField] = old; refit(ws); return null;
     case "nudges": ws.settings.nudges = old as "daily" | "weekly" | "off"; return null;
     case "careerTime": ws.settings.careerTime = JSON.parse(old); return null;
+    case "quiet": if (old) ws.settings.quietUntil = old; else delete ws.settings.quietUntil; return null;
     case "textsOff": return "Turn texts back on in Account → Settings, so you can check the number they go to.";
     case "track": {
       const t = ws.tracker.find((x) => x.id === d.ref);
@@ -241,13 +250,13 @@ export function moreContext(ws: Workspace, today: string, findJob: (ws: Workspac
     `OPENINGS THEY PASSED ON (ids): ${hidden || "(none)"}`,
     `WHAT REMY REMEMBERS (ids): ${facts || "(nothing)"}`,
     `SEARCH PREFERENCES: regions="${p.regions}"; opportunityTypes="${p.opportunityTypes}"; timeline="${p.timeline || ""}"; avoid="${p.avoid || ""}"; dreamEmployers="${p.dreamEmployers || ""}"; interests="${p.interests}"; goals="${p.goals}"; classYear="${p.classYear}"`,
-    `SETTINGS: theme=${s.theme}; opening emails=${s.nudges || "weekly"}; deadline emails=${s.notify.deadlines ? "on" : "off"}; weekly plan email=${s.notify.weeklyPlan ? "on" : "off"}; texts=${s.texts?.on ? "on" : "off"}; weekly career time=${s.careerTime ? `${DAYS[s.careerTime.day]} ${s.careerTime.time}` : "none"}`,
+    `SETTINGS: theme=${s.theme}; opening emails=${s.nudges || "weekly"}; deadline emails=${s.notify.deadlines ? "on" : "off"}; weekly plan email=${s.notify.weeklyPlan ? "on" : "off"}; texts=${s.texts?.on ? "on" : "off"}; weekly career time=${s.careerTime ? `${DAYS[s.careerTime.day]} ${s.careerTime.time}` : "none"}; quiet=${quietOn(s, today) ? `until ${s.quietUntil}` : "off"}`,
   ].join("\n");
 }
 
-export const MORE_TOOLS = `More things you DO yourself with "actions" (each shows with Undo): {"kind":"interest","jobId":"<id>","more":true|false} = Keep it (saves it, more like it) or Pass on it (hides it, fewer like it); {"kind":"unhide","jobId":"<id>"} brings back an opening they PASSED ON; {"kind":"prefs","field":"regions"|"opportunityTypes"|"timeline"|"avoid"|"dreamEmployers"|"interests"|"goals"|"classYear"|"relocation"|"workAuth","value":"text","mode":"set"|"add"|"remove"} changes their SEARCH PREFERENCES (add/remove for comma lists like "Austin" or "Internships"); {"kind":"nudges","value":"daily"|"weekly"|"off"} how often Remy emails new openings; {"kind":"careerTime","day":0-6 (0 = Sunday),"time":"HH:MM"} or {"kind":"careerTime","off":true} their weekly career time; {"kind":"textsOff"} stops deadline texts (turning texts ON needs their phone, so open /accounts?tab=settings); {"kind":"track","trackId":"<id>","status":"Applied"|"Interview"|"Offer"|"Rejected"|"Heard back"|"No reply"|"Withdrawn"|"Saved"|"Received"} moves a PROGRESS BOARD card, or {"kind":"track","company":"","role":"","jobId":"<id or empty>","status":"..."} adds one when they tell you they applied, got an interview, an offer or a rejection; {"kind":"moveEvent","calId":"<id>","date":"YYYY-MM-DD","time":"HH:MM or empty"} reschedules; {"kind":"removeEvent","calId":"<id>"} takes something off their calendar; {"kind":"due","taskId":"<id>","due":"YYYY-MM-DD or empty"} changes a to-do's due date; {"kind":"hours","activity":"Volunteering","hours":2,"date":"YYYY-MM-DD","note":""} logs hours they already did; {"kind":"career","careerId":"<id>"} picks a career on My Path; {"kind":"contact","name":"","org":"","title":"","why":"","met":"where they met","metOn":"YYYY-MM-DD"} adds someone they met to Community (never an email address they didn't give); {"kind":"forget","factId":"<id>"} forgets something Remy remembers.
+export const MORE_TOOLS = `More things you DO yourself with "actions" (each shows with Undo): {"kind":"interest","jobId":"<id>","more":true|false} = Keep it (saves it, more like it) or Pass on it (hides it, fewer like it); {"kind":"unhide","jobId":"<id>"} brings back an opening they PASSED ON; {"kind":"prefs","field":"regions"|"opportunityTypes"|"timeline"|"avoid"|"dreamEmployers"|"interests"|"goals"|"classYear"|"relocation"|"workAuth","value":"text","mode":"set"|"add"|"remove"} changes their SEARCH PREFERENCES (add/remove for comma lists like "Austin" or "Internships"); {"kind":"nudges","value":"daily"|"weekly"|"off"} how often Remy emails new openings; {"kind":"careerTime","day":0-6 (0 = Sunday),"time":"HH:MM"} or {"kind":"careerTime","off":true} their weekly career time; {"kind":"quiet","days":7} = "quiet week": for that many days (1-30) you make no offers or check-ins and send no opening or weekly emails (deadline reminders still go), {"kind":"quiet","days":0} ends it ("I'm back"); {"kind":"textsOff"} stops deadline texts (turning texts ON needs their phone, so open /accounts?tab=settings); {"kind":"track","trackId":"<id>","status":"Applied"|"Interview"|"Offer"|"Rejected"|"Heard back"|"No reply"|"Withdrawn"|"Saved"|"Received"} moves a PROGRESS BOARD card, or {"kind":"track","company":"","role":"","jobId":"<id or empty>","status":"..."} adds one when they tell you they applied, got an interview, an offer or a rejection; {"kind":"moveEvent","calId":"<id>","date":"YYYY-MM-DD","time":"HH:MM or empty"} reschedules; {"kind":"removeEvent","calId":"<id>"} takes something off their calendar; {"kind":"due","taskId":"<id>","due":"YYYY-MM-DD or empty"} changes a to-do's due date; {"kind":"hours","activity":"Volunteering","hours":2,"date":"YYYY-MM-DD","note":""} logs hours they already did; {"kind":"career","careerId":"<id>"} picks a career on My Path; {"kind":"contact","name":"","org":"","title":"","why":"","met":"where they met","metOn":"YYYY-MM-DD"} adds someone they met to Community (never an email address they didn't give); {"kind":"forget","factId":"<id>"} forgets something Remy remembers.
 Things the app does as soon as you reply: {"kind":"go","link":"/opportunities?kind=jobs|campus|event|all&role=<title>","label":"Opportunities"} (or any page: /, /resume?tab=base|tailor|linkedin, /interview, /path?tab=career|road|future, /community, /calendar, /progress?tab=tracker|hours, /accounts?tab=profile|settings|memory) takes them there when they say "take me to", "show me" or "open"; {"kind":"start","what":"resumeFix"} when they ask you to fix, improve or strengthen their (base) resume: you then ask about one weak line at a time in this chat and draft each from their answer, so reply with one short line like "Let's do it, one line at a time."; {"kind":"start","what":"interview","jobId":"<id or empty>"} starts a mock interview; {"kind":"start","what":"tour"} replays the tour. For a cover letter, use "tailor" (it writes the resume and the letter).
-When the student mentions something coming up that you should ask about later (an interview, a career fair, a decision, a worry about an exam), also return "followUp":{"ask":"the warm question you'll ask, e.g. How did the PwC interview go?","on":"YYYY-MM-DD, the day after it"}; otherwise leave it out.\nAsk first, and only offer an "open" button, for anything that can't be undone or leaves Remy: deleting their account or data, clearing their resume, sending an email or applying (they do those themselves). Use ids only from the lists given. Up to 4 actions. When you just did what they asked, keep the reply to one or two short lines about that; don't tack on an unrelated next step or repeat earlier advice.`;
+When the student mentions something coming up that you should ask about later (an interview, a career fair, a decision, a worry about an exam), also return "followUp":{"ask":"the warm question you'll ask, e.g. How did the PwC interview go?","on":"YYYY-MM-DD, the day after it"}; otherwise leave it out.\nAsk first, and only offer an "open" button, for anything that can't be undone or leaves Remy: deleting their account or data, clearing their resume, sending an email or applying (they do those themselves). Use ids only from the lists given. Up to 4 actions. When you just did what they asked, keep the reply to one or two short lines about that; you may end with ONE short question offering the closely related next step you can do yourself (saved an opening: \"Want me to start your resume for it?\"; added an interview: \"Want a mock interview for it?\"; logged an application: \"Want a follow-up to-do in two weeks?\"), but not when they said no to that kind of offer in RECENT CHAT, and never an unrelated step or earlier advice.`;
 
 // ---------- Remy reaches out (owners, "Remy feels alive" #3 and #6) ----------
 const daysApart = (a: string, b: string) => Math.round((Date.parse(b + "T12:00:00Z") - Date.parse(a + "T12:00:00Z")) / 864e5);
@@ -267,9 +276,14 @@ export const WEEKLY_CHECKIN = "Quick weekly check-in, 2 minutes: did you apply a
 /** At most one message Remy starts himself when the student opens the app: a question he promised to ask, else the
  *  weekly check-in. Returns the text pushed into chat, or "" when there's nothing to say. */
 export function reachOut(ws: Workspace, today: string, nowIso: string): string {
-  const due = (ws.loops || []).find((l) => !l.askedAt && l.on <= today);
+  if (quietOn(ws.settings, today)) return "";
+  const loops = (ws.loops ||= []);
+  // A career fair or networking event that just passed: ask who they met (once), so Remy can add them to Community.
+  const fair = ws.calendar.find((c) => /fair|network|meetup|mixer|info(rmation)? session/i.test(c.title) && c.date < today && daysApart(c.date, today) <= 3 && !loops.some((l) => l.id === `met:${c.id}`));
+  if (fair) loops.push({ id: `met:${fair.id}`, ask: `How did ${fair.title} go? Did you meet anyone worth remembering? Tell me their names and where they work, and I'll add them to your contacts.`, on: today });
+  const due = loops.find((l) => !l.askedAt && l.on <= today);
   let text = "";
-  if (due) { due.askedAt = nowIso; text = due.ask; }
+  if (due) { due.askedAt = nowIso; text = due.ask; ws.loops = loops.slice(-30); }
   // shortcut: any day 7+ days after the last one (or a week into a busy account), not tied to the weekly career time yet.
   else if (ws.chat.length >= 2 && (ws.tracker.length || ws.savedJobIds.length) && (!ws.remyCheckin || daysApart(ws.remyCheckin, today) >= 7)
     && !ws.chat.slice(-6).some((m) => m.role === "assistant" && m.text === WEEKLY_CHECKIN)) { ws.remyCheckin = today; text = WEEKLY_CHECKIN; }

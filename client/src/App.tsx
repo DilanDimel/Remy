@@ -389,6 +389,7 @@ function RemyActivity() {
               ? <button key={e.kind + e.text} className="act-row act-btn" onClick={() => go(e.link!)} data-testid="button-activity-open">{body}</button>
               : <div key={e.kind + e.text} className="act-row">{body}</div>;
           })}
+          {d.chat.filter((m) => m.did?.some((x) => !x.noUndo)).map((m) => <RemyDid key={m.id} m={m} />)}
         </section>
       ))}
       {days.length > 5 && <button className="btn btn-ghost btn-sm" onClick={() => setMore(!more)} data-testid="button-activity-more">{more ? "Show less" : `Show ${days.length - 5} earlier day${days.length - 5 === 1 ? "" : "s"}`}</button>}

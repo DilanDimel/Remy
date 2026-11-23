@@ -1,5 +1,6 @@
 import type { Job, Workspace } from "@shared/types";
 import { firstName } from "@shared/names";
+import { quietOn } from "@shared/remyOffers";
 import { isOwner } from "../platform/admin";
 import { loadWorkspace, recentStudents, saveSections, uid } from "../platform/db";
 import { emailReady, sendEmail } from "../notify/email";
@@ -30,7 +31,7 @@ const waitingDraft = (ws: Workspace, jobId: string) => ws.applications.find((a) 
  *  An opening Remy already drafted overnight still counts (the email then offers the draft). */
 export function nudgeFor(ws: Workspace, now: Date): Job | null {
   const every: NudgeEvery = ws.settings.nudges || "weekly";
-  if (every === "off" || !ws.onboarding.done) return null;
+  if (every === "off" || !ws.onboarding.done || quietOn(ws.settings, now.toISOString().slice(0, 10))) return null;
   const sent = ws.nudges || [];
   const last = sent[sent.length - 1];
   if (last && daysAgo(last.at, now) < (every === "daily" ? 0.9 : 6.9)) return null;

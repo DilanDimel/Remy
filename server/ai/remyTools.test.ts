@@ -84,3 +84,24 @@ test("Remy reaches out: a promised question on its day, else the weekly check-in
   for (let i = 0; i < 6; i++) ws.chat.push({ id: "m" + i, role: i % 2 ? "assistant" : "user", text: "x", at: "t" });
   assert.equal(reachOut(ws, "2026-12-03", "t6"), WEEKLY_CHECKIN);
 });
+
+test("quiet week stops offers, check-ins and opening emails, and undoes; a passed career fair gets one 'who did you meet?'", async () => {
+  const { reachOut } = await import("./remyTools");
+  const { remyOffers } = await import("@shared/remyOffers");
+  const { nudgeFor } = await import("../coach/nudges");
+  const ws = emptyWorkspace();
+  ws.calendar = [{ id: "c1", title: "TCU Career Fair", date: "2026-11-22", time: "", kind: "Event", source: "x", notes: "" },
+    { id: "c2", title: "Interview with PwC", date: TODAY, time: "", kind: "Interview", source: "x", notes: "" }];
+  const r = doActions(ws, [{ kind: "quiet", days: 7 }], find, TODAY);
+  assert.equal(ws.settings.quietUntil, "2026-11-29");
+  assert.deepEqual(remyOffers(ws, TODAY), []);
+  assert.equal(reachOut(ws, TODAY, "t"), "");
+  ws.onboarding.done = true;
+  assert.equal(nudgeFor(ws, new Date(TODAY + "T12:00:00Z")), null);
+  assert.equal(undoDid(ws, r.did[0]), null);
+  assert.equal(ws.settings.quietUntil, undefined);
+  assert.equal(remyOffers(ws, TODAY).length, 1);
+  assert.match(reachOut(ws, TODAY, "t1"), /How did TCU Career Fair go\?/);
+  assert.equal(reachOut(ws, TODAY, "t2"), "");
+  assert.equal(doActions(ws, [{ kind: "quiet", days: 0 }], find, TODAY).notes[0], "I wasn't being quiet.");
+});

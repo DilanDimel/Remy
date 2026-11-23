@@ -993,7 +993,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       nudges: z.enum(["daily", "weekly", "off"]).optional(),
       texts: z.object({ on: z.boolean(), phone: z.string().max(30).refine((p) => p === "" || !!usPhone(p), "Use a US phone number, like (817) 555-0123.") }).optional(),
       demoConnections: z.array(str(80)).max(20).optional(), newsSeen: str(40).optional(), ownerView: z.boolean().optional(),
-      tour: z.union([z.number().int().min(0).max(20), z.literal("done")]).optional(), firstWin: z.union([z.number().int().min(0).max(2), z.literal("done")]).optional(), introsSeen: z.array(str(40)).max(20).optional(), offersSeen: z.array(str(160)).max(200).optional(),
+      tour: z.union([z.number().int().min(0).max(20), z.literal("done")]).optional(), firstWin: z.union([z.number().int().min(0).max(2), z.literal("done")]).optional(), introsSeen: z.array(str(40)).max(20).optional(), offersSeen: z.array(str(160)).max(200).optional(), quietUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     }),
     tasks: z.array(z.looseObject({ id: str(120), title: str(300), why: str(2000), due: str(10), category: z.enum(["Explore", "Prepare", "Apply", "Connect", "Academic"]), done: z.boolean(), source: str(200), link: str(500).optional() })).max(500),
     calendar: z.array(z.looseObject({ id: str(120), title: str(300), date: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/), time: z.string().regex(/^(\d{2}:\d{2})?$/), kind: z.enum(["Deadline", "Event", "Task", "Interview", "Advising"]), source: str(200), linkedId: str(120).optional(), notes: str(4000).optional() })).max(1000),
