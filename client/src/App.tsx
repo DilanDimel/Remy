@@ -21,7 +21,7 @@ import { GameSidebar, useGameRecord } from "./components/Game";
 import { Avatar } from "./components/ProfilePhoto";
 import { useRemyDoes, useRemyReachOut } from "./lib/remyDoes";
 import { RemyDid } from "./components/RemyDid";
-import { RemyOffer } from "./components/RemyOffer";
+import { OfferSlot, RemyOffer } from "./components/RemyOffer";
 import { RemyAway } from "./components/RemyAway";
 import { answer as answerTailor, endSession as endTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
@@ -652,6 +652,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
         )}
         <div ref={end} />
       </div>
+      {stage2 && <OfferSlot />}
       <form className="asst-foot" onSubmit={(e) => { e.preventDefault(); send(msg); }}>
         <textarea
           className="input asst-input"
