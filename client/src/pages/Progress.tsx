@@ -242,7 +242,7 @@ function Board({ w, kept, start, onOpen, onAdd }: { w: Workspace; kept: Job[]; s
           <div key={l} className="pr-lane"><h4>{l} <em>{cards.length}</em></h4>
             {all ? cards : cards.slice(0, LANE_MAX)}
             {hidden > 0 && <button className="pr-more" onClick={() => setMore(all ? more.filter((x) => x !== l) : [...more, l])} aria-expanded={all} data-testid="button-lane-more">{all ? "Show fewer" : `+${hidden} more`}</button>}
-            {!cards.length && <span className="pr-ghost">{l === "Interview" ? "Your first one lands here. Interview has you ready." : l === "Offer" ? "Waits here" : "None yet"}</span>}
+            {!cards.length && <span className="pr-ghost">{l === "Offer" ? "Waits here" : "None yet"}</span>}
           </div>
         ); })}</div>
         {start.length > 0 && (
@@ -266,8 +266,8 @@ function Board({ w, kept, start, onOpen, onAdd }: { w: Workspace; kept: Job[]; s
 function NextUp({ w }: { w: Workspace }) {
   const mail = w.suggestions.filter((s) => s.state === "open").slice(0, 3);
   // Nov 23 PM review: with no email waiting the left card was empty text and the page ended half way, so it offers
-  // the paste box instead, and Next up shows five to-dos.
-  const todos = w.tasks.filter((t) => !t.done).slice(0, 5);
+  // the paste box instead, and Next up shows four to-dos, one line each.
+  const todos = w.tasks.filter((t) => !t.done).slice(0, 4);
   return (
     <div className="pr-cols">
       <div className="op-card">
@@ -280,7 +280,7 @@ function NextUp({ w }: { w: Workspace }) {
       </div>
       <div className="op-card">
         <div className="op-ch"><h3>Next up</h3><button className="op-link" onClick={() => go("/progress?tab=todos")} data-testid="button-progress-todos">All to-dos →</button></div>
-        {todos.length ? <ul className="pr-todo">{todos.map((t) => <li key={t.id}><i />{t.title}{t.due && <em>{fmtDate(t.due)}</em>}</li>)}</ul> : <p className="small muted">No open to-dos.</p>}
+        {todos.length ? <ul className="pr-todo">{todos.map((t) => <li key={t.id} title={t.title}><i /><span className="pr-todo-t">{t.title}</span>{t.due && <em>{fmtDate(t.due)}</em>}</li>)}</ul> : <p className="small muted">No open to-dos.</p>}
       </div>
     </div>
   );
