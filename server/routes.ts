@@ -1147,6 +1147,12 @@ export async function registerRoutes(_server: Server, app: Express) {
     for (const k of Object.keys(now) as (keyof typeof now)[]) if (!p[k] || (was && p[k] === was[k])) p[k] = now[k];
     // Class standing: stated on the resume, or worked out from the graduation date.
     if (!p.classYear || (was && p.classYear === yearWas)) p.classYear = classYearOf({ ...ctx.ws, profile: { ...p, classYear: "" } });
+    // Owner view only: better setup defaults — "What should Remy call you?" from the resume's first name,
+    // and "Email for applications" from the resume instead of the sign-in account's email.
+    if (ctx.me.owner && ctx.ws.settings.ownerView !== false) {
+      if (!p.preferredName && now.name) p.preferredName = now.name.split(/\s+/)[0];
+      if (now.email && (!p.applicationEmail || p.applicationEmail === ctx.me.email)) p.applicationEmail = now.email;
+    }
     // The profile name may only be the sign-in account's name (Google/LinkedIn), e.g. a borrowed or family account.
     // If the resume names someone else, ask the student which is right instead of picking one.
     const fromSignIn = (!!ctx.me.name && p.name === ctx.me.name) || ctx.ws.imports.some((i) => i.kind === "LinkedIn (connected)" && i.fileName.split(" · ")[0] === p.name);

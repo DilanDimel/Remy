@@ -28,8 +28,16 @@ export default function Onboarding() {
   const step = w.onboarding.step;
   // The goal question is step 1; the saved step number (1-5) starts at the resume, so it shows one further along.
   const shown = step <= 1 ? (w.onboarding.focus ? 1 : 0) : Math.min(step, STEPS.length - 1);
+  const ownerView = useOwnerView();
   // Coming back partway through: say so and let the student choose, instead of dropping them mid-step.
-  const [welcomeBack, setWelcomeBack] = useState(() => step >= FAR_ENOUGH_STEP);
+  // Owner view: skip it on a reload within the hour — it was showing even seconds after a refresh.
+  const [welcomeBack, setWelcomeBack] = useState(() => {
+    if (step < FAR_ENOUGH_STEP) return false;
+    if (!ownerView) return true;
+    try { const at = Number(localStorage.getItem("remy:ob:at")); if (at && Date.now() - at < 3_600_000) return false; } catch {}
+    return true;
+  });
+  useEffect(() => { try { if (ownerView && !w.onboarding.done) localStorage.setItem("remy:ob:at", String(Date.now())); } catch {} }, [step, ownerView, w.onboarding.done]);
   const setStep = (s: number) => save("onboarding", { ...w.onboarding, step: s });
   const finish = async (tour = true) => {
     uiFlags.flyIn = true;
@@ -43,7 +51,6 @@ export default function Onboarding() {
   // The first screen saves the path and goal and picks where setup ends; nobody skips setup, since everything
   // Remy does is built on knowing the student (resume upload or "Build one with Remy" is the next step).
   const pick = async (focus: SetupFocus, exploring?: boolean) => { await save("onboarding", { ...w.onboarding, focus, ...(exploring ? { exploring: true } : {}) }); };
-  const ownerView = useOwnerView();
   const card = (
       <div className="ob-card card card-pad fade-up" key={welcomeBack ? "back" : shown}>
         {welcomeBack ? (
@@ -761,9 +768,23 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
 function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: (tour?: boolean) => void }) {
   const { ws, setWs, run, config } = useStore();
   const w = ws!;
+  const owner = useOwnerView();
   const { jobs, fits, refreshing } = useJobs();
   const matches = (jobs || []).filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false);
   const [busy, setBusy] = useState(false);
+  // Owner view: an opening links into the workspace (finish setup, then open it) — they were dead text before.
+  const openJob = async (id: string) => { await onFinish(false); go(`/opportunities?kind=all&id=${id}`); };
+  const matchList = (
+    <ul className="plan-matches">
+      {matches.slice(0, 3).map((j) => (
+        <li key={j.id} className="small">
+          {owner
+            ? <button className="plan-match-link" onClick={() => openJob(j.id)} data-testid="button-plan-opening"><b>{j.title}</b> <span className="muted">at {j.company}</span> <ArrowRight size={13} /></button>
+            : <span><b>{j.title}</b> <span className="muted">at {j.company}</span></span>}
+        </li>
+      ))}
+    </ul>
+  );
   const make = async () => {
     setBusy(true);
     const r = await run(() => api<Workspace>("POST", "/api/ai/plan"));
@@ -785,7 +806,7 @@ function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: (tour?: 
       {busy && <WorkingSteps steps={["Reading your resume and answers", "Choosing where to start", "Writing your first to-dos"]} />}
       <div className="notice" data-testid="plan-matches">
         {refreshing || !jobs ? <span className="row"><Spinner /> Remy is checking employers' career sites for openings that fit you…</span>
-          : matches.length ? <div><strong>Remy found {matches.length} opening{matches.length === 1 ? "" : "s"} that fit you</strong><ul className="plan-matches">{matches.slice(0, 3).map((j) => <li key={j.id} className="small"><b>{j.title}</b> <span className="muted">at {j.company}</span></li>)}</ul></div>
+          : matches.length ? <div><strong>Remy found {matches.length} opening{matches.length === 1 ? "" : "s"} that fit you</strong>{matchList}{owner && !w.plan && <span className="xs muted">Start with the first one — open it to see why it fits and tailor your resume.</span>}</div>
           : w.lastSearch && w.lastSearch.reached < w.lastSearch.scanned / 2
             ? <div><strong>Most employer career sites didn't answer just now</strong><div className="small muted">Remy reached {w.lastSearch.reached} of {w.lastSearch.scanned} (they may be down for maintenance). It will try again in about 30 minutes, and your openings will be waiting in Opportunities.</div></div>
             : <div><strong>No openings fit all your choices right now</strong><div className="small muted">Remy checks again about once a day. Adding more places or fields shows more.</div></div>}

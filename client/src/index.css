@@ -781,6 +781,9 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .pref-chip { transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.1s; }
 .pref-chip:active { transform: scale(0.97); }
 .plan-matches { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 2px; list-style: disc; }
+.plan-match-link { display: inline-flex; align-items: center; gap: 4px; padding: 0; color: inherit; text-align: left; border-radius: 4px; }
+.plan-match-link:hover { color: var(--fox); text-decoration: underline; }
+.plan-match-link svg { color: var(--fox); flex-shrink: 0; }
 .ob-thread { display: grid; gap: 10px; }
 .ob-thread .stack-sm { display: grid; gap: 8px; }
 .ob-thread .bubble-ai { justify-self: start; }
