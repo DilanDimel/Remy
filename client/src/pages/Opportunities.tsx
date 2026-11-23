@@ -95,7 +95,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
         <div>
           <span className="eyebrow">Opportunities</span>
           <h1><span className="title-slogan">Openings worth your time.</span><span className="title-plain">Opportunities</span></h1>
-          {owner ? <OppLine visible={visible} fits={fits} /> : <p className="hide-phone">Ranked for you: openings you're eligible for and that match your background come first.</p>}
+          {owner ? <OppLine visible={list} any={visible.length > 0} fits={fits} /> : <p className="hide-phone">Ranked for you: openings you're eligible for and that match your background come first.</p>}
           {(() => {
             // A quiet status line instead of a button to press: when Remy last looked, and what's new this week.
             const at = w.lastSearch?.at || w.openingsCheckedAt;
@@ -194,12 +194,13 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
 }
 
 /** Owners: Remy's line under the title, from real counts (never a made-up number). */
-function OppLine({ visible, fits }: { visible: Job[]; fits: Record<string, JobFit> }) {
+// Counts what the filters show (Nov 23 review: "32 new, you qualify for 10" sat above 2 cards).
+function OppLine({ visible, any, fits }: { visible: Job[]; any: boolean; fits: Record<string, JobFit> }) {
   const week = new Date(Date.now() - 7 * 864e5).toISOString();
   const fresh = visible.filter((j) => (j.foundAt || "") > week).length;
   const qualify = visible.filter((j) => fits[j.id]?.checked && fits[j.id]?.eligibility !== "unlikely" && !fits[j.id]?.closed).length;
   const soon = visible.map((j) => ({ j, d: daysUntil(j.deadline) })).filter((x) => x.d !== null && x.d >= 0 && x.d <= 14).sort((a, b) => a.d! - b.d!)[0];
-  if (!visible.length) return <p className="op-say">Remy is looking for openings that fit you.</p>;
+  if (!visible.length) return <p className="op-say">{any ? "No openings match these filters." : "Remy is looking for openings that fit you."}</p>;
   return (
     <p className="op-say" data-testid="opp-line">
       <b>{fresh ? `${fresh} new this week.` : `${visible.length} opening${visible.length === 1 ? "" : "s"} ranked for you.`}</b>

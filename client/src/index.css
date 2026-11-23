@@ -659,7 +659,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 /* owners' dashboard: its own layout, a left menu and wide content */
 .adm { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh; background: linear-gradient(to right, var(--surface-2) 220px, var(--bg) 220px); }
 .adm-nav { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 4px; padding: 20px 14px; border-right: 1px solid var(--line); background: var(--surface-2); }
-.adm-role { margin: -2px 0 14px 36px; }
+.adm-role { margin: -2px 0 14px 2px; } /* under the wordmark (the fox is hidden here, like owner view) */
 .adm-nav nav { display: grid; gap: 2px; }
 .adm-nav nav a { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; font-weight: 600; font-size: var(--text-sm); color: var(--muted-text); text-decoration: none; }
 .adm-nav nav a:hover { background: var(--lav); color: var(--ink); }
@@ -1276,7 +1276,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 
 /* ---------- Redesign stage 2: one Remy (owners first, Nov 21, 2026; team-approved proposal) ---------- */
 /* One fox: the logo's fox goes (Remy lives in his panel); the wordmark stays. */
-.redesign-2 .sidebar .logo > svg.fox, .redesign-2 .mobile-top .logo > svg.fox { display: none; }
+.redesign-2 .sidebar .logo > svg.fox, .redesign-2 .mobile-top .logo > svg.fox, .adm-nav .logo > svg.fox { display: none; } /* the Owners' dashboard (owners only) matches owner view */
 /* Remy in his panel: bigger, gently alive. */
 .redesign-2 .asst-head { padding-block: 14px; }
 .redesign-2 .asst-head > svg.fox { width: 52px; height: auto; animation: remy-bob 3.2s ease-in-out infinite; transform-origin: 50% 90%; }
@@ -1372,7 +1372,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 /* What's new: a dot when there's something unseen, not a number in the hundreds. */
 .redesign-2 [data-testid="button-whats-new"] .count { font-size: 0; width: 8px; height: 8px; padding: 0; border-radius: 50%; background: var(--fox); }
 /* Beta: small orange word, not a blue pill (blue isn't a Remy colour). */
-.redesign-2 .beta-badge { color: var(--fox-deep); background: none; padding: 0; text-transform: none; letter-spacing: 0; font-size: 0.72rem; }
+.redesign-2 .beta-badge, .adm-nav .beta-badge { color: var(--fox-deep); background: none; padding: 0; text-transform: none; letter-spacing: 0; font-size: 0.72rem; }
 /* Remy's suggested questions: tappable outlined chips, not a list of links. */
 .redesign-2 .asst-asks { border-top: 0; gap: 6px; }
 .redesign-2 .asst-ask { width: fit-content; max-width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; background: var(--surface); }

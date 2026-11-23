@@ -77,7 +77,7 @@ export default function Admin() {
   return (
     <div className="adm">
       <aside className="adm-nav">
-        <span className="logo"><Remy size={26} /> Remy <BetaBadge /></span>
+        <span className="logo"><Remy size={26} /><span className="logo-text">Remy<b>.</b></span><BetaBadge /></span>
         <span className="xs muted adm-role">Owners</span>
         <nav>
           {NAV_GROUPS.map(([group, keys]) => (
