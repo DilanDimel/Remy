@@ -25,6 +25,8 @@ import { checkedInterviewDate, zoneIn } from "./coach/interviewDate";
 import { briefMessages, briefPrompt, cleanBrief, skillOriginQuestion } from "./coach/brief";
 import { betterLetter, keptFixes, letterFixPrompt, rewriteFixPrompt } from "./ai/tailorFix";
 import { BUZZ, assemblePitch, type PitchParts } from "./coach/pitch";
+import { checkFeedback, checkPlan, feedbackPrompt, planPrompt, rulesPlan } from "./coach/interview";
+import { AI_CALLS_PER_INTERVIEW, pickProfile, weeklyLeft, type Interview, type IvMode } from "@shared/interview";
 import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./platform/db";
 import { inOwnerTrial, inOwnerView, runAiAs, aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai/ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./ai/safety";
@@ -993,7 +995,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       nudges: z.enum(["daily", "weekly", "off"]).optional(),
       texts: z.object({ on: z.boolean(), phone: z.string().max(30).refine((p) => p === "" || !!usPhone(p), "Use a US phone number, like (817) 555-0123.") }).optional(),
       demoConnections: z.array(str(80)).max(20).optional(), newsSeen: str(40).optional(), ownerView: z.boolean().optional(),
-      tour: z.union([z.number().int().min(0).max(20), z.literal("done")]).optional(), firstWin: z.union([z.number().int().min(0).max(2), z.literal("done")]).optional(), introsSeen: z.array(str(40)).max(20).optional(), offersSeen: z.array(str(160)).max(200).optional(),
+      tour: z.union([z.number().int().min(0).max(20), z.literal("done")]).optional(), firstWin: z.union([z.number().int().min(0).max(2), z.literal("done")]).optional(), introsSeen: z.array(str(40)).max(20).optional(), offersSeen: z.array(str(160)).max(200).optional(), quietUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     }),
     tasks: z.array(z.looseObject({ id: str(120), title: str(300), why: str(2000), due: str(10), category: z.enum(["Explore", "Prepare", "Apply", "Connect", "Academic"]), done: z.boolean(), source: str(200), link: str(500).optional() })).max(500),
     calendar: z.array(z.looseObject({ id: str(120), title: str(300), date: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/), time: z.string().regex(/^(\d{2}:\d{2})?$/), kind: z.enum(["Deadline", "Event", "Task", "Interview", "Advising"]), source: str(200), linkedId: str(120).optional(), notes: str(4000).optional() })).max(1000),
@@ -1564,6 +1566,72 @@ export async function registerRoutes(_server: Server, app: Express) {
       ),
     );
     res.json({ tips: (out.tips || []).map((t) => String(t).trim().slice(0, 300)).filter(Boolean).slice(0, 3) });
+  }));
+
+  // Owners (Julio's interview coach): Remy designs a mock interview from the posting and the student's own resume,
+  // stories and pitch, then rates each answer against the scoring guide (server/coach/interview.ts). Three AI
+  // interviews a week; after that, or with no AI, the questions come from the posting and there's no rating.
+  const ownerIv = (ctx: Ctx) => { if (!ctx.me.owner || ctx.ws.settings.ownerView === false) bad("Mock interviews with Remy are only for owners right now.", 403); };
+  const ivOf = (ctx: Ctx, id: string) => (ctx.ws.interviews || []).find((x) => x.id === id) || bad("That practice isn't here anymore.", 404);
+  const ivOk = (ctx: Ctx, extra = "") => (t: string) => !claimCheck(t, evidenceOf(ctx.ws) + "\n" + extra).length;
+  app.post("/api/interviews", route(async (req, res, ctx) => {
+    ownerIv(ctx);
+    const job = findJob(ctx.ws, String(req.body?.jobId || "")) || bad("Pick an opening to practice for.", 404);
+    const mode: IvMode = req.body?.mode === "real" ? "real" : "coach";
+    const profile = pickProfile(job);
+    const ivs = (ctx.ws.interviews ||= []);
+    const resume = ctx.ws.resume ? resumeToText(ctx.ws.resume.doc, { verifiedOnly: true }) : "";
+    const stories = ctx.ws.stories || [], pitch = ctx.ws.pitch?.text || "";
+    const useAi = aiStatus().available && weeklyLeft(ivs) > 0;
+    let questions = rulesPlan(job, ctx.ws.resume?.doc, pitch, stories, profile);
+    let aiCalls = 0;
+    if (useAi) {
+      try {
+        const [sys, user] = planPrompt({ job, profile, resume, stories, pitch });
+        aiCalls++;
+        const raw = await withAi(ctx, "Mock interview plan", () => aiJson(sys, user, 2500));
+        const sources = [job.summary, ...(job.requirements || []).map((r) => r.quote), job.postingText || "", resume].join("\n");
+        questions = checkPlan(raw, profile, sources, ivOk(ctx, pitch)) || questions;
+      } catch { /* AI busy or down: the posting's own questions still make a practice */ }
+    }
+    const iv: Interview = { id: uid("iv"), jobId: job.id, company: job.company, title: job.title, profile, mode, source: useAi ? "ai" : "rules", questions, answers: [], retries: 0, aiCalls, startedAt: nowIso() };
+    ctx.ws.interviews = [...ivs, iv].slice(-20);
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
+  app.post("/api/interviews/:id/answer", route(async (req, res, ctx) => {
+    ownerIv(ctx);
+    const iv = ivOf(ctx, String(req.params.id));
+    const qi = Number(req.body?.qi);
+    const q = iv.questions[qi] || bad("That question isn't in this practice.");
+    const text = String(req.body?.text || "").trim().slice(0, 4000);
+    if (!text) bad("Say or type your answer first.");
+    const before = iv.answers.find((a) => a.qi === qi);
+    const answer = { qi, text, secs: Math.max(0, Math.min(1800, Math.round(Number(req.body?.secs) || 0))), fillers: Math.max(0, Math.min(500, Math.round(Number(req.body?.fillers) || 0))), at: nowIso(), ratings: [] as Interview["answers"][number]["ratings"] } as Interview["answers"][number];
+    if (iv.source === "ai" && iv.aiCalls < AI_CALLS_PER_INTERVIEW && text.split(/\s+/).length >= 5) {
+      iv.aiCalls++;
+      try {
+        const [sys, user] = feedbackPrompt(iv.profile, q, text, before);
+        Object.assign(answer, checkFeedback(await withAi(ctx, "Mock interview feedback", () => aiJson(sys, user, 1500)), text, iv.profile, ivOk(ctx, text)));
+      } catch { /* the answer is saved either way; Remy's take just doesn't show this time */ }
+    }
+    if (before) iv.retries++;
+    iv.answers = [...iv.answers.filter((a) => a.qi !== qi), answer].sort((a, b) => a.qi - b.qi);
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
+  app.post("/api/interviews/:id/finish", route(async (req, res, ctx) => {
+    ownerIv(ctx);
+    const iv = ivOf(ctx, String(req.params.id));
+    if (!iv.finishedAt && iv.answers.length) { iv.finishedAt = nowIso(); ctx.ws.game = markDay(ctx.ws.game || { weeks: {} }, centralToday()); }
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
+  app.delete("/api/interviews/:id", route(async (req, res, ctx) => {
+    ownerIv(ctx);
+    ctx.ws.interviews = (ctx.ws.interviews || []).filter((x) => x.id !== String(req.params.id));
+    await ctx.save();
+    res.json(ctx.ws);
   }));
 
   // 30-second pitch from the student's own record, written to be spoken (server/coach/pitch.ts). Each part is honesty-checked;

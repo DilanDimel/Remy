@@ -464,7 +464,7 @@ export type ChatAction = { kind: "task"; title: string; why: string; due?: strin
 /** Owners: the rest of the site, done by Remy from chat (server/ai/remyTools.ts). */
 export type MoreAction = { kind: "interest"; jobId: string; more: boolean } | { kind: "unhide"; jobId: string }
   | { kind: "prefs"; field: "regions" | "opportunityTypes" | "timeline" | "avoid" | "dreamEmployers" | "interests" | "goals" | "classYear" | "relocation" | "workAuth"; value: string; mode: "set" | "add" | "remove" }
-  | { kind: "nudges"; value: "daily" | "weekly" | "off" } | { kind: "careerTime"; day?: number; time?: string; off?: boolean } | { kind: "textsOff" }
+  | { kind: "nudges"; value: "daily" | "weekly" | "off" } | { kind: "careerTime"; day?: number; time?: string; off?: boolean } | { kind: "textsOff" } | { kind: "quiet"; days: number }
   | { kind: "track"; trackId?: string; company?: string; role?: string; jobId?: string; status: TrackStatus }
   | { kind: "moveEvent"; calId: string; date: string; time?: string } | { kind: "removeEvent"; calId: string } | { kind: "due"; taskId: string; due: string }
   | { kind: "hours"; activity: string; hours: number; date: string; note?: string } | { kind: "career"; careerId: string }
@@ -576,6 +576,8 @@ export interface Workspace {
   loops?: { id: string; ask: string; on: string; askedAt?: string }[];
   /** Owners (#6): day (YYYY-MM-DD) Remy last started his weekly check-in in chat. Server-written. */
   remyCheckin?: string;
+  /** Owners (Julio's interview coach): mock interviews, newest last, at most 20. Server-written (/api/interviews). */
+  interviews?: import("./interview").Interview[];
   /** Match emails Remy sent (server/coach/nudges.ts) and the student's Yes / Not now. Server-written. */
   nudges?: { id: string; jobId: string; at: string; answer?: "yes" | "later"; answeredAt?: string }[];
   /** When Remy last drafted tailored resumes overnight (stage 5b). Server-written. */
@@ -621,6 +623,8 @@ export interface Workspace {
     introsSeen?: string[];
     /** Remy's in-page offers the student answered (shared/remyOffers.ts), so each is offered once. */
     offersSeen?: string[];
+    /** Owners: "quiet week". Through this day (YYYY-MM-DD) Remy makes no offers or check-ins and sends no opening or weekly emails. */
+    quietUntil?: string;
   };
   updatedAt: string;
 }
