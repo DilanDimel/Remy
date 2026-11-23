@@ -2494,13 +2494,32 @@ html[data-theme="dark"] .lk { color-scheme: dark; }
   .ob-owner .pref-group { background: var(--surface); }
   .ob-owner .pref-group + .pref-group { border-top: 0; }
   .ob-owner .ob-card .textarea { min-height: 56px; }
-  .ob-owner [data-testid=school-verify] .row { flex-wrap: nowrap; }
-  .ob-owner [data-testid=school-verify] .row .input { flex: 1; width: auto; }
+  .ob-owner .ob-card [data-testid=school-verify] { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 14px; }
+  .ob-owner .ob-card [data-testid=school-verify] > p.small { display: none; }
+  .ob-owner .ob-card [data-testid=school-verify] .row { flex: 1 1 320px; flex-wrap: nowrap; }
+  .ob-owner .ob-card [data-testid=school-verify] .row .input { flex: 1; width: auto; }
   .ob-owner .pref-inline { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 20px; }
   .ob-owner .pref-inline .field { flex: 0 1 200px; }
   .ob-owner .pref-inline { align-items: center; }
   .ob-owner .pref-inline .pref-grow { flex: 1 1 260px; width: auto; }
 }
+/* Zero scroll at laptop size (Dilan, Nov 23): tighter spacing in the step card, smaller chips, and Back/Next pinned
+   to the bottom of the screen so they never scroll away. */
+.ob-owner .ob-card .stack-lg { gap: 14px; }
+.ob-owner .ob-card .pref-chip { padding: 5px 12px; font-size: 13px; }
+.ob-owner .ob-card .pref-chips { gap: 6px; }
+.ob-owner .ob-card .pref-group-head { min-height: 44px; padding: 7px 14px; }
+.ob-owner .ob-card > div > .row-between:last-child { position: sticky; bottom: 0; z-index: 2; margin: 0 -20px -20px; padding: 12px 20px; background: var(--surface); border-top: 1px solid var(--line); border-radius: 0 0 20px 20px; }
+.ob-owner .ob-main { padding-top: 20px; padding-bottom: 20px; }
+@media (min-width: 1100px) {
+  .ob-owner .ob-card .pref-group-head .grow { display: flex; align-items: baseline; gap: 8px; }
+  .ob-owner .ob-card .remy-prompt .stack-sm { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+  .ob-owner .ob-card .remy-prompt .stack-sm > p { flex: 1 1 400px; margin: 0; max-width: none; }
+  .ob-owner .pref-inline .field { display: flex; flex-direction: row; align-items: center; gap: 8px; flex-basis: 280px; }
+  .ob-owner .pref-inline .field > span { white-space: nowrap; }
+  .ob-owner .pref-inline .field .input { min-height: 34px; padding-top: 4px; padding-bottom: 4px; }
+}
+@media (max-width: 860px) { .ob-owner .ob-card > div > .row-between:last-child { margin: 0 -16px -18px; padding: 12px 16px; } }
 /* Owner setup, right side (Nov 23): live preview of what Remy builds from each step (resume being read, first openings).
    Wide screens only; narrower ones keep the two-column notebook + step. */
 .ob-pv { display: none; }

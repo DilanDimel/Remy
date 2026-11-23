@@ -590,10 +590,10 @@ function Preferences({ onBack }: { onBack: () => void }) {
           <Q n={1}><strong>What year are you in?</strong><div className="pref-inline"><Chips options={YEAR_OPTS} value={year} onChange={setYear} multi={false} testid="pref-year" />
             <label className="field" style={{ maxWidth: 260 }}><span className="xs muted">Expected graduation</span><input className="input" value={grad} onChange={(e) => setGrad(e.target.value)} placeholder="e.g. May 2029" data-testid="input-pref-grad" /></label></div></Q>
           <Q n={2}><strong>Which fields or roles interest you?</strong>
-            <div className="stack-sm" style={{ gap: 6 }}>
+            {!owner && <div className="stack-sm" style={{ gap: 6 }}>
               <button type="button" className="pref-chip pref-unsure" aria-pressed={unsure} onClick={() => setUnsure(!unsure)} data-testid="pref-unsure">I'm not sure yet</button>
               {unsure && <span className="xs muted fade-up">No problem. Pick any that sound interesting, or none. Remy will search by your major and show you where it leads on My Path.</span>}
-            </div>
+            </div>}
             <div className="pref-groups">
               {FIELD_GROUPS.map(([group, opts]) => {
                 const open = openGroups.includes(group);
@@ -610,7 +610,12 @@ function Preferences({ onBack }: { onBack: () => void }) {
                 );
               })}
             </div>
-            <input className="input" value={otherField} onChange={(e) => setOtherField(e.target.value)} placeholder="Something more specific?" aria-label="Other fields" data-testid="input-pref-field" /></Q>
+            {/* Owners: "not sure" sits beside the free-text box, saving a row (Dilan, Nov 23: no scrolling). */}
+            <div className={owner ? "pref-inline" : undefined} style={owner ? undefined : { display: "contents" }}>
+              <input className="input pref-grow" value={otherField} onChange={(e) => setOtherField(e.target.value)} placeholder="Something more specific?" aria-label="Other fields" data-testid="input-pref-field" />
+              {owner && <button type="button" className="pref-chip pref-unsure" aria-pressed={unsure} onClick={() => setUnsure(!unsure)} data-testid="pref-unsure">I'm not sure yet</button>}
+            </div>
+            {owner && unsure && <span className="xs muted fade-up">No problem. Pick any that sound interesting, or none. Remy will search by your major and show you where it leads on My Path.</span>}</Q>
           <div className="pref-pair">
           <Q n={3}><strong>What kinds of opportunities do you want?</strong><Chips options={TYPE_OPTS} value={types} onChange={setTypes} testid="pref-type" /></Q>
           <Q n={4}><strong>When do you want to start?</strong><Chips options={timelineOptions()} value={timeline} onChange={setTimeline} testid="pref-when" />
