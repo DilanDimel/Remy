@@ -12,7 +12,7 @@
 
 ## Background work
 
-`POST /api/cron/tick` runs the background jobs (deadline reminders, the weekly digest, guest cleanup). GitHub Actions calls it hourly (`.github/workflows/tick.yml`) so it runs even while the free Render server sleeps.
+`POST /api/cron/tick` runs the background jobs (deadline reminders, the weekly digest, guest cleanup). A Cloudflare Worker cron (`remy-tick` in Cloudflare, 17 minutes past each hour) calls it hourly, so the jobs run on schedule. It replaced a GitHub Action to save Actions minutes.
 
 ## Where new things go
 

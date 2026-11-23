@@ -1,6 +1,8 @@
 name: Checks
+# Runs on pull requests and on main only (not every branch push), so each change is checked once.
 on:
   push:
+    branches: [main]
   pull_request:
 jobs:
   checks:
