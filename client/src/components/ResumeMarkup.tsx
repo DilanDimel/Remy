@@ -100,13 +100,13 @@ export function toolsRegex(doc: ResumeDoc): RegExp {
 }
 
 /** `real`: draws the student's own file (with colours) in place of Remy's drawn page; null = use the drawn page. */
-export function ResumeMarkup({ doc, onFix, plain = false, look, side, real }: { doc: ResumeDoc; onFix: (where: "review" | "edit") => void; plain?: boolean; look?: ResumeStyle; side?: ReactNode; real?: (on: Set<Cat>) => ReactNode }) {
+export function ResumeMarkup({ doc, onFix, plain = false, look, side, real }: { doc: ResumeDoc; onFix: (where: "review" | "edit", line?: { text: string; kind: string }) => void; plain?: boolean; look?: ResumeStyle; side?: ReactNode; real?: (on: Set<Cat>) => ReactNode }) {
   const [on, setOn] = useState<Set<Cat>>(new Set(plain ? [] : CATS.map(([c]) => c)));
   const tools = useMemo(() => toolsRegex(doc), [doc.skills]);
   const ownFile = real?.(on) ?? null;
   const review = useMemo(() => reviewResume(doc, { listLike: true }), [doc]); // owners' page: certifications listed like skills need no dates
   // Tap a highlight or a flag: Remy's reason and what to change, beside the tap.
-  const [why, setWhy] = useState<{ kind: string; text: string; x: number; y: number } | null>(null);
+  const [why, setWhy] = useState<{ kind: string; text: string; line: string; x: number; y: number } | null>(null);
   const tap = (target: EventTarget | null, x: number, y: number) => {
     if (plain) return false;
     const el = (target as Element | null)?.closest?.("mark, .rm-flag, .rr-hl") as HTMLElement | null;
@@ -115,7 +115,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real }: { 
     const cat = [...el.classList].find((k) => /^rm-(action|hard|soft|number|result)$/.test(k))?.slice(3);
     const text = el.dataset.t || el.textContent || "";
     const kinds = flag ? text.split(" · ").map((t) => t.trim()) : [cat || ""];
-    setWhy({ kind: kinds.join("|"), text: flag ? "" : text, x: Math.max(8, Math.min(x, (body.current?.getBoundingClientRect().right ?? window.innerWidth) - 328)), y: y + 290 > window.innerHeight ? Math.max(8, y - 290) : y + 14 });
+    setWhy({ kind: kinds.join("|"), text: flag ? "" : text, line: el.closest("li, p")?.textContent || "", x: Math.max(8, Math.min(x, (body.current?.getBoundingClientRect().right ?? window.innerWidth) - 328)), y: y + 290 > window.innerHeight ? Math.max(8, y - 290) : y + 14 });
     return true;
   };
   const onTap = (e: React.MouseEvent) => { if (tap(e.target, e.clientX, e.clientY)) { e.preventDefault(); e.stopPropagation(); } };
@@ -125,7 +125,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real }: { 
     const on = (e: Event) => { const d = (e as CustomEvent).detail; tap(d.el, d.x, d.y); };
     el.addEventListener("rr-tap", on); return () => el.removeEventListener("rr-tap", on);
   });
-  const bullets = doc.sections.filter((s) => !isListSection(s.heading)).flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => b.text))).filter((t) => t.trim());
+  const bullets = doc.sections.filter((s) => !isListSection(s.heading, true)).flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => b.text))).filter((t) => t.trim());
   const count = (c: Cat) => bullets.filter((b) => ranges(b, tools).some((r) => r[2] === c)).length;
   const flip = (c: Cat) => setOn((s) => { const n = new Set(s); n.has(c) ? n.delete(c) : n.add(c); return n; });
   const c = doc.contact;
@@ -148,10 +148,10 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real }: { 
               {s.entries.map((e) => (
                 <div key={e.id} className="rm-entry">
                   <div className="rm-row"><b>{e.org}</b><span>{e.location}</span></div>
-                  <div className="rm-row rm-sub"><i>{e.role}</i><span>{e.dates || (plain || isListSection(s.heading) ? null : <span className="rm-flag">No dates</span>)}</span></div>
+                  <div className="rm-row rm-sub"><i>{e.role}</i><span>{e.dates || (plain || isListSection(s.heading, true) ? null : <span className="rm-flag">No dates</span>)}</span></div>
                   <ul>
                     {e.bullets.filter((b) => b.text.trim()).map((b) => {
-                      const probs = plain || isListSection(s.heading) ? [] : issues(b.text);
+                      const probs = plain || isListSection(s.heading, true) ? [] : issues(b.text);
                       return (
                         <li key={b.id} className={probs.length ? "rm-has-issue" : ""}>
                           {marked(b.text.replace(/^[•\-–*]\s*/, ""), tools, on)}
@@ -179,7 +179,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real }: { 
               </div>
             ); })}
             <div className="row" style={{ gap: 6 }}>
-              {why.kind.split("|").some((k) => explain(k, "").fix) && <button className="btn btn-primary btn-sm" onClick={() => { setWhy(null); onFix("review"); }} data-testid="button-why-fix">Fix with Remy</button>}
+              {why.kind.split("|").some((k) => explain(k, "").fix) && <button className="btn btn-primary btn-sm" onClick={() => { setWhy(null); onFix("review", { text: why.line, kind: why.kind }); }} data-testid="button-why-fix">Fix with Remy</button>}
               {why.kind === "No dates" && <button className="btn btn-primary btn-sm" onClick={() => { setWhy(null); onFix("edit"); }} data-testid="button-why-edit">Add dates</button>}
               <button className="btn btn-ghost btn-sm" onClick={() => setWhy(null)} data-testid="button-why-close">Close</button>
             </div>

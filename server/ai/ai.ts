@@ -57,6 +57,8 @@ function chainClient(p: string) {
 const aiScope = new AsyncLocalStorage<{ owner: boolean; model?: string; spend?: number }>();
 export const runAiAs = <T>(owner: boolean, fn: () => Promise<T>) => aiScope.run({ owner }, fn);
 export const inOwnerTrial = () => ownerTrial();
+/** This request is an owner in owner view (owners-first checks outside the AI calls). */
+export const inOwnerView = () => !!aiScope.getStore()?.owner;
 const ownerTrial = () => !!aiScope.getStore()?.owner && !!process.env.OR_AI_CHAIN_OWNERS;
 const defaultChain = () => (ownerTrial() ? process.env.OR_AI_CHAIN_OWNERS : process.env.OR_AI_CHAIN);
 /** Student-data rules for OpenRouter (checked against its provider-routing docs, Nov 21): only zero-data-retention

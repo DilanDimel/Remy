@@ -2542,3 +2542,6 @@ html[data-theme="dark"] .lk { color-scheme: dark; }
 /* Inside the Expo app's website sheet: the app has its own tab bar and Remy chat (client/src/lib/native.ts). */
 html.in-app-sheet .mobile-nav, html.in-app-sheet .topbar { display: none !important; }
 html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+
+/* Owners' tailoring (Nov 23): the words Remy changed in a proposed line, readable on the peach card in both themes. */
+.redesign-2 .compare .rev mark.diff-add { background: var(--surface); color: inherit; box-shadow: inset 0 -2px 0 var(--fox); border-radius: 3px; padding: 0 2px; }

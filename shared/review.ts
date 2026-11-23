@@ -27,7 +27,7 @@ export function reviewResume(doc: ResumeDoc, { listLike = false } = {}): { todo:
   if (undated.length) todo.push({ kind: "dates", title: `${undated.length} entr${undated.length === 1 ? "y has" : "ies have"} no dates`, entries: undated.map(({ s, e }) => ({ sectionId: s.id, entryId: e.id, label: [e.role, e.org].filter(Boolean).join(", ") || s.heading })) });
   else if (entries.length) good.push("Every entry has dates.");
 
-  const bullets: BulletRef[] = doc.sections.filter((s) => !isListSection(s.heading)).flatMap((s) => s.entries.flatMap((e) => e.bullets.filter((b) => clean(b.text)).map((b) => ({ id: b.id, text: clean(b.text), where: [e.role, e.org].filter(Boolean).join(", ") || s.heading }))));
+  const bullets: BulletRef[] = doc.sections.filter((s) => !isListSection(s.heading, listLike)).flatMap((s) => s.entries.flatMap((e) => e.bullets.filter((b) => clean(b.text)).map((b) => ({ id: b.id, text: clean(b.text), where: [e.role, e.org].filter(Boolean).join(", ") || s.heading }))));
   const n = bullets.length || 1;
   const noNumber = bullets.filter((b) => !QUANT.test(b.text));
   if (bullets.length && (bullets.length - noNumber.length) / n < 0.5) todo.push({ kind: "numbers", title: `${noNumber.length} of ${bullets.length} bullets have no number`, why: "A real number (people, events, dollars, hours) makes a line easy to believe. Only add one you actually know.", bullets: noNumber });
@@ -46,6 +46,9 @@ export function reviewResume(doc: ResumeDoc, { listLike = false } = {}): { todo:
   if (words > 800) todo.push({ kind: "tip", title: `${words} words: longer than one page`, why: "Most student resumes fit one page (about 450 to 700 words). Trim older or weaker lines in the Edit tab." });
   else if (words < 250 && bullets.length) todo.push({ kind: "tip", title: `Only ${words} words`, why: "Add detail to your strongest roles in the Edit tab: what you did, for whom, and a real number if you know one." });
   if (bullets.length && bullets.length < 6) todo.push({ kind: "tip", title: `Only ${bullets.length} bullet${bullets.length === 1 ? "" : "s"}`, why: "Aim for 3 to 5 under each role or project. Add them in the Edit tab." });
+  // Owners (Nov 23): a one-month entry written as a range ("Oct 2026 – Oct 2026") reads like a typo.
+  const twice = listLike ? entries.filter(({ e }) => { const m = e.dates.match(/^\s*(.+?)\s*[–—-]\s*(.+?)\s*$/); return !!m && m[1].toLowerCase() === m[2].toLowerCase(); }) : [];
+  if (twice.length) todo.push({ kind: "tip", title: `${twice.length === 1 ? "A date says" : `${twice.length} dates say`} the same month twice`, why: `Write “${twice[0].e.dates.split(/\s*[–—-]\s*/)[0]}” instead of “${twice[0].e.dates.trim()}” (${[twice[0].e.role, twice[0].e.org].filter(Boolean).join(", ")}).` });
   const formats = new Set(entries.filter(({ e }) => e.dates.trim()).map(({ e }) => (/[a-z]{3}\s+\d{4}/i.test(e.dates) ? "word" : /\d{1,2}\/\d{4}/.test(e.dates) ? "num" : "other")));
   if (formats.size > 1) todo.push({ kind: "tip", title: "Dates use different formats", why: "Use one format everywhere, like “Jun 2025 – Aug 2025”, in the Edit tab." });
   return { todo, good };
