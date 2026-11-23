@@ -144,7 +144,8 @@ function Tracker({ kept, start }: { kept: Job[]; start: Job[] }) {
       {owner ? <Board w={w} kept={kept} start={start} onOpen={openRow} onAdd={() => setAdding(true)} /> : <div className="pipeline">{counts.map(([s, c]) => <div key={s} className="pipe"><span className="xs muted">{s}</span><strong>{c}</strong></div>)}</div>}
       {owner && <NextUp w={w} />}
       <ReplyRate />
-      <div className="card card-pad">
+      {/* Owners: "Details and notes · Show all 0" was a dead row with nothing tracked yet (Nov 23 PM review). */}
+      {(!owner || w.tracker.length > 0) && <div className="card card-pad">
         <div className="row-between" style={{ marginBottom: owner && !details ? 0 : 8 }}><h3>{owner ? "Details and notes" : "Applications"}</h3>
           {owner ? <button className="btn btn-ghost btn-sm" onClick={() => setDetails(!details)} aria-expanded={details} data-testid="button-toggle-details">{details ? "Hide" : `Show all ${w.tracker.length}`}</button>
             : <button className="btn btn-secondary btn-sm" onClick={() => setAdding(true)} data-testid="button-add-tracking"><Plus size={14} /> Track an application</button>}</div>
@@ -178,7 +179,7 @@ function Tracker({ kept, start }: { kept: Job[]; start: Job[] }) {
             </div>
           </div>
         )) : <Empty title="Nothing tracked yet" body="Approving tailored materials adds the opening here automatically. You can also add applications by hand." />}
-      </div>
+      </div>}
       {adding && (
         <Modal title="Track an application" onClose={() => setAdding(false)}>
           <label className="field"><span>Company</span><input className="input" value={n.company} onChange={(e) => setN({ ...n, company: e.target.value })} data-testid="input-track-company" /></label>
@@ -264,7 +265,9 @@ function Board({ w, kept, start, onOpen, onAdd }: { w: Workspace; kept: Job[]; s
 
 function NextUp({ w }: { w: Workspace }) {
   const mail = w.suggestions.filter((s) => s.state === "open").slice(0, 3);
-  const todos = w.tasks.filter((t) => !t.done).slice(0, 3);
+  // Nov 23 PM review: with no email waiting the left card was empty text and the page ended half way, so it offers
+  // the paste box instead, and Next up shows five to-dos.
+  const todos = w.tasks.filter((t) => !t.done).slice(0, 5);
   return (
     <div className="pr-cols">
       <div className="op-card">
@@ -272,7 +275,8 @@ function NextUp({ w }: { w: Workspace }) {
         {mail.length ? <ul className="op-dl">{mail.map((m) => (
           <li key={m.id}><OrgLogo company={m.company} />
             <button onClick={() => go("/progress?tab=email")}><strong>{m.company}{m.role ? `: ${m.role}` : ""}</strong><span>Looks like {m.proposed} · review it</span></button></li>
-        ))}</ul> : <p className="small muted">No status changes waiting. Remy reads recruiting emails you connect and asks before changing anything.</p>}
+        ))}</ul> : <div className="stack-sm"><p className="small muted" style={{ margin: 0 }}>Got an interview invite, an offer or a rejection? Paste it and Remy moves the application along. Nothing changes until you confirm.</p>
+          <button className="btn btn-secondary btn-sm" style={{ justifySelf: "start" }} onClick={() => go("/progress?tab=email&paste=1")} data-testid="button-progress-paste"><Mail size={14} /> Paste an email</button></div>}
       </div>
       <div className="op-card">
         <div className="op-ch"><h3>Next up</h3><button className="op-link" onClick={() => go("/progress?tab=todos")} data-testid="button-progress-todos">All to-dos →</button></div>
