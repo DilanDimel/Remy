@@ -123,6 +123,16 @@ export const WARDROBE: [string, number][] = [["suit", 1], ["tweed", 3], ["navy",
 export const graduated = (classYear = "") => /grad|alum/i.test(classYear);
 export const unlockedOutfits = (rank: number, classYear = "") => [...WARDROBE.filter(([, l]) => rank >= l).map(([o]) => o), ...(graduated(classYear) ? ["gown"] : [])];
 export const nextOutfit = (rank: number) => WARDROBE.find(([, l]) => l > rank);
+/** Season rewards (Nov 23): every level that doesn't bring an outfit brings a new thing for Remy's office on My Path. */
+export const OFFICE: [string, string, number][] = [["lamp", "Desk lamp", 2], ["globe", "Globe", 4], ["clock", "Wall clock", 6], ["mug", "Coffee mug", 7],
+  ["rug", "Rug", 9], ["painting", "Painting", 10], ["bigplant", "Tall plant", 12], ["trophy", "Trophy", 13], ["skyline", "City view", 14]];
+export type LevelReward = { kind: "outfit" | "item"; key: string; level: number; label?: string };
+export const levelReward = (level: number): LevelReward | null => {
+  const o = WARDROBE.find(([, l]) => l === level);
+  if (o) return { kind: "outfit", key: o[0], level };
+  const i = OFFICE.find(([, , l]) => l === level);
+  return i ? { kind: "item", key: i[0], label: i[1], level } : null;
+};
 /** Badges only for wins a recruiter would recognize. */
 export function badges(w: Workspace) {
   const c = counters(w);
