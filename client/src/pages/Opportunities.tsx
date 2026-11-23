@@ -6,12 +6,13 @@ import type { Job, JobCheck, JobFit, JobInterestReason, JobRanking, Workspace } 
 import { api, daysUntil, fmtDate, rid, useDraft, useOwnerView, useStore } from "../lib/store";
 import { ApplyLink } from "../components/ApplyLink";
 import { go } from "../lib/router";
-import { kindLabel, orgInitials, reloadJobs, sameOrg, useJobs } from "../lib/jobs";
+import { kindLabel, reloadJobs, sameOrg, useJobs } from "../lib/jobs";
 import { shortTitle } from "@shared/org";
 import { screeningFor } from "@shared/screening";
 import { postingSkills, skillsIn } from "@shared/requirements";
 import { isRoleOpening } from "@shared/roleMatch";
 import { Empty, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
+import { OrgLogo } from "../components/OrgLogo";
 
 type Kind = "all" | "jobs" | "campus" | "event";
 const matchKind = (j: Job, k: Kind) => k === "all" || (k === "event" ? j.kind === "event" : k === "campus" ? j.kind === "campus" : ["job", "internship", "program"].includes(j.kind));
@@ -319,7 +320,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit
   return (
     <article id={"job-" + j.id} className={"card card-pad stack-sm job-card" + (open ? " open" : "")} style={defaultOpen ? { borderColor: "var(--plum)" } : undefined} data-testid="card-job">
       <div className="row-between job-top" style={{ alignItems: "flex-start" }}>
-        {keepPass && <span className="job-mono" aria-hidden="true">{orgInitials(j.company)}</span>}
+        {keepPass && <OrgLogo company={j.company} url={j.applyUrl} />}
         <div className="stack-sm" style={{ minWidth: 0, flex: 1 }}>
           <div className="row"><span className="xs muted">{j.company} · {kindLabel[j.kind]}</span><StatusChip label={j.label} />{eligChip(fit)}</div>
           <h3 title={shortTitle(j.title, j.company) !== j.title ? j.title : undefined}>{shortTitle(j.title, j.company)}</h3>

@@ -14,6 +14,7 @@ import { api, rid, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { Spinner } from "./common";
+import { OrgLogo } from "./OrgLogo";
 
 export type Occ = { soc: string; title: string; change: number; openings: number | null; wage: number | null; education: string; aiShare: number | null; link: string };
 export type FutureData = { source: string; allJobsGrowth: number; fields: { field: string; growing: Occ[]; shrinking: Occ[]; total: number; fasterThanAverage: number }[] };
@@ -386,7 +387,7 @@ function OpeningsCard({ jobs, fits, put, onDone }: { jobs: Job[]; fits: Record<s
       <div className="dp-swipe">
         {jobs[i + 1] && <div className="dp-job back" aria-hidden="true" />}
         <article className={"dp-job" + (fly ? " fly-" + fly : "")}>
-          <div className="dp-job-co"><span className="dp-mono">{(j.company || "?").slice(0, 2).toUpperCase()}</span><div><b>{j.company || "An employer"}</b><span>{[place(j.location), j.format].filter(Boolean).join(" · ")}</span></div></div>
+          <div className="dp-job-co"><OrgLogo key={j.id} company={j.company} url={j.applyUrl} className="dp-mono" text={(j.company || "?").slice(0, 2).toUpperCase()} /><div><b>{j.company || "An employer"}</b><span>{[place(j.location), j.format].filter(Boolean).join(" · ")}</span></div></div>
           <h3>{j.title}</h3>
           {why && <p>{why}</p>}
           {(j.applyUrl || j.sourceUrl) && <a className="dp-job-link" href={j.applyUrl || j.sourceUrl} target="_blank" rel="noreferrer">See the posting <ArrowRight size={14} /></a>}
