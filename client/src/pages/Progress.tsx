@@ -2,11 +2,12 @@ import { useState } from "react";
 import { Check, ChevronDown, ChevronUp, Inbox, Mail, Plus, Trash2, Wand2 } from "lucide-react";
 import type { HoursEntry, Job, Suggestion, Task, TrackItem, TrackStatus, Workspace } from "@shared/types";
 import { api, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
-import { orgInitials, useJobs } from "../lib/jobs";
+import { useJobs } from "../lib/jobs";
 import { useCompleting } from "../lib/completing";
 import { go, useRoute } from "../lib/router";
 import { Empty, Modal, Remy, Spinner, StatusChip } from "../components/common";
 import { MIN_FOR_RATE, keptUntracked, replyStats } from "@shared/progress";
+import { OrgLogo } from "../components/OrgLogo";
 
 const STATUSES: TrackStatus[] = ["Saved", "Applied", "Received", "Heard back", "Interview", "Offer", "Rejected", "No reply", "Withdrawn"];
 const STATUS_HELP: Record<string, string> = {
@@ -224,13 +225,13 @@ function Board({ w, kept, start, onOpen, onAdd }: { w: Workspace; kept: Job[]; s
           const cards = [
             ...items.map((t) => (
               <button key={t.id} className={"pr-mini" + (quiet(t) ? " hot" : "")} onClick={() => onOpen(t.id)} data-testid="button-board-card">
-                <span className="job-mono" aria-hidden="true">{orgInitials(t.company)}</span>
+                <OrgLogo company={t.company} />
                 <span className="pr-mini-t"><b>{t.role || t.company}</b><small>{t.company}{quiet(t) ? ` · ${daysSince(lastAt(t))} days, no reply` : t.status === "Received" ? " · received" : ""}</small></span>
               </button>
             )),
             ...(l === "Saved" ? kept.map((j) => (
               <button key={j.id} className="pr-mini" onClick={() => go(`/opportunities?id=${j.id}`)} data-testid="button-board-kept">
-                <span className="job-mono" aria-hidden="true">{orgInitials(j.company)}</span>
+                <OrgLogo company={j.company} url={j.applyUrl} />
                 <span className="pr-mini-t"><b>{j.title}</b><small>{j.company} · kept</small></span>
               </button>
             )) : []),
@@ -248,7 +249,7 @@ function Board({ w, kept, start, onOpen, onAdd }: { w: Workspace; kept: Job[]; s
             <p className="small"><b>Start here.</b> Tailor your resume for one of these and it moves along the board as you go.</p>
             {start.map((j) => (
               <div key={j.id} className="pr-start-row">
-                <span className="job-mono" aria-hidden="true">{orgInitials(j.company)}</span>
+                <OrgLogo company={j.company} url={j.applyUrl} />
                 <span className="pr-mini-t"><b>{j.title}</b><small>{j.company}</small></span>
                 <button className="btn btn-ghost btn-sm" onClick={() => go(`/opportunities?id=${j.id}`)} data-testid="button-start-see">See it</button>
                 <button className="btn btn-primary btn-sm" onClick={() => go(`/resume?tab=tailor&job=${j.id}&go=1`)} data-testid="button-start-tailor">Tailor resume</button>
@@ -269,7 +270,7 @@ function NextUp({ w }: { w: Workspace }) {
       <div className="op-card">
         <div className="op-ch"><h3>From your email</h3><span className="xs muted">You confirm every change</span></div>
         {mail.length ? <ul className="op-dl">{mail.map((m) => (
-          <li key={m.id}><span className="job-mono" aria-hidden="true">{orgInitials(m.company)}</span>
+          <li key={m.id}><OrgLogo company={m.company} />
             <button onClick={() => go("/progress?tab=email")}><strong>{m.company}{m.role ? `: ${m.role}` : ""}</strong><span>Looks like {m.proposed} · review it</span></button></li>
         ))}</ul> : <p className="small muted">No status changes waiting. Remy reads recruiting emails you connect and asks before changing anything.</p>}
       </div>
