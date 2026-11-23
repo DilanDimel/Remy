@@ -54,8 +54,6 @@ export function Careers() {
 
 // The light/dark "Try it now" look Dilan picked (Nov 22); its colours live in the .lk-try block of index.css.
 const PAGE = "lp2 lk lk-try";
-// The chips are the five most picked; the menu has every field setup offers (Dilan Nov 23: "it doesn't have enough options").
-const MAJORS = ["Marketing", "Finance", "Nursing", "Engineering", "Psychology & social work"];
 const YEARS = ["freshman", "sophomore", "junior", "senior"];
 type Occ = { title: string; change: number; wage: number | null };
 type Ex = { field: string; intern: [string, string]; grad: [string, string]; hidden: [string, string]; step: [string, string]; first?: [string, string] };
@@ -102,13 +100,49 @@ const EXAMPLES: Record<string, Ex> = {
     ["Sports & recreation", "sports", "Athletics Operations Intern, Summer 2027", "Ticket Sales Associate, new grad", "Arlington, TX", "Director of Team Operations", "needs 7 years in sports", "Add the games you worked and what you ran.", "Teams look for game-day experience, and that bullet doesn't show it yet."],
   ]),
 };
+// The middle card's "try it": a resume line with no number, Remy's question, and the line rewritten with only what the
+// visitor typed (no invented claims). [line before, question, sample answer, line after with {x}].
+const TRY: Record<string, [string, string, string, string]> = {
+  Marketing: ["Ran the club's Instagram account", "How many followers did it gain?", "1,200", "Grew the club's Instagram by {x} followers with a weekly posting plan"],
+  Finance: ["Managed the club budget", "How big was the budget?", "$8,000", "Managed a {x} club budget, tracked in a monthly Excel report"],
+  Nursing: ["Completed clinical rotations", "How many clinical hours?", "180", "Completed {x} clinical hours across med-surg and pediatric units"],
+  Engineering: ["Built a robot arm for design class", "How accurate did it get?", "2 mm", "Built a robot arm for design class that placed parts within {x}"],
+  "Psychology & social work": ["Volunteered on a crisis line", "How many hours?", "120", "Answered calls on a crisis line for {x} volunteer hours"],
+  "Investment banking": ["Modeled a deal in the investment club", "Which company?", "Southwest Airlines", "Built a DCF model valuing {x} for the investment club's pitch"],
+  Accounting: ["Did bookkeeping for a family business", "How many transactions a month?", "300", "Recorded about {x} transactions a month for a family business"],
+  Consulting: ["Competed in a case competition", "How did you place?", "2nd of 24 teams", "Placed {x} in a strategy case competition"],
+  Sales: ["Ran the club fundraiser", "How much did you raise?", "$3,500", "Raised {x} running the club's spring fundraiser"],
+  "Business & management": ["Led a student organization", "How many members?", "40", "Led a student organization of {x} members"],
+  Entrepreneurship: ["Started a T-shirt business", "How many did you sell?", "250", "Started a T-shirt business and sold {x} shirts"],
+  "Human resources": ["Recruited new club members", "How many joined?", "35", "Recruited {x} new members for the club"],
+  "Supply chain & operations": ["Improved a process for a class project", "How much time did it save?", "20%", "Cut processing time by {x} in a class operations project"],
+  "Real estate": ["Valued a property in real estate class", "What was it worth?", "$2.1M", "Valued a {x} apartment property for a real estate class"],
+  "Software & computer science": ["Built a web app for class", "How many people used it?", "150", "Built a web app for class used by {x} students"],
+  "Data & analytics": ["Analyzed survey data for a class", "How many responses?", "1,000", "Analyzed {x} survey responses in Python for a class project"],
+  "Information systems & IT": ["Worked the campus help desk", "Tickets a week?", "60", "Resolved about {x} help-desk tickets a week"],
+  Cybersecurity: ["Competed in capture-the-flag contests", "Best finish?", "top 10%", "Finished in the {x} of a capture-the-flag contest"],
+  "Architecture & construction": ["Interned on a building project", "Project size?", "$12M", "Supported a {x} building project as a summer intern"],
+  Aviation: ["Training for my private pilot license", "Flight hours so far?", "45", "Logged {x} flight hours toward a private pilot license"],
+  "Healthcare & medicine": ["Shadowed physicians", "How many hours?", "60", "Shadowed physicians for {x} hours in family medicine"],
+  "Science & research": ["Worked in a biology lab", "Which techniques?", "PCR and gel electrophoresis", "Ran {x} in a biology research lab"],
+  "Environment & sustainability": ["Helped with campus recycling", "What changed?", "15% less waste", "Helped the campus recycling program reach {x}"],
+  "Education & teaching": ["Tutored middle schoolers", "How many students?", "12", "Tutored {x} middle schoolers in math each week"],
+  "Law & government": ["Wrote a policy paper", "On what topic?", "housing costs in Fort Worth", "Wrote a policy paper on {x}"],
+  "Public safety": ["Volunteered with the fire department", "How many hours?", "80", "Volunteered {x} hours with the local fire department"],
+  "Nonprofit & ministry": ["Organized volunteers for a food drive", "How many volunteers?", "30", "Organized {x} volunteers for a campus food drive"],
+  "Art & design": ["Designed posters for campus events", "How many events?", "15", "Designed posters for {x} campus events"],
+  "Film, theater & music": ["Worked on student productions", "How many?", "6", "Worked crew on {x} student productions"],
+  "Journalism & communications": ["Wrote for the student paper", "How many articles?", "18", "Wrote {x} articles for the student newspaper"],
+  "Hospitality & events": ["Helped run a campus event", "How many guests?", "400", "Helped run a campus event for {x} guests"],
+  "Sports & recreation": ["Worked game days for athletics", "How many games?", "20", "Worked {x} game days for the athletics department"],
+};
 /** The example opening for a year: seniors see a full-time new-grad role, everyone else a summer internship. */
 export const example = (major: string, year: string) => {
   // A typed major ("Biology") uses its field's example, in the student's own words.
   const known = EXAMPLES[major] ? major : fieldFor(major);
   const ex = known ? { ...EXAMPLES[known], ...(known !== major ? { field: major.toLowerCase() } : {}) } : EXAMPLES.Marketing;
   const [title, where] = year === "senior" ? ex.grad : ex.intern;
-  return { ...ex, lookup: known || "Marketing", step: year === "freshman" && ex.first || ex.step, title, where, short: title.split(",")[0], due: where.split("· ")[1].replace("closes", "due"), years: year === "freshman" ? "freshmen" : year + "s" };
+  return { ...ex, lookup: known || "Marketing", tryIt: TRY[known || "Marketing"] || TRY.Marketing, step: year === "freshman" && ex.first || ex.step, title, where, short: title.split(",")[0], due: where.split("· ")[1].replace("closes", "due"), years: year === "freshman" ? "freshmen" : year + "s" };
 };
 
 /** The year and major menus in "I'm a ___ studying ___": the dashed word opens a card list in the page's own look
@@ -125,7 +159,8 @@ function Pick({ label, value, options, onPick, testid, search, groups }: { label
     return () => document.removeEventListener("mousedown", off);
   }, [open]);
   const shown = options.filter((o) => o.toLowerCase().includes(q.trim().toLowerCase()));
-  const typed = q.trim().length > 2 && !shown.some((o) => o.toLowerCase() === q.trim().toLowerCase()) && fieldFor(q) ? q.trim() : "";
+  // A typed major only when no listed one matches ("Biology"), so "Investment" still picks Investment banking.
+  const typed = q.trim().length > 2 && !shown.length && fieldFor(q) ? q.trim() : "";
   const choose = (v: string) => { onPick(v); setOpen(false); setQ(""); box.current?.querySelector<HTMLButtonElement>(".lk-pick-btn")?.focus(); };
   const keys = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") { e.preventDefault(); setOpen(false); box.current?.querySelector<HTMLButtonElement>(".lk-pick-btn")?.focus(); return; }
@@ -152,6 +187,30 @@ function Pick({ label, value, options, onPick, testid, search, groups }: { label
   );
 }
 
+/** "Investment banking" leads with financial and investment analysts, not accountants: titles sharing a word stem with
+ *  the major go first, then the BLS order (most openings). */
+const closest = (jobs: Occ[], major: string) => {
+  const stems = major.toLowerCase().split(/\W+/).filter((w) => w.length > 3).map((w) => w.slice(0, 5));
+  const hit = (o: Occ) => stems.some((st) => o.title.toLowerCase().includes(st));
+  return [...jobs.filter(hit), ...jobs.filter((o) => !hit(o))];
+};
+
+/** The middle card's try-it: the visitor types the number their line is missing and watches Remy rewrite it. Only
+ *  their own words go in, so it shows how Remy works without inventing anything. */
+function TryLine({ t }: { t: [string, string, string, string] }) {
+  const [before, ask, sample, after] = t;
+  const [v, setV] = useState("");
+  const x = v.trim();
+  return (
+    <div className="lk-try-line">
+      <p className="lk-was"><span>Your line now</span><s>{before}</s></p>
+      <label className="lk-try-ask"><span>{ask}</span>
+        <input value={v} onChange={(e) => setV(e.target.value.slice(0, 40))} placeholder={`e.g. ${sample}`} data-testid="input-lp-try" /></label>
+      <p className={"lk-now" + (x ? " on" : "")} aria-live="polite"><span>{x ? "Remy\u2019s rewrite" : "Type it and watch"}</span><span>{after.split("{x}").map((part, i) => <span key={i}>{i > 0 && <b>{x || "\u2026"}</b>}{part}</span>)}</span></p>
+    </div>
+  );
+}
+
 export default function Landing2() {
   const { config, me, ws } = useStore();
   const inside = !!(me && ws?.started);
@@ -161,14 +220,14 @@ export default function Landing2() {
   const ext: Record<string, string> = beta ? { target: "_blank", rel: "noreferrer" } : {};
   const out = { target: "_blank", rel: "noreferrer" };
   const page = useRef<HTMLDivElement>(null);
-  const [major, setMajor] = useState(MAJORS[0]);
+  const [major, setMajor] = useState("Marketing");
   const [year, setYear] = useState(YEARS[1]);
   const [jobs, setJobs] = useState<Occ[] | null>(null);
   const ex = example(major, year);
   useEffect(() => {
     let live = true;
     setJobs(null);
-    fetch("/api/public/careers?field=" + encodeURIComponent(ex.lookup)).then((r) => r.json()).then((d) => live && setJobs(d?.[0]?.jobs?.slice(0, 3) || [])).catch(() => live && setJobs([]));
+    fetch("/api/public/careers?field=" + encodeURIComponent(ex.lookup)).then((r) => r.json()).then((d) => live && setJobs(closest(d?.[0]?.jobs || [], major).slice(0, 3))).catch(() => live && setJobs([]));
     return () => { live = false; };
   }, [ex.lookup]);
   // Sections ease in as they scroll into view (CSS keeps them visible when motion is reduced or JS is off).
@@ -190,6 +249,12 @@ export default function Landing2() {
             <div>
             <h1>Find the jobs you can actually get.</h1>
             <p className="lp2-lede">Tell Remy your year and major. It reads 180+ employers&rsquo; own career sites and shows what fits you.</p>
+            </div>
+            <figure className="lk-remy" aria-hidden>
+              <span className="lk-bubble">Hi, I&rsquo;m Remy. Tell me your year and major and I&rsquo;ll show you what fits.</span>
+              <span className="lk-medal"><Remy size={250} mood="wave" /></span>
+            </figure>
+            </div>
             <div className="lk-ask">
               <p>I&rsquo;m a{" "}
                 <Pick label="Year" value={year} options={YEARS} onPick={setYear} testid="select-lp-year" />{" "}studying{" "}
@@ -197,13 +262,6 @@ export default function Landing2() {
               </p>
               <a className="lp2-btn lp2-btn-lg" href={start} {...ext} data-testid="button-lp-start">{inside ? "Open my Remy" : "Show me my matches"}</a>
             </div>
-            </div>
-            <figure className="lk-remy" aria-hidden>
-              <span className="lk-bubble">Hi, I&rsquo;m Remy. Tell me your year and major and I&rsquo;ll show you what fits.</span>
-              <span className="lk-medal"><Remy size={250} mood="wave" /></span>
-            </figure>
-            </div>
-            <div className="lk-chips" role="group" aria-label="Pick a major">{MAJORS.map((m) => <button key={m} type="button" className="lk-chip" aria-pressed={m === major} onClick={() => setMajor(m)} data-testid={`chip-lp-major-${m.split(" ")[0].toLowerCase()}`}>{m}</button>)}</div>
             <div className="lk-results">
               <div className="lk-card"><p className="lk-small">Openings that fit a {year}</p>
                 <div className="lk-job"><div><b>{ex.title}</b><span>{ex.where}</span></div><span className="lk-ok">You qualify</span></div>
@@ -212,14 +270,13 @@ export default function Landing2() {
               </div>
               <div className="lk-card lk-say"><p className="lk-small">Remy&rsquo;s next step for you</p>
                 <p className="lk-step">{ex.step[0]}</p>
-                <p className="lk-why">{ex.step[1]}</p>
-                <p className="lk-check"><Check size={14} /> Takes about two minutes</p>
+                <TryLine key={ex.lookup} t={ex.tryIt} />
               </div>
               <div className="lk-card" aria-live="polite"><p className="lk-small">Where {major.toLowerCase()} leads</p>
                 {!jobs ? <p className="lk-occ"><span>Loading&hellip;</span></p> : jobs.map((o) => <p key={o.title} className="lk-occ"><b>{o.title}</b><span>{[o.wage ? `$${o.wage.toLocaleString("en-US")} median` : "", o.change ? `${o.change > 0 ? "+" : ""}${o.change}% by 2035` : ""].filter(Boolean).join(" · ")}</span></p>)}
               </div>
             </div>
-            <p className="lk-note">The opening and next step are examples. Career numbers are live from the U.S. Bureau of Labor Statistics.</p>
+            <p className="lk-note">The opening and next step are examples; the rewrite uses only what you type. Career numbers are live from the U.S. Bureau of Labor Statistics.</p>
           </section>
         </main>
       </div>
