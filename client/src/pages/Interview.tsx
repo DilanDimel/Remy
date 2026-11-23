@@ -18,7 +18,7 @@ export default function Interview() {
           {forJob ? <InterviewLine w={ws!} /> : <p className="hide-phone">True stories from your resume for "Tell me about a time when…", and a 30-second pitch for career fairs and coffee chats.</p>}
         </div>
       </div>
-      <div className="stack-lg">{forJob && <JobInterview />}<StoryDeck /><PitchCard /></div>
+      <div className={forJob ? "stack-lg iv-page" : "stack-lg"}>{forJob && <JobInterview />}<StoryDeck /><PitchCard /></div>
     </>
   );
 }

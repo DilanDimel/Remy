@@ -124,7 +124,8 @@ export function StoryDeck() {
               return (
                 <button key={st.id} className={"story-row" + (open === st.id ? " on" : "")} aria-expanded={open === st.id} onClick={() => { setOpen(open === st.id ? null : st.id); if (n < 4) { setFocus(st.id); setSkipped((s) => s.filter((k) => !k.startsWith(st.id + ":"))); } }} data-testid="story-card">
                   <b className="small">{st.title}</b>
-                  <span className={"chip " + (n === 4 ? "chip-live" : "chip-plain")} data-testid="story-progress">{n === 4 ? "Ready" : `${n} of 4`}</span>
+                  {owner ? <span className="iv-star" data-testid="story-progress" aria-label={n === 4 ? "Ready" : `${n} of 4 parts`}>{STORY_PARTS.map((p) => <i key={p} className={st[p] ? "d" : ""}>{LABEL[p][0]}</i>)}</span>
+                    : <span className={"chip " + (n === 4 ? "chip-live" : "chip-plain")} data-testid="story-progress">{n === 4 ? "Ready" : `${n} of 4`}</span>}
                 </button>
               );
             })}
