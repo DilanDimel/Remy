@@ -98,7 +98,7 @@ export default function CalendarPage() {
       </div>
       <GoogleCalendarCard />
       <div className="stack-lg">
-        {owner && <ComingUp items={upcoming} weekEnd={iso(new Date(Date.now() + 6 * 864e5))} onOpen={setSel} />}
+        {owner && upcoming.length > 0 && <ComingUp items={upcoming} weekEnd={iso(new Date(Date.now() + 6 * 864e5))} onOpen={setSel} />}
         <div className="card card-pad stack">
           <div className="row-between">
             <h2>{month.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h2>

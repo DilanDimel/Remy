@@ -215,7 +215,7 @@ function OppRail({ jobs }: { jobs: Job[] }) {
   const { ws } = useStore();
   const w = ws!;
   const sent = w.tracker.filter((t) => !["Saved", "Withdrawn"].includes(t.status));
-  const tiles: [string, number, string][] = [["Saved", w.savedJobIds.length, "a"], ["Tailored", w.applications.length, "b"], ["Applied", sent.length, "c"], ["Interview", sent.filter((t) => t.status === "Interview" || t.status === "Offer").length, "d"]];
+  const tiles: [string, number][] = [["Saved", w.savedJobIds.length], ["Tailored", w.applications.length], ["Applied", sent.length], ["Interview", sent.filter((t) => t.status === "Interview" || t.status === "Offer").length]];
   const soon = jobs.filter((j) => !w.hiddenJobIds.includes(j.id)).map((j) => ({ j, d: daysUntil(j.deadline) }))
     .filter((x) => x.d !== null && x.d >= 0 && x.d <= 30)
     .sort((a, b) => Number(w.savedJobIds.includes(b.j.id)) - Number(w.savedJobIds.includes(a.j.id)) || a.d! - b.d!).slice(0, 3);
@@ -223,7 +223,7 @@ function OppRail({ jobs }: { jobs: Job[] }) {
     <aside className="op-rail" data-testid="opp-rail">
       <div className="op-card">
         <div className="op-ch"><h3>Your search</h3><button className="op-link" onClick={() => go("/progress")} data-testid="button-rail-progress">Progress →</button></div>
-        <div className="op-tiles">{tiles.map(([l, n, c]) => <div key={l} className={"op-tile " + c}><b>{n}</b><span>{l}</span></div>)}</div>
+        <p className="small" data-testid="opp-search-line">{tiles.map(([l, n]) => `${n} ${l.toLowerCase()}`).join(" · ")}. The full board is on Progress.</p>
       </div>
       <div className="op-card">
         <div className="op-ch"><h3>Closing soon</h3><button className="op-link" onClick={() => go("/calendar")} data-testid="button-rail-calendar">Calendar →</button></div>
