@@ -1332,6 +1332,21 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .act-row { display: flex; gap: 10px; align-items: flex-start; font-size: var(--text-sm); padding: 6px 0; border-bottom: 1px solid var(--line); animation: act-in .3s ease both; }
 .act-ico { flex: none; width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; background: var(--surface-2); color: var(--muted-text); }
 .act-ico.done { background: var(--fox-soft); color: var(--fox-deep); }
+.act-day { display: grid; gap: 0; margin-top: 10px; }
+.act-day-h { margin-bottom: 2px; }
+.act-btn { width: 100%; text-align: left; align-items: center; color: var(--ink); cursor: pointer; }
+.act-btn:hover:not(:disabled) .act-ico { background: var(--fox-soft); color: var(--fox-deep); }
+.act-btn:disabled { cursor: default; }
+.act-btn .grow { flex: 1; min-width: 0; }
+.act-chev { flex: none; color: var(--faint); }
+.act-btn[aria-expanded="true"] .act-chev { transform: rotate(180deg); }
+.act-chat { display: flex; flex-direction: column; gap: 6px; padding: 8px 0 10px 34px; }
+.act-chat .bubble { max-width: 100%; font-size: var(--text-sm); }
+.act-chat .bubble-user { align-self: flex-end; }
+.asst-today { display: flex; flex-direction: column; gap: 0; margin-bottom: 6px; }
+.asst-today { padding: 12px 14px 6px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.asst-today-h { font-size: var(--text-sm); margin-bottom: 4px; }
+.asst-today .act-row:last-child { border-bottom: 0; }
 @keyframes act-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 /* Panel closed: a small Remy waits at the top centre. */
 .main { position: relative; }
@@ -2465,9 +2480,10 @@ html[data-theme="dark"] .lk { color-scheme: dark; }
 /* Pinned to the panel's bottom edge (sticky) so the reassurance stays visible when the facts list overflows a short
    screen — it was scrolling off and getting cut off once 5+ facts were listed. */
 .ob-note-foot { margin-top: auto; position: sticky; bottom: -28px; padding: 12px 0 28px; font-size: 12px; color: var(--muted-text); background: var(--surface-2); box-shadow: 0 -10px 10px -6px var(--surface-2); }
-.ob-main { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 48px 32px 64px; min-width: 0; }
-.ob-main > .notice, .ob-main > div { max-width: 720px; width: 100%; }
-.ob-owner .ob-card { max-width: 720px; box-shadow: var(--shadow); border: 1px solid var(--line); }
+.ob-main { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 28px 28px 40px; min-width: 0; }
+/* Wider step card (Dilan, Nov 23: "I don't want to scroll so much"): fields and chips spread out instead of down. */
+.ob-main > .notice, .ob-main > div { max-width: 980px; width: 100%; }
+.ob-owner .ob-card { max-width: 980px; box-shadow: var(--shadow); border: 1px solid var(--line); }
 /* One fox: Remy lives in the notebook, so the step cards drop theirs. */
 .ob-owner .ob-card svg.fox { display: none; }
 @media (max-width: 860px) {
@@ -2489,6 +2505,80 @@ html[data-theme="dark"] .lk { color-scheme: dark; }
   .ob-owner .ob-card { padding: 18px 16px; }
   .ob-owner .btn-sm { min-height: 44px; }
 }
+/* Owner setup, less scrolling (Dilan, Nov 23): on the wider card, short questions sit in pairs, field groups in two
+   columns, and the review's notes box and school-email box are shorter. */
+.pref-pair { display: flex; flex-direction: column; gap: 20px; }
+.pref-inline { display: contents; }
+.ob-owner .conn-soon { display: none; }
+@media (min-width: 1100px) {
+  .ob-owner .pref-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; align-items: start; }
+  .ob-owner .pref-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); }
+  .ob-owner .pref-group { background: var(--surface); }
+  .ob-owner .pref-group + .pref-group { border-top: 0; }
+  .ob-owner .ob-card .textarea { min-height: 56px; }
+  .ob-owner .ob-card [data-testid=school-verify] { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 14px; }
+  .ob-owner .ob-card [data-testid=school-verify] > p.small { display: none; }
+  .ob-owner .ob-card [data-testid=school-verify] .row { flex: 1 1 320px; flex-wrap: nowrap; }
+  .ob-owner .ob-card [data-testid=school-verify] .row .input { flex: 1; width: auto; }
+  .ob-owner .pref-inline { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 20px; }
+  .ob-owner .pref-inline .field { flex: 0 1 200px; }
+  .ob-owner .pref-inline { align-items: center; }
+  .ob-owner .pref-inline .pref-grow { flex: 1 1 260px; width: auto; }
+}
+/* Zero scroll at laptop size (Dilan, Nov 23): tighter spacing in the step card, smaller chips, and Back/Next pinned
+   to the bottom of the screen so they never scroll away. */
+.ob-owner .ob-card .stack-lg { gap: 14px; }
+.ob-owner .ob-card .pref-chip { padding: 5px 12px; font-size: 13px; }
+.ob-owner .ob-card .pref-chips { gap: 6px; }
+.ob-owner .ob-card .pref-group-head { min-height: 44px; padding: 7px 14px; }
+.ob-owner .ob-card > div > .row-between:last-child { position: sticky; bottom: 0; z-index: 2; margin: 0 -20px -20px; padding: 12px 20px; background: var(--surface); border-top: 1px solid var(--line); border-radius: 0 0 20px 20px; }
+.ob-owner .ob-main { padding-top: 20px; padding-bottom: 20px; }
+@media (min-width: 1100px) {
+  .ob-owner .ob-card .pref-group-head .grow { display: flex; align-items: baseline; gap: 8px; }
+  .ob-owner .ob-card .remy-prompt .stack-sm { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+  .ob-owner .ob-card .remy-prompt .stack-sm > p { flex: 1 1 400px; margin: 0; max-width: none; }
+  .ob-owner .pref-inline .field { display: flex; flex-direction: row; align-items: center; gap: 8px; flex-basis: 280px; }
+  .ob-owner .pref-inline .field > span { white-space: nowrap; }
+  .ob-owner .pref-inline .field .input { min-height: 34px; padding-top: 4px; padding-bottom: 4px; }
+}
+@media (max-width: 860px) { .ob-owner .ob-card > div > .row-between:last-child { margin: 0 -16px -18px; padding: 12px 16px; } }
+/* Owner setup, right side (Nov 23): live preview of what Remy builds from each step (resume being read, first openings).
+   Wide screens only; narrower ones keep the two-column notebook + step. */
+.ob-pv { display: none; }
+@media (min-width: 1240px) {
+  .ob-owner { grid-template-columns: minmax(260px, 300px) minmax(0, 1fr) minmax(280px, 340px); }
+  .ob-pv { position: sticky; top: 0; height: calc(100vh / var(--app-zoom, 1)); display: flex; flex-direction: column; gap: 14px; padding: 28px 28px 28px 0; }
+  .ob-pv .ob-paper { flex: 1 1 auto; max-height: none; }
+}
+@media (min-width: 1100px) { .ob-owner .ob-card .grid-2 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 14px; } }
+.ob-pv-h { font-size: 11.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted-text); }
+.ob-pv-say { margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted-text); }
+.ob-paper { position: relative; overflow: hidden; display: grid; gap: 9px; align-content: start; padding: 26px 24px; min-height: 420px; max-height: 72vh; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; box-shadow: var(--shadow); transform: rotate(-1.2deg); transition: transform .4s ease; }
+.ob-paper.read { transform: rotate(0); }
+.ob-paper > i { display: block; height: 7px; border-radius: 4px; background: var(--line); }
+.ob-paper > i:first-child { height: 12px; background: var(--faint); opacity: .5; }
+.ob-paper > i.sp { height: 4px; background: none; }
+.ob-paper.reading > i { animation: ob-pulse 1.4s ease-in-out infinite; }
+.ob-scan { position: absolute; left: 0; right: 0; top: 0; height: 46px; background: linear-gradient(to bottom, transparent, var(--fox-soft)); border-bottom: 2px solid var(--fox); opacity: .8; animation: ob-scan 1.8s ease-in-out infinite; }
+.ob-paper-name { font-size: 17px; letter-spacing: -.01em; padding-bottom: 6px; border-bottom: 1px solid var(--line); animation: fade-up .4s ease both; }
+.ob-paper-sec { display: grid; gap: 3px; min-width: 0; animation: fade-up .45s ease both; }
+.ob-paper-sec > span { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--fox); }
+.ob-paper-sec p { margin: 0; font-size: 12.5px; line-height: 1.35; color: var(--muted-text); max-width: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-paper-sec p b { color: var(--ink); font-weight: 700; }
+.ob-paper-sec p.ob-paper-bullet { padding-left: 10px; font-size: 11.5px; color: var(--faint); }
+.ob-paper-sec > div { min-width: 0; }
+.ob-pv-jobs { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ob-pv-jobs li { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; animation: fade-up .45s ease both; }
+.ob-pv-jobs li > span:last-child { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.ob-pv-jobs b { font-size: 13.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-pv-jobs li > span:last-child > span { font-size: 12px; color: var(--muted-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-pv-logo { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--surface-2); border: 1px solid var(--line); font-weight: 800; color: var(--ink); }
+.ob-pv-skel i { display: block; height: 8px; border-radius: 4px; background: var(--line); width: 80%; }
+.ob-pv-skel i + i { width: 50%; }
+.ob-pv-skel.busy i, .ob-pv-skel.busy .ob-pv-logo { animation: ob-pulse 1.4s ease-in-out infinite; }
+@keyframes ob-pulse { 50% { opacity: .45; } }
+@keyframes ob-scan { 0% { transform: translateY(-46px); } 100% { transform: translateY(340px); } }
+@media (prefers-reduced-motion: reduce) { .ob-scan, .ob-paper.reading > i, .ob-pv-skel.busy i { animation: none; } }
 /* Owners' dashboard redesign (Nov 22): greeting, peach hero with "Needs you", tinted tiles, team hours strip (no dark bands: Dilan), Hours people cards. */
 .adm-nav nav a[aria-current="page"] { background: var(--ink); color: var(--bg); box-shadow: none; }
 .adm-nav nav a[aria-current="page"] svg { color: var(--fox-light); }
