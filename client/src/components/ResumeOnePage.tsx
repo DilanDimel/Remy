@@ -24,6 +24,8 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
   const { ws, setWs, run, toast } = useStore();
   const r = ws!.resume!;
   const [view, setView] = useState<"resume" | "file">("resume");
+  // "Fix with Remy" on a tapped line opens Remy's question for that exact line (Nov 23 live test: it only closed the popover).
+  const [focus, setFocus] = useState<{ text: string; kind: string; n: number } | null>(null);
   // Changed since upload: the saved stamp, or (for edits made before Remy kept one) a line that isn't in the file's text.
   const squash = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, "");
   const raw = squash(r.rawText || "");
@@ -56,6 +58,7 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
           <button className="btn btn-primary btn-sm" onClick={() => download("/api/resume/export?format=pdf", "Resume.pdf").catch((e) => toast(e.message, true))} data-testid="button-export-base-pdf"><Download size={14} /> PDF</button>
           <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/export?format=docx", "Resume.docx").catch((e) => toast(e.message, true))} data-testid="button-export-base-docx">Word</button>
           <button className="btn btn-ghost btn-sm" onClick={onReplace} data-testid="button-replace-resume">Replace file</button>
+          <button className="btn btn-ghost btn-sm" onClick={onEditByHand} data-testid="button-edit-by-hand">Edit by hand</button>
         </div>
       </div>
 
@@ -68,7 +71,7 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
           </div>
         </div>
       )}
-      <p className="small muted r1-hint">Want to change something? Just tell Remy in the chat, like "add Tableau to my skills" or "remove the coursework line". He shows you the change first.</p>
+      <p className="small muted r1-hint hide-phone">Want to change something? Just tell Remy in the chat, like "add Tableau to my skills" or "remove the coursework line". He shows you the change first.</p>
       <div className="r1-grid">
         <section className="r1-view">
           <div className="seg r1-tabs" role="group" aria-label="Show">
@@ -78,10 +81,10 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
           {view === "resume" ? (
             // Make it stronger lives beside the resume now (Dilan, Nov 21: "can't we just integrate it with this?").
             <>{drawnWhy && <p className="xs muted" data-testid="r1-drawn-why">{drawnWhy}</p>}
-            <ResumeMarkup doc={doc} look={r.style} real={real} onFix={() => document.getElementById("r1-stronger")?.scrollIntoView({ behavior: "smooth", block: "nearest" })} side={
+            <ResumeMarkup doc={doc} look={r.style} real={real} onFix={(_, line) => { if (line?.text) setFocus({ ...line, n: Date.now() }); document.getElementById("r1-stronger")?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }} side={
               // Dilan, Nov 21: Make it stronger, the ATS check and approved versions & downloads as smaller cards beside the resume.
               <div className="r1-side-stack">
-                <div className="r1-side-card" id="r1-stronger"><ResumeReview doc={doc} upd={upd} onEdit={onEditByHand} beside /></div>
+                <div className="r1-side-card" id="r1-stronger"><ResumeReview doc={doc} upd={upd} onEdit={onEditByHand} beside focus={focus} /></div>
                 <div className="r1-side-card" data-testid="r1-side-ats">
                   <AtsXray doc={doc} quality={r.quality} upd={upd} />
                 </div>
@@ -99,7 +102,6 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
 
       </div>
 
-      <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={onEditByHand} data-testid="button-edit-by-hand">Edit every line by hand</button>
       {dirty && (
         <div className="r1-save" role="status" data-testid="r1-save">
           <span className="small">You have changes that aren't saved yet.</span>

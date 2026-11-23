@@ -16,11 +16,13 @@ function textOf(doc: ResumeDoc) {
 
 /** `keywords: null` scores the resume on its own (the base resume): no keyword category, scaled to 100,
  *  so it doesn't change when the student's openings change. Keywords are checked per posting. */
-export function atsScore(doc: ResumeDoc, keywords: string[] | null, against: string): AtsScore {
+/** `owner` (owners first, Nov 23): "Activities and Leadership" lines count as achievement bullets, and certifications,
+ *  awards and courses aren't asked for dates (they're listed like skills), matching the Resume page's own checks. */
+export function atsScore(doc: ResumeDoc, keywords: string[] | null, against: string, { owner = false } = {}): AtsScore {
   const text = textOf(doc);
   const low = lc(text);
   // Coursework, honors and skills lines aren't achievement bullets; judge the rest.
-  const bullets = doc.sections.filter((s) => !isListSection(s.heading)).flatMap((s) => s.entries.flatMap((e) => e.bullets)).map((b) => b.text.trim().replace(/^[•\-–*]\s*/, "")).filter(Boolean);
+  const bullets = doc.sections.filter((s) => !isListSection(s.heading, owner)).flatMap((s) => s.entries.flatMap((e) => e.bullets)).map((b) => b.text.trim().replace(/^[•\-–*]\s*/, "")).filter(Boolean);
   const words = text.split(/\s+/).filter(Boolean).length;
   const headings = doc.sections.map((s) => lc(s.heading));
   type Item = AtsScore["categories"][number]["items"][number] & { examples?: string[] };
@@ -40,7 +42,7 @@ export function atsScore(doc: ResumeDoc, keywords: string[] | null, against: str
   ]);
 
   const has = (re: RegExp) => headings.some((h) => re.test(h));
-  const entries = doc.sections.filter((s) => !/skill|interest|language/i.test(s.heading)).flatMap((s) => s.entries.map((e) => ({ ...e, section: s.heading })));
+  const entries = doc.sections.filter((s) => !(owner ? /skill|interest|language|certif|licen[cs]e|award|honou?r|course/i : /skill|interest|language/i).test(s.heading)).flatMap((s) => s.entries.map((e) => ({ ...e, section: s.heading })));
   const undated = entries.filter((e) => !/\d{4}|present/i.test(e.dates));
   const dated = entries.length - undated.length;
   const structure = cat("Sections & structure", 20, [

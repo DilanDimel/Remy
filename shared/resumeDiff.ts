@@ -62,3 +62,20 @@ export function resumeDiff(before: ResumeDoc, after: ResumeDoc): ResumeChange[] 
   for (const k of before.skills) if (!keptSkills.has(k.id) && k.items.trim()) out.push({ kind: "removed", where: `Skills · ${k.label}`, before: k.items.trim(), after: "" });
   return out;
 }
+
+/** The words of `after` with the ones `before` doesn't have in the same order marked `added` (longest common
+ *  subsequence of words), so a reworded line shows what Remy actually changed. */
+export function wordDiff(before: string, after: string): { w: string; added: boolean }[] {
+  const a = before.split(/\s+/).filter(Boolean), b = after.split(/\s+/).filter(Boolean);
+  const k = (x: string) => x.toLowerCase().replace(/[^a-z0-9$%+]/g, "");
+  const L = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
+  for (let i = a.length - 1; i >= 0; i--) for (let j = b.length - 1; j >= 0; j--) L[i][j] = k(a[i]) === k(b[j]) ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const out: { w: string; added: boolean }[] = [];
+  let i = 0, j = 0;
+  while (j < b.length) {
+    if (i < a.length && k(a[i]) === k(b[j])) { out.push({ w: b[j], added: false }); i++; j++; }
+    else if (i < a.length && L[i + 1][j] >= L[i][j + 1]) i++;
+    else { out.push({ w: b[j], added: true }); j++; }
+  }
+  return out;
+}

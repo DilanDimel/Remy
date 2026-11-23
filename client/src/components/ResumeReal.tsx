@@ -23,7 +23,7 @@ function palette(): Record<Cat | "flag", string> {
 }
 /** `all`: every section's lines (colours go everywhere); otherwise only the sections whose lines get problem tags. */
 function bulletsOf(doc: ResumeDoc, all = false) {
-  return doc.sections.filter((s) => all || !isListSection(s.heading)).flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => b.text.replace(/^[•\-–*]\s*/, "")))).filter((t) => t.trim());
+  return doc.sections.filter((s) => all || !isListSection(s.heading, true)).flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => b.text.replace(/^[•\-–*]\s*/, "")))).filter((t) => t.trim());
 }
 
 /** Wraps the coloured words of every bullet paragraph (and Skills line) inside the drawn Word file, and adds its tags. */

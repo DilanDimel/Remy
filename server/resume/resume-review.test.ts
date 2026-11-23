@@ -29,6 +29,22 @@ test("review: owners' listLike rule doesn't ask certifications for dates (they'r
   assert.deepEqual(undated({ listLike: true }), ["e2"]);
 });
 
+test("review: owners count Activities and Leadership lines as achievements (Treasurer, President)", () => {
+  const d = doc();
+  d.sections.push({ id: "s4", heading: "ACTIVITIES AND LEADERSHIP", entries: [{ id: "e5", org: "TCU NABA", role: "Treasurer", location: "", dates: "Aug 2026 – Present", bullets: [{ id: "b4", text: "Oversee an estimated annual chapter budget of $5,000+" }, { id: "b5", text: "Organized a tournament with 24 participants" }] }] } as any);
+  const nums = (opts?: { listLike: boolean }) => (reviewResume(d, opts).todo.find((t) => t.kind === "numbers") as any)?.title ?? "none";
+  assert.equal(nums(), "2 of 3 bullets have no number"); // students: unchanged
+  assert.equal(nums({ listLike: true }), "none"); // owners: 3 of 5 have a number
+});
+
+test("review: owners hear about a one-month entry written as a range", () => {
+  const d = doc();
+  d.sections[1].entries[1].dates = "Oct 2026 – Oct 2026";
+  const tip = (opts?: { listLike: boolean }) => reviewResume(d, opts).todo.find((t) => /same month twice/.test(t.title));
+  assert.equal(tip(), undefined);
+  assert.match((tip({ listLike: true }) as any).why, /Write “Oct 2026” instead of “Oct 2026 – Oct 2026”/);
+});
+
 test("review: points at the missing fields, the undated entry and the bullets without numbers or an action", () => {
   const { todo, good } = reviewResume(doc());
   const contact = todo.find((t) => t.kind === "contact") as any;
