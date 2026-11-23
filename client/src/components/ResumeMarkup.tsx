@@ -2,6 +2,7 @@
 // shared (action words, hard skills, soft skills, numbers, results), with every problem marked on its own line and one
 // "Things to fix" list beside it. The checks are Remy's existing ones (shared/bullets.ts, shared/review.ts); the colours
 // only show what's already in the student's words, nothing is added or guessed.
+import { createPortal } from "react-dom";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ResumeDoc, ResumeStyle } from "@shared/types";
 import { QUANT, WEAK, isAction, isListSection } from "@shared/bullets";
@@ -168,7 +169,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real }: { 
             {doc.skills.map((k) => <p key={k.id} className="rm-skill"><b>{k.label ? k.label + ": " : ""}</b>{marked(k.items, tools, on)}</p>)}
           </>)}
         </article>}
-        {why && (
+        {why && createPortal( // on body: the page's fade-in transform would otherwise offset a fixed popover
           <div className="rm-why" role="dialog" aria-label="Why Remy marked this" style={{ left: why.x, top: why.y }} onClick={(e) => e.stopPropagation()} data-testid="rm-why">
             {why.kind.split("|").map((k) => { const x = explain(k, why.text); return (
               <div key={k} className="stack-sm">
@@ -183,7 +184,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real }: { 
               <button className="btn btn-ghost btn-sm" onClick={() => setWhy(null)} data-testid="button-why-close">Close</button>
             </div>
           </div>
-        )}
+        , document.body)}
         {!plain && side && <aside className="rm-side rm-side-review" aria-label="What to fix">{side}</aside>}
         {!plain && !side && <aside className="rm-side" aria-label="What to fix">
           <h3>{review.todo.length ? `${review.todo.length} thing${review.todo.length === 1 ? "" : "s"} to fix` : "Nothing big to fix"}</h3>
