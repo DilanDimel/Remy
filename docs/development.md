@@ -29,6 +29,10 @@ npm run check:persist    # builds, restarts on a throwaway database, confirms no
 
 GitHub Actions runs the first three on every push and pull request. The iPhone and Android workflows run only when native files change.
 
+## What's new
+
+The in-app "What's new" list is `shared/news.ts`. Every PR that changes what students or owners see adds one note at the top: the next `YYYY-MM-DD-NN` id (ids only grow), a kind (New, Improved, Fixed, Changed), a short title and one or two plain sentences a student would understand. Owners-only work sets `owners: true`, so only owner view lists it; remove the flag when the feature is released to students.
+
 ## Deploy
 
 Render deploys `main` automatically (`render.yaml`): `npm ci && npm run build`, then `node dist/index.cjs`. Merging a pull request is a deploy, so keep `main` green. An hourly GitHub Action (`tick.yml`) wakes the server for reminders and cleanup.
