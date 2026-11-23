@@ -1,8 +1,9 @@
 // "What's new": short notes about each update, newest first. Add one when you ship something students
 // (or owners) would notice: every PR that changes what people see adds one here (docs/development.md). Ids are "date-NN" and only ever grow, so "seen up to this id" works.
-export type NewsItem = { id: string; date: string; kind: "New" | "Improved" | "Fixed" | "Changed"; title: string; body: string; owners?: boolean };
+export type NewsItem = { id: string; date: string; kind: "New" | "Improved" | "Fixed" | "Changed"; title: string; body: string; owners?: boolean; to?: string };
 
 export const NEWS: NewsItem[] = [
+  { id: "2026-11-23-84", date: "2026-11-23", kind: "Improved", title: "What\u2019s new takes you there", body: "Each note in What\u2019s new now has a \u201cTry it\u201d link that opens the page it talks about. On Account, AI memory lists your facts in two columns and the Appearance cards line up.", owners: true },
   { id: "2026-11-23-80", date: "2026-11-23", kind: "New", title: "Prep sheets, and Remy saves your streak", body: "With an interview coming up in the next three days, Remy offers a one-page prep sheet on Calendar: your pitch, your best stories and good questions to ask, right on the event. You can also ask him for one in chat. In the evening, if your streak is still open for the day, he offers one quick opening to Keep or Pass so it keeps going.", owners: true },
   { id: "2026-11-23-79", date: "2026-11-23", kind: "Improved", title: "Remy starts answering sooner", body: "Remy's chat replies begin in a second or two instead of about six, and while he starts you see him at work (reading your message, looking at your profile) instead of a still spinner.", owners: true },
   { id: "2026-11-23-83", date: "2026-11-23", kind: "Improved", title: "Real hospital names and tidier cards", body: "Openings from big health systems now show the hospital you\u2019d work at (\u201cPalm Beach Health Network\u201d, not \u201cTenet Healthcare\u201d), with a cleaner title, on Opportunities, Home, Progress and your mock interview. Postings in several cities show the first one and how many more. \u201cYour search\u201d on Opportunities shows four small numbers, Progress lanes line up, and on the homepage the three cards end level and \u201cstudying ___\u201d stays together on phones.", owners: true },
@@ -218,3 +219,12 @@ export const NEWS: NewsItem[] = [
 export const unseenNews = (seen: string | undefined, owner = false) =>
   NEWS.filter((n) => (owner || !n.owners) && (!seen || n.id > seen));
 export const latestNewsId = () => NEWS.reduce((a, n) => (n.id > a ? n.id : a), "");
+
+// Owners' What's new links each note to its page (Nov 23 PM review: 25 rage clicks on the list). `to` wins; otherwise the
+// first page the title names. shortcut: keyword match on the title, set `to` on a note when it guesses wrong.
+const PAGES: [RegExp, string][] = [
+  [/my path|office|season|streak/i, "/path"], [/resume|cv\b|ats|linkedin/i, "/resume"], [/interview/i, "/interview"],
+  [/opening|opportunit|job/i, "/opportunities"], [/calendar/i, "/calendar"], [/progress|to-do|application/i, "/progress"],
+  [/community|people/i, "/community"], [/account|profile|memory|setting/i, "/accounts"], [/home\b|tour/i, "/"],
+];
+export const newsLink = (n: NewsItem) => n.to ?? PAGES.find(([re]) => re.test(n.title))?.[1];

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Megaphone } from "lucide-react";
-import { NEWS, latestNewsId, unseenNews } from "@shared/news";
+import { NEWS, latestNewsId, newsLink, unseenNews } from "@shared/news";
+import { go } from "../lib/router";
 import { useOwnerView, useStore } from "../lib/store";
 import { Modal } from "./common";
 
@@ -36,6 +37,7 @@ export function WhatsNew({ className = "nav-item", label = true }: { className?:
                   <div key={n.id} className="stack-sm" style={{ gap: 4 }}>
                     <div className="row" style={{ gap: 8 }}><span className={"chip " + KIND[n.kind]}>{n.kind}</span><b className="small">{n.title}</b>{n.owners && <span className="xs muted">Owners only</span>}</div>
                     <p className="small muted">{n.body}</p>
+                    {owner && newsLink(n) && <button className="op-link" style={{ justifySelf: "start" }} onClick={() => { setOpen(false); go(newsLink(n)!); }} data-testid="button-news-try">Try it →</button>}
                   </div>
                 ))}
               </section>
