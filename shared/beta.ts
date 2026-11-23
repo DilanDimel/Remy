@@ -2,7 +2,7 @@
 // so everyone is asked again. shortcut: written by the team, not reviewed by a lawyer yet — get it reviewed before a paid launch.
 export const BETA_TERMS_VERSION = "2026-11-18"; // 2026-11-18: "beta testers", not "Founding Cohort" · 2026-11-07: invite-only Founding Cohort line; "Coming soon" wording gone · 2026-11-02: age line
 
-export const BETA_TERMS_LEAD = "Remy is a beta: it's still being built and tested by a small student team. By using it you agree that:";
+export const BETA_TERMS_LEAD = "Remy is in beta and still improving. By using it you agree that:";
 
 /** Short labels shown above each term (same order as BETA_TERMS; a test keeps the two the same length).
  *  They only help scanning; the terms' own wording is what students agree to. */

@@ -1,0 +1,40 @@
+Copyright (c) 2026 RemyAI LLC. All rights reserved.
+
+PROPRIETARY AND CONFIDENTIAL
+
+This repository and everything in it, including source code, designs, text,
+images, the "Remy" name and character, and documentation (together, the
+"Software"), is the property of RemyAI LLC and is protected by United States
+copyright law, international treaties and other applicable laws.
+
+NO LICENSE IS GRANTED. The Software is visible to the public only because it
+is hosted in a public GitHub repository. Being able to see it does not give
+you any right to use it. Except as expressly permitted in writing by RemyAI
+LLC, you may not:
+
+  - copy, reproduce or download the Software for any purpose other than
+    viewing it on GitHub;
+  - use, run, deploy or host the Software, or any part of it;
+  - modify, adapt, translate or create derivative works from it;
+  - distribute, publish, sell, sublicense or otherwise share it; or
+  - use it, or any part of it, to build, train or improve a competing
+    product or service, including an AI model.
+
+The only exception is the limited right GitHub's Terms of Service require for
+public repositories: to view this repository and to fork it within GitHub.
+That right does not include any right to use, run, modify or redistribute the
+Software, inside or outside GitHub.
+
+Third-party open-source packages this project depends on remain under their
+own licenses. This notice does not change those licenses.
+
+ENFORCEMENT. RemyAI LLC monitors for unauthorized use of its Software and
+takes infringement seriously. Unauthorized use may result in legal action,
+including claims for injunctive relief, damages, profits and, where the law
+allows, attorneys' fees and costs. RemyAI LLC may also send takedown notices
+under the Digital Millennium Copyright Act (DMCA) to GitHub and to any host
+of copied material.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+
+For permission or licensing questions, contact hello@remyai.org.

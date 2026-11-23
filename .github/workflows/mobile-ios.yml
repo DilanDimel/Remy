@@ -3,6 +3,7 @@ name: iPhone app
 # uses Actions minutes 10x faster, so it only runs when iPhone files change or by hand.
 on:
   push:
+    branches: [main]
     paths: ["ios/**", ".github/workflows/mobile-ios.yml"]
   pull_request:
     paths: ["ios/**", ".github/workflows/mobile-ios.yml"]

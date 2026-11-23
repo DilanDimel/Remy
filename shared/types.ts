@@ -466,7 +466,7 @@ export type MoreAction = { kind: "interest"; jobId: string; more: boolean } | { 
   | { kind: "prefs"; field: "regions" | "opportunityTypes" | "timeline" | "avoid" | "dreamEmployers" | "interests" | "goals" | "classYear" | "relocation" | "workAuth"; value: string; mode: "set" | "add" | "remove" }
   | { kind: "nudges"; value: "daily" | "weekly" | "off" } | { kind: "careerTime"; day?: number; time?: string; off?: boolean } | { kind: "textsOff" } | { kind: "quiet"; days: number }
   | { kind: "track"; trackId?: string; company?: string; role?: string; jobId?: string; status: TrackStatus }
-  | { kind: "moveEvent"; calId: string; date: string; time?: string } | { kind: "removeEvent"; calId: string } | { kind: "prep"; calId: string } | { kind: "due"; taskId: string; due: string }
+  | { kind: "moveEvent"; calId: string; date: string; time?: string } | { kind: "removeEvent"; calId: string } | { kind: "prep"; calId: string } | { kind: "dropTask"; taskId: string } | { kind: "roleOff"; title: string } | { kind: "cardNote"; trackId: string; note: string } | { kind: "restDays"; days: number[] } | { kind: "dropContact"; contactId: string } | { kind: "due"; taskId: string; due: string }
   | { kind: "hours"; activity: string; hours: number; date: string; note?: string } | { kind: "career"; careerId: string }
   | { kind: "contact"; name: string; org: string; title: string; why: string; met?: string; metOn?: string } | { kind: "forget"; factId: string }
   | { kind: "go"; link: string; label: string } | { kind: "start"; what: "resumeFix" | "interview" | "tour"; jobId?: string };

@@ -27,7 +27,7 @@ npm run check:resume     # resume reading against fixtures, no server or AI key 
 npm run check:persist    # builds, restarts on a throwaway database, confirms nothing is lost
 ```
 
-GitHub Actions runs the first three on every push and pull request. The iPhone and Android workflows run only when native files change.
+GitHub Actions runs the first three on every pull request and on pushes to `main`. The iPhone and Android workflows run only when native files change.
 
 ## What's new
 
@@ -35,7 +35,7 @@ The in-app "What's new" list is `shared/news.ts`. Every PR that changes what stu
 
 ## Deploy
 
-Render deploys `main` automatically (`render.yaml`): `npm ci && npm run build`, then `node dist/index.cjs`. Merging a pull request is a deploy, so keep `main` green. An hourly GitHub Action (`tick.yml`) wakes the server for reminders and cleanup.
+Render deploys `main` automatically (`render.yaml`): `npm ci && npm run build`, then `node dist/index.cjs`. Merging a pull request is a deploy, so keep `main` green. An hourly Cloudflare Worker cron (`remy-tick`) calls `/api/cron/tick` for reminders and cleanup.
 
 Android test builds: push a branch named `app-release/<version>` and the APK is published as a GitHub release.
 
@@ -58,7 +58,7 @@ Secrets live in the Render dashboard, never in the repo.
 | `USAJOBS_KEY`, `USAJOBS_EMAIL` | Federal student roles |
 | `COS_USER_ID`, `COS_TOKEN` | CareerOneStop job search |
 | `GCAL_CLIENT_ID`, `GCAL_CLIENT_SECRET` | Google Calendar connection |
-| `CRON_SECRET` | Shared secret for the hourly tick |
+| `CRON_SECRET` | Shared secret for the hourly tick (same value as the `CRON_SECRET` secret on the `remy-tick` Cloudflare Worker) |
 | `RENDER_API_KEY` | Owners' dashboard deploy and health panel |
 
 `grep -oh "process.env.[A-Z_0-9]*" server/*.ts | sort -u` lists every variable the server reads.

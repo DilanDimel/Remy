@@ -536,7 +536,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     }
   };
   // Background jobs: reminder emails, weekly digest, idle-guest cleanup, cache prune. They run at boot, every 6 hours
-  // while the server is awake, and every hour from a scheduled GitHub Action that calls /api/cron/tick (a sleeping
+  // while the server is awake, and every hour from a Cloudflare Worker cron (remy-tick) that calls /api/cron/tick (a sleeping
   // free server otherwise never runs them). One run at a time, so two triggers can't send the same email twice.
   // Openings for students who aren't on the site: signed in, set up, seen in the last 21 days, last search over a day
   // old. Up to 10 per run, one at a time, with no AI calls (the employer pick is reused). Shared employer reads are

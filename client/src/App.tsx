@@ -545,7 +545,18 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   };
   const [view, setView] = useState<"chat" | "activity">("chat");
   const [clearing, setClearing] = useState(false); // two taps: Clear chat, then Yes, clear it
-  const clearChat = async () => { setClearing(false); const w = await run(() => api<Workspace>("DELETE", "/api/chat"), "Chat cleared"); if (w) setWs(w); };
+  const clearChat = async () => {
+    setClearing(false);
+    // Owners: the chat empties at once and the server catches up; it comes back if the clear didn't save.
+    if (stage2 && ws) {
+      const before = ws;
+      setWs({ ...ws, chat: [] });
+      const w = await run(() => api<Workspace>("DELETE", "/api/chat"), "Chat cleared");
+      setWs(w ?? before);
+      return;
+    }
+    const w = await run(() => api<Workspace>("DELETE", "/api/chat"), "Chat cleared"); if (w) setWs(w);
+  };
   return (
     <>
       {stage2 ? (<>
