@@ -1871,7 +1871,7 @@ Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), 
     if (!q || a.length < 2 || a.length > 330 || !aiStatus().available || !allow("followup:" + ctx.me.id, 6, 60 * 60_000)) return res.json({ followup: "" });
     try {
       const out = await withAi(ctx, "Feedback follow-up", () => aiJson<{ followup?: string }>(
-        "You help a student startup collect honest product feedback. Given one question and a student's answer, write ONE short follow-up question (at most 18 words) that asks for a concrete example, what exactly happened, or why. Never suggest an answer, never praise, never ask two things. If the answer is already specific (names a page, a step, or an example), return an empty string.",
+        "You help Remy, a career coach app for college students, collect honest product feedback. Given one question and a student's answer, write ONE short follow-up question (at most 18 words) that asks for a concrete example, what exactly happened, or why. Never suggest an answer, never praise, never ask two things. If the answer is already specific (names a page, a step, or an example), return an empty string.",
         `QUESTION: ${q}\nANSWER: ${a}\n\nReturn {"followup":"..."}`, 120));
       const f = String(out?.followup || "").replace(/\s+/g, " ").trim();
       await ctx.save();
