@@ -3,6 +3,7 @@ name: Android app
 # emulator and checks that Remy's page actually appears (not a blank or black screen).
 on:
   push:
+    branches: [main]
     paths: ["android/**", "capacitor.config.ts", "mobile/**", "client/src/lib/native.ts", "package-lock.json", ".github/workflows/mobile.yml"]
   pull_request:
     paths: ["android/**", "capacitor.config.ts", "mobile/**", "client/src/lib/native.ts", "package-lock.json", ".github/workflows/mobile.yml"]

@@ -1,6 +1,7 @@
 name: Native app
 on:
   push:
+    branches: [main]
     paths: ["native/**", "shared/**", ".github/workflows/native.yml"]
   pull_request:
     paths: ["native/**", "shared/**", ".github/workflows/native.yml"]
