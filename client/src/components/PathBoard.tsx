@@ -8,9 +8,10 @@ import { ArrowRight, Award, Briefcase, Check, Compass, DollarSign, Eye, Flame, G
 import { ROADS, roadFor, YEARS, yearNumber, NEED_LABEL } from "@shared/roads";
 import { rankOf, weekKey, weekMissions, doneThisWeek, counters, xpOf, nextOutfit, unlockedOutfits, levelReward, OFFICE, RANKS, WARDROBE } from "@shared/game";
 import { CARD_XP, dailyStreak, dayKey } from "@shared/daily";
-import { useStore } from "../lib/store";
+import { api, useStore } from "../lib/store";
+import type { Workspace } from "@shared/types";
 import { go } from "../lib/router";
-import { Modal, Remy, Spinner } from "./common";
+import { Modal, Remy, Rich, Spinner } from "./common";
 import { OUTFITS } from "./scholar";
 import { buildStops, money, stateOf, StopDetail, useFieldData, type Occ } from "./DailyPath";
 
@@ -156,7 +157,23 @@ function useDeskFox() {
 function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) => void }) {
   const g = useGuide(d, onField);
   const fox = useDeskFox();
-  const [mood, setMood] = useState<"idle" | "wave">("idle");
+  const [mood, setMood] = useState<"idle" | "wave" | "think">("idle");
+  // On My Path his side panel is closed (App.tsx): you talk to him here, and he answers in the room.
+  const { config, setWs, run } = useStore();
+  const [q, setQ] = useState(""), [busy, setBusy] = useState(false), [said, setSaid] = useState<{ q: string; id?: string } | null>(null);
+  const busyRef = useRef(false);
+  const aiOn = !!config?.ai.available;
+  const reply = said?.id ? d.w.chat.find((m) => m.id === said.id) : null;
+  const ask = async () => {
+    const text = q.trim();
+    if (!text || busy) return;
+    setQ(""); setSaid({ q: text }); setBusy(true); busyRef.current = true;
+    fox.moveTo("desk", "type"); setMood("think");
+    const before = new Set(d.w.chat.map((m) => m.id));
+    const w = await run(() => api<Workspace>("POST", "/api/ai/chat", { message: text, page: "My Path", where: location.pathname + location.search, tabs: [] }));
+    setBusy(false); busyRef.current = false; fox.setPose(""); setMood("idle");
+    if (w) { setWs(w); setSaid({ q: text, id: [...w.chat].reverse().find((m) => m.role === "assistant" && !before.has(m.id))?.id }); }
+  };
   const has = (k: string) => (OFFICE.find(([key]) => key === k)?.[2] || 99) <= d.lv.n;
   const known = (d.g.known || []).length, books = Math.min(8, known), resume = !!d.w.resume, applied = d.w.applications.length > 0;
   const cert = d.stops.some((s) => s.kind === "cert" && s.status === "done");
@@ -184,7 +201,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
     let t = 0;
     fox.later(() => fox.setPose("type"), 1200);
     const tick = () => { t = window.setTimeout(() => {
-      if (!document.hidden && fox.seated()) {
+      if (!document.hidden && fox.seated() && !busyRef.current) {
         const r = Math.random();
         if (r < 0.55) { fox.setPose("type"); fox.later(() => fox.setPose(""), 5000); }
         else if (r < 0.8) { const ms = fox.moveTo("window"); fox.later(() => fox.moveTo("desk", "type"), ms + 3800); }
@@ -236,8 +253,10 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
             <g className="ps-fox-y" style={{ transform: `translateY(${fox.y}px)` }}>
               <g transform={`scale(${FOX_S})`}><g transform={fox.face < 0 ? "translate(200 0) scale(-1 1)" : undefined}><g className="ps-fox-bob" style={suit}>
                 <g className="ps-legs">
-                  <g className="ps-leg l"><path d="M82 200v96" className="ps-trouser-ol" /><path d="M82 200v96" className="ps-trouser" /><ellipse cx="76" cy="310" rx="22" ry="10" className="ps-shoe" /></g>
-                  <g className="ps-leg r"><path d="M118 200v96" className="ps-trouser-ol" /><path d="M118 200v96" className="ps-trouser" /><ellipse cx="124" cy="310" rx="22" ry="10" className="ps-shoe" /></g>
+                  <g className="ps-tail"><path d="M144 268C196 272 214 226 200 190C194 214 178 236 146 246Z" /><path className="tip" d="M200 190C204 202 204 214 199 226C192 214 192 200 200 190Z" /></g>
+                  <g className="ps-leg l"><path d="M82 244v52" className="ps-trouser-ol" /><path d="M82 244v52" className="ps-trouser" /><ellipse cx="76" cy="306" rx="24" ry="12" className="ps-shoe" /></g>
+                  <g className="ps-leg r"><path d="M118 244v52" className="ps-trouser-ol" /><path d="M118 244v52" className="ps-trouser" /><ellipse cx="124" cy="306" rx="24" ry="12" className="ps-shoe" /></g>
+                  <path className="ps-hem" d="M34 214H166L158 254H42Z" />
                 </g>
                 <Remy size={200} mood={mood} outfit={wearing} className={fox.pose ? `o-${fox.pose}` : ""} />
               </g></g></g>
@@ -263,7 +282,17 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
         <span className="ps-tag still" style={at(334, 384)}>{d.streak.days ? `${d.streak.days}-day streak` : "Plant needs a streak"}</span>
         <button className={"ps-tag" + (applied ? "" : " ghost")} style={at(156, 416)} onClick={() => go("/opportunities")} data-testid="button-office-briefcase">{applied ? `${d.w.applications.length} applied` : "First application"}</button>
       </div>
-        {g.on && <div className="ps-bubble" style={{ "--tail": `${Math.min(92, Math.max(8, (fox.x / 860) * 100))}%` } as CSSProperties} aria-live="polite" data-testid="path-guide">{g.bubble}</div>}
+        {g.on ? <div className="ps-bubble" style={{ "--tail": `${Math.min(92, Math.max(8, (fox.x / 860) * 100))}%` } as CSSProperties} aria-live="polite" data-testid="path-guide">{g.bubble}</div>
+          : <>
+            {said && <div className="ps-bubble chat" style={{ "--tail": `${(fox.x / 860) * 100}%` } as CSSProperties} aria-live="polite" data-testid="office-reply">
+              <div className="ps-chat-head"><span className="pm-kicker">You asked: {said.q}</span><button className="btn btn-ghost btn-sm" onClick={() => setSaid(null)} data-testid="button-office-reply-close">Close</button></div>
+              {busy ? <p className="pm-faint">Remy is thinking…</p> : reply ? <div className="ps-reply"><Rich text={reply.text} /></div> : <p className="pm-faint">I couldn't answer that one. Try asking again.</p>}
+            </div>}
+            <form className="ps-ask" onSubmit={(e) => { e.preventDefault(); ask(); }}>
+              <input className="input" value={q} onChange={(e) => setQ(e.target.value)} disabled={!aiOn || busy} placeholder={aiOn ? "Ask Remy anything about your path…" : "Remy's chat is off on this server"} aria-label="Ask Remy" data-testid="input-office-ask" />
+              <button className="btn btn-primary" disabled={!aiOn || busy || !q.trim()} data-testid="button-office-ask">Ask</button>
+            </form>
+          </>}
       </div>
     </section>
   );
@@ -284,17 +313,12 @@ function useGuide(d: D, onField: (tab: SideTab, open?: string) => void) {
   const p = d.w.profile, name = (p.preferredName || p.name || "").trim().split(/\s+/)[0];
   const [on, setOn] = useState(() => !seenToday() && typeof d.w.settings.tour !== "number"); // waits while the site tour runs, so two guides never talk at once
   const [step, setStep] = useState(0);
-  // While he's in the office, his seat in the side panel sits empty.
-  useEffect(() => {
-    document.documentElement.classList.toggle("remy-away", on);
-    return () => document.documentElement.classList.remove("remy-away");
-  }, [on]);
   const jobs = d.careers?.[0]?.jobs || [];
   const targets = (p.targetRoles || "").toLowerCase().split(/,\s*/).filter(Boolean);
   const byOpenings = [...jobs].sort((a, b) => (b.openings || 0) - (a.openings || 0));
   // "Financial analyst" should find BLS's "Financial and investment analysts": every word's stem must appear.
   const fits = (title: string) => targets.some((t) => t.split(/\s+/).every((wd) => title.toLowerCase().includes(wd.slice(0, 6))));
-  const top = jobs.find((o) => fits(o.title)) || byOpenings[0];
+  const target = jobs.find((o) => fits(o.title)), top = target || byOpenings[0];
   const roles = byOpenings.filter((o) => o !== top).slice(0, 2);
   // Skills Remy's path suggested come first; without a path yet, this year's milestones from the road.
   const todo = d.stops.filter((s) => s.status !== "done" && (s.kind === "skill" || s.kind === "step"));
@@ -310,9 +334,8 @@ function useGuide(d: D, onField: (tab: SideTab, open?: string) => void) {
   const and = (xs: string[]) => xs.map((x, i) => <span key={i}>{i ? " and " : ""}<b>{x}</b></span>);
   const close = () => { markSeen(); setOn(false); setStep(0); onField("today"); };
   const steps: GuideStep[] = [
-    { say: <><b>Hi{name ? ` ${name}` : ""}!</b> You're {who}, {yearWord}. Out that window is where you're headed: {top
-        ? <><b>{top.title.toLowerCase()}</b>{top.wage ? <>, {money(top.wage)} median</> : null}, {top.change > 0 ? "+" : ""}{top.change}% by 2035.</>
-        : <>tell me your major and I'll show you real pay and growth for your field.</>}</>,
+    { say: <><b>Hi{name ? ` ${name}` : ""}!</b> You're {who}, {yearWord}. {!top ? <>Tell me your major and I'll show you real pay and growth for your field out that window.</>
+        : <>{target ? "Out that window is where you're headed" : `Out that window: in ${d.road?.label.toLowerCase() || "your field"}, the most openings are for`} <b>{top.title.toLowerCase()}</b>{top.wage ? <>, {money(top.wage)} median</> : null}, {top.change > 0 ? "+" : ""}{top.change}% by 2035.{target ? null : <> Tell me the job you want and I'll put it here.</>}</>}</>,
       spot: "window", pose: "point", ring: [670, 118], tab: "roles", open: top?.soc },
     { say: <>Every book on this shelf is a job you've decoded. {roles.length ? <>Your {p.major ? "major" : "field"} also leads to {and(roles.map((o) => shortRole(o.title).toLowerCase()))}.</> : null} The full list is on the right.</>,
       spot: "shelf", pose: "point", face: -1, ring: [140, 140], tab: "roles" },

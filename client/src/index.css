@@ -2268,7 +2268,7 @@ button.ps-rw { cursor: pointer; }
 .ps-under { display: flex; justify-content: space-between; gap: 6px 14px; flex-wrap: wrap; font-size: var(--text-sm); color: var(--muted-text); margin-top: 6px; }
 .ps-under b { color: var(--ink); }
 
-.ps-stage { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: 14px; align-items: stretch; }
+.ps-stage { display: grid; grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr); gap: 14px; align-items: stretch; }
 .ps-side { position: relative; min-height: 360px; background: var(--surface); border: 1px solid var(--line); border-radius: 20px; display: flex; flex-direction: column; overflow: hidden; }
 .ps-side-head { padding: 10px 10px 0; }
 .ps-side-head .ps-side-seg { display: flex; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
@@ -2290,9 +2290,6 @@ button.ps-rw { cursor: pointer; }
 .ps-ring { position: absolute; width: 13%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; border: 3px solid var(--fox); box-shadow: 0 0 0 6px color-mix(in srgb, var(--fox) 22%, transparent); animation: ps-ring 1.6s ease-in-out infinite, ps-fade .3s ease-out both; pointer-events: none; z-index: 1; }
 @keyframes ps-ring { 50% { transform: translate(-50%, -50%) scale(1.08); } }
 @keyframes ps-fade { from { opacity: 0; } }
-/* While Remy walks you through his office, his seat in the side panel sits empty. */
-html.remy-away .asst-avatar > .fox { opacity: 0; transform: translateY(24px) scale(.8); transition: opacity .3s, transform .3s; }
-.asst-avatar > .fox { transition: opacity .3s, transform .3s; }
 .ps-room.guiding .ps-tag { opacity: 0; pointer-events: none; }
 /* Remy in his office (PathBoard.tsx Office): he walks (x), sits and stands (y), and his legs step while he walks. */
 .ps-fox { transition: transform 1s linear; }
@@ -2302,6 +2299,17 @@ html.remy-away .asst-avatar > .fox { opacity: 0; transform: translateY(24px) sca
 .ps-trouser-ol { stroke: var(--sch-line); stroke-width: 34; stroke-linecap: round; }
 .ps-trouser { stroke: var(--o-jacket, var(--sch-suit)); stroke-width: 26; stroke-linecap: round; }
 .ps-shoe { fill: var(--sch-ink); }
+.ps-hem { fill: var(--o-jacket, var(--sch-suit)); stroke: var(--sch-line); stroke-width: 4; stroke-linejoin: round; }
+.ps-tail { transform-box: fill-box; transform-origin: 0 100%; animation: ps-wag 2.6s ease-in-out infinite; }
+.ps-tail path { fill: var(--sch-fur); stroke: var(--sch-line); stroke-width: 4; stroke-linejoin: round; } .ps-tail path.tip { fill: var(--sch-cream); stroke-width: 2.5; }
+.ps-fox.walk .ps-tail { animation-duration: .7s; }
+@keyframes ps-wag { 50% { transform: rotate(-7deg); } }
+.ps-ask { display: flex; gap: 8px; margin-top: 10px; }
+.ps-ask .input { flex: 1; min-width: 0; }
+.ps-bubble.chat { max-height: 260px; overflow: auto; }
+.ps-chat-head { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.ps-chat-head .pm-kicker { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ps-reply { font-size: var(--text-sm); line-height: 1.5; color: var(--ink); }
 .ps-leg { transform-box: fill-box; transform-origin: 50% 0; }
 .ps-fox.walk .ps-leg.l { animation: ps-step .34s ease-in-out infinite alternate; }
 .ps-fox.walk .ps-leg.r { animation: ps-step .34s ease-in-out -.34s infinite alternate-reverse; }

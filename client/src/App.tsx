@@ -199,12 +199,15 @@ function Shell() {
       return () => clearTimeout(t);
     }
   }, [flyIn]);
-  useEffect(() => { if (isMobileNow()) setAsstPage(null); }, [path]);
+  useEffect(() => { if (isMobileNow() || path.startsWith("/path")) setAsstPage(null); }, [path]);
   const w = ws as Workspace;
   // Remy stays open on every page until the student minimizes him. On small screens the
   // panel would cover the page, so there he starts minimized as the docked fox button.
   const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 1020px)").matches;
-  const asstOpen = asstPage ?? (isMobile ? false : w.settings.assistantOpen);
+  // Owners on My Path talk to Remy inside his office (PathBoard.tsx), so his panel stays closed there unless something
+  // (a tailoring conversation) asks for it.
+  const inOffice = ownerView && path.startsWith("/path");
+  const asstOpen = inOffice ? asstPage === true : asstPage ?? (isMobile ? false : w.settings.assistantOpen);
   const setAsst = (open: boolean) => {
     setAsstPage(open);
     if (!isMobile) save("settings", { assistantOpen: open });
@@ -267,7 +270,7 @@ function Shell() {
             )}
             {/* Redesign stage 2 (owners first): with his panel closed, Remy waits as his face at the top right, the one way
                 to open him on every page and screen size (Dilan, Nov 22: the top-centre spot "looks weird"). */}
-            {!asstOpen && ownerView && (
+            {!asstOpen && ownerView && !inOffice && (
               <button className="remy-dock" onClick={() => setAsst(true)} data-testid="button-open-assistant" aria-label="Open Remy" title="Ask Remy">
                 <span className="remy-dock-face"><Remy size={36} mood="idle" /></span>
               </button>
@@ -288,7 +291,7 @@ function Shell() {
         ))}
         <a href="#" onClick={(e) => { e.preventDefault(); setMore(true); }} data-testid="mobile-more"><Menu size={19} />More</a>
       </nav>
-      {!asstOpen && (
+      {!asstOpen && !inOffice && (
         <button className="asst-fab fade-up" onClick={() => setAsst(true)} data-testid="button-fab-assistant" aria-label="Open Remy">
           <Remy size={30} mood="wave" /> <span className="hide-sm">Remy</span>
         </button>
