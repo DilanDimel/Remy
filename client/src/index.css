@@ -2887,3 +2887,12 @@ html.redesign-2 input[type="checkbox"]:checked::before { transform: scale(1); }
 html.redesign-2 input[type="checkbox"]:focus-visible { outline: 2px solid var(--fox); outline-offset: 2px; }
 html.redesign-2 input[type="checkbox"]:disabled { opacity: .5; cursor: default; }
 html.redesign-2 label.row > input[type="checkbox"] { margin-top: 2px; }
+/* Owners, Opportunities "Your search": four small numbers instead of a sentence that wrapped mid-list. */
+.op-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 4px; }
+.op-stats span { display: flex; flex-direction: column; font-size: var(--text-xs, 12px); color: var(--muted-text); }
+.op-stats b { font-size: 20px; line-height: 1.2; color: var(--ink); font-variant-numeric: tabular-nums; }
+/* Homepage on phones: "studying Marketing" stays together on the second line instead of the major dropping alone. */
+.lk-ask-m { display: inline-flex; align-items: baseline; gap: 8px; white-space: nowrap; }
+/* Owners, Progress: the five lanes end level, and an empty lane's dashed box fills it, whatever its words. */
+.redesign-2 .pr-flow > .pr-lane { align-self: stretch; }
+.redesign-2 .pr-lane > .pr-ghost { flex: 1; display: grid; place-items: center; }

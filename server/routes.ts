@@ -28,6 +28,7 @@ import { BUZZ, assemblePitch, type PitchParts } from "./coach/pitch";
 import { checkFeedback, checkPlan, feedbackPrompt, planPrompt, rulesPlan } from "./coach/interview";
 import { AI_CALLS_PER_INTERVIEW, pickProfile, weeklyLeft, type Interview, type IvMode } from "@shared/interview";
 import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./platform/db";
+import { hospitalFirst } from "@shared/employer";
 import { inOwnerTrial, inOwnerView, runAiAs, aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, markAiAuthFailure, model } from "./ai/ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./ai/safety";
 import * as admin from "./platform/admin";
@@ -2177,7 +2178,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     // How many employers Remy reads for this student's field, so an empty list can say why honestly.
     const employers = fieldEmployers(ctx.ws, directoryFor(ctx)).length;
     mark("employers");
-    res.json({ jobs, fits, interest, interestEnabled: interestEnabled(), refreshing: searching.has(ctx.me.id), fieldEmployers: employers });
+    res.json({ jobs: inOwnerView() ? jobs.map(hospitalFirst) : jobs, fits, interest, interestEnabled: interestEnabled(), refreshing: searching.has(ctx.me.id), fieldEmployers: employers });
     mark("send");
     if (Date.now() - t0 > 2000 || process.env.OR_TIMING === "1") {
       let prev = t0;
