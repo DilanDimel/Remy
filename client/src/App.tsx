@@ -22,6 +22,7 @@ import { Avatar } from "./components/ProfilePhoto";
 import { useRemyDoes } from "./lib/remyDoes";
 import { RemyDid } from "./components/RemyDid";
 import { RemyOffer } from "./components/RemyOffer";
+import { RemyAway } from "./components/RemyAway";
 import { answer as answerTailor, endSession as endTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
 import { Careers } from "./pages/Landing2";
@@ -609,6 +610,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
             ))}
           </div>
         ))}
+        {stage2 && chat.length > 0 && !pending && <RemyAway />}
         {pending && <div className="stack-sm" style={{ alignItems: "flex-end" }}><div className="bubble bubble-user" data-testid="chat-pending">{pending.text}</div></div>}
         {pending?.reply ? <div className="bubble bubble-ai" data-testid="chat-streaming"><Rich text={pending.reply.slice(0, shown)} /></div>
           : busy && <div className="bubble bubble-ai row"><Spinner /> Thinking…</div>}
