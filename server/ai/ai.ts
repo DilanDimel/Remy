@@ -185,13 +185,15 @@ export async function aiText(system: string, user: string, maxTokens = 1200, cha
           const req = {
             model: m,
             messages: [
-              { role: "system", content: system },
+              // Owners' streamed Claude chat: the system prompt (rules, same all day) is cached, so its ~5k tokens aren't re-read.
+              { role: "system", content: orr && onText && /claude|anthropic/i.test(m) ? [{ type: "text", text: system, cache_control: { type: "ephemeral" } }] : system },
               { role: "user", content: user },
             ],
             // Thinking tokens count toward the limit; keep reasoning light and leave headroom.
             max_tokens: orr ? Math.max(1500, maxTokens * 2) : Math.max(2048, maxTokens * 3),
-            // A streamed chat reply skips Claude's thinking: it held back the first word for ~5 s (Nov 23).
-            ...(orr ? { ...(onText && /claude|anthropic/i.test(m) ? {} : { reasoning: { effort: "low" } }), usage: { include: true }, ...(privacyOn() ? { provider: privacyRouting(m) } : {}) } : { reasoning_effort: "low" }),
+            // A streamed chat reply turns Claude's thinking off: Haiku 5.5 thinks by default (~450 tokens, ~2 s before the
+            // first word, measured live Nov 23), so leaving `reasoning` out isn't enough.
+            ...(orr ? { reasoning: onText && /claude|anthropic/i.test(m) ? { enabled: false } : { effort: "low" }, usage: { include: true }, ...(privacyOn() ? { provider: privacyRouting(m) } : {}) } : { reasoning_effort: "low" }),
           };
           let r: any;
           let out = "";
