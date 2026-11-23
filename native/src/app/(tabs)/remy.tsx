@@ -6,6 +6,7 @@ import type { ChatDid, ChatMsg, Workspace } from "@shared/types";
 import { Fox, Icon, RichText, T, success, tap } from "@/components/ui";
 import { api, streamChat } from "@/lib/api";
 import { go } from "@/lib/nav";
+import { tidyPartial } from "@/lib/partial";
 import { useSession } from "@/lib/session";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
 
@@ -43,7 +44,7 @@ export default function RemyChat() {
   const [err, setErr] = useState("");
   if (!ws) return null;
   const soul = look === "soul";
-  const msgs = [...ws.chat, ...(pending ? [pending] : []), ...(pending && shown ? [{ id: "live", role: "assistant", text: shown, at: pending.at } as ChatMsg] : [])].slice(-60).reverse();
+  const msgs = [...ws.chat, ...(pending ? [pending] : []), ...(pending && shown ? [{ id: "live", role: "assistant", text: tidyPartial(shown), at: pending.at } as ChatMsg] : [])].slice(-60).reverse();
 
   const send = async (message: string) => {
     const m = message.trim();
