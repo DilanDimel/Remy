@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, ShieldCheck } from "lucide-react";
+import { Check, ChevronDown, ShieldCheck } from "lucide-react";
+import { FIELD_GROUPS, fieldFor } from "@shared/fields";
 import { go } from "../lib/router";
 import { useOwnerView, useStore } from "../lib/store";
 import { BetaBadge, Remy } from "../components/common";
@@ -53,10 +54,17 @@ export function Careers() {
 
 // The light/dark "Try it now" look Dilan picked (Nov 22); its colours live in the .lk-try block of index.css.
 const PAGE = "lp2 lk lk-try";
+// The chips are the five most picked; the menu has every field setup offers (Dilan Nov 23: "it doesn't have enough options").
 const MAJORS = ["Marketing", "Finance", "Nursing", "Engineering", "Psychology & social work"];
 const YEARS = ["freshman", "sophomore", "junior", "senior"];
 type Occ = { title: string; change: number; wage: number | null };
 type Ex = { field: string; intern: [string, string]; grad: [string, string]; hidden: [string, string]; step: [string, string]; first?: [string, string] };
+/** Extra fields, written once: [major, field word, internship, new-grad role, city, posting hidden, why hidden, next step, why]. */
+function more(rows: [string, string, string, string, string, string, string, string, string][]): Record<string, Ex> {
+  return Object.fromEntries(rows.map(([m, field, intern, grad, city, hid, why, step, stepWhy]) =>
+    [m, { field, intern: [intern, `${city} · closes Feb 1`], grad: [grad, `${city} · closes Mar 15`], hidden: [hid, why], step: [step, stepWhy] }]));
+}
+const ALL_MAJORS = FIELD_GROUPS.flatMap(([, o]) => o);
 // Example cards for "Try it now": every one follows the picked major (and the opening follows the year), so nothing says "marketing" to a nursing student.
 const EXAMPLES: Record<string, Ex> = {
   Marketing: { field: "marketing", intern: ["Marketing Intern, Summer 2027", "Dallas, TX · closes Jan 31"], grad: ["Marketing Coordinator, new grad", "Dallas, TX · closes Feb 28"], hidden: ["Senior Marketing Associate", "needs 3 years of experience"], step: ["Add how much the club account you ran grew.", "That bullet has no number yet. A real figure makes it stand out."] },
@@ -64,13 +72,85 @@ const EXAMPLES: Record<string, Ex> = {
   Nursing: { field: "nursing", intern: ["Nursing Student Summer Program, 2027", "Fort Worth, TX · closes Feb 1"], grad: ["New Grad RN Residency", "Fort Worth, TX · closes Mar 1"], hidden: ["ICU Registered Nurse", "needs an RN license and 2 years of experience"], step: ["Add your clinical hours and units.", "Hospitals look for them first, and your resume doesn't list them yet."], first: ["Add your CPR or BLS card.", "Hospitals look for it first, and your resume doesn't list it yet."] },
   Engineering: { field: "engineering", intern: ["Engineering Intern, Summer 2027", "Austin, TX · closes Jan 15"], grad: ["Associate Engineer, new grad", "Austin, TX · closes Feb 15"], hidden: ["Senior Mechanical Engineer", "needs 5 years of experience"], step: ["Add what your class design project achieved.", "That bullet says what you built, not how well it worked. A real result makes it stand out."] },
   "Psychology & social work": { field: "psychology and social work", intern: ["Research Assistant Intern, Summer 2027", "Dallas, TX · closes Mar 1"], grad: ["Case Manager, new grad", "Dallas, TX · closes Apr 1"], hidden: ["Licensed Clinical Social Worker", "needs a master's degree and a license"], step: ["Add the hours you volunteered on the crisis line.", "That bullet has no number yet. A real figure makes it stand out."] },
+  ...more([
+    ["Investment banking", "investment banking", "Investment Banking Summer Analyst, 2027", "Investment Banking Analyst, new grad", "Dallas, TX", "Investment Banking Associate", "needs an MBA or 3 years as an analyst", "Add the deal you modeled in the investment club.", "That bullet says you joined, not what you built. Name the model and the company."],
+    ["Accounting", "accounting", "Audit Intern, Summer 2027", "Audit Associate, new grad", "Fort Worth, TX", "Audit Senior", "needs a CPA license and 3 years of experience", "Add your accounting GPA and CPA plan.", "Firms check both first, and your resume doesn't show them yet."],
+    ["Consulting", "consulting", "Consulting Summer Intern, 2027", "Business Analyst, new grad", "Dallas, TX", "Engagement Manager", "needs 5 years of consulting experience", "Add the case competition you entered.", "Firms look for case work, and it isn't on your resume yet."],
+    ["Sales", "sales", "Sales Intern, Summer 2027", "Sales Development Representative, new grad", "Dallas, TX", "Regional Sales Manager", "needs 6 years in sales", "Add how much you raised for your club's fundraiser.", "Sales teams want a number, and that bullet doesn't have one yet."],
+    ["Business & management", "business", "Business Operations Intern, Summer 2027", "Rotational Leadership Program, new grad", "Fort Worth, TX", "Operations Manager", "needs 5 years of management experience", "Add the team you led and what it got done.", "That bullet says your title, not what changed. A real result makes it stand out."],
+    ["Entrepreneurship", "entrepreneurship", "Startup Operations Intern, Summer 2027", "Founder's Associate, new grad", "Austin, TX", "Head of Growth", "needs 6 years at a startup", "Add what your side business sold.", "A real number of customers or sales makes it stand out."],
+    ["Human resources", "human resources", "HR Intern, Summer 2027", "HR Associate, new grad", "Dallas, TX", "HR Business Partner", "needs 5 years of HR experience and a SHRM certification", "Add the new members you recruited for your club.", "That bullet has no number yet. A real figure makes it stand out."],
+    ["Supply chain & operations", "supply chain", "Supply Chain Intern, Summer 2027", "Supply Chain Analyst, new grad", "Fort Worth, TX", "Logistics Manager", "needs 5 years of experience", "Add how much time or money your class project saved.", "Operations teams look for a result, and that bullet doesn't show one."],
+    ["Real estate", "real estate", "Real Estate Analyst Intern, Summer 2027", "Real Estate Analyst, new grad", "Dallas, TX", "Acquisitions Director", "needs 8 years in real estate", "Add the property you valued in your real estate class.", "Firms want to see a deal you worked, and it isn't on your resume yet."],
+    ["Software & computer science", "computer science", "Software Engineering Intern, Summer 2027", "Software Engineer I, new grad", "Austin, TX", "Senior Software Engineer", "needs 5 years of experience", "Link the app you built for class.", "Recruiters click through to your code, and there's no link yet."],
+    ["Data & analytics", "data and analytics", "Data Analyst Intern, Summer 2027", "Data Analyst, new grad", "Dallas, TX", "Senior Data Scientist", "needs a master's degree and 4 years of experience", "Add the tools you used in your statistics project.", "Postings ask for SQL and Python by name, and your bullet doesn't say them."],
+    ["Information systems & IT", "information systems", "IT Intern, Summer 2027", "IT Analyst, new grad", "Fort Worth, TX", "IT Manager", "needs 7 years of experience", "Add the help-desk tickets you handled at your campus job.", "That bullet has no number yet. A real figure makes it stand out."],
+    ["Cybersecurity", "cybersecurity", "Cybersecurity Intern, Summer 2027", "Security Analyst, new grad", "San Antonio, TX", "Senior Penetration Tester", "needs an OSCP certification and 4 years of experience", "Add the capture-the-flag contest you placed in.", "Security teams look for hands-on proof, and it isn't on your resume yet."],
+    ["Architecture & construction", "construction", "Construction Management Intern, Summer 2027", "Assistant Project Manager, new grad", "Dallas, TX", "Senior Project Manager", "needs 8 years of experience", "Add the size of the project you worked on last summer.", "A dollar figure or square footage makes it stand out."],
+    ["Aviation", "aviation", "Aviation Operations Intern, Summer 2027", "Airline Operations Analyst, new grad", "Fort Worth, TX", "Airline Captain", "needs 1,500 flight hours and an ATP certificate", "Add your flight hours and ratings.", "Airlines check them first, and your resume doesn't list them yet."],
+    ["Healthcare & medicine", "healthcare", "Clinical Research Intern, Summer 2027", "Clinical Research Coordinator, new grad", "Dallas, TX", "Physician Assistant", "needs a PA license", "Add your shadowing and volunteer hours.", "Programs and clinics look for hours first, and your resume doesn't list them yet."],
+    ["Science & research", "science", "Summer Research Intern, 2027", "Research Technician, new grad", "Houston, TX", "Research Scientist", "needs a PhD", "Add the lab techniques you've used.", "Labs search for techniques by name, and your bullet doesn't say them."],
+    ["Environment & sustainability", "sustainability", "Sustainability Intern, Summer 2027", "Environmental Analyst, new grad", "Austin, TX", "Environmental Program Manager", "needs 6 years of experience", "Add the campus sustainability project you worked on.", "A result, like waste cut or trees planted, makes it stand out."],
+    ["Education & teaching", "education", "Summer Teaching Fellow, 2027", "Elementary Teacher, new grad", "Fort Worth, TX", "Assistant Principal", "needs a master's degree and 5 years of teaching", "Add the students you tutored and how they did.", "Schools look for results with students, and that bullet doesn't show one."],
+    ["Law & government", "law and government", "Legislative Intern, Spring 2027", "Legal Assistant, new grad", "Austin, TX", "Associate Attorney", "needs a law degree and a bar license", "Add the policy paper you wrote.", "Offices want writing samples, and your resume doesn't name it yet."],
+    ["Public safety", "public safety", "Emergency Management Intern, Summer 2027", "Emergency Management Coordinator, new grad", "Fort Worth, TX", "Police Lieutenant", "needs 8 years of service", "Add your CPR, first aid or EMT card.", "Agencies check certifications first, and yours aren't listed yet."],
+    ["Nonprofit & ministry", "nonprofit work", "Nonprofit Program Intern, Summer 2027", "Program Coordinator, new grad", "Fort Worth, TX", "Executive Director", "needs 10 years of nonprofit leadership", "Add the volunteers you organized.", "That bullet has no number yet. A real figure makes it stand out."],
+    ["Art & design", "art and design", "Graphic Design Intern, Summer 2027", "Junior Designer, new grad", "Dallas, TX", "Art Director", "needs 7 years of experience", "Link your portfolio.", "Design teams look at your work first, and there's no link yet."],
+    ["Film, theater & music", "film, theater and music", "Production Intern, Summer 2027", "Production Assistant, new grad", "Austin, TX", "Producer", "needs 6 years of production credits", "Add the productions you worked on, with your role.", "Crews hire by credits, and your resume doesn't list them yet."],
+    ["Journalism & communications", "communications", "Communications Intern, Summer 2027", "Communications Coordinator, new grad", "Dallas, TX", "Communications Director", "needs 8 years of experience", "Link two articles you've published.", "Editors read clips first, and there are no links yet."],
+    ["Hospitality & events", "hospitality", "Hotel Operations Intern, Summer 2027", "Hotel Management Trainee, new grad", "Dallas, TX", "General Manager", "needs 8 years in hotel management", "Add the size of the event you helped run.", "A number of guests makes it stand out."],
+    ["Sports & recreation", "sports", "Athletics Operations Intern, Summer 2027", "Ticket Sales Associate, new grad", "Arlington, TX", "Director of Team Operations", "needs 7 years in sports", "Add the games you worked and what you ran.", "Teams look for game-day experience, and that bullet doesn't show it yet."],
+  ]),
 };
 /** The example opening for a year: seniors see a full-time new-grad role, everyone else a summer internship. */
 export const example = (major: string, year: string) => {
-  const ex = EXAMPLES[major] || EXAMPLES.Marketing;
+  // A typed major ("Biology") uses its field's example, in the student's own words.
+  const known = EXAMPLES[major] ? major : fieldFor(major);
+  const ex = known ? { ...EXAMPLES[known], ...(known !== major ? { field: major.toLowerCase() } : {}) } : EXAMPLES.Marketing;
   const [title, where] = year === "senior" ? ex.grad : ex.intern;
-  return { ...ex, step: year === "freshman" && ex.first || ex.step, title, where, short: title.split(",")[0], due: where.split("· ")[1].replace("closes", "due"), years: year === "freshman" ? "freshmen" : year + "s" };
+  return { ...ex, lookup: known || "Marketing", step: year === "freshman" && ex.first || ex.step, title, where, short: title.split(",")[0], due: where.split("· ")[1].replace("closes", "due"), years: year === "freshman" ? "freshmen" : year + "s" };
 };
+
+/** The year and major menus in "I'm a ___ studying ___": the dashed word opens a card list in the page's own look
+ *  (Dilan Nov 23: the browser's menu looked out of place). The major menu filters as you type and takes any major
+ *  Remy can place in a field ("Biology" → science). */
+function Pick({ label, value, options, onPick, testid, search, groups }: { label: string; value: string; options: string[]; onPick: (v: string) => void; testid: string; search?: boolean; groups?: [string, string[]][] }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const box = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const off = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", off);
+    return () => document.removeEventListener("mousedown", off);
+  }, [open]);
+  const shown = options.filter((o) => o.toLowerCase().includes(q.trim().toLowerCase()));
+  const typed = q.trim().length > 2 && !shown.some((o) => o.toLowerCase() === q.trim().toLowerCase()) && fieldFor(q) ? q.trim() : "";
+  const choose = (v: string) => { onPick(v); setOpen(false); setQ(""); box.current?.querySelector<HTMLButtonElement>(".lk-pick-btn")?.focus(); };
+  const keys = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") { e.preventDefault(); setOpen(false); box.current?.querySelector<HTMLButtonElement>(".lk-pick-btn")?.focus(); return; }
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const items = [...(box.current?.querySelectorAll<HTMLElement>("[role=option], .lk-pick-q") || [])];
+    const i = items.indexOf(document.activeElement as HTMLElement);
+    items[Math.max(0, Math.min(items.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)))]?.focus();
+  };
+  return (
+    <span className="lk-pick" ref={box} onKeyDown={keys}>
+      <button type="button" className="lk-pick-btn" aria-haspopup="listbox" aria-expanded={open} aria-label={`${label}: ${value}`} onClick={() => setOpen(!open)} data-testid={testid}>{value}<ChevronDown size={16} aria-hidden /></button>
+      {open && (
+        <span className="lk-pick-pop" role="dialog" aria-label={`Pick your ${label.toLowerCase()}`}>
+          {search && <input className="lk-pick-q" autoFocus value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (typed || shown[0])) { e.preventDefault(); choose(typed || shown[0]); } }} placeholder="Type your major" aria-label="Type your major" data-testid={`${testid}-search`} />}
+          <span className="lk-pick-list" role="listbox" aria-label={label}>
+            {typed && <button type="button" role="option" aria-selected={false} onClick={() => choose(typed)} data-testid={`${testid}-typed`}>{typed}</button>}
+            {shown.map((o) => [groups && !q.trim() && groups.find(([, g]) => g[0] === o) && <span key={"h" + o} className="lk-pick-h" role="presentation">{groups.find(([, g]) => g[0] === o)![0]}</span>, <button key={o} type="button" role="option" aria-selected={o === value} autoFocus={!search && o === value} onClick={() => choose(o)} data-testid={`${testid}-opt-${o.split(/\W/)[0].toLowerCase()}`}>{o}{o === value && <Check size={14} aria-hidden />}</button>])}
+            {!shown.length && !typed && <span className="lk-pick-none">No match yet. Try a field like &ldquo;biology&rdquo; or &ldquo;business&rdquo;.</span>}
+          </span>
+        </span>
+      )}
+    </span>
+  );
+}
 
 export default function Landing2() {
   const { config, me, ws } = useStore();
@@ -88,9 +168,9 @@ export default function Landing2() {
   useEffect(() => {
     let live = true;
     setJobs(null);
-    fetch("/api/public/careers?field=" + encodeURIComponent(major)).then((r) => r.json()).then((d) => live && setJobs(d?.[0]?.jobs?.slice(0, 3) || [])).catch(() => live && setJobs([]));
+    fetch("/api/public/careers?field=" + encodeURIComponent(ex.lookup)).then((r) => r.json()).then((d) => live && setJobs(d?.[0]?.jobs?.slice(0, 3) || [])).catch(() => live && setJobs([]));
     return () => { live = false; };
-  }, [major]);
+  }, [ex.lookup]);
   // Sections ease in as they scroll into view (CSS keeps them visible when motion is reduced or JS is off).
   useEffect(() => {
     const els = page.current?.querySelectorAll(".rv") || [];
@@ -112,8 +192,8 @@ export default function Landing2() {
             <p className="lp2-lede">Tell Remy your year and major. It reads 180+ employers&rsquo; own career sites and shows what fits you.</p>
             <div className="lk-ask">
               <p>I&rsquo;m a{" "}
-                <select aria-label="Year" value={year} onChange={(e) => setYear(e.target.value)} data-testid="select-lp-year">{YEARS.map((y) => <option key={y}>{y}</option>)}</select>{" "}studying{" "}
-                <select aria-label="Major" value={major} onChange={(e) => setMajor(e.target.value)} data-testid="select-lp-major">{MAJORS.map((m) => <option key={m}>{m}</option>)}</select>
+                <Pick label="Year" value={year} options={YEARS} onPick={setYear} testid="select-lp-year" />{" "}studying{" "}
+                <Pick label="Major" value={major} options={ALL_MAJORS} groups={FIELD_GROUPS} onPick={setMajor} testid="select-lp-major" search />
               </p>
               <a className="lp2-btn lp2-btn-lg" href={start} {...ext} data-testid="button-lp-start">{inside ? "Open my Remy" : "Show me my matches"}</a>
             </div>

@@ -2392,7 +2392,7 @@ html[data-theme="dark"] .lk { color-scheme: dark; }
 .lk-hero .lp2-lede { margin: 18px 0 0 !important; max-width: 40ch; }
 .lk-top { display: grid; grid-template-columns: 1.25fr .75fr; gap: 32px; align-items: center; }
 .lk-remy { position: relative; margin: 0; display: grid; justify-items: center; }
-.lk-medal { display: grid; place-items: end center; width: 300px; height: 300px; margin-top: 10px; border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 50% 40%, var(--lk-card), var(--lk-soft) 70%); border: 1px solid var(--lk-line); box-shadow: 0 30px 60px -36px rgba(120, 50, 10, .45); }
+.lk-medal { display: grid; place-items: end center; width: 300px; height: 300px; margin-top: 10px; border-radius: 50%; overflow: hidden; background: var(--lk-soft); border: 1px solid var(--lk-line); } /* one solid colour, no gradient or glow (Dilan, Nov 23) */
 .lk-medal svg { display: block; margin-bottom: -6px; }
 .lk-medal.lk-medal-sm { width: 104px; height: 104px; margin: 0; box-shadow: none; }
 .lk-medal-sm svg { margin-bottom: -3px; }
@@ -2402,6 +2402,21 @@ html[data-theme="dark"] .lk { color-scheme: dark; }
 .lk-ask p { flex: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 17px; line-height: 1.8; }
 .lk-ask select { appearance: none; -webkit-appearance: none; font: inherit; font-weight: 700; color: var(--lk-accent-ink); background: none; border: 0; border-bottom: 2px dashed var(--lk-accent); border-radius: 0; padding: 0 2px; cursor: pointer; field-sizing: content; }
 .lk-ask select:focus-visible { outline: 2px solid var(--lk-accent); outline-offset: 2px; }
+/* "I'm a ___ studying ___" menus: a card list in the page's own colours instead of the browser's menu (Nov 23). */
+.lk-pick { position: relative; display: inline-flex; }
+.lk-pick-btn { display: inline-flex; align-items: center; gap: 2px; font: inherit; font-weight: 700; color: var(--lk-accent-ink); background: none; border: 0; border-bottom: 2px dashed var(--lk-accent); padding: 0 2px; cursor: pointer; line-height: 1.5; }
+.lk-pick-btn svg { opacity: .7; transition: transform .15s; }
+.lk-pick-btn[aria-expanded="true"] svg { transform: rotate(180deg); }
+.lk-pick-btn:focus-visible { outline: 2px solid var(--lk-accent); outline-offset: 2px; border-radius: 4px; }
+.lk-pick-pop { position: absolute; z-index: 30; top: calc(100% + 8px); left: -8px; width: max-content; min-width: 220px; max-width: min(320px, calc(100vw - 48px)); display: grid; gap: 6px; padding: 8px; border-radius: 16px; background: var(--lk-card); border: 1px solid var(--lk-line); box-shadow: 0 24px 48px -20px rgba(0, 0, 0, .35); }
+.lk-pick-q { width: 100%; font: inherit; font-size: 15px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--lk-line); background: var(--lk-bg); color: var(--lk-ink); }
+.lk-pick-q:focus-visible { outline: 2px solid var(--lk-accent); outline-offset: 0; }
+.lk-pick-list { display: grid; max-height: 300px; overflow-y: auto; overscroll-behavior: contain; }
+.lk-pick-list button { display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; font: inherit; font-size: 15px; line-height: 1.35; padding: 9px 12px; border: 0; border-radius: 10px; background: none; color: var(--lk-ink2); cursor: pointer; }
+.lk-pick-list button:hover, .lk-pick-list button:focus-visible { background: var(--lk-soft); color: var(--lk-ink); outline: none; }
+.lk-pick-list button[aria-selected="true"] { color: var(--lk-accent-ink); font-weight: 700; }
+.lk-pick-h { padding: 10px 12px 4px; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--lk-muted); }
+.lk-pick-none { padding: 9px 12px; font-size: 14px; color: var(--lk-muted); }
 .lk-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .lk-chip { padding: 7px 14px; border-radius: 999px; border: 1px solid var(--lk-line); background: var(--lk-card); color: var(--lk-ink2); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
 .lk-chip[aria-pressed="true"] { background: var(--lk-soft); border-color: var(--lk-accent); color: var(--lk-accent-ink); }

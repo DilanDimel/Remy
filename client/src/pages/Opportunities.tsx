@@ -402,16 +402,20 @@ function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit
  *  Remy you want more like it; Pass hides it and tells Remy the opposite. Same signal swipe mode will use later. */
 function KeepPass({ j, saved, hidden }: { j: Job; saved: boolean; hidden: boolean }) {
   const { ws, setWs, run } = useStore();
-  const kept = saved && (ws!.jobFeedback?.[j.id]?.rating ?? 0) >= 4;
+  // The tap shows at once; the server catches up (it re-ranks openings, which took ~4 s, Dilan Nov 23). A failed save puts it back.
+  const [shown, setShown] = useState<null | { kept: boolean; hidden: boolean }>(null);
+  const kept = shown ? shown.kept : saved && (ws!.jobFeedback?.[j.id]?.rating ?? 0) >= 4;
+  if (shown) hidden = shown.hidden;
+  const now = (next: { kept: boolean; hidden: boolean }, p: Promise<unknown>) => { setShown(next); p.finally(() => setShown(null)); };
   const put = (body: object) => run(() => api<Workspace>("PUT", `/api/jobs/${j.id}/interest`, body)).then((r) => r && setWs(r));
-  const undo = () => run(() => api<Workspace>("DELETE", `/api/jobs/${j.id}/interest?unhide=1`)).then((r) => r && setWs(r));
+  const undo = () => now({ kept: false, hidden: false }, run(() => api<Workspace>("DELETE", `/api/jobs/${j.id}/interest?unhide=1`)).then((r) => r && setWs(r)));
   if (hidden) return <button className="btn btn-ghost btn-sm" onClick={undo} data-testid="button-unpass">Passed · undo</button>;
   return (
     <>
-      <button className={`btn btn-sm ${kept ? "btn-secondary" : "btn-ghost"}`} aria-pressed={kept} onClick={() => (kept ? run(() => api<Workspace>("DELETE", `/api/jobs/${j.id}/interest`)).then((r) => r && run(() => api<Workspace>("PUT", "/api/ws/savedJobIds", { value: r.savedJobIds.filter((x) => x !== j.id) })).then((r2) => r2 && setWs(r2))) : put({ rating: 5, keep: true }))} data-testid="button-keep">
+      <button className={`btn btn-sm ${kept ? "btn-secondary" : "btn-ghost"}`} aria-pressed={kept} onClick={() => now({ kept: !kept, hidden: false }, kept ? run(() => api<Workspace>("DELETE", `/api/jobs/${j.id}/interest`)).then((r) => r && run(() => api<Workspace>("PUT", "/api/ws/savedJobIds", { value: r.savedJobIds.filter((x) => x !== j.id) })).then((r2) => r2 && setWs(r2))) : put({ rating: 5, keep: true }))} data-testid="button-keep">
         <Check size={14} /> {kept ? "Kept" : "Keep"}
       </button>
-      <button className="btn btn-ghost btn-sm" onClick={() => put({ rating: 1, hide: true })} data-testid="button-pass"><X size={14} /> Pass</button>
+      <button className="btn btn-ghost btn-sm" onClick={() => now({ kept: false, hidden: true }, put({ rating: 1, hide: true }))} data-testid="button-pass"><X size={14} /> Pass</button>
     </>
   );
 }
