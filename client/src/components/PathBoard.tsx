@@ -344,7 +344,7 @@ function Side({ d, tab, setTab, open, setOpen }: { d: D; tab: SideTab; setTab: (
   return (
     <section className="ps-side" aria-label="Today and your field" id="path-field" data-testid="path-field">
       <header className="ps-side-head">
-        <div className="pm-seg" role="tablist">
+        <div className="seg ps-side-seg" role="tablist">
           {tabs.map(([k, l, n]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => { setTab(k); setOpen(""); }} data-testid={`tab-side-${k}`}>{l}{n !== null && <span>{n}</span>}</button>)}
         </div>
       </header>
