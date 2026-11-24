@@ -650,77 +650,99 @@ function UsedCard() {
 }
 
 type Signals = { days: number; pages: { name: string; n: number }[]; rage: { name: string; n: number }[]; ratings: { place: string; up: number; down: number }[] };
-/** What students' browsers reported on their own this week: where they go, what they rage-click, 👍/👎 per feature. */
-function SignalsCard() {
-  const [d] = useLoad<Signals>("/api/admin/signals");
-  if (!d) return null;
-  const list = (rows: { name: string; n: number }[], empty: string) => rows.length ? rows.map((r) => <div key={r.name} className="row-between small"><span>{r.name}</span><b>{r.n}</b></div>) : <span className="small muted">{empty}</span>;
-  return (
-    <section className="adm-card stack-sm" data-testid="signals-card">
-      <h3>What students did this week (automatic)</h3>
-      <p className="xs muted">Counted by students' browsers: no names and nothing they typed. A rage click is 3+ quick clicks on the same thing; it usually means something looks clickable but doesn't work.</p>
-      <div className="grid-3" style={{ alignItems: "start" }}>
-        <div className="stack-sm"><b className="small">Pages opened</b>{list(d.pages, "No visits counted yet.")}</div>
-        <div className="stack-sm"><b className="small">Rage clicks</b>{list(d.rage, "None. Good sign.")}</div>
-        <div className="stack-sm"><b className="small">Was it useful? 👍 / 👎</b>{d.ratings.length ? d.ratings.map((r) => <div key={r.place} className="row-between small"><span>{r.place}</span><span><b>{r.up}</b> 👍 · <b>{r.down}</b> 👎</span></div>) : <span className="small muted">No ratings yet.</span>}</div>
-      </div>
-    </section>
-  );
-}
-
 function ErrorsTab() {
   const { run } = useStore();
   const [d, reload, setD] = useLoad<Errors>("/api/admin/errors");
+  const [sig] = useLoad<Signals>("/api/admin/signals");
   const [open, setOpen] = useState<string | null>(null);
+  const [view, setView] = useState<"" | "errors" | "feedback" | "fixed">("");
+  const [all, setAll] = useState(false);
   if (!d) return <div className="row"><Spinner /> Loading…</div>;
   const fix = async (e: OpenError) => { const r = await run(() => api<Errors>("POST", "/api/admin/errors/fix", { message: e.message, kind: e.kind }), "Marked fixed. If it happens again, it comes back here."); if (r) setD(r); };
+  const shown = view || (d.open.length || !d.feedback.length ? "errors" : "feedback");
+  const worst = [...d.open].sort((a, b) => b.students - a.students || b.times - a.times)[0];
+  const line = `${plural(d.open.length, "open error")}, ${d.feedback.length ? plural(d.feedback.length, "new note") : "no new feedback"}.`;
+  const after = worst ? ` "${worst.message.slice(0, 60)}" hit ${plural(worst.students || 1, "student")}; start there.` : " Nothing is waiting on a fix.";
+  const bars = (rows: { name: string; n: number }[], hot: boolean) => { const max = Math.max(1, ...rows.map((r) => r.n)); return <div className="adm2-bars">{rows.slice(0, 6).map((r, i) => <div key={r.name} className={"adm2-bar" + (hot && i === 0 ? " drop" : "")}><span className="adm-ellipsis" title={r.name}>{r.name}</span><div><i style={{ width: `${(r.n / max) * 100}%` }} /></div><b>{r.n}</b></div>)}</div>; };
+  const ups = sig ? sig.ratings.reduce((x, r) => x + r.up, 0) : 0, downs = sig ? sig.ratings.reduce((x, r) => x + r.down, 0) : 0;
   return (
-    <div className="stack-lg">
-      <Head title="Errors & feedback" sub="What students wrote (Send feedback or a 👎 note), and the errors they hit in the last 30 days, including ones their browsers reported automatically. Mark an error fixed after the fix ships." action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
-      <SignalsCard />
-      <section className="adm-card adm-list">
-        <h3>Student feedback</h3>
-        {d.feedback.length > 1 && (() => {
-          const by = new Map<string, number>();
-          for (const f of d.feedback) by.set(f.place || "somewhere in Remy", (by.get(f.place || "somewhere in Remy") || 0) + 1);
-          return <p className="xs muted">By page: {[...by].sort((a, b) => b[1] - a[1]).map(([p, n]) => `${p} ${n}`).join(" · ")}</p>;
-        })()}
-        {d.feedback.map((f) => (
-          <div key={f.id} className="adm-err">
-            <div className="grow stack-sm" style={{ gap: 4 }}>
-              <span className="small">{f.message}</span>
-              <span className="xs muted">{f.email || "a student"} · {f.place || "somewhere in Remy"} · {ago(f.at)}</span>
-              {/* The student's screenshot (owners only); opens full size. */}
-              {f.shot && <a href={`/api/admin/feedback/${f.id}/screenshot`} target="_blank" rel="noreferrer" style={{ alignSelf: "flex-start" }} data-testid="feedback-shot-link"><img src={`/api/admin/feedback/${f.id}/screenshot`} alt="Screenshot from the student" loading="lazy" style={{ maxWidth: 220, maxHeight: 140, borderRadius: 8, border: "1px solid var(--line)", objectFit: "cover", display: "block" }} /></a>}
+    <div className="adm2 adm2-full adm2-fixed">
+      <div className="adm-head">
+        <div><h1 className="adm-hello">Errors &amp; feedback</h1><p className="adm2-say"><b>{line}</b>{after}</p></div>
+        <button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")} data-testid="button-errors-refresh"><RotateCcw size={14} /> Refresh</button>
+      </div>
+      <div className="adm2-row adm2-row-sys">
+        <section className="adm2-card" data-testid="errors-inbox">
+          <div className="adm2-h"><h3>To look at</h3>
+            <div className="adm2-seg" role="group" aria-label="Show">
+              {([["errors", `Errors ${d.open.length}`], ["feedback", `Feedback ${d.feedback.length}`], ["fixed", `Fixed ${d.fixed.length}`]] as const).map(([k, l]) => <button key={k} aria-pressed={shown === k} onClick={() => setView(k)} data-testid={`errors-view-${k}`}>{l}</button>)}
             </div>
-            <button className="btn btn-secondary btn-sm" onClick={async () => { const r = await run(() => api<Errors>("POST", "/api/admin/errors/fix", { message: f.message, kind: "feedback" }), "Marked handled"); if (r) setD(r); }}><Check size={14} /> Handled</button>
           </div>
-        ))}
-        {!d.feedback.length && <p className="small muted">No new feedback.</p>}
-      </section>
-      <section className="adm-card adm-list">
-        <h3>Errors</h3>
-        {d.open.map((e) => {
-          const k = e.kind + e.message;
-          return (
-            <div key={k} className="adm-err">
-              <div className="grow stack-sm" style={{ gap: 4 }}>
-                <b className="small">{e.message}</b>
-                <span className="xs muted">{e.kind === "browser" ? "Browser" : "Server"} · {e.place || "unknown page"}{(e.places || 1) > 1 ? ` and ${e.places! - 1} other page${e.places! - 1 === 1 ? "" : "s"}` : ""} · {e.times} time{e.times === 1 ? "" : "s"}{e.students ? `, ${e.students} student${e.students === 1 ? "" : "s"}` : ""} · last {ago(e.last)}</span>
-                {e.detail && <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start", padding: 0 }} onClick={() => setOpen(open === k ? null : k)}>{open === k ? "Hide details" : "Show details"}</button>}
-                {open === k && <pre className="admin-pre">{e.detail}</pre>}
-              </div>
-              <button className="btn btn-secondary btn-sm" onClick={() => fix(e)}><Check size={14} /> Mark fixed</button>
-            </div>
-          );
-        })}
-        {!d.open.length && <Empty title="No open errors" body="Nothing students hit in the last 30 days is waiting on a fix." />}
-      </section>
-      {d.fixed.length > 0 && (
-        <section className="adm-card">
-          <h3>Fixed recently</h3>
-          {d.fixed.map((e) => <div key={e.kind + e.message} className="small adm-fixed"><Check size={14} className="pass" /> <span className="grow">{e.message}</span><span className="xs muted">{e.fixed_by.split("@")[0]}, {ago(e.fixed_at)}</span></div>)}
+          <div className="adm2-scroll adm-list">
+            {shown === "errors" && <>
+              {d.open.map((e) => {
+                const k = e.kind + e.message;
+                return (
+                  <div key={k} className="adm-err">
+                    <div className="grow stack-sm" style={{ gap: 4 }}>
+                      <b className="small">{e.message}</b>
+                      <span className="xs muted">{e.kind === "browser" ? "Browser" : "Server"} · {e.place || "unknown page"}{(e.places || 1) > 1 ? ` and ${e.places! - 1} other page${e.places! - 1 === 1 ? "" : "s"}` : ""} · {e.times} time{e.times === 1 ? "" : "s"}{e.students ? `, ${e.students} student${e.students === 1 ? "" : "s"}` : ""} · last {ago(e.last)}</span>
+                      {e.detail && <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start", padding: 0 }} onClick={() => setOpen(open === k ? null : k)}>{open === k ? "Hide details" : "Show details"}</button>}
+                      {open === k && <pre className="admin-pre">{e.detail}</pre>}
+                    </div>
+                    <button className="btn btn-secondary btn-sm" onClick={() => fix(e)}><Check size={14} /> Mark fixed</button>
+                  </div>
+                );
+              })}
+              {!d.open.length && <Empty title="No open errors" body="Nothing students hit in the last 30 days is waiting on a fix." />}
+              {d.fixed.length > 0 && <><span className="adm2-day">Fixed recently</span>{d.fixed.slice(0, 5).map((e) => <div key={e.kind + e.message} className="small adm-fixed"><Check size={14} className="pass" /> <span className="grow">{e.message}</span><span className="xs muted">{e.fixed_by.split("@")[0]}, {ago(e.fixed_at)}</span></div>)}</>}
+            </>}
+            {shown === "feedback" && <>
+              {d.feedback.length > 1 && (() => {
+                const by = new Map<string, number>();
+                for (const f of d.feedback) by.set(f.place || "somewhere in Remy", (by.get(f.place || "somewhere in Remy") || 0) + 1);
+                return <p className="xs muted">By page: {[...by].sort((a, b) => b[1] - a[1]).map(([p, n]) => `${p} ${n}`).join(" · ")}</p>;
+              })()}
+              {d.feedback.map((f) => (
+                <div key={f.id} className="adm-err">
+                  <div className="grow stack-sm" style={{ gap: 4 }}>
+                    <span className="small">{f.message}</span>
+                    <span className="xs muted">{f.email || "a student"} · {f.place || "somewhere in Remy"} · {ago(f.at)}</span>
+                    {/* The student's screenshot (owners only); opens full size. */}
+                    {f.shot && <a href={`/api/admin/feedback/${f.id}/screenshot`} target="_blank" rel="noreferrer" style={{ alignSelf: "flex-start" }} data-testid="feedback-shot-link"><img src={`/api/admin/feedback/${f.id}/screenshot`} alt="Screenshot from the student" loading="lazy" style={{ maxWidth: 220, maxHeight: 140, borderRadius: 8, border: "1px solid var(--line)", objectFit: "cover", display: "block" }} /></a>}
+                  </div>
+                  <button className="btn btn-secondary btn-sm" onClick={async () => { const r = await run(() => api<Errors>("POST", "/api/admin/errors/fix", { message: f.message, kind: "feedback" }), "Marked handled"); if (r) setD(r); }}><Check size={14} /> Handled</button>
+                </div>
+              ))}
+              {!d.feedback.length && <Empty title="No new feedback" body="Notes from Send feedback and 👎 reasons land here." />}
+            </>}
+            {shown === "fixed" && <>
+              {d.fixed.map((e) => <div key={e.kind + e.message} className="small adm-fixed"><Check size={14} className="pass" /> <span className="grow">{e.message}</span><span className="xs muted">{e.fixed_by.split("@")[0]}, {ago(e.fixed_at)}</span></div>)}
+              {!d.fixed.length && <p className="small muted">Nothing marked fixed recently.</p>}
+            </>}
+          </div>
         </section>
+        <div className="adm2-col" data-testid="signals-card">
+          <section className="adm2-card">
+            <div className="adm2-h"><h3>Rage clicks this week</h3>{sig && <button className="btn btn-ghost btn-sm" onClick={() => setAll(true)} data-testid="button-all-signals">All <ArrowRight size={14} /></button>}</div>
+            {sig ? (sig.rage.length ? bars(sig.rage, true) : <span className="small muted">None. Good sign.</span>) : <Spinner />}
+            {sig?.rage[0] && <p className="adm2-note"><b>{sig.rage[0].name} got {sig.rage[0].n} rage clicks.</b> 3+ quick clicks on one thing usually means it looks clickable but doesn't do anything.</p>}
+          </section>
+          <section className="adm2-card grow">
+            <div className="adm2-h"><h3>Pages opened</h3><span className="xs muted">this week · {ups} 👍 · {downs} 👎</span></div>
+            {sig ? (sig.pages.length ? bars(sig.pages, false) : <span className="small muted">No visits counted yet.</span>) : <Spinner />}
+            <span className="xs muted" style={{ marginTop: "auto" }}>Counted by students' browsers: no names and nothing they typed.</span>
+          </section>
+        </div>
+      </div>
+      {all && sig && (
+        <Modal title="What students did this week" onClose={() => setAll(false)} wide>
+          <div className="grid-3" style={{ alignItems: "start" }}>
+            <div className="stack-sm"><b className="small">Pages opened</b>{sig.pages.map((r) => <div key={r.name} className="row-between small"><span>{r.name}</span><b>{r.n}</b></div>)}</div>
+            <div className="stack-sm"><b className="small">Rage clicks</b>{sig.rage.map((r) => <div key={r.name} className="row-between small"><span>{r.name}</span><b>{r.n}</b></div>)}</div>
+            <div className="stack-sm"><b className="small">Was it useful? 👍 / 👎</b>{sig.ratings.length ? sig.ratings.map((r) => <div key={r.place} className="row-between small"><span>{r.place}</span><span><b>{r.up}</b> 👍 · <b>{r.down}</b> 👎</span></div>) : <span className="small muted">No ratings yet.</span>}</div>
+          </div>
+        </Modal>
       )}
     </div>
   );
