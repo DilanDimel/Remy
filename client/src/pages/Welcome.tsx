@@ -211,14 +211,6 @@ function Landing() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => { io.disconnect(); window.removeEventListener("scroll", onScroll); };
   }, []);
-  // Dark tiles light up where the pointer is (a soft spotlight, as on huly.io).
-  const spotlight = (e: React.PointerEvent<HTMLDivElement>) => {
-    const t = (e.target as Element).closest?.(".lp-tile") as HTMLElement | null;
-    if (!t) return;
-    const r = t.getBoundingClientRect();
-    t.style.setProperty("--mx", `${e.clientX - r.left}px`);
-    t.style.setProperty("--my", `${e.clientY - r.top}px`);
-  };
   return (
     <div className="lp" ref={page}>
       <header className={"lp-top" + (scrolled ? " scrolled" : "")}>
@@ -232,10 +224,9 @@ function Landing() {
       </header>
 
       <section className="lp-hero lp-dark">
-        <div className="lp-beam" aria-hidden><span className="lp-beam-line" /><span className="lp-beam-floor" /></div>
         <div className="lp-hero-copy">
           <span className="lp-award">Free during beta</span>
-          <h1>Don&rsquo;t Hunt For A Job <span className="lp-accent">Alone.</span></h1>
+          <h1>Don&rsquo;t hunt for a job <span className="lp-accent">alone.</span></h1>
           <p className="lp-lede">A career coach for college students: openings you can actually get, a resume that stays true, and what to do this week.</p>
           <div className="lp-ctas">
             <a className="btn btn-lg lp-glow-btn" href={start} {...(beta ? { target: "_blank", rel: "noreferrer" } : {})} data-testid="button-lp-start">{startLabel}</a>
@@ -245,24 +236,17 @@ function Landing() {
         </div>
         <HeroExample />
       </section>
-      <div className="lp-ticker" aria-hidden>
-        <div className="lp-ticker-track">
-          {[0, 1].map((n) => <span key={n}>{TICKER.map((t) => <b key={t}>{t}</b>)}</span>)}
-        </div>
-      </div>
 
       <section className="lp-bento-sec" ref={tour} aria-label="What you get">
         <div className="lp-gets-head rv">
-          <span className="lp-kicker">What you get</span>
-          <h2>One Coach For The Whole Search</h2>
+          <h2>One coach for the whole search</h2>
           <nav className="lp-jump" aria-label="Jump to">
             <a href="#get-openings"><b>1</b> Openings</a><a href="#get-resume"><b>2</b> Honest resume</a><a href="#get-plan"><b>3</b> Weekly plan</a><a href="#get-explore"><b>4</b> Explore careers</a>
           </nav>
         </div>
-        <div className="lp-bento" onPointerMove={spotlight}>
+        <div className="lp-bento">
           <article className="lp-tile wide rv" id="get-openings">
             <div className="lp-tile-copy">
-              <span className="lp-num">01</span>
               <h3>Openings you can actually get</h3>
               <p>Remy reads 180+ employers&rsquo; own career sites and checks each posting against your year, field, location, start date and visa needs. Postings you can&rsquo;t apply to are hidden, and ones that need a license or a different major say so up front. Every opening says why it fits you.</p>
             </div>
@@ -275,7 +259,6 @@ function Landing() {
           </article>
           <article className="lp-tile rv" id="get-resume">
             <div className="lp-tile-copy">
-              <span className="lp-num">02</span>
               <h3>A resume that fits each job and stays true</h3>
               <p>Line-by-line suggestions for each opening. Anything your resume can&rsquo;t back up gets flagged. You approve every word.</p>
             </div>
@@ -288,7 +271,6 @@ function Landing() {
           </article>
           <article className="lp-tile rv" id="get-plan">
             <div className="lp-tile-copy">
-              <span className="lp-num">03</span>
               <h3>A plan for this week</h3>
               <p>Deadlines and next steps become dated to-dos, in your Google Calendar if you like. Ask Remy anything; it knows your resume and deadlines.</p>
             </div>
@@ -301,7 +283,6 @@ function Landing() {
           </article>
           <article className="lp-tile wide rv" id="get-explore">
             <div className="lp-tile-copy">
-              <span className="lp-num">04</span>
               <h3>Help when you don&rsquo;t know what you want yet</h3>
               <p>Pick a major and see the jobs it leads to, with real pay and growth from the U.S. Bureau of Labor Statistics. Try it here.</p>
             </div>
@@ -311,7 +292,6 @@ function Landing() {
       </section>
 
       <section className="lp-band">
-        <span className="lp-kicker">How it works</span>
         <h2>Three steps, about five minutes</h2>
         <ol className="lp-steps rv">
           <li><b>Add your resume.</b> Upload it, add your LinkedIn, or answer a few questions and Remy builds your first one.</li>
@@ -346,7 +326,6 @@ function Landing() {
   );
 }
 
-const TICKER = ["Openings you qualify for", "Honest resume tailoring", "Cover letter drafts", "Weekly plan", "Deadlines on your calendar", "Interview stories you practice out loud", "LinkedIn check", "Networking emails you approve", "Careers by major", "Hours log", "Follow-up nudges"];
 
 // The hero's example conversation, one per kind of student (fictional students; job numbers are real BLS figures).
 const EXAMPLES: { tab: string; ask: string; items: [ReactNode, string, ReactNode][] }[] = [
