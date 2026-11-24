@@ -34,6 +34,7 @@ import { inOwnerTrial, inOwnerView, runAiAs, aiJson, aiStatus, AiUnavailable, la
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./ai/safety";
 import * as admin from "./platform/admin";
 import * as beta from "./platform/beta";
+import * as features from "./platform/features";
 import * as signals from "./jobs/signals";
 import { acceptHtml } from "@shared/acceptEmail";
 import { recordError } from "./platform/admin";
@@ -715,6 +716,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       googleCalendar: gcal.gcalReady(),
       build: buildId(),
       beta: { on: await beta.betaOn(), formUrl: beta.betaFormUrl(), open: await beta.openAccess() },
+      features: await features.releases(),
     };
     res.json(cfg);
   });
@@ -780,6 +782,14 @@ export async function registerRoutes(_server: Server, app: Express) {
     await beta.setOpenAccess(me, req.body.open);
     await admin.logAction(me, req.body.open ? "beta: opened to everyone" : "beta: back to invite-only");
     res.json(await betaAdmin());
+  }));
+  // Feature releases (shared/features.ts): owners-only, locked with a teaser, or released to everyone. No deploy needed.
+  app.post("/api/admin/features", route(async (req, res, ctx) => {
+    const me = owner(ctx);
+    const key = String(req.body?.key || ""), state = String(req.body?.state || "");
+    const r = await features.setRelease(me, key, state);
+    await admin.logAction(me, `release: ${key} → ${state}`);
+    res.json({ features: r });
   }));
   app.post("/api/admin/beta", route(async (req, res, ctx) => {
     const me = owner(ctx);
@@ -1632,6 +1642,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   const ivOf = (ctx: Ctx, id: string) => (ctx.ws.interviews || []).find((x) => x.id === id) || bad("That practice isn't here anymore.", 404);
   const ivOk = (ctx: Ctx, extra = "") => (t: string) => !claimCheck(t, evidenceOf(ctx.ws) + "\n" + extra).length;
   app.post("/api/interviews", route(async (req, res, ctx) => {
+    if (!ctx.me.owner && (await features.releases()).interview !== "released") bad("Mock interviews are coming in a future update.", 403);
     ownerIv(ctx);
     const job = findJob(ctx.ws, String(req.body?.jobId || "")) || bad("Pick an opening to practice for.", 404);
     const mode: IvMode = req.body?.mode === "real" ? "real" : "coach";
