@@ -13,6 +13,7 @@ import { INSIDER_AFTER_DAYS, INSIDER_SURVEY, insiderEligible, insiderSurveyDue, 
 import { NAME_CHECK, firstName, knownName, nameUnsure, sameName } from "@shared/names";
 import { partialReply } from "./ai/streamReply";
 import { startStream, streamLine } from "./platform/stream";
+import { allow, allowLocal, cleanupLimits } from "./platform/limits";
 import { JOB_INTEREST_REASONS, type JobInterestRating } from "@shared/types";
 import { dropDuplicatePostings } from "./jobs/dedupe";
 import { employerPreferences, interestContext, interestEnabled, ownInterest } from "./jobs/ranking";
@@ -96,16 +97,6 @@ const uploadFile = (req: Request, res: Response, next: NextFunction) =>
 type Ctx = { me: Me; ws: Workspace; save: () => Promise<void>; ip: string };
 type H = (req: Request, res: Response, ctx: Ctx) => Promise<unknown> | unknown;
 
-// shortcut: in-memory counters reset on restart and assume one server process; move to the DB if we ever run more than one.
-const hits = new Map<string, number[]>();
-function allow(key: string, max: number, windowMs: number) {
-  const now = Date.now();
-  const list = (hits.get(key) || []).filter((t) => now - t < windowMs);
-  if (list.length >= max) return false;
-  list.push(now);
-  hits.set(key, list);
-  return true;
-}
 // Render sits behind Cloudflare, which sets the real visitor address.
 const clientIp = (req: Request) => String(req.headers["cf-connecting-ip"] || String(req.headers["x-forwarded-for"] || "").split(",")[0] || req.socket.remoteAddress || "").trim();
 
@@ -152,7 +143,7 @@ function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: 
       if (!me) {
         if (!opts.create) return res.status(401).json({ message: "Please sign in to continue." });
         if (await beta.betaOn()) return res.status(403).json({ message: "Remy is invite-only during the beta. Apply to be a beta tester, then sign in with the email you applied with.", code: "beta" });
-        if (!allow("guest:" + ip, 10, 60 * 60_000)) return res.status(429).json({ message: "Too many new guest workspaces from this network. Please try again in an hour, or sign in." });
+        if (!(await allow("guest:" + ip, 10, 60 * 60_000))) return res.status(429).json({ message: "Too many new guest workspaces from this network. Please try again in an hour, or sign in." });
         me = await newGuest(res);
       }
       if (opts.serial) { const id = me.id; return await serially(id, () => route(fn)(req, res, next)); }
@@ -175,9 +166,9 @@ function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: 
 }
 
 // Outbound page reads (posting import, link re-checks, job-board scans): 20 per user and 40 per network per 10 minutes.
-function fetchAllowed(ctx: Ctx) {
+async function fetchAllowed(ctx: Ctx) {
   if (ctx.ip === "background") return; // background runs cap themselves (30 per run, 10 per student, 5 per site)
-  if (!allow("fetch:" + ctx.me.id, 20, 10 * 60_000) || !allow("fetch-ip:" + ctx.ip, 40, 10 * 60_000))
+  if (!(await allow("fetch:" + ctx.me.id, 20, 10 * 60_000)) || !(await allow("fetch-ip:" + ctx.ip, 40, 10 * 60_000)))
     bad("You've checked a lot of links in a short time. Please wait a few minutes.", 429);
 }
 
@@ -190,7 +181,7 @@ function logAi(ws: Workspace, purpose: string, started: number, ok: boolean, not
   ws.aiLog.push({ id: uid("ai"), at: nowIso(), purpose, model: lastUsedModel(), ok, ms: Date.now() - started, note, ...(cost != null ? { cost } : {}) });
 }
 async function withAi<T>(ctx: Ctx, purpose: string, fn: () => Promise<T>): Promise<T> {
-  if (!allow("ai-ip:" + ctx.ip, 60, 60 * 60_000)) bad("Lots of AI requests are coming from this network. Please wait a bit and try again.", 429);
+  if (!(await allow("ai-ip:" + ctx.ip, 60, 60 * 60_000))) bad("Lots of AI requests are coming from this network. Please wait a bit and try again.", 429);
   // Open access: tailoring has a daily cap for everyone but owners.
   const hk = beta.heavyKind(purpose);
   const heavy = hk && !ctx.me.owner && (await beta.openAccess()) ? { kind: hk, max: beta.TAILOR_PER_DAY, message: beta.tailorLimitMessage } : undefined;
@@ -667,6 +658,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       deadlineReminders().catch((e) => console.error("deadline reminders failed", e?.message)),
       sendTexts(daysBefore(centralToday(), 14), centralToday()).catch((e) => console.error("urgent texts failed", e?.message)),
       cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)),
+      cleanupLimits().catch((e) => console.error("rate limit cleanup failed", e?.message)),
       // One after the other: both write a student's openings, so they must not run at the same time.
       backgroundOpenings().catch((e) => console.error("background openings failed", e?.message))
         .then(() => backgroundRechecks()).catch((e) => console.error("background rechecks failed", e?.message))
@@ -731,7 +723,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   let clientErrors = 0;
   app.post("/api/client-error", (req, res) => {
     // Per-network limit so one visitor can't flood the log and bury real errors.
-    if (allow("client-error:" + clientIp(req), 20, 10 * 60_000) && clientErrors++ < 500) {
+    if (allowLocal("client-error:" + clientIp(req), 20, 10 * 60_000) && clientErrors++ < 500) {
       const b = req.body || {};
       console.error("client error", JSON.stringify({ where: String(b.where || "").slice(0, 80), message: String(b.message || "").slice(0, 500), url: String(b.url || "").slice(0, 200), stack: String(b.stack || "").slice(0, 1500) }));
       if (!admin.fromExtension(String(b.stack || ""))) recordError("browser", String(b.url || b.where || ""), String(b.message || "Unknown error"), String(b.stack || ""));
@@ -814,7 +806,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.post("/api/beta/form-hook", async (req, res) => {
     const want = Buffer.from(process.env.OR_BETA_HOOK_SECRET || ""), got = Buffer.from(String(req.header("x-beta-secret") || ""));
     if (want.length < 16 || got.length !== want.length || !crypto.timingSafeEqual(got, want)) return res.status(401).json({ message: "Wrong secret." });
-    if (!allow("beta-hook", 300, 60 * 60_000)) return res.status(429).json({ message: "Too many submissions this hour." });
+    if (!(await allow("beta-hook", 300, 60 * 60_000))) return res.status(429).json({ message: "Too many submissions this hour." });
     const a = beta.parseAnswers(req.body?.answers);
     if (!a) return res.status(400).json({ message: "No email address in the answers." });
     await beta.saveApplication(a);
@@ -967,8 +959,8 @@ export async function registerRoutes(_server: Server, app: Express) {
     // Not accepted: answer exactly as for an accepted email but send nothing, so nobody can probe who's in the cohort.
     if (!(await beta.emailAllowed(email))) return res.json({ sent: true, email });
     // Limits keep Remy from being used to flood anyone's inbox.
-    if (!allow("signin-ip:" + clientIp(req), 10, 60 * 60_000)) return res.status(429).json({ message: "Too many codes from this network. Please try again in an hour, or continue with Google." });
-    if (!allow("signin-to:" + email, 5, 60 * 60_000)) return res.status(429).json({ message: "Several codes were already sent to this address. Use the newest one, or try again in an hour." });
+    if (!(await allow("signin-ip:" + clientIp(req), 10, 60 * 60_000))) return res.status(429).json({ message: "Too many codes from this network. Please try again in an hour, or continue with Google." });
+    if (!(await allow("signin-to:" + email, 5, 60 * 60_000))) return res.status(429).json({ message: "Several codes were already sent to this address. Use the newest one, or try again in an hour." });
     try {
       const code = await newSigninCode(email);
       if (devCodes()) console.log(`[dev] sign-in code for ${email}: ${code}`);
@@ -1078,7 +1070,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.post("/api/insider/survey", route(async (req, res, ctx) => {
     if (!ctx.ws.insider) bad("Join Beta Insider first.");
     if (!insiderSurveyDue(ctx.ws, centralToday())) return res.json(ctx.ws); // a second tab answering again changes nothing
-    if (!allow("feedback:" + ctx.me.id, 20, 60 * 60_000)) bad("Thanks! That's a lot of feedback at once; please wait a bit.", 429);
+    if (!(await allow("feedback:" + ctx.me.id, 20, 60 * 60_000))) bad("Thanks! That's a lot of feedback at once; please wait a bit.", 429);
     const answers = (Array.isArray(req.body?.answers) ? req.body.answers : []).slice(0, INSIDER_SURVEY.length);
     for (const [i, a] of answers.entries()) {
       const text = String(a ?? "").replace(/\s+/g, " ").trim().slice(0, 600);
@@ -1892,14 +1884,14 @@ Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), 
   }));
   // The front page's "browse by field": public government numbers only, no student data, no sign-in.
   app.get("/api/public/careers", (req, res) => {
-    if (!allow("public:" + clientIp(req), 120, 10 * 60_000)) return res.status(429).json({ message: "Too many requests. Please wait a minute." });
+    if (!allowLocal("public:" + clientIp(req), 120, 10 * 60_000)) return res.status(429).json({ message: "Too many requests. Please wait a minute." });
     const field = String(req.query.field || "").slice(0, 80);
     res.json(field ? careersFor({ profile: { major: "", minors: "", targetRoles: "", interests: "" } } as Workspace, field).slice(0, 1) : []);
   });
   // "Send feedback" from anywhere in Remy; it lands in the owners' dashboard next to errors.
   // Automatic signals from signed-in students' browsers: counted events and error reports (client/src/lib/signals.ts).
   app.post("/api/signals", route(async (req, res, ctx) => {
-    if (!allow("signals:" + ctx.me.id, 120, 60 * 60_000)) return res.json({ ok: true }); // quietly drop a flood
+    if (!allowLocal("signals:" + ctx.me.id, 120, 60 * 60_000)) return res.json({ ok: true }); // quietly drop a flood
     await signals.countEvents(req.body?.events);
     const problems = Array.isArray(req.body?.problems) ? req.body.problems.slice(0, 20) : [];
     for (const p of problems) {
@@ -1919,7 +1911,7 @@ Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), 
     const kind = f ? IMAGE.find(([m, sig]) => sig.every((b, i) => f.buffer[i] === b) && (m !== "image/webp" || f.buffer.toString("ascii", 8, 12) === "WEBP")) : undefined;
     if (f && !kind) bad("Attach a screenshot as a JPG, PNG or WebP image.");
     if (f && f.size > 2_000_000) bad("That screenshot is too large. Try a smaller one.", 413);
-    if (!allow("feedback:" + ctx.me.id, 10, 60 * 60_000)) bad("Thanks! That's a lot of feedback at once; please wait a bit.", 429);
+    if (!(await allow("feedback:" + ctx.me.id, 10, 60 * 60_000))) bad("Thanks! That's a lot of feedback at once; please wait a bit.", 429);
     const id = await recordError("feedback", String(req.body?.page || "").slice(0, 120), message, ctx.me.email || "", ctx.me.id);
     if (f && kind && id) {
       // Storage cap (skeptic review): all screenshots together stay under 50 MB, and each student keeps their newest 3.
@@ -1944,7 +1936,7 @@ Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), 
       .filter((x: any) => x.q && (x.a.length >= 2 || x.fa.length >= 2));
     // Asked once: a second tab or an old page answering again changes nothing.
     if (ctx.ws.feedbackAsked?.[key]) return res.json(ctx.ws);
-    if (!allow("feedback:" + ctx.me.id, 20, 60 * 60_000)) bad("Thanks! That's a lot of feedback at once; please wait a bit.", 429);
+    if (!(await allow("feedback:" + ctx.me.id, 20, 60 * 60_000))) bad("Thanks! That's a lot of feedback at once; please wait a bit.", 429);
     // One note per answer and one per follow-up answer (a note keeps 1,000 characters; both fit whole).
     for (const x of items) {
       if (x.a.length >= 2) await recordError("feedback", `ask:${key}`, `${x.q} — ${x.a}`, ctx.me.email || "", ctx.me.id);
@@ -1958,7 +1950,7 @@ Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), 
   // suggests an answer; empty when the answer is already specific or AI is off.
   app.post("/api/feedback/followup", route(async (req, res, ctx) => {
     const q = String(req.body?.q || "").trim().slice(0, 200), a = String(req.body?.a || "").trim().slice(0, 600);
-    if (!q || a.length < 2 || a.length > 330 || !aiStatus().available || !allow("followup:" + ctx.me.id, 6, 60 * 60_000)) return res.json({ followup: "" });
+    if (!q || a.length < 2 || a.length > 330 || !aiStatus().available || !(await allow("followup:" + ctx.me.id, 6, 60 * 60_000))) return res.json({ followup: "" });
     try {
       const out = await withAi(ctx, "Feedback follow-up", () => aiJson<{ followup?: string }>(
         "You help Remy, a career coach app for college students, collect honest product feedback. Given one question and a student's answer, write ONE short follow-up question (at most 18 words) that asks for a concrete example, what exactly happened, or why. Never suggest an answer, never praise, never ask two things. If the answer is already specific (names a page, a step, or an example), return an empty string.",
@@ -2255,7 +2247,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     const last = Date.parse(ctx.ws.openingsCheckedAt || "");
     if (!(Date.now() - last < OPENINGS_EVERY) && !searching.has(ctx.me.id)) {
       let ok = true;
-      try { fetchAllowed(ctx); } catch { ok = false; }
+      try { await fetchAllowed(ctx); } catch { ok = false; }
       if (ok) {
         const id = ctx.me.id;
         searching.add(id);
@@ -2293,7 +2285,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     let status: number | null = null;
     if (!text) {
       if (!url) bad("Paste a public posting link or the posting text.");
-      fetchAllowed(ctx);
+      await fetchAllowed(ctx);
       const r = await fetchPublic(url);
       status = r.status;
       finalUrl = r.finalUrl || url;
@@ -2324,7 +2316,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
   // Live openings from employers' public job boards, picked for this student.
   app.post("/api/jobs/discover", route(async (req, res, ctx) => {
     if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE, 409);
-    fetchAllowed(ctx);
+    await fetchAllowed(ctx);
     const named: string[] = (Array.isArray(req.body?.companies) ? req.body.companies : []).map(String).map((x: string) => x.trim()).filter(Boolean).slice(0, 10);
     if (searching.has(ctx.me.id)) bad("Remy is already checking employers' sites for you. New openings will appear here in a moment.", 409);
     searching.add(ctx.me.id);
@@ -2343,7 +2335,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     if (!url) bad("This opening has no link to check.");
     let check;
     try {
-      fetchAllowed(ctx);
+      await fetchAllowed(ctx);
       const r = await fetchPublic(url!);
       const text = htmlToText(r.html);
       const closed = CLOSED_SIGNALS.test(text);
@@ -2760,8 +2752,8 @@ Return JSON:
     const owner = await schoolEmailOwner(email);
     if (owner && owner !== ctx.me.id) bad("This school email is already linked to another Remy account. Sign in with that one.", 409);
     // Limits keep Remy from being used to flood school inboxes.
-    if (!allow("school-code:" + ctx.me.id, 3, 60 * 60_000)) bad("You've asked for several codes. Please try again in an hour.", 429);
-    if (!allow("school-code-to:" + email, 3, 24 * 60 * 60_000)) bad("Several codes were already sent to this address today. Please try again tomorrow.", 429);
+    if (!(await allow("school-code:" + ctx.me.id, 3, 60 * 60_000))) bad("You've asked for several codes. Please try again in an hour.", 429);
+    if (!(await allow("school-code-to:" + email, 3, 24 * 60 * 60_000))) bad("Several codes were already sent to this address today. Please try again tomorrow.", 429);
     const code = await newSchoolCode(ctx.me.id, email);
     if (devCodes()) console.log(`[dev] school email code for ${email}: ${code}`);
     else await sendEmail(email, `Your Remy code: ${code}`, `Your Remy verification code is ${code}.\n\nIt expires in 10 minutes. If you didn't ask for this, you can ignore this email.`,
@@ -3038,7 +3030,7 @@ Return JSON:
   // sign-in secrets (session and code hashes, the calendar refresh token) and the team's private notes about them.
   app.get("/api/export/data", route(async (_req, res, ctx) => {
     // Up to ~20 MB per download (files as base64): a few an hour is plenty (skeptic review).
-    if (!allow("export:" + ctx.me.id, 5, 60 * 60_000)) bad("You've downloaded your data a few times just now. Please try again in an hour.", 429);
+    if (!(await allow("export:" + ctx.me.id, 5, 60 * 60_000))) bad("You've downloaded your data a few times just now. Please try again in an hour.", 429);
     const id = ctx.me.id;
     const user = await q1("SELECT id, kind, email, name, picture, created_at, school_email, school_email_at FROM users WHERE id = $1", [id]);
     const email = String(user?.email || "").trim().toLowerCase();
