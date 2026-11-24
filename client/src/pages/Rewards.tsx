@@ -6,7 +6,7 @@ import { useState } from "react";
 import { ArrowRight, Award, BookOpen, Briefcase, Check, Compass, FileText, FlaskConical, Flame, Gift, Hash, Heart, Linkedin, Lock, Mic, Moon, Mountain, RotateCcw, Scissors, Shield, Snowflake, Sprout, Star, Sun, Trophy, Users, Zap, type LucideIcon } from "lucide-react";
 import { RANKS, OFFICE, WARDROBE, levelReward, rankOf, unlockedOutfits, xpOf, ALL_DONE_BONUS } from "@shared/game";
 import { CARD_XP, FREEZE_EVERY, FREEZE_MAX, dailyStreak, streakDays } from "@shared/daily";
-import { KIND_LABEL, TIER_NAME, pinsOf, type PinKind, type PinState } from "@shared/pins";
+import { TIER_NAME, pinsOf, type PinKind, type PinState } from "@shared/pins";
 import { useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { Modal, Remy } from "../components/common";
@@ -34,21 +34,6 @@ const status = (p: PinState) => {
   return `${p.tier ? TIER_NAME[p.tier - 1] + " · " : ""}${p.n} / ${p.next} for ${TIER_NAME[p.tier].toLowerCase()}`;
 };
 
-function PinTile({ p, onOpen }: { p: PinState; onOpen: () => void }) {
-  const hidden = p.kind === "secret" && !p.earned;
-  const pct = p.tiers.length > 1 && p.next !== null ? Math.min(100, (p.n / p.next) * 100) : p.earned ? 100 : 0;
-  return (
-    <button className={"rw-tile" + (p.earned ? " got" : "")} onClick={onOpen} data-testid={`button-pin-${p.id}`}>
-      <PinArt p={p} />
-      <span className="rw-tile-main">
-        <b>{hidden ? "???" : p.name}</b>
-        <small className={hidden ? "hint" : undefined}>{hidden ? p.hint : status(p)}</small>
-        {p.tiers.length > 1 && <span className="rw-bar"><i style={{ width: `${pct}%` }} /></span>}
-      </span>
-    </button>
-  );
-}
-
 function PinDetail({ p, onClose }: { p: PinState; onClose: () => void }) {
   const hidden = p.kind === "secret" && !p.earned;
   return (
@@ -70,40 +55,79 @@ function PinDetail({ p, onClose }: { p: PinState; onClose: () => void }) {
   );
 }
 
+type Filter = "all" | PinKind;
+const FILTERS: [Filter, string][] = [["all", "All"], ["first", "Firsts"], ["craft", "Craft"], ["grit", "Grit"], ["secret", "Secret"]];
+const hiddenPin = (p: PinState) => p.kind === "secret" && !p.earned;
+
+/** One pin in the case: the enamel pin itself, its name, and dots for the tiers reached. */
+function Medal({ p, onOpen }: { p: PinState; onOpen: () => void }) {
+  return (
+    <button className={"rw-medal" + (p.earned ? " got" : "")} onClick={onOpen} data-testid={`button-pin-${p.id}`} title={hiddenPin(p) ? p.hint : status(p)}>
+      <PinArt p={p} size={58} />
+      <b>{hiddenPin(p) ? "???" : p.name}</b>
+      {p.tiers.length > 1 ? <span className="rw-dots" aria-label={p.tier ? `${TIER_NAME[p.tier - 1]} reached` : "No tier yet"}>{p.tiers.map((_, i) => <i key={i} className={p.tier > i ? ["bronze", "silver", "gold"][i] : ""} />)}</span>
+        : <small>{hiddenPin(p) ? "Secret" : p.earned ? "Earned" : "Not yet"}</small>}
+    </button>
+  );
+}
+
+// Demetre (Nov 24): loved the pins, but three plain columns of cards read like a settings list. Now a pin case you
+// collect into (filter by kind), with the few pins you're closest to beside it, so the next step is obvious.
 function Pins({ pins }: { pins: PinState[] }) {
   const [open, setOpen] = useState("");
-  const col = (k: PinKind) => <section className={"rw-col " + k} aria-label={KIND_LABEL[k]}>
-    <h3 className="pm-kicker dark">{KIND_LABEL[k]} <span>{pins.filter((p) => p.kind === k && p.earned).length} / {pins.filter((p) => p.kind === k).length}</span></h3>
-    <div className="rw-tiles">{pins.filter((p) => p.kind === k).map((p) => <PinTile key={p.id} p={p} onOpen={() => setOpen(p.id)} />)}</div>
-  </section>;
+  const [f, setF] = useState<Filter>("all");
+  const list = pins.filter((p) => f === "all" || p.kind === f);
+  const near = pins.filter((p) => p.next !== null && !hiddenPin(p))
+    .map((p, i) => ({ p, r: p.tiers.length > 1 ? p.n / p.next! : 0, i })).sort((a, b) => b.r - a.r || a.i - b.i).slice(0, 3).map((x) => x.p);
   const shown = pins.find((p) => p.id === open);
   return (
     <div className="rw-pins" data-testid="rewards-pins">
-      {col("first")}{col("craft")}
-      <div className="rw-stack">{col("grit")}{col("secret")}</div>
+      <section className="rw-card rw-case" aria-label="Your pins">
+        <div className="rw-card-head"><h3 className="pm-kicker dark">Your pin case <span className="rw-count">{pins.filter((p) => p.earned).length} of {pins.length}</span></h3>
+          <div className="rw-filters" role="group" aria-label="Show">{FILTERS.map(([k, l]) => <button key={k} className={"chip" + (f === k ? " on" : "")} aria-pressed={f === k} onClick={() => setF(k)} data-testid={`button-pin-filter-${k}`}>{l}{k !== "all" && <span>{pins.filter((p) => p.kind === k && p.earned).length}/{pins.filter((p) => p.kind === k).length}</span>}</button>)}</div></div>
+        <div className="rw-medals">{list.map((p) => <Medal key={p.id} p={p} onOpen={() => setOpen(p.id)} />)}</div>
+      </section>
+      <aside className="rw-card rw-near" aria-label="Closest to earning">
+        <h3 className="pm-kicker dark">Closest to earning</h3>
+        <ul>{near.map((p) => { const pct = p.tiers.length > 1 ? Math.min(100, (p.n / p.next!) * 100) : 0; return (
+          <li key={p.id}><button className="rw-near-pin" onClick={() => setOpen(p.id)} data-testid={`button-near-${p.id}`}><PinArt p={p} size={40} /><span><b>{p.name}</b><small>{status(p)}</small>{p.tiers.length > 1 && <span className="rw-bar"><i style={{ width: `${pct}%` }} /></span>}</span></button>
+            <button className="btn btn-secondary btn-sm" onClick={() => go(p.link)} data-testid={`button-near-go-${p.id}`}>Go <ArrowRight size={13} /></button></li>); })}</ul>
+        <div className="rw-legend"><span><PinArt p={{ ...pins[0], tiers: [1, 2, 3], tier: 1, earned: true }} size={26} />Bronze</span><span><PinArt p={{ ...pins[0], tiers: [1, 2, 3], tier: 2, earned: true }} size={26} />Silver</span><span><PinArt p={{ ...pins[0], tiers: [1, 2, 3], tier: 3, earned: true }} size={26} />Gold</span></div>
+        <p className="pm-faint">Craft pins grow from bronze to gold with real steps. Secret pins stay hidden until you find them.</p>
+      </aside>
       {shown && <PinDetail p={shown} onClose={() => setOpen("")} />}
     </div>
   );
 }
 
+const rewardOf = (n: number) => { const r = n === 1 ? { kind: "outfit" as const, key: "suit" } : levelReward(n); return !r ? "" : r.kind === "outfit" ? `Remy's ${OUTFITS[r.key].name.toLowerCase()}` : `${r.label} for his office`; };
+
+// Demetre (Nov 24): fifteen levels at once is a lot with nobody else around to compare titles with. Show where you are
+// and the next three; the whole ladder is one tap away.
 function Levels({ xp, lv }: { xp: number; lv: ReturnType<typeof rankOf> }) {
+  const [all, setAll] = useState(false);
   const earn: [string, string][] = [
     ["Daily cards and quests on My Path", `+${CARD_XP} each`], ["Weekly big move", "+35 to 80"], ["All of the week's moves", `+${ALL_DONE_BONUS} bonus`],
     ["Confirm your resume", "+100"], ["Send an application", "+120 each"], ["Get an interview", "+250 each"], ["Get an offer", "+500"], ["Earn or upgrade a pin", "+25 to 150"],
   ];
+  const pct = lv.max ? 100 : Math.round((Math.max(0, xp - lv.floor) / Math.max(1, lv.next - lv.floor)) * 100);
+  const rows = RANKS.map(([name, at], i) => ({ n: i + 1, name, at })).filter((r) => all || (r.n > lv.n && r.n <= lv.n + 3));
   return (
     <div className="rw-levels" data-testid="rewards-levels">
-      <section className="rw-card" aria-label="Levels and titles">
-        <div className="rw-card-head"><h3 className="pm-kicker dark">Levels and titles</h3><span className="pm-faint">Your title is the name of your level. Levels never go down.</span></div>
-        <ol className="rw-ladder">
-          {RANKS.map(([name, at], i) => {
-            const n = i + 1, r = n === 1 ? { kind: "outfit" as const, key: "suit" } : levelReward(n);
-            const reward = !r ? "" : r.kind === "outfit" ? `Remy's ${OUTFITS[r.key].name.toLowerCase()}` : `${r.label} for his office`;
-            return <li key={n} className={n < lv.n ? "got" : n === lv.n ? "now" : ""} data-testid={`rank-${n}`}>
-              <i>{n}</i><b>{name}</b><span>{at.toLocaleString("en-US")} XP</span><em>{reward}</em>{n === lv.n && <strong>You're here</strong>}
-            </li>;
-          })}
+      <section className="rw-card" aria-label="Your level">
+        <div className="rw-card-head"><h3 className="pm-kicker dark">Your level</h3><span className="pm-faint">Levels never go down.</span></div>
+        <div className="rw-mylevel" data-testid="rewards-my-level">
+          <i className="rw-lvnum">{lv.n}</i>
+          <div><b>{lv.name}</b><span className="rw-bar"><i style={{ width: `${pct}%` }} /></span>
+            <small>{lv.max ? "Top level reached." : <>{Math.max(0, xp - lv.floor).toLocaleString("en-US")} / {(lv.next - lv.floor).toLocaleString("en-US")} XP to level {lv.n + 1}</>}</small></div>
+        </div>
+        <h4 className="rw-sub">{all ? "Every level" : "Coming up"}</h4>
+        <ol className={"rw-ladder" + (all ? "" : " short")}>
+          {rows.map(({ n, name, at }) => <li key={n} className={n < lv.n ? "got" : n === lv.n ? "now" : ""} data-testid={`rank-${n}`}>
+            <i>{n}</i><b>{name}</b><span>{at.toLocaleString("en-US")} XP</span><em>{rewardOf(n)}</em>{n === lv.n && <strong>You're here</strong>}
+          </li>)}
         </ol>
+        <button className="btn btn-ghost btn-sm" onClick={() => setAll(!all)} aria-expanded={all} data-testid="button-levels-all">{all ? "Show less" : `See all ${RANKS.length} levels`}</button>
       </section>
       <section className="rw-card" aria-label="How to earn XP">
         <div className="rw-card-head"><h3 className="pm-kicker dark">How you earn XP</h3></div>
