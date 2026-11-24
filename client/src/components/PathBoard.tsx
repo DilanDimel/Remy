@@ -8,6 +8,7 @@ import { ArrowRight, Award, Briefcase, Check, Compass, DollarSign, Eye, Flame, G
 import { ROADS, roadFor, YEARS, yearNumber, NEED_LABEL } from "@shared/roads";
 import { rankOf, weekKey, weekMissions, doneThisWeek, counters, xpOf, nextOutfit, unlockedOutfits, levelReward, OFFICE, RANKS, WARDROBE } from "@shared/game";
 import { CARD_XP, dailyStreak, dayKey, streakDays } from "@shared/daily";
+import { pinColor, pinsOf, topPins } from "@shared/pins";
 import { api, useStore } from "../lib/store";
 import type { Workspace } from "@shared/types";
 import { go } from "../lib/router";
@@ -190,6 +191,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   const known = (d.g.known || []).length, books = Math.min(8, known), resume = !!d.w.resume, applied = d.w.applications.length > 0;
   const cert = d.stops.some((s) => s.kind === "cert" && s.status === "done");
   const nextItem = OFFICE.find(([, , l]) => l > d.lv.n);
+  const pins = topPins(d.w, 8);
   const owned = unlockedOutfits(d.g.bestRank || d.lv.n, d.w.profile.classYear), wearing = d.g.outfit && owned.includes(d.g.outfit) ? d.g.outfit : "suit";
   const suit = Object.fromEntries((OUTFITS[wearing] || OUTFITS.suit).vars.split(";").map((kv) => kv.split(":"))) as CSSProperties;
   const ink = "var(--ink)", line = { stroke: ink, strokeWidth: 2.5, strokeLinejoin: "round" as const };
@@ -254,6 +256,9 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
           {has("trophy") && <g transform="translate(130 228)"><path d="M14 6h16v8a8 8 0 0 1-16 0z" fill="var(--amber-bg)" {...line} /><path d="M22 22v10M14 38h16" {...line} /></g>}
           {resume ? <><rect x="282" y="70" width="92" height="116" rx="6" fill="var(--surface)" {...line} /><path d="M304 100h48M304 112h40M304 124h46M304 136h30M304 148h42" stroke="var(--muted-text)" strokeWidth="3" strokeLinecap="round" /></>
             : <rect x="282" y="70" width="92" height="116" rx="6" {...ghost} />}
+          {/* the corkboard: every career pin earned, best first (Rewards, Nov 24) */}
+          <rect x="404" y="150" width="136" height="64" rx="5" {...(pins.length ? { fill: "color-mix(in srgb, var(--amber) 30%, var(--amber-bg))", ...line } : ghost)} />
+          {pins.map((p, i) => <circle key={p.id} cx={424 + (i % 4) * 32} cy={168 + Math.floor(i / 4) * 28} r="9" fill={pinColor(p)} {...line} />)}
           {has("painting") && <g transform="translate(410 84)"><rect width="70" height="54" rx="3" fill="var(--surface)" {...line} /><path d="M6 48l18-22 14 16 9-9 17 15z" fill="var(--sage)" /></g>}
           {has("clock") && <g transform="translate(818 64)"><circle r="20" cx="0" cy="20" fill="var(--surface)" {...line} /><path className="ps-hand" d="M0 20V8" fill="none" {...line} /><path d="M0 20l8 6" fill="none" {...line} /></g>}
           {has("rug") && <ellipse cx="470" cy="430" rx="230" ry="30" fill="var(--fox-soft)" stroke={ink} strokeWidth="2.5" />}
@@ -291,6 +296,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
         <button className="ps-tag" style={at(40, 92)} onClick={() => onField("roles")} data-testid="button-office-books">{known ? `${known} job${known === 1 ? "" : "s"} decoded` : "Decode your first job"}</button>
         <button className={"ps-tag" + (cert ? "" : " ghost")} style={at(40, 296)} onClick={() => onField("certs")} data-testid="button-office-cert">{cert ? "Certificate earned" : "First certificate"}</button>
         <button className={"ps-tag" + (resume ? "" : " ghost")} style={at(282, 58)} onClick={() => go("/resume")} data-testid="button-office-resume">{resume ? "Resume on file" : "Add your resume"}</button>
+        <button className={"ps-tag" + (pins.length ? "" : " ghost")} style={at(404, 138)} onClick={() => go("/rewards")} data-testid="button-office-pins">{pins.length ? `${pinsOf(d.w).filter((p) => p.earned).length} pins` : "Earn your first pin"}</button>
         <span className="ps-tag still" style={at(334, 384)}>{d.streak.days ? `${d.streak.days}-day streak` : "Plant needs a streak"}</span>
         <button className={"ps-tag" + (applied ? "" : " ghost")} style={at(156, 416)} onClick={() => go("/opportunities")} data-testid="button-office-briefcase">{applied ? `${d.w.applications.length} applied` : "First application"}</button>
       </div>

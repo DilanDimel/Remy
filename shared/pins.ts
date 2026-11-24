@@ -63,6 +63,11 @@ export type PinState = Pin & { n: number; tier: number; next: number | null; ear
 export function pinsOf(w: Workspace): PinState[] {
   return PINS.map((p) => { const n = p.count(w), tier = p.tiers.filter((t) => n >= t).length; return { ...p, n, tier, next: p.tiers[tier] ?? null, earned: tier > 0 }; });
 }
+/** The pin colour for its tier, as a palette token: single pins orange, then bronze, silver and gold. */
+export const pinColor = (p: PinState) => (p.tiers.length === 1 ? "var(--fox)" : ["", "var(--fox-deep)", "var(--faint)", "var(--amber)"][p.tier]);
+/** Earned pins, best first (gold, silver, then the rest; firsts before craft on a tie), for Remy's lapel and corkboard. */
+export const topPins = (w: Workspace, n = 8) => pinsOf(w).filter((p) => p.earned)
+  .map((p, i) => ({ p, rank: (p.tiers.length === 1 ? 1 : p.tier) * 100 - i })).sort((a, b) => b.rank - a.rank).slice(0, n).map((x) => x.p);
 /** XP from pins, added to the season XP (shared/game.ts xpOf). */
 export const pinXp = (w: Workspace) => pinsOf(w).reduce((s, p) => s + p.xp.slice(0, p.tier).reduce((a, b) => a + b, 0), 0);
 /** Pins (and tiers) earned since the student last saw them, for the "new pin" moment. */

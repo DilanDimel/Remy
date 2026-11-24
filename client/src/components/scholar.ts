@@ -43,11 +43,13 @@ function bust(o: Outfit) {
 const CAP = `<g class="s-cap"><path class="s-black s-ol" d="M76 58 Q100 70 124 58 L122 70 Q100 80 78 70 Z"/><path class="s-black s-ol" d="M56 54 L100 38 L144 54 L100 70 Z"/><path class="s-tassel" d="M100 54 L138 58 L140 78"/><circle class="s-trim" cx="100" cy="54" r="3"/></g>`;
 
 /** The inside of the fox's <svg viewBox="0 -8 200 222">. */
-export function scholarMarkup(outfit = "suit") {
+/** pins: colours of up to 3 career pins he wears on his chest (owners, shared/pins.ts topPins). */
+export function scholarMarkup(outfit = "suit", pins: string[] = []) {
   const o = OUTFITS[outfit] || OUTFITS.suit;
+  const lapel = pins.slice(0, 3).map((c, i) => `<circle class="s-ol s-thin" cx="${[60, 50, 64][i]}" cy="${[184, 196, 200][i]}" r="5" style="fill:${c}"/>`).join("");
   return `<g class="s-all" style="${o.vars}">
   <g class="s-spark"><path d="M26 58 l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3z"/><path d="M172 46 l2.4 5.6 5.6 2.4 -5.6 2.4 -2.4 5.6 -2.4 -5.6 -5.6 -2.4 5.6 -2.4z"/><path d="M178 134 l2 4.5 4.5 2 -4.5 2 -2 4.5 -2 -4.5 -4.5 -2 4.5 -2z"/></g>
-  <g class="s-hop"><g class="s-breathe">${bust(o)}</g>
+  <g class="s-hop"><g class="s-breathe">${bust(o)}${lapel}</g>
   <g class="s-book"><path class="s-tie s-ol" d="M66 176 L134 176 L132 212 L68 212 Z"/><path class="s-white s-ol s-thin" d="M70 178 L100 182 L100 210 L71 207 Z"/><path class="s-white s-ol s-thin" d="M130 178 L100 182 L100 210 L129 207 Z"/><path class="s-page s-white s-ol s-thin" d="M130 178 L100 182 L100 210 L129 207 Z"/><path class="s-line-s" d="M76 188 l17 2 M76 194 l17 2 M107 190 l17 -2 M107 196 l17 -2"/></g>
   <g class="s-head"><g class="s-bob">
     <g class="s-ear-l">${EAR}</g><g class="s-ear-r">${M(EAR)}</g>

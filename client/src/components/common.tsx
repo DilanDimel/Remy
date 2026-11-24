@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Check, Copy, X } from "lucide-react";
 import type { Label } from "@shared/types";
 import { unlockedOutfits } from "@shared/game";
+import { pinColor, topPins } from "@shared/pins";
 import { useOwnerView, useStore } from "../lib/store";
 import { scholarMarkup, startScholar } from "./scholar";
 
@@ -41,12 +42,14 @@ function ScholarRemy({ size, mood, className, outfit: asked }: { size: number; m
   // He wears what the student picked from what they've earned (levels unlock outfits), and only changes into those.
   const ws = useStore()?.ws, g = ws?.game, owned = unlockedOutfits(g?.bestRank || 1, ws?.profile.classYear);
   const outfit = asked || (g?.outfit && owned.includes(g.outfit) ? g.outfit : "suit"), pool = owned.join();
+  // His three best career pins on his chest, where he's big enough to see them (Rewards, Nov 24).
+  const pins = useMemo(() => (ws && size >= 80 ? topPins(ws, 3).map(pinColor).join() : ""), [ws, size]);
   useEffect(() => {
     if (!ref.current) return;
-    ref.current.innerHTML = scholarMarkup(outfit);
+    ref.current.innerHTML = scholarMarkup(outfit, pins ? pins.split(",") : []);
     life.current = startScholar(ref.current, { outfit, outfits: pool.split(","), auto: size >= 30 }); // tiny icons stay calm
     return () => life.current?.stop();
-  }, [size, outfit, pool]);
+  }, [size, outfit, pool, pins]);
   useEffect(() => { if (mood === "wave") life.current?.play("wave", true); }, [mood]);
   return <svg ref={ref} className={`fox scholar ${mood} ${className}`} width={size} height={Math.round(size * 222 / 200)} viewBox="0 -8 200 222" role="img" aria-label="Remy the fox, your career coach" />;
 }
