@@ -333,7 +333,7 @@ export default function Landing2() {
       <section className="lp2-sec" aria-labelledby="team-h">
         <div className="lp2-w">
           <div className="lp2-row">
-            <div><h2 id="team-h">The people behind Remy</h2><p>A small team in Fort Worth, Texas. We read every message beta testers send.</p></div>
+            <div><h2 id="team-h">The people behind Remy</h2><p>A small team in Fort Worth, Texas. We read every message students send.</p></div>
             <a className="lp2-more" href="/about">About the team <span aria-hidden>&rarr;</span></a>
           </div>
           <ul className="lp2-team rv">
