@@ -211,7 +211,7 @@ function Releases() {
   const r = releasesOf(config?.features);
   const set = async (key: string, state: Release) => {
     const f = FEATURES.find((x) => x.key === key)!;
-    if (state === "released" && !confirm(`Release ${f.label} to every student? They get the full working page right away.`)) return;
+    if (state === "released" && !confirm(f.path ? `Release ${f.label} to every student? They get the full working page right away.` : `Release ${f.label} to every student? Everyone gets the new design and features right away. Owners-only features below stay with owners.`)) return;
     if (await run(() => api("POST", "/api/admin/features", { key, state }), `${f.label}: ${RELEASE_NAME[state]}`)) await refresh();
   };
   return (
@@ -220,9 +220,9 @@ function Releases() {
       <span className="small muted">New features are built for owners first. Lock one to show students it's coming, or release it to everyone. Changes reach students within a minute, with no deploy. Switch to student view to preview.</span>
       {FEATURES.map((f) => (
         <div key={f.key} className="feat-row">
-          <div><b>{f.label}</b> <span className="small muted">{f.path}</span></div>
+          <div><b>{f.label}</b> <span className="small muted">{f.path || "every page"}</span></div>
           <select className="select" style={{ width: 260, maxWidth: "100%" }} value={r[f.key]} onChange={(e) => set(f.key, e.target.value as Release)} aria-label={`${f.label} release`} data-testid={`select-release-${f.key}`}>
-            {RELEASES.map((st) => <option key={st} value={st}>{RELEASE_NAME[st]}</option>)}
+            {RELEASES.filter((st) => f.path || st !== "locked").map((st) => <option key={st} value={st}>{RELEASE_NAME[st]}</option>)}
           </select>
         </div>
       ))}
