@@ -225,7 +225,7 @@ export default function RemyChat() {
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       {/* A sheet on iOS (no status bar to clear, room for the grabber); full screen on Android. */}
-      <View style={{ paddingTop: Platform.OS === "ios" ? 20 : insets.top + 8, paddingHorizontal: 16, paddingBottom: 10, flexDirection: "row", alignItems: "center", gap: 10, borderBottomWidth: 1, borderColor: c.line }}>
+      <View style={{ paddingTop: Platform.OS === "ios" ? 14 : insets.top + 8, paddingHorizontal: 16, paddingBottom: 10, flexDirection: "row", alignItems: "center", gap: 10, borderBottomWidth: 1, borderColor: c.line }}>
         <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.foxSoft, alignItems: "center", justifyContent: "center", overflow: "hidden" }}><Remy size={38} icon /></View>
         <View style={{ flex: 1 }}><Text style={{ fontFamily: font.display, fontSize: 18, color: c.ink }}>Remy</Text><T kind="small">Your career coach</T></View>
         {ws.chat.length > 0 && !busy && (
