@@ -168,9 +168,32 @@ function fromStored(data: any): Workspace {
   ws.jobFeedbackVersion = Number.isSafeInteger(ws.jobFeedbackVersion) ? ws.jobFeedbackVersion : 0;
   return ws;
 }
+// Every request reads the student's workspace (up to ~1.5 MB, mostly saved openings), and Supabase bills each byte read
+// as data transfer. So the server keeps the last copy it read or wrote and downloads it again only when the row's
+// updated_at changed (another server, or a write it didn't make). Copies older than 30 minutes are read fresh, so a
+// hand edit in the database that doesn't touch updated_at shows up within that time.
+const cache = new Map<string, { v: string; data: any; at: number }>();
+const CACHE_MAX = 200, CACHE_MS = 30 * 60_000;
+function remember(userId: string, v: string, data: any) {
+  cache.delete(userId);
+  cache.set(userId, { v, data, at: Date.now() });
+  if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value!);
+}
+const parse = (d: any) => (typeof d === "string" ? JSON.parse(d) : d);
+// Taken before the query: another request may replace the entry while this one waits.
+const cached = (userId: string) => { const c = cache.get(userId); return c && Date.now() - c.at < CACHE_MS ? c : { v: "", data: null }; };
+/** The stored JSON (never mutate it): the cached copy when the row is unchanged, else downloaded and cached. */
+async function readStored(run: typeof q, userId: string, lock = ""): Promise<any> {
+  const c = cached(userId);
+  const r = (await run(`SELECT updated_at::text AS v, CASE WHEN updated_at::text = $2 THEN NULL ELSE data END AS data FROM workspaces WHERE user_id=$1 ${lock}`, [userId, c.v]))[0];
+  if (!r) { cache.delete(userId); return null; }
+  if (c.v && r.v === c.v) return c.data;
+  const data = parse(r.data);
+  remember(userId, r.v, data);
+  return data;
+}
 export async function loadWorkspace(userId: string): Promise<Workspace> {
-  const r = await q1("SELECT data FROM workspaces WHERE user_id=$1", [userId]);
-  return fromStored(r && (typeof r.data === "string" ? JSON.parse(r.data) : r.data));
+  return fromStored(structuredClone(await readStored(q, userId)));
 }
 export async function hasWorkspace(userId: string) {
   return !!(await q1("SELECT 1 FROM workspaces WHERE user_id=$1", [userId]));
@@ -187,11 +210,12 @@ export async function saveWorkspace(userId: string, ws: Workspace) {
   trimForSave(ws);
   const data = JSON.stringify(ws, noNul);
   if (data.length > 4_000_000) throw Object.assign(new Error("Workspace is too large."), { status: 413 });
-  await q(
+  const r = await q1(
     `INSERT INTO workspaces (user_id, data, updated_at) VALUES ($1, $2::jsonb, now())
-     ON CONFLICT (user_id) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`,
+     ON CONFLICT (user_id) DO UPDATE SET data = EXCLUDED.data, updated_at = now() RETURNING updated_at::text AS v`,
     [userId, data],
   );
+  remember(userId, r!.v, JSON.parse(data));
 }
 /** Writes only the given top-level sections, merged into what's stored in one statement,
  *  so two requests saving different sections at the same moment both keep their changes.
@@ -202,17 +226,23 @@ export async function saveSections(userId: string, sections: Partial<Workspace>)
   const json = JSON.stringify(patch, noNul);
   if (json.length > 4_000_000) throw Object.assign(new Error("Workspace is too large."), { status: 413 });
   const base = JSON.stringify({ ...emptyWorkspace(), ...patch }, noNul);
+  // The merged row comes back only when our cached copy isn't the version this save started from;
+  // otherwise the merge is done here, and nothing large crosses the network.
+  const c = cached(userId);
   const r = await q1(
-    `INSERT INTO workspaces (user_id, data, updated_at) VALUES ($1, $2::jsonb, now())
+    `WITH old AS (SELECT updated_at::text AS v FROM workspaces WHERE user_id=$1 FOR UPDATE)
+     INSERT INTO workspaces (user_id, data, updated_at) VALUES ($1, $2::jsonb, now())
      ON CONFLICT (user_id) DO UPDATE SET data = workspaces.data || $3::jsonb, updated_at = now()
-     RETURNING data`,
-    [userId, base, json],
+     RETURNING updated_at::text AS v, CASE WHEN (SELECT v FROM old) = $4 THEN NULL ELSE data END AS data`,
+    [userId, base, json, c.v],
   );
-  const stored = typeof r!.data === "string" ? JSON.parse(r!.data) : r!.data;
+  const stored = r!.data == null ? { ...c.data, ...JSON.parse(json) } : parse(r!.data);
+  remember(userId, r!.v, stored);
   if (JSON.stringify(stored).length > 4_000_000) throw Object.assign(new Error("Workspace is too large."), { status: 413 });
-  return fromStored(stored);
+  return fromStored(structuredClone(stored));
 }
 export async function deleteWorkspace(userId: string) {
+  cache.delete(userId);
   await q("DELETE FROM workspaces WHERE user_id=$1", [userId]);
   await q("DELETE FROM files WHERE user_id=$1", [userId]);
 }
@@ -221,8 +251,8 @@ export async function deleteWorkspace(userId: string) {
  * Feedback edits use this so simultaneous ratings never replace each other's entries. */
 export async function editWorkspace(userId: string, edit: (ws: Workspace) => void): Promise<Workspace> {
   return tx(async (run) => {
-    const row = (await run("SELECT data FROM workspaces WHERE user_id=$1 FOR UPDATE", [userId]))[0];
-    const ws = fromStored(row && (typeof row.data === "string" ? JSON.parse(row.data) : row.data));
+    const row = await readStored(run, userId, "FOR UPDATE");
+    const ws = fromStored(structuredClone(row));
     const before = new Map(Object.entries(ws).map(([key, value]) => [key, JSON.stringify(value)]));
     edit(ws);
     if (JSON.stringify(ws.jobFeedback) !== before.get("jobFeedback"))
@@ -233,8 +263,9 @@ export async function editWorkspace(userId: string, edit: (ws: Workspace) => voi
     ws.updatedAt = nowIso();
     if (JSON.stringify(ws, noNul).length > 4_000_000)
       throw Object.assign(new Error("Workspace is too large."), { status: 413 });
-    await run("UPDATE workspaces SET data = data || $2::jsonb, updated_at = now() WHERE user_id=$1",
-      [userId, JSON.stringify({ ...changed, updatedAt: ws.updatedAt }, noNul)]);
+    const patch = JSON.stringify({ ...changed, updatedAt: ws.updatedAt }, noNul);
+    const up = await run("UPDATE workspaces SET data = data || $2::jsonb, updated_at = now() WHERE user_id=$1 RETURNING updated_at::text AS v", [userId, patch]);
+    remember(userId, up[0].v, { ...row, ...JSON.parse(patch) });
     return ws;
   });
 }
@@ -252,6 +283,7 @@ export async function deleteAccount(userId: string) {
       await run("DELETE FROM beta_list WHERE lower(email)=$1", [e]);
       await run("DELETE FROM signin_codes WHERE lower(email)=$1", [e]);
     }
+    cache.delete(userId);
     await run("DELETE FROM workspaces WHERE user_id=$1", [userId]);
     await run("DELETE FROM files WHERE user_id=$1", [userId]);
     await run("DELETE FROM ai_usage WHERE user_id=$1", [userId]);

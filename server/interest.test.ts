@@ -44,7 +44,7 @@ test("interest API: ownership, strict inputs, concurrent updates, ranking and da
   const other = await student("interest-b", [opening("private")]);
 
   await t.test("old workspaces without feedback fields remain readable and writable", async () => {
-    await q("UPDATE workspaces SET data = data - 'jobFeedback' - 'jobFeedbackVersion' WHERE user_id=$1", ["interest-a"]);
+    await q("UPDATE workspaces SET data = data - 'jobFeedback' - 'jobFeedbackVersion', updated_at = now() WHERE user_id=$1", ["interest-a"]);
     const ws = await loadWorkspace("interest-a");
     assert.deepEqual(ws.jobFeedback, {});
     assert.equal(ws.jobFeedbackVersion, 0);

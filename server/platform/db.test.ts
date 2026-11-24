@@ -170,3 +170,20 @@ test("cleanup removes sign-in and school-email codes nobody came back for", asyn
   assert.equal((await q("SELECT 1 FROM signin_codes WHERE email = 'late@example.com'")).length, 0);
   assert.equal((await q("SELECT 1 FROM school_email_codes WHERE user_id = 'code-u'")).length, 0);
 });
+
+test("the cached workspace copy: callers can't change it, and writes made elsewhere still show", async () => {
+  await ensureUser(me("u-cache"));
+  await saveSections("u-cache", { tasks: [{ id: "t1", title: "A" }] as any });
+  const a = await loadWorkspace("u-cache");
+  a.tasks.push({ id: "t2", title: "not saved" } as any);
+  assert.equal((await loadWorkspace("u-cache")).tasks.length, 1);
+  // Another server (or a hand edit) changes the row: the next read sees it.
+  await q(`UPDATE workspaces SET data = data || '{"goal":"elsewhere"}'::jsonb, updated_at = now() WHERE user_id='u-cache'`);
+  assert.equal(((await loadWorkspace("u-cache")) as any).goal, "elsewhere");
+  // A save that starts from a stale copy still returns the real merged row.
+  await q(`UPDATE workspaces SET data = data || '{"goal":"again"}'::jsonb, updated_at = now() WHERE user_id='u-cache'`);
+  const after = await saveSections("u-cache", { calendar: [{ id: "c1" }] as any });
+  assert.equal((after as any).goal, "again");
+  assert.equal(after.tasks.length, 1);
+  assert.equal((await loadWorkspace("u-cache")).calendar.length, 1);
+});
