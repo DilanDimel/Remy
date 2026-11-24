@@ -60,11 +60,11 @@ export function streakDays(w: Pick<Workspace, "game" | "jobFeedback" | "steps" |
   return { days, restDays: w.game?.restDays };
 }
 
-/** This week's seven days (Monday first) with their status, for the dots under the streak. */
+/** The last seven days, today last, with their status, for the dots under the streak. A Monday-first calendar week
+ *  hid the days a streak carried over from last week (Dilan, Nov 23: "2 day streak" with only Monday lit). */
 export function weekDots(g: Pick<GameState, "days" | "restDays">, today = dayKey()) {
   const { status } = dailyStreak(g, today);
-  const mon = shiftDay(today, -((weekday(today) + 6) % 7));
-  return Array.from({ length: 7 }, (_, i) => { const k = shiftDay(mon, i); return { key: k, label: "MTWTFSS"[i], status: (k > today ? "future" : status[k] || ((g.restDays || []).includes(weekday(k)) ? "rest" : "missed")) as DayStatus }; });
+  return Array.from({ length: 7 }, (_, i) => { const k = shiftDay(today, i - 6); return { key: k, label: "SMTWTFS"[weekday(k)], status: (status[k] || ((g.restDays || []).includes(weekday(k)) ? "rest" : "missed")) as DayStatus }; });
 }
 
 /** Adds a finished card to today, once. */
