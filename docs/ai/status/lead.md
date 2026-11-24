@@ -6,7 +6,7 @@ Area: the website (`client/`, `server/`, `shared/`, `docs/`), releases, `docs/ai
 ## Working on now
 - Owner-side bug fixes before "The Big Upgrade" release to students.
 - This shared-context setup (`docs/ai/`, `AGENTS.md`).
-- Owners' dashboard v2 (`client/src/pages/Admin.tsx`, `adm2-*` in `index.css`): one-screen tabs, 11 tabs to 7. Overview (#316), System (#321), Team & hours (#322) and Board & calendar (#324) merged; Errors & feedback in review, Openings next; the Beta tab's release controls wait until after the release flip.
+- Owners' dashboard v2 (`client/src/pages/Admin.tsx`, `adm2-*` in `index.css`): one-screen tabs, 11 tabs to 7. Overview (#316), System (#321), Team & hours (#322) and Board & calendar (#324) and Errors & feedback (#325) merged; Openings in review; the Beta tab's release controls wait until after the release flip.
 
 ## Files and folders I touch
 - Everything outside `native/`. Several Claude threads work in parallel; their open PRs are the live list.
