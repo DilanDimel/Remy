@@ -1,48 +1,69 @@
 import { useEffect, useState } from "react";
-import { Keyboard, Platform } from "react-native";
-import { Redirect } from "expo-router";
+import { Keyboard, Platform, Pressable, View } from "react-native";
+import { Redirect, router, usePathname } from "expo-router";
 import { NativeTabs } from "expo-router/native-tabs";
-import { Loading } from "@/components/ui";
-import { isOwnerView, useSession } from "@/lib/session";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Loading, Remy, tap } from "@/components/ui";
+import { gateRoute, useGate } from "@/lib/gate";
 import { font, useTheme } from "@/lib/theme";
+import { shadow } from "@/lib/tokens";
+
+/** Remy isn't a tab: like the website, he is a floating fox button above the tab bar that opens his chat from any page.
+ *  Not on My Path (he's in his office there) and not while the keyboard is up. */
+function RemyButton({ hidden }: { hidden: boolean }) {
+  const { c } = useTheme();
+  const insets = useSafeAreaInsets();
+  if (hidden) return null;
+  // Above the tab bar: iOS's bar is about 49 pt over the home indicator, Android's Material bar about 80 dp.
+  const bottom = insets.bottom + (Platform.OS === "ios" ? 62 : 92);
+  return (
+    <Pressable testID="button-remy" accessibilityRole="button" accessibilityLabel="Ask Remy" onPress={() => { tap(); router.push("/remy"); }} hitSlop={6}
+      style={({ pressed }) => [{ position: "absolute", right: 16, bottom, width: 56, height: 56, borderRadius: 28, backgroundColor: c.surface, borderWidth: 2, borderColor: c.fox, alignItems: "center", justifyContent: "center", overflow: "visible", transform: [{ scale: pressed ? 0.94 : 1 }] }, shadow.floating]}>
+      <Remy size={46} icon />
+    </Pressable>
+  );
+}
 
 export default function Tabs() {
-  const { status, me, ws } = useSession();
+  const gate = useGate();
   const { c } = useTheme();
+  const path = usePathname();
   // Android: the window shrinks for the keyboard, so the tab bar would sit on top of the keys; hide it meanwhile.
   const [kb, setKb] = useState(false);
   useEffect(() => {
-    if (Platform.OS !== "android") return;
-    const a = Keyboard.addListener("keyboardDidShow", () => setKb(true));
-    const b = Keyboard.addListener("keyboardDidHide", () => setKb(false));
+    const a = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", () => setKb(true));
+    const b = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => setKb(false));
     return () => { a.remove(); b.remove(); };
   }, []);
-  if (status === "loading") return <Loading />;
-  if (status === "signed-out" || status === "error") return <Redirect href="/sign-in" />;
-  // Owners-only until the team releases the new app.
-  if (!isOwnerView(me, ws)) return <Redirect href="/not-yet" />;
+  if (gate === "loading") return <Loading />;
+  // The website's order: sign-in, the beta list, the beta terms, setup, then the app (src/lib/rules.ts).
+  if (gate !== "tabs") return <Redirect href={gateRoute(gate) as any} />;
+  // The website's phone bar, with Remy as the floating fox instead of a tab (handoff 02 §2.0).
   return (
-    <NativeTabs tintColor={c.fox} minimizeBehavior="onScrollDown" labelStyle={{ fontFamily: font.semi }} labelVisibilityMode="labeled" indicatorColor={c.foxSoft} hidden={kb}>
-      <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Icon sf={{ default: "house", selected: "house.fill" }} md="home" />
-        <NativeTabs.Trigger.Label>Today</NativeTabs.Trigger.Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="path">
-        <NativeTabs.Trigger.Icon sf={{ default: "safari", selected: "safari.fill" }} md="explore" />
-        <NativeTabs.Trigger.Label>Path</NativeTabs.Trigger.Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="remy">
-        <NativeTabs.Trigger.Icon sf={{ default: "bubble.left", selected: "bubble.left.fill" }} md="chat" />
-        <NativeTabs.Trigger.Label>Remy</NativeTabs.Trigger.Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="jobs">
-        <NativeTabs.Trigger.Icon sf={{ default: "briefcase", selected: "briefcase.fill" }} md="work" />
-        <NativeTabs.Trigger.Label>Jobs</NativeTabs.Trigger.Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="you">
-        <NativeTabs.Trigger.Icon sf={{ default: "person", selected: "person.fill" }} md="person" />
-        <NativeTabs.Trigger.Label>You</NativeTabs.Trigger.Label>
-      </NativeTabs.Trigger>
-    </NativeTabs>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
+      <NativeTabs tintColor={c.fox} minimizeBehavior="onScrollDown" labelStyle={{ fontFamily: font.semi }} labelVisibilityMode="labeled" indicatorColor={c.foxSoft} hidden={kb && Platform.OS === "android"}>
+        <NativeTabs.Trigger name="index">
+          <NativeTabs.Trigger.Icon sf={{ default: "house", selected: "house.fill" }} md="home" />
+          <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="path">
+          <NativeTabs.Trigger.Icon sf={{ default: "safari", selected: "safari.fill" }} md="explore" />
+          <NativeTabs.Trigger.Label>My Path</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="resume">
+          <NativeTabs.Trigger.Icon sf={{ default: "doc.text", selected: "doc.text.fill" }} md="description" />
+          <NativeTabs.Trigger.Label>Resume</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="jobs">
+          <NativeTabs.Trigger.Icon sf={{ default: "briefcase", selected: "briefcase.fill" }} md="work" />
+          <NativeTabs.Trigger.Label>Jobs</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="more">
+          <NativeTabs.Trigger.Icon sf={{ default: "ellipsis.circle", selected: "ellipsis.circle.fill" }} md="menu" />
+          <NativeTabs.Trigger.Label>More</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+      </NativeTabs>
+      <RemyButton hidden={kb || path === "/path"} />
+    </View>
   );
 }
