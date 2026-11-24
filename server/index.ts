@@ -6,6 +6,7 @@ import { dbKind, dbReady } from "./platform/sql";
 import { serveStatic } from "./static";
 import { createServer } from "node:http";
 import { flushDbBytes } from "./jobs/insights";
+import { compress } from "./platform/compress";
 
 const app = express();
 app.disable("x-powered-by"); // don't advertise the server software
@@ -65,6 +66,9 @@ app.use((_req, res, next) => {
   }
   next();
 });
+
+// Gzip answers when the client asks for it; streamed chat replies are skipped (server/platform/compress.ts).
+app.use(compress);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
