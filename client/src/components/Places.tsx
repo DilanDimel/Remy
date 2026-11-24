@@ -58,6 +58,8 @@ export function PlaceScene({ k, w, streakBest, now, outfit, suit, mood, foxRef, 
     const month = new Date(now.getTime() - 30 * 864e5).toISOString().slice(0, 10);
     const recent = (w.contacts || []).filter((c) => c.metOn && c.metOn >= month).length;
     const last = [...(w.contacts || [])].reverse()[0];
+    const saved = (w.savedJobIds || []).length;
+    const pick = (w.jobs || []).find((j) => (w.savedJobIds || []).includes(j.id));
     return svg("Remy at the Corner Café", <>
       <rect x="0" y="40" width="860" height="312" fill="var(--cafe-wall)" />
       <rect x="0" y="292" width="860" height="60" fill="var(--cafe-wall-2)" /><path d="M0 292H860" {...L} />
@@ -68,9 +70,9 @@ export function PlaceScene({ k, w, streakBest, now, outfit, suit, mood, foxRef, 
         <rect x="56" y="58" width="338" height="126" rx="6" fill="none" {...L} />
         <text x="76" y="86" fontSize="13" fontWeight="800" letterSpacing="2" fill="var(--cafe-chalk-2)">AT THE CORNER</text>
         <g fontSize="14" fontWeight="600" fill="var(--cafe-chalk)">
-          <text x="76" y="114">People you've met</text><text x="374" y="114" textAnchor="end">{people}</text>
-          <text x="76" y="138">Met in the last 30 days</text><text x="374" y="138" textAnchor="end">{recent}</text>
-          <text x="76" y="162">{last ? `Say hi to ${first(last.name)}`.slice(0, 30) : "Add someone you met"}</text><text x="374" y="162" textAnchor="end" fill="var(--cafe-chalk-2)">→</text>
+          <text x="76" y="114">Openings you saved</text><text x="374" y="114" textAnchor="end">{saved}</text>
+          <text x="76" y="138">{people ? "People met, last 30 days" : "People you've met"}</text><text x="374" y="138" textAnchor="end">{people ? recent : 0}</text>
+          <text x="76" y="162">{(last ? `Say hi to ${first(last.name)}` : pick ? `Next: apply to ${pick.company}` : "Save an opening you like").slice(0, 30)}</text><text x="374" y="162" textAnchor="end" fill="var(--cafe-chalk-2)">→</text>
         </g>
       </g>
       <rect x="30" y="238" width="440" height="14" rx="3" fill="var(--cafe-wood-2)" {...L} />

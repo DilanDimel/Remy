@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { placeNow, placeOfHour, type PlaceKey } from "../shared/places";
+import { openPlaces, placeNow, placeOfHour, type PlaceKey } from "../shared/places";
 
 const all = new Set<PlaceKey>(["office", "cafe", "library", "home"]);
 
@@ -18,4 +18,10 @@ test("closed places fall back to the office, and an open pick wins", () => {
   assert.equal(placeNow(23, new Set(["office", "cafe"])), "office");
   assert.equal(placeNow(12, all, "home"), "home");
   assert.equal(placeNow(12, new Set(["office"]), "home"), "office");
+});
+
+test("the café opens from a saved opening, so students can reach it while Community is locked", () => {
+  const w = { savedJobIds: [], contacts: [], game: { weeks: {}, known: [] } } as any;
+  assert.equal(openPlaces(w).has("cafe"), false);
+  assert.equal(openPlaces({ ...w, savedJobIds: ["j1"] }).has("cafe"), true);
 });

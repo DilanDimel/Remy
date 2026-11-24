@@ -9,7 +9,7 @@ export type Place = { key: PlaceKey; name: string; how: string; link: string; op
 
 export const PLACES: Place[] = [
   { key: "office", name: "Office", how: "", link: "/path", open: () => true },
-  { key: "cafe", name: "Corner Café", how: "Add your first person in Community", link: "/community", open: (w) => (w.contacts || []).length > 0 },
+  { key: "cafe", name: "Corner Café", how: "Save your first opening", link: "/opportunities", open: (w) => (w.savedJobIds || []).length > 0 || (w.contacts || []).length > 0 },
   { key: "library", name: "Library", how: "Decode 3 jobs on My Path", link: "/path?play=1", open: (w) => (w.game?.known || []).length >= 3 },
   { key: "home", name: "Remy's home", how: "Keep a 7-day streak", link: "/path", open: (w) => dailyStreak(streakDays(w)).best >= 7 },
 ];
