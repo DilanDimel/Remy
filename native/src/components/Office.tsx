@@ -7,6 +7,7 @@ import { pinColor, topPins } from "@shared/pins";
 import { rareOwned } from "@shared/chest";
 import { dailyStreak, streakDays } from "@shared/daily";
 import type { Workspace } from "@shared/types";
+import type { OfficeSpot } from "@shared/officeSteps";
 import { tap } from "@/components/ui";
 import { OUTFITS, type Outfit } from "./scholarSvg";
 import { roomXml, type RoomState } from "./officeRoom";
@@ -30,6 +31,14 @@ const FOX_S = 0.62;
 const FOX: [number, number, number, number] = [455 - 100 * FOX_S, 208 - 8 * FOX_S, 200 * FOX_S, 222 * FOX_S];
 // Smaller things first, so a tap on the lamp isn't caught by the desk under it.
 const ORDER = ["window", "skyline", "desk", "books", "chair", "resume", "pins", "briefcase", "plant", "laptop", "cert"];
+
+// Remy's office guide (the website's PathBoard.tsx SPOT_BADGE / SPOT_GLOW): where each step's number sits and what
+// glows, centred at x, y in room units. The filing cabinet is his notes on you.
+const SPOT_BADGE: Record<OfficeSpot, [number, number]> = { computer: [596, 288], frame: [282, 140], notes: [706, 262] };
+const SPOT_GLOW: Record<OfficeSpot, [number, number, number, number]> = { computer: [544, 312, 110, 62], frame: [328, 144, 104, 128], notes: [673, 304, 76, 106] };
+const NOTES: [number, number, number, number] = [642, 256, 62, 96];
+const SPOT_OF: Record<string, OfficeSpot> = { laptop: "computer", resume: "frame", notes: "notes" };
+export type OfficeMark = { spot: OfficeSpot; n: number; on: boolean };
 
 const clockTime = () => new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 const lineFor = (k: string) => pick(TAPS[k] || [""]).replace("{time}", clockTime());
@@ -60,13 +69,13 @@ export function roomState(ws: Workspace, c: Colors, night: boolean, now: Date): 
  *  books, pins, the framed resume, level items and chest finds appear as they're earned, and empty slots show dashed.
  *  Tap a thing and Remy says a line about it; tap Remy and he answers back; left alone, he shares a quote now and then.
  *  The room fills from the edges on a phone, centred on the desk, and pans sideways to the shelf and the window. */
-export function Office({ ws }: { ws: Workspace }) {
+export function Office({ ws, guide }: { ws: Workspace; guide?: { marks: OfficeMark[]; onSpot: (spot: OfficeSpot) => void } }) {
   const { c, dark } = useTheme();
   const { width } = useWindowDimensions();
   // The clock on the wall tells the real time.
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(t); }, []);
-  const s = useMemo(() => roomState(ws, c, dark, now), [ws, c, dark, now]);
+  const s = useMemo(() => ({ ...roomState(ws, c, dark, now), notes: !!guide }), [ws, c, dark, now, !!guide]);
   const back = useMemo(() => roomXml(s, c, "back"), [s, c]);
   const front = useMemo(() => roomXml(s, c, "front"), [s, c]);
   // About 16:10 on a phone (the room is 860:420), never taller than the whole room.
@@ -74,10 +83,14 @@ export function Office({ ws }: { ws: Workspace }) {
   const k = h / 420, w = 860 * k;
   const start = Math.max(0, Math.min(w - width, 560 * k - width / 2));
   const scroll = useRef<any>(null);
-  const [said, setSaid] = useState(opening);
+  // With the guide on, his banner above the room does the talking; this bubble shows only after a tap.
+  const [said, setSaid] = useState(() => (guide ? "" : opening()));
   const pokes = useRef({ n: 0, t: 0 });
+  const guideRef = useRef(false); guideRef.current = !!guide?.marks.length;
   const last = useRef(Date.now());
   const say = (line: string) => { tap(); last.current = Date.now(); setSaid(line); };
+  // With the guide on, his computer, the resume frame and the filing cabinet do their step instead of a line.
+  const tapThing = (key: string) => { const sp = SPOT_OF[key]; if (guide && sp) { tap(); return guide.onSpot(sp); } say(lineFor(key)); };
   const poke = () => {
     const t = Date.now(), p = pokes.current;
     p.n = t - p.t < 1500 ? p.n + 1 : 1; p.t = t;
@@ -85,7 +98,7 @@ export function Office({ ws }: { ws: Workspace }) {
   };
   // Left alone for a while, he leans back and shares a quote (the website's idle quotes).
   useEffect(() => {
-    const t = setInterval(() => { if (Date.now() - last.current > 45000) { last.current = Date.now(); const q = pick(QUOTES); setSaid(`"${q.q}" (${q.by})`); } }, 15000);
+    const t = setInterval(() => { if (!guideRef.current && Date.now() - last.current > 45000) { last.current = Date.now(); const q = pick(QUOTES); setSaid(`"${q.q}" (${q.by})`); } }, 15000);
     return () => clearInterval(t);
   }, []);
   // He breathes, gently, unless the phone asks for less motion.
@@ -117,13 +130,23 @@ export function Office({ ws }: { ws: Workspace }) {
               <SvgXml xml={OUTFITS[s.outfit]} width={fw * k} height={fh * k} />
             </Animated.View>
             <View pointerEvents="none" style={{ position: "absolute", left: 0, top: 0 }}><SvgXml xml={front} width={w} height={h} /></View>
-            {ORDER.map((key) => <Pressable key={key} testID={`office-${key}`} accessibilityLabel={key} onPress={() => say(lineFor(key))} style={box(SPOTS[key]!)} />)}
+            {ORDER.map((key) => <Pressable key={key} testID={`office-${key}`} accessibilityLabel={key} onPress={() => tapThing(key)} style={box(SPOTS[key]!)} />)}
+            {guide && <Pressable testID="office-notes" accessibilityRole="button" accessibilityLabel="My notes on you" onPress={() => tapThing("notes")} style={box(NOTES)} />}
             <Pressable testID="office-remy" accessibilityLabel="Remy" onPress={poke} style={box([fx + 8, fy, fw - 16, 334 - fy])} />
             {earned.map((key) => <Pressable key={key} testID={`office-${key}`} accessibilityLabel={key} onPress={() => say(lineFor(key))} style={box(EARNED[key]!)} />)}
+            {guide?.marks.filter((m) => m.on).map((m) => { const [x, y, gw, gh] = SPOT_GLOW[m.spot];
+              return <View key={"g" + m.spot} pointerEvents="none" style={{ position: "absolute", left: (x - gw / 2) * k, top: (y - 40 - gh / 2) * k, width: gw * k, height: gh * k, borderRadius: 12, borderWidth: 3, borderColor: c.fox }} />; })}
+            {guide?.marks.map((m) => { const [x, y] = SPOT_BADGE[m.spot];
+              return (
+                <Pressable key={m.spot} testID={`office-num-${m.spot}`} accessibilityRole="button" accessibilityLabel={`Step ${m.n}`} hitSlop={8} onPress={() => { tap(); guide.onSpot(m.spot); }}
+                  style={{ position: "absolute", left: x * k - 13, top: (y - 40) * k - 13, width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center", borderWidth: 2, backgroundColor: m.on ? c.fox : c.surface, borderColor: m.on ? c.surface : c.fox }}>
+                  <Text style={{ fontFamily: font.bold, fontSize: 13, color: m.on ? c.onFox : c.foxDeep }}>{m.n}</Text>
+                </Pressable>); })}
             <Pressable testID={`office-${dark ? "moon" : "sun"}`} accessibilityLabel={dark ? "moon" : "sun"} onPress={() => say(lineFor(dark ? "moon" : "sun"))} style={box(SKY)} />
           </View>
         </ScrollView>
       </View>
+      {!!said && <>
       {/* The bubble's tail points up at Remy, wherever the room starts scrolled. */}
       <View style={{ paddingLeft: Math.max(8, 455 * k - start - 16 - 9), marginTop: 6 }}>
         <View style={{ width: 0, height: 0, borderLeftWidth: 9, borderRightWidth: 9, borderBottomWidth: 10, borderLeftColor: "transparent", borderRightColor: "transparent", borderBottomColor: c.line }} />
@@ -132,7 +155,8 @@ export function Office({ ws }: { ws: Workspace }) {
         <Text style={{ fontFamily: font.bold, fontSize: 11.5, letterSpacing: 0.6, color: c.fox, marginBottom: 2 }}>REMY</Text>
         <Text style={{ fontFamily: font.body, fontSize: 15, lineHeight: 21, color: c.ink }}>{said}</Text>
       </View>
-      <Text testID="office-next" style={{ fontFamily: font.semi, fontSize: 12.5, color: c.mutedText, marginTop: 6, marginHorizontal: 4 }}>{s.nextItem ? `Level ${s.nextItem[2]} adds a ${s.nextItem[1].toLowerCase()} to the office.` : "The office is fully furnished."}</Text>
+      </>}
+      {!guide && <Text testID="office-next" style={{ fontFamily: font.semi, fontSize: 12.5, color: c.mutedText, marginTop: 6, marginHorizontal: 4 }}>{s.nextItem ? `Level ${s.nextItem[2]} adds a ${s.nextItem[1].toLowerCase()} to the office.` : "The office is fully furnished."}</Text>}
     </View>
   );
 }

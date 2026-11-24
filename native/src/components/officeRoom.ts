@@ -15,6 +15,8 @@ export type RoomState = {
   streakDays: number;
   streakBest: number;
   now: Date;
+  /** The filing cabinet, Remy's notes on you (AI memory), shown while his office guide is on. */
+  notes?: boolean;
 };
 
 const hex = (h: string) => { const n = h.replace("#", ""); return [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16)); };
@@ -117,6 +119,8 @@ export function roomXml(s: RoomState, c: Colors, part: "back" | "front") {
     has("clock") ? `<g transform="translate(818 64)"><circle r="20" cx="0" cy="20" fill="${O}" ${L}/><circle r="1.6" cx="0" cy="4" fill="${c.roomLine}"/><circle r="1.6" cx="0" cy="36" fill="${c.roomLine}"/><circle r="1.6" cx="16" cy="20" fill="${c.roomLine}"/><circle r="1.6" cx="-16" cy="20" fill="${c.roomLine}"/><path d="M0 20V11" ${L} transform="rotate(${hh} 0 20)"/><path d="M0 20V6" ${L} stroke-width="1.8" transform="rotate(${mm} 0 20)"/><circle r="2.2" cx="0" cy="20" fill="${c.fox}"/></g>` : "",
     has("rug") ? `<ellipse cx="470" cy="432" rx="230" ry="30" fill="${mix(brand.schNavy, c.roomFloor, 0.6)}" stroke="${c.roomLine}" stroke-width="2.5"/><ellipse cx="470" cy="432" rx="200" ry="20" fill="none" stroke="${O}" stroke-opacity=".5" stroke-width="2" stroke-dasharray="6 6"/>` : "",
     has("globe") ? `<g transform="translate(724 358) scale(1.4)"><path d="M10 56h24M22 44v12" ${L}/><path d="M4 22a18 18 0 0 0 36 0" fill="none" ${L} stroke="${WOOD2}" stroke-width="4"/><circle cx="22" cy="22" r="18" fill="${c.roomSky}" ${L}/><path d="M10 12c4-3 9-2 10 2s-3 5-1 8-2 6-5 5-6-6-5-10z" fill="${brand.schTweed}"/><path d="M27 9c4 1 8 5 8 9-3 1-5-1-7 1s-3 4-5 2 0-5 1-7-1-4 3-5z" fill="${brand.schTweed}"/><path d="M26 30c3-1 6-1 7 1-1 3-5 4-7 3z" fill="${brand.schTweed}"/><circle cx="22" cy="22" r="18" fill="none" ${L}/></g>` : "",
+    // the filing cabinet: Remy's notes on you (AI memory); his quick questions about your account live here
+    s.notes ? `<rect x="642" y="274" width="62" height="78" rx="4" fill="${WOOD2}" ${L}/><rect x="650" y="282" width="46" height="28" rx="2" fill="${O}" ${L} stroke-width="2"/><rect x="650" y="316" width="46" height="28" rx="2" fill="${O}" ${L} stroke-width="2"/><path d="M666 296h14M666 330h14" ${L} stroke-width="3"/><rect x="654" y="256" width="36" height="18" rx="2" fill="${c.foxSoft}" ${L} stroke-width="2"/>` : "",
     // his chair
     `<path d="M398 340V262c0-22 14-34 57-34s57 12 57 34v78z" fill="${c.roomChair}" ${L}/>`,
     `<path d="M414 330V266c0-12 10-22 41-22s41 10 41 22v64" fill="none" stroke="${O}" stroke-opacity=".22" stroke-width="2.5"/><path d="M430 256h50" stroke="${O}" stroke-opacity=".22" stroke-width="2.5" stroke-linecap="round"/>`,
