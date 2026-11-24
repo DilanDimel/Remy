@@ -179,7 +179,10 @@ function Streak() {
       <section className="rw-card" aria-label="How it works">
         <div className="rw-card-head"><h3 className="pm-kicker dark">How it works</h3></div>
         <ul className="rw-rules">{rules.map(([I, t, d]) => <li key={t}><span className="rw-ri"><I size={17} /></span><div><b>{t}</b><p>{d}</p></div></li>)}</ul>
-        <p className="pm-faint">The Steady pin rewards long streaks: 7, 30 and 100 days.</p>
+        <h4 className="rw-sub">Streak milestones in Remy's office</h4>
+        <ul className="rw-steps" data-testid="rewards-streak-milestones">{([[7, "The desk plant blooms"], [30, "A framed \u201c30 days\u201d photo"], [100, "The photo turns gold: \u201c100 days\u201d"]] as [number, string][]).map(([n, t]) =>
+          <li key={n} className={s.best >= n ? "got" : ""}><Flame size={16} /><b>{n} days in a row</b><span>{s.best >= n ? t : <><Lock size={11} /> {t}</>}</span></li>)}</ul>
+        <p className="pm-faint">Counts your best streak, so a milestone stays once you reach it. The Steady pin rewards the same 7, 30 and 100 days.</p>
       </section>
     </div>
   );
