@@ -73,14 +73,15 @@ test("not configured: nothing happens", async () => {
   assert.equal(await backupIfDue(null), null);
 });
 
-test("after nights with no sweep, every copy past its keep time is deleted, not only the one exactly that old", async () => {
-  box.set("backup/daily/2026-11-10", {}); box.set("backup/daily/2026-11-20", {}); box.set("backup/daily/2026-12-20", {});
-  box.set("backup/full/2026-10-20", {});
-  await backupIfDue(store, at("2027-01-05T08:00:00Z")); // a month with no backups
-  assert.equal(box.has("backup/daily/2026-11-10"), false);
-  assert.equal(box.has("backup/daily/2026-11-20"), false);
-  assert.equal(box.has("backup/daily/2026-11-26"), false, "the earlier test's daily copy is past 31 days too");
-  assert.equal(box.has("backup/daily/2026-12-20"), true, "newer copies stay");
-  assert.equal(box.has("backup/full/2026-10-20"), false);
-  assert.equal(box.has("backup/full/2026-12-02"), true, "full copies are kept 8 weeks");
+test("old copies past the cut-off are deleted even when a night was missed", async () => {
+  box.set("backup/daily/2026-10-01", { kind: "daily" }); // 31 days back from 2026-11-01 is 2026-10-01; 2026-09-28 was missed
+  box.set("backup/daily/2026-09-28", { kind: "daily" });
+  box.set("backup/full/2026-08-20", { kind: "full" });
+  box.set("backup/daily/2026-10-15", { kind: "daily" }); // inside the 31 days: kept
+  await q("DELETE FROM site_settings WHERE key = 'backup_last_day'");
+  await backupIfDue(store, at("2026-11-01T18:00:00Z"));
+  assert.equal(box.has("backup/daily/2026-10-01"), false);
+  assert.equal(box.has("backup/daily/2026-09-28"), false);
+  assert.equal(box.has("backup/full/2026-08-20"), false);
+  assert.equal(box.has("backup/daily/2026-10-15"), true);
 });

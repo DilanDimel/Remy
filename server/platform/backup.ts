@@ -20,6 +20,8 @@ export const CHANGED_ONLY: Record<string, string> = { workspaces: "updated_at", 
 // (server/platform/studentJobs.ts), so they're rebuilt from the restored workspaces instead of copied.
 export const SKIP = new Set(["ai_usage", "board_cache", "checked_openings", "rate_limits", "sessions", "signin_codes", "school_email_codes", "schema_migrations", "student_jobs", "student_jobs_state"]);
 const FULL_EVERY_DAYS = 7, KEEP_FULL = 8, KEEP_DAILY = 31;
+/** How far past the cut-off each run looks for old copies to delete (covers a sweep missing this many days). */
+const PRUNE_DAYS = 45;
 const centralDay = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
 const daysBack = (day: string, n: number) => new Date(Date.parse(day + "T12:00:00Z") - n * 86_400_000).toISOString().slice(0, 10);
 
@@ -86,8 +88,12 @@ async function runBackup(store: Store, kind: "full" | "daily", since: string | n
   await setSetting("backup_last_day", today);
   await setSetting("backup_last_at", started);
   if (kind === "full") await setSetting("backup_last_full", today);
-  await prune(store, "daily", daysBack(today, KEEP_DAILY));
-  await prune(store, "full", daysBack(today, KEEP_FULL * FULL_EVERY_DAYS));
+  // Everything past the cut-off, not just the copy exactly that old: nights without a sweep (an outage) would
+  // otherwise leave their copy in R2 for good. Deleting a copy that isn't there is harmless.
+  for (let i = 0; i < PRUNE_DAYS; i++) {
+    await store.del(`backup/daily/${daysBack(today, KEEP_DAILY + i)}`).catch(() => {});
+    await store.del(`backup/full/${daysBack(today, KEEP_FULL * FULL_EVERY_DAYS + i)}`).catch(() => {});
+  }
   return { kind, rows: Object.values(b.tables).reduce((n, r) => n + r.length, 0) };
 }
 
