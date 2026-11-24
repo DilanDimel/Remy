@@ -22,6 +22,7 @@ import { ACTS, OUTFITS } from "./scholar";
 import { GIVE_UP, KONAMI, POKES, QUOTES, SECRETS, SPIN, TAPS, dateLine, pick, timeLine } from "@shared/officeLines";
 import "./office.css";
 import { OfficeOpens, RemyDid } from "./RemyDid";
+import { NextAsk, useAsks } from "./RemyAsk";
 import { PLACE_SPOT, PlaceScene } from "./Places";
 import { useAccess } from "./ComingSoon";
 import { PLACES, openPlaces, placeNow, type PlaceKey } from "@shared/places";
@@ -175,6 +176,9 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   const reply = said?.id ? d.w.chat.find((m) => m.id === said.id) : null;
   // What he says on his own: a quote, a line about what you tapped, the time of day. Never over an answer or the tour.
   const [quip, setQuip] = useState<{ text: string; by?: string } | null>(null);
+  // Owners (Nov 24): Remy's open questions about the account, asked in his speech bubble (components/RemyAsk.tsx).
+  const asks = useAsks();
+  const [answered, setAnswered] = useState(false);
   const quipT = useRef(0);
   const say = (text: string, by?: string, ms = 6500) => {
     if (saidRef.current || guideRef.current) return;
@@ -457,6 +461,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
               <div className="ps-say-body">{busy ? (said.live ? <div className="ps-reply"><Rich text={said.live} /></div> : <span className="ps-think" role="status" aria-label="Remy is thinking"><i /><i /><i /></span>)
                 : reply ? <div className="ps-reply"><Rich text={reply.text} /><RemyDid m={reply} /><OfficeOpens actions={reply.actions} /></div> : <p>I couldn't answer that one. Try asking again.</p>}</div>
             </div>
+          : asks.length || answered ? <NextAsk onAnswered={() => setAnswered(true)} wrap={(c) => <div className="ps-bubble" style={{ "--tail": `${Math.min(92, Math.max(8, fx))}%` } as CSSProperties} aria-live="polite" data-testid="office-ask">{c}</div>} />
           : quip && <button className={"ps-say quip " + side} style={sayAt} onClick={() => setQuip(null)} aria-live="polite" data-testid="office-quip"><span className="ps-say-body"><span>{quip.text}</span>{quip.by && <small>{quip.by}</small>}</span></button>}
       </div>
     </section>

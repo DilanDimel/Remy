@@ -3,6 +3,7 @@ import { step } from "@shared/progress";
 import { uid } from "../platform/ids";
 import { NAME_CHECK } from "@shared/names";
 import { doMore, MORE_KINDS, undoMore } from "./remyTools";
+import { undoAsk } from "../coach/asks";
 
 // Redesign stage 6 (owners first): "save that job", "add a to-do for Friday", "tailor my resume for this" are done
 // right away, shown as what Remy did, each with Undo. Nothing here leaves Remy (no application, email or RSVP).
@@ -101,6 +102,7 @@ export function doActions(ws: Workspace, actions: ChatAction[], findJob: (ws: Wo
 /** Undo one thing Remy did. Returns why it can't be undone, or null when it was. */
 export function undoDid(ws: Workspace, d: ChatDid): string | null {
   if (d.undone) return null;
+  if (d.kind === "ask") { undoAsk(ws, d); d.undone = true; return null; }
   const more = undoMore(ws, d);
   if (more !== false) { if (more) return more; d.undone = true; return null; }
   if (d.kind === "task") ws.tasks = ws.tasks.filter((t) => t.id !== d.ref);
