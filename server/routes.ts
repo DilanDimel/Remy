@@ -19,6 +19,7 @@ import { keepQuestions, skippedPrefs } from "@shared/setupReply";
 import { newsMark } from "@shared/news";
 import { isNonAnswer } from "@shared/words";
 import { draftOk } from "./ai/bulletDraft";
+import { WEAK } from "@shared/bullets";
 import { STORY_ASK, STORY_PARTS, findLine, namesNew, sameLine } from "@shared/stories";
 import { storyLines } from "./coach/storyLines";
 import { checkedInterviewDate, zoneIn } from "./coach/interviewDate";
@@ -1511,18 +1512,21 @@ export async function registerRoutes(_server: Server, app: Express) {
     const text = String(req.body?.text || "").replace(/\s+/g, " ").trim().slice(0, 400);
     const answer = String(req.body?.answer || "").replace(/\s+/g, " ").trim().slice(0, 200);
     if (text.length < 4) bad("That line is empty.");
-    if (kind === "numbers" && (!answer || isNonAnswer(answer) || !/\d/.test(answer))) bad("Type the real number you know (like “40 members” or “$5,000”), or skip this line.");
-    if (kind === "verbs" && (!answer || isNonAnswer(answer) || answer.length < 4)) bad("Say in a few words what you actually did (like “wrote and scheduled the posts”).");
+    // Owners (Demetre, Nov 24): no answer means Remy rewrites the line himself from what it already says, and asks only
+    // when that isn't enough (a missing number, or a "helped" line where only the student knows their part).
+    const auto = !answer && inOwnerView();
+    if (!auto && kind === "numbers" && (!answer || isNonAnswer(answer) || !/\d/.test(answer))) bad("Type the real number you know (like “40 members” or “$5,000”), or skip this line.");
+    if (!auto && kind === "verbs" && (!answer || isNonAnswer(answer) || answer.length < 4)) bad("Say in a few words what you actually did (like “wrote and scheduled the posts”).");
     const out = await withAi(ctx, "Improve a bullet", () =>
       aiJson<{ bullet: string }>(
-        `You improve ONE line of a college student's resume. Rules: keep every fact in the line; add nothing that isn't in the line or the student's answer (no outcomes, purposes, tools, numbers or adjectives they didn't give); start with a strong past-tense action verb (or present tense if the line is in present tense); 8 to 28 words; no period at the end.${kind === "numbers" ? " Work the student's number(s) into the line naturally, exactly as given." : " Start the line with what the student says they did, in their words (their answer), e.g. line \"Helped with social media\" + answer \"wrote and scheduled the posts\" becomes \"Wrote and scheduled social media posts\"."}`,
+        `You improve ONE line of a college student's resume. Rules: keep every fact in the line; add nothing that isn't in the line or the student's answer (no outcomes, purposes, tools, numbers or adjectives they didn't give); start with a strong past-tense action verb (or present tense if the line is in present tense); 8 to 28 words; no period at the end.${auto ? " There is no answer: rewrite the line from its own words only. Lead with the strongest action verb the line supports, keep its tools, skills and terms exactly (they are the words application systems search for), and cut filler. If the line only says the student helped or took part, keep that (\"Helped\", \"Supported\"). If it can't be made stronger without adding something, return it unchanged." : kind === "numbers" ? " Work the student's number(s) into the line naturally, exactly as given." : " Start the line with what the student says they did, in their words (their answer), e.g. line \"Helped with social media\" + answer \"wrote and scheduled the posts\" becomes \"Wrote and scheduled social media posts\"."}`,
         `LINE: ${text}\n${answer ? `STUDENT'S ANSWER: ${answer}\n` : ""}\nReturn {"bullet":""}`,
         300,
       ),
     );
     const draft = String(out?.bullet || "").replace(/\s+/g, " ").trim().replace(/\.$/, "").slice(0, 300);
     // Only the line plus the student's answer, never a hedged action upgraded (server/ai/bulletDraft.ts).
-    if (!draftOk(kind as "numbers" | "verbs", text, answer, draft)) {
+    if (!draftOk(auto ? "verbs" : (kind as "numbers" | "verbs"), text, answer, draft) || (auto && WEAK.test(draft))) {
       bad("Remy couldn't improve this line without adding something you didn't say. Edit it yourself in the Edit tab.", 422);
     }
     res.json({ draft });

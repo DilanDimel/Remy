@@ -49,6 +49,13 @@ export function onOpenRequest(fn: () => void) {
   openers.add(fn);
   return () => { openers.delete(fn); };
 }
+const closers = new Set<() => void>();
+export function onCloseRequest(fn: () => void) {
+  closers.add(fn);
+  return () => { closers.delete(fn); };
+}
+/** Closes Remy's panel, e.g. when he comes onto the resume itself (Demetre, Nov 24). */
+export const closeRemy = () => closers.forEach((c) => c());
 /** Opens Remy's panel (Remy starting a conversation himself). */
 export const openRemy = () => openers.forEach((o) => o());
 export const isAsking = (s: TailorSession | null) => !!s && s.stage === "asking";
@@ -235,19 +242,31 @@ export function startResumeFix(ws: Workspace, deps: Deps) {
     session.stage = "done";
     say(`Your lines already read strong: action verbs and real details.${other.length ? ` Still worth doing on this page: ${other.join("; ")}.` : ""}`);
   } else {
-    say(`Let's make your resume stronger together. I found ${lines.length} line${lines.length > 1 ? "s" : ""} worth fixing. One at a time: tell me what really happened and I'll write the line from your words. Nothing changes until you tap "Use it".`);
+    say(`Let's make your resume stronger together. I found ${lines.length} line${lines.length > 1 ? "s" : ""} worth fixing. I'll rewrite them one at a time using only what's already on your resume. Tap "Use it", "Edit" or skip. Nothing changes until you say so.`);
     askLine(session);
   }
   emit();
   openers.forEach((o) => o());
 }
-function askLine(s: TailorSession) {
+// Owners (Demetre, Nov 24: "it should do more on its own"): Remy first rewrites the line himself from its own words
+// (the same checked draft, with no answer). He asks only when that can't be done honestly.
+async function askLine(s: TailorSession) {
   const f = s.fix!, l = f.lines[f.at];
-  const q = `Line ${f.at + 1} of ${f.lines.length} (${l.where}): "${l.text}"\n${l.kind === "numbers" ? "Is there a real number here? How many people, events, dollars, hours or percent. Only if you know it." : "What exactly did you do here? A few words in your own terms."}`;
-  s.qs = [...s.qs, { key: "line", q, pick: "Skip this line" }];
+  s.stage = "working";
+  emit();
+  const own = await api<{ draft: string }>("POST", "/api/resume/bullet-draft", { kind: l.kind, text: l.text, answer: "" }).then((r) => r.draft, () => "");
+  if (session !== s) return;
+  const head = `Line ${f.at + 1} of ${f.lines.length} (${l.where}): "${l.text}"`;
+  if (own) {
+    f.draft = own;
+    s.qs = [...s.qs, { key: "ok", q: `${head}\nHere's a stronger version, using only what's already on your resume:\n"${own}"${l.kind === "numbers" ? "\nKnow a real number for it (people, hours, percent)? Type it and I'll work it in." : ""}`, options: ["Use it", "Edit"], pick: "Skip this line" }];
+  } else {
+    s.qs = [...s.qs, { key: "line", q: `${head}\n${l.kind === "numbers" ? "Is there a real number here? How many people, events, dollars, hours or percent. Only if you know it." : "I can't tell your part from this line alone, so I won't guess. What did you do here? A few words is enough."}`, pick: "Skip this line" }];
+  }
   s.idx = s.qs.length - 1;
   s.stage = "asking";
-  say(q);
+  say(s.qs[s.idx].q);
+  emit();
 }
 function nextLine(s: TailorSession) {
   const f = s.fix!;
@@ -262,11 +281,14 @@ async function answerFix(s: TailorSession, text: string, deps: Deps) {
   say(text.trim() || "skip", "me");
   if (/^\s*(skip the rest|stop|i'?m done|that'?s all|done)\s*[.!]?\s*$/i.test(text)) { f.at = f.lines.length; nextLine(s); emit(); return; }
   if (/^\s*skip( this( line)?)?\s*[.!]?\s*$/i.test(text) || (q.key === "line" && isNonAnswer(text))) { nextLine(s); emit(); return; }
-  if (q.key === "ok" && /^\s*(use it|yes|yep|yeah|sure|ok|okay|looks good|perfect)\b/i.test(text)) {
+  if (q.key === "ok" && /^\s*edit\s*[.!]?\s*$/i.test(text)) { s.qs = [...s.qs, { key: "own", q: "Type the line the way you want it and I'll put it on your resume.", pick: "Skip this line" }]; s.idx = s.qs.length - 1; say(s.qs[s.idx].q); emit(); return; }
+  if (q.key === "own" || (q.key === "ok" && /^\s*(use it|yes|yep|yeah|sure|ok|okay|looks good|perfect)\b/i.test(text))) {
+    const line = q.key === "own" ? text.replace(/\s+/g, " ").trim() : f.draft;
+    if (!line) { nextLine(s); emit(); return; }
     s.stage = "working";
     emit();
     const doc = structuredClone(f.doc);
-    for (const sec of doc.sections) for (const e of sec.entries) for (const b of e.bullets) if (b.id === l.id) b.text = f.draft;
+    for (const sec of doc.sections) for (const e of sec.entries) for (const b of e.bullets) if (b.id === l.id) b.text = line;
     const w = await deps.run(() => api<Workspace>("PUT", "/api/resume/doc", { doc, base: f.base }));
     if (session !== s) return;
     if (!w?.resume) { s.stage = "done"; say("I couldn't save that line. Your resume may have changed in another tab; ask me again and I'll start from your latest version."); emit(); return; }
@@ -283,7 +305,7 @@ async function answerFix(s: TailorSession, text: string, deps: Deps) {
   // An answer about the line (or a new one instead of "Use it"): Remy drafts it from their words.
   s.stage = "working";
   emit();
-  const r = await deps.run(() => api<{ draft: string }>("POST", "/api/resume/bullet-draft", { kind: l.kind, text: l.text, answer: text }));
+  const r = await deps.run(() => api<{ draft: string }>("POST", "/api/resume/bullet-draft", { kind: l.kind, text: q.key === "ok" && f.draft ? f.draft : l.text, answer: text }));
   if (session !== s) return;
   if (!r) { s.qs = [...s.qs, { key: "line", q: l.kind === "numbers" ? "I need the real number to work it in (like \"40 members\" or \"$5,000\"). What is it? Or skip this line." : "Say in a few words what you actually did (like \"wrote and scheduled the posts\"), or skip this line.", pick: "Skip this line" }]; }
   else { f.draft = r.draft; s.qs = [...s.qs, { key: "ok", q: `How about this?\n"${r.draft}"`, options: ["Use it", "Try again"], pick: "Skip this line" }]; }
