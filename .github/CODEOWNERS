@@ -1,0 +1,6 @@
+# Who GitHub asks to review. Ownership for the AI rules lives in docs/ai/owners.json (read by `npm run check:ai`).
+# Julio reviews new code for where it can fail (docs/ai/review-checklist.md); his review doesn't block merging.
+/client/ @ELVATOLARRY
+/server/ @ELVATOLARRY
+/shared/ @ELVATOLARRY
+/native/ @dondhnk8
