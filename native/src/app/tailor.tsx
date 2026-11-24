@@ -1,5 +1,5 @@
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Application, BulletChange, Job, Workspace } from "@shared/types";
@@ -34,7 +34,6 @@ export default function Tailor() {
   const [at, setAt] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
-  const started = useRef(false);
   const a = ws?.applications.find((x) => (appId ? x.id === appId : x.jobId === jobId));
   const job: Job | undefined = jobs.find((j) => j.id === (a?.jobId || jobId));
 
@@ -43,13 +42,6 @@ export default function Tailor() {
     try { await f(); } catch (e: any) { setErr(e.message); }
     setBusy("");
   };
-  // Opened for an opening with nothing started yet: start it (the website does the same on ?job=).
-  useEffect(() => {
-    if (!ws || a || !jobId || started.current) return;
-    started.current = true;
-    run("start", async () => { const r = await api<Res>("POST", "/api/applications", { jobId }); setWs(r.workspace); });
-  }, [ws, a, jobId]); // eslint-disable-line react-hooks/exhaustive-deps
-
   if (!ws) return null;
   const wrap = (body: React.ReactNode) => (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
@@ -84,7 +76,8 @@ export default function Tailor() {
     </>);
   }
 
-  if (!a || !job) return wrap(busy === "start" || !a ? <View style={{ paddingVertical: 40, alignItems: "center" }}><ActivityIndicator color={c.fox} /></View> : <T kind="muted">This opening isn't in your list any more.</T>);
+  // Jobs still loading, or the opening left the feed.
+  if (!job) return wrap(jobs.length ? <T kind="muted">This opening isn't in your list any more.</T> : <View style={{ paddingVertical: 40, alignItems: "center", gap: 10 }}><ActivityIndicator color={c.fox} /><T kind="small">Loading your openings…</T></View>);
 
   const head = (
     <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
@@ -97,12 +90,14 @@ export default function Tailor() {
   );
   const generate = (confirmEligible = false) => run("generate", async () => {
     setConflict("");
-    try { const r = await api<Res>("POST", `/api/applications/${a.id}/generate`, confirmEligible ? { confirmEligible: true } : {}); setWs(r.workspace); success(); }
+    // Nothing is started (or kept) until the student asks Remy to draft: opening this screen only looks.
+    const id = a?.id || (await api<Res>("POST", "/api/applications", { jobId: job.id })).application.id;
+    try { const r = await api<Res>("POST", `/api/applications/${id}/generate`, confirmEligible ? { confirmEligible: true } : {}); setWs(r.workspace); success(); }
     catch (e) { if (e instanceof ApiError && e.code === "eligibility-conflict") setConflict(e.message); else throw e; }
   });
 
   // 1. Nothing drafted yet
-  if (!a.generatedAt) return wrap(<>
+  if (!a || !a.generatedAt) return wrap(<>
     {head}
     <View style={box}>
       <T kind="h2">Remy drafts the changes</T>
