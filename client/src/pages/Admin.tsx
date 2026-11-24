@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { FEATURES, RELEASES, releasesOf, type Release } from "@shared/features";
 import { Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, Briefcase, CalendarDays, Check, Clock, Database, KanbanSquare, Server, Plus, RotateCcw, Trash2, UserCheck, Users } from "lucide-react";
 import { api, fmtDate, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
@@ -203,6 +204,32 @@ function Applications({ emailReady, onList }: { emailReady: boolean; onList: (li
   );
 }
 
+const RELEASE_NAME: Record<Release, string> = { owners: "Owners only", locked: "Locked: coming soon", released: "Released to everyone" };
+/** Feature releases (shared/features.ts): every new feature starts owners-only; one change here releases it, no deploy. */
+function Releases() {
+  const { config, run, refresh } = useStore();
+  const r = releasesOf(config?.features);
+  const set = async (key: string, state: Release) => {
+    const f = FEATURES.find((x) => x.key === key)!;
+    if (state === "released" && !confirm(`Release ${f.label} to every student? They get the full working page right away.`)) return;
+    if (await run(() => api("POST", "/api/admin/features", { key, state }), `${f.label}: ${RELEASE_NAME[state]}`)) await refresh();
+  };
+  return (
+    <section className="adm-card stack-sm" data-testid="feature-releases">
+      <h3>Feature releases</h3>
+      <span className="small muted">New features are built for owners first. Lock one to show students it's coming, or release it to everyone. Changes reach students within a minute, with no deploy. Switch to student view to preview.</span>
+      {FEATURES.map((f) => (
+        <div key={f.key} className="feat-row">
+          <div><b>{f.label}</b> <span className="small muted">{f.path}</span></div>
+          <select className="select" style={{ width: 260, maxWidth: "100%" }} value={r[f.key]} onChange={(e) => set(f.key, e.target.value as Release)} aria-label={`${f.label} release`} data-testid={`select-release-${f.key}`}>
+            {RELEASES.map((st) => <option key={st} value={st}>{RELEASE_NAME[st]}</option>)}
+          </select>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 type BetaRow = { email: string; note: string; addedBy: string; addedAt: string; invitedAt: string | null };
 type BetaData = { on: boolean; inviteOnly: boolean; open: boolean; formUrl: string; emailReady: boolean; list: BetaRow[] };
 /** Founding Cohort: owners paste accepted emails (one per line or comma-separated); Remy can email them "You're in". */
@@ -253,6 +280,7 @@ function BetaTab() {
         {!d.inviteOnly && !d.open && <span className="small muted">Beta-only mode is off on this server (OR_BETA_ONLY isn't true), so anyone can already sign in.</span>}
         <span className="small muted">Application form: {d.formUrl ? <a href={d.formUrl} target="_blank" rel="noreferrer" style={{ overflowWrap: "anywhere" }}>{d.formUrl}</a> : "not set (set OR_BETA_FORM_URL; until then students are pointed to hello@remyai.org)"}</span>
       </section>
+      <Releases />
       <Applications emailReady={d.emailReady} onList={(list) => setD({ ...d, list })} />
       <form className="adm-card stack-sm" onSubmit={(e) => { e.preventDefault(); add(); }}>
         <h3>Accept by email (without the form)</h3>

@@ -18,7 +18,7 @@ import { employerPreferences, interestContext, interestEnabled, ownInterest } fr
 import { keepQuestions, skippedPrefs } from "@shared/setupReply";
 import { newsMark } from "@shared/news";
 import { isNonAnswer } from "@shared/words";
-import { draftOk } from "./ai/bulletDraft";
+import { draftOk, ownRewriteOk } from "./ai/bulletDraft";
 import { WEAK } from "@shared/bullets";
 import { STORY_ASK, STORY_PARTS, findLine, namesNew, sameLine } from "@shared/stories";
 import { storyLines } from "./coach/storyLines";
@@ -34,6 +34,7 @@ import { inOwnerTrial, inOwnerView, runAiAs, aiJson, aiStatus, AiUnavailable, la
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./ai/safety";
 import * as admin from "./platform/admin";
 import * as beta from "./platform/beta";
+import * as features from "./platform/features";
 import * as signals from "./jobs/signals";
 import { acceptHtml } from "@shared/acceptEmail";
 import { recordError } from "./platform/admin";
@@ -715,6 +716,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       googleCalendar: gcal.gcalReady(),
       build: buildId(),
       beta: { on: await beta.betaOn(), formUrl: beta.betaFormUrl(), open: await beta.openAccess() },
+      features: await features.releases(),
     };
     res.json(cfg);
   });
@@ -780,6 +782,14 @@ export async function registerRoutes(_server: Server, app: Express) {
     await beta.setOpenAccess(me, req.body.open);
     await admin.logAction(me, req.body.open ? "beta: opened to everyone" : "beta: back to invite-only");
     res.json(await betaAdmin());
+  }));
+  // Feature releases (shared/features.ts): owners-only, locked with a teaser, or released to everyone. No deploy needed.
+  app.post("/api/admin/features", route(async (req, res, ctx) => {
+    const me = owner(ctx);
+    const key = String(req.body?.key || ""), state = String(req.body?.state || "");
+    const r = await features.setRelease(me, key, state);
+    await admin.logAction(me, `release: ${key} → ${state}`);
+    res.json({ features: r });
   }));
   app.post("/api/admin/beta", route(async (req, res, ctx) => {
     const me = owner(ctx);
@@ -1519,14 +1529,14 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!auto && kind === "verbs" && (!answer || isNonAnswer(answer) || answer.length < 4)) bad("Say in a few words what you actually did (like “wrote and scheduled the posts”).");
     const out = await withAi(ctx, "Improve a bullet", () =>
       aiJson<{ bullet: string }>(
-        `You improve ONE line of a college student's resume. Rules: keep every fact in the line; add nothing that isn't in the line or the student's answer (no outcomes, purposes, tools, numbers or adjectives they didn't give); start with a strong past-tense action verb (or present tense if the line is in present tense); 8 to 28 words; no period at the end.${auto ? " There is no answer: rewrite the line from its own words only. Lead with the strongest action verb the line supports, keep its tools, skills and terms exactly (they are the words application systems search for), and cut filler. If the line only says the student helped or took part, keep that (\"Helped\", \"Supported\"). If it can't be made stronger without adding something, return it unchanged." : kind === "numbers" ? " Work the student's number(s) into the line naturally, exactly as given." : " Start the line with what the student says they did, in their words (their answer), e.g. line \"Helped with social media\" + answer \"wrote and scheduled the posts\" becomes \"Wrote and scheduled social media posts\"."}`,
+        `You improve ONE line of a college student's resume. Rules: keep every fact in the line; add nothing that isn't in the line or the student's answer (no outcomes, purposes, tools, numbers or adjectives they didn't give); start with a strong past-tense action verb (or present tense if the line is in present tense); 8 to 28 words; no period at the end.${auto ? " There is no answer: rewrite the line from its own words only. Lead with the strongest action verb the line supports, keep its tools, skills and terms exactly (they are the words application systems search for), and cut filler. Keep the tense: a line in present tense or starting with an -ing word is current work, so it stays present (\"Manage\", \"Extending\"); never make it sound finished. If the line only says the student helped or took part, keep that (\"Helped\", \"Supported\"). If it can't be made stronger without adding something, return it unchanged." : kind === "numbers" ? " Work the student's number(s) into the line naturally, exactly as given." : " Start the line with what the student says they did, in their words (their answer), e.g. line \"Helped with social media\" + answer \"wrote and scheduled the posts\" becomes \"Wrote and scheduled social media posts\"."}`,
         `LINE: ${text}\n${answer ? `STUDENT'S ANSWER: ${answer}\n` : ""}\nReturn {"bullet":""}`,
         300,
       ),
     );
     const draft = String(out?.bullet || "").replace(/\s+/g, " ").trim().replace(/\.$/, "").slice(0, 300);
     // Only the line plus the student's answer, never a hedged action upgraded (server/ai/bulletDraft.ts).
-    if (!draftOk(auto ? "verbs" : (kind as "numbers" | "verbs"), text, answer, draft) || (auto && WEAK.test(draft))) {
+    if (!draftOk(auto ? "verbs" : (kind as "numbers" | "verbs"), text, answer, draft) || (auto && (WEAK.test(draft) || !ownRewriteOk(text, draft)))) {
       bad("Remy couldn't improve this line without adding something you didn't say. Edit it yourself in the Edit tab.", 422);
     }
     res.json({ draft });
@@ -1632,6 +1642,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   const ivOf = (ctx: Ctx, id: string) => (ctx.ws.interviews || []).find((x) => x.id === id) || bad("That practice isn't here anymore.", 404);
   const ivOk = (ctx: Ctx, extra = "") => (t: string) => !claimCheck(t, evidenceOf(ctx.ws) + "\n" + extra).length;
   app.post("/api/interviews", route(async (req, res, ctx) => {
+    if (!ctx.me.owner && (await features.releases()).interview !== "released") bad("Mock interviews are coming in a future update.", 403);
     ownerIv(ctx);
     const job = findJob(ctx.ws, String(req.body?.jobId || "")) || bad("Pick an opening to practice for.", 404);
     const mode: IvMode = req.body?.mode === "real" ? "real" : "coach";

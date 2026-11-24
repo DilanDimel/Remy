@@ -1,4 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { featureAt } from "@shared/features";
+import { useAccess } from "./ComingSoon";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
 import type { Workspace } from "@shared/types";
 import { useOwnerView, useStore } from "../lib/store";
@@ -77,7 +79,9 @@ export function RemyTour() {
   const { path } = useRoute();
   const w = ws!;
   const owner = useOwnerView();
-  const steps = owner ? OWNER_STEPS : STEPS;
+  const access = useAccess();
+  // A locked or owners-only page (shared/features.ts) has nothing to show yet, so the tour skips it.
+  const steps = (owner ? OWNER_STEPS : STEPS).filter((s) => { const f = featureAt(s.path); return !f || access(f.key) === "open"; });
   // Owners: the spot shows only once it has stopped moving, so it never flashes on the wrong thing while a page loads.
   const [settled, setSettled] = useState("");
   // The step lives here and moves right away; the server copy follows. So a slow or failed save can't freeze the

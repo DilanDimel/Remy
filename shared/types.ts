@@ -667,6 +667,8 @@ export interface AppConfig {
   build?: string;
   /** Founding Cohort beta: when on, only accepted emails can sign in; formUrl is the team's application form. */
   beta?: { on: boolean; formUrl: string; open?: boolean };
+  /** Feature releases (shared/features.ts): owners-only, locked with a teaser, or released, per feature key. */
+  features?: Record<string, "owners" | "locked" | "released">;
 }
 
 export interface HoursEntry {

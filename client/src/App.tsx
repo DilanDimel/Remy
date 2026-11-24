@@ -4,6 +4,7 @@ import {
   Award, BarChart3, Briefcase, CalendarDays, ChevronsLeft, ChevronsRight, Compass, FileText, Home as HomeIcon, Menu, Send,
   Check, Gauge, Info, Mic, Minus, ShieldCheck, UserCog, Users,
   ImagePlus, MessageCircle, MessageSquare, Search, ArrowRight, ChevronDown, Square,
+  Lock,
 } from "lucide-react";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { canListen, speak, useVoice } from "./lib/voice";
@@ -46,23 +47,25 @@ import Admin from "./pages/Admin";
 import type { ChatAction, Workspace } from "@shared/types";
 import { Celebrate } from "./components/Celebrate";
 import { RemyTour, tourAgain } from "./components/Tour";
+import { ComingSoon, useAccess } from "./components/ComingSoon";
 import { BETA_TERMS_LEAD, termsFor } from "@shared/beta";
 import { firstName, knownName } from "@shared/names";
 import { isNativeApp } from "./lib/native";
 
-const NAV: { path: string; label: string; icon: typeof HomeIcon; owners?: boolean }[] = [
+// feature: a key in shared/features.ts; owners release it (or lock it with a teaser) from Admin → Beta.
+const NAV: { path: string; label: string; icon: typeof HomeIcon; feature?: string }[] = [
   { path: "/", label: "Home", icon: HomeIcon },
   { path: "/path", label: "My Path", icon: Compass },
   // Owners (Nov 23): every reward in one place, so nobody has to find titles and pins inside My Path (Dilan).
-  { path: "/rewards", label: "Rewards", icon: Award, owners: true },
+  { path: "/rewards", label: "Rewards", icon: Award, feature: "rewards" },
   { path: "/resume", label: "Resume/CV", icon: FileText },
   { path: "/opportunities", label: "Opportunities", icon: Briefcase },
-  { path: "/interview", label: "Interview", icon: Mic },
-  { path: "/community", label: "Community", icon: Users },
+  { path: "/interview", label: "Interview", icon: Mic, feature: "interview" },
+  { path: "/community", label: "Community", icon: Users, feature: "community" },
   { path: "/calendar", label: "Calendar", icon: CalendarDays },
   { path: "/progress", label: "Progress", icon: BarChart3 },
 ];
-const ACCOUNTS = { path: "/accounts", label: "Account", icon: UserCog };
+const ACCOUNTS: (typeof NAV)[number] = { path: "/accounts", label: "Account", icon: UserCog };
 const THEME_NAME: Record<Theme, string> = { dark: "Dark mode", light: "Light mode", system: "Matching your device" };
 const NOTIFY_NAME: Record<string, string> = { "notify.deadlines": "Deadline reminders", "notify.statusChanges": "Status-change alerts", "notify.weeklyPlan": "Weekly plan emails" };
 const settingLabel = (a: Extract<ChatAction, { kind: "setting" }>) =>
@@ -241,7 +244,9 @@ function Shell() {
   useEffect(() => { return onOpenRequest(() => setAsstPage(true)); }, []);
   useEffect(() => { return onCloseRequest(() => setAsstPage(false)); }, []);
   const collapsed = w.settings.navCollapsed;
-  const nav = NAV.filter((n) => !n.owners || ownerView);
+  const access = useAccess();
+  const locked = (n: { feature?: string }) => !!n.feature && access(n.feature) === "locked";
+  const nav = NAV.filter((n) => !n.feature || access(n.feature) !== "hidden");
   const current = path.startsWith("/accounts") ? ACCOUNTS : nav.find((n) => (n.path === "/" ? path === "/" : path.startsWith(n.path))) || NAV[0];
   const pendingReview = w.applications.reduce((s, a) => s + a.changes.filter((c) => c.status === "pending").length, 0);
   const openSuggestions = w.suggestions.filter((s) => s.state === "open").length;
@@ -259,6 +264,8 @@ function Shell() {
       default: return <Home />;
     }
   })();
+  const soon = locked(current) ? current.feature! : "";
+  const shownPage = soon ? <ComingSoon feature={soon}>{page}</ComingSoon> : page;
   const initials = (w.profile.preferredName || knownName(w) || "S").split(/\s+/).map((x) => x[0]).slice(0, 2).join("").toUpperCase();
 
   return (
@@ -276,6 +283,7 @@ function Shell() {
             <span className="nav-label">{n.label}</span>
             {n.path === "/resume" && pendingReview > 0 && <span className="count">{pendingReview}</span>}
             {n.path === "/progress" && openSuggestions > 0 && <span className="count">{openSuggestions}</span>}
+            {locked(n) && <Lock size={14} className="nav-lock" aria-label="Coming soon" />}
           </a>
         ))}
         {/* Career quest: owners only while it's tested (Dilan, Nov 19); a big release later. */}
@@ -308,7 +316,7 @@ function Shell() {
           </div>
         </div>
         {ownerView && <RemyOffer />}
-        <div className="page fade-up" key={current.path}><ErrorBoundary where={`page:${current.path}`} resetKey={current.path}>{(ownerView || config?.beta?.open) && current.path === "/" && <Insider />}{page}</ErrorBoundary></div>
+        <div className="page fade-up" key={current.path}><ErrorBoundary where={`page:${current.path}`} resetKey={current.path}>{(ownerView || config?.beta?.open) && current.path === "/" && <Insider />}{shownPage}</ErrorBoundary></div>
       </main>
 
       {asstOpen && <aside className="assistant" aria-label="Remy assistant" data-testid="assistant-panel"><ErrorBoundary where="assistant" compact><Assistant page={current.label} onMinimize={() => setAsst(false)} flyIn={flyIn} /></ErrorBoundary></aside>}
@@ -331,7 +339,7 @@ function Shell() {
         <Modal title="More" onClose={() => setMore(false)}>
           <div className="stack-sm">
             {[...nav.filter((n) => ["/rewards", "/interview", "/community", "/calendar"].includes(n.path)), ACCOUNTS].map((n) => (
-              <button key={n.path} className="nav-item" onClick={() => { setMore(false); go(n.path); }}><n.icon size={19} />{n.label}</button>
+              <button key={n.path} className="nav-item" onClick={() => { setMore(false); go(n.path); }}><n.icon size={19} />{n.label}{locked(n) && <Lock size={14} className="nav-lock" aria-label="Coming soon" />}</button>
             ))}
             <button className="nav-item" onClick={() => { setMore(false); tourAgain(save); go("/"); }} data-testid="mobile-tour"><Compass size={19} />Show me around again</button>
             <button className="nav-item" onClick={() => { setMore(false); go("/about"); }}><Info size={19} />About Remy</button>

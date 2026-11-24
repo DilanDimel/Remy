@@ -48,3 +48,15 @@ export function draftOk(kind: "numbers" | "verbs", text: string, answer: string,
   if (upgradesPart(text, answer, draft)) return false;
   return !claimCheck(draft, evidence, { original: evidence, strict: true }).length;
 }
+
+/** Remy's own rewrite (no answer, owners): false when it isn't worth showing. Live check Nov 24: "Manage office
+ *  communications" came back as "Managed …" (a current role made to sound finished), and "Selected participant" as
+ *  "Selected as a participant" (no real change). Then Remy asks instead. */
+export function ownRewriteOk(text: string, draft: string): boolean {
+  const a = words(text), b = words(draft);
+  const [w0, d0] = [a[0] || "", b[0] || ""];
+  if (w0 !== d0 && family(w0) === family(d0) && !/ed$/.test(w0) && /ed$/.test(d0)) return false; // tense flipped to past
+  const sa = new Set(a), sb = new Set(b);
+  const changed = b.filter((w) => !sa.has(w)).length + a.filter((w) => !sb.has(w)).length;
+  return w0 !== d0 || changed > 3;
+}

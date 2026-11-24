@@ -43,6 +43,11 @@ test("bullet draft check: Remy's own rewrite (no answer) keeps only the line's w
   assert.equal(draftOk("verbs", line, "", "Applied implied volatility with a fallback to 6-month historical volatility when market IV was unreliable"), true);
   assert.equal(draftOk("verbs", line, "", "Applied implied volatility, cutting pricing error by 20%, with a 6-month historical fallback"), false);
   assert.equal(draftOk("verbs", "Helped organize the career fair", "", "Organized the career fair"), false);
+  const { ownRewriteOk } = await import("../ai/bulletDraft");
+  assert.equal(ownRewriteOk("Manage office communications and data entry", "Managed office communications and data entry"), false, "a current role stays current");
+  assert.equal(ownRewriteOk("Extending the model to Kalshi prices", "Extended the model to Kalshi prices"), false);
+  assert.equal(ownRewriteOk("Selected participant in DataArt's camp", "Selected as a participant in DataArt's camp"), false, "too small to show");
+  assert.equal(ownRewriteOk(line, "Applied implied volatility with a fallback to 6-month historical volatility when market IV was unreliable"), true);
 });
 
 test("review: owners count Activities and Leadership lines as achievements (Treasurer, President)", () => {

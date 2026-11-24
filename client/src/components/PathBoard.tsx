@@ -3,9 +3,9 @@
 // gives a reward at every level (Remy's outfits or a new thing for his office); quests and the week's big move come from
 // every tab; "Your field" (roles, skills, certifications) sits on the page. Every number comes from data Remy already
 // has (DailyPath.tsx buildStops, shared/daily.ts, shared/game.ts, BLS via /api/careers and /api/future).
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as RMouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ArrowRight, Award, Briefcase, Check, Compass, DollarSign, Eye, Flame, Gift, Mic, Snowflake, Square, TrendingDown, TrendingUp, Wrench, Zap } from "lucide-react";
+import { ArrowRight, Award, Briefcase, Check, Compass, DollarSign, Eye, Flame, Gift, Mic, Snowflake, Square, TrendingDown, TrendingUp, Wrench, X, Zap } from "lucide-react";
 import { ROADS, roadFor, YEARS, yearNumber, NEED_LABEL } from "@shared/roads";
 import { rankOf, weekKey, weekMissions, doneThisWeek, counters, xpOf, nextOutfit, unlockedOutfits, levelReward, OFFICE, RANKS, WARDROBE } from "@shared/game";
 import { CARD_XP, dailyStreak, dayKey, streakDays } from "@shared/daily";
@@ -17,7 +17,9 @@ import type { Workspace } from "@shared/types";
 import { go } from "../lib/router";
 import { Modal, Remy, Rich, Spinner } from "./common";
 import { PATH_WALK } from "./Tour";
-import { OUTFITS } from "./scholar";
+import { ACTS, OUTFITS } from "./scholar";
+import { GIVE_UP, KONAMI, POKES, QUOTES, SECRETS, SPIN, TAPS, dateLine, pick, timeLine } from "./officeLines";
+import "./office.css";
 import { OfficeOpens, RemyDid } from "./RemyDid";
 import { canListen, speak, useVoice } from "../lib/voice";
 import { buildStops, money, stateOf, StopDetail, useFieldData, type Occ } from "./DailyPath";
@@ -134,13 +136,14 @@ export function OfficeThing({ k }: { k: string }) {
   return <svg className="ps-thing" viewBox="0 0 44 40" aria-hidden="true">{art[k] || <circle cx="22" cy="20" r="10" {...st} />}</svg>;
 }
 
-/* Where Remy can be in his office (room units, viewBox 0 40 860 430). y is the top of his drawing: seated he shows
+/* Where Remy can be in his office (room units, viewBox 0 40 860 420). y is the top of his drawing: seated he shows
    from the chest up behind the desk; standing, his feet touch the floor behind the desk's front edge. */
 const FOX_S = 0.62;
 type Spot = "desk" | "shelf" | "window";
-const SPOTS: Record<Spot, { x: number; y: number; sit?: boolean }> = { desk: { x: 455, y: 208, sit: true }, shelf: { x: 262, y: 192 }, window: { x: 668, y: 192 } };
-type Pose = "" | "type" | "point" | "point-low";
+const SPOTS: Record<Spot, { x: number; y: number; sit?: boolean }> = { desk: { x: 455, y: 208, sit: true }, shelf: { x: 262, y: 186 }, window: { x: 668, y: 186 } };
+type Pose = "" | "type" | "point" | "point-low" | "lean";
 const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const isNight = () => document.documentElement.dataset.theme === "dark";
 
 /** Remy in the room: sits at his desk and types, gets up and walks to things, points at them, and strolls to the window
  *  now and then. Moves are a short chain of timers so a new move always cancels the one before it. */
@@ -166,6 +169,11 @@ function useDeskFox() {
   return { x, y, walk, face, pose, setPose, moveTo, later, stop, seated: () => at.current === "desk" };
 }
 
+const KONAMI_KEYS = ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "b", "a"];
+
+/* Day and night (Nov 24, Demetre and Dilan): light mode is the office by day, dark mode the same office at night with the
+   lamp on, stars and lit windows. Every thing in the room wiggles when tapped and Remy says something about it; he
+   answers your questions in a speech bubble in the room, and now and then leans back in his chair with a Stoic quote. */
 function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) => void }) {
   const g = useGuide(d, onField);
   const fox = useDeskFox();
@@ -173,15 +181,33 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   // On My Path his side panel is closed (App.tsx): you talk to him here, and he answers in the room.
   const { config, setWs, run } = useStore();
   const [q, setQ] = useState(""), [busy, setBusy] = useState(false), [said, setSaid] = useState<{ q: string; id?: string; live?: string } | null>(null);
-  const busyRef = useRef(false);
+  const busyRef = useRef(false), saidRef = useRef(said), guideRef = useRef(g.on);
+  saidRef.current = said; guideRef.current = g.on;
   const aiOn = !!config?.ai.available;
   const reply = said?.id ? d.w.chat.find((m) => m.id === said.id) : null;
+  // What he says on his own: a quote, a line about what you tapped, the time of day. Never over an answer or the tour.
+  const [quip, setQuip] = useState<{ text: string; by?: string } | null>(null);
+  const quipT = useRef(0);
+  const say = (text: string, by?: string, ms = 6500) => {
+    if (saidRef.current || guideRef.current) return;
+    setQuip({ text, by }); clearTimeout(quipT.current);
+    quipT.current = window.setTimeout(() => setQuip(null), ms + text.length * 25);
+  };
+  useEffect(() => () => clearTimeout(quipT.current), []);
+  const foxEl = useRef<SVGGElement>(null);
+  /** One of the little things he does (scholar.ts ACTS), played on his drawing. */
+  const act = (name: string) => {
+    const el = foxEl.current?.querySelector("svg.fox"), a = ACTS[name];
+    if (!el || !a || reduced() || [...el.classList].some((c) => c.startsWith("act-"))) return;
+    el.classList.add("act-" + name); window.setTimeout(() => el.classList.remove("act-" + name), a.ms);
+  };
+  const quote = () => { const x = pick(QUOTES); if (fox.seated()) { fox.setPose("lean"); fox.later(() => fox.setPose(""), 9000); } say(`“${x.q}”`, x.by, 8000); };
   // Talk to him here too: what you say is sent when you stop, and his answer is read back.
   const voice = useVoice(setQ, (t) => ask(t, true));
   const ask = async (said0?: string, spoken = false) => {
     const text = (said0 ?? q).trim();
     if (!text || busy) return;
-    setQ(""); setSaid({ q: text }); setBusy(true); busyRef.current = true;
+    setQuip(null); setQ(""); setSaid({ q: text }); setBusy(true); busyRef.current = true;
     fox.moveTo("desk", "type"); setMood("think");
     const before = new Set(d.w.chat.map((m) => m.id));
     // His answer appears as he writes it (owners' server streams it), like the Remy panel.
@@ -201,133 +227,233 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   const pins = topPins(d.w, 8), rare = rareOwned(d.g);
   const owned = unlockedOutfits(d.g.bestRank || d.lv.n, d.w.profile.classYear), wearing = d.g.outfit && owned.includes(d.g.outfit) ? d.g.outfit : "suit";
   const suit = Object.fromEntries((OUTFITS[wearing] || OUTFITS.suit).vars.split(";").map((kv) => kv.split(":"))) as CSSProperties;
-  const ink = "var(--ink)", line = { stroke: ink, strokeWidth: 2.5, strokeLinejoin: "round" as const };
-  const ghost = { fill: "none", stroke: "var(--fox-deep)", strokeOpacity: 0.45, strokeWidth: 2, strokeDasharray: "4 4" };
-  const at = (x: number, y: number) => ({ left: `${(x / 860) * 100}%`, top: `${((y - 40) / 430) * 100}%` });
-  const bookColors = ["var(--fox)", "var(--sage)", "var(--ink)", "var(--blue)", "var(--amber)", "var(--fox-deep)", "var(--sage)", "var(--fox)"];
+  const L = { stroke: "var(--room-line)", strokeWidth: 2.5, strokeLinejoin: "round" as const, strokeLinecap: "round" as const };
+  const ghost = { fill: "none", stroke: "var(--room-label-2)", strokeOpacity: 0.7, strokeWidth: 2, strokeDasharray: "4 5" };
+  const O = "var(--room-obj)", O2 = "var(--room-obj-2)", WOOD = "var(--room-wood)", WOOD2 = "var(--room-wood-2)";
+  const at = (x: number, y: number) => ({ left: `${(x / 860) * 100}%`, top: `${((y - 40) / 420) * 100}%` });
+  const bookColors = ["var(--sch-navy)", "var(--sch-tweed)", "var(--sch-wine)", "var(--sch-camel)", "var(--fox)", "var(--sch-ox)", "var(--sch-knit)", "var(--sch-brown)"];
+
+  // The clock on the wall tells the real time.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const t = window.setInterval(() => setNow(new Date()), 30000); return () => clearInterval(t); }, []);
+  const hh = ((now.getHours() % 12) + now.getMinutes() / 60) * 30, mm = now.getMinutes() * 6;
+  // Taps: the thing wiggles and Remy says something about it. Some things do more.
+  const [wig, setWig] = useState<{ k: string; n: number } | null>(null);
+  const [lamp, setLamp] = useState<"" | "on" | "off">(""), [music, setMusic] = useState(false), [spin, setSpin] = useState(0);
+  const pokes = useRef<number[]>([]);
+  const it = (k: string, cls = "") => ({ className: `ps-it ${cls}` + (wig?.k === k ? ` wig${wig.n % 2}` : ""), "data-it": k });
+  const tap = (k: string) => {
+    setWig((w) => ({ k, n: (w?.n || 0) + 1 }));
+    if (k === "remy") {
+      const t = Date.now(); pokes.current = [...pokes.current.filter((p) => t - p < 2500), t];
+      const n = pokes.current.length;
+      if (n >= 10) { pokes.current = []; act("yawn"); return say(GIVE_UP); }
+      if (n === 5 && fox.seated()) { setSpin((s) => s + 1); act("grin"); return say(SPIN, undefined, 2000); }
+      act(pick(["grin", "push", "look", "wave"])); return say(pick(POKES));
+    }
+    if (k === "lamp") setLamp((l) => (l ? (l === "on" ? "off" : "on") : isNight() ? "off" : "on"));
+    if (k === "record") setMusic((m) => !m);
+    if (k === "mug" || k === "goldmug") act("coffee");
+    if (k === "books") act("read");
+    if (k === "laptop" && fox.seated()) { fox.setPose("type"); fox.later(() => fox.setPose(""), 3000); }
+    if (k === "chair" && fox.seated()) setSpin((s) => s + 1);
+    if ((k === "window" || k === "skyline") && fox.seated() && !reduced()) { const ms = fox.moveTo("window", "point"); fox.later(() => fox.moveTo("desk"), ms + 4200); }
+    const lines = TAPS[k];
+    if (lines) say(pick(lines).replace("{time}", now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })));
+  };
+  const onScene = (e: RMouseEvent) => { const el = (e.target as Element).closest?.("[data-it]"); if (el) tap(el.getAttribute("data-it")!); };
 
   // The walk-through moves him: each step names a spot and what he does there. Starting it, he waves first.
   const stepKey = g.on ? g.step : -1;
   useEffect(() => {
     if (!g.on) { setMood("idle"); fox.moveTo("desk"); return; }
+    setQuip(null);
     const s = g.steps[g.step];
     const greet = g.step === 0 && fox.seated() && !reduced();
     setMood(greet || s.wave ? "wave" : "idle");
     const t = fox.moveTo(s.spot, s.pose, s.face, greet ? 1500 : 0);
     if (greet) fox.later(() => setMood("idle"), t);
   }, [stepKey]); // eslint-disable-line react-hooks/exhaustive-deps
-  // On his own: types for a while, now and then gets up to look out the window. Never during the walk-through.
+  // On his own: types, strolls to the window, leans back with a quote, sips coffee, yawns at night. Never during the walk-through.
   useEffect(() => {
-    if (g.on || reduced()) return;
+    if (g.on) return;
     let t = 0;
+    // Hello for the day or the time: once, a few seconds after you arrive.
+    const hello = window.setTimeout(() => { const n = new Date(); say(dateLine(n) || timeLine(n.getHours(), n.getDay())); }, 3500);
+    if (reduced()) return () => clearTimeout(hello);
     fox.later(() => fox.setPose("type"), 1200);
     const tick = () => { t = window.setTimeout(() => {
-      if (!document.hidden && fox.seated() && !busyRef.current) {
+      if (!document.hidden && fox.seated() && !busyRef.current && !saidRef.current) {
         const r = Math.random();
-        if (r < 0.55) { fox.setPose("type"); fox.later(() => fox.setPose(""), 5000); }
-        else if (r < 0.8) { const ms = fox.moveTo("window"); fox.later(() => fox.moveTo("desk", "type"), ms + 3800); }
+        if (r < 0.35) { fox.setPose("type"); fox.later(() => fox.setPose(""), 5000); }
+        else if (r < 0.52) { const ms = fox.moveTo("window"); fox.later(() => fox.moveTo("desk", "type"), ms + 3800); }
+        else if (r < 0.7) quote();
+        else act(isNight() && Math.random() < 0.5 ? "yawn" : pick(["coffee", "clean", "read", "push", "tie", "idea", "look"]));
       }
       tick();
-    }, 9000 + Math.random() * 6000); };
+    }, 9000 + Math.random() * 7000); };
     tick();
-    return () => clearTimeout(t);
+    return () => { clearTimeout(t); clearTimeout(hello); };
   }, [g.on]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Secrets on the keyboard: the Konami code, or typing stoic, remy, hire or coffee anywhere but a text box.
+  useEffect(() => {
+    let keys: string[] = [], typed = "";
+    const key = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.closest?.("input, textarea, select, [contenteditable=true], [role=dialog]")) return;
+      keys = [...keys, e.key].slice(-KONAMI_KEYS.length);
+      if (keys.join() === KONAMI_KEYS.join()) { keys = []; setSpin((s) => s + 1); act("idea"); return say(KONAMI); }
+      if (e.key.length !== 1) return;
+      typed = (typed + e.key.toLowerCase()).slice(-8);
+      const word = Object.keys(SECRETS).find((w) => typed.endsWith(w));
+      if (!word) return;
+      typed = "";
+      if (word === "stoic") quote(); else { say(SECRETS[word]); act(word === "coffee" ? "coffee" : "grin"); }
+    };
+    addEventListener("keydown", key);
+    return () => removeEventListener("keydown", key);
+  }); // eslint-disable-line react-hooks/exhaustive-deps
 
   const arrived = !fox.walk;
   const ring = g.on && arrived ? g.steps[g.step].ring : null;
+  const seatedNow = fox.y === SPOTS.desk.y && fox.x === SPOTS.desk.x;
+  // The speech bubble sits beside his head, on whichever side has more room; on phones it drops below the room.
+  const fx = (fox.x / 860) * 100, hy = ((fox.y + 96 - 40) / 420) * 100;
+  const sayAt = { "--fx": `${fx}%`, "--hy": `${hy}%`, "--tail": `${fx}%` } as CSSProperties;
+  const side = fx > 48 ? "l" : "r";
+  const stars = [[578, 70], [636, 64], [704, 76], [748, 66], [764, 98], [690, 104], [596, 116], [728, 118], [654, 92]];
+  const lit = [[576, 178], [584, 192], [600, 150], [604, 166], [599, 184], [638, 138], [648, 152], [640, 168], [650, 184], [678, 176], [686, 192], [718, 194]];
   return (
     <section className="ps-office" aria-label="Remy's office" data-testid="path-office">
-      <div className="pt-card-head"><span className="pm-kicker dark">Remy's office</span><span className="pm-faint">{nextItem ? `Level ${nextItem[2]} adds a ${nextItem[1].toLowerCase()}` : "Fully furnished"}</span>
+      {/* One row above the room (Nov 24): who's here, what to ask him, the walk-through. Saves a row so My Path fits 1440x800. */}
+      <div className="pt-card-head"><span className="ps-office-title"><span className="pm-kicker dark">Remy's office</span><span className="pm-faint">{nextItem ? `Level ${nextItem[2]} adds a ${nextItem[1].toLowerCase()}` : "Fully furnished"}</span></span>
+        {!g.on && <form className="ps-ask" onSubmit={(e) => { e.preventDefault(); ask(); }}>
+            <input className="input" value={q} onChange={(e) => setQ(e.target.value)} disabled={!aiOn || busy} placeholder={aiOn ? "Ask Remy anything about your path…" : "Remy's chat is off on this server"} aria-label="Ask Remy" data-testid="input-office-ask" />
+            {canListen && aiOn && <button type="button" className={"btn btn-sm " + (voice.on ? "btn-primary remy-listening" : "btn-secondary")} onClick={voice.toggle} disabled={busy} aria-label={voice.on ? "Stop listening" : "Talk to Remy"} aria-pressed={voice.on} data-testid="button-office-mic">{voice.on ? <Square size={16} /> : <Mic size={16} />}</button>}
+            <button className="btn btn-primary btn-sm" disabled={!aiOn || busy || !q.trim()} data-testid="button-office-ask">Ask</button>
+        </form>}
         {!g.on && <button className="btn btn-ghost btn-sm ps-again" onClick={g.start} data-testid="button-hello-again">Walk me through it</button>}</div>
       <div className="ps-roomwrap">
-      <div className={"ps-room" + (g.on ? " guiding" : "")} data-testid="path-hello">
-        <svg className="ps-scene" viewBox="0 40 860 430" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
-          <defs><clipPath id="ps-win"><rect x="560" y="56" width="220" height="152" rx="10" /></clipPath></defs>
-          {/* the wall */}
-          <rect x="0" y="352" width="860" height="118" fill="color-mix(in srgb, var(--fox) 14%, var(--fox-soft))" />
-          <line x1="0" y1="352" x2="860" y2="352" {...line} />
-          <rect x="560" y="56" width="220" height="152" rx="10" fill="var(--surface)" />
-          <g clipPath="url(#ps-win)">
-            <path className="ps-cloud" d="M560 96a11 11 0 0 1 20-6a13 13 0 0 1 24 4a9 9 0 0 1 0 18h-40a8 8 0 0 1-4-16z" fill="var(--blue-bg)" />
-            <path className="ps-cloud two" d="M560 74a8 8 0 0 1 14-4a10 10 0 0 1 18 3a7 7 0 0 1 0 14h-30a6 6 0 0 1-2-13z" fill="var(--blue-bg)" />
-            <path d={has("skyline") ? "M570 208V140h24v-40h20v108h18V82h26v126h14v-80h22v80h20v-50h16v50h20V208z" : "M570 208V170h24v-30h20v68h18v-80h26v80h14v-40h22v40h20v-20h16v20h20V208z"} fill={has("skyline") ? "var(--blue-bg)" : "color-mix(in srgb, var(--fox) 22%, var(--surface))"} />
+      <div className={"ps-room" + (g.on ? " guiding" : "") + (lamp ? ` lamp-${lamp}` : "") + (music ? " music" : "")} data-testid="path-hello">
+        <svg className="ps-scene" viewBox="0 40 860 420" preserveAspectRatio="xMidYMax meet" aria-hidden="true" onClick={onScene}>
+          <defs>
+            <clipPath id="ps-win"><rect x="560" y="56" width="220" height="152" rx="6" /></clipPath>
+            <linearGradient id="ps-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style={{ stopColor: "var(--room-sky)" }} /><stop offset="1" style={{ stopColor: "var(--room-sky-2)" }} /></linearGradient>
+            <radialGradient id="ps-glow"><stop offset="0" style={{ stopColor: "var(--room-glow)", stopOpacity: 0.5 }} /><stop offset="1" style={{ stopColor: "var(--room-glow)", stopOpacity: 0 }} /></radialGradient>
+            <linearGradient id="ps-beam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style={{ stopColor: "var(--room-sky-2)", stopOpacity: 0.7 }} /><stop offset="1" style={{ stopColor: "var(--room-sky-2)", stopOpacity: 0 }} /></linearGradient>
+          </defs>
+          {/* the wall, a panel along the bottom, the wood floor */}
+          <rect x="0" y="40" width="860" height="312" fill="var(--room-wall)" />
+          <rect x="0" y="296" width="860" height="56" fill="var(--room-wall-2)" />
+          <path d="M0 296H860" stroke="var(--room-line)" strokeOpacity=".16" strokeWidth="2" />
+          <rect x="0" y="352" width="860" height="118" fill="var(--room-floor)" />
+          <path d="M0 386H860M0 424H860M0 460H860M120 352v34M380 386v38M610 352v34M250 424v36M720 424v36M520 460v10" stroke="var(--room-floor-2)" strokeWidth="2" />
+          <rect x="0" y="346" width="860" height="8" fill={O2} stroke="var(--room-line)" strokeWidth="2" />
+          <path className="ps-day" d="M560 354H780L736 470H500Z" fill="url(#ps-beam)" />
+          <circle className="ps-lamplight" cx="393" cy="300" r="190" fill="url(#ps-glow)" />
+          {/* the window: sun and clouds by day; moon, stars and a shooting star at night; the city lights up */}
+          <g {...it("window")}>
+            <rect x="552" y="48" width="236" height="168" rx="8" fill={O} {...L} />
+            <rect x="560" y="56" width="220" height="152" rx="6" fill="url(#ps-sky)" />
+            <g clipPath="url(#ps-win)">
+              <g className="ps-night">{stars.map(([x, y], i) => <circle key={i} className="ps-twinkle" cx={x} cy={y} r={i % 3 ? 1.4 : 2} fill="var(--room-sun)" style={{ animationDelay: `${-i * 0.7}s` }} />)}
+                <path className="ps-shoot" d="M740 64l-30 12" stroke="var(--room-sun)" strokeWidth="2" strokeLinecap="round" /></g>
+              <g {...it("sun", "ps-day")}><circle cx="606" cy="92" r="20" fill="var(--room-sun)" opacity=".3" /><circle cx="606" cy="92" r="14" fill="var(--room-sun)" /></g>
+              <g {...it("moon", "ps-night")}><path d="M606 76a14 14 0 1 0 0 28a6 14 0 1 1 0-28z" fill="var(--room-sun)" /></g>
+              <g className="ps-day">
+                <path className="ps-cloud" d="M560 96a11 11 0 0 1 20-6a13 13 0 0 1 24 4a9 9 0 0 1 0 18h-40a8 8 0 0 1-4-16z" fill={O} opacity=".92" />
+                <path className="ps-cloud two" d="M560 74a8 8 0 0 1 14-4a10 10 0 0 1 18 3a7 7 0 0 1 0 14h-30a6 6 0 0 1-2-13z" fill={O} opacity=".8" />
+                <path className="ps-bird" d="M560 110q4-5 8 0q4-5 8 0" stroke="var(--room-line)" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+                <path className="ps-bird two" d="M560 100q3-4 6 0q3-4 6 0" stroke="var(--room-line)" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+              </g>
+              <path d="M560 208V152h18v-14h16v30h14v-40h22v50h16v-24h20v34h18v-58h14v58h22v-30h16v30h24V208z" fill="var(--room-city-2)" />
+              <path {...it("skyline")} d={has("skyline") ? "M570 208V140h24v-40h20v108h18V82h26v126h14v-80h22v80h20v-50h16v50h20V208z" : "M570 208V170h24v-30h20v68h18v-80h26v80h14v-40h22v40h20v-20h16v20h20V208z"} fill="var(--room-city)" />
+              <g className="ps-night">{lit.map(([x, y], i) => <rect key={i} className={i % 4 ? "" : "ps-flick"} x={x} y={y} width="4" height="5" rx="1" fill="var(--room-glow)" />)}</g>
+            </g>
+            <rect x="560" y="56" width="220" height="152" rx="6" fill="none" {...L} />
+            <path d="M670 56V208M560 132H780" {...L} strokeWidth="5" stroke={O} /><path d="M670 56V208M560 132H780" {...L} fill="none" strokeWidth="1.5" />
+            <rect x="544" y="204" width="252" height="10" rx="3" fill={O} {...L} />
           </g>
-          <rect x="560" y="56" width="220" height="152" rx="10" fill="none" {...line} />
-          <line x1="670" y1="56" x2="670" y2="208" {...line} /><line x1="560" y1="132" x2="780" y2="132" {...line} />
-          <rect x="40" y="178" width="200" height="10" rx="3" fill="var(--surface)" {...line} />
-          {Array.from({ length: 8 }, (_, i) => { const h = [62, 54, 66, 58, 62, 52, 60, 56][i], x = 52 + i * 22; return i < books
-            ? <rect key={i} x={x} y={178 - h} width="18" height={h} rx="2" fill={bookColors[i]} {...line} />
-            : <rect key={i} x={x} y={178 - h} width="18" height={h} rx="2" {...ghost} />; })}
-          <rect x="40" y="268" width="200" height="10" rx="3" fill="var(--surface)" {...line} />
-          {cert ? <rect x="56" y="226" width="40" height="42" rx="4" fill="var(--amber-bg)" {...line} /> : <rect x="56" y="226" width="40" height="42" rx="4" {...ghost} />}
-          {has("trophy") && <g transform="translate(130 228)"><path d="M14 6h16v8a8 8 0 0 1-16 0z" fill="var(--amber-bg)" {...line} /><path d="M22 22v10M14 38h16" {...line} /></g>}
+          {/* shelves: decoded jobs on top, the certificate frame, the trophy and the bonsai below */}
+          <g {...it("books")}>
+            {Array.from({ length: 8 }, (_, i) => { const h = [62, 54, 66, 58, 62, 52, 60, 56][i], x = 52 + i * 22; return i < books
+              ? <g key={i} transform={i === 5 && books > 6 ? `rotate(-8 ${x + 18} 178)` : undefined}><rect x={x} y={178 - h} width="18" height={h} rx="2" fill={bookColors[i]} {...L} /><path d={`M${x + 4} ${186 - h}h10M${x + 4} ${170}h10`} stroke={O} strokeOpacity=".55" strokeWidth="2" /></g>
+              : <rect key={i} x={x} y={178 - h} width="18" height={h} rx="2" {...ghost} />; })}
+            <rect x="40" y="178" width="200" height="10" rx="3" fill={WOOD} {...L} />
+          </g>
+          <rect x="40" y="268" width="200" height="10" rx="3" fill={WOOD} {...L} />
+          <g {...it("cert")}>{cert ? <><rect x="56" y="226" width="40" height="42" rx="3" fill={WOOD2} {...L} /><rect x="62" y="232" width="28" height="30" rx="1" fill={O} /><circle cx="76" cy="254" r="4" fill="var(--fox)" /><path d="M68 240h16M68 246h12" stroke="var(--room-label-2)" strokeWidth="2" /></>
+            : <rect x="56" y="226" width="40" height="42" rx="3" {...ghost} />}</g>
+          {has("trophy") && <g {...it("trophy")}><g transform="translate(130 228)"><path d="M14 6h16v8a8 8 0 0 1-16 0z" fill="var(--sch-bulb)" {...L} /><path d="M14 9H9a5 5 0 0 0 5 6M30 9h5a5 5 0 0 1-5 6" fill="none" {...L} /><path d="M22 22v10M14 38h16" {...L} /></g></g>}
           {/* streak milestones (Nov 24): the plant blooms at 7 days in a row, a framed photo at 30, gold at 100 */}
-          {d.streak.best >= 30 && <g transform="translate(796 120)"><rect width="52" height="64" rx="3" fill={d.streak.best >= 100 ? "var(--amber)" : "var(--surface)"} {...line} /><rect x="7" y="7" width="38" height="50" rx="2" fill="var(--surface)" stroke={ink} strokeWidth="1.5" />
-            <text x="26" y="34" textAnchor="middle" fontSize="17" fontWeight="800" fill="var(--fox-deep)">{d.streak.best >= 100 ? 100 : 30}</text><text x="26" y="48" textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--muted-text)">days</text></g>}
+          {d.streak.best >= 30 && <g {...it("photo")}><g transform="translate(796 120)"><rect width="52" height="64" rx="3" fill={d.streak.best >= 100 ? "var(--sch-bulb)" : WOOD2} {...L} /><rect x="7" y="7" width="38" height="50" rx="2" fill={O} stroke="var(--room-line)" strokeWidth="1.5" />
+            <text x="26" y="34" textAnchor="middle" fontSize="17" fontWeight="800" fill="var(--fox)">{d.streak.best >= 100 ? 100 : 30}</text><text x="26" y="48" textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--room-label-2)">days</text></g></g>}
           {/* rare finds from the daily chest (Nov 24) */}
-          {rare.has("bonsai") && <g transform="translate(184 230)"><path d="M6 30h32l-4 8H10z" fill="var(--fox-deep)" {...line} /><path d="M22 30c0-8-6-10-9-15M22 30c1-9 7-11 10-15" fill="none" {...line} /><circle cx="12" cy="13" r="8" fill="var(--sage)" /><circle cx="32" cy="12" r="9" fill="var(--sage)" /><circle cx="22" cy="6" r="7" fill="var(--sage)" /></g>}
-          {rare.has("pennant") && <g transform="translate(494 74)"><path d="M0 0v62" {...line} /><path d="M1 2l46 14-46 16z" fill="var(--fox)" {...line} /><path d="M9 11l20 6-20 7z" fill="var(--surface)" /></g>}
-          {rare.has("goldmug") && <g transform="translate(736 186)"><path d="M0 0h18v18a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4z" fill="var(--amber)" {...line} /><path d="M18 5h4a4 4 0 0 1 0 8h-4" fill="none" {...line} /></g>}
-          {rare.has("record") && <g transform="translate(670 372)"><rect width="78" height="30" rx="5" fill="var(--surface)" {...line} /><ellipse cx="32" cy="2" rx="26" ry="7" fill="var(--ink)" {...line} /><circle cx="32" cy="2" r="3" fill="var(--fox)" /><path d="M68-8l-12 12" {...line} /></g>}
-          {resume ? <><rect x="282" y="70" width="92" height="116" rx="6" fill="var(--surface)" {...line} /><path d="M304 100h48M304 112h40M304 124h46M304 136h30M304 148h42" stroke="var(--muted-text)" strokeWidth="3" strokeLinecap="round" /></>
-            : <rect x="282" y="70" width="92" height="116" rx="6" {...ghost} />}
+          {rare.has("bonsai") && <g {...it("bonsai")}><g transform="translate(184 230)"><path d="M6 30h32l-4 8H10z" fill="var(--sch-ox)" {...L} /><path d="M22 30c0-8-6-10-9-15M22 30c1-9 7-11 10-15" fill="none" {...L} /><circle cx="12" cy="13" r="8" fill="var(--sch-tweed)" /><circle cx="32" cy="12" r="9" fill="var(--sch-tweed)" /><circle cx="22" cy="6" r="7" fill="var(--sch-tweed)" /></g></g>}
+          {rare.has("pennant") && <g {...it("pennant")}><g transform="translate(494 74)"><path d="M0 0v62" {...L} /><path className="ps-flag" d="M1 2l46 14-46 16z" fill="var(--fox)" {...L} /><path d="M9 11l20 6-20 7z" fill={O} /></g></g>}
+          {rare.has("goldmug") && <g {...it("goldmug")}><g transform="translate(736 182)"><path d="M0 0h18v18a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4z" fill="var(--sch-bulb)" {...L} /><path d="M18 5h4a4 4 0 0 1 0 8h-4" fill="none" {...L} /></g></g>}
+          {rare.has("record") && <g {...it("record")}><g transform="translate(670 372)"><rect width="78" height="30" rx="5" fill={WOOD2} {...L} /><g className="ps-vinyl"><ellipse cx="32" cy="2" rx="26" ry="7" fill="var(--sch-black)" {...L} /><circle cx="32" cy="2" r="3" fill="var(--fox)" /></g><path d="M68-8l-12 12" {...L} />
+            <g className="ps-notes"><path d="M20-14v-12l8-2v12" fill="none" {...L} strokeWidth="2" /><circle cx="18" cy="-14" r="3" fill="var(--room-line)" /><circle cx="26" cy="-16" r="3" fill="var(--room-line)" /></g></g></g>}
+          <g {...it("resume")}>{resume ? <><rect x="282" y="70" width="92" height="116" rx="4" fill={WOOD2} {...L} /><rect x="290" y="78" width="76" height="100" rx="2" fill={O} /><circle cx="304" cy="94" r="7" fill="var(--room-obj-2)" stroke="var(--room-label-2)" strokeWidth="1.5" /><path d="M316 90h36M316 98h24M298 114h56M298 124h48M298 134h54M298 146h40M298 156h50" stroke="var(--room-label-2)" strokeWidth="3" strokeLinecap="round" /></>
+            : <rect x="282" y="70" width="92" height="116" rx="4" {...ghost} />}</g>
           {/* the corkboard: every career pin earned, best first (Rewards, Nov 24) */}
-          <rect x="404" y="150" width="136" height="64" rx="5" {...(pins.length ? { fill: "color-mix(in srgb, var(--amber) 30%, var(--amber-bg))", ...line } : ghost)} />
-          {pins.map((p, i) => <circle key={p.id} cx={424 + (i % 4) * 32} cy={168 + Math.floor(i / 4) * 28} r="9" fill={pinColor(p)} {...line} />)}
-          {has("painting") && <g transform="translate(410 84)"><rect width="70" height="54" rx="3" fill="var(--surface)" {...line} /><path d="M6 48l18-22 14 16 9-9 17 15z" fill="var(--sage)" /></g>}
-          {has("clock") && <g transform="translate(818 64)"><circle r="20" cx="0" cy="20" fill="var(--surface)" {...line} /><path className="ps-hand" d="M0 20V8" fill="none" {...line} /><path d="M0 20l8 6" fill="none" {...line} /></g>}
-          {has("rug") && <ellipse cx="470" cy="430" rx="230" ry="30" fill="var(--fox-soft)" stroke={ink} strokeWidth="2.5" />}
-          {has("globe") && <g transform="translate(790 300)"><circle cx="22" cy="22" r="20" fill="var(--blue-bg)" {...line} /><path d="M2 22h40M22 2c-8 10-8 30 0 40M22 2c8 10 8 30 0 40" fill="none" {...line} /><path d="M10 52h24M22 42v10" {...line} /></g>}
+          <g {...it("pins")}><rect x="404" y="150" width="136" height="64" rx="4" {...(pins.length ? { fill: "color-mix(in srgb, var(--room-wood) 75%, var(--room-obj))", ...L } : ghost)} />
+            {pins.map((p, i) => <circle key={p.id} cx={424 + (i % 4) * 32} cy={168 + Math.floor(i / 4) * 28} r="9" fill={pinColor(p)} {...L} />)}</g>
+          {has("painting") && <g {...it("painting")}><g transform="translate(410 84)"><rect width="70" height="54" rx="3" fill={WOOD2} {...L} /><rect x="6" y="6" width="58" height="42" fill="var(--room-sky-2)" /><circle cx="48" cy="18" r="5" fill="var(--sch-bulb)" /><path d="M6 48l18-22 14 16 9-9 17 15z" fill="var(--sch-tweed)" /></g></g>}
+          {has("clock") && <g {...it("clock")}><g transform="translate(818 64)"><circle r="20" cx="0" cy="20" fill={O} {...L} /><circle r="1.6" cx="0" cy="4" fill="var(--room-line)" /><circle r="1.6" cx="0" cy="36" fill="var(--room-line)" /><circle r="1.6" cx="16" cy="20" fill="var(--room-line)" /><circle r="1.6" cx="-16" cy="20" fill="var(--room-line)" />
+            <path d="M0 20V11" {...L} transform={`rotate(${hh} 0 20)`} /><path d="M0 20V6" {...L} strokeWidth="1.8" transform={`rotate(${mm} 0 20)`} /><circle r="2.2" cx="0" cy="20" fill="var(--fox)" /></g></g>}
+          {has("rug") && <g {...it("rug")}><ellipse cx="470" cy="432" rx="230" ry="30" fill="color-mix(in srgb, var(--sch-navy) 60%, var(--room-floor))" stroke="var(--room-line)" strokeWidth="2.5" /><ellipse cx="470" cy="432" rx="200" ry="20" fill="none" stroke={O} strokeOpacity=".5" strokeWidth="2" strokeDasharray="6 6" /></g>}
+          {has("globe") && <g {...it("globe")}><g transform="translate(790 296)"><path d="M10 56h24M22 44v12" {...L} /><path d="M4 22a18 18 0 0 0 36 0" fill="none" {...L} stroke={WOOD2} strokeWidth="4" /><circle cx="22" cy="22" r="18" fill="var(--room-sky)" {...L} /><path d="M10 12c4-3 9-2 10 2s-3 5-1 8-2 6-5 5-6-6-5-10z" fill="var(--sch-tweed)" /><path d="M27 9c4 1 8 5 8 9-3 1-5-1-7 1s-3 4-5 2 0-5 1-7-1-4 3-5z" fill="var(--sch-tweed)" /><path d="M26 30c3-1 6-1 7 1-1 3-5 4-7 3z" fill="var(--sch-tweed)" /><circle cx="22" cy="22" r="18" fill="none" {...L} /></g></g>}
           {/* his chair, then Remy, then the desk in front of him */}
-          <path d="M398 340V262c0-22 14-34 57-34s57 12 57 34v78z" fill="var(--fox-deep)" {...line} />
-          <path d="M414 330V266c0-12 10-22 41-22s41 10 41 22v64" fill="none" stroke="color-mix(in srgb, var(--white) 30%, transparent)" strokeWidth="2.5" />
-          <g className={"ps-fox" + (fox.walk ? " walk" : "") + (fox.y === SPOTS.desk.y && fox.x === SPOTS.desk.x ? " sit" : "")} style={{ transform: `translateX(${fox.x - 100 * FOX_S}px)`, transitionDuration: `${fox.walk || 0}ms` }}>
+          <g {...it("chair", "ps-chair" + (fox.pose === "lean" && seatedNow ? " lean" : "") + (spin ? ` spin${spin % 2}` : ""))}>
+            <path d="M398 340V262c0-22 14-34 57-34s57 12 57 34v78z" fill="var(--room-chair)" {...L} />
+            <path d="M414 330V266c0-12 10-22 41-22s41 10 41 22v64" fill="none" stroke={O} strokeOpacity=".22" strokeWidth="2.5" />
+            <path d="M430 256h50" stroke={O} strokeOpacity=".22" strokeWidth="2.5" strokeLinecap="round" />
+          </g>
+          <g ref={foxEl} data-it="remy" className={"ps-fox" + (fox.walk ? " walk" : "") + (seatedNow ? " sit" : "")} style={{ transform: `translateX(${fox.x - 100 * FOX_S}px)`, transitionDuration: `${fox.walk || 0}ms` }}>
             <g className="ps-fox-y" style={{ transform: `translateY(${fox.y}px)` }}>
-              <g transform={`scale(${FOX_S})`}><g transform={fox.face < 0 ? "translate(200 0) scale(-1 1)" : undefined}><g className="ps-fox-bob" style={suit}>
+              <g transform={`scale(${FOX_S})`}><g transform={fox.face < 0 ? "translate(200 0) scale(-1 1)" : undefined}><g className={"ps-fox-bob" + (spin && seatedNow ? ` spin${spin % 2}` : "")} style={suit}>
                 <g className="ps-legs">
-                  <g className="ps-tail"><path d="M144 268C196 272 214 226 200 190C194 214 178 236 146 246Z" /><path className="tip" d="M200 190C204 202 204 214 199 226C192 214 192 200 200 190Z" /></g>
-                  <g className="ps-leg l"><path d="M82 244v52" className="ps-trouser-ol" /><path d="M82 244v52" className="ps-trouser" /><ellipse cx="76" cy="306" rx="24" ry="12" className="ps-shoe" /></g>
-                  <g className="ps-leg r"><path d="M118 244v52" className="ps-trouser-ol" /><path d="M118 244v52" className="ps-trouser" /><ellipse cx="124" cy="306" rx="24" ry="12" className="ps-shoe" /></g>
-                  <path className="ps-hem" d="M34 214H166L158 254H42Z" />
+                  <g className="ps-tail"><path d="M140 262C192 268 214 226 202 188C194 212 176 232 142 242Z" /><path className="tip" d="M202 188C206 200 206 212 201 224C194 212 194 198 202 188Z" /></g>
+                  <g className="ps-leg l"><path className="ps-trouser" d="M64 244L62 300Q62 305 67 305L91 305Q96 305 96 300L98 244Z" /><path className="ps-shoe" d="M96 301L70 301Q54 302 52 311Q51 317 58 317L96 317Q100 317 100 313L100 305Q100 301 96 301Z" /><path className="ps-shine" d="M60 307Q64 304 72 304" /></g>
+                  <g className="ps-leg r"><path className="ps-trouser" d="M102 244L104 300Q104 305 109 305L133 305Q138 305 138 300L136 244Z" /><path className="ps-shoe" d="M104 301L130 301Q146 302 148 311Q149 317 142 317L104 317Q100 317 100 313L100 305Q100 301 104 301Z" /><path className="ps-shine" d="M128 304Q136 304 140 307" /></g>
+                  <path className="ps-hem" d="M32 212C31 228 33 242 38 252Q100 262 162 252C167 242 169 228 168 212Z" />
+                  <path className="ps-hem-line" d="M100 222V256" /><circle className="ps-btn" cx="108" cy="232" r="3" /><circle className="ps-btn" cx="108" cy="244" r="3" />
                 </g>
                 <Remy size={200} mood={mood} outfit={wearing} className={fox.pose ? `o-${fox.pose}` : ""} />
               </g></g></g>
             </g>
           </g>
-          <rect x="310" y="334" width="320" height="16" rx="5" fill="var(--surface)" {...line} />
-          <rect x="322" y="350" width="296" height="56" rx="3" fill="var(--surface-2)" {...line} />
-          <path d="M532 378h60" {...line} strokeLinecap="round" /><path d="M554 364h16M554 392h16" stroke={ink} strokeWidth="4" strokeLinecap="round" />
-          <g transform="translate(2 34)"><path d="M330 300h36l-5-26h-26z" fill="var(--fox)" {...line} />
-            {d.streak.days > 0 && <g className="ps-sway"><path d="M348 274C348 250 334 240 326 232M348 270C352 248 366 238 376 236M348 262C346 244 348 228 350 218" stroke="var(--sage)" strokeWidth="4" fill="none" strokeLinecap="round" />
-              {d.streak.best >= 7 && [[326, 230], [377, 235], [350, 215]].map(([x, y]) => <circle key={x} cx={x} cy={y} r="6" fill="var(--fox-soft)" stroke="var(--fox)" strokeWidth="3" />)}</g>}</g>
-          {has("lamp") && <g transform="translate(370 282)"><path d="M10 52h26M23 52V22" {...line} /><path d="M8 22l8-16h14l6 16z" fill="var(--amber-bg)" {...line} /></g>}
-          <path d="M498 334l10-46h82l-10 46z" fill="var(--ink)" {...line} /><circle cx="544" cy="310" r="4" fill="var(--fox)" />
-          {has("mug") && <g transform="translate(598 314)"><path d="M0 0h16v16a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4z" fill="var(--fox)" {...line} /><path className="ps-steam" d="M5-4q-3-5 0-9M11-4q3-5 0-9" stroke="var(--muted-text)" strokeWidth="2" fill="none" strokeLinecap="round" /></g>}
+          <g {...it("desk")}>
+            <rect x="322" y="350" width="296" height="56" rx="3" fill={WOOD2} {...L} />
+            <path d="M532 362v32M542 378h40" stroke="var(--room-line)" strokeOpacity=".45" strokeWidth="2" /><circle cx="562" cy="378" r="3" fill="var(--room-line)" />
+            <rect x="310" y="334" width="320" height="16" rx="5" fill={WOOD} {...L} />
+          </g>
+          <g {...it("plant")}><g transform="translate(2 34)"><path d="M330 300h36l-5-26h-26z" fill="var(--sch-camel)" {...L} />
+            {d.streak.days > 0 && <g className="ps-sway"><path d="M348 274C348 250 334 240 326 232M348 270C352 248 366 238 376 236M348 262C346 244 348 228 350 218" stroke="var(--sch-tweed)" strokeWidth="4" fill="none" strokeLinecap="round" />
+              {d.streak.best >= 7 && [[326, 230], [377, 235], [350, 215]].map(([x, y]) => <circle key={x} cx={x} cy={y} r="6" fill="var(--fox-soft)" stroke="var(--fox)" strokeWidth="3" />)}</g>}</g></g>
+          {has("lamp") && <g {...it("lamp")}><g transform="translate(370 282)"><path className="ps-lamplight" d="M9 22L-6 52H52L37 22Z" fill="var(--room-glow)" opacity=".22" /><path d="M10 52h26M23 52V22" {...L} /><path d="M8 22l8-16h14l6 16z" fill="var(--room-shade)" {...L} /></g></g>}
+          <g {...it("laptop")}><path d="M498 334l10-46h82l-10 46z" fill="var(--room-chair)" {...L} /><path className="ps-night" d="M508 288h82l-10 46h-82z" fill="var(--room-sky-2)" opacity=".35" /><circle cx="544" cy="310" r="4" fill="var(--fox)" /><path d="M470 334h120" {...L} strokeWidth="3" /></g>
+          {has("mug") && <g {...it("mug")}><g transform="translate(598 314)"><path d="M0 0h16v16a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4z" fill="var(--fox)" {...L} /><path d="M16 4h3a4 4 0 0 1 0 8h-3" fill="none" {...L} /><path className="ps-steam" d="M5-4q-3-5 0-9M11-4q3-5 0-9" stroke="var(--room-label-2)" strokeWidth="2" fill="none" strokeLinecap="round" /></g></g>}
           {/* the front of the room */}
-          {has("bigplant") && <g transform="translate(806 368)"><path d="M0 70h40l-6-36H6z" fill="var(--fox)" {...line} /><g className="ps-sway"><path d="M20 34C20 10 2 0-6-10M20 34C20 10 38 0 46-10M20 34V-20" stroke="var(--sage)" strokeWidth="5" fill="none" strokeLinecap="round" /></g></g>}
-          {applied ? <g transform="translate(60 386)"><rect width="86" height="60" rx="8" fill="var(--fox-deep)" {...line} /><path d="M26 0v-12h34v12" fill="none" {...line} /></g>
-            : <g transform="translate(60 386)"><rect width="86" height="60" rx="8" {...ghost} /><path d="M26 0v-12h34v12" {...ghost} /></g>}
+          {has("bigplant") && <g {...it("bigplant")}><g transform="translate(806 368)"><path d="M0 70h40l-6-36H6z" fill={O2} {...L} /><g className="ps-sway"><path d="M20 34C20 10 2 0-6-10M20 34C20 10 38 0 46-10M20 34V-20" stroke="var(--sch-tweed)" strokeWidth="5" fill="none" strokeLinecap="round" /><ellipse cx="-6" cy="-12" rx="8" ry="4" fill="var(--sch-tweed)" transform="rotate(-30 -6 -12)" /><ellipse cx="46" cy="-12" rx="8" ry="4" fill="var(--sch-tweed)" transform="rotate(30 46 -12)" /><ellipse cx="20" cy="-22" rx="4" ry="8" fill="var(--sch-tweed)" /></g></g></g>}
+          <g {...it("briefcase")}>{applied ? <g transform="translate(60 386)"><path d="M26 0v-12h34v12" fill="none" {...L} strokeWidth="4" /><rect width="86" height="60" rx="8" fill="var(--room-leather)" {...L} /><path d="M0 22h86" stroke="var(--room-line)" strokeOpacity=".5" strokeWidth="2" /><rect x="37" y="16" width="12" height="12" rx="2" fill="var(--sch-bulb)" {...L} strokeWidth="1.5" /></g>
+            : <g transform="translate(60 386)"><rect width="86" height="60" rx="8" {...ghost} /><path d="M26 0v-12h34v12" {...ghost} /></g>}</g>
         </svg>
         {ring && <span className="ps-ring" style={at(ring[0], ring[1])} aria-hidden="true" />}
         <button className="ps-tag" style={at(40, 92)} onClick={() => onField("roles")} data-testid="button-office-books">{known ? `${known} job${known === 1 ? "" : "s"} decoded` : "Decode your first job"}</button>
         <button className={"ps-tag" + (cert ? "" : " ghost")} style={at(40, 296)} onClick={() => onField("certs")} data-testid="button-office-cert">{cert ? "Certificate earned" : "First certificate"}</button>
         <button className={"ps-tag" + (resume ? "" : " ghost")} style={at(282, 58)} onClick={() => go("/resume")} data-testid="button-office-resume">{resume ? "Resume on file" : "Add your resume"}</button>
-        <button className={"ps-tag" + (pins.length ? "" : " ghost")} style={at(404, 138)} onClick={() => go("/rewards")} data-testid="button-office-pins">{pins.length ? `${pinsOf(d.w).filter((p) => p.earned).length} pins` : "Earn your first pin"}</button>
-        <span className="ps-tag still" style={at(334, 384)}>{d.streak.days ? `${d.streak.days}-day streak` : "Plant needs a streak"}</span>
+        <button className={"ps-tag" + (pins.length ? "" : " ghost")} style={at(486, 124)} onClick={() => go("/rewards")} data-testid="button-office-pins">{pins.length ? `${pinsOf(d.w).filter((p) => p.earned).length} pins` : "Earn your first pin"}</button>
+        <span className="ps-tag still end" style={at(318, 320)}>{d.streak.days ? `${d.streak.days}-day streak` : "Plant needs a streak"}</span>
         <button className={"ps-tag" + (applied ? "" : " ghost")} style={at(156, 416)} onClick={() => go("/opportunities")} data-testid="button-office-briefcase">{applied ? `${d.w.applications.length} applied` : "First application"}</button>
       </div>
-        {g.on ? <div className="ps-bubble" style={{ "--tail": `${Math.min(92, Math.max(8, (fox.x / 860) * 100))}%` } as CSSProperties} aria-live="polite" data-testid="path-guide">{g.bubble}</div>
-          : <>
-            {said && <div className="ps-bubble chat" style={{ "--tail": `${(fox.x / 860) * 100}%` } as CSSProperties} aria-live="polite" data-testid="office-reply">
-              <div className="ps-chat-head"><span className="pm-kicker">You asked: {said.q}</span><button className="btn btn-ghost btn-sm" onClick={() => setSaid(null)} data-testid="button-office-reply-close">Close</button></div>
-              {busy ? (said.live ? <div className="ps-reply"><Rich text={said.live} /></div> : <p className="pm-faint">Remy is thinking…</p>) : reply ? <div className="ps-reply"><Rich text={reply.text} /><RemyDid m={reply} /><OfficeOpens actions={reply.actions} /></div> : <p className="pm-faint">I couldn't answer that one. Try asking again.</p>}
-            </div>}
-            <form className="ps-ask" onSubmit={(e) => { e.preventDefault(); ask(); }}>
-              <input className="input" value={q} onChange={(e) => setQ(e.target.value)} disabled={!aiOn || busy} placeholder={aiOn ? "Ask Remy anything about your path…" : "Remy's chat is off on this server"} aria-label="Ask Remy" data-testid="input-office-ask" />
-              {canListen && aiOn && <button type="button" className={"btn " + (voice.on ? "btn-primary remy-listening" : "btn-secondary")} onClick={voice.toggle} disabled={busy} aria-label={voice.on ? "Stop listening" : "Talk to Remy"} aria-pressed={voice.on} data-testid="button-office-mic">{voice.on ? <Square size={16} /> : <Mic size={16} />}</button>}
-              <button className="btn btn-primary" disabled={!aiOn || busy || !q.trim()} data-testid="button-office-ask">Ask</button>
-            </form>
-          </>}
+        {g.on ? <div className="ps-bubble" style={{ "--tail": `${Math.min(92, Math.max(8, fx))}%` } as CSSProperties} aria-live="polite" data-testid="path-guide">{g.bubble}</div>
+          : said ? <div className={"ps-say " + side} style={sayAt} aria-live="polite" data-testid="office-reply">
+              <button className="ps-say-x" onClick={() => setSaid(null)} aria-label="Close Remy's answer" data-testid="button-office-reply-close"><X size={14} /></button>
+              <div className="ps-say-body">{busy ? (said.live ? <div className="ps-reply"><Rich text={said.live} /></div> : <span className="ps-think" role="status" aria-label="Remy is thinking"><i /><i /><i /></span>)
+                : reply ? <div className="ps-reply"><Rich text={reply.text} /><RemyDid m={reply} /><OfficeOpens actions={reply.actions} /></div> : <p>I couldn't answer that one. Try asking again.</p>}</div>
+            </div>
+          : quip && <button className={"ps-say quip " + side} style={sayAt} onClick={() => setQuip(null)} aria-live="polite" data-testid="office-quip"><span className="ps-say-body"><span>{quip.text}</span>{quip.by && <small>{quip.by}</small>}</span></button>}
       </div>
     </section>
   );
