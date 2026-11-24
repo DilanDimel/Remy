@@ -2,7 +2,7 @@
 // can [earn], what they have... it shouldn't be hidden behind My Path." One page with every reward in Remy: career pins,
 // levels and titles, Remy's outfits and office, streak and quests, each with what the student has, what's locked and
 // exactly what unlocks it. Everything is read from the same code that awards it (shared/game.ts, pins.ts, daily.ts).
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { ArrowRight, Award, BookOpen, Briefcase, Check, Compass, FileText, FlaskConical, Flame, Gift, Hash, Heart, Linkedin, Lock, Mic, Moon, Mountain, RotateCcw, Scissors, Shield, Snowflake, Sprout, Star, Sun, Trophy, Users, Zap, type LucideIcon } from "lucide-react";
 import { RANKS, OFFICE, WARDROBE, levelReward, rankOf, unlockedOutfits, xpOf, ALL_DONE_BONUS } from "@shared/game";
 import { CARD_XP, FREEZE_EVERY, FREEZE_MAX, dailyStreak, streakDays } from "@shared/daily";
@@ -20,11 +20,21 @@ const ICON: Record<string, LucideIcon> = { resume: FileText, pitch: Mic, linkedi
   tailor: Scissors, story: BookOpen, practice: Mic, network: Users, numbers: Hash, explorer: Compass, steady: Flame, hours: Heart,
   thickskin: Shield, bounce: RotateCcw, comeback: Mountain, nightowl: Moon, earlybird: Sun, allround: Star, insider: FlaskConical };
 
+// Dilan (Nov 24): everything was the same orange, so earning a pin didn't feel exciting. Each pin has its own enamel colour;
+// the rim still shows the tier (bronze, silver, gold).
+const gem = (g: string) => `var(--gem-${g})`;
+const HUE: Record<string, string> = { resume: "sky", pitch: "violet", linkedin: "blue", applied: "teal", interview: "pink", offer: "gold",
+  tailor: "ruby", story: "violet", practice: "sky", network: "blue", numbers: "green", explorer: "teal", steady: "ruby", hours: "pink",
+  thickskin: "teal", bounce: "green", comeback: "violet", nightowl: "blue", earlybird: "gold", insider: "violet", allround: "pink" };
+/** Each level's own colour, from fresh green up to gold for Legend. */
+const LEVEL_HUE = ["green", "teal", "sky", "blue", "violet", "pink", "ruby", "green", "teal", "sky", "blue", "violet", "pink", "ruby", "gold"];
+const lvHue = (n: number) => ({ "--lv": gem(LEVEL_HUE[(n - 1) % LEVEL_HUE.length]) }) as CSSProperties;
+
 /** One enamel pin: the ring shows the tier reached (bronze, silver, gold); locked pins are drawn as an outline. */
 export function PinArt({ p, size = 44 }: { p: PinState; size?: number }) {
   const I = p.kind === "secret" && !p.earned ? Lock : ICON[p.id] || Award;
   const tier = p.tiers.length === 1 ? (p.earned ? "one" : "") : ["", "bronze", "silver", "gold"][p.tier];
-  return <span className={"rw-pin " + (tier || "lock")} style={{ width: size, height: size }} aria-hidden="true"><I size={Math.round(size * 0.45)} /></span>;
+  return <span className={"rw-pin " + (tier || "lock")} style={{ width: size, height: size, ...(HUE[p.id] && !(p.kind === "secret" && !p.earned) && { "--pin": gem(HUE[p.id]) }) } as CSSProperties} aria-hidden="true"><I size={Math.round(size * 0.45)} /></span>;
 }
 
 const status = (p: PinState) => {
@@ -92,7 +102,7 @@ function Pins({ pins }: { pins: PinState[] }) {
         <ul>{near.map((p) => { const pct = p.tiers.length > 1 ? Math.min(100, (p.n / p.next!) * 100) : 0; return (
           <li key={p.id}><button className="rw-near-pin" onClick={() => setOpen(p.id)} data-testid={`button-near-${p.id}`}><PinArt p={p} size={40} /><span><b>{p.name}</b><small>{status(p)}</small>{p.tiers.length > 1 && <span className="rw-bar"><i style={{ width: `${pct}%` }} /></span>}</span></button>
             <button className="btn btn-secondary btn-sm" onClick={() => go(p.link)} data-testid={`button-near-go-${p.id}`}>Go <ArrowRight size={13} /></button></li>); })}</ul>
-        <div className="rw-legend"><span><PinArt p={{ ...pins[0], tiers: [1, 2, 3], tier: 1, earned: true }} size={26} />Bronze</span><span><PinArt p={{ ...pins[0], tiers: [1, 2, 3], tier: 2, earned: true }} size={26} />Silver</span><span><PinArt p={{ ...pins[0], tiers: [1, 2, 3], tier: 3, earned: true }} size={26} />Gold</span></div>
+        <div className="rw-legend"><span><PinArt p={{ ...pins[0], id: "legend", tiers: [1, 2, 3], tier: 1, earned: true }} size={26} />Bronze</span><span><PinArt p={{ ...pins[0], id: "legend", tiers: [1, 2, 3], tier: 2, earned: true }} size={26} />Silver</span><span><PinArt p={{ ...pins[0], id: "legend", tiers: [1, 2, 3], tier: 3, earned: true }} size={26} />Gold</span></div>
         <p className="pm-faint">Craft pins grow from bronze to gold with real steps. Secret pins stay hidden until you find them.</p>
       </aside>
       {shown && <PinDetail p={shown} onClose={() => setOpen("")} />}
@@ -116,14 +126,14 @@ function Levels({ xp, lv }: { xp: number; lv: ReturnType<typeof rankOf> }) {
     <div className="rw-levels" data-testid="rewards-levels">
       <section className="rw-card" aria-label="Your level">
         <div className="rw-card-head"><h3 className="pm-kicker dark">Your level</h3><span className="pm-faint">Levels never go down.</span></div>
-        <div className="rw-mylevel" data-testid="rewards-my-level">
+        <div className="rw-mylevel" style={lvHue(lv.n)} data-testid="rewards-my-level">
           <i className="rw-lvnum">{lv.n}</i>
           <div><b>{lv.name}</b><span className="rw-bar"><i style={{ width: `${pct}%` }} /></span>
             <small>{lv.max ? "Top level reached." : <>{Math.max(0, xp - lv.floor).toLocaleString("en-US")} / {(lv.next - lv.floor).toLocaleString("en-US")} XP to level {lv.n + 1}</>}</small></div>
         </div>
         <h4 className="rw-sub">{all ? "Every level" : "Coming up"}</h4>
         <ol className={"rw-ladder" + (all ? "" : " short")}>
-          {rows.map(({ n, name, at }) => <li key={n} className={n < lv.n ? "got" : n === lv.n ? "now" : ""} data-testid={`rank-${n}`}>
+          {rows.map(({ n, name, at }) => <li key={n} className={n < lv.n ? "got" : n === lv.n ? "now" : ""} style={lvHue(n)} data-testid={`rank-${n}`}>
             <i>{n}</i><b>{name}</b><span>{at.toLocaleString("en-US")} XP</span><em>{rewardOf(n)}</em>{n === lv.n && <strong>You're here</strong>}
           </li>)}
         </ol>
