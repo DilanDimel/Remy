@@ -3,7 +3,7 @@ import { Check, Copy } from "lucide-react";
 import type { Workspace } from "@shared/types";
 import { type Ask, remyAsks } from "@shared/remyAsks";
 import { dayKey } from "@shared/daily";
-import { api, useOwnersOnly, useStore } from "../lib/store";
+import { api, useStore } from "../lib/store";
 import { RemyDid } from "./RemyDid";
 import { Spinner } from "./common";
 
@@ -11,11 +11,10 @@ import { Spinner } from "./common";
 // already is: his office bubble on My Path, the card above the page or in his chat elsewhere, and all of them in AI
 // memory. Tapping an answer has Remy do the fix himself (POST /api/remy/ask), with Undo.
 
-/** Open questions for owners in owner view; none for students until Dilan releases it. */
+/** Open questions for the signed-in student. */
 export function useAsks(all = false): Ask[] {
   const { ws } = useStore();
-  const owners = useOwnersOnly();
-  return owners && ws ? remyAsks(ws, dayKey(), all) : [];
+  return ws ? remyAsks(ws, dayKey(), all) : [];
 }
 
 type Done = { id: string; text: string; copy?: string; messageId: string };
