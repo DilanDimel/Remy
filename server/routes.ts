@@ -16,7 +16,7 @@ import { startStream, streamLine } from "./platform/stream";
 import { JOB_INTEREST_REASONS, type JobInterestRating } from "@shared/types";
 import { employerPreferences, interestContext, interestEnabled, ownInterest } from "./jobs/ranking";
 import { keepQuestions, skippedPrefs } from "@shared/setupReply";
-import { latestNewsId } from "@shared/news";
+import { newsMark } from "@shared/news";
 import { isNonAnswer } from "@shared/words";
 import { draftOk } from "./ai/bulletDraft";
 import { STORY_ASK, STORY_PARTS, findLine, namesNew, sameLine } from "@shared/stories";
@@ -871,7 +871,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.post("/api/auth/guest", route(async (_req, res, ctx) => {
     if (!ctx.ws.started) {
       ctx.ws.started = true;
-      ctx.ws.settings.newsSeen = latestNewsId(); // new accounts start caught up on "What's new"
+      ctx.ws.settings.newsSeen = newsMark(new Date()); // new accounts start caught up on "What's new"
       await ctx.save();
     }
     res.json({ me: ctx.me, workspace: ctx.ws });
@@ -889,7 +889,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       }
       const ws = await loadWorkspace(me.id);
       ws.started = true;
-      ws.settings.newsSeen = latestNewsId(); // new accounts start caught up on "What's new"
+      ws.settings.newsSeen = newsMark(new Date()); // new accounts start caught up on "What's new"
       if (!ws.profile.name) ws.profile.name = me.name;
       if (!ws.profile.email) ws.profile.email = me.email;
       if (!ws.profile.applicationEmail) ws.profile.applicationEmail = me.email;
@@ -909,7 +909,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!(await hasWorkspace(me.id)) && prev && prev.id !== me.id && (await hasWorkspace(prev.id))) await saveWorkspace(me.id, await loadWorkspace(prev.id));
     const ws = await loadWorkspace(me.id);
     ws.started = true;
-    ws.settings.newsSeen = latestNewsId(); // new accounts start caught up on "What's new"
+    ws.settings.newsSeen = newsMark(new Date()); // new accounts start caught up on "What's new"
     if (!ws.profile.name) ws.profile.name = me.name;
     if (!ws.profile.email) ws.profile.email = me.email;
     if (!ws.profile.applicationEmail) ws.profile.applicationEmail = me.email;

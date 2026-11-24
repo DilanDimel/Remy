@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowRight, BarChart3, BellRing, Briefcase, CalendarDays, ChevronLeft, ChevronRight, Compass, FileText, Home, Info, LayoutDashboard, type LucideIcon, Mail, Megaphone, MessagesSquare, Mic, Sparkles, UserCog, Users, X } from "lucide-react";
-import { NEWS, latestNewsId, newsLink, unseenNews, type NewsItem } from "@shared/news";
+import { newsLink, type NewsItem } from "@shared/news";
+import { NEWS, latestNewsId, unseenNews } from "../lib/news";
 import { go } from "../lib/router";
 import { useOwnerView, useStore } from "../lib/store";
 import { Modal, Remy } from "./common";
