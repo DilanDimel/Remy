@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocalSearchParams } from "expo-router";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ResumeDoc, Workspace } from "@shared/types";
@@ -148,6 +149,9 @@ export default function Resume() {
     for (const k of ["numbers", "verbs"] as const) for (const it of review.todo) if (it.kind === k) for (const b of it.bullets) if (!seen.has(b.id)) { seen.add(b.id); out.push({ b, kind: k }); }
     return out;
   }, [review]);
+  // Opened by "Let's fix them" (Home's offer) or My Path's "Add a real number" (openResumeFix): straight into the fixes.
+  const { fix: fixNow, at } = useLocalSearchParams<{ fix?: string; at?: string }>();
+  useEffect(() => { if (fixNow && steps.length) setFix(0); }, [fixNow, at, steps.length > 0]);
   if (!ws) return null;
   const onRefresh = async () => { setRefreshing(true); await refresh(); setRefreshing(false); };
   const open = (q = "") => go(`/resume${q}`, "Resume", { page: true });

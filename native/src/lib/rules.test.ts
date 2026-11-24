@@ -23,9 +23,14 @@ test("gate: open access has its own terms version", () => {
   assert.equal(gateFor("ready", me(true), ws({ betaAgreed: { version: OPEN_TERMS_VERSION, at: "" } }), config({ beta: { on: true, formUrl: "", open: true } })), "tabs");
 });
 
-test("gate: the app stays owners-only, in either view", () => {
-  assert.equal(gateFor("ready", me(false), ws(), config({ features: { redesign: "released" } })), "not-yet");
+test("gate: the app follows its own release switch; owners always get in", () => {
+  // Owners only (the default): students see "The new app is almost here", even after The Big Upgrade is released.
+  assert.equal(gateFor("ready", me(false), ws(), config()), "not-yet");
+  assert.equal(gateFor("ready", me(false), ws(), config({ features: { redesign: "released", app: "owners" } })), "not-yet");
   assert.equal(gateFor("ready", me(true), ws({}, { ownerView: false }), config()), "tabs");
+  // Released: students get in and go through terms and setup like everyone else.
+  assert.equal(gateFor("ready", me(false), ws(), config({ features: { app: "released" } })), "tabs");
+  assert.equal(gateFor("ready", me(false), ws({ onboarding: { done: false } }), config({ features: { app: "released" } })), "setup");
 });
 
 test("redesign and feature access follow releases like the website", () => {

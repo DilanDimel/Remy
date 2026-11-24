@@ -62,8 +62,9 @@ export default function Tailor() {
       <Pressable key={j.id + testID} testID={testID} onPress={() => { tap(); onPress(); }} style={[box, { flexDirection: "row", alignItems: "center", gap: 12 }]}>
         <Logo company={j.company} url={j.applyUrl} size={40} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text numberOfLines={2} style={{ fontFamily: font.bold, fontSize: 15.5, color: c.ink }}>{shortTitle(j.title, j.company)}</Text>
-          <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 13, color: c.mutedText }}>{j.company} · {sub}</Text>
+          {/* Three lines and the place: four "Summer 2027 Internship – Auto …" rows from one company read the same at two. */}
+          <Text numberOfLines={3} style={{ fontFamily: font.bold, fontSize: 15.5, color: c.ink }}>{shortTitle(j.title, j.company)}</Text>
+          <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 13, color: c.mutedText }}>{j.company}{j.location ? ` · ${j.location}` : ""} · {sub}</Text>
         </View>
         <FitBadge fit={fits[j.id]} />
       </Pressable>

@@ -12,7 +12,7 @@ import { Office } from "@/components/Office";
 import { Button, Group, Icon, Remy, Row, Screen, Sect, T, success, tap, type IconName } from "@/components/ui";
 import { OUTFIT_NAME, type Outfit } from "@/components/scholarSvg";
 import { api } from "@/lib/api";
-import { askRemy, go } from "@/lib/nav";
+import { askRemy, go, openResumeFix } from "@/lib/nav";
 import { useRefreshAll, useSession } from "@/lib/session";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
 import { radius } from "@/lib/tokens";
@@ -77,7 +77,7 @@ export default function PathTab() {
   ];
   const openStop = (s: Stop) => (s.ask ? askRemy(s.ask) : go(s.path || "/path", "My Path", { page: true }));
   // Empty, the arrow just opens his chat; with a question, it asks it there.
-  const ask = () => { const t = q.trim(); tap(); if (!t) return void router.push("/remy"); setQ(""); askRemy(t); };
+  const ask = () => { const t = q.trim(); tap(); if (!t) return void router.push("/remy"); setQ(""); askRemy(t, { send: true }); };
 
   const card = { backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.line, padding: 16, marginTop: 14 } as const;
   const kicker = { fontFamily: font.bold, fontSize: 11.5, letterSpacing: 0.8, textTransform: "uppercase" as const, color: c.mutedText };
@@ -177,7 +177,7 @@ export default function PathTab() {
           {move ? <>
             <T kind="h2" style={{ marginTop: 6 }}>{move.title}</T>
             <T kind="small" style={{ marginTop: 4 }}>{move.effect}. About {move.mins} minutes.</T>
-            <Button testID="button-big-move" label="Let's do it" icon="arrow" onPress={() => go(move.link)} style={{ marginTop: 12 }} />
+            <Button testID="button-big-move" label="Let's do it" icon="arrow" onPress={() => (move.counter === "numbered" ? openResumeFix() : go(move.link))} style={{ marginTop: 12 }} />
             {done.length > 0 && <T kind="small" style={{ marginTop: 8, color: c.mutedText }}>{done.length} of {missions.length} done this week</T>}
           </> : <T kind="small" style={{ marginTop: 6 }}><Text style={{ fontFamily: font.bold }}>All {missions.length} done this week.</Text> Next week's move comes Monday.</T>}
         </View>
