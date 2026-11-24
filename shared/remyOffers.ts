@@ -51,7 +51,7 @@ export function remyOffers(ws: Pick<Workspace, "jobs" | "savedJobIds" | "hiddenJ
   // Weak resume lines: fix them together.
   if (ws.resume) {
     const weak = reviewResume(ws.resume.doc, { listLike: true }).todo.filter((x) => x.kind === "numbers" || x.kind === "verbs").reduce((n, x) => n + ("bullets" in x ? x.bullets.length : 0), 0);
-    if (weak >= 2) out.push({ id: `fix:${ws.resume.editedAt || ws.resume.uploadedAt}`, pages: ["/", "/resume"], text: `${weak} lines on your resume could be stronger. Want to fix them together? I'll ask about one at a time.`, label: "Let's fix them", action: { kind: "start", what: "resumeFix" } });
+    if (weak >= 2) out.push({ id: `fix:${ws.resume.editedAt || ws.resume.uploadedAt}`, pages: ["/", "/resume"], text: `${weak} lines on your resume could be stronger. Want me to rewrite them? I'll use only what you already wrote, one line at a time.`, label: "Let's fix them", action: { kind: "start", what: "resumeFix" } });
   }
   // Evening, a streak of 2+ days and nothing yet today: one quick thing keeps it (no guilt, just the offer).
   const st = dailyStreak(streakDays(ws), today);

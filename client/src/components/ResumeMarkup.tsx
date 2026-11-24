@@ -9,6 +9,7 @@ import { reviewResume, type BulletRef } from "@shared/review";
 import { X, ArrowLeft, ArrowRight } from "lucide-react";
 import { BulletFix } from "./ResumeReview";
 import { Remy } from "./common";
+import { closeRemy } from "../lib/tailorChat";
 import { splitList } from "@shared/words";
 
 // The look of the student's own file (font, size, margins Remy read from it), so the page looks like theirs.
@@ -109,6 +110,7 @@ export function toolsRegex(doc: ResumeDoc): RegExp {
 }
 
 /** `real`: draws the student's own file (with colours) in place of Remy's drawn page; null = use the drawn page. */
+const PAGE_W = 1000; // the drawn page's layout width (CSS px, unzoomed): its column at 1440 with Remy's panel closed
 const zoomOf = (el: Element) => (el as Element & { currentCSSZoom?: number }).currentCSSZoom || 1;
 type Step = { b: BulletRef; kind: "numbers" | "verbs" };
 const sq = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -138,6 +140,23 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
   };
   const onTap = (e: React.MouseEvent) => { if (tap(e.target, e.clientX, e.clientY)) { e.preventDefault(); e.stopPropagation(); } };
   const body = useRef<HTMLDivElement>(null);
+  // Desktop: the drawn page is laid out at one fixed width and scaled to fit, so opening Remy's panel shrinks it like
+  // a page instead of re-wrapping every line (Demetre, Nov 24). Phones keep the wrapping layout.
+  const paper = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const host = body.current, el = paper.current;
+    if (!host || !el) return;
+    const fit = () => {
+      el.style.zoom = "";
+      if (!matchMedia("(min-width: 761px)").matches) return;
+      const col = el.getBoundingClientRect().width / zoomOf(host);
+      el.style.zoom = String(Math.min(1.25, col / PAGE_W));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(host);
+    return () => ro.disconnect();
+  }, [!!ownFile]);
   useEffect(() => { // taps inside the Word-file frame (ResumeReal) arrive as "rr-tap"
     const el = body.current; if (!el) return;
     const on = (e: Event) => { const d = (e as CustomEvent).detail; tap(d.el, d.x, d.y); };
@@ -154,6 +173,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
       return kind ? [{ b: { id: b.id, text: b.text.trim().replace(/^[•\-–*]\s*/, ""), where: [e.role, e.org].filter(Boolean).join(", ") || s.heading }, kind }] : [];
     })));
     if (!list.length) return;
+    closeRemy(); // Remy is on the resume now, so his side panel makes room (Demetre, Nov 24)
     setWalk({ list, i: Math.max(0, list.findIndex((x) => sq(line).includes(sq(x.b.text).slice(0, 40)))) });
   };
   const cur = walk?.list[walk.i];
@@ -166,11 +186,14 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
       const live = doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets)).find((x) => x.id === cur.b.id)?.text ?? cur.b.text;
       const key = sq(live).slice(0, 40);
       const frame = host.querySelector<HTMLIFrameElement>("iframe.rr-frame");
-      const paper = (frame || host.querySelector(".rm-paper"))?.getBoundingClientRect();
+      const pdf = host.querySelector<HTMLElement>(".rr-pdf");
+      const paper = (frame || host.querySelector(".rm-paper") || pdf)?.getBoundingClientRect();
+      // Their own PDF (page images): the line's flag tag marks where the line ends (Nov 24: the walk never showed there).
       const el = frame?.contentDocument
         ? Array.from(frame.contentDocument.querySelectorAll<HTMLElement>("p")).find((p) => sq(p.textContent || "").includes(key)) ?? null
+        : pdf ? Array.from(pdf.querySelectorAll<HTMLElement>(".rr-flag")).find((f) => sq(f.dataset.line || "") === sq(cur.b.text) || sq(f.dataset.line || "") === sq(live)) ?? null
         : host.querySelector<HTMLElement>(`[data-bid="${cur.b.id}"]`);
-      if (!el || !paper) return setPos(null);
+      if (!el || !paper) return pdf ? undefined : setPos(null); // a fixed line loses its flag on the PDF: stay put
       if (frame && lit !== el) { // the frame runs no scripts and has its own styles: mark the line from here
         if (lit) lit.style.outline = "";
         el.style.outline = `2px solid ${getComputedStyle(document.documentElement).getPropertyValue("--fox")}`; el.style.outlineOffset = "2px"; lit = el;
@@ -179,7 +202,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
       const r = el.getBoundingClientRect(), h = host.getBoundingClientRect(), z = zoomOf(host);
       const px = (paper.left - h.left) / z, pw = paper.width / z;
       const top = frame ? (paper.top - h.top) / z + r.bottom + 6 : (r.bottom - h.top) / z + 6;
-      const lineLeft = frame ? px + r.left : (r.left - h.left) / z;
+      const lineLeft = frame ? px + r.left : pdf ? px : (r.left - h.left) / z;
       const width = Math.min(540, pw - 16);
       const left = Math.max(px + 8, Math.min(lineLeft, px + pw - width - 8));
       setPos((p) => (p && Math.abs(p.top - top) < 1 && Math.abs(p.left - left) < 1 && p.width === width ? p : { top, left, width }));
@@ -210,7 +233,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
         {upd && !walk && <button className="btn btn-primary btn-sm rm-walk-start" onClick={() => startWalk()} data-testid="button-walk-start">Fix with Remy, line by line</button>}
       </div>}
       <div className="rm-body" ref={body} onClick={onTap}>
-        {ownFile ?? <article className="rm-paper" aria-label="Your resume, colour-coded" style={paperStyle(look)}>
+        {ownFile ?? <article ref={paper} className="rm-paper" aria-label="Your resume, colour-coded" style={paperStyle(look)}>
           <h2 className="rm-name">{c.name || "Your name"}</h2>
           <p className="rm-contact">{[c.location, c.phone, c.email, c.links].filter((x) => x.trim()).join(" | ")}</p>
           {doc.sections.map((s) => (
@@ -219,7 +242,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
               {s.entries.map((e) => (
                 <div key={e.id} className="rm-entry">
                   <div className="rm-row"><b>{e.org}</b><span>{e.location}</span></div>
-                  <div className="rm-row rm-sub"><i>{e.role}</i><span>{e.dates || (plain || isListSection(s.heading, true) ? null : <span className="rm-flag">No dates</span>)}</span></div>
+                  <div className="rm-row rm-sub"><i>{e.role}</i><span>{e.dates || (plain || isListSection(s.heading, true) || !(e.role.trim() || e.org.trim()) ? null : <span className="rm-flag">No dates</span>)}</span></div>
                   <ul>
                     {e.bullets.filter((b) => b.text.trim()).map((b) => {
                       const probs = plain || isListSection(s.heading, true) ? [] : issues(b.text);
@@ -242,7 +265,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
         {walk && cur && pos && upd && (
           <div ref={coach} className="rm-coach" style={{ top: pos.top, left: pos.left, width: pos.width }} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Remy's question about this line" data-testid="rm-coach">
             <div className="row-between" style={{ gap: 8, flexWrap: "nowrap" }}>
-              <span className="row small" style={{ gap: 8, flexWrap: "nowrap" }}><Remy size={26} mood="think" /><b>{cur.kind === "numbers" ? "Can we add a real number?" : "Let's lead with what you did"}</b></span>
+              <span className="row small" style={{ gap: 8, flexWrap: "nowrap" }}><Remy size={26} mood="think" /><b>Let's make this line stronger</b></span>
               <span className="row xs muted" style={{ gap: 2, flexWrap: "nowrap", flex: "none" }}>
                 {walk.i + 1} of {walk.list.length}
                 <button className="btn btn-ghost btn-sm" onClick={() => step(-1)} disabled={walk.i === 0} aria-label="Previous line" data-testid="button-walk-prev"><ArrowLeft size={14} /></button>
