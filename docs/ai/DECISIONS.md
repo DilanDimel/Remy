@@ -4,6 +4,7 @@ Every AI reads this with `CONTEXT.md`. Newest first. Only the lead AI edits it; 
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-11-24 | The phone app gets its own switch in Feature releases (`app`, Owners only by default). Until it's released, students who sign in to the app see "The new app is almost here". | Dilan releases the app like any other feature, separately from the website redesign. |
 | 2026-11-24 | Dilan does most of the work and the lead AI (Dilan's project Claude) is the main AI: both can work in every area and have the final say on conflicts, merges and releases. Demetre owns the phone app. Julio builds new website features, reviews new code, and owns costs. | Three people now build at once; clear areas plus claims stop collisions. |
 | 2026-11-24 | Claims, status files and `npm run check:ai` apply to everyone except Dilan and the lead AI, which CI never blocks. The lead can override or reassign any claim. | Rules that a CI check enforces work for every AI tool, not just the ones that read the docs. |
 | 2026-11-24 | Stay on Supabase Free. No new code may read a whole workspace per request or poll the database. | Support confirmed no restriction if the next cycle stays under 5 GB. |
