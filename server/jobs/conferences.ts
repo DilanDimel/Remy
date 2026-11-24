@@ -3,7 +3,8 @@ import { roadFor } from "@shared/roads";
 import { aiJson } from "../ai/ai";
 import { fetchPublic, htmlToText } from "../resume/parse";
 import { uid } from "../platform/ids";
-import { q, q1 } from "../platform/sql";
+import { q } from "../platform/sql";
+import { readBoardCache } from "./sources";
 
 /** Web-search model for conference research (was shared with the removed Agents tab). */
 const RESEARCH_MODEL = process.env.OR_RESEARCH_CHAIN || "openrouter:perplexity/sonar";
@@ -52,7 +53,7 @@ export async function conferencesFor(ws: Workspace, find = search): Promise<Job[
   if (!road) return [];
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
   const key = `conferences|${road.key}`;
-  const hit = await q1("SELECT raws, fetched_at FROM board_cache WHERE key = $1", [key]).catch(() => undefined);
+  const hit = await readBoardCache(key).catch(() => undefined);
   let list = hit?.raws as Conf[] | undefined;
   if (!hit || Date.now() - new Date(hit.fetched_at).getTime() > CONF_FRESH) {
     try {

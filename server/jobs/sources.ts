@@ -399,12 +399,31 @@ const CACHE_TEXT_MAX = 20_000;
 export const slimForCache = (raws: Raw[]): Raw[] =>
   raws.map((r) => ({ ...r, text: r.student || EARLY.test(r.title) ? (r.text || "").slice(0, CACHE_TEXT_MAX) : "" }));
 const BOARD_STALE = 3 * 24 * 60 * 60_000;
+// Each board's cached postings can be a few hundred KB to 3 MB, and Supabase bills every byte read as data transfer.
+// The background search reads the same boards for every student, so the server keeps the last copy of each entry and
+// downloads it again only when its fetched_at changed (a newer fetch, here or on another server).
+const boardMemo = new Map<string, { at: string; fetched_at: Date; raws: any }>();
+const BOARD_MEMO_MAX = 300;
+/** A board_cache entry (raws and fetched_at), downloading raws only when this server's copy is out of date. */
+export async function readBoardCache(key: string): Promise<{ raws: any; fetched_at: Date } | undefined> {
+  const memo = boardMemo.get(key);
+  const r = await q1("SELECT fetched_at, fetched_at::text AS at, CASE WHEN fetched_at::text = $2 THEN NULL ELSE raws END AS raws FROM board_cache WHERE key = $1", [key, memo?.at || ""]);
+  if (!r) { boardMemo.delete(key); return undefined; }
+  // A copy each time: callers may change what they get, and the kept copy must stay as stored.
+  if (memo && r.at === memo.at) return { raws: structuredClone(memo.raws), fetched_at: memo.fetched_at };
+  const raws = typeof r.raws === "string" ? JSON.parse(r.raws) : r.raws;
+  const fetched_at = new Date(r.fetched_at);
+  boardMemo.delete(key);
+  boardMemo.set(key, { at: r.at, fetched_at, raws: structuredClone(raws) });
+  if (boardMemo.size > BOARD_MEMO_MAX) boardMemo.delete(boardMemo.keys().next().value!);
+  return { raws, fetched_at };
+}
 export async function cachedBoard(b: Board, field: string, region: string, fetch = fetchBoard): Promise<Raw[]> {
   // Sources that search by field or place get one entry per search; whole-board sources get one entry.
   // "v2" on title-only boards: entries saved before postings kept their reader (`more`) would stay textless for hours.
   const TITLE_ONLY = ["workday", "smartrecruiters", "oracle", "eightfold", "phenom", "schoolspring", "taleo"];
   const key = [...(TITLE_ONLY.includes(b.ats) ? ["v2"] : []), b.ats, b.slug, ["workday", "phenom", "smartrecruiters", "oracle", "eightfold", "usajobs", "careeronestop"].includes(b.ats) ? field : "", ["usajobs", "careeronestop"].includes(b.ats) ? region : ""].join("|").toLowerCase();
-  const hit = await q1("SELECT raws, fetched_at FROM board_cache WHERE key = $1", [key]).catch(() => undefined);
+  const hit = await readBoardCache(key).catch(() => undefined);
   const age = hit ? Date.now() - new Date(hit.fetched_at).getTime() : Infinity;
   if (hit && age < BOARD_FRESH) return withDetail(hit.raws as Raw[]);
   try {
