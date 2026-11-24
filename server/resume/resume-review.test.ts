@@ -56,6 +56,22 @@ test("bullet draft check: Remy's own rewrite (no answer) keeps only the line's w
   assert.equal(draftOk("verbs", line, "", "Applied implied volatility in Python, with a 6-month historical volatility fallback when market IV was unreliable"), false, "Python isn't in the line without the entry");
 });
 
+test("Remy's own rewrite (owners): sharper verbs and restructure allowed; new facts, results and numbers never", async () => {
+  const { ownDraftProblem } = await import("../ai/bulletDraft");
+  const t = "Manage office communications, assist with data entry, and help organize departmental resources for students";
+  assert.equal(ownDraftProblem(t, "Manage office communications, process data entry, and support organizing departmental resources for students"), "");
+  assert.match(ownDraftProblem(t, "Improved office communications and organized departmental resources for students"), /improved/);
+  assert.match(ownDraftProblem(t, "Manage office communications and Excel data entry, and help organize departmental resources for students"), /excel/);
+  assert.match(ownDraftProblem(t, "Managed office communications, processed data entry, and helped organize departmental resources for students"), /tense/);
+  assert.match(ownDraftProblem(t, "Manage office communications for 40 students, process data entry, and organize resources"), /number/);
+  assert.equal(ownDraftProblem("Provide administrative and operational support to faculty and staff within the College of Education department", "Support College of Education faculty and staff with administrative and operational tasks"), "");
+  assert.match(ownDraftProblem("Helped organize the career fair", "Organized the career fair and its schedule"), /credit|strong|words/);
+  // Tools from the same entry are fine; not without it
+  const v = "Used implied volatility with a fallback to 6-month historical volatility";
+  assert.equal(ownDraftProblem(v, "Priced options in Python using implied volatility with a 6-month historical volatility fallback", "Options Pricer · Python, NumPy · Built a pricer for options"), "");
+  assert.notEqual(ownDraftProblem(v, "Priced options in Python using implied volatility with a 6-month historical volatility fallback"), "");
+});
+
 test("review: owners count Activities and Leadership lines as achievements (Treasurer, President)", () => {
   const d = doc();
   d.sections.push({ id: "s4", heading: "ACTIVITIES AND LEADERSHIP", entries: [{ id: "e5", org: "TCU NABA", role: "Treasurer", location: "", dates: "Aug 2026 – Present", bullets: [{ id: "b4", text: "Oversee an estimated annual chapter budget of $5,000+" }, { id: "b5", text: "Organized a tournament with 24 participants" }] }] } as any);
