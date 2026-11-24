@@ -133,9 +133,10 @@ export default function RemyChat() {
           </Pressable>
         )}
       </View>
+      {/* The inverted list already flips its empty view back (scale -1 on Android, scaleY -1 on iOS). A transform here replaces that, which mirrored this text on Android. */}
       <FlatList inverted data={msgs} keyExtractor={(m) => m.id} renderItem={({ item }) => bubble(item)} contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12 }} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" onTouchStart={() => Keyboard.dismiss()} style={{ flex: 1 }}
         ListHeaderComponent={busy && !shown ? <TypingDots color={c.muted} bg={c.surface} line={c.line} /> : undefined}
-        ListEmptyComponent={<View style={{ transform: [{ scaleY: -1 }], paddingTop: 40, alignItems: "center", gap: 8 }}><T kind="h2">Ask Remy anything</T><T kind="muted" style={{ textAlign: "center" }}>About jobs, your resume, interviews or what to do next. Remy only uses what you've told it.</T></View>} />
+        ListEmptyComponent={<View style={{ paddingTop: 40, alignItems: "center", gap: 8 }}><T kind="h2">Ask Remy anything</T><T kind="muted" style={{ textAlign: "center" }}>About jobs, your resume, interviews or what to do next. Remy only uses what you've told it.</T></View>} />
       {!!err && <T kind="small" style={{ color: c.error, paddingHorizontal: 18, paddingBottom: 6 }}>{err}</T>}
       {soul && !text && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexGrow: 0, flexShrink: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 14, paddingTop: 4, paddingBottom: 8, alignItems: "center" }}>
