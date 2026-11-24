@@ -563,6 +563,7 @@ function SystemTab() {
           </section>
         </div>
       </div>
+      <SavedOpeningsMove />
       {tables && (
         <Modal title="Tables, server and messages" onClose={() => setTables(false)}>
           <div className="adm2-list">{s.tables.map((t) => <div key={t.name}><code>{t.name}</code><b>{t.mb} MB</b><span>{t.rows.toLocaleString()} rows</span></div>)}</div>
@@ -572,6 +573,45 @@ function SystemTab() {
         </Modal>
       )}
     </div>
+  );
+}
+
+type JobsMove = { mode: "off" | "copy" | "owners"; accounts: number; copied: number; left: number; differ: number; skipped: number; jobsInWorkspaces: number; jobsInTable: number };
+const MOVE_SAY: Record<JobsMove["mode"], string> = {
+  off: "Off. Saved openings live only inside each account, as before.",
+  copy: "Copying. Every save also writes the openings to their own table, and each hourly check copies 10 more accounts. Nothing is read from the table yet.",
+  owners: "Owners read from the table. Students still read their account's own copy.",
+};
+/** The switch for moving saved openings into their own table (server/platform/studentJobs.ts), and how the copy is going. */
+function SavedOpeningsMove() {
+  const { run } = useStore();
+  const [m, , setM] = useLoad<JobsMove>("/api/admin/student-jobs");
+  if (!m) return null;
+  const pick = async (mode: JobsMove["mode"]) => {
+    if (mode === m.mode) return;
+    if (m.mode === "off" && !confirm("Start copying saved openings into their own table? Remy takes a fresh full backup first, then copies 10 accounts an hour. Accounts keep their own copy, and Off undoes it at once.")) return;
+    const r = await run(() => api<JobsMove>("POST", "/api/admin/student-jobs", { mode }), mode === "off" ? "Switched off" : "Switch saved");
+    if (r) setM(r);
+  };
+  return (
+    <section className="adm2-card" data-testid="system-student-jobs">
+      <div className="adm2-h"><h3>Saved openings table</h3><span className="xs muted">{m.mode}</span></div>
+      <p className="adm2-note">{MOVE_SAY[m.mode]}</p>
+      {m.mode !== "off" && (
+        <div className="adm2-list">
+          <div><span>Accounts copied</span><b>{m.copied} of {m.accounts}</b><span>{m.left} to go</span></div>
+          <div><span>Openings</span><b>{m.jobsInTable.toLocaleString()} in the table</b><span>{m.jobsInWorkspaces.toLocaleString()} in accounts</span></div>
+          <div><span>Different from the account</span><b>{m.differ}</b><span>{m.skipped} left out (repeated ids)</span></div>
+        </div>
+      )}
+      <div className="adm2-links">
+        {(["off", "copy", "owners"] as const).map((x) => (
+          <button key={x} className={"btn btn-sm " + (m.mode === x ? "btn-primary" : "btn-ghost")} onClick={() => pick(x)} data-testid={`button-student-jobs-${x}`}>
+            {x === "off" ? "Off" : x === "copy" ? "Copy" : "Owners read it"}
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
