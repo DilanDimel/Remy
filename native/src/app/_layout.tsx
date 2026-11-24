@@ -38,6 +38,8 @@ function Root() {
         <Stack.Screen name="web" options={sheet} />
         <Stack.Screen name="job" options={{ ...sheet, title: "" }} />
         <Stack.Screen name="tailor" options={{ ...sheet, title: "Tailor your resume" }} />
+        <Stack.Screen name="news" options={{ ...sheet, title: "What's new" }} />
+        <Stack.Screen name="feedback" options={{ ...sheet, title: "Send feedback" }} />
       </Stack>
     </>
   );
