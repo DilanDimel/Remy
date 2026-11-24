@@ -3491,4 +3491,39 @@ html.redesign-2 input.ac-sw:checked, .ac-sw:checked { background: var(--ink); } 
   .ac-src .foot { flex-wrap: wrap; }
   .ac-log li { grid-template-columns: 10px minmax(0, 1fr); } .ac-log em { grid-column: 2; }
   .ac-me { flex-wrap: wrap; }
+/* Students tab (owners' dashboard v2): release switches up top, everyone in one list. */
+.adm2-release { flex-direction: row; gap: 20px; align-items: stretch; }
+.adm2-access { flex: 0 0 260px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; padding-right: 20px; border-right: 1px solid var(--line); }
+.adm2-access .btn { margin-top: auto; }
+.adm2-release > .adm-card { flex: 1; min-width: 0; border: 0; padding: 0; background: none; box-shadow: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 20px; align-content: start; }
+.adm2-release > .adm-card > h3 { grid-column: 1 / -1; font-size: var(--text-base); margin: 0; }
+.adm2-release > .adm-card > span.small.muted { display: none; }
+.adm2-release .feat-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 0; border: 0; font-size: var(--text-sm); min-width: 0; }
+.adm2-release .feat-row > div { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm2-release .feat-row .select { width: 190px !important; flex: none; }
+button.adm2-who { width: 100%; background: none; border: 0; border-bottom: 1px solid var(--line); font: inherit; color: inherit; text-align: left; cursor: pointer; }
+button.adm2-who:hover b { text-decoration: underline; }
+.adm2-pill { flex: none; font-size: var(--text-xs); font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--lav); color: var(--muted-text); white-space: nowrap; }
+.adm2-pill.on { background: var(--fox-soft); color: var(--ink); }
+.adm2-steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.adm2-steps > div { display: flex; flex-direction: column; gap: 1px; padding: 8px 10px; border-radius: 12px; background: var(--bg); }
+.adm2-steps strong { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.adm2-steps span { font-size: var(--text-xs); font-weight: 700; }
+.adm2-steps em { font-style: normal; font-size: var(--text-xs); color: var(--muted-text); }
+@media (max-width: 900px) {
+  .adm2-release { flex-direction: column; }
+  .adm2-access { flex: none; padding: 0 0 12px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .adm2-release > .adm-card { grid-template-columns: minmax(0, 1fr); }
+  .adm2-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  [data-testid="students-list"] .adm2-scroll, [data-testid="insider-checkins"] .adm2-scroll { max-height: 60vh; }
+}
+.adm2-release .feat-row { flex-wrap: nowrap; }
+.adm2-release .feat-row > div { flex: 1 1 auto; }
+.adm2-steps > div { padding: 8px; min-width: 0; }
+.adm2-steps span, .adm2-steps em { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.adm2-release .feat-row > div { white-space: normal; line-height: 1.25; }
+.adm2-release .feat-row .select { width: 175px !important; }
+@media (max-width: 690px) {
+  .adm-head:has(.adm2-headbtns) { flex-direction: column; align-items: flex-start; }
+  .adm2-release .feat-row .select { width: 150px !important; }
 }
