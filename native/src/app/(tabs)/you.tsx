@@ -35,7 +35,11 @@ export default function You() {
       </View>
       <Sect title="More" />
       <Group>{LINKS.map((l, i) => <Row key={l.path} first={i === 0} title={l.title} sub={l.sub} left={<Icon name={l.icon} color={c.muted} />} onPress={() => go(l.path, l.title)} testID={`row-${l.title === "Community" ? "people" : l.title.toLowerCase().split(" ")[0]}`} />)}</Group>
-      <Group style={{ marginTop: 24 }}><Row first title="Sign out" onPress={signOut} right={<View />} testID="button-sign-out" /></Group>
+      <Group style={{ marginTop: 24 }}>
+        <Row first title="Sign out" onPress={signOut} right={<View />} testID="button-sign-out" />
+        {/* The stores require deleting the account from inside the app: this opens the website's Account & data, where "Delete everything" is. */}
+        <Row title="Delete account" sub="Download your data or delete everything" onPress={() => go("/accounts?tab=data", "Account")} testID="row-delete-account" />
+      </Group>
       <T kind="small" style={{ textAlign: "center", marginTop: 18 }}>Remy app {Constants.expoConfig?.version} · owners preview</T>
     </Screen>
   );

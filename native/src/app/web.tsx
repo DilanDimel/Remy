@@ -88,7 +88,7 @@ export default function Web() {
         ? <iframe src={SITE + safe} style={{ border: 0, width: "100%", height: "100%" }} title={title} />
         : <WebView source={{ uri: SITE + safe }} sharedCookiesEnabled thirdPartyCookiesEnabled applicationNameForUserAgent="RemyApp" onLoadEnd={() => setBusy(false)}
             onNavigationStateChange={(s) => { const t = titleFor(s.url); if (t) setPageTitle(t); }}
-            originWhitelist={["*"]} onShouldStartLoadWithRequest={onNavigate} onOpenWindow={(e) => openOutside(e.nativeEvent.targetUrl)} onMessage={onMessage}
+            originWhitelist={["*"]} mediaCapturePermissionGrantType="grantIfSameHostElseDeny" onShouldStartLoadWithRequest={onNavigate} onOpenWindow={(e) => openOutside(e.nativeEvent.targetUrl)} onMessage={onMessage}
             ref={web}
             style={{ backgroundColor: c.paper }} />}
       {busy && Platform.OS !== "web" && <ActivityIndicator color={c.fox} style={{ position: "absolute", top: 24, alignSelf: "center" }} />}

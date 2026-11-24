@@ -3,16 +3,25 @@
     "name": "Remy",
     "slug": "remy",
     "scheme": "remy",
-    "version": "0.2.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "org.remyai.app",
-      "supportsTablet": false
+      "supportsTablet": false,
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Remy uses the microphone when you tap the mic to talk to him or practice an interview out loud.",
+        "NSSpeechRecognitionUsageDescription": "Remy turns what you say into text when you talk to him or practice an interview out loud."
+      }
     },
     "android": {
       "package": "org.remyai.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#fff4ec",
         "foregroundImage": "./assets/icon-foreground.png",

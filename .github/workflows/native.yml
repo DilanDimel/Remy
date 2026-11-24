@@ -5,6 +5,10 @@ on:
     paths: ["native/**", "shared/**", ".github/workflows/native.yml"]
   pull_request:
     paths: ["native/**", "shared/**", ".github/workflows/native.yml"]
+# A newer push to the same pull request cancels the older run, so stale commits don't send failure emails. Main runs are never cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
 jobs:
   check:
     runs-on: ubuntu-latest
