@@ -160,6 +160,7 @@ function Settings() {
       <div className="card card-pad stack">
         <h3>Theme</h3>
         <ThemeChoice />
+        <p className="xs muted">Match my device follows your phone or computer. The sun and moon button switches straight between light and dark.</p>
         <h3>Weekly career time</h3>
         <CareerTime compact />
         <h3>Assistant</h3>

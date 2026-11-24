@@ -269,7 +269,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const mq = matchMedia("(prefers-color-scheme: dark)");
     // Inside the phone app the page matches the app's own light or dark look, which the app sets before load (native/src/app/web.tsx).
     const inApp = (window as { __remyAppTheme?: unknown }).__remyAppTheme;
-    const apply = () => { document.documentElement.dataset.theme = inApp === "dark" || inApp === "light" ? inApp : theme === "system" ? (mq.matches ? "dark" : "light") : theme; };
+    const apply = () => {
+      const root = document.documentElement;
+      const next = inApp === "dark" || inApp === "light" ? inApp : theme === "system" ? (mq.matches ? "dark" : "light") : theme;
+      if (root.dataset.theme === next) return;
+      // Swap every colour in one frame: without this, buttons and chips fade on their own transitions and the page stutters.
+      root.classList.add("theme-swap");
+      root.dataset.theme = next;
+      void root.offsetHeight;
+      requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("theme-swap")));
+    };
     apply();
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
