@@ -284,3 +284,20 @@ test("slim cache: only student-level postings keep their text, and the search fi
     assert.deepEqual(await search(`slim-full-${g.sector}`, raws), await search(`slim-cut-${g.sector}`, slimForCache(raws)), g.sector);
   }
 });
+
+test("a board's cached postings are downloaded once per fetch, then reused from memory until the entry changes", async () => {
+  const { readBoardCache } = await import("./sources");
+  const { q } = await import("../platform/sql");
+  const key = "greenhouse|memo-test||";
+  await q("INSERT INTO board_cache (key, raws) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET raws = EXCLUDED.raws, fetched_at = now()", [key, JSON.stringify([{ title: "Intern A" }])]);
+  const a = await readBoardCache(key);
+  assert.equal(a!.raws[0].title, "Intern A");
+  a!.raws[0].title = "changed by a caller";
+  const b = await readBoardCache(key);
+  assert.equal(b!.raws[0].title, "Intern A", "the kept copy isn't changed by callers");
+  assert.ok(b!.fetched_at instanceof Date && !Number.isNaN(b!.fetched_at.getTime()));
+  await q("UPDATE board_cache SET raws = $2, fetched_at = now() + interval '1 second' WHERE key = $1", [key, JSON.stringify([{ title: "Intern B" }])]);
+  assert.equal((await readBoardCache(key))!.raws[0].title, "Intern B", "a newer fetch is downloaded again");
+  await q("DELETE FROM board_cache WHERE key = $1", [key]);
+  assert.equal(await readBoardCache(key), undefined);
+});
