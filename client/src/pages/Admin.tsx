@@ -39,7 +39,7 @@ type Team = {
 };
 const ANSWERS: [Answer, string][] = [["yes", "Going"], ["maybe", "Maybe"], ["no", "Can't go"]];
 
-const TABS = [["overview", "Overview", BarChart3], ["beta", "Beta", UserCheck], ["system", "System", Server], ["openings", "Openings", Briefcase], ["errors", "Errors & feedback", AlertTriangle], ["board", "Board & calendar", KanbanSquare], ["team", "Team & hours", Users]] as const;
+const TABS = [["overview", "Overview", BarChart3], ["beta", "Students", UserCheck], ["system", "System", Server], ["openings", "Openings", Briefcase], ["errors", "Errors & feedback", AlertTriangle], ["board", "Board & calendar", KanbanSquare], ["team", "Team & hours", Users]] as const;
 type Tab = (typeof TABS)[number][0];
 // The menu in three groups: students first, then data, then the team's own work (Hours first: the one the team checks).
 const NAV_GROUPS: [string, Tab[]][] = [["Students", ["overview", "beta"]], ["Data", ["system", "openings", "errors"]], ["Team", ["team", "board"]]];
@@ -99,7 +99,7 @@ export default function Admin() {
       <main className="adm-main">
         {tab === "overview" && <OverviewTab />}
         {tab === "errors" && <ErrorsTab />}
-        {tab === "beta" && <><BetaTab /><FunnelCard /><UsedCard /></>}
+        {tab === "beta" && <BetaTab />}
         {tab === "system" && <SystemTab />}
         {tab === "openings" && <OpeningsTab />}
         {(tab === "board" || tab === "team") && <TeamTab tab={tab} />}
@@ -238,15 +238,28 @@ function Releases() {
 
 type BetaRow = { email: string; note: string; addedBy: string; addedAt: string; invitedAt: string | null };
 type BetaData = { on: boolean; inviteOnly: boolean; open: boolean; formUrl: string; emailReady: boolean; list: BetaRow[] };
-/** Founding Cohort: owners paste accepted emails (one per line or comma-separated); Remy can email them "You're in". */
+type Person = { email: string; name: string; school: string; major: string; classYear: string; goal: string; stuck: string; tools: string; source: string; status: AppStatus; onList: boolean; cohort: string; appliedAt: string | null; signedUpAt: string | null; days: number; lastDay: string | null; insider: { joinedAt: string; surveyAt?: string } | null };
+type StudentsData = { people: Person[]; surveys: { question: string; answer: string; email: string; at: string }[] };
+const tester = (p: Person) => !!p.insider || p.onList || p.status === "accepted";
+const stage = (p: Person): [string, boolean] => p.insider ? [`Insider since ${day(p.insider.joinedAt)}`, true]
+  : p.signedUpAt && p.days >= 3 ? ["Invited to Insider", false] : p.signedUpAt ? [`${p.days} of 3 days`, false] : [p.status === "accepted" || p.onList ? "Hasn't signed in" : p.status === "next" ? "Next cohort" : p.status === "declined" ? "Declined" : "Applied", false];
+
+/** Students (Nov 24, owners' dashboard v2): who's in the beta, from the old form, the sign-in list and Beta Insider in one
+ *  list, plus the release switches ("Let everyone in" and Feature releases) at the top. Everything else opens in a modal. */
 function BetaTab() {
   const { run, toast } = useStore();
   const [d, , setD] = useLoad<BetaData>("/api/admin/beta");
+  const [st, reloadSt] = useLoad<StudentsData>("/api/admin/students");
+  const [fun] = useLoad<Funnel>("/api/admin/funnel");
   const [emails, setEmails] = useState("");
   const [note, setNote] = useState("");
   const [notify, setNotify] = useState(true);
   const [busy, setBusy] = useState(false);
-  if (!d) return <Spinner />;
+  const [view, setView] = useState<"testers" | "insiders" | "applied">("testers");
+  const [find, setFind] = useState("");
+  const [panel, setPanel] = useState<"" | "apps" | "add" | "more">("");
+  const [who, setWho] = useState<Person | null>(null);
+  if (!d) return <div className="row"><Spinner /> Loading…</div>;
   const add = async () => {
     setBusy(true);
     const r = await run(() => api<BetaData & { added: string[]; already: string[]; wrong: string[]; invited: string[] }>("POST", "/api/admin/beta", { emails, note, notify: notify && d.emailReady }));
@@ -254,6 +267,7 @@ function BetaTab() {
     if (!r) return;
     setD({ ...d, list: r.list });
     setEmails("");
+    reloadSt();
     toast([`${r.added.length} accepted`, r.invited.length ? `${r.invited.length} emailed` : "", r.already.length ? `${r.already.length} already on the list` : "", r.wrong.length ? `not emails: ${r.wrong.join(", ")}` : ""].filter(Boolean).join(" · "), r.wrong.length > 0);
   };
   // The instant-access switch (Nov 24): one click opens Remy to everyone, one click goes back to apply-first.
@@ -266,45 +280,102 @@ function BetaTab() {
     if (r) setD(r);
   };
   const remove = async (e: string) => {
-    if (!confirm(`Remove ${e} from the Founding Cohort? They won't be able to sign in while beta-only mode is on (their saved work stays).`)) return;
+    if (!confirm(`Take ${e} off the sign-in list? They won't be able to sign in while Remy is invite-only (their saved work stays).`)) return;
     const r = await run(() => api<{ list: BetaRow[] }>("DELETE", `/api/admin/beta/${encodeURIComponent(e)}`), "Removed");
-    if (r) setD({ ...d, list: r.list });
+    if (r) { setD({ ...d, list: r.list }); setWho(null); reloadSt(); }
   };
+  const people = st?.people || [];
+  const testers = people.filter(tester), insiders = people.filter((p) => p.insider), applied = people.filter((p) => p.status === "new" || p.status === "next");
+  const shown = (view === "testers" ? testers : view === "insiders" ? insiders : applied)
+    .filter((p) => !find || `${p.name} ${p.email} ${p.school} ${p.major}`.toLowerCase().includes(find.toLowerCase()));
+  const signedIn = testers.filter((p) => p.signedUpAt).length;
+  const rates = (st?.surveys || []).filter((x) => /^[1-5]$/.test(x.answer)).map((x) => Number(x.answer));
+  const words = (st?.surveys || []).filter((x) => !/^[1-5]$/.test(x.answer));
   return (
-    <div className="stack">
-      <Head title="Beta list" sub="Who can sign in. While Remy is invite-only, only these emails (and the team) can sign in, with the same email they put on the form. Once it is open to everyone, this list and the applications are kept but no longer needed to get in." />
-      <section className="adm-card stack-sm" data-testid="beta-status">
-        <div className="row-between" style={{ gap: 12, flexWrap: "wrap" }}>
-          <span className="stack-sm" style={{ flex: "1 1 260px" }}>
-            <b>{d.open ? "Open to everyone: anyone can sign in right away" : d.on ? "Invite-only: students apply, then sign in" : "Anyone can sign in (beta-only mode is off on this server)"}</b>
-            <span className="small muted">{d.open
-              ? "No application needed. Tailoring is capped at 5 a day per student, Beta Insider invites go out after 3 days of use, and every page has a Feedback button. The Free during beta label stays."
-              : "Open Remy to let anyone sign in without applying (with a daily cap on tailoring and Beta Insider invites). You can switch back to invite-only at any time."}</span>
-          </span>
+    <div className="adm2 adm2-full adm2-fixed">
+      <div className="adm-head">
+        <div><h1 className="adm-hello">Students</h1><p className="adm2-say"><b>{plural(testers.length, "tester")}, {plural(insiders.length, "Beta Insider")}.</b> {applied.length ? `${plural(applied.length, "application")} waiting for a decision.` : `${signedIn} of them signed in.`}</p></div>
+        <div className="row adm2-headbtns" style={{ gap: 6, flexWrap: "wrap" }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => setPanel("apps")} data-testid="button-open-applications">Applications{applied.length ? ` (${applied.length})` : ""}</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setPanel("add")} data-testid="button-open-add-emails"><Plus size={14} /> Add by email</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setPanel("more")} data-testid="button-open-beta-more">Who's applying <ArrowRight size={14} /></button>
+        </div>
+      </div>
+      <section className="adm2-card adm2-release" data-testid="beta-status">
+        <div className="adm2-access">
+          <span className="adm2-tl">{d.open ? "Open to everyone" : d.on ? "Invite-only" : "Anyone can sign in"}</span>
+          <span className="xs muted">{d.open ? "Anyone can sign in. Tailoring capped at 5 a day; Insider invites after 3 days of use." : d.on ? "Students apply, then sign in. Opening adds a daily tailoring cap and Insider invites." : "Beta-only mode is off on this server (OR_BETA_ONLY isn't true)."}</span>
           <button className={"btn btn-sm " + (d.open ? "btn-secondary" : "btn-primary")} onClick={flip} data-testid="button-beta-open-toggle">{d.open ? "Back to invite-only" : "Let everyone in"}</button>
         </div>
-        {!d.inviteOnly && !d.open && <span className="small muted">Beta-only mode is off on this server (OR_BETA_ONLY isn't true), so anyone can already sign in.</span>}
-        <span className="small muted">Application form: {d.formUrl ? <a href={d.formUrl} target="_blank" rel="noreferrer" style={{ overflowWrap: "anywhere" }}>{d.formUrl}</a> : "not set (set OR_BETA_FORM_URL; until then students are pointed to hello@remyai.org)"}</span>
+        <Releases />
       </section>
-      <Releases />
-      <Applications emailReady={d.emailReady} onList={(list) => setD({ ...d, list })} />
-      <form className="adm-card stack-sm" onSubmit={(e) => { e.preventDefault(); add(); }}>
-        <h3>Accept by email (without the form)</h3>
-        <textarea className="textarea" value={emails} onChange={(e) => setEmails(e.target.value)} placeholder={"Paste emails from the form, one per line or separated by commas"} aria-label="Emails to accept" data-testid="input-beta-emails" />
-        <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note, e.g. Cohort 1 · tcu-table (optional)" aria-label="Note" maxLength={200} />
-        <label className="row small"><input type="checkbox" checked={notify && d.emailReady} disabled={!d.emailReady} onChange={(e) => setNotify(e.target.checked)} /> Email them “You're in” with the sign-in link{d.emailReady ? "" : " (email isn't set up on this server)"}</label>
-        <div><button className="btn btn-primary btn-sm" disabled={!emails.trim() || busy} data-testid="button-beta-add">{busy ? <Spinner /> : <Plus size={14} />} Accept</button></div>
-      </form>
-      <section className="adm-card adm-list">
-        <h3>Accepted ({d.list.length})</h3>
-        {d.list.map((r) => (
-          <div key={r.email} className="row-between" style={{ gap: 8 }} data-testid="row-beta">
-            <div className="stack-sm"><b className="small">{r.email}</b><span className="xs muted">{[r.note, `added ${ago(r.addedAt)} by ${r.addedBy}`, r.invitedAt ? `emailed ${ago(r.invitedAt)}` : ""].filter(Boolean).join(" · ")}</span></div>
-            <button className="btn btn-ghost btn-sm" onClick={() => remove(r.email)} aria-label={`Remove ${r.email}`}><Trash2 size={14} /> Remove</button>
+      <div className="adm2-row adm2-row-sys">
+        <section className="adm2-card" data-testid="students-list">
+          <div className="adm2-h"><h3>Who's in</h3>
+            <div className="adm2-seg" role="group" aria-label="Show">
+              {([["testers", `Testers ${testers.length}`], ["insiders", `Insiders ${insiders.length}`], ["applied", `Applied ${applied.length}`]] as const).map(([k, l]) => <button key={k} aria-pressed={view === k} onClick={() => setView(k)} data-testid={`students-view-${k}`}>{l}</button>)}
+            </div>
           </div>
-        ))}
-        {!d.list.length && <p className="small muted">Nobody yet. Paste emails above once you accept them.</p>}
-      </section>
+          <input className="input" placeholder="Search a name, email, school or major" value={find} onChange={(e) => setFind(e.target.value)} aria-label="Search students" data-testid="input-students-search" />
+          <div className="adm2-scroll adm-list">
+            {!st && <Spinner />}
+            {shown.map((p) => {
+              const [label, on] = stage(p);
+              return (
+                <button key={p.email} className="adm2-open adm2-who" onClick={() => setWho(p)} data-testid="row-student">
+                  <div className="grow" style={{ minWidth: 0 }}>
+                    <b className="adm-ellipsis">{p.name || p.email}</b>
+                    <span className="xs muted adm-ellipsis">{[p.name ? p.email : "", p.school, p.classYear, p.major].filter(Boolean).join(" · ")}{p.goal ? ` · wants ${p.goal}` : ""}</span>
+                  </div>
+                  <span className={"adm2-pill" + (on ? " on" : "")}>{label}</span>
+                </button>
+              );
+            })}
+            {st && !shown.length && <Empty title={find ? "Nobody matches" : view === "insiders" ? "No insiders yet" : view === "applied" ? "No applications waiting" : "Nobody yet"} body={view === "insiders" ? "Students are invited after 3 days of use, once Remy is open to everyone." : undefined} />}
+          </div>
+        </section>
+        <div className="adm2-col">
+          <section className="adm2-card" data-testid="beta-steps">
+            <div className="adm2-h"><h3>From sign-up to using Remy</h3></div>
+            {fun ? <div className="adm2-steps">
+              {([["Applied", fun.applied], ["Accepted", fun.on_list], ["Signed in", fun.signed_in], ["Set up", fun.set_up], ["This week", fun.active_week]] as const).map(([l, n], i, all) => (
+                <div key={l}><strong>{n}</strong><span>{l}</span>{i > 0 && <em>{pctOf(n, all[i - 1][1])}</em>}</div>
+              ))}
+            </div> : <Spinner />}
+          </section>
+          <section className="adm2-card grow" data-testid="insider-checkins">
+            <div className="adm2-h"><h3>Insider check-ins</h3><span className="xs muted">{rates.length ? `useful ${(rates.reduce((x, y) => x + y, 0) / rates.length).toFixed(1)} of 5 · ${plural(rates.length, "answer")}` : "every two weeks"}</span></div>
+            <div className="adm2-scroll stack-sm">
+              {words.slice(0, 30).map((x, i) => <div key={i} className="small"><span>{x.answer}</span><span className="xs muted"> · {x.email.split("@")[0]}, {ago(x.at)}</span></div>)}
+              {st && !words.length && <span className="small muted">No answers yet. Insiders get three questions a week after they join, then every two weeks.</span>}
+            </div>
+          </section>
+        </div>
+      </div>
+      {who && (
+        <Modal title={who.name || who.email} onClose={() => setWho(null)}>
+          <div className="stack-sm small" data-testid="student-detail">
+            <span className="muted">{[who.email, who.school, who.classYear, who.major].filter(Boolean).join(" · ")}</span>
+            <span><b>{stage(who)[0]}</b>{who.cohort ? ` · ${who.cohort}` : ""}{who.signedUpAt ? ` · signed up ${ago(who.signedUpAt)} · used Remy on ${plural(who.days, "day")}${who.lastDay ? `, last ${day(who.lastDay)}` : ""}` : ""}</span>
+            {([["Trying to land", who.goal], ["Stuck on", who.stuck], ["Also uses", who.tools], ["Heard from", who.source]] as const).map(([l, v]) => <span key={l}><b>{l}:</b> {v || "—"}</span>)}
+            {who.appliedAt && <span className="xs muted">On file since {ago(who.appliedAt)}</span>}
+            {who.onList && <div><button className="btn btn-ghost btn-sm" onClick={() => remove(who.email)} aria-label={`Remove ${who.email}`} data-testid="button-student-remove"><Trash2 size={14} /> Take off the sign-in list</button></div>}
+          </div>
+        </Modal>
+      )}
+      {panel === "apps" && <Modal title="Applications" onClose={() => { setPanel(""); reloadSt(); }} wide><Applications emailReady={d.emailReady} onList={(list) => setD({ ...d, list })} /></Modal>}
+      {panel === "add" && (
+        <Modal title="Add by email" onClose={() => setPanel("")}>
+          <form className="stack-sm" onSubmit={(e) => { e.preventDefault(); add(); }}>
+            <span className="small muted">Lets them sign in while Remy is invite-only. Once it's open to everyone, nobody needs this.</span>
+            <textarea className="textarea" value={emails} onChange={(e) => setEmails(e.target.value)} placeholder="Emails, one per line or separated by commas" aria-label="Emails to accept" data-testid="input-beta-emails" />
+            <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note, e.g. Cohort 1 · tcu-table (optional)" aria-label="Note" maxLength={200} />
+            <label className="row small"><input type="checkbox" checked={notify && d.emailReady} disabled={!d.emailReady} onChange={(e) => setNotify(e.target.checked)} /> Email them “You're in” with the sign-in link{d.emailReady ? "" : " (email isn't set up on this server)"}</label>
+            <div><button className="btn btn-primary btn-sm" disabled={!emails.trim() || busy} data-testid="button-beta-add">{busy ? <Spinner /> : <Plus size={14} />} Accept</button></div>
+          </form>
+        </Modal>
+      )}
+      {panel === "more" && <Modal title="Who's applying and what they use" onClose={() => setPanel("")} wide><div className="stack"><FunnelCard /><UsedCard /></div></Modal>}
     </div>
   );
 }
