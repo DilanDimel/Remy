@@ -171,9 +171,11 @@ export function editTwin(t: Twin, edits: { from: string; to: string }[]): { miss
         const text = old.flatMap((r) => r).filter((x) => squash(x.str));
         const first = text[0];
         const left = first.x, cont = old[1]?.find((x) => squash(x.str))?.x ?? left;
-        // The right edge: the widest line on the page that starts at or before this line's indent.
+        // The right edge: the widest line in this column that starts at or before this line's indent.
         const colLeft = Math.min(...old.map((l) => l[0].x)) - first.size * 3;
-        const right = Math.max(...rows.filter((r) => r[0].x >= colLeft && r[0].x <= left + 1).map((r) => r[r.length - 1].x + r[r.length - 1].w), first.x + first.w);
+        // Section rules in the same column mark the text width too (a page with no right-aligned dates).
+        const right = Math.max(...rows.filter((r) => r[0].x >= colLeft && r[0].x <= left + 1).map((r) => r[r.length - 1].x + r[r.length - 1].w),
+          ...p.shapes.filter((s) => s.x >= colLeft && s.x <= left + 1 && s.h < 3).map((s) => s.x + s.w), first.x + first.w);
         const lead = old.length > 1 ? (old[old.length - 1][0].y - old[0][0].y) / (old.length - 1) : first.size * 1.16;
         const font = t.fonts[first.font];
         // A bullet typed as text ("• ", "– ") stays in front of the new line.

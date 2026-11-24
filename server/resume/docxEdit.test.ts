@@ -188,7 +188,8 @@ test("Word download: a line added in Remy never overwrites the next job's headin
     const got = await lines(out.buf);
     for (const l of all) assert.ok(got.includes(l), `kept: ${l}`);
     assert.deepEqual(out.missed, []);
-    assert.ok(got.includes(added));
+    // The new line copies its neighbour's typed bullet ("• "), like the student's own lines.
+    assert.ok(got.includes(`• ${added}`));
     assert.equal(got.length, all.length + 1);
   }
 });

@@ -107,7 +107,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
   const [mark, setMark] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
   const startWalk = (line = "") => {
     const list: Step[] = doc.sections.filter((s) => !isListSection(s.heading, true)).flatMap((s) => s.entries.flatMap((e) => e.bullets.flatMap((b): Step[] => {
-      const p = b.text.trim() ? issues(b.text) : [];
+      const p = b.text.trim() ? issues(b.text, doc) : [];
       const kind = p.includes("No number") ? "numbers" : p.includes("Starts weak") ? "verbs" : null;
       return kind ? [{ b: { id: b.id, text: b.text.trim().replace(/^[•\-–*]\s*/, ""), where: [e.role, e.org].filter(Boolean).join(", ") || s.heading }, kind }] : [];
     })));
@@ -186,7 +186,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
                   <div className="rm-row rm-sub"><i>{e.role}</i><span>{e.dates || (plain || isListSection(s.heading, true) || !(e.role.trim() || e.org.trim()) ? null : <span className="rm-flag">No dates</span>)}</span></div>
                   <ul>
                     {e.bullets.filter((b) => b.text.trim()).map((b) => {
-                      const probs = plain || isListSection(s.heading, true) ? [] : issues(b.text);
+                      const probs = plain || isListSection(s.heading, true) ? [] : issues(b.text, doc);
                       return (
                         <li key={b.id} data-bid={b.id} className={probs.length ? "rm-has-issue" : ""}>
                           {tagged(b.text.replace(/^[•\-–*]\s*/, ""), probs.map((p) => <button key={p} className="rm-flag" title="Why?" data-testid="rm-flag">{p}</button>), tools, on)}
