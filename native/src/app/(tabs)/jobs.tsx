@@ -5,7 +5,7 @@ import type { Job } from "@shared/types";
 import { Button, EmployerTile, FitBadge, Group, Icon, Pill, Row, Screen, Sect, T, success, tap } from "@/components/ui";
 import { useJobs } from "@/lib/jobs";
 import { go } from "@/lib/nav";
-import { visibleJobs } from "@/lib/next";
+import { daysUntil, visibleJobs } from "@/lib/next";
 import { useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
 
@@ -38,7 +38,8 @@ export default function Jobs() {
   if (!ws) return null;
   // Kept is every saved opening, like Progress counts them: one that closed or left the feed still shows (marked closed).
   const kept = [...new Set([...ws.savedJobIds, ...Object.keys(keptNow)])].map((id) => jobs.find((j) => j.id === id)).filter((j): j is Job => !!j);
-  const closed = (j: Job) => !all.some((x) => x.id === j.id);
+  // Only a posting that really closed says so (one Remy marks not eligible already carries that badge), first so it isn't cut off.
+  const closed = (j: Job) => !!fits[j.id]?.closed || (!!j.deadline && (daysUntil(j.deadline) ?? 0) < 0);
   const fresh = all.filter((j) => !gone[j.id] && !ws.savedJobIds.includes(j.id) && !ws.jobFeedback?.[j.id]);
   const shown = filter === "kept" ? kept : fresh;
   const onRefresh = async () => { setRefreshing(true); await reload(); setRefreshing(false); };
@@ -91,7 +92,7 @@ export default function Jobs() {
         <Sect title={filter === "kept" ? "Kept" : `${shown.length} for you`} />
         <Group>
           {shown.slice(0, 40).map((j, i) => (
-            <Row key={j.id} first={i === 0} title={j.title} sub={[j.company, j.location, filter === "kept" && closed(j) ? "closed" : ""].filter(Boolean).join(" · ")} left={<EmployerTile name={j.company} size={40} />} onPress={() => open(j)} testID="row-opening"
+            <Row key={j.id} first={i === 0} title={j.title} sub={[filter === "kept" && closed(j) ? "Closed" : "", j.company, j.location].filter(Boolean).join(" · ")} left={<EmployerTile name={j.company} size={40} />} onPress={() => open(j)} testID="row-opening"
               right={filter === "kept" ? (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   <FitBadge fit={fits[j.id]} />
