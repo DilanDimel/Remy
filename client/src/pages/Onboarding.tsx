@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Check, ChevronDown, FileText, GraduationCap, Mail, Sparkles, Trash2 } from "lucide-react";
 import { PATHS, type Profile, type SetupFocus, type Workspace } from "@shared/types";
 import { FIELD_GROUPS, FIELD_MAJORS, splitFieldList } from "@shared/fields";
+import { AUTH_OPTS, authChip } from "@shared/workAuth";
 import { alreadyIn, fitsField, inField, setupReply, tappedResumeClaim } from "@shared/setupReply";
 import { guessYear } from "@shared/roads";
 import { api, FAR_ENOUGH_STEP, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
@@ -448,7 +449,7 @@ export function ProfileForm({ onSaved, hidePrefs, draft }: { onSaved?: () => voi
             ) : k === "workAuth" || k === "relocation" ? (
               <select className="select" value={p[k] || ""} onChange={(e) => setP({ ...p, [k]: e.target.value })} data-testid={`select-profile-${k}`}>
                 <option value="">Choose…</option>
-                {(k === "workAuth" ? AUTH_OPTS : RELOC_OPTS).map((o) => <option key={o}>{o}</option>)}
+                {(k === "workAuth" ? [...AUTH_OPTS, ...(p.workAuth && !AUTH_OPTS.includes(p.workAuth) ? [p.workAuth] : [])] : RELOC_OPTS).map((o) => <option key={o}>{o}</option>)}
               </select>
             ) : k === "classYear" ? (
               <select className="select" value={p.classYear} onChange={(e) => setP({ ...p, classYear: e.target.value })} data-testid="select-class-year">
@@ -474,7 +475,6 @@ export function ProfileForm({ onSaved, hidePrefs, draft }: { onSaved?: () => voi
 const YEAR_OPTS = ["First-year", "Sophomore", "Junior", "Senior", "Graduate student"];
 const REGION_OPTS = ["Fort Worth", "Dallas", "DFW area", "Houston", "Austin", "Anywhere in Texas", "Remote", "Anywhere in the US"];
 const TYPE_OPTS = ["Internships", "Full-time jobs", "Part-time / campus jobs", "Programs & insight days", "Events & networking", "Competitions"];
-const AUTH_OPTS = ["U.S. citizen or permanent resident", "I'll need visa sponsorship (F-1 / OPT)"];
 const RELOC_OPTS = ["Yes", "For the right role", "No"];
 /** The next few terms a student could start something, e.g. Spring 2027, Summer 2027, Fall 2027, Summer 2028. */
 function timelineOptions(today = new Date()) {
@@ -529,7 +529,7 @@ function Preferences({ onBack }: { onBack: () => void }) {
   const toggleGroup = (g: string) => setOpenGroups((o) => (o.includes(g) ? o.filter((x) => x !== g) : [...o, g]));
   const [unsure, setUnsure] = useState(!!ws!.onboarding.exploring);
   const [page, setPage] = useState(0);
-  const [auth, setAuth] = useState(p.workAuth ? [AUTH_OPTS.find((o) => /sponsor/i.test(o) === /sponsor|visa/i.test(p.workAuth))!] : []);
+  const [auth, setAuth] = useState(authChip(p.workAuth));
   const [reloc, setReloc] = useState(p.relocation ? [p.relocation] : []);
   const [dream, setDream] = useState(p.dreamEmployers || "");
   const [avoid, setAvoid] = useState(p.avoid || "");
@@ -541,7 +541,7 @@ function Preferences({ onBack }: { onBack: () => void }) {
   // Two short screens: what you want, then where and the practical bits.
   const missing = (page === 0
     ? [!year.length && "your year", !allFields.length && !unsure && "at least one field (or \"I'm not sure yet\")", !types.length && "what kinds of opportunities"]
-    : [!auth.length && "work authorization"]).filter(Boolean);
+    : []).filter(Boolean);
   const toPage = (n: number) => { setPage(n); window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); };
   // Page 1's picks are saved before page 2, so a refresh there doesn't lose them (the rest saves on "Save and continue").
   const nextPage = async () => {
@@ -559,7 +559,7 @@ function Preferences({ onBack }: { onBack: () => void }) {
       regions: [...regions, ...splitList(otherRegion)].join(", "),
       opportunityTypes: types.join(", "),
       targetRoles: allFields.join(", "),
-      workAuth: auth[0] || "",
+      workAuth: auth[0] || (authChip(p.workAuth).length ? "" : p.workAuth),
       relocation: reloc[0] || "",
       dreamEmployers: dream.trim(),
       avoid: avoid.trim(),
@@ -627,8 +627,8 @@ function Preferences({ onBack }: { onBack: () => void }) {
             <div className="pref-inline"><input className="input pref-grow" value={otherRegion} onChange={(e) => setOtherRegion(e.target.value)} placeholder="Somewhere else? e.g. Chicago" aria-label="Other regions" data-testid="input-pref-region" />
             <span className="xs muted">Open to relocating?</span><Chips options={RELOC_OPTS} value={reloc} onChange={setReloc} multi={false} testid="pref-reloc" /></div></Q>
           <div className="pref-pair">
-          <Q n={6}><strong>Work authorization</strong><Chips options={AUTH_OPTS} value={auth} onChange={setAuth} multi={false} testid="pref-auth" />
-            <span className="xs muted">If you'll need sponsorship, Remy hides postings that say they won't sponsor.</span></Q>
+          <Q n={6}><strong>Work authorization <span className="muted xs">(optional)</span></strong><Chips options={AUTH_OPTS} value={auth} onChange={setAuth} multi={false} testid="pref-auth" />
+            <span className="xs muted">Only to skip postings you can't take: "won't sponsor" ones if you'll need sponsorship, U.S. citizens only ones if you aren't one. You can still open them. Leave it blank and nothing is hidden.</span></Q>
           <Q n={7}><strong>Dream employers <span className="muted xs">(optional)</span></strong>
             <input className="input" value={dream} onChange={(e) => setDream(e.target.value)} placeholder="e.g. Goldman Sachs" aria-label="Dream employers" data-testid="input-pref-dream" />
             <span className="xs muted">Remy checks their career sites first.</span></Q>

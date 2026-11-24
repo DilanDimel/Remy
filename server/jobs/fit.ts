@@ -1,3 +1,4 @@
+import { authKind } from "@shared/workAuth";
 import { sameEmployer } from "@shared/org";
 import { postingSkills } from "@shared/requirements";
 import type { Job, JobFit, Workspace } from "@shared/types";
@@ -259,11 +260,13 @@ export function dealbreaker(ws: Workspace, job: Job, today = new Date()): string
 export function notEligible(ws: Workspace, job: Job, today = new Date()): string {
   const p = ws.profile;
   const text = `${job.title} ${job.eligibility.join(" ")} ${job.summary} ${job.postingText || ""}`;
-  if (/sponsor|visa|f-?1|opt\b|h-?1b/i.test(p.workAuth || "") && /\b(?:no|not|unable to|cannot|will not|won't|does not)\b[^.]{0,40}\bsponsor|without (?:the need for )?(?:current or future |now or in the future )?(?:visa |employment )?sponsorship|not eligible for (?:visa )?sponsorship/i.test(text))
+  const auth = authKind(p.workAuth);
+  // Students on OPT can usually take the job now, so "won't sponsor" only rules out students who'll need sponsorship.
+  if (auth === "sponsor" && /\b(?:no|not|unable to|cannot|will not|won't|does not)\b[^.]{0,40}\bsponsor|without (?:the need for )?(?:current or future |now or in the future )?(?:visa |employment )?sponsorship|not eligible for (?:visa )?sponsorship/i.test(text))
     return "This posting says it won't sponsor a work visa, and you told Remy you'll need sponsorship.";
   const citizensOnly = citizensOnlySentence(text);
-  if (/sponsor|visa|f-?1|opt\b|h-?1b/i.test(p.workAuth || "") && citizensOnly)
-    return `This posting is only for U.S. citizens: “${citizensOnly.trim().slice(0, 160)}”, and you told Remy you'll need sponsorship.`;
+  if ((auth === "sponsor" || auth === "opt" || auth === "resident") && citizensOnly)
+    return `This posting is only for U.S. citizens: “${citizensOnly.trim().slice(0, 160)}”, and you told Remy you're ${auth === "resident" ? "a green card holder" : auth === "opt" ? "on F-1 / OPT" : "going to need sponsorship"}.`;
   if (classYearOf(ws, today) !== "Graduate student" && /\bMBA\b(?! or undergraduate)|(?:currently )?(?:enrolled in|pursuing) an? (?:master'?s|graduate|ph\.?d)/i.test(`${job.title} ${job.eligibility.join(" ")} ${job.summary} ${job.requirements.map((r) => `${r.keyword} ${r.quote}`).join(" ")}`))
     return "This one is for MBA or graduate students.";
   if (/\bhigh[- ]school\b/i.test(job.title) && p.path !== "high-school" && classYearOf(ws, today) !== "") return "This one is for high school students.";
