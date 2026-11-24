@@ -4,7 +4,7 @@ import { Button, Remy, Screen, T } from "@/components/ui";
 import { useGateRedirect } from "@/lib/gate";
 import { useSession } from "@/lib/session";
 
-/** The new app is owners-only while the team tests it (src/lib/rules.ts appOpenFor); students keep using the website. */
+/** Until Dilan releases the `app` switch (Admin → Beta → Feature releases), students see this (src/lib/rules.ts appOpenFor) and keep using the website. */
 export default function NotYet() {
   const { signOut } = useSession();
   const away = useGateRedirect("not-yet");

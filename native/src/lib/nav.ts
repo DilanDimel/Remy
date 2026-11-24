@@ -20,9 +20,16 @@ export function go(path: string, title = "Remy", opts: { page?: boolean } = {}) 
   router.push({ pathname: "/web", params: { path: path.startsWith("/") ? path : "/" + path, title } });
 }
 
-/** Open Remy's chat with a question ready to send (the student can edit it first). */
-export function askRemy(question: string) {
-  router.push({ pathname: "/remy", params: { ask: question } } as any);
+/** Open Remy's chat with a question ready to send (the student can edit it first). With `send`, it is asked at once:
+ *  the student already typed it (My Path's office box), so a second tap on Send was one too many. */
+export function askRemy(question: string, opts: { send?: boolean } = {}) {
+  router.push({ pathname: "/remy", params: { ask: question, ...(opts.send ? { send: "1", at: String(Date.now()) } : {}) } } as any);
+}
+
+/** Open Resume on "Remy's fixes", his one-line-at-a-time rewrites (the website's startResumeFix). `at` makes a second
+ *  open work after the student closed it. */
+export function openResumeFix() {
+  router.navigate({ pathname: "/resume", params: { fix: "1", at: String(Date.now()) } } as any);
 }
 
 /** Open the Jobs tab on For you ("new") or Kept. `at` makes a second tap work after the student switched tabs. */
