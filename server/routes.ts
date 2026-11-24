@@ -11,6 +11,8 @@ import type {
 import { PATHS } from "@shared/types";
 import { INSIDER_AFTER_DAYS, INSIDER_SURVEY, insiderEligible, insiderSurveyDue, termsFor } from "@shared/beta";
 import { NAME_CHECK, firstName, knownName, nameUnsure, sameName } from "@shared/names";
+import { PROFILE_CHECK_FIELDS, remyAsks } from "@shared/remyAsks";
+import { answerAsk, tickDone } from "./coach/asks";
 import { partialReply } from "./ai/streamReply";
 import { startStream, streamLine } from "./platform/stream";
 import { allow, allowLocal, cleanupLimits } from "./platform/limits";
@@ -96,6 +98,8 @@ const uploadFile = (req: Request, res: Response, next: NextFunction) =>
   });
 
 type Ctx = { me: Me; ws: Workspace; save: () => Promise<void>; ip: string };
+/** Real owners in owner view (not students, even after the redesign is released): features Dilan hasn't released yet. */
+const ownersNow = (ctx: Ctx) => !!ctx.me.owner && ctx.ws.settings.ownerView !== false;
 type H = (req: Request, res: Response, ctx: Ctx) => Promise<unknown> | unknown;
 
 // Render sits behind Cloudflare, which sets the real visitor address.
@@ -1222,7 +1226,13 @@ export async function registerRoutes(_server: Server, app: Express) {
     // Fill empty profile fields, and fields still holding what the replaced resume said. What the student typed stays.
     const p = ctx.ws.profile;
     const now = fromResume(doc);
-    for (const k of Object.keys(now) as (keyof typeof now)[]) if (!p[k] || (was && p[k] === was[k])) p[k] = now[k];
+    // Owners: a field the student typed that the new resume disagrees with becomes one of Remy's questions.
+    const checks = ownersNow(ctx) ? (ctx.ws.profileChecks || []).filter((c) => !(c.field in now)) : undefined;
+    for (const k of Object.keys(now) as (keyof typeof now)[]) {
+      if (!p[k] || (was && p[k] === was[k])) p[k] = now[k];
+      else if (checks && now[k] && (PROFILE_CHECK_FIELDS as readonly string[]).includes(k) && norm(String(now[k])) !== norm(String(p[k]))) checks.push({ field: k, resume: String(now[k]).slice(0, 200), profile: String(p[k]).slice(0, 200) });
+    }
+    if (checks) ctx.ws.profileChecks = checks;
     // Class standing: stated on the resume, or worked out from the graduation date.
     if (!p.classYear || (was && p.classYear === yearWas)) p.classYear = classYearOf({ ...ctx.ws, profile: { ...p, classYear: "" } });
     // Owner view only: better setup defaults — "What should Remy call you?" from the resume's first name,
@@ -1460,7 +1470,10 @@ export async function registerRoutes(_server: Server, app: Express) {
       for (const b of d.sections.flatMap((s) => s.entries || []).flatMap((e) => e.bullets || [])) if (!had.has(b.id) && missing.has(b.text.trim())) fileLines[b.id] = b.text.trim();
     }
     if (gone.length) ctx.ws.resume!.removed = [...(ctx.ws.resume!.removed || []), ...gone].slice(-200);
-    if (JSON.stringify(ctx.ws.resume!.doc) !== JSON.stringify(d)) ctx.ws.resume!.editedAt = nowIso();
+    if (JSON.stringify(ctx.ws.resume!.doc) !== JSON.stringify(d)) {
+      ctx.ws.resume!.editedAt = nowIso();
+      if (ownersNow(ctx)) tickDone(ctx.ws, (t) => t.title === "Update your resume to match", "You edited your resume.");
+    }
     ctx.ws.resume!.doc = d;
     const q = ctx.ws.resume!.quality;
     if (q) q.missingLines = stillMissing(q.missingLines, d);
@@ -2195,6 +2208,20 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     if (offerId) ctx.ws.settings.offersSeen = [...(ctx.ws.settings.offersSeen || []).filter((x) => x !== offerId), offerId].slice(-200);
     await ctx.save();
     res.json(ctx.ws);
+  }));
+
+  // Owners (Nov 24, shared/remyAsks.ts): the student answers one of Remy's quick questions and Remy does the fix, in
+  // his chat with Undo. "later" puts the question off for two weeks.
+  app.post("/api/remy/ask", route(async (req, res, ctx) => {
+    if (!ownersNow(ctx)) bad("This is only for owners right now.", 403);
+    const today = centralToday();
+    const ask = remyAsks(ctx.ws, today, true).find((a) => a.id === String(req.body?.id || ""));
+    if (!ask) bad("That question was already answered.", 404);
+    const { text, copy, did } = answerAsk(ctx.ws, ask!, req.body || {}, today);
+    if (req.body?.answer !== "later" && !did) bad(text);
+    if (did) ctx.ws.chat.push({ id: uid("m"), role: "assistant", text: copy ? `${text} "${copy}"` : text, at: nowIso(), page: "Remy", did: [did] });
+    await ctx.save();
+    res.json({ ws: ctx.ws, text, copy, messageId: did ? ctx.ws.chat[ctx.ws.chat.length - 1].id : "" });
   }));
 
   // Owners (#3, #6): on opening the app, Remy may start the talk himself: a question he said he'd ask, or the weekly check-in.

@@ -472,7 +472,7 @@ export type MoreAction = { kind: "interest"; jobId: string; more: boolean } | { 
   | { kind: "go"; link: string; label: string } | { kind: "start"; what: "resumeFix" | "interview" | "tour"; jobId?: string };
 export type ProfileField = "major" | "minors" | "school" | "graduation" | "location";
 export interface ChatDid {
-  id: string; kind: "task" | "save" | "tailor" | "role" | "name" | "setting" | "done" | "unsave" | "event" | "remember" | MoreAction["kind"]; label: string; ref: string; link?: string; undone?: boolean;
+  id: string; kind: "task" | "save" | "tailor" | "role" | "name" | "setting" | "done" | "unsave" | "event" | "remember" | "ask" | MoreAction["kind"]; label: string; ref: string; link?: string; undone?: boolean;
   /** Opened a page or started something: nothing to undo. */
   noUndo?: boolean;
   /** What it was before, so Undo can put it back (a name, a setting's value). */
@@ -591,6 +591,9 @@ export interface Workspace {
   overnightAt?: string;
   /** Urgent texts Remy sent, or kept in test mode (server/notify/texts.ts). Server-written. */
   texts?: { key: string; day: string; at: string; to: string; body: string; mode: "twilio" | "test" }[];
+  /** Owners: a newer resume disagrees with what the student typed in their profile; Remy asks which is right
+   *  (shared/remyAsks.ts). Server-written at resume upload, cleared by the answer. */
+  profileChecks?: { field: string; resume: string; profile: string }[];
   /** Deadline reminders already emailed (calendar id:date:soon|day), so each goes out once. */
   reminded?: string[];
   /** When the student last uploaded a profile photo (also busts the image cache); absent = no photo. */
@@ -637,6 +640,8 @@ export interface Workspace {
     offersSeen?: string[];
     /** Owners: "quiet week". Through this day (YYYY-MM-DD) Remy makes no offers or check-ins and sends no opening or weekly emails. */
     quietUntil?: string;
+    /** Owners: Remy's questions the student put off ("Not now"), each with the day it may be asked again (shared/remyAsks.ts). Server-written. */
+    asksLater?: Record<string, string>;
   };
   updatedAt: string;
 }
