@@ -459,8 +459,8 @@ export async function scoutBoards(boards = EMPLOYERS, read = cachedBoard) {
   await Promise.all(Array.from({ length: 8 }, worker));
   return out;
 }
-// Conference lists are kept for a month (server/jobs/conferences.ts), employer reads for 3 days.
-export const pruneBoardCache = () => q("DELETE FROM board_cache WHERE fetched_at < now() - interval '3 days' AND (key NOT LIKE 'conferences|%' OR fetched_at < now() - interval '40 days')");
+// Conference and competition lists are kept for a month (server/jobs/conferences.ts, competitions.ts), employer reads for 3 days.
+export const pruneBoardCache = () => q("DELETE FROM board_cache WHERE fetched_at < now() - interval '3 days' AND ((key NOT LIKE 'conferences|%' AND key NOT LIKE 'competitions|%') OR fetched_at < now() - interval '40 days')");
 
 /** The words that make a student's goal specific ("mechanical" in "mechanical engineering intern"), so a
  *  Mechanical Engineering Intern ranks above an Electrical one for them. */
