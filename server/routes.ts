@@ -18,7 +18,7 @@ import { employerPreferences, interestContext, interestEnabled, ownInterest } fr
 import { keepQuestions, skippedPrefs } from "@shared/setupReply";
 import { newsMark } from "@shared/news";
 import { isNonAnswer } from "@shared/words";
-import { draftOk, ownRewriteOk } from "./ai/bulletDraft";
+import { draftOk, ownDraftProblem } from "./ai/bulletDraft";
 import { WEAK } from "@shared/bullets";
 import { STORY_ASK, STORY_PARTS, findLine, namesNew, sameLine } from "@shared/stories";
 import { storyLines } from "./coach/storyLines";
@@ -35,6 +35,7 @@ import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./ai/safety";
 import * as admin from "./platform/admin";
 import * as beta from "./platform/beta";
 import * as features from "./platform/features";
+import { redesignOut } from "@shared/features";
 import * as signals from "./jobs/signals";
 import { acceptHtml } from "@shared/acceptEmail";
 import { recordError } from "./platform/admin";
@@ -157,7 +158,9 @@ function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: 
       const ws = await loadWorkspace(me.id);
       const ctx: Ctx = { me, ws, ip, save: sectionSaver(me, ws) };
       // Owners in owner view run the AI setup being trialled (OR_AI_CHAIN_OWNERS); students keep OR_AI_CHAIN.
-      await runAiAs(!!me.owner && ws.settings.ownerView !== false, () => fn(req, res, ctx) as Promise<unknown>);
+      // Everyone gets the redesign's server side (inOwnerView()) once owners release it (shared/features.ts).
+      const trial = !!me.owner && ws.settings.ownerView !== false;
+      await runAiAs(trial || redesignOut(await features.releases()), () => fn(req, res, ctx) as Promise<unknown>, trial);
     } catch (e: any) {
       if (e instanceof AiUnavailable) return res.status(503).json({ message: e.message, code: "ai-unavailable" });
       const status = e?.status || 500;
@@ -395,7 +398,7 @@ function fieldEmployers(ws: Workspace, directory: typeof EMPLOYERS) {
 
 /** The employers a search may read. Ones marked "preview" (new, being checked on the live site; Nov 21) are for owners in
  *  owner view only: never read for, or counted toward, a student (skeptic review: the "N employers in your field" gap note). */
-const directoryFor = (ctx: Ctx) => (ctx.me.owner && ctx.ws.settings.ownerView !== false ? EMPLOYERS : EMPLOYERS.filter((e) => !e.preview));
+const directoryFor = (_ctx: Ctx) => (inOwnerView() ? EMPLOYERS : EMPLOYERS.filter((e) => !e.preview));
 
 async function findOpenings(ctx: Ctx, named: string[] = [], opts: { background?: boolean } = {}) {
   // Which employers to read: the AI picks from the directory for this student's profile;
@@ -521,7 +524,8 @@ export async function registerRoutes(_server: Server, app: Express) {
       const due = dueReminders(ws, today);
       if (!due.length) continue;
       // Finish it / Not now buttons and the branded email: owners only while they're tested.
-      const isOwner = await admin.isOwner({ kind: "google", email: u.email });
+      // Redesigned emails: owners while they're tested, everyone once the redesign is released.
+      const isOwner = (await admin.isOwner({ kind: "google", email: u.email })) || redesignOut(await features.releases());
       const { subject, text, html } = reminderEmail(firstName(ws) || (isOwner && String(u.name || "").trim().split(/\s+/)[0]) || "there", due, process.env.PUBLIC_HOST || "remyai.org", isOwner);
       try { await sendEmail(ws.profile.applicationEmail || u.email, subject, text, html); } catch (e: any) { console.error("deadline reminder failed", e?.message); continue; }
       await saveSections(u.id, { reminded: [...(ws.reminded || []), ...due.map((d) => d.key)].slice(-300), ...(isOwner ? { emails: logEmail(ws, "reminder", subject) } : {}) } as any);
@@ -533,7 +537,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     for (const u of await q("SELECT u.id, u.email, u.name FROM users u WHERE u.kind IN ('google','supabase')")) {
       if (!(await beta.emailAllowed(u.email))) continue; // no emails to accounts outside the Founding Cohort
       const ws = await loadWorkspace(u.id);
-      const isOwner = await admin.isOwner({ kind: "google", email: u.email });
+      const isOwner = (await admin.isOwner({ kind: "google", email: u.email })) || redesignOut(await features.releases());
       const d = weeklyDigest(ws, today, weekday, process.env.PUBLIC_HOST || "remyai.org", isOwner, String(u.name || ""));
       if (!d) continue;
       try { await sendEmail(ws.profile.applicationEmail || u.email, d.subject, d.text, d.html); } catch (e: any) { console.error("weekly digest failed", e?.message); continue; }
@@ -969,7 +973,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       if (devCodes()) console.log(`[dev] sign-in code for ${email}: ${code}`);
       else {
         // Owners get the branded email while it's tested; students keep the plain one.
-        const html = (await admin.isOwner({ kind: "google", email }))
+        const html = (await admin.isOwner({ kind: "google", email })) || redesignOut(await features.releases())
           ? codeEmail({ host: process.env.PUBLIC_HOST || "remyai.org", code, name: ((await userByEmail(email))?.name || "").trim().split(/\s+/)[0], heading: "Your sign-in code", intro: "Here's your code to sign in to Remy.", why: "Didn't ask for this? You can ignore this email. No one can sign in without the code." })
           : undefined;
         await sendEmail(email, `${code} is your Remy sign-in code`, `Your Remy sign-in code is ${code}.\n\nType it on the Remy sign-in page. It works on any device and expires in 10 minutes.\n\nIf you didn't ask for this, you can ignore this email; no one can sign in without the code.\n\nRemy`, html);
@@ -1027,7 +1031,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       notify: z.object({ deadlines: z.boolean(), statusChanges: z.boolean(), weeklyPlan: z.boolean() }).partial().optional(),
       nudges: z.enum(["daily", "weekly", "off"]).optional(),
       texts: z.object({ on: z.boolean(), phone: z.string().max(30).refine((p) => p === "" || !!usPhone(p), "Use a US phone number, like (817) 555-0123.") }).optional(),
-      demoConnections: z.array(str(80)).max(20).optional(), newsSeen: str(40).optional(), ownerView: z.boolean().optional(),
+      demoConnections: z.array(str(80)).max(20).optional(), newsSeen: str(40).optional(), beta2Seen: z.boolean().optional(), ownerView: z.boolean().optional(),
       tour: z.union([z.number().int().min(0).max(20), z.literal("done")]).optional(), firstWin: z.union([z.number().int().min(0).max(2), z.literal("done")]).optional(), introsSeen: z.array(str(40)).max(20).optional(), offersSeen: z.array(str(160)).max(200).optional(), quietUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     }),
     tasks: z.array(z.looseObject({ id: str(120), title: str(300), why: str(2000), due: str(10), category: z.enum(["Explore", "Prepare", "Apply", "Connect", "Academic"]), done: z.boolean(), source: str(200), link: str(500).optional() })).max(500),
@@ -1218,7 +1222,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!p.classYear || (was && p.classYear === yearWas)) p.classYear = classYearOf({ ...ctx.ws, profile: { ...p, classYear: "" } });
     // Owner view only: better setup defaults — "What should Remy call you?" from the resume's first name,
     // and "Email for applications" from the resume instead of the sign-in account's email.
-    if (ctx.me.owner && ctx.ws.settings.ownerView !== false) {
+    if (inOwnerView()) {
       if (!p.preferredName && now.name) p.preferredName = now.name.split(/\s+/)[0];
       if (now.email && (!p.applicationEmail || p.applicationEmail === ctx.me.email)) p.applicationEmail = now.email;
     }
@@ -1310,7 +1314,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const appId = String(req.query.app || "");
     const a = appId ? ctx.ws.applications.find((x) => x.id === appId) : undefined;
     const job = a ? findJob(ctx.ws, a.jobId) : undefined;
-    const opts = { owner: !!ctx.me.owner && ctx.ws.settings.ownerView !== false };
+    const opts = { owner: inOwnerView() };
     if (a && job) {
       const kws = postingSkills(job.requirements);
       res.json({
@@ -1347,7 +1351,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const fmt = req.query.format === "docx" ? "docx" : "pdf";
     const doc = ctx.ws.resume!.doc;
     // Word download for owners (stage 3): their own file with the changes, when every change fits in it.
-    const own = fmt === "docx" && ctx.me.owner && ctx.ws.settings.ownerView !== false ? await ownCurrentDocx(ctx) : null;
+    const own = fmt === "docx" && inOwnerView() ? await ownCurrentDocx(ctx) : null;
     const buf = own?.buf && !own.missed.length ? own.buf : fmt === "pdf" ? await resumePdf(doc, ctx.ws.resume!.style) : await resumeDocx(doc, ctx.ws.resume!.style);
     const name = (nameUnsure(ctx.ws) ? "Resume" : ctx.ws.profile.name || doc.contact.name || "Resume").replace(/[^A-Za-z]+/g, "-") + "-Resume";
     res.setHeader("Content-Type", fmt === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
@@ -1531,16 +1535,34 @@ export async function registerRoutes(_server: Server, app: Express) {
     const context = entry ? [entry.s.heading, entry.e.org, entry.e.role, entry.e.location, ...entry.e.bullets.map((b) => b.text.trim()).filter((t) => t && t.replace(/^[•\-–*]\s*/, "").replace(/\s+/g, " ") !== text)].filter((x) => x && x.trim()).join(" · ").slice(0, 1200) : "";
     if (!auto && kind === "numbers" && (!answer || isNonAnswer(answer) || !/\d/.test(answer))) bad("Type the real number you know (like “40 members” or “$5,000”), or skip this line.");
     if (!auto && kind === "verbs" && (!answer || isNonAnswer(answer) || answer.length < 4)) bad("Say in a few words what you actually did (like “wrote and scheduled the posts”).");
+    if (auto) {
+      // Remy's own rewrite (Dilan, Nov 24: "make it really good"): a real top-candidate bullet from the facts on the
+      // resume, checked by ownDraftProblem(). One retry with the reason; if both fail, the client asks instead.
+      let last = "", why = "";
+      for (let tries = 0; tries < 2; tries++) {
+        const out = await withAi(ctx, "Improve a bullet", () =>
+          aiJson<{ bullet: string }>(
+            `You rewrite ONE line of a college student's resume so it reads like a top candidate's bullet, using ONLY facts written in the LINE and the SAME ENTRY. Do: open with a precise, strong action verb for what the line says was done, replacing weak openers ("assist with data entry" becomes "Process data entry", "responsible for the budget" becomes "Manage the budget"); put the most important work first; name each task concretely; keep every tool, skill and term exactly, and work in the entry's own tools or terms where this line used them (the words application systems search for); cut filler. Keep the tense: present for a current role or ongoing work ("Manage", "Extending" stays current), past otherwise. If the line says the student helped or took part, keep that share of credit ("Support", "Contribute to"), never "Led". Don't add any number, result, purpose, audience, tool or adjective that isn't written there; never claim an outcome (improved, increased, ensured) that isn't written. Change more than one word: a verb swap alone isn't stronger. 10 to 28 words, no period at the end.`,
+            `LINE: ${text}\n${context ? `SAME ENTRY: ${context}\n` : ""}${last ? `YOUR LAST TRY: ${last}\nIT WAS REJECTED BECAUSE ${why}. Fix that.\n` : ""}\nReturn {"bullet":""}`,
+            300,
+          ),
+        );
+        last = String(out?.bullet || "").replace(/\s+/g, " ").trim().replace(/\.$/, "").slice(0, 300);
+        why = ownDraftProblem(text, last, context);
+        if (!why) return void res.json({ draft: last });
+      }
+      bad("Remy couldn't improve this line without adding something you didn't say. Edit it yourself in the Edit tab.", 422);
+    }
     const out = await withAi(ctx, "Improve a bullet", () =>
       aiJson<{ bullet: string }>(
-        `You improve ONE line of a college student's resume. Rules: keep every fact in the line; add nothing that isn't in the line or the student's answer (no outcomes, purposes, tools, numbers or adjectives they didn't give); start with a strong past-tense action verb (or present tense if the line is in present tense); 8 to 28 words; no period at the end.${auto ? " There is no answer: rewrite the line from its own facts, plus the SAME ENTRY context only where it clearly describes this same work. Don't just swap the verb: reorder and regroup the line's own words so a recruiter skimming sees what the student did and what it produced or covered first, lead with the strongest action verb the facts support, keep its tools, skills and terms exactly and work in the entry's own tools or terms that this line used (those are the words application systems search for), and cut filler. Never add an outcome, number, tool or purpose that isn't written in the line or the entry. Keep the tense: a line in present tense or starting with an -ing word is current work, so it stays present (\"Manage\", \"Extending\"); never make it sound finished. If the line only says the student helped or took part, keep that (\"Helped\", \"Supported\"). If it can't be made stronger without adding something, return it unchanged." : kind === "numbers" ? " Work the student's number(s) into the line naturally, exactly as given." : " Start the line with what the student says they did, in their words (their answer), e.g. line \"Helped with social media\" + answer \"wrote and scheduled the posts\" becomes \"Wrote and scheduled social media posts\"."}`,
-        `LINE: ${text}\n${answer ? `STUDENT'S ANSWER: ${answer}\n` : ""}${context ? `SAME ENTRY: ${context}\n` : ""}\nReturn {"bullet":""}`,
+        `You improve ONE line of a college student's resume. Rules: keep every fact in the line; add nothing that isn't in the line or the student's answer (no outcomes, purposes, tools, numbers or adjectives they didn't give); start with a strong past-tense action verb (or present tense if the line is in present tense); 8 to 28 words; no period at the end.${kind === "numbers" ? " Work the student's number(s) into the line naturally, exactly as given." : " Start the line with what the student says they did, in their words (their answer), e.g. line \"Helped with social media\" + answer \"wrote and scheduled the posts\" becomes \"Wrote and scheduled social media posts\"."}`,
+        `LINE: ${text}\n${answer ? `STUDENT'S ANSWER: ${answer}\n` : ""}\nReturn {"bullet":""}`,
         300,
       ),
     );
     const draft = String(out?.bullet || "").replace(/\s+/g, " ").trim().replace(/\.$/, "").slice(0, 300);
     // Only the line plus the student's answer, never a hedged action upgraded (server/ai/bulletDraft.ts).
-    if (!draftOk(auto ? "verbs" : (kind as "numbers" | "verbs"), text, answer, draft, context) || (auto && (WEAK.test(draft) || !ownRewriteOk(text, draft)))) {
+    if (!draftOk(kind as "numbers" | "verbs", text, answer, draft)) {
       bad("Remy couldn't improve this line without adding something you didn't say. Edit it yourself in the Edit tab.", 422);
     }
     res.json({ draft });
@@ -2036,7 +2058,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       return res.json(ctx.ws);
     }
     // Redesign stage 6 (owners first): Remy does in-app actions itself (server/ai/chatDo.ts), each with Undo.
-    const doer = !!ctx.me.owner && ctx.ws.settings.ownerView !== false;
+    const doer = inOwnerView();
     const history = ctx.ws.chat.slice(-12).map((m) => `${m.role === "user" ? "Student" : "Assistant"}: ${m.text}`).join("\n");
     // The openings shown on Opportunities (not hidden as a poor fit), so Remy can answer "which should I apply to?".
     const found = allJobs(ctx.ws).map((j) => ({ j, f: ctx.ws.fits[j.id] })).filter(({ f }) => f && !f.excluded).sort((a, b) => (b.f.score ?? 0) - (a.f.score ?? 0)).slice(0, 8)
@@ -2109,7 +2131,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     let reply = String(out.reply || "Sorry — I couldn't form a reply.");
     let resumeProposal: { doc: ResumeDoc; summary: string; base: string } | undefined;
     const edit = String(out.resumeEdit || "").trim();
-    if (edit && ctx.ws.resume && ctx.me.owner && ctx.ws.settings.ownerView !== false) {
+    if (edit && ctx.ws.resume && inOwnerView()) {
       const said = [...ctx.ws.chat.slice(-4).filter((m) => m.role === "user").map((m) => m.text), message].join(" / ").slice(0, 2000);
       try {
         const p = await proposeResumeEdit(ctx, edit.slice(0, 1200), said);
@@ -2155,7 +2177,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
   // Owners ("Remy feels alive" #1, shared/remyOffers.ts): "Do it" on one of Remy's in-page offers runs the same action
   // as asking him in chat, and lands in his chat with Undo, so it reads as something he did.
   app.post("/api/remy/act", route(async (req, res, ctx) => {
-    if (!ctx.me.owner || ctx.ws.settings.ownerView === false) bad("This is only for owners right now.", 403);
+    if (!inOwnerView()) bad("This is only for owners right now.", 403);
     const [action] = chatActions([req.body?.action]);
     if (!action) bad("Remy can't do that one.");
     const offerId = String(req.body?.offerId || "").slice(0, 160);
@@ -2168,7 +2190,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
 
   // Owners (#3, #6): on opening the app, Remy may start the talk himself: a question he said he'd ask, or the weekly check-in.
   app.post("/api/remy/reachout", route(async (_req, res, ctx) => {
-    if (!ctx.me.owner || ctx.ws.settings.ownerView === false || !ctx.ws.onboarding.done) return res.json({ said: "" });
+    if (!inOwnerView() || !ctx.ws.onboarding.done) return res.json({ said: "" });
     const said = reachOut(ctx.ws, centralToday(), nowIso());
     if (said) await ctx.save();
     res.json(said ? { said, ws: ctx.ws } : { said: "" });
@@ -2736,7 +2758,7 @@ Return JSON:
     const code = await newSchoolCode(ctx.me.id, email);
     if (devCodes()) console.log(`[dev] school email code for ${email}: ${code}`);
     else await sendEmail(email, `Your Remy code: ${code}`, `Your Remy verification code is ${code}.\n\nIt expires in 10 minutes. If you didn't ask for this, you can ignore this email.`,
-      ctx.me.owner ? codeEmail({ host: process.env.PUBLIC_HOST || "remyai.org", code, name: firstName(ctx.ws), heading: "Confirm your school email", intro: "Here's your code to link this school email to your Remy account.", why: "Didn't ask for this? You can ignore this email. Nothing changes without the code." }) : undefined);
+      inOwnerView() ? codeEmail({ host: process.env.PUBLIC_HOST || "remyai.org", code, name: firstName(ctx.ws), heading: "Confirm your school email", intro: "Here's your code to link this school email to your Remy account.", why: "Didn't ask for this? You can ignore this email. Nothing changes without the code." }) : undefined);
     res.json({ sent: true, email });
   }));
   app.post("/api/school-email/verify", route(async (req, res, ctx) => {

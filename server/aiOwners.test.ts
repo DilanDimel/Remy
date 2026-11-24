@@ -11,6 +11,8 @@ test("ai owners: an owner's request uses the trial chain, a student's keeps toda
   assert.equal(model(), "google/gemini-3.8-flash");
   assert.equal(await runAiAs(true, async () => model()), "anthropic/claude-haiku-5.5");
   assert.equal(await runAiAs(false, async () => model()), "google/gemini-3.8-flash");
+  // A student who sees the released redesign keeps today's model: only owners trial the other one.
+  assert.equal(await runAiAs(true, async () => model(), false), "google/gemini-3.8-flash");
 });
 test("ai owners: privacy routing is zero-retention, no data collection, chosen providers only", () => {
   assert.deepEqual(privacyRouting("anthropic/claude-haiku-5.5"), { zdr: true, data_collection: "deny", order: ["amazon-bedrock"], allow_fallbacks: false });

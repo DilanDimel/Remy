@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { canListen, speak, useVoice } from "./lib/voice";
-import { StoreProvider, api, daysUntil, fmtDate, rid, useDraft, useOwnerView, useStore, type Theme } from "./lib/store";
+import { StoreProvider, api, daysUntil, fmtDate, rid, useDraft, useOwnerView, useOwnersOnly, useStore, type Theme } from "./lib/store";
 import { CAREER_QUEST_ON } from "@shared/game";
 import { resumeDiff } from "@shared/resumeDiff";
 import { activityDays, dayOf, todayBrief } from "@shared/activity";
@@ -26,6 +26,7 @@ import { RemyDid } from "./components/RemyDid";
 import { OfferSlot, RemyOffer } from "./components/RemyOffer";
 import { Insider } from "./components/Insider";
 import { RemyAway } from "./components/RemyAway";
+import { Beta2Welcome } from "./components/Beta2Welcome";
 import { answer as answerTailor, endSession as endTailor, isAsking, onCloseRequest, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
 import { Careers } from "./pages/Landing2";
@@ -296,6 +297,7 @@ function Shell() {
 
       <Celebrate />
       {ownerView && <PinMoment />}
+      <Beta2Welcome />
       <RemyTour />
       <main className="main" id="main">
         <div className="topbar">
@@ -857,7 +859,7 @@ async function shrink(file: File): Promise<Blob> {
  *  the side bar (and the phone's More sheet) instead of inside the name menu. Shown in student view too, to switch back. */
 function OwnerTools({ onDone }: { onDone?: () => void }) {
   const { me, ws, save, run } = useStore();
-  const on = useOwnerView();
+  const on = useOwnersOnly();
   if (!me?.owner || !ws) return null;
   const set = (v: boolean) => { onDone?.(); if (v !== on) run(() => save("settings", { ...ws.settings, ownerView: v }), v ? "Owner view is on" : "Student view: you see Remy like a student"); };
   return (

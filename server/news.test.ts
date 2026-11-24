@@ -41,3 +41,14 @@ test("What's new: notes link to the page their title names", async () => {
   assert.equal(n("Anything", "/accounts"), "/accounts");
   assert.equal(n("Faster sign in"), undefined);
 });
+
+test("What's new: owner notes stay with owners, Beta 2 notes wait for the redesign release", async () => {
+  const { showsNews } = await import("../shared/news");
+  const base = { id: "2026-11-24-0210", date: "2026-11-24", kind: "New" as const, title: "x", body: "y" };
+  const ownersNote = { ...base, owners: true }, beta2 = { ...base, release: "redesign" as const };
+  assert.equal(showsNews(ownersNote, false, true), false); // a student after the release
+  assert.equal(showsNews(ownersNote, true), true);
+  assert.equal(showsNews(beta2, false, false), false); // a student before the release
+  assert.equal(showsNews(beta2, false, true), true);
+  assert.equal(showsNews(base, false, false), true);
+});
