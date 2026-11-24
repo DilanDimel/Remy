@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { parseStatus, activeClaims, covers, trackRequests, type AiStatus } from "../shared/aiStatus";
+import { parseStatus, entriesDir, activeClaims, covers, trackRequests, type AiStatus } from "../shared/aiStatus";
 
 const root = path.resolve(import.meta.dirname, "..");
 const REPO = "DilanDimel/Remy";
@@ -14,7 +14,10 @@ const read = (f: string) => (fs.existsSync(path.join(root, f)) ? fs.readFileSync
 
 type Person = { name: string; login: string; status: string; role: string; lead?: boolean; owns: string[] };
 const people: Person[] = JSON.parse(read("docs/ai/owners.json")).people;
-const statusOf = (p: Person): AiStatus => parseStatus(read(p.status));
+const entries = (p: Person) => { const d = path.join(root, entriesDir(p.status)); return fs.existsSync(d) ? fs.readdirSync(d).filter((f) => f.endsWith(".md")).sort().map((f) => read(entriesDir(p.status) + f)) : []; };
+const statusOf = (p: Person): AiStatus => parseStatus(read(p.status), entries(p));
+/** The person's status file or a file in their entries folder. */
+const isStatus = (p: Person, f: string) => f === p.status || f.startsWith(entriesDir(p.status));
 const tracked = () => trackRequests(people.map((p) => ({ name: p.name, status: statusOf(p) })));
 
 /** Who else's owned area or active claim covers `file`. */
@@ -44,19 +47,19 @@ function check() {
   if (!me) warnings.push(`${author} isn't in docs/ai/owners.json yet. Ask the lead to add you.`);
   const code = files.filter((f) => !f.startsWith("docs/") && !f.startsWith("shared/news/"));
   // The lead's many Claude threads coordinate inside Dilan's project, so lead.md isn't required on every PR (it would conflict).
-  if (me && !me.lead && code.length && !files.includes(me.status))
+  if (me && !me.lead && code.length && !files.some((f) => isStatus(me, f)))
     errors.push(`Update your status file ${me.status} in this PR (template: docs/ai/status/README.md).`);
 
   const coordinated = (name: string) => new RegExp(`Coordinated with:[^\\n]*\\b${name}\\b`, "i").test(body);
   const clash = new Map<string, string[]>();
   for (const f of files) for (const h of holders(f, me)) {
-    if (f === h.person.status) continue; // checked below
+    if (isStatus(h.person, f)) continue; // checked below
     if (!coordinated(h.person.name)) clash.set(h.person.name, [...(clash.get(h.person.name) || []), `${f} (${h.person.name} ${h.why})`]);
   }
   for (const [name, list] of clash) errors.push(`This PR touches ${name}'s files:\n    ${list.join("\n    ")}\n  Talk to ${name} first, then add "Coordinated with: ${name}" to the PR description.`);
 
   // Proof: answers to requests live in the receiver's own file, so only they (or the lead) may write it.
-  for (const p of people) if (p !== me && files.includes(p.status)) errors.push(`This PR edits ${p.status}. Only ${p.name}'s AI writes that file; put requests for ${p.name} in your own status file.`);
+  for (const p of people) if (p !== me && files.some((f) => isStatus(p, f))) errors.push(`This PR edits ${p.status} (or its ${entriesDir(p.status)} folder). Only ${p.name}'s AI writes that file; put requests for ${p.name} in your own status file.`);
   if (me) for (const r of tracked().filter((r) => r.to.toLowerCase() === me.name.toLowerCase())) {
     if (r.overdue) errors.push(`Request ${r.id} from ${r.from} (${r.date}) has no answer: "${r.text}". Add "- ${r.id} · seen" (or doing / done · #PR / declined · why) under ## Answers in ${me.status} first.`);
     if (r.noProof) errors.push(`Request ${r.id} is marked done without a PR number. Add the PR that did it: "- ${r.id} · done · #123".`);
@@ -156,7 +159,7 @@ async function brief(args: string[]) {
   for (const p of people) {
     const s = statusOf(p);
     say(`### ${p.name}: ${p.role}`);
-    say(`Status updated ${s.updated || "never"}. Owns: ${p.owns.length ? p.owns.join(", ") : "everything not owned by someone else"}.`);
+    say(`${s.updated ? `Status updated ${s.updated}. ` : ""}Owns: ${p.owns.length ? p.owns.join(", ") : "everything not owned by someone else"}.`);
     for (const w of s.workingOn) say(`- ${w}`);
     for (const c of activeClaims(s.claims)) say(`- Claim: ${c.paths.join(", ")} (branch ${c.branch}, until ${c.until})`);
   }

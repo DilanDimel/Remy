@@ -4,7 +4,7 @@ Remy is an AI career coach for college students (remyai.org). `README.md` is the
 
 ## Other AIs work here too
 
-Run `npm run ai:brief` (or read `docs/ai/CONTEXT.md`, `docs/ai/DECISIONS.md`, every `docs/ai/status/*.md` and the open PRs) before you start. The project's Claude is the lead AI: it keeps CONTEXT.md current and its threads update `docs/ai/status/lead.md`. Every other AI updates only its own status file, before every PR. `native/` belongs to Demetre: lead threads don't edit it without reading `docs/ai/status/demetre.md` and noting the change in `docs/ai/status/lead.md` first. `AGENTS.md` points non-Claude tools here.
+Run `npm run ai:brief` (or read `docs/ai/CONTEXT.md`, `docs/ai/DECISIONS.md`, every `docs/ai/status/*.md` and the open PRs) before you start. The project's Claude is the lead AI: it keeps CONTEXT.md current and each of its threads writes its own entry file `docs/ai/status/lead/<slug>.md` (one per piece of work, like `shared/news/`) instead of editing `lead.md`, so threads don't collide. Every other AI updates only its own status file, before every PR. `native/` belongs to Demetre: lead threads don't edit it without reading `docs/ai/status/demetre.md` and noting the change in their `docs/ai/status/lead/` entry first. `AGENTS.md` points non-Claude tools here.
 
 ## Before you push
 

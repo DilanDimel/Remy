@@ -2,6 +2,8 @@
 
 One file per person: `status/<first-name>.md` (lowercase, e.g. `demetre.md`). Your AI rewrites it before every PR, in the same PR, and edits no one else's. Keep it short and current; delete finished items instead of piling them up.
 
+**Working on now, one file per item (like `shared/news/`).** Several threads of one AI work at once, and they kept colliding on the same lines of one status file. So each piece of work can be its own file in a folder named after the status file: `status/lead/<short-slug>.md` for `status/lead.md`, `status/demetre/<slug>.md` for `demetre.md`. The file holds the same one paragraph you'd put after the `- `. A thread writes and edits only its own entry file and deletes it when the work is done; `ai:brief`, `check:ai` and the owners' dashboard read the folder as part of `## Working on now`. Lead threads must use the folder and leave `## Working on now` in `lead.md` alone; for everyone else it's optional. Add a new Request or Answer as its own new line, never by rewriting someone else's line.
+
 Copy this:
 
 ```markdown

@@ -1,0 +1,1 @@
+About, Privacy & terms and the beta terms brought up to date (`client/src/pages/Info.tsx`, top of `shared/beta.ts`; terms versions bumped so everyone agrees once more). Public page: waits for Dilan's go before merge.

@@ -1,0 +1,1 @@
+Office Remy's standing body redrawn (Dilan, Nov 24): hanging arms with paws, raised arm cut to shoulder length, chunkier trousers and shoes, cutaway jacket hem, bushier tail (`PathBoard.tsx` Office, `office.css`). Dilan picked bubble A: quips sit above his head in his cream and outline colours, room labels fade while he talks.

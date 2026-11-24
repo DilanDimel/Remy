@@ -1,0 +1,1 @@
+Email template (Nov 24, after The Big Upgrade email): `server/notify/layout.ts` logo is the smiling Scholar fox (`client/public/email/remy-smile.png`, rendered from `scholar.ts`), card up to 680 px with tighter spacing, and a new `grid()` helper for two-column feature tiles that stack under 520 px.

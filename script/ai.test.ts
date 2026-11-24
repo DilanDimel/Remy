@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseStatus, activeClaims, covers, trackRequests } from "../shared/aiStatus";
+import { parseStatus, entriesDir, activeClaims, covers, trackRequests } from "../shared/aiStatus";
 
 const julio = `# Julio's AI
 
@@ -54,4 +54,10 @@ test("requests carry proof: answered in the receiver's file, overdue after a day
   assert.equal(t["dilan-3"].state, "sent");
   assert.equal(t["dilan-3"].overdue, true);
   assert.equal(t["julio-1"].overdue, false); // sent today
+});
+
+test("entry files in the status folder join Working on now, one line each", () => {
+  const s = parseStatus(julio, ["- Mock interview timer\n", "Costs page\nsecond line\n", ""]);
+  assert.deepEqual(s.workingOn, ["Interview history", "Mock interview timer", "Costs page second line"]);
+  assert.equal(entriesDir("docs/ai/status/lead.md"), "docs/ai/status/lead/");
 });

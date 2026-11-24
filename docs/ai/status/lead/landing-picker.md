@@ -1,0 +1,1 @@
+Landing picker fix (Dilan Nov 24): "I'm a ___ studying ___" picks in `Landing2.tsx` are dashed boxes on the text baseline (`.lk-pick-btn`, `.lk-ask p` align baseline). Screens: /mnt/project-files/landing-picker/.

@@ -1,0 +1,1 @@
+Students on Claude (Dilan, Nov 24): Render `OR_AI_CHAIN` is Haiku 5.5 → Gemini Flash → GPT-5 mini, all through OpenRouter, and `OR_AI_PRIVACY=on` gives everyone zero-data-retention routing (the direct Gemini key is out of the chain). Privacy page says so.
