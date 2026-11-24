@@ -5,6 +5,7 @@ import { registerRoutes } from "./routes";
 import { dbKind, dbReady } from "./platform/sql";
 import { serveStatic } from "./static";
 import { createServer } from "node:http";
+import { flushDbBytes } from "./jobs/insights";
 
 const app = express();
 app.disable("x-powered-by"); // don't advertise the server software
@@ -140,6 +141,16 @@ app.use((req, res, next) => {
       watchFreezes();
     },
   );
+
+  // Render sends SIGTERM to the old server on each deploy: stop taking new connections, let requests in flight
+  // (streamed chat answers) finish, then exit. Render force-kills after its shutdown delay (30 s by default).
+  process.once("SIGTERM", () => {
+    log("SIGTERM: finishing open requests, then exiting");
+    httpServer.close(() => process.exit(0));
+    httpServer.closeIdleConnections();
+    setTimeout(() => process.exit(0), 25_000).unref();
+    flushDbBytes().catch(() => {}); // count the last few minutes of Supabase transfer before this server goes
+  });
 })();
 
 /** Live, Nov 13 + 17: the server stopped answering for 6-9 s (health checks went unanswered) and nobody could see
