@@ -95,8 +95,8 @@ export default function Admin() {
       <main className="adm-main">
         {tab === "overview" && <OverviewTab />}
         {tab === "errors" && <ErrorsTab />}
-        {tab === "beta" && <><FunnelCard /><BetaTab /></>}
-        {tab === "services" && <ServicesTab />}
+        {tab === "beta" && <><FunnelCard /><BetaTab /><UsedCard /></>}
+        {tab === "services" && <><ServicesTab /><MessagesCard /></>}
         {tab === "database" && <DatabaseTab />}
         {tab === "openings" && <OpeningsTab />}
         {(tab === "board" || tab === "people" || tab === "calendar" || tab === "hours" || tab === "activity") && <TeamTab tab={tab} />}
@@ -475,16 +475,19 @@ const greeting = () => {
 const pct = (x?: { cohort: number; back: number }) => (x && x.cohort ? `${Math.round((100 * x.back) / x.cohort)}%` : "–");
 const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? one : many}`;
 
-/** One coloured tile: a big number, what it counts, and the change against last week. */
-function Tile({ tone, n, label, prev, note }: { tone: "sage" | "blue" | "amber" | "fox"; n: number | string; label: string; prev?: number; note?: string }) {
-  const diff = typeof n === "number" && prev != null ? n - prev : null;
-  return (
-    <div className={`adm-tile adm-tile-${tone}`}>
-      <strong>{n}</strong>
-      <span className="small">{label}</span>
-      <span className="xs">{diff != null ? `${diff > 0 ? "▲" : diff < 0 ? "▼" : "="} ${Math.abs(diff)} vs last week` : note || " "}</span>
-    </div>
-  );
+type Waiting = { applications: { status: string }[] };
+/** Remy's one thing for the owner right now: the first rule that fires, most urgent first. */
+function oneThing(d: Overview, s: Storage | null, steps: [string, number][]): { key: string; title: string; body: string; big?: string; sub?: string; href: string; cta: string } | null {
+  const tp = s ? Math.round((100 * s.transfer.monthMb) / 1024 / s.transfer.limitGb) : 0;
+  if (s && tp >= 80) return { key: `transfer-${tp >= 100 ? "over" : "near"}`, title: `Database transfer is at ${tp}% of the free plan.`, body: `Students read ${(s.transfer.monthMb / 1024).toFixed(1)} GB this month against Supabase's ${s.transfer.limitGb} GB. Check Supabase → Usage before it gets billed or slowed down.`, big: `${tp}%`, sub: `of ${s.transfer.limitGb} GB`, href: "/admin?tab=database", cta: "Open Database" };
+  if (s && s.percent >= 80) return { key: "space", title: `The database is ${s.percent}% full.`, body: `${s.usedMb} of ${s.limitMb} MB used. The biggest table is ${s.tables[0]?.name || "workspaces"}.`, big: `${s.percent}%`, sub: "full", href: "/admin?tab=database", cta: "Open Database" };
+  if (d.openErrors) return { key: `errors-${d.openErrors}`, title: `${plural(d.openErrors, "error")} students hit ${d.openErrors === 1 ? "is" : "are"} open.`, body: "Look at what happened, fix it, then mark it fixed so the count stays honest.", big: String(d.openErrors), sub: "open", href: "/admin?tab=errors", cta: "Open errors" };
+  if (d.feedback) return { key: `feedback-${d.feedback}`, title: `${plural(d.feedback, "student")} sent feedback.`, body: "Read it while it's fresh; it's the clearest signal of what to fix next.", big: String(d.feedback), sub: "new", href: "/admin?tab=errors", cta: "Read feedback" };
+  // The biggest drop between two setup steps, when at least two students were lost there.
+  let drop: [string, number, number] | null = null;
+  for (let i = 1; i < steps.length; i++) { const lost = steps[i - 1][1] - steps[i][1]; if (lost >= 2 && (!drop || lost > drop[1] - drop[2])) drop = [steps[i][0], steps[i - 1][1], steps[i][1]]; }
+  if (drop) return { key: `drop-${drop[0]}-${drop[2]}`, title: `Most students stop before "${drop[0].toLowerCase()}".`, body: `${drop[1]} reached the step before it, ${drop[2]} got past it. Making this step easier helps the most students.`, big: `${drop[1]} → ${drop[2]}`, href: "/admin?tab=overview", cta: "" };
+  return null;
 }
 
 function OverviewTab() {
@@ -492,74 +495,146 @@ function OverviewTab() {
   const [d, reload] = useLoad<Overview>("/api/admin/overview");
   const [t] = useLoad<Team>("/api/admin/team");
   const [o] = useLoad<Outcomes>("/api/admin/outcomes");
+  const [s] = useLoad<Storage>("/api/admin/storage");
+  const [w] = useLoad<Waiting>("/api/admin/beta/applications");
+  const [allSteps, setAllSteps] = useState(false);
+  const [hidden, setHidden] = useState(() => { try { return JSON.parse(localStorage.getItem("adm-one-hidden") || "{}") as Record<string, number>; } catch { return {}; } });
   if (!d) return <div className="row"><Spinner /> Loading…</div>;
   const f = d.funnel;
   // Setup step by step (where friend testers stop), then what they did after.
   const steps: [string, number][] = [["Signed up", f.accounts], ["Answered the goal question", f.goal], ["Added a resume", f.resume], ["Reached preferences", f.prefs], ["Reached the questions", f.questions], ["Saw their plan", f.plan], ["Finished setup", f.setup_done], ["Asked Remy something", f.chatted], ["Started an application", f.applied]];
-  // 14 days, including days with no sign-ups, so gaps read as gaps.
   const days = Array.from({ length: 14 }, (_, i) => new Date(Date.now() - (13 - i) * 86400_000).toLocaleDateString("en-CA", { timeZone: "America/Chicago" }));
   const byDay = new Map(d.daily.map((x) => [x.day, x.n]));
-  const max = Math.max(1, ...days.map((x) => byDay.get(x) || 0));
+  const signups = days.map((x) => byDay.get(x) || 0);
   const first = (me?.name || "").split(" ")[0];
   const myTodos = t ? t.tasks.filter((x) => x.status !== "done" && list(x.assignee).includes(t.me)).length : 0;
+  const waiting = w ? w.applications.filter((a) => a.status === "new").length : 0;
   const needs: [string, string, number, string, string][] = [
     ["Open errors", "/admin?tab=errors", d.openErrors, "students hit these", "errors"],
     ["New feedback", "/admin?tab=errors", d.feedback, "from the feedback button", "feedback"],
+    ["Applications waiting", "/admin?tab=beta", waiting, "to accept or decline", "applications"],
     ["Your to-dos", "/admin?tab=board", myTodos, "on the team board", "todos"],
   ];
+  const open = needs.filter((n) => n[2]).length;
+  const one = oneThing(d, s, steps);
+  const showOne = one && !(hidden[one.key] > Date.now());
+  const hide = () => { if (!one) return; const next = { ...hidden, [one.key]: Date.now() + 86400_000 }; setHidden(next); try { localStorage.setItem("adm-one-hidden", JSON.stringify(next)); } catch {} };
   const step = d.northWeek - d.northPrev;
-  // Remy's one-line read of the week, from the numbers only.
   const line = d.activeWeek === 0 ? "Quiet week so far: no student has opened Remy yet."
-    : `${plural(d.activeWeek, "student")} opened Remy this week${d.newWeek ? `, ${d.newWeek} of them new` : ""}. ${d.openErrors ? `${plural(d.openErrors, "error")} to look at.` : "No open errors."}`;
-  const teamWeek = t ? t.members.map((m) => ({ m, h: t.hours.find((x) => x.member === m.email)?.week || 0 })).sort((a, b) => b.h - a.h) : [];
+    : `${plural(d.activeWeek, "student")} opened Remy this week${d.newWeek ? `, ${d.newWeek} of them new` : ""}.`;
+  const after = open ? ` ${open === 1 ? "One thing needs" : `${open} things need`} you.` : " Nothing needs you right now.";
+  // The steps that tell the story; "All steps" shows the rest.
+  const short = steps.filter(([l]) => ["Signed up", "Finished setup", "Asked Remy something", "Started an application"].includes(l));
+  const road = d.road || [];
+  const interviewing = road.find((m) => /interview/i.test(m.label) && !/stor/i.test(m.label));
+  const story: [string, number][] = interviewing ? [...short, ["Interviewing", interviewing.n]] : short;
+  const dropAt = (rows: [string, number][]) => { let at = -1, most = 0; rows.forEach(([, v], i) => { const lost = i ? rows[i - 1][1] - v : 0; if (lost > most) { most = lost; at = i; } }); return at; };
+  const di = dropAt(story);
+  const hours = t ? t.hours.reduce((x, y) => x + y.week, 0) : 0;
+  const Spark = ({ v, on }: { v: number[]; on: number }) => { const m = Math.max(1, ...v); return <span className="adm2-spark" aria-hidden>{v.map((n, i) => <i key={i} className={i >= on ? "on" : ""} style={{ height: `${Math.max(2, (n / m) * 30)}px` }} />)}</span>; };
+  const Bars = ({ rows, max, at }: { rows: [string, number][]; max: number; at: number }) => (
+    <div className="adm2-bars">{rows.map(([l, v], i) => <div key={l} className={"adm2-bar" + (i === at ? " drop" : "")}><span>{l}</span><div><i style={{ width: `${max ? (v / max) * 100 : 0}%` }} /></div><b>{v}</b></div>)}</div>
+  );
   return (
-    <div className="stack-lg">
+    <div className="adm2">
       <div className="adm-head">
-        <div><h1 className="adm-hello">{greeting()}{first ? `, ${first}` : ""}.</h1><p className="muted">{line}</p></div>
+        <div><h1 className="adm-hello">{greeting()}{first ? `, ${first}` : ""}.</h1><p className="adm2-say"><b>{line}</b>{after}</p></div>
         <button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")} data-testid="button-overview-refresh"><RotateCcw size={14} /> Refresh</button>
       </div>
-      <section className="adm-hero" data-testid="admin-hero">
-        <div className="adm-hero-main">
-          <span className="small adm-hero-label">North star this week</span>
-          <div className="adm-hero-n"><strong>{d.northWeek}</strong><span>{d.northWeek === 1 ? "student took" : "students took"} a career step</span></div>
-          <span className="small muted">{step > 0 ? `▲ ${step} more than last week` : step < 0 ? `▼ ${-step} fewer than last week` : "Same as last week"}. Real students only; counts, never anything a student wrote.</span>
-        </div>
-        <div className="adm-needs">
-          <span className="adm-hero-label small">Needs you</span>
-          {needs.map(([label, href, n, why, id]) => (
-            <a key={label} href={href} className={"adm-need" + (n ? "" : " adm-need-ok")} data-testid={`need-${id}`}>
-              <b>{n}</b><span className="grow stack-sm" style={{ gap: 0 }}><span className="small">{label}</span><span className="xs muted">{n ? why : "all clear"}</span></span><ArrowRight size={14} />
-            </a>
-          ))}
-        </div>
-      </section>
-      <div className="adm-tiles">
-        <Tile tone="sage" n={d.activeWeek} label="Active students this week" prev={d.activePrev} />
-        <Tile tone="blue" n={d.newWeek} label="New sign-ups this week" prev={d.newPrev} />
-        <Tile tone="amber" n={pct(d.returnWeek1)} label="Came back in their first week" note={d.returnWeek1?.cohort ? `${d.returnWeek1.back} of ${d.returnWeek1.cohort} who signed up 8–35 days ago` : "Counting visits since Oct 31"} />
-        <Tile tone="fox" n={`$${d.ai.cost.toFixed(2)}`} label="AI spend this week" note={d.ai.priced < d.ai.calls ? `${d.ai.calls} calls, ${d.ai.calls - d.ai.priced} without a price` : `${d.ai.calls} calls, ${d.ai.failed} failed`} />
-      </div>
-      {t && (
-        <a className="adm-band" href="/admin?tab=hours" data-testid="admin-team-band">
-          <span className="adm-band-n"><strong>{teamWeek.reduce((x, y) => x + y.h, 0).toFixed(1)}</strong><span className="xs">team hours this week</span></span>
-          <span className="adm-band-people">{teamWeek.map(({ m, h }) => <span key={m.email} className="adm-inline"><Avatar m={m} size={22} /> {m.name.split(" ")[0]} <b>{h}</b></span>)}</span>
-          <span className="btn btn-sm adm-band-btn">Hours <ArrowRight size={14} /></span>
-        </a>
-      )}
-      {o && (
-        <section className="adm-card" data-testid="admin-outcomes">
-          <h3>Do students get jobs?</h3>
-          <div className="adm-kpis">
-            <Kpi n={o.applied} label="Applications sent" note={`by ${o.students_applying} of ${o.students} students`} />
-            <Kpi n={pctOf(o.answered, o.applied)} label="Got an answer" note={`${o.answered} of ${o.applied}; tailored in Remy: ${pctOf(o.answered_tailored, o.applied_tailored)}`} />
-            <Kpi n={o.interviews} label="Interviews" />
-            <Kpi n={o.offers} label="Offers" />
+      <div className="adm2-top">
+        {showOne && one ? (
+          <section className="adm2-one" data-testid="admin-hero">
+            <div className="grow">
+              <span className="adm2-who"><Remy size={22} /> Remy says: one thing right now</span>
+              <h2>{one.title}</h2>
+              <p>{one.body}</p>
+              <div className="row">
+                {one.cta && <a className="btn btn-primary btn-sm" href={one.href} data-testid="button-one-thing">{one.cta}</a>}
+                <button className="btn btn-ghost btn-sm" onClick={hide} data-testid="button-one-thing-hide">Got it, hide for a day</button>
+              </div>
+            </div>
+            {one.big && <div className="adm2-big"><b>{one.big}</b>{one.sub && <span className="xs muted">{one.sub}</span>}</div>}
+          </section>
+        ) : (
+          <section className="adm2-one" data-testid="admin-hero">
+            <div className="grow">
+              <span className="adm2-who"><Remy size={22} /> North star this week</span>
+              <h2>{plural(d.northWeek, "student")} took a career step.</h2>
+              <p>{step > 0 ? `${step} more than last week` : step < 0 ? `${-step} fewer than last week` : "Same as last week"}. Real students only; counts, never anything a student wrote.</p>
+            </div>
+            <div className="adm2-big"><b>{d.northWeek}</b></div>
+          </section>
+        )}
+        <section className="adm2-card">
+          <div className="adm2-h"><h3>Needs you</h3><span className="xs muted">{open ? `${open} of ${needs.length}` : "all clear"}</span></div>
+          <div className="adm2-needs">
+            {needs.map(([label, href, n, why, id]) => (
+              <a key={label} href={href} className={n ? "hot" : ""} data-testid={`need-${id}`}><b>{n}</b><span>{label}</span><small>{n ? why : "all clear"}</small><ArrowRight size={14} /></a>
+            ))}
           </div>
         </section>
+      </div>
+      <div className="adm2-tiles">
+        <div className="adm2-tile"><strong>{d.activeWeek}</strong><span className="adm2-tl">Active students</span><span className="adm2-ts"><Delta n={d.activeWeek - d.activePrev} /> · {d.students} in total, {d.activeToday} today</span></div>
+        <div className="adm2-tile"><strong>{d.newWeek}</strong><Spark v={signups} on={7} /><span className="adm2-tl">New sign-ups</span><span className="adm2-ts"><Delta n={d.newWeek - d.newPrev} /> · last 14 days</span></div>
+        <div className="adm2-tile"><strong>{d.northWeek}</strong><span className="adm2-tl">Took a career step</span><span className="adm2-ts">North star · <Delta n={step} /></span></div>
+        <div className="adm2-tile"><strong>{pct(d.returnWeek1)}</strong><span className="adm2-tl">Came back in week 1</span><span className="adm2-ts">{d.returnWeek1?.cohort ? `${d.returnWeek1.back} of ${d.returnWeek1.cohort}` : "counting"} · week 4: {pct(d.returnWeek4)}</span></div>
+      </div>
+      <div className="adm2-row">
+        <section className="adm2-card">
+          <div className="adm2-h"><h3>Where students get stuck</h3><button className="btn btn-ghost btn-sm" onClick={() => setAllSteps(true)} data-testid="button-all-steps">All steps <ArrowRight size={14} /></button></div>
+          <Bars rows={story} max={f.accounts} at={di} />
+          {di > 0 && <p className="adm2-note"><b>Biggest drop: {story[di][0].toLowerCase()} ({story[di - 1][1]} → {story[di][1]}).</b> Making that step easier helps the most students.</p>}
+        </section>
+        <section className="adm2-card" data-testid="admin-outcomes">
+          <div className="adm2-h"><h3>Do students get jobs?</h3><span className="xs muted">all time</span></div>
+          {o ? (
+            <div className="adm2-nums">
+              <div><b>{o.applied}</b><span>{o.applied === 1 ? "application" : "applications"} sent, by {o.students_applying} of {o.students}</span></div>
+              <div><b>{pctOf(o.answered, o.applied)}</b><span>got an answer · tailored in Remy {pctOf(o.answered_tailored, o.applied_tailored)}</span></div>
+              <div><b>{o.interviews}</b><span>{o.interviews === 1 ? "interview" : "interviews"}</span></div>
+              <div><b>{o.offers}</b><span>{o.offers === 1 ? "offer" : "offers"}</span></div>
+            </div>
+          ) : <Spinner />}
+          <a className="adm2-foot" href="/admin?tab=hours" data-testid="admin-team-band"><span><b>{hours.toFixed(1)} h</b> team hours this week · AI ${d.ai.cost.toFixed(2)}, {d.ai.calls} calls</span><ArrowRight size={14} /></a>
+        </section>
+      </div>
+      {allSteps && (
+        <Modal title="Every step students take" onClose={() => setAllSteps(false)} wide>
+          <div className="adm2-cols2">
+            <div className="stack-sm"><h3>Setup, step by step</h3><Bars rows={steps} max={f.accounts} at={dropAt(steps)} /></div>
+            <div className="stack-sm"><h3>Road to an offer</h3><Bars rows={road.map((m) => [m.label, m.n] as [string, number])} max={d.students} at={-1} /><p className="xs muted">The lowest bar is where students get stuck; make that step easier next.</p></div>
+          </div>
+        </Modal>
       )}
+    </div>
+  );
+}
+const Delta = ({ n }: { n: number }) => <span className={n > 0 ? "pass" : n < 0 ? "bad" : ""}>{n > 0 ? "▲" : n < 0 ? "▼" : "="} {Math.abs(n)}</span>;
+
+/** Moved from Overview: what students used this week (shown under Beta). */
+function UsedCard() {
+  const [d] = useLoad<Overview>("/api/admin/overview");
+  if (!d) return null;
+  return (
+    <section className="adm-card" data-testid="admin-features">
+      <h3>What students used this week</h3>
+      {d.features.length ? (
+        <table className="table"><thead><tr><th>Feature</th><th>Students</th><th>Times</th></tr></thead>
+          <tbody>{d.features.map((x) => <tr key={x.name}><td>{x.name}</td><td>{x.students}</td><td>{x.uses}</td></tr>)}</tbody></table>
+      ) : <p className="small muted">Nothing yet this week.</p>}
+      <p className="xs muted">AI calls: {d.ai.calls}, {d.ai.failed} failed, {(d.ai.avgMs / 1000).toFixed(1)} s on average.</p>
+    </section>
+  );
+}
+
+/** Moved from Overview: emails, texts (shown under Services). */
+function MessagesCard() {
+  const [d] = useLoad<Overview>("/api/admin/overview");
+  if (!d) return null;
+  return (
+    <>
       <div className="adm-kpis">
-        <Kpi n={d.students} label="Students in total" note={`${d.activeToday} active today`} />
-        <Kpi n={pct(d.returnWeek4)} label="Came back in week 4" note={d.returnWeek4?.cohort ? `${d.returnWeek4.back} of ${d.returnWeek4.cohort} who signed up 29–56 days ago` : "Counting visits since Oct 31"} />
         {d.emails && <Kpi n={d.emails.ready ? d.emails.digestsWeek : "Off"} label={d.emails.ready ? "Weekly digests sent this week" : "Emails aren't set up on the server"}
           note={d.emails.ready ? `${d.emails.digest} get the digest, ${d.emails.reminders} get deadline reminders` : "Set SMTP_URL on Render to send reminders and digests"} />}
         {d.emails?.nudges && <Kpi n={d.emails.nudges.sent ? `${Math.round((100 * d.emails.nudges.yes) / d.emails.nudges.sent)}%` : "None yet"} label="Match emails answered Yes (30 days)"
@@ -572,59 +647,7 @@ function OverviewTab() {
           {d.texts.recent.length ? <ul className="stack-sm small">{d.texts.recent.map((t) => <li key={t.at + t.to}><span className="muted">{fmtDate(t.at.slice(0, 10))} to {t.to}{t.mode === "test" ? " (test)" : ""}:</span> {t.body}</li>)}</ul> : <p className="small muted">No texts yet. They go out when an owner with texts on has a deadline today or tomorrow.</p>}
         </section>
       )}
-      <section className="adm-card">
-        <h3>New sign-ups, last 14 days</h3>
-        <div className="adm-bars" role="img" aria-label={`New sign-ups per day for the last 14 days, ${days.reduce((s, x) => s + (byDay.get(x) || 0), 0)} in total`}>
-          {days.map((x) => {
-            const n = byDay.get(x) || 0;
-            return (
-              <div key={x} className="adm-bar" tabIndex={0} aria-label={`${day(x)}: ${n}`}>
-                <span className="adm-tip">{day(x)}: {n}</span>
-                <div className="adm-bar-track"><div style={{ height: `${(n / max) * 100}%` }} /></div>
-                <span className="xs muted">{Number(x.slice(8))}</span>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-      <div className="adm-grid2">
-        <section className="adm-card">
-          <h3>Where students drop off</h3>
-          {steps.map(([l, v], i) => {
-            const prev = i ? steps[i - 1][1] : v;
-            const lost = i && prev ? Math.round(((prev - v) / prev) * 100) : 0;
-            return (
-              <div key={l} className="adm-funnel">
-                <span className="small">{l}</span>
-                <div><div style={{ width: `${f.accounts ? (v / f.accounts) * 100 : 0}%` }} /></div>
-                <b className="small">{v}</b>
-                <span className="xs muted">{i && lost > 0 ? `−${lost}%` : ""}</span>
-              </div>
-            );
-          })}
-        </section>
-        <section className="adm-card">
-          <h3>Road to an offer: students at each milestone</h3>
-          {(d.road || []).map((m) => (
-            <div key={m.label} className="adm-funnel">
-              <span className="small">{m.label}</span>
-              <div><div style={{ width: `${d.students ? (m.n / d.students) * 100 : 0}%` }} /></div>
-              <b className="small">{m.n}</b>
-              <span className="xs muted">{d.students ? `${Math.round((100 * m.n) / d.students)}%` : ""}</span>
-            </div>
-          ))}
-          <p className="xs muted">The lowest bar is where students get stuck; make that step easier next.</p>
-        </section>
-        <section className="adm-card">
-          <h3>What students used this week</h3>
-          {d.features.length ? (
-            <table className="table"><thead><tr><th>Feature</th><th>Students</th><th>Times</th></tr></thead>
-              <tbody>{d.features.map((x) => <tr key={x.name}><td>{x.name}</td><td>{x.students}</td><td>{x.uses}</td></tr>)}</tbody></table>
-          ) : <p className="small muted">Nothing yet this week.</p>}
-          <p className="xs muted">AI calls: {d.ai.calls}, {d.ai.failed} failed, {(d.ai.avgMs / 1000).toFixed(1)} s on average.</p>
-        </section>
-      </div>
-    </div>
+    </>
   );
 }
 
