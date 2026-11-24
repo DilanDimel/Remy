@@ -3060,3 +3060,13 @@ button.rw-item:not(:disabled) { cursor: pointer; }
   .wn-acts .wn-try { justify-content: center; }
   .wn-nav { justify-content: space-between; }
 }
+
+/* Owners: the first-interview and first-offer moment (PinMoment.tsx). Confetti uses palette colours only. */
+.rw-big-moment { position: relative; display: grid; justify-items: center; text-align: center; gap: 12px; padding-top: 4px; }
+.rw-big-moment p { max-width: 380px; margin: 0; }
+.rw-confetti { position: absolute; left: 50%; top: 70px; pointer-events: none; }
+.rw-confetti i { position: absolute; width: 8px; height: 8px; border-radius: 2px; background: var(--fox); opacity: 0; transform: rotate(var(--a)) translateY(0); animation: rw-pop 1.2s ease-out var(--d) both; }
+.rw-confetti i:nth-child(3n) { background: var(--amber); }
+.rw-confetti i:nth-child(4n) { background: var(--sage); }
+@keyframes rw-pop { 0% { opacity: 1; transform: rotate(var(--a)) translateY(0); } 100% { opacity: 0; transform: rotate(var(--a)) translateY(-110px); } }
+@media (prefers-reduced-motion: reduce) { .rw-confetti { display: none; } }
