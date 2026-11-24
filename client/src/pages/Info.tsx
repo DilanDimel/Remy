@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Remy } from "../components/common";
 import { ThemeToggle } from "../components/ThemeToggle";
-import { useStore } from "../lib/store";
+import { useOwnerView, useStore } from "../lib/store";
 import { BETA_TERMS_LEAD, termsFor } from "@shared/beta";
 
 const CONTACT = "hello@remyai.org";
@@ -63,16 +63,19 @@ function DocPage({ title, lead, children }: { title: string; lead: string; child
 
 // Photos go in client/public/team/ (e.g. "/team/dilan.jpg"); until then each shows initials.
 // Work emails are each person's own @remyai.org address (Zoho); admin@ and hello@ are the shared company inbox.
-export const TEAM: { name: string; role: string; photo: string; email?: string }[] = [
-  { name: "Dilan Desman", role: "Technology lead", photo: "/team/dilan.jpg", email: "d.desman@remyai.org" },
+export const TEAM: { name: string; role: string; photo: string; email?: string; owners?: true }[] = [
+  { name: "Dilan Desman", role: "Co-founder & CEO", photo: "/team/dilan.jpg", email: "d.desman@remyai.org" },
   { name: "Ashton Wisecarver", role: "Brand, marketing & finance", photo: "" },
-  { name: "Lincoln Yoo", role: "Operations & partnerships", photo: "/team/lincoln.jpg", email: "l.yoo@remyai.org" },
-  { name: "Demetre Dondoladze", role: "Data & databases", photo: "/team/demetre.jpg", email: "d.dondoladze@remyai.org" },
-  { name: "Julio Renovato", role: "Research & analytics", photo: "", email: "j.renovato@remyai.org" },
+  { name: "Lincoln Yoo", role: "Co-founder & COO", photo: "/team/lincoln.jpg", email: "l.yoo@remyai.org" },
+  { name: "Demetre Dondoladze", role: "Data & databases", photo: "/team/demetre.jpg", email: "d.dondoladze@remyai.org", owners: true },
+  { name: "Julio Renovato", role: "Research & analytics", photo: "", email: "j.renovato@remyai.org", owners: true },
 ];
+// Team meeting (Dilan, Nov 24): Demetre and Julio show only in owner view until the lawyer meeting (work authorization).
+export const useTeam = () => { const owner = useOwnerView(); return TEAM.filter((m) => owner || !m.owners); };
 
 export function About() {
   const config = useStore()?.config;
+  const team = useTeam();
   return (
     <Page title="About Remy" lead={`Remy is an AI career coach for college students: he maps out your path, finds real openings that fit you and helps you apply honestly. ${config?.beta?.open ? "Remy is free during beta, and anyone can sign up and start right away." : "Remy is free during beta, and invite-only for now."}`}>
       <Section title="Why we built it">
@@ -105,7 +108,7 @@ export function About() {
       <Section title="Who we are">
         <p>Remy is made by RemyAI LLC, a company in Fort Worth, Texas. We started building it in October 2026 and ship improvements every week.</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(128px, 1fr))", gap: 12 }}>
-          {TEAM.map((m) => (
+          {team.map((m) => (
             <figure key={m.name} className="stack-sm" style={{ margin: 0, alignItems: "center", textAlign: "center" }}>
               {m.photo
                 ? <img src={m.photo} alt={m.name} width={96} height={96} style={{ borderRadius: "50%", objectFit: "cover" }} />
