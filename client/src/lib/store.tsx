@@ -106,8 +106,9 @@ async function readStream<T>(body: ReadableStream<Uint8Array>, onLine: (line: an
   return done;
 }
 
-export async function download(url: string, fallbackName: string) {
-  const res = await fetch(`${API_BASE}${url}`, { credentials: "same-origin" });
+export async function download(url: string, fallbackName: string, body?: unknown) {
+  // A body makes it a POST (a file the server builds from what the page sends).
+  const res = await fetch(`${API_BASE}${url}`, body === undefined ? { credentials: "same-origin" } : { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!res.ok) {
     let msg = "Download failed.";
     try { msg = (await res.json()).message || msg; } catch {}

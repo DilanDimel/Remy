@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import PDFDocument from "pdfkit";
-import { currentResumePdf, readTwin, twinPdf } from "./pdfTwin";
+import { currentResumePdf, readTwin, twinFromLayout, twinPdf } from "./pdfTwin";
 
 // A small one-column resume PDF: name, a ruled heading, a job with two bullets, then a second heading.
 async function resumePdf(): Promise<Buffer> {
@@ -79,4 +79,17 @@ test("PDF twin: a picture (a logo) is carried over at its spot", async () => {
   assert.equal(im.png.subarray(1, 4).toString(), "PNG");
   const again = await readTwin(await twinPdf(t));
   assert.equal(again.pages[0].images!.length, 1);
+});
+
+test("A Word file's layout measured in the browser is drawn as a real-text PDF at the same spots", async () => {
+  const layout = {
+    fonts: { "Calibri|b": { name: "Calibri", bold: true, italic: false }, "Calibri|": { name: "Calibri", bold: false, italic: false } },
+    pages: [{ w: 612, h: 792, shapes: [{ x: 50, y: 100, w: 512, h: 0.75, fill: "#000000", stroke: null, lw: 0 }], images: [],
+      items: [{ str: "Jordan Lee", x: 50, y: 80, size: 16, w: 78, font: "Calibri|b" }, { str: "Manage office communications for 40 faculty", x: 72, y: 120, size: 11, w: 210, font: "Calibri|" }] }],
+  };
+  const t = await readTwin(await twinPdf(twinFromLayout(layout)));
+  const name = t.pages[0].items.find((i) => i.str.includes("Jordan"))!, line = t.pages[0].items.find((i) => i.str.includes("Manage"))!;
+  assert.ok(Math.abs(name.x - 50) < 1 && Math.abs(name.y - 80) < 1);
+  assert.ok(Math.abs(line.x - 72) < 1 && Math.abs(line.y - 120) < 1);
+  assert.ok(t.pages[0].shapes.some((s) => Math.abs(s.y - 100) < 1 && s.w > 500), "the rule is drawn");
 });

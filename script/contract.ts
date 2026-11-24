@@ -43,8 +43,9 @@ for (const file of walk(path.join(root, "client/src"))) {
       calls.push({ file: rel, line, method: m[1], url: m[3] });
       found = true;
     }
-    for (const m of text.matchAll(/\bdownload\(\s*(["`])(\/api[^"`]*)\1/g)) {
-      calls.push({ file: rel, line, method: "GET", url: m[2] });
+    // download(url, name, body) posts the body.
+    for (const m of text.matchAll(/\bdownload\(\s*(["`])(\/api[^"`]*)\1(\s*,\s*[^,()]+,\s*[^\s)])?/g)) {
+      calls.push({ file: rel, line, method: m[3] ? "POST" : "GET", url: m[2] });
       found = true;
     }
     for (const m of text.matchAll(/\bsave\(\s*"([A-Za-z]+)"/g)) saves.push({ file: rel, line, section: m[1] });

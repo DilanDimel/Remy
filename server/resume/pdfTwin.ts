@@ -303,7 +303,7 @@ function wrap(text: string, f: Font | undefined, size: number, w1: number, w2: n
 }
 
 /** Checks each embedded font against the file: drawn in it, the original text must come out the width the PDF says. */
-function trust(t: Twin) {
+function trust(t: Twin, everyFont = false) {
   for (const [id, f] of Object.entries(t.fonts)) {
     if (!f.ff) continue;
     // A font with an open, same-width twin is drawn in the twin: it's always clean, while pdf.js's rebuilt subsets
@@ -323,7 +323,8 @@ function trust(t: Twin) {
   // A stand-in for a font without an open twin (Georgia, Garamond, DejaVu...) is stretched so its text runs as wide as
   // the file's own, so a changed line wraps where the student's font would.
   for (const [id, f] of Object.entries(t.fonts)) {
-    if (METRIC_TWIN.test(f.name)) continue;
+    // A layout measured in a browser may have used another font than the one named: every stand-in is fitted then.
+    if (METRIC_TWIN.test(f.name) && !everyFont) continue;
     let theirs = 0, mine = 0;
     for (const p of t.pages) for (const it of p.items) if (it.font === id && !it.added && it.str.length > 8) { theirs += it.w; mine += em(fkOf(f), it.str, it.size); }
     f.scale = mine ? Math.min(1.25, Math.max(0.8, theirs / mine)) : 1;
@@ -398,4 +399,23 @@ export async function currentResumeTwin(buf: Buffer, doc: ResumeDoc, fileLines: 
     if (squash(v || "") && !flat.includes(squash(v))) missed.push(v);
   missed.push(...editTwin(t, edits).missed);
   return { twin: missed.length ? null : t, missed };
+}
+
+/** A page layout measured in the student's browser from their own Word file (positions in points, top-left origin),
+ *  as a Twin, so a Word upload's PDF download is their own look too. Fonts are drawn with the open stand-ins. */
+export type Layout = {
+  pages: { w: number; h: number; items: Omit<Item, "added">[]; shapes: Shape[]; images: { x: number; y: number; w: number; h: number; png: string }[] }[];
+  fonts: Record<string, { name: string; bold: boolean; italic: boolean }>;
+};
+export function twinFromLayout(l: Layout): Twin {
+  const fonts: Record<string, Font> = {};
+  for (const [id, f] of Object.entries(l.fonts)) fonts[id] = { name: f.name, bold: f.bold, italic: f.italic, serif: SERIF.test(f.name), mono: /mono|courier|consol/i.test(f.name) };
+  const pages = l.pages.map((p) => ({
+    w: p.w, h: p.h, shapes: p.shapes,
+    items: p.items.filter((i) => fonts[i.font]),
+    images: p.images.map((im) => ({ ...im, png: Buffer.from(im.png, "base64") })).filter((im) => im.png.subarray(1, 4).toString() === "PNG"),
+  }));
+  const t = { pages, fonts };
+  trust(t, true);
+  return t;
 }
