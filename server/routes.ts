@@ -80,7 +80,7 @@ import { boardsFor, orderEmployers, preferMetros, pruneBoardCache, CAREERONESTOP
 import { emailReady, logEmail, sendEmail } from "./notify/email";
 import { codeEmail } from "./notify/layout";
 import { currentResumeDocx, docxStyle, editResumeDocx } from "./resume/docxEdit";
-import { currentResumePdf, currentResumeTwin } from "./resume/pdfTwin";
+import { currentResumePdf, currentResumeTwin, fieldsOf, twinFromLayout, twinPdf } from "./resume/pdfTwin";
 import { twinDocx } from "./resume/twinDocx";
 import { keepDecided } from "./coach/keepDecided";
 import * as gcal from "./notify/gcal";
@@ -1248,7 +1248,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     }
     doc.skillsIndex = skillsPosition(raw, doc);
     for (const m of ctx.ws.chat) delete m.resumeProposal; // a new resume makes old chat drafts meaningless
-    ctx.ws.resume = { fileName, uploadedAt: nowIso(), rawText: raw.slice(0, 30000), parsedBy, doc, skills: extractSkills(doc, raw), quality: parseQuality(raw, doc, notes), fileLines: Object.fromEntries(doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => [b.id, b.text]))).slice(0, 300)), ...(from ? { from } : {}) };
+    ctx.ws.resume = { fileName, uploadedAt: nowIso(), rawText: raw.slice(0, 30000), parsedBy, doc, skills: extractSkills(doc, raw), quality: parseQuality(raw, doc, notes), fileLines: Object.fromEntries(doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => [b.id, b.text]))).slice(0, 300)), fileFields: fieldsOf(doc), ...(from ? { from } : {}) };
     ctx.ws.imports.unshift({ id: uid("i"), kind: from ? LINKEDIN : "Resume", fileName, at: nowIso(), label: "Student provided", factsAdded: 0 });
     // Fill empty profile fields, and fields still holding what the replaced resume said. What the student typed stays.
     const p = ctx.ws.profile;
@@ -1383,10 +1383,10 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!f) return null;
     const doc = doc0 || draft || r.doc;
     if (pdf && asWord) {
-      const out = await currentResumeTwin(f.data, doc, r.fileLines).catch(() => ({ twin: null, missed: ["(file unreadable)"] }));
+      const out = await currentResumeTwin(f.data, doc, r.fileLines, r.fileFields).catch(() => ({ twin: null, missed: ["(file unreadable)"] }));
       return { buf: out.twin ? await twinDocx(out.twin) : null, missed: out.missed, mime: WORD_MIME };
     }
-    const out = await (word ? currentResumeDocx(f.data, doc, r.removed, r.fileLines) : currentResumePdf(f.data, doc, r.fileLines)).catch(() => ({ buf: null, missed: ["(file unreadable)"] }));
+    const out = await (word ? currentResumeDocx(f.data, doc, r.removed, r.fileLines) : currentResumePdf(f.data, doc, r.fileLines, r.fileFields)).catch(() => ({ buf: null, missed: ["(file unreadable)"] }));
     return { ...out, mime };
   }
   /** A draft resume sent by the page: only its shape is checked; it only ever draws the student's own file. */
@@ -1416,6 +1416,33 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.setHeader("Content-Type", fmt === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
     // ?inline=1 shows the current version inside the Resume page (redesign stage 3); downloads stay attachments.
     res.setHeader("Content-Disposition", `${req.query.inline === "1" && fmt === "pdf" ? "inline" : "attachment"}; filename="${name}.${fmt}"`);
+    res.send(buf);
+  }));
+
+  // A Word upload's PDF in its own look: the page lays out their Word file in the browser (the only free place with a
+  // Word-like layout engine) and sends where every word and line sits; the server draws that as a real-text PDF.
+  const num = z.number().finite().min(-50).max(5000);
+  const LAYOUT = z.object({
+    pages: z.array(z.object({
+      w: num, h: num,
+      items: z.array(z.object({ str: z.string().max(600), x: num, y: num, size: z.number().min(2).max(120), w: num, font: z.string().max(200), color: z.string().regex(/^#[0-9a-f]{6}$/i).optional() })).max(5000),
+      shapes: z.array(z.object({ x: num, y: num, w: num, h: num, fill: z.string().regex(/^#[0-9a-f]{6}$/i).nullable(), stroke: z.string().regex(/^#[0-9a-f]{6}$/i).nullable(), lw: z.number().min(0).max(50) })).max(2000),
+      images: z.array(z.object({ x: num, y: num, w: num, h: num, png: z.string().max(700_000) })).max(12),
+    })).min(1).max(4),
+    fonts: z.record(z.string().max(200), z.object({ name: z.string().max(200), bold: z.boolean(), italic: z.boolean() })),
+  });
+  app.post("/api/resume/word-pdf", route(async (req, res, ctx) => {
+    if (!ctx.ws.resume?.original?.mime.includes("wordprocessingml")) bad("This is for resumes uploaded as a Word file.");
+    const l = LAYOUT.safeParse(req.body?.layout);
+    if (!l.success) bad("That layout couldn't be read.");
+    const buf = await twinPdf(twinFromLayout(l.data!));
+    const doc = ctx.ws.resume!.doc;
+    // A tailored version names its own file (the page sends the name its Word download had).
+    const asked = String(req.body?.name || "").replace(/\.(pdf|docx)$/i, "").replace(/[^A-Za-z0-9-]+/g, "-").slice(0, 120);
+    const name = asked || (nameUnsure(ctx.ws) ? "Resume" : ctx.ws.profile.name || doc.contact.name || "Resume").replace(/[^A-Za-z]+/g, "-") + "-Resume";
+    res.setHeader("X-Remy-Layout", "original");
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${name}.pdf"`);
     res.send(buf);
   }));
 
@@ -1513,6 +1540,8 @@ export async function registerRoutes(_server: Server, app: Express) {
       const missing = new Set((ctx.ws.resume!.quality?.missingLines || []).map((l) => l.replace(/^[•\-*–]\s*/, "").trim()));
       for (const b of d.sections.flatMap((s) => s.entries || []).flatMap((e) => e.bullets || [])) if (!had.has(b.id) && missing.has(b.text.trim())) fileLines[b.id] = b.text.trim();
     }
+    // Uploads from before name, heading and date edits reached the file: the last saved fields stand in for the file's.
+    ctx.ws.resume!.fileFields ??= fieldsOf(ctx.ws.resume!.doc);
     if (gone.length) ctx.ws.resume!.removed = [...(ctx.ws.resume!.removed || []), ...gone].slice(-200);
     if (JSON.stringify(ctx.ws.resume!.doc) !== JSON.stringify(d)) {
       ctx.ws.resume!.editedAt = nowIso();

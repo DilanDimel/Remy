@@ -11,6 +11,7 @@ import { AtsXray } from "./AtsXray";
 import { LinkedInFlags } from "./LinkedInCoach";
 import { PdfPreview, WordPreview } from "./WordPreview";
 import { OwnPdfColoured, OwnWordColoured } from "./ResumeReal";
+import { exportBasePdf } from "../lib/wordPdf";
 import { NameChoice } from "./NameChoice";
 
 function CurrentPdf({ version, doc, look }: { version: string; doc: ResumeDoc; look?: ResumeStyle }) {
@@ -54,7 +55,7 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
       <div className="r1-bar">
         <div className="row" style={{ gap: 8 }}><FileText size={17} /><b>{r.fileName}</b><span className="xs muted">{edited ? `Edited ${fmtDate(r.editedAt!)}` : `Added ${fmtDate(r.uploadedAt)}`}</span></div>
         <div className="row" style={{ gap: 6 }}>
-          <button className="btn btn-primary btn-sm" onClick={() => download("/api/resume/export?format=pdf", "Resume.pdf").catch((e) => toast(e.message, true))} data-testid="button-export-base-pdf"><Download size={14} /> PDF</button>
+          <button className="btn btn-primary btn-sm" onClick={() => exportBasePdf(!!r.original?.mime.includes("wordprocessingml")).catch((e) => toast(e.message, true))} data-testid="button-export-base-pdf"><Download size={14} /> PDF</button>
           <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/export?format=docx", "Resume.docx").catch((e) => toast(e.message, true))} data-testid="button-export-base-docx">Word</button>
           <button className="btn btn-ghost btn-sm" onClick={onReplace} data-testid="button-replace-resume">Replace file</button>
           <button className="btn btn-ghost btn-sm" onClick={onEditByHand} data-testid="button-edit-by-hand">Edit by hand</button>

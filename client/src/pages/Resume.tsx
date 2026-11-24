@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { Application, BulletChange, ClaimFlag, Job, ResumeDoc, Workspace } from "@shared/types";
 import { API_BASE, api, download, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
+import { exportBasePdf, ownWordPdf } from "../lib/wordPdf";
 import { ResumeOnePage } from "../components/ResumeOnePage";
 import { go, replaceRoute } from "../lib/router";
 import { useJobs } from "../lib/jobs";
@@ -184,7 +185,7 @@ function BaseResume({ subParam }: { subParam: string | null }) {
           </div>
           <div className="row">
             {w.resume.original && <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/original?download=1", w.resume!.original!.name).catch((e) => toast(e.message, true))} data-testid="button-download-original"><Download size={14} /> Original</button>}
-            <button className="btn btn-primary btn-sm" onClick={() => download("/api/resume/export?format=pdf", "Resume.pdf").catch((e) => toast(e.message, true))} disabled={dirty} title={dirty ? "Save your edits first" : undefined} data-testid="button-export-base-pdf"><Download size={14} /> Export PDF</button>
+            <button className="btn btn-primary btn-sm" onClick={() => exportBasePdf(!!w.resume?.original?.mime.includes("wordprocessingml")).catch((e) => toast(e.message, true))} disabled={dirty} title={dirty ? "Save your edits first" : undefined} data-testid="button-export-base-pdf"><Download size={14} /> Export PDF</button>
             <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/export?format=docx", "Resume.docx").catch((e) => toast(e.message, true))} disabled={dirty} data-testid="button-export-base-docx">Word</button>
           </div>
         </div>
@@ -844,8 +845,11 @@ function DownloadButtons({ a, v }: { a: Application; v: number }) {
     api<WordLayout>("GET", `/api/applications/${a.id}/word-layout?v=${v}`).then((r) => { if (live) setLayout(r); }).catch(() => {});
     return () => { live = false; };
   }, [a.id, v, ownWord, baseKey]);
-  const dl = (doc: "resume" | "letter", format: string) =>
-    download(`/api/applications/${a.id}/export?doc=${doc}&format=${format}&v=${v}`, `${doc}.${format}`).catch((e) => toast(e.message, true));
+  const dl = async (doc: "resume" | "letter", format: string) => {
+    // A Word upload's tailored PDF: their own Word version laid out here, drawn as a PDF in the same look.
+    if (doc === "resume" && format === "pdf" && ownWord && await ownWordPdf(`/api/applications/${a.id}/export?doc=resume&format=docx&v=${v}`, "GET", "resume.pdf")) return;
+    await download(`/api/applications/${a.id}/export?doc=${doc}&format=${format}&v=${v}`, `${doc}.${format}`).catch((e) => toast(e.message, true));
+  };
   return (
     <div className="stack-sm">
       <div className="row"><span className="small" style={{ width: 92, fontWeight: 700 }}>Resume</span>{["docx", "pdf", "txt"].map((f) => <button key={f} className="btn btn-secondary btn-sm" onClick={() => dl("resume", f)} data-testid={`button-download-resume-${f}`}><Download size={13} /> {f.toUpperCase()}</button>)}</div>
@@ -880,7 +884,7 @@ function ExportView({ a, job }: { a: Application; job: Job }) {
           ))
         ) : <span className="small muted">Approve this version to unlock Word, PDF and text downloads. Only approved versions can be exported.</span>}
         <span className="xs muted">{ws!.resume?.original?.mime.includes("wordprocessingml")
-          ? "Word download: your own file with only the changed lines replaced, so it keeps your exact design (Remy says so above if a version can't). PDF: Remy's clean layout in your font."
+          ? "Word download: your own file with only the changed lines replaced, so it keeps your exact design (Remy says so above if a version can't). PDF: the same look, made from that Word file."
           : ws!.resume?.original?.mime === "application/pdf"
             ? "PDF download: your own pages with only the changed lines rewritten in place, so it keeps your design. If a change can't fit (like a new heading, or more than fits on the page), Remy uses his clean layout in your font. Word: a Word copy in the same look, which also opens in Google Docs."
           : ws!.resume?.style
