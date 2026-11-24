@@ -173,3 +173,48 @@ export async function decide(by: string, email: string, status: AppStatus, cohor
 export async function deleteDeclined() {
   return (await q("DELETE FROM beta_applications WHERE status='declined' RETURNING email")).length;
 }
+
+// ---------- Beta Insider replaces the form (Nov 24) ----------
+// Joining in the app asks the form's questions; the answers go in the same table, so form applicants and insiders are
+// one list. A Founding Cohort row keeps its decision and cohort and only gains answers it was missing.
+export type InsiderAnswers = { goal: string; stuck: string; tools: string; source: string };
+const KEEP = ["name", "school", "major", "class_year", "goal", "stuck", "tools", "source"].map((c) => `${c}=COALESCE(NULLIF(beta_applications.${c}, ''), EXCLUDED.${c})`).join(", ");
+export async function saveInsider(email: string, p: { name: string; school: string; major: string; classYear: string }, a: Partial<InsiderAnswers>) {
+  const e = normEmail(email);
+  if (!EMAIL.test(e)) return;
+  await q(
+    `INSERT INTO beta_applications (email, name, school, major, class_year, goal, stuck, tools, source, feedback, terms, status, cohort, decided_by, decided_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Yes: Beta Insider check-ins every two weeks','Agreed to the beta terms in the app','accepted','Beta Insider','joined in the app',now())
+     ON CONFLICT (email) DO UPDATE SET ${KEEP}, updated_at=now()`,
+    [e, clip(p.name), clip(p.school), clip(p.major), clip(p.classYear), clip(a.goal), clip(a.stuck), clip(a.tools), clip(a.source)],
+  );
+}
+
+/** Everyone in the beta for the owners' Students tab: form applicants, the sign-in list and insiders, one row per email,
+ *  with whether they signed up, how many days they used Remy and their Beta Insider status. Read live, so nothing is copied. */
+export async function students() {
+  const people = await q(
+    `WITH p AS (SELECT email FROM beta_applications UNION SELECT email FROM beta_list
+                UNION SELECT lower(u.email) FROM users u JOIN workspaces w ON w.user_id = u.id WHERE w.data ? 'insider' AND u.email <> '')
+     SELECT p.email, a.name, a.school, a.major, a.class_year, a.goal, a.stuck, a.tools, a.source, a.status, a.cohort, a.received_at,
+            l.note, l.added_at, u.created_at AS signed_up, w.data->'insider' AS insider,
+            jsonb_array_length(COALESCE(w.data->'visits', '[]'::jsonb)) AS days, w.data->'visits'->>-1 AS last_day,
+            w.data->'profile'->>'name' AS profile_name, w.data->'profile'->>'school' AS profile_school
+     FROM p LEFT JOIN beta_applications a ON a.email = p.email LEFT JOIN beta_list l ON l.email = p.email
+     LEFT JOIN LATERAL (SELECT id, created_at FROM users WHERE lower(email) = p.email AND kind IN ('google','supabase') ORDER BY created_at LIMIT 1) u ON true
+     LEFT JOIN workspaces w ON w.user_id = u.id
+     ORDER BY COALESCE(a.received_at, l.added_at, u.created_at) DESC LIMIT 3000`,
+  );
+  const surveys = await q("SELECT message, detail, at FROM error_reports WHERE place = 'insider-survey' ORDER BY at DESC LIMIT 200");
+  const iso = (v: unknown) => (v ? new Date(v as string).toISOString() : null);
+  return {
+    people: people.map((r) => ({
+      email: String(r.email), name: String(r.name || r.profile_name || ""), school: String(r.school || r.profile_school || ""), major: String(r.major || ""), classYear: String(r.class_year || ""),
+      goal: String(r.goal || ""), stuck: String(r.stuck || ""), tools: String(r.tools || ""), source: String(r.source || ""),
+      status: (r.status ? String(r.status) : "accepted") as AppStatus, onList: !!r.added_at, cohort: String(r.cohort || r.note || ""),
+      appliedAt: iso(r.received_at), signedUpAt: iso(r.signed_up), days: Number(r.days || 0), lastDay: r.last_day ? String(r.last_day) : null,
+      insider: (r.insider as { joinedAt: string; surveyAt?: string } | null) || null,
+    })),
+    surveys: surveys.map((r) => ({ question: String(r.message).split(" — ")[0], answer: String(r.message).split(" — ").slice(1).join(" — "), email: String(r.detail), at: iso(r.at)! })),
+  };
+}
