@@ -8,7 +8,7 @@ import { tourAgain } from "./Tour";
 import { useOwnersOnly, useOwnerView, useStore } from "../lib/store";
 
 /** The update's name, shown to students. One place, so a rename is one line. */
-export const UPDATE_NAME = "Beta 2";
+export const UPDATE_NAME = "The Big Upgrade";
 
 const NEW: [LucideIcon, string, string][] = [
   [Sparkles, "A fresh look", "Every page is cleaner, and Remy has a new look to match."],

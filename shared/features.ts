@@ -8,7 +8,7 @@ export type Feature = { key: string; label: string; path: string; release: Relea
 export const FEATURES: Feature[] = [
   // The whole owner redesign (html.redesign-2 and every useOwnerView() gate), released to students in one step (Nov 24).
   // It has no page, so "locked" means the same as owners-only here.
-  { key: "redesign", label: "Beta 2: the new Remy (whole app)", path: "", release: "owners", teaser: "" },
+  { key: "redesign", label: "The Big Upgrade: the new Remy (whole app)", path: "", release: "owners", teaser: "" },
   { key: "interview", label: "Interview", path: "/interview", release: "locked", teaser: "Practice a real mock interview with Remy for the jobs you want, out loud, with feedback on every answer." },
   { key: "community", label: "Community", path: "/community", release: "locked", teaser: "Keep track of everyone you meet, and Remy tells you what to say, when to follow up and how to stay in touch." },
   { key: "rewards", label: "Rewards", path: "/rewards", release: "owners", teaser: "Everything you can earn in Remy, in one place." },
