@@ -9,6 +9,7 @@ import { ROADS, roadFor, YEARS, yearNumber, NEED_LABEL } from "@shared/roads";
 import { rankOf, weekKey, weekMissions, doneThisWeek, counters, xpOf, nextOutfit, unlockedOutfits, levelReward, OFFICE, RANKS, WARDROBE } from "@shared/game";
 import { CARD_XP, dailyStreak, dayKey, streakDays } from "@shared/daily";
 import { pinColor, pinsOf, topPins } from "@shared/pins";
+import { CHEST_XP, RARE, chestPrize, rareOwned } from "@shared/chest";
 import { api, useStore } from "../lib/store";
 import type { Workspace } from "@shared/types";
 import { go } from "../lib/router";
@@ -122,6 +123,10 @@ export function OfficeThing({ k }: { k: string }) {
     painting: <><rect x="8" y="8" width="28" height="24" rx="2" {...st} /><path d="M11 28l8-10 6 7 4-4 5 7z" fill="var(--sage)" /><circle cx="29" cy="14" r="3" fill="var(--amber)" /></>,
     bigplant: <><path d="M16 34h12l-2-10h-8z" {...st} fill="var(--fox)" /><path d="M22 24C22 16 14 12 12 8M22 24c0-8 8-12 10-16M22 24V6" stroke="var(--sage)" strokeWidth="3" fill="none" strokeLinecap="round" /></>,
     trophy: <><path d="M14 6h16v8a8 8 0 0 1-16 0z" {...st} fill="var(--amber-bg)" /><path d="M22 22v6M16 32h12" {...st} /><path d="M14 9H9a5 5 0 0 0 5 6M30 9h5a5 5 0 0 1-5 6" {...st} fill="none" /></>,
+    bonsai: <><path d="M12 28h20l-2 6H14z" {...st} fill="var(--fox-deep)" /><path d="M22 28c0-6-4-8-6-12M22 28c1-7 6-9 8-12" {...st} fill="none" /><circle cx="15" cy="13" r="6" fill="var(--sage)" /><circle cx="29" cy="12" r="7" fill="var(--sage)" /><circle cx="22" cy="8" r="5" fill="var(--sage)" /></>,
+    goldmug: <><path d="M12 12h16v16a4 4 0 0 1-4 4h-8a4 4 0 0 1-4-4z" {...st} fill="var(--amber)" /><path d="M28 16h3a3 3 0 0 1 0 6h-3" {...st} fill="none" /><path d="M20 4l1.5 3 3 .5-2.2 2 .6 3-2.9-1.5-2.9 1.5.6-3-2.2-2 3-.5z" fill="var(--amber)" /></>,
+    pennant: <><path d="M8 8v26" {...st} /><path d="M9 9l28 7-28 8z" {...st} fill="var(--fox)" /><path d="M14 13l12 3-12 3z" fill="var(--surface)" /></>,
+    record: <><rect x="4" y="18" width="36" height="16" rx="3" {...st} /><ellipse cx="18" cy="18" rx="12" ry="4" {...st} fill="var(--ink)" /><circle cx="18" cy="18" r="2" fill="var(--fox)" /><path d="M34 12l-6 8" {...st} /></>,
     skyline: <><rect x="6" y="6" width="32" height="28" rx="3" {...st} /><path d="M9 31v-8h5v-6h5v14h3V13h6v18h3v-9h4v9z" fill="var(--blue-bg)" /></>,
   };
   return <svg className="ps-thing" viewBox="0 0 44 40" aria-hidden="true">{art[k] || <circle cx="22" cy="20" r="10" {...st} />}</svg>;
@@ -191,7 +196,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   const known = (d.g.known || []).length, books = Math.min(8, known), resume = !!d.w.resume, applied = d.w.applications.length > 0;
   const cert = d.stops.some((s) => s.kind === "cert" && s.status === "done");
   const nextItem = OFFICE.find(([, , l]) => l > d.lv.n);
-  const pins = topPins(d.w, 8);
+  const pins = topPins(d.w, 8), rare = rareOwned(d.g);
   const owned = unlockedOutfits(d.g.bestRank || d.lv.n, d.w.profile.classYear), wearing = d.g.outfit && owned.includes(d.g.outfit) ? d.g.outfit : "suit";
   const suit = Object.fromEntries((OUTFITS[wearing] || OUTFITS.suit).vars.split(";").map((kv) => kv.split(":"))) as CSSProperties;
   const ink = "var(--ink)", line = { stroke: ink, strokeWidth: 2.5, strokeLinejoin: "round" as const };
@@ -254,6 +259,11 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
           <rect x="40" y="268" width="200" height="10" rx="3" fill="var(--surface)" {...line} />
           {cert ? <rect x="56" y="226" width="40" height="42" rx="4" fill="var(--amber-bg)" {...line} /> : <rect x="56" y="226" width="40" height="42" rx="4" {...ghost} />}
           {has("trophy") && <g transform="translate(130 228)"><path d="M14 6h16v8a8 8 0 0 1-16 0z" fill="var(--amber-bg)" {...line} /><path d="M22 22v10M14 38h16" {...line} /></g>}
+          {/* rare finds from the daily chest (Nov 24) */}
+          {rare.has("bonsai") && <g transform="translate(184 230)"><path d="M6 30h32l-4 8H10z" fill="var(--fox-deep)" {...line} /><path d="M22 30c0-8-6-10-9-15M22 30c1-9 7-11 10-15" fill="none" {...line} /><circle cx="12" cy="13" r="8" fill="var(--sage)" /><circle cx="32" cy="12" r="9" fill="var(--sage)" /><circle cx="22" cy="6" r="7" fill="var(--sage)" /></g>}
+          {rare.has("pennant") && <g transform="translate(494 74)"><path d="M0 0v62" {...line} /><path d="M1 2l46 14-46 16z" fill="var(--fox)" {...line} /><path d="M9 11l20 6-20 7z" fill="var(--surface)" /></g>}
+          {rare.has("goldmug") && <g transform="translate(736 186)"><path d="M0 0h18v18a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4z" fill="var(--amber)" {...line} /><path d="M18 5h4a4 4 0 0 1 0 8h-4" fill="none" {...line} /></g>}
+          {rare.has("record") && <g transform="translate(670 372)"><rect width="78" height="30" rx="5" fill="var(--surface)" {...line} /><ellipse cx="32" cy="2" rx="26" ry="7" fill="var(--ink)" {...line} /><circle cx="32" cy="2" r="3" fill="var(--fox)" /><path d="M68-8l-12 12" {...line} /></g>}
           {resume ? <><rect x="282" y="70" width="92" height="116" rx="6" fill="var(--surface)" {...line} /><path d="M304 100h48M304 112h40M304 124h46M304 136h30M304 148h42" stroke="var(--muted-text)" strokeWidth="3" strokeLinecap="round" /></>
             : <rect x="282" y="70" width="92" height="116" rx="6" {...ghost} />}
           {/* the corkboard: every career pin earned, best first (Rewards, Nov 24) */}
@@ -418,9 +428,21 @@ function Quests({ d }: { d: D }) {
             <span className="pt-qn">{q.n} / {q.of}</span>
           </li>); })}
       </ul>
-      <div className={"pt-chest" + (all ? " open" : "")}><Gift size={22} aria-hidden="true" /><span>{all ? "Chest open. All three done today, nice." : "Finish all three to open today's chest."}</span></div>
+      <Chest d={d} all={all} />
     </section>
   );
+}
+
+/** Today's chest: locked until all three quests are done, then one tap opens it and shows what was inside. */
+function Chest({ d, all }: { d: D; all: boolean }) {
+  const { save } = useStore();
+  const day = dayKey(), got = d.g.chests?.[day];
+  const [busy, setBusy] = useState(false);
+  const open = () => { setBusy(true); save("game", { ...d.g, chests: { ...(d.g.chests || {}), [day]: chestPrize(day, d.g) } }).catch(() => {}).finally(() => setBusy(false)); };
+  const rare = got && got !== "xp" ? RARE.find(([k]) => k === got)?.[1] : "";
+  if (!all) return <div className="pt-chest"><Gift size={22} aria-hidden="true" /><span>Finish all three to open today's chest.</span></div>;
+  if (!got) return <button className="pt-chest ready" onClick={open} disabled={busy} data-testid="button-open-chest"><Gift size={22} aria-hidden="true" /><span>All three done. Open today's chest</span></button>;
+  return <div className="pt-chest open" data-testid="chest-prize"><Gift size={22} aria-hidden="true" /><span>{rare ? <>You found a <b>{rare}</b> for Remy's office!</> : <>+{CHEST_XP} bonus XP. See you tomorrow.</>}</span></div>;
 }
 
 function BigMove({ d }: { d: D }) {

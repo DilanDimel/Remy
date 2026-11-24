@@ -13,6 +13,7 @@ import { Modal, Remy } from "../components/common";
 import { OUTFITS } from "../components/scholar";
 import { OfficeThing } from "../components/PathBoard";
 import { stateOf } from "../components/DailyPath";
+import { CHEST_XP, RARE, rareOwned } from "@shared/chest";
 
 type Tab = "pins" | "levels" | "wardrobe" | "streak";
 const ICON: Record<string, LucideIcon> = { resume: FileText, pitch: Mic, linkedin: Linkedin, applied: Briefcase, interview: Users, offer: Trophy,
@@ -145,6 +146,11 @@ function Wardrobe({ lv }: { lv: ReturnType<typeof rankOf> }) {
           {OFFICE.map(([k, label, l]) => { const got = lv.n >= l; return (
             <div key={k} className={"rw-item" + (got ? " got" : "")}><span className={"rw-art" + (got ? "" : " locked")}><OfficeThing k={k} /></span><b>{label}</b><small>{got ? "In the office" : <><Lock size={11} /> Level {l}</>}</small></div>); })}
         </div>
+        <h4 className="rw-sub">Rare finds from the daily chest</h4>
+        <div className="rw-grid items">
+          {RARE.map(([k, label]) => { const got = rareOwned(g).has(k); return (
+            <div key={k} className={"rw-item" + (got ? " got" : "")} data-testid={`rare-${k}`}><span className={"rw-art" + (got ? "" : " locked")}><OfficeThing k={k} /></span><b>{label}</b><small>{got ? "In the office" : <><Lock size={11} /> Chest only</>}</small></div>); })}
+        </div>
         <h4 className="rw-sub">From your real steps</h4>
         <ul className="rw-steps">{steps.map(([I, name, how, got]) => <li key={name} className={got ? "got" : ""}><I size={16} /><b>{name}</b><span>{got ? "In the office" : how}</span></li>)}</ul>
       </section>
@@ -159,7 +165,7 @@ function Streak() {
     [Flame, "Daily streak", "Any real step in Remy counts for the day: rating an opening, a career step, or a message to Remy. Days start at 4 AM."],
     [Snowflake, "Streak freezes", `You earn one every ${FREEZE_EVERY} days in a row, up to ${FREEZE_MAX}. A freeze covers a missed day by itself.`],
     [Zap, "Daily quests", `Three small quests on My Path every day, new at 4 AM. Each one is worth XP.`],
-    [Gift, "Daily chest", "Finish all three quests to open the day's chest."],
+    [Gift, "Daily chest", `Finish all three quests to open the day's chest. Most days it holds ${CHEST_XP} bonus XP; now and then a rare item for Remy's office that only the chest gives.`],
     [Trophy, "Weekly big move", "One bigger step each week, worth extra XP. A new one comes every Monday."],
   ];
   return (
