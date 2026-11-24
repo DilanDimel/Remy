@@ -71,13 +71,13 @@ const dayName = (d: string) => {
 };
 
 function NewsPanel({ items, seen, onClose }: { items: NewsItem[]; seen?: string; onClose: () => void }) {
-  const [sel, setSel] = useState(items[0]?.id);
+  // Nothing is picked at first (Dilan, Nov 24): the right side shows an overview until a note is opened.
+  const [sel, setSel] = useState<string | undefined>();
   const [detail, setDetail] = useState(false); // phones: the list first, a tap opens the note
-  const i = Math.max(0, items.findIndex((n) => n.id === sel));
-  const n = items[i];
-  const [viewed, setViewed] = useState<Set<string | undefined>>(() => new Set());
-  // a note's dot goes once you've opened it (phones open the list first, so only a tapped note counts there)
-  useEffect(() => { if (detail || !matchMedia("(max-width: 690px)").matches) setViewed((v) => new Set(v).add(sel)); }, [sel, detail]);
+  const i = items.findIndex((n) => n.id === sel);
+  const n = items[i] as NewsItem | undefined;
+  const [viewed, setViewed] = useState<Set<string>>(() => new Set());
+  useEffect(() => { if (sel) setViewed((v) => new Set(v).add(sel)); }, [sel]); // a note's dot goes once you've opened it
   const fresh = (x: NewsItem) => !!seen && x.id > seen && !viewed.has(x.id);
   const newCount = items.filter(fresh).length;
   const days = [...new Set(items.map((x) => x.date))];
@@ -86,16 +86,14 @@ function NewsPanel({ items, seen, onClose }: { items: NewsItem[]; seen?: string;
     const k = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
       if (e.key === "ArrowDown" && items[i + 1]) setSel(items[i + 1].id);
-      if (e.key === "ArrowUp" && items[i - 1]) setSel(items[i - 1].id);
+      if (e.key === "ArrowUp" && i > 0) setSel(items[i - 1].id);
     };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, [onClose, items, i]);
   useEffect(() => { document.querySelector(".wn-ti[aria-current='true']")?.scrollIntoView({ block: "nearest" }); }, [sel]);
-  if (!n) return null;
-  const to = newsLink(n);
-  const page = pageOf(n);
-  const Icon = iconOf(n);
+  if (!items.length) return null;
+  const back = () => { setSel(undefined); setDetail(false); };
   return createPortal(
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal wn" data-view={detail ? "detail" : "list"} role="dialog" aria-modal="true" aria-label="What's new in Remy">
@@ -112,7 +110,7 @@ function NewsPanel({ items, seen, onClose }: { items: NewsItem[]; seen?: string;
                 {items.filter((x) => x.date === d).map((x) => {
                   const XIcon = iconOf(x);
                   return (
-                    <button key={x.id} className="wn-ti" aria-current={x.id === n.id} onClick={() => pick(x.id)} data-testid="button-news-item">
+                    <button key={x.id} className="wn-ti" aria-current={x.id === sel} onClick={() => pick(x.id)} data-testid="button-news-item">
                       <XIcon size={16} /><span>{x.title}</span>{fresh(x) && <i className="wn-dot" aria-label="New to you" />}
                     </button>
                   );
@@ -121,38 +119,88 @@ function NewsPanel({ items, seen, onClose }: { items: NewsItem[]; seen?: string;
             ))}
           </nav>
         </aside>
-        <main className="wn-right" data-testid="whats-new-detail">
-          <div className="wn-top">
-            <button className="btn btn-ghost btn-sm wn-back" onClick={() => setDetail(false)} data-testid="button-news-back"><ChevronLeft size={16} />All updates</button>
-            <div className="wn-meta"><span className={"chip " + KIND[n.kind]}>{n.kind}</span><span>{dayName(n.date)}{n.owners ? " · Owners only" : ""}</span></div>
-            <button className="icon-btn" onClick={onClose} aria-label="Close" data-testid="button-close-modal"><X size={18} /></button>
-          </div>
-          <div className="wn-pv" aria-hidden>
-            <div className="wn-pv-ic"><Icon size={24} /></div>
-            <div className="wn-win">
-              <div className="wn-bar"><i /><i /><i /></div>
-              <div className="wn-body">
-                <div className="wn-side"><span /><span className="on" /><span /><span /></div>
-                <div className="wn-main">
-                  <div className="l" style={{ width: "55%" }} /><div className="l" style={{ width: "35%" }} />
-                  <div className="wn-card"><div className="wn-logo" /><div style={{ flex: 1 }}><div className="l" style={{ width: "70%" }} /><div className="l" style={{ width: "40%" }} /></div><div className="wn-pill"><Icon size={12} />{page?.[0] ?? "Remy"}</div></div>
-                  <div className="wn-card faded"><div className="wn-logo" /><div style={{ flex: 1 }}><div className="l" style={{ width: "60%" }} /><div className="l" style={{ width: "30%" }} /></div></div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <h2 className="wn-title">{n.title}</h2>
-          <p className="wn-text">{n.body}</p>
-          <div className="wn-acts">
-            {to ? <button className="btn btn-primary wn-try" onClick={() => { onClose(); go(to); }} data-testid="button-news-try">Try it{page ? ` on ${page[0]}` : ""}<ArrowRight size={16} /></button> : <span />}
-            <div className="wn-nav">
-              <button className="btn btn-secondary btn-sm" disabled={i === 0} onClick={() => setSel(items[i - 1].id)} data-testid="button-news-newer"><ChevronLeft size={15} />Newer</button>
-              <button className="btn btn-secondary btn-sm" disabled={i === items.length - 1} onClick={() => setSel(items[i + 1].id)} data-testid="button-news-older">Older<ChevronRight size={15} /></button>
-            </div>
-          </div>
-        </main>
+        {n ? <NewsDetail n={n} onBack={back} onClose={onClose} newer={i > 0 ? () => setSel(items[i - 1].id) : undefined} older={items[i + 1] ? () => setSel(items[i + 1].id) : undefined} />
+          : <NewsOverview items={items} fresh={items.filter(fresh)} onPick={pick} onClose={onClose} />}
       </div>
     </div>,
     document.body,
+  );
+}
+
+function NewsDetail({ n, onBack, onClose, newer, older }: { n: NewsItem; onBack: () => void; onClose: () => void; newer?: () => void; older?: () => void }) {
+  const to = newsLink(n);
+  const page = pageOf(n);
+  const Icon = iconOf(n);
+  return (
+    <main className="wn-right" data-testid="whats-new-detail">
+      <div className="wn-top">
+        <button className="btn btn-ghost btn-sm wn-back" onClick={onBack} data-testid="button-news-back"><ChevronLeft size={16} />Back</button>
+        <div className="wn-meta"><span className={"chip " + KIND[n.kind]}>{n.kind}</span><span>{dayName(n.date)}{n.owners ? " · Owners only" : ""}</span></div>
+        <button className="icon-btn" onClick={onClose} aria-label="Close" data-testid="button-close-modal"><X size={18} /></button>
+      </div>
+      <div className="wn-pv" aria-hidden>
+        <div className="wn-pv-ic"><Icon size={24} /></div>
+        <div className="wn-win">
+          <div className="wn-bar"><i /><i /><i /></div>
+          <div className="wn-body">
+            <div className="wn-side"><span /><span className="on" /><span /><span /></div>
+            <div className="wn-main">
+              <div className="l" style={{ width: "55%" }} /><div className="l" style={{ width: "35%" }} />
+              <div className="wn-card"><div className="wn-logo" /><div style={{ flex: 1 }}><div className="l" style={{ width: "70%" }} /><div className="l" style={{ width: "40%" }} /></div><div className="wn-pill"><Icon size={12} />{page?.[0] ?? "Remy"}</div></div>
+              <div className="wn-card faded"><div className="wn-logo" /><div style={{ flex: 1 }}><div className="l" style={{ width: "60%" }} /><div className="l" style={{ width: "30%" }} /></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <h2 className="wn-title">{n.title}</h2>
+      <p className="wn-text">{n.body}</p>
+      <div className="wn-acts">
+        {to ? <button className="btn btn-primary wn-try" onClick={() => { onClose(); go(to); }} data-testid="button-news-try">Try it{page ? ` on ${page[0]}` : ""}<ArrowRight size={16} /></button> : <span />}
+        <div className="wn-nav">
+          <button className="btn btn-secondary btn-sm" disabled={!newer} onClick={newer} data-testid="button-news-newer"><ChevronLeft size={15} />Newer</button>
+          <button className="btn btn-secondary btn-sm" disabled={!older} onClick={older} data-testid="button-news-older">Older<ChevronRight size={15} /></button>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+// The first thing owners see: the big release up top, then what changed since they last looked.
+function NewsOverview({ items, fresh, onPick, onClose }: { items: NewsItem[]; fresh: NewsItem[]; onPick: (id: string) => void; onClose: () => void }) {
+  // shortcut: the headline is the newest release note (`release` set), else the newest "New" one; add a flag if that guesses wrong.
+  const hero = items.find((x) => x.release) ?? items.find((x) => x.kind === "New") ?? items[0];
+  const pool = fresh.length ? fresh : items;
+  const picks = pool.filter((x) => x.id !== hero.id).slice(0, 3);
+  const kinds = (["New", "Improved", "Fixed", "Changed"] as const).map((k) => [k, pool.filter((x) => x.kind === k).length] as const).filter(([, c]) => c);
+  const week = items.filter((x) => Date.now() - new Date(x.date + "T12:00").getTime() < 7 * 864e5).length;
+  return (
+    <main className="wn-right wn-ov" data-testid="whats-new-overview">
+      <div className="wn-top">
+        <span className="wn-kicker">Here’s what’s been happening in Remy</span>
+        <button className="icon-btn" onClick={onClose} aria-label="Close" data-testid="button-close-modal"><X size={18} /></button>
+      </div>
+      <section className="wn-hero">
+        <Remy size={104} />
+        <div className="wn-hero-text">
+          <span className="wn-tag"><Sparkles size={13} />The big one</span>
+          <h2 className="wn-title">{hero.title}</h2>
+          <p className="wn-hero-body">{hero.body}</p>
+          <button className="btn btn-primary wn-try" onClick={() => onPick(hero.id)} data-testid="button-news-hero">Read all about it<ArrowRight size={16} /></button>
+        </div>
+      </section>
+      <div className="wn-stats">
+        <div><b>{fresh.length || items.length}</b><span>{fresh.length ? "new for you" : "updates so far"}</span></div>
+        <div><b>{week}</b><span>this week</span></div>
+        <p className="wn-kinds">{kinds.map(([k, c]) => `${c} ${k.toLowerCase()}`).join(" · ")}</p>
+      </div>
+      <h3 className="wn-sub">{fresh.length ? "Since you last looked" : "Latest"}</h3>
+      <div className="wn-picks">
+        {picks.map((x) => { const XIcon = iconOf(x); return (
+          <button key={x.id} className="wn-pick" onClick={() => onPick(x.id)} data-testid="button-news-highlight">
+            <XIcon size={18} /><b>{x.title}</b><span>{dayName(x.date)}</span>
+          </button>
+        ); })}
+      </div>
+    </main>
   );
 }
