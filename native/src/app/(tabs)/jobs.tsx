@@ -53,6 +53,7 @@ export default function Jobs() {
   // A Keep counts in Kept straight away, before the server answers.
   const [keptNow, setKeptNow] = useState<Record<string, true>>({});
   const [filter, setFilter] = useState<Filter>("new");
+  const [leaving, setLeaving] = useState<Record<string, true>>({});
   // Opened from Today: on the tab that has the opening (a kept one is under Kept, not For you).
   const { show, at } = useLocalSearchParams<{ show?: string; at?: string }>();
   useEffect(() => { if (show === "new" || show === "kept" || show === "passed") setFilter(show); }, [show, at]);
@@ -61,8 +62,9 @@ export default function Jobs() {
   const all = useMemo(() => (ws ? visibleJobs(ws, jobs, fits) : []), [ws, jobs, fits]);
   if (!ws) return null;
   // Kept is every saved opening, like Progress counts them: one that closed or left the feed still shows (marked closed).
-  const kept = [...new Set([...ws.savedJobIds, ...Object.keys(keptNow)])].map((id) => jobs.find((j) => j.id === id)).filter((j): j is Job => !!j);
-  const passed = passedJobs(ws, jobs).filter((j) => !gone[j.id]);
+  const kept = [...new Set([...ws.savedJobIds, ...Object.keys(keptNow)])].map((id) => jobs.find((j) => j.id === id)).filter((j): j is Job => !!j && !leaving[j.id]);
+  // A Pass counts in Passed straight away; only a card being brought back leaves it.
+  const passed = [...passedJobs(ws, jobs).filter((j) => !leaving[j.id]), ...(last && !last.kept && !ws.hiddenJobIds.includes(last.job.id) ? [last.job] : [])];
   const fresh = all.filter((j) => !gone[j.id] && !ws.savedJobIds.includes(j.id) && !ws.jobFeedback?.[j.id]);
   const shown = filter === "kept" ? kept : filter === "passed" ? passed : fresh;
   const onRefresh = async () => { setRefreshing(true); await Promise.all([reload(), refreshAll()]); setRefreshing(false); };
@@ -80,9 +82,9 @@ export default function Jobs() {
   };
   // Kept → remove, Passed → bring back: the same undo as after a Keep or Pass, so the opening goes back to For you.
   const restore = async (j: Job, wasKept: boolean) => {
-    tap(); setErr(""); setGone((g) => ({ ...g, [j.id]: true }));
-    try { await undo(j, wasKept); setKeptNow(({ [j.id]: _, ...n }) => n); } catch (e: any) { setErr(e.message); }
-    setGone(({ [j.id]: _, ...g }) => g);
+    tap(); setErr(""); setLeaving((l) => ({ ...l, [j.id]: true }));
+    try { await undo(j, wasKept); setKeptNow(({ [j.id]: _, ...n }) => n); setGone(({ [j.id]: _, ...g }) => g); } catch (e: any) { setErr(e.message); }
+    setLeaving(({ [j.id]: _, ...l }) => l);
   };
   const open = (j: Job) => { tap(); router.push({ pathname: "/job", params: { id: j.id } }); };
 

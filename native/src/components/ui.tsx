@@ -154,9 +154,11 @@ export function Group({ children, style }: { children: ReactNode; style?: StyleP
   return <View style={[{ backgroundColor: c.surface, borderRadius: radius.card, overflow: "hidden", borderWidth: 1, borderColor: c.line }, style]}>{children}</View>;
 }
 
-export type IconName = "arrow" | "chev" | "check" | "flame" | "doc" | "jobs" | "chat" | "you" | "book" | "flag" | "trend" | "compass" | "x" | "heart" | "up" | "undo" | "plus" | "list" | "lock" | "sun" | "moon";
+export type IconName = "arrow" | "chev" | "check" | "flame" | "doc" | "jobs" | "chat" | "you" | "book" | "flag" | "trend" | "compass" | "x" | "heart" | "up" | "undo" | "plus" | "list" | "lock" | "sun" | "moon" | "gift" | "snow" | "award" | "eye" | "zap";
 const paths: Record<IconName, string> = {
   arrow: "M5 12h14M13 6l6 6-6 6", chev: "M9 6l6 6-6 6", check: "M5 12l5 5 9-10",
+  gift: "M4 11h16v9H4zM3 7h18v4H3zM12 7v13M12 7c-2-4-6-3-5 0M12 7c2-4 6-3 5 0", snow: "M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9",
+  award: "M12 15a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM8.5 14l-1.5 7 5-3 5 3-1.5-7", eye: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z", zap: "M13 2L4 14h7l-1 8 9-12h-7z",
   flame: "M12 3c1 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-4 3-7 1 2 2 3 3 3 0-3 0-5 0-7z",
   doc: "M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6", jobs: "M3 7h18v13H3zM8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2", chat: "M4 5h16v11H9l-5 4z",
   you: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6", book: "M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 19V5",
