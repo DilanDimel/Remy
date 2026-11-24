@@ -42,6 +42,7 @@ function Root() {
         <Stack.Screen name="feedback" options={{ ...sheet, title: "Send feedback" }} />
         <Stack.Screen name="rewards" options={{ ...sheet, title: "Rewards" }} />
         <Stack.Screen name="progress" options={{ ...sheet, title: "Progress" }} />
+        <Stack.Screen name="calendar" options={{ ...sheet, title: "Calendar" }} />
       </Stack>
     </>
   );

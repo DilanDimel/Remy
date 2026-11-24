@@ -13,6 +13,8 @@ export function go(path: string, title = "Remy", opts: { page?: boolean } = {}) 
   if (!opts.page && base === "/rewards") return router.push({ pathname: "/rewards", params: q.tab ? { tab: q.tab } : {} } as any);
   // Progress is native for Applications and To-dos; Email updates and Hours stay the website's tabs for now.
   if (!opts.page && base === "/progress" && (!q.tab || q.tab === "tracker" || q.tab === "todos")) return router.push({ pathname: "/progress", params: q.tab ? { tab: q.tab } : {} } as any);
+  // Calendar is native too (More → Calendar, Progress's interview prompt).
+  if (!opts.page && base === "/calendar" && !query) return router.push("/calendar" as any);
   const tab = opts.page || query ? undefined : ({ jobs: "/jobs", "/opportunities": "/jobs", "/path": "/path", path: "/path" } as Record<string, string>)[base];
   if (tab) return router.navigate(tab as any);
   router.push({ pathname: "/web", params: { path: path.startsWith("/") ? path : "/" + path, title } });
