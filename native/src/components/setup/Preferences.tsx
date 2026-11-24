@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Pressable, View } from "react-native";
 import type { Workspace } from "@shared/types";
 import { FIELD_GROUPS, FIELD_MAJORS, splitFieldList } from "@shared/fields";
+import { AUTH_OPTS, authChip } from "@shared/workAuth";
 import { guessYear } from "@shared/roads";
 import { Button, Icon, Pill, T } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -14,7 +15,6 @@ import { Chips, Input, Nav, Q, Say, useSave } from "./common";
 const YEAR_OPTS = ["First-year", "Sophomore", "Junior", "Senior", "Graduate student"];
 const REGION_OPTS = ["Fort Worth", "Dallas", "DFW area", "Houston", "Austin", "Anywhere in Texas", "Remote", "Anywhere in the US"];
 const TYPE_OPTS = ["Internships", "Full-time jobs", "Part-time / campus jobs", "Programs & insight days", "Events & networking", "Competitions"];
-const AUTH_OPTS = ["U.S. citizen or permanent resident", "I'll need visa sponsorship (F-1 / OPT)"];
 const RELOC_OPTS = ["Yes", "For the right role", "No"];
 const LIMIT_OPTS = ["Needs to be paid", "Up to 15 hours a week", "Up to 20 hours a week", "No car (near transit or remote)", "Remote only", "Summers only"];
 const TRIED_OPTS = ["Nothing yet", "Applied to a few", "Went to a career fair", "Talked to the career center", "Reached out to people"];
@@ -53,7 +53,7 @@ export function Preferences({ onBack, scrollTop }: { onBack: () => void; scrollT
   });
   const [unsure, setUnsure] = useState(!!ws!.onboarding.exploring);
   const [page, setPage] = useState(0);
-  const [auth, setAuth] = useState(p.workAuth ? [AUTH_OPTS.find((o) => /sponsor/i.test(o) === /sponsor|visa/i.test(p.workAuth))!] : []);
+  const [auth, setAuth] = useState(authChip(p.workAuth));
   const [reloc, setReloc] = useState(p.relocation ? [p.relocation] : []);
   const [dream, setDream] = useState(p.dreamEmployers || "");
   const [avoid, setAvoid] = useState(p.avoid || "");
@@ -68,7 +68,7 @@ export function Preferences({ onBack, scrollTop }: { onBack: () => void; scrollT
   const allWorries = [...worries, worryText.trim()].filter(Boolean);
   const missing = (page === 0
     ? [!year.length && "your year", !allFields.length && !unsure && "at least one field (or \"I'm not sure yet\")", !types.length && "what kinds of opportunities"]
-    : [!auth.length && "work authorization"]).filter(Boolean);
+    : []).filter(Boolean);
   const pageOne = () => ({ ...p, classYear: year[0] || "", graduation: grad.trim(), timeline: timeline.join(", "), opportunityTypes: types.join(", "), targetRoles: allFields.join(", ") });
   const run = async (f: () => Promise<void>) => { setBusy(true); setError(""); try { await f(); } catch (e: any) { setError(e.message); } setBusy(false); };
   // Page 1's picks are saved before page 2, so coming back later doesn't lose them.
@@ -79,7 +79,7 @@ export function Preferences({ onBack, scrollTop }: { onBack: () => void; scrollT
   });
   const submit = () => run(async () => {
     let w = await save("profile", {
-      ...pageOne(), regions: allRegions.join(", "), workAuth: auth[0] || "", relocation: reloc[0] || "", dreamEmployers: dream.trim(), avoid: avoid.trim(),
+      ...pageOne(), regions: allRegions.join(", "), workAuth: auth[0] || (authChip(p.workAuth).length ? "" : p.workAuth), relocation: reloc[0] || "", dreamEmployers: dream.trim(), avoid: avoid.trim(),
       constraints: limits.join(", "), tried: tried.join(", "), worries: allWorries.join(", ").slice(0, 400),
     });
     if (unsure && !allFields.length && !w.tasks.some((t) => t.link === "/path?tab=career" && !t.done))
@@ -138,9 +138,9 @@ export function Preferences({ onBack, scrollTop }: { onBack: () => void; scrollT
           <T kind="small">Open to relocating?</T>
           <Chips options={RELOC_OPTS} value={reloc} onChange={setReloc} multi={false} testID="pref-reloc" />
         </Q>
-        <Q n={6} title="Work authorization">
+        <Q n={6} title="Work authorization" optional>
           <Chips options={AUTH_OPTS} value={auth} onChange={setAuth} multi={false} testID="pref-auth" />
-          <T kind="small">If you'll need sponsorship, Remy hides postings that say they won't sponsor.</T>
+          <T kind="small">Only to skip postings you can't take: "won't sponsor" ones if you'll need sponsorship, U.S. citizens only ones if you aren't one. You can still open them. Leave it blank and nothing is hidden.</T>
         </Q>
         <Q n={7} title="Dream employers" optional>
           <Input testID="input-pref-dream" value={dream} onChangeText={setDream} placeholder="e.g. Goldman Sachs" />

@@ -64,6 +64,18 @@ export async function backupNow(store: Store | null = r2Store(), now = new Date(
   return runBackup(store, "full", null, now);
 }
 
+/** Deletes every copy of `kind` from the day after the last prune through `cutoff`, so days the sweep missed (an
+ *  outage) are cleaned too, not only the copy exactly that many days back. The first prune looks back PRUNE_FIRST days. */
+async function prune(store: Store, kind: "full" | "daily", cutoff: string) {
+  const key = `backup_pruned_${kind}`;
+  const last = await setting(key);
+  let day = last && last < cutoff ? daysBack(last, -1) : last ? null : daysBack(cutoff, PRUNE_FIRST);
+  if (!day) return;
+  for (let n = 0; day <= cutoff && n < PRUNE_MAX; day = daysBack(day, -1), n++) await store.del(`backup/${kind}/${day}`).catch(() => {});
+  await setSetting(key, cutoff);
+}
+const PRUNE_FIRST = 60, PRUNE_MAX = 400;
+
 async function runBackup(store: Store, kind: "full" | "daily", since: string | null, now: Date) {
   const today = centralDay(now);
   // The database's own clock, so changes are caught even if this server's clock drifts.
@@ -74,8 +86,8 @@ async function runBackup(store: Store, kind: "full" | "daily", since: string | n
   await setSetting("backup_last_day", today);
   await setSetting("backup_last_at", started);
   if (kind === "full") await setSetting("backup_last_full", today);
-  await store.del(`backup/daily/${daysBack(today, KEEP_DAILY)}`).catch(() => {});
-  await store.del(`backup/full/${daysBack(today, KEEP_FULL * FULL_EVERY_DAYS)}`).catch(() => {});
+  await prune(store, "daily", daysBack(today, KEEP_DAILY));
+  await prune(store, "full", daysBack(today, KEEP_FULL * FULL_EVERY_DAYS));
   return { kind, rows: Object.values(b.tables).reduce((n, r) => n + r.length, 0) };
 }
 
