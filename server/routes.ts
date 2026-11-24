@@ -775,6 +775,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   // Founding Cohort list: owners add accepted emails (optionally emailing "You're in") and remove them.
   const betaAdmin = async () => ({ on: await beta.betaOn(), inviteOnly: process.env.OR_BETA_ONLY === "true", open: await beta.openAccess(), formUrl: beta.betaFormUrl(), emailReady: emailReady(), list: await beta.list() });
   app.get("/api/admin/beta", route(async (_req, res, ctx) => { owner(ctx); res.json(await betaAdmin()); }));
+  app.get("/api/admin/students", route(async (_req, res, ctx) => { owner(ctx); res.json(await beta.students()); }));
   // The instant-access switch: on lets anyone sign in (daily caps on heavy AI); off goes back to apply-first.
   app.post("/api/admin/beta/open", route(async (req, res, ctx) => {
     const me = owner(ctx);
@@ -1061,12 +1062,16 @@ export async function registerRoutes(_server: Server, app: Express) {
   };
   // Beta Insider (open access): join after a few days of use (a secret pin marks it), then a short survey every two
   // weeks. Owners can try it in owner view before access opens. Answers are feedback notes under the student's account.
-  app.post("/api/insider", route(async (_req, res, ctx) => {
+  // Joining asks the old form's questions (what they want, where they're stuck, tools, how they heard) and files the
+  // answers with the Founding Cohort applications (beta.saveInsider), so the form is no longer needed.
+  app.post("/api/insider", route(async (req, res, ctx) => {
     if (!ctx.me.owner && !(await beta.openAccess())) bad("Beta Insider isn't open yet.", 403);
     if (!ctx.ws.insider) {
       if (!insiderEligible(ctx.ws) && !ctx.me.owner) bad(`Use Remy on ${INSIDER_AFTER_DAYS} different days first.`);
       ctx.ws.insider = { joinedAt: centralToday() };
       await ctx.save();
+      const p = ctx.ws.profile;
+      await beta.saveInsider(ctx.me.email || "", { name: p.name, school: p.school, major: p.major, classYear: p.classYear }, req.body?.answers || {});
     }
     res.json(ctx.ws);
   }));

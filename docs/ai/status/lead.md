@@ -1,13 +1,14 @@
 # Lead AI (Dilan's project Claude)
 
-Updated: 2026-11-24 06:25 UTC
+Updated: 2026-11-24 06:45 UTC
 Area: the website (`client/`, `server/`, `shared/`, `docs/`), releases, `docs/ai/CONTEXT.md`
 
 ## Working on now
+- Rewards rides with The Big Upgrade (`follows: "redesign"` in `shared/features.ts`, no separate Rewards row; Dilan, Nov 24). One flip on Admin → Beta → Feature releases releases both.
 - Streak dots lit-days-first (`shared/daily.ts` `weekDots(..., streakFirst)`, web only; native keeps the default) and the straight setup resume preview.
-- Owner-side bug fixes before "The Big Upgrade" release to students. Rewards now rides with The Big Upgrade (`follows: "redesign"` in `shared/features.ts`, no separate Rewards row; Dilan, Nov 24). One flip on Admin → Beta → Feature releases releases both.
+- Owner-side bug fixes before "The Big Upgrade" release to students. Full-site pre-release test (Nov 24): new students no longer get the Big Upgrade card on top of the tour (`Onboarding.tsx` finish sets `beta2Seen`, `Beta2Welcome.tsx` waits for the tour).
 - Shared AI system v2 for Julio joining the website: `docs/ai/owners.json`, claims and requests in status files, `npm run check:ai` in CI, `npm run ai:brief` (with `--touch`, `--me`, `--vault`), `DECISIONS.md`, `julio.md`, review checklist, `.github/CODEOWNERS`, PR template. Next: hours and AI cost from PRs plus each person's "Working on now" on the owners' dashboard Team & hours tab (agreed with the dashboard thread).
-- Owners' dashboard v2 (`client/src/pages/Admin.tsx`, `adm2-*` in `index.css`): one-screen tabs, 11 tabs to 7. Overview (#316), System (#321), Team & hours (#322) and Board & calendar (#324) Errors & feedback (#325) and Openings (#326) merged; release switches moved to the top of Beta; Students tab and Beta Insider join step in progress; the Beta tab's release controls wait until after the release flip.
+- Owners' dashboard v2 (`client/src/pages/Admin.tsx`, `adm2-*` in `index.css`): one-screen tabs, 11 tabs to 7. Overview (#316), System (#321), Team & hours (#322) and Board & calendar (#324) Errors & feedback (#325) and Openings (#326) merged; release switches moved to the top of Beta; Beta Insider join step asks the old form questions (in review); Students tab built, held until after the release flip; the Beta tab's release controls wait until after the release flip.
 
 ## Files and folders I touch
 - Everything outside `native/`. Several Claude threads work in parallel; their open PRs are the live list.
