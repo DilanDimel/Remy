@@ -139,7 +139,7 @@ function SignIn() {
         <div className="landing">
           <Remy size={72} mood="wave" />
           <h1 className="motto">Sign in to Remy</h1>
-          <p className="sub">{config?.beta?.on ? "Free for beta testers. Setup takes about 5 minutes." : "Free during beta. New here? Signing in creates your account; setup takes about 5 minutes."}</p>
+          <p className="sub">{config?.beta?.on ? "Free during beta. Setup takes about 5 minutes." : "Free during beta. New here? Signing in creates your account; setup takes about 5 minutes."}</p>
         </div>
         <BetaNote onOther={() => { setSent(""); setEmail(""); setCode(""); }} />
         <div className="sso-list">
