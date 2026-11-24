@@ -19,3 +19,11 @@ test("the copy the student kept stays, and different roles or cities both stay",
   assert.equal(dropDuplicatePostings([job("a", "RTX"), job("b", "RTX", "Finance Intern")], () => false).length, 2);
   assert.equal(dropDuplicatePostings([job("a", "RTX"), job("b", "RTX", undefined, "Tucson, AZ")], () => false).length, 2);
 });
+
+test("one posting with its town written two ways is one opening, and two towns in one state stay apart", () => {
+  const a = job("a", "Raytheon (RTX)", undefined, "springdale, Arkansas, United States of America");
+  const b = job("b", "RTX (Raytheon)", undefined, "US-AR-SPRINGDALE-BLDG 1 ~ 275 E Robinson Ave");
+  assert.deepEqual(dropDuplicatePostings([a, b], () => false).map((j) => j.id), ["a"]);
+  const dallas = job("c", "RTX", undefined, "Dallas, Texas, United States"), austin = job("d", "RTX", undefined, "Austin, Texas, United States");
+  assert.equal(dropDuplicatePostings([dallas, austin], () => false).length, 2);
+});
