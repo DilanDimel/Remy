@@ -14,6 +14,7 @@ import { Remy, StatusChip } from "../components/common";
 import { firstName } from "@shared/names";
 import { gettingStarted } from "@shared/progress";
 import { many, remyLine } from "@shared/homeLine";
+import { nextAction } from "@shared/nextAction";
 import { dailyStreak, dayKey, streakDays, weekDots } from "@shared/daily";
 import { OrgLogo } from "../components/OrgLogo";
 
@@ -72,41 +73,8 @@ export default function Home() {
     if (prep.length) await run(() => save("tasks", [...prep, ...w.tasks]), "Added 3 prep steps to your to-dos");
     go("/progress?tab=todos");
   };
-  const next = useMemo(() => {
-    if (interview) {
-      const d = daysUntil(interview.date);
-      return { title: `Prepare for your interview ${d === 0 ? "today" : d === 1 ? "tomorrow" : "in 2 days"}: ${interview.title.replace(/^interview( with)?:?\s*/i, "")}`, why: "Three short steps: research the organization, pick two true stories, and test your setup.", link: "", cta: "Add prep steps" };
-    }
-    const pending = w.applications.find((a) => a.changes.some((c) => c.status === "pending"));
-    if (!w.resume) return { title: "Add your resume", why: "Upload it, or build one with Remy in about 10 minutes (no resume yet is fine). Everything Remy suggests is built on it.", link: "/resume?tab=base", cta: "Add resume" };
-    if (!w.resume.confirmedAt) return { title: "Confirm your base resume", why: "Check that every line was read correctly. Tailored versions are built only from what you confirm.", link: "/resume?tab=base", cta: "Review resume" };
-    if (pending) {
-      const j = jobs?.find((x) => x.id === pending.jobId);
-      return { title: `Finish reviewing your ${j?.company || ""} application`, why: ownerView ? (() => { const n = pending.changes.filter((c) => c.status === "pending").length; return `${many(n, "suggested change")} ${n === 1 ? "is" : "are"} waiting for you to accept, edit or reject.`; })() : `${pending.changes.filter((c) => c.status === "pending").length} suggested change(s) are waiting for your accept, edit or reject.`, link: `/resume?tab=tailor&app=${pending.id}`, cta: "Continue review" };
-    }
-    // An interview coming up (beyond the 2-day prep plan) beats a general suggestion.
-    const soon = w.calendar.filter((c) => c.kind === "Interview" && (daysUntil(c.date) ?? -1) > 2 && (daysUntil(c.date) ?? 99) <= 21).sort((a, b) => a.date.localeCompare(b.date))[0];
-    if (soon) return { title: `${soon.title.replace(/^interview:?\s*/i, "Your interview with ")} is ${fmtDate(soon.date)}, in ${daysUntil(soon.date)} days`, why: "Start now: build two true stories from your resume and practice them out loud. Remy turns Home into a prep plan two days before.", link: "/interview#story-deck", cta: "Prepare stories" };
-    // An opening counts only if it passes every filter (not hidden, in their places, eligible, still open).
-    const fitsAll = (j: NonNullable<typeof jobs>[number]) => { const f = fits[j.id]; return !!f && !f.excluded && !f.closed && f.regionMatch !== false && f.eligibility !== "unlikely" && j.kind !== "event" && !w.hiddenJobIds.includes(j.id) && (!j.deadline || (daysUntil(j.deadline) ?? 1) >= 0); };
-    // A plan step that names an opening the student can't or won't pursue anymore (hidden, closed, elsewhere, not eligible) is skipped.
-    // Hidden openings aren't in the list Home gets, so the student's own saved list is checked too.
-    // Skipped only when every posting from the company it names fails (one ineligible BDO posting doesn't block another).
-    const blocked = (text: string) => {
-      const named = [...(jobs || []), ...w.jobs].filter((j) => j.company.length > 2 && text.toLowerCase().includes(j.company.toLowerCase()));
-      return named.length > 0 && named.every((j) => !fitsAll(j));
-    };
-    const moved = w.tracker.filter((t) => t.status !== "Saved").map((t) => t.company.toLowerCase());
-    // The student's own plan comes first: its first to-do they haven't done (they can cross it off), then the plan's written next step.
-    const planTodo = w.tasks.find((t) => !t.done && t.source === "AI plan (review)" && !blocked(t.title));
-    if (planTodo) return { title: planTodo.title, why: planTodo.why, link: planTodo.link || "/progress?tab=todos", cta: "Open" };
-    if (w.plan && !blocked(w.plan.nextAction.title) && !moved.some((c) => c && w.plan!.nextAction.title.toLowerCase().includes(c))) return { ...w.plan.nextAction, cta: "Open" };
-    if (!w.applications.length && jobs?.length) {
-      const best = [...jobs].filter(fitsAll).sort((a, b) => (fits[b.id]?.score || 0) - (fits[a.id]?.score || 0))[0];
-      if (best) return { title: `Tailor your resume for ${best.company}`, why: fits[best.id]?.why || "This is your closest fit among current openings.", link: `/resume?tab=tailor&job=${best.id}`, cta: "Start tailoring" };
-    }
-    return { title: "Explore openings that fit you", why: "Save a few to compare deadlines and eligibility.", link: "/opportunities", cta: "Browse" };
-  }, [w, jobs, fits]);
+  // The rules live in shared/nextAction.ts, so the phone app suggests the same one thing.
+  const next = useMemo(() => nextAction(w, jobs, fits, { ownerView }), [w, jobs, fits, ownerView]);
 
   const starting = gettingStarted(w);
   // Redesign stage 2 (owners first): a small celebration when a getting-started step gets done since the last visit.

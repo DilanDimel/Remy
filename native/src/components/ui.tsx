@@ -1,7 +1,9 @@
 import * as Haptics from "expo-haptics";
 import type { ReactNode } from "react";
 import type { JobFit } from "@shared/types";
-import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { logoFor } from "@shared/logos";
+import { useState } from "react";
+import { ActivityIndicator, Image, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, SvgXml } from "react-native-svg";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
@@ -100,13 +102,22 @@ export function Remy({ size = 64, icon, outfit }: { size?: number; icon?: boolea
   return <SvgXml xml={xml} width={size} height={size * 222 / 200} accessibilityLabel="Remy the fox, your career coach" />;
 }
 
-/** The employer's first letter on a coloured tile, since postings rarely come with a logo. */
-export function EmployerTile({ name, size = 44 }: { name: string; size?: number }) {
+/** The company's logo on a white tile with a thin outline, like the website's OrgLogo (shared/logos.ts). Initials only
+ *  when there's no logo: no domain, the image fails, or the favicon service answered an unknown domain with its 16 px globe. */
+export function Logo({ company, url, size = 40 }: { company: string; url?: string; size?: number }) {
   const { c } = useTheme();
-  const tones = [c.ink, c.foxDeep, c.sage, c.mutedText];
-  const tone = tones[[...name].reduce((n, ch) => n + ch.charCodeAt(0), 0) % tones.length];
-  return <View style={{ width: size, height: size, borderRadius: size * 0.3, backgroundColor: tone, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: font.display, fontSize: size * 0.4, color: c.surface }}>{(name.trim()[0] || "?").toUpperCase()}</Text></View>;
+  const { src, sure } = logoFor(company, url || "");
+  const [bad, setBad] = useState(false);
+  const box = { width: size, height: size, borderRadius: radius.tile, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, alignItems: "center", justifyContent: "center", overflow: "hidden" } as const;
+  if (!src || bad) return <View style={box} accessibilityLabel={company}><Text style={{ fontFamily: font.display, fontSize: size * 0.38, color: c.mutedText }}>{initials(company)}</Text></View>;
+  return (
+    <View style={box} accessibilityLabel={`${company} logo`}>
+      <Image source={{ uri: src }} style={{ width: size * 0.62, height: size * 0.62 }} resizeMode="contain" onError={() => setBad(true)}
+        onLoad={(e) => { if (!sure && (e.nativeEvent.source?.width ?? 64) <= 16) setBad(true); }} />
+    </View>
+  );
 }
+const initials = (name: string) => name.replace(/[^A-Za-z0-9 ]/g, " ").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
 
 export function Loading() {
   const { c } = useTheme();
