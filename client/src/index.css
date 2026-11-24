@@ -3301,3 +3301,30 @@ button.rw-item:not(:disabled) { cursor: pointer; }
   .adm2-cols small { font-size: 9px; }
   .adm2-tile strong { font-size: 1.5rem; }
 }
+.adm2-clock { flex-wrap: nowrap; gap: 8px; }
+.adm2-clock .input { width: 280px; height: 36px; }
+.adm2-people { display: grid; }
+.adm2-person { display: grid; grid-template-columns: 32px minmax(0, 1fr) 60px 60px 64px 34px 30px; gap: 12px; align-items: center; padding: 10px 2px; border-top: 1px solid var(--line); }
+.adm2-person:first-child { border-top: 0; }
+.adm2-pn { display: grid; gap: 2px; min-width: 0; }
+.adm2-pn b { font-size: var(--text-sm); display: flex; gap: 6px; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.adm2-pn small { font-size: var(--text-xs); color: var(--faint); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.adm2-num { text-align: right; font-size: var(--text-sm); font-variant-numeric: tabular-nums; color: var(--ink); text-decoration: none; }
+.adm2-num.muted { color: var(--faint); font-weight: 600; }
+.adm2-mini { display: flex; align-items: flex-end; gap: 2px; height: 22px; }
+.adm2-mini i { width: 6px; border-radius: 2px; background: var(--ink); }
+.adm2-mini i.z { background: var(--line); }
+.adm2-acts { display: grid; gap: 2px; }
+.adm2-act > div { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 6px 2px; }
+.adm2-day { display: block; font-size: var(--text-xs); color: var(--faint); font-weight: 700; padding: 8px 2px 2px; }
+.adm2-act:first-child .adm2-day { padding-top: 0; }
+.adm2-foot .btn { margin: 0; }
+@media (max-width: 900px) {
+  .adm2-clock { flex-wrap: wrap; width: 100%; }
+  .adm2-clock .input { width: 100%; }
+  .adm2-person { grid-template-columns: 32px minmax(0, 1fr) 48px 30px; }
+  .adm2-person > .adm2-num.muted, .adm2-person > .adm2-mini, .adm2-person > a.adm2-num { display: none; }
+}
+.adm2-push { margin-top: auto; border-top: 1px solid var(--line); padding-top: 12px; }
+.adm2-colv { color: var(--ink) !important; font-weight: 800 !important; }
+@media (max-width: 900px) { .adm-head:has(.adm2-clock) { flex-direction: column; align-items: stretch; } }
