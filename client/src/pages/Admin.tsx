@@ -225,7 +225,7 @@ function Releases() {
       <h3>Feature releases</h3>
       <span className="small muted">New features are built for owners first. Lock one to show students it's coming, or release it to everyone. Changes reach students within a minute, with no deploy. Switch to student view to preview.</span>
       {FEATURES.filter((f) => !f.follows).map((f) => ( // Rewards rides with The Big Upgrade
-        <div key={f.key} className="feat-row">
+        <div key={f.key} className={"feat-row rel-" + r[f.key]}>
           <div><b>{f.label}</b> <span className="small muted">{f.path || (f.key === "app" ? "iPhone and Android" : "every page")}</span></div>
           <select className="select" style={{ width: 260, maxWidth: "100%" }} value={r[f.key]} onChange={(e) => set(f.key, e.target.value as Release)} aria-label={`${f.label} release`} data-testid={`select-release-${f.key}`}>
             {RELEASES.filter((st) => f.path || st !== "locked").map((st) => <option key={st} value={st}>{RELEASE_NAME[st]}</option>)}
@@ -241,8 +241,10 @@ type BetaData = { on: boolean; inviteOnly: boolean; open: boolean; formUrl: stri
 type Person = { email: string; name: string; school: string; major: string; classYear: string; goal: string; stuck: string; tools: string; source: string; status: AppStatus; onList: boolean; cohort: string; appliedAt: string | null; signedUpAt: string | null; days: number; lastDay: string | null; insider: { joinedAt: string; surveyAt?: string } | null };
 type StudentsData = { people: Person[]; surveys: { question: string; answer: string; email: string; at: string }[] };
 const tester = (p: Person) => !!p.insider || p.onList || p.status === "accepted";
-const stage = (p: Person): [string, boolean] => p.insider ? [`Insider since ${day(p.insider.joinedAt)}`, true]
-  : p.signedUpAt && p.days >= 3 ? ["Invited to Insider", false] : p.signedUpAt ? [`${p.days} of 3 days`, false] : [p.status === "accepted" || p.onList ? "Hasn't signed in" : p.status === "next" ? "Next cohort" : p.status === "declined" ? "Declined" : "Applied", false];
+type Tone = "fox" | "sage" | "amber" | "lav";
+const stage = (p: Person): [string, Tone] => p.insider ? [`Insider since ${day(p.insider.joinedAt)}`, "fox"]
+  : p.signedUpAt && p.days >= 3 ? ["Invited to Insider", "sage"] : p.signedUpAt ? [`${p.days} of 3 days`, "sage"] : [p.status === "accepted" || p.onList ? "Hasn't signed in" : p.status === "next" ? "Next cohort" : p.status === "declined" ? "Declined" : "Applied", p.status === "accepted" || p.onList ? "amber" : "lav"];
+const initials = (p: Person) => (p.name || p.email).split(/[\s.@]+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join("").toUpperCase();
 
 /** Students (Nov 24, owners' dashboard v2): who's in the beta, from the old form, the sign-in list and Beta Insider in one
  *  list, plus the release switches ("Let everyone in" and Feature releases) at the top. Everything else opens in a modal. */
@@ -303,7 +305,7 @@ function BetaTab() {
       </div>
       <section className="adm2-card adm2-release" data-testid="beta-status">
         <div className="adm2-access">
-          <span className="adm2-tl">{d.open ? "Open to everyone" : d.on ? "Invite-only" : "Anyone can sign in"}</span>
+          <span className="row" style={{ gap: 10 }}><Remy size={34} mood={d.open ? "happy" : undefined} /><span className="adm2-tl"><i className={"adm2-dot " + (d.open || !d.on ? "sage" : "amber")} /> {d.open ? "Open to everyone" : d.on ? "Invite-only" : "Anyone can sign in"}</span></span>
           <span className="xs muted">{d.open ? "Anyone can sign in. Tailoring capped at 5 a day; Insider invites after 3 days of use." : d.on ? "Students apply, then sign in. Opening adds a daily tailoring cap and Insider invites." : "Beta-only mode is off on this server (OR_BETA_ONLY isn't true)."}</span>
           <button className={"btn btn-sm " + (d.open ? "btn-secondary" : "btn-primary")} onClick={flip} data-testid="button-beta-open-toggle">{d.open ? "Back to invite-only" : "Let everyone in"}</button>
         </div>
@@ -320,14 +322,15 @@ function BetaTab() {
           <div className="adm2-scroll adm-list">
             {!st && <Spinner />}
             {shown.map((p) => {
-              const [label, on] = stage(p);
+              const [label, tone] = stage(p);
               return (
-                <button key={p.email} className="adm2-open adm2-who" onClick={() => setWho(p)} data-testid="row-student">
+                <button key={p.email} className="adm2-open adm2-stu" onClick={() => setWho(p)} data-testid="row-student">
+                  <span className={"adm2-ini " + tone} aria-hidden>{initials(p)}</span>
                   <div className="grow" style={{ minWidth: 0 }}>
                     <b className="adm-ellipsis">{p.name || p.email}</b>
                     <span className="xs muted adm-ellipsis">{[p.name ? p.email : "", p.school, p.classYear, p.major].filter(Boolean).join(" · ")}{p.goal ? ` · wants ${p.goal}` : ""}</span>
                   </div>
-                  <span className={"adm2-pill" + (on ? " on" : "")}>{label}</span>
+                  <span className={"adm2-pill " + tone}>{label}</span>
                 </button>
               );
             })}
@@ -339,15 +342,15 @@ function BetaTab() {
             <div className="adm2-h"><h3>From sign-up to using Remy</h3></div>
             {fun ? <div className="adm2-steps">
               {([["Applied", fun.applied], ["Accepted", fun.on_list], ["Signed in", fun.signed_in], ["Set up", fun.set_up], ["This week", fun.active_week]] as const).map(([l, n], i, all) => (
-                <div key={l}><strong>{n}</strong><span>{l}</span>{i > 0 && <em>{pctOf(n, all[i - 1][1])}</em>}</div>
+                <div key={l} className={i === all.length - 1 ? "last" : ""}><strong>{n}</strong><span>{l}</span>{i > 0 ? <em>{pctOf(n, all[i - 1][1])}</em> : <em>&nbsp;</em>}<b style={{ width: `${all[0][1] ? Math.round((100 * n) / all[0][1]) : 0}%` }} /></div>
               ))}
             </div> : <Spinner />}
           </section>
           <section className="adm2-card grow" data-testid="insider-checkins">
-            <div className="adm2-h"><h3>Insider check-ins</h3><span className="xs muted">{rates.length ? `useful ${(rates.reduce((x, y) => x + y, 0) / rates.length).toFixed(1)} of 5 · ${plural(rates.length, "answer")}` : "every two weeks"}</span></div>
-            <div className="adm2-scroll stack-sm">
-              {words.slice(0, 30).map((x, i) => <div key={i} className="small"><span>{x.answer}</span><span className="xs muted"> · {x.email.split("@")[0]}, {ago(x.at)}</span></div>)}
-              {st && !words.length && <span className="small muted">No answers yet. Insiders get three questions a week after they join, then every two weeks.</span>}
+            <div className="adm2-h"><h3>Insider check-ins</h3>{rates.length > 0 && (() => { const avg = rates.reduce((x, y) => x + y, 0) / rates.length; return <span className="adm2-rate" title={`${plural(rates.length, "rating")}`}><b>{avg.toFixed(1)}</b>{[1, 2, 3, 4, 5].map((k) => <i key={k} className={k <= Math.round(avg) ? "on" : ""} />)}<span className="xs muted">useful</span></span>; })()}</div>
+            <div className="adm2-scroll adm2-bubbles">
+              {words.slice(0, 30).map((x, i) => <div key={i} className="adm2-bubble"><p>{x.answer}</p><span className="xs muted">{x.email.split("@")[0]} · {ago(x.at)}</span></div>)}
+              {st && !words.length && <div className="row small muted" style={{ gap: 10 }}><Remy size={40} /> No answers yet. Insiders get three questions a week after they join, then every two weeks. Remy brings them here.</div>}
             </div>
           </section>
         </div>
