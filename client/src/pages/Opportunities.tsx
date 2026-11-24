@@ -1,4 +1,4 @@
-import { useEffect, useState, Fragment } from "react";
+import { useEffect, useRef, useState, Fragment } from "react";
 import { dreamWithoutOpenings } from "@shared/org";
 import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, BookmarkCheck, CalendarPlus, Check, X, ChevronDown, ChevronUp, Link2, MapPin, Mic, RefreshCw, Search, Sparkles, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
 import { openingRanker, reasonLine } from "@shared/order";
@@ -47,6 +47,9 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   // Not remembered: "Show all locations" lasts this visit, so the student's places always apply when they come back.
   const [myRegions, setMyRegions] = useState<boolean>(!!regions && !regions.split(/[,;/]+/).some((r) => /^\s*anywhere\b/i.test(r) && !/^\s*anywhere in (?!the\b|us\b|usa\b|u\.s|united|america)[a-z]+\s*$/i.test(r)));
   useEffect(() => { try { localStorage.setItem("remy.opps", JSON.stringify({ savedOnly })); } catch {} }, [savedOnly]);
+  // "See kept" after a Keep (Demetre, Nov 24) lands here with ?kept=1.
+  const keptLink = query.get("kept") === "1";
+  useEffect(() => { if (keptLink) setSavedOnly(true); }, [keptLink]);
   // The best 10 first, then 10 more at a time (99 cards were 40 phone screens long); a new search or filter starts over.
   const [shown, setShown] = useState(10);
   useEffect(() => { setShown(10); }, [kind, q, savedOnly, myRegions, showHidden, showIneligible, role]);
@@ -129,7 +132,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
         </div>
         <div className="row">
           <input className="input opp-search" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search openings" data-testid="input-search-jobs" />
-          <label className="row small"><input type="checkbox" checked={savedOnly} onChange={(e) => setSavedOnly(e.target.checked)} /> Saved only</label>
+          <label className="row small"><input type="checkbox" checked={savedOnly} onChange={(e) => setSavedOnly(e.target.checked)} data-testid="checkbox-saved-only" /> {owner ? `Kept only${w.savedJobIds.length ? ` (${w.savedJobIds.length})` : ""}` : "Saved only"}</label>
           {regions && <label className="row small" title={`Your regions: ${regions}`}><input type="checkbox" checked={myRegions} onChange={(e) => setMyRegions(e.target.checked)} data-testid="checkbox-my-regions" /> Only where I want to work</label>}
           {w.hiddenJobIds.length > 0 && <label className="row small"><input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} /> Show ones I'm not interested in</label>}
         </div>
@@ -165,7 +168,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
                   {group(j) > 0 && (i === 0 || group(shownList[i - 1]) !== group(j)) && (
                     <div className="row small muted" style={{ gap: 8, margin: "6px 2px 0" }} data-testid={group(j) === 1 ? "worth-relocating" : "other-places"}><b style={{ color: "var(--text)" }}>{group(j) === 1 ? "Worth relocating for" : "Other places"}</b><span>outside {regions}</span></div>
                   )}
-                  <JobCard j={j} fit={fits[j.id]} moved={interest[j.id]} canRate={interestEnabled} defaultOpen={focus === j.id} />
+                  <JobCard j={j} fit={fits[j.id]} moved={interest[j.id]} canRate={interestEnabled} defaultOpen={focus === j.id} showPassed={showHidden} />
                 </Fragment>
               ))}
               {rest.length > count && (
@@ -300,11 +303,27 @@ function eligChip(f?: JobFit) {
   return f.checked ? <span className="chip chip-live" title={f.eligibilityNote}>You qualify</span> : null;
 }
 
-function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit; moved?: JobRanking; canRate: boolean; defaultOpen: boolean }) {
+function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; fit?: JobFit; moved?: JobRanking; canRate: boolean; defaultOpen: boolean; showPassed: boolean }) {
   const keepPass = useOwnerView(); // redesign stage 3, owners first
   const { ws, save, setWs, run, config } = useStore();
   const w = ws!;
   const [open, setOpen] = useState(defaultOpen);
+  // Pass (Demetre, Nov 24): the card swipes aside and fades, then the gap closes, instead of vanishing when the server answers.
+  const card = useRef<HTMLElement>(null);
+  const [gone, setGone] = useState(false);
+  const leaving = useRef(false);
+  // Resolves once the card is out of sight; the Pass is saved after that, so the card can't vanish before it moves.
+  const swipeAway = async () => {
+    const el = card.current;
+    if (showPassed || leaving.current) return; // the list keeps passed cards, so it stays put and shows "Passed · undo"
+    leaving.current = true;
+    if (el && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      await el.animate([{ transform: "none", opacity: 1 }, { transform: "translateX(56px) rotate(1.5deg)", opacity: 0 }], { duration: 260, easing: "cubic-bezier(.4,0,1,1)", fill: "forwards" }).finished;
+      await el.animate([{ height: `${el.offsetHeight}px` }, { height: "0px", paddingTop: "0px", paddingBottom: "0px", borderWidth: "0px" }], { duration: 200, easing: "ease-out", fill: "forwards" }).finished;
+    }
+    setGone(true);
+    leaving.current = false;
+  };
   const [busy, setBusy] = useState("");
   useEffect(() => { if (defaultOpen) document.getElementById("job-" + j.id)?.scrollIntoView({ block: "center" }); }, [defaultOpen]);
   const saved = w.savedJobIds.includes(j.id);
@@ -324,9 +343,10 @@ function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit
     if (r) await reloadJobs();
     setBusy("");
   };
+  if (gone) return null;
   const addCal = () => run(() => save("calendar", [...w.calendar, { id: rid("cal"), title: `${j.company}: ${j.kind === "event" ? "event" : "deadline"}`, date: j.deadline, time: "", kind: j.kind === "event" ? "Event" : "Deadline", source: j.label === "Live" ? "From verified posting" : "From imported posting", linkedId: j.id, notes: j.deadlineText }]), "Added to your Remy calendar");
   return (
-    <article id={"job-" + j.id} className={"card card-pad stack-sm job-card" + (open ? " open" : "")} style={defaultOpen ? { borderColor: "var(--plum)" } : undefined} data-testid="card-job">
+    <article ref={card} id={"job-" + j.id} className={"card card-pad stack-sm job-card" + (open ? " open" : "")} style={defaultOpen ? { borderColor: "var(--plum)" } : undefined} data-testid="card-job">
       <div className="row-between job-top" style={{ alignItems: "flex-start" }}>
         {keepPass && <OrgLogo company={j.company} url={j.applyUrl} />}
         <div className="stack-sm" style={{ minWidth: 0, flex: 1 }}>
@@ -392,7 +412,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit
       <div className="row job-acts" style={{ marginTop: 4 }}>
         {j.kind !== "event" && <button className="btn btn-primary btn-sm" onClick={() => go(`/resume?tab=tailor&job=${j.id}&go=1`)} data-testid="button-tailor-job">Tailor resume</button>}
         <ApplyLink j={j} />
-        {keepPass && canRate && j.kind !== "event" ? <KeepPass j={j} saved={saved} hidden={hidden} /> : (
+        {keepPass && canRate && j.kind !== "event" ? <KeepPass j={j} saved={saved} hidden={hidden} onPass={swipeAway} onUndo={() => { leaving.current = false; setGone(false); }} /> : (
         <button className="btn btn-ghost btn-sm" onClick={() => save("savedJobIds", saved ? w.savedJobIds.filter((x) => x !== j.id) : [...w.savedJobIds, j.id])} data-testid="button-save-job">{saved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />} {saved ? "Saved" : "Save"}</button>)}
         {keepPass && saved && j.kind !== "event" && <button className="btn btn-ghost btn-sm" onClick={() => go(`/interview?job=${j.id}`)} data-testid="button-mock-interview"><Mic size={14} /> Mock interview</button>}
         {j.deadline && <button className="btn btn-ghost btn-sm" onClick={addCal} disabled={onCal} data-testid="button-add-calendar"><CalendarPlus size={14} /> {onCal ? "On calendar" : "Add to calendar"}</button>}
@@ -408,22 +428,35 @@ function JobCard({ j, fit, moved, canRate, defaultOpen }: { j: Job; fit?: JobFit
 // then saves and hides the card in one step, so nothing is half-done if the student walks away.
 /** Redesign stage 3 (owners first): a plain Keep / Pass on every opening ("like dating apps"). Keep saves it and tells
  *  Remy you want more like it; Pass hides it and tells Remy the opposite. Same signal swipe mode will use later. */
-function KeepPass({ j, saved, hidden }: { j: Job; saved: boolean; hidden: boolean }) {
-  const { ws, setWs, run } = useStore();
+function KeepPass({ j, saved, hidden, onPass, onUndo }: { j: Job; saved: boolean; hidden: boolean; onPass: () => Promise<void>; onUndo: () => void }) {
+  const { ws, setWs, run, toast } = useStore();
   // The tap shows at once; the server catches up (it re-ranks openings, which took ~4 s, Dilan Nov 23). A failed save puts it back.
   const [shown, setShown] = useState<null | { kept: boolean; hidden: boolean }>(null);
+  const [pop, setPop] = useState(false);
   const kept = shown ? shown.kept : saved && (ws!.jobFeedback?.[j.id]?.rating ?? 0) >= 4;
   if (shown) hidden = shown.hidden;
   const now = (next: { kept: boolean; hidden: boolean }, p: Promise<unknown>) => { setShown(next); p.finally(() => setShown(null)); };
-  const put = (body: object) => run(() => api<Workspace>("PUT", `/api/jobs/${j.id}/interest`, body)).then((r) => r && setWs(r));
-  const undo = () => now({ kept: false, hidden: false }, run(() => api<Workspace>("DELETE", `/api/jobs/${j.id}/interest?unhide=1`)).then((r) => r && setWs(r)));
+  const put = (body: object) => run(() => api<Workspace>("PUT", `/api/jobs/${j.id}/interest`, body)).then((r) => { if (r) setWs(r); return r; });
+  const unpass = () => run(() => api<Workspace>("DELETE", `/api/jobs/${j.id}/interest?unhide=1`)).then((r) => r && setWs(r));
+  const undo = () => now({ kept: false, hidden: false }, unpass());
+  // Keep (Demetre, Nov 24): the button pops, and a toast says where it went with a link to the kept list.
+  const keep = () => {
+    setPop(true);
+    toast(`Kept ${j.company}. Remy will find more like it.`, false, { label: "See kept", run: () => go("/opportunities?kept=1") });
+    now({ kept: true, hidden: false }, put({ rating: 5, keep: true }));
+  };
+  const unkeep = () => now({ kept: false, hidden: false }, run(() => api<Workspace>("DELETE", `/api/jobs/${j.id}/interest`)).then((r) => r && run(() => api<Workspace>("PUT", "/api/ws/savedJobIds", { value: r.savedJobIds.filter((x) => x !== j.id) })).then((r2) => r2 && setWs(r2))));
+  const pass = () => {
+    toast(`Passed on ${j.company}.`, false, { label: "Undo", run: () => { onUndo(); unpass(); } });
+    onPass().then(() => now({ kept: false, hidden: true }, put({ rating: 1, hide: true }).then((r) => { if (!r) onUndo(); })));
+  };
   if (hidden) return <button className="btn btn-ghost btn-sm" onClick={undo} data-testid="button-unpass">Passed · undo</button>;
   return (
     <>
-      <button className={`btn btn-sm ${kept ? "btn-secondary" : "btn-ghost"}`} aria-pressed={kept} onClick={() => now({ kept: !kept, hidden: false }, kept ? run(() => api<Workspace>("DELETE", `/api/jobs/${j.id}/interest`)).then((r) => r && run(() => api<Workspace>("PUT", "/api/ws/savedJobIds", { value: r.savedJobIds.filter((x) => x !== j.id) })).then((r2) => r2 && setWs(r2))) : put({ rating: 5, keep: true }))} data-testid="button-keep">
+      <button className={`btn btn-sm ${kept ? "btn-secondary" : "btn-ghost"}${pop ? " kp-pop" : ""}`} aria-pressed={kept} onAnimationEnd={() => setPop(false)} onClick={kept ? unkeep : keep} data-testid="button-keep">
         <Check size={14} /> {kept ? "Kept" : "Keep"}
       </button>
-      <button className="btn btn-ghost btn-sm" onClick={() => now({ kept: false, hidden: true }, put({ rating: 1, hide: true }))} data-testid="button-pass"><X size={14} /> Pass</button>
+      <button className="btn btn-ghost btn-sm" onClick={pass} data-testid="button-pass"><X size={14} /> Pass</button>
     </>
   );
 }

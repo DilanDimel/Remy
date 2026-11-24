@@ -125,7 +125,8 @@ export async function download(url: string, fallbackName: string) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
 
-type Toast = { id: number; text: string; err?: boolean };
+type ToastAction = { label: string; run: () => void };
+type Toast = { id: number; text: string; err?: boolean; action?: ToastAction };
 interface Store {
   config: AppConfig | null;
   me: Me | null;
@@ -135,7 +136,7 @@ interface Store {
   setSession: (me: Me | null, ws: Workspace | null) => void;
   save: <K extends string>(section: K, value: unknown) => Promise<Workspace>;
   refresh: () => Promise<void>;
-  toast: (text: string, err?: boolean) => void;
+  toast: (text: string, err?: boolean, action?: ToastAction) => void;
   run: <T>(fn: () => Promise<T>, ok?: string) => Promise<T | undefined>;
   /** Light, dark or "system" (match the device). Visitors keep it in this browser; students also in their account. */
   theme: Theme;
@@ -178,11 +179,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const n = useRef(0);
 
-  const toast = useCallback((text: string, err?: boolean) => {
+  const toast = useCallback((text: string, err?: boolean, action?: ToastAction) => {
     const id = ++n.current;
     // The same message already on screen isn't shown twice (one failure can reach two handlers); it restarts its timer instead.
-    setToasts((t) => [...t.filter((x) => x.text !== text), { id, text, err }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), err ? 6000 : 3200);
+    setToasts((t) => [...t.filter((x) => x.text !== text), { id, text, err, action }]);
+    // A toast with a button (Undo, See kept) stays long enough to reach it.
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), err || action ? 6000 : 3200);
   }, []);
 
   // When the data was last loaded, the build this tab runs, and saves in flight (a quiet refresh must not overwrite them).
@@ -338,7 +340,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         </div>
       )}
       <div className="toast-wrap" aria-live="polite">
-        {toasts.map((t) => <div key={t.id} className={"toast" + (t.err ? " err" : "")} data-testid="toast">{t.text}</div>)}
+        {toasts.map((t) => (
+          <div key={t.id} className={"toast" + (t.err ? " err" : "")} data-testid="toast">
+            {t.text}
+            {t.action && <button className="toast-act" onClick={() => { t.action!.run(); setToasts((all) => all.filter((x) => x.id !== t.id)); }} data-testid="button-toast-action">{t.action.label}</button>}
+          </div>
+        ))}
       </div>
     </Ctx.Provider>
   );
