@@ -75,3 +75,23 @@ export async function streamChat<T>(body: unknown, onReply: (soFar: string) => v
   if (!done) throw new ApiError("Remy's reply was cut off. Please try again.", 502);
   return done;
 }
+
+/** A file upload as a form (`file` field plus extra fields), the way the website sends resumes and screenshots. */
+export async function apiForm<T>(path: `/api/${string}`, file: { uri: string; name: string; type: string }, fields: Record<string, string> = {}): Promise<T> {
+  const form = new FormData();
+  // React Native's FormData takes { uri, name, type } for a file on the phone; the web preview needs a real Blob.
+  if (Platform.OS === "web") form.append("file", await (await fetch(file.uri)).blob(), file.name);
+  else form.append("file", file as any);
+  for (const [k, v] of Object.entries(fields)) form.append(k, v);
+  let r: Response;
+  try {
+    r = await fetch(API_BASE + path, { method: "POST", credentials: "include", headers: { Accept: "application/json", "X-Remy-App": "native" }, body: form });
+  } catch {
+    throw new ApiError("Remy can't reach the internet right now. Check your connection and try again.", 0);
+  }
+  const text = await r.text();
+  let data: any = null;
+  try { data = text ? JSON.parse(text) : null; } catch { /* not JSON */ }
+  if (!r.ok) throw new ApiError(data?.message || "That upload didn't come through. Please try again.", r.status, data?.code);
+  return data as T;
+}

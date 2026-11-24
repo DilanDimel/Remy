@@ -27,7 +27,10 @@
         "foregroundImage": "./assets/icon-foreground.png",
         "backgroundImage": "./assets/icon-background.png"
       },
-      "predictiveBackGestureEnabled": true
+      "predictiveBackGestureEnabled": true,
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "single",
@@ -38,9 +41,17 @@
       "expo-font",
       "expo-web-browser",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Remy opens your photos only when you pick a screenshot to send with your feedback.",
+          "cameraPermission": false
+        }
+      ],
+      "expo-document-picker",
+      [
         "expo-splash-screen",
         {
-          "image": "./assets/icon-foreground.png",
+          "image": "./assets/splash.png",
           "imageWidth": 160,
           "backgroundColor": "#fbf7f2",
           "dark": {

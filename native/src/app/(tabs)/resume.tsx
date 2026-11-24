@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocalSearchParams } from "expo-router";
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ResumeDoc, Workspace } from "@shared/types";
 import { CATS, issues, ranges, toolsRegex, type Cat } from "@shared/markup";
 import { reviewResume, type BulletRef } from "@shared/review";
 import { isListSection } from "@shared/bullets";
 import { Button, Icon, Remy, Screen, Sect, T, success, tap } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, apiForm } from "@/lib/api";
+import { canPickFiles, pickResume } from "@/lib/pick";
 import { shareFromServer } from "@/lib/files";
 import { go } from "@/lib/nav";
 import { useRefreshAll, useSession } from "@/lib/session";
@@ -132,7 +133,7 @@ function FixFlow({ steps: given, start, onClose }: { steps: Step[]; start: numbe
 /** Resume & CV, native (handoff P1.6): the file and its downloads, Remy's checks, the resume with the website's colour
  *  marks and flags, and his one-line-at-a-time fixes. Tailoring, editing by hand and uploading still open the website. */
 export default function Resume() {
-  const { ws } = useSession();
+  const { ws, setWs } = useSession();
   const refresh = useRefreshAll();
   const { c } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
@@ -155,6 +156,21 @@ export default function Resume() {
   if (!ws) return null;
   const onRefresh = async () => { setRefreshing(true); await refresh(); setRefreshing(false); };
   const open = (q = "") => go(`/resume${q}`, "Resume", { page: true });
+  // A PDF or Word file from the phone (builds from Nov 24 on); older builds open the website's Resume page instead.
+  const files = canPickFiles();
+  const upload = async () => {
+    setErr("");
+    try {
+      const f = await pickResume();
+      if (!f) return;
+      setBusy("upload");
+      setWs(await apiForm<Workspace>("/api/resume/upload", f)); success();
+    } catch (e: any) { setErr(e.message); }
+    setBusy("");
+  };
+  const replace = () => Alert.alert("Upload a new version?", "Remy reads the new file and checks it again. Your current one is replaced.", [
+    { text: "Cancel", style: "cancel" }, { text: "Choose a file", onPress: () => void upload() },
+  ]);
   const download = async (fmt: "pdf" | "docx") => {
     tap(); setErr(""); setBusy(fmt);
     const base = (doc?.contact.name || "Resume").replace(/\s+/g, "_");
@@ -167,7 +183,8 @@ export default function Resume() {
     <Screen style={{ flexGrow: 1, justifyContent: "center", gap: 12 }}>
       <T kind="display">Resume</T>
       <T kind="muted">Add your resume and Remy reads it, checks it, and helps you tailor it for each opening.</T>
-      <Button testID="button-add-resume" label="Add my resume" icon="arrow" onPress={() => open()} flex />
+      <Button testID="button-add-resume" label={files ? "Upload my resume (PDF or Word)" : "Add my resume"} icon="arrow" busy={busy === "upload"} onPress={() => (files ? void upload() : open())} flex />
+      {!!err && <T kind="small" style={{ color: c.error }}>{err}</T>}
     </Screen>
   );
 
@@ -197,7 +214,8 @@ export default function Resume() {
         <View style={{ flexDirection: "row", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
           <Button testID="button-download-pdf" label="PDF" icon="up" busy={busy === "pdf"} onPress={() => download("pdf")} />
           <Button testID="button-download-docx" kind="ghost" label="Word" busy={busy === "docx"} onPress={() => download("docx")} />
-          <Button testID="button-resume-more" kind="ghost" label="Replace or edit" onPress={() => open("?tab=base")} />
+          {files && <Button testID="button-resume-upload" kind="ghost" label="Upload new" busy={busy === "upload"} onPress={replace} />}
+          <Button testID="button-resume-more" kind="ghost" label={files ? "Edit" : "Replace or edit"} onPress={() => open("?tab=base")} />
         </View>
         {!!err && <T kind="small" style={{ color: c.error, marginTop: 8 }}>{err}</T>}
       </View>
