@@ -1,11 +1,12 @@
 import Constants from "expo-constants";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { Group, Icon, Row, Screen, Sect, Segmented, T, success, type IconName } from "@/components/ui";
 import { go } from "@/lib/nav";
-import { useAccess, useOwnersOnly, useRefreshAll, useSession } from "@/lib/session";
-import { useTheme, type ThemeChoice } from "@/lib/theme";
+import { unseenNews } from "@/lib/news";
+import { useAccess, useOwnerView, useOwnersOnly, useRefreshAll, useSession } from "@/lib/session";
+import { font, useTheme, type ThemeChoice } from "@/lib/theme";
 
 // The website's More sheet (client/src/App.tsx), in its order. A row with a feature key follows Admin → Beta → Feature
 // releases: open, locked (a lock, and the coming-soon card) or hidden.
@@ -24,6 +25,8 @@ export default function More() {
   const { me, ws, signOut, saveSettings } = useSession();
   const owners = useOwnersOnly();
   const access = useAccess();
+  const redesign = useOwnerView();
+  const fresh = unseenNews(ws?.settings.newsSeen, owners, redesign).length;
   const refresh = useRefreshAll();
   const { c } = useTheme();
   const [note, setNote] = useState("");
@@ -68,6 +71,12 @@ export default function More() {
             right={locked ? <Icon name="lock" size={18} color={c.faint} /> : undefined}
             onPress={() => (locked ? router.push({ pathname: "/soon", params: { key: l.feature! } }) : go(l.path, l.title))} />;
         })}
+      </Group>
+      <Group style={{ marginTop: 24 }}>
+        {/* The website's What's new button, with its count of notes not seen yet. */}
+        <Row first title="What's new" left={<Icon name="zap" color={c.mutedText} />} testID="row-whats-new" onPress={() => router.push("/news" as any)}
+          right={fresh ? <View accessibilityLabel={`${fresh} new`} style={{ minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, backgroundColor: c.fox, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: font.bold, fontSize: 12.5, color: c.onFox }}>{fresh}</Text></View> : undefined} />
+        <Row title="Send feedback" left={<Icon name="chat" color={c.mutedText} />} testID="row-feedback" onPress={() => router.push("/feedback" as any)} />
       </Group>
       <Group style={{ marginTop: 24 }}>
         <Row first title="Sign out" onPress={signOut} right={<View />} testID="button-sign-out" />
