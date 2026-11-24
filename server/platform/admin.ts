@@ -8,6 +8,7 @@ import { milestones } from "@shared/progress";
 import { uid } from "./ids";
 import { emailReady } from "../notify/email";
 import { textMode } from "../notify/texts";
+import { aiTeam } from "./contrib";
 
 const cut = (v: unknown, n: number) => String(v ?? "").slice(0, n);
 const bad = (message: string, status = 400) => Object.assign(new Error(message), { status });
@@ -213,7 +214,8 @@ export async function fixError(me: string, message: string, kind: string) {
 }
 
 // ---------- the team ----------
-async function people() {
+/** Everyone on the owners' dashboard (founders from the server, teammates added there). */
+export async function people() {
   const added = await q("SELECT email, name, added_by, added_at FROM team_members ORDER BY added_at");
   const env = envOwners();
   const all = [...new Set([...env, ...added.map((m) => String(m.email))])];
@@ -234,7 +236,7 @@ export async function team(me: string) {
               ROUND((COALESCE(SUM(EXTRACT(EPOCH FROM (COALESCE(end_at, now()) - start_at))) FILTER (WHERE start_at > now() - interval '7 days'), 0) / 3600)::numeric, 1)::float AS week
        FROM time_entries GROUP BY member ORDER BY member`,
     ),
-    q("SELECT * FROM time_entries ORDER BY start_at DESC LIMIT 60"),
+    q("SELECT id, member, start_at, end_at, note, source, ref, ai_cost::float AS ai_cost FROM time_entries ORDER BY start_at DESC LIMIT 60"),
     q("SELECT * FROM team_activity ORDER BY at DESC LIMIT 80"),
     q("SELECT event_id, member, answer FROM team_event_rsvps"),
     gcal.teamStatus(),
@@ -247,7 +249,9 @@ export async function team(me: string) {
   ]);
   const mine = entries.find((e) => e.member === me && !e.end_at);
   for (const e of events) e.rsvps = Object.fromEntries(rsvps.filter((r) => r.event_id === e.id).map((r) => [r.member, r.answer]));
-  return { me, members, tasks, events, hours, weeks, entries, activity, calendar, clockedIn: mine ? mine.start_at : null };
+  // What each person's AI is on and the requests between them (docs/ai/ on GitHub, cached in memory; empty when offline).
+  const ai = await aiTeam().catch(() => ({ people: [], requests: [] }));
+  return { me, members, tasks, events, hours, weeks, entries, activity, calendar, ai, clockedIn: mine ? mine.start_at : null };
 }
 
 export async function addMember(me: string, b: any) {
