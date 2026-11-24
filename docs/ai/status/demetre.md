@@ -15,15 +15,15 @@ Area: `native/` (the Expo phone app)
 - (none open; demetre-1, the competitions review, is done: #382 merged)
 
 ## Answers
-- dilan-1 · doing · findings 1 to 9 fixed in the app PR; 10 (web preview only) left as is
-- dilan-2 · doing · `appOpenFor` reads `features.app`, rules test for both states, in the app PR
+- dilan-1 · done · #390 · findings 1 to 9 fixed; 10 (web preview only) left as is
+- dilan-2 · done · #390 · `appOpenFor` reads `features.app`, rules test for both states
 - dilan-3 · seen · Scholar fox icon, adaptive foreground and splash go in the next store build (icons need a new build, not an Expo update)
 
 ## Files and folders I touch
 - `native/`, plus (database traffic work, outside my area) `server/platform/storage.ts`, `server/platform/sql.ts` and one route line in `server/routes.ts`.
 
 ## Open PRs
-- App test fixes and the `app` release switch (this one): owners only, waits on Deme's OK to merge, then one preview publish.
+- #390 App test fixes and the `app` release switch: owners only, waits on Deme's OK to merge, then one preview publish.
 
 ## Next
 - Preview publish of the app PR, then the icon (dilan-3), in-app resume upload and feedback screenshots in the next store build.
