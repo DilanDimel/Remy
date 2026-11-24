@@ -47,7 +47,29 @@ test("bullet draft check: Remy's own rewrite (no answer) keeps only the line's w
   assert.equal(ownRewriteOk("Manage office communications and data entry", "Managed office communications and data entry"), false, "a current role stays current");
   assert.equal(ownRewriteOk("Extending the model to Kalshi prices", "Extended the model to Kalshi prices"), false);
   assert.equal(ownRewriteOk("Selected participant in DataArt's camp", "Selected as a participant in DataArt's camp"), false, "too small to show");
-  assert.equal(ownRewriteOk(line, "Applied implied volatility with a fallback to 6-month historical volatility when market IV was unreliable"), true);
+  assert.equal(ownRewriteOk("As Student Ambassador, raised $5,000 for dorm supplies", "Raised $5,000 as Student Ambassador for dorm supplies"), true, "the action moved to the front");
+  assert.equal(ownRewriteOk("Provide administrative support to faculty and staff", "Deliver administrative support to faculty and staff"), false, "a verb swap isn't stronger");
+  assert.equal(ownRewriteOk(line, "Applied implied volatility, with a 6-month historical volatility fallback when market IV was unreliable"), true, "restructured");
+  // The same entry's own facts may be worked in (its tools), but only those
+  const ctxLine = "Black-Scholes Options Pricer · Python, NumPy, SciPy · Built a pricer that pulls live option chains";
+  assert.equal(draftOk("verbs", line, "", "Applied implied volatility in Python, with a 6-month historical volatility fallback when market IV was unreliable", ctxLine), true);
+  assert.equal(draftOk("verbs", line, "", "Applied implied volatility in Python, with a 6-month historical volatility fallback when market IV was unreliable"), false, "Python isn't in the line without the entry");
+});
+
+test("Remy's own rewrite (owners): sharper verbs and restructure allowed; new facts, results and numbers never", async () => {
+  const { ownDraftProblem } = await import("../ai/bulletDraft");
+  const t = "Manage office communications, assist with data entry, and help organize departmental resources for students";
+  assert.equal(ownDraftProblem(t, "Manage office communications, process data entry, and support organizing departmental resources for students"), "");
+  assert.match(ownDraftProblem(t, "Improved office communications and organized departmental resources for students"), /improved/);
+  assert.match(ownDraftProblem(t, "Manage office communications and Excel data entry, and help organize departmental resources for students"), /excel/);
+  assert.match(ownDraftProblem(t, "Managed office communications, processed data entry, and helped organize departmental resources for students"), /tense/);
+  assert.match(ownDraftProblem(t, "Manage office communications for 40 students, process data entry, and organize resources"), /number/);
+  assert.equal(ownDraftProblem("Provide administrative and operational support to faculty and staff within the College of Education department", "Support College of Education faculty and staff with administrative and operational tasks"), "");
+  assert.match(ownDraftProblem("Helped organize the career fair", "Organized the career fair and its schedule"), /credit|strong|words/);
+  // Tools from the same entry are fine; not without it
+  const v = "Used implied volatility with a fallback to 6-month historical volatility";
+  assert.equal(ownDraftProblem(v, "Priced options in Python using implied volatility with a 6-month historical volatility fallback", "Options Pricer · Python, NumPy · Built a pricer for options"), "");
+  assert.notEqual(ownDraftProblem(v, "Priced options in Python using implied volatility with a 6-month historical volatility fallback"), "");
 });
 
 test("review: owners count Activities and Leadership lines as achievements (Treasurer, President)", () => {

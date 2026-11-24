@@ -7,7 +7,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { createSession, emptyWorkspace, ensureUser, saveWorkspace } from "./db";
 import { registerRoutes } from "../routes";
-import { accessOf, featureAt, releasesOf } from "../../shared/features";
+import { accessOf, featureAt, redesignOut, releasesOf } from "../../shared/features";
 
 process.env.OWNER_EMAILS = "boss@release.test";
 
@@ -21,6 +21,11 @@ test("releases: defaults, a bad saved value, and what owners and students see", 
   assert.equal(accessOf(r, "unknown", false), "hidden"); // anything not in the list stays with owners
   assert.equal(featureAt("/interview?job=1")?.key, "interview");
   assert.equal(featureAt("/opportunities"), undefined);
+  // The whole redesign has no page: it never matches a path, starts with owners, and releases on its own.
+  assert.equal(featureAt("/"), undefined);
+  assert.equal(redesignOut(r), false);
+  assert.equal(redesignOut(releasesOf({ redesign: "released" })), true);
+  assert.equal(releasesOf({ redesign: "released" }).rewards, "owners"); // releasing the redesign leaves Rewards with owners
 });
 
 test("releases: owners flip a feature, students can't, and locked interviews are refused", async (t) => {
@@ -45,7 +50,7 @@ test("releases: owners flip a feature, students can't, and locked interviews are
   const boss = await account("sb:rel-boss", "boss@release.test");
   const kid = await account("sb:rel-kid", "kid@release.test");
 
-  assert.deepEqual((await call("", "GET", "/api/config")).data.features, { interview: "locked", community: "locked", rewards: "owners" });
+  assert.deepEqual((await call("", "GET", "/api/config")).data.features, { redesign: "owners", interview: "locked", community: "locked", rewards: "owners" });
   assert.equal((await call(kid, "POST", "/api/admin/features", { key: "interview", state: "released" })).status, 403);
   assert.equal((await call(boss, "POST", "/api/admin/features", { key: "nope", state: "released" })).status, 400);
   assert.equal((await call(boss, "POST", "/api/admin/features", { key: "interview", state: "yes" })).status, 400);

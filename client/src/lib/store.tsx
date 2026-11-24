@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { AppConfig, Me, Workspace } from "@shared/types";
+import { redesignOut, releasesOf } from "@shared/features";
 import { finishSupabaseRedirect } from "./supabase";
 import { keepNewerJobFeedback } from "./jobFeedback";
 import { apiResult } from "./signals";
@@ -148,11 +149,15 @@ const THEME_KEY = "remy.theme";
 const readLocalTheme = (): Theme => { try { const t = localStorage.getItem(THEME_KEY); return t === "light" || t === "dark" ? t : "system"; } catch { return "system"; } };
 const Ctx = createContext<Store>(null as any);
 export const useStore = () => useContext(Ctx);
-/** Owner features show only in owner view: an owner can switch to seeing Remy exactly as a student does (Dilan, Nov 19). */
+const ownersOnly = (store: Store | null) => !!store?.me?.owner && store.ws?.settings.ownerView !== false;
+/** The redesign: owners in owner view, and every signed-in student once owners release "redesign" (shared/features.ts).
+ *  An owner can switch to seeing Remy exactly as a student does (Dilan, Nov 19). */
 export function useOwnerView() {
   const store = useContext(Ctx); // null outside StoreProvider (public pages): never owner view there
-  return !!store?.me?.owner && store.ws?.settings.ownerView !== false;
+  return ownersOnly(store) || (!!store?.me && redesignOut(releasesOf(store?.config?.features)));
 }
+/** Owners in owner view only, even after the redesign is released: unreleased features, owner tools. */
+export function useOwnersOnly() { return ownersOnly(useContext(Ctx)); }
 
 /** Setup steps 1–2 (resume, review) are "not far yet"; from step 3 on, they get the welcome-back screen instead. */
 export const FAR_ENOUGH_STEP = 3;

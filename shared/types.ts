@@ -626,6 +626,8 @@ export interface Workspace {
     lastSeenAt?: string;
     /** Newest "What's new" item the student has opened. */
     newsSeen?: string;
+    /** The one-time "Welcome to Beta 2" card (components/Beta2Welcome.tsx) was closed. */
+    beta2Seen?: boolean;
     /** Remy's tutorial through the site (components/Tour.tsx): the step reached, or done/ended. Unset = never started. */
     tour?: number | "done";
     /** Older versions (first-win box, page cards); kept so saved settings still load. */
