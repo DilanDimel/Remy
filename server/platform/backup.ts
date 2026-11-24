@@ -8,6 +8,7 @@
 // `npm run restore-backup` (script/restore-backup.ts).
 import { q, q1, schema } from "./sql";
 import { r2Store } from "./r2";
+import { deleteAccount, idHash } from "./db";
 
 export type Store = { put: (name: string, value: unknown) => Promise<void>; get: (name: string) => Promise<any>; del: (name: string) => Promise<void> };
 export type Backup = { kind: "full" | "daily"; at: string; since: string | null; tables: Record<string, unknown[]> };
@@ -127,4 +128,15 @@ export async function applyBackup(run: typeof q, b: Backup) {
   }
   // Restored workspaces may hold other openings than the student_jobs copy: mark every account to be copied again.
   if (present.has("student_jobs_state")) await run(`DELETE FROM "${schema}"."student_jobs_state"`);
+}
+
+/** After a restore: accounts deleted since a copy was taken (in the restored deleted_accounts, or in `extra`, the
+ *  target database's own list read before the restore) are deleted again, so "Delete everything" survives a restore.
+ *  Returns how many were deleted. */
+export async function deleteAgain(extra: string[] = []): Promise<number> {
+  for (const h of extra) await q("INSERT INTO deleted_accounts (id_hash) VALUES ($1) ON CONFLICT DO NOTHING", [h]);
+  const gone = new Set((await q("SELECT id_hash FROM deleted_accounts")).map((r) => String(r.id_hash)));
+  let n = 0;
+  for (const { id } of await q("SELECT id FROM users")) if (gone.has(idHash(String(id)))) { await deleteAccount(String(id)); n++; }
+  return n;
 }

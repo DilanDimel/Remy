@@ -1,8 +1,8 @@
 // Nightly backups and restoring from them (PGlite in memory, an in-memory store instead of R2). Run with `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applyBackup, backupIfDue, backupStatus, restoreChain, type Store } from "./backup";
-import { ensureUser, getFile, loadWorkspace, saveFile, saveWorkspace } from "./db";
+import { applyBackup, backupIfDue, backupStatus, deleteAgain, restoreChain, type Store } from "./backup";
+import { deleteAccount, ensureUser, getFile, idHash, loadWorkspace, saveFile, saveWorkspace } from "./db";
 import { q, tx } from "./sql";
 
 const box = new Map<string, unknown>();
@@ -54,6 +54,19 @@ test("restoring the chain brings back accounts and files after they're lost", as
   assert.equal(row.m, "Accounting", "the daily copy's newer account wins");
   assert.equal((await q("SELECT data->'profile'->>'major' AS m FROM workspaces WHERE user_id = 'b2'"))[0].m, "Biology");
   assert.deepEqual([...(await getFile("b1", "resume"))!.data], [1, 2, 3, 0, 255]);
+});
+
+test("an account deleted after the backup stays deleted when that backup is restored", async () => {
+  const chain = await restoreChain(store, "2026-12-01");
+  await deleteAccount("b2");
+  const tombstone = (await q("SELECT id_hash FROM deleted_accounts")).map((r) => String(r.id_hash));
+  assert.ok(tombstone.includes(idHash("b2")) && !tombstone.includes("b2"), "only a hash of the id is kept");
+  await tx(async (run) => { for (const b of chain) await applyBackup(run, b); });
+  assert.equal((await q("SELECT 1 FROM users WHERE id = 'b2'")).length, 1, "the old copy brought it back");
+  assert.equal(await deleteAgain(tombstone), 1);
+  assert.equal((await q("SELECT 1 FROM users WHERE id = 'b2'")).length, 0);
+  assert.equal((await q("SELECT 1 FROM workspaces WHERE user_id = 'b2'")).length, 0);
+  assert.equal((await q("SELECT 1 FROM users WHERE id = 'b1'")).length, 1, "other accounts are untouched");
 });
 
 test("not configured: nothing happens", async () => {
