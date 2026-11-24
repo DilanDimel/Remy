@@ -15,7 +15,7 @@ import { PROFILE_CHECK_FIELDS, remyAsks } from "@shared/remyAsks";
 import { answerAsk, tickDone } from "./coach/asks";
 import { partialReply } from "./ai/streamReply";
 import { startStream, streamLine } from "./platform/stream";
-import { allow, allowLocal, cleanupLimits } from "./platform/limits";
+import { allow, allowLocal, cleanupLimits, ipKey } from "./platform/limits";
 import { JOB_INTEREST_REASONS, type JobInterestRating } from "@shared/types";
 import { dropDuplicatePostings } from "./jobs/dedupe";
 import { employerPreferences, interestContext, interestEnabled, ownInterest } from "./jobs/ranking";
@@ -107,7 +107,8 @@ type Ctx = { me: Me; ws: Workspace; save: () => Promise<void>; ip: string };
 type H = (req: Request, res: Response, ctx: Ctx) => Promise<unknown> | unknown;
 
 // Render sits behind Cloudflare, which sets the real visitor address.
-const clientIp = (req: Request) => String(req.headers["cf-connecting-ip"] || String(req.headers["x-forwarded-for"] || "").split(",")[0] || req.socket.remoteAddress || "").trim();
+// Rate limits only need to tell networks apart, so they key on a keyed hash of the address, never the address itself.
+const clientIp = (req: Request) => ipKey(String(req.headers["cf-connecting-ip"] || String(req.headers["x-forwarded-for"] || "").split(",")[0] || req.socket.remoteAddress || "").trim());
 
 // Uploads and imports for one student run one after another, so a resume and a LinkedIn PDF sent
 // at the same moment are each read against what the other already saved.
@@ -280,8 +281,11 @@ const setupAnswers = (ws: Workspace) =>
 const allJobs = (ws: Workspace): Job[] => ws.jobs;
 const findJob = (ws: Workspace, id: string) => allJobs(ws).find((j) => j.id === id);
 
-function profileSummary(ws: Workspace) {
+/** `outreach`: for words other people will read (a pitch, an email to a contact), so the private answers that task
+ *  never needs (work authorization, GPA, worries, limits, what to avoid) aren't sent to the AI. */
+function profileSummary(ws: Workspace, outreach = false) {
   const p = ws.profile;
+  const PRIVATE = /^(GPA|Work authorization|Wants to avoid|Practical limits|Already tried|Biggest worry):/;
   return [
     `What they're working toward (the first thing they told Remy; may be a tapped choice): ${p.goal || ""}`,
     `Name: ${nameUnsure(ws) ? `not confirmed yet (sign-in account: ${p.name}; resume: ${ws.resume!.doc.contact.name}); don't call the student by either until they choose` : p.preferredName || p.name}`, `Path: ${PATHS.find(([k]) => k === p.path)?.[1] || ""}${p.path && p.path !== "four-year" ? " (not a four-year degree: suggest certificates, licenses, apprenticeships and roles that don't require a bachelor's where they fit; never assume a major or graduation)" : ""}`, `School: ${p.school}`, `Major: ${p.major}`, `Minor: ${p.minors || ""}`, `GPA: ${p.gpa || ""}`, `Class year: ${p.classYear || classYearOf(ws)}`, `Graduation: ${p.graduation}`,
@@ -289,7 +293,7 @@ function profileSummary(ws: Workspace) {
     `Work authorization: ${p.workAuth}`, `Open to relocating: ${p.relocation}`, `When they want to start: ${p.timeline || ""}`, `Dream employers: ${p.dreamEmployers || ""}`, `Wants to avoid: ${p.avoid || ""}`,
     `Practical limits: ${p.constraints || ""}`, `Already tried: ${p.tried || ""}`, `Biggest worry: ${p.worries || ""}`,
     `Skills found on resume: ${(ws.resume?.skills || []).join(", ")}`,
-  ].filter((l) => !/:\s*$/.test(l)).join("\n");
+  ].filter((l) => !/:\s*$/.test(l) && !(outreach && PRIVATE.test(l))).join("\n");
 }
 
 function addFact(ws: Workspace, text: string, category: MemoryFact["category"], source: string, status: MemoryFact["status"], conflict = "") {
@@ -1831,7 +1835,7 @@ export async function registerRoutes(_server: Server, app: Express) {
 - "story": ONE real experience with one concrete detail of what they did (from the resume), in one or two short sentences.
 - "next": what they're looking for next, specific (role, field or season).
 Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), short sentences, everyday words. No buzzwords (passionate, leverage, driven, dynamic, results-oriented, thrive, utilize, team player). No questions. Never say what an experience taught them or where they learned a skill unless the facts say so. Use ONLY the facts given; never add numbers, titles, awards or outcomes.`,
-        `PROFILE:\n${profileSummary(ctx.ws)}\n\nRESUME:\n${ctx.ws.resume ? resumeToText(ctx.ws.resume.doc, { verifiedOnly: true }).slice(0, 4000) : "(none)"}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).slice(0, 30).join("\n") || "(none)"}\n\nReturn {"hello":"","study":"","story":"","next":""}`,
+        `PROFILE:\n${profileSummary(ctx.ws, true)}\n\nRESUME:\n${ctx.ws.resume ? resumeToText(ctx.ws.resume.doc, { verifiedOnly: true }).slice(0, 4000) : "(none)"}\n\nAPPROVED FACTS:\n${approvedFacts(ctx.ws).slice(0, 30).join("\n") || "(none)"}\n\nReturn {"hello":"","study":"","story":"","next":""}`,
         600,
       ),
     );
@@ -2952,7 +2956,7 @@ Return JSON:
       out = await withAi(ctx, "Draft outreach", () =>
         aiJson<{ subject: string; body: string; linkedin: string }>(
           `You write a university student's networking email, following their career office's guidance for informational interviews: say who you are (school, year, major), how you found the person, why them specifically, ask for a short conversation (phone, Zoom or in person): if the student's answers name a length or format ("a 15-minute chat", "coffee"), ask for exactly that, otherwise 20-30 minutes; offer flexibility; warm, specific, professional, under 170 words. Use ONLY the facts and answers given — never invent experience, mutual connections or details. Never use placeholders or brackets of any kind: if a detail is unknown, leave it out. End with the student's sign-off exactly as given. Also write a LinkedIn connection note under 200 characters.`,
-          `TO: ${c!.name}, ${c!.title} at ${c!.org}\nABOUT THEM: ${c!.why}\nHOW THE STUDENT FOUND THEM: ${c!.met ? `met at ${c!.met}${c!.metOn ? ` (${c!.metOn})` : ""}` : "student-added contact"}\nSTUDENT:\n${profileSummary(ctx.ws)}\nRESUME HIGHLIGHTS: ${ctx.ws.resume ? ctx.ws.resume.doc.sections.flatMap((s) => s.entries.map((e) => [e.role, e.org].filter(Boolean).join(" at "))).slice(0, 6).join("; ") : "(none)"}\nSTUDENT'S ANSWERS:\n${answers.map((x) => `${x.q} → ${x.a}`).join("\n") || `Purpose → ${purpose}`}\nSIGN-OFF:\nBest regards,\n${sig}\n\nReturn {"subject":"","body":"","linkedin":""}`,
+          `TO: ${c!.name}, ${c!.title} at ${c!.org}\nABOUT THEM: ${c!.why}\nHOW THE STUDENT FOUND THEM: ${c!.met ? `met at ${c!.met}${c!.metOn ? ` (${c!.metOn})` : ""}` : "student-added contact"}\nSTUDENT:\n${profileSummary(ctx.ws, true)}\nRESUME HIGHLIGHTS: ${ctx.ws.resume ? ctx.ws.resume.doc.sections.flatMap((s) => s.entries.map((e) => [e.role, e.org].filter(Boolean).join(" at "))).slice(0, 6).join("; ") : "(none)"}\nSTUDENT'S ANSWERS:\n${answers.map((x) => `${x.q} → ${x.a}`).join("\n") || `Purpose → ${purpose}`}\nSIGN-OFF:\nBest regards,\n${sig}\n\nReturn {"subject":"","body":"","linkedin":""}`,
           1200,
         ),
       );

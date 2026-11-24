@@ -1,7 +1,13 @@
 // Rate limits that survive restarts and deploys and hold across several servers: a counter per key per fixed window
 // in the rate_limits table (migration 018). One statement per check. Expired rows are removed by the sweep.
 // If the database can't be reached the check falls back to this process's memory, so a hiccup never locks people out.
+import { createHmac } from "node:crypto";
 import { q, q1 } from "./sql";
+
+/** A network address as a short keyed hash, so rate-limit rows never hold the address itself. The key is a server
+ *  secret, so the hash can't be reversed by trying every address. Same on every server, so limits stay shared. */
+export const ipKey = (ip: string) =>
+  ip ? createHmac("sha256", process.env.WS_CACHE_KEY || process.env.CRON_SECRET || "remy-rate-limits").update(ip).digest("base64url").slice(0, 22) : "";
 
 const memory = new Map<string, number[]>();
 /** In-process sliding window: for high-volume, low-stakes floods (client error reports, public pages) and as the fallback. */

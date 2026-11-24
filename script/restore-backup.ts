@@ -3,7 +3,7 @@
 //   Into a local PGlite folder (safe, to check a backup):  OR_DB_PATH=./restore-test npx tsx script/restore-backup.ts --day 2026-11-30
 //   Into a real database (replaces its data):               DATABASE_URL=… npx tsx script/restore-backup.ts --day 2026-11-30 --yes
 // Needs the same R2_* and WS_CACHE_KEY values as the server. Migrations run first, so the tables exist.
-import { applyBackup, restoreChain } from "../server/platform/backup";
+import { applyBackup, deleteAgain, restoreChain } from "../server/platform/backup";
 import { r2Store } from "../server/platform/r2";
 import { closeDb, dbReady, q, tx } from "../server/platform/sql";
 
@@ -26,6 +26,9 @@ if (!store) {
 await dbReady();
 const chain = await restoreChain(store, day);
 console.log(`Restoring ${chain.map((b) => `${b.kind} ${b.at.slice(0, 10)}`).join(" → ")}`);
+// Accounts deleted in the target database since the backup: a full copy replaces this list, so read it first.
+const deleted = (await q("SELECT id_hash FROM deleted_accounts")).map((r) => String(r.id_hash));
 await tx(async (run) => { for (const b of chain) await applyBackup(run, b); });
+console.log(`Deleted again (deleted after the backup was taken): ${await deleteAgain(deleted)} accounts`);
 for (const t of ["users", "workspaces", "files"]) console.log(`${t}: ${(await q(`SELECT COUNT(*)::int AS n FROM ${t}`))[0].n} rows`);
 await closeDb();

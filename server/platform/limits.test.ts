@@ -43,3 +43,12 @@ test("the in-memory limiter is a sliding window", () => {
   assert.equal(allowLocal("m:a", 2, 1000, 900), false);
   assert.equal(allowLocal("m:a", 2, 1000, 1001), true);
 });
+
+test("rate-limit keys hold a hash of the network address, never the address", async () => {
+  const { ipKey } = await import("./limits");
+  const k = ipKey("203.0.113.7");
+  assert.equal(k, ipKey("203.0.113.7"), "the same network gets the same key");
+  assert.notEqual(k, ipKey("203.0.113.8"));
+  assert.ok(!k.includes("203") && k.length === 22);
+  assert.equal(ipKey(""), "");
+});

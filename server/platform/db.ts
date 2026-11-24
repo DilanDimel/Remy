@@ -334,8 +334,12 @@ export async function deleteAccount(userId: string) {
     await run("DELETE FROM ai_usage WHERE user_id=$1", [userId]);
     await run("DELETE FROM sessions WHERE user_id=$1", [userId]);
     await run("DELETE FROM users WHERE id=$1", [userId]);
+    // So a restore from an older backup deletes this account again (backup.ts deleteAgain).
+    await run("INSERT INTO deleted_accounts (id_hash) VALUES ($1) ON CONFLICT DO NOTHING", [idHash(userId)]);
   });
 }
+/** One-way hash of an account id: what deleted_accounts keeps instead of the id. */
+export const idHash = (userId: string) => crypto.createHash("sha256").update(userId).digest("hex");
 /** Signed-in students who visited on or after `since` (YYYY-MM-DD), filtered in the database so background jobs
  *  don't load every account. `setupDone` also requires finished setup. Longest-waiting search first. */
 export async function recentStudents(since: string, setupDone = false): Promise<{ id: string; email: string; kind: string; name: string }[]> {
@@ -354,6 +358,8 @@ export async function cleanupOld(days = 30) {
   // Codes nobody came back for (they're only removed on a retry otherwise).
   await q("DELETE FROM signin_codes WHERE expires_at < now()");
   await q("DELETE FROM school_email_codes WHERE expires_at < now()");
+  // Past the oldest backup (8 weekly full copies = 56 days), the deletion record isn't needed any more.
+  await q("DELETE FROM deleted_accounts WHERE deleted_at < now() - interval '70 days'");
   const stale = await q(
     `SELECT u.id FROM users u LEFT JOIN workspaces w ON w.user_id = u.id
      WHERE u.kind = 'guest' AND COALESCE(w.updated_at, u.created_at) < now() - make_interval(days => $1::int)`,
