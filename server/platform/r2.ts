@@ -45,7 +45,7 @@ export function unseal(key: Buffer, name: string, buf: Buffer): any {
   return JSON.parse(zlib.gunzipSync(Buffer.concat([d.update(buf.subarray(28)), d.final()])).toString("utf8"));
 }
 
-async function call(method: "GET" | "PUT" | "DELETE", name: string, body = Buffer.alloc(0)) {
+async function call(method: "GET" | "PUT" | "DELETE", name: string, body = Buffer.alloc(0), timeoutMs?: number) {
   const e = env();
   if (!e) return null;
   const host = `${e.account}.r2.cloudflarestorage.com`;
@@ -54,7 +54,7 @@ async function call(method: "GET" | "PUT" | "DELETE", name: string, body = Buffe
     method,
     headers: signR2(method, host, path, body, e.id, e.secret),
     body: method === "PUT" ? new Uint8Array(body) : undefined,
-    signal: AbortSignal.timeout(method === "GET" ? 2000 : 5000),
+    signal: AbortSignal.timeout(timeoutMs ?? (method === "GET" ? 2000 : 5000)),
   });
   if (method === "GET" && r.status === 404) return null;
   if (!r.ok) throw new Error(`R2 ${method} ${r.status}`);
@@ -75,3 +75,15 @@ export function r2Put(name: string, value: unknown) {
 export function r2Delete(name: string) {
   if (env()) call("DELETE", name).catch((err) => console.warn("ws cache delete failed:", err?.message));
 }
+
+/** For backups (server/platform/backup.ts): awaited, sealed the same way, with time for files of several MB.
+ *  Throws on failure so the caller can retry next time. Null when R2 isn't configured. */
+export const r2Store = () => {
+  const e = env();
+  if (!e) return null;
+  return {
+    put: async (name: string, value: unknown) => { await call("PUT", name, seal(e.key, name, value), 120_000); },
+    get: async (name: string) => { const b = await call("GET", name, undefined, 120_000); return b ? unseal(e.key, name, b) : null; },
+    del: async (name: string) => { await call("DELETE", name, undefined, 30_000); },
+  };
+};

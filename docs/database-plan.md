@@ -25,8 +25,11 @@ This is fine for a demo and a small pilot. It breaks down when:
 - **Openings lists are trimmed** (`server/resume/trim.ts`) whenever a search adds openings: imported openings nothing else refers to (not saved, applied to, rated, hidden, linked from a to-do or the calendar) are dropped after 30 days, and at most the newest 150 are kept. Their links go in `droppedJobUrls` so a search doesn't add them back as new. Before this, every search added up to 25 openings with up to 12 KB of text each and nothing was ever removed, so active accounts would hit the 4 MB limit.
 - **Background jobs filter in SQL** (`recentStudents`): the background openings search and the saved-openings re-check load only students who visited in the last 21 days (and, for the search, finished setup), longest-waiting first, instead of every signed-in account.
 - **Employer cache is slimmer:** `board_cache` keeps every posting's title, place and link, but description text only for student-level postings (capped at 20,000 characters). Search results are identical (tested on Julio's 48 labeled postings); senior roles' full text was the bulk of the cache.
-- **Space watch** (`server/platform/storage.ts`): `GET /api/admin/storage` (owners) shows the database size against `DB_SIZE_LIMIT_MB` (default 500, the Supabase free plan) and each table's size. Past 80%, the sweep posts one warning a day on the owners' Errors page. Free-plan note: daily backups aren't included; check before launch.
+- **Space watch** (`server/platform/storage.ts`): `GET /api/admin/storage` (owners) shows the database size against `DB_SIZE_LIMIT_MB` (default 500, the Supabase free plan) and each table's size. Past 80%, the sweep posts one warning a day on the owners' Errors page. Free-plan note: Supabase keeps no backups on Free, so Remy makes its own (below).
 - **Expired codes are cleaned up:** the sweep deletes sign-in and school-email codes nobody came back for.
+
+## Built: nightly backups (Nov 2026, Demetre)
+`server/platform/backup.ts`, run by the sweep once per Central day. The first copy and one every 7 days are full; the nights between copy only accounts and files changed since the last backup, plus the small tables whole. Rebuildable caches (`board_cache`, `checked_openings`), sessions, short-lived codes, rate limits and the one-day AI counter are left out. Copies are gzipped and sealed with AES-256-GCM (`WS_CACHE_KEY`) in the private R2 bucket as `backup/full/YYYY-MM-DD` and `backup/daily/YYYY-MM-DD`; 8 full and 31 daily copies are kept, about 0.2 GB a month of Supabase transfer. `GET /api/admin/storage` shows `backup.lastAt` and `backup.lastFull`. Restore: `OR_DB_PATH=./restore-test npm run restore-backup -- --day YYYY-MM-DD` into a local copy to check it, or with `DATABASE_URL` and `--yes` to replace a database.
 
 ## Proposal
 Move to **Supabase Postgres**, the same Supabase project already used for sign-in.
@@ -35,7 +38,7 @@ Move to **Supabase Postgres**, the same Supabase project already used for sign-i
 2. **Row-level security:** students can only read and write rows with their own `user_id`; the server uses the service key only where it must (alumni matching, AI usage totals).
 3. **Alumni list in its own table**, readable only by the server, never by the browser, and only after the career office agrees to the use.
 4. **Rate limits in the database:** done (Nov 2026).
-5. **Backups:** Supabase daily backups; test a restore once before launch.
+5. **Backups:** built (nightly copies in R2, above); test a restore once before launch.
 
 ## Migration path
 1. Add a data-access layer in the server (`loadWorkspace` / `saveWorkspace` become per-table reads and writes) while still writing SQLite, so the client doesn't change.

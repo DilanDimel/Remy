@@ -27,3 +27,12 @@ test("the traffic report lists connections and says when query stats can't be re
   assert.ok(Array.isArray(r.connections));
   if (!r.statements) assert.match(r.note, /pg_stat_statements/);
 });
+
+test("the sweep drops team activity and usage counts older than 180 days, and keeps newer ones", async () => {
+  const { pruneLogs } = await import("./storage");
+  await q("INSERT INTO team_activity (actor, action, detail, at) VALUES ('a', 'old', '', now() - interval '200 days'), ('a', 'new', '', now())");
+  await q("INSERT INTO usage_events (day, name, n) VALUES ('2020-01-01', 'page:/old', 1), (to_char(now(), 'YYYY-MM-DD'), 'page:/new', 1) ON CONFLICT DO NOTHING");
+  await pruneLogs();
+  assert.deepEqual((await q("SELECT action FROM team_activity WHERE action IN ('old', 'new')")).map((r) => r.action), ["new"]);
+  assert.deepEqual((await q("SELECT name FROM usage_events WHERE name LIKE 'page:/%' AND name IN ('page:/old', 'page:/new')")).map((r) => r.name), ["page:/new"]);
+});
