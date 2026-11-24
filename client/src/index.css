@@ -3185,3 +3185,11 @@ button.rw-item:not(:disabled) { cursor: pointer; }
 .b2-list li { display: grid; gap: 2px; padding-left: 14px; border-left: 3px solid var(--fox-soft); }
 .b2-list span { font-size: var(--text-sm); color: var(--muted-text); line-height: 1.45; }
 .b2-actions { gap: 8px; flex-wrap: wrap; }
+
+/* Keep and Pass on openings (owners, Demetre Nov 24): Keep pops, toasts can carry one button (Undo, See kept). */
+.redesign-2 .kp-pop { animation: kp-pop 0.36s cubic-bezier(.3,1.6,.5,1); }
+@keyframes kp-pop { 0% { transform: scale(1); } 45% { transform: scale(1.12); } 100% { transform: scale(1); } }
+.toast { display: flex; align-items: center; gap: 12px; }
+.redesign-2 .toast-wrap { width: max-content; max-width: 92vw; } /* centred with left:50%, it shrank to half the phone's width */
+.toast-act { flex: none; white-space: nowrap; background: none; border: 0; padding: 2px 4px; margin: -2px -4px -2px 0; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .redesign-2 .kp-pop { animation: none; } }
