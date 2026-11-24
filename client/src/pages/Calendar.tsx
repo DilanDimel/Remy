@@ -1,10 +1,11 @@
 import { GoogleCalendarCard } from "../components/GoogleCalendar";
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Download, ExternalLink, Mail, Plus, Trash2 } from "lucide-react";
+import { CalendarPlus, Check, ChevronLeft, ChevronRight, Download, ExternalLink, Flag, Mail, Mic, Plus, Trash2 } from "lucide-react";
+import { calendarPlan, type CalSuggestion } from "@shared/calendarPlan";
 import { go } from "../lib/router";
 import type { CalItem } from "@shared/types";
 import { download, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
-import { Modal, StatusChip } from "../components/common";
+import { Modal, Remy, StatusChip } from "../components/common";
 import { CareerTime, careerItems } from "../components/CareerTime";
 import { useJobs } from "../lib/jobs";
 
@@ -61,6 +62,28 @@ function ComingUp({ items, weekEnd, onOpen }: { items: CalItem[]; weekEnd: strin
   );
 }
 
+/** Owners (Dilan, Nov 24: "a lot of dead space, AI could be using"): Remy's plan for the week beside the month, from the
+ *  student's own interviews, opening deadlines and undated to-dos (shared/calendarPlan.ts). One tap puts each on the calendar. */
+function RemyPlan({ steps, onAdd }: { steps: CalSuggestion[]; onAdd: (s: CalSuggestion) => Promise<void> }) {
+  const [done, setDone] = useState<string[]>([]);
+  const day = (d: string) => new Date(d + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  const Icon = { prep: Mic, deadline: Flag, todo: CalendarPlus };
+  return (
+    <section className="op-card cal-plan" data-testid="calendar-remy-plan">
+      <div className="cal-plan-head"><Remy size={32} mood="wave" /><span className="remy-offer-kicker"><i aria-hidden="true" />Remy's plan for your week</span></div>
+      <ul>{steps.map((s) => {
+        const I = Icon[s.kind]; const ok = done.includes(s.id);
+        return (
+          <li key={s.id}><span className="cal-plan-ic"><I size={16} /></span>
+            <span className="cal-plan-txt"><b>{s.title}</b><small>{day(s.date)} · {s.why}</small></span>
+            <button className="btn btn-secondary btn-sm" disabled={ok} onClick={async () => { await onAdd(s); setDone((d) => [...d, s.id]); }} data-testid={`button-plan-${s.kind}`}>
+              {ok ? <><Check size={14} /> Added</> : s.kind === "todo" ? `Put on ${new Date(s.date + "T12:00").toLocaleDateString("en-US", { weekday: "short" })}` : <><Plus size={14} /> Add</>}</button></li>
+        );
+      })}</ul>
+    </section>
+  );
+}
+
 export default function CalendarPage() {
   const { ws, save, run, toast } = useStore();
   const owner = useOwnerView();
@@ -80,8 +103,12 @@ export default function CalendarPage() {
   // The weekly career time repeats; Upcoming shows only its next one, so real deadlines and interviews aren't pushed out.
   const upcoming = items.filter((i) => i.date >= today).filter((i, n, all) => !i.id.startsWith("career-") || all.findIndex((x) => x.id.startsWith("career-")) === n).slice(0, 8);
   const { jobs } = useJobs();
-  // Owners with nothing coming up (Nov 23 review): posting deadlines from their openings, ready to add.
-  const deadlines = owner && !upcoming.length ? (jobs || []).filter((j) => j.deadline && j.deadline >= today && !w.hiddenJobIds.includes(j.id)).sort((a, b) => a.deadline.localeCompare(b.deadline)).slice(0, 3) : [];
+  // Owners: opening deadlines, interview prep and days for to-dos, from the student's own data (Remy's plan).
+  const plan = useMemo(() => (owner ? calendarPlan({ ...w, jobs: jobs || w.jobs }, today) : []), [owner, w, jobs, today]);
+  const addStep = async (s: CalSuggestion) => {
+    if (s.kind === "todo") { await run(() => save("tasks", w.tasks.map((t) => (t.id === s.taskId ? { ...t, due: s.date } : t))), "On your calendar"); return; }
+    await saveItem({ ...s.item, id: rid("cal") });
+  };
   const saveItem = async (c: CalItem) => {
     const exists = w.calendar.some((x) => x.id === c.id);
     const dupe = w.calendar.find((x) => x.id !== c.id && x.title.trim().toLowerCase() === c.title.trim().toLowerCase() && x.date === c.date);
@@ -99,7 +126,7 @@ export default function CalendarPage() {
           <button className="icon-btn" onClick={() => setMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))} aria-label="Next month"><ChevronRight size={18} /></button>
         </div>
       </div>
-      <div className="cal-grid">
+      <div className="cal-grid" style={{ "--weeks": weeks } as React.CSSProperties}>
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <div key={d} className="xs muted" style={{ textAlign: "center", fontWeight: 700 }}>{d}</div>)}
         {days.map((d) => {
           const k = iso(d);
@@ -135,17 +162,12 @@ export default function CalendarPage() {
       <div className={owner ? "cal-owner" : "stack-lg"}>
         {owner && monthCard}
         {owner ? <aside className="stack">{owner && upcoming.length > 0 && <ComingUp items={upcoming} weekEnd={iso(new Date(Date.now() + 6 * 864e5))} onOpen={setSel} />}
+        {plan.length > 0 && <RemyPlan steps={plan} onAdd={addStep} />}
         {owner && !upcoming.length && (
           <section className="op-card stack-sm" data-testid="calendar-worth-adding">
             <h3>Worth putting on your calendar</h3>
             {!w.settings.careerTime && <CareerTime />}
-            {deadlines.map((j) => (
-              <div key={j.id} className="row" style={{ gap: 10 }}>
-                <span className="small" style={{ flex: 1, minWidth: 0 }}><b>{j.company} closes {fmtDate(j.deadline)}</b> · {j.title}</span>
-                <button className="btn btn-secondary btn-sm" onClick={() => saveItem({ id: rid("cal"), title: `${j.company} deadline: ${j.title}`, date: j.deadline, time: "", kind: "Deadline", source: "Opportunities", notes: "" })} data-testid="button-add-deadline"><Plus size={14} /> Add</button>
-              </div>
-            ))}
-            {w.settings.careerTime && !deadlines.length && <p className="small muted">None of your openings list a deadline yet. Remy adds them here as postings date them.</p>}
+            {w.settings.careerTime && <p className="small muted">{plan.length ? "Remy's plan below has a few to add." : "None of your openings list a deadline yet. Remy adds them here as postings date them."}</p>}
           </section>
         )}<GoogleCalendarCard /></aside> : monthCard}
         {!owner && <div className="card card-pad stack-sm">

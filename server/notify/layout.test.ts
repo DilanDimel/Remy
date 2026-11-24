@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { brandEmail, codeEmail, rows } from "./layout";
+import { brandEmail, codeEmail, grid, rows } from "./layout";
 import { reminderEmail, weeklyDigest } from "./reminders";
 
 test("branded email: escaped text, the student's name, fox from the site, dark mode, buttons", () => {
   const h = brandEmail({ host: "remyai.org", name: "Maya", heading: "A <new> one", preheader: "p&q", blocks: [rows([{ title: "A&B", sub: "<x>" }])], primary: { href: "https://remyai.org/a?x=1&y=2", label: "Go" }, why: "Because." });
   assert.ok(h.includes("Hi Maya,") && h.includes("A &lt;new&gt; one") && h.includes("A&amp;B") && !h.includes("<x>"));
-  assert.ok(h.includes("https://remyai.org/email/remy-fox.png") && h.includes("prefers-color-scheme: dark"));
+  assert.ok(h.includes("https://remyai.org/email/remy-smile.png") && h.includes("prefers-color-scheme: dark"));
   assert.ok(h.includes('href="https://remyai.org/a?x=1&amp;y=2"'));
   assert.ok(!brandEmail({ host: "remyai.org", heading: "h", preheader: "", blocks: [], why: "" }).includes("Hi ,"), "no empty greeting");
 });
@@ -22,4 +22,12 @@ test("code email shows the code big; students' reminder and digest stay plain un
   const d = weeklyDigest(ws, "2026-11-22", 0, "remyai.org", true, "Maya Lee")!;
   assert.match(d.html!, /Hi Maya,/);
   assert.match(d.text, /Hi Maya,/);
+});
+
+test("feature grid: two tiles a row, an odd last tile gets an empty partner, phones stack", () => {
+  const g = grid([{ title: "A" }, { title: "B" }, { title: "C<" }]);
+  assert.equal((g.match(/<tr><td class="rm-col"/g) || []).length, 2);
+  assert.equal((g.match(/class="rm-col"/g) || []).length, 4);
+  assert.ok(g.includes("C&lt;"));
+  assert.match(brandEmail({ host: "remyai.org", heading: "h", preheader: "", blocks: [g], why: "" }), /\.rm-col \{ display:block !important/);
 });

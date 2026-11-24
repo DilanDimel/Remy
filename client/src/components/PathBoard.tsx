@@ -22,6 +22,9 @@ import { ACTS, OUTFITS } from "./scholar";
 import { GIVE_UP, KONAMI, POKES, QUOTES, SECRETS, SPIN, TAPS, dateLine, pick, timeLine } from "@shared/officeLines";
 import "./office.css";
 import { OfficeOpens, RemyDid } from "./RemyDid";
+import { PLACE_SPOT, PlaceScene } from "./Places";
+import { useAccess } from "./ComingSoon";
+import { PLACES, openPlaces, placeNow, type PlaceKey } from "@shared/places";
 import { canListen, speak, useVoice } from "../lib/voice";
 import { buildStops, money, stateOf, StopDetail, useFieldData, type Occ } from "./DailyPath";
 
@@ -220,6 +223,11 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
 
   // The clock on the wall tells the real time.
   const [now, setNow] = useState(() => new Date());
+  // Remy's World (Nov 24, owners only): he follows the student's time of day to the café, library or home once they're open.
+  const placesOn = useAccess()("places") === "open";
+  const opened = openPlaces(d.w);
+  const [placePick, setPlacePick] = useState<PlaceKey | null>(null);
+  const place: PlaceKey = !placesOn || g.on ? "office" : placeNow(now.getHours(), opened, placePick);
   useEffect(() => { const t = window.setInterval(() => setNow(new Date()), 30000); return () => clearInterval(t); }, []);
   const hh = ((now.getHours() % 12) + now.getMinutes() / 60) * 30, mm = now.getMinutes() * 6;
   // Taps: the thing wiggles and Remy says something about it. Some things do more.
@@ -302,7 +310,8 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   const ring = g.on && arrived ? g.steps[g.step].ring : null;
   const seatedNow = fox.y === SPOTS.desk.y && fox.x === SPOTS.desk.x;
   // The speech bubble sits beside his head on the window side, where no labels or furniture sit (Nov 24); at the window it flips left. Phones: below the room.
-  const fx = (fox.x / 860) * 100, hy = ((fox.y + 96 - 40) / 420) * 100;
+  const spot = place === "office" ? fox : PLACE_SPOT[place];
+  const fx = (spot.x / 860) * 100, hy = ((spot.y + 96 - 40) / 420) * 100;
   const sayAt = { "--fx": `${fx}%`, "--fxn": fx, "--hy": `${hy}%`, "--tail": `${fx}%` } as CSSProperties;
   const side = fx > 70 ? "l" : "r";
   const stars = [[578, 70], [636, 64], [704, 76], [748, 66], [764, 98], [690, 104], [596, 116], [728, 118], [654, 92]];
@@ -310,7 +319,12 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   return (
     <section className="ps-office" aria-label="Remy's office" data-testid="path-office">
       {/* One row above the room (Nov 24): who's here, what to ask him, the walk-through. Saves a row so My Path fits 1440x800. */}
-      <div className="pt-card-head"><span className="ps-office-title"><span className="pm-kicker dark">Remy's office</span><span className="pm-faint">{nextItem ? `Level ${nextItem[2]} adds a ${nextItem[1].toLowerCase()}` : "Fully furnished"}</span></span>
+      <div className="pt-card-head"><span className="ps-office-title"><span className="pm-kicker dark">{place === "office" ? "Remy's office" : PLACES.find((p) => p.key === place)!.name}</span>
+          {placesOn && !g.on ? <select className="ps-place-pick" value={placePick || ""} onChange={(e) => setPlacePick((e.target.value || null) as PlaceKey | null)} aria-label="Where Remy is" data-testid="select-office-place">
+              <option value="">Follow my day</option>
+              {PLACES.map((p) => <option key={p.key} value={p.key} disabled={!opened.has(p.key)}>{opened.has(p.key) ? p.name : `${p.name}: ${p.how.toLowerCase()}`}</option>)}
+            </select>
+            : <span className="pm-faint">{nextItem ? `Level ${nextItem[2]} adds a ${nextItem[1].toLowerCase()}` : "Fully furnished"}</span>}</span>
         {!g.on && <form className="ps-ask" onSubmit={(e) => { e.preventDefault(); ask(); }}>
             <input className="input" value={q} onChange={(e) => setQ(e.target.value)} disabled={!aiOn || busy} placeholder={aiOn ? "Ask Remy anything about your path…" : "Remy's chat is off on this server"} aria-label="Ask Remy" data-testid="input-office-ask" />
             {canListen && aiOn && <button type="button" className={"btn btn-sm " + (voice.on ? "btn-primary remy-listening" : "btn-secondary")} onClick={voice.toggle} disabled={busy} aria-label={voice.on ? "Stop listening" : "Talk to Remy"} aria-pressed={voice.on} data-testid="button-office-mic">{voice.on ? <Square size={16} /> : <Mic size={16} />}</button>}
@@ -394,7 +408,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
             <path d="M414 330V266c0-12 10-22 41-22s41 10 41 22v64" fill="none" stroke={O} strokeOpacity=".22" strokeWidth="2.5" />
             <path d="M430 256h50" stroke={O} strokeOpacity=".22" strokeWidth="2.5" strokeLinecap="round" />
           </g>
-          <g ref={foxEl} data-it="remy" className={"ps-fox" + (fox.walk ? " walk" : "") + (seatedNow ? " sit" : "")} style={{ transform: `translateX(${fox.x - 100 * FOX_S}px)`, transitionDuration: `${fox.walk || 0}ms` }}>
+          <g ref={place === "office" ? foxEl : undefined} data-it="remy" className={"ps-fox" + (fox.walk ? " walk" : "") + (seatedNow ? " sit" : "")} style={{ transform: `translateX(${fox.x - 100 * FOX_S}px)`, transitionDuration: `${fox.walk || 0}ms` }}>
             <g className="ps-fox-y" style={{ transform: `translateY(${fox.y}px)` }}>
               <g transform={`scale(${FOX_S})`}><g transform={fox.face < 0 ? "translate(200 0) scale(-1 1)" : undefined}><g className={"ps-fox-bob" + (spin && seatedNow ? ` spin${spin % 2}` : "")} style={suit}>
                 <g className="ps-legs">
@@ -425,14 +439,17 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
           <g {...it("briefcase")}>{applied ? <g transform="translate(60 386)"><path d="M26 0v-12h34v12" fill="none" {...L} strokeWidth="4" /><rect width="86" height="60" rx="8" fill="var(--room-leather)" {...L} /><path d="M0 22h86" stroke="var(--room-line)" strokeOpacity=".5" strokeWidth="2" /><rect x="37" y="16" width="12" height="12" rx="2" fill="var(--sch-bulb)" {...L} strokeWidth="1.5" /></g>
             : <g transform="translate(60 386)"><rect width="86" height="60" rx="8" {...ghost} /><path d="M26 0v-12h34v12" {...ghost} /></g>}</g>
         </svg>
+        {place !== "office" && <PlaceScene k={place} w={d.w} streakBest={d.streak.best} now={now} outfit={wearing} suit={suit} mood={mood} foxRef={foxEl} onScene={onScene}
+          wig={(k) => "ps-it" + (wig?.k === k ? ` wig${wig.n % 2}` : "")} />}
         {ring && <span className="ps-ring" style={at(ring[0], ring[1])} aria-hidden="true" />}
+        {place === "office" && <>
         {/* Captions sit centred just above the thing they name, so the room reads as one system (Dilan, Nov 24). */}
         <button className="ps-tag" style={at(139, 104)} onClick={() => onField("roles")} data-testid="button-office-books">{known ? `${known} job${known === 1 ? "" : "s"} decoded` : "Decode your first job"}</button>
         <button className={"ps-tag below" + (cert ? "" : " ghost")} style={at(110, 280)} onClick={() => onField("certs")} data-testid="button-office-cert">{cert ? "Certificate earned" : "First certificate"}</button>
         <button className={"ps-tag" + (resume ? "" : " ghost")} style={at(328, 84)} onClick={() => go("/resume")} data-testid="button-office-resume">{resume ? "Resume on file" : "Add your resume"}</button>
         <button className={"ps-tag" + (pins.length ? "" : " ghost")} style={at(472, 146)} onClick={() => go("/rewards")} data-testid="button-office-pins">{pins.length ? `${pinsOf(d.w).filter((p) => p.earned).length} pins` : "Earn your first pin"}</button>
         <span className="ps-tag still" style={at(352, 244)}>{d.streak.days ? `${d.streak.days}-day streak` : "Plant needs a streak"}</span>
-        <button className={"ps-tag side" + (applied ? "" : " ghost")} style={at(152, 392)} onClick={() => go("/opportunities")} data-testid="button-office-briefcase">{applied ? `${d.w.applications.length} applied` : "First application"}</button>
+        <button className={"ps-tag side" + (applied ? "" : " ghost")} style={at(152, 392)} onClick={() => go("/opportunities")} data-testid="button-office-briefcase">{applied ? `${d.w.applications.length} applied` : "First application"}</button></>}
       </div>
         {g.on ? <div className="ps-bubble" style={{ "--tail": `${Math.min(92, Math.max(8, fx))}%` } as CSSProperties} aria-live="polite" data-testid="path-guide">{g.bubble}</div>
           : said ? <div className={"ps-say " + side} style={sayAt} aria-live="polite" data-testid="office-reply">

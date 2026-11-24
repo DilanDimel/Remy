@@ -97,7 +97,7 @@ function Root() {
   // Signed-in students: automatic signals for the owners (page visits, rage clicks, errors). Counts only.
   useEffect(() => { if (!loading && !signedOut) { startSignals(); countSignal("page:" + tidyPath(path)); } }, [loading, signedOut, path]);
   // Owner styling has to live here, not in Shell: /about and /admin render outside Shell, so they'd otherwise
-  // keep the student look. Shell still owns the favicon swap.
+  // keep the student look.
   const ownerView = useOwnerView();
   useEffect(() => { document.documentElement.classList.toggle("redesign-2", ownerView); }, [ownerView]);
   // The loading screen in index.html stays up until there's a page to show.
@@ -188,12 +188,6 @@ function Shell() {
   // Redesign stage 2 (owners first, Nov 21): one Remy, the Home "one thing now" card, moving sidebar icons.
   useEffect(() => {
     document.documentElement.classList.toggle("redesign-2", ownerView);
-    // Owners see the Scholar fox in the browser tab too.
-    document.querySelectorAll<HTMLLinkElement>('link[rel="icon"]').forEach((l) => {
-      l.dataset.base ||= l.getAttribute("href") || "";
-      l.href = ownerView ? "/remy-scholar.svg" : l.dataset.base;
-      if (l.type === "image/png") l.disabled = ownerView;
-    });
   }, [ownerView]);
   // Owners: the phone browser's bar (Android Chrome, iPhone Safari) matches the page instead of staying near-black over a light app.
   const { theme } = useStore();
