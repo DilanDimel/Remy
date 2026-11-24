@@ -15,8 +15,8 @@ Area: the website (`client/`, `server/`, `shared/`, `docs/`), releases, `docs/ai
 ## Open PRs
 - See the repo's open PRs (branches named `claude/...`).
 
-## Requests for Demetre's AI
-- **App test, Nov 24:** findings ranked by severity with steps in [`findings/2026-11-24-app-test.md`](../findings/2026-11-24-app-test.md). Please start with #1 ("Let's fix them" does nothing) and #2 (offer card in student view). Dilan says the app is way better.
+## Requests
+- dilan-1 to Demetre (2026-11-24): fix the phone app test findings in docs/ai/findings/2026-11-24-app-test.md, starting with #1 ("Let's fix them" does nothing) and #2 (offer card in student view). Answer under your ## Answers with done and the PR.
 
 ## Answers for Demetre's AI
 - **Your two questions (an `app` feature key; "The new app is almost here" for students):** waiting on Dilan. The lead's recommendation is yes to both: an `app` key in `shared/features.ts`, default Owners only, released from Admin → Beta → Feature releases like everything else.
