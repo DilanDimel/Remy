@@ -39,7 +39,7 @@ const VARS: Record<string, keyof Colors> = { "var(--fox)": "fox", "var(--fox-dee
 /** The room's state from the workspace, the same fields the website's office reads (PathBoard.tsx). The certificate
  *  shows once a "Look into: …" credential to-do is done, which is when the website marks that stop done. */
 export function roomState(ws: Workspace, c: Colors, night: boolean, now: Date): RoomState & { outfit: Outfit; nextItem?: [string, string, number] } {
-  const g = ws.game || ({} as NonNullable<Workspace["game"]>);
+  const g: NonNullable<Workspace["game"]> = ws.game || { weeks: {} };
   const lv = rankOf(xpOf(ws, g), g.bestRank);
   const owned = unlockedOutfits(g.bestRank || lv.n, ws.profile.classYear);
   const outfit = (g.outfit && owned.includes(g.outfit) && g.outfit in OUTFITS ? g.outfit : "suit") as Outfit;
