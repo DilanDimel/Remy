@@ -404,7 +404,7 @@ function ResumeStep({ onNext, onBusy }: { onNext: () => void; onBusy?: (busy: bo
   );
 }
 
-const PROFILE_FIELDS: [keyof Profile, string, string?][] = [
+export const PROFILE_FIELDS: [keyof Profile, string, string?][] = [
   ["path", "Where are you right now?"], ["goal", "What you're working toward", "e.g. a summer 2027 finance internship in Dallas"], ["name", "Full name"], ["preferredName", "What should Remy call you?"], ["applicationEmail", "Email for applications", "e.g. you@tcu.edu"], ["school", "School"], ["major", "Major(s)"], ["minors", "Minor(s)"], ["gpa", "GPA", "e.g. 3.6 (optional)"],
   ["classYear", "Class year"], ["graduation", "Expected graduation", "e.g. May 2029"], ["location", "Location"], ["targetRoles", "Roles you're curious about", "e.g. investment banking, fintech"],
   ["regions", "Where should Remy look?", "e.g. Fort Worth, Dallas, Remote"], ["opportunityTypes", "Kinds of opportunities", "e.g. Internships, Events"],
