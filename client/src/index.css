@@ -2425,6 +2425,29 @@ button.ps-tag:focus-visible { outline: 2px solid var(--fox); outline-offset: 2px
   .ps-dots { flex-basis: 100%; }
   .ps-select { margin-left: 0; width: 100%; max-width: none; }
 }
+/* Bigger office and panel (Dilan, Nov 24): on a laptop or wider, My Path fills the window. The office is as wide as the
+   stage height allows (room 860:420 + its title row), up to 60%; the panel takes the rest; the wall continues above the room. */
+@media (min-width: 900px) and (min-height: 600px) {
+  .main:has(> .page > .ps) > .page { flex: 1 0 auto; min-height: 100%; max-width: 1760px; }
+  .page > .ps { flex: 1; display: flex; flex-direction: column; gap: 14px; }
+}
+@container ps (min-width: 761px) {
+  @media (min-width: 900px) and (min-height: 600px) {
+    .ps-stage { flex: 1; min-height: 360px; container: stage / size; display: flex; }
+    .ps-office { display: flex; flex-direction: column; padding: 10px 12px 12px; flex: 0 1 calc((100cqh - 66px) * 2.048 + 26px); min-width: 0; max-width: 60%; }
+    .ps-side { flex: 1 1 40%; min-width: 400px; }
+    .ps-roomwrap { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; background: var(--room-wall); border-radius: 16px; }
+  }
+  /* reward tiles: art beside the label, 56px tall instead of 96 */
+  .ps-track { padding-top: 10px; margin-top: 4px; gap: 8px; }
+  .ps-rw { height: 56px; grid-template-columns: 34px minmax(0, 1fr); grid-template-rows: auto auto; justify-items: start; align-content: center; column-gap: 8px; row-gap: 0; text-align: left; padding: 6px 10px 6px 8px; border-radius: 14px; }
+  .ps-rw .ps-art { grid-row: 1 / 3; height: 36px; width: 34px; }
+  .ps-rw .ps-art svg { max-width: 34px; max-height: 36px; }
+  .ps-rw b { align-self: end; }
+  .ps-rw small { align-self: start; }
+  .ps-rw > b:last-child { grid-row: 1 / 3; align-self: center; }
+  .ps-lv { top: -9px; left: 14px; transform: none; }
+}
 @media (prefers-reduced-motion: reduce) { .pt-chest.open svg, .pt-chest.ready svg, .ps-bubble, .ps-ring, .ps-cloud, .ps-sway, .ps-steam { animation: none; } .ps-fox, .ps-fox-y { transition: none !important; } .ps-bar i, .pt-qbar i { transition: none; } }
 /* Owner homepage, "Try it now" look (pages/Landing2.tsx): light by default, dark with the theme toggle. */
 .lk-try { --lk-bg: #f6f5f1; --lk-card: #ffffff; --lk-ink: #141414; --lk-ink2: #3d3c39; --lk-muted: #6b6a65; --lk-line: #e4e1da; --lk-btn: #e86a2a; --lk-btn-ink: #ffffff; --lk-accent: #e86a2a; --lk-accent-ink: #c2410c; --lk-soft: #fdecdf; --lk-ok: #15803d; --lk-ok-bg: #e3f5e8; --lk-glow: rgba(232, 106, 42, .22); --lk-grid: rgba(20, 20, 20, .05); }
