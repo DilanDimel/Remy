@@ -136,7 +136,7 @@ export function OfficeThing({ k }: { k: string }) {
   return <svg className="ps-thing" viewBox="0 0 44 40" aria-hidden="true">{art[k] || <circle cx="22" cy="20" r="10" {...st} />}</svg>;
 }
 
-/* Where Remy can be in his office (room units, viewBox 0 40 860 430). y is the top of his drawing: seated he shows
+/* Where Remy can be in his office (room units, viewBox 0 40 860 420). y is the top of his drawing: seated he shows
    from the chest up behind the desk; standing, his feet touch the floor behind the desk's front edge. */
 const FOX_S = 0.62;
 type Spot = "desk" | "shelf" | "window";
@@ -230,7 +230,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   const L = { stroke: "var(--room-line)", strokeWidth: 2.5, strokeLinejoin: "round" as const, strokeLinecap: "round" as const };
   const ghost = { fill: "none", stroke: "var(--room-label-2)", strokeOpacity: 0.7, strokeWidth: 2, strokeDasharray: "4 5" };
   const O = "var(--room-obj)", O2 = "var(--room-obj-2)", WOOD = "var(--room-wood)", WOOD2 = "var(--room-wood-2)";
-  const at = (x: number, y: number) => ({ left: `${(x / 860) * 100}%`, top: `${((y - 40) / 430) * 100}%` });
+  const at = (x: number, y: number) => ({ left: `${(x / 860) * 100}%`, top: `${((y - 40) / 420) * 100}%` });
   const bookColors = ["var(--sch-navy)", "var(--sch-tweed)", "var(--sch-wine)", "var(--sch-camel)", "var(--fox)", "var(--sch-ox)", "var(--sch-knit)", "var(--sch-brown)"];
 
   // The clock on the wall tells the real time.
@@ -317,18 +317,24 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   const ring = g.on && arrived ? g.steps[g.step].ring : null;
   const seatedNow = fox.y === SPOTS.desk.y && fox.x === SPOTS.desk.x;
   // The speech bubble sits beside his head, on whichever side has more room; on phones it drops below the room.
-  const fx = (fox.x / 860) * 100, hy = ((fox.y + 96 - 40) / 430) * 100;
+  const fx = (fox.x / 860) * 100, hy = ((fox.y + 96 - 40) / 420) * 100;
   const sayAt = { "--fx": `${fx}%`, "--hy": `${hy}%`, "--tail": `${fx}%` } as CSSProperties;
   const side = fx > 48 ? "l" : "r";
   const stars = [[578, 70], [636, 64], [704, 76], [748, 66], [764, 98], [690, 104], [596, 116], [728, 118], [654, 92]];
   const lit = [[576, 178], [584, 192], [600, 150], [604, 166], [599, 184], [638, 138], [648, 152], [640, 168], [650, 184], [678, 176], [686, 192], [718, 194]];
   return (
     <section className="ps-office" aria-label="Remy's office" data-testid="path-office">
-      <div className="pt-card-head"><span className="pm-kicker dark">Remy's office</span><span className="pm-faint">{nextItem ? `Level ${nextItem[2]} adds a ${nextItem[1].toLowerCase()}` : "Fully furnished"}</span>
+      {/* One row above the room (Nov 24): who's here, what to ask him, the walk-through. Saves a row so My Path fits 1440x800. */}
+      <div className="pt-card-head"><span className="ps-office-title"><span className="pm-kicker dark">Remy's office</span><span className="pm-faint">{nextItem ? `Level ${nextItem[2]} adds a ${nextItem[1].toLowerCase()}` : "Fully furnished"}</span></span>
+        {!g.on && <form className="ps-ask" onSubmit={(e) => { e.preventDefault(); ask(); }}>
+            <input className="input" value={q} onChange={(e) => setQ(e.target.value)} disabled={!aiOn || busy} placeholder={aiOn ? "Ask Remy anything about your path…" : "Remy's chat is off on this server"} aria-label="Ask Remy" data-testid="input-office-ask" />
+            {canListen && aiOn && <button type="button" className={"btn btn-sm " + (voice.on ? "btn-primary remy-listening" : "btn-secondary")} onClick={voice.toggle} disabled={busy} aria-label={voice.on ? "Stop listening" : "Talk to Remy"} aria-pressed={voice.on} data-testid="button-office-mic">{voice.on ? <Square size={16} /> : <Mic size={16} />}</button>}
+            <button className="btn btn-primary btn-sm" disabled={!aiOn || busy || !q.trim()} data-testid="button-office-ask">Ask</button>
+        </form>}
         {!g.on && <button className="btn btn-ghost btn-sm ps-again" onClick={g.start} data-testid="button-hello-again">Walk me through it</button>}</div>
       <div className="ps-roomwrap">
       <div className={"ps-room" + (g.on ? " guiding" : "") + (lamp ? ` lamp-${lamp}` : "") + (music ? " music" : "")} data-testid="path-hello">
-        <svg className="ps-scene" viewBox="0 40 860 430" preserveAspectRatio="xMidYMax meet" aria-hidden="true" onClick={onScene}>
+        <svg className="ps-scene" viewBox="0 40 860 420" preserveAspectRatio="xMidYMax meet" aria-hidden="true" onClick={onScene}>
           <defs>
             <clipPath id="ps-win"><rect x="560" y="56" width="220" height="152" rx="6" /></clipPath>
             <linearGradient id="ps-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style={{ stopColor: "var(--room-sky)" }} /><stop offset="1" style={{ stopColor: "var(--room-sky-2)" }} /></linearGradient>
@@ -448,11 +454,6 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
                 : reply ? <div className="ps-reply"><Rich text={reply.text} /><RemyDid m={reply} /><OfficeOpens actions={reply.actions} /></div> : <p>I couldn't answer that one. Try asking again.</p>}</div>
             </div>
           : quip && <button className={"ps-say quip " + side} style={sayAt} onClick={() => setQuip(null)} aria-live="polite" data-testid="office-quip"><span className="ps-say-body"><span>{quip.text}</span>{quip.by && <small>{quip.by}</small>}</span></button>}
-        {!g.on && <form className="ps-ask" onSubmit={(e) => { e.preventDefault(); ask(); }}>
-          <input className="input" value={q} onChange={(e) => setQ(e.target.value)} disabled={!aiOn || busy} placeholder={aiOn ? "Ask Remy anything about your path…" : "Remy's chat is off on this server"} aria-label="Ask Remy" data-testid="input-office-ask" />
-          {canListen && aiOn && <button type="button" className={"btn " + (voice.on ? "btn-primary remy-listening" : "btn-secondary")} onClick={voice.toggle} disabled={busy} aria-label={voice.on ? "Stop listening" : "Talk to Remy"} aria-pressed={voice.on} data-testid="button-office-mic">{voice.on ? <Square size={16} /> : <Mic size={16} />}</button>}
-          <button className="btn btn-primary" disabled={!aiOn || busy || !q.trim()} data-testid="button-office-ask">Ask</button>
-        </form>}
       </div>
     </section>
   );

@@ -2,6 +2,15 @@
    Colours are the --room-* tokens in index.css (night values under [data-theme="dark"]). */
 html:not([data-theme="dark"]) .ps-night, [data-theme="dark"] .ps-day { display: none; }
 
+/* Head row: title, the ask box and the walk-through on one line, so My Path fits 1440x800 with no scroll. */
+.ps .ps-office { padding: 10px 14px 12px; }
+.ps-office > .pt-card-head { flex-wrap: wrap; gap: 6px 12px; }
+.ps-office-title { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.ps-office .pt-card-head .ps-office-title .pm-faint { margin-left: 0; }
+.ps-office .pt-card-head .ps-ask { flex: 1 1 280px; margin: 0; }
+.ps-office .pt-card-head .ps-ask .input { height: 32px; padding-block: 4px; }
+.ps-office .pt-card-head .ps-again { margin-left: 0; }
+
 /* Lamp light: on at night, off by day; tapping the lamp flips it. */
 .ps-lamplight { opacity: 0; transition: opacity .35s; pointer-events: none; }
 [data-theme="dark"] .ps-lamplight { opacity: 1; }
@@ -87,4 +96,10 @@ html:not([data-theme="dark"]) .ps-night, [data-theme="dark"] .ps-day { display: 
 @media (prefers-reduced-motion: reduce) {
   .ps-it.wig0, .ps-it.wig1, .ps-chair, .ps-fox-bob, .ps-twinkle, .ps-shoot, .ps-bird, .ps-flick, .ps-flag, .ps-room.music .ps-notes, .ps-room.music .ps-vinyl, .ps-say, .ps-think i { animation: none !important; transition: none !important; }
   .ps-shoot { display: none; }
+}
+
+/* Phones: the walk-through sits beside the title and the ask box gets its own full row. */
+@container ps (max-width: 600px) {
+  .ps-office .pt-card-head .ps-again { order: 1; margin-left: auto; }
+  .ps-office .pt-card-head .ps-ask { order: 2; flex-basis: 100%; }
 }
