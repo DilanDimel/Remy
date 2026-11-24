@@ -41,7 +41,8 @@ export default function Tabs() {
   // The website's phone bar, with Remy as the floating fox instead of a tab (handoff 02 §2.0).
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <NativeTabs tintColor={c.fox} minimizeBehavior="onScrollDown" labelStyle={{ fontFamily: font.semi }} labelVisibilityMode="labeled" indicatorColor={c.foxSoft} hidden={kb && Platform.OS === "android"}>
+      {/* The bar follows the app theme, not only the phone setting (it stayed light in dark mode on Android). */}
+      <NativeTabs tintColor={c.fox} backgroundColor={c.surface} iconColor={{ default: c.mutedText, selected: c.fox }} minimizeBehavior="onScrollDown" labelStyle={{ default: { fontFamily: font.semi, color: c.mutedText }, selected: { fontFamily: font.semi, color: c.fox } }} labelVisibilityMode="labeled" indicatorColor={c.foxSoft} hidden={kb && Platform.OS === "android"}>
         <NativeTabs.Trigger name="index">
           <NativeTabs.Trigger.Icon sf={{ default: "house", selected: "house.fill" }} md="home" />
           <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
