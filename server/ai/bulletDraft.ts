@@ -61,5 +61,7 @@ export function ownRewriteOk(text: string, draft: string): boolean {
   // Word edits in order (reordering counts): a one-verb swap ("Provide" → "Deliver", Nov 24 live check) or a word or
   // two isn't a stronger line; the rewrite has to restructure it.
   const lcs = a.reduce((row, x) => { const next = [0]; b.forEach((y, j) => next.push(x === y ? row[j] + 1 : Math.max(row[j + 1], next[j]))); return next; }, new Array(b.length + 1).fill(0));
-  return a.length + b.length - 2 * lcs[b.length] > 4;
+  // Moving the line's own action to the front ("As Ambassador, raised $5,000" → "Raised $5,000 as Ambassador") is the
+  // restructure that counts most, even though it's few edits.
+  return a.length + b.length - 2 * lcs[b.length] > 4 || a.indexOf(d0) > 0;
 }
