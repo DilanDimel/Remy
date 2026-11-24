@@ -1664,12 +1664,16 @@ export async function registerRoutes(_server: Server, app: Express) {
   // Owners (Julio's interview coach): Remy designs a mock interview from the posting and the student's own resume,
   // stories and pitch, then rates each answer against the scoring guide (server/coach/interview.ts). Three AI
   // interviews a week; after that, or with no AI, the questions come from the posting and there's no rating.
-  const ownerIv = (ctx: Ctx) => { if (!ctx.me.owner || ctx.ws.settings.ownerView === false) bad("Mock interviews with Remy are only for owners right now.", 403); };
+  // Mock interviews: everyone once Interview is released (Admin → Beta → Feature releases), until then owners in owner view.
+  const ownerIv = async (ctx: Ctx) => {
+    if ((await features.releases()).interview === "released") return;
+    if (!ctx.me.owner) bad("Mock interviews are coming in a future update.", 403);
+    if (ctx.ws.settings.ownerView === false) bad("Mock interviews with Remy are only for owners right now.", 403);
+  };
   const ivOf = (ctx: Ctx, id: string) => (ctx.ws.interviews || []).find((x) => x.id === id) || bad("That practice isn't here anymore.", 404);
   const ivOk = (ctx: Ctx, extra = "") => (t: string) => !claimCheck(t, evidenceOf(ctx.ws) + "\n" + extra).length;
   app.post("/api/interviews", route(async (req, res, ctx) => {
-    if (!ctx.me.owner && (await features.releases()).interview !== "released") bad("Mock interviews are coming in a future update.", 403);
-    ownerIv(ctx);
+    await ownerIv(ctx);
     const job = findJob(ctx.ws, String(req.body?.jobId || "")) || bad("Pick an opening to practice for.", 404);
     const mode: IvMode = req.body?.mode === "real" ? "real" : "coach";
     const profile = pickProfile(job);
@@ -1694,7 +1698,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.json(ctx.ws);
   }));
   app.post("/api/interviews/:id/answer", route(async (req, res, ctx) => {
-    ownerIv(ctx);
+    await ownerIv(ctx);
     const iv = ivOf(ctx, String(req.params.id));
     const qi = Number(req.body?.qi);
     const q = iv.questions[qi] || bad("That question isn't in this practice.");
@@ -1715,14 +1719,14 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.json(ctx.ws);
   }));
   app.post("/api/interviews/:id/finish", route(async (req, res, ctx) => {
-    ownerIv(ctx);
+    await ownerIv(ctx);
     const iv = ivOf(ctx, String(req.params.id));
     if (!iv.finishedAt && iv.answers.length) { iv.finishedAt = nowIso(); ctx.ws.game = markDay(ctx.ws.game || { weeks: {} }, centralToday()); }
     await ctx.save();
     res.json(ctx.ws);
   }));
   app.delete("/api/interviews/:id", route(async (req, res, ctx) => {
-    ownerIv(ctx);
+    await ownerIv(ctx);
     ctx.ws.interviews = (ctx.ws.interviews || []).filter((x) => x.id !== String(req.params.id));
     await ctx.save();
     res.json(ctx.ws);
