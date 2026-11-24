@@ -196,7 +196,7 @@ function Landing() {
   const inside = !!(me && ws?.started);
   const beta = !!config?.beta?.on && !inside;
   const start = inside ? "/" : beta ? applyHref(config?.beta?.formUrl) : "/signin";
-  const startLabel = inside ? "Open my Remy" : beta ? "Apply to be a beta tester" : "Create your free account";
+  const startLabel = inside ? "Open my Remy" : beta ? "Apply to be a beta tester" : "Create your account";
   const tour = useRef<HTMLElement>(null);
   const page = useRef<HTMLDivElement>(null);
   const [scrolled, setScrolled] = useState(false);
@@ -234,14 +234,14 @@ function Landing() {
       <section className="lp-hero lp-dark">
         <div className="lp-beam" aria-hidden><span className="lp-beam-line" /><span className="lp-beam-floor" /></div>
         <div className="lp-hero-copy">
-          <span className="lp-award">Now in free beta</span>
+          <span className="lp-award">Free during beta</span>
           <h1>Don&rsquo;t Hunt For A Job <span className="lp-accent">Alone.</span></h1>
-          <p className="lp-lede">A free career coach for college students: openings you can actually get, a resume that stays true, and what to do this week.</p>
+          <p className="lp-lede">A career coach for college students: openings you can actually get, a resume that stays true, and what to do this week.</p>
           <div className="lp-ctas">
             <a className="btn btn-lg lp-glow-btn" href={start} {...(beta ? { target: "_blank", rel: "noreferrer" } : {})} data-testid="button-lp-start">{startLabel}</a>
             <button className="btn btn-lg lp-ghost-btn" onClick={toTour}>See what you get</button>
           </div>
-          <p className="xs lp-fine">{beta ? "Invite-only beta · the founders read every tester's feedback · already accepted? Sign in above" : "Free beta · every major and every year, freshmen included"}</p>
+          <p className="xs lp-fine">{beta ? "Invite-only beta · the founders read every tester's feedback · already accepted? Sign in above" : "Free during beta · every major and every year, freshmen included"}</p>
         </div>
         <HeroExample />
       </section>
@@ -328,14 +328,14 @@ function Landing() {
         <div className="lp-cta-in rv">
         <Remy size={56} mood="wave" />
         <h2>Ready when you are.</h2>
-        <p>{beta ? "Remy is invite-only while it's in beta: apply to be a tester and the team lets people in a group at a time. Free, no credit card." : "Free while Remy is in beta. No credit card. About 5 minutes to set up."}</p>
+        <p>{beta ? "Remy is invite-only while it's in beta: apply to be a tester and the team lets people in a group at a time. Free during beta." : "Free during beta. About 5 minutes to set up."}</p>
         <a className="btn btn-primary btn-lg" href={start} {...(beta ? { target: "_blank", rel: "noreferrer" } : {})}>{startLabel}</a>
         </div>
       </section>
       <footer className="lp-foot">
         <div className="lp-foot-brand">
           <span className="logo"><Remy size={26} mood="idle" /> Remy <BetaBadge /></span>
-          <p className="small">A free career coach for college students, based in Fort Worth, Texas.</p>
+          <p className="small">A career coach for college students, based in Fort Worth, Texas.</p>
         </div>
         <nav aria-label="Product"><b>Product</b><a href="#get-openings">Openings</a><a href="#get-resume">Honest resume</a><a href="#get-explore">Explore careers</a><a href="#get-plan">Weekly plan</a></nav>
         <nav aria-label="Company"><b>Company</b><a href="/about">About the team</a><a href="mailto:hello@remyai.org">hello@remyai.org</a><a href="https://www.linkedin.com/company/remyai-org/" target="_blank" rel="noreferrer">LinkedIn</a><a href="/signin">Sign in</a></nav>

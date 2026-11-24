@@ -151,7 +151,7 @@ export function Policies() {
       </Section>
       <Section title="Using Remy">
         <ul className="stack-sm" style={{ paddingLeft: 18 }}>
-          <li>Remy is for college students looking for internships, jobs and career advice. It's free while we're in early testing, and invite-only: sign in with the same email you applied with.</li>
+          <li>Remy is for college students looking for internships, jobs and career advice. It's free during beta, and invite-only: sign in with the same email you applied with.</li>
           <li>Be honest. You're responsible for what you put on your resume and send to employers. Remy only suggests; you decide.</li>
           <li>Remy can be wrong. Check openings, deadlines and requirements with the employer before you apply. Remy can't promise any interview or job.</li>
           <li>Use contacts respectfully: one thoughtful email, no spam, and never share someone's information.</li>
