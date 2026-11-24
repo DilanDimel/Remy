@@ -700,7 +700,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
           value={msg}
           onChange={(e) => { setMsg(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px"; }}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(msg); } }}
-          placeholder={tailor?.stage === "reading" ? "Remy is reading the posting…" : asking ? "Answer Remy… (or type skip)" : config?.ai.available ? "Ask Remy anything… (Shift+Enter for a new line)" : "AI needs setup on this server"}
+          placeholder={tailor?.stage === "reading" ? "Remy is reading the posting…" : asking ? "Answer Remy… (or type skip)" : config?.ai.available ? (stage2 ? "Ask Remy anything…" : "Ask Remy anything… (Shift+Enter for a new line)") : "AI needs setup on this server"}
           disabled={(!config?.ai.available && !asking) || tailor?.stage === "reading"}
           aria-label="Message Remy"
           data-testid="input-chat"
