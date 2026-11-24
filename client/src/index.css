@@ -2247,6 +2247,9 @@ button.dp-unit-head { width: 100%; border: 0; font: inherit; text-align: left; c
 .pt-chest { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 14px; background: var(--amber-bg); color: var(--amber); font-size: var(--text-sm); font-weight: 700; line-height: 1.35; }
 .pt-chest svg { flex-shrink: 0; }
 .pt-chest.open { background: var(--sage-bg); color: var(--sage); }
+.pt-chest.ready { width: 100%; border: 0; cursor: pointer; text-align: left; font-family: inherit; font-weight: 800; background: var(--fox); color: var(--white); }
+.pt-chest.ready:hover { background: var(--fox-deep); }
+.pt-chest.ready svg { animation: pt-hop .7s cubic-bezier(.3, 1.6, .5, 1) infinite; }
 .pt-chest.open svg { animation: pt-hop .7s cubic-bezier(.3, 1.6, .5, 1) 2; }
 @keyframes pt-hop { 50% { transform: translateY(-5px) rotate(-8deg); } }
 .pt-xp { font-size: var(--text-xs); font-weight: 800; color: var(--fox-800); white-space: nowrap; }
@@ -2388,7 +2391,7 @@ button.ps-tag:hover { transform: translateY(calc(-50% - 1px)); }
   .ps-dots { flex-basis: 100%; }
   .ps-select { margin-left: 0; width: 100%; max-width: none; }
 }
-@media (prefers-reduced-motion: reduce) { .pt-chest.open svg, .ps-bubble, .ps-ring, .ps-cloud, .ps-sway, .ps-steam { animation: none; } .ps-fox, .ps-fox-y { transition: none !important; } .ps-bar i, .pt-qbar i { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .pt-chest.open svg, .pt-chest.ready svg, .ps-bubble, .ps-ring, .ps-cloud, .ps-sway, .ps-steam { animation: none; } .ps-fox, .ps-fox-y { transition: none !important; } .ps-bar i, .pt-qbar i { transition: none; } }
 /* Owner homepage, "Try it now" look (pages/Landing2.tsx): light by default, dark with the theme toggle. */
 .lk-try { --lk-bg: #f6f5f1; --lk-card: #ffffff; --lk-ink: #141414; --lk-ink2: #3d3c39; --lk-muted: #6b6a65; --lk-line: #e4e1da; --lk-btn: #e86a2a; --lk-btn-ink: #ffffff; --lk-accent: #e86a2a; --lk-accent-ink: #c2410c; --lk-soft: #fdecdf; --lk-ok: #15803d; --lk-ok-bg: #e3f5e8; --lk-glow: rgba(232, 106, 42, .22); --lk-grid: rgba(20, 20, 20, .05); }
 html[data-theme="dark"] .lk-try { --lk-bg: #0f0f0e; --lk-card: #1a1918; --lk-ink: #f3f2ee; --lk-ink2: #d2d0ca; --lk-muted: #a19f98; --lk-line: #2e2c2a; --lk-btn: #ff8a3d; --lk-btn-ink: #140d0a; --lk-accent: #ff8a3d; --lk-accent-ink: #ffa366; --lk-soft: #33200f; --lk-ok: #5bd68a; --lk-ok-bg: #14301f; --lk-glow: rgba(255, 138, 61, .26); --lk-grid: rgba(255, 255, 255, .045); }

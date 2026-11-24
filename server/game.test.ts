@@ -80,6 +80,11 @@ test("career quest: the server merges weeks, so a stale tab can't wipe a week or
     assert.equal((await put({ weeks: {}, pins: { tailor: 1 } })).status, 200);
     assert.deepEqual((await loadWorkspace(me.id)).game!.pins, { tailor: 2, story: 1 });
     assert.equal((await put({ weeks: {}, pins: { tailor: 9 } })).status, 400, "tiers are 0 to 3");
+    // Daily chest: an opened day keeps its first prize, so a second tab can't reroll it.
+    assert.equal((await put({ weeks: {}, chests: { "2026-11-20": "xp" } })).status, 200);
+    assert.equal((await put({ weeks: {}, chests: { "2026-11-20": "bonsai", "2026-11-21": "xp" } })).status, 200);
+    assert.deepEqual((await loadWorkspace(me.id)).game!.chests, { "2026-11-20": "xp", "2026-11-21": "xp" });
+    assert.equal((await put({ weeks: {}, chests: { "nope": "xp" } })).status, 400);
   } finally { server.close(); }
 });
 
