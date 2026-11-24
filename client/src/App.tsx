@@ -279,7 +279,8 @@ function Shell() {
         ))}
         {/* Career quest: owners only while it's tested (Dilan, Nov 19); a big release later. */}
         {CAREER_QUEST_ON && ownerView && ws && <GameSidebar w={ws} />}
-        <div className="side-news"><WhatsNew /><a className="nav-item" href="/welcome" title="Remy's homepage" data-testid="nav-homepage"><Info size={19} /><span className="nav-label">Remy homepage</span></a></div>
+        {/* Open access (Nov 24): feedback one click away on every page, not only in the account menu (phones: More). */}
+        <div className="side-news">{(ownerView || config?.beta?.open) && <button className="nav-item" onClick={() => setFeedback(true)} title="Tell the Remy team what's confusing or broken" data-testid="nav-feedback"><MessageSquare size={19} /><span className="nav-label">Send feedback</span></button>}<WhatsNew /><a className="nav-item" href="/welcome" title="Remy's homepage" data-testid="nav-homepage"><Info size={19} /><span className="nav-label">Remy homepage</span></a></div>
         <OwnerTools />
         <ProfileMenu initials={initials} active={path.startsWith("/accounts")} />
       </aside>
@@ -291,12 +292,6 @@ function Shell() {
         <div className="topbar">
           <div className="crumb">Remy › <b>{current.label}</b></div>
           <div style={{ marginLeft: "auto" }} className="row">
-            {/* Open access (Nov 24): feedback one tap away on every page, not only in the account menu. */}
-            {(ownerView || config?.beta?.open) && (
-              <button className="btn btn-ghost btn-sm" onClick={() => setFeedback(true)} data-testid="button-topbar-feedback" title="Tell the Remy team what's confusing or broken">
-                <MessageSquare size={15} /> <span className="hide-sm">Feedback</span>
-              </button>
-            )}
             {!asstOpen && !ownerView && (
               <button className="btn btn-secondary btn-sm hide-sm" onClick={() => setAsst(true)} data-testid="button-open-assistant">
                 <Remy size={18} /> Open Remy
@@ -312,8 +307,7 @@ function Shell() {
           </div>
         </div>
         {ownerView && <RemyOffer />}
-        {(ownerView || config?.beta?.open) && current.path === "/" && <Insider />}
-        <div className="page fade-up" key={current.path}><ErrorBoundary where={`page:${current.path}`} resetKey={current.path}>{page}</ErrorBoundary></div>
+        <div className="page fade-up" key={current.path}><ErrorBoundary where={`page:${current.path}`} resetKey={current.path}>{(ownerView || config?.beta?.open) && current.path === "/" && <Insider />}{page}</ErrorBoundary></div>
       </main>
 
       {asstOpen && <aside className="assistant" aria-label="Remy assistant" data-testid="assistant-panel"><ErrorBoundary where="assistant" compact><Assistant page={current.label} onMinimize={() => setAsst(false)} flyIn={flyIn} /></ErrorBoundary></aside>}
