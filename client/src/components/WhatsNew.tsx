@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowRight, BarChart3, BellRing, Briefcase, CalendarDays, ChevronLeft, ChevronRight, Compass, FileText, Home, Info, LayoutDashboard, type LucideIcon, Mail, Megaphone, MessagesSquare, Mic, Sparkles, UserCog, Users, X } from "lucide-react";
-import { newsLink, type NewsItem } from "@shared/news";
+import { newsLink, showsNews, type NewsItem } from "@shared/news";
 import { NEWS, latestNewsId, unseenNews } from "../lib/news";
 import { go } from "../lib/router";
-import { useOwnerView, useStore } from "../lib/store";
+import { useOwnerView, useOwnersOnly, useStore } from "../lib/store";
 import { Modal, Remy } from "./common";
 
 const KIND: Record<string, string> = { New: "chip-live", Improved: "chip-student", Fixed: "chip-plain", Changed: "chip-demo" };
@@ -15,14 +15,15 @@ export function WhatsNew({ className = "nav-item", label = true }: { className?:
   const { ws, save } = useStore();
   const [open, setOpen] = useState(false);
   const [seenAtOpen, setSeenAtOpen] = useState<string | undefined>();
-  const owner = useOwnerView();
-  const unseen = unseenNews(ws?.settings.newsSeen, owner).length;
+  const redesign = useOwnerView(); // the new What's new panel: owners, and everyone once the redesign is released
+  const owner = useOwnersOnly(); // owner-only notes stay with owners after the release
+  const unseen = unseenNews(ws?.settings.newsSeen, owner, redesign).length;
   const show = () => {
     setSeenAtOpen(ws?.settings.newsSeen ?? "");
     setOpen(true);
     if (unseen && ws) save("settings", { newsSeen: latestNewsId() });
   };
-  const items = NEWS.filter((n) => owner || !n.owners).sort((a, b) => (a.id < b.id ? 1 : -1));
+  const items = NEWS.filter((n) => showsNews(n, owner, redesign)).sort((a, b) => (a.id < b.id ? 1 : -1));
   const days = [...new Set(items.map((n) => n.date))];
   return (
     <>
@@ -31,8 +32,8 @@ export function WhatsNew({ className = "nav-item", label = true }: { className?:
         {label && <span className="nav-label">What's new</span>}
         {unseen > 0 && <span className="count" aria-label={`${unseen} new`}>{unseen}</span>}
       </button>
-      {open && owner && <NewsPanel items={items} seen={seenAtOpen} onClose={() => setOpen(false)} />}
-      {open && !owner && (
+      {open && redesign && <NewsPanel items={items} seen={seenAtOpen} onClose={() => setOpen(false)} />}
+      {open && !redesign && (
         <Modal title="What's new in Remy" onClose={() => setOpen(false)}>
           <div className="stack" data-testid="whats-new-list">
             {days.map((d) => (

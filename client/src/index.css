@@ -2746,7 +2746,9 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 .rm-body { position: relative; }
 .rm-tail { white-space: nowrap; }
 .rm-coach { position: absolute; z-index: 20; display: grid; gap: 10px; padding: 12px 14px; border-radius: 14px; background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: var(--shadow); font-family: var(--font-body); font-size: 14px; line-height: 1.4; }
-.rm-paper li.rm-coach-line { outline: 2px solid var(--fox); outline-offset: 2px; border-radius: 2px; }
+.rm-coach-mark { position: absolute; z-index: 5; pointer-events: none; border-radius: 10px; background: color-mix(in srgb, var(--fox) 8%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--fox) 55%, transparent), 0 2px 10px color-mix(in srgb, var(--fox) 14%, transparent); transition: top .28s cubic-bezier(.2,.7,.2,1), left .28s cubic-bezier(.2,.7,.2,1), width .28s cubic-bezier(.2,.7,.2,1), height .28s cubic-bezier(.2,.7,.2,1); animation: rm-mark-in .25s ease-out; }
+@keyframes rm-mark-in { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .rm-coach-mark { transition: none; animation: none; } }
 .rm-walk-start { margin-left: auto; }
 
 /* Owners: Remy's one offer on the page you're on (components/RemyOffer.tsx). */
@@ -3175,3 +3177,11 @@ button.rw-item:not(:disabled) { cursor: pointer; }
 @keyframes ch-spin { to { transform: rotate(360deg); } }
 @keyframes ch-prize { from { opacity: 0; transform: translateY(16px) scale(.6); } }
 @media (prefers-reduced-motion: reduce) { .ch-moment, .ch-chest, .ch-prize, .ch-rays { animation: none; } .ch-rays { opacity: 1; } .ch-lid { animation: none; transform: translate(-4px, -10px) rotate(-32deg); } }
+
+/* Beta 2 welcome (components/Beta2Welcome.tsx) */
+.b2-welcome { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.b2-lead { margin: 0; color: var(--muted-text); }
+.b2-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.b2-list li { display: grid; gap: 2px; padding-left: 14px; border-left: 3px solid var(--fox-soft); }
+.b2-list span { font-size: var(--text-sm); color: var(--muted-text); line-height: 1.45; }
+.b2-actions { gap: 8px; flex-wrap: wrap; }
