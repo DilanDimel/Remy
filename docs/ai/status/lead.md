@@ -4,7 +4,7 @@ Updated: 2026-11-24 07:20 UTC
 Area: the website (`client/`, `server/`, `shared/`, `docs/`), releases, `docs/ai/CONTEXT.md`
 
 ## Working on now
-- Account v2 for owners (Dilan approved the mockups Nov 24): all five tabs in `client/src/pages/Accounts.tsx` (`Owner*` components, `ac-*` in `index.css`), students keep the old tabs. Mockups: /mnt/project-files/account-settings-v2/.
+- Account v2 for everyone (Dilan approved the mockups Nov 24; gated by useOwnerView, which includes students now that The Big Upgrade is released): all five tabs in `client/src/pages/Accounts.tsx` (`Owner*` components, `ac-*` in `index.css`), students keep the old tabs. Mockups: /mnt/project-files/account-settings-v2/.
 - Rewards rides with The Big Upgrade (`follows: "redesign"` in `shared/features.ts`, no separate Rewards row; Dilan, Nov 24). One flip on Admin → Beta → Feature releases releases both.
 - Streak dots lit-days-first (`shared/daily.ts` `weekDots(..., streakFirst)`, web only; native keeps the default) and the straight setup resume preview.
 - Owner-side bug fixes before "The Big Upgrade" release to students. Full-site pre-release test (Nov 24): new students no longer get the Big Upgrade card on top of the tour (`Onboarding.tsx` finish sets `beta2Seen`, `Beta2Welcome.tsx` waits for the tour, #348). Follow-up: Home to-dos one line when closed, setup field groups full width when open, Team & hours fits one screen, sign-in says "Free during beta".
