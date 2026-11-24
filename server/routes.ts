@@ -35,6 +35,7 @@ import { hospitalFirst } from "@shared/employer";
 import { inOwnerTrial, inOwnerView, runAiAs, aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, lastUsage, markAiAuthFailure, model } from "./ai/ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./ai/safety";
 import * as admin from "./platform/admin";
+import * as contrib from "./platform/contrib";
 import * as beta from "./platform/beta";
 import * as features from "./platform/features";
 import { redesignOut } from "@shared/features";
@@ -659,6 +660,8 @@ export async function registerRoutes(_server: Server, app: Express) {
       sendTexts(daysBefore(centralToday(), 14), centralToday()).catch((e) => console.error("urgent texts failed", e?.message)),
       cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)),
       cleanupLimits().catch((e) => console.error("rate limit cleanup failed", e?.message)),
+      // Hours and AI cost from merged PRs (docs/ai/), onto the owners' Team & hours tab.
+      admin.people().then((m) => contrib.importMergedPrs(m, admin.logAction)).catch((e) => console.error("PR hours import failed", e?.message)),
       // One after the other: both write a student's openings, so they must not run at the same time.
       backgroundOpenings().catch((e) => console.error("background openings failed", e?.message))
         .then(() => backgroundRechecks()).catch((e) => console.error("background rechecks failed", e?.message))

@@ -7,7 +7,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { createSession, emptyWorkspace, ensureUser, saveWorkspace } from "./db";
 import { registerRoutes } from "../routes";
-import { accessOf, featureAt, redesignOut, releasesOf } from "../../shared/features";
+import { accessOf, appOut, featureAt, redesignOut, releasesOf } from "../../shared/features";
 
 process.env.OWNER_EMAILS = "boss@release.test";
 
@@ -26,6 +26,10 @@ test("releases: defaults, a bad saved value, and what owners and students see", 
   assert.equal(redesignOut(r), false);
   assert.equal(redesignOut(releasesOf({ redesign: "released" })), true);
   assert.equal(releasesOf({ redesign: "released" }).rewards, "owners"); // releasing the redesign leaves Rewards with owners
+  // The phone app has its own switch: owners-only by default, and releasing the redesign doesn't release it.
+  assert.equal(appOut(r), false);
+  assert.equal(appOut(releasesOf({ redesign: "released" })), false);
+  assert.equal(appOut(releasesOf({ app: "released" })), true);
 });
 
 test("releases: owners flip a feature, students can't, and locked interviews are refused", async (t) => {
@@ -50,7 +54,7 @@ test("releases: owners flip a feature, students can't, and locked interviews are
   const boss = await account("sb:rel-boss", "boss@release.test");
   const kid = await account("sb:rel-kid", "kid@release.test");
 
-  assert.deepEqual((await call("", "GET", "/api/config")).data.features, { redesign: "owners", interview: "locked", community: "locked", rewards: "owners" });
+  assert.deepEqual((await call("", "GET", "/api/config")).data.features, { redesign: "owners", interview: "locked", community: "locked", app: "owners", rewards: "owners" });
   assert.equal((await call(kid, "POST", "/api/admin/features", { key: "interview", state: "released" })).status, 403);
   assert.equal((await call(boss, "POST", "/api/admin/features", { key: "nope", state: "released" })).status, 400);
   assert.equal((await call(boss, "POST", "/api/admin/features", { key: "interview", state: "yes" })).status, 400);

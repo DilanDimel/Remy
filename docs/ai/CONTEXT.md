@@ -47,7 +47,7 @@ The exact paths each person owns are in [`owners.json`](owners.json). `npm run c
 The dated reasons behind these are in [`DECISIONS.md`](DECISIONS.md).
 
 
-- **Owners only first.** Every new or redesigned feature is visible only to owners until Dilan releases it. Releases are switched on Admin → Beta → Feature releases (`shared/features.ts`), not by deploying. The phone app is owners-only too.
+- **Owners only first.** Every new or redesigned feature is visible only to owners until Dilan releases it. Releases are switched on Admin → Beta → Feature releases (`shared/features.ts`), not by deploying. The phone app is owners-only too, until Dilan flips its own `app` switch there.
 - **No invented claims.** Remy never makes up facts about a student. AI rewrites are checked (`server/ai/claims.ts`) and shown as original vs. proposed, for the student to accept, edit or skip.
 - **Nothing is sent for the student.** Emails and outreach open in the student's own mail app. Status changes from email wait for the student to confirm.
 - **Pricing wording:** say only "Free during beta". Never "free", "always free" or "100% free" on its own.

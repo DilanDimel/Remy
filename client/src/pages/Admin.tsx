@@ -29,10 +29,12 @@ type TeamTask = { id: string; title: string; assignee: string; due: string; note
 type Answer = "yes" | "maybe" | "no";
 type TeamEvent = { id: string; title: string; date: string; time: string; who: string; notes: string; created_by: string; assignees: string; rsvps: Record<string, Answer> };
 type Member = { email: string; name: string; founder: boolean; addedBy: string; addedAt: string | null };
-type Entry = { id: string; member: string; start_at: string; end_at: string | null; note: string };
+type Entry = { id: string; member: string; start_at: string; end_at: string | null; note: string; source?: "clock" | "pr"; ref?: string; ai_cost?: number };
+/** docs/ai/ status files and requests between AIs (server/platform/contrib.ts). */
+type AiTeam = { people: { name: string; updated: string; workingOn: string[]; claims: { paths: string[]; branch: string; until: string }[] }[]; requests: { id: string; from: string; to: string; date: string; text: string; state: string; pr: string; overdue: boolean; noProof: boolean }[] };
 type Team = {
   me: string; members: Member[]; tasks: TeamTask[]; events: TeamEvent[]; hours: { member: string; hours: number; week: number }[]; weeks: { member: string; week: string; hours: number }[];
-  entries: Entry[]; activity: { id: number; at: string; actor: string; action: string; detail: string }[]; clockedIn: string | null;
+  entries: Entry[]; ai?: AiTeam; activity: { id: number; at: string; actor: string; action: string; detail: string }[]; clockedIn: string | null;
   calendar: { available: boolean; connectedBy: string; connectedAt: string | null };
 };
 const ANSWERS: [Answer, string][] = [["yes", "Going"], ["maybe", "Maybe"], ["no", "Can't go"]];
@@ -212,7 +214,10 @@ function Releases() {
   const r = releasesOf(config?.features);
   const set = async (key: string, state: Release) => {
     const f = FEATURES.find((x) => x.key === key)!;
-    if (state === "released" && !confirm(f.path ? `Release ${f.label} to every student? They get the full working page right away.` : `Release ${f.label} to every student? Everyone gets the new design and features right away. Owners-only features below stay with owners.`)) return;
+    const ask = f.path ? `Release ${f.label} to every student? They get the full working page right away.`
+      : f.key === "app" ? `Release the phone app to every student? Students who sign in to the app get in right away instead of seeing "The new app is almost here".`
+      : `Release ${f.label} to every student? Everyone gets the new design and features right away. Owners-only features below stay with owners.`;
+    if (state === "released" && !confirm(ask)) return;
     if (await run(() => api("POST", "/api/admin/features", { key, state }), `${f.label}: ${RELEASE_NAME[state]}`)) await refresh();
   };
   return (
@@ -221,7 +226,7 @@ function Releases() {
       <span className="small muted">New features are built for owners first. Lock one to show students it's coming, or release it to everyone. Changes reach students within a minute, with no deploy. Switch to student view to preview.</span>
       {FEATURES.map((f) => (
         <div key={f.key} className="feat-row">
-          <div><b>{f.label}</b> <span className="small muted">{f.path || "every page"}</span></div>
+          <div><b>{f.label}</b> <span className="small muted">{f.path || (f.key === "app" ? "iPhone and Android" : "every page")}</span></div>
           <select className="select" style={{ width: 260, maxWidth: "100%" }} value={r[f.key]} onChange={(e) => set(f.key, e.target.value as Release)} aria-label={`${f.label} release`} data-testid={`select-release-${f.key}`}>
             {RELEASES.filter((st) => f.path || st !== "locked").map((st) => <option key={st} value={st}>{RELEASE_NAME[st]}</option>)}
           </select>
@@ -830,6 +835,16 @@ function TeamTab({ tab }: { tab: "board" | "team" }) {
   if (!d) return <div className="row"><Spinner /> Loading…</div>;
   const who = (email: string) => d.members.find((m) => m.email === email);
   const nameOf = (email: string) => who(email)?.name || email.split("@")[0];
+  // The person's AI status file (docs/ai/status/), matched by first name: what it's on, and requests it hasn't finished.
+  const aiLine = (m: Member) => {
+    const first = (m.name || "").trim().toLowerCase().split(/\s+/)[0];
+    const p = d.ai?.people.find((x) => x.name.toLowerCase() === first);
+    if (!p) return "";
+    const mine = (d.ai?.requests || []).filter((r) => r.to.toLowerCase() === first);
+    const open = mine.filter((r) => r.state !== "done" && r.state !== "declined").length, late = mine.filter((r) => r.overdue).length, done = mine.filter((r) => r.state === "done").length;
+    const asks = mine.length ? ` · requests: ${open} open${late ? `, ${late} overdue` : ""}, ${done} done` : "";
+    return `Working on: ${(p.workingOn[0] || "nothing listed").replace(/`/g, "")}${asks}`;
+  };
   // Activity details are stored with emails and ISO dates; show names and readable dates.
   const pretty = (t: string) => t.replace(/[^\s()]+@[^\s()]+\.[a-z]+/gi, (e) => nameOf(e.toLowerCase())).replace(/\b\d{4}-\d{2}-\d{2}\b/g, (x) => day(x));
   // Show the change right away; the server's answer (or a reload on failure) settles it.
@@ -1065,7 +1080,7 @@ function TeamTab({ tab }: { tab: "board" | "team" }) {
               return (
                 <div key={m.email} className="adm2-person" data-testid={`hours-${m.email.split("@")[0]}`}>
                   <Avatar m={m} size={32} />
-                  <span className="adm2-pn"><b>{m.name}{m.email === d.me && <span className="xs muted"> (you)</span>}{now && <span className="chip chip-live">Working now</span>}</b><small>{last ? `${last.action.toLowerCase()}, ${ago(last.at)}` : "no activity yet"}</small></span>
+                  <span className="adm2-pn"><b>{m.name}{m.email === d.me && <span className="xs muted"> (you)</span>}{now && <span className="chip chip-live">Working now</span>}</b><small>{last ? `${last.action.toLowerCase()}, ${ago(last.at)}` : "no activity yet"}</small>{aiLine(m) && <small className="adm-ellipsis" title={aiLine(m)} data-testid={`ai-status-${m.email.split("@")[0]}`}>{aiLine(m)}</small>}</span>
                   <b className="adm2-num">{h?.week || 0} h</b>
                   <span className="adm2-num muted">{h?.hours || 0} h</span>
                   <span className="adm2-mini" role="img" aria-label={`${m.name}: hours per week for the last 8 weeks`}>
@@ -1120,7 +1135,7 @@ function TeamTab({ tab }: { tab: "board" | "team" }) {
                 <Avatar m={who(e.member)} size={26} />
                 <div className="grow stack-sm" style={{ gap: 2 }}>
                   <span className="small"><b>{nameOf(e.member)}</b>: {when(e.start_at)} to {e.end_at ? when(e.end_at) : <span className="pass">still working</span>}{e.end_at && <span className="muted"> · {((+new Date(e.end_at) - +new Date(e.start_at)) / 3600_000).toFixed(1)} h</span>}</span>
-                  {e.note && <span className="xs muted">{e.note}</span>}
+                  {e.note && <span className="xs muted">{e.source === "pr" ? <a href={`https://github.com/DilanDimel/Remy/pull/${e.ref?.replace("pr:", "")}`} target="_blank" rel="noreferrer">{e.note}</a> : e.note}{e.source === "pr" && <> (from PR{e.ai_cost ? `, $${e.ai_cost.toFixed(2)} AI` : ""})</>}</span>}
                 </div>
                 {e.member === d.me && e.end_at && <button className="icon-btn" onClick={() => send("DELETE", `/api/admin/hours/${e.id}`, undefined, "Entry removed")} aria-label="Remove this entry" data-testid={`button-remove-entry-${e.id}`}><Trash2 size={14} /></button>}
               </div>
