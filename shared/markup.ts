@@ -53,11 +53,21 @@ export function explain(kind: string, text: string): { title: string; body: stri
   }
 }
 
-export function issues(text: string): string[] {
+// Lines that usually have a count behind them: people, events, money, how often.
+const COUNTABLE = /\b(manag|organi[sz]|lead|led|coordinat|plann?|host|train|tutor|mentor|recruit|raise|raised|oversee|oversaw|run|ran|process|schedul|teach|taught|sold|sell|grew|grow|built|build|creat|launch|answer|greet|direct)\w*/i;
+const sq = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** A line's flags. With `doc` (Dilan, Nov 24: "are you sure those need to be fixed?"), "No number" is judged per role,
+ *  not per line: career advice is to show numbers where they fit, not on every line. It goes only on the one line of a
+ *  role most likely to have a count behind it, and only when no line of that role has a number yet. */
+export function issues(text: string, doc?: ResumeDoc): string[] {
   const t = text.trim().replace(/^[•\-–*]\s*/, "");
   const out: string[] = [];
   if (!isAction(t) || WEAK.test(t)) out.push("Starts weak");
-  if (!QUANT.test(t)) out.push("No number");
+  const entry = doc?.sections.flatMap((s) => s.entries).find((e) => e.bullets.some((b) => sq(b.text) === sq(t)));
+  const lines = entry?.bullets.map((b) => b.text.trim()).filter(Boolean) ?? [];
+  const pick = lines.find((b) => COUNTABLE.test(b)) ?? lines[0];
+  if (!QUANT.test(t) && (!entry || (!lines.some((b) => QUANT.test(b)) && sq(pick) === sq(t)))) out.push("No number");
   const n = words(t);
   if (n < 8) out.push("Too short"); else if (n > 32) out.push("Too long");
   return out;

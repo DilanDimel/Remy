@@ -30,20 +30,20 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
   const raw = squash(r.rawText || "");
   const edited = (!!r.editedAt && r.editedAt > r.uploadedAt) || (!!raw && r.doc.sections.some((s) => s.entries.some((e) => e.bullets.some((b) => b.text.trim() && !raw.includes(squash(b.text))))));
   const isWord = !!r.original?.mime.includes("wordprocessingml"), isPdf = r.original?.mime === "application/pdf";
-  // A failed draw is kept per saved version, so the next save tries the student's own file again.
-  const version = (r.editedAt || r.uploadedAt) + JSON.stringify(r.doc).length;
+  // A failed draw is kept per version on the page (unsaved changes included), so the next change tries their own file again.
+  const version = (r.editedAt || r.uploadedAt) + JSON.stringify(doc);
   const [fail, setFail] = useState<{ v: string; why: string } | null>(null);
   const realFail = fail?.v === version ? fail.why : null;
   const setRealFail = (why: string) => setFail({ v: version, why });
-  const real = (on: Set<Cat>) => realFail || dirty ? null
-    : isWord ? <OwnWordColoured doc={r.doc} version={version} on={on} onFail={setRealFail} />
-    : isPdf && !edited ? <OwnPdfColoured doc={r.doc} on={on} onFail={setRealFail} />
+  // Unsaved changes (Remy's fixes, by-hand edits) are drawn in their own file too, so the page never changes look.
+  const real = (on: Set<Cat>) => realFail ? null
+    : isWord ? <OwnWordColoured doc={doc} version={version} on={on} onFail={setRealFail} />
+    : isPdf ? <OwnPdfColoured doc={doc} changed={edited || dirty} on={on} onFail={setRealFail} />
     : null;
   // Said plainly whenever the page is Remy's drawing instead of their own file.
-  const drawnWhy = !r.original ? "" : dirty ? "Showing your unsaved changes drawn by Remy; save to see them in your own file."
-    : realFail === "missed" ? "Some of your changes don't fit into your Word file automatically, so this is Remy's drawing of your resume in your font. Your original file is under Original file."
+  const drawnWhy = !r.original ? ""
+    : realFail === "missed" ? "A change here (like a new line or a new heading) can't go into your own file yet, so this is Remy's drawing of your resume in your font. Your original is under Original file."
     : realFail ? "Your file couldn't be drawn here, so this is Remy's drawing of it in your font."
-    : isPdf && edited ? "A PDF can't be edited in place, so after changes this is Remy's drawing in your font. Upload your resume as a Word file to keep your exact design."
     : "";
   const showOriginal = !edited && !!r.original;
   // Saves what's on screen, unsaved fixes included, so the save bar never lingers (skeptic review).
@@ -94,7 +94,7 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
             } /></>
           ) : (
             <>
-              <span className="xs muted">{showOriginal ? "Your original file, exactly as you uploaded it." : "Your current file, rebuilt in your font and length after your changes."}</span>
+              <span className="xs muted">{showOriginal ? "Your original file, exactly as you uploaded it." : "Your current file with your changes, in your own layout when every change fits in it."}</span>
               {showOriginal ? (r.original!.mime === "application/pdf" ? <PdfPreview name={r.original!.name} /> : <WordPreview version={r.uploadedAt} />) : <CurrentPdf version={r.editedAt || r.uploadedAt} doc={r.doc} look={r.style} />}
             </>
           )}
