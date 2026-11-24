@@ -74,7 +74,10 @@ function NewsPanel({ items, seen, onClose }: { items: NewsItem[]; seen?: string;
   const [detail, setDetail] = useState(false); // phones: the list first, a tap opens the note
   const i = Math.max(0, items.findIndex((n) => n.id === sel));
   const n = items[i];
-  const fresh = (x: NewsItem) => !!seen && x.id > seen;
+  const [viewed, setViewed] = useState<Set<string | undefined>>(() => new Set());
+  // a note's dot goes once you've opened it (phones open the list first, so only a tapped note counts there)
+  useEffect(() => { if (detail || !matchMedia("(max-width: 690px)").matches) setViewed((v) => new Set(v).add(sel)); }, [sel, detail]);
+  const fresh = (x: NewsItem) => !!seen && x.id > seen && !viewed.has(x.id);
   const newCount = items.filter(fresh).length;
   const days = [...new Set(items.map((x) => x.date))];
   const pick = (id: string) => { setSel(id); setDetail(true); };
