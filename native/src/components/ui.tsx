@@ -16,7 +16,7 @@ export const success = () => { if (Platform.OS !== "web") Haptics.notificationAs
 export function Screen({ children, refreshing, onRefresh, scroll = true, style }: { children: ReactNode; refreshing?: boolean; onRefresh?: () => void; scroll?: boolean; style?: StyleProp<ViewStyle> }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
-  const pad = { paddingTop: insets.top + 8, paddingHorizontal: 16, paddingBottom: insets.bottom + 110 };
+  const pad = { paddingTop: insets.top + 8, paddingHorizontal: 16, paddingBottom: insets.bottom + 180 }; // room for the tab bar and the floating fox, so the last row scrolls clear of both
   if (!scroll) return <View style={[{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top + 8 }, style]}>{children}</View>;
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>

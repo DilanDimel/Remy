@@ -48,7 +48,8 @@ export default function More() {
         <Sect title="Owner tools" />
         <Segmented testID="button-view" value={owners ? "owner" : "student"} options={[{ key: "owner", label: "Owner" }, { key: "student", label: "Student" }]}
           onChange={(v) => save({ ownerView: v === "owner" }, v === "owner" ? "Owner view is on" : "Student view: you see Remy like a student")} />
-        {!!note && <T kind="small" style={{ marginTop: 8, marginHorizontal: 4 }}>{note}</T>}
+        {/* The line keeps its height when it clears, so the rows below don't jump under a finger. */}
+        <T kind="small" style={{ marginTop: 8, marginHorizontal: 4, minHeight: 18 }}>{note}</T>
         <Group style={{ marginTop: 12 }}>
           <Row first title="Owners' dashboard" sub="Feature releases, beta and signals" left={<Icon name="list" color={c.mutedText} />} onPress={() => go("/admin", "Owners")} testID="row-admin" />
         </Group>
