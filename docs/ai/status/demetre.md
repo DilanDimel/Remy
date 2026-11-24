@@ -1,6 +1,6 @@
 # Demetre's AI
 
-Updated: 2026-11-25 00:15 UTC
+Updated: 2026-11-25 00:05 UTC
 Area: `native/` (the Expo phone app)
 
 ## Working on now
@@ -14,6 +14,7 @@ Area: `native/` (the Expo phone app)
 - Office guide in the app (owners; the website's #408 and quick questions #370): `native/src/components/OfficeGuide.tsx` (`useOfficeGuide`, `GuideBanner`, native `AskCard`) reads `officeSteps` and `remyAsks` from `shared/`, POSTs `/api/remy/act` and `/api/remy/ask`; numbers and glow on the room in `Office.tsx`, filing cabinet in `officeRoom.ts`; follows the `guide` switch in owner view. The banner sits under the room on phones; the season is one slim row while it's on.
 
 - Store build, Nov 24 (Deme OK'd): Scholar fox icon (dilan-3), resume upload from the phone (`expo-document-picker`, `pickResume` in `native/src/lib/pick.ts`, setup and Resume) and a screenshot in Send feedback (`expo-image-picker`). Older builds getting this code by update don't have the pickers, so the screens check `canPickFiles()`/`canPickImages()` and keep the website fallback. Android blocks RECORD_AUDIO and CAMERA until voice ships.
+- Beta Insider in the app (handoff P2.6, owners): `native/src/components/Insider.tsx` on Home, the website's offer after 3 days, the join questions and the two-weekly survey (`POST /api/insider`, `/api/insider/survey`); "Not now" hides it for a week on that phone.
 
 ## Claims
 - `server/migrations/020_student_jobs.sql`, `server/platform/studentJobs.ts`, `server/platform/studentJobs.test.ts` · branch claude/project-thread-87dr74-jobs · until 2026-11-27
@@ -34,7 +35,8 @@ Area: `native/` (the Expo phone app)
 - `native/`, plus (database work, outside my area) the files claimed above, `r2Store` added at the end of `server/platform/r2.ts` (the lead's R2 helper; existing functions unchanged, `call` takes an optional timeout), one `app.use(compress)` line in `server/index.ts`, `compression` in `package.json`, the `student_jobs` hooks in `server/platform/db.ts` (`loadWorkspace`, `saveSections`, `saveWorkspace`, `editWorkspace`, `deleteWorkspace`, new `copyJobsBatch`), the `SavedOpeningsMove` card in `client/src/pages/Admin.tsx` (System tab), two lines in `server/routes.ts` (the sweep and `/api/admin/storage`), a `restore-backup` script in `package.json`, and `docs/database-plan.md`.
 
 ## Open PRs
-- #414 Store build: Scholar fox icon, resume upload, feedback screenshots (owners).
+- #PRNUM Beta Insider offer and survey in the app (owners).
+- #414 Store build: Scholar fox icon, resume upload, feedback screenshots: merged Nov 24; the build itself waits for Deme's written OK on the Mac.
 - #413 Office guide and Remy's quick questions on the app's My Path: merged Nov 24, on preview.
 - #412 App setup's work authorization (dilan-5): merged Nov 24.
 - Backup cleanup after missed nights (dilan-4, this branch).

@@ -8,6 +8,7 @@ import { firstName } from "@shared/names";
 import { daysFrom, nextAction } from "@shared/nextAction";
 import { gettingStarted } from "@shared/progress";
 import { offerFor, remyOffers } from "@shared/remyOffers";
+import { InsiderCard } from "@/components/Insider";
 import { Button, Group, Icon, Logo, Remy, Row, Screen, Sect, T, success, tap } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useJobs } from "@/lib/jobs";
@@ -172,6 +173,7 @@ export default function Home() {
         </Pressable>
       )}
       {!!err && <T kind="small" style={{ color: c.error, marginTop: 10 }}>{err}</T>}
+      <InsiderCard />
 
       <Sect title="Coming up" right={<Pressable testID="button-all-todos" hitSlop={8} onPress={() => { tap(); go("/progress?tab=todos", "Progress"); }}><Text style={{ fontFamily: font.bold, fontSize: 14, color: c.foxDeep }}>All to-dos</Text></Pressable>} />
       <Group>
