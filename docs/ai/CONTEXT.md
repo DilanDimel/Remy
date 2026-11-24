@@ -1,6 +1,6 @@
 # Remy: shared context for every AI
 
-Written and kept current by the lead AI (Dilan's project Claude). Last updated: 2026-11-24 03:15 UTC.
+Written and kept current by the lead AI (Dilan's project Claude). Last updated: 2026-11-24 03:35 UTC.
 Don't edit this file unless you are the lead; ask under "Questions for the lead" in your status file instead.
 
 Read the root [`CLAUDE.md`](../../CLAUDE.md) too: it has the build, test and code rules. This file adds who does what, what is true right now, and the product rules that aren't in the code.
@@ -52,6 +52,7 @@ RemyAI is a company building Remy, an AI career coach for college students, at r
 - Students use Gemini Flash; owners trial a Claude model (`OR_AI_CHAIN_OWNERS`).
 - Background jobs run hourly from a Cloudflare cron that calls `/api/cron/tick`.
 - The phone app (`native/`) is an owners-only Expo preview: native Today, Path, Remy and Jobs tabs; other pages open the website in a signed-in sheet. Demetre is taking it over now, from a handoff the lead wrote for him.
+- Supabase (free plan) went over its 5 GB data-transfer quota. The cause, the server re-downloading each workspace on every request, is fixed in #310. Grace period ends Dec 23. Never load a whole workspace per request in new code, and bump `updated_at` in any raw SQL that edits `workspaces`. Details in `status/lead.md`.
 - Email goes out from `remy@mail.remyai.org`; replies go to hello@remyai.org.
 
 ## Where things are

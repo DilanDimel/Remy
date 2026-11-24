@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { FEATURES, RELEASES, releasesOf, type Release } from "@shared/features";
-import { Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, Briefcase, CalendarDays, Check, Clock, Database, KanbanSquare, Server, Plus, RotateCcw, Trash2, UserCheck, Users } from "lucide-react";
+import { Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, Briefcase, CalendarDays, Check, Clock, KanbanSquare, Server, Plus, RotateCcw, Trash2, UserCheck, Users } from "lucide-react";
 import { api, fmtDate, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
 import { BetaBadge, CopyButton, Empty, Modal, Remy, Rich, Spinner } from "../components/common";
@@ -37,10 +37,10 @@ type Team = {
 };
 const ANSWERS: [Answer, string][] = [["yes", "Going"], ["maybe", "Maybe"], ["no", "Can't go"]];
 
-const TABS = [["overview", "Overview", BarChart3], ["beta", "Beta", UserCheck], ["services", "Services", Server], ["database", "Database", Database], ["openings", "Openings", Briefcase], ["errors", "Errors & feedback", AlertTriangle], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity]] as const;
+const TABS = [["overview", "Overview", BarChart3], ["beta", "Beta", UserCheck], ["system", "System", Server], ["openings", "Openings", Briefcase], ["errors", "Errors & feedback", AlertTriangle], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity]] as const;
 type Tab = (typeof TABS)[number][0];
 // The menu in three groups: students first, then data, then the team's own work (Hours first: the one the team checks).
-const NAV_GROUPS: [string, Tab[]][] = [["Students", ["overview", "beta"]], ["Data", ["services", "database", "openings", "errors"]], ["Team", ["hours", "people", "board", "calendar", "activity"]]];
+const NAV_GROUPS: [string, Tab[]][] = [["Students", ["overview", "beta"]], ["Data", ["system", "openings", "errors"]], ["Team", ["hours", "people", "board", "calendar", "activity"]]];
 const HISTORY_AFTER = 3 * 86400_000;
 const COLS: [Status, string][] = [["todo", "To do"], ["doing", "In progress"], ["done", "Done"]];
 const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -62,7 +62,9 @@ const GCAL_RESULT: Record<string, [string, boolean]> = {
 export default function Admin() {
   const { me, toast } = useStore();
   const { query } = useRoute();
-  const tab = (query.get("tab") as Tab) || "overview";
+  // Old links (Services and Database are now System) still open the right tab.
+  const raw = query.get("tab") || "overview";
+  const tab = ((({ services: "system", database: "system" }) as Record<string, Tab>)[raw] || raw) as Tab;
   // Back from Google's consent screen (team calendar): say how it went, then tidy the address bar.
   useEffect(() => {
     const r = GCAL_RESULT[query.get("gcal") || ""];
@@ -95,9 +97,8 @@ export default function Admin() {
       <main className="adm-main">
         {tab === "overview" && <OverviewTab />}
         {tab === "errors" && <ErrorsTab />}
-        {tab === "beta" && <><FunnelCard /><BetaTab /></>}
-        {tab === "services" && <ServicesTab />}
-        {tab === "database" && <DatabaseTab />}
+        {tab === "beta" && <><FunnelCard /><BetaTab /><UsedCard /></>}
+        {tab === "system" && <SystemTab />}
         {tab === "openings" && <OpeningsTab />}
         {(tab === "board" || tab === "people" || tab === "calendar" || tab === "hours" || tab === "activity") && <TeamTab tab={tab} />}
       </main>
@@ -338,31 +339,6 @@ function FunnelCard() {
 type Outcomes = { applied: number; answered: number; interviews: number; offers: number; applied_tailored: number; answered_tailored: number; students_applying: number; students_rating: number; ratings: number; students: number };
 /** What Remy is for: applications that got answers, interviews and offers, across real students (team left out). */
 type Storage = { usedMb: number; limitMb: number; percent: number; tables: { name: string; mb: number; rows: number }[]; workspaces: { n: number; avg_kb: number; max_kb: number; p90_kb: number }; transfer: { monthMb: number; limitGb: number; days: { day: string; mb: number }[] } };
-/** How full the database is against the plan's limit, and what takes the space (Demetre's space watch). */
-function DatabaseTab() {
-  const [d, reload] = useLoad<Storage>("/api/admin/storage");
-  if (!d) return <Spinner />;
-  return (
-    <div className="stack">
-      <Head title="Database" sub={`Supabase Postgres. Limit set to ${d.limitMb} MB (the free plan); past 80% a warning appears on Errors.`} action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
-      <div className="adm-kpis">
-        <Kpi n={`${d.percent}%`} label="Space used" note={`${d.usedMb} of ${d.limitMb} MB`} />
-        <Kpi n={`${d.workspaces.avg_kb} KB`} label="Average student account" note={`90% under ${d.workspaces.p90_kb} KB · largest ${d.workspaces.max_kb} KB`} />
-        <Kpi n={d.workspaces.n} label="Accounts stored" />
-        <Kpi n={`${(d.transfer.monthMb / 1024).toFixed(2)} GB`} label="Data transfer this month (estimate)" note={`of ${d.transfer.limitGb} GB on the free plan · ${Math.round((100 * d.transfer.monthMb) / 1024 / d.transfer.limitGb)}%`} />
-      </div>
-      <section className="adm-card stack-sm">
-        <span className="small">Every page a student opens reads their whole account, so account size drives speed and data transfer. The transfer number is Remy's own count of what it read from the database (counting started when this was added); Supabase's bill can differ a little, so check Supabase → Usage → Egress now and then.</span>
-        {d.transfer.days.length > 0 && <span className="xs muted">Last days: {d.transfer.days.map((x) => `${x.day.slice(5)} ${x.mb} MB`).join(" · ")}</span>}
-      </section>
-      <section className="adm-card adm-list">
-        <h3>Tables</h3>
-        {d.tables.map((t) => <div key={t.name} className="row-between small"><span>{t.name}</span><span className="muted">{t.mb} MB · {t.rows.toLocaleString()} rows</span></div>)}
-      </section>
-    </div>
-  );
-}
-
 type Opening = { url: string; title: string; company: string; kind: string; location: string; industry: string; career_path: string; source_name: string; deadline: string; first_seen: string; last_seen: string; times_seen: number; last_checked: string | null; check_result: string | null };
 type OpeningsData = { summary: { total: number; closed: number; unchecked: number; companies: number; keepDays: number; byIndustry: { industry: string; n: number }[]; byPath: { career_path: string; n: number }[] }; openings: Opening[] };
 /** Every public posting Remy found or re-checked (Demetre's checked-openings record). No student data. */
@@ -407,39 +383,84 @@ type Services = {
   aiChain: { available: boolean; model: string; via: string; ownerTrial?: string };
 };
 const money = (n?: number | null) => (n == null ? "—" : `$${n.toFixed(2)}`);
-/** Is the site healthy, which version is live, recent deploys, and how much AI money is left. Read-only. */
-function ServicesTab() {
+/** Services and Database in one place (Nov 24): is everything up, what does it cost, and is the database within its plan. Read-only. */
+function SystemTab() {
   const [d, reload] = useLoad<Services>("/api/admin/services");
-  if (!d) return <Spinner />;
+  const [s, reloadS] = useLoad<Storage>("/api/admin/storage");
+  const [o] = useLoad<Overview>("/api/admin/overview");
+  const [tables, setTables] = useState(false);
+  if (!d || !s) return <div className="row"><Spinner /> Loading…</div>;
   const up = d.server.uptimeMin < 90 ? `${d.server.uptimeMin} min` : d.server.uptimeMin < 2880 ? `${Math.round(d.server.uptimeMin / 60)} h` : `${Math.round(d.server.uptimeMin / 1440)} days`;
-  const ai = d.ai.available ? d.ai : null;
+  const ai = d.ai.available && !d.ai.error ? d.ai : null;
   const dep = d.deploys.available ? d.deploys : null;
+  const tp = Math.round((100 * s.transfer.monthMb) / 1024 / s.transfer.limitGb);
+  const memP = d.server.memoryLimitMb ? d.server.memoryMb / d.server.memoryLimitMb : 0;
+  const aiLow = ai && ai.limit != null && ai.remaining != null && ai.remaining < ai.limit * 0.2;
+  const dot = (warn: boolean) => <span className={"adm2-dot" + (warn ? " warn" : "")} aria-label={warn ? "needs a look" : "fine"} />;
+  const watch = [tp >= 80 && "database transfer is over the free plan", s.percent >= 80 && "the database is almost full", memP >= 0.8 && "memory is almost full", aiLow && "AI money is running low"].filter(Boolean) as string[];
+  const maxDay = Math.max(1, ...s.transfer.days.map((x) => x.mb));
+  const dayLimit = (s.transfer.limitGb * 1024) / 30;
+  const refresh = () => { reload("Up to date"); reloadS(); };
   return (
-    <div className="stack">
-      <Head title="Services" sub="Render (the server), OpenRouter (AI) and Supabase (database). Read-only." action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
-      <div className="adm-kpis">
-        <Kpi n="Up" label="Server" note={`version ${d.server.commit || "local"} · running ${up}`} />
-        <Kpi n={`${d.server.memoryMb} MB`} label="Memory in use" note={`of ${d.server.memoryLimitMb} MB on the Render plan`} />
-        <Kpi n={d.errors.server + d.errors.browser} label="Errors, last 24 hours" note={`${d.errors.server} server · ${d.errors.browser} from browsers`} />
-        <Kpi n={ai && !ai.error ? (ai.remaining != null ? money(ai.remaining) : "No cap") : "—"} label="AI money left on Remy's key" note={ai && !ai.error ? (ai.limit != null ? `${money(ai.usage)} used of ${money(ai.limit)}` : `${money(ai.usage)} used so far; this key has no spending cap`) : ai?.error || "OPENROUTER_API_KEY isn't set"} />
+    <div className="adm2 adm2-full">
+      <div className="adm-head">
+        <div><h1 className="adm-hello">System</h1><p className="adm2-say"><b>{watch.length ? "Everything is up." : "Everything is up and within its plan."}</b>{watch.length ? ` To watch: ${watch.join(", ")}.` : ""}</p></div>
+        <button className="btn btn-ghost btn-sm" onClick={refresh} data-testid="button-system-refresh"><RotateCcw size={14} /> Refresh</button>
       </div>
-      <section className="adm-card stack-sm">
-        <h3>Render (server)</h3>
-        <span className="small">Live version <b>{d.server.commit || "local build"}</b>{d.server.branch ? ` from ${d.server.branch}` : ""}, started {new Date(d.server.startedAt).toLocaleString()}. A new start time means a deploy or restart happened then.</span>
-        {dep?.deploys ? (
-          <div className="stack-sm">{dep.deploys.map((x, i) => <div key={i} className="row-between small"><span><b>{x.status}</b> · {x.message || x.commit}</span><span className="xs muted">{x.createdAt ? ago(x.createdAt) : ""}{x.finishedAt && x.createdAt ? ` · took ${Math.max(1, Math.round((Date.parse(x.finishedAt) - Date.parse(x.createdAt)) / 60000))} min` : ""}</span></div>)}</div>
-        ) : <span className="xs muted">{dep?.error || "Deploy history and live deploy status need a Render API key (RENDER_API_KEY). Render keys can change the whole account, so it's off; check dashboard.render.com for deploys."}</span>}
-      </section>
-      <section className="adm-card stack-sm">
-        <h3>OpenRouter (AI)</h3>
-        <span className="small">AI is {d.aiChain.available ? "on" : "off"}: {d.aiChain.via} · {d.aiChain.model}{d.aiChain.ownerTrial ? <> · owners are trying <b>{d.aiChain.ownerTrial}</b> (private routing)</> : null}</span>
-        {ai && !ai.error && <span className="small">Spent on this key: today {money(ai.usageDaily)} · this week {money(ai.usageWeekly)} · this month {money(ai.usageMonthly)} · all time {money(ai.usage)}{ai.freeTier ? " · free tier" : ""}</span>}
-        <span className="xs muted">The whole account's balance (credits bought minus used) needs an OpenRouter management key, which can create and delete keys, so Remy doesn't hold one: see openrouter.ai/settings/credits. Overview also shows AI spend this week from Remy's own log.</span>
-      </section>
-      <section className="adm-card stack-sm">
-        <h3>Supabase (database)</h3>
-        <span className="small">Space, account sizes and Remy's data-transfer estimate are on the <a href="/admin?tab=database">Database</a> page.</span>
-      </section>
+      <div className="adm2-tiles">
+        <div className="adm2-tile"><strong>Up</strong>{dot(false)}<span className="adm2-tl">Server (Render)</span><span className="adm2-ts">version {d.server.commit || "local"} · running {up}</span></div>
+        <div className="adm2-tile"><strong>{d.server.memoryMb} MB</strong>{dot(memP >= 0.8)}<span className="adm2-tl">Memory in use</span><span className="adm2-ts">of {d.server.memoryLimitMb} MB on the plan</span></div>
+        <div className="adm2-tile"><strong>{ai ? (ai.remaining != null ? money(ai.remaining) : "No cap") : "—"}</strong>{dot(!!aiLow)}<span className="adm2-tl">AI money left</span><span className="adm2-ts">{ai ? (ai.limit != null ? `${money(ai.usage)} used of ${money(ai.limit)}` : `${money(ai.usage)} used so far`) : (d.ai.available && d.ai.error) || "OPENROUTER_API_KEY isn't set"}</span></div>
+        <div className="adm2-tile"><strong>{s.percent}%</strong>{dot(s.percent >= 80)}<span className="adm2-tl">Database space</span><span className="adm2-ts">{s.usedMb} of {s.limitMb} MB · avg account {s.workspaces.avg_kb} KB</span></div>
+      </div>
+      <div className="adm2-row adm2-row-sys">
+        <section className="adm2-card" data-testid="system-transfer">
+          <div className="adm2-h"><h3>{dot(tp >= 80)} Data transfer this month</h3><span className="xs muted">{(s.transfer.monthMb / 1024).toFixed(1)} GB of {s.transfer.limitGb} GB · {tp}%</span></div>
+          {s.transfer.days.length > 0 && (
+            <div className="adm2-cols" role="img" aria-label={`Data read per day: ${s.transfer.days.map((x) => `${x.day.slice(5)} ${x.mb} MB`).join(", ")}`}>
+              {s.transfer.days.map((x) => <div key={x.day} title={`${x.day.slice(5)}: ${x.mb} MB`}><i className={x.mb > dayLimit ? "over" : ""} style={{ height: `${Math.max(2, (x.mb / maxDay) * 80)}px` }} /><small>{Number(x.day.slice(8))}</small></div>)}
+            </div>
+          )}
+          <p className="adm2-note"><b>Orange days read more than the free plan allows per day ({Math.round(dayLimit)} MB).</b> Every page a student opens reads their account, so account size drives this. It's Remy's own count; Supabase → Usage → Egress has the billed number.</p>
+          <div className="adm2-h"><h3>Biggest tables</h3><button className="btn btn-ghost btn-sm" onClick={() => setTables(true)} data-testid="button-all-tables">All {s.tables.length} <ArrowRight size={14} /></button></div>
+          <div className="adm2-list">{s.tables.slice(0, 5).map((t) => <div key={t.name}><code>{t.name}</code><b>{t.mb} MB</b><span>{t.rows.toLocaleString()} rows</span></div>)}</div>
+        </section>
+        <div className="adm2-col">
+          <section className="adm2-card" data-testid="system-ai">
+            <div className="adm2-h"><h3>AI</h3><span className="xs muted">{d.aiChain.available ? "on" : "off"}</span></div>
+            <span className="small muted">{d.aiChain.via} · {d.aiChain.model}{d.aiChain.ownerTrial ? ` · owners are trying ${d.aiChain.ownerTrial}` : ""}</span>
+            <div className="adm2-nums">
+              <div><b>{o ? o.ai.calls : "…"}</b><span>calls this week{o ? `, ${o.ai.failed} failed` : ""}</span></div>
+              <div><b>{ai ? money(ai.usageWeekly) : "—"}</b><span>{ai ? `this week · today ${money(ai.usageDaily)} · month ${money(ai.usageMonthly)}` : "spend"}</span></div>
+            </div>
+          </section>
+          <section className="adm2-card grow" data-testid="admin-texts">
+            <div className="adm2-h"><h3>Emails &amp; texts</h3><span className="xs muted">errors last 24 h: {d.errors.server + d.errors.browser}</span></div>
+            {o?.emails && (
+              <div className="adm2-list">
+                <div><span>Deadline reminders</span><b>{o.emails.ready ? `${o.emails.reminders} students` : "off"}</b></div>
+                <div><span>Weekly digest</span><b>{o.emails.ready ? `${o.emails.digestsWeek} this week · ${o.emails.digest} get it` : "off"}</b></div>
+                {o.emails.nudges && <div><span>Match emails (owners)</span><b>{o.emails.nudges.sent} sent · {o.emails.nudges.yes} Yes</b></div>}
+              </div>
+            )}
+            {o?.emails && !o.emails.ready && <span className="xs muted">Set SMTP_URL on Render to send reminders and digests.</span>}
+            {o?.texts && <div className="adm2-list"><div><span>Urgent texts</span><b>{o.texts.mode === "test" ? "test mode: nothing is sent" : `Twilio · ${o.texts.recent.length} recent`}</b></div></div>}
+            <div className="adm2-links">
+              <a className="btn btn-ghost btn-sm" href="https://dashboard.render.com" target="_blank" rel="noreferrer">Render ↗</a>
+              <a className="btn btn-ghost btn-sm" href="https://openrouter.ai/settings/credits" target="_blank" rel="noreferrer">OpenRouter credits ↗</a>
+              <a className="btn btn-ghost btn-sm" href="https://supabase.com/dashboard" target="_blank" rel="noreferrer">Supabase usage ↗</a>
+            </div>
+          </section>
+        </div>
+      </div>
+      {tables && (
+        <Modal title="Tables, server and messages" onClose={() => setTables(false)}>
+          <div className="adm2-list">{s.tables.map((t) => <div key={t.name}><code>{t.name}</code><b>{t.mb} MB</b><span>{t.rows.toLocaleString()} rows</span></div>)}</div>
+          <p className="xs muted">{s.workspaces.n} accounts stored · 90% under {s.workspaces.p90_kb} KB · largest {s.workspaces.max_kb} KB. Live version {d.server.commit || "local build"}{d.server.branch ? ` from ${d.server.branch}` : ""}, started {new Date(d.server.startedAt).toLocaleString()}.</p>
+          {dep?.deploys ? dep.deploys.map((x, i) => <div key={i} className="row-between small"><span><b>{x.status}</b> · {x.message || x.commit}</span><span className="xs muted">{x.createdAt ? ago(x.createdAt) : ""}</span></div>) : <p className="xs muted">{dep?.error || "Deploy history needs a Render API key (RENDER_API_KEY), which is off on purpose; check dashboard.render.com for deploys."}</p>}
+          {o?.texts?.recent.length ? <ul className="stack-sm small">{o.texts.recent.map((x) => <li key={x.at + x.to}><span className="muted">{fmtDate(x.at.slice(0, 10))} to {x.to}{x.mode === "test" ? " (test)" : ""}:</span> {x.body}</li>)}</ul> : null}
+        </Modal>
+      )}
     </div>
   );
 }
@@ -475,16 +496,19 @@ const greeting = () => {
 const pct = (x?: { cohort: number; back: number }) => (x && x.cohort ? `${Math.round((100 * x.back) / x.cohort)}%` : "–");
 const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? one : many}`;
 
-/** One coloured tile: a big number, what it counts, and the change against last week. */
-function Tile({ tone, n, label, prev, note }: { tone: "sage" | "blue" | "amber" | "fox"; n: number | string; label: string; prev?: number; note?: string }) {
-  const diff = typeof n === "number" && prev != null ? n - prev : null;
-  return (
-    <div className={`adm-tile adm-tile-${tone}`}>
-      <strong>{n}</strong>
-      <span className="small">{label}</span>
-      <span className="xs">{diff != null ? `${diff > 0 ? "▲" : diff < 0 ? "▼" : "="} ${Math.abs(diff)} vs last week` : note || " "}</span>
-    </div>
-  );
+type Waiting = { applications: { status: string }[] };
+/** Remy's one thing for the owner right now: the first rule that fires, most urgent first. */
+function oneThing(d: Overview, s: Storage | null, steps: [string, number][]): { key: string; title: string; body: string; big?: string; sub?: string; href: string; cta: string } | null {
+  const tp = s ? Math.round((100 * s.transfer.monthMb) / 1024 / s.transfer.limitGb) : 0;
+  if (s && tp >= 80) return { key: `transfer-${tp >= 100 ? "over" : "near"}`, title: `Database transfer is at ${tp}% of the free plan.`, body: `Students read ${(s.transfer.monthMb / 1024).toFixed(1)} GB this month against Supabase's ${s.transfer.limitGb} GB. Check Supabase → Usage before it gets billed or slowed down.`, big: `${tp}%`, sub: `of ${s.transfer.limitGb} GB`, href: "/admin?tab=system", cta: "Open System" };
+  if (s && s.percent >= 80) return { key: "space", title: `The database is ${s.percent}% full.`, body: `${s.usedMb} of ${s.limitMb} MB used. The biggest table is ${s.tables[0]?.name || "workspaces"}.`, big: `${s.percent}%`, sub: "full", href: "/admin?tab=system", cta: "Open System" };
+  if (d.openErrors) return { key: `errors-${d.openErrors}`, title: `${plural(d.openErrors, "error")} students hit ${d.openErrors === 1 ? "is" : "are"} open.`, body: "Look at what happened, fix it, then mark it fixed so the count stays honest.", big: String(d.openErrors), sub: "open", href: "/admin?tab=errors", cta: "Open errors" };
+  if (d.feedback) return { key: `feedback-${d.feedback}`, title: `${plural(d.feedback, "student")} sent feedback.`, body: "Read it while it's fresh; it's the clearest signal of what to fix next.", big: String(d.feedback), sub: "new", href: "/admin?tab=errors", cta: "Read feedback" };
+  // The biggest drop between two setup steps, when at least two students were lost there.
+  let drop: [string, number, number] | null = null;
+  for (let i = 1; i < steps.length; i++) { const lost = steps[i - 1][1] - steps[i][1]; if (lost >= 2 && (!drop || lost > drop[1] - drop[2])) drop = [steps[i][0], steps[i - 1][1], steps[i][1]]; }
+  if (drop) return { key: `drop-${drop[0]}-${drop[2]}`, title: `Most students stop before "${drop[0].toLowerCase()}".`, body: `${drop[1]} reached the step before it, ${drop[2]} got past it. Making this step easier helps the most students.`, big: `${drop[1]} → ${drop[2]}`, href: "/admin?tab=overview", cta: "" };
+  return null;
 }
 
 function OverviewTab() {
@@ -492,139 +516,136 @@ function OverviewTab() {
   const [d, reload] = useLoad<Overview>("/api/admin/overview");
   const [t] = useLoad<Team>("/api/admin/team");
   const [o] = useLoad<Outcomes>("/api/admin/outcomes");
+  const [s] = useLoad<Storage>("/api/admin/storage");
+  const [w] = useLoad<Waiting>("/api/admin/beta/applications");
+  const [allSteps, setAllSteps] = useState(false);
+  const [hidden, setHidden] = useState(() => { try { return JSON.parse(localStorage.getItem("adm-one-hidden") || "{}") as Record<string, number>; } catch { return {}; } });
   if (!d) return <div className="row"><Spinner /> Loading…</div>;
   const f = d.funnel;
   // Setup step by step (where friend testers stop), then what they did after.
   const steps: [string, number][] = [["Signed up", f.accounts], ["Answered the goal question", f.goal], ["Added a resume", f.resume], ["Reached preferences", f.prefs], ["Reached the questions", f.questions], ["Saw their plan", f.plan], ["Finished setup", f.setup_done], ["Asked Remy something", f.chatted], ["Started an application", f.applied]];
-  // 14 days, including days with no sign-ups, so gaps read as gaps.
   const days = Array.from({ length: 14 }, (_, i) => new Date(Date.now() - (13 - i) * 86400_000).toLocaleDateString("en-CA", { timeZone: "America/Chicago" }));
   const byDay = new Map(d.daily.map((x) => [x.day, x.n]));
-  const max = Math.max(1, ...days.map((x) => byDay.get(x) || 0));
+  const signups = days.map((x) => byDay.get(x) || 0);
   const first = (me?.name || "").split(" ")[0];
   const myTodos = t ? t.tasks.filter((x) => x.status !== "done" && list(x.assignee).includes(t.me)).length : 0;
+  const waiting = w ? w.applications.filter((a) => a.status === "new").length : 0;
   const needs: [string, string, number, string, string][] = [
     ["Open errors", "/admin?tab=errors", d.openErrors, "students hit these", "errors"],
     ["New feedback", "/admin?tab=errors", d.feedback, "from the feedback button", "feedback"],
+    ["Applications waiting", "/admin?tab=beta", waiting, "to accept or decline", "applications"],
     ["Your to-dos", "/admin?tab=board", myTodos, "on the team board", "todos"],
   ];
+  const open = needs.filter((n) => n[2]).length;
+  const one = oneThing(d, s, steps);
+  const showOne = one && !(hidden[one.key] > Date.now());
+  const hide = () => { if (!one) return; const next = { ...hidden, [one.key]: Date.now() + 86400_000 }; setHidden(next); try { localStorage.setItem("adm-one-hidden", JSON.stringify(next)); } catch {} };
   const step = d.northWeek - d.northPrev;
-  // Remy's one-line read of the week, from the numbers only.
   const line = d.activeWeek === 0 ? "Quiet week so far: no student has opened Remy yet."
-    : `${plural(d.activeWeek, "student")} opened Remy this week${d.newWeek ? `, ${d.newWeek} of them new` : ""}. ${d.openErrors ? `${plural(d.openErrors, "error")} to look at.` : "No open errors."}`;
-  const teamWeek = t ? t.members.map((m) => ({ m, h: t.hours.find((x) => x.member === m.email)?.week || 0 })).sort((a, b) => b.h - a.h) : [];
+    : `${plural(d.activeWeek, "student")} opened Remy this week${d.newWeek ? `, ${d.newWeek} of them new` : ""}.`;
+  const after = open ? ` ${open === 1 ? "One thing needs" : `${open} things need`} you.` : " Nothing needs you right now.";
+  // The steps that tell the story; "All steps" shows the rest.
+  const short = steps.filter(([l]) => ["Signed up", "Finished setup", "Asked Remy something", "Started an application"].includes(l));
+  const road = d.road || [];
+  const interviewing = road.find((m) => /interview/i.test(m.label) && !/stor/i.test(m.label));
+  const story: [string, number][] = interviewing ? [...short, ["Interviewing", interviewing.n]] : short;
+  const dropAt = (rows: [string, number][]) => { let at = -1, most = 0; rows.forEach(([, v], i) => { const lost = i ? rows[i - 1][1] - v : 0; if (lost > most) { most = lost; at = i; } }); return at; };
+  const di = dropAt(story);
+  const hours = t ? t.hours.reduce((x, y) => x + y.week, 0) : 0;
+  const Spark = ({ v, on }: { v: number[]; on: number }) => { const m = Math.max(1, ...v); return <span className="adm2-spark" aria-hidden>{v.map((n, i) => <i key={i} className={i >= on ? "on" : ""} style={{ height: `${Math.max(2, (n / m) * 30)}px` }} />)}</span>; };
+  const Bars = ({ rows, max, at }: { rows: [string, number][]; max: number; at: number }) => (
+    <div className="adm2-bars">{rows.map(([l, v], i) => <div key={l} className={"adm2-bar" + (i === at ? " drop" : "")}><span>{l}</span><div><i style={{ width: `${max ? (v / max) * 100 : 0}%` }} /></div><b>{v}</b></div>)}</div>
+  );
   return (
-    <div className="stack-lg">
+    <div className="adm2">
       <div className="adm-head">
-        <div><h1 className="adm-hello">{greeting()}{first ? `, ${first}` : ""}.</h1><p className="muted">{line}</p></div>
+        <div><h1 className="adm-hello">{greeting()}{first ? `, ${first}` : ""}.</h1><p className="adm2-say"><b>{line}</b>{after}</p></div>
         <button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")} data-testid="button-overview-refresh"><RotateCcw size={14} /> Refresh</button>
       </div>
-      <section className="adm-hero" data-testid="admin-hero">
-        <div className="adm-hero-main">
-          <span className="small adm-hero-label">North star this week</span>
-          <div className="adm-hero-n"><strong>{d.northWeek}</strong><span>{d.northWeek === 1 ? "student took" : "students took"} a career step</span></div>
-          <span className="small muted">{step > 0 ? `▲ ${step} more than last week` : step < 0 ? `▼ ${-step} fewer than last week` : "Same as last week"}. Real students only; counts, never anything a student wrote.</span>
-        </div>
-        <div className="adm-needs">
-          <span className="adm-hero-label small">Needs you</span>
-          {needs.map(([label, href, n, why, id]) => (
-            <a key={label} href={href} className={"adm-need" + (n ? "" : " adm-need-ok")} data-testid={`need-${id}`}>
-              <b>{n}</b><span className="grow stack-sm" style={{ gap: 0 }}><span className="small">{label}</span><span className="xs muted">{n ? why : "all clear"}</span></span><ArrowRight size={14} />
-            </a>
-          ))}
-        </div>
-      </section>
-      <div className="adm-tiles">
-        <Tile tone="sage" n={d.activeWeek} label="Active students this week" prev={d.activePrev} />
-        <Tile tone="blue" n={d.newWeek} label="New sign-ups this week" prev={d.newPrev} />
-        <Tile tone="amber" n={pct(d.returnWeek1)} label="Came back in their first week" note={d.returnWeek1?.cohort ? `${d.returnWeek1.back} of ${d.returnWeek1.cohort} who signed up 8–35 days ago` : "Counting visits since Oct 31"} />
-        <Tile tone="fox" n={`$${d.ai.cost.toFixed(2)}`} label="AI spend this week" note={d.ai.priced < d.ai.calls ? `${d.ai.calls} calls, ${d.ai.calls - d.ai.priced} without a price` : `${d.ai.calls} calls, ${d.ai.failed} failed`} />
-      </div>
-      {t && (
-        <a className="adm-band" href="/admin?tab=hours" data-testid="admin-team-band">
-          <span className="adm-band-n"><strong>{teamWeek.reduce((x, y) => x + y.h, 0).toFixed(1)}</strong><span className="xs">team hours this week</span></span>
-          <span className="adm-band-people">{teamWeek.map(({ m, h }) => <span key={m.email} className="adm-inline"><Avatar m={m} size={22} /> {m.name.split(" ")[0]} <b>{h}</b></span>)}</span>
-          <span className="btn btn-sm adm-band-btn">Hours <ArrowRight size={14} /></span>
-        </a>
-      )}
-      {o && (
-        <section className="adm-card" data-testid="admin-outcomes">
-          <h3>Do students get jobs?</h3>
-          <div className="adm-kpis">
-            <Kpi n={o.applied} label="Applications sent" note={`by ${o.students_applying} of ${o.students} students`} />
-            <Kpi n={pctOf(o.answered, o.applied)} label="Got an answer" note={`${o.answered} of ${o.applied}; tailored in Remy: ${pctOf(o.answered_tailored, o.applied_tailored)}`} />
-            <Kpi n={o.interviews} label="Interviews" />
-            <Kpi n={o.offers} label="Offers" />
+      <div className="adm2-top">
+        {showOne && one ? (
+          <section className="adm2-one" data-testid="admin-hero">
+            <div className="grow">
+              <span className="adm2-who"><Remy size={22} /> Remy says: one thing right now</span>
+              <h2>{one.title}</h2>
+              <p>{one.body}</p>
+              <div className="row">
+                {one.cta && <a className="btn btn-primary btn-sm" href={one.href} data-testid="button-one-thing">{one.cta}</a>}
+                <button className="btn btn-ghost btn-sm" onClick={hide} data-testid="button-one-thing-hide">Got it, hide for a day</button>
+              </div>
+            </div>
+            {one.big && <div className="adm2-big"><b>{one.big}</b>{one.sub && <span className="xs muted">{one.sub}</span>}</div>}
+          </section>
+        ) : (
+          <section className="adm2-one" data-testid="admin-hero">
+            <div className="grow">
+              <span className="adm2-who"><Remy size={22} /> North star this week</span>
+              <h2>{plural(d.northWeek, "student")} took a career step.</h2>
+              <p>{step > 0 ? `${step} more than last week` : step < 0 ? `${-step} fewer than last week` : "Same as last week"}. Real students only; counts, never anything a student wrote.</p>
+            </div>
+            <div className="adm2-big"><b>{d.northWeek}</b></div>
+          </section>
+        )}
+        <section className="adm2-card">
+          <div className="adm2-h"><h3>Needs you</h3><span className="xs muted">{open ? `${open} of ${needs.length}` : "all clear"}</span></div>
+          <div className="adm2-needs">
+            {needs.map(([label, href, n, why, id]) => (
+              <a key={label} href={href} className={n ? "hot" : ""} data-testid={`need-${id}`}><b>{n}</b><span>{label}</span><small>{n ? why : "all clear"}</small><ArrowRight size={14} /></a>
+            ))}
           </div>
         </section>
-      )}
-      <div className="adm-kpis">
-        <Kpi n={d.students} label="Students in total" note={`${d.activeToday} active today`} />
-        <Kpi n={pct(d.returnWeek4)} label="Came back in week 4" note={d.returnWeek4?.cohort ? `${d.returnWeek4.back} of ${d.returnWeek4.cohort} who signed up 29–56 days ago` : "Counting visits since Oct 31"} />
-        {d.emails && <Kpi n={d.emails.ready ? d.emails.digestsWeek : "Off"} label={d.emails.ready ? "Weekly digests sent this week" : "Emails aren't set up on the server"}
-          note={d.emails.ready ? `${d.emails.digest} get the digest, ${d.emails.reminders} get deadline reminders` : "Set SMTP_URL on Render to send reminders and digests"} />}
-        {d.emails?.nudges && <Kpi n={d.emails.nudges.sent ? `${Math.round((100 * d.emails.nudges.yes) / d.emails.nudges.sent)}%` : "None yet"} label="Match emails answered Yes (30 days)"
-          note={`${d.emails.nudges.sent} sent, ${d.emails.nudges.yes} Yes, ${d.emails.nudges.later} Not now. Owners only for now`} />}
       </div>
-      {d.texts && (
-        <section className="adm-card" data-testid="admin-texts">
-          <h3>Urgent texts {d.texts.mode === "test" ? "(test mode: nothing is sent)" : "(sending through Twilio)"}</h3>
-          <p className="xs muted">Owners only for now. {d.texts.mode === "test" ? "Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM on Render to send real texts." : "A Twilio trial texts only numbers verified in Twilio."}</p>
-          {d.texts.recent.length ? <ul className="stack-sm small">{d.texts.recent.map((t) => <li key={t.at + t.to}><span className="muted">{fmtDate(t.at.slice(0, 10))} to {t.to}{t.mode === "test" ? " (test)" : ""}:</span> {t.body}</li>)}</ul> : <p className="small muted">No texts yet. They go out when an owner with texts on has a deadline today or tomorrow.</p>}
+      <div className="adm2-tiles">
+        <div className="adm2-tile"><strong>{d.activeWeek}</strong><span className="adm2-tl">Active students</span><span className="adm2-ts"><Delta n={d.activeWeek - d.activePrev} /> · {d.students} in total, {d.activeToday} today</span></div>
+        <div className="adm2-tile"><strong>{d.newWeek}</strong><Spark v={signups} on={7} /><span className="adm2-tl">New sign-ups</span><span className="adm2-ts"><Delta n={d.newWeek - d.newPrev} /> · last 14 days</span></div>
+        <div className="adm2-tile"><strong>{d.northWeek}</strong><span className="adm2-tl">Took a career step</span><span className="adm2-ts">North star · <Delta n={step} /></span></div>
+        <div className="adm2-tile"><strong>{pct(d.returnWeek1)}</strong><span className="adm2-tl">Came back in week 1</span><span className="adm2-ts">{d.returnWeek1?.cohort ? `${d.returnWeek1.back} of ${d.returnWeek1.cohort}` : "counting"} · week 4: {pct(d.returnWeek4)}</span></div>
+      </div>
+      <div className="adm2-row">
+        <section className="adm2-card">
+          <div className="adm2-h"><h3>Where students get stuck</h3><button className="btn btn-ghost btn-sm" onClick={() => setAllSteps(true)} data-testid="button-all-steps">All steps <ArrowRight size={14} /></button></div>
+          <Bars rows={story} max={f.accounts} at={di} />
+          {di > 0 && <p className="adm2-note"><b>Biggest drop: {story[di][0].toLowerCase()} ({story[di - 1][1]} → {story[di][1]}).</b> Making that step easier helps the most students.</p>}
         </section>
-      )}
-      <section className="adm-card">
-        <h3>New sign-ups, last 14 days</h3>
-        <div className="adm-bars" role="img" aria-label={`New sign-ups per day for the last 14 days, ${days.reduce((s, x) => s + (byDay.get(x) || 0), 0)} in total`}>
-          {days.map((x) => {
-            const n = byDay.get(x) || 0;
-            return (
-              <div key={x} className="adm-bar" tabIndex={0} aria-label={`${day(x)}: ${n}`}>
-                <span className="adm-tip">{day(x)}: {n}</span>
-                <div className="adm-bar-track"><div style={{ height: `${(n / max) * 100}%` }} /></div>
-                <span className="xs muted">{Number(x.slice(8))}</span>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-      <div className="adm-grid2">
-        <section className="adm-card">
-          <h3>Where students drop off</h3>
-          {steps.map(([l, v], i) => {
-            const prev = i ? steps[i - 1][1] : v;
-            const lost = i && prev ? Math.round(((prev - v) / prev) * 100) : 0;
-            return (
-              <div key={l} className="adm-funnel">
-                <span className="small">{l}</span>
-                <div><div style={{ width: `${f.accounts ? (v / f.accounts) * 100 : 0}%` }} /></div>
-                <b className="small">{v}</b>
-                <span className="xs muted">{i && lost > 0 ? `−${lost}%` : ""}</span>
-              </div>
-            );
-          })}
-        </section>
-        <section className="adm-card">
-          <h3>Road to an offer: students at each milestone</h3>
-          {(d.road || []).map((m) => (
-            <div key={m.label} className="adm-funnel">
-              <span className="small">{m.label}</span>
-              <div><div style={{ width: `${d.students ? (m.n / d.students) * 100 : 0}%` }} /></div>
-              <b className="small">{m.n}</b>
-              <span className="xs muted">{d.students ? `${Math.round((100 * m.n) / d.students)}%` : ""}</span>
+        <section className="adm2-card" data-testid="admin-outcomes">
+          <div className="adm2-h"><h3>Do students get jobs?</h3><span className="xs muted">all time</span></div>
+          {o ? (
+            <div className="adm2-nums">
+              <div><b>{o.applied}</b><span>{o.applied === 1 ? "application" : "applications"} sent, by {o.students_applying} of {o.students}</span></div>
+              <div><b>{pctOf(o.answered, o.applied)}</b><span>got an answer · tailored in Remy {pctOf(o.answered_tailored, o.applied_tailored)}</span></div>
+              <div><b>{o.interviews}</b><span>{o.interviews === 1 ? "interview" : "interviews"}</span></div>
+              <div><b>{o.offers}</b><span>{o.offers === 1 ? "offer" : "offers"}</span></div>
             </div>
-          ))}
-          <p className="xs muted">The lowest bar is where students get stuck; make that step easier next.</p>
-        </section>
-        <section className="adm-card">
-          <h3>What students used this week</h3>
-          {d.features.length ? (
-            <table className="table"><thead><tr><th>Feature</th><th>Students</th><th>Times</th></tr></thead>
-              <tbody>{d.features.map((x) => <tr key={x.name}><td>{x.name}</td><td>{x.students}</td><td>{x.uses}</td></tr>)}</tbody></table>
-          ) : <p className="small muted">Nothing yet this week.</p>}
-          <p className="xs muted">AI calls: {d.ai.calls}, {d.ai.failed} failed, {(d.ai.avgMs / 1000).toFixed(1)} s on average.</p>
+          ) : <Spinner />}
+          <a className="adm2-foot" href="/admin?tab=hours" data-testid="admin-team-band"><span><b>{hours.toFixed(1)} h</b> team hours this week · AI ${d.ai.cost.toFixed(2)}, {d.ai.calls} calls</span><ArrowRight size={14} /></a>
         </section>
       </div>
+      {allSteps && (
+        <Modal title="Every step students take" onClose={() => setAllSteps(false)} wide>
+          <div className="adm2-cols2">
+            <div className="stack-sm"><h3>Setup, step by step</h3><Bars rows={steps} max={f.accounts} at={dropAt(steps)} /></div>
+            <div className="stack-sm"><h3>Road to an offer</h3><Bars rows={road.map((m) => [m.label, m.n] as [string, number])} max={d.students} at={-1} /><p className="xs muted">The lowest bar is where students get stuck; make that step easier next.</p></div>
+          </div>
+        </Modal>
+      )}
     </div>
+  );
+}
+const Delta = ({ n }: { n: number }) => <span className={n > 0 ? "pass" : n < 0 ? "bad" : ""}>{n > 0 ? "▲" : n < 0 ? "▼" : "="} {Math.abs(n)}</span>;
+
+/** Moved from Overview: what students used this week (shown under Beta). */
+function UsedCard() {
+  const [d] = useLoad<Overview>("/api/admin/overview");
+  if (!d) return null;
+  return (
+    <section className="adm-card" data-testid="admin-features">
+      <h3>What students used this week</h3>
+      {d.features.length ? (
+        <table className="table"><thead><tr><th>Feature</th><th>Students</th><th>Times</th></tr></thead>
+          <tbody>{d.features.map((x) => <tr key={x.name}><td>{x.name}</td><td>{x.students}</td><td>{x.uses}</td></tr>)}</tbody></table>
+      ) : <p className="small muted">Nothing yet this week.</p>}
+      <p className="xs muted">AI calls: {d.ai.calls}, {d.ai.failed} failed, {(d.ai.avgMs / 1000).toFixed(1)} s on average.</p>
+    </section>
   );
 }
 

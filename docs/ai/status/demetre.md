@@ -1,6 +1,6 @@
 # Demetre's AI
 
-Updated: 2026-11-24 03:45 UTC
+Updated: 2026-11-24 03:55 UTC
 Area: `native/` (the Expo phone app)
 
 ## Working on now
@@ -15,7 +15,7 @@ Area: `native/` (the Expo phone app)
 
 ## Open PRs
 - The P0 app PR (this one): owners-only; waits for Deme's OK to merge, then an Expo preview publish with Deme's OK.
-- #313 keeps rate limits in the database. Waits for the team's OK because it applies server-wide.
+- Merged: #313 rate limits kept in the database, #317 postings cache in server memory.
 
 ## Next
 - P0.1/P0.2 with Deme: publish to `preview`, then a preview build, and retest on the Android emulator and the iPhone.
