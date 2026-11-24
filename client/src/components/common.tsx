@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Check, Copy, X } from "lucide-react";
 import type { Label } from "@shared/types";
@@ -44,10 +44,12 @@ function ScholarRemy({ size, mood, className, outfit: asked }: { size: number; m
   const outfit = asked || (g?.outfit && owned.includes(g.outfit) ? g.outfit : "suit"), pool = owned.join();
   // His three best career pins on his chest, where he's big enough to see them (Rewards, Nov 24).
   const pins = useMemo(() => (ws && size >= 80 ? topPins(ws, 3).map(pinColor).join() : ""), [ws, size]);
-  useEffect(() => {
+  // Layout effect: the drawing goes in before the first paint, so a newly shown Remy never flashes an empty circle.
+  useLayoutEffect(() => {
     if (!ref.current) return;
-    ref.current.innerHTML = scholarMarkup(outfit, pins ? pins.split(",") : []);
-    life.current = startScholar(ref.current, { outfit, outfits: pool.split(","), auto: size >= 30 }); // tiny icons stay calm
+    const pinList = pins ? pins.split(",") : [];
+    ref.current.innerHTML = scholarMarkup(outfit, pinList);
+    life.current = startScholar(ref.current, { outfit, outfits: pool.split(","), pins: pinList, auto: size >= 30 }); // tiny icons stay calm
     return () => life.current?.stop();
   }, [size, outfit, pool, pins]);
   useEffect(() => { if (mood === "wave") life.current?.play("wave", true); }, [mood]);

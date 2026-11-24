@@ -90,28 +90,30 @@ function lookAt(e: PointerEvent) {
   });
 }
 
-type Opts = { outfit?: string; auto?: boolean; outfits?: string[]; onOutfit?: (o: string) => void };
+type Opts = { outfit?: string; auto?: boolean; outfits?: string[]; pins?: string[]; onOutfit?: (o: string) => void };
 /** Brings a Scholar <svg> to life: eyes follow the pointer, and while idle he does something every 8 to 16 s. */
 export function startScholar(el: SVGSVGElement, opts: Opts = {}) {
   let outfit = opts.outfit || "suit", busy = false, last = "", timer = 0;
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (!live.size) addEventListener("pointermove", lookAt, { passive: true });
   live.add(el);
-  const setOutfit = (o: string) => { outfit = o; el.innerHTML = scholarMarkup(o); opts.onOutfit?.(o); };
+  const setOutfit = (o: string) => { outfit = o; el.innerHTML = scholarMarkup(o, opts.pins); opts.onOutfit?.(o); };
+  // Something else to change into? With only one outfit owned, "change" just blinked him out and back in the same clothes.
+  const others = () => (opts.outfits || Object.keys(OUTFITS)).filter((o) => o && o !== outfit);
   const play = (act: string, force = false) => {
     const a = ACTS[act];
-    if (!a || still || (busy && !force)) return;
+    if (!a || still || (busy && !force) || (act === "change" && !others().length)) return;
     Object.keys(ACTS).forEach((k) => el.classList.remove("act-" + k));
     void el.getBoundingClientRect(); // restart the CSS animation if the same act plays twice
     busy = true; last = act; el.classList.add("act-" + act);
     if (act === "change") {
-      const pool = (opts.outfits || Object.keys(OUTFITS)).filter((o) => o !== outfit);
+      const pool = others();
       setTimeout(() => setOutfit(outfit !== "suit" && Math.random() < 0.5 ? "suit" : pool[Math.floor(Math.random() * pool.length)]), a.ms * 0.45);
     }
     setTimeout(() => { el.classList.remove("act-" + act); busy = false; }, a.ms);
   };
   const pick = () => {
-    const opts2 = Object.entries(ACTS).filter(([k]) => k !== last);
+    const opts2 = Object.entries(ACTS).filter(([k]) => k !== last && (k !== "change" || others().length));
     let n = Math.random() * opts2.reduce((s, [, a]) => s + a.weight, 0);
     for (const [k, a] of opts2) if ((n -= a.weight) < 0) return k;
     return "grin";
