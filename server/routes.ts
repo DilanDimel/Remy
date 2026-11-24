@@ -19,7 +19,7 @@ import { employerPreferences, interestContext, interestEnabled, ownInterest } fr
 import { keepQuestions, skippedPrefs } from "@shared/setupReply";
 import { newsMark } from "@shared/news";
 import { isNonAnswer } from "@shared/words";
-import { draftOk, ownRewriteOk } from "./ai/bulletDraft";
+import { draftOk, ownDraftProblem } from "./ai/bulletDraft";
 import { WEAK } from "@shared/bullets";
 import { STORY_ASK, STORY_PARTS, findLine, namesNew, sameLine } from "@shared/stories";
 import { storyLines } from "./coach/storyLines";
@@ -1536,16 +1536,34 @@ export async function registerRoutes(_server: Server, app: Express) {
     const context = entry ? [entry.s.heading, entry.e.org, entry.e.role, entry.e.location, ...entry.e.bullets.map((b) => b.text.trim()).filter((t) => t && t.replace(/^[•\-–*]\s*/, "").replace(/\s+/g, " ") !== text)].filter((x) => x && x.trim()).join(" · ").slice(0, 1200) : "";
     if (!auto && kind === "numbers" && (!answer || isNonAnswer(answer) || !/\d/.test(answer))) bad("Type the real number you know (like “40 members” or “$5,000”), or skip this line.");
     if (!auto && kind === "verbs" && (!answer || isNonAnswer(answer) || answer.length < 4)) bad("Say in a few words what you actually did (like “wrote and scheduled the posts”).");
+    if (auto) {
+      // Remy's own rewrite (Dilan, Nov 24: "make it really good"): a real top-candidate bullet from the facts on the
+      // resume, checked by ownDraftProblem(). One retry with the reason; if both fail, the client asks instead.
+      let last = "", why = "";
+      for (let tries = 0; tries < 2; tries++) {
+        const out = await withAi(ctx, "Improve a bullet", () =>
+          aiJson<{ bullet: string }>(
+            `You rewrite ONE line of a college student's resume so it reads like a top candidate's bullet, using ONLY facts written in the LINE and the SAME ENTRY. Do: open with a precise, strong action verb for what the line says was done, replacing weak openers ("assist with data entry" becomes "Process data entry", "responsible for the budget" becomes "Manage the budget"); put the most important work first; name each task concretely; keep every tool, skill and term exactly, and work in the entry's own tools or terms where this line used them (the words application systems search for); cut filler. Keep the tense: present for a current role or ongoing work ("Manage", "Extending" stays current), past otherwise. If the line says the student helped or took part, keep that share of credit ("Support", "Contribute to"), never "Led". Don't add any number, result, purpose, audience, tool or adjective that isn't written there; never claim an outcome (improved, increased, ensured) that isn't written. Change more than one word: a verb swap alone isn't stronger. 10 to 28 words, no period at the end.`,
+            `LINE: ${text}\n${context ? `SAME ENTRY: ${context}\n` : ""}${last ? `YOUR LAST TRY: ${last}\nIT WAS REJECTED BECAUSE ${why}. Fix that.\n` : ""}\nReturn {"bullet":""}`,
+            300,
+          ),
+        );
+        last = String(out?.bullet || "").replace(/\s+/g, " ").trim().replace(/\.$/, "").slice(0, 300);
+        why = ownDraftProblem(text, last, context);
+        if (!why) return void res.json({ draft: last });
+      }
+      bad("Remy couldn't improve this line without adding something you didn't say. Edit it yourself in the Edit tab.", 422);
+    }
     const out = await withAi(ctx, "Improve a bullet", () =>
       aiJson<{ bullet: string }>(
-        `You improve ONE line of a college student's resume. Rules: keep every fact in the line; add nothing that isn't in the line or the student's answer (no outcomes, purposes, tools, numbers or adjectives they didn't give); start with a strong past-tense action verb (or present tense if the line is in present tense); 8 to 28 words; no period at the end.${auto ? " There is no answer: rewrite the line from its own facts, plus the SAME ENTRY context only where it clearly describes this same work. Don't just swap the verb: reorder and regroup the line's own words so a recruiter skimming sees what the student did and what it produced or covered first, lead with the strongest action verb the facts support, keep its tools, skills and terms exactly and work in the entry's own tools or terms that this line used (those are the words application systems search for), and cut filler. Never add an outcome, number, tool or purpose that isn't written in the line or the entry. Keep the tense: a line in present tense or starting with an -ing word is current work, so it stays present (\"Manage\", \"Extending\"); never make it sound finished. If the line only says the student helped or took part, keep that (\"Helped\", \"Supported\"). If it can't be made stronger without adding something, return it unchanged." : kind === "numbers" ? " Work the student's number(s) into the line naturally, exactly as given." : " Start the line with what the student says they did, in their words (their answer), e.g. line \"Helped with social media\" + answer \"wrote and scheduled the posts\" becomes \"Wrote and scheduled social media posts\"."}`,
-        `LINE: ${text}\n${answer ? `STUDENT'S ANSWER: ${answer}\n` : ""}${context ? `SAME ENTRY: ${context}\n` : ""}\nReturn {"bullet":""}`,
+        `You improve ONE line of a college student's resume. Rules: keep every fact in the line; add nothing that isn't in the line or the student's answer (no outcomes, purposes, tools, numbers or adjectives they didn't give); start with a strong past-tense action verb (or present tense if the line is in present tense); 8 to 28 words; no period at the end.${kind === "numbers" ? " Work the student's number(s) into the line naturally, exactly as given." : " Start the line with what the student says they did, in their words (their answer), e.g. line \"Helped with social media\" + answer \"wrote and scheduled the posts\" becomes \"Wrote and scheduled social media posts\"."}`,
+        `LINE: ${text}\n${answer ? `STUDENT'S ANSWER: ${answer}\n` : ""}\nReturn {"bullet":""}`,
         300,
       ),
     );
     const draft = String(out?.bullet || "").replace(/\s+/g, " ").trim().replace(/\.$/, "").slice(0, 300);
     // Only the line plus the student's answer, never a hedged action upgraded (server/ai/bulletDraft.ts).
-    if (!draftOk(auto ? "verbs" : (kind as "numbers" | "verbs"), text, answer, draft, context) || (auto && (WEAK.test(draft) || !ownRewriteOk(text, draft)))) {
+    if (!draftOk(kind as "numbers" | "verbs", text, answer, draft)) {
       bad("Remy couldn't improve this line without adding something you didn't say. Edit it yourself in the Edit tab.", 422);
     }
     res.json({ draft });

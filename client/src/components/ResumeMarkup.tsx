@@ -166,6 +166,9 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
   // literally resume"). The list is fixed when the walk starts, so a line stays in it after its fix.
   const [walk, setWalk] = useState<{ list: Step[]; i: number } | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  // The soft highlight around the line Remy is rewriting, drawn over the page so it fits any view (Dilan, Nov 24: the
+  // outline was tight, clipped the bullet and looked crude).
+  const [mark, setMark] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
   const startWalk = (line = "") => {
     const list: Step[] = doc.sections.filter((s) => !isListSection(s.heading, true)).flatMap((s) => s.entries.flatMap((e) => e.bullets.flatMap((b): Step[] => {
       const p = b.text.trim() ? issues(b.text) : [];
@@ -179,8 +182,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
   const cur = walk?.list[walk.i];
   const scrolledTo = useRef("");
   useEffect(() => {
-    if (!cur) { setPos(null); return; }
-    let lit: HTMLElement | null = null;
+    if (!cur) { setPos(null); setMark(null); return; }
     const place = () => {
       const host = body.current; if (!host) return;
       const live = doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets)).find((x) => x.id === cur.b.id)?.text ?? cur.b.text;
@@ -193,14 +195,17 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
         ? Array.from(frame.contentDocument.querySelectorAll<HTMLElement>("p")).find((p) => sq(p.textContent || "").includes(key)) ?? null
         : pdf ? Array.from(pdf.querySelectorAll<HTMLElement>(".rr-flag")).find((f) => sq(f.dataset.line || "") === sq(cur.b.text) || sq(f.dataset.line || "") === sq(live)) ?? null
         : host.querySelector<HTMLElement>(`[data-bid="${cur.b.id}"]`);
-      if (!el || !paper) return pdf ? undefined : setPos(null); // a fixed line loses its flag on the PDF: stay put
-      if (frame && lit !== el) { // the frame runs no scripts and has its own styles: mark the line from here
-        if (lit) lit.style.outline = "";
-        el.style.outline = `2px solid ${getComputedStyle(document.documentElement).getPropertyValue("--fox")}`; el.style.outlineOffset = "2px"; lit = el;
-      }
+      if (!el || !paper) { if (!pdf) { setPos(null); setMark(null); } return; } // a fixed line loses its flag on the PDF: stay put
       // All in the body's own pixels: screen pixels over the shell's zoom. Rects inside the frame are already in them.
       const r = el.getBoundingClientRect(), h = host.getBoundingClientRect(), z = zoomOf(host);
       const px = (paper.left - h.left) / z, pw = paper.width / z;
+      // The line's box in body pixels, padded to take in the bullet on the left and the tag on the right.
+      const box = frame ? { t: (paper.top - h.top) / z + r.top, l: px + r.left, w: r.width, h: r.height }
+        : pdf ? { t: (r.top - h.top) / z, l: px + pw * 0.06, w: (r.right - h.left) / z - (px + pw * 0.06), h: r.height / z }
+        : { t: (r.top - h.top) / z, l: (r.left - h.left) / z, w: r.width / z, h: r.height / z };
+      const ml = Math.max(px + 4, box.l - 22), mr = Math.min(px + pw - 4, box.l + box.w + 8);
+      const m = { top: box.t - 4, left: ml, width: mr - ml, height: box.h + 8 };
+      setMark((p) => (p && Math.abs(p.top - m.top) < 1 && Math.abs(p.left - m.left) < 1 && Math.abs(p.width - m.width) < 1 && Math.abs(p.height - m.height) < 1 ? p : m));
       const top = frame ? (paper.top - h.top) / z + r.bottom + 6 : (r.bottom - h.top) / z + 6;
       const lineLeft = frame ? px + r.left : pdf ? px : (r.left - h.left) / z;
       const width = Math.min(540, pw - 16);
@@ -209,7 +214,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
     };
     place();
     const t = setInterval(place, 400); // shortcut: polls, because the Word frame redraws by itself after each change; fine for one open walk
-    return () => { clearInterval(t); if (lit) lit.style.outline = ""; };
+    return () => clearInterval(t);
   }, [cur?.b.id, walk?.i, doc]);
   const coach = useRef<HTMLDivElement>(null);
   useEffect(() => { // bring each new question into view, whatever scrolls the page
@@ -247,7 +252,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
                     {e.bullets.filter((b) => b.text.trim()).map((b) => {
                       const probs = plain || isListSection(s.heading, true) ? [] : issues(b.text);
                       return (
-                        <li key={b.id} data-bid={b.id} className={(probs.length ? "rm-has-issue" : "") + (cur?.b.id === b.id ? " rm-coach-line" : "")}>
+                        <li key={b.id} data-bid={b.id} className={probs.length ? "rm-has-issue" : ""}>
                           {tagged(b.text.replace(/^[•\-–*]\s*/, ""), probs.map((p) => <button key={p} className="rm-flag" title="Why?" data-testid="rm-flag">{p}</button>), tools, on)}
                         </li>
                       );
@@ -262,6 +267,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
             {doc.skills.map((k) => <p key={k.id} className="rm-skill"><b>{k.label ? k.label + ": " : ""}</b>{marked(k.items, tools, on)}</p>)}
           </>)}
         </article>}
+        {walk && cur && mark && upd && <div className="rm-coach-mark" style={mark} aria-hidden="true" data-testid="rm-coach-mark" />}
         {walk && cur && pos && upd && (
           <div ref={coach} className="rm-coach" style={{ top: pos.top, left: pos.left, width: pos.width }} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Remy's question about this line" data-testid="rm-coach">
             <div className="row-between" style={{ gap: 8, flexWrap: "nowrap" }}>
