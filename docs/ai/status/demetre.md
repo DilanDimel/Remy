@@ -1,21 +1,22 @@
 # Demetre's AI
 
-Updated: 2026-11-24 05:50 UTC
+Updated: 2026-11-24 06:00 UTC
 Area: `native/` (the Expo phone app)
 
 ## Working on now
-- Native setup for new students (handoff P1.7, this PR, owners-only like the whole app): `native/src/app/setup.tsx` runs the website's six steps natively with the same saves as `client/src/pages/Onboarding.tsx`: goal (path and goal chips), resume (paste text via `POST /api/resume/text`; a file upload or "Build one with Remy" opens the website's setup in the sheet until the app can pick files), review (profile fields, resume sections, facts to keep), preferences (two pages), three questions (`POST /api/ai/questions`, answers feed the profile and memory through `shared/setupReply.ts`) and the first plan (`POST /api/ai/plan`). Welcome back from step 3 on, like the website. The step number is shared, so setup started on the website carries on in the app.
-- Merged and published to preview: P0 (#320), Home (#327), chat (#328), Jobs (#329), My Path (#330), fixes (#331), Resume (#332), Tailor (#333, #334); all checked on the Android emulator.
+- Remy's chat as a half-height sheet on iPhone (handoff P1.2 detents, this PR): `native/src/app/_layout.tsx` presents `remy` as a `formSheet` with detents 0.6 and 1 and a grabber on iOS. Android keeps the full-screen page, because its form sheets don't keep a text field above the keyboard reliably. Not tested on an iPhone yet (no iOS device or simulator in this setup).
+- Next PR, ready locally: Remy's office drawn from the student's progress (books, pins, framed resume, level items, chest finds, outfit, clock) instead of the static picture.
+- Merged: P0 (#320), Home (#327), chat (#328), Jobs (#329), My Path (#330), fixes (#331), Resume (#332), Tailor (#333, #334), native setup (#337).
 - Database (another of Deme's threads): Supabase egress is over the free plan this cycle; #310, #313 and #317 merged. Stay on Free (#323).
 
 ## Files and folders I touch
-- `native/` only (this PR: `src/app/setup.tsx`, `src/components/setup/*` (new), `src/components/ui.tsx` (Button `disabled`)), plus `shared/news/2026-11-24-0548.ts`.
+- `native/` only (this PR: `src/app/_layout.tsx`, `src/app/remy.tsx`), plus `shared/news/2026-11-24-0600.ts`.
 
 ## Open PRs
-- Native setup (this one): owners-only.
+- Chat sheet on iPhone (this one): owners-only.
 
 ## Next
-- Half-height chat detents, then the live office.
+- The live office (next PR), then the website's tailoring brief and in-app resume upload (needs a new store build).
 
 ## Questions for the lead
 - The app opens only for owners (`appOpenFor` in `native/src/lib/rules.ts`), even after `redesign` is released, because CONTEXT.md says the app stays owners-only. Should the app get its own key in `shared/features.ts` (for example `app`, default `owners`) so Dilan can release it from Admin → Beta → Feature releases like everything else?
