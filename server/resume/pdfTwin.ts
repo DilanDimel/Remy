@@ -8,7 +8,7 @@ import path from "path";
 import zlib from "zlib";
 import type { ResumeDoc } from "@shared/types";
 
-export type Item = { str: string; x: number; y: number; size: number; w: number; font: string; color?: string; added?: boolean };
+export type Item = { str: string; x: number; y: number; size: number; w: number; font: string; color?: string; added?: boolean; moved?: boolean };
 type Shape = { x: number; y: number; w: number; h: number; fill: string | null; stroke: string | null; lw: number };
 type Font = { name: string; data?: Buffer; ff?: any; bold: boolean; italic: boolean; serif: boolean; mono: boolean; trusted?: boolean; scale?: number };
 type Img = { x: number; y: number; w: number; h: number; png: Buffer };
@@ -196,65 +196,242 @@ function below(lines: Item[][], l: Item[]) {
 }
 
 const BULLET = /^[\s•●▪◦‣∙·*–—-]+/;
-/** Applies line edits to the Twin. Each `from` must match one or more whole consecutive lines (the bullet glyph and
- *  wrapping ignored); the new text is wrapped in the same font, size, indent and width, and everything below on the
- *  page moves by the change in height. Returns the edits it couldn't place. */
-export function editTwin(t: Twin, edits: { from: string; to: string; after?: boolean }[]): { missed: string[] } {
-  // An empty `to` deletes the line and moves what's below up. `after` adds `to` as a new line under `from`, with the
-  // same bullet, font and indent.
+type Edit = { from: string; to: string; after?: boolean; like?: string };
+type Found = { rows: Item[][]; old: Item[][]; label: Item[] };
+/** Finds `text` as one or more whole consecutive lines of a page (bullet glyphs and wrapping ignored). A label in
+ *  front on the first line ("Technical: ") may stay out of the match. */
+function find(p: TwinPage, text: string): Found | null {
+  return finds(p, text).next().value ?? null;
+}
+function* finds(p: TwinPage, text: string): Generator<Found> {
+  const want = squash(text.replace(BULLET, ""));
+  if (!want) return;
+  const rows = linesOf(p);
+  for (const row of rows) for (let k = 0; k < row.length; k++) {
+    let acc = "";
+    const old: Item[][] = [];
+    for (let l: Item[] | undefined = row; l && acc.length < want.length; l = below(rows, l)) {
+      const part = l === row ? row.slice(k) : l;
+      acc += squash(part.map((x) => x.str).join(""));
+      if (!want.startsWith(acc)) break;
+      old.push(part);
+    }
+    if (acc === want) yield { rows, old, label: row.slice(0, k) };
+  }
+}
+/** A heading set in capitals in the file ("EXPERIENCE") keeps capitals when it's renamed. */
+const caps = (old: Item[], to: string) => { const s = old.map((x) => x.str).join(""); return /[A-Z]/.test(s) && s === s.toUpperCase() ? to.toUpperCase() : to; };
+/** Where `text` sits: as whole lines, or (a role inside "Acme Corp | Analyst") the line it is part of. */
+function anchor(p: TwinPage, text: string): Found | null {
+  const f = find(p, text);
+  if (f || !squash(text)) return f;
+  const rows = linesOf(p), want = squash(text);
+  const row = rows.find((r) => r.some((x) => squash(x.str).includes(want)));
+  return row ? { rows, old: [row], label: [] } : null;
+}
+/** Of these texts, the one that sits lowest in the file (later page, then further down): a role's first bullet goes
+ *  under it. */
+export function lowest(t: Twin, texts: string[]): string | null {
+  let best: { n: number; y: number; s: string } | null = null;
+  for (const s of texts) t.pages.forEach((p, n) => {
+    const f = anchor(p, s);
+    const y = f && f.old[f.old.length - 1][0].y;
+    if (f && (!best || n > best.n || (n === best.n && y! > best.y))) best = { n, y: y!, s };
+  });
+  return (best as { s: string } | null)?.s ?? null;
+}
+/** The column a line sits in: its left edge (with room for a hanging bullet) and its right edge (the widest line in
+ *  the column that starts at or before it, or a section rule). */
+function columnOf(p: TwinPage, rows: Item[][], lines: Item[][], left: number) {
+  const size = lines[0][0].size;
+  const colLeft = Math.min(...lines.map((l) => l[0].x)) - size * 3;
+  const right = Math.max(...rows.filter((r) => r[0].x >= colLeft && r[0].x <= left + 1).map((r) => r[r.length - 1].x + r[r.length - 1].w),
+    ...p.shapes.filter((s) => s.x >= colLeft && s.x <= left + 1 && s.h < 3).map((s) => s.x + s.w), lines[0][0].x + lines[0][0].w);
+  return { colLeft, right };
+}
+/** Moves everything in the column below `bottom` by `shift` (a sidebar beside it stays put). */
+function shiftBelow(p: TwinPage, bottom: number, colLeft: number, shift: number) {
+  if (!shift) return;
+  const inCol = (x0: number) => x0 >= colLeft - 1;
+  for (const x of p.items) if (x.y > bottom + 0.5 && inCol(x.x)) { x.y += shift; x.moved = true; }
+  for (const s of p.shapes) if (s.y > bottom + 0.5 && inCol(s.x)) s.y += shift;
+  for (const im of p.images || []) if (im.y > bottom + 0.5 && inCol(im.x)) im.y += shift;
+}
+
+/** Applies edits to the Twin. Each `from` is found as whole lines (bullet glyph, wrapping and a leading label ignored)
+ *  and its new text wrapped in the same font, size, indent and width, with everything below moved by the change in
+ *  height; a right-aligned piece (a date, a place) stays right-aligned; text inside a line (an email in the contact
+ *  line) is swapped in place. An empty `to` deletes. `after` adds `to` as a new line under `from`, shaped like `from`
+ *  or like the `like` line (a role's first bullet takes another bullet's shape). Returns what it couldn't place. */
+export function editTwin(t: Twin, edits: Edit[]): { missed: string[] } {
   const missed: string[] = [];
   for (const e of edits) {
-    const want = squash(e.from.replace(BULLET, ""));
     let done = false;
     for (const p of t.pages) {
-      const rows = linesOf(p);
-      for (let i = 0; i < rows.length && !done; i++) {
-        let acc = "";
-        const old: Item[][] = [];
-        for (let l: Item[] | undefined = rows[i]; l && acc.length < want.length; l = below(rows, l)) {
-          acc += squash(l.map((x) => x.str).join(""));
-          if (!want.startsWith(acc)) break;
-          old.push(l);
-        }
-        if (acc !== want || !acc) continue;
-        const text = old.flatMap((r) => r).filter((x) => squash(x.str));
-        const first = text[0];
-        const left = first.x, cont = old[1]?.find((x) => squash(x.str))?.x ?? left;
-        // The right edge: the widest line in this column that starts at or before this line's indent.
-        const colLeft = Math.min(...old.map((l) => l[0].x)) - first.size * 3;
-        // Section rules in the same column mark the text width too (a page with no right-aligned dates).
-        const right = Math.max(...rows.filter((r) => r[0].x >= colLeft && r[0].x <= left + 1).map((r) => r[r.length - 1].x + r[r.length - 1].w),
-          ...p.shapes.filter((s) => s.x >= colLeft && s.x <= left + 1 && s.h < 3).map((s) => s.x + s.w), first.x + first.w);
-        const lead = old.length > 1 ? (old[old.length - 1][0].y - old[0][0].y) / (old.length - 1) : first.size * 1.16;
-        const font = t.fonts[first.font];
-        // A bullet typed as text ("• ", "– ") stays in front of the new line.
-        const prefix = first.str.match(BULLET)?.[0] ?? "";
-        const wrapped = wrap(prefix + e.to.replace(BULLET, "").trim(), font, first.size, right - left, right - cont);
-        const gone = !e.to.replace(BULLET, "").trim();
-        const shift = e.after ? wrapped.length * lead : ((gone ? 0 : wrapped.length) - old.length) * lead;
-        // A deleted line takes its bullet glyph with it; an edited one keeps it.
-        const oldSet = new Set(e.after ? [] : gone ? old.flat() : text);
-        const bottom = old[old.length - 1][0].y;
-        // Only what's below in the same column moves (a sidebar beside it stays put).
-        const inCol = (x0: number) => x0 >= colLeft - 1;
-        const lowest = Math.max(...p.items.filter((x) => inCol(x.x) && !oldSet.has(x)).map((x) => x.y));
-        // A change that would push text off the page isn't made (the caller falls back to Remy's drawing).
-        if (shift > 0 && lowest + shift > p.h - 18) continue;
-        p.items = p.items.filter((x) => !oldSet.has(x));
-        for (const x of p.items) if (x.y > bottom + 0.5 && inCol(x.x)) x.y += shift;
-        for (const s of p.shapes) if (s.y > bottom + 0.5 && inCol(s.x)) s.y += shift;
-        for (const im of p.images || []) if (im.y > bottom + 0.5 && inCol(im.x)) im.y += shift;
-        // A new line goes right under the old one, with a copy of its bullet glyph.
-        const top = e.after ? bottom + lead : first.y;
-        if (e.after) for (const g of old[0].filter((x) => !squash(x.str) && x.x < left)) p.items.push({ ...g, y: top + (g.y - first.y), added: true });
-        if (!gone) wrapped.forEach((str, k) => p.items.push({ str, x: k ? cont : left, y: top + k * lead, size: first.size, w: measure(font, str, first.size), font: first.font, color: first.color, added: true }));
-        done = true;
-      }
+      done = (e.after ? addLine(t, p, e) : replaceLines(t, p, e)) || (!e.after && replaceInLine(t, p, e));
       if (done) break;
     }
     if (!done) missed.push(e.from);
   }
   return { missed };
+}
+
+function replaceLines(t: Twin, p: TwinPage, e: Edit): boolean {
+  const f = find(p, e.from);
+  if (!f) return false;
+  const { rows, old, label } = f;
+  const text = old.flat().filter((x) => squash(x.str));
+  const first = text[0];
+  const left = first.x, cont = old[1]?.find((x) => squash(x.str))?.x ?? (label.length ? label[0].x : left);
+  const { colLeft, right } = columnOf(p, rows, old, left);
+  const lead = old.length > 1 ? (old[old.length - 1][0].y - old[0][0].y) / (old.length - 1) : first.size * 1.16;
+  const font = t.fonts[first.font];
+  const body = caps(text, e.to.replace(BULLET, "").trim());
+  const gone = !body;
+  const row = rows.filter((r) => Math.abs(r[0].y - first.y) < 1);
+  // A line centred on the page (a name, a contact line) stays centred, on one line, if it still fits the margins.
+  const start = old[0][0].x, end0 = Math.max(...old[0].map((x) => x.x + x.w));
+  if (old.length === 1 && !label.length && row.length === 1 && start > 60 && Math.abs((start + end0) / 2 - p.w / 2) < 4) {
+    const was = new Set(gone ? old[0] : text);
+    p.items = p.items.filter((x) => !was.has(x));
+    if (gone) return true;
+    const str = (first.str.match(BULLET)?.[0] ?? "") + body, w = measure(font, str, first.size);
+    if (w > p.w - 72) return false;
+    p.items.push({ str, x: p.w / 2 - w / 2, y: first.y, size: first.size, w, font: first.font, color: first.color, added: true });
+    return true;
+  }
+  // A piece on the right of its row (a date, a place) stays flush right, on one line.
+  const rightPiece = old.length === 1 && !label.length && row.length > 1 && row[0] !== old[0];
+  if (rightPiece) {
+    const end = first.x + Math.max(...old[0].map((x) => x.x + x.w - first.x));
+    const w = measure(font, body, first.size);
+    const before = row[row.indexOf(row.find((r) => r[0] === old[0][0])!) - 1];
+    if (!gone && before && end - w < before[before.length - 1].x + before[before.length - 1].w + first.size) return false;
+    const was = new Set(old[0]);
+    p.items = p.items.filter((x) => !was.has(x));
+    if (!gone) p.items.push({ str: body, x: end - w, y: first.y, size: first.size, w, font: first.font, color: first.color, added: true });
+    return true;
+  }
+  // A bullet typed as text ("• ", "– ") stays in front of the new line.
+  const prefix = first.str.match(BULLET)?.[0] ?? "";
+  const wrapped = wrap(prefix + body, font, first.size, right - left, right - cont);
+  const shift = ((gone ? 0 : wrapped.length) - old.length) * lead;
+  // A deleted line takes its bullet glyph and label with it; an edited one keeps them.
+  const oldSet = new Set(gone ? [...old.flat(), ...label] : text);
+  const bottom = old[old.length - 1][0].y;
+  p.items = p.items.filter((x) => !oldSet.has(x));
+  shiftBelow(p, bottom, colLeft, shift);
+  if (!gone) wrapped.forEach((str, k) => p.items.push({ str, x: k ? cont : left, y: first.y + k * lead, size: first.size, w: measure(font, str, first.size), font: first.font, color: first.color, added: true }));
+  return true;
+}
+
+function addLine(t: Twin, p: TwinPage, e: Edit): boolean {
+  const at = anchor(p, e.from);
+  if (!at) return false;
+  // The new line's shape: the anchor itself, or (for a role's first bullet) another bullet on any page.
+  const shape = e.like ? t.pages.map((q) => ({ q, f: find(q, e.like!) })).find((x) => x.f) : { q: p, f: at };
+  if (!shape?.f) return false;
+  const lines = shape.f.old;
+  const text = lines.flat().filter((x) => squash(x.str));
+  const first = text[0];
+  const left = first.x, cont = lines[1]?.find((x) => squash(x.str))?.x ?? left;
+  const { right } = columnOf(shape.q, shape.f.rows, lines, left);
+  const lead = lines.length > 1 ? (lines[lines.length - 1][0].y - lines[0][0].y) / (lines.length - 1) : first.size * 1.16;
+  const font = t.fonts[first.font];
+  const prefix = first.str.match(BULLET)?.[0] ?? "";
+  const wrapped = wrap(prefix + e.to.replace(BULLET, "").trim(), font, first.size, right - left, right - cont);
+  if (!e.to.trim()) return true;
+  const bottom = at.old[at.old.length - 1][0].y;
+  const { colLeft } = columnOf(p, at.rows, at.old, at.old[0][0].x);
+  // Under a role line the gap is one line of the bullet's size; under a bullet, the bullet's own spacing.
+  const top = bottom + (e.like ? Math.max(lead, at.old[0][0].size * 1.16) : lead);
+  shiftBelow(p, bottom, Math.min(colLeft, left - first.size * 3), top - bottom + (wrapped.length - 1) * lead);
+  for (const g of lines[0].filter((x) => !squash(x.str) && x.x < left)) p.items.push({ ...g, y: top + (g.y - first.y), added: true });
+  wrapped.forEach((str, k) => p.items.push({ str, x: k ? cont : left, y: top + k * lead, size: first.size, w: measure(font, str, first.size), font: first.font, color: first.color, added: true }));
+  return true;
+}
+
+/** Text inside one piece of a line (an email in "email | phone | city"): swapped in place; the rest of the line moves
+ *  over (a centred line stays centred, a right-aligned one stays flush right) as long as it still fits. */
+function replaceInLine(t: Twin, p: TwinPage, e: Edit): boolean {
+  const pattern = new RegExp(e.from.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s*"), "i");
+  const it = p.items.find((x) => pattern.test(x.str));
+  if (!it || !e.from.trim()) return false;
+  const font = t.fonts[it.font];
+  const str = it.str.replace(pattern, (m) => caps([{ str: m } as Item], e.to.trim())).replace(/\s{2,}/g, " ");
+  const delta = measure(font, str, it.size) - measure(font, it.str, it.size);
+  const rows = linesOf(p);
+  const row = rows.filter((r) => Math.abs(r[0].y - it.y) < 1).flat().sort((a, b) => a.x - b.x);
+  const start = row[0].x, end = row[row.length - 1].x + row[row.length - 1].w;
+  const centred = Math.abs((start + end) / 2 - p.w / 2) < 4 && start > 60;
+  const flushRight = !centred && rows.some((r) => r.includes(it) && r[0] !== row[0]);
+  const after = row.filter((x) => x.x > it.x);
+  it.str = str; it.w += delta; it.moved = true;
+  for (const x of after) { x.x += delta; x.moved = true; }
+  if (centred) for (const x of row) x.x -= delta / 2;
+  else if (flushRight) for (const x of row.filter((x) => x.x >= it.x - delta)) x.x -= delta;
+  const nEnd = Math.max(...row.map((x) => x.x + x.w)), nStart = Math.min(...row.map((x) => x.x));
+  return nEnd <= p.w - 18 && nStart >= 18;
+}
+
+/** Problems a rebuilt page would show: changed or moved text running into other text, or off the page. */
+export function clashes(t: Twin): string[] {
+  const out: string[] = [];
+  t.pages.forEach((p, n) => {
+    const live = p.items.filter((i) => i.str.trim());
+    for (const a of live) {
+      if (!a.added && !a.moved) continue;
+      if (a.x < 0 || a.x + a.w > p.w + 0.5 || a.y > p.h - 2 || a.y - a.size < 0) { out.push(`"${a.str.slice(0, 40)}" runs off page ${n + 1}`); continue; }
+      for (const b of live) {
+        if (a === b || Math.abs(a.y - b.y) > Math.min(a.size, b.size) * 0.6) continue;
+        const overlap = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+        if (overlap > Math.min(a.size, b.size) * 0.3) { out.push(`"${a.str.slice(0, 40)}" overlaps "${b.str.slice(0, 40)}"`); break; }
+      }
+    }
+  });
+  return out;
+}
+
+/** Text pushed past the bottom of a page goes to the top of the next one (which moves down to make room), and past
+ *  the last page onto a new page, from the first line that no longer fits. */
+export function flow(t: Twin, limits: number[]) {
+  const top = Math.max(36, Math.min(...t.pages[0].items.filter((i) => i.str.trim()).map((i) => i.y - i.size)));
+  for (let n = 0; n < t.pages.length && n < 6; n++) {
+    const p = t.pages[n], limit = limits[n] ?? p.h - 36;
+    const over = p.items.filter((i) => i.str.trim() && i.y > limit);
+    if (!over.length) continue;
+    let cut = Math.min(...over.map((i) => i.y)) - Math.max(...over.map((i) => i.size)) * 0.85;
+    // A role or heading isn't left alone at the bottom: up to three lines just above the cut in another font than the
+    // body text (a role, its place and dates) go with what follows.
+    const ys = [...new Set(p.items.filter((i) => i.str.trim()).map((i) => Math.round(i.y)))].sort((a, b) => a - b);
+    const fontAt = (y: number) => p.items.find((i) => i.str.trim() && Math.round(i.y) === y)!;
+    const gaps = ys.slice(1).map((y, k) => y - ys[k]).sort((a, b) => a - b);
+    const lead = gaps[Math.floor(gaps.length / 2)] || 12;
+    const tally = new Map<string, number>();
+    for (const i of p.items) tally.set(i.font, (tally.get(i.font) || 0) + i.str.length);
+    const body = [...tally].sort((a, b) => b[1] - a[1])[0]?.[0];
+    const up = ys.filter((y) => y <= cut).reverse();
+    for (let k = 0; k < Math.min(3, up.length - 1); k++) {
+      if (fontAt(up[k]).font === body) break;
+      cut = up[k] - fontAt(up[k]).size * 0.85;
+      if (up[k] - up[k + 1] > lead + 1) break;
+    }
+    if (!t.pages[n + 1]) t.pages.push({ w: p.w, h: p.h, items: [], shapes: [], images: [] });
+    const q = t.pages[n + 1];
+    const qTop = Math.min(top, ...q.items.filter((i) => i.str.trim()).map((i) => i.y - i.size));
+    const moving = p.items.filter((i) => i.y > cut && i.str.trim());
+    const lowest = Math.max(...moving.map((i) => i.y));
+    // The next page's own text moves down below the moved block: one line on if it carries on the same paragraph
+    // (same font), a block's gap if it starts a new one.
+    const qFirst = q.items.filter((i) => i.str.trim()).sort((a, b) => a.y - b.y)[0];
+    const last = moving.filter((i) => i.y === lowest)[0];
+    const gap = qFirst && last && qFirst.font === last.font ? lead : lead * 1.6;
+    const room = qFirst ? lowest + qTop - cut + gap - qFirst.y : 0;
+    for (const x of [...q.items, ...q.shapes, ...(q.images || [])]) x.y += room;
+    for (const x of q.items) x.moved = true;
+    const send = <T extends { y: number }>(xs: T[], into: T[]) => xs.filter((x) => { if (x.y <= cut) return true; x.y += qTop - cut; into.push(x); return false; });
+    p.items = send(p.items, q.items); p.shapes = send(p.shapes, q.shapes); p.images = send(p.images || [], (q.images ??= []));
+  }
 }
 
 /** True when the file's own font can be trusted to draw `s`: it has every letter (spaces aside, subsets often leave the
@@ -375,30 +552,77 @@ export async function twinPdf(t: Twin): Promise<Buffer> {
  *  place (matched by the text first read from the file, `fileLines`), and new bullets added under the one before.
  *  Changed names, headers or skills can't be placed yet: they come back in `missed`, and the caller shows Remy's
  *  drawing instead. */
-export async function currentResumePdf(buf: Buffer, doc: ResumeDoc, fileLines: Record<string, string> = {}): Promise<{ buf: Buffer | null; missed: string[] }> {
-  const { twin, missed } = await currentResumeTwin(buf, doc, fileLines);
+export async function currentResumePdf(buf: Buffer, doc: ResumeDoc, fileLines: Record<string, string> = {}, fileFields?: Record<string, string>): Promise<{ buf: Buffer | null; missed: string[] }> {
+  const { twin, missed } = await currentResumeTwin(buf, doc, fileLines, fileFields);
   return { buf: twin ? await twinPdf(twin) : null, missed };
 }
+/** Every short field of a resume (name, contact, headings, roles, dates, skills) by a key that survives edits, so the
+ *  file's own text of a field can be found again after the student changes it. */
+export function fieldsOf(doc: ResumeDoc): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const k of ["name", "email", "phone", "location", "links"] as const) out[`c.${k}`] = doc.contact[k] || "";
+  for (const s of doc.sections) {
+    out[`h.${s.id}`] = s.heading;
+    for (const e of s.entries) for (const k of ["org", "role", "location", "dates"] as const) out[`${k}.${e.id}`] = e[k] || "";
+  }
+  for (const k of doc.skills) { out[`kl.${k.id}`] = k.label || ""; out[`ki.${k.id}`] = k.items || ""; }
+  return out;
+}
 /** The same, as the edited Twin (for a Word copy in the PDF's look, `twinDocx`). */
-export async function currentResumeTwin(buf: Buffer, doc: ResumeDoc, fileLines: Record<string, string> = {}): Promise<{ twin: Twin | null; missed: string[] }> {
+export async function currentResumeTwin(buf: Buffer, doc: ResumeDoc, fileLines: Record<string, string> = {}, fileFields?: Record<string, string>): Promise<{ twin: Twin | null; missed: string[] }> {
   const t = await readTwin(buf);
+  // How far down each page text may go before it moves on: the file's own lowest line, or a 0.75in bottom margin.
+  const limits = t.pages.map((p) => Math.max(p.h - 54, ...p.items.filter((i) => i.str.trim()).map((i) => i.y)));
+  const flat = squash(t.pages.flatMap((p) => p.items.map((i) => i.str)).join(""));
+  // How often a field shows in the file, as whole words ("Jordan Lee" not inside "jordanlee@…"); squashed when the
+  // file spells it a little differently.
+  const said = t.pages.flatMap((p) => linesOf(p).map((l) => l.map((i) => i.str).join(" "))).join("\n").toLowerCase();
+  const count = (v: string) => {
+    const re = new RegExp(`(?<![a-z0-9])${v.trim().toLowerCase().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+")}(?![a-z0-9])`, "g");
+    return (said.match(re) || []).length || flat.split(squash(v)).length - 1;
+  };
+  // A field is placed only where it can't be mistaken: once in the file, or once as a line of its own (the name, also
+  // inside the LinkedIn link; a heading, also inside a bullet).
+  const sure = (v: string) => count(v) === 1 || t.pages.reduce((n, p) => n + [...finds(p, v)].length, 0) === 1;
   const now = new Map(doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => [b.id, b.text] as const))));
-  const edits: { from: string; to: string; after?: boolean }[] = [], adds: typeof edits = [], missed: string[] = [];
+  const edits: Edit[] = [], adds: Edit[] = [], missed: string[] = [];
+  // Short fields first (a renamed heading, a new date), each where the file had it. One that appears more than once
+  // in the file ("2024", "Dallas, TX") can't be told apart, so it isn't guessed.
+  const fields = fieldsOf(doc);
+  for (const [k, to] of Object.entries(fields)) {
+    const from = fileFields?.[k];
+    if (from === undefined || squash(from) === squash(to)) continue;
+    // A skill label counts only where it leads its own items (the reader names unlabelled lines itself).
+    const own = !k.startsWith("kl.") || flat.includes(squash(from + (fileFields?.[`ki.${k.slice(3)}`] || "")));
+    if (!squash(from) || !sure(from) || !own) missed.push(to || from);
+    else edits.push({ from, to });
+  }
   for (const [id, text] of now) if (id in fileLines && squash(text) !== squash(fileLines[id])) edits.push({ from: fileLines[id], to: text });
   for (const [id, text] of Object.entries(fileLines)) if (!now.has(id)) edits.push({ from: text, to: "" });
   // A line added in Remy goes under the bullet before it in the same role (as that bullet reads now), once the
-  // edits are in. The first bullet of a role with none from the file has nothing to sit under.
-  for (const e of doc.sections.flatMap((s) => s.entries)) e.bullets.forEach((b, k) => {
+  // edits are in. A role's first bullet goes under the role's lowest line, shaped like a bullet from the file.
+  const fileBullet = (ids: string[]) => ids.find((id) => id in fileLines && squash(now.get(id) || ""));
+  for (const s of doc.sections) for (const e of s.entries) e.bullets.forEach((b, k) => {
     if (b.id in fileLines || !b.text.trim()) return;
-    if (k === 0) missed.push(b.text); else adds.push({ from: e.bullets[k - 1].text, to: b.text, after: true });
+    if (k) { adds.push({ from: e.bullets[k - 1].text, to: b.text, after: true }); return; }
+    const like = fileBullet(s.entries.flatMap((x) => x.bullets.map((y) => y.id))) || fileBullet([...now.keys()]);
+    const under = lowest(t, [e.role, e.org, e.dates, e.location].filter((v) => squash(v || "") && sure(v)));
+    if (like && under) adds.push({ from: under, to: b.text, after: true, like: now.get(like)! });
+    else missed.push(b.text);
   });
   edits.push(...adds);
-  const flat = squash(t.pages.flatMap((p) => p.items.map((i) => i.str)).join(""));
-  const c = doc.contact;
-  for (const v of [c.name, c.email, c.phone, c.location, c.links, ...doc.sections.flatMap((s) => [s.heading, ...s.entries.flatMap((e) => [e.org, e.role, e.location, e.dates])]), ...doc.skills.map((k) => k.items)])
-    if (squash(v || "") && !flat.includes(squash(v))) missed.push(v);
   missed.push(...editTwin(t, edits).missed);
-  return { twin: missed.length ? null : t, missed };
+  // Whatever the file shows of the resume has to be there after the edits (a section or role added in Remy isn't).
+  const after = squash(t.pages.flatMap((p) => p.items.map((i) => i.str)).join(""));
+  // (Skill labels aren't checked: the reader names unlabelled skill lines itself.)
+  // (A field the file never showed, like a heading the reader named itself, isn't required while it's unchanged.)
+  for (const [k, v] of Object.entries(fields)) {
+    const asRead = fileFields?.[k] !== undefined && squash(fileFields[k]) === squash(v);
+    if (!k.startsWith("kl.") && squash(v) && !after.includes(squash(v)) && !(asRead && !flat.includes(squash(v)))) missed.push(v);
+  }
+  flow(t, limits);
+  missed.push(...clashes(t));
+  return { twin: missed.length ? null : t, missed: [...new Set(missed)] };
 }
 
 /** A page layout measured in the student's browser from their own Word file (positions in points, top-left origin),

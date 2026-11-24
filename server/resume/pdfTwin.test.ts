@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import PDFDocument from "pdfkit";
-import { currentResumePdf, readTwin, twinFromLayout, twinPdf } from "./pdfTwin";
+import { clashes, currentResumePdf, fieldsOf, readTwin, twinFromLayout, twinPdf } from "./pdfTwin";
 
 // A small one-column resume PDF: name, a ruled heading, a job with two bullets, then a second heading.
 async function resumePdf(): Promise<Buffer> {
@@ -50,7 +50,7 @@ test("PDF twin: a deleted line closes up", async () => {
   assert.ok(before.y - after.y > 10, "moved up");
 });
 
-test("PDF twin: a line added in Remy goes under the bullet before it, with its bullet; one with nothing above is reported", async () => {
+test("PDF twin: a line added in Remy goes under the bullet before it, with its bullet", async () => {
   const pdf = await resumePdf();
   const added = await currentResumePdf(pdf, resume([{ id: "b1", text: one }, { id: "new", text: "Trained two new student workers" }, { id: "b2", text: two }]), { b1: one, b2: two });
   assert.deepEqual(added.missed, []);
@@ -59,9 +59,55 @@ test("PDF twin: a line added in Remy goes under the bullet before it, with its b
   assert.ok(a.str.startsWith("•") && Math.abs(a.x - b1.x) < 1, "same bullet and indent");
   const [before] = await lineOf(pdf, /^SKILLS/), [after] = await lineOf(added.buf!, /^SKILLS/);
   assert.ok(after.y - before.y > 10, "what's below moved down");
-  const first = await currentResumePdf(pdf, resume([{ id: "new", text: "Trained two new student workers" }, { id: "b1", text: one }, { id: "b2", text: two }]), { b1: one, b2: two });
-  assert.equal(first.buf, null);
-  assert.deepEqual(first.missed, ["Trained two new student workers"]);
+});
+
+test("PDF twin: a role's first bullet goes under the role line, shaped like the file's bullets", async () => {
+  const pdf = await resumePdf();
+  const out = await currentResumePdf(pdf, resume([{ id: "new", text: "Trained two new student workers" }, { id: "b1", text: one }, { id: "b2", text: two }]), { b1: one, b2: two });
+  assert.deepEqual(out.missed, []);
+  const [role] = await lineOf(out.buf!, /Work Study Student/), [a] = await lineOf(out.buf!, /Trained two new/), [b1] = await lineOf(out.buf!, /Manage office/);
+  assert.ok(a.y > role.y && a.y < b1.y, "between the role and the next bullet");
+  assert.ok(a.str.startsWith("•") && Math.abs(a.x - b1.x) < 1, "same bullet and indent");
+  // With no bullet from the file anywhere, there's no shape to copy.
+  const none = await currentResumePdf(pdf, resume([{ id: "new", text: "Trained two new student workers" }]), {});
+  assert.equal(none.buf, null);
+});
+
+test("PDF twin: name, heading and role edits land where the file had them; a heading in capitals stays in capitals", async () => {
+  const pdf = await resumePdf();
+  const was = resume([{ id: "b1", text: one }, { id: "b2", text: two }]);
+  const now = structuredClone(was);
+  now.contact.name = "Jordan A. Lee";
+  now.sections[0].heading = "Work Experience";
+  now.sections[0].entries[0].role = "Student Assistant";
+  const out = await currentResumePdf(pdf, now, { b1: one, b2: two }, fieldsOf(was));
+  assert.deepEqual(out.missed, []);
+  const text = (await readTwin(out.buf!)).pages[0].items.map((i) => i.str).join(" ");
+  assert.ok(text.includes("Jordan A. Lee") && text.includes("WORK EXPERIENCE") && text.includes("Texas Christian University, Student Assistant"), text);
+  assert.ok(!text.includes("Work Study"));
+  // Without the file's fields (an older upload), a changed name can't be placed, so Remy's own PDF stands in.
+  assert.equal((await currentResumePdf(pdf, now, { b1: one, b2: two })).buf, null);
+});
+
+test("PDF twin: lines pushed past the bottom go onto a second page", async () => {
+  const pdf = await resumePdf();
+  const many = Array.from({ length: 45 }, (_, k) => ({ id: `n${k}`, text: `Added line number ${k + 1} about the work done for the department` }));
+  const out = await currentResumePdf(pdf, resume([{ id: "b1", text: one }, ...many, { id: "b2", text: two }]), { b1: one, b2: two });
+  assert.deepEqual(out.missed, []);
+  const t = await readTwin(out.buf!);
+  assert.equal(t.pages.length, 2);
+  assert.ok(t.pages[1].items.some((i) => i.str.startsWith("SKILLS")), "the next heading moved over");
+  assert.ok(t.pages[0].items.every((i) => i.y < 792 - 36), "nothing cut off at the bottom");
+});
+
+test("PDF twin: changed text that would run into other text is caught", () => {
+  const t = { fonts: {}, pages: [{ w: 612, h: 792, shapes: [], items: [
+    { str: "A much longer place name now", x: 300, y: 100, size: 11, w: 200, font: "f", added: true },
+    { str: "May 2024", x: 480, y: 100, size: 11, w: 50, font: "f" },
+  ] }] } as any;
+  assert.equal(clashes(t).length, 1);
+  t.pages[0].items[0].w = 100;
+  assert.deepEqual(clashes(t), []);
 });
 
 test("PDF twin: a picture (a logo) is carried over at its spot", async () => {

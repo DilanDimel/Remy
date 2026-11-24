@@ -79,7 +79,7 @@ import { boardsFor, orderEmployers, preferMetros, pruneBoardCache, CAREERONESTOP
 import { emailReady, logEmail, sendEmail } from "./notify/email";
 import { codeEmail } from "./notify/layout";
 import { currentResumeDocx, docxStyle, editResumeDocx } from "./resume/docxEdit";
-import { currentResumePdf, currentResumeTwin, twinFromLayout, twinPdf } from "./resume/pdfTwin";
+import { currentResumePdf, currentResumeTwin, fieldsOf, twinFromLayout, twinPdf } from "./resume/pdfTwin";
 import { twinDocx } from "./resume/twinDocx";
 import { keepDecided } from "./coach/keepDecided";
 import * as gcal from "./notify/gcal";
@@ -1232,7 +1232,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     }
     doc.skillsIndex = skillsPosition(raw, doc);
     for (const m of ctx.ws.chat) delete m.resumeProposal; // a new resume makes old chat drafts meaningless
-    ctx.ws.resume = { fileName, uploadedAt: nowIso(), rawText: raw.slice(0, 30000), parsedBy, doc, skills: extractSkills(doc, raw), quality: parseQuality(raw, doc, notes), fileLines: Object.fromEntries(doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => [b.id, b.text]))).slice(0, 300)), ...(from ? { from } : {}) };
+    ctx.ws.resume = { fileName, uploadedAt: nowIso(), rawText: raw.slice(0, 30000), parsedBy, doc, skills: extractSkills(doc, raw), quality: parseQuality(raw, doc, notes), fileLines: Object.fromEntries(doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => [b.id, b.text]))).slice(0, 300)), fileFields: fieldsOf(doc), ...(from ? { from } : {}) };
     ctx.ws.imports.unshift({ id: uid("i"), kind: from ? LINKEDIN : "Resume", fileName, at: nowIso(), label: "Student provided", factsAdded: 0 });
     // Fill empty profile fields, and fields still holding what the replaced resume said. What the student typed stays.
     const p = ctx.ws.profile;
@@ -1367,10 +1367,10 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!f) return null;
     const doc = doc0 || draft || r.doc;
     if (pdf && asWord) {
-      const out = await currentResumeTwin(f.data, doc, r.fileLines).catch(() => ({ twin: null, missed: ["(file unreadable)"] }));
+      const out = await currentResumeTwin(f.data, doc, r.fileLines, r.fileFields).catch(() => ({ twin: null, missed: ["(file unreadable)"] }));
       return { buf: out.twin ? await twinDocx(out.twin) : null, missed: out.missed, mime: WORD_MIME };
     }
-    const out = await (word ? currentResumeDocx(f.data, doc, r.removed, r.fileLines) : currentResumePdf(f.data, doc, r.fileLines)).catch(() => ({ buf: null, missed: ["(file unreadable)"] }));
+    const out = await (word ? currentResumeDocx(f.data, doc, r.removed, r.fileLines) : currentResumePdf(f.data, doc, r.fileLines, r.fileFields)).catch(() => ({ buf: null, missed: ["(file unreadable)"] }));
     return { ...out, mime };
   }
   /** A draft resume sent by the page: only its shape is checked; it only ever draws the student's own file. */
@@ -1524,6 +1524,8 @@ export async function registerRoutes(_server: Server, app: Express) {
       const missing = new Set((ctx.ws.resume!.quality?.missingLines || []).map((l) => l.replace(/^[•\-*–]\s*/, "").trim()));
       for (const b of d.sections.flatMap((s) => s.entries || []).flatMap((e) => e.bullets || [])) if (!had.has(b.id) && missing.has(b.text.trim())) fileLines[b.id] = b.text.trim();
     }
+    // Uploads from before name, heading and date edits reached the file: the last saved fields stand in for the file's.
+    ctx.ws.resume!.fileFields ??= fieldsOf(ctx.ws.resume!.doc);
     if (gone.length) ctx.ws.resume!.removed = [...(ctx.ws.resume!.removed || []), ...gone].slice(-200);
     if (JSON.stringify(ctx.ws.resume!.doc) !== JSON.stringify(d)) {
       ctx.ws.resume!.editedAt = nowIso();

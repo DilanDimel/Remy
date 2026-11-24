@@ -76,6 +76,9 @@ export interface BaseResume {
   /** Each bullet's text as first read from the uploaded file, by bullet id, so the Word download can find the file line
    *  a reworded bullet came from. Lines added in Remy aren't here, so they never overwrite a file line. */
   fileLines?: Record<string, string>;
+  /** The short fields (name, contact, headings, roles, dates, skills) as first read from the file, by `fieldsOf` key, so
+   *  a PDF download can find what a changed field said there. */
+  fileFields?: Record<string, string>;
 }
 
 /** "Build my resume with Remy": everything the student told the builder, kept so they can come back and add to it. */
