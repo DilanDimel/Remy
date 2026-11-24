@@ -100,7 +100,7 @@ export default function Home() {
     } finally { setBusy(false); }
   });
   const notNow = () => { if (!offer) return; tap(); setGone((g) => [...g, offer.id]); saveSettings({ offersSeen: [...(ws.settings.offersSeen || []), offer.id].slice(-200) }).catch(() => {}); };
-  const openJob = (j: Job) => { tap(); go(`/opportunities?id=${encodeURIComponent(j.id)}`, "Opportunities"); };
+  const openJob = (j: Job) => { tap(); router.push({ pathname: "/job", params: { id: j.id } }); };
 
   const check = (t: Task) => (
     <Pressable testID="checkbox-task" accessibilityRole="checkbox" accessibilityState={{ checked: t.done }} accessibilityLabel={`Mark ${t.title} done`} onPress={() => toggle(t)} hitSlop={10}

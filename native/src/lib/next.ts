@@ -19,3 +19,34 @@ export function greeting(d = new Date()) {
 }
 
 
+
+/** The website's kind names (client/src/lib/jobs.ts kindLabel). */
+export const kindLabel: Record<Job["kind"], string> = { job: "Job", internship: "Internship", program: "Early-career program", campus: "Campus job", event: "Event" };
+
+/** "West Palm Beach, FL + 3 more", like the website's owner cards (Opportunities.tsx shortPlace). */
+export const shortPlace = (loc?: string) => {
+  const all = (loc || "").split(";").map((x) => x.replace(/,\s*United States$/, "").trim()).filter(Boolean);
+  return !all.length ? "Location not stated" : all.length > 1 ? `${all[0]} + ${all.length - 1} more` : all[0]!;
+};
+
+/** The deadline chip: orange inside a week, "Deadline passed" after (Opportunities.tsx). */
+export function deadlineChip(deadline: string, now = new Date()): { text: string; tone: "bad" | "soon" | "plain" } | null {
+  if (!deadline) return null;
+  const d = daysUntil(deadline, now);
+  if (d !== null && d < 0) return { text: "Deadline passed", tone: "bad" };
+  const day = new Date(deadline.slice(0, 10) + "T12:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return { text: `Due ${day}${d === 0 ? " · today" : d !== null ? ` · ${d}d` : ""}`, tone: d !== null && d <= 7 ? "soon" : "plain" };
+}
+
+/** Remy's line under the title, from real counts only (the website's OppLine). */
+export function jobsLine(shown: Job[], fits: Record<string, JobFit | undefined>, now = new Date()) {
+  if (!shown.length) return "";
+  const week = new Date(now.getTime() - 7 * 864e5).toISOString();
+  const fresh = shown.filter((j) => (j.foundAt || "") > week).length;
+  const qualify = shown.filter((j) => { const f = fits[j.id]; return f?.checked && f.eligibility !== "unlikely" && !f.closed; }).length;
+  return (fresh ? `${fresh} new this week.` : `${shown.length} opening${shown.length === 1 ? "" : "s"} ranked for you.`) + (qualify ? ` You qualify for ${qualify}.` : "");
+}
+
+/** Openings the student passed on (Pass hides it and rates it low), in feed order. */
+export const passedJobs = (w: Pick<Workspace, "hiddenJobIds" | "jobFeedback">, jobs: Job[]) =>
+  jobs.filter((j) => w.hiddenJobIds.includes(j.id) && (w.jobFeedback?.[j.id]?.rating ?? 0) <= 2);

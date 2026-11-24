@@ -7,7 +7,7 @@ import { ActivityIndicator, Image, Platform, Pressable, RefreshControl, ScrollVi
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, SvgXml } from "react-native-svg";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
-import { radius } from "@/lib/tokens";
+import { brand, light as lightTokens, radius } from "@/lib/tokens";
 import { useSession } from "@/lib/session";
 import { OUTFITS, SCHOLAR_ICON, type Outfit } from "./scholarSvg";
 
@@ -86,6 +86,13 @@ export function FitBadge({ fit }: { fit?: JobFit }) {
   return <View style={{ backgroundColor: bad ? c.surface2 : c.sageBg, borderRadius: 14, paddingHorizontal: 10, height: 28, justifyContent: "center" }}><Text style={{ fontFamily: font.bold, fontSize: 13, color: bad ? c.mutedText : c.sage }}>{label}</Text></View>;
 }
 
+/** A small status chip, the website's chip-live / chip-setup / chip-bad / chip-plain. */
+export function Chip({ text, tone = "plain", testID }: { text: string; tone?: "live" | "soon" | "bad" | "plain"; testID?: string }) {
+  const { c } = useTheme();
+  const [bg, fg] = tone === "live" ? [c.sageBg, c.sage] : tone === "soon" ? [c.foxSoft, c.foxDeep] : tone === "bad" ? [c.surface2, c.error] : [c.surface2, c.mutedText];
+  return <View testID={testID} style={{ backgroundColor: bg, borderRadius: 12, paddingHorizontal: 9, height: 24, justifyContent: "center" }}><Text style={{ fontFamily: font.bold, fontSize: 12.5, color: fg }}>{text}</Text></View>;
+}
+
 /** Chat text with **bold** shown as bold instead of raw asterisks. */
 export function RichText({ text, style, boldStyle }: { text: string; style?: StyleProp<TextStyle>; boldStyle?: StyleProp<TextStyle> }) {
   const parts = text.split(/\*\*(.+?)\*\*/g);
@@ -108,8 +115,9 @@ export function Logo({ company, url, size = 40 }: { company: string; url?: strin
   const { c } = useTheme();
   const { src, sure } = logoFor(company, url || "");
   const [bad, setBad] = useState(false);
-  const box = { width: size, height: size, borderRadius: radius.tile, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, alignItems: "center", justifyContent: "center", overflow: "hidden" } as const;
-  if (!src || bad) return <View style={box} accessibilityLabel={company}><Text style={{ fontFamily: font.display, fontSize: size * 0.38, color: c.mutedText }}>{initials(company)}</Text></View>;
+  // Always a white tile, also in dark mode: a black logo (TPG) disappeared on the dark surface.
+  const box = { width: size, height: size, borderRadius: radius.tile, backgroundColor: brand.white, borderWidth: 1, borderColor: c.line, alignItems: "center", justifyContent: "center", overflow: "hidden" } as const;
+  if (!src || bad) return <View style={box} accessibilityLabel={company}><Text style={{ fontFamily: font.display, fontSize: size * 0.38, color: lightTokens.mutedText }}>{initials(company)}</Text></View>;
   return (
     <View style={box} accessibilityLabel={`${company} logo`}>
       <Image source={{ uri: src }} style={{ width: size * 0.62, height: size * 0.62 }} resizeMode="contain" onError={() => setBad(true)}

@@ -31,6 +31,7 @@ function Root() {
         <Stack.Screen name="soon" options={{ ...sheet, title: "" }} />
         {/* Screens not rebuilt natively yet open the website, signed in, as a sheet. */}
         <Stack.Screen name="web" options={sheet} />
+        <Stack.Screen name="job" options={{ ...sheet, title: "" }} />
       </Stack>
     </>
   );
