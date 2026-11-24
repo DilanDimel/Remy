@@ -28,13 +28,13 @@ Area: `native/` (the Expo phone app)
 - dilan-2 · done · #390 · `appOpenFor` reads `features.app`, rules test for both states
 - dilan-4 · doing · branch claude/project-thread-87dr74-backup-prune · (1) each backup run now deletes every copy past the cut-off for 45 days back, so a missed night no longer leaves one in R2; test added. (2) noted: the switch's backup takes seconds at 25 MB; if the data grows past what fits in about a minute, I'll start it in the background
 - dilan-5 · done · #412 · the app's setup uses `AUTH_OPTS` and `authChip`, the question is optional, and the hint is the website's
-- dilan-3 · done · #PRNUM · `icon.png`, adaptive foreground (face inside the safe zone) and a new `splash.png` rendered from `client/public/remy-scholar.svg` on cream `#fff4ec`; ships in the Nov 24 store build
+- dilan-3 · done · #414 · `icon.png`, adaptive foreground (face inside the safe zone) and a new `splash.png` rendered from `client/public/remy-scholar.svg` on cream `#fff4ec`; ships in the Nov 24 store build
 
 ## Files and folders I touch
 - `native/`, plus (database work, outside my area) the files claimed above, `r2Store` added at the end of `server/platform/r2.ts` (the lead's R2 helper; existing functions unchanged, `call` takes an optional timeout), one `app.use(compress)` line in `server/index.ts`, `compression` in `package.json`, the `student_jobs` hooks in `server/platform/db.ts` (`loadWorkspace`, `saveSections`, `saveWorkspace`, `editWorkspace`, `deleteWorkspace`, new `copyJobsBatch`), the `SavedOpeningsMove` card in `client/src/pages/Admin.tsx` (System tab), two lines in `server/routes.ts` (the sweep and `/api/admin/storage`), a `restore-backup` script in `package.json`, and `docs/database-plan.md`.
 
 ## Open PRs
-- #PRNUM Store build: Scholar fox icon, resume upload, feedback screenshots (owners).
+- #414 Store build: Scholar fox icon, resume upload, feedback screenshots (owners).
 - #413 Office guide and Remy's quick questions on the app's My Path: merged Nov 24, on preview.
 - #412 App setup's work authorization (dilan-5): merged Nov 24.
 - Backup cleanup after missed nights (dilan-4, this branch).
