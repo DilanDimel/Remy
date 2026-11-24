@@ -2,8 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Remy } from "../components/common";
 import { ThemeToggle } from "../components/ThemeToggle";
-import { useOwnerView, useStore } from "../lib/store";
-import { Top } from "./Landing2";
+import { useStore } from "../lib/store";
 import { BETA_TERMS_LEAD, termsFor } from "@shared/beta";
 
 const CONTACT = "hello@remyai.org";
@@ -22,20 +21,37 @@ const Page = DocPage;
 function DocPage({ title, lead, children }: { title: string; lead: string; children: ReactNode }) {
   const body = useRef<HTMLDivElement>(null);
   const [toc, setToc] = useState<{ id: string; text: string }[]>([]);
-  const owner = useOwnerView();
-  const { me, ws } = useStore();
+  const { me } = useStore();
+  const inside = !!me; // signed in: "/" opens their Remy, not the homepage
+  const about = title.startsWith("About");
   useEffect(() => { setToc([...(body.current?.querySelectorAll<HTMLElement>(".info-sec") || [])].map((el) => ({ id: el.id, text: el.querySelector("h2")?.textContent || "" }))); }, [title]);
+  // Scroll-spy (Dilan, Nov 24): the contents list marks the section you're reading; at the bottom, the last one.
+  const [at, setAt] = useState("");
+  useEffect(() => {
+    const secs = [...(body.current?.querySelectorAll<HTMLElement>(".info-sec") || [])];
+    const spy = () => {
+      const end = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+      const cur = end ? secs[secs.length - 1] : secs.filter((el) => el.getBoundingClientRect().top <= 120).pop() || secs[0];
+      setAt(cur?.id || "");
+    };
+    spy();
+    window.addEventListener("scroll", spy, { passive: true });
+    return () => window.removeEventListener("scroll", spy);
+  }, [title]);
   return (
     <div className="doc">
-      {owner ? <Top inside={!!(me && ws?.started)} what="/welcome#what" /> : (
+      {/* One header for everyone (Dilan, Nov 24): back to wherever you came from, and the other page one tap away. */}
       <header className="doc-top">
         <a className="logo" href="/"><Remy size={26} /><span>Remy<b>.</b></span></a>
-        <nav className="row small"><a href="/" data-testid="link-back-to-remy"><ArrowLeft size={14} /> Back to Remy</a><a href="/about" aria-current={title.startsWith("About") ? "page" : undefined}>About</a><a href="/policies" aria-current={title.startsWith("About") ? undefined : "page"}>Privacy & terms</a><ThemeToggle /></nav>
+        <nav className="row small">
+          {about ? <a className="doc-pill" href="/policies" data-testid="link-doc-privacy">Privacy & terms</a> : <a className="doc-pill" href="/about" data-testid="link-doc-about">About Remy</a>}
+          <ThemeToggle />
+          <a className="doc-back" href="/" data-testid="link-back-to-remy"><ArrowLeft size={14} /> {inside ? "Back to Remy" : "Back to homepage"}</a>
+        </nav>
       </header>
-      )}
       <div className="doc-head"><h1>{title}</h1><p>{lead}</p></div>
       <div className="doc-grid">
-        {toc.length > 2 && <nav className="doc-toc" aria-label="On this page"><b>On this page</b>{toc.map((t) => <a key={t.id} href={`#${t.id}`}>{t.text}</a>)}</nav>}
+        {toc.length > 2 && <nav className="doc-toc" aria-label="On this page"><b>On this page</b>{toc.map((t) => <a key={t.id} href={`#${t.id}`} aria-current={t.id === at ? "location" : undefined} data-testid={`link-toc-${t.id}`}>{t.text}</a>)}</nav>}
         <article className="doc-body" ref={body}>
           {children}
           <p className="xs muted">Questions? Email <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.</p>

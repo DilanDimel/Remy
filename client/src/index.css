@@ -1471,6 +1471,10 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .doc-top nav { gap: 16px; }
 .doc-top nav a { display: inline-flex; align-items: center; gap: 6px; color: var(--muted-text); font-weight: 600; }
 .doc-top nav a[aria-current="page"], .doc-top nav a:hover { color: var(--ink); }
+.doc-top nav .doc-pill { padding: 7px 14px; border-radius: 999px; background: var(--fox-soft); color: var(--fox-deep); }
+.doc-top nav .doc-back { padding: 8px 14px; border-radius: 10px; background: var(--fox); color: var(--stage-deep); }
+.doc-top nav .doc-pill:hover, .doc-top nav .doc-back:hover { color: var(--stage-deep); background: var(--fox); }
+@media (max-width: 480px) { .doc-top nav { width: 100%; gap: 6px; justify-content: space-between; flex-wrap: nowrap; } .doc-top nav a { padding-inline: 9px; white-space: nowrap; font-size: 13px; } }
 .doc-head { max-width: 1120px; margin: 0 auto; padding: 48px 0 28px; }
 .doc-head h1 { font-size: clamp(2rem, 1.5rem + 2vw, 3rem); letter-spacing: -0.035em; line-height: 1.05; font-weight: 800; }
 .doc-head p { margin-top: 12px; max-width: 62ch; font-size: var(--text-lg); color: var(--muted-text); line-height: 1.5; }
@@ -1479,6 +1483,9 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .doc-toc b { font-size: var(--text-xs); color: var(--muted-text); margin-bottom: 6px; }
 .doc-toc a { color: var(--muted-text); padding: 5px 0 5px 12px; border-left: 2px solid var(--line); }
 .doc-toc a:hover { color: var(--ink); border-left-color: var(--fox); }
+.doc-toc a[aria-current="location"] { color: var(--ink); font-weight: 700; border-left-color: var(--fox); }
+@media (prefers-reduced-motion: no-preference) { html:has(.doc) { scroll-behavior: smooth; } }
+.doc .info-sec { scroll-margin-top: 24px; }
 .doc-body { max-width: 70ch; display: flex; flex-direction: column; gap: 36px; line-height: 1.65; }
 .doc-body .info-sec { gap: 12px; padding-top: 28px; border-top: 1px solid var(--line); scroll-margin-top: 24px; }
 .doc-body .info-sec h2 { font-size: var(--text-xl, 1.4rem) !important; letter-spacing: -0.02em; font-weight: 800; }
