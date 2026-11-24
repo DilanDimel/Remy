@@ -12,13 +12,14 @@ import { CARD_XP, dailyStreak, dayKey, streakDays } from "@shared/daily";
 import { pinColor, pinsOf, topPins } from "@shared/pins";
 import { CHEST_XP, RARE, chestPrize, rareOwned, welcomeBack } from "@shared/chest";
 import { prepChain } from "@shared/prep";
+import { dailyQuests, seasonOf } from "@shared/path";
 import { api, useStore } from "../lib/store";
 import type { Workspace } from "@shared/types";
 import { go } from "../lib/router";
 import { Modal, Remy, Rich, Spinner } from "./common";
 import { PATH_WALK } from "./Tour";
 import { ACTS, OUTFITS } from "./scholar";
-import { GIVE_UP, KONAMI, POKES, QUOTES, SECRETS, SPIN, TAPS, dateLine, pick, timeLine } from "./officeLines";
+import { GIVE_UP, KONAMI, POKES, QUOTES, SECRETS, SPIN, TAPS, dateLine, pick, timeLine } from "@shared/officeLines";
 import "./office.css";
 import { OfficeOpens, RemyDid } from "./RemyDid";
 import { canListen, speak, useVoice } from "../lib/voice";
@@ -40,30 +41,14 @@ function usePathData() {
   const streak = dailyStreak(streakDays(w));
   const xp = xpOf(w, g), lv = rankOf(xp, g.bestRank);
   const wk = weekKey(), missions = weekMissions(w, wk), done = doneThisWeek(w, g, wk, counters(w));
-  // Daily quests (reset at 4 AM with the day): each counts something the student really did today.
-  const now = dayKey();
-  const rated = Object.values(w.jobFeedback || {}).filter((f) => f.createdAt && dayKey(new Date(f.createdAt)) === now).length;
-  const quests = [
-    { key: "rate", icon: Eye, title: "Keep or pass 3 openings", n: Math.min(3, rated), of: 3, from: "Opportunities", link: "/opportunities" },
-    { key: "role", icon: Compass, title: "Decode one job", n: today.includes("role") ? 1 : 0, of: 1, from: "My Path", link: "/path?play=1" },
-    { key: "xp", icon: Zap, title: `Earn ${3 * CARD_XP} XP`, n: Math.min(3 * CARD_XP, today.length * CARD_XP), of: 3 * CARD_XP, from: "Anywhere in Remy", link: "/path?play=1" },
-  ];
+  // Daily quests (reset at 4 AM with the day): each counts something the student really did today (shared with the app).
+  const icons = { rate: Eye, role: Compass, xp: Zap };
+  const quests = dailyQuests(w, today).map((q) => ({ ...q, icon: icons[q.key] }));
   return { w, g, mine, setKey, road, stops, year, careers, future, today, streak, xp, lv, missions, done, quests };
 }
 type D = ReturnType<typeof usePathData>;
 
 /* ------------------------------------------------------------------ the season: a reward at every level */
-
-/** The semester we're in, the day it ends, and what this season is for at the student's year. */
-export function seasonOf(now: Date, year: number) {
-  const y = now.getFullYear(), m = now.getMonth(), day = now.getDate();
-  const [name, end] = (m > 7 || (m === 7 && day > 15)) && !(m === 11 && day > 15) ? ["Fall", new Date(y, 11, 15)]
-    : m === 11 ? ["Spring", new Date(y + 1, 4, 15)]
-    : m < 4 || (m === 4 && day <= 15) ? ["Spring", new Date(y, 4, 15)] : ["Summer", new Date(y, 7, 15)];
-  const left = Math.max(0, Math.ceil((+end - +now) / 864e5));
-  const goal = ["", "Find the jobs that fit you", "Get your first interview", "Land a summer internship", "Turn it into a job offer", "Grow in your first job"][year] || "Find the jobs that fit you";
-  return { name: name as string, left, goal };
-}
 
 function Season({ d }: { d: D }) {
   const { save } = useStore();

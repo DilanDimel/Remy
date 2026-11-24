@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { QUOTES, TAPS, POKES, dateLine, timeLine } from "../client/src/components/officeLines";
+import { QUOTES, TAPS, POKES, dateLine, timeLine } from "../shared/officeLines";
 
 test("Remy's office has 100+ things to say, every quote has an author", () => {
   const n = QUOTES.length + Object.values(TAPS).flat().length + POKES.length;
