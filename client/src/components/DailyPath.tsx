@@ -73,7 +73,7 @@ export function DailyHeader({ onPlay }: { onPlay: () => void }) {
           <Flame size={34} className={s.days ? "lit" : ""} fill="currentColor" />
           <div><b>{s.days}</b><span>day streak</span></div>
         </div>
-        <ol className="dp-dots" aria-label="This week">
+        <ol className="dp-dots" aria-label="The last seven days">
           {dots.map((d) => <li key={d.key} className={d.status} title={d.status}><i>{d.status === "done" ? <Check size={11} strokeWidth={3.5} /> : d.status === "freeze" ? <Snowflake size={11} /> : null}</i>{d.label}</li>)}
         </ol>
         <div className="dp-streak-meta">
