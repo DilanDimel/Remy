@@ -259,6 +259,9 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
           <rect x="40" y="268" width="200" height="10" rx="3" fill="var(--surface)" {...line} />
           {cert ? <rect x="56" y="226" width="40" height="42" rx="4" fill="var(--amber-bg)" {...line} /> : <rect x="56" y="226" width="40" height="42" rx="4" {...ghost} />}
           {has("trophy") && <g transform="translate(130 228)"><path d="M14 6h16v8a8 8 0 0 1-16 0z" fill="var(--amber-bg)" {...line} /><path d="M22 22v10M14 38h16" {...line} /></g>}
+          {/* streak milestones (Nov 24): the plant blooms at 7 days in a row, a framed photo at 30, gold at 100 */}
+          {d.streak.best >= 30 && <g transform="translate(796 120)"><rect width="52" height="64" rx="3" fill={d.streak.best >= 100 ? "var(--amber)" : "var(--surface)"} {...line} /><rect x="7" y="7" width="38" height="50" rx="2" fill="var(--surface)" stroke={ink} strokeWidth="1.5" />
+            <text x="26" y="34" textAnchor="middle" fontSize="17" fontWeight="800" fill="var(--fox-deep)">{d.streak.best >= 100 ? 100 : 30}</text><text x="26" y="48" textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--muted-text)">days</text></g>}
           {/* rare finds from the daily chest (Nov 24) */}
           {rare.has("bonsai") && <g transform="translate(184 230)"><path d="M6 30h32l-4 8H10z" fill="var(--fox-deep)" {...line} /><path d="M22 30c0-8-6-10-9-15M22 30c1-9 7-11 10-15" fill="none" {...line} /><circle cx="12" cy="13" r="8" fill="var(--sage)" /><circle cx="32" cy="12" r="9" fill="var(--sage)" /><circle cx="22" cy="6" r="7" fill="var(--sage)" /></g>}
           {rare.has("pennant") && <g transform="translate(494 74)"><path d="M0 0v62" {...line} /><path d="M1 2l46 14-46 16z" fill="var(--fox)" {...line} /><path d="M9 11l20 6-20 7z" fill="var(--surface)" /></g>}
@@ -293,7 +296,8 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
           <rect x="322" y="350" width="296" height="56" rx="3" fill="var(--surface-2)" {...line} />
           <path d="M532 378h60" {...line} strokeLinecap="round" /><path d="M554 364h16M554 392h16" stroke={ink} strokeWidth="4" strokeLinecap="round" />
           <g transform="translate(2 34)"><path d="M330 300h36l-5-26h-26z" fill="var(--fox)" {...line} />
-            {d.streak.days > 0 && <g className="ps-sway"><path d="M348 274C348 250 334 240 326 232M348 270C352 248 366 238 376 236M348 262C346 244 348 228 350 218" stroke="var(--sage)" strokeWidth="4" fill="none" strokeLinecap="round" /></g>}</g>
+            {d.streak.days > 0 && <g className="ps-sway"><path d="M348 274C348 250 334 240 326 232M348 270C352 248 366 238 376 236M348 262C346 244 348 228 350 218" stroke="var(--sage)" strokeWidth="4" fill="none" strokeLinecap="round" />
+              {d.streak.best >= 7 && [[326, 230], [377, 235], [350, 215]].map(([x, y]) => <circle key={x} cx={x} cy={y} r="6" fill="var(--fox-soft)" stroke="var(--fox)" strokeWidth="3" />)}</g>}</g>
           {has("lamp") && <g transform="translate(370 282)"><path d="M10 52h26M23 52V22" {...line} /><path d="M8 22l8-16h14l6 16z" fill="var(--amber-bg)" {...line} /></g>}
           <path d="M498 334l10-46h82l-10 46z" fill="var(--ink)" {...line} /><circle cx="544" cy="310" r="4" fill="var(--fox)" />
           {has("mug") && <g transform="translate(598 314)"><path d="M0 0h16v16a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4z" fill="var(--fox)" {...line} /><path className="ps-steam" d="M5-4q-3-5 0-9M11-4q3-5 0-9" stroke="var(--muted-text)" strokeWidth="2" fill="none" strokeLinecap="round" /></g>}
