@@ -14,16 +14,10 @@ export function Insider() {
   const { ws, setWs, run, config } = useStore();
   const [hidden, setHidden] = useState(snoozed);
   const [survey, setSurvey] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [joining, setJoining] = useState(false);
   const w = ws as Workspace;
   const due = insiderSurveyDue(w, config?.today || new Date().toISOString().slice(0, 10));
   if (hidden || !(insiderEligible(w) || due)) return null;
-  const join = async () => {
-    setBusy(true);
-    const r = await run(() => api<Workspace>("POST", "/api/insider"), "You're a Beta Insider. Check your pins on Rewards.");
-    setBusy(false);
-    if (r) setWs(r);
-  };
   const later = () => { try { localStorage.setItem(LATER, String(Date.now())); } catch {} setHidden(true); };
   return (
     <section className="card row" style={{ gap: 14, padding: "14px 16px", margin: "0 0 16px", flexWrap: "wrap" }} data-testid="insider-card">
@@ -38,10 +32,54 @@ export function Insider() {
         <button className="btn btn-ghost btn-sm" onClick={later} data-testid="button-insider-later">Not now</button>
         {due
           ? <button className="btn btn-primary btn-sm" onClick={() => setSurvey(true)} data-testid="button-insider-survey">Answer 3 questions</button>
-          : <button className="btn btn-primary btn-sm" onClick={join} disabled={busy} data-testid="button-insider-join">{busy && <Spinner />} Join Beta Insider</button>}
+          : <button className="btn btn-primary btn-sm" onClick={() => setJoining(true)} data-testid="button-insider-join">Join Beta Insider</button>}
       </div>
       {survey && <Survey onClose={() => setSurvey(false)} />}
+      {joining && <Join onClose={() => setJoining(false)} />}
     </section>
+  );
+}
+
+const SOURCES = ["A friend", "Instagram", "LinkedIn", "A class or professor", "Career center", "Somewhere else"];
+/** Joining asks what the old Founding Cohort form asked, so the team knows who its insiders are (Nov 24).
+ *  Goal and worries come from setup; the student can change them here. Everything is optional. */
+function Join({ onClose }: { onClose: () => void }) {
+  const { ws, setWs, run } = useStore();
+  const p = (ws as Workspace).profile;
+  const [a, setA] = useState({ goal: p.goal || "", stuck: p.worries || "", tools: "", source: "" });
+  const [busy, setBusy] = useState(false);
+  const join = async () => {
+    setBusy(true);
+    const r = await run(() => api<Workspace>("POST", "/api/insider", { answers: a }), "You're a Beta Insider. Check your pins on Rewards.");
+    setBusy(false);
+    if (r) { setWs(r); onClose(); }
+  };
+  return (
+    <Modal title="Join Beta Insider" onClose={onClose}>
+      <form className="stack" onSubmit={(e) => { e.preventDefault(); join(); }} data-testid="insider-join-form">
+        <p className="small muted" style={{ margin: 0 }}>Four quick questions so the team knows what you need. {[p.school, p.major, p.classYear].filter(Boolean).length ? `We'll use ${[p.school, p.major, p.classYear].filter(Boolean).join(", ")} from your profile.` : ""}</p>
+        <label className="stack-sm small"><b>What are you trying to land next?</b>
+          <input className="input" value={a.goal} onChange={(e) => setA({ ...a, goal: e.target.value })} maxLength={300} placeholder="e.g. A summer internship in finance" data-testid="input-insider-goal" />
+        </label>
+        <label className="stack-sm small"><b>Where are you stuck right now?</b>
+          <input className="input" value={a.stuck} onChange={(e) => setA({ ...a, stuck: e.target.value })} maxLength={300} placeholder="e.g. Getting past the resume screen" data-testid="input-insider-stuck" />
+        </label>
+        <label className="stack-sm small"><b>What else do you use for your search?</b>
+          <input className="input" value={a.tools} onChange={(e) => setA({ ...a, tools: e.target.value })} maxLength={300} placeholder="e.g. LinkedIn, Handshake" data-testid="input-insider-tools" />
+        </label>
+        <fieldset className="stack-sm" style={{ border: 0, padding: 0, margin: 0 }}>
+          <legend className="small"><b>How did you hear about Remy?</b></legend>
+          <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+            {SOURCES.map((s) => <button key={s} type="button" className={"btn btn-sm " + (a.source === s ? "btn-primary" : "btn-secondary")} aria-pressed={a.source === s} onClick={() => setA({ ...a, source: a.source === s ? "" : s })} data-testid={`button-insider-source-${SOURCES.indexOf(s)}`}>{s}</button>)}
+          </div>
+        </fieldset>
+        <p className="xs muted" style={{ margin: 0 }}>Insiders get a secret pin and three quick questions every two weeks. Only the Remy team sees your answers.</p>
+        <div className="row" style={{ justifyContent: "flex-end", gap: 8 }}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} data-testid="button-insider-join-cancel">Not now</button>
+          <button className="btn btn-primary btn-sm" disabled={busy} data-testid="button-insider-join-confirm">{busy && <Spinner />} Join</button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 

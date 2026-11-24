@@ -7,7 +7,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { aiAllowed, createSession, emptyWorkspace, ensureUser, loadWorkspace, newSigninCode, saveWorkspace } from "./db";
 import { registerRoutes } from "../routes";
-import { heavyKind, TAILOR_PER_DAY } from "./beta";
+import { heavyKind, TAILOR_PER_DAY, saveInsider } from "./beta";
 import { BETA_TERMS_VERSION, OPEN_TERMS_VERSION, insiderSurveyDue, termsFor } from "../../shared/beta";
 import { pinsOf } from "../../shared/pins";
 
@@ -65,8 +65,17 @@ test("open access: owners flip it, anyone signs in, terms and insider follow, an
   // Beta Insider: a newcomer must use Remy on 3 days first; a regular joins and gets the secret pin.
   const newcomer = await account("sb:open-new", "newcomer@open.test", ["2026-11-22"]);
   assert.equal((await call(newcomer, "POST", "/api/insider")).status, 400);
-  const joined = await call(student, "POST", "/api/insider");
+  const joined = await call(student, "POST", "/api/insider", { answers: { goal: "A finance internship", stuck: "Networking", tools: "LinkedIn", source: "A friend" } });
   assert.equal(joined.status, 200);
+  // Joining replaces the old form: the answers show up for owners on the Students tab, one row per email.
+  assert.equal((await call(student, "GET", "/api/admin/students")).status, 403);
+  const kid = (await call(boss, "GET", "/api/admin/students")).data.people.filter((r: any) => r.email === "kid@open.test");
+  assert.equal(kid.length, 1);
+  assert.deepEqual([kid[0].goal, kid[0].source, kid[0].cohort, kid[0].days, !!kid[0].insider], ["A finance internship", "A friend", "Beta Insider", 3, true]);
+  // A second save (or a Founding Cohort row) keeps what is already there and only fills blanks.
+  await saveInsider("kid@open.test", { name: "Kid", school: "TCU", major: "", classYear: "" }, { goal: "Something else" });
+  const again = (await call(boss, "GET", "/api/admin/students")).data.people.find((r: any) => r.email === "kid@open.test");
+  assert.deepEqual([again.goal, again.school, again.cohort], ["A finance internship", "TCU", "Beta Insider"]);
   assert.ok(joined.data.insider.joinedAt);
   assert.equal(pinsOf(joined.data).find((p) => p.id === "insider")?.earned, true);
   assert.equal((await call(student, "POST", "/api/insider/survey", { answers: ["5"] })).data.insider.surveyAt, undefined); // not due on day one
