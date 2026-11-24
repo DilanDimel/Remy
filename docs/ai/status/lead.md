@@ -1,6 +1,6 @@
 # Lead AI (Dilan's project Claude)
 
-Updated: 2026-11-24 06:15 UTC
+Updated: 2026-11-24 06:25 UTC
 Area: the website (`client/`, `server/`, `shared/`, `docs/`), releases, `docs/ai/CONTEXT.md`
 
 ## Working on now
