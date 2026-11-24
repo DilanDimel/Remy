@@ -28,10 +28,16 @@ async function connect(): Promise<Client> {
   const url = process.env.DATABASE_URL;
   if (url) {
     const { Pool } = await import("pg");
-    const pool = new Pool({ connectionString: url, max: Number(process.env.DB_POOL_MAX) || 5, ssl: sslFor(url), options: `-c search_path=${schema}` });
+    // Idle connections stay open 5 minutes (pg's default is 10 seconds): every reconnect through Supabase's pooler costs a
+    // TLS handshake and session setup, which adds to the data transfer Supabase bills.
+    const pool = new Pool({ connectionString: url, max: Number(process.env.DB_POOL_MAX) || 5, idleTimeoutMillis: 5 * 60_000, ssl: sslFor(url), options: `-c search_path=${schema}` });
+    // An idle connection the pooler closes must not crash the server; the pool opens a new one when needed.
+    pool.on("error", (e: Error) => console.error("database: idle connection closed:", e.message));
     // Count the bytes each connection receives from the database: that's what Supabase bills as data transfer.
-    pool.on("connect", (c: any) => { const s = c?.connection?.stream; if (s) sockets.set(s, 0); });
-    pool.on("remove", (c: any) => { const s = c?.connection?.stream; if (s) { pending += Math.max(0, (s.bytesRead || 0) - (sockets.get(s) || 0)); sockets.delete(s); } });
+    // The raw socket under TLS (_parent), so handshakes and TLS overhead are counted too.
+    const raw = (c: any) => c?.connection?.stream?._parent || c?.connection?.stream;
+    pool.on("connect", (c: any) => { const s = raw(c); if (s) sockets.set(s, 0); });
+    pool.on("remove", (c: any) => { const s = raw(c); if (s) { pending += Math.max(0, (s.bytesRead || 0) - (sockets.get(s) || 0)); sockets.delete(s); } });
     dbKind = `postgres (schema ${schema})`;
     return pool;
   }
