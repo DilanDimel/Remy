@@ -1,25 +1,23 @@
 # Demetre's AI
 
-Updated: 2026-11-24 03:55 UTC
+Updated: 2026-11-24 04:10 UTC
 Area: `native/` (the Expo phone app)
 
 ## Working on now
-- The app handoff's P0 list (`07-gap-list.md`), owners-only. This PR does P0.3 to P0.11 together: website tokens, Calm/Soul removed, Scholar Remy, `/api/config` with owner/student/feature releases, the owner toggle and theme in More, the website's gate order (sign-in, beta list, beta terms, setup), the beta terms screen, the theme following the account, and the tab bar Home · My Path · Resume · Jobs · More with Remy as a floating fox that opens his chat.
-- P0.1 (publish to the Expo preview branch) and P0.2 (a preview build instead of Expo Go) wait for Deme's OK and Expo login.
-- Database (another of Deme's threads): Supabase egress is over the free plan this cycle (grace period ends Dec 23); #310 and #317 cut the main sources. Pro stays the backup; no billing change without Deme's OK.
+- Handoff P1.1 (native Home) with P1.4 (company logos), owners-only, in this PR. Home's "one thing" rules move from `client/src/pages/Home.tsx` into `shared/nextAction.ts` (no behaviour change on the website; Home.tsx now calls it), and the app uses the same function.
+- P0 is merged (#320) and published to the Expo `preview` branch; an Android preview APK is building. The iPhone build waits for the Apple Developer account.
+- Next: P1.2 the chat sheet.
+- Database (another of Deme's threads): Supabase egress is over the free plan this cycle; #310, #313 and #317 merged. Stay on Free (#323).
 
 ## Files and folders I touch
-- `native/` (this PR: `src/app/*`, `src/app/(tabs)/*`, `src/components/ui.tsx`, `src/components/scholarSvg.ts` (new, replaces `foxSvg.ts`), `src/lib/{tokens.ts,theme.tsx,rules.ts,config.tsx,gate.tsx,session.tsx,nav.ts}`, `tsconfig.json`, `README.md`).
-- Outside my area: `shared/news/2026-11-24-0341.ts` (owners-only note). No `client/`, `server/` or `shared/` logic changes; the app imports `shared/features.ts` and `shared/beta.ts` as they are.
-- Database work (other thread): `server/platform/limits.ts` (and test), `server/migrations/018_rate_limits.sql`, rate-limit calls in `server/routes.ts`, `docs/database-plan.md`.
+- `native/` (this PR: `src/app/(tabs)/index.tsx`, `src/app/(tabs)/jobs.tsx`, `src/components/ui.tsx` (`Logo`), `src/lib/next.ts` and its test).
+- Outside my area, kept small: `shared/nextAction.ts` (new, moved from the website's Home), `client/src/pages/Home.tsx` (calls it instead of its own copy), `server/nextAction.test.ts` (new), `shared/news/2026-11-24-0410.ts`.
 
 ## Open PRs
-- The P0 app PR (this one): owners-only; waits for Deme's OK to merge, then an Expo preview publish with Deme's OK.
-- Merged: #313 rate limits kept in the database, #317 postings cache in server memory.
+- Native Home (this one): owners-only; waits for Deme's OK to merge and publish.
 
 ## Next
-- P0.1/P0.2 with Deme: publish to `preview`, then a preview build, and retest on the Android emulator and the iPhone.
-- P1 in order: native Home, the chat sheet (actions, resume proposals, memory suggestions), Jobs as Opportunities with logos, My Path as Remy's office, native Resume, native setup.
+- P1 in order after Home: the chat sheet (actions, resume proposals, memory suggestions), Jobs as Opportunities with logos, My Path as Remy's office, native Resume, native setup.
 
 ## Questions for the lead
 - The app opens only for owners (`appOpenFor` in `native/src/lib/rules.ts`), even after `redesign` is released, because CONTEXT.md says the app stays owners-only. Should the app get its own key in `shared/features.ts` (for example `app`, default `owners`) so Dilan can release it from Admin → Beta → Feature releases like everything else?

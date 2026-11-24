@@ -2,7 +2,7 @@ import { useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { Job } from "@shared/types";
-import { Button, EmployerTile, FitBadge, Group, Icon, Pill, Row, Screen, Sect, T, success, tap } from "@/components/ui";
+import { Button, FitBadge, Group, Icon, Logo, Pill, Row, Screen, Sect, T, success, tap } from "@/components/ui";
 import { useJobs } from "@/lib/jobs";
 import { go } from "@/lib/nav";
 import { daysUntil, visibleJobs } from "@/lib/next";
@@ -90,7 +90,7 @@ export default function Jobs() {
         <Sect title={filter === "kept" ? "Kept" : `${shown.length} for you`} />
         <Group>
           {shown.slice(0, 40).map((j, i) => (
-            <Row key={j.id} first={i === 0} title={j.title} sub={[filter === "kept" && closed(j) ? "Closed" : "", placeLine(j)].filter(Boolean).join(" · ")} left={<EmployerTile name={j.company} size={40} />} onPress={() => open(j)} testID="row-opening"
+            <Row key={j.id} first={i === 0} title={j.title} sub={[filter === "kept" && closed(j) ? "Closed" : "", placeLine(j)].filter(Boolean).join(" · ")} left={<Logo company={j.company} url={j.applyUrl} size={40} />} onPress={() => open(j)} testID="row-opening"
               right={filter === "kept" ? (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   <FitBadge fit={fits[j.id]} />
