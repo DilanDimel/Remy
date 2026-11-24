@@ -20,3 +20,10 @@ test("past 80% of the limit, one warning a day goes to the owners' Errors page",
   } finally { delete process.env.DB_SIZE_LIMIT_MB; }
   assert.equal(await warnIfNearLimit(), false);
 });
+
+test("the traffic report lists connections and says when query stats can't be read", async () => {
+  const { trafficReport } = await import("./storage");
+  const r = await trafficReport();
+  assert.ok(Array.isArray(r.connections));
+  if (!r.statements) assert.match(r.note, /pg_stat_statements/);
+});

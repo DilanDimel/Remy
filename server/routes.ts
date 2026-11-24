@@ -68,7 +68,7 @@ import { step } from "@shared/progress";
 import { conferencesFor } from "./jobs/conferences";
 import { competitionsFor, competitionsOpen } from "./jobs/competitions";
 import { trimOpenings } from "./resume/trim";
-import { storageReport, warnIfNearLimit } from "./platform/storage";
+import { storageReport, trafficReport, warnIfNearLimit } from "./platform/storage";
 import * as insights from "./jobs/insights";
 import * as services from "./platform/services";
 import { pruneOpenings, recordFound, recordCheck, listOpenings, openingsSummary } from "./jobs/openings";
@@ -762,6 +762,8 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.get("/api/admin/team", route(async (_req, res, ctx) => { res.json(await admin.team(owner(ctx))); }));
   // Database space used against the plan's limit, per table (owners only).
   app.get("/api/admin/storage", route(async (_req, res, ctx) => { owner(ctx); await insights.flushDbBytes(); res.json({ ...(await storageReport()), workspaces: await insights.workspaceSizes(), transfer: await insights.dataTransfer() }); }));
+  // Who is connected to the database and which queries return the most rows: for tracing Supabase data transfer (owners only).
+  app.get("/api/admin/db-traffic", route(async (_req, res, ctx) => { owner(ctx); res.json(await trafficReport()); }));
   app.get("/api/admin/services", route(async (_req, res, ctx) => {
     owner(ctx);
     const [errors, deploys, ai] = await Promise.all([services.recentErrors(), services.renderDeploys(), services.openRouter()]);
