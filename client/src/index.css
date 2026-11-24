@@ -3566,7 +3566,7 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 .adm2-bubble { background: var(--bg); border-radius: 14px 14px 14px 4px; padding: 8px 12px; }
 .adm2-bubble p { margin: 0 0 2px; font-size: var(--text-sm); }
 /* Owners' Calendar (Dilan, Nov 24): Remy's plan for the week fills the side column; the month's days grow to fill the screen height. */
-.cal-plan { display: grid; gap: 10px; box-shadow: inset 3px 0 0 var(--fox); border-color: color-mix(in srgb, var(--fox) 35%, var(--line)); }
+.cal-plan { display: grid; gap: 10px; }
 .cal-plan-head { display: flex; align-items: center; gap: 8px; }
 .cal-plan-head .remy-offer-kicker { margin: 0; font-size: var(--text-sm); }
 .cal-plan ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 8px 16px; }
