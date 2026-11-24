@@ -1,6 +1,6 @@
 # Demetre's AI
 
-Updated: 2026-11-24 23:35 UTC
+Updated: 2026-11-24 23:45 UTC
 Area: `native/` (the Expo phone app)
 
 ## Working on now
@@ -10,6 +10,8 @@ Area: `native/` (the Expo phone app)
 - App test fixes and the `app` release switch (dilan-1, dilan-2; owners only): "Let's fix them" opens Remy's fixes (`openResumeFix` in `native/src/lib/nav.ts`, Resume reads `fix`), the offer card shows in owner view only, the office question sends at once, My Path's "Add a real number" opens the fixes, job details hide "Not stated" deadlines and gaps the chips already show, the Keep toast says "Kept. See kept", Jobs' title is Opportunities, the Tailor picker shows 3 lines and the place. `appOpenFor` reads `features.app` (owners always in), with a rules test. Finding 10 is web preview only and not changed.
 - Shared AI system v2 adopted (Nov 24): every session starts with `npm run ai:brief -- --me Demetre`, requests are answered below, claims before touching files outside `native/`.
 - Preview: f922a22a (main with #337–#347, #371, #372) and f9caa545 (#373), 2026-11-24. Merged since, not yet published: #374 (iPhone chat keyboard).
+- Work authorization in the app's setup (dilan-5): `Preferences.tsx` uses `AUTH_OPTS`/`authChip` from `shared/workAuth.ts`, optional, the website's hint text; old answers are kept as they are.
+- Next in the app: the website's "Remy guides you from his office" (#408) and his quick questions (#370) on My Path.
 
 ## Claims
 - `server/migrations/020_student_jobs.sql`, `server/platform/studentJobs.ts`, `server/platform/studentJobs.test.ts` · branch claude/project-thread-87dr74-jobs · until 2026-11-27
@@ -23,12 +25,14 @@ Area: `native/` (the Expo phone app)
 - dilan-1 · done · #390 · findings 1 to 9 fixed; 10 (web preview only) left as is
 - dilan-2 · done · #390 · `appOpenFor` reads `features.app`, rules test for both states
 - dilan-4 · doing · branch claude/project-thread-87dr74-backup-prune · (1) each backup run now deletes every copy past the cut-off for 45 days back, so a missed night no longer leaves one in R2; test added. (2) noted: the switch's backup takes seconds at 25 MB; if the data grows past what fits in about a minute, I'll start it in the background
+- dilan-5 · done · #412 · the app's setup uses `AUTH_OPTS` and `authChip`, the question is optional, and the hint is the website's
 - dilan-3 · seen · Scholar fox icon, adaptive foreground and splash go in the next store build (icons need a new build, not an Expo update)
 
 ## Files and folders I touch
 - `native/`, plus (database work, outside my area) the files claimed above, `r2Store` added at the end of `server/platform/r2.ts` (the lead's R2 helper; existing functions unchanged, `call` takes an optional timeout), one `app.use(compress)` line in `server/index.ts`, `compression` in `package.json`, the `student_jobs` hooks in `server/platform/db.ts` (`loadWorkspace`, `saveSections`, `saveWorkspace`, `editWorkspace`, `deleteWorkspace`, new `copyJobsBatch`), the `SavedOpeningsMove` card in `client/src/pages/Admin.tsx` (System tab), two lines in `server/routes.ts` (the sweep and `/api/admin/storage`), a `restore-backup` script in `package.json`, and `docs/database-plan.md`.
 
 ## Open PRs
+- #412 App setup's work authorization (dilan-5), owners only.
 - Backup cleanup after missed nights (dilan-4, this branch).
 - #398 Saved openings table, step 1: merged Nov 24; the switch stays off.
 - #397 Gzip on API answers: merged Nov 24 (its failed Android launch check was the emulator not reaching remyai.org; passed on re-run, and #400 hardened the test).
