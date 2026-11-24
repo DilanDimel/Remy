@@ -53,7 +53,7 @@ function ComingUp({ items, weekEnd, onOpen }: { items: CalItem[]; weekEnd: strin
       {items.length ? <ul className="op-dl cal-week">{items.map((i) => {
         const d = new Date(i.date + "T12:00");
         return (
-          <li key={i.id}><span className={"op-date" + (i.date <= weekEnd ? " soon" : "")}><small>{d.toLocaleDateString("en-US", i.date <= weekEnd ? { weekday: "short" } : { month: "short" })}</small><b>{d.getDate()}</b></span>
+          <li key={i.id}><span className={"op-date" + (i.date <= weekEnd ? " this-week" : "")}><small>{d.toLocaleDateString("en-US", i.date <= weekEnd ? { weekday: "short" } : { month: "short" })}</small><b>{d.getDate()}</b></span>
             <button onClick={() => onOpen(i)} data-testid="button-upcoming"><strong>{i.title}</strong><span>{i.kind}{i.time ? ` · ${clock(i.time)}` : ""}</span></button></li>
         );
       })}</ul> : <p className="small muted" style={{ marginTop: 6 }}>Nothing scheduled. Save an opening with a deadline, or press Add.</p>}
