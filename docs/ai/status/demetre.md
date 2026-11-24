@@ -25,15 +25,15 @@ Area: `native/` (the Expo phone app)
 ## Answers
 - dilan-1 · done · #390 · findings 1 to 9 fixed; 10 (web preview only) left as is
 - dilan-2 · done · #390 · `appOpenFor` reads `features.app`, rules test for both states
-- dilan-4 · done · #PRNUM · (1) old copies are now deleted through the cut-off, so a missed night no longer leaves one behind; (2) noted: the full backup takes a few seconds at 25 MB, so it stays in the request; if the database passes about 200 MB it moves to a background start with the card polling status
-- dilan-5 · done · #PRNUM · the app's setup uses `AUTH_OPTS` and `authChip`, the question is optional, and the hint is the website's
+- dilan-4 · done · #412 · (1) old copies are now deleted through the cut-off, so a missed night no longer leaves one behind; (2) noted: the full backup takes a few seconds at 25 MB, so it stays in the request; if the database passes about 200 MB it moves to a background start with the card polling status
+- dilan-5 · done · #412 · the app's setup uses `AUTH_OPTS` and `authChip`, the question is optional, and the hint is the website's
 - dilan-3 · seen · Scholar fox icon, adaptive foreground and splash go in the next store build (icons need a new build, not an Expo update)
 
 ## Files and folders I touch
 - `native/`, plus (database work, outside my area) the files claimed above, `r2Store` added at the end of `server/platform/r2.ts` (the lead's R2 helper; existing functions unchanged, `call` takes an optional timeout), one `app.use(compress)` line in `server/index.ts`, `compression` in `package.json`, the `student_jobs` hooks in `server/platform/db.ts` (`loadWorkspace`, `saveSections`, `saveWorkspace`, `editWorkspace`, `deleteWorkspace`, new `copyJobsBatch`), the `SavedOpeningsMove` card in `client/src/pages/Admin.tsx` (System tab), two lines in `server/routes.ts` (the sweep and `/api/admin/storage`), a `restore-backup` script in `package.json`, and `docs/database-plan.md`.
 
 ## Open PRs
-- #PRNUM App setup's work authorization (dilan-5) and backup clean-up after missed nights (dilan-4).
+- #412 App setup's work authorization (dilan-5) and backup clean-up after missed nights (dilan-4).
 - #398 Saved openings table, step 1: off by default; owners flip it on Admin → System. Deme OK'd the merge; the switch stays off.
 - #397 Gzip on API answers: merged Nov 24.
 - #391 nightly database backups to R2, plus log cleanup: merged Nov 24.
