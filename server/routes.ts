@@ -32,7 +32,7 @@ import { betterLetter, keptFixes, letterFixPrompt, rewriteFixPrompt } from "./ai
 import { BUZZ, assemblePitch, type PitchParts } from "./coach/pitch";
 import { checkFeedback, checkPlan, feedbackPrompt, planPrompt, rulesPlan } from "./coach/interview";
 import { AI_CALLS_PER_INTERVIEW, pickProfile, weeklyLeft, type Interview, type IvMode } from "@shared/interview";
-import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./platform/db";
+import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, copyJobsBatch, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./platform/db";
 import { hospitalFirst } from "@shared/employer";
 import { inOwnerTrial, inOwnerView, runAiAs, aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, lastUsage, markAiAuthFailure, model } from "./ai/ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./ai/safety";
@@ -70,6 +70,7 @@ import { competitionsFor, competitionsOpen } from "./jobs/competitions";
 import { trimOpenings } from "./resume/trim";
 import { pruneLogs, storageReport, trafficReport, warnIfNearLimit } from "./platform/storage";
 import { backupIfDue, backupStatus } from "./platform/backup";
+import { jobsReport, setJobsMode } from "./platform/studentJobs";
 import * as insights from "./jobs/insights";
 import * as services from "./platform/services";
 import { pruneOpenings, recordFound, recordCheck, listOpenings, openingsSummary } from "./jobs/openings";
@@ -668,6 +669,8 @@ export async function registerRoutes(_server: Server, app: Express) {
       warnIfNearLimit().catch((e) => console.error("storage check failed", e?.message)),
       backupIfDue().then((b) => { if (b) console.log(`backup: ${b.kind} copy, ${b.rows} rows`); }).catch((e) => console.error("backup failed", e?.message)),
       pruneLogs().catch((e) => console.error("log cleanup failed", e?.message)),
+      // student_jobs switch on: check the copied accounts (redo any that differ), then copy the next few.
+      jobsReport(true).then(() => copyJobsBatch()).then((n) => { if (n) console.log(`student_jobs: copied ${n} accounts`); }).catch((e) => console.error("student_jobs copy failed", e?.message)),
       pruneOpenings().then((n) => { if (n) console.log(`checked openings: discarded ${n} not seen for a while`); }).catch((e) => console.error("checked openings prune failed", e?.message)),
       deadlineReminders().catch((e) => console.error("deadline reminders failed", e?.message)),
       sendTexts(daysBefore(centralToday(), 14), centralToday()).catch((e) => console.error("urgent texts failed", e?.message)),
@@ -768,6 +771,15 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.get("/api/admin/storage", route(async (_req, res, ctx) => { owner(ctx); await insights.flushDbBytes(); res.json({ ...(await storageReport()), workspaces: await insights.workspaceSizes(), transfer: await insights.dataTransfer(), backup: await backupStatus() }); }));
   // Who is connected to the database and which queries return the most rows: for tracing Supabase data transfer (owners only).
   app.get("/api/admin/db-traffic", route(async (_req, res, ctx) => { owner(ctx); res.json(await trafficReport()); }));
+  // Saved openings into their own table (server/platform/studentJobs.ts): the switch and the check of the copy.
+  app.get("/api/admin/student-jobs", route(async (_req, res, ctx) => { owner(ctx); res.json(await jobsReport()); }));
+  app.post("/api/admin/student-jobs", route(async (req, res, ctx) => {
+    const me = owner(ctx);
+    const mode = String(req.body?.mode || "");
+    const r = await setJobsMode(mode, me);
+    await admin.logAction(me, `student_jobs → ${mode}`, r.backup ? `fresh backup: ${r.backup.rows} rows` : "");
+    res.json({ ...(await jobsReport()), backup: r.backup });
+  }));
   app.get("/api/admin/services", route(async (_req, res, ctx) => {
     owner(ctx);
     const [errors, deploys, ai] = await Promise.all([services.recentErrors(), services.renderDeploys(), services.openRouter()]);

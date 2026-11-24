@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import type { Me, Workspace } from "@shared/types";
 import { q, q1, tx } from "./sql";
 import { r2Delete, r2Get, r2Put, r2Ready } from "./r2";
+import { copyAll, deleteCopy, forgetCopy, jobsFromTable, jobsMode, syncJobs } from "./studentJobs";
 
 export const nowIso = () => new Date().toISOString();
 export { uid } from "./ids";
@@ -208,7 +209,25 @@ async function readStored(run: typeof q, userId: string, lock = ""): Promise<any
   return data;
 }
 export async function loadWorkspace(userId: string): Promise<Workspace> {
-  return fromStored(structuredClone(await readStored(q, userId)));
+  const ws = fromStored(structuredClone(await readStored(q, userId)));
+  // The student_jobs switch on 'owners': owners' openings come from their own table (server/platform/studentJobs.ts).
+  const fromTable = await jobsFromTable(userId);
+  if (fromTable) ws.jobs = fromTable;
+  return ws;
+}
+/** The hourly copy into student_jobs (when its switch is on): a few accounts not copied yet, each under its workspace
+ *  row lock so a save can't slip in between. Workspaces are read through the cache, like the other hourly jobs. */
+export async function copyJobsBatch(limit = 10): Promise<number> {
+  if ((await jobsMode()) === "off") return 0;
+  const ids = await q(
+    `SELECT w.user_id AS id FROM workspaces w LEFT JOIN student_jobs_state s ON s.user_id = w.user_id
+     WHERE s.user_id IS NULL ORDER BY w.updated_at DESC LIMIT $1`, [limit]);
+  for (const { id } of ids)
+    await tx(async (run) => {
+      const data = await readStored(run, String(id), "FOR UPDATE");
+      if (data) await copyAll(run, String(id), data.jobs);
+    });
+  return ids.length;
 }
 export async function hasWorkspace(userId: string) {
   return !!(await q1("SELECT 1 FROM workspaces WHERE user_id=$1", [userId]));
@@ -231,6 +250,7 @@ export async function saveWorkspace(userId: string, ws: Workspace) {
     [userId, data],
   );
   remember(userId, r!.v, JSON.parse(data));
+  await forgetCopy(userId); // rare (sign-in merges): the hourly copy redoes this account's student_jobs
 }
 /** Writes only the given top-level sections, merged into what's stored in one statement,
  *  so two requests saving different sections at the same moment both keep their changes.
@@ -244,13 +264,21 @@ export async function saveSections(userId: string, sections: Partial<Workspace>)
   // The merged row comes back only when our cached copy isn't the version this save started from;
   // otherwise the merge is done here, and nothing large crosses the network.
   const c = await cached(userId);
-  const r = await q1(
+  const sql =
     `WITH old AS (SELECT updated_at::text AS v FROM workspaces WHERE user_id=$1 FOR UPDATE)
      INSERT INTO workspaces (user_id, data, updated_at) VALUES ($1, $2::jsonb, now())
      ON CONFLICT (user_id) DO UPDATE SET data = workspaces.data || $3::jsonb, updated_at = now()
-     RETURNING updated_at::text AS v, CASE WHEN (SELECT v FROM old) = $4 THEN NULL ELSE data END AS data`,
-    [userId, base, json, c.v],
-  );
+     RETURNING updated_at::text AS v, CASE WHEN (SELECT v FROM old) = $4 THEN NULL ELSE data END AS data`;
+  const args = [userId, base, json, c.v];
+  // With the student_jobs switch on, openings are also written there in the same transaction, under the row lock.
+  const r = "jobs" in sections && (await jobsMode()) !== "off"
+    ? await tx(async (run) => {
+        const row = (await run(sql, args))[0];
+        const after = row.data == null ? patch.jobs : parse(row.data).jobs;
+        await syncJobs(run, userId, row.data == null ? c.data?.jobs : null, after);
+        return row;
+      })
+    : await q1(sql, args);
   const stored = r!.data == null ? { ...c.data, ...JSON.parse(json) } : parse(r!.data);
   remember(userId, r!.v, stored);
   if (JSON.stringify(stored).length > 4_000_000) throw Object.assign(new Error("Workspace is too large."), { status: 413 });
@@ -258,6 +286,7 @@ export async function saveSections(userId: string, sections: Partial<Workspace>)
 }
 export async function deleteWorkspace(userId: string) {
   forget(userId);
+  await deleteCopy(userId);
   await q("DELETE FROM workspaces WHERE user_id=$1", [userId]);
   await q("DELETE FROM files WHERE user_id=$1", [userId]);
 }
@@ -280,6 +309,7 @@ export async function editWorkspace(userId: string, edit: (ws: Workspace) => voi
       throw Object.assign(new Error("Workspace is too large."), { status: 413 });
     const patch = JSON.stringify({ ...changed, updatedAt: ws.updatedAt }, noNul);
     const up = await run("UPDATE workspaces SET data = data || $2::jsonb, updated_at = now() WHERE user_id=$1 RETURNING updated_at::text AS v", [userId, patch]);
+    if ("jobs" in changed) await syncJobs(run, userId, row.jobs, ws.jobs);
     remember(userId, up[0].v, { ...row, ...JSON.parse(patch) });
     return ws;
   });

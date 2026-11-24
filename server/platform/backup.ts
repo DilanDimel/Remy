@@ -15,7 +15,9 @@ export type Backup = { kind: "full" | "daily"; at: string; since: string | null;
 /** Copied only when changed since the last backup (timestamp column), in daily copies. */
 export const CHANGED_ONLY: Record<string, string> = { workspaces: "updated_at", files: "at" };
 /** Never copied: rebuildable caches, secrets that expire, counters. */
-export const SKIP = new Set(["ai_usage", "board_cache", "checked_openings", "rate_limits", "sessions", "signin_codes", "school_email_codes", "schema_migrations"]);
+// student_jobs and its state are a checked duplicate of workspaces.data.jobs while that move is under way
+// (server/platform/studentJobs.ts), so they're rebuilt from the restored workspaces instead of copied.
+export const SKIP = new Set(["ai_usage", "board_cache", "checked_openings", "rate_limits", "sessions", "signin_codes", "school_email_codes", "schema_migrations", "student_jobs", "student_jobs_state"]);
 const FULL_EVERY_DAYS = 7, KEEP_FULL = 8, KEEP_DAILY = 31;
 const centralDay = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
 const daysBack = (day: string, n: number) => new Date(Date.parse(day + "T12:00:00Z") - n * 86_400_000).toISOString().slice(0, 10);
@@ -48,14 +50,24 @@ export async function takeBackup(kind: "full" | "daily", since: string | null, n
 /** Run by the sweep: at most once per Central day. Returns what it did, or null when it wasn't due or R2 isn't set up. */
 export async function backupIfDue(store: Store | null = r2Store(), now = new Date()): Promise<{ kind: string; rows: number } | null> {
   if (!store) return null;
-  const today = centralDay(now);
-  if ((await setting("backup_last_day")) === today) return null;
+  if ((await setting("backup_last_day")) === centralDay(now)) return null;
   const lastFull = await setting("backup_last_full");
   const since = await setting("backup_last_at");
-  const kind = !lastFull || !since || lastFull <= daysBack(today, FULL_EVERY_DAYS) ? "full" : "daily";
+  const kind = !lastFull || !since || lastFull <= daysBack(centralDay(now), FULL_EVERY_DAYS) ? "full" : "daily";
+  return runBackup(store, kind, kind === "daily" ? since : null, now);
+}
+
+/** A full copy right now, whatever was done today: taken before a risky data change (the student_jobs copy). */
+export async function backupNow(store: Store | null = r2Store(), now = new Date()) {
+  if (!store) return null;
+  return runBackup(store, "full", null, now);
+}
+
+async function runBackup(store: Store, kind: "full" | "daily", since: string | null, now: Date) {
+  const today = centralDay(now);
   // The database's own clock, so changes are caught even if this server's clock drifts.
   const started = String((await q1("SELECT now()::text AS t"))!.t);
-  const b = await takeBackup(kind, kind === "daily" ? since : null, now);
+  const b = await takeBackup(kind, since, now);
   await store.put(`backup/${kind}/${today}`, b);
   // Recorded only after the upload, so a failed night is simply tried again on the next sweep.
   await setSetting("backup_last_day", today);
@@ -113,4 +125,6 @@ export async function applyBackup(run: typeof q, b: Backup) {
     for (const r of await run("SELECT column_name AS c FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 AND column_default LIKE 'nextval%'", [schema, t]))
       await run(`SELECT setval(pg_get_serial_sequence('"${schema}"."${t}"', $1), GREATEST(1, (SELECT COALESCE(MAX("${r.c}"), 0) FROM "${schema}"."${t}")))`, [String(r.c)]);
   }
+  // Restored workspaces may hold other openings than the student_jobs copy: mark every account to be copied again.
+  if (present.has("student_jobs_state")) await run(`DELETE FROM "${schema}"."student_jobs_state"`);
 }
