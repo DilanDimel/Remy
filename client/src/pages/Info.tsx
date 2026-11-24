@@ -65,12 +65,12 @@ function DocPage({ title, lead, children }: { title: string; lead: string; child
 // Work emails are each person's own @remyai.org address (Zoho); admin@ and hello@ are the shared company inbox.
 export const TEAM: { name: string; role: string; photo: string; email?: string; owners?: true }[] = [
   { name: "Dilan Desman", role: "Co-founder & CEO", photo: "/team/dilan.jpg", email: "d.desman@remyai.org" },
-  { name: "Ashton Wisecarver", role: "Brand, marketing & finance", photo: "" },
+  { name: "Ashton Wisecarver", role: "Brand, marketing & finance", photo: "", owners: true },
   { name: "Lincoln Yoo", role: "Co-founder & COO", photo: "/team/lincoln.jpg", email: "l.yoo@remyai.org" },
   { name: "Demetre Dondoladze", role: "Data & databases", photo: "/team/demetre.jpg", email: "d.dondoladze@remyai.org", owners: true },
   { name: "Julio Renovato", role: "Research & analytics", photo: "", email: "j.renovato@remyai.org", owners: true },
 ];
-// Team meeting (Dilan, Nov 24): Demetre and Julio show only in owner view until the lawyer meeting (work authorization).
+// Team meeting (Dilan, Nov 24): Ashton (for now), Demetre and Julio (work authorization, until the lawyer meeting) show only in owner view.
 export const useTeam = () => { const owner = useOwnerView(); return TEAM.filter((m) => owner || !m.owners); };
 
 export function About() {
