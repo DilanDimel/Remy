@@ -22,8 +22,8 @@ Area: `native/` (the Expo phone app)
 
 ## Open PRs
 - The Path-tab and duplicate-posting fix (this PR): waits for Deme's OK to merge and publish to the Expo preview.
-- #313 keeps rate limits in the database. It waits for the team's OK because it applies server-wide.
-- Employer postings cache kept in server memory, so background searches stop re-downloading it (this PR): waits for the team's OK, server-wide.
+- #313 keeps rate limits in the database (this PR): team OK'd, merging once CI passes.
+- Merged: #317 employer postings cache kept in server memory (egress).
 
 ## Next
 - After merging, publish an Expo update to the preview branch with Deme's OK, then retest on the emulator.
