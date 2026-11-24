@@ -316,10 +316,10 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   const arrived = !fox.walk;
   const ring = g.on && arrived ? g.steps[g.step].ring : null;
   const seatedNow = fox.y === SPOTS.desk.y && fox.x === SPOTS.desk.x;
-  // The speech bubble sits beside his head, on whichever side has more room; on phones it drops below the room.
+  // The speech bubble sits beside his head on the window side, where no labels or furniture sit (Nov 24); at the window it flips left. Phones: below the room.
   const fx = (fox.x / 860) * 100, hy = ((fox.y + 96 - 40) / 420) * 100;
   const sayAt = { "--fx": `${fx}%`, "--hy": `${hy}%`, "--tail": `${fx}%` } as CSSProperties;
-  const side = fx > 48 ? "l" : "r";
+  const side = fx > 70 ? "l" : "r";
   const stars = [[578, 70], [636, 64], [704, 76], [748, 66], [764, 98], [690, 104], [596, 116], [728, 118], [654, 92]];
   const lit = [[576, 178], [584, 192], [600, 150], [604, 166], [599, 184], [638, 138], [648, 152], [640, 168], [650, 184], [678, 176], [686, 192], [718, 194]];
   return (
@@ -443,10 +443,10 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
         {/* Captions sit centred just above the thing they name, so the room reads as one system (Dilan, Nov 24). */}
         <button className="ps-tag" style={at(139, 104)} onClick={() => onField("roles")} data-testid="button-office-books">{known ? `${known} job${known === 1 ? "" : "s"} decoded` : "Decode your first job"}</button>
         <button className={"ps-tag" + (cert ? "" : " ghost")} style={at(76, 220)} onClick={() => onField("certs")} data-testid="button-office-cert">{cert ? "Certificate earned" : "First certificate"}</button>
-        <button className={"ps-tag" + (resume ? "" : " ghost")} style={at(328, 64)} onClick={() => go("/resume")} data-testid="button-office-resume">{resume ? "Resume on file" : "Add your resume"}</button>
+        <button className={"ps-tag below" + (resume ? "" : " ghost")} style={at(328, 48)} onClick={() => go("/resume")} data-testid="button-office-resume">{resume ? "Resume on file" : "Add your resume"}</button>
         <button className={"ps-tag" + (pins.length ? "" : " ghost")} style={at(472, 144)} onClick={() => go("/rewards")} data-testid="button-office-pins">{pins.length ? `${pinsOf(d.w).filter((p) => p.earned).length} pins` : "Earn your first pin"}</button>
         <span className="ps-tag still" style={at(352, 244)}>{d.streak.days ? `${d.streak.days}-day streak` : "Plant needs a streak"}</span>
-        <button className={"ps-tag" + (applied ? "" : " ghost")} style={at(103, 368)} onClick={() => go("/opportunities")} data-testid="button-office-briefcase">{applied ? `${d.w.applications.length} applied` : "First application"}</button>
+        <button className={"ps-tag" + (applied ? "" : " ghost")} style={at(103, 350)} onClick={() => go("/opportunities")} data-testid="button-office-briefcase">{applied ? `${d.w.applications.length} applied` : "First application"}</button>
       </div>
         {g.on ? <div className="ps-bubble" style={{ "--tail": `${Math.min(92, Math.max(8, fx))}%` } as CSSProperties} aria-live="polite" data-testid="path-guide">{g.bubble}</div>
           : said ? <div className={"ps-say " + side} style={sayAt} aria-live="polite" data-testid="office-reply">

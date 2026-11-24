@@ -83,8 +83,8 @@ html:not([data-theme="dark"]) .ps-night, [data-theme="dark"] .ps-day { display: 
 @container office (min-width: 560px) {
   .ps-say { position: absolute; margin: 0; bottom: calc(100% - var(--hy)); max-height: calc(var(--hy) - 4%); width: max-content; max-width: min(46%, 440px); transition: left .5s ease, right .5s ease; }
   .ps-say.quip { max-width: min(40%, 340px); }
-  .ps-say.l { right: calc(100% - var(--fx) + 7%); }
-  .ps-say.r { left: calc(var(--fx) + 7%); }
+  .ps-say.l { right: calc(100% - var(--fx) + 7%); max-width: min(46%, 440px, calc(var(--fx) - 9%)); }
+  .ps-say.r { left: calc(var(--fx) + 8%); max-width: min(46%, 440px, calc(98% - var(--fx) - 8%)); }
   .ps-say::before { top: auto; bottom: 14px; left: auto; transform: rotate(45deg); }
   .ps-say.l::before { right: -8.5px; border: 0; border-right: 1.5px solid var(--ink); border-top: 1.5px solid var(--ink); }
   .ps-say.r::before { left: -8.5px; border: 0; border-left: 1.5px solid var(--ink); border-bottom: 1.5px solid var(--ink); }
