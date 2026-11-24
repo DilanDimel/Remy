@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import type { Workspace } from "@shared/types";
@@ -76,7 +77,8 @@ export default function PathTab() {
     ...(plan?.academic || []).slice(0, 2).map((a) => ({ key: a.id, title: a.term, sub: "Your semester", icon: "book" as IconName, ask: `Help me plan my ${a.term} semester` })),
   ];
   const openStop = (s: Stop) => (s.ask ? askRemy(s.ask) : go(s.path || "/path", "My Path", { page: true }));
-  const ask = () => { const t = q.trim(); if (!t) return; setQ(""); askRemy(t); };
+  // Empty, the arrow just opens his chat; with a question, it asks it there.
+  const ask = () => { const t = q.trim(); tap(); if (!t) return void router.push("/remy"); setQ(""); askRemy(t); };
 
   const card = { backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.line, padding: 16, marginTop: 14 } as const;
   const kicker = { fontFamily: font.bold, fontSize: 11.5, letterSpacing: 0.8, textTransform: "uppercase" as const, color: c.mutedText };
