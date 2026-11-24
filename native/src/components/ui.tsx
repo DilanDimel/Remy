@@ -5,7 +5,9 @@ import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, Sty
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, SvgXml } from "react-native-svg";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
-import { FOX_SVG } from "./foxSvg";
+import { radius } from "@/lib/tokens";
+import { useSession } from "@/lib/session";
+import { OUTFITS, SCHOLAR_ICON, type Outfit } from "./scholarSvg";
 
 export const tap = () => { if (Platform.OS !== "web") Haptics.selectionAsync().catch(() => {}); };
 export const success = () => { if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); };
@@ -14,16 +16,16 @@ export const success = () => { if (Platform.OS !== "web") Haptics.notificationAs
 export function Screen({ children, refreshing, onRefresh, scroll = true, style }: { children: ReactNode; refreshing?: boolean; onRefresh?: () => void; scroll?: boolean; style?: StyleProp<ViewStyle> }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
-  const pad = { paddingTop: insets.top + 8, paddingHorizontal: 20, paddingBottom: insets.bottom + 110 };
-  if (!scroll) return <View style={[{ flex: 1, backgroundColor: c.paper, paddingTop: insets.top + 8 }, style]}>{children}</View>;
+  const pad = { paddingTop: insets.top + 8, paddingHorizontal: 16, paddingBottom: insets.bottom + 180 }; // room for the tab bar and the floating fox, so the last row scrolls clear of both
+  if (!scroll) return <View style={[{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top + 8 }, style]}>{children}</View>;
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
-      <ScrollView style={{ flex: 1, backgroundColor: c.paper }} contentContainerStyle={[pad, style]} contentInsetAdjustmentBehavior="never"
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
+      <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={[pad, style]} contentInsetAdjustmentBehavior="never"
         refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={c.fox} /> : undefined}>
         {children}
       </ScrollView>
       {/* Content scrolls under a paper-coloured band, not under the bare clock and battery. */}
-      <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.paper }} />
+      <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.bg }} />
     </View>
   );
 }
@@ -35,16 +37,17 @@ export function T({ children, style, kind = "body", numberOfLines }: { children:
     title: { fontFamily: font.display, fontSize: 24, lineHeight: 28, letterSpacing: -0.3, color: c.ink },
     h2: { fontFamily: font.display, fontSize: 19, lineHeight: 24, color: c.ink },
     body: { fontFamily: font.body, fontSize: 16, lineHeight: 22, color: c.ink },
-    small: { fontFamily: font.body, fontSize: 13.5, lineHeight: 18, color: c.muted },
-    muted: { fontFamily: font.body, fontSize: 15, lineHeight: 21, color: c.muted },
+    small: { fontFamily: font.body, fontSize: 13.5, lineHeight: 18, color: c.mutedText },
+    muted: { fontFamily: font.body, fontSize: 15, lineHeight: 21, color: c.mutedText },
     label: { fontFamily: font.bold, fontSize: 11.5, letterSpacing: 0.8, textTransform: "uppercase", color: c.foxDeep },
   };
   return <Text style={[k[kind], style]} numberOfLines={numberOfLines}>{children}</Text>;
 }
 
 export function Card({ children, style, onPress, testID }: { children: ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void; testID?: string }) {
-  const { c, dark } = useTheme();
-  const base: ViewStyle = { backgroundColor: c.surface, borderRadius: 22, padding: 16, borderWidth: dark ? StyleSheet.hairlineWidth : 0, borderColor: c.line, shadowColor: "#000", shadowOpacity: dark ? 0 : 0.05, shadowRadius: 6, shadowOffset: { width: 0, height: 1 }, elevation: 1 };
+  const { c } = useTheme();
+  // The website's cards have a 1 pt outline and no shadow; only floating things (the fox button, toasts) get one.
+  const base: ViewStyle = { backgroundColor: c.surface, borderRadius: radius.card, padding: 16, borderWidth: 1, borderColor: c.line };
   if (!onPress) return <View style={[base, style]} testID={testID}>{children}</View>;
   return <Pressable onPress={() => { tap(); onPress(); }} style={({ pressed }) => [base, style, pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] }]} testID={testID} accessibilityRole="button">{children}</Pressable>;
 }
@@ -65,7 +68,7 @@ export function Pill({ label, on, onPress, testID }: { label: string; on?: boole
   const { c } = useTheme();
   return (
     <Pressable testID={testID} onPress={onPress ? () => { tap(); onPress(); } : undefined} disabled={!onPress}
-      style={{ minHeight: 32, paddingHorizontal: 13, paddingVertical: 6, borderRadius: 16, backgroundColor: on ? c.ink : c.surface2, justifyContent: "center", maxWidth: "100%" }}>
+      style={{ minHeight: 32, paddingHorizontal: 13, paddingVertical: 6, borderRadius: radius.chip, backgroundColor: on ? c.ink : c.surface2, justifyContent: "center", maxWidth: "100%" }}>
       <Text style={{ fontFamily: font.semi, fontSize: 13.5, color: on ? c.onInk : c.ink }}>{label}</Text>
     </Pressable>
   );
@@ -78,7 +81,7 @@ export function FitBadge({ fit }: { fit?: JobFit }) {
   if (!fit) return null;
   const [label, bad] = fit.closed ? ["Closed", true] : fit.eligibility === "unlikely" ? ["Not eligible", true] : fit.checked && fit.eligibility !== "unknown" && !fit.hidden ? ["You qualify", false] : [null, false];
   if (!label) return null;
-  return <View style={{ backgroundColor: bad ? c.surface2 : c.sageBg, borderRadius: 14, paddingHorizontal: 10, height: 28, justifyContent: "center" }}><Text style={{ fontFamily: font.bold, fontSize: 13, color: bad ? c.muted : c.sage }}>{label}</Text></View>;
+  return <View style={{ backgroundColor: bad ? c.surface2 : c.sageBg, borderRadius: 14, paddingHorizontal: 10, height: 28, justifyContent: "center" }}><Text style={{ fontFamily: font.bold, fontSize: 13, color: bad ? c.mutedText : c.sage }}>{label}</Text></View>;
 }
 
 /** Chat text with **bold** shown as bold instead of raw asterisks. */
@@ -87,30 +90,35 @@ export function RichText({ text, style, boldStyle }: { text: string; style?: Sty
   return <Text selectable style={style}>{parts.map((p, i) => (i % 2 ? <Text key={i} style={[{ fontFamily: font.bold }, boldStyle]}>{p}</Text> : p))}</Text>;
 }
 
-export function Fox({ size = 40 }: { size?: number }) {
-  return <SvgXml xml={FOX_SVG} width={size} height={size * 84 / 72} />;
+/** Scholar Remy, the same fox as the website, in the outfit the student picked on Rewards (saved in `game.outfit`).
+ *  `size` is his width; `icon` draws the round head-only icon instead (small avatars, the floating button). */
+export function Remy({ size = 64, icon, outfit }: { size?: number; icon?: boolean; outfit?: Outfit }) {
+  const { ws } = useSession();
+  if (icon) return <SvgXml xml={SCHOLAR_ICON} width={size} height={size} accessibilityLabel="Remy" />;
+  const saved = ws?.game?.outfit as Outfit | undefined;
+  const xml = OUTFITS[outfit || (saved && saved in OUTFITS ? saved : "suit")];
+  return <SvgXml xml={xml} width={size} height={size * 222 / 200} accessibilityLabel="Remy the fox, your career coach" />;
 }
 
 /** The employer's first letter on a coloured tile, since postings rarely come with a logo. */
 export function EmployerTile({ name, size = 44 }: { name: string; size?: number }) {
   const { c } = useTheme();
-  const tones = [c.ink, c.foxDeep, c.sage, c.muted];
+  const tones = [c.ink, c.foxDeep, c.sage, c.mutedText];
   const tone = tones[[...name].reduce((n, ch) => n + ch.charCodeAt(0), 0) % tones.length];
   return <View style={{ width: size, height: size, borderRadius: size * 0.3, backgroundColor: tone, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: font.display, fontSize: size * 0.4, color: c.surface }}>{(name.trim()[0] || "?").toUpperCase()}</Text></View>;
 }
 
 export function Loading() {
   const { c } = useTheme();
-  return <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: c.paper }}><ActivityIndicator color={c.fox} /></View>;
+  return <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: c.bg }}><ActivityIndicator color={c.fox} /></View>;
 }
 
 export function Sect({ title, right }: { title: string; right?: ReactNode }) {
-  const { c, look } = useTheme();
-  if (look === "calm") return <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 24, marginBottom: 8, marginHorizontal: 4 }}><Text style={{ fontFamily: font.semi, fontSize: 13, letterSpacing: 0.5, textTransform: "uppercase", color: c.muted }}>{title}</Text>{right}</View>;
-  return <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 26, marginBottom: 10 }}><T kind="h2">{title}</T>{right}</View>;
+  const { c } = useTheme();
+  return <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 24, marginBottom: 8, marginHorizontal: 4 }}><Text style={{ fontFamily: font.bold, fontSize: 12, letterSpacing: 0.8, textTransform: "uppercase", color: c.mutedText }}>{title}</Text>{right}</View>;
 }
 
-/** A grouped list row, iOS-settings style (used by the calm look and by the You tab). */
+/** A grouped list row, iOS-settings style. */
 export function Row({ title, sub, left, right, onPress, first, testID }: { title: string; sub?: string; left?: ReactNode; right?: ReactNode; onPress?: () => void; first?: boolean; testID?: string }) {
   const { c } = useTheme();
   return (
@@ -123,11 +131,11 @@ export function Row({ title, sub, left, right, onPress, first, testID }: { title
   );
 }
 export function Group({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
-  const { c, dark } = useTheme();
-  return <View style={[{ backgroundColor: c.surface, borderRadius: 22, overflow: "hidden", borderWidth: dark ? StyleSheet.hairlineWidth : 0, borderColor: c.line }, style]}>{children}</View>;
+  const { c } = useTheme();
+  return <View style={[{ backgroundColor: c.surface, borderRadius: radius.card, overflow: "hidden", borderWidth: 1, borderColor: c.line }, style]}>{children}</View>;
 }
 
-export type IconName = "arrow" | "chev" | "check" | "flame" | "doc" | "jobs" | "chat" | "you" | "book" | "flag" | "trend" | "compass" | "x" | "heart" | "up" | "undo" | "plus" | "list" | "cards";
+export type IconName = "arrow" | "chev" | "check" | "flame" | "doc" | "jobs" | "chat" | "you" | "book" | "flag" | "trend" | "compass" | "x" | "heart" | "up" | "undo" | "plus" | "list" | "lock" | "sun" | "moon";
 const paths: Record<IconName, string> = {
   arrow: "M5 12h14M13 6l6 6-6 6", chev: "M9 6l6 6-6 6", check: "M5 12l5 5 9-10",
   flame: "M12 3c1 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-4 3-7 1 2 2 3 3 3 0-3 0-5 0-7z",
@@ -136,7 +144,8 @@ const paths: Record<IconName, string> = {
   flag: "M5 21V4h11l-2 4 2 4H5", trend: "M3 17l6-6 4 4 8-8M15 7h6v6", compass: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM15.5 8.5l-2 5-5 2 2-5z",
   x: "M6 6l12 12M18 6L6 18", heart: "M12 20s-8-5-8-11a4.5 4.5 0 0 1 8-2.5A4.5 4.5 0 0 1 20 9c0 6-8 11-8 11z", up: "M12 19V5M6 11l6-6 6 6",
   undo: "M9 14L4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3", plus: "M12 5v14M5 12h14", list: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
-  cards: "M7 4h10a2 2 0 0 1 2 2v14H5V6a2 2 0 0 1 2-2z",
+  lock: "M6 11h12v10H6zM8 11V8a4 4 0 0 1 8 0v3", sun: "M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4",
+  moon: "M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z",
 };
 export function Icon({ name, size = 22, color, strokeWidth = 1.9 }: { name: IconName; size?: number; color?: string; strokeWidth?: number }) {
   const { c } = useTheme();
@@ -153,3 +162,39 @@ export function Ring({ done, total, size = 64 }: { done: number; total: number; 
   );
 }
 
+
+/** Two or three choices side by side (Owner | Student, System | Light | Dark), like iOS's segmented control. */
+export function Segmented<K extends string>({ options, value, onChange, testID }: { options: { key: K; label: string }[]; value: K; onChange: (k: K) => void; testID: string }) {
+  const { c } = useTheme();
+  return (
+    <View accessibilityRole="radiogroup" style={{ flexDirection: "row", backgroundColor: c.lav, borderRadius: BUTTON_RADIUS, padding: 3, gap: 3 }}>
+      {options.map((o) => {
+        const on = o.key === value;
+        return (
+          <Pressable key={o.key} testID={`${testID}-${o.key}`} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={o.label} onPress={() => { if (!on) { tap(); onChange(o.key); } }}
+            style={{ flex: 1, minHeight: 38, borderRadius: BUTTON_RADIUS - 2, alignItems: "center", justifyContent: "center", backgroundColor: on ? c.surface : "transparent", borderWidth: on ? 1 : 0, borderColor: c.line }}>
+            <Text style={{ fontFamily: on ? font.bold : font.semi, fontSize: 14, color: on ? c.ink : c.mutedText }}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** A locked feature (Admin → Beta → Feature releases says "locked"): the website's ComingSoon card, with the same words
+ *  (label and teaser from shared/features.ts) and a way on to openings meanwhile. */
+export function ComingSoon({ label, teaser, featureKey, onFind }: { label: string; teaser: string; featureKey: string; onFind: () => void }) {
+  const { c } = useTheme();
+  return (
+    <View style={{ backgroundColor: c.surface, borderRadius: radius.sheet, borderWidth: 1, borderColor: c.line, padding: 22, alignItems: "center", gap: 10 }} testID={`card-soon-${featureKey}`}>
+      <View>
+        <Remy size={64} icon />
+        <View style={{ position: "absolute", right: -4, bottom: -2, width: 26, height: 26, borderRadius: 13, backgroundColor: c.ink, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: c.surface }}><Icon name="lock" size={13} color={c.onInk} strokeWidth={2.4} /></View>
+      </View>
+      <T kind="label">Coming in a future update</T>
+      <T kind="title" style={{ textAlign: "center" }}>{label}</T>
+      <T kind="muted" style={{ textAlign: "center" }}>{teaser}</T>
+      <Button testID={`button-soon-${featureKey}`} label="Find openings meanwhile" icon="arrow" onPress={onFind} style={{ marginTop: 6 }} flex />
+    </View>
+  );
+}

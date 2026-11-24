@@ -9,7 +9,8 @@
       "@shared/*": [
         "../shared/*"
       ]
-    }
+    },
+    "allowImportingTsExtensions": true
   },
   "include": [
     "src/**/*.ts",

@@ -12,7 +12,7 @@ export function go(path: string, title = "Remy", opts: { page?: boolean } = {}) 
 
 /** Open Remy's chat with a question ready to send (the student can edit it first). */
 export function askRemy(question: string) {
-  router.navigate({ pathname: "/remy", params: { ask: question } } as any);
+  router.push({ pathname: "/remy", params: { ask: question } } as any);
 }
 
 /** Open the Jobs tab on For you ("new") or Kept. `at` makes a second tap work after the student switched tabs. */

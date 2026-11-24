@@ -43,8 +43,8 @@ export default function Web() {
   const { path = "/", title = "Remy" } = useLocalSearchParams<{ path?: string; title?: string }>();
   const { refresh } = useSession();
   const { c, dark } = useTheme();
-  // The page follows the app's light or dark look (the phone's setting), not the account's website theme, so a
-  // light app doesn't open a dark page or the other way round. Set before the page's own code runs (client/src/lib/store.tsx).
+  // The page follows the app's light or dark look (the account's theme, else the phone's), so a light app never
+  // opens a dark page or the other way round. Set before the page's own code runs (client/src/lib/store.tsx).
   const appTheme = `window.__remyAppTheme = ${JSON.stringify(dark ? "dark" : "light")}; document.documentElement.dataset.theme = window.__remyAppTheme; true;`;
   // Android draws its gesture bar over the bottom of the page: leave that much room so the last field isn't under it.
   const insets = useSafeAreaInsets();
@@ -77,7 +77,7 @@ export default function Web() {
   };
 
   return (
-    <View ref={box} collapsable={false} style={{ flex: 1, backgroundColor: c.paper, paddingBottom: Platform.OS === "android" ? insets.bottom : 0 }}>
+    <View ref={box} collapsable={false} style={{ flex: 1, backgroundColor: c.bg, paddingBottom: Platform.OS === "android" ? insets.bottom : 0 }}>
       {/* A sheet always has a way out: swiping down is taken by the page's own scrolling. */}
       {/* Done is a solid orange pill: plain orange text sat on iOS's light-grey header pill and was hard to read. */}
       <Stack.Screen options={{ title: pageTitle || title, headerBackTitle: "Back", headerRight: () => (
@@ -93,7 +93,7 @@ export default function Web() {
             onNavigationStateChange={(s) => { const t = titleFor(s.url); if (t) setPageTitle(t); }}
             originWhitelist={["*"]} mediaCapturePermissionGrantType="grantIfSameHostElseDeny" onShouldStartLoadWithRequest={onNavigate} onOpenWindow={(e) => openOutside(e.nativeEvent.targetUrl)} onMessage={onMessage}
             ref={web}
-            style={{ backgroundColor: c.paper }} />}
+            style={{ backgroundColor: c.bg }} />}
       {busy && Platform.OS !== "web" && <ActivityIndicator color={c.fox} style={{ position: "absolute", top: 24, alignSelf: "center" }} />}
     </View>
   );
