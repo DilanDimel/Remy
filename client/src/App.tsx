@@ -24,7 +24,7 @@ import { useRemyDoes, useRemyReachOut } from "./lib/remyDoes";
 import { RemyDid } from "./components/RemyDid";
 import { OfferSlot, RemyOffer } from "./components/RemyOffer";
 import { RemyAway } from "./components/RemyAway";
-import { answer as answerTailor, endSession as endTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
+import { answer as answerTailor, endSession as endTailor, isAsking, onCloseRequest, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
 import { Careers } from "./pages/Landing2";
 import { count as countSignal, startSignals, tidyPath } from "./lib/signals";
@@ -237,6 +237,7 @@ function Shell() {
   };
   // A tailoring conversation opens Remy so the student can answer him.
   useEffect(() => { return onOpenRequest(() => setAsstPage(true)); }, []);
+  useEffect(() => { return onCloseRequest(() => setAsstPage(false)); }, []);
   const collapsed = w.settings.navCollapsed;
   const nav = NAV.filter((n) => !n.owners || ownerView);
   const current = path.startsWith("/accounts") ? ACCOUNTS : nav.find((n) => (n.path === "/" ? path === "/" : path.startsWith(n.path))) || NAV[0];

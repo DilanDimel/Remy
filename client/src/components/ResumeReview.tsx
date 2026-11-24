@@ -28,7 +28,7 @@ export function ResumeReview({ doc, upd, onEdit, beside = false, onWalk }: { doc
     <section className={beside ? "stack" : "card card-pad stack"} data-testid="resume-review">
       <div className="stack-sm" style={{ gap: 4 }}>
         <h3 className={owner && beside ? "row" : undefined} style={owner && beside ? { gap: 8, flexWrap: "nowrap" } : undefined}>{owner && beside && <Remy size={28} mood={count ? "think" : "happy"} />}{beside ? (count ? `${count} thing${count > 1 ? "s" : ""} to make it stronger` : "Looking strong") : count ? `Remy's review · ${count} thing${count > 1 ? "s" : ""} to fix` : "Remy's review · looking good"}</h3>
-        <span className="xs muted">{owner && beside && count ? onWalk ? "Press Fix and I'll ask about each line right on your resume, then draft it from your answer. Nothing changes until you save." : "I'll ask about one line at a time and draft it from your answer. Nothing changes until you save." : beside ? "Fix them right here, or just ask Remy in the chat. Nothing changes until you save." : "Remy's suggestions from your resume itself, not an employer's score. Fix them here; nothing changes until you press Save."}</span>
+        <span className="xs muted">{owner && beside && count ? onWalk ? "Press Fix and I'll rewrite each line right on your resume, using only what you already wrote. Accept, edit or skip each one. Nothing changes until you save." : "I'll rewrite one line at a time from what you already wrote. Accept, edit or skip each one. Nothing changes until you save." : beside ? "Fix them right here, or just ask Remy in the chat. Nothing changes until you save." : "Remy's suggestions from your resume itself, not an employer's score. Fix them here; nothing changes until you press Save."}</span>
       </div>
       {todo.map((it) => <Item key={keyOf(it)} it={it} open={!!frozen[keyOf(it)]} onToggle={() => (onWalk && (it.kind === "numbers" || it.kind === "verbs") ? onWalk() : toggle(it))} doc={doc} upd={upd} onEdit={onEdit} oneAtATime={owner} />)}
       {good.length > 0 && (
@@ -104,18 +104,33 @@ export function BulletFix({ b, kind, upd, onNext, autoFocus, compact }: { b: Bul
   const [answer, setAnswer] = useState("");
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<"" | "used" | "skipped">("");
+  // Owners (Demetre, Nov 24: "it should do more on its own"): Remy rewrites the line from what it already says, then
+  // the student accepts, edits or skips. He asks only when that fails (a missing number, or only they know their part).
+  const owner = useOwnerView();
+  const [auto, setAuto] = useState(owner);
+  const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    if (!owner) return;
+    let live = true;
+    api<{ draft: string }>("POST", "/api/resume/bullet-draft", { kind, text: b.text, answer: "" })
+      .then((r) => { if (live) { setDraft(r.draft); setDraftFor(b.text); } }, () => {}) // no honest rewrite: ask instead
+      .finally(() => live && setAuto(false));
+    return () => { live = false; };
+  }, []);
   const ask = async () => {
     setBusy(true);
-    const r = await run(() => api<{ draft: string }>("POST", "/api/resume/bullet-draft", { kind, text: b.text, answer }));
+    const r = await run(() => api<{ draft: string }>("POST", "/api/resume/bullet-draft", { kind, text: owner && draft ? draft : b.text, answer }));
     setBusy(false);
     if (r) { setDraft(r.draft); setDraftFor(b.text); }
   };
   const use = () => {
     upd((d) => { for (const s of d.sections) for (const e of s.entries) for (const x of e.bullets) if (b.id && x.id === b.id) x.text = draft; });
-    setDone(true);
+    setDone("used");
   };
-  if (done) return <span className="xs row" style={{ gap: 6 }}><Check size={14} /> Updated. Press Save when you're done.{onNext && <button className="btn btn-secondary btn-sm" onClick={onNext} data-testid="button-review-next">Next line <ArrowRight size={14} /></button>}</span>;
+  const skip = () => (onNext ? onNext() : setDone("skipped"));
+  if (done) return <span className="xs row" style={{ gap: 6 }}>{done === "used" ? <><Check size={14} /> Updated. Press Save when you're done.</> : "Skipped. Your line stays as it is."}{onNext && <button className="btn btn-secondary btn-sm" onClick={onNext} data-testid="button-review-next">Next line <ArrowRight size={14} /></button>}</span>;
+  if (auto) return <span className="xs row" style={{ gap: 6 }} data-testid="bullet-fix-auto"><Spinner /> Remy is rewriting this line from what you already wrote…</span>;
   // Enter drafts, like any one-line question (Nov 23 live test: Enter did nothing).
   const enter = (ok: boolean) => (e: KeyboardEvent) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && ok && !busy) { e.preventDefault(); ask(); } };
   return (
@@ -133,7 +148,7 @@ export function BulletFix({ b, kind, upd, onNext, autoFocus, compact }: { b: Bul
       )}
       {!draft && kind === "verbs" && (
         <>
-          <span className="xs">What exactly did you do here? A few words in your own terms.</span>
+          <span className="xs">{owner ? "I can't tell your part from this line alone, so I won't guess. What did you do here? A few words is enough." : "What exactly did you do here? A few words in your own terms."}</span>
           <div className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
             <input className="input" value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="e.g. wrote and scheduled the posts" aria-label="What you did" autoFocus={autoFocus} onKeyDown={enter(answer.trim().length >= 4)} data-testid="input-bullet-action" />
             <button className="btn btn-secondary btn-sm" disabled={busy || answer.trim().length < 4} onClick={ask} data-testid="button-draft-bullet">{busy ? <Spinner /> : <Sparkles size={14} />} Draft</button>
@@ -141,7 +156,7 @@ export function BulletFix({ b, kind, upd, onNext, autoFocus, compact }: { b: Bul
         </>
       )}
       {draft && draftFor !== b.text && <span className="xs" style={{ color: "var(--amber)" }}>This line changed since Remy drafted it. Draft again.</span>}
-      {draft && draftFor === b.text && (
+      {draft && draftFor === b.text && !owner && (
         <>
           <span className="small"><b>New:</b> {draft}</span>
           <div className="row" style={{ gap: 6 }}>
@@ -150,6 +165,26 @@ export function BulletFix({ b, kind, upd, onNext, autoFocus, compact }: { b: Bul
           </div>
         </>
       )}
+      {draft && draftFor === b.text && owner && (
+        <>
+          {editing
+            ? <textarea className="input" rows={3} value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Your version of this line" autoFocus data-testid="input-draft-edit" />
+            : <span className="small"><b>Remy's version:</b> {draft}</span>}
+          <span className="xs muted">Only words already on your resume. Nothing changes until you save.</span>
+          <div className="row" style={{ gap: 6 }}>
+            <button className="btn btn-primary btn-sm" onClick={use} disabled={!draft.trim()} data-testid="button-use-draft"><Check size={14} /> {editing ? "Use my version" : "Accept"}</button>
+            {!editing && <button className="btn btn-secondary btn-sm" onClick={() => setEditing(true)} data-testid="button-edit-draft">Edit</button>}
+            <button className="btn btn-ghost btn-sm" onClick={skip} data-testid="button-skip-draft">Skip</button>
+          </div>
+          {kind === "numbers" && !editing && (
+            <div className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
+              <input className="input" value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Know a real number? e.g. 40 members" aria-label="A real number, if you know one" onKeyDown={enter(/\d/.test(answer))} data-testid="input-bullet-number-optional" />
+              <button className="btn btn-ghost btn-sm" disabled={busy || !/\d/.test(answer)} onClick={ask} data-testid="button-add-number">{busy ? <Spinner /> : <Sparkles size={14} />} Add it</button>
+            </div>
+          )}
+        </>
+      )}
+      {!draft && owner && <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={skip} data-testid="button-skip-line">Skip this line</button>}
     </div>
   );
 }
