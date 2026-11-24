@@ -278,7 +278,7 @@ function Data() {
 
 const initialsOf = (w: Workspace) => (w.profile.preferredName || knownName(w) || "S").split(/\s+/).map((x: string) => x[0]).slice(0, 2).join("").toUpperCase();
 /** Fields the profile meter counts: the ones Remy uses to pick and tailor openings. */
-const MEASURED: (keyof Workspace["profile"])[] = ["path", "goal", "name", "preferredName", "applicationEmail", "school", "major", "classYear", "graduation", "location", "targetRoles", "regions", "opportunityTypes", "workAuth"];
+const MEASURED: (keyof Workspace["profile"])[] = ["path", "goal", "name", "preferredName", "applicationEmail", "school", "major", "classYear", "graduation", "location", "targetRoles", "regions", "opportunityTypes"]; // workAuth is optional: never nudged (legal audit)
 /** How Remy's nudge names a missing field. */
 const NUDGE: Partial<Record<keyof Workspace["profile"], string>> = { path: "where you are right now", goal: "what you're working toward", name: "your full name", preferredName: "what I should call you", applicationEmail: "your application email", school: "your school", major: "your major", classYear: "your class year", graduation: "when you graduate", location: "where you live", targetRoles: "roles you're curious about", regions: "where I should look", opportunityTypes: "the kinds of openings you want", workAuth: "your work authorization" };
 const shortDate = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
