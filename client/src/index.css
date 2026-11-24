@@ -3094,3 +3094,19 @@ button.rw-item:not(:disabled) { cursor: pointer; }
 .remy-offer-kicker i { width: 7px; height: 7px; border-radius: 50%; background: var(--fox); animation: soul-pulse 2s ease-out infinite; }
 @keyframes offer-in { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .redesign-2 .remy-offer, .remy-offer-face, .remy-offer-face::after, .remy-offer-kicker i, .streak-peek.done > svg { animation: none; } }
+
+/* Feature releases (Nov 24, components/ComingSoon.tsx): a locked feature's page stays in view, blurred and out of
+   reach, with Remy's "coming in a future update" card on top. Students and owners previewing the student view. */
+.nav-lock { margin-left: auto; color: var(--faint); flex: none; }
+.nav-collapsed .nav-lock { position: absolute; top: 4px; right: 4px; margin: 0; }
+.soon { position: relative; min-height: min(640px, calc(100dvh - 160px)); }
+.soon-behind { filter: blur(6px) saturate(0.7); opacity: 0.55; pointer-events: none; user-select: none; max-height: calc(100dvh - 140px); overflow: hidden; }
+.soon-card { position: absolute; top: clamp(24px, 12vh, 120px); left: 50%; transform: translateX(-50%); width: min(420px, calc(100% - 24px)); display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 28px 24px 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow); }
+.soon-card h2 { margin: 0; font-family: var(--font-display); font-size: var(--text-xl); letter-spacing: -0.02em; color: var(--ink); }
+.soon-card p { margin: 0 0 8px; font-size: var(--text-sm); color: var(--muted-text); line-height: 1.5; }
+.soon-kicker { font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fox-deep); background: var(--fox-soft); padding: 4px 10px; border-radius: 999px; }
+.soon-face { position: relative; display: inline-flex; margin-bottom: 4px; }
+.soon-lock { position: absolute; right: -4px; bottom: 0; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--fox); color: var(--white); border: 2px solid var(--surface); }
+.feat-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--line); }
+.feat-row:first-of-type { border-top: 0; }
+.feat-row > div { flex: 1 1 220px; min-width: 0; }
