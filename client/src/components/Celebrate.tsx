@@ -27,6 +27,8 @@ export function Celebrate() {
     seenTrack.current = new Map(ws.tracker.map((t) => [t.id, t.status]));
     if (!was) return;
     const t = ws.tracker.find((x) => (x.status === "Offer" || x.status === "Rejected") && was.get(x.id) !== x.status);
+    // The first offer has its own big moment (PinMoment.tsx), so it isn't announced twice.
+    if (t && t.status === "Offer" && !ws.game?.pins?.offer && ws.game?.pins) return;
     if (t) setNow({ label: t.status, done: 0, moment: t.status === "Offer" ? "offer" : "rejected", company: t.company });
   }, [ws?.tracker, owner]);
   useEffect(() => {
@@ -35,7 +37,8 @@ export function Celebrate() {
     const done = new Set(m.filter((x) => x.done).map((x) => x.label));
     const fresh = prev.current && [...done].find((l) => !prev.current!.has(l));
     prev.current = done;
-    if (fresh) setNow({ label: fresh, done: done.size });
+    // Owners: a first interview has its own big moment (PinMoment.tsx), so this toast stays quiet for it.
+    if (fresh && !(owner && fresh === "Interviewing" && ws.game?.pins)) setNow({ label: fresh, done: done.size });
   }, [ws]);
   useEffect(() => { if (!now) return; const t = setTimeout(() => setNow(null), 7000); return () => clearTimeout(t); }, [now]);
   if (!now) return null;
