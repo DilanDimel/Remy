@@ -79,6 +79,7 @@ import { boardsFor, orderEmployers, preferMetros, pruneBoardCache, CAREERONESTOP
 import { emailReady, logEmail, sendEmail } from "./notify/email";
 import { codeEmail } from "./notify/layout";
 import { currentResumeDocx, docxStyle, editResumeDocx } from "./resume/docxEdit";
+import { currentResumePdf } from "./resume/pdfTwin";
 import { keepDecided } from "./coach/keepDecided";
 import * as gcal from "./notify/gcal";
 import { q, q1, schema } from "./platform/sql";
@@ -1351,32 +1352,43 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.json({ base: atsScore(ctx.ws.resume!.doc, null, "", opts) });
   }));
 
-  // The base resume as Remy reads it (including the student's edits), as a clean PDF or Word file.
-  // The base resume written into the student's own Word file (stage 3), or null with what couldn't be placed.
-  async function ownCurrentDocx(ctx: Ctx): Promise<{ buf: Buffer | null; missed: string[] }> {
+  // The base resume written into the student's own file: their .docx with every change, or for a PDF, their pages
+  // rebuilt with the changed lines rewrapped (server/resume/pdfTwin.ts). `draft`: unsaved changes on the page, so the
+  // page shows them in the student's own layout too (Dilan, Nov 24: the page switched to Remy's drawing mid-fix).
+  async function ownCurrentFile(ctx: Ctx, draft?: ResumeDoc): Promise<{ buf: Buffer | null; missed: string[]; mime: string } | null> {
     const r = ctx.ws.resume;
-    if (!r?.original?.mime.includes("wordprocessingml")) return { buf: null, missed: [] };
+    const mime = r?.original?.mime || "";
+    const word = mime.includes("wordprocessingml"), pdf = mime === "application/pdf";
+    if (!r || (!word && !pdf)) return null;
     const f = await getFile(ctx.me.id, "resume");
-    if (!f) return { buf: null, missed: [] };
-    return currentResumeDocx(f.data, r.doc, r.removed, r.fileLines).catch(() => ({ buf: null, missed: ["(file unreadable)"] }));
+    if (!f) return null;
+    const doc = draft || r.doc;
+    const out = await (word ? currentResumeDocx(f.data, doc, r.removed, r.fileLines) : currentResumePdf(f.data, doc, r.fileLines)).catch(() => ({ buf: null, missed: ["(file unreadable)"] }));
+    return { ...out, mime };
   }
-  // Their own Word file with every change so far, for the Resume page to draw (409 + the lines when it can't be done).
-  app.get("/api/resume/current-docx", route(async (_req, res, ctx) => {
+  /** A draft resume sent by the page: only its shape is checked; it only ever draws the student's own file. */
+  const draftOf = (b: any): ResumeDoc | undefined => b?.doc && Array.isArray(b.doc.sections) && Array.isArray(b.doc.skills) && b.doc.contact ? b.doc : undefined;
+  // Their own file with every change so far, for the Resume page to draw (409 + the lines when it can't be done).
+  // The body carries unsaved changes.
+  app.post("/api/resume/current-file", route(async (req, res, ctx) => {
     if (!ctx.ws.resume) bad("Upload a resume first.");
-    const out = await ownCurrentDocx(ctx);
-    if (!out.buf || out.missed.length) return void res.status(409).json({ missed: out.missed.slice(0, 8) });
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    const out = await ownCurrentFile(ctx, draftOf(req.body));
+    if (!out?.buf || out.missed.length) return void res.status(409).json({ missed: (out?.missed || []).slice(0, 8) });
+    res.setHeader("Content-Type", out.mime);
     res.setHeader("Cache-Control", "no-store");
     res.send(out.buf);
   }));
 
+  // The base resume download: in the student's own layout when every change fits in their file (Word as Word, a PDF
+  // as their rebuilt PDF), else Remy's clean layout in their font.
   app.get("/api/resume/export", route(async (req, res, ctx) => {
     if (!ctx.ws.resume) bad("Upload a resume first.");
     const fmt = req.query.format === "docx" ? "docx" : "pdf";
     const doc = ctx.ws.resume!.doc;
-    // Word download for owners (stage 3): their own file with the changes, when every change fits in it.
-    const own = fmt === "docx" && inOwnerView() ? await ownCurrentDocx(ctx) : null;
-    const buf = own?.buf && !own.missed.length ? own.buf : fmt === "pdf" ? await resumePdf(doc, ctx.ws.resume!.style) : await resumeDocx(doc, ctx.ws.resume!.style);
+    const own = await ownCurrentFile(ctx);
+    const mine = own?.buf && !own.missed.length && (fmt === "pdf" ? own.mime === "application/pdf" : own.mime.includes("wordprocessingml")) ? own.buf : null;
+    const buf = mine || (fmt === "pdf" ? await resumePdf(doc, ctx.ws.resume!.style) : await resumeDocx(doc, ctx.ws.resume!.style));
+    res.setHeader("X-Remy-Layout", mine ? "original" : "remy");
     const name = (nameUnsure(ctx.ws) ? "Resume" : ctx.ws.profile.name || doc.contact.name || "Resume").replace(/[^A-Za-z]+/g, "-") + "-Resume";
     res.setHeader("Content-Type", fmt === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
     // ?inline=1 shows the current version inside the Resume page (redesign stage 3); downloads stay attachments.
@@ -2762,7 +2774,13 @@ Return JSON:
     let buf: Buffer;
     const style = ctx.ws.resume?.style;
     const own = kind === "resume" && fmt === "docx" ? await ownWordFile(ctx, v!.resume) : null;
-    if (own) {
+    // They uploaded a PDF: their own pages with the tailored lines rewrapped in place, when every change fits.
+    const ownPdf = kind === "resume" && fmt === "pdf" && ctx.ws.resume?.original?.mime === "application/pdf"
+      ? await getFile(ctx.me.id, "resume").then((f) => f ? currentResumePdf(f.data, v!.resume, ctx.ws.resume!.fileLines) : null).catch(() => null) : null;
+    if (ownPdf?.buf && !ownPdf.missed.length) {
+      buf = ownPdf.buf;
+      res.setHeader("X-Remy-Layout", "original");
+    } else if (own) {
       // They uploaded Word: edit their own file so it keeps their exact formatting.
       const kept = own.buf && !own.missed.length ? own.buf : null;
       buf = kept || (await resumeDocx(v!.resume, style)); // a change couldn't be placed in their file: use Remy's clean layout rather than ship a half-edited file

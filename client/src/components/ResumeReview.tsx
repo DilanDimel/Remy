@@ -98,6 +98,14 @@ function Item({ it, open, onToggle, doc, upd, onEdit, oneAtATime = false }: { it
   );
 }
 
+const wc = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;
+/** One plain line on why Remy's version reads better than the old one. */
+function why(old: string, draft: string, kind: "numbers" | "verbs", answer: string) {
+  const cut = wc(old) - wc(draft);
+  const parts = [kind === "numbers" && answer.trim() ? `Adds your number (${answer.trim()})` : "Leads with what you did", cut >= 3 ? `cuts ${cut} extra words` : ""].filter(Boolean);
+  return `Why it's better: ${parts.join(", and ")}.`;
+}
+
 export function BulletFix({ b, kind, upd, onNext, autoFocus, compact }: { b: BulletRef; kind: "numbers" | "verbs"; upd: Upd; onNext?: () => void; autoFocus?: boolean; compact?: boolean }) {
   const { run } = useStore();
   const [draftFor, setDraftFor] = useState(""); // the line text the draft was made from
@@ -108,10 +116,12 @@ export function BulletFix({ b, kind, upd, onNext, autoFocus, compact }: { b: Bul
   // Owners (Demetre, Nov 24: "it should do more on its own"): Remy rewrites the line from what it already says, then
   // the student accepts, edits or skips. He asks only when that fails (a missing number, or only they know their part).
   const owner = useOwnerView();
-  const [auto, setAuto] = useState(owner);
+  // A missing number is a missing fact: Remy asks for it first instead of reshuffling the line's words (Dilan, Nov 24:
+  // "if you don't have information at all, make sure to ask the user"). A weak start he can fix from the line itself.
+  const [auto, setAuto] = useState(owner && kind === "verbs");
   const [editing, setEditing] = useState(false);
   useEffect(() => {
-    if (!owner) return;
+    if (!owner || kind !== "verbs") return;
     let live = true;
     api<{ draft: string }>("POST", "/api/resume/bullet-draft", { kind, text: b.text, answer: "" })
       .then((r) => { if (live) { setDraft(r.draft); setDraftFor(b.text); } }, () => {}) // no honest rewrite: ask instead
@@ -139,7 +149,7 @@ export function BulletFix({ b, kind, upd, onNext, autoFocus, compact }: { b: Bul
       <span className="small">“{b.text}”</span></>}
       {!draft && kind === "numbers" && (
         <>
-          <span className="xs">Is there a real number here? How many people, events, dollars, hours or percent. Only if you know it.</span>
+          <span className="xs">Remy won't guess a number. Roughly how many people, events, dollars or hours were involved? Skip it if you're not sure.</span>
           <div className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
             <input className="input" value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="e.g. 40 members, $5,000" aria-label="The real number" autoFocus={autoFocus} onKeyDown={enter(/\d/.test(answer))} data-testid="input-bullet-number" />
             <button className="btn btn-secondary btn-sm" disabled={busy || !/\d/.test(answer)} onClick={ask} data-testid="button-draft-bullet">{busy ? <Spinner /> : <Sparkles size={14} />} Draft</button>
@@ -170,7 +180,8 @@ export function BulletFix({ b, kind, upd, onNext, autoFocus, compact }: { b: Bul
           {editing
             ? <textarea className="input" rows={3} value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Your version of this line" autoFocus data-testid="input-draft-edit" />
             : <span className="small"><b>Remy's version:</b> {draft}</span>}
-          <span className="xs muted">Only words already on your resume. Nothing changes until you save.</span>
+          {!editing && <span className="xs" data-testid="draft-why">{why(draftFor, draft, kind, answer)}</span>}
+          <span className="xs muted">Only facts already on your resume{answer.trim() ? " and what you told Remy" : ""}. Nothing changes until you save.</span>
           <div className="row" style={{ gap: 6 }}>
             <button className="btn btn-primary btn-sm" onClick={use} disabled={!draft.trim()} data-testid="button-use-draft"><Check size={14} /> {editing ? "Use my version" : "Accept"}</button>
             {!editing && <button className="btn btn-secondary btn-sm" onClick={() => setEditing(true)} data-testid="button-edit-draft">Edit</button>}

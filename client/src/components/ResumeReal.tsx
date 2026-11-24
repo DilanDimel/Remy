@@ -1,7 +1,7 @@
 // Redesign stage 3 (owners first): the colour-coded resume drawn on the student's REAL file, not a redraw.
 // Dilan, Nov 21: "make sure the resume actually looks like the user's". Word files: their own .docx with every change
-// written into it (server: /api/resume/current-docx), drawn in the page. PDFs: their own pages, with the colours laid
-// over the words. When either can't be done, the caller falls back to Remy's drawn page and says why.
+// written into it (server: /api/resume/current-file), drawn in the page. PDFs: their own pages (after changes, rebuilt by
+// the server with the changed lines rewrapped in place), with the colours laid over the words. When either can't be done, the caller falls back to Remy's drawn page and says why.
 import { useEffect, useRef, useState } from "react";
 import type { ResumeDoc } from "@shared/types";
 import { isListSection } from "@shared/bullets";
@@ -70,7 +70,7 @@ function colourWord(root: HTMLElement, doc: ResumeDoc, on: Set<Cat>) {
         word.parentNode!.insertBefore(tail, word);
         tail.appendChild(word);
       } else p.appendChild(tail);
-      for (const t of issues(text)) {
+      for (const t of issues(text, doc)) {
         const f = document.createElement("span");
         f.className = "rm-flag"; f.textContent = t;
         tail.appendChild(f);
@@ -138,7 +138,8 @@ export function OwnWordColoured({ doc, version, on, onFail }: { doc: ResumeDoc; 
     const slow = setTimeout(() => { if (live) onFail("slow"); }, 15_000);
     (async () => {
       try {
-        const r = await fetch(`${API_BASE}/api/resume/current-docx?v=${encodeURIComponent(version)}`, { credentials: "include" });
+        // The page's current resume, unsaved changes included, written into their own file.
+        const r = await fetch(`${API_BASE}/api/resume/current-file`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ doc }) });
         if (r.status === 409) throw new Error("missed");
         if (!r.ok) throw new Error(String(r.status));
         const { body, styles } = await drawDocx(await r.blob());
@@ -182,13 +183,17 @@ export function OwnWordColoured({ doc, version, on, onFail }: { doc: ResumeDoc; 
 
 type Box = { left: number; top: number; width: number; height: number; cat?: Cat; flag?: string; t?: string; line?: string };
 /** Their PDF's own pages as images, with the colours placed over the words (positions from the PDF's text). */
-export function OwnPdfColoured({ doc, on, onFail }: { doc: ResumeDoc; on: Set<Cat>; onFail: (why: string) => void }) {
+/** `changed`: the resume differs from the uploaded file, so the server rebuilds their pages with the changes in place. */
+export function OwnPdfColoured({ doc, on, onFail, changed }: { doc: ResumeDoc; on: Set<Cat>; onFail: (why: string) => void; changed?: boolean }) {
   const [pages, setPages] = useState<{ img: string; w: number; h: number; boxes: Box[] }[] | null>(null);
   useEffect(() => {
     let live = true;
     (async () => {
       try {
-        const [{ getDocumentProxy }, r] = await Promise.all([import("unpdf"), fetch(`${API_BASE}/api/resume/original`, { credentials: "include" })]);
+        const [{ getDocumentProxy }, r] = await Promise.all([import("unpdf"), changed
+          ? fetch(`${API_BASE}/api/resume/current-file`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ doc }) })
+          : fetch(`${API_BASE}/api/resume/original`, { credentials: "include" })]);
+        if (r.status === 409) throw new Error("missed");
         if (!r.ok) throw new Error(String(r.status));
         const pdf = await getDocumentProxy(new Uint8Array(await r.arrayBuffer()));
         const tools = toolsRegex(doc);
@@ -226,7 +231,7 @@ export function OwnPdfColoured({ doc, on, onFail }: { doc: ResumeDoc; on: Set<Ca
               boxes.push({ left: x + xAt(s), top: y - h * 0.95, width: xAt(en) - xAt(s), height: h * 1.2, cat, t: str.slice(s, en) });
             }
             const ends = bulletsOf(doc).find((b) => k.length > 6 && norm(b).endsWith(k));
-            const probs = ends ? issues(ends) : [];
+            const probs = ends ? issues(ends, doc) : [];
             if (probs.length) {
               // One tag per line, after the line when it fits, else in the left margin, so it never covers words.
               const flag = probs.join(" · "), need = flag.length * 8.5 + 24;
@@ -237,12 +242,12 @@ export function OwnPdfColoured({ doc, on, onFail }: { doc: ResumeDoc; on: Set<Ca
           out.push({ img: canvas.toDataURL("image/png"), w: vp.width, h: vp.height, boxes });
         }
         if (live) setPages(out);
-      } catch {
-        if (live) onFail("unreadable");
+      } catch (e) {
+        if (live) onFail((e as Error).message === "missed" ? "missed" : "unreadable");
       }
     })();
     return () => { live = false; };
-  }, [JSON.stringify(doc)]);
+  }, [JSON.stringify(doc), changed]);
   if (!pages) return <div className="pdf-preview row" style={{ justifyContent: "center" }}><Spinner /> Drawing your resume…</div>;
   return (
     <div className="rr-pdf" data-testid="resume-real-pdf">

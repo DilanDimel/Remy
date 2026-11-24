@@ -16,6 +16,19 @@ function overlap(a: string, b: string) {
   return n / Math.max(A.size, B.size);
 }
 
+/** The paragraph's text replaced, keeping its first run's formatting and the paragraph's bullet and spacing. A bullet
+ *  typed as text ("• ", "– ") in the old line stays in front of the new one. */
+function retext(pxml: string, text: string, old = "") {
+  const typed = old.match(/^[\s•●▪◦*–-]+/)?.[0] ?? "";
+  const t = typed && !text.startsWith(typed.trim()) ? typed + text : text;
+  let first = true;
+  return pxml.replace(T, (m) => {
+    if (!first) return m.endsWith("/>") ? m : m.replace(/>[\s\S]*<\/w:t>$/, "></w:t>");
+    first = false;
+    return `<w:t xml:space="preserve">${encode(t)}</w:t>`;
+  });
+}
+
 const T = /<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:t(?:\s[^>]*)?\/>/g;
 
 /** Replaces each `from` bullet with `to`. The new text takes the first text run's formatting; the paragraph's
@@ -45,13 +58,7 @@ export async function editDocx(buf: Buffer, edits: { from: string; to: string }[
     }
     used.add(best);
     const p = paras[best];
-    let first = true;
-    const out = p.xml.replace(T, (m) => {
-      if (!first) return m.endsWith("/>") ? m : m.replace(/>[\s\S]*<\/w:t>$/, "></w:t>");
-      first = false;
-      return `<w:t xml:space="preserve">${encode(e.to)}</w:t>`;
-    });
-    replacements.push({ start: p.start, len: p.xml.length, xml: out });
+    replacements.push({ start: p.start, len: p.xml.length, xml: retext(p.xml, e.to, p.text) });
   }
   for (const r of replacements.sort((a, b) => b.start - a.start)) xml = xml.slice(0, r.start) + r.xml + xml.slice(r.start + r.len);
   for (const e of inRun) {
@@ -69,15 +76,7 @@ export async function editDocx(buf: Buffer, edits: { from: string; to: string }[
 }
 
 const paragraphs = (xml: string) => [...xml.matchAll(/<w:p[ >][\s\S]*?<\/w:p>/g)].map((m) => ({ start: m.index!, xml: m[0], text: decode([...m[0].matchAll(T)].map((t) => t[1] || "").join("")) }));
-/** The paragraph's text replaced, keeping its first run's formatting and the paragraph's bullet and spacing. */
-const retext = (pxml: string, text: string) => {
-  let first = true;
-  return pxml.replace(T, (m) => {
-    if (!first) return m.endsWith("/>") ? m : m.replace(/>[\s\S]*<\/w:t>$/, "></w:t>");
-    first = false;
-    return `<w:t xml:space="preserve">${encode(text)}</w:t>`;
-  });
-};
+
 
 /** The approved resume written into the student's own Word file. The diff is against the FILE (not Remy's copy), so
  *  lines changed in Remy before tailoring count too: a reworded line replaces the file line it came from (`fileLines`:
@@ -148,7 +147,7 @@ export async function editResumeDocx(buf: Buffer, base: ResumeDoc, version: Resu
     const p = hits.length === 1 && !hits[0].xml.includes("<w:br") ? hits[0] : null;
     if (!p) { missed.push(a.add); continue; }
     const pos = a.after !== undefined ? p.start + p.xml.length : p.start;
-    xml = xml.slice(0, pos) + retext(p.xml, a.add) + xml.slice(pos);
+    xml = xml.slice(0, pos) + retext(p.xml, a.add, p.text) + xml.slice(pos);
   }
   z2.file("word/document.xml", xml);
   return { buf: await z2.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }), missed };
