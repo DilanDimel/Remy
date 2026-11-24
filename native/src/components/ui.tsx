@@ -54,13 +54,13 @@ export function Card({ children, style, onPress, testID }: { children: ReactNode
   return <Pressable onPress={() => { tap(); onPress(); }} style={({ pressed }) => [base, style, pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] }]} testID={testID} accessibilityRole="button">{children}</Pressable>;
 }
 
-export function Button({ label, onPress, kind = "ink", icon, busy, style, testID, flex }: { label: string; onPress: () => void; kind?: "ink" | "fox" | "ghost"; icon?: IconName; busy?: boolean; style?: StyleProp<ViewStyle>; testID: string; flex?: boolean }) {
+export function Button({ label, onPress, kind = "ink", icon, busy, disabled, style, testID, flex }: { label: string; onPress: () => void; kind?: "ink" | "fox" | "ghost"; icon?: IconName; busy?: boolean; disabled?: boolean; style?: StyleProp<ViewStyle>; testID: string; flex?: boolean }) {
   const { c } = useTheme();
   const bg = kind === "ink" ? c.ink : kind === "fox" ? c.fox : c.surface2;
   const fg = kind === "ink" ? c.onInk : kind === "fox" ? c.onFox : c.ink;
   return (
-    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} disabled={busy} onPress={() => { tap(); onPress(); }}
-      style={({ pressed }) => [{ height: 50, borderRadius: BUTTON_RADIUS, backgroundColor: bg, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 20, alignSelf: flex ? "stretch" : "flex-start", opacity: pressed || busy ? 0.8 : 1 }, style]}>
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !!(busy || disabled) }} disabled={busy || disabled} onPress={() => { tap(); onPress(); }}
+      style={({ pressed }) => [{ height: 50, borderRadius: BUTTON_RADIUS, backgroundColor: bg, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 20, alignSelf: flex ? "stretch" : "flex-start", opacity: disabled ? 0.45 : pressed || busy ? 0.8 : 1 }, style]}>
       {busy ? <ActivityIndicator color={fg} /> : <><Text style={{ fontFamily: font.bold, fontSize: 16, color: fg }}>{label}</Text>{icon && <Icon name={icon} size={18} color={fg} />}</>}
     </Pressable>
   );
