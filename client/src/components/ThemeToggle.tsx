@@ -1,17 +1,23 @@
-import { Monitor, Moon, Sun } from "lucide-react";
+import { useSyncExternalStore } from "react";
+import { Moon, Sun } from "lucide-react";
 import { useStore, type Theme } from "../lib/store";
 
-const NEXT: Record<Theme, Theme> = { system: "light", light: "dark", dark: "system" };
 const LABEL: Record<Theme, string> = { system: "Match my device", light: "Light", dark: "Dark" };
 
-/** One button that cycles Match device → Light → Dark; works signed out too. */
+// What the page shows right now (the store sets it on <html>, including when "Match my device" follows the device).
+const subscribe = (cb: () => void) => { const o = new MutationObserver(cb); o.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] }); return () => o.disconnect(); };
+const shown = () => (document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+
+/** Quick switch: flips between light and dark. "Match my device" lives in Account settings; works signed out too. */
 export function ThemeToggle({ className = "icon-btn", label = false }: { className?: string; label?: boolean }) {
-  const { theme, setTheme } = useStore();
-  const Icon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
+  const { setTheme } = useStore();
+  const now = useSyncExternalStore(subscribe, shown, () => "light" as const);
+  const next = now === "dark" ? "light" : "dark";
+  const Icon = now === "dark" ? Moon : Sun;
   return (
-    <button type="button" className={className} onClick={() => setTheme(NEXT[theme])} title={`Theme: ${LABEL[theme]} (click to change)`}
-      aria-label={`Theme: ${LABEL[theme]}. Change to ${LABEL[NEXT[theme]]}`} data-testid="button-theme-toggle">
-      <Icon size={17} />{label && ` Theme: ${LABEL[theme]}`}
+    <button type="button" className={className} onClick={() => setTheme(next)} title={`Switch to ${next} mode`}
+      aria-label={`${LABEL[now]} mode. Switch to ${next} mode`} data-testid="button-theme-toggle">
+      <Icon size={17} />{label && ` Theme: ${LABEL[now]}`}
     </button>
   );
 }
