@@ -47,10 +47,12 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
+          # Each line runs on its own and the first failing line ends the script, so the wait loop ends with `true`
+          # (otherwise a slow launch skipped the screenshot and log below) and only the last line decides pass or fail.
           script: |
             adb install -r app-debug.apk
             adb shell am start -W -n org.remyai.app/.MainActivity
-            for i in $(seq 1 18); do sleep 5; adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb pull /sdcard/ui.xml ui.xml >/dev/null 2>&1; n=$(grep -o 'text="[^" ][^"]*"' ui.xml | wc -l); echo "after $((i*5))s: $n pieces of text"; [ "$n" -ge 5 ] && break; done
+            for i in $(seq 1 18); do sleep 5; adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb pull /sdcard/ui.xml ui.xml >/dev/null 2>&1; n=$(grep -o 'text="[^" ][^"]*"' ui.xml | wc -l); echo "after $((i*5))s: $n pieces of text"; [ "$n" -ge 5 ] && break; if [ "$i" = 6 ] && grep -q "reach the internet" ui.xml; then echo "Offline page after 30s (the emulator's network can lag its boot): opening the app once more"; adb shell am force-stop org.remyai.app; adb shell am start -W -n org.remyai.app/.MainActivity >/dev/null; fi; done; true
             adb exec-out screencap -p > launch.png
             echo "Text on screen:"; grep -o 'text="[^"]\+"' ui.xml | head -25 || true
             adb logcat -d -s Capacitor:* Capacitor/Console:* AndroidRuntime:E | tail -n 40
