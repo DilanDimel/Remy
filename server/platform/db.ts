@@ -170,10 +170,10 @@ function fromStored(data: any): Workspace {
 }
 // Every request reads the student's workspace (up to ~1.5 MB, mostly saved openings), and Supabase bills each byte read
 // as data transfer. So the server keeps the last copy it read or wrote and downloads it again only when the row's
-// updated_at changed (another server, or a write it didn't make). Copies older than 30 minutes are read fresh, so a
-// hand edit in the database that doesn't touch updated_at shows up within that time.
+// updated_at changed (another server, or a write it didn't make). Copies older than a day are read fresh (not hourly:
+// the hourly background jobs read every workspace). A hand edit in the database must set updated_at = now().
 const cache = new Map<string, { v: string; data: any; at: number }>();
-const CACHE_MAX = 200, CACHE_MS = 30 * 60_000;
+const CACHE_MAX = 200, CACHE_MS = 24 * 60 * 60_000;
 function remember(userId: string, v: string, data: any) {
   cache.delete(userId);
   cache.set(userId, { v, data, at: Date.now() });
