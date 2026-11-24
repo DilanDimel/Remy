@@ -15,6 +15,8 @@ export const FEATURES: Feature[] = [
   // The phone app (native/), released to students on its own (Dilan, Nov 24). No page; until "released" students who sign
   // in to the app see "The new app is almost here" and a link to the website.
   { key: "app", label: "Phone app", path: "", release: "owners", teaser: "" },
+  // Remy's World (Nov 24): Remy goes to a café, library and home by the student's time of day (shared/places.ts). No page.
+  { key: "places", label: "Remy's places: café, library and home", path: "", release: "owners", teaser: "" },
   { key: "rewards", label: "Rewards", path: "/rewards", release: "owners", teaser: "Everything you can earn in Remy, in one place.", follows: "redesign" },
 ];
 

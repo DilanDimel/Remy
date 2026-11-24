@@ -67,6 +67,26 @@ export const TAPS: Record<string, string[]> = {
   photo: ["Thirty days in a row. That's a habit now.", "I keep this photo to remember where we started.", "Framed streaks hit different."],
   desk: ["Where the magic, and the spreadsheets, happen.", "Clean desk, clear mind. Mostly clean.", "This desk has seen a thousand drafts."],
   skyline: ["A whole city of employers. We'll find yours.", "Somewhere in there is your future office.", "Every lit window is somebody's career."],
+  // Remy's places (Nov 24): the café, the library and his home
+  chalkboard: ["Every number on this board is someone you really met.", "Coffee chats beat cold applications. Ask me how.", "Today's special: one follow-up message."],
+  espresso: ["Double shot. For double the cover letters.", "It hisses at me. We have an understanding.", "Fun fact: I can't reach the steam wand."],
+  tipjar: ["Tip: thank people within a day of meeting them.", "Best tip I know: ask for advice, not a job.", "Tip: write down one thing they said, so you remember it."],
+  pastry: ["One croissant per networking event. That's the rule.", "Pastries: the original icebreaker.", "I'm saving the cinnamon roll for after your next coffee chat."],
+  cafewindow: ["Somebody out there is hiring someone like you.", "Good people-watching. Better people-meeting.", "Corner Café. Best seat in the house is the one across from someone new."],
+  cafetable: ["Laptop open, mug full. Ready.", "This table has heard a lot of good career advice.", "Two mugs. One for you, one for whoever you meet next."],
+  coffeechair: ["That's your seat for your next coffee chat.", "Pull up a chair. Who should we reach out to?", "Twenty minutes and a coffee can change a career."],
+  libshelf: ["Every book is a job someone does every day.", "Shh. Careers are being decoded.", "The shelves get fuller every time you decode a job."],
+  libwindow: ["Sunset. Good time for one quiet hour of work.", "Library hours are the best hours.", "Golden hour. Golden resume."],
+  owl: ["That's the night owl. He judges silently.", "Hoo's working late? You are.", "He's read every book here. Twice."],
+  libtable: ["A long table for long thoughts.", "One more job to decode, then dinner.", "Open book, open mind."],
+  liblamp: ["Green lamp, deep focus.", "Classic library lamp. Instantly smarter.", "Click. Study mode."],
+  homewindow: ["The city's going to sleep. You should too.", "Night sky, quiet mind.", "Tomorrow's a fresh start."],
+  floorlamp: ["Reading light. Not working light.", "Cozy mode on.", "Warm light, slow evening."],
+  intern: ["That's Intern. A new leaf for every 7 days in a row.", "Intern grows when you show up. No pressure, Intern.", "Water: check. Streak: check."],
+  homeclock: ["It's {time}. Rest is part of the plan.", "Late? One small step, then sleep.", "Sleep is a career skill. Seriously."],
+  couch: ["Best couch in the city. Possibly the world.", "Five more minutes.", "Rest counts. Your streak is safe."],
+  tea: ["Chamomile. Doctor's orders.", "Tea, not coffee. It's late.", "One sip, then bed."],
+  fridge: ["Your next date is on the fridge, so we don't forget it.", "Magnets, notes, leftovers. Very organized.", "Nothing in here but ambition. And yogurt."],
 };
 
 /** When you tap Remy himself. Tap him five times fast and he spins his chair; ten and he gives up. */
