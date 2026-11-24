@@ -260,7 +260,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const theme: Theme = ws && (ws.settings.themeChosen || (ws.settings.theme && ws.settings.theme !== "system")) ? (ws.settings.theme as Theme) : localTheme;
   useEffect(() => {
     const mq = matchMedia("(prefers-color-scheme: dark)");
-    const apply = () => { document.documentElement.dataset.theme = theme === "system" ? (mq.matches ? "dark" : "light") : theme; };
+    // Inside the phone app the page matches the app's own light or dark look, which the app sets before load (native/src/app/web.tsx).
+    const inApp = (window as { __remyAppTheme?: unknown }).__remyAppTheme;
+    const apply = () => { document.documentElement.dataset.theme = inApp === "dark" || inApp === "light" ? inApp : theme === "system" ? (mq.matches ? "dark" : "light") : theme; };
     apply();
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
