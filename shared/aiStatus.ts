@@ -27,10 +27,17 @@ export function parseClaim(line: string): Claim | null {
   return paths.length ? { paths, branch, until } : null;
 }
 
-export function parseStatus(md: string): AiStatus {
+/** Folder of one-file-per-item "Working on now" entries beside a status file: docs/ai/status/lead.md → docs/ai/status/lead/.
+ *  Each thread writes its own file, so parallel threads never edit the same lines (like shared/news/). */
+export const entriesDir = (status: string) => status.replace(/\.md$/, "/");
+/** One entry file as one "Working on now" line. */
+const entryLine = (md: string) => md.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith("#")).join(" ").replace(/^-\s*/, "");
+
+/** A status file plus the contents of its entries folder (see entriesDir). */
+export function parseStatus(md: string, entries: string[] = []): AiStatus {
   return {
     updated: md.match(/^Updated:\s*(.+)$/m)?.[1].trim() ?? "",
-    workingOn: section(md, "Working on now").filter((l) => l.startsWith("-")).map((l) => l.replace(/^-\s*/, "")),
+    workingOn: [...section(md, "Working on now").filter((l) => l.startsWith("-")).map((l) => l.replace(/^-\s*/, "")), ...entries.map(entryLine).filter(Boolean)],
     claims: section(md, "Claims").map(parseClaim).filter((c): c is Claim => !!c),
     requests: section(md, "Requests").flatMap((l) => {
       const m = l.match(/^-\s*([a-z]+-\d+)\s+to\s+([^(:]+?)\s*\((\d{4}-\d{2}-\d{2})\):\s*(.+)$/i);

@@ -3,7 +3,7 @@
 // nothing is stored but time entries (the rest stays in server memory, for the Supabase data limit).
 import { q, q1 } from "./sql";
 import { uid } from "./ids";
-import { parseStatus, activeClaims, trackRequests, type AiStatus, type Tracked } from "@shared/aiStatus";
+import { parseStatus, entriesDir, activeClaims, trackRequests, type AiStatus, type Tracked } from "@shared/aiStatus";
 
 const REPO = "DilanDimel/Remy";
 const headers = (): Record<string, string> => ({ accept: "application/vnd.github+json", "user-agent": "remy-dashboard", ...(process.env.GITHUB_TOKEN ? { authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}) });
@@ -11,6 +11,14 @@ const raw = async (file: string) => {
   const r = await fetch(`https://raw.githubusercontent.com/${REPO}/main/${file}`, { signal: AbortSignal.timeout(5000) });
   if (!r.ok) throw new Error(`${file}: ${r.status}`);
   return r.text();
+};
+/** The files in someone's entries folder (none when it doesn't exist). */
+const entries = async (status: string): Promise<string[]> => {
+  const r = await fetch(`https://api.github.com/repos/${REPO}/contents/${entriesDir(status).slice(0, -1)}?ref=main`, { headers: headers(), signal: AbortSignal.timeout(5000) });
+  if (r.status === 404) return [];
+  if (!r.ok) throw new Error(`${status} entries: ${r.status}`);
+  const list = ((await r.json()) as { name: string; path: string }[]).filter((f) => f.name.endsWith(".md")).sort((a, b) => a.name.localeCompare(b.name));
+  return Promise.all(list.map((f) => raw(f.path)));
 };
 type Person = { name: string; login: string; status: string };
 const owners = async (): Promise<Person[]> => JSON.parse(await raw("docs/ai/owners.json")).people;
@@ -62,7 +70,7 @@ let cache: { at: number; team: AiTeam } = { at: 0, team: { people: [], requests:
 export async function aiTeam(): Promise<AiTeam> {
   if (Date.now() - cache.at < 30 * 60_000) return cache.team;
   try {
-    const files = await Promise.all((await owners()).map(async (p) => ({ name: p.name, status: parseStatus(await raw(p.status)) })));
+    const files = await Promise.all((await owners()).map(async (p) => ({ name: p.name, status: parseStatus(await raw(p.status), await entries(p.status)) })));
     const week = new Date(Date.now() - 7 * 86400_000).toISOString().slice(0, 10);
     cache = {
       at: Date.now(),

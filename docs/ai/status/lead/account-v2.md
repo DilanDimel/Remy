@@ -1,0 +1,1 @@
+Account v2 for everyone (Dilan approved the mockups Nov 24; gated by useOwnerView, which includes students now that The Big Upgrade is released): all five tabs in `client/src/pages/Accounts.tsx` (`Owner*` components, `ac-*` in `index.css`), students keep the old tabs. Mockups: /mnt/project-files/account-settings-v2/.

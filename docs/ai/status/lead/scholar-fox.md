@@ -1,0 +1,1 @@
+Old fox gone everywhere (Dilan, Nov 24): favicon.svg/png, apple-touch-icon, manifest icons and og.png are the smiling Scholar fox, `?v=scholar` cache-busts them; App.tsx no longer swaps the tab icon; `Remy` in common.tsx is always the Scholar fox (signed-out pages and the loading screen too). remy-scholar.svg now smiles. Email logo is the email thread's (#367).

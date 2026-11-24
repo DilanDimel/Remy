@@ -24,8 +24,8 @@ Dilan and the lead AI can work in every area, including the ones below, and have
 | Area | Owner | Rule for everyone else |
 |---|---|---|
 | The interview coach (`server/coach/interview*`, `shared/interview*`, `shared/jobInterview.ts`, `Interview.tsx`, `JobInterview.tsx`, `MockInterview.tsx`) and `docs/finance/` | Julio and his AIs | Others write a request in their status file or add "Coordinated with: Julio" to the PR after talking to him. |
-| `native/` | Demetre and his AI | Others write a request in their status file. Lead threads may edit it after reading `status/demetre.md` and noting the change in `status/lead.md`. |
-| Everything else (`client/`, `server/`, `shared/`, `docs/`, `.github/`) | Dilan and the lead AI | Other AIs read `status/lead.md` and the open PRs first, note the change in their own status file, and keep PRs small. |
+| `native/` | Demetre and his AI | Others write a request in their status file. Lead threads may edit it after reading `status/demetre.md` and noting the change in their `status/lead/` entry. |
+| Everything else (`client/`, `server/`, `shared/`, `docs/`, `.github/`) | Dilan and the lead AI | Other AIs read `status/lead.md`, `status/lead/` and the open PRs first, note the change in their own status file, and keep PRs small. |
 | `shared/types.ts`, `/api` routes | Both | The phone app and the website share these. Changing a shape or route needs both sides to know: note it in your status file and in the PR body. |
 | `docs/ai/CONTEXT.md` | The lead AI | Others suggest changes in their status file. |
 

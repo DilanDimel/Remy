@@ -1,0 +1,1 @@
+Theme switch fix (everyone, a bug fix): the quick sun/moon button flips light and dark only; "Match my device" stays the default and lives in Account → Settings; the swap turns off CSS transitions for a frame (`theme-swap` class) so the page no longer stutters.

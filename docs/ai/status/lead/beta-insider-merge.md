@@ -1,0 +1,1 @@
+Beta testers merged into Beta Insider (everyone, Nov 24): anyone on the old tester list (`beta_list`) gets `ws.insider` on their next `/api/me` (`beta.onList`), so the pin and check-ins; Admin → Students shows one "Beta Insiders" list; tester wording in emails and the homepage says Insider. About/Privacy copy is the "Update the About and Privacy pages" thread's.

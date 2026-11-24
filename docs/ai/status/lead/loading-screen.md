@@ -1,0 +1,1 @@
+Loading screen (Dilan, Nov 24, everyone): `#splash` inline in `client/index.html` (inline CSS, no inline script: CSP), three designs (desk, peek, badge) picked at random by `client/public/theme.js` (never the same twice, `remy.splash`), shows only after 0.3 s, removed by `client/src/lib/splash.ts` from `Root` in App.tsx (10 s safety in main.tsx).

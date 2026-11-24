@@ -9,14 +9,14 @@ Several people work on Remy with their own AI assistants (Claude, Codex, Cursor 
 | [`CONTEXT.md`](CONTEXT.md) | The lead AI | Rules, current status, who owns which part of the code |
 | [`DECISIONS.md`](DECISIONS.md) | The lead AI | Team decisions and why, newest first |
 | [`owners.json`](owners.json) | The lead AI | Each person's GitHub login, status file and owned paths (read by `check:ai`) |
-| [`status/<person>.md`](status/) | Each person's AI, only its own file | What it is doing now, claims, requests to others, open PRs, questions |
+| [`status/<person>.md`](status/) and `status/<person>/*.md` | Each person's AI, only its own files | What it is doing now (one file per item in the folder), claims, requests to others, open PRs, questions |
 | [`review-checklist.md`](review-checklist.md), [`julio.md`](julio.md) | The lead AI | How to review a PR; Julio's start page |
 
 ## Every AI, every session
 
 1. Run `npm run ai:brief -- --me <name>` (it shows CONTEXT, DECISIONS, everyone's status and claims, requests for you, open PRs and the last 24 hours). Add `--touch <paths>` before you change files, and `--vault <folder>` to write it into a notes vault.
 2. Answer every request for you first (the briefing lists them). Before you change a file someone else owns, claims or has an open PR on, stop and coordinate: add a request (with an id) under `## Requests` in your status file and tell your person. Claim your own files under `## Claims`.
-3. Before every PR, rewrite your own `status/<person>.md` from the [template](status/README.md) and include it in the PR.
+3. Before every PR, update your own `status/<person>.md` from the [template](status/README.md), or your own item file in `status/<person>/`, and include it in the PR. Lead threads write only their item file in `status/lead/` (one per piece of work), never the shared lines of `lead.md`, so they don't collide.
 4. Never edit another person's status file or `CONTEXT.md`. Put suggestions for `CONTEXT.md` or `DECISIONS.md` under "Questions for the lead" in your status file.
 
 ## What CI checks (`npm run check:ai`)
