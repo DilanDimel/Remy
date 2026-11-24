@@ -13,7 +13,7 @@ import { CARD_LABEL, CARD_XP, dailyStreak, dayKey, streakDays, weekDots, withCar
 import { api, rid, useOwnerView, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { useJobs } from "../lib/jobs";
-import { Spinner } from "./common";
+import { Remy, Spinner } from "./common";
 import { OrgLogo } from "./OrgLogo";
 
 export type Occ = { soc: string; title: string; change: number; openings: number | null; wage: number | null; education: string; aiShare: number | null; link: string };
@@ -333,7 +333,7 @@ export function Round({ onClose }: { onClose: () => void }) {
   const card = cards[step];
   if (!pool || !careers || !future) return <div className="dp-round"><div className="card card-pad row"><Spinner /> <span className="muted">Dealing today's cards…</span></div></div>;
   return (
-    <div className="dp-round" data-testid="daily-round">
+    <div className={"dp-round" + (done ? "" : " wide")} data-testid="daily-round">
       {!done && (
         <div className="dp-round-top">
           <button className="icon-btn" onClick={onClose} aria-label="Back to your road"><X size={20} /></button>
@@ -341,11 +341,47 @@ export function Round({ onClose }: { onClose: () => void }) {
           <b>{step + 1} of {cards.length}</b>
         </div>
       )}
-      {!done && card === "openings" && <OpeningsCard jobs={pool} onDone={(n) => finish("openings", n)} put={(j, body) => run(() => api<Workspace>("PUT", `/api/jobs/${j.id}/interest`, body)).then((r) => r && setWs(r))} fits={fits} />}
-      {!done && card === "role" && <RoleCard key={"role" + step} careers={careers} onDone={(said) => finish("role", said)} />}
-      {!done && card === "forecast" && <ForecastCard future={future} onDone={(said) => finish("forecast", said)} />}
+      {!done && (
+        <div className="dp-round-body">
+          <div className="dp-round-main">
+            {card === "openings" && <OpeningsCard jobs={pool} onDone={(n) => finish("openings", n)} put={(j, body) => run(() => api<Workspace>("PUT", `/api/jobs/${j.id}/interest`, body)).then((r) => r && setWs(r))} fits={fits} />}
+            {card === "role" && <RoleCard key={"role" + step} careers={careers} onDone={(said) => finish("role", said)} />}
+            {card === "forecast" && <ForecastCard future={future} onDone={(said) => finish("forecast", said)} />}
+          </div>
+          <RoundSide cards={cards} step={step} log={log} careers={careers} />
+        </div>
+      )}
       {done && <RoundDone before={before} log={log} onClose={onClose} />}
     </div>
+  );
+}
+
+/** Beside the card on wide screens: today's cards, the week's streak and the jobs the student has decoded. */
+function RoundSide({ cards, step, log, careers }: { cards: DailyCard[]; step: number; log: string[]; careers: { field: string; jobs: Occ[] }[] }) {
+  const { ws } = useStore();
+  const owner = useOwnerView();
+  const dots = weekDots(streakDays(ws!), undefined, owner);
+  const known = new Set((stateOf(ws!).known || []).map((k) => k.toLowerCase()));
+  const all = [...new Map(careers.flatMap((c) => c.jobs).map((o) => [o.soc, o])).values()];
+  const got = all.filter((o) => known.has(o.title.toLowerCase()));
+  return (
+    <aside className="dp-side" aria-label="Today's round">
+      <section className="dp-panel">
+        <h3>Today's round</h3>
+        <ol className="dp-steps">{cards.map((c, i) => <li key={c} className={i < step ? "done" : i === step ? "now" : ""}><i>{i < step ? <Check size={14} strokeWidth={3} /> : i + 1}</i><span>{CARD_LABEL[c]}{i < step && log[i] ? <small>{log[i]}</small> : null}</span></li>)}</ol>
+      </section>
+      <section className="dp-panel">
+        <h3>Your streak</h3>
+        <ol className="dp-dots">{dots.map((d) => <li key={d.key} className={d.status}><i>{d.status === "done" ? <Check size={13} strokeWidth={3.5} /> : d.status === "freeze" ? <Snowflake size={13} /> : null}</i>{d.label}</li>)}</ol>
+      </section>
+      {all.length > 0 && (
+        <section className="dp-panel dp-collection">
+          <h3>Your job collection</h3>
+          <p><b>{got.length}</b> of {all.length} jobs in your field decoded</p>
+          <ul className="dp-chips">{all.map((o) => known.has(o.title.toLowerCase()) ? <li key={o.soc} className="got">{o.title}</li> : <li key={o.soc} className="lock" aria-label="Not decoded yet">? ? ?</li>)}</ul>
+        </section>
+      )}
+    </aside>
   );
 }
 
@@ -408,32 +444,65 @@ function OpeningsCard({ jobs, fits, put, onDone }: { jobs: Job[]; fits: Record<s
   );
 }
 
+const TINTS = ["blue", "fox", "amber", "plain"];
 function RoleCard({ careers, onDone }: { careers: { field: string; jobs: Occ[] }[]; onDone: (said: string) => void }) {
   const { ws, save } = useStore();
   const known = new Set((stateOf(ws!).known || []).map((k) => k.toLowerCase()));
-  const all = careers.flatMap((c) => c.jobs);
-  const [pick] = useState(() => { const fresh = all.filter((o) => !known.has(o.title.toLowerCase())); const list = fresh.length >= 1 ? fresh : all; return list[seedOf(dayKey()) % Math.max(1, list.length)]; });
+  // One entry per job (a job can sit in two of the student's fields).
+  const all = [...new Map(careers.flatMap((c) => c.jobs).map((o) => [o.soc, o])).values()];
+  // Today's jobs to decode, new ones first; a job with no duties on file is skipped for the next one.
+  const [order] = useState(() => { const fresh = all.filter((o) => !known.has(o.title.toLowerCase())); const list = fresh.length ? fresh : all; const k = seedOf(dayKey()) % Math.max(1, list.length); return [...list.slice(k), ...list.slice(0, k)]; });
+  const [tries, setTries] = useState(0);
+  const pick = order[tries];
   const [d, setD] = useState<Duties | null | "none">(null);
   const [ans, setAns] = useState<string | null>(null);
-  useEffect(() => { if (!pick) { setD("none"); return; } api<Duties>("GET", `/api/occupation/${encodeURIComponent(pick.soc)}`).then((x) => setD(x.duties.length ? x : "none"), () => setD("none")); }, [pick?.soc]);
-  const opts = useMemo(() => { if (!pick) return []; const others = all.filter((o) => o.soc !== pick.soc); const s = seedOf(pick.soc); const three = [0, 1, 2].map((k) => others[(s + k * 5) % Math.max(1, others.length)]).filter(Boolean); return [...new Map([pick, ...three].map((o) => [o.soc, o])).values()].sort((a, b) => seedOf(a.soc + "x") - seedOf(b.soc + "x")); }, [pick?.soc]);
+  // Clues show one at a time: guessing on fewer is the game.
+  const [shown, setShown] = useState(1);
+  useEffect(() => {
+    if (!pick) { setD("none"); return; }
+    const next = () => (tries < Math.min(4, order.length - 1) ? setTries((t) => t + 1) : setD("none"));
+    api<Duties>("GET", `/api/occupation/${encodeURIComponent(pick.soc)}`).then((x) => (x.duties.length ? setD(x) : next()), next);
+  }, [pick?.soc]);
+  // Three other jobs from the same field, all different, in a fixed order for the day.
+  const opts = useMemo(() => { if (!pick) return []; const three = all.filter((o) => o.soc !== pick.soc).sort((a, b) => seedOf(a.soc + pick.soc) - seedOf(b.soc + pick.soc)).slice(0, 3); return [pick, ...three].sort((a, b) => seedOf(a.soc + "x") - seedOf(b.soc + "x")); }, [pick?.soc]);
   if (!pick || d === "none") return <CardShell kind="role" title="No role to decode today"><button className="btn btn-primary dp-wide" onClick={() => onDone("")}>Next card</button></CardShell>;
   if (!d) return <CardShell kind="role" title="Which job is this?"><p className="row muted"><Spinner /> Loading the duties…</p></CardShell>;
+  const clues = d.duties.slice(0, 3);
   const right = ans === pick.soc;
+  const used = Math.min(shown, clues.length);
   const choose = (soc: string) => { if (ans) return; setAns(soc); const g = stateOf(ws!); save("game", { ...g, known: [...new Set([...(g.known || []), pick.title])] }).catch(() => {}); };
   return (
-    <CardShell kind="role" title="Which job spends its days on this?">
-      <ol className="dp-duties">{d.duties.slice(0, 3).map((t) => <li key={t}>{t}</li>)}</ol>
-      <div className="dp-opts">{opts.map((o) => <button key={o.soc} className={"dp-opt" + (ans ? (o.soc === pick.soc ? " right" : o.soc === ans ? " wrong" : " dim") : "")} onClick={() => choose(o.soc)} disabled={!!ans}>{o.title}</button>)}</div>
-      {ans && (
-        <div className={"dp-result " + (right ? "good" : "close")}>
-          <b>{right ? `Right: ${pick.title.toLowerCase()}.` : `It's ${pick.title.toLowerCase()}.`}</b>
-          <span>{occFacts(pick)}.</span>
-          <span className="dp-src">Duties: <a href={d.dutiesSource?.url} target="_blank" rel="noreferrer">O*NET, U.S. Department of Labor</a> · numbers: <a href={pick.link} target="_blank" rel="noreferrer">BLS</a></span>
-          <button className="btn btn-primary dp-wide" onClick={() => onDone(`Learned what ${pick.title.toLowerCase()} do`)}>Next card <ArrowRight size={16} /></button>
+    <section className="dp-card dp-role">
+      <div className="dp-role-head">
+        <Remy size={84} mood={ans ? (right ? "happy" : "think") : "think"} />
+        <div className="dp-bubble">
+          <span className="dp-card-kind"><Compass size={15} /> {ans ? (right ? `Right, on ${used} clue${used > 1 ? "s" : ""} · +${CARD_XP} XP` : `Not quite · +${CARD_XP} XP for playing`) : <span>{CARD_LABEL.role}<span className="dp-min"> · about 1 minute</span></span>}</span>
+          <h2>{ans ? `${right ? "" : "It's "}${pick.title}${right ? "!" : "."}` : "Someone does this all day. Who is it?"}</h2>
+          <span>{ans ? "Here's the job in numbers. It's now in your job collection." : "Guess on one clue, or flip another if you're stuck."}</span>
         </div>
-      )}
-    </CardShell>
+      </div>
+      <ol className="dp-clues">
+        {clues.map((t, i) => i < shown || ans
+          ? <li key={t} className={i >= shown ? "bonus" : ""}><small>Clue {i + 1}{i >= shown ? " · bonus" : ""}</small><span>{t}</span></li>
+          : <li key={t} className="hid"><button onClick={() => i === shown && setShown(i + 1)} disabled={i !== shown} data-testid={`button-clue-${i + 1}`}><b aria-hidden="true">?</b><small>Clue {i + 1}</small><em>{i === shown ? "Tap to show" : `Show clue ${i} first`}</em></button></li>)}
+      </ol>
+      <div className="dp-tiles">{opts.map((o, i) => (
+        <button key={o.soc} className={`dp-tile t-${TINTS[i % 4]}` + (ans ? (o.soc === pick.soc ? " right" : o.soc === ans ? " wrong" : " dim") : "")} onClick={() => choose(o.soc)} disabled={!!ans} data-testid={`button-role-${i}`}>
+          <i>{"ABCD"[i]}</i><b>{o.title}</b>{o.wage ? <span>{money(o.wage)}</span> : null}
+        </button>
+      ))}</div>
+      {ans ? (
+        <div className="dp-role-end">
+          <div className="dp-facts-row">
+            {pick.wage ? <div><b>{money(pick.wage)}</b><span>median pay</span></div> : null}
+            {pick.openings ? <div><b>{Math.round(pick.openings * 1000).toLocaleString("en-US")}</b><span>openings a year</span></div> : null}
+            <div className={pick.change > 0 ? "up" : ""}><b>{pick.change > 0 ? "+" : ""}{pick.change}%</b><span>growth by 2035</span></div>
+          </div>
+          <button className="btn btn-primary dp-wide" onClick={() => onDone(`Learned what ${pick.title.toLowerCase()} do`)} data-testid="button-role-next">Next card <ArrowRight size={16} /></button>
+          <span className="dp-src">Duties: <a href={d.dutiesSource?.url} target="_blank" rel="noreferrer">O*NET, U.S. Department of Labor</a> · numbers: <a href={pick.link} target="_blank" rel="noreferrer">BLS</a></span>
+        </div>
+      ) : <p className="dp-role-foot">Pick the job that does this. {used === 1 ? "Getting it on one clue is the real flex." : `You've seen ${used} of ${clues.length} clues.`}</p>}
+    </section>
   );
 }
 

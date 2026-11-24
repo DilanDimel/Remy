@@ -3634,3 +3634,85 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 .remy-offer.remy-ask-card > .ask { flex: 1; }
 .remy-offer.remy-ask-card.docked > .remy-offer-face { display: none; }
 .ac-wait .ask { width: 100%; }
+
+/* Today's round, wide (Nov 24): the card beside a side column (today's cards, streak, job collection); "What's the job?" as a clue game. Tokens only. */
+.dp-round.wide { max-width: 1180px; }
+.dp-round-body { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 16px; align-items: start; }
+.dp-round.wide:has(.dp-role) .dp-round-body { align-items: stretch; }
+/* Wide screens: the round fills the window below its progress bar, so there's no empty band under the card. */
+@media (min-width: 1101px) { .dp-round.wide:has(.dp-role) { min-height: calc(100dvh / var(--app-zoom) - var(--dp-round-gap, 64px)); grid-template-rows: auto 1fr; } .dp-round-main > .dp-role { height: 100%; }
+  /* The clues take the spare height (bigger text), the answer tiles stay a comfortable tap size. */
+  .dp-round-main > .dp-role { grid-template-rows: auto 1fr auto auto; align-content: stretch; }
+  .dp-role .dp-clues li:not(.hid) { font-size: clamp(1.05rem, .7rem + .7vw, 1.3rem); align-content: center; }
+  .dp-role .dp-tiles { grid-auto-rows: minmax(88px, auto); } }
+.dp-round-main { display: grid; min-width: 0; }
+.dp-side { display: grid; gap: 14px; align-content: start; }
+.dp-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 16px 18px; display: grid; gap: 10px; }
+.dp-panel h3 { margin: 0; font-size: var(--text-xs); font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); }
+.dp-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.dp-steps li { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: var(--text-sm); }
+.dp-steps li > i { width: 26px; height: 26px; flex: none; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: var(--text-xs); background: var(--surface-2); color: var(--faint); }
+.dp-steps li > span { display: grid; min-width: 0; }
+.dp-steps small { font-weight: 600; color: var(--muted-text); font-size: var(--text-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dp-steps li.done { color: var(--muted-text); }
+.dp-steps li.done > i { background: var(--sage); color: var(--white); }
+.dp-steps li.now > i { background: var(--fox); color: var(--white); }
+.dp-collection p { margin: 0; font-size: var(--text-sm); color: var(--muted-text); font-weight: 600; }
+.dp-collection p b { font-size: 1.5rem; color: var(--ink); margin-right: 4px; }
+.dp-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 6px; }
+.dp-collection { align-content: start; }
+.dp-chips li { font-size: var(--text-xs); font-weight: 700; border-radius: 999px; padding: 5px 10px; }
+.dp-chips li.got { background: var(--sage-bg); color: var(--sage); }
+.dp-chips li.lock { border: 1.5px dashed var(--line); color: var(--faint); }
+.dp-role { gap: 16px; padding: 24px; grid-template-rows: auto auto 1fr auto; }
+.dp-role-head { display: flex; align-items: center; gap: 14px; }
+.dp-role-head > :first-child { flex: none; }
+.dp-bubble { position: relative; flex: 1; min-width: 0; background: var(--fox-soft); border-radius: 20px; padding: 14px 18px; display: grid; gap: 4px; }
+.dp-bubble::before { content: ""; position: absolute; left: -9px; top: 50%; margin-top: -9px; border: 9px solid transparent; border-right-color: var(--fox-soft); border-left: 0; }
+.dp-bubble > span:last-child { font-size: var(--text-sm); color: var(--muted-text); font-weight: 600; }
+.dp-clues { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.dp-clues li { border-radius: 18px; padding: 16px; background: var(--surface-2); display: grid; align-content: start; gap: 8px; font-size: var(--text-base); line-height: 1.45; font-weight: 600; min-height: 140px; }
+.dp-clues small { font-size: var(--text-xs); font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); }
+.dp-clues li.bonus { background: var(--amber-bg); }
+.dp-clues li.hid { padding: 0; background: none; margin-bottom: 5px; display: grid; align-content: stretch; }
+.dp-clues li.hid button { width: 100%; height: 100%; border-radius: 18px; background: var(--fox); color: var(--white); box-shadow: 0 5px 0 var(--fox-800); display: grid; place-items: center; align-content: center; gap: 6px; padding: 14px; }
+.dp-clues li.hid button:disabled { opacity: .72; cursor: default; }
+.dp-clues li.hid button:hover:not(:disabled) { background: var(--fox-hot); }
+.dp-clues li.hid b { font-size: 2.2rem; line-height: 1; }
+.dp-clues li.hid small { color: var(--fox-soft); }
+.dp-clues li.hid em { font-style: normal; font-weight: 700; font-size: var(--text-sm); }
+.dp-tiles { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 12px; }
+.dp-tile { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; text-align: left; padding: 14px 16px; min-height: 76px; border-radius: 18px; border: 2px solid transparent; box-shadow: 0 4px 0 var(--line); font-weight: 800; font-size: var(--text-base); margin-bottom: 4px; }
+.dp-tile > i { width: 36px; height: 36px; border-radius: 11px; background: var(--surface); display: grid; place-items: center; font-style: normal; }
+.dp-tile > b { line-height: 1.25; font-size: clamp(1rem, .9rem + .35vw, 1.2rem); }
+.dp-tile > span { font-size: var(--text-xs); font-weight: 700; color: var(--muted-text); }
+.dp-tile.t-blue { background: var(--blue-bg); } .dp-tile.t-fox { background: var(--fox-soft); } .dp-tile.t-amber { background: var(--amber-bg); } .dp-tile.t-plain { background: var(--surface-2); }
+.dp-tile:hover:not(:disabled) { border-color: var(--ink); box-shadow: 0 4px 0 var(--ink); }
+.dp-tile.right { background: var(--sage-bg); border-color: var(--sage); color: var(--sage); box-shadow: 0 4px 0 var(--sage); }
+.dp-tile.wrong { background: var(--error-bg); border-color: var(--error); color: var(--error); box-shadow: none; }
+.dp-tile:disabled { opacity: 1; cursor: default; }
+.dp-tile.dim { opacity: .45; }
+.dp-role-end { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 12px; align-items: stretch; }
+.dp-role-end .dp-src { grid-column: 1 / -1; }
+.dp-facts-row { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 10px; }
+.dp-facts-row > div { background: var(--surface-2); border-radius: 14px; padding: 10px 14px; display: grid; }
+.dp-facts-row b { font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.dp-facts-row span { font-size: var(--text-xs); color: var(--muted-text); font-weight: 600; }
+.dp-facts-row .up b { color: var(--sage); }
+.dp-role-end .btn.dp-wide { height: auto; min-height: 54px; }
+.dp-role-foot { margin: 0; font-size: var(--text-sm); color: var(--muted-text); font-weight: 600; }
+@media (max-width: 1100px) { .dp-round-body { grid-template-columns: minmax(0, 1fr); } .dp-side { display: none; } .dp-round.wide { max-width: 720px; } }
+@media (max-width: 600px) {
+  .dp-role { padding: 16px; gap: 12px; }
+  .dp-role .dp-min { display: none; }
+  .dp-role-head > :first-child { width: 60px; height: 60px; }
+  .dp-clues { grid-template-columns: minmax(0, 1fr); }
+  .dp-clues li { min-height: 0; }
+  .dp-clues li.hid button { grid-template-columns: auto auto minmax(0, 1fr); justify-items: start; align-items: center; text-align: left; gap: 10px; }
+  .dp-clues li.hid em { justify-self: end; }
+  .dp-clues li.hid b { font-size: 1.5rem; }
+  .dp-tiles { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .dp-tile { min-height: 0; padding: 10px 12px; }
+  .dp-role-end { grid-template-columns: minmax(0, 1fr); }
+  .dp-facts-row b { font-size: 1rem; }
+}
