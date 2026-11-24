@@ -35,13 +35,13 @@ The in-app "What's new" list is one file per note in `shared/news/` (types and h
 
 ## Deploy
 
-Render deploys `main` automatically (`render.yaml`): `npm ci && npm run build`, then `node dist/index.cjs`. Merging a pull request is a deploy, so keep `main` green. An hourly Cloudflare Worker cron (`remy-tick`) calls `/api/cron/tick` for reminders and cleanup.
+Render deploys `main` automatically (`render.yaml`): `npm ci && npm run build`, then `node dist/index.cjs`. Merging a pull request is a deploy, so keep `main` green. The live service is `remy-virginia` in Render's Virginia region, next to the Supabase database (us-east-1); it moved from `offer-ready` in Oregon on Nov 24, 2026, which cut signed-in requests from about 200-380 ms to 15-70 ms. Its settings come from the `remy-server-env` environment group, so change secrets there. Health check: `/api/config`. Never add a disk (it turns off zero-downtime deploys). An hourly Cloudflare Worker cron (`remy-tick`) calls `/api/cron/tick` for reminders and cleanup.
 
 Android test builds: push a branch named `app-release/<version>` and the APK is published as a GitHub release.
 
 ## Configuration
 
-Secrets live in the Render dashboard, never in the repo.
+Secrets live in the Render dashboard (environment group `remy-server-env`), never in the repo.
 
 | Variable | Purpose |
 |---|---|
