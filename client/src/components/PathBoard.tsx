@@ -473,7 +473,7 @@ type GuideStep = { say: ReactNode; cta?: ReactNode; spot: Spot; pose: Pose; face
  *  it" replays it. Arrow keys step through it and Escape ends it. */
 function useGuide(d: D, onField: (tab: SideTab, open?: string) => void) {
   const p = d.w.profile, name = (p.preferredName || p.name || "").trim().split(/\s+/)[0];
-  const [on, setOn] = useState(() => !seenToday() && typeof d.w.settings.tour !== "number"); // waits while the site tour runs, so two guides never talk at once
+  const [on, setOn] = useState(() => !seenToday() && typeof d.w.settings.tour !== "number" && !new URLSearchParams(location.search).get("side")); // waits while the site tour runs, so two guides never talk at once; a link that opens one panel (the app's Path rows) skips it so it can't switch the tab
   const [step, setStep] = useState(0);
   const jobs = d.careers?.[0]?.jobs || [];
   const targets = (p.targetRoles || "").toLowerCase().split(/,\s*/).filter(Boolean);
