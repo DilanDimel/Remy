@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Check, Download, Info, Lock, LogOut, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { PATHS, type MemoryFact, type Workspace } from "@shared/types";
-import { api, download, fmtDate, rid, useOwnerView, useOwnersOnly, useStore } from "../lib/store";
+import { api, download, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
 import { AskCard, useAsks } from "../components/RemyAsk";
 import { go } from "../lib/router";
 import { Modal, StatusChip } from "../components/common";
@@ -419,12 +419,12 @@ function OwnerMemory() {
   const cats = FILTERS.find(([k]) => k === filter)![2];
   const shown = cats.length ? approved.filter((m) => cats.includes(m.category)) : approved;
   const own = approved.filter((m) => /you|setup|answer|interview|tailor/i.test(m.source)).length;
-  const asking = useOwnersOnly(), asks = useAsks(true);
+  const asks = useAsks(true);
   return (
     <div className="ac-grid ac-grid-mem">
       <div className="stack">
-        {asking ? asks.length > 0 && (
-          // Owners (Nov 24): nothing to sort here by hand. Remy asks these where the student is; they can answer here too.
+        {asks.length > 0 ? (
+          // Nov 24: nothing to sort here by hand. Remy asks these where the student is; they can answer here too.
           <div className="ac-nudge ac-nudge-list" data-testid="memory-asks">
             <div className="row" style={{ gap: 10 }}><img src="/remy-scholar.svg" alt="" /><div><span className="ac-kick">Remy is asking you these · {asks.length}</span><b>Answer here now, or later when he asks on My Path.</b></div></div>
             <div className="ac-wait">{asks.map((a) => <div key={a.id}><AskCard ask={a} kicker={false} /></div>)}</div>
