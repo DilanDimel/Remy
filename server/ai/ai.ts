@@ -54,14 +54,16 @@ function chainClient(p: string) {
 // default chain is OR_AI_CHAIN_OWNERS (e.g. Claude Haiku 5.5, then Gemini) and OpenRouter calls carry the privacy rules.
 // Each web request runs in its own scope (routes.ts route()), which also holds the model and cost of that request's
 // last AI call, so a student's records never name a model an owner's request used at the same moment (skeptic, Nov 21).
-const aiScope = new AsyncLocalStorage<{ owner: boolean; model?: string; spend?: number; usage?: any }>();
+// owner: this request sees the redesign (owners in owner view, or everyone once "redesign" is released);
+// trial: an owner in owner view, who runs the owners' AI trial. Releasing the redesign never moves students' AI model.
+const aiScope = new AsyncLocalStorage<{ owner: boolean; trial: boolean; model?: string; spend?: number; usage?: any }>();
 /** Token counts of this request's last AI call (prompt, reasoning), for the owners' chat timing line. */
 export const lastUsage = () => { const u = aiScope.getStore()?.usage; return u ? { tokensIn: u.prompt_tokens, cached: u.prompt_tokens_details?.cached_tokens, reasoning: u.completion_tokens_details?.reasoning_tokens } : undefined; };
-export const runAiAs = <T>(owner: boolean, fn: () => Promise<T>) => aiScope.run({ owner }, fn);
+export const runAiAs = <T>(owner: boolean, fn: () => Promise<T>, trial = owner) => aiScope.run({ owner, trial }, fn);
 export const inOwnerTrial = () => ownerTrial();
-/** This request is an owner in owner view (owners-first checks outside the AI calls). */
+/** This request sees the redesign: an owner in owner view, or anyone once it is released (owners-first checks). */
 export const inOwnerView = () => !!aiScope.getStore()?.owner;
-const ownerTrial = () => !!aiScope.getStore()?.owner && !!process.env.OR_AI_CHAIN_OWNERS;
+const ownerTrial = () => !!aiScope.getStore()?.trial && !!process.env.OR_AI_CHAIN_OWNERS;
 const defaultChain = () => (ownerTrial() ? process.env.OR_AI_CHAIN_OWNERS : process.env.OR_AI_CHAIN);
 /** Student-data rules for OpenRouter (checked against its provider-routing docs, Nov 21): only zero-data-retention
  *  endpoints, no providers that may store prompts, and only the providers chosen per model family, with no fallback to

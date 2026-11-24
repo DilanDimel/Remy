@@ -4,12 +4,12 @@ import type { ReactNode } from "react";
 import { Lock } from "lucide-react";
 import { accessOf, FEATURES, releasesOf } from "@shared/features";
 import { go } from "../lib/router";
-import { useOwnerView, useStore } from "../lib/store";
+import { useOwnersOnly, useStore } from "../lib/store";
 
 /** "open", "locked" or "hidden" for this person right now. */
 export function useAccess() {
   const { config } = useStore();
-  const ownerView = useOwnerView();
+  const ownerView = useOwnersOnly(); // the redesign release doesn't open owners-only features
   const r = releasesOf(config?.features);
   return (key: string) => accessOf(r, key, ownerView);
 }

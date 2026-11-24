@@ -35,6 +35,7 @@ import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./ai/safety";
 import * as admin from "./platform/admin";
 import * as beta from "./platform/beta";
 import * as features from "./platform/features";
+import { redesignOut } from "@shared/features";
 import * as signals from "./jobs/signals";
 import { acceptHtml } from "@shared/acceptEmail";
 import { recordError } from "./platform/admin";
@@ -157,7 +158,9 @@ function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: 
       const ws = await loadWorkspace(me.id);
       const ctx: Ctx = { me, ws, ip, save: sectionSaver(me, ws) };
       // Owners in owner view run the AI setup being trialled (OR_AI_CHAIN_OWNERS); students keep OR_AI_CHAIN.
-      await runAiAs(!!me.owner && ws.settings.ownerView !== false, () => fn(req, res, ctx) as Promise<unknown>);
+      // Everyone gets the redesign's server side (inOwnerView()) once owners release it (shared/features.ts).
+      const trial = !!me.owner && ws.settings.ownerView !== false;
+      await runAiAs(trial || redesignOut(await features.releases()), () => fn(req, res, ctx) as Promise<unknown>, trial);
     } catch (e: any) {
       if (e instanceof AiUnavailable) return res.status(503).json({ message: e.message, code: "ai-unavailable" });
       const status = e?.status || 500;
@@ -395,7 +398,7 @@ function fieldEmployers(ws: Workspace, directory: typeof EMPLOYERS) {
 
 /** The employers a search may read. Ones marked "preview" (new, being checked on the live site; Nov 21) are for owners in
  *  owner view only: never read for, or counted toward, a student (skeptic review: the "N employers in your field" gap note). */
-const directoryFor = (ctx: Ctx) => (ctx.me.owner && ctx.ws.settings.ownerView !== false ? EMPLOYERS : EMPLOYERS.filter((e) => !e.preview));
+const directoryFor = (_ctx: Ctx) => (inOwnerView() ? EMPLOYERS : EMPLOYERS.filter((e) => !e.preview));
 
 async function findOpenings(ctx: Ctx, named: string[] = [], opts: { background?: boolean } = {}) {
   // Which employers to read: the AI picks from the directory for this student's profile;
@@ -521,7 +524,8 @@ export async function registerRoutes(_server: Server, app: Express) {
       const due = dueReminders(ws, today);
       if (!due.length) continue;
       // Finish it / Not now buttons and the branded email: owners only while they're tested.
-      const isOwner = await admin.isOwner({ kind: "google", email: u.email });
+      // Redesigned emails: owners while they're tested, everyone once the redesign is released.
+      const isOwner = (await admin.isOwner({ kind: "google", email: u.email })) || redesignOut(await features.releases());
       const { subject, text, html } = reminderEmail(firstName(ws) || (isOwner && String(u.name || "").trim().split(/\s+/)[0]) || "there", due, process.env.PUBLIC_HOST || "remyai.org", isOwner);
       try { await sendEmail(ws.profile.applicationEmail || u.email, subject, text, html); } catch (e: any) { console.error("deadline reminder failed", e?.message); continue; }
       await saveSections(u.id, { reminded: [...(ws.reminded || []), ...due.map((d) => d.key)].slice(-300), ...(isOwner ? { emails: logEmail(ws, "reminder", subject) } : {}) } as any);
@@ -533,7 +537,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     for (const u of await q("SELECT u.id, u.email, u.name FROM users u WHERE u.kind IN ('google','supabase')")) {
       if (!(await beta.emailAllowed(u.email))) continue; // no emails to accounts outside the Founding Cohort
       const ws = await loadWorkspace(u.id);
-      const isOwner = await admin.isOwner({ kind: "google", email: u.email });
+      const isOwner = (await admin.isOwner({ kind: "google", email: u.email })) || redesignOut(await features.releases());
       const d = weeklyDigest(ws, today, weekday, process.env.PUBLIC_HOST || "remyai.org", isOwner, String(u.name || ""));
       if (!d) continue;
       try { await sendEmail(ws.profile.applicationEmail || u.email, d.subject, d.text, d.html); } catch (e: any) { console.error("weekly digest failed", e?.message); continue; }
@@ -969,7 +973,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       if (devCodes()) console.log(`[dev] sign-in code for ${email}: ${code}`);
       else {
         // Owners get the branded email while it's tested; students keep the plain one.
-        const html = (await admin.isOwner({ kind: "google", email }))
+        const html = (await admin.isOwner({ kind: "google", email })) || redesignOut(await features.releases())
           ? codeEmail({ host: process.env.PUBLIC_HOST || "remyai.org", code, name: ((await userByEmail(email))?.name || "").trim().split(/\s+/)[0], heading: "Your sign-in code", intro: "Here's your code to sign in to Remy.", why: "Didn't ask for this? You can ignore this email. No one can sign in without the code." })
           : undefined;
         await sendEmail(email, `${code} is your Remy sign-in code`, `Your Remy sign-in code is ${code}.\n\nType it on the Remy sign-in page. It works on any device and expires in 10 minutes.\n\nIf you didn't ask for this, you can ignore this email; no one can sign in without the code.\n\nRemy`, html);
@@ -1027,7 +1031,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       notify: z.object({ deadlines: z.boolean(), statusChanges: z.boolean(), weeklyPlan: z.boolean() }).partial().optional(),
       nudges: z.enum(["daily", "weekly", "off"]).optional(),
       texts: z.object({ on: z.boolean(), phone: z.string().max(30).refine((p) => p === "" || !!usPhone(p), "Use a US phone number, like (817) 555-0123.") }).optional(),
-      demoConnections: z.array(str(80)).max(20).optional(), newsSeen: str(40).optional(), ownerView: z.boolean().optional(),
+      demoConnections: z.array(str(80)).max(20).optional(), newsSeen: str(40).optional(), beta2Seen: z.boolean().optional(), ownerView: z.boolean().optional(),
       tour: z.union([z.number().int().min(0).max(20), z.literal("done")]).optional(), firstWin: z.union([z.number().int().min(0).max(2), z.literal("done")]).optional(), introsSeen: z.array(str(40)).max(20).optional(), offersSeen: z.array(str(160)).max(200).optional(), quietUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     }),
     tasks: z.array(z.looseObject({ id: str(120), title: str(300), why: str(2000), due: str(10), category: z.enum(["Explore", "Prepare", "Apply", "Connect", "Academic"]), done: z.boolean(), source: str(200), link: str(500).optional() })).max(500),
@@ -1218,7 +1222,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!p.classYear || (was && p.classYear === yearWas)) p.classYear = classYearOf({ ...ctx.ws, profile: { ...p, classYear: "" } });
     // Owner view only: better setup defaults — "What should Remy call you?" from the resume's first name,
     // and "Email for applications" from the resume instead of the sign-in account's email.
-    if (ctx.me.owner && ctx.ws.settings.ownerView !== false) {
+    if (inOwnerView()) {
       if (!p.preferredName && now.name) p.preferredName = now.name.split(/\s+/)[0];
       if (now.email && (!p.applicationEmail || p.applicationEmail === ctx.me.email)) p.applicationEmail = now.email;
     }
@@ -1310,7 +1314,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const appId = String(req.query.app || "");
     const a = appId ? ctx.ws.applications.find((x) => x.id === appId) : undefined;
     const job = a ? findJob(ctx.ws, a.jobId) : undefined;
-    const opts = { owner: !!ctx.me.owner && ctx.ws.settings.ownerView !== false };
+    const opts = { owner: inOwnerView() };
     if (a && job) {
       const kws = postingSkills(job.requirements);
       res.json({
@@ -1347,7 +1351,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const fmt = req.query.format === "docx" ? "docx" : "pdf";
     const doc = ctx.ws.resume!.doc;
     // Word download for owners (stage 3): their own file with the changes, when every change fits in it.
-    const own = fmt === "docx" && ctx.me.owner && ctx.ws.settings.ownerView !== false ? await ownCurrentDocx(ctx) : null;
+    const own = fmt === "docx" && inOwnerView() ? await ownCurrentDocx(ctx) : null;
     const buf = own?.buf && !own.missed.length ? own.buf : fmt === "pdf" ? await resumePdf(doc, ctx.ws.resume!.style) : await resumeDocx(doc, ctx.ws.resume!.style);
     const name = (nameUnsure(ctx.ws) ? "Resume" : ctx.ws.profile.name || doc.contact.name || "Resume").replace(/[^A-Za-z]+/g, "-") + "-Resume";
     res.setHeader("Content-Type", fmt === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
@@ -2036,7 +2040,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       return res.json(ctx.ws);
     }
     // Redesign stage 6 (owners first): Remy does in-app actions itself (server/ai/chatDo.ts), each with Undo.
-    const doer = !!ctx.me.owner && ctx.ws.settings.ownerView !== false;
+    const doer = inOwnerView();
     const history = ctx.ws.chat.slice(-12).map((m) => `${m.role === "user" ? "Student" : "Assistant"}: ${m.text}`).join("\n");
     // The openings shown on Opportunities (not hidden as a poor fit), so Remy can answer "which should I apply to?".
     const found = allJobs(ctx.ws).map((j) => ({ j, f: ctx.ws.fits[j.id] })).filter(({ f }) => f && !f.excluded).sort((a, b) => (b.f.score ?? 0) - (a.f.score ?? 0)).slice(0, 8)
@@ -2109,7 +2113,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     let reply = String(out.reply || "Sorry — I couldn't form a reply.");
     let resumeProposal: { doc: ResumeDoc; summary: string; base: string } | undefined;
     const edit = String(out.resumeEdit || "").trim();
-    if (edit && ctx.ws.resume && ctx.me.owner && ctx.ws.settings.ownerView !== false) {
+    if (edit && ctx.ws.resume && inOwnerView()) {
       const said = [...ctx.ws.chat.slice(-4).filter((m) => m.role === "user").map((m) => m.text), message].join(" / ").slice(0, 2000);
       try {
         const p = await proposeResumeEdit(ctx, edit.slice(0, 1200), said);
@@ -2155,7 +2159,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
   // Owners ("Remy feels alive" #1, shared/remyOffers.ts): "Do it" on one of Remy's in-page offers runs the same action
   // as asking him in chat, and lands in his chat with Undo, so it reads as something he did.
   app.post("/api/remy/act", route(async (req, res, ctx) => {
-    if (!ctx.me.owner || ctx.ws.settings.ownerView === false) bad("This is only for owners right now.", 403);
+    if (!inOwnerView()) bad("This is only for owners right now.", 403);
     const [action] = chatActions([req.body?.action]);
     if (!action) bad("Remy can't do that one.");
     const offerId = String(req.body?.offerId || "").slice(0, 160);
@@ -2168,7 +2172,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
 
   // Owners (#3, #6): on opening the app, Remy may start the talk himself: a question he said he'd ask, or the weekly check-in.
   app.post("/api/remy/reachout", route(async (_req, res, ctx) => {
-    if (!ctx.me.owner || ctx.ws.settings.ownerView === false || !ctx.ws.onboarding.done) return res.json({ said: "" });
+    if (!inOwnerView() || !ctx.ws.onboarding.done) return res.json({ said: "" });
     const said = reachOut(ctx.ws, centralToday(), nowIso());
     if (said) await ctx.save();
     res.json(said ? { said, ws: ctx.ws } : { said: "" });
@@ -2736,7 +2740,7 @@ Return JSON:
     const code = await newSchoolCode(ctx.me.id, email);
     if (devCodes()) console.log(`[dev] school email code for ${email}: ${code}`);
     else await sendEmail(email, `Your Remy code: ${code}`, `Your Remy verification code is ${code}.\n\nIt expires in 10 minutes. If you didn't ask for this, you can ignore this email.`,
-      ctx.me.owner ? codeEmail({ host: process.env.PUBLIC_HOST || "remyai.org", code, name: firstName(ctx.ws), heading: "Confirm your school email", intro: "Here's your code to link this school email to your Remy account.", why: "Didn't ask for this? You can ignore this email. Nothing changes without the code." }) : undefined);
+      inOwnerView() ? codeEmail({ host: process.env.PUBLIC_HOST || "remyai.org", code, name: firstName(ctx.ws), heading: "Confirm your school email", intro: "Here's your code to link this school email to your Remy account.", why: "Didn't ask for this? You can ignore this email. Nothing changes without the code." }) : undefined);
     res.json({ sent: true, email });
   }));
   app.post("/api/school-email/verify", route(async (req, res, ctx) => {
