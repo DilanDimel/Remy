@@ -1,5 +1,6 @@
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import { API_BASE } from "./api";
 
 /** A file a website page inside the app handed over (resume PDF/Word, .ics, data export).
  * Sent by the site's download() as {type:"remy-download", name, mime, base64}. */
@@ -19,4 +20,16 @@ export async function shareSiteDownload(d: SiteDownload) {
   await file.write(d.base64, { encoding: "base64" });
   if (!(await Sharing.isAvailableAsync())) throw new Error("Sharing isn't available on this phone.");
   await Sharing.shareAsync(file.uri, { mimeType: d.mime || undefined, dialogTitle: name });
+}
+
+/** Downloads one of the student's files from Remy (signed in, like api()) and opens the share sheet. */
+export async function shareFromServer(path: `/api/${string}`, name: string, mime: string) {
+  const r = await fetch(API_BASE + path, { credentials: "include", headers: { "X-Remy-App": "native" } });
+  if (!r.ok) { let m = ""; try { m = (await r.json())?.message; } catch {} throw new Error(m || "That download didn't work. Please try again."); }
+  const file = new File(Paths.cache, name.replace(/[\\/:*?"<>|]+/g, "-").slice(0, 120));
+  if (file.exists) file.delete();
+  file.create();
+  await file.write(await r.arrayBuffer());
+  if (!(await Sharing.isAvailableAsync())) throw new Error("Sharing isn't available on this phone.");
+  await Sharing.shareAsync(file.uri, { mimeType: mime, dialogTitle: name });
 }
