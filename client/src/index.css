@@ -3328,3 +3328,31 @@ button.rw-item:not(:disabled) { cursor: pointer; }
 .adm2-push { margin-top: auto; border-top: 1px solid var(--line); padding-top: 12px; }
 .adm2-colv { color: var(--ink) !important; font-weight: 800 !important; }
 @media (max-width: 900px) { .adm-head:has(.adm2-clock) { flex-direction: column; align-items: stretch; } }
+.adm2-add { display: grid; grid-template-columns: minmax(0, 1fr) auto 160px auto; gap: 8px; align-items: center; }
+.adm2-add .input { height: 38px; }
+.adm2-row-board { grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr); }
+.adm2-board { flex: 1; align-items: stretch; }
+.adm2-board .adm-col { min-height: 100%; }
+.adm2-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; text-align: center; }
+.adm2-cal span { font-size: var(--text-xs); font-weight: 600; color: var(--muted-text); padding: 5px 0; border-radius: 8px; position: relative; }
+.adm2-cal .dn { color: var(--faint); font-size: 10px; font-weight: 800; }
+.adm2-cal .past { color: var(--faint); opacity: 0.6; }
+.adm2-cal .today { background: var(--ink); color: var(--surface); font-weight: 800; }
+.adm2-cal .has::after { content: ""; position: absolute; left: 50%; bottom: 1px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--fox); }
+.adm2-meets { flex: 1; min-height: 0; overflow: auto; }
+.adm2-gcal { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 10px; margin-top: auto; }
+@media (max-width: 900px) {
+  .adm2-add, .adm2-row-board { grid-template-columns: minmax(0, 1fr); }
+  .adm2-board .adm-col { min-height: 120px; }
+}
+.adm2-fixed { height: calc(100vh - 52px); min-height: 560px; }
+.adm2-fixed > .adm2-row { min-height: 0; }
+.adm2-fixed .adm2-col, .adm2-fixed .adm2-card { min-height: 0; overflow: hidden; }
+.adm2-fixed .adm2-board { min-height: 0; }
+.adm2-fixed .adm2-board .adm-col { min-height: 0; overflow: auto; }
+.adm2-chips { gap: 4px; flex-wrap: nowrap; }
+.adm2-chips .pref-chip { padding: 5px 11px; font-size: var(--text-xs); white-space: nowrap; }
+.adm2-cal span { padding: 3px 0; }
+.adm2-meets .adm-row { padding: 8px 0; }
+@media (max-width: 900px) { .adm2-fixed { height: auto; } .adm2-fixed .adm2-board .adm-col { max-height: none; } .adm2-chips { flex-wrap: wrap; } }
+@media (max-width: 900px) { .adm-head:has(.adm2-chips) { flex-direction: column; align-items: stretch; } }
