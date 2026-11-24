@@ -8,6 +8,7 @@ import { TIER_NAME, pinsOf, type PinKind, type PinState } from "@shared/pins";
 import { CHEST_XP, RARE, rareOwned } from "@shared/chest";
 import type { Workspace } from "@shared/types";
 import { Button, Card, Chip, Group, Icon, Pill, Row, Sect, Segmented, T, tap, type IconName } from "@/components/ui";
+import { PinArt, hiddenPin } from "@/components/PinArt";
 import { OUTFITS, OUTFIT_NAME, type Outfit } from "@/components/scholarSvg";
 import { SvgXml } from "react-native-svg";
 import { api } from "@/lib/api";
@@ -19,35 +20,15 @@ import { font, useTheme, type Colors } from "@/lib/theme";
 // Rewards, the website's page (client/src/pages/Rewards.tsx), native: career pins, levels and titles, Remy's outfits and
 // office, and the streak. Everything is read from the same shared code that awards it (shared/game.ts, pins.ts, daily.ts).
 type Tab = "pins" | "levels" | "wardrobe" | "streak";
-const ICON: Record<string, IconName> = { resume: "doc", pitch: "chat", linkedin: "you", applied: "jobs", interview: "you", offer: "award",
-  tailor: "doc", story: "book", practice: "chat", network: "you", numbers: "list", explorer: "compass", steady: "flame", hours: "heart",
-  thickskin: "check", bounce: "undo", comeback: "up", nightowl: "moon", earlybird: "sun", allround: "award", insider: "eye" };
-// Each pin's own enamel colour; the rim shows the tier (bronze, silver, gold).
 type Gem = "gemRuby" | "gemGold" | "gemGreen" | "gemTeal" | "gemSky" | "gemBlue" | "gemViolet" | "gemPink";
-const HUE: Record<string, Gem> = { resume: "gemSky", pitch: "gemViolet", linkedin: "gemBlue", applied: "gemTeal", interview: "gemPink", offer: "gemGold",
-  tailor: "gemRuby", story: "gemViolet", practice: "gemSky", network: "gemBlue", numbers: "gemGreen", explorer: "gemTeal", steady: "gemRuby", hours: "gemPink",
-  thickskin: "gemTeal", bounce: "gemGreen", comeback: "gemViolet", nightowl: "gemBlue", earlybird: "gemGold", insider: "gemViolet", allround: "gemPink" };
 const LEVEL_HUE: Gem[] = ["gemGreen", "gemTeal", "gemSky", "gemBlue", "gemViolet", "gemPink", "gemRuby", "gemGreen", "gemTeal", "gemSky", "gemBlue", "gemViolet", "gemPink", "gemRuby", "gemGold"];
 const lvHue = (c: Colors, n: number) => c[LEVEL_HUE[(n - 1) % LEVEL_HUE.length]!];
-const hiddenPin = (p: PinState) => p.kind === "secret" && !p.earned;
 const status = (p: PinState) => {
   if (hiddenPin(p)) return "Secret";
   if (p.tiers.length === 1) return p.earned ? "Earned" : "Not yet";
   if (p.next === null) return "Gold. Every tier done";
   return `${p.tier ? TIER_NAME[p.tier - 1] + " · " : ""}${p.n} / ${p.next} for ${TIER_NAME[p.tier]!.toLowerCase()}`;
 };
-
-/** One enamel pin: the rim shows the tier reached; a pin not earned yet is a dashed outline. */
-function PinArt({ p, size = 44 }: { p: PinState; size?: number }) {
-  const { c } = useTheme();
-  const rim = p.tiers.length === 1 ? (p.earned ? c.foxDeep : "") : ["", c.metalBronze, c.metalSilver, c.metalGold][p.tier];
-  const fill = c[HUE[p.id] || "gemSky"] || c.fox;
-  return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, alignItems: "center", justifyContent: "center", backgroundColor: rim ? fill : c.surface, borderWidth: rim ? 4 : 2, borderStyle: rim ? "solid" : "dashed", borderColor: rim || c.line }}>
-      <Icon name={hiddenPin(p) ? "lock" : ICON[p.id] || "award"} size={Math.round(size * 0.45)} color={rim ? brand.white : c.faint} strokeWidth={2.2} />
-    </View>
-  );
-}
 
 function PinDetail({ p, onClose }: { p: PinState; onClose: () => void }) {
   const { c } = useTheme();

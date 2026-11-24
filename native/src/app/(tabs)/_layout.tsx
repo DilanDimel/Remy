@@ -4,6 +4,7 @@ import { Redirect, router, usePathname } from "expo-router";
 import { NativeTabs } from "expo-router/native-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Loading, Remy, tap } from "@/components/ui";
+import { Moments } from "@/components/Moments";
 import { gateRoute, useGate } from "@/lib/gate";
 import { font, useTheme } from "@/lib/theme";
 import { shadow } from "@/lib/tokens";
@@ -65,6 +66,8 @@ export default function Tabs() {
         </NativeTabs.Trigger>
       </NativeTabs>
       <RemyButton hidden={kb || path === "/path"} />
+      {/* A new pin, a first interview or offer, or a new level: said once, the moment it happens (owners). */}
+      <Moments />
     </View>
   );
 }
