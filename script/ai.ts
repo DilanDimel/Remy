@@ -78,10 +78,12 @@ function check() {
 }
 
 // ---------- ai:brief ----------
-async function gh(url: string) {
+// The repo is public, so no token is needed (60 requests an hour); a GITHUB_TOKEN raises that, and a bad one is skipped.
+async function gh(url: string, token = process.env.GITHUB_TOKEN): Promise<any> {
   const headers: Record<string, string> = { accept: "application/vnd.github+json", "user-agent": "remy-ai-brief" };
-  if (process.env.GITHUB_TOKEN) headers.authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  if (token) headers.authorization = `Bearer ${token}`;
   const r = await fetch(`https://api.github.com/repos/${REPO}/${url}`, { headers });
+  if (r.status === 401 && token) return gh(url, "");
   if (!r.ok) throw new Error(`GitHub ${r.status}`);
   return r.json();
 }
@@ -107,8 +109,8 @@ async function brief(args: string[]) {
     for (const pr of open) pr.files = await prFiles(pr.number);
     const day = Date.now() - 86400_000;
     merged = (await gh("pulls?state=closed&sort=updated&direction=desc&per_page=40")).filter((p: any) => p.merged_at && +new Date(p.merged_at) > day);
-    for (const pr of merged) pr.files = await prFiles(pr.number);
-  } catch (e) { offline = `Couldn't reach GitHub (${(e as Error).message}); open PRs and the last 24 hours are missing. Check them on github.com/${REPO}/pulls.`; }
+    for (const pr of merged) pr.files = me ? await prFiles(pr.number) : []; // only needed for "touches your area"
+  } catch (e) { offline = `Couldn't reach GitHub (${(e as Error).message}); open PRs and the last 24 hours are missing. Check them on github.com/${REPO}/pulls, or set GITHUB_TOKEN for a higher limit.`; }
   const who = (login: string) => people.find((p) => p.login.toLowerCase() === login.toLowerCase())?.name || login;
   const mine = (files: string[]) => (me ? files.filter((f) => holders(f).some((h) => h.person === me)) : []);
 
