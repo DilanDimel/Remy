@@ -20,7 +20,6 @@ import { OrgLogo } from "../components/OrgLogo";
 type Tab = "todos" | "events" | "opps";
 
 // A big faint drawing in the corner of the "one thing" card, picked from where the button goes.
-const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const nextArt = (link: string, interview: boolean) => interview || link.startsWith("/interview") ? Mic : link.startsWith("/resume") ? FileText : link.startsWith("/opportunities") ? Briefcase : link.startsWith("/path") ? Compass : link.startsWith("/calendar") ? CalendarCheck : ListChecks;
 
 // A rough time for the one thing, so it feels small (owners).
@@ -178,10 +177,11 @@ export default function Home() {
           const today = (["openings", "role", "forecast"] as const).every((c) => w.game?.days?.[dayKey()]?.includes(c));
           return (
             <div className={"streak-peek" + (today ? " done" : "")} data-testid="home-streak">
-              <Flame size={22} aria-hidden="true" />
+              {/* grey until today's round is done, then it catches fire */}
+              <Flame size={22} className="streak-flame" fill={today ? "currentColor" : "none"} aria-label={today ? "Today's round is done" : "Today's round isn't done yet"} data-testid="home-streak-flame" />
               <span className="streak-num">{st.days}</span>
               <span className="streak-lab"><b>day streak</b>{st.best > st.days ? `Best ${st.best}` : st.days ? "Your best yet" : "Start today"}</span>
-              <span className="streak-dots" aria-label="This week">{weekDots(g).map((d, i) => <i key={d.key} className={d.status} title={DAY_NAMES[i] + (d.status === "done" ? ": done" : d.status === "today" ? ": today" : "")}>{d.label}</i>)}</span>
+              <span className="streak-dots" aria-label="The last seven days">{weekDots(g).map((d) => <i key={d.key} className={d.status} title={new Date(d.key + "T12:00:00").toLocaleDateString(undefined, { weekday: "long" }) + (d.status === "done" ? ": done" : d.status === "today" ? ": today" : "")}>{d.label}</i>)}</span>
               <button className={"btn btn-sm " + (today ? "btn-secondary" : "btn-primary")} onClick={() => go(today ? "/path" : "/path?play=1")} data-testid="button-todays-round">{today ? "Done for today" : "Today's round"}</button>
             </div>
           );

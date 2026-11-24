@@ -1646,8 +1646,10 @@ ul[class] > li, ol[class] > li { max-width: none; }
 @media (max-width: 640px) { .redesign-2 .hero2-bubble p { max-width: none; } }
 /* Owner Home, reference pass (Nov 22): streak card by the greeting, getting started inside the card, job cards, season band */
 .streak-peek { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); animation: soul-in .45s ease both; }
-.streak-peek > svg { color: var(--fox); flex: none; }
-.streak-peek.done > svg { color: var(--muted-text); }
+.streak-peek > svg { color: var(--muted-text); flex: none; transition: color .3s; }
+.streak-peek.done > svg { color: var(--fox); transform-origin: 50% 90%; animation: flame-lit .7s cubic-bezier(.3, 1.6, .5, 1) both, flame-flicker 2.4s ease-in-out .7s infinite; }
+@keyframes flame-lit { from { transform: scale(.6); } to { transform: none; } }
+@keyframes flame-flicker { 0%, 100% { transform: rotate(0) scaleY(1); } 30% { transform: rotate(-4deg) scaleY(1.06); } 60% { transform: rotate(3deg) scaleY(.97); } }
 .streak-num { font-size: 30px; font-weight: 800; letter-spacing: -.05em; line-height: 1; color: var(--ink); }
 .streak-lab { white-space: nowrap; font-size: var(--text-xs); color: var(--muted-text); line-height: 1.25; }
 .streak-lab b { display: block; color: var(--ink); font-size: var(--text-sm); }
@@ -2730,10 +2732,10 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 /* Owners: Remy's one offer on the page you're on (components/RemyOffer.tsx). */
 .remy-offer { position: relative; width: min(1384px, calc(100% - 56px)); margin: 16px auto -6px; display: flex; gap: 10px; align-items: center; padding: 10px 40px 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
 .remy-offer > .stack-sm { flex-direction: row !important; flex-wrap: wrap; align-items: center; gap: 8px 14px !important; flex: 1; }
-.remy-offer > .stack-sm > .small { flex: 1 1 320px; }
+.remy-offer > .stack-sm > .remy-offer-text { flex: 1 1 320px; }
 .remy-offer.docked { width: auto; margin: 0 12px 10px; align-items: flex-start; background: var(--surface-2); }
 .remy-offer.docked > .stack-sm { flex-direction: column !important; align-items: flex-start; }
-.remy-offer.docked > .stack-sm > .small { flex: none; }
+.remy-offer.docked > .stack-sm > .remy-offer-text { flex: none; }
 .remy-offer-x { position: absolute; top: 8px; right: 8px; padding: 4px; border-radius: 8px; color: var(--muted-text); }
 @media (max-width: 640px) { .remy-offer { width: calc(100% - 32px); margin-top: 12px; } }
 /* Owners: the menu link of a page Remy just changed glows for a moment (lib/remyDoes.ts). */
@@ -3073,3 +3075,15 @@ button.rw-item:not(:disabled) { cursor: pointer; }
 .rw-confetti i:nth-child(4n) { background: var(--sage); }
 @keyframes rw-pop { 0% { opacity: 1; transform: rotate(var(--a)) translateY(0); } 100% { opacity: 0; transform: rotate(var(--a)) translateY(-110px); } }
 @media (prefers-reduced-motion: reduce) { .rw-confetti { display: none; } }
+
+/* Owners: Remy reaching out first stands out (Dilan, Nov 23: "a central feature, make it more obvious"). An orange
+   edge, his face with a soft ring, a live dot and a kicker, and a small entrance. No peach fill, no dark band. */
+.redesign-2 .remy-offer { box-shadow: inset 3px 0 0 var(--fox), var(--shadow); border-color: color-mix(in srgb, var(--fox) 35%, var(--line)); padding: 12px 40px 12px 14px; gap: 12px; animation: offer-in .55s cubic-bezier(.2, .9, .3, 1.15) both; }
+.redesign-2 .remy-offer.docked { background: var(--surface); }
+.remy-offer-face { position: relative; flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: var(--surface-2); animation: fox-hop .8s ease .45s 1 both; }
+.remy-offer-face::after { content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid var(--fox); opacity: 0; animation: remy-ring 1.6s ease-out .5s 3; }
+.remy-offer-text { display: block; color: var(--ink); font-size: var(--text-sm); line-height: 1.45; }
+.remy-offer-kicker { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; color: var(--fox-deep); font-size: var(--text-xs); font-weight: 800; letter-spacing: .01em; }
+.remy-offer-kicker i { width: 7px; height: 7px; border-radius: 50%; background: var(--fox); animation: soul-pulse 2s ease-out infinite; }
+@keyframes offer-in { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .redesign-2 .remy-offer, .remy-offer-face, .remy-offer-face::after, .remy-offer-kicker i, .streak-peek.done > svg { animation: none; } }

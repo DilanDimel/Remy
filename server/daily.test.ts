@@ -26,7 +26,7 @@ test("daily streak: 7 days earn a freeze that covers one missed day, rest days s
   assert.equal(s.freezes, 0);
   const rest = run("2026-11-16", 3, ["2026-11-17"]);
   assert.equal(dailyStreak({ ...rest, restDays: [2] }, "2026-11-18").days, 2, "Tuesday is a rest day");
-  assert.equal(weekDots({ ...rest, restDays: [2] }, "2026-11-18")[1].status, "rest");
+  assert.equal(weekDots({ ...rest, restDays: [2] }, "2026-11-18")[5].status, "rest");
 });
 
 test("daily cards: once per card per day, XP at 10 each, the match email counts as a day", () => {
@@ -50,6 +50,8 @@ test("the streak counts any real step that day, not only My Path's cards (Home a
   const s = dailyStreak(streakDays(w), today);
   assert.equal(s.days, 2);
   assert.ok(s.todayDone);
-  assert.equal(weekDots(streakDays(w), today)[0].status, "done", "Monday (today) fills in");
+  const dots = weekDots(streakDays(w), today);
+  assert.deepEqual(dots.slice(-2).map((d) => [d.label, d.status]), [["S", "done"], ["M", "done"]], "Sunday carries over from last week and Monday (today) fills in");
+  assert.equal(dots[0].key, "2026-11-17", "the last seven days, today last");
   assert.deepEqual(w.game.days, {}, "the saved cards are untouched");
 });
