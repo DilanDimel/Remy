@@ -66,6 +66,7 @@ import { addLoop, MORE_TOOLS, moreContext, reachOut } from "./ai/remyTools";
 import { sendTexts, usPhone } from "./notify/texts";
 import { step } from "@shared/progress";
 import { conferencesFor } from "./jobs/conferences";
+import { competitionsFor, competitionsOpen } from "./jobs/competitions";
 import { trimOpenings } from "./resume/trim";
 import { storageReport, warnIfNearLimit } from "./platform/storage";
 import * as insights from "./jobs/insights";
@@ -462,13 +463,17 @@ async function findOpenings(ctx: Ctx, named: string[] = [], opts: { background?:
   // In a background search, only conferences already found this month (finding new ones is an AI call).
   const cachedOnly = async (): Promise<never> => { throw new Error("background: cache only"); };
   const confs = (await conferencesFor(ctx.ws, opts.background ? cachedOnly : undefined).catch(() => [])).filter((j) => typeMatch(ctx.ws, j) !== false);
+  // Competitions and challenges in the student's field (owners first: the `competitions` switch), cached like conferences.
+  const comps = (await competitionsOpen(ctx.me, ctx.ws).catch(() => false))
+    ? (await competitionsFor(ctx.ws, opts.background ? cachedOnly : undefined).catch(() => [])).filter((j) => typeMatch(ctx.ws, j) !== false)
+    : [];
   // Add to the latest saved list, read only now (after the slow conference step), so a posting the student imported,
   // saved or rated during this search isn't overwritten or trimmed.
   const fresh = await loadWorkspace(ctx.me.id);
   const refilled = fresh.jobs.filter(isEmptyListing).map((j) => j.id);
   const found = refillEmpty(fresh.jobs, r.jobs);
   const have = new Set(fresh.jobs.map((j) => j.applyUrl));
-  const added = [...found, ...confs].filter((j) => !have.has(j.applyUrl));
+  const added = [...found, ...confs, ...comps].filter((j) => !have.has(j.applyUrl));
   ctx.ws.jobs = [...added, ...fresh.jobs];
   ctx.ws.fits = { ...fresh.fits };
   for (const j of added) ctx.ws.fits[j.id] = fitOf(ctx.ws, j);

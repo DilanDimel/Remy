@@ -17,6 +17,9 @@ export const FEATURES: Feature[] = [
   { key: "app", label: "Phone app", path: "", release: "owners", teaser: "" },
   // Remy's World (Nov 24): Remy goes to a café, library and home by the student's time of day (shared/places.ts). No page.
   { key: "places", label: "Remy's places: café, library and home", path: "", release: "owners", teaser: "" },
+  // Competitions and challenges (Nov 24, Demetre): Remy finds case, trading, hackathon and pitch competitions for the
+  // student's field and lists them with their openings (server/jobs/competitions.ts). No page.
+  { key: "competitions", label: "Competitions and challenges in Opportunities", path: "", release: "owners", teaser: "" },
   { key: "rewards", label: "Rewards", path: "/rewards", release: "owners", teaser: "Everything you can earn in Remy, in one place.", follows: "redesign" },
 ];
 
