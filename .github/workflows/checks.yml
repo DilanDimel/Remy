@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  merge_group: # GitHub merge queue, if it is ever turned on for main
 # A newer push to the same pull request cancels the older run, so stale commits don't send failure emails. Main runs are never cancelled.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
