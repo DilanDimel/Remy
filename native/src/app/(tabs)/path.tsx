@@ -81,12 +81,12 @@ export default function PathTab() {
 
   const card = { backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.line, padding: 16, marginTop: 14 } as const;
   const kicker = { fontFamily: font.bold, fontSize: 11.5, letterSpacing: 0.8, textTransform: "uppercase" as const, color: c.mutedText };
+  // The website's season chips: outlined pills; the level chip leads with its number in a dark circle.
+  const pill = { flexDirection: "row" as const, alignItems: "center" as const, gap: 6, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, borderRadius: 16, paddingHorizontal: 11, height: 34 };
   const chip = (icon: IconName, text: string, color: string) => (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: c.surface2, borderRadius: 14, paddingHorizontal: 10, height: 30 }}>
-      <Icon name={icon} size={15} color={color} /><Text style={{ fontFamily: font.semi, fontSize: 13, color: c.ink }}>{text}</Text>
-    </View>
+    <View style={pill}><Icon name={icon} size={16} color={color} /><Text style={{ fontFamily: font.bold, fontSize: 13.5, color: c.ink }}>{text}</Text></View>
   );
-  const bar = (p: number, h = 8) => <View style={{ height: h, borderRadius: h / 2, backgroundColor: c.surface2, overflow: "hidden" }}><View style={{ width: `${Math.max(0, Math.min(100, p))}%`, height: h, backgroundColor: c.fox }} /></View>;
+  const bar = (p: number, h = 8) => <View style={{ height: h, borderRadius: h / 2, backgroundColor: c.foxSoft, overflow: "hidden" }}><View style={{ width: `${Math.max(0, Math.min(100, p))}%`, height: h, backgroundColor: c.fox }} /></View>;
 
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
@@ -95,12 +95,13 @@ export default function PathTab() {
       {!!err && <T kind="small" style={{ color: c.error, marginTop: 8 }}>{err}</T>}
 
       <View style={card} testID="path-season">
-        <Text style={kicker}>{se.name} season · {YEARS[year]}</Text>
+        <Text style={{ ...kicker, color: c.foxDeep }}>{se.name} season · {YEARS[year]}</Text>
         <T kind="h2" style={{ marginTop: 2 }}>{se.goal}</T>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
           {chip("flame", `${streak.days} day${streak.days === 1 ? "" : "s"}`, streak.days ? c.fox : c.faint)}
           {chip("snow", `${streak.freezes} ${streak.freezes === 1 ? "freeze" : "freezes"}`, c.mutedText)}
-          {chip("award", `${lv.n} ${lv.name}`, c.fox)}
+          <View style={pill} testID="chip-level"><View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: c.ink, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: font.bold, fontSize: 12, color: c.onInk }}>{lv.n}</Text></View><Text style={{ fontFamily: font.bold, fontSize: 13.5, color: c.ink }}>{lv.name}</Text></View>
+          <Pressable testID="button-all-rewards" accessibilityRole="button" onPress={() => { tap(); go("/rewards"); }} style={({ pressed }) => [pill, pressed && { backgroundColor: c.surface2 }]}><Icon name="award" size={16} color={c.ink} /><Text style={{ fontFamily: font.bold, fontSize: 13.5, color: c.ink }}>All rewards</Text></Pressable>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12, marginHorizontal: -16 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }} testID="path-level-track">
           {tiles.map((n) => {
@@ -111,11 +112,16 @@ export default function PathTab() {
             return (
               <Pressable key={n} disabled={!(isOutfit && isGot)} onPress={() => wear(r!.key)} testID={isOutfit ? `button-outfit-${r!.key}` : undefined}
                 accessibilityLabel={`Level ${n}: ${label}${isOutfit && isGot ? (on ? ". Remy is wearing it" : ". Put it on Remy") : isGot ? ", unlocked" : ""}`}
-                style={{ width: 86, minHeight: 118, borderRadius: 14, borderWidth: isNow || on ? 2 : 1, borderColor: isNow || on ? c.fox : c.line, backgroundColor: isGot ? c.surface : c.surface2, padding: 8, alignItems: "center", gap: 4, opacity: isGot || isNow ? 1 : 0.6 }}>
-                <Text style={{ fontFamily: font.bold, fontSize: 12, color: c.mutedText, alignSelf: "flex-start" }}>{n}</Text>
-                {isOutfit ? <Remy size={40} outfit={r!.key as Outfit} /> : <Icon name={isGot ? "award" : "lock"} size={26} color={isGot ? c.fox : c.faint} />}
-                <Text numberOfLines={2} style={{ fontFamily: font.semi, fontSize: 11.5, lineHeight: 14, color: c.ink, textAlign: "center" }}>{label}</Text>
-                {isOutfit && isGot && <Text style={{ fontFamily: font.body, fontSize: 10.5, color: on ? c.fox : c.mutedText }}>{on ? "Wearing" : "Tap to wear"}</Text>}
+                style={{ width: 92, paddingTop: 11 }}>
+                {/* The website's reward cards: earned ones in a bold outline, the next one ringed in orange, the rest faded. */}
+                <View style={{ minHeight: 112, borderRadius: 14, borderWidth: 2, borderBottomWidth: isGot ? 4 : 2, borderColor: isNow ? c.fox : isGot ? c.ink : c.line, backgroundColor: on ? c.foxSoft : isGot || isNow ? c.surface : c.surface2, padding: 8, paddingTop: 14, alignItems: "center", justifyContent: "center", gap: 4, opacity: isGot || isNow ? 1 : 0.6 }}>
+                  {isOutfit ? <Remy size={40} outfit={r!.key as Outfit} /> : <Icon name={isGot ? "award" : "lock"} size={26} color={isGot ? c.ink : c.faint} />}
+                  <Text numberOfLines={2} style={{ fontFamily: font.bold, fontSize: 11.5, lineHeight: 14, color: c.ink, textAlign: "center" }}>{label}</Text>
+                  {isOutfit && isGot && <Text style={{ fontFamily: font.semi, fontSize: 10.5, color: on ? c.foxDeep : c.mutedText }}>{on ? "Wearing" : "Tap to wear"}</Text>}
+                </View>
+                <View style={{ position: "absolute", top: 0, alignSelf: "center", width: 22, height: 22, borderRadius: 11, backgroundColor: isNow ? c.fox : isGot ? c.ink : c.surface2, borderWidth: isGot || isNow ? 0 : 1, borderColor: c.line, alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontFamily: font.bold, fontSize: 11.5, color: isNow ? c.onFox : isGot ? c.onInk : c.mutedText }}>{n}</Text>
+                </View>
               </Pressable>
             );
           })}
@@ -125,7 +131,7 @@ export default function PathTab() {
         <T kind="small" style={{ color: c.mutedText }}>{se.left} days left this season{bigNext ? ` · Level ${bigNext[1]} unlocks ${(OUTFIT_NAME[bigNext[0]] || bigNext[0]).toLowerCase()}` : ""}</T>
       </View>
 
-      <Sect title="Remy's office" />
+      <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8, marginTop: 24, marginBottom: 8, marginHorizontal: 4 }}><Text style={{ ...kicker, color: c.foxDeep }}>Remy's office</Text></View>
       <Office ws={ws} />
       <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
         <TextInput testID="input-office-ask" value={q} onChangeText={setQ} onSubmitEditing={ask} returnKeyType="send" placeholder="Ask Remy anything" placeholderTextColor={c.faint}
