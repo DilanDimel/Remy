@@ -69,6 +69,7 @@ import { conferencesFor } from "./jobs/conferences";
 import { competitionsFor, competitionsOpen } from "./jobs/competitions";
 import { trimOpenings } from "./resume/trim";
 import { storageReport, trafficReport, warnIfNearLimit } from "./platform/storage";
+import { backupIfDue, backupStatus } from "./platform/backup";
 import * as insights from "./jobs/insights";
 import * as services from "./platform/services";
 import { pruneOpenings, recordFound, recordCheck, listOpenings, openingsSummary } from "./jobs/openings";
@@ -663,6 +664,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     sweeping ||= Promise.all([
       pruneBoardCache().catch(() => {}),
       warnIfNearLimit().catch((e) => console.error("storage check failed", e?.message)),
+      backupIfDue().then((b) => { if (b) console.log(`backup: ${b.kind} copy, ${b.rows} rows`); }).catch((e) => console.error("backup failed", e?.message)),
       pruneOpenings().then((n) => { if (n) console.log(`checked openings: discarded ${n} not seen for a while`); }).catch((e) => console.error("checked openings prune failed", e?.message)),
       deadlineReminders().catch((e) => console.error("deadline reminders failed", e?.message)),
       sendTexts(daysBefore(centralToday(), 14), centralToday()).catch((e) => console.error("urgent texts failed", e?.message)),
@@ -760,7 +762,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   }));
   app.get("/api/admin/team", route(async (_req, res, ctx) => { res.json(await admin.team(owner(ctx))); }));
   // Database space used against the plan's limit, per table (owners only).
-  app.get("/api/admin/storage", route(async (_req, res, ctx) => { owner(ctx); await insights.flushDbBytes(); res.json({ ...(await storageReport()), workspaces: await insights.workspaceSizes(), transfer: await insights.dataTransfer() }); }));
+  app.get("/api/admin/storage", route(async (_req, res, ctx) => { owner(ctx); await insights.flushDbBytes(); res.json({ ...(await storageReport()), workspaces: await insights.workspaceSizes(), transfer: await insights.dataTransfer(), backup: await backupStatus() }); }));
   // Who is connected to the database and which queries return the most rows: for tracing Supabase data transfer (owners only).
   app.get("/api/admin/db-traffic", route(async (_req, res, ctx) => { owner(ctx); res.json(await trafficReport()); }));
   app.get("/api/admin/services", route(async (_req, res, ctx) => {
