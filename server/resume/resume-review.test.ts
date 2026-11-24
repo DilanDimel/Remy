@@ -29,6 +29,22 @@ test("review: owners' listLike rule doesn't ask certifications for dates (they'r
   assert.deepEqual(undated({ listLike: true }), ["e2"]);
 });
 
+test("review: owners don't ask a bullet-list section (no role or org) for dates", () => {
+  const d = doc();
+  d.sections.push({ id: "s5", heading: "LEADERSHIP & ACTIVITIES", entries: [{ id: "e6", org: "", role: "", location: "", dates: "", bullets: [{ id: "b6", text: "Gold Duke of Edinburgh Award: Group Leader (2024–2026)" }] }] } as any);
+  const undated = (opts?: { listLike: boolean }) => (reviewResume(d, opts).todo.find((t) => t.kind === "dates") as any).entries.map((e: any) => e.entryId);
+  assert.deepEqual(undated(), ["e2", "e6"]); // students: unchanged
+  assert.deepEqual(undated({ listLike: true }), ["e2"]);
+});
+
+test("bullet draft check: Remy's own rewrite (no answer) keeps only the line's words and numbers", async () => {
+  const { draftOk } = await import("../ai/bulletDraft");
+  const line = "Used implied volatility with a fallback to 6-month historical volatility when market IV was unreliable";
+  assert.equal(draftOk("verbs", line, "", "Applied implied volatility with a fallback to 6-month historical volatility when market IV was unreliable"), true);
+  assert.equal(draftOk("verbs", line, "", "Applied implied volatility, cutting pricing error by 20%, with a 6-month historical fallback"), false);
+  assert.equal(draftOk("verbs", "Helped organize the career fair", "", "Organized the career fair"), false);
+});
+
 test("review: owners count Activities and Leadership lines as achievements (Treasurer, President)", () => {
   const d = doc();
   d.sections.push({ id: "s4", heading: "ACTIVITIES AND LEADERSHIP", entries: [{ id: "e5", org: "TCU NABA", role: "Treasurer", location: "", dates: "Aug 2026 – Present", bullets: [{ id: "b4", text: "Oversee an estimated annual chapter budget of $5,000+" }, { id: "b5", text: "Organized a tournament with 24 participants" }] }] } as any);

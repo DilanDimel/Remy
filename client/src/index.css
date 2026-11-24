@@ -1834,6 +1834,10 @@ html.redesign-2:has(.tour) .remy-offer { display: none; }
 .r1-side-card > .card, .r1-side-card .card { border: 0; padding: 0; box-shadow: none; background: none; }
 .rm-side-review { max-height: none; overflow: visible; position: static; }
 .r1 .rm-paper { max-width: none; }
+/* Owners (Demetre, Nov 24): with Remy's panel open the resume keeps its page proportions. When the row gets narrow,
+   the side cards move under the resume instead of squeezing it; the drawn page scales (ResumeMarkup PAGE_W). */
+.r1 .rm { container-type: inline-size; }
+@container (max-width: 1150px) { .r1 .rm-body { grid-template-columns: minmax(0, 1fr); } }
 .r1-side-card h3 { font-size: 1rem; }
 /* Stage 3: the colours on the student's own file (Word frame / PDF pages with highlight boxes). */
 .rr-frame-box { width: 100%; }
@@ -2251,6 +2255,15 @@ button.dp-unit-head { width: 100%; border: 0; font: inherit; text-align: left; c
 .pt-chest.open { background: var(--sage-bg); color: var(--sage); }
 .pt-chest.ready { width: 100%; border: 0; cursor: pointer; text-align: left; font-family: inherit; font-weight: 800; background: var(--fox); color: var(--white); }
 .pt-chest.ready:hover { background: var(--fox-deep); }
+.pt-welcome { margin: 0 0 8px; padding: 8px 12px; border-radius: 12px; background: var(--fox-soft); color: var(--ink); font-size: var(--text-sm); line-height: 1.4; }
+.pt-welcome b { color: var(--fox-deep); }
+.pt-prep { list-style: none; margin: 0 0 4px; padding: 0; display: grid; gap: 6px; font-size: var(--text-sm); }
+.pt-prep li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px; align-items: center; }
+.pt-prep .pt-qi { width: 26px; height: 26px; border-radius: 8px; background: var(--surface); }
+.pt-prep li.ok .pt-qi { background: var(--sage-bg); color: var(--sage); }
+.pt-prep li.ok > span:last-child { color: var(--muted-text); text-decoration: line-through; }
+.pt-prep .pt-qb { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; }
+.pt-prep .pt-qb:hover { text-decoration: underline; text-underline-offset: 3px; }
 .pt-chest.ready svg { animation: pt-hop .7s cubic-bezier(.3, 1.6, .5, 1) infinite; }
 .pt-chest.open svg { animation: pt-hop .7s cubic-bezier(.3, 1.6, .5, 1) 2; }
 @keyframes pt-hop { 50% { transform: translateY(-5px) rotate(-8deg); } }

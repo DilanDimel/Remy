@@ -180,7 +180,7 @@ export function OwnWordColoured({ doc, version, on, onFail }: { doc: ResumeDoc; 
   );
 }
 
-type Box = { left: number; top: number; width: number; height: number; cat?: Cat; flag?: string; t?: string };
+type Box = { left: number; top: number; width: number; height: number; cat?: Cat; flag?: string; t?: string; line?: string };
 /** Their PDF's own pages as images, with the colours placed over the words (positions from the PDF's text). */
 export function OwnPdfColoured({ doc, on, onFail }: { doc: ResumeDoc; on: Set<Cat>; onFail: (why: string) => void }) {
   const [pages, setPages] = useState<{ img: string; w: number; h: number; boxes: Box[] }[] | null>(null);
@@ -231,7 +231,7 @@ export function OwnPdfColoured({ doc, on, onFail }: { doc: ResumeDoc; on: Set<Ca
               // One tag per line, after the line when it fits, else in the left margin, so it never covers words.
               const flag = probs.join(" · "), need = flag.length * 8.5 + 24;
               const left = x + w + 8 + need < vp.width - 8 ? x + w + 8 : x - 8 - need > 4 ? x - 8 - need : Math.max(4, vp.width - need - 8);
-              boxes.push({ left, top: y - h * 0.95, width: 0, height: h * 1.2, flag });
+              boxes.push({ left, top: y - h * 0.95, width: 0, height: h * 1.2, flag, line: ends }); // line: lets Remy's walk find it
             }
           }
           out.push({ img: canvas.toDataURL("image/png"), w: vp.width, h: vp.height, boxes });
@@ -250,7 +250,7 @@ export function OwnPdfColoured({ doc, on, onFail }: { doc: ResumeDoc; on: Set<Ca
         <div key={i} className="rr-page" style={{ aspectRatio: `${p.w} / ${p.h}` }}>
           <img src={p.img} alt={i === 0 ? "Your resume" : ""} />
           {p.boxes.filter((b) => b.flag || on.has(b.cat!)).map((b, j) => (
-            <span key={j} className={b.flag ? "rm-flag rr-flag" : `rr-hl rm-${b.cat}`} data-t={b.t}
+            <span key={j} className={b.flag ? "rm-flag rr-flag" : `rr-hl rm-${b.cat}`} data-t={b.t} data-line={b.line}
               style={{ left: `${(b.left / p.w) * 100}%`, top: `${(b.top / p.h) * 100}%`, height: `${(b.height / p.h) * 100}%`, ...(b.flag ? {} : { width: `${(b.width / p.w) * 100}%` }) }}>{b.flag}</span>
           ))}
         </div>

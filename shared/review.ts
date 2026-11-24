@@ -23,7 +23,9 @@ export function reviewResume(doc: ResumeDoc, { listLike = false } = {}): { todo:
   else good.push("Contact details are complete.");
 
   const entries = doc.sections.filter((s) => !(listLike ? /skill|interest|language|certif|licen[cs]e|award|honou?r|course/i : /skill|interest|language/i).test(s.heading)).flatMap((s) => s.entries.map((e) => ({ s, e })));
-  const undated = entries.filter(({ e }) => !/\d{4}|present/i.test(e.dates));
+  // Owners (Demetre, Nov 24): a section that's just a bullet list ("LEADERSHIP & ACTIVITIES" with years inside each
+  // line) parses as one entry with no role or org. It's a section, not an entry, so it isn't asked for dates.
+  const undated = entries.filter(({ e }) => !/\d{4}|present/i.test(e.dates) && !(listLike && !e.role.trim() && !e.org.trim()));
   if (undated.length) todo.push({ kind: "dates", title: `${undated.length} entr${undated.length === 1 ? "y has" : "ies have"} no dates`, entries: undated.map(({ s, e }) => ({ sectionId: s.id, entryId: e.id, label: [e.role, e.org].filter(Boolean).join(", ") || s.heading })) });
   else if (entries.length) good.push("Every entry has dates.");
 
