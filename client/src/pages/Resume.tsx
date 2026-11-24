@@ -180,7 +180,7 @@ function BaseResume({ subParam }: { subParam: string | null }) {
         <div className="row-between">
           <div className="stack-sm">
             <h3>Your resume, as a file</h3>
-            <span className="xs muted">{w.resume.original ? "Downloads keep your own layout with your edits in place. If a change can't fit into your file (like a new line), Remy uses his clean layout in your font instead." : w.resume.parsedBy === "builder" ? "You built this resume with Remy, so there's no original file. Export it as a clean PDF or Word file." : "This resume was pasted, so there's no original file. Export it as a clean PDF or Word file."}</span>
+            <span className="xs muted">{w.resume.original ? "Downloads keep your own layout with your edits in place. If a change can't fit into your file (like a new heading), Remy uses his clean layout in your font instead." : w.resume.parsedBy === "builder" ? "You built this resume with Remy, so there's no original file. Export it as a clean PDF or Word file." : "This resume was pasted, so there's no original file. Export it as a clean PDF or Word file."}</span>
           </div>
           <div className="row">
             {w.resume.original && <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/original?download=1", w.resume!.original!.name).catch((e) => toast(e.message, true))} data-testid="button-download-original"><Download size={14} /> Original</button>}
@@ -882,7 +882,7 @@ function ExportView({ a, job }: { a: Application; job: Job }) {
         <span className="xs muted">{ws!.resume?.original?.mime.includes("wordprocessingml")
           ? "Word download: your own file with only the changed lines replaced, so it keeps your exact design (Remy says so above if a version can't). PDF: Remy's clean layout in your font."
           : ws!.resume?.original?.mime === "application/pdf"
-            ? "PDF download: your own pages with only the changed lines rewritten in place, so it keeps your design. If a change can't fit (like a new line), Remy uses his clean layout in your font. Word: Remy's clean layout."
+            ? "PDF download: your own pages with only the changed lines rewritten in place, so it keeps your design. If a change can't fit (like a new heading, or more than fits on the page), Remy uses his clean layout in your font. Word: a Word copy in the same look, which also opens in Google Docs."
           : ws!.resume?.style
             ? `Remy rebuilds your resume in a clean, ATS-friendly layout using your ${ws!.resume.style.serif ? "serif" : "sans-serif"} font, size and margins, kept to ${ws!.resume.style.pages === 1 ? "one page" : `${ws!.resume.style.pages} pages`} like your original.`
             : "Downloads use Remy's clean, ATS-friendly one-column layout."}</span>
