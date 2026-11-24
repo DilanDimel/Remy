@@ -34,9 +34,11 @@ export function upgradesPart(text: string, answer: string, draft: string): boole
   return draftActions(draft).some((w) => line.has(family(w)) && !said.has(family(w)));
 }
 
-export function draftOk(kind: "numbers" | "verbs", text: string, answer: string, draft: string): boolean {
+/** `context`: the rest of the same resume entry (its header and other lines). Facts there may be used, but never
+ *  count as the student's own answer (so they can't upgrade a "helped" line). */
+export function draftOk(kind: "numbers" | "verbs", text: string, answer: string, draft: string, context = ""): boolean {
   if (!draft || draft === text) return false;
-  const evidence = draftEvidence(kind, text, answer);
+  const evidence = draftEvidence(kind, text, answer) + (context ? ` ${context}` : "");
   // Every number exactly as given ("12" doesn't become "12+").
   if (!nums(draft).every((n) => nums(evidence).includes(n))) return false;
   if (kind === "verbs") {
@@ -56,7 +58,8 @@ export function ownRewriteOk(text: string, draft: string): boolean {
   const a = words(text), b = words(draft);
   const [w0, d0] = [a[0] || "", b[0] || ""];
   if (w0 !== d0 && family(w0) === family(d0) && !/ed$/.test(w0) && /ed$/.test(d0)) return false; // tense flipped to past
-  const sa = new Set(a), sb = new Set(b);
-  const changed = b.filter((w) => !sa.has(w)).length + a.filter((w) => !sb.has(w)).length;
-  return w0 !== d0 || changed > 3;
+  // Word edits in order (reordering counts): a one-verb swap ("Provide" → "Deliver", Nov 24 live check) or a word or
+  // two isn't a stronger line; the rewrite has to restructure it.
+  const lcs = a.reduce((row, x) => { const next = [0]; b.forEach((y, j) => next.push(x === y ? row[j] + 1 : Math.max(row[j + 1], next[j]))); return next; }, new Array(b.length + 1).fill(0));
+  return a.length + b.length - 2 * lcs[b.length] > 4;
 }
