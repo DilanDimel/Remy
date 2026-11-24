@@ -55,7 +55,7 @@ test("releases: owners flip a feature, students can't, and locked interviews are
   const boss = await account("sb:rel-boss", "boss@release.test");
   const kid = await account("sb:rel-kid", "kid@release.test");
 
-  assert.deepEqual((await call("", "GET", "/api/config")).data.features, { redesign: "owners", interview: "locked", community: "locked", app: "owners", places: "owners", guide: "owners", competitions: "owners", rewards: "owners" });
+  assert.deepEqual((await call("", "GET", "/api/config")).data.features, { redesign: "owners", interview: "locked", community: "locked", app: "owners", places: "owners", guide: "released", competitions: "owners", rewards: "owners" });
   assert.equal((await call(kid, "POST", "/api/admin/features", { key: "interview", state: "released" })).status, 403);
   assert.equal((await call(boss, "POST", "/api/admin/features", { key: "nope", state: "released" })).status, 400);
   assert.equal((await call(boss, "POST", "/api/admin/features", { key: "interview", state: "yes" })).status, 400);

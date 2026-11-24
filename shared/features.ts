@@ -18,8 +18,8 @@ export const FEATURES: Feature[] = [
   // Remy's World (Nov 24): Remy goes to a café, library and home by the student's time of day (shared/places.ts). No page.
   { key: "places", label: "Remy's places: café, library and home", path: "", release: "owners", teaser: "" },
   // Remy guides from his office on My Path (team meeting, Nov 24): his next step above the room, numbered on the things he
-  // means, and a slim season row (shared/officeSteps.ts). No page. Students keep the old My Path until it's released.
-  { key: "guide", label: "Remy guides students from his office (My Path)", path: "", release: "owners", teaser: "" },
+  // means, and a slim season row (shared/officeSteps.ts). No page. Released to everyone (Dilan, Nov 24 4:58 PM CT).
+  { key: "guide", label: "Remy guides students from his office (My Path)", path: "", release: "released", teaser: "" },
   // Competitions and challenges (Nov 24, Demetre): Remy finds case, trading, hackathon and pitch competitions for the
   // student's field and lists them with their openings (server/jobs/competitions.ts). No page.
   { key: "competitions", label: "Competitions and challenges in Opportunities", path: "", release: "owners", teaser: "" },
