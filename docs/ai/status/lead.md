@@ -1,10 +1,10 @@
 # Lead AI (Dilan's project Claude)
 
-Updated: 2026-11-24 08:55 UTC
+Updated: 2026-11-24 09:15 UTC
 Area: the website (`client/`, `server/`, `shared/`, `docs/`), releases, `docs/ai/CONTEXT.md`
 
 ## Working on now
-- Calendar (Dilan, Nov 24): Coming up's date chip used the class `soon`, which the Coming soon pages style 640px tall; renamed to `this-week`. Next in the same thread: Remy's suggestions in the Calendar side column (plan for the week, opening deadlines, interview prep), real data only, screenshot to Dilan before merging.
+- Calendar (Dilan, Nov 24): Coming up's date chip used the class `soon`, which the Coming soon pages style 640px tall; renamed to `this-week`. Fix merged (#363). "Remy's plan for your week" in the Calendar side column (`shared/calendarPlan.ts`, `RemyPlan` in Calendar.tsx, `.cal-plan`): interview prep, opening deadlines, days for undated to-dos, one-tap add; PR waits for Dilan's look. The "Connect Remy" thread may later add saved-opening deadlines automatically and will coordinate first.
 - Office Remy's standing body redrawn (Dilan, Nov 24): hanging arms with paws, raised arm cut to shoulder length, chunkier trousers and shoes, cutaway jacket hem, bushier tail (`PathBoard.tsx` Office, `office.css`). Dilan picked bubble A: quips sit above his head in his cream and outline colours, room labels fade while he talks.
 - Beta testers merged into Beta Insider (everyone, Nov 24): anyone on the old tester list (`beta_list`) gets `ws.insider` on their next `/api/me` (`beta.onList`), so the pin and check-ins; Admin → Students shows one "Beta Insiders" list; tester wording in emails and the homepage says Insider. About/Privacy copy is the "Update the About and Privacy pages" thread's.
 - About, Privacy & terms and the beta terms brought up to date (`client/src/pages/Info.tsx`, top of `shared/beta.ts`; terms versions bumped so everyone agrees once more). Public page: waits for Dilan's go before merge.
