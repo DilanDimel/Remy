@@ -1,6 +1,6 @@
 # Demetre's AI
 
-Updated: 2026-11-24 23:45 UTC
+Updated: 2026-11-24 23:50 UTC
 Area: `native/` (the Expo phone app)
 
 ## Working on now
@@ -11,7 +11,7 @@ Area: `native/` (the Expo phone app)
 - Shared AI system v2 adopted (Nov 24): every session starts with `npm run ai:brief -- --me Demetre`, requests are answered below, claims before touching files outside `native/`.
 - Preview: f922a22a (main with #337–#347, #371, #372) and f9caa545 (#373), 2026-11-24. Merged since, not yet published: #374 (iPhone chat keyboard).
 - Work authorization in the app's setup (dilan-5): `Preferences.tsx` uses `AUTH_OPTS`/`authChip` from `shared/workAuth.ts`, optional, the website's hint text; old answers are kept as they are.
-- Next in the app: the website's "Remy guides you from his office" (#408) and his quick questions (#370) on My Path.
+- Office guide in the app (owners; the website's #408 and quick questions #370): `native/src/components/OfficeGuide.tsx` (`useOfficeGuide`, `GuideBanner`, native `AskCard`) reads `officeSteps` and `remyAsks` from `shared/`, POSTs `/api/remy/act` and `/api/remy/ask`; numbers and glow on the room in `Office.tsx`, filing cabinet in `officeRoom.ts`; follows the `guide` switch in owner view. The banner sits under the room on phones; the season is one slim row while it's on.
 
 ## Claims
 - `server/migrations/020_student_jobs.sql`, `server/platform/studentJobs.ts`, `server/platform/studentJobs.test.ts` · branch claude/project-thread-87dr74-jobs · until 2026-11-27
@@ -32,7 +32,8 @@ Area: `native/` (the Expo phone app)
 - `native/`, plus (database work, outside my area) the files claimed above, `r2Store` added at the end of `server/platform/r2.ts` (the lead's R2 helper; existing functions unchanged, `call` takes an optional timeout), one `app.use(compress)` line in `server/index.ts`, `compression` in `package.json`, the `student_jobs` hooks in `server/platform/db.ts` (`loadWorkspace`, `saveSections`, `saveWorkspace`, `editWorkspace`, `deleteWorkspace`, new `copyJobsBatch`), the `SavedOpeningsMove` card in `client/src/pages/Admin.tsx` (System tab), two lines in `server/routes.ts` (the sweep and `/api/admin/storage`), a `restore-backup` script in `package.json`, and `docs/database-plan.md`.
 
 ## Open PRs
-- #412 App setup's work authorization (dilan-5), owners only.
+- #413 Office guide and Remy's quick questions on the app's My Path (owners).
+- #412 App setup's work authorization (dilan-5): merged Nov 24.
 - Backup cleanup after missed nights (dilan-4, this branch).
 - #398 Saved openings table, step 1: merged Nov 24; the switch stays off.
 - #397 Gzip on API answers: merged Nov 24 (its failed Android launch check was the emulator not reaching remyai.org; passed on re-run, and #400 hardened the test).

@@ -4,11 +4,12 @@ import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-nativ
 import type { Workspace } from "@shared/types";
 import { CHEST_XP, RARE, chestPrize, welcomeBack } from "@shared/chest";
 import { dailyStreak, dayKey, streakDays } from "@shared/daily";
-import { RANKS, counters, doneThisWeek, levelReward, nextOutfit, rankOf, unlockedOutfits, weekKey, weekMissions, xpOf } from "@shared/game";
+import { OFFICE, RANKS, counters, doneThisWeek, levelReward, nextOutfit, rankOf, unlockedOutfits, weekKey, weekMissions, xpOf } from "@shared/game";
 import { dailyQuests, seasonOf } from "@shared/path";
 import { prepChain } from "@shared/prep";
 import { YEARS, yearNumber } from "@shared/roads";
 import { Office } from "@/components/Office";
+import { GuideBanner, useOfficeGuide } from "@/components/OfficeGuide";
 import { Button, Group, Icon, Remy, Row, Screen, Sect, T, success, tap, type IconName } from "@/components/ui";
 import { OUTFIT_NAME, type Outfit } from "@/components/scholarSvg";
 import { api } from "@/lib/api";
@@ -32,6 +33,7 @@ export default function PathTab() {
   const [q, setQ] = useState("");
   const [moment, setMoment] = useState("");
   const [err, setErr] = useState("");
+  const guide = useOfficeGuide();
   if (!ws) return null;
   const g = ws.game || { weeks: {} };
   const saveGame = async (game: Workspace["game"]) => setWs(await api<Workspace>("PUT", "/api/ws/game", { value: game }));
@@ -103,7 +105,8 @@ export default function PathTab() {
           <View style={pill} testID="chip-level"><View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: c.ink, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: font.bold, fontSize: 12, color: c.onInk }}>{lv.n}</Text></View><Text style={{ fontFamily: font.bold, fontSize: 13.5, color: c.ink }}>{lv.name}</Text></View>
           <Pressable testID="button-all-rewards" accessibilityRole="button" onPress={() => { tap(); go("/rewards"); }} style={({ pressed }) => [pill, pressed && { backgroundColor: c.surface2 }]}><Icon name="award" size={16} color={c.ink} /><Text style={{ fontFamily: font.bold, fontSize: 13.5, color: c.ink }}>All rewards</Text></Pressable>
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12, marginHorizontal: -16 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }} testID="path-level-track">
+        {/* With the office guide on, the season is slim (the website's Season): outfits and rewards live on Rewards. */}
+        {!guide && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12, marginHorizontal: -16 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }} testID="path-level-track">
           {tiles.map((n) => {
             const r = n === 1 ? { kind: "outfit" as const, key: "suit", level: 1 } : levelReward(n);
             const isGot = n <= lv.n, isNow = n === lv.n + 1, isOutfit = r?.kind === "outfit";
@@ -125,14 +128,16 @@ export default function PathTab() {
               </Pressable>
             );
           })}
-        </ScrollView>
+        </ScrollView>}
         <View style={{ marginTop: 12 }}>{bar(pct)}</View>
         <T kind="small" style={{ marginTop: 6 }}>{lv.max ? "Top level reached." : `${Math.max(0, xp - lv.floor)} / ${lv.next - lv.floor} XP to level ${lv.n + 1}`}</T>
         <T kind="small" style={{ color: c.mutedText }}>{se.left} days left this season{bigNext ? ` · Level ${bigNext[1]} unlocks ${(OUTFIT_NAME[bigNext[0]] || bigNext[0]).toLowerCase()}` : ""}</T>
       </View>
 
       <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8, marginTop: 24, marginBottom: 8, marginHorizontal: 4 }}><Text style={{ ...kicker, color: c.foxDeep }}>Remy's office</Text></View>
-      <Office ws={ws} />
+      <Office ws={ws} guide={guide ? { marks: guide.marks, onSpot: guide.onSpot } : undefined} />
+      {/* On a phone his banner sits right under the room (the website puts it above), so the numbered things stay in view. */}
+      {guide && <GuideBanner g={guide} nextItem={OFFICE.find(([, , l]) => l > lv.n)} />}
       <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
         <TextInput testID="input-office-ask" value={q} onChangeText={setQ} onSubmitEditing={ask} returnKeyType="send" placeholder="Ask Remy anything" placeholderTextColor={c.faint}
           style={{ flex: 1, height: 46, borderRadius: BUTTON_RADIUS, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, paddingHorizontal: 14, fontFamily: font.body, fontSize: 15.5, color: c.ink }} />
