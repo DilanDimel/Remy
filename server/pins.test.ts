@@ -53,3 +53,13 @@ test("pins: XP adds to the season total; seen tiers stop the moment repeating", 
   assert.deepEqual(newPins(w, pinsSeen(w)), []);
   assert.deepEqual(newPins(w, { network: 1 }).map((p) => p.tier), [2], "silver is new after bronze was seen");
 });
+
+test("pins: Remy's lapel and corkboard show the best pins first", async () => {
+  const { topPins } = await import("../shared/pins");
+  const w = emptyWorkspace();
+  assert.deepEqual(topPins(w), []);
+  w.contacts = Array.from({ length: 5 }, (_, i) => ({ id: "c" + i }) as any); // Networker silver
+  w.pitch = { text: "Hi", at: "" }; // a single pin
+  w.applications = [{ id: "a", versions: [{}] } as any]; // Tailor bronze
+  assert.deepEqual(topPins(w, 3).map((p) => p.id), ["network", "pitch", "tailor"]);
+});
