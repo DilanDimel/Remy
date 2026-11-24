@@ -3175,3 +3175,11 @@ button.rw-item:not(:disabled) { cursor: pointer; }
 @keyframes ch-spin { to { transform: rotate(360deg); } }
 @keyframes ch-prize { from { opacity: 0; transform: translateY(16px) scale(.6); } }
 @media (prefers-reduced-motion: reduce) { .ch-moment, .ch-chest, .ch-prize, .ch-rays { animation: none; } .ch-rays { opacity: 1; } .ch-lid { animation: none; transform: translate(-4px, -10px) rotate(-32deg); } }
+
+/* Beta 2 welcome (components/Beta2Welcome.tsx) */
+.b2-welcome { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.b2-lead { margin: 0; color: var(--muted-text); }
+.b2-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.b2-list li { display: grid; gap: 2px; padding-left: 14px; border-left: 3px solid var(--fox-soft); }
+.b2-list span { font-size: var(--text-sm); color: var(--muted-text); line-height: 1.45; }
+.b2-actions { gap: 8px; flex-wrap: wrap; }

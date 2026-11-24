@@ -26,6 +26,7 @@ import { RemyDid } from "./components/RemyDid";
 import { OfferSlot, RemyOffer } from "./components/RemyOffer";
 import { Insider } from "./components/Insider";
 import { RemyAway } from "./components/RemyAway";
+import { Beta2Welcome } from "./components/Beta2Welcome";
 import { answer as answerTailor, endSession as endTailor, isAsking, onCloseRequest, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
 import { Careers } from "./pages/Landing2";
@@ -296,6 +297,7 @@ function Shell() {
 
       <Celebrate />
       {ownerView && <PinMoment />}
+      <Beta2Welcome />
       <RemyTour />
       <main className="main" id="main">
         <div className="topbar">
