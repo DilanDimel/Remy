@@ -15,7 +15,14 @@ export function decodeEntities(s: string): string {
 
 /** Posting text as readable lines: entities decoded, spaces tidied, blank lines dropped. */
 export function postingLines(s: string): string[] {
-  return decodeEntities(s || "").replace(/\r\n?/g, "\n").replace(/ /g, " ").split("\n").map((l) => l.replace(/[ \t]+/g, " ").trim()).filter(Boolean);
+  const lines = decodeEntities(s || "").replace(/\r\n?/g, "\n").replace(/ /g, " ").split("\n").map((l) => l.replace(/[ \t]+/g, " ").trim()).filter(Boolean);
+  // Some boards put a label and its value on separate lines ("Date Posted:" then "2026-11-24"); join them.
+  return lines.reduce<string[]>((out, l) => {
+    const prev = out[out.length - 1];
+    if (prev && /^[A-Z][^:]{1,40}:$/.test(prev) && l.length <= 90 && !/:$/.test(l) && !l.startsWith("\u2022")) out[out.length - 1] = `${prev} ${l}`;
+    else out.push(l);
+    return out;
+  }, []);
 }
 
 /** A short "Label: value" line ("Date Posted: 2026-11-24") split for display; null for an ordinary sentence. */
