@@ -10,14 +10,13 @@ import { prepChain } from "@shared/prep";
 import { YEARS, yearNumber } from "@shared/roads";
 import { Office } from "@/components/Office";
 import { Button, Group, Icon, Remy, Row, Screen, Sect, T, success, tap, type IconName } from "@/components/ui";
-import type { Outfit } from "@/components/scholarSvg";
+import { OUTFIT_NAME, type Outfit } from "@/components/scholarSvg";
 import { api } from "@/lib/api";
 import { askRemy, go } from "@/lib/nav";
 import { useRefreshAll, useSession } from "@/lib/session";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
 import { radius } from "@/lib/tokens";
 
-const OUTFIT_NAME: Record<string, string> = { suit: "Business suit", tweed: "Green tweed", navy: "Navy + bow tie", camel: "Camel + turtleneck", cardigan: "Cardigan", oxblood: "Oxblood + vest", gown: "Graduation" };
 const QUEST_ICON: Record<string, IconName> = { rate: "eye", role: "compass", xp: "zap" };
 
 // A plan stop opens where it lives on the website's My Path; a semester isn't there, so Remy helps plan it.
