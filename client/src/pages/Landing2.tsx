@@ -216,7 +216,7 @@ export default function Landing2() {
   const inside = !!(me && ws?.started);
   const beta = !!config?.beta?.on && !inside;
   const start = inside ? "/" : beta ? applyHref(config?.beta?.formUrl) : "/signin";
-  const startLabel = inside ? "Open my Remy" : beta ? "Apply to be a beta tester" : "Create your free account";
+  const startLabel = inside ? "Open my Remy" : beta ? "Apply to be a beta tester" : "Create your account";
   const ext: Record<string, string> = beta ? { target: "_blank", rel: "noreferrer" } : {};
   const out = { target: "_blank", rel: "noreferrer" };
   const page = useRef<HTMLDivElement>(null);
@@ -363,7 +363,7 @@ export default function Landing2() {
         <div className="lp2-w">
           <span className="lk-medal lk-medal-sm"><Remy size={84} mood="wave" /></span>
           <h2>Ready when you are.</h2>
-          <p>Free, no credit card. About five minutes to set up.</p>
+          <p>Free during beta. About five minutes to set up.</p>
           <a className="lp2-btn lp2-btn-lg" href={start} {...ext}>{startLabel}</a>
         </div>
       </section>
