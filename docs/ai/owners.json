@@ -1,0 +1,35 @@
+{
+  "_readme": "Who works on Remy, their GitHub login, their status file and the paths they own. The lead AI edits this file. `npm run check:ai` reads it on every PR. Paths are prefixes.",
+  "people": [
+    {
+      "name": "Dilan",
+      "login": "DilanDimel",
+      "status": "docs/ai/status/lead.md",
+      "role": "Product lead. Works through the lead AI (this project's Claude), which owns everything not listed below.",
+      "lead": true,
+      "owns": []
+    },
+    {
+      "name": "Demetre",
+      "login": "dondhnk8",
+      "status": "docs/ai/status/demetre.md",
+      "role": "The phone app.",
+      "owns": ["native/"]
+    },
+    {
+      "name": "Julio",
+      "login": "ELVATOLARRY",
+      "status": "docs/ai/status/julio.md",
+      "role": "New website features, reviewing new code for where it can fail, and costs (current and projected).",
+      "owns": [
+        "server/coach/interview",
+        "shared/interview",
+        "shared/jobInterview.ts",
+        "client/src/pages/Interview.tsx",
+        "client/src/components/JobInterview.tsx",
+        "client/src/components/MockInterview.tsx",
+        "docs/finance/"
+      ]
+    }
+  ]
+}

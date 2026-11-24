@@ -4,7 +4,7 @@ Remy is an AI career coach for college students (remyai.org). `README.md` is the
 
 ## Other AIs work here too
 
-Read `docs/ai/CONTEXT.md` (who owns what, current status) and every `docs/ai/status/*.md` and open PR before you start. The project's Claude is the lead AI: it keeps CONTEXT.md current and its threads update `docs/ai/status/lead.md`. Every other AI updates only its own status file, before every PR. `native/` belongs to Demetre: lead threads don't edit it without reading `docs/ai/status/demetre.md` and noting the change in `docs/ai/status/lead.md` first. `AGENTS.md` points non-Claude tools here.
+Run `npm run ai:brief` (or read `docs/ai/CONTEXT.md`, `docs/ai/DECISIONS.md`, every `docs/ai/status/*.md` and the open PRs) before you start. The project's Claude is the lead AI: it keeps CONTEXT.md current and its threads update `docs/ai/status/lead.md`. Every other AI updates only its own status file, before every PR. `native/` belongs to Demetre: lead threads don't edit it without reading `docs/ai/status/demetre.md` and noting the change in `docs/ai/status/lead.md` first. `AGENTS.md` points non-Claude tools here.
 
 ## Before you push
 
@@ -14,7 +14,7 @@ Run these; CI runs the first three and Render deploys whatever lands on `main`.
 npm run check && npm run check:contract && npm test
 ```
 
-Touched resume reading? Also `npm run check:resume`. Touched the database or sessions? Also `npm run check:persist`.
+CI also runs `npm run check:ai` (owned files, claims, status file; see `docs/ai/README.md`). Touched resume reading? Also `npm run check:resume`. Touched the database or sessions? Also `npm run check:persist`.
 
 ## Rules every change follows
 

@@ -6,7 +6,7 @@ Area: the website (`client/`, `server/`, `shared/`, `docs/`), releases, `docs/ai
 ## Working on now
 - Streak dots lit-days-first (`shared/daily.ts` `weekDots(..., streakFirst)`, web only; native keeps the default) and the straight setup resume preview.
 - Owner-side bug fixes before "The Big Upgrade" release to students.
-- This shared-context setup (`docs/ai/`, `AGENTS.md`).
+- Shared AI system v2 for Julio joining the website: `docs/ai/owners.json`, claims and requests in status files, `npm run check:ai` in CI, `npm run ai:brief` (with `--touch`, `--me`, `--vault`), `DECISIONS.md`, `julio.md`, review checklist, `.github/CODEOWNERS`, PR template. Next: hours and AI cost from PRs plus each person's "Working on now" on the owners' dashboard Team & hours tab (agreed with the dashboard thread).
 - Owners' dashboard v2 (`client/src/pages/Admin.tsx`, `adm2-*` in `index.css`): one-screen tabs, 11 tabs to 7. Overview (#316), System (#321), Team & hours (#322) and Board & calendar (#324) and Errors & feedback (#325) merged; Openings in review; the Beta tab's release controls wait until after the release flip.
 
 ## Files and folders I touch

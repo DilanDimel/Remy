@@ -1,6 +1,6 @@
 # Remy: shared context for every AI
 
-Written and kept current by the lead AI (Dilan's project Claude). Last updated: 2026-11-24 03:55 UTC.
+Written and kept current by the lead AI (Dilan's project Claude). Last updated: 2026-11-24 06:00 UTC.
 Don't edit this file unless you are the lead; ask under "Questions for the lead" in your status file instead.
 
 Read the root [`CLAUDE.md`](../../CLAUDE.md) too: it has the build, test and code rules. This file adds who does what, what is true right now, and the product rules that aren't in the code.
@@ -13,13 +13,14 @@ RemyAI is a company building Remy, an AI career coach for college students, at r
 |---|---|
 | Dilan | Product lead. Decides every release to students. Works through the lead AI. |
 | Demetre | The phone app in `native/` (Expo). Designed the website redesign. |
-| Julio | The interview coach (credit him in PRs and What's new notes that touch it). |
+| Julio | New website features, reviewing new code for where it can fail, and costs (current and projected). Owns the interview coach (credit him in PRs and What's new notes that touch it). |
 | Ashton, Lincoln | Co-founders and managers. |
 
 ## Who owns which code
 
 | Area | Owner | Rule for everyone else |
 |---|---|---|
+| The interview coach (`server/coach/interview*`, `shared/interview*`, `shared/jobInterview.ts`, `Interview.tsx`, `JobInterview.tsx`, `MockInterview.tsx`) and `docs/finance/` | Julio and his AIs | Others write a request in their status file or add "Coordinated with: Julio" to the PR after talking to him. |
 | `native/` | Demetre and his AI | Lead threads don't edit it. If a change is needed, read `status/demetre.md`, write the request there or in `status/lead.md`, and tell Dilan. |
 | `client/`, `server/`, `shared/`, `docs/`, `.github/` | The lead AI | Other AIs read `status/lead.md` and the open PRs first, note the change in their own status file, and keep PRs small. |
 | `shared/types.ts`, `/api` routes | Both | The phone app and the website share these. Changing a shape or route needs both sides to know: note it in your status file and in the PR body. |
@@ -27,13 +28,21 @@ RemyAI is a company building Remy, an AI career coach for college students, at r
 
 ## How we work together
 
-1. Read this file, every `status/*.md`, and the open PRs before you start.
-2. Before every PR, rewrite your own `status/<person>.md` (template in [`status/README.md`](status/README.md)) in the same PR.
-3. One feature per branch and PR. Rebase on `main` right before merging; `main` needs the green "checks" status and an up-to-date branch.
-4. Commit as the person you work for (their name and GitHub noreply address). An AI co-author line is fine.
-5. If your work collides with someone else's file or PR, stop and say so in your status file and to your person. The lead decides the order.
+The exact paths each person owns are in [`owners.json`](owners.json). `npm run check:ai` enforces the rules below on every PR.
+
+1. **Start every session with `npm run ai:brief`** (add `-- --me <your name>`). It prints who's on what, active claims, requests for you, open PRs with their files, what merged in the last 24 hours, and these rules. `--touch <paths>` warns you before you start if someone else owns, claims or has an open PR on those paths. `--vault <folder>` writes it to `<folder>/remy/BRIEF.md` for AIs that read a notes vault. No terminal (ChatGPT in a browser)? Paste the output in.
+2. **Claim before you start** a feature that touches shared files: add it under `## Claims` in your own status file (format in [`status/README.md`](status/README.md)). Small (files, not folders), at most 3 days, removed when the PR merges.
+3. **Before every PR, rewrite your own `status/<person>.md`** in the same PR. CI fails without it (the lead's threads coordinate inside Dilan's project instead).
+4. **Need a change in someone else's area?** Add `- to <Name>: <what you need>` under `## Requests` in your status file. Their briefing shows it. If you agreed to do it yourself, add `Coordinated with: <Name>` to the PR description, or CI blocks it.
+5. **Fill in the PR template**, including `Hours:` (your own hands-on time; it feeds the owners' dashboard) and `AI cost:` if you know it.
+6. One feature per branch and PR (`<name>/<feature>`, the lead's are `claude/...`). Rebase on `main` right before merging; `main` needs the green "checks" status and an up-to-date branch.
+7. Commit as the person you work for (their name and GitHub noreply address). An AI co-author line is fine.
+8. **Reviews:** Julio is asked to review every code PR, to spot where it can fail ([`review-checklist.md`](review-checklist.md)). His review doesn't block merging; findings become comments or follow-up PRs. The lead reviews other people's PRs for collisions and the owners-only rule before they merge.
 
 ## Product rules (all AIs)
+
+The dated reasons behind these are in [`DECISIONS.md`](DECISIONS.md).
+
 
 - **Owners only first.** Every new or redesigned feature is visible only to owners until Dilan releases it. Releases are switched on Admin → Beta → Feature releases (`shared/features.ts`), not by deploying. The phone app is owners-only too.
 - **No invented claims.** Remy never makes up facts about a student. AI rewrites are checked (`server/ai/claims.ts`) and shown as original vs. proposed, for the student to accept, edit or skip.
