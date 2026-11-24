@@ -138,13 +138,13 @@ export function Sect({ title, right }: { title: string; right?: ReactNode }) {
 }
 
 /** A grouped list row, iOS-settings style. */
-export function Row({ title, sub, left, right, onPress, first, testID }: { title: string; sub?: string; left?: ReactNode; right?: ReactNode; onPress?: () => void; first?: boolean; testID?: string }) {
+export function Row({ title, sub, subLines = 1, left, right, onPress, first, testID }: { title: string; sub?: string; subLines?: number; left?: ReactNode; right?: ReactNode; onPress?: () => void; first?: boolean; testID?: string }) {
   const { c } = useTheme();
   return (
     <Pressable testID={testID} disabled={!onPress} onPress={onPress ? () => { tap(); onPress(); } : undefined} style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13, paddingHorizontal: 16, backgroundColor: pressed ? c.surface2 : c.surface })}>
       {!first && <View style={{ position: "absolute", top: 0, left: left ? 52 : 16, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: c.line }} />}
       {left}
-      <View style={{ flex: 1 }}><T numberOfLines={3}>{title}</T>{!!sub && <T kind="small" numberOfLines={1}>{sub}</T>}</View>
+      <View style={{ flex: 1 }}><T numberOfLines={3}>{title}</T>{!!sub && <T kind="small" numberOfLines={subLines}>{sub}</T>}</View>
       {right ?? (onPress ? <Icon name="chev" size={18} color={c.faint} /> : null)}
     </Pressable>
   );
