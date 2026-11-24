@@ -46,7 +46,8 @@ export default function Onboarding() {
     go("/");
     // Remy's tutorial starts now (set here so students who finished setup before it existed aren't surprised by it),
     // unless they skip it; "Show me around again" in the menu still starts it later.
-    await save("settings", { tour: tour ? 0 : "done" }).catch(() => {});
+    // New students after the release get setup and the tour, not the "Remy just got an update" card (Beta2Welcome).
+    await save("settings", { tour: tour ? 0 : "done", ...(ownerView ? { beta2Seen: true } : {}) }).catch(() => {});
     await save("onboarding", { ...w.onboarding, done: true });
   };
   // The first screen saves the path and goal and picks where setup ends; nobody skips setup, since everything
