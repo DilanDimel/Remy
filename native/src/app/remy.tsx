@@ -103,8 +103,10 @@ export default function RemyChat() {
   const insets = useSafeAreaInsets();
   const [text, setText] = useState("");
   // Opened from Today ("Help me with this: …"): the question waits in the box, ready to send or edit.
-  const { ask } = useLocalSearchParams<{ ask?: string }>();
-  useEffect(() => { if (ask) setText(ask); }, [ask]);
+  // From My Path's office box (`send`), it was typed already, so it is asked at once (send() below, once ws is here).
+  const { ask, send: sendNow, at } = useLocalSearchParams<{ ask?: string; send?: string; at?: string }>();
+  const asked = useRef("");
+  useEffect(() => { if (ask && !sendNow) setText(ask); }, [ask, sendNow]);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<ChatMsg | null>(null);
   // Remy's reply while it is being written (streamed): `live` is what has arrived, `shown` catches up a few
@@ -146,6 +148,11 @@ export default function RemyChat() {
   // Each new message (yours, Remy's first words, the saved reply) brings the list back to the bottom while sending.
   const count = (ws?.chat.length || 0) + (pending ? 1 : 0) + (shown ? 1 : 0);
   useEffect(() => { if (sending.current || busy) toBottom(); }, [count, busy]);
+  useEffect(() => {
+    if (!ws || !ask || !sendNow || asked.current === `${at}|${ask}`) return;
+    asked.current = `${at}|${ask}`;
+    send(ask);
+  }, [ws ? 1 : 0, ask, sendNow, at]);
   if (!ws) return null;
   const msgs = [...ws.chat, ...(pending ? [pending] : []), ...(pending && shown ? [{ id: "live", role: "assistant", text: tidyPartial(shown), at: pending.at } as ChatMsg] : [])].slice(-60).reverse();
 

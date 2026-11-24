@@ -32,6 +32,7 @@ export default function JobDetail() {
   const saved = ws.savedJobIds.includes(j.id);
   const decided = saved || !!ws.jobFeedback?.[j.id];
   const skills = postingSkills(j.requirements).slice(0, 6);
+  const gaps = (fit?.gaps || []).filter((g) => !skills.some((k) => k.toLowerCase() === g.toLowerCase()));
   const url = j.applyUrl || j.sourceUrl;
   const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
   const tracked = ws.tracker.find((t) => t.jobId === j.id) || ws.tracker.find((t) => !t.jobId && same(t.company, j.company) && same(t.role, j.title));
@@ -105,10 +106,12 @@ export default function JobDetail() {
             </View>
           </View>
         )}
-        {!!fit?.gaps.length && <Text style={{ fontFamily: font.body, fontSize: 14, lineHeight: 20, color: c.mutedText }}><Text style={{ fontFamily: font.bold }}>Gaps: </Text>{fit.gaps.slice(0, 3).join("; ")}</Text>}
+        {/* Only gaps the "Looking for" chips above don't already show. */}
+        {gaps.length > 0 && <Text style={{ fontFamily: font.body, fontSize: 14, lineHeight: 20, color: c.mutedText }}><Text style={{ fontFamily: font.bold }}>Gaps: </Text>{gaps.slice(0, 3).join("; ")}</Text>}
         {!!j.summary && <T>{j.summary}</T>}
         <View style={{ gap: 4 }}>
-          <T kind="small"><Text style={{ fontFamily: font.bold }}>Deadline: </Text>{j.deadlineText || "Not stated"}</T>
+          {/* Hidden when the board gives no date ("Not stated…"; handoff 09: hide empty fields). A rolling deadline still shows. */}
+          {!!j.deadlineText && !/^not stated/i.test(j.deadlineText) && <T kind="small"><Text style={{ fontFamily: font.bold }}>Deadline: </Text>{j.deadlineText}</T>}
           {!!j.sourceUrl && <Pressable testID="link-source" onPress={() => WebBrowser.openBrowserAsync(j.sourceUrl).catch(() => {})}><T kind="small"><Text style={{ fontFamily: font.bold }}>Source: </Text><Text style={{ color: c.fox }}>{j.sourceName || "Posting"}</Text></T></Pressable>}
         </View>
       </ScrollView>

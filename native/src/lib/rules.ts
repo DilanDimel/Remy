@@ -1,7 +1,7 @@
 // The website's rules for who sees what, in one pure file so they can be tested without a phone.
 // The logic itself lives in shared/ (features, beta); this file only puts it in the website's order (client/src/App.tsx).
 import type { AppConfig, Me, Workspace } from "../../../shared/types";
-import { accessOf, redesignOut, releasesOf } from "../../../shared/features.ts";
+import { accessOf, appOut, redesignOut, releasesOf } from "../../../shared/features.ts";
 import { termsFor } from "../../../shared/beta.ts";
 
 export type Status = "loading" | "signed-out" | "beta-blocked" | "ready" | "error";
@@ -18,9 +18,11 @@ export const redesignFor = (me: Me | null, ws: Workspace | null, config: AppConf
 export const accessFor = (me: Me | null, ws: Workspace | null, config: AppConfig | null, key: string) =>
   accessOf(releasesOf(config?.features), key, ownersOnly(me, ws));
 
-/** The phone app itself is still owners-only (CONTEXT.md): owners get in in either view, so they can switch to student
- *  view and check it; everyone else is told it's coming. When the team releases the app, this is the one line to change. */
-export const appOpenFor = (me: Me | null) => !!me?.owner;
+/** The phone app has its own switch in Admin → Beta → Feature releases (`app`, Owners only by default). Owners always
+ *  get in, in either view, so they can switch to student view and check it; everyone else gets in once Dilan releases
+ *  `app`, and until then is told it's coming. */
+export const appOpenFor = (me: Me | null, config: AppConfig | null) =>
+  !!me?.owner || (!!me && appOut(releasesOf(config?.features)));
 
 export type Gate = "loading" | "sign-in" | "beta" | "terms" | "setup" | "not-yet" | "tabs";
 /** Which screen comes first, in the website's order: signed out → sign-in; not on the beta list → beta screen; terms
@@ -30,7 +32,7 @@ export function gateFor(status: Status, me: Me | null, ws: Workspace | null, con
   if (status === "signed-out" || status === "error" || !me) return "sign-in";
   if (status === "beta-blocked") return "beta";
   if (!ws || !config) return "loading";
-  if (!appOpenFor(me)) return "not-yet";
+  if (!appOpenFor(me, config)) return "not-yet";
   if (ws.betaAgreed?.version !== termsFor(config.beta?.open).version) return "terms";
   if (!ws.onboarding?.done) return "setup";
   return "tabs";

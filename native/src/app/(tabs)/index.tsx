@@ -11,7 +11,7 @@ import { offerFor, remyOffers } from "@shared/remyOffers";
 import { Button, Group, Icon, Logo, Remy, Row, Screen, Sect, T, success, tap } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useJobs } from "@/lib/jobs";
-import { askRemy, go, openJobs } from "@/lib/nav";
+import { askRemy, go, openJobs, openResumeFix } from "@/lib/nav";
 import { greeting, visibleJobs } from "@/lib/next";
 import { useOwnerView, useRefreshAll, useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
@@ -56,7 +56,8 @@ export default function Home() {
   const streak = dailyStreak(days);
   const dots = weekDots(days);
   const roundDone = (["openings", "role", "forecast"] as const).every((k) => ws.game?.days?.[today]?.includes(k));
-  const offer = offerFor(remyOffers(ws, today, new Date().getHours()).filter((o) => !gone.includes(o.id)), "/");
+  // Owner view only, like the website ({ownerView && <RemyOffer />} in client/src/App.tsx): /api/remy/act is owners-only too.
+  const offer = ownerView ? offerFor(remyOffers(ws, today, new Date().getHours()).filter((o) => !gone.includes(o.id)), "/") : undefined;
 
   const todos = ws.tasks.filter((t) => !t.done || doneNow.includes(t.id)).sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999")).slice(0, 3);
   // New openings only: one already kept or passed is in Jobs, not "for you" again. Most matched skills first, like the website.
@@ -96,7 +97,11 @@ export default function Home() {
     try {
       const w = await api<Workspace>("POST", "/api/remy/act", { action: offer.action, offerId: offer.id });
       setGone((g) => [...g, offer.id]); setWs(w); success();
-      router.push("/remy"); // what he did shows in his chat, with Undo
+      // "Let's fix them" starts the fixing (the website's startResumeFix in client/src/lib/remyDoes.ts): Resume opens
+      // on Remy's fixes. Anything else he did shows in his chat, with Undo.
+      const said = w.chat[w.chat.length - 1];
+      if (said?.did?.some((d) => d.kind === "start" && d.ref === "resumeFix" && !d.undone)) return openResumeFix();
+      router.push("/remy");
     } finally { setBusy(false); }
   });
   const notNow = () => { if (!offer) return; tap(); setGone((g) => [...g, offer.id]); saveSettings({ offersSeen: [...(ws.settings.offersSeen || []), offer.id].slice(-200) }).catch(() => {}); };
