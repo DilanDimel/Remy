@@ -212,7 +212,10 @@ function Releases() {
   const r = releasesOf(config?.features);
   const set = async (key: string, state: Release) => {
     const f = FEATURES.find((x) => x.key === key)!;
-    if (state === "released" && !confirm(f.path ? `Release ${f.label} to every student? They get the full working page right away.` : `Release ${f.label} to every student? Everyone gets the new design and features right away. Owners-only features below stay with owners.`)) return;
+    const ask = f.path ? `Release ${f.label} to every student? They get the full working page right away.`
+      : f.key === "app" ? `Release the phone app to every student? Students who sign in to the app get in right away instead of seeing "The new app is almost here".`
+      : `Release ${f.label} to every student? Everyone gets the new design and features right away. Owners-only features below stay with owners.`;
+    if (state === "released" && !confirm(ask)) return;
     if (await run(() => api("POST", "/api/admin/features", { key, state }), `${f.label}: ${RELEASE_NAME[state]}`)) await refresh();
   };
   return (
@@ -221,7 +224,7 @@ function Releases() {
       <span className="small muted">New features are built for owners first. Lock one to show students it's coming, or release it to everyone. Changes reach students within a minute, with no deploy. Switch to student view to preview.</span>
       {FEATURES.map((f) => (
         <div key={f.key} className="feat-row">
-          <div><b>{f.label}</b> <span className="small muted">{f.path || "every page"}</span></div>
+          <div><b>{f.label}</b> <span className="small muted">{f.path || (f.key === "app" ? "iPhone and Android" : "every page")}</span></div>
           <select className="select" style={{ width: 260, maxWidth: "100%" }} value={r[f.key]} onChange={(e) => set(f.key, e.target.value as Release)} aria-label={`${f.label} release`} data-testid={`select-release-${f.key}`}>
             {RELEASES.filter((st) => f.path || st !== "locked").map((st) => <option key={st} value={st}>{RELEASE_NAME[st]}</option>)}
           </select>

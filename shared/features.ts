@@ -11,6 +11,9 @@ export const FEATURES: Feature[] = [
   { key: "redesign", label: "The Big Upgrade: the new Remy (whole app)", path: "", release: "owners", teaser: "" },
   { key: "interview", label: "Interview", path: "/interview", release: "locked", teaser: "Practice a real mock interview with Remy for the jobs you want, out loud, with feedback on every answer." },
   { key: "community", label: "Community", path: "/community", release: "locked", teaser: "Keep track of everyone you meet, and Remy tells you what to say, when to follow up and how to stay in touch." },
+  // The phone app (native/), released to students on its own (Dilan, Nov 24). No page; until "released" students who sign
+  // in to the app see "The new app is almost here" and a link to the website.
+  { key: "app", label: "Phone app", path: "", release: "owners", teaser: "" },
   { key: "rewards", label: "Rewards", path: "/rewards", release: "owners", teaser: "Everything you can earn in Remy, in one place." },
 ];
 
@@ -28,3 +31,5 @@ export const accessOf = (r: Releases, key: string, ownerView: boolean): "open" |
 export const featureAt = (path: string) => FEATURES.find((f) => f.path && path.startsWith(f.path));
 /** Students get the redesign once owners release it. */
 export const redesignOut = (r: Releases) => r.redesign === "released";
+/** Students can use the phone app once owners release it; owners always can. */
+export const appOut = (r: Releases) => r.app === "released";
