@@ -99,7 +99,7 @@ export default function Admin() {
       <main className="adm-main">
         {tab === "overview" && <OverviewTab />}
         {tab === "errors" && <ErrorsTab />}
-        {tab === "beta" && <><FunnelCard /><BetaTab /><UsedCard /></>}
+        {tab === "beta" && <><BetaTab /><FunnelCard /><UsedCard /></>}
         {tab === "system" && <SystemTab />}
         {tab === "openings" && <OpeningsTab />}
         {(tab === "board" || tab === "team") && <TeamTab tab={tab} />}
