@@ -211,7 +211,8 @@ function Settings() {
   );
 }
 
-/** Opt-in texts for urgent deadlines (redesign stage 5, owners first). The number is saved when it's valid. */
+/** Opt-in texts for urgent deadlines. The number is saved only when texts are on (or to remove it): typing one
+ *  with texts off keeps it on this screen until they tick the box (legal audit, Nov 24). */
 function UrgentTexts() {
   const { ws, save, toast } = useStore();
   const t = ws!.settings.texts || { on: false, phone: "" };
@@ -225,7 +226,7 @@ function UrgentTexts() {
     <div className="stack-sm" data-testid="urgent-texts">
       <label className="row small"><input type="checkbox" checked={t.on} onChange={() => keep({ on: !t.on, phone })} data-testid="toggle-texts" /> Text me when an application closes today or tomorrow (at most one text a day)</label>
       <input className="input" type="tel" inputMode="tel" autoComplete="tel" placeholder="(817) 555-0123" aria-label="Phone number for urgent texts" value={phone}
-        onChange={(e) => setPhone(e.target.value)} onBlur={() => { if (phone !== t.phone && (phone === "" || valid(phone))) keep({ on: t.on && phone !== "", phone }); }} data-testid="input-text-phone" />
+        onChange={(e) => setPhone(e.target.value)} onBlur={() => { if (phone !== t.phone && (phone === "" || (t.on && valid(phone)))) keep({ on: t.on && phone !== "", phone }); }} data-testid="input-text-phone" />
       {phone && !valid(phone) && <span className="xs bad">Use a US number with area code.</span>}
     </div>
   );
