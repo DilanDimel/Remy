@@ -40,9 +40,10 @@ export function RemyOffer() {
   const notNow = () => { setGone((g) => [...g, o.id]); void save("settings", { offersSeen: [...(ws!.settings.offersSeen || []), o.id].slice(-200) }); };
   const card = (
     <div className={"remy-offer fade-up" + (slot ? " docked" : "")} role="status" data-testid="remy-offer">
-      <Remy size={34} mood="wave" />
+      {/* Remy reaching out first is the point of this card (Dilan, Nov 23): his face, a live dot and a kicker say so */}
+      <span className="remy-offer-face"><Remy size={40} mood="wave" /></span>
       <div className="stack-sm" style={{ gap: 8, minWidth: 0 }}>
-        <span className="small">{o.text}</span>
+        <span className="remy-offer-text"><span className="remy-offer-kicker"><i aria-hidden="true" />Remy noticed something</span>{o.text}</span>
         <div className="row" style={{ gap: 6 }}>
           <button className="btn btn-primary btn-sm" onClick={doIt} disabled={busy} data-testid="button-offer-do">{busy ? <Spinner /> : null}{o.label}</button>
           <button className="btn btn-ghost btn-sm" onClick={notNow} disabled={busy} data-testid="button-offer-not-now">Not now</button>

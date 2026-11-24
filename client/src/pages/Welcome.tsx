@@ -126,7 +126,7 @@ function SignIn() {
     <div className="landing-screen auth-stage">
       <div className="lp-beam" aria-hidden><span className="lp-beam-floor" /></div>
       <aside className="auth-side" aria-label="What happens next">
-        <span className="lp-award">{config?.beta?.on ? "Invite-only beta · looking for testers" : "Free while Remy is in beta"}</span>
+        <span className="lp-award">{config?.beta?.on ? "Invite-only beta · looking for testers" : "Free during beta"}</span>
         <p className="auth-side-h" aria-hidden>Your career coach is one step away.</p>
         <ol className="auth-steps">
           <li><b>Sign in</b><span>{config?.beta?.on ? "With the email you applied with." : "New here? This creates your account."}</span></li>
@@ -139,7 +139,7 @@ function SignIn() {
         <div className="landing">
           <Remy size={72} mood="wave" />
           <h1 className="motto">Sign in to Remy</h1>
-          <p className="sub">{config?.beta?.on ? "Free for beta testers. Setup takes about 5 minutes." : "Free for students while Remy is in beta. New here? Signing in creates your account; setup takes about 5 minutes."}</p>
+          <p className="sub">{config?.beta?.on ? "Free for beta testers. Setup takes about 5 minutes." : "Free during beta. New here? Signing in creates your account; setup takes about 5 minutes."}</p>
         </div>
         <BetaNote onOther={() => { setSent(""); setEmail(""); setCode(""); }} />
         <div className="sso-list">

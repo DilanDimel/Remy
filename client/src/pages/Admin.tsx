@@ -204,7 +204,7 @@ function Applications({ emailReady, onList }: { emailReady: boolean; onList: (li
 }
 
 type BetaRow = { email: string; note: string; addedBy: string; addedAt: string; invitedAt: string | null };
-type BetaData = { on: boolean; formUrl: string; emailReady: boolean; list: BetaRow[] };
+type BetaData = { on: boolean; inviteOnly: boolean; open: boolean; formUrl: string; emailReady: boolean; list: BetaRow[] };
 /** Founding Cohort: owners paste accepted emails (one per line or comma-separated); Remy can email them "You're in". */
 function BetaTab() {
   const { run, toast } = useStore();
@@ -223,6 +223,15 @@ function BetaTab() {
     setEmails("");
     toast([`${r.added.length} accepted`, r.invited.length ? `${r.invited.length} emailed` : "", r.already.length ? `${r.already.length} already on the list` : "", r.wrong.length ? `not emails: ${r.wrong.join(", ")}` : ""].filter(Boolean).join(" · "), r.wrong.length > 0);
   };
+  // The instant-access switch (Nov 24): one click opens Remy to everyone, one click goes back to apply-first.
+  const flip = async () => {
+    const open = !d.open;
+    if (!confirm(open
+      ? "Let everyone sign in right away? Anyone can create an account without applying. Tailoring is capped at 5 a day, Beta Insider invites and the Feedback button turn on for students, and everyone agrees to the updated beta terms once."
+      : "Go back to invite-only? Only accepted emails and the team can sign in again; everyone else sees the apply link. Their saved work stays.")) return;
+    const r = await run(() => api<BetaData>("POST", "/api/admin/beta/open", { open }), open ? "Remy is open to everyone" : "Back to invite-only");
+    if (r) setD(r);
+  };
   const remove = async (e: string) => {
     if (!confirm(`Remove ${e} from the Founding Cohort? They won't be able to sign in while beta-only mode is on (their saved work stays).`)) return;
     const r = await run(() => api<{ list: BetaRow[] }>("DELETE", `/api/admin/beta/${encodeURIComponent(e)}`), "Removed");
@@ -230,9 +239,18 @@ function BetaTab() {
   };
   return (
     <div className="stack">
-      <Head title="Beta list" sub="Founding Cohort: while beta-only mode is on, only these emails (and the team) can sign in. Students must sign in with the same email they put on the form." />
+      <Head title="Beta list" sub="Who can sign in. While Remy is invite-only, only these emails (and the team) can sign in, with the same email they put on the form. Once it is open to everyone, this list and the applications are kept but no longer needed to get in." />
       <section className="adm-card stack-sm" data-testid="beta-status">
-        <span><b>Beta-only mode is {d.on ? "ON" : "OFF"}</b> on this server{d.on ? "" : ": anyone can sign in right now. Turn it on with OR_BETA_ONLY=true in Render's environment settings"}.</span>
+        <div className="row-between" style={{ gap: 12, flexWrap: "wrap" }}>
+          <span className="stack-sm" style={{ flex: "1 1 260px" }}>
+            <b>{d.open ? "Open to everyone: anyone can sign in right away" : d.on ? "Invite-only: students apply, then sign in" : "Anyone can sign in (beta-only mode is off on this server)"}</b>
+            <span className="small muted">{d.open
+              ? "No application needed. Tailoring is capped at 5 a day per student, Beta Insider invites go out after 3 days of use, and every page has a Feedback button. The Free during beta label stays."
+              : "Open Remy to let anyone sign in without applying (with a daily cap on tailoring and Beta Insider invites). You can switch back to invite-only at any time."}</span>
+          </span>
+          <button className={"btn btn-sm " + (d.open ? "btn-secondary" : "btn-primary")} onClick={flip} data-testid="button-beta-open-toggle">{d.open ? "Back to invite-only" : "Let everyone in"}</button>
+        </div>
+        {!d.inviteOnly && !d.open && <span className="small muted">Beta-only mode is off on this server (OR_BETA_ONLY isn't true), so anyone can already sign in.</span>}
         <span className="small muted">Application form: {d.formUrl ? <a href={d.formUrl} target="_blank" rel="noreferrer" style={{ overflowWrap: "anywhere" }}>{d.formUrl}</a> : "not set (set OR_BETA_FORM_URL; until then students are pointed to hello@remyai.org)"}</span>
       </section>
       <Applications emailReady={d.emailReady} onList={(list) => setD({ ...d, list })} />

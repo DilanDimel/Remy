@@ -9,7 +9,7 @@ import { z } from "zod";
 import type {
   Application, AppConfig, BulletChange, ChatAction, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace, Story, StoryPart } from "@shared/types";
 import { PATHS } from "@shared/types";
-import { BETA_TERMS_VERSION } from "@shared/beta";
+import { INSIDER_AFTER_DAYS, INSIDER_SURVEY, insiderEligible, insiderSurveyDue, termsFor } from "@shared/beta";
 import { NAME_CHECK, firstName, knownName, nameUnsure, sameName } from "@shared/names";
 import { partialReply } from "./ai/streamReply";
 import { startStream, streamLine } from "./platform/stream";
@@ -148,7 +148,7 @@ function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: 
       if (me && !(await beta.meAllowed(me))) return res.status(403).json({ message: beta.betaError(me.email).message, code: "beta" });
       if (!me) {
         if (!opts.create) return res.status(401).json({ message: "Please sign in to continue." });
-        if (beta.betaOn()) return res.status(403).json({ message: "Remy is invite-only during the beta. Apply to be a beta tester, then sign in with the email you applied with.", code: "beta" });
+        if (await beta.betaOn()) return res.status(403).json({ message: "Remy is invite-only during the beta. Apply to be a beta tester, then sign in with the email you applied with.", code: "beta" });
         if (!allow("guest:" + ip, 10, 60 * 60_000)) return res.status(429).json({ message: "Too many new guest workspaces from this network. Please try again in an hour, or sign in." });
         me = await newGuest(res);
       }
@@ -186,7 +186,10 @@ function logAi(ws: Workspace, purpose: string, started: number, ok: boolean, not
 }
 async function withAi<T>(ctx: Ctx, purpose: string, fn: () => Promise<T>): Promise<T> {
   if (!allow("ai-ip:" + ctx.ip, 60, 60 * 60_000)) bad("Lots of AI requests are coming from this network. Please wait a bit and try again.", 429);
-  const lim = await aiAllowed(ctx.me.id, ctx.me.kind === "guest" || ctx.me.kind === "visitor");
+  // Open access: tailoring has a daily cap for everyone but owners.
+  const hk = beta.heavyKind(purpose);
+  const heavy = hk && !ctx.me.owner && (await beta.openAccess()) ? { kind: hk, max: beta.TAILOR_PER_DAY, message: beta.tailorLimitMessage } : undefined;
+  const lim = await aiAllowed(ctx.me.id, ctx.me.kind === "guest" || ctx.me.kind === "visitor", heavy);
   if (!lim.ok) bad(lim.message!, 429);
   const t = Date.now();
   try {
@@ -711,7 +714,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       emailCodes: emailReady() || devCodes(),
       googleCalendar: gcal.gcalReady(),
       build: buildId(),
-      beta: { on: beta.betaOn(), formUrl: beta.betaFormUrl() },
+      beta: { on: await beta.betaOn(), formUrl: beta.betaFormUrl(), open: await beta.openAccess() },
     };
     res.json(cfg);
   });
@@ -768,7 +771,16 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.post("/api/admin/tasks", route(async (req, res, ctx) => { const me = owner(ctx); await admin.saveTask(me, req.body || {}); res.json(await admin.team(me)); }));
   app.delete("/api/admin/tasks/:id", route(async (req, res, ctx) => { const me = owner(ctx); await admin.deleteTask(me, String(req.params.id)); res.json(await admin.team(me)); }));
   // Founding Cohort list: owners add accepted emails (optionally emailing "You're in") and remove them.
-  app.get("/api/admin/beta", route(async (_req, res, ctx) => { owner(ctx); res.json({ on: beta.betaOn(), formUrl: beta.betaFormUrl(), emailReady: emailReady(), list: await beta.list() }); }));
+  const betaAdmin = async () => ({ on: await beta.betaOn(), inviteOnly: process.env.OR_BETA_ONLY === "true", open: await beta.openAccess(), formUrl: beta.betaFormUrl(), emailReady: emailReady(), list: await beta.list() });
+  app.get("/api/admin/beta", route(async (_req, res, ctx) => { owner(ctx); res.json(await betaAdmin()); }));
+  // The instant-access switch: on lets anyone sign in (daily caps on heavy AI); off goes back to apply-first.
+  app.post("/api/admin/beta/open", route(async (req, res, ctx) => {
+    const me = owner(ctx);
+    if (typeof req.body?.open !== "boolean") bad("Say open: true or false.");
+    await beta.setOpenAccess(me, req.body.open);
+    await admin.logAction(me, req.body.open ? "beta: opened to everyone" : "beta: back to invite-only");
+    res.json(await betaAdmin());
+  }));
   app.post("/api/admin/beta", route(async (req, res, ctx) => {
     const me = owner(ctx);
     const r = await beta.add(me, String(req.body?.emails || ""), String(req.body?.note || ""));
@@ -1037,10 +1049,35 @@ export async function registerRoutes(_server: Server, app: Express) {
       draft: z.record(z.string(), z.array(z.looseObject({ id: str(120), text: str(400), options: z.array(str(400)).max(4), source: str(2000) })).max(6)).optional(),
     }),
   };
+  // Beta Insider (open access): join after a few days of use (a secret pin marks it), then a short survey every two
+  // weeks. Owners can try it in owner view before access opens. Answers are feedback notes under the student's account.
+  app.post("/api/insider", route(async (_req, res, ctx) => {
+    if (!ctx.me.owner && !(await beta.openAccess())) bad("Beta Insider isn't open yet.", 403);
+    if (!ctx.ws.insider) {
+      if (!insiderEligible(ctx.ws) && !ctx.me.owner) bad(`Use Remy on ${INSIDER_AFTER_DAYS} different days first.`);
+      ctx.ws.insider = { joinedAt: centralToday() };
+      await ctx.save();
+    }
+    res.json(ctx.ws);
+  }));
+  app.post("/api/insider/survey", route(async (req, res, ctx) => {
+    if (!ctx.ws.insider) bad("Join Beta Insider first.");
+    if (!insiderSurveyDue(ctx.ws, centralToday())) return res.json(ctx.ws); // a second tab answering again changes nothing
+    if (!allow("feedback:" + ctx.me.id, 20, 60 * 60_000)) bad("Thanks! That's a lot of feedback at once; please wait a bit.", 429);
+    const answers = (Array.isArray(req.body?.answers) ? req.body.answers : []).slice(0, INSIDER_SURVEY.length);
+    for (const [i, a] of answers.entries()) {
+      const text = String(a ?? "").replace(/\s+/g, " ").trim().slice(0, 600);
+      if (text) await recordError("feedback", "insider-survey", `${INSIDER_SURVEY[i]} — ${text}`, ctx.me.email || "", ctx.me.id);
+    }
+    ctx.ws.insider = { ...ctx.ws.insider, surveyAt: centralToday() };
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
   // Beta terms: recorded with the server's time and the exact version shown.
   app.post("/api/beta/agree", route(async (req, res, ctx) => {
-    if (req.body?.version !== BETA_TERMS_VERSION) bad("These terms changed. Reload the page to see the latest version.", 409);
-    ctx.ws.betaAgreed = { version: BETA_TERMS_VERSION, at: nowIso() };
+    const { version } = termsFor(await beta.openAccess());
+    if (req.body?.version !== version) bad("These terms changed. Reload the page to see the latest version.", 409);
+    ctx.ws.betaAgreed = { version, at: nowIso() };
     await ctx.save();
     res.json(ctx.ws);
   }));

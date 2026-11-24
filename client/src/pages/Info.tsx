@@ -4,7 +4,7 @@ import { Remy } from "../components/common";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { useOwnerView, useStore } from "../lib/store";
 import { Top } from "./Landing2";
-import { BETA_TERMS, BETA_TERMS_LEAD } from "@shared/beta";
+import { BETA_TERMS_LEAD, termsFor } from "@shared/beta";
 
 const CONTACT = "hello@remyai.org";
 const UPDATED = "November 23, 2026";
@@ -56,8 +56,9 @@ export const TEAM: { name: string; role: string; photo: string; email?: string }
 ];
 
 export function About() {
+  const config = useStore()?.config;
   return (
-    <Page title="About Remy" lead="Remy is a career coach for college students: it finds real openings that fit you and helps you apply honestly. During the beta it's invite-only: apply to be a beta tester on the homepage.">
+    <Page title="About Remy" lead={`Remy is a career coach for college students: it finds real openings that fit you and helps you apply honestly. ${config?.beta?.open ? "During the beta anyone can sign in and start right away." : "During the beta it's invite-only: apply to be a beta tester on the homepage."}`}>
       <Section title="Why we built it">
         <p>Most students, freshmen especially, don't know where to start: what to put on a resume, which openings fit, or who to talk to. Remy walks you through it, from your first resume to your first offer.</p>
       </Section>
@@ -96,6 +97,7 @@ export function About() {
 }
 
 export function Policies() {
+  const config = useStore()?.config;
   return (
     <Page title="Privacy & terms" lead={`How Remy handles your information, and the rules for using it. Last updated ${UPDATED}.`}>
       <h2 className="eyebrow">Privacy policy</h2>
@@ -147,11 +149,11 @@ export function Policies() {
       <h2 className="eyebrow" style={{ marginTop: 12 }}>Terms of use</h2>
       <Section title="Remy is in beta">
         <p id="beta-terms">{BETA_TERMS_LEAD}</p>
-        <ul className="stack-sm" style={{ paddingLeft: 18 }}>{BETA_TERMS.map((t) => <li key={t}>{t}</li>)}</ul>
+        <ul className="stack-sm" style={{ paddingLeft: 18 }}>{termsFor(config?.beta?.open).terms.map((t) => <li key={t}>{t}</li>)}</ul>
       </Section>
       <Section title="Using Remy">
         <ul className="stack-sm" style={{ paddingLeft: 18 }}>
-          <li>Remy is for college students looking for internships, jobs and career advice. It's free during beta, and invite-only: sign in with the same email you applied with.</li>
+          <li>Remy is for college students looking for internships, jobs and career advice. It's free during beta{config?.beta?.open ? ", and anyone can sign up." : ", and invite-only: sign in with the same email you applied with."}</li>
           <li>Be honest. You're responsible for what you put on your resume and send to employers. Remy only suggests; you decide.</li>
           <li>Remy can be wrong. Check openings, deadlines and requirements with the employer before you apply. Remy can't promise any interview or job.</li>
           <li>Use contacts respectfully: one thoughtful email, no spam, and never share someone's information.</li>

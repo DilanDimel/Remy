@@ -55,6 +55,7 @@ export const PINS: Pin[] = [
 
   { id: "nightowl", kind: "secret", name: "Night owl", hint: "Remy notices when you work late.", how: "Did a real step between midnight and 4 AM", link: "/", tiers: [1], xp: [40], count: (w) => (actTimes(w).some((d) => d.getHours() < 4) ? 1 : 0) },
   { id: "earlybird", kind: "secret", name: "Early bird", hint: "Some people get going before breakfast.", how: "Did a real step before 7 AM", link: "/", tiers: [1], xp: [40], count: (w) => (actTimes(w).some((d) => d.getHours() >= 4 && d.getHours() < 7) ? 1 : 0) },
+  { id: "insider", kind: "secret", name: "Beta Insider", hint: "Remy's closest testers get something special.", how: "Joined Beta Insider to shape what Remy builds next", link: "/", tiers: [1], xp: [50], count: (w) => (w.insider?.joinedAt ? 1 : 0) },
   { id: "allround", kind: "secret", name: "All-rounder", hint: "Try a little of everything.", how: "Bronze or better on every Craft pin", link: "/rewards", tiers: [1], xp: [100], count: (w) => (PINS.filter((p) => p.kind === "craft").every((p) => p.count(w) >= p.tiers[0]) ? 1 : 0) },
 ];
 
