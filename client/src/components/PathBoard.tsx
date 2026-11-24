@@ -4,12 +4,14 @@
 // every tab; "Your field" (roles, skills, certifications) sits on the page. Every number comes from data Remy already
 // has (DailyPath.tsx buildStops, shared/daily.ts, shared/game.ts, BLS via /api/careers and /api/future).
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ArrowRight, Award, Briefcase, Check, Compass, DollarSign, Eye, Flame, Gift, Mic, Snowflake, Square, TrendingDown, TrendingUp, Wrench, Zap } from "lucide-react";
 import { ROADS, roadFor, YEARS, yearNumber, NEED_LABEL } from "@shared/roads";
 import { rankOf, weekKey, weekMissions, doneThisWeek, counters, xpOf, nextOutfit, unlockedOutfits, levelReward, OFFICE, RANKS, WARDROBE } from "@shared/game";
 import { CARD_XP, dailyStreak, dayKey, streakDays } from "@shared/daily";
 import { pinColor, pinsOf, topPins } from "@shared/pins";
 import { CHEST_XP, RARE, chestPrize, rareOwned, welcomeBack } from "@shared/chest";
+import { prepChain } from "@shared/prep";
 import { api, useStore } from "../lib/store";
 import type { Workspace } from "@shared/types";
 import { go } from "../lib/router";
@@ -439,16 +441,67 @@ function Quests({ d }: { d: D }) {
   );
 }
 
-/** Today's chest: locked until all three quests are done, then one tap opens it and shows what was inside. */
+/** Today's chest: locked until all three quests are done, then one tap opens it as a big moment in the middle of the
+ *  screen (Demetre, Nov 24: "it should be happening quite big"), and the card keeps what was inside. */
 function Chest({ d, all, back }: { d: D; all: boolean; back: boolean }) {
   const { save } = useStore();
   const day = dayKey(), got = d.g.chests?.[day];
   const [busy, setBusy] = useState(false);
-  const open = () => { setBusy(true); save("game", { ...d.g, chests: { ...(d.g.chests || {}), [day]: chestPrize(day, d.g, back) } }).catch(() => {}).finally(() => setBusy(false)); };
+  const [moment, setMoment] = useState("");
+  const open = () => {
+    const prize = chestPrize(day, d.g, back);
+    setBusy(true); setMoment(prize);
+    save("game", { ...d.g, chests: { ...(d.g.chests || {}), [day]: prize } }).catch(() => setMoment("")).finally(() => setBusy(false));
+  };
   const rare = got && got !== "xp" ? RARE.find(([k]) => k === got)?.[1] : "";
-  if (!all) return <div className="pt-chest"><Gift size={22} aria-hidden="true" /><span>Finish all three to open today's chest.</span></div>;
-  if (!got) return <button className="pt-chest ready" onClick={open} disabled={busy} data-testid="button-open-chest"><Gift size={22} aria-hidden="true" /><span>All three done. Open today's chest</span></button>;
-  return <div className="pt-chest open" data-testid="chest-prize"><Gift size={22} aria-hidden="true" /><span>{rare ? <>You found a <b>{rare}</b> for Remy's office!</> : got === "bigxp" ? <>+{2 * CHEST_XP} bonus XP. Good to have you back.</> : <>+{CHEST_XP} bonus XP. See you tomorrow.</>}</span></div>;
+  return <>
+    {!all ? <div className="pt-chest"><Gift size={22} aria-hidden="true" /><span>Finish all three to open today's chest.</span></div>
+      : !got ? <button className="pt-chest ready" onClick={open} disabled={busy} data-testid="button-open-chest"><Gift size={22} aria-hidden="true" /><span>All three done. Open today's chest</span></button>
+      : <div className="pt-chest open" data-testid="chest-prize"><Gift size={22} aria-hidden="true" /><span>{rare ? <>You found a <b>{rare}</b> for Remy's office!</> : got === "bigxp" ? <>+{2 * CHEST_XP} bonus XP. Good to have you back.</> : <>+{CHEST_XP} bonus XP. See you tomorrow.</>}</span></div>}
+    {moment && <ChestMoment prize={moment} onClose={() => setMoment("")} />}
+  </>;
+}
+
+function ChestMoment({ prize, onClose }: { prize: string; onClose: () => void }) {
+  useEffect(() => { const k = (e: KeyboardEvent) => e.key === "Escape" && onClose(); window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [onClose]);
+  const rare = RARE.find(([k]) => k === prize);
+  const ink = { stroke: "var(--ink)", strokeWidth: 4, strokeLinejoin: "round" as const };
+  return createPortal(
+    <div className="modal-back ch-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="ch-moment" role="dialog" aria-modal="true" aria-label="Today's chest" data-testid="chest-moment">
+        <span className="ch-rays" aria-hidden="true" />
+        <svg className="ch-chest" viewBox="0 0 200 170" aria-hidden="true">
+          <g className="ch-body"><rect x="24" y="78" width="152" height="84" rx="10" fill="var(--fox)" {...ink} /><rect x="24" y="100" width="152" height="12" fill="var(--fox-deep)" {...ink} /><rect x="88" y="94" width="24" height="28" rx="4" fill="var(--amber)" {...ink} /></g>
+          <g className="ch-lid"><path d="M24 80V58c0-22 18-34 76-34s76 12 76 34v22z" fill="var(--fox)" {...ink} /><path d="M88 24v56h24V24" fill="var(--amber)" {...ink} /></g>
+        </svg>
+        <div className="rw-confetti ch-confetti" aria-hidden="true">{Array.from({ length: 24 }, (_, i) => <i key={i} style={{ ["--a" as string]: `${i * 15}deg`, ["--d" as string]: `${0.75 + (i % 3) * 0.1}s` }} />)}</div>
+        <div className="ch-prize">
+          {rare ? <span className="ch-thing"><OfficeThing k={rare[0]} /></span> : <span className="ch-xp">+{prize === "bigxp" ? 2 * CHEST_XP : CHEST_XP} XP</span>}
+          <h2>{rare ? `A ${rare[1].toLowerCase()}!` : prize === "bigxp" ? "Welcome back bonus" : "Bonus XP"}</h2>
+          <p>{rare ? "A rare find. Only the daily chest gives it. It's in Remy's office now." : prize === "bigxp" ? "Double XP for coming back. Good to have you." : "All three quests done today. See you tomorrow for another chest."}</p>
+          <button className="btn btn-primary" onClick={onClose} autoFocus data-testid="button-chest-done">{rare ? "See it in the office" : "Nice"}</button>
+        </div>
+      </div>
+    </div>, document.body);
+}
+
+/** With an interview in the next 5 days, its prep steps take the big move's place (shared/prep.ts). */
+function PrepOrMove({ d }: { d: D }) {
+  const p = prepChain(d.w, dayKey());
+  if (!p) return <BigMove d={d} />;
+  const left = p.steps.filter((s) => !s.done).length;
+  return (
+    <section className="pt-card peach" aria-label="Interview prep" data-testid="path-prep-chain">
+      <div className="pt-card-head"><span className="pm-kicker">{p.event.title} {p.days === 0 ? "today" : p.days === 1 ? "tomorrow" : `in ${p.days} days`}</span><span className="pm-faint">{left ? `${4 - left} of 4 ready` : "Ready"}</span></div>
+      <ul className="pt-prep">
+        {p.steps.map((s) => <li key={s.key} className={s.done ? "ok" : ""}>
+          <span className="pt-qi">{s.done ? <Check size={15} strokeWidth={3} /> : <Square size={15} />}</span>
+          {s.done ? <span>{s.label}</span> : <button className="pt-qb" onClick={() => go(s.link)} data-testid={`button-prep-${s.key}`}>{s.label} <ArrowRight size={13} /></button>}
+        </li>)}
+      </ul>
+      {!left && <p className="pt-move-why"><b>You're ready.</b> Go get it.</p>}
+    </section>
+  );
 }
 
 function BigMove({ d }: { d: D }) {
@@ -533,7 +586,7 @@ function Side({ d, tab, setTab, open, setOpen }: { d: D; tab: SideTab; setTab: (
         </div>
       </header>
       <div className="ps-side-body">
-        {tab === "today" && <><Quests d={d} /><BigMove d={d} /></>}
+        {tab === "today" && <><Quests d={d} /><PrepOrMove d={d} /></>}
         {tab !== "today" && <div className="ps-field-line">
           <span>Your field</span>
           <select className="input ps-select" value={d.road?.key || ""} onChange={(e) => { d.setKey(e.target.value); setOpen(""); }} aria-label="Field" data-testid="select-road">
