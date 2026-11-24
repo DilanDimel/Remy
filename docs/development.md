@@ -31,7 +31,7 @@ GitHub Actions runs the first three on every pull request and on pushes to `main
 
 ## What's new
 
-The in-app "What's new" list is `shared/news.ts`. Every PR that changes what students or owners see adds one note at the top: the next `YYYY-MM-DD-NN` id (ids only grow), a kind (New, Improved, Fixed, Changed), a short title and one or two plain sentences a student would understand. Owners-only work sets `owners: true`, so only owner view lists it; remove the flag when the feature is released to students.
+The in-app "What's new" list is one file per note in `shared/news/` (types and helpers in `shared/news.ts`). Every PR that changes what students or owners see adds one new file named `YYYY-MM-DD-HHMM.ts`, the UTC date and time you wrote it (ids only grow, and two PRs never pick the same file), copying the shape of the newest note: a kind (New, Improved, Fixed, Changed), a short title and one or two plain sentences a student would understand. Owners-only work sets `owners: true`, so only owner view lists it; remove the flag when the feature is released to students.
 
 ## Deploy
 
