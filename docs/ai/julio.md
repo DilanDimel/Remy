@@ -2,6 +2,10 @@
 
 Welcome to the main repo. This page is for you and whichever AI you're using (Codex, Claude, Gemini, Muse, Emergent or anything else).
 
+## How the team works
+
+Dilan does most of the work and his project Claude is the main AI (the lead). They can work anywhere, have the final say on conflicts and merges, and can reassign a claim if priorities change. Demetre owns the phone app. You own the areas below and claim anything else before you change it.
+
 ## Your area
 
 - **New website features.** Claim the files first, build owners-only, open a PR. The lead AI reviews it for collisions and the owners-only rule, then it merges once checks pass.

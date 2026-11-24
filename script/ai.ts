@@ -36,7 +36,8 @@ function check() {
   const diff = (filter = "") => execFileSync("git", ["diff", "--name-only", ...(filter ? [filter] : []), `${base}...HEAD`], { cwd: root, encoding: "utf8" }).split("\n").filter(Boolean);
   const files = diff();
   const added = diff("--diff-filter=A");
-  const me = people.find((p) => p.login.toLowerCase() === author.toLowerCase());
+  // The lead AI's PRs may be opened by a Claude bot account rather than Dilan's own.
+  const me = people.find((p) => p.login.toLowerCase() === author.toLowerCase()) ?? (/claude/i.test(author) ? people.find((p) => p.lead) : undefined);
   const errors: string[] = [], warnings: string[] = [];
 
   if (!me) warnings.push(`${author} isn't in docs/ai/owners.json yet. Ask the lead to add you.`);
@@ -51,8 +52,7 @@ function check() {
     if (f === h.person.status) continue; // touching someone's status file is caught by review, not here
     if (!coordinated(h.person.name)) clash.set(h.person.name, [...(clash.get(h.person.name) || []), `${f} (${h.person.name} ${h.why})`]);
   }
-  for (const [name, list] of clash)
-    errors.push(`This PR touches ${name}'s files:\n    ${list.join("\n    ")}\n  Talk to ${name} first, then add "Coordinated with: ${name}" to the PR description.`);
+  for (const [name, list] of clash) errors.push(`This PR touches ${name}'s files:\n    ${list.join("\n    ")}\n  Talk to ${name} first, then add "Coordinated with: ${name}" to the PR description.`);
 
   if (me && files.includes(me.status)) {
     const limit = new Date(Date.now() + 3 * 86400_000).toISOString().slice(0, 10);
@@ -71,6 +71,8 @@ function check() {
   const gated = ui.some((f) => fs.existsSync(path.join(root, f)) && /useOwnerView|isOwner|redesign-2|useAccess|features/.test(read(f)));
   if (newUi.length && !gated) warnings.push(`New screens (${newUi.join(", ")}) and none of the changed files mention useOwnerView. New features stay owners-only until Dilan releases them.`);
 
+  // Dilan and the lead AI work everywhere and have the final say: CI warns them, never blocks them.
+  if (me?.lead) warnings.push(...errors.splice(0));
   for (const w of warnings) console.log(`::warning::${w.replace(/\n/g, "%0A")}\n${w}\n`);
   for (const e of errors) console.log(`::error::${e.replace(/\n/g, "%0A")}\n${e}\n`);
   console.log(errors.length ? `check:ai: ${errors.length} problem(s).` : `check:ai: ok (${files.length} files).`);

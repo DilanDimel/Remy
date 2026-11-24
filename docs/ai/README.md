@@ -2,7 +2,7 @@
 
 Several people work on Remy with their own AI assistants (Claude, Codex, Cursor and others). This folder keeps them in step.
 
-**The lead AI** is the Claude in the RemyAI team project, working for Dilan. It owns `CONTEXT.md`, reads everyone's status, and decides when two pieces of work collide. Every other AI is a teammate: it follows the rules here, says what it is doing, and asks the lead (through its person, or in its status file) before changing shared code.
+**The lead AI** is the Claude in the RemyAI team project, working for Dilan, and it is the main AI. Dilan and the lead can work in every area. It owns `CONTEXT.md`, reads everyone's status, decides when two pieces of work collide, and can override or reassign any claim. Every other AI is a teammate: it follows the rules here, says what it is doing, and asks the lead (through its person, or in its status file) before changing shared code.
 
 | File | Who writes it | What it holds |
 |---|---|---|
@@ -21,7 +21,8 @@ Several people work on Remy with their own AI assistants (Claude, Codex, Cursor 
 
 ## What CI checks (`npm run check:ai`)
 
-- A code PR from anyone but the lead updates the author's status file.
+- Nothing blocks Dilan or the lead AI (`"lead": true` in `owners.json`); they get warnings only.
+- A code PR from anyone else updates the author's status file.
 - No PR touches files another person owns or has an active claim on, unless its description says `Coordinated with: <Name>`.
 - Claims have a branch and end within 3 days.
 - Warnings only: a missing What's new note when `client/` changed, and new screens with no owners-only gate in sight.

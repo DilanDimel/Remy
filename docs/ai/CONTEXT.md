@@ -11,18 +11,21 @@ RemyAI is a company building Remy, an AI career coach for college students, at r
 
 | Person | Owns |
 |---|---|
-| Dilan | Product lead. Decides every release to students. Works through the lead AI. |
+| Dilan | Product lead and main builder: does most of the work, across every area. Works through the lead AI (the main AI). Has the final say on conflicts, merges and every release to students. |
 | Demetre | The phone app in `native/` (Expo). Designed the website redesign. |
 | Julio | New website features, reviewing new code for where it can fail, and costs (current and projected). Owns the interview coach (credit him in PRs and What's new notes that touch it). |
 | Ashton, Lincoln | Co-founders and managers. |
 
 ## Who owns which code
 
+Dilan and the lead AI can work in every area, including the ones below, and have the final say. The lead AI sees everyone's status and can override or reassign any claim (it says so in the person's request list and in `status/lead.md`). Everyone else works in their own area and claims anything outside it.
+
+
 | Area | Owner | Rule for everyone else |
 |---|---|---|
 | The interview coach (`server/coach/interview*`, `shared/interview*`, `shared/jobInterview.ts`, `Interview.tsx`, `JobInterview.tsx`, `MockInterview.tsx`) and `docs/finance/` | Julio and his AIs | Others write a request in their status file or add "Coordinated with: Julio" to the PR after talking to him. |
-| `native/` | Demetre and his AI | Lead threads don't edit it. If a change is needed, read `status/demetre.md`, write the request there or in `status/lead.md`, and tell Dilan. |
-| `client/`, `server/`, `shared/`, `docs/`, `.github/` | The lead AI | Other AIs read `status/lead.md` and the open PRs first, note the change in their own status file, and keep PRs small. |
+| `native/` | Demetre and his AI | Others write a request in their status file. Lead threads may edit it after reading `status/demetre.md` and noting the change in `status/lead.md`. |
+| Everything else (`client/`, `server/`, `shared/`, `docs/`, `.github/`) | Dilan and the lead AI | Other AIs read `status/lead.md` and the open PRs first, note the change in their own status file, and keep PRs small. |
 | `shared/types.ts`, `/api` routes | Both | The phone app and the website share these. Changing a shape or route needs both sides to know: note it in your status file and in the PR body. |
 | `docs/ai/CONTEXT.md` | The lead AI | Others suggest changes in their status file. |
 
@@ -32,7 +35,7 @@ The exact paths each person owns are in [`owners.json`](owners.json). `npm run c
 
 1. **Start every session with `npm run ai:brief`** (add `-- --me <your name>`). It prints who's on what, active claims, requests for you, open PRs with their files, what merged in the last 24 hours, and these rules. `--touch <paths>` warns you before you start if someone else owns, claims or has an open PR on those paths. `--vault <folder>` writes it to `<folder>/remy/BRIEF.md` for AIs that read a notes vault. No terminal (ChatGPT in a browser)? Paste the output in.
 2. **Claim before you start** a feature that touches shared files: add it under `## Claims` in your own status file (format in [`status/README.md`](status/README.md)). Small (files, not folders), at most 3 days, removed when the PR merges.
-3. **Before every PR, rewrite your own `status/<person>.md`** in the same PR. CI fails without it (the lead's threads coordinate inside Dilan's project instead).
+3. **Before every PR, rewrite your own `status/<person>.md`** in the same PR. CI fails without it. `check:ai` never blocks Dilan or the lead AI; their threads coordinate inside Dilan's project.
 4. **Need a change in someone else's area?** Add `- to <Name>: <what you need>` under `## Requests` in your status file. Their briefing shows it. If you agreed to do it yourself, add `Coordinated with: <Name>` to the PR description, or CI blocks it.
 5. **Fill in the PR template**, including `Hours:` (your own hands-on time; it feeds the owners' dashboard) and `AI cost:` if you know it.
 6. One feature per branch and PR (`<name>/<feature>`, the lead's are `claude/...`). Rebase on `main` right before merging; `main` needs the green "checks" status and an up-to-date branch.

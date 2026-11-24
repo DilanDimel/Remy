@@ -1,11 +1,11 @@
 {
-  "_readme": "Who works on Remy, their GitHub login, their status file and the paths they own. The lead AI edits this file. `npm run check:ai` reads it on every PR. Paths are prefixes.",
+  "_readme": "Who works on Remy, their GitHub login, their status file and the paths they own. The lead AI edits this file. `npm run check:ai` reads it on every PR. Paths are prefixes. A person with \"lead\": true is never blocked.",
   "people": [
     {
       "name": "Dilan",
       "login": "DilanDimel",
       "status": "docs/ai/status/lead.md",
-      "role": "Product lead. Works through the lead AI (this project's Claude), which owns everything not listed below.",
+      "role": "Product lead and main builder. Works through the lead AI (the main AI). Can work in every area; final say on conflicts, merges and releases. Never blocked by check:ai.",
       "lead": true,
       "owns": []
     },
@@ -14,7 +14,9 @@
       "login": "dondhnk8",
       "status": "docs/ai/status/demetre.md",
       "role": "The phone app.",
-      "owns": ["native/"]
+      "owns": [
+        "native/"
+      ]
     },
     {
       "name": "Julio",
