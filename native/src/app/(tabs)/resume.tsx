@@ -245,7 +245,7 @@ export default function Resume() {
       </View>
 
       <Sect title="Tailor for an opening" />
-      <Button testID="button-tailor" kind="ghost" label="Tailor my resume for an opening" icon="arrow" flex onPress={() => open("?tab=tailor")} />
+      <Button testID="button-tailor" kind="ghost" label="Tailor my resume for an opening" icon="arrow" flex onPress={() => go("/resume?tab=tailor", "Tailor")} />
     </Screen>
     <Modal visible={fix !== null} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setFix(null)}>
       {fix !== null && <FixFlow steps={steps} start={fix} onClose={() => setFix(null)} />}
