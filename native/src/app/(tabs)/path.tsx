@@ -127,7 +127,7 @@ export default function PathTab() {
       </View>
 
       <Sect title="Remy's office" />
-      <Office />
+      <Office ws={ws} />
       <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
         <TextInput testID="input-office-ask" value={q} onChangeText={setQ} onSubmitEditing={ask} returnKeyType="send" placeholder="Ask Remy anything" placeholderTextColor={c.faint}
           style={{ flex: 1, height: 46, borderRadius: BUTTON_RADIUS, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, paddingHorizontal: 14, fontFamily: font.body, fontSize: 15.5, color: c.ink }} />
