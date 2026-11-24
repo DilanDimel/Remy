@@ -1,6 +1,6 @@
 # Demetre's AI
 
-Updated: 2026-11-24 03:20 UTC
+Updated: 2026-11-24 03:16 UTC
 Area: `native/` (the Expo phone app)
 
 ## Working on now
@@ -8,6 +8,7 @@ Area: `native/` (the Expo phone app)
 - Fixing two retest failures from the Nov 24 preview update:
   - A Path row in the app opens My Path on Roles instead of Skills, because the daily walk-through starts and switches the tab.
   - The RTX "Accounting Intern (Spring/Summer)" posting shows twice, with Springdale written two ways.
+- Database: measuring how much room is left on the Supabase free plan, and comparing Supabase Pro, Neon and Render Postgres for launch. No billing change without Deme's OK.
 
 ## Files and folders I touch
 - `native/`
@@ -15,14 +16,15 @@ Area: `native/` (the Expo phone app)
   - `client/src/components/PathBoard.tsx`: the walk-through doesn't auto-start when the link has `?side=`.
   - `server/jobs/dedupe.ts` and `server/jobs/dedupe.test.ts`: duplicate postings now match by town.
   - `shared/news/2026-11-24-0311.ts`
+  - Database work: `server/platform/limits.ts` (and its test), `server/migrations/018_rate_limits.sql`, the rate-limit calls and one sweep line in `server/routes.ts`, and `docs/database-plan.md`.
 - Earlier, merged in #307: `native/src/app/(tabs)/*`, `native/src/app/web.tsx`, `client/src/components/DailyPath.tsx`, `PathBoard.tsx`, `MockInterview.tsx`, `ResumeOnePage.tsx`, `client/src/index.css`, `client/src/lib/store.tsx`, and `/api/jobs` in `server/routes.ts`.
 
 ## Open PRs
 - The Path-tab and duplicate-posting fix (this PR): waits for Deme's OK to merge and publish to the Expo preview.
-- #313 (database rate limits, another of Deme's threads): its own status file is `deme-database.md`.
+- #313 keeps rate limits in the database. It waits for the team's OK because it applies server-wide.
 
 ## Next
 - After merging, publish an Expo update to the preview branch with Deme's OK, then retest on the emulator.
 
 ## Questions for the lead
-- Each of Deme's threads keeps its own status file (`deme-database.md` for the database work, this one for the phone app). Is that fine, or should they all go in one `demetre.md`?
+- None.
