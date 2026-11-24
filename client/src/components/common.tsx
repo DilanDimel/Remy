@@ -4,34 +4,14 @@ import { Check, Copy, X } from "lucide-react";
 import type { Label } from "@shared/types";
 import { unlockedOutfits } from "@shared/game";
 import { pinColor, topPins } from "@shared/pins";
-import { useOwnerView, useStore } from "../lib/store";
+import { useStore } from "../lib/store";
 import { scholarMarkup, startScholar } from "./scholar";
 
 export type RemyMood = "idle" | "wave" | "think" | "happy";
 
-/** Remy, the fox coach (artwork from the Remy mockup). Split into parts so it can
- * bob, blink, twitch its ears, wave hello and tilt while thinking. */
+/** Remy, the fox coach: the Scholar fox everywhere, signed in or not, so the old fox never flashes while the account loads. */
 export function Remy({ size = 56, mood = "idle", className = "", outfit }: { size?: number; mood?: RemyMood; className?: string; outfit?: string }) {
-  if (useOwnerView()) return <ScholarRemy size={size} mood={mood} className={className} outfit={outfit} />;
-  return (
-    <svg className={`fox ${mood} ${className}`} width={size} height={Math.round(size * 84 / 72)} viewBox="0 0 72 84" role="img" aria-label="Remy the fox, your career coach">
-      <g className="fox-body">
-        <g className="fox-ear fox-ear-l">
-          <path d="M13 31 L7 3 L33 15 Z" fill="#D94F1E" />
-          <path d="M17.5 24.5 L13.8 10.5 L27.5 18 Z" fill="#3A2317" />
-        </g>
-        <g className="fox-ear fox-ear-r">
-          <path d="M59 31 L65 3 L39 15 Z" fill="#D94F1E" />
-          <path d="M54.5 24.5 L58.2 10.5 L44.5 18 Z" fill="#3A2317" />
-        </g>
-        <path d="M36 10 C51 10 62 22 62 38 C62 55 49 69 36 81 C23 69 10 55 10 38 C10 22 21 10 36 10 Z" fill="#E86A2A" />
-        <path d="M36 81 C28 72 21.5 62.5 17.5 51.5 C24 57 29.5 59.5 36 59.5 C42.5 59.5 48 57 54.5 51.5 C50.5 62.5 44 72 36 81 Z" fill="#FFF7ED" />
-        <path className="fox-eye" d="M19.5 38.5 Q24.5 35.5 29.5 38.5 Q24.5 41.5 19.5 38.5 Z" fill="#1A120B" />
-        <path className="fox-eye" d="M42.5 38.5 Q47.5 35.5 52.5 38.5 Q47.5 41.5 42.5 38.5 Z" fill="#1A120B" />
-        <path d="M31.3 66.8 Q36 63.8 40.7 66.8 Q39.8 72.8 36 73.8 Q32.2 72.8 31.3 66.8 Z" fill="#1A120B" />
-      </g>
-    </svg>
-  );
+  return <ScholarRemy size={size} mood={mood} className={className} outfit={outfit} />;
 }
 
 // Owner view (Nov 22): the Scholar fox the team picked, in his business suit. Drawing, outfits and the things he
