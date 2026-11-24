@@ -338,6 +338,8 @@ function addLine(t: Twin, p: TwinPage, e: Edit): boolean {
   const { right } = columnOf(shape.q, shape.f.rows, lines, left);
   const lead = lines.length > 1 ? (lines[lines.length - 1][0].y - lines[0][0].y) / (lines.length - 1) : first.size * 1.16;
   const font = t.fonts[first.font];
+  // A new line never takes a title's shape (a big name the reader mistook for a bullet).
+  if (first.size > bodySize(t) * 1.25) return false;
   const prefix = first.str.match(BULLET)?.[0] ?? "";
   const wrapped = wrap(prefix + e.to.replace(BULLET, "").trim(), font, first.size, right - left, right - cont);
   if (!e.to.trim()) return true;
@@ -351,6 +353,12 @@ function addLine(t: Twin, p: TwinPage, e: Edit): boolean {
   return true;
 }
 
+/** The size most of the resume's text is set in. */
+function bodySize(t: Twin) {
+  const n = new Map<number, number>();
+  for (const p of t.pages) for (const i of p.items) n.set(i.size, (n.get(i.size) || 0) + i.str.length);
+  return [...n].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 11;
+}
 /** Text inside one piece of a line (an email in "email | phone | city"): swapped in place; the rest of the line moves
  *  over (a centred line stays centred, a right-aligned one stays flush right) as long as it still fits. */
 function replaceInLine(t: Twin, p: TwinPage, e: Edit): boolean {
@@ -390,6 +398,19 @@ export function clashes(t: Twin): string[] {
     }
   });
   return out;
+}
+
+/** Spacing on the page drawn up to 10% tighter (lines closer, fonts unchanged) so it ends by `limit`. False when even
+ *  that isn't enough (the page is left as it was). */
+function fit(p: TwinPage, limit: number): boolean {
+  const text = p.items.filter((i) => i.str.trim());
+  if (!text.length) return true;
+  const top = Math.min(...text.map((i) => i.y - i.size)), low = Math.max(...text.map((i) => i.y));
+  if (low <= limit) return true;
+  const k = (limit - top) / (low - top);
+  if (k < 0.9) return false;
+  for (const x of [...p.items, ...p.shapes, ...(p.images || [])]) if (x.y > top) x.y = top + (x.y - top) * k;
+  return true;
 }
 
 /** Text pushed past the bottom of a page goes to the top of the next one (which moves down to make room), and past
@@ -552,9 +573,9 @@ export async function twinPdf(t: Twin): Promise<Buffer> {
  *  place (matched by the text first read from the file, `fileLines`), and new bullets added under the one before.
  *  Changed names, headers or skills can't be placed yet: they come back in `missed`, and the caller shows Remy's
  *  drawing instead. */
-export async function currentResumePdf(buf: Buffer, doc: ResumeDoc, fileLines: Record<string, string> = {}, fileFields?: Record<string, string>): Promise<{ buf: Buffer | null; missed: string[] }> {
-  const { twin, missed } = await currentResumeTwin(buf, doc, fileLines, fileFields);
-  return { buf: twin ? await twinPdf(twin) : null, missed };
+export async function currentResumePdf(buf: Buffer, doc: ResumeDoc, fileLines: Record<string, string> = {}, fileFields?: Record<string, string>): Promise<{ buf: Buffer | null; missed: string[]; over: number }> {
+  const { twin, missed, over } = await currentResumeTwin(buf, doc, fileLines, fileFields);
+  return { buf: twin ? await twinPdf(twin) : null, missed, over };
 }
 /** Every short field of a resume (name, contact, headings, roles, dates, skills) by a key that survives edits, so the
  *  file's own text of a field can be found again after the student changes it. */
@@ -569,7 +590,7 @@ export function fieldsOf(doc: ResumeDoc): Record<string, string> {
   return out;
 }
 /** The same, as the edited Twin (for a Word copy in the PDF's look, `twinDocx`). */
-export async function currentResumeTwin(buf: Buffer, doc: ResumeDoc, fileLines: Record<string, string> = {}, fileFields?: Record<string, string>): Promise<{ twin: Twin | null; missed: string[] }> {
+export async function currentResumeTwin(buf: Buffer, doc: ResumeDoc, fileLines: Record<string, string> = {}, fileFields?: Record<string, string>): Promise<{ twin: Twin | null; missed: string[]; over: number }> {
   const t = await readTwin(buf);
   // How far down each page text may go before it moves on: the file's own lowest line, or a 0.75in bottom margin.
   const limits = t.pages.map((p) => Math.max(p.h - 54, ...p.items.filter((i) => i.str.trim()).map((i) => i.y)));
@@ -620,9 +641,15 @@ export async function currentResumeTwin(buf: Buffer, doc: ResumeDoc, fileLines: 
     const asRead = fileFields?.[k] !== undefined && squash(fileFields[k]) === squash(v);
     if (!k.startsWith("kl.") && squash(v) && !after.includes(squash(v)) && !(asRead && !flat.includes(squash(v)))) missed.push(v);
   }
+  // A one-page resume stays one page if spacing a little tighter (at most 10%, fonts unchanged) makes it fit;
+  // otherwise it runs on and `over` says by how many lines, so the student can cut them.
+  const onePage = t.pages.length === 1 && fit(t.pages[0], limits[0]);
   flow(t, limits);
+  const over = onePage || limits.length > 1 ? 0 : t.pages.slice(limits.length).reduce((n, p) => n + new Set(p.items.filter((i) => i.str.trim()).map((i) => Math.round(i.y))).size, 0);
   missed.push(...clashes(t));
-  return { twin: missed.length ? null : t, missed: [...new Set(missed)] };
+  // More than a page over means the changes didn't land where they should (or it isn't a resume page any more).
+  if (over > 45) missed.push(`(${over} lines past one page)`);
+  return { twin: missed.length ? null : t, missed: [...new Set(missed)], over };
 }
 
 /** A page layout measured in the student's browser from their own Word file (positions in points, top-left origin),

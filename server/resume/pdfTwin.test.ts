@@ -89,14 +89,37 @@ test("PDF twin: name, heading and role edits land where the file had them; a hea
   assert.equal((await currentResumePdf(pdf, now, { b1: one, b2: two })).buf, null);
 });
 
+test("PDF twin: a one-page resume that runs a little long is spaced tighter to stay one page", async () => {
+  // A full page: the job's bullets reach near the bottom margin, then one more line is added.
+  const doc = new PDFDocument({ size: "LETTER", margin: 50 });
+  const chunks: Buffer[] = [];
+  doc.on("data", (c: Buffer) => chunks.push(c));
+  const done = new Promise<void>((r) => doc.on("end", () => r()));
+  doc.font("Times-Bold").fontSize(18).text("Jordan Lee", 50, 50);
+  doc.font("Times-Roman").fontSize(11).text("Texas Christian University, Work Study Student", 50, 90);
+  const lines = Array.from({ length: 40 }, (_, k) => `Line ${k + 1} about the work done for the department office`);
+  lines.forEach((l, k) => doc.text(`• ${l}`, 60, 106 + k * 15.5));
+  doc.end();
+  await done;
+  const pdf = Buffer.concat(chunks);
+  const fileLines = Object.fromEntries(lines.map((l, k) => [`b${k}`, l]));
+  const one = resume([...lines.map((text, k) => ({ id: `b${k}`, text })), { id: "n", text: "One more line about the office" }]);
+  one.sections[0].heading = "";
+  const out = await currentResumePdf(pdf, one, fileLines);
+  assert.deepEqual(out.missed, []);
+  assert.equal(out.over, 0);
+  assert.equal((await readTwin(out.buf!)).pages.length, 1);
+});
+
 test("PDF twin: lines pushed past the bottom go onto a second page", async () => {
   const pdf = await resumePdf();
-  const many = Array.from({ length: 45 }, (_, k) => ({ id: `n${k}`, text: `Added line number ${k + 1} about the work done for the department` }));
+  const many = Array.from({ length: 60 }, (_, k) => ({ id: `n${k}`, text: `Added line number ${k + 1} about the work done for the department` }));
   const out = await currentResumePdf(pdf, resume([{ id: "b1", text: one }, ...many, { id: "b2", text: two }]), { b1: one, b2: two });
   assert.deepEqual(out.missed, []);
   const t = await readTwin(out.buf!);
   assert.equal(t.pages.length, 2);
   assert.ok(t.pages[1].items.some((i) => i.str.startsWith("SKILLS")), "the next heading moved over");
+  assert.ok(out.over > 0, "the page is told how many lines ran over");
   assert.ok(t.pages[0].items.every((i) => i.y < 792 - 36), "nothing cut off at the bottom");
 });
 

@@ -1374,7 +1374,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   // page shows them in the student's own layout too (Dilan, Nov 24: the page switched to Remy's drawing mid-fix).
   const WORD_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   // `asWord`: a PDF upload comes back as a Word copy in the PDF's own look (server/resume/twinDocx.ts).
-  async function ownCurrentFile(ctx: Ctx, draft?: ResumeDoc, asWord = false, doc0?: ResumeDoc): Promise<{ buf: Buffer | null; missed: string[]; mime: string } | null> {
+  async function ownCurrentFile(ctx: Ctx, draft?: ResumeDoc, asWord = false, doc0?: ResumeDoc): Promise<{ buf: Buffer | null; missed: string[]; mime: string; over?: number } | null> {
     const r = ctx.ws.resume;
     const mime = r?.original?.mime || "";
     const word = mime.includes("wordprocessingml"), pdf = mime === "application/pdf";
@@ -1384,7 +1384,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const doc = doc0 || draft || r.doc;
     if (pdf && asWord) {
       const out = await currentResumeTwin(f.data, doc, r.fileLines, r.fileFields).catch(() => ({ twin: null, missed: ["(file unreadable)"] }));
-      return { buf: out.twin ? await twinDocx(out.twin) : null, missed: out.missed, mime: WORD_MIME };
+      return { buf: out.twin ? await twinDocx(out.twin) : null, missed: out.missed, mime: WORD_MIME, over: "over" in out ? out.over : 0 };
     }
     const out = await (word ? currentResumeDocx(f.data, doc, r.removed, r.fileLines) : currentResumePdf(f.data, doc, r.fileLines, r.fileFields)).catch(() => ({ buf: null, missed: ["(file unreadable)"] }));
     return { ...out, mime };
@@ -1399,6 +1399,8 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!out?.buf || out.missed.length) return void res.status(409).json({ missed: (out?.missed || []).slice(0, 8) });
     res.setHeader("Content-Type", out.mime);
     res.setHeader("Cache-Control", "no-store");
+    // Lines a one-page PDF resume now runs onto a second page, so the page can ask the student to cut that many.
+    res.setHeader("X-Remy-Over", String(out.over || 0));
     res.send(out.buf);
   }));
 
