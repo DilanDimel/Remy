@@ -16,12 +16,23 @@ export const para = (text: string, muted = false) =>
 export const label = (text: string) =>
   `<p style="margin:20px 0 8px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#c2410c">${esc(text)}</p>`;
 
+const cell = (i: { title: string; sub?: string; href?: string }) =>
+  `<div class="rm-ink" style="font-size:15px;font-weight:700;line-height:1.4;color:#161616">${i.href ? `<a href="${esc(i.href)}" class="rm-ink" style="color:#161616;text-decoration:none">${esc(i.title)}</a>` : esc(i.title)}</div>
+${i.sub ? `<div class="rm-muted" style="font-size:13px;line-height:1.5;color:#5f5f5f;margin-top:2px">${esc(i.sub)}</div>` : ""}`;
+
 /** Rows with a bold title and a muted line under it; `href` makes the title a link. */
 export const rows = (items: { title: string; sub?: string; href?: string }[]) =>
   `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px">${items.map((i, n) =>
     `<tr><td class="rm-line" style="padding:12px 0;${n ? "border-top:1px solid #e3e1dc;" : ""}">
-<div class="rm-ink" style="font-size:15px;font-weight:700;line-height:1.4;color:#161616">${i.href ? `<a href="${esc(i.href)}" class="rm-ink" style="color:#161616;text-decoration:none">${esc(i.title)}</a>` : esc(i.title)}</div>
-${i.sub ? `<div class="rm-muted" style="font-size:13px;line-height:1.5;color:#5f5f5f;margin-top:2px">${esc(i.sub)}</div>` : ""}</td></tr>`).join("")}</table>`;
+${cell(i)}</td></tr>`).join("")}</table>`;
+
+/** Feature tiles two to a row on wide screens; on phones (<=520px) they stack into one column. */
+export const grid = (items: { title: string; sub?: string; href?: string }[]) => {
+  const pairs = Array.from({ length: Math.ceil(items.length / 2) }, (_, n) => items.slice(n * 2, n * 2 + 2));
+  const tile = (i: { title: string; sub?: string; href?: string } | undefined, right: boolean) =>
+    `<td class="rm-col" width="50%" valign="top" style="width:50%;padding:${right ? "0 0 12px 6px" : "0 6px 12px 0"}">${i ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td class="rm-tile" bgcolor="#f5f5f3" style="background:#f5f5f3;border-radius:14px;padding:14px 16px">${cell(i)}</td></tr></table>` : ""}</td>`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px">${pairs.map((p) => `<tr>${tile(p[0], false)}${tile(p[1], true)}</tr>`).join("")}</table>`;
+};
 
 /** The highlighted card for one opening: who, what, and why it fits. */
 export const opening = (o: { kicker: string; title: string; why?: string }) =>
@@ -51,24 +62,24 @@ export function brandEmail(o: { host: string; preheader: string; heading: string
 @media (prefers-color-scheme: dark) {
   .rm-bg { background:#121212 !important; } .rm-card { background:#1c1c1c !important; }
   .rm-ink { color:#f5f5f3 !important; } .rm-muted { color:#a8a8a3 !important; } .rm-line { border-color:#333331 !important; }
-  .rm-soft { background:#2a1d15 !important; } .rm-btn2 { background:#1c1c1c !important; border-color:#333331 !important; }
+  .rm-soft { background:#2a1d15 !important; } .rm-btn2 { background:#1c1c1c !important; border-color:#333331 !important; } .rm-tile { background:#262624 !important; }
 }
 [data-ogsc] .rm-bg { background:#121212 !important; } [data-ogsc] .rm-card { background:#1c1c1c !important; }
-[data-ogsc] .rm-ink { color:#f5f5f3 !important; } [data-ogsc] .rm-muted { color:#a8a8a3 !important; } [data-ogsc] .rm-soft { background:#2a1d15 !important; }
-@media (max-width:520px) { .rm-pad { padding:24px 20px !important; } .rm-h1 { font-size:22px !important; } }
+[data-ogsc] .rm-ink { color:#f5f5f3 !important; } [data-ogsc] .rm-muted { color:#a8a8a3 !important; } [data-ogsc] .rm-soft { background:#2a1d15 !important; } [data-ogsc] .rm-tile { background:#262624 !important; }
+@media (max-width:520px) { .rm-pad { padding:22px 18px !important; } .rm-h1 { font-size:22px !important; } .rm-col { display:block !important; width:100% !important; padding:0 0 10px !important; } }
 </style></head>
 <body class="rm-bg" style="margin:0;padding:0;background:#f5f5f3;-webkit-text-size-adjust:100%">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${esc(o.preheader)}${"&#8199;&#65279;&#847; ".repeat(30)}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="rm-bg" style="background:#f5f5f3"><tr><td align="center" style="padding:28px 12px 36px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;font-family:${FONT}">
-<tr><td style="padding:0 4px 16px"><a href="${site}" style="text-decoration:none"><img src="${site}/email/remy-fox.png" width="40" height="40" alt="" style="vertical-align:middle;border:0;display:inline-block"><span class="rm-ink" style="font-size:22px;font-weight:800;letter-spacing:-.5px;color:#161616;vertical-align:middle;margin-left:8px">Remy</span></a></td></tr>
-<tr><td class="rm-card rm-pad" style="background:#ffffff;border-radius:20px;padding:32px 32px 28px">
-<h1 class="rm-ink rm-h1" style="margin:0 0 18px;font-size:24px;line-height:1.25;font-weight:800;letter-spacing:-.4px;color:#161616">${esc(o.heading)}</h1>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="rm-bg" style="background:#f5f5f3"><tr><td align="center" style="padding:20px 12px 28px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:680px;font-family:${FONT}">
+<tr><td style="padding:0 4px 12px"><a href="${site}" style="text-decoration:none"><img src="${site}/email/remy-smile.png" width="44" height="44" alt="" style="vertical-align:middle;border:0;display:inline-block"><span class="rm-ink" style="font-size:22px;font-weight:800;letter-spacing:-.5px;color:#161616;vertical-align:middle;margin-left:8px">Remy</span></a></td></tr>
+<tr><td class="rm-card rm-pad" style="background:#ffffff;border-radius:20px;padding:28px 32px 24px">
+<h1 class="rm-ink rm-h1" style="margin:0 0 14px;font-size:24px;line-height:1.25;font-weight:800;letter-spacing:-.4px;color:#161616">${esc(o.heading)}</h1>
 ${o.name ? para(`Hi ${o.name},`) : ""}${o.blocks.join("\n")}
 ${buttons}
-<p class="rm-ink" style="margin:20px 0 0;font-size:15px;line-height:1.5;color:#161616">Remy<br><span class="rm-muted" style="font-size:13px;color:#5f5f5f">Your career coach</span></p>
+<p class="rm-ink" style="margin:14px 0 0;font-size:15px;line-height:1.5;color:#161616">Remy<br><span class="rm-muted" style="font-size:13px;color:#5f5f5f">Your career coach</span></p>
 </td></tr>
-<tr><td class="rm-muted" style="padding:18px 8px 0;font-size:12px;line-height:1.6;color:#8a8a85">${esc(o.why)}${o.manage ? ` <a href="${esc(o.manage.href)}" class="rm-muted" style="color:#5f5f5f;text-decoration:underline">${esc(o.manage.label)}</a>` : ""}<br>
+<tr><td class="rm-muted" style="padding:14px 8px 0;font-size:12px;line-height:1.6;color:#8a8a85">${esc(o.why)}${o.manage ? ` <a href="${esc(o.manage.href)}" class="rm-muted" style="color:#5f5f5f;text-decoration:underline">${esc(o.manage.label)}</a>` : ""}<br>
 Remy, an AI career coach for college students · <a href="${site}" class="rm-muted" style="color:#5f5f5f">${esc(o.host)}</a> · <a href="mailto:hello@remyai.org" class="rm-muted" style="color:#5f5f5f">hello@remyai.org</a></td></tr>
 </table></td></tr></table></body></html>`;
 }
