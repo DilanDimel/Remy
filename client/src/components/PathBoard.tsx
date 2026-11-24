@@ -440,12 +440,13 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
             : <g transform="translate(60 386)"><rect width="86" height="60" rx="8" {...ghost} /><path d="M26 0v-12h34v12" {...ghost} /></g>}</g>
         </svg>
         {ring && <span className="ps-ring" style={at(ring[0], ring[1])} aria-hidden="true" />}
-        <button className="ps-tag" style={at(40, 92)} onClick={() => onField("roles")} data-testid="button-office-books">{known ? `${known} job${known === 1 ? "" : "s"} decoded` : "Decode your first job"}</button>
-        <button className={"ps-tag" + (cert ? "" : " ghost")} style={at(40, 296)} onClick={() => onField("certs")} data-testid="button-office-cert">{cert ? "Certificate earned" : "First certificate"}</button>
-        <button className={"ps-tag" + (resume ? "" : " ghost")} style={at(282, 58)} onClick={() => go("/resume")} data-testid="button-office-resume">{resume ? "Resume on file" : "Add your resume"}</button>
-        <button className={"ps-tag" + (pins.length ? "" : " ghost")} style={at(486, 124)} onClick={() => go("/rewards")} data-testid="button-office-pins">{pins.length ? `${pinsOf(d.w).filter((p) => p.earned).length} pins` : "Earn your first pin"}</button>
-        <span className="ps-tag still end" style={at(318, 320)}>{d.streak.days ? `${d.streak.days}-day streak` : "Plant needs a streak"}</span>
-        <button className={"ps-tag" + (applied ? "" : " ghost")} style={at(156, 416)} onClick={() => go("/opportunities")} data-testid="button-office-briefcase">{applied ? `${d.w.applications.length} applied` : "First application"}</button>
+        {/* Captions sit centred just above the thing they name, so the room reads as one system (Dilan, Nov 24). */}
+        <button className="ps-tag" style={at(139, 104)} onClick={() => onField("roles")} data-testid="button-office-books">{known ? `${known} job${known === 1 ? "" : "s"} decoded` : "Decode your first job"}</button>
+        <button className={"ps-tag" + (cert ? "" : " ghost")} style={at(76, 220)} onClick={() => onField("certs")} data-testid="button-office-cert">{cert ? "Certificate earned" : "First certificate"}</button>
+        <button className={"ps-tag" + (resume ? "" : " ghost")} style={at(328, 64)} onClick={() => go("/resume")} data-testid="button-office-resume">{resume ? "Resume on file" : "Add your resume"}</button>
+        <button className={"ps-tag" + (pins.length ? "" : " ghost")} style={at(472, 144)} onClick={() => go("/rewards")} data-testid="button-office-pins">{pins.length ? `${pinsOf(d.w).filter((p) => p.earned).length} pins` : "Earn your first pin"}</button>
+        <span className="ps-tag still" style={at(352, 244)}>{d.streak.days ? `${d.streak.days}-day streak` : "Plant needs a streak"}</span>
+        <button className={"ps-tag" + (applied ? "" : " ghost")} style={at(103, 368)} onClick={() => go("/opportunities")} data-testid="button-office-briefcase">{applied ? `${d.w.applications.length} applied` : "First application"}</button>
       </div>
         {g.on ? <div className="ps-bubble" style={{ "--tail": `${Math.min(92, Math.max(8, fx))}%` } as CSSProperties} aria-live="polite" data-testid="path-guide">{g.bubble}</div>
           : said ? <div className={"ps-say " + side} style={sayAt} aria-live="polite" data-testid="office-reply">
@@ -504,7 +505,7 @@ function useGuide(d: D, onField: (tab: SideTab, open?: string) => void) {
       spot: "desk", pose: "type", ring: null, tab: "skills", open: skills[0]?.id },
     { say: certs.length ? <>This frame is for your first certification. In your field, start with <b>{clip(certs[0].title)}</b>.</> : <>This frame is for a certification. Your field doesn't require one; projects matter more.</>,
       spot: "shelf", pose: "point-low", face: -1, ring: [76, 247], tab: "certs", open: certs[0]?.id },
-    { say: <>The forecast for your field: {f0 ? <><b>{f0.fasterThanAverage} of {f0.total}</b> jobs grow faster than average</> : "how jobs change by 2035"}{fastest ? <>, and the fastest is <b>{fastest.title.toLowerCase()}</b> ({fastest.change > 0 ? "+" : ""}{fastest.change}%)</> : null}.</>,
+    { say: <>On the right is what's ahead, from now to 2035. By then {f0 ? <><b>{f0.fasterThanAverage} of {f0.total}</b> jobs grow faster than average</> : "jobs in your field will look different"}{fastest ? <>, and the fastest is <b>{fastest.title.toLowerCase()}</b> ({fastest.change > 0 ? "+" : ""}{fastest.change}%)</> : null}.</>,
       spot: "window", pose: "point", ring: [670, 118], tab: "forecast" },
     { say: qLeft ? <>That's my office. Today you have {qLeft} quest{qLeft === 1 ? "" : "s"} left, about {qLeft * 2} minutes. Each level adds something to the room.</> : <>That's my office. All three quests are done today, so your streak is safe.</>,
       cta: <button className="btn btn-primary btn-sm" onClick={() => { close(); play(); }} data-testid="button-hello-start">{qLeft ? "Start today's cards" : "Play again"} <ArrowRight size={14} /></button>,
@@ -694,16 +695,15 @@ function Side({ d, tab, setTab, open, setOpen }: { d: D; tab: SideTab; setTab: (
   const row = (o: Occ) => <RoleRow key={o.soc} o={o} avg={avg} max={max} known={known.has(o.title.toLowerCase())} mine={mine.has(o.title.toLowerCase())} open={open === o.soc} onOpen={() => setOpen(open === o.soc ? "" : o.soc)} />;
   // the row Remy named scrolls into view inside the panel
   // (inside the panel only, so the page never jumps away from Remy's office on a phone)
-  useEffect(() => { setTimeout(() => {
+  useEffect(() => { const t = [80, 600].map((ms) => window.setTimeout(() => { // again once the opened details have drawn
     const body = document.querySelector(".ps-side-body"), row = body?.querySelector(".pm-row.open");
     if (!body) return;
     if (!row) return body.scrollTo({ top: 0, behavior: "smooth" });
-    // only as far as needed to show the whole row, so the summary chips above it aren't cut in half
-    const b = body.getBoundingClientRect(), r = row.getBoundingClientRect();
-    const by = r.top < b.top ? r.top - b.top - 8 : r.bottom > b.bottom ? Math.min(r.bottom - b.bottom + 8, r.top - b.top - 8) : 0;
-    if (by) body.scrollTo({ top: body.scrollTop + by, behavior: "smooth" });
-  }, 80); }, [open, tab]);
-  const tabs: [SideTab, string, number | null][] = [["today", "Today", null], ["roles", "Roles", jobs.length], ["skills", "Skills", skills.length], ["certs", "Certs", certs.length], ["forecast", "Forecast", null]];
+    // the open row goes to the top of the panel, so its details show without scrolling (Dilan, Nov 24)
+    const by = row.getBoundingClientRect().top - body.getBoundingClientRect().top - 8;
+    if (Math.abs(by) > 4) body.scrollTo({ top: body.scrollTop + by, behavior: "smooth" });
+  }, ms)); return () => t.forEach(clearTimeout); }, [open, tab, jobs.length, d.future]); // again once the field's numbers load, since rows above can move
+  const tabs: [SideTab, string, number | null][] = [["today", "Today", null], ["roles", "Roles", jobs.length], ["skills", "Skills", skills.length], ["certs", "Certs", certs.length], ["forecast", "Timeline", null]];
   return (
     <section className="ps-side" aria-label="Today and your field" id="path-field" data-testid="path-field">
       <header className="ps-side-head">
@@ -739,15 +739,33 @@ function Side({ d, tab, setTab, open, setOpen }: { d: D; tab: SideTab; setTab: (
             {!(tab === "skills" ? skills : certs).length && <p className="ps-none">Nothing here yet for this field. Build your path and Remy adds skills that fit you.</p>}
           </ul>
         )}
-        {tab === "forecast" && <>
-          {f0 && <p className="ps-fc"><b>{f0.fasterThanAverage} of {f0.total}</b> jobs in {d.road?.label.toLowerCase() || f0.field} grow faster than the average job (+{avg}%) by 2035.</p>}
-          {f0?.growing.length ? <><h4 className="ps-h4 up"><TrendingUp size={15} /> Growing</h4><ul className="pm-rows">{f0.growing.map(row)}</ul></> : null}
-          {f0?.shrinking.length ? <><h4 className="ps-h4 neg"><TrendingDown size={15} /> Shrinking</h4><ul className="pm-rows">{f0.shrinking.map(row)}</ul></> : null}
-          <p className="pm-src">Projections: {d.future?.source || "U.S. Bureau of Labor Statistics"}.</p>
-        </>}
+        {tab === "forecast" && <Ahead d={d} jobs={jobs} avg={avg} />}
       </div>
     </section>
   );
+}
+
+/** Timeline (was "Forecast", which repeated the Roles list; Dilan, Nov 24): what's ahead from now to 2035, one stop per
+ *  stage of college, with the next skill, the summer to aim for, the first job and the 2035 outlook for the field. */
+function Ahead({ d, jobs, avg }: { d: D; jobs: Occ[]; avg: number }) {
+  const now = new Date(), y = now.getFullYear(), p = d.w.profile;
+  const f0 = d.future?.fields[0];
+  const next = d.stops.find((s) => s.status !== "done" && (s.kind === "skill" || s.kind === "step") && s.year <= d.year) || d.stops.find((s) => s.status !== "done" && s.kind !== "role");
+  const targets = (p.targetRoles || "").toLowerCase().split(/,\s*/).filter(Boolean);
+  const job = jobs.find((o) => targets.some((t) => t.split(/\s+/).every((wd) => o.title.toLowerCase().includes(wd.slice(0, 6))))) || [...jobs].sort((a, b) => (b.openings || 0) - (a.openings || 0))[0];
+  const fast = [...(f0?.growing || jobs)].sort((a, b) => b.change - a.change)[0], slow = f0?.shrinking[0];
+  const grad = p.graduation?.trim() || (d.year < 5 ? String(y + 4 - d.year + (now.getMonth() > 6 ? 1 : 0)) : "");
+  const summer = ["", "Try a first internship, research or a project you can show.", "Land a first internship.", "The big internship summer. It often turns into a job offer.", "Start your first job, or a last internship that leads to one.", "Grow in your first job."][d.year];
+  const stops: { when: string; what: ReactNode }[] = [
+    { when: `Now · ${YEARS[d.year]}`, what: next ? <>Work on <b>{clip(next.title)}</b>.</> : <>You've covered this stage. Nice.</> },
+    ...(d.year < 5 ? [{ when: `Summer ${now.getMonth() > 6 ? y + 1 : y}`, what: <>{summer}</> }] : []),
+    ...(grad && d.year < 5 ? [{ when: `Graduation · ${grad}`, what: job ? <>First job: <b>{job.title.toLowerCase()}</b>{job.wage ? <>, {money(job.wage)} median</> : null}.</> : <>Your first job.</> }] : []),
+    { when: "By 2035", what: <>{f0 ? <><b>{f0.fasterThanAverage} of {f0.total}</b> jobs in your field grow faster than average (+{avg}%). </> : null}{fast ? <>Fastest: <b>{fast.title.toLowerCase()}</b> ({fast.change > 0 ? "+" : ""}{fast.change}%). </> : null}{slow ? <>Shrinking: {slow.title.toLowerCase()} ({slow.change}%).</> : null}</> },
+  ];
+  return <>
+    <ol className="ps-tl" data-testid="path-timeline">{stops.map((s, i) => <li key={i} className={i ? "" : "now"}><b>{s.when}</b><p>{s.what}</p></li>)}</ol>
+    <p className="pm-src">Projections: {d.future?.source || "U.S. Bureau of Labor Statistics"}.</p>
+  </>;
 }
 
 /** Three coloured headline numbers for the field's roles, all from BLS. */
