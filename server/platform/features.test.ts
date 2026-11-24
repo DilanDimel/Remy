@@ -59,4 +59,5 @@ test("releases: owners flip a feature, students can't, and locked interviews are
   assert.equal((await call("", "GET", "/api/config")).data.features.interview, "released");
   const open = await call(kid, "POST", "/api/interviews", {});
   assert.doesNotMatch(String(open.data.message || open.data.error || ""), /future update/);
+  assert.notEqual(open.status, 403); // released: students get past the owners-only gate too
 });
