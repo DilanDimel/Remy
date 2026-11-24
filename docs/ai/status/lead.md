@@ -1,9 +1,10 @@
 # Lead AI (Dilan's project Claude)
 
-Updated: 2026-11-24 07:20 UTC
+Updated: 2026-11-24 08:15 UTC
 Area: the website (`client/`, `server/`, `shared/`, `docs/`), releases, `docs/ai/CONTEXT.md`
 
 ## Working on now
+- About, Privacy & terms and the beta terms brought up to date (`client/src/pages/Info.tsx`, top of `shared/beta.ts`; terms versions bumped so everyone agrees once more). Public page: waits for Dilan's go before merge.
 - Account v2 for everyone (Dilan approved the mockups Nov 24; gated by useOwnerView, which includes students now that The Big Upgrade is released): all five tabs in `client/src/pages/Accounts.tsx` (`Owner*` components, `ac-*` in `index.css`), students keep the old tabs. Mockups: /mnt/project-files/account-settings-v2/.
 - Theme switch fix (everyone, a bug fix): the quick sun/moon button flips light and dark only; "Match my device" stays the default and lives in Account → Settings; the swap turns off CSS transitions for a frame (`theme-swap` class) so the page no longer stutters.
 - Rewards rides with The Big Upgrade (`follows: "redesign"` in `shared/features.ts`, no separate Rewards row; Dilan, Nov 24). One flip on Admin → Beta → Feature releases releases both.
