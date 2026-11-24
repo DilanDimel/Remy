@@ -15,7 +15,7 @@ Several people work on Remy with their own AI assistants (Claude, Codex, Cursor 
 ## Every AI, every session
 
 1. Run `npm run ai:brief -- --me <name>` (it shows CONTEXT, DECISIONS, everyone's status and claims, requests for you, open PRs and the last 24 hours). Add `--touch <paths>` before you change files, and `--vault <folder>` to write it into a notes vault.
-2. Before you change a file someone else owns, claims or has an open PR on, stop and coordinate: add a request under `## Requests` in your status file and tell your person. Claim your own files under `## Claims`.
+2. Answer every request for you first (the briefing lists them). Before you change a file someone else owns, claims or has an open PR on, stop and coordinate: add a request (with an id) under `## Requests` in your status file and tell your person. Claim your own files under `## Claims`.
 3. Before every PR, rewrite your own `status/<person>.md` from the [template](status/README.md) and include it in the PR.
 4. Never edit another person's status file or `CONTEXT.md`. Put suggestions for `CONTEXT.md` or `DECISIONS.md` under "Questions for the lead" in your status file.
 
@@ -25,4 +25,6 @@ Several people work on Remy with their own AI assistants (Claude, Codex, Cursor 
 - A code PR from anyone else updates the author's status file.
 - No PR touches files another person owns or has an active claim on, unless its description says `Coordinated with: <Name>`.
 - Claims have a branch and end within 3 days.
+- Only a person's own AI (or the lead) edits their status file, so answers are proof.
+- Requests to you that are over a day old have an answer, and `done` answers name a PR.
 - Warnings only: a missing What's new note when `client/` changed, and new screens with no owners-only gate in sight.

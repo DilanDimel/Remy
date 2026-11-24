@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { parseStatus, activeClaims, covers, type AiStatus } from "../shared/aiStatus";
+import { parseStatus, activeClaims, covers, trackRequests, type AiStatus } from "../shared/aiStatus";
 
 const root = path.resolve(import.meta.dirname, "..");
 const REPO = "DilanDimel/Remy";
@@ -15,6 +15,7 @@ const read = (f: string) => (fs.existsSync(path.join(root, f)) ? fs.readFileSync
 type Person = { name: string; login: string; status: string; role: string; lead?: boolean; owns: string[] };
 const people: Person[] = JSON.parse(read("docs/ai/owners.json")).people;
 const statusOf = (p: Person): AiStatus => parseStatus(read(p.status));
+const tracked = () => trackRequests(people.map((p) => ({ name: p.name, status: statusOf(p) })));
 
 /** Who else's owned area or active claim covers `file`. */
 function holders(file: string, except?: Person) {
@@ -49,10 +50,17 @@ function check() {
   const coordinated = (name: string) => new RegExp(`Coordinated with:[^\\n]*\\b${name}\\b`, "i").test(body);
   const clash = new Map<string, string[]>();
   for (const f of files) for (const h of holders(f, me)) {
-    if (f === h.person.status) continue; // touching someone's status file is caught by review, not here
+    if (f === h.person.status) continue; // checked below
     if (!coordinated(h.person.name)) clash.set(h.person.name, [...(clash.get(h.person.name) || []), `${f} (${h.person.name} ${h.why})`]);
   }
   for (const [name, list] of clash) errors.push(`This PR touches ${name}'s files:\n    ${list.join("\n    ")}\n  Talk to ${name} first, then add "Coordinated with: ${name}" to the PR description.`);
+
+  // Proof: answers to requests live in the receiver's own file, so only they (or the lead) may write it.
+  for (const p of people) if (p !== me && files.includes(p.status)) errors.push(`This PR edits ${p.status}. Only ${p.name}'s AI writes that file; put requests for ${p.name} in your own status file.`);
+  if (me) for (const r of tracked().filter((r) => r.to.toLowerCase() === me.name.toLowerCase())) {
+    if (r.overdue) errors.push(`Request ${r.id} from ${r.from} (${r.date}) has no answer: "${r.text}". Add "- ${r.id} · seen" (or doing / done · #PR / declined · why) under ## Answers in ${me.status} first.`);
+    if (r.noProof) errors.push(`Request ${r.id} is marked done without a PR number. Add the PR that did it: "- ${r.id} · done · #123".`);
+  }
 
   if (me && files.includes(me.status)) {
     const limit = new Date(Date.now() + 3 * 86400_000).toISOString().slice(0, 10);
@@ -116,6 +124,20 @@ async function brief(args: string[]) {
   const who = (login: string) => people.find((p) => p.login.toLowerCase() === login.toLowerCase())?.name || login;
   const mine = (files: string[]) => (me ? files.filter((f) => holders(f).some((h) => h.person === me)) : []);
 
+  // Requests first: an AI handles what others asked of it before starting anything new.
+  const all = tracked().filter((r) => r.state !== "done" && r.state !== "declined" || r.date >= new Date(Date.now() - 7 * 86400_000).toISOString().slice(0, 10));
+  const label = (r: (typeof all)[number]) => `${r.state}${r.pr ? ` · #${r.pr}${prState[r.pr] ? ` (${prState[r.pr]})` : ""}` : ""}${r.overdue ? " · OVERDUE, no answer" : ""}${r.noProof ? " · done but no PR to prove it" : ""}${r.note ? ` · ${r.note}` : ""}`;
+  const prState: Record<string, string> = {};
+  if (!offline) for (const r of all) if (r.pr && !prState[r.pr]) prState[r.pr] = await gh(`pulls/${r.pr}`).then((p) => (p.merged_at ? "merged" : p.state), () => "not found");
+  const forMe = me ? all.filter((r) => r.to.toLowerCase() === me.name.toLowerCase() && (r.state === "sent" || r.state === "seen" || r.state === "doing")) : [];
+  const fromMe = me ? all.filter((r) => r.from === me.name) : all;
+  if (me) {
+    say(`\n## Requests for you: handle these before anything else`);
+    say(forMe.length ? forMe.map((r) => `- ${r.id} from ${r.from} (${r.date}): ${r.text} [${label(r)}]`).join("\n") + `\n  Answer each under ## Answers in ${me.status}: "- <id> · seen", "· doing", "· done · #PR", or "· declined · why".` : "- None.");
+  }
+  say(`\n## ${me ? "Requests you sent (proof they were handled)" : "Requests between AIs"}`);
+  say(fromMe.length ? fromMe.map((r) => `- ${r.id}${me ? "" : ` from ${r.from}`} to ${r.to} (${r.date}): ${r.text} [${label(r)}]`).join("\n") : "- None.");
+
   // Early warning: before writing code, see who else is on the paths you're about to touch.
   const warn: string[] = [];
   const watch = [...touch, ...(me ? activeClaims(statusOf(me).claims).flatMap((c) => c.paths) : [])];
@@ -125,11 +147,6 @@ async function brief(args: string[]) {
   }
   say("\n## Warnings");
   say(warn.length ? [...new Set(warn)].map((w) => `- ${w}`).join("\n") : touch.length || me ? "- None for the paths you named." : "- Run with --touch <paths> (or --me <name>) to check for overlap before you start.");
-
-  const requests = people.flatMap((p) => statusOf(p).requests.map((r) => ({ from: p.name, ...r })));
-  const forMe = me ? requests.filter((r) => r.to.toLowerCase() === me.name.toLowerCase()) : requests;
-  say(`\n## ${me ? "Requests for you" : "Requests between AIs"}`);
-  say(forMe.length ? forMe.map((r) => `- From ${r.from}${me ? "" : ` to ${r.to}`}: ${r.text}`).join("\n") : "- None.");
 
   say("\n## Last 24 hours (merged)");
   if (offline) say(`- ${offline}`);
