@@ -22,3 +22,22 @@ npm run check && npm test
 ## Put it on a phone without the app stores
 
 With an Expo account and `EXPO_TOKEN` set: `npx eas-cli@latest init` (first time), then `npx eas-cli@latest update --branch preview`. Open the update in Expo Go from its QR code. Nothing here publishes to the App Store or Google Play.
+
+## Build for the App Store and Google Play
+
+`eas.json` has two build profiles. Neither one publishes anything by itself.
+
+- **preview:** an internal build (an Android APK, or an iPhone build for registered test phones) that gets `eas update --branch preview` updates.
+- **production:** the store build (an iPhone `.ipa`, an Android `.aab`) on the `production` update channel. EAS keeps the build numbers (`appVersionSource: remote`) and raises them on every production build. The version people see is `version` in `app.json`.
+
+Once the Apple Developer and Play Console accounts exist:
+
+```bash
+npx eas-cli@latest build --platform all --profile production   # EAS asks for the Apple and Google signing details the first time and keeps them
+npx eas-cli@latest submit --platform ios --profile production   # to TestFlight
+npx eas-cli@latest submit --platform android --profile production  # to Play's internal testing track, as a draft
+```
+
+Keep signing keys and the Play service-account key in EAS or GitHub secrets, never in the repo. The app still only opens for owners (`isOwnerView` in `src/lib/session.tsx`). Opening it to everyone and giving store reviewers a way to sign in are team decisions to make before the first review.
+
+Already set for review: the microphone and speech recognition messages iOS shows before voice chat, no export-compliance question on each upload (Remy only uses standard HTTPS), and **You → Delete account**, which opens Account & data, where students can download their data or delete everything (both stores require deleting an account from inside the app).
