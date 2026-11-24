@@ -97,7 +97,7 @@ export default function Home() {
   const moreLink = tab === "todos" ? "/progress?tab=todos" : tab === "events" ? "/opportunities?kind=event" : "/opportunities?kind=jobs";
 
   const todoRow = (t: Task) => (
-    <div key={t.id} className={"item todo-row" + (t.done ? " completing" : "")}>
+    <div key={t.id} className={"item todo-row" + (t.done ? " completing" : "") + (open === t.id ? " open" : "")}>
       <button className="check" role="checkbox" aria-checked={t.done} onClick={() => toggleTask(t)} aria-label={`Mark ${t.title} done`} data-testid="checkbox-task">{t.done && <Check size={13} />}</button>
       <div className="item-main">
         <button style={{ textAlign: "left", padding: 0, fontWeight: 700 }} onClick={() => setOpen(open === t.id ? "" : t.id)}>{t.title}</button>

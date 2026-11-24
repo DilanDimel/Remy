@@ -1060,7 +1060,7 @@ function TeamTab({ tab }: { tab: "board" | "team" }) {
   const perDay = week.map((k) => d.entries.filter((e) => chi(e.start_at) === k).reduce((x, e) => x + ((e.end_at ? +new Date(e.end_at) : Date.now()) - +new Date(e.start_at)) / 3600_000, 0));
   const dayTop = Math.max(1, ...perDay);
   return (
-    <div className="adm2 adm2-full">
+    <div className="adm2 adm2-full adm2-fixed">
       <div className="adm-head">
         <div><h1 className="adm-hello">Team &amp; hours</h1><p className="adm2-say"><b>{line}</b>{working.length ? ` ${working.map((m) => m.name.split(" ")[0]).join(" and ")} ${working.length === 1 ? "is" : "are"} working now.` : ""}</p></div>
         <div className="row adm2-clock">
@@ -1100,7 +1100,7 @@ function TeamTab({ tab }: { tab: "board" | "team" }) {
         </section>
         <section className="adm2-card" data-testid="team-activity">
           <div className="adm2-h"><h3>Activity</h3>{rest && <button className="btn btn-ghost btn-sm" onClick={() => setPanel("activity")} data-testid="button-all-activity">All <ArrowRight size={14} /></button>}</div>
-          {first8.length ? <div className="adm2-acts">{first8.map(row)}</div> : <Empty title="No activity yet" body="Adding to-dos, finishing them, meetings and hours all show up here." />}
+          {first8.length ? <div className="adm2-acts adm2-scroll">{first8.map(row)}</div> : <Empty title="No activity yet" body="Adding to-dos, finishing them, meetings and hours all show up here." />}
         </section>
       </div>
       {panel === "past" && (
