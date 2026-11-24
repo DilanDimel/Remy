@@ -68,7 +68,7 @@ import { step } from "@shared/progress";
 import { conferencesFor } from "./jobs/conferences";
 import { competitionsFor, competitionsOpen } from "./jobs/competitions";
 import { trimOpenings } from "./resume/trim";
-import { storageReport, trafficReport, warnIfNearLimit } from "./platform/storage";
+import { pruneLogs, storageReport, trafficReport, warnIfNearLimit } from "./platform/storage";
 import { backupIfDue, backupStatus } from "./platform/backup";
 import * as insights from "./jobs/insights";
 import * as services from "./platform/services";
@@ -665,6 +665,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       pruneBoardCache().catch(() => {}),
       warnIfNearLimit().catch((e) => console.error("storage check failed", e?.message)),
       backupIfDue().then((b) => { if (b) console.log(`backup: ${b.kind} copy, ${b.rows} rows`); }).catch((e) => console.error("backup failed", e?.message)),
+      pruneLogs().catch((e) => console.error("log cleanup failed", e?.message)),
       pruneOpenings().then((n) => { if (n) console.log(`checked openings: discarded ${n} not seen for a while`); }).catch((e) => console.error("checked openings prune failed", e?.message)),
       deadlineReminders().catch((e) => console.error("deadline reminders failed", e?.message)),
       sendTexts(daysBefore(centralToday(), 14), centralToday()).catch((e) => console.error("urgent texts failed", e?.message)),

@@ -69,3 +69,10 @@ export async function trafficReport() {
   }
   return { connections, statements, statsSince: since, note: statements ? "" : `pg_stat_statements isn't readable here: ${note}` };
 }
+
+/** Run by the sweep: logs that otherwise grow forever. The owners' pages read only the newest 80 team activity rows
+ *  and the last 7 days of usage counts, so 180 days of each is plenty. */
+export async function pruneLogs() {
+  await q("DELETE FROM team_activity WHERE at < now() - interval '180 days'");
+  await q("DELETE FROM usage_events WHERE day < to_char(now() - interval '180 days', 'YYYY-MM-DD')");
+}
