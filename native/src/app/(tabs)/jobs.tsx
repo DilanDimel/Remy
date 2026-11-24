@@ -1,15 +1,20 @@
-import * as WebBrowser from "expo-web-browser";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, PanResponder, Pressable, Text, useWindowDimensions, View } from "react-native";
 import type { Job } from "@shared/types";
 import { Button, EmployerTile, FitBadge, Group, Icon, Pill, Row, Screen, Sect, T, success, tap } from "@/components/ui";
 import { useJobs } from "@/lib/jobs";
+import { go } from "@/lib/nav";
 import { visibleJobs } from "@/lib/next";
 import { useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
 
 type Filter = "new" | "kept";
+
+/** "Ally Financial · Remote": the work format only when it adds something (not "Remote · Remote"). */
+const placeLine = (j: Job) => [j.company, j.location, j.format && !(j.location || "").toLowerCase().includes(j.format.toLowerCase()) ? j.format : ""].filter(Boolean).join(" · ");
+/** The deadline chip says it's about the deadline: "Not stated on the board…" alone read like a mystery tag. */
+const deadlineLabel = (t: string) => (/deadline|due|apply by|closes|starts/i.test(t) ? t : /^not stated/i.test(t) ? "Deadline not stated" : `Deadline: ${t}`);
 
 export default function Jobs() {
   const { ws } = useSession();
@@ -31,7 +36,9 @@ export default function Jobs() {
   const [refreshing, setRefreshing] = useState(false);
   const all = useMemo(() => (ws ? visibleJobs(ws, jobs, fits) : []), [ws, jobs, fits]);
   if (!ws) return null;
-  const kept = all.filter((j) => ws.savedJobIds.includes(j.id) || keptNow[j.id]);
+  // Kept is every saved opening, like Progress counts them: one that closed or left the feed still shows (marked closed).
+  const kept = [...new Set([...ws.savedJobIds, ...Object.keys(keptNow)])].map((id) => jobs.find((j) => j.id === id)).filter((j): j is Job => !!j);
+  const closed = (j: Job) => !all.some((x) => x.id === j.id);
   const fresh = all.filter((j) => !gone[j.id] && !ws.savedJobIds.includes(j.id) && !ws.jobFeedback?.[j.id]);
   const shown = filter === "kept" ? kept : fresh;
   const onRefresh = async () => { setRefreshing(true); await reload(); setRefreshing(false); };
@@ -57,7 +64,8 @@ export default function Jobs() {
       <Pressable testID="button-undo-decision" hitSlop={10} onPress={takeBack}><Text style={{ fontFamily: font.bold, fontSize: 14.5, color: c.fox }}>Undo</Text></Pressable>
     </View>
   );
-  const open = (j: Job) => { tap(); WebBrowser.openBrowserAsync(j.applyUrl || j.sourceUrl); };
+  // Remy's page for the opening (why it fits, tailor, track), with the employer's posting one tap further.
+  const open = (j: Job) => { tap(); go(`/opportunities?id=${encodeURIComponent(j.id)}`, "Opportunities"); };
 
   const filters = (
     <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
@@ -83,7 +91,7 @@ export default function Jobs() {
         <Sect title={filter === "kept" ? "Kept" : `${shown.length} for you`} />
         <Group>
           {shown.slice(0, 40).map((j, i) => (
-            <Row key={j.id} first={i === 0} title={j.title} sub={`${j.company} · ${j.location}`} left={<EmployerTile name={j.company} size={40} />} onPress={() => open(j)} testID="row-opening"
+            <Row key={j.id} first={i === 0} title={j.title} sub={[j.company, j.location, filter === "kept" && closed(j) ? "closed" : ""].filter(Boolean).join(" · ")} left={<EmployerTile name={j.company} size={40} />} onPress={() => open(j)} testID="row-opening"
               right={filter === "kept" ? (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   <FitBadge fit={fits[j.id]} />
@@ -160,9 +168,9 @@ function Deck({ jobs, onDecide, onOpen }: { jobs: Job[]; onDecide: (j: Job, yes:
         <Animated.View {...pan.panHandlers} style={[card, { minHeight: 462, padding: 20, transform: [{ translateX: x }, { rotate }] }]} testID="card-opening">
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}><EmployerTile name={j.company} size={50} /><FitBadge fit={f} /></View>
           <T kind="title" style={{ marginTop: 16 }} numberOfLines={3}>{j.title}</T>
-          <T kind="muted" style={{ marginTop: 4 }} numberOfLines={2}>{[j.company, j.location, j.format].filter(Boolean).join(" · ")}</T>
+          <T kind="muted" style={{ marginTop: 4 }} numberOfLines={2}>{placeLine(j)}</T>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 14 }}>
-            {!!j.deadlineText && <Pill label={j.deadlineText} />}
+            {!!j.deadlineText && <Pill label={deadlineLabel(j.deadlineText)} />}
             {(f?.matched || []).slice(0, 3).map((m) => <Pill key={m} label={m} />)}
           </View>
           {!!f?.why && (

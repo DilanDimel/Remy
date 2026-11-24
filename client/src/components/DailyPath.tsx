@@ -313,6 +313,8 @@ export function Round({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0);
   const [log, setLog] = useState<string[]>([]);
   const [before] = useState(() => dailyStreak(streakDays(w)).days);
+  // Already played today (the app's Path card says so): show today's result instead of dealing the round again from 1 of 3.
+  const [already] = useState(() => (["openings", "role", "forecast"] as const).every((k) => stateOf(w).days?.[today]?.includes(k)));
   // Openings Remy hasn't heard about from the student yet, best fit first. Fixed once loaded, so a Keep doesn't reshuffle.
   const [pool, setPool] = useState<Job[] | null>(null);
   useEffect(() => {
@@ -327,7 +329,7 @@ export function Round({ onClose }: { onClose: () => void }) {
     await save("game", withCard(g, card, today)).catch(() => {});
     setStep((n) => n + 1);
   };
-  const done = step >= cards.length;
+  const done = already || step >= cards.length;
   const card = cards[step];
   if (!pool || !careers || !future) return <div className="dp-round"><div className="card card-pad row"><Spinner /> <span className="muted">Dealing today's cards…</span></div></div>;
   return (
@@ -373,6 +375,8 @@ function OpeningsCard({ jobs, fits, put, onDone }: { jobs: Job[]; fits: Record<s
     if (keep) setKept((n) => n + 1);
     setTimeout(() => { setFly(""); setI((n) => n + 1); }, 220);
   };
+  // The arrow-key tip only where there's a keyboard and a mouse, not on a phone.
+  const [keys] = useState(() => typeof matchMedia === "function" && matchMedia("(hover: hover) and (pointer: fine)").matches);
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === "ArrowRight") act(true); if (e.key === "ArrowLeft") act(false); };
     window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
@@ -389,11 +393,11 @@ function OpeningsCard({ jobs, fits, put, onDone }: { jobs: Job[]; fits: Record<s
       <div className="dp-swipe">
         {jobs[i + 1] && <div className="dp-job back" aria-hidden="true" />}
         <article className={"dp-job" + (fly ? " fly-" + fly : "")}>
-          <div className="dp-job-co"><OrgLogo key={j.id} company={j.company} url={j.applyUrl} className="dp-mono" text={(j.company || "?").slice(0, 2).toUpperCase()} /><div><b>{j.company || "An employer"}</b><span>{[place(j.location), j.format].filter(Boolean).join(" · ")}</span></div></div>
+          <div className="dp-job-co"><OrgLogo key={j.id} company={j.company} url={j.applyUrl} className="dp-mono" text={(j.company || "?").slice(0, 2).toUpperCase()} /><div><b>{j.company || "An employer"}</b><span>{[place(j.location), j.format && !place(j.location).toLowerCase().includes(j.format.toLowerCase()) ? j.format : ""].filter(Boolean).join(" · ")}</span></div></div>
           <h3>{j.title}</h3>
           {why && <p>{why}</p>}
           {(j.applyUrl || j.sourceUrl) && <a className="dp-job-link" href={j.applyUrl || j.sourceUrl} target="_blank" rel="noreferrer">See the posting <ArrowRight size={14} /></a>}
-          <span className="dp-job-n">{i + 1} of {jobs.length} · arrow keys work too</span>
+          <span className="dp-job-n">{i + 1} of {jobs.length}{keys ? " · arrow keys work too" : ""}</span>
         </article>
       </div>
       <div className="dp-pair">

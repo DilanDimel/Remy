@@ -52,7 +52,7 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
   return (
     <div className="r1" data-testid="resume-one-page">
       <div className="r1-bar">
-        <div className="row" style={{ gap: 8 }}><FileText size={17} /><b>{r.fileName}</b><span className="xs muted">· {edited ? `edited ${fmtDate(r.editedAt!)}` : `added ${fmtDate(r.uploadedAt)}`}</span></div>
+        <div className="row" style={{ gap: 8 }}><FileText size={17} /><b>{r.fileName}</b><span className="xs muted">{edited ? `Edited ${fmtDate(r.editedAt!)}` : `Added ${fmtDate(r.uploadedAt)}`}</span></div>
         <div className="row" style={{ gap: 6 }}>
           <button className="btn btn-primary btn-sm" onClick={() => download("/api/resume/export?format=pdf", "Resume.pdf").catch((e) => toast(e.message, true))} data-testid="button-export-base-pdf"><Download size={14} /> PDF</button>
           <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/export?format=docx", "Resume.docx").catch((e) => toast(e.message, true))} data-testid="button-export-base-docx">Word</button>

@@ -13,7 +13,7 @@ import { font, useTheme } from "@/lib/theme";
 const SITE = API_BASE || "https://remyai.org";
 
 // The sheet's title follows the page the student moves to (Resume → Opportunities), using the website's own nav labels (client/src/App.tsx).
-const TITLES: Record<string, string> = { path: "My Path", resume: "Resume", opportunities: "Opportunities", interview: "Interview", community: "People", calendar: "Calendar", progress: "Progress", settings: "Settings", accounts: "Account" };
+const TITLES: Record<string, string> = { path: "My Path", resume: "Resume", opportunities: "Opportunities", interview: "Interview", community: "Community", calendar: "Calendar", progress: "Progress", settings: "Settings", accounts: "Account" };
 function titleFor(url: string): string | undefined {
   try { return TITLES[new URL(url).pathname.split("/")[1] || ""]; } catch { return undefined; }
 }

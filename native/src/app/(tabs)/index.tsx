@@ -24,8 +24,10 @@ export default function Today() {
   const steps = gettingStarted(ws);
   const done = steps.filter((s) => s.done).length;
   const streak = dailyStreak(ws.game || { days: {} });
+  const open = ws.tasks.filter((t) => !t.done).length; // the same count as Progress → To-dos
   const todos = ws.tasks.filter((t) => !t.done).sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999")).slice(0, 4);
-  const top = visibleJobs(ws, jobs, fits).slice(0, 3);
+  // New openings only: one already kept or passed is in Jobs, not "for you" again.
+  const top = visibleJobs(ws, jobs, fits).filter((j) => !ws.savedJobIds.includes(j.id) && !ws.jobFeedback?.[j.id]).slice(0, 3);
   const onRefresh = async () => { setRefreshing(true); await Promise.all([refresh(), reload()]); setRefreshing(false); };
   const toggle = async (t: Task) => { if (!t.done) success(); setWs(await api<Workspace>("PATCH", `/api/tasks/${t.id}`, { done: !t.done })); };
   const name = firstName(ws);
@@ -33,7 +35,8 @@ export default function Today() {
   // Kept openings aren't in Jobs → For you, so an opening (or "browse openings" when For you is empty) opens where it is.
   const isKept = (id: string) => ws.savedJobIds.includes(id);
   const freshLeft = visibleJobs(ws, jobs, fits).some((j) => !isKept(j.id) && !ws.jobFeedback?.[j.id]);
-  const openJob = (id: string) => openJobs(isKept(id) ? "kept" : "new");
+  // An opening opens Remy's page for it, not the Jobs list at wherever it was last scrolled.
+  const openJob = (id: string) => { tap(); go(`/opportunities?id=${encodeURIComponent(id)}`, "Opportunities"); };
   const base = next.path.split("?")[0];
   const openNext = () => (base === "/path" ? askRemy(`Help me with this: ${next.title}`) : base === "jobs" || base === "/opportunities" ? openJobs(freshLeft ? "new" : "kept") : go(next.path, next.cta));
 
@@ -47,7 +50,7 @@ export default function Today() {
   if (look === "calm") return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
       <T kind="display" style={{ fontSize: 34, marginTop: 28 }}>Today</T>
-      <T kind="muted">{new Date().toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })} · {done} of {steps.length} steps done</T>
+      <T kind="muted">{new Date().toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })} {todos.length ? ` · ${open} to-do${open === 1 ? "" : "s"} open` : ""}</T>
       <Card style={{ marginTop: 18 }}>
         <T kind="label">Your one thing right now</T>
         <T kind="h2" style={{ marginTop: 6, fontSize: 20 }}>{next.title}</T>

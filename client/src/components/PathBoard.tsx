@@ -490,7 +490,7 @@ function useGuide(d: D, onField: (tab: SideTab, open?: string) => void) {
   const fastest = [...jobs].sort((a, b) => b.change - a.change)[0];
   const qLeft = d.quests.filter((q) => q.n < q.of).length;
   const who = p.major.trim() ? `studying ${p.major.trim()}` : "still exploring";
-  const yearWord = d.year === 5 ? "out of college" : `in your ${YEARS[d.year].toLowerCase()} year`;
+  const yearWord = d.year === 5 ? "out of college" : `in your ${YEARS[d.year].toLowerCase().replace(/-year$/, "")} year`; // "first year", not "first-year year"
   const asA = d.year === 5 ? "starting out" : `a ${YEARS[d.year].toLowerCase()}`;
   const and = (xs: string[]) => xs.map((x, i) => <span key={i}>{i ? " and " : ""}<b>{x}</b></span>);
   const close = () => { markSeen(); setOn(false); setStep(0); onField("today"); };
@@ -771,7 +771,7 @@ function RoleRow({ o, avg, max, known, mine, open, onOpen }: { o: Occ; avg: numb
   return (
     <li className={"pm-row role" + (open ? " open" : "")}>
       <button className="pm-row-btn" onClick={onOpen} aria-expanded={open}>
-        <span className={"pm-ico " + (known ? "known" : "")} title={known ? "You've learned this role" : undefined}>{known ? <Check size={16} strokeWidth={3} /> : up ? <TrendingUp size={16} /> : <TrendingDown size={16} />}</span>
+        <span className={"pm-ico " + (known ? "known" : "")} title={known ? "You've learned this role" : undefined}>{known ? <Check size={16} strokeWidth={3} /> : o.change >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}</span>
         <div className="pm-role-main"><b>{o.title}{mine && <em className="pm-mine">Your target</em>}</b><small>{o.wage ? `${money(o.wage)} median` : ""}{o.openings ? ` · ${Math.round(o.openings * 1000).toLocaleString("en-US")} openings/yr` : ""}</small></div>
         <span className="pm-growth" title="Growth by 2035; the line is the average job">
           <span className="pm-track"><i className={cls} style={{ width: `${Math.min(100, (Math.abs(o.change) / max) * 100)}%` }} /><em style={{ left: `${Math.min(100, (avg / max) * 100)}%` }} /></span>
@@ -786,8 +786,12 @@ function RoleRow({ o, avg, max, known, mine, open, onOpen }: { o: Occ; avg: numb
 
 export function PathBoard() {
   const d = usePathData();
-  const [tab, setTab] = useState<SideTab>("today");
+  // ?side=skills (the app's Path rows): open that panel and bring it into view instead of the top of the page.
+  const [side] = useState(() => { const s = new URLSearchParams(location.search).get("side"); return (["today", "roles", "skills", "certs", "forecast"] as SideTab[]).find((t) => t === s); });
+  const [tab, setTab] = useState<SideTab>(side || "today");
   const [open, setOpen] = useState("");
+  const ready = !!(d.careers && d.future);
+  useEffect(() => { if (side && ready) setTimeout(() => document.getElementById("path-field")?.scrollIntoView({ behavior: "smooth", block: "start" }), 120); }, [side, ready]);
   const onField = (t: SideTab, o = "") => { setTab(t); setOpen(o); };
   if (!d.careers || !d.future) return <div className="card card-pad row"><Spinner /> <span className="muted">Remy is getting your path ready…</span></div>;
   return (
