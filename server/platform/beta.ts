@@ -5,7 +5,29 @@ import type { Me } from "@shared/types";
 import { isOwner } from "./admin";
 import { q } from "./sql";
 
-export const betaOn = () => process.env.OR_BETA_ONLY === "true";
+// Instant access (Nov 24, Julio's friends didn't want to apply first): one owner switch on the Admin page lets anyone sign
+// in, with daily limits on the heavy AI features. Off (no row) keeps today's invite-only beta; turning it off again is
+// the way back to a waitlist. Kept in site_settings so it flips without a redeploy.
+let openCache = { at: 0, open: false };
+export async function openAccess() {
+  if (Date.now() - openCache.at <= 30_000) return openCache.open;
+  const r = await q("SELECT value FROM site_settings WHERE key = 'open_access'");
+  openCache = { at: Date.now(), open: r[0]?.value === "true" };
+  return openCache.open;
+}
+export async function setOpenAccess(by: string, open: boolean) {
+  await q(`INSERT INTO site_settings (key, value, updated_by) VALUES ('open_access', $1, $2)
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = now()`, [String(open), by]);
+  openCache = { at: Date.now(), open };
+}
+/** Invite-only right now: the server's switch is on and owners haven't opened access. */
+export const betaOn = async () => process.env.OR_BETA_ONLY === "true" && !(await openAccess());
+
+// Open access: a daily cap on tailoring, the AI feature that costs the most (owners are never capped). AI mock
+// interviews already have their own cap of 3 a week (shared/interview.ts), and every account has 120 AI calls a day.
+export const TAILOR_PER_DAY = 5;
+export const heavyKind = (purpose: string) => (/^Tailor for /.test(purpose) ? "tailor" : "");
+export const tailorLimitMessage = `You've tailored ${TAILOR_PER_DAY} resumes today, the daily limit while Remy is in beta. It resets within 24 hours; everything else still works.`;
 export const betaFormUrl = () => {
   const u = (process.env.OR_BETA_FORM_URL || "").trim();
   return /^https:\/\/\S+$/.test(u) ? u : "";
@@ -27,7 +49,7 @@ export const clearBetaCache = () => { version++; cache.at = 0; };
 
 /** Can this email use Remy right now? Always yes with the switch off. */
 export async function emailAllowed(email: string) {
-  if (!betaOn()) return true;
+  if (!(await betaOn())) return true;
   const e = normEmail(email);
   if (!e) return false;
   return (await accepted()).has(e) || (await isOwner({ kind: "google", email: e }));
@@ -36,7 +58,7 @@ export async function emailAllowed(email: string) {
 /** Can this signed-in identity use Remy right now? Guests and demo visitors can't while the switch is on;
  *  "local" (a developer's own machine) always can. */
 export async function meAllowed(me: Pick<Me, "kind" | "email">) {
-  if (!betaOn() || me.kind === "local") return true;
+  if (me.kind === "local" || !(await betaOn())) return true;
   if (me.kind !== "google" && me.kind !== "supabase") return false;
   return emailAllowed(me.email);
 }

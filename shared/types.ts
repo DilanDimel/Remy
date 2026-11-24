@@ -597,6 +597,9 @@ export interface Workspace {
   photoAt?: string;
   /** The beta terms version the student agreed to, and when (server time). */
   betaAgreed?: { version: string; at: string };
+  /** Beta Insider (open access, Nov 24): when the student joined (after a few days of use) and the last short survey
+   *  shown, answered or skipped (YYYY-MM-DD, Central). Server-written (/api/insider). */
+  insider?: { joinedAt: string; surveyAt?: string };
   plan?: PathPlan;
   chat: ChatMsg[];
   aiLog: AiLogEntry[];
@@ -663,7 +666,7 @@ export interface AppConfig {
   /** Which version of Remy the server runs; when it changes, an open tab offers to reload. */
   build?: string;
   /** Founding Cohort beta: when on, only accepted emails can sign in; formUrl is the team's application form. */
-  beta?: { on: boolean; formUrl: string };
+  beta?: { on: boolean; formUrl: string; open?: boolean };
 }
 
 export interface HoursEntry {

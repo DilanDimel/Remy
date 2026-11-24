@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   Award, BarChart3, Briefcase, CalendarDays, ChevronsLeft, ChevronsRight, Compass, FileText, Home as HomeIcon, Menu, Send,
   Check, Gauge, Info, Mic, Minus, ShieldCheck, UserCog, Users,
-  ImagePlus, MessageCircle, Search, ArrowRight, ChevronDown, Square,
+  ImagePlus, MessageCircle, MessageSquare, Search, ArrowRight, ChevronDown, Square,
 } from "lucide-react";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { canListen, speak, useVoice } from "./lib/voice";
@@ -23,6 +23,7 @@ import { Avatar } from "./components/ProfilePhoto";
 import { useRemyDoes, useRemyReachOut } from "./lib/remyDoes";
 import { RemyDid } from "./components/RemyDid";
 import { OfferSlot, RemyOffer } from "./components/RemyOffer";
+import { Insider } from "./components/Insider";
 import { RemyAway } from "./components/RemyAway";
 import { answer as answerTailor, endSession as endTailor, isAsking, onOpenRequest, useTailorSession } from "./lib/tailorChat";
 import Welcome from "./pages/Welcome";
@@ -45,7 +46,7 @@ import Admin from "./pages/Admin";
 import type { ChatAction, Workspace } from "@shared/types";
 import { Celebrate } from "./components/Celebrate";
 import { RemyTour, tourAgain } from "./components/Tour";
-import { BETA_TERM_HEADS, BETA_TERMS, BETA_TERMS_LEAD, BETA_TERMS_VERSION } from "@shared/beta";
+import { BETA_TERMS_LEAD, termsFor } from "@shared/beta";
 import { firstName, knownName } from "@shared/names";
 import { isNativeApp } from "./lib/native";
 
@@ -78,7 +79,7 @@ export default function App() {
 }
 
 function Root() {
-  const { loading, ws, me } = useStore();
+  const { loading, ws, me, config } = useStore();
   const { path } = useRoute();
   // Keep the address honest: signed out, only the front page and sign-in page exist (so deleting an account or
   // signing out doesn't leave /accounts in the bar for the next account); signed in, /signin goes home.
@@ -104,14 +105,15 @@ function Root() {
   // (The phone app has no homepage, so signed in it goes straight to the student's Remy.)
   if (path === "/careers" && !signedOut) return <Careers />;
   if (signedOut || (path === "/welcome" && !isNativeApp)) return <Welcome />;
-  if (ws.betaAgreed?.version !== BETA_TERMS_VERSION) return <BetaAgreement />;
+  if (ws.betaAgreed?.version !== termsFor(config?.beta?.open).version) return <BetaAgreement />;
   if (!ws.onboarding.done) return <Onboarding />;
   return <Shell />;
 }
 
 /** Every student agrees to the beta terms once (and again when they change) before using Remy. */
 function BetaAgreement() {
-  const { setWs, run } = useStore();
+  const { setWs, run, config } = useStore();
+  const { version, terms, heads } = termsFor(config?.beta?.open);
   const [ok, setOk] = useState(false);
   const [busy, setBusy] = useState(false);
   // Shows "scroll to read them all" until the last term is in view (or when the list fits without scrolling).
@@ -121,7 +123,7 @@ function BetaAgreement() {
   useEffect(() => { checkEnd(); addEventListener("resize", checkEnd); return () => removeEventListener("resize", checkEnd); }, []);
   const agree = async () => {
     setBusy(true);
-    const r = await run(() => api<Workspace>("POST", "/api/beta/agree", { version: BETA_TERMS_VERSION }));
+    const r = await run(() => api<Workspace>("POST", "/api/beta/agree", { version }));
     if (r) setWs(r);
     setBusy(false);
   };
@@ -131,9 +133,9 @@ function BetaAgreement() {
       <div className="landing-card fade-up terms-card" data-testid="beta-agreement">
         <div className="terms-head"><Remy size={44} mood="wave" /><div><h1>Before you start <BetaBadge /></h1><p className="small muted">{BETA_TERMS_LEAD}</p></div></div>
         <ol className="terms-list" tabIndex={0} aria-label="Beta terms" ref={list} onScroll={checkEnd}>
-          {BETA_TERMS.map((t, i) => <li key={t}><b>{BETA_TERM_HEADS[i] || `Point ${i + 1}`}</b><span>{t}</span></li>)}
+          {terms.map((t, i) => <li key={t}><b>{heads[i] || `Point ${i + 1}`}</b><span>{t}</span></li>)}
         </ol>
-        {!atEnd && <p className="xs terms-more" aria-hidden>{BETA_TERMS.length} points · scroll to read them all ↓</p>}
+        {!atEnd && <p className="xs terms-more" aria-hidden>{terms.length} points · scroll to read them all ↓</p>}
         <div className="terms-foot">
           <label className="terms-check">
             <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} data-testid="checkbox-beta-agree" />
@@ -165,7 +167,7 @@ function isMobileNow() {
 }
 
 function Shell() {
-  const { ws, save, me } = useStore();
+  const { ws, save, me, config } = useStore();
   const ownerView = useOwnerView();
   useRemyReachOut(ownerView);
   useRemyDoes(ownerView); // owners: what Remy does from chat shows on screen right away (lib/remyDoes.ts)
@@ -289,6 +291,12 @@ function Shell() {
         <div className="topbar">
           <div className="crumb">Remy › <b>{current.label}</b></div>
           <div style={{ marginLeft: "auto" }} className="row">
+            {/* Open access (Nov 24): feedback one tap away on every page, not only in the account menu. */}
+            {(ownerView || config?.beta?.open) && (
+              <button className="btn btn-ghost btn-sm" onClick={() => setFeedback(true)} data-testid="button-topbar-feedback" title="Tell the Remy team what's confusing or broken">
+                <MessageSquare size={15} /> <span className="hide-sm">Feedback</span>
+              </button>
+            )}
             {!asstOpen && !ownerView && (
               <button className="btn btn-secondary btn-sm hide-sm" onClick={() => setAsst(true)} data-testid="button-open-assistant">
                 <Remy size={18} /> Open Remy
@@ -304,6 +312,7 @@ function Shell() {
           </div>
         </div>
         {ownerView && <RemyOffer />}
+        {(ownerView || config?.beta?.open) && current.path === "/" && <Insider />}
         <div className="page fade-up" key={current.path}><ErrorBoundary where={`page:${current.path}`} resetKey={current.path}>{page}</ErrorBoundary></div>
       </main>
 

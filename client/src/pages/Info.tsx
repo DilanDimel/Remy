@@ -4,7 +4,7 @@ import { Remy } from "../components/common";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { useOwnerView, useStore } from "../lib/store";
 import { Top } from "./Landing2";
-import { BETA_TERMS, BETA_TERMS_LEAD } from "@shared/beta";
+import { BETA_TERMS_LEAD, termsFor } from "@shared/beta";
 
 const CONTACT = "hello@remyai.org";
 const UPDATED = "November 23, 2026";
@@ -96,6 +96,7 @@ export function About() {
 }
 
 export function Policies() {
+  const { config } = useStore();
   return (
     <Page title="Privacy & terms" lead={`How Remy handles your information, and the rules for using it. Last updated ${UPDATED}.`}>
       <h2 className="eyebrow">Privacy policy</h2>
@@ -147,7 +148,7 @@ export function Policies() {
       <h2 className="eyebrow" style={{ marginTop: 12 }}>Terms of use</h2>
       <Section title="Remy is in beta">
         <p id="beta-terms">{BETA_TERMS_LEAD}</p>
-        <ul className="stack-sm" style={{ paddingLeft: 18 }}>{BETA_TERMS.map((t) => <li key={t}>{t}</li>)}</ul>
+        <ul className="stack-sm" style={{ paddingLeft: 18 }}>{termsFor(config?.beta?.open).terms.map((t) => <li key={t}>{t}</li>)}</ul>
       </Section>
       <Section title="Using Remy">
         <ul className="stack-sm" style={{ paddingLeft: 18 }}>
