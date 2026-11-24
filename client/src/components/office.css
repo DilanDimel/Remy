@@ -113,3 +113,18 @@ html:not([data-theme="dark"]) .ps-night, [data-theme="dark"] .ps-day { display: 
 .ps-tl p { margin: 2px 0 0; font-size: var(--text-sm); line-height: 1.45; color: var(--ink); }
 .ps-tl p b { display: inline; font-size: inherit; text-transform: none; letter-spacing: 0; color: var(--ink); font-weight: 750; }
 [data-theme="dark"] .ps-tl li.now > b { color: var(--fox); }
+
+/* Standing Remy's arms (Nov 24): sleeves hang from his shoulders with paws at his sides. When an arm is busy (waving,
+   pointing, coffee...) the drawing's own arm takes over and is cut to shoulder length, so it reads as one arm, not a stick. */
+.ps-arms { transition: opacity .2s; }
+.ps-fox.sit .ps-arms { opacity: 0; }
+.ps-sleeve-ol { fill: none; stroke: var(--sch-line); stroke-width: 24; stroke-linecap: round; }
+.ps-sleeve { fill: none; stroke: var(--o-jacket, var(--sch-suit)); stroke-width: 17; stroke-linecap: round; }
+.ps-cuff { fill: none; stroke: var(--o-shirt, var(--white)); stroke-width: 3.5; stroke-linecap: round; }
+.ps-paw { fill: var(--sch-fur); stroke: var(--sch-line); stroke-width: 3.5; }
+.ps-fox-bob:has(.fox.scholar:is(.act-coffee, .act-clean, .act-read, .act-tie, .act-push, .act-wave, .act-yawn, .o-point, .o-point-low, .o-type)) .ps-arm.r,
+.ps-fox-bob:has(.fox.scholar:is(.act-clean, .act-read, .o-type)) .ps-arm.l { opacity: 0; }
+.ps-fox:not(.sit) .fox.scholar .s-sleeve-ol { stroke-width: 24; stroke-dasharray: 72 400; }
+.ps-fox:not(.sit) .fox.scholar .s-sleeve { stroke-width: 17; stroke-dasharray: 72 400; }
+.ps-fox:not(.sit) .fox.scholar .s-cuff { d: path("M-8 14 L8 14"); }
+.ps-scene .fox.scholar .s-arm > ellipse, .ps-scene .fox.scholar .s-toe { transform-box: fill-box; transform-origin: 50% 50%; transform: scale(1.22); }

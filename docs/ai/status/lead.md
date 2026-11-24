@@ -4,6 +4,7 @@ Updated: 2026-11-24 07:20 UTC
 Area: the website (`client/`, `server/`, `shared/`, `docs/`), releases, `docs/ai/CONTEXT.md`
 
 ## Working on now
+- Office Remy's standing body redrawn (Dilan, Nov 24): hanging arms with paws, raised arm cut to shoulder length, chunkier trousers and shoes, cutaway jacket hem, bushier tail (`PathBoard.tsx` Office, `office.css`). Speech bubble mockups next, nothing shipped until Dilan picks.
 - Account v2 for everyone (Dilan approved the mockups Nov 24; gated by useOwnerView, which includes students now that The Big Upgrade is released): all five tabs in `client/src/pages/Accounts.tsx` (`Owner*` components, `ac-*` in `index.css`), students keep the old tabs. Mockups: /mnt/project-files/account-settings-v2/.
 - Theme switch fix (everyone, a bug fix): the quick sun/moon button flips light and dark only; "Match my device" stays the default and lives in Account → Settings; the swap turns off CSS transitions for a frame (`theme-swap` class) so the page no longer stutters.
 - Rewards rides with The Big Upgrade (`follows: "redesign"` in `shared/features.ts`, no separate Rewards row; Dilan, Nov 24). One flip on Admin → Beta → Feature releases releases both.
