@@ -5,7 +5,7 @@ import { go } from "../lib/router";
 import { useOwnerView, useStore } from "../lib/store";
 import { BetaBadge, Remy } from "../components/common";
 import { ThemeToggle } from "../components/ThemeToggle";
-import { TEAM } from "./Info";
+import { useTeam } from "./Info";
 import { FieldBrowser, LinkedInMark, applyHref } from "./Welcome";
 
 export const INSTAGRAM = "https://www.instagram.com/coachremyai/";
@@ -214,6 +214,7 @@ function TryLine({ t }: { t: [string, string, string, string] }) {
 export default function Landing2() {
   const { config, me, ws } = useStore();
   const inside = !!(me && ws?.started);
+  const team = useTeam();
   const beta = !!config?.beta?.on && !inside;
   const start = inside ? "/" : beta ? applyHref(config?.beta?.formUrl) : "/signin";
   const startLabel = inside ? "Open my Remy" : beta ? "Apply to be a beta tester" : "Create your account";
@@ -337,7 +338,7 @@ export default function Landing2() {
             <a className="lp2-more" href="/about">About the team <span aria-hidden>&rarr;</span></a>
           </div>
           <ul className="lp2-team rv">
-            {TEAM.map((m) => (
+            {team.map((m) => (
               <li key={m.name}>
                 {m.photo ? <img src={m.photo} alt="" width={200} height={200} loading="lazy" /> : <span className="lp2-ini" aria-hidden>{m.name.split(" ").map((w) => w[0]).join("")}</span>}
                 <b>{m.name}</b><span>{m.role}</span>
