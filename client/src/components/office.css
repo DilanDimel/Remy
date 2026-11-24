@@ -88,7 +88,17 @@ html:not([data-theme="dark"]) .ps-night, [data-theme="dark"] .ps-day { display: 
   .ps-say::before { top: auto; bottom: 14px; left: auto; transform: rotate(45deg); }
   .ps-say.l::before { right: -8.5px; border: 0; border-right: 1.5px solid var(--ink); border-top: 1.5px solid var(--ink); }
   .ps-say.r::before { left: -8.5px; border: 0; border-left: 1.5px solid var(--ink); border-bottom: 1.5px solid var(--ink); }
+  /* His short lines sit above his head, tail down at him, kept inside the room (Dilan picked this, Nov 24). */
+  .ps-say.quip { --bw: min(300px, 44cqi); --bl: clamp(2cqi, calc(var(--fxn) * 1cqi - var(--bw) / 2), calc(98cqi - var(--bw)));
+    left: var(--bl); right: auto; width: var(--bw); max-width: none; bottom: calc(100% - var(--hy) + 25%); text-align: center; }
+  .ps-say.quip.l, .ps-say.quip.r { left: var(--bl); right: auto; max-width: none; }
+  .ps-say.quip::before, .ps-say.quip.l::before, .ps-say.quip.r::before { top: auto; bottom: -9px; right: auto; left: calc(var(--fxn) * 1cqi - var(--bl)); border: 0; border-right: 2.5px solid var(--sch-line); border-bottom: 2.5px solid var(--sch-line); transform: translateX(-50%) rotate(45deg); }
 }
+/* Quips look like part of the drawing: his cream and outline colours, and the room's labels step back while he talks. */
+.ps-say.quip { background: var(--sch-cream); color: var(--sch-ink); border: 2.5px solid var(--sch-line); border-radius: 20px; box-shadow: 0 3px 0 var(--sch-line); padding: 10px 16px; font-weight: 650; text-wrap: balance; }
+.ps-say.quip::before { background: var(--sch-cream); border-color: var(--sch-line); border-width: 2.5px; }
+.ps-say.quip small { color: var(--sch-line); }
+.ps-roomwrap:has(.ps-say.quip) .ps-tag { opacity: .3; transition: opacity .2s; }
 
 @media (prefers-reduced-motion: reduce) {
   .ps-it.wig0, .ps-it.wig1, .ps-chair, .ps-fox-bob, .ps-twinkle, .ps-shoot, .ps-bird, .ps-flick, .ps-flag, .ps-room.music .ps-notes, .ps-room.music .ps-vinyl, .ps-say, .ps-think i { animation: none !important; transition: none !important; }

@@ -303,7 +303,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   const seatedNow = fox.y === SPOTS.desk.y && fox.x === SPOTS.desk.x;
   // The speech bubble sits beside his head on the window side, where no labels or furniture sit (Nov 24); at the window it flips left. Phones: below the room.
   const fx = (fox.x / 860) * 100, hy = ((fox.y + 96 - 40) / 420) * 100;
-  const sayAt = { "--fx": `${fx}%`, "--hy": `${hy}%`, "--tail": `${fx}%` } as CSSProperties;
+  const sayAt = { "--fx": `${fx}%`, "--fxn": fx, "--hy": `${hy}%`, "--tail": `${fx}%` } as CSSProperties;
   const side = fx > 70 ? "l" : "r";
   const stars = [[578, 70], [636, 64], [704, 76], [748, 66], [764, 98], [690, 104], [596, 116], [728, 118], [654, 92]];
   const lit = [[576, 178], [584, 192], [600, 150], [604, 166], [599, 184], [638, 138], [648, 152], [640, 168], [650, 184], [678, 176], [686, 192], [718, 194]];
