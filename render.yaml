@@ -2,19 +2,15 @@ services:
   - type: web
     name: offer-ready
     runtime: node
-    plan: starter # persistent disks require a paid plan
+    plan: starter
     buildCommand: npm ci && npm run build
     startCommand: NODE_ENV=production node dist/index.cjs
     healthCheckPath: /api/config
-    disk:
-      name: data
-      mountPath: /data
-      sizeGB: 1
+    # No persistent disk: Render can't do zero-downtime deploys with one attached. The database is Supabase and the
+    # workspace cache is in Cloudflare R2 (server/platform/r2.ts; R2_* and WS_CACHE_KEY are set in the dashboard).
     envVars:
       - key: NODE_VERSION
         value: "20"
-      - key: OR_DB_PATH
-        value: /data/data.db
       - key: OR_AI_CHAIN
         value: openrouter:anthropic/claude-haiku-5.5,openrouter:google/gemini-3.8-flash,openrouter:openai/gpt-5-mini
       # Every OpenRouter call uses zero-data-retention providers only (privacyRouting in server/ai/ai.ts).
