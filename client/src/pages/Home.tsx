@@ -149,7 +149,7 @@ export default function Home() {
               <Flame size={22} className="streak-flame" fill={today ? "currentColor" : "none"} aria-label={today ? "Today's round is done" : "Today's round isn't done yet"} data-testid="home-streak-flame" />
               <span className="streak-num">{st.days}</span>
               <span className="streak-lab"><b>day streak</b>{st.best > st.days ? `Best ${st.best}` : st.days ? "Your best yet" : "Start today"}</span>
-              <span className="streak-dots" aria-label="The last seven days">{weekDots(g).map((d) => <i key={d.key} className={d.status} title={new Date(d.key + "T12:00:00").toLocaleDateString(undefined, { weekday: "long" }) + (d.status === "done" ? ": done" : d.status === "today" ? ": today" : "")}>{d.label}</i>)}</span>
+              <span className="streak-dots" aria-label="This week of your streak">{weekDots(g, undefined, true).map((d) => <i key={d.key} className={d.status} title={new Date(d.key + "T12:00:00").toLocaleDateString(undefined, { weekday: "long" }) + (d.status === "done" ? ": done" : d.status === "today" ? ": today" : d.status === "future" ? ": coming up" : "")}>{d.label}</i>)}</span>
               <button className={"btn btn-sm " + (today ? "btn-secondary" : "btn-primary")} onClick={() => go(today ? "/path" : "/path?play=1")} data-testid="button-todays-round">{today ? "Done for today" : "Today's round"}</button>
             </div>
           );

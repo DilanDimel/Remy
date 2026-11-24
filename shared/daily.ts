@@ -62,9 +62,17 @@ export function streakDays(w: Pick<Workspace, "game" | "jobFeedback" | "steps" |
 
 /** The last seven days, today last, with their status, for the dots under the streak. A Monday-first calendar week
  *  hid the days a streak carried over from last week (Dilan, Nov 23: "2 day streak" with only Monday lit). */
-export function weekDots(g: Pick<GameState, "days" | "restDays">, today = dayKey()) {
+export function weekDots(g: Pick<GameState, "days" | "restDays">, today = dayKey(), streakFirst = false) {
   const { status } = dailyStreak(g, today);
-  return Array.from({ length: 7 }, (_, i) => { const k = shiftDay(today, i - 6); return { key: k, label: "SMTWTFS"[weekday(k)], status: (status[k] || ((g.restDays || []).includes(weekday(k)) ? "rest" : "missed")) as DayStatus }; });
+  // streakFirst (owners, Nov 24, Dilan: "make the lit up days be the first ones"): the row starts on the streak's first
+  // day, so lit days lead and the coming days follow. A streak of 7+ days fills the row, ending today.
+  let from = -6;
+  if (streakFirst) {
+    let k = status[today] === "done" ? today : shiftDay(today, -1), first = 0;
+    for (let n = status[today] === "done" ? 0 : -1; n >= -6 && ["done", "freeze", "rest"].includes(status[k]); n--, k = shiftDay(k, -1)) if (status[k] !== "rest") first = n;
+    from = first;
+  }
+  return Array.from({ length: 7 }, (_, i) => { const k = shiftDay(today, from + i); if (k > today) return { key: k, label: "SMTWTFS"[weekday(k)], status: "future" as DayStatus }; return { key: k, label: "SMTWTFS"[weekday(k)], status: (status[k] || ((g.restDays || []).includes(weekday(k)) ? "rest" : "missed")) as DayStatus }; });
 }
 
 /** Adds a finished card to today, once. */
