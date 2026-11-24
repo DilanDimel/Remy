@@ -3491,6 +3491,7 @@ html.redesign-2 input.ac-sw:checked, .ac-sw:checked { background: var(--ink); } 
   .ac-src .foot { flex-wrap: wrap; }
   .ac-log li { grid-template-columns: 10px minmax(0, 1fr); } .ac-log em { grid-column: 2; }
   .ac-me { flex-wrap: wrap; }
+}
 /* Students tab (owners' dashboard v2): release switches up top, everyone in one list. */
 .adm2-release { flex-direction: row; gap: 20px; align-items: stretch; }
 .adm2-access { flex: 0 0 260px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; padding-right: 20px; border-right: 1px solid var(--line); }
