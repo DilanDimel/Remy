@@ -2249,6 +2249,8 @@ button.dp-unit-head { width: 100%; border: 0; font: inherit; text-align: left; c
 .pt-chest.open { background: var(--sage-bg); color: var(--sage); }
 .pt-chest.ready { width: 100%; border: 0; cursor: pointer; text-align: left; font-family: inherit; font-weight: 800; background: var(--fox); color: var(--white); }
 .pt-chest.ready:hover { background: var(--fox-deep); }
+.pt-welcome { margin: 0 0 8px; padding: 8px 12px; border-radius: 12px; background: var(--fox-soft); color: var(--ink); font-size: var(--text-sm); line-height: 1.4; }
+.pt-welcome b { color: var(--fox-deep); }
 .pt-chest.ready svg { animation: pt-hop .7s cubic-bezier(.3, 1.6, .5, 1) infinite; }
 .pt-chest.open svg { animation: pt-hop .7s cubic-bezier(.3, 1.6, .5, 1) 2; }
 @keyframes pt-hop { 50% { transform: translateY(-5px) rotate(-8deg); } }

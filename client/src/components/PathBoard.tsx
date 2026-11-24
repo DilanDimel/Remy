@@ -9,7 +9,7 @@ import { ROADS, roadFor, YEARS, yearNumber, NEED_LABEL } from "@shared/roads";
 import { rankOf, weekKey, weekMissions, doneThisWeek, counters, xpOf, nextOutfit, unlockedOutfits, levelReward, OFFICE, RANKS, WARDROBE } from "@shared/game";
 import { CARD_XP, dailyStreak, dayKey, streakDays } from "@shared/daily";
 import { pinColor, pinsOf, topPins } from "@shared/pins";
-import { CHEST_XP, RARE, chestPrize, rareOwned } from "@shared/chest";
+import { CHEST_XP, RARE, chestPrize, rareOwned, welcomeBack } from "@shared/chest";
 import { api, useStore } from "../lib/store";
 import type { Workspace } from "@shared/types";
 import { go } from "../lib/router";
@@ -67,7 +67,7 @@ function Season({ d }: { d: D }) {
   const owned = unlockedOutfits(lv.n, d.w.profile.classYear), wearing = d.g.outfit && owned.includes(d.g.outfit) ? d.g.outfit : "suit";
   const first = Math.max(1, Math.min(lv.n - 2, RANKS.length - 7));
   const tiles = Array.from({ length: 8 }, (_, i) => first + i).filter((n) => n <= RANKS.length);
-  const pct = lv.max ? 100 : Math.round(((d.xp - lv.floor) / Math.max(1, lv.next - lv.floor)) * 100);
+  const pct = lv.max ? 100 : Math.round(((Math.max(0, d.xp - lv.floor)) / Math.max(1, lv.next - lv.floor)) * 100);
   const nowI = tiles.indexOf(lv.n);
   const fill = nowI < 0 ? 100 : Math.min(100, ((nowI + pct / 100) / Math.max(1, tiles.length - 1)) * 100);
   const bigNext = nextOutfit(lv.n);
@@ -102,7 +102,7 @@ function Season({ d }: { d: D }) {
       </ol>
       <div className="ps-bar" role="progressbar" aria-label="XP to next level" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${fill}%` }} /></div>
       <div className="ps-under">
-        <span>{lv.max ? <b>Top level reached.</b> : <><b>{d.xp - lv.floor} / {lv.next - lv.floor} XP</b> to level {lv.n + 1}</>}</span>
+        <span>{lv.max ? <b>Top level reached.</b> : <><b>{Math.max(0, d.xp - lv.floor)} / {lv.next - lv.floor} XP</b> to level {lv.n + 1}</>}</span>
         <span>{se.left} days left this season{bigNext ? ` · Level ${bigNext[1]} unlocks ${OUTFITS[bigNext[0]].name.toLowerCase()}` : ""}</span>
       </div>
     </section>
@@ -421,9 +421,11 @@ const shortRole = (t: string) => t.replace(/,.*$/, "").replace(/ and /g, " & ");
 
 function Quests({ d }: { d: D }) {
   const all = d.quests.every((q) => q.n >= q.of);
+  const away = welcomeBack(streakDays(d.w), dayKey());
   return (
     <section className="pt-card" aria-label="Daily quests" data-testid="path-quests">
       <div className="pt-card-head"><span className="pm-kicker dark">Daily quests</span><span className="pm-faint">New at 4 AM</span></div>
+      {away > 0 && !d.g.chests?.[dayKey()] && <p className="pt-welcome" data-testid="quests-welcome-back"><b>Welcome back!</b> You were away {away} days, and that's fine. Finish today's three quests and the chest gives double XP.</p>}
       <ul className="pt-quests">
         {d.quests.map((q) => { const ok = q.n >= q.of, I = q.icon; return (
           <li key={q.key} className={ok ? "ok" : ""}>
@@ -432,21 +434,21 @@ function Quests({ d }: { d: D }) {
             <span className="pt-qn">{q.n} / {q.of}</span>
           </li>); })}
       </ul>
-      <Chest d={d} all={all} />
+      <Chest d={d} all={all} back={away > 0} />
     </section>
   );
 }
 
 /** Today's chest: locked until all three quests are done, then one tap opens it and shows what was inside. */
-function Chest({ d, all }: { d: D; all: boolean }) {
+function Chest({ d, all, back }: { d: D; all: boolean; back: boolean }) {
   const { save } = useStore();
   const day = dayKey(), got = d.g.chests?.[day];
   const [busy, setBusy] = useState(false);
-  const open = () => { setBusy(true); save("game", { ...d.g, chests: { ...(d.g.chests || {}), [day]: chestPrize(day, d.g) } }).catch(() => {}).finally(() => setBusy(false)); };
+  const open = () => { setBusy(true); save("game", { ...d.g, chests: { ...(d.g.chests || {}), [day]: chestPrize(day, d.g, back) } }).catch(() => {}).finally(() => setBusy(false)); };
   const rare = got && got !== "xp" ? RARE.find(([k]) => k === got)?.[1] : "";
   if (!all) return <div className="pt-chest"><Gift size={22} aria-hidden="true" /><span>Finish all three to open today's chest.</span></div>;
   if (!got) return <button className="pt-chest ready" onClick={open} disabled={busy} data-testid="button-open-chest"><Gift size={22} aria-hidden="true" /><span>All three done. Open today's chest</span></button>;
-  return <div className="pt-chest open" data-testid="chest-prize"><Gift size={22} aria-hidden="true" /><span>{rare ? <>You found a <b>{rare}</b> for Remy's office!</> : <>+{CHEST_XP} bonus XP. See you tomorrow.</>}</span></div>;
+  return <div className="pt-chest open" data-testid="chest-prize"><Gift size={22} aria-hidden="true" /><span>{rare ? <>You found a <b>{rare}</b> for Remy's office!</> : got === "bigxp" ? <>+{2 * CHEST_XP} bonus XP. Good to have you back.</> : <>+{CHEST_XP} bonus XP. See you tomorrow.</>}</span></div>;
 }
 
 function BigMove({ d }: { d: D }) {

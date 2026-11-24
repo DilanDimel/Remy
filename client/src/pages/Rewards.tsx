@@ -165,7 +165,7 @@ function Streak() {
     [Flame, "Daily streak", "Any real step in Remy counts for the day: rating an opening, a career step, or a message to Remy. Days start at 4 AM."],
     [Snowflake, "Streak freezes", `You earn one every ${FREEZE_EVERY} days in a row, up to ${FREEZE_MAX}. A freeze covers a missed day by itself.`],
     [Zap, "Daily quests", `Three small quests on My Path every day, new at 4 AM. Each one is worth XP.`],
-    [Gift, "Daily chest", `Finish all three quests to open the day's chest. Most days it holds ${CHEST_XP} bonus XP; now and then a rare item for Remy's office that only the chest gives.`],
+    [Gift, "Daily chest", `Finish all three quests to open the day's chest. Most days it holds ${CHEST_XP} bonus XP; now and then a rare item for Remy's office that only the chest gives. Coming back after a week or more away? That day's chest gives double XP.`],
     [Trophy, "Weekly big move", "One bigger step each week, worth extra XP. A new one comes every Monday."],
   ];
   return (
@@ -195,7 +195,7 @@ export default function Rewards({ query }: { query: URLSearchParams }) {
   const pins = pinsOf(w), earned = pins.filter((p) => p.earned).length;
   const s = dailyStreak(streakDays(w));
   const tab = (["pins", "levels", "wardrobe", "streak"].includes(query.get("tab") || "") ? query.get("tab") : "pins") as Tab;
-  const pct = lv.max ? 100 : Math.round(((xp - lv.floor) / Math.max(1, lv.next - lv.floor)) * 100);
+  const pct = lv.max ? 100 : Math.round(((Math.max(0, xp - lv.floor)) / Math.max(1, lv.next - lv.floor)) * 100);
   const tabs: [Tab, string][] = [["pins", `Pins ${earned}/${pins.length}`], ["levels", "Levels and titles"], ["wardrobe", "Outfits and office"], ["streak", "Streak and quests"]];
   return (
     <div className="rw" data-testid="rewards-page">
