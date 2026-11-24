@@ -86,6 +86,20 @@ test("regionMatch: a state name matches its abbreviation", () => {
   assert.equal(regionMatch(w, { location: "Toronto, Canada", format: "" } as Job), false);
 });
 
+test("work authorization: each answer keeps the openings that student can take (legal audit)", () => {
+  const noSponsor = job({ summary: "We do not offer visa sponsorship." });
+  const citizens = job({ summary: "Applicants must be U.S. citizens." });
+  const by = (workAuth: string) => [dealbreaker(student({ workAuth }), noSponsor), dealbreaker(student({ workAuth }), citizens)].map((r) => (r ? "hidden" : "shown"));
+  assert.deepEqual(by("U.S. citizen"), ["shown", "shown"]);
+  assert.deepEqual(by("Green card holder"), ["shown", "hidden"]);
+  assert.deepEqual(by("F-1 / OPT now"), ["shown", "hidden"], "OPT can usually work now, so won't-sponsor stays");
+  assert.deepEqual(by("Will need visa sponsorship"), ["hidden", "hidden"]);
+  assert.deepEqual(by("Rather not say"), ["shown", "shown"]);
+  assert.deepEqual(by(""), ["shown", "shown"], "skipping the question hides nothing");
+  assert.deepEqual(by("U.S. citizen or permanent resident"), ["shown", "shown"], "old combined answer: as before");
+  assert.deepEqual(by("I'll need visa sponsorship (F-1 / OPT)"), ["hidden", "hidden"], "old sponsorship answer: as before");
+});
+
 test("dealbreakers: sponsorship, graduate-only, avoid list and the wrong summer are left out", () => {
   const intl = student({ workAuth: "Will need visa sponsorship (F-1)", classYear: "Sophomore" });
   assert.match(dealbreaker(intl, job({ summary: "Candidates must be authorized to work in the U.S. without the need for current or future sponsorship." })), /sponsor/);
