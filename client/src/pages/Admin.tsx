@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { FEATURES, RELEASES, releasesOf, type Release } from "@shared/features";
-import { Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, Briefcase, CalendarDays, Check, Clock, KanbanSquare, Server, Plus, RotateCcw, Trash2, UserCheck, Users } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, BarChart3, Briefcase, CalendarDays, Check, KanbanSquare, Server, Plus, RotateCcw, Trash2, UserCheck, Users } from "lucide-react";
 import { api, fmtDate, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
 import { BetaBadge, CopyButton, Empty, Modal, Remy, Rich, Spinner } from "../components/common";
@@ -37,10 +37,10 @@ type Team = {
 };
 const ANSWERS: [Answer, string][] = [["yes", "Going"], ["maybe", "Maybe"], ["no", "Can't go"]];
 
-const TABS = [["overview", "Overview", BarChart3], ["beta", "Beta", UserCheck], ["system", "System", Server], ["openings", "Openings", Briefcase], ["errors", "Errors & feedback", AlertTriangle], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity]] as const;
+const TABS = [["overview", "Overview", BarChart3], ["beta", "Beta", UserCheck], ["system", "System", Server], ["openings", "Openings", Briefcase], ["errors", "Errors & feedback", AlertTriangle], ["board", "Board", KanbanSquare], ["calendar", "Calendar", CalendarDays], ["team", "Team & hours", Users]] as const;
 type Tab = (typeof TABS)[number][0];
 // The menu in three groups: students first, then data, then the team's own work (Hours first: the one the team checks).
-const NAV_GROUPS: [string, Tab[]][] = [["Students", ["overview", "beta"]], ["Data", ["system", "openings", "errors"]], ["Team", ["hours", "people", "board", "calendar", "activity"]]];
+const NAV_GROUPS: [string, Tab[]][] = [["Students", ["overview", "beta"]], ["Data", ["system", "openings", "errors"]], ["Team", ["team", "board", "calendar"]]];
 const HISTORY_AFTER = 3 * 86400_000;
 const COLS: [Status, string][] = [["todo", "To do"], ["doing", "In progress"], ["done", "Done"]];
 const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -64,7 +64,7 @@ export default function Admin() {
   const { query } = useRoute();
   // Old links (Services and Database are now System) still open the right tab.
   const raw = query.get("tab") || "overview";
-  const tab = ((({ services: "system", database: "system" }) as Record<string, Tab>)[raw] || raw) as Tab;
+  const tab = ((({ services: "system", database: "system", hours: "team", people: "team", activity: "team" }) as Record<string, Tab>)[raw] || raw) as Tab;
   // Back from Google's consent screen (team calendar): say how it went, then tidy the address bar.
   useEffect(() => {
     const r = GCAL_RESULT[query.get("gcal") || ""];
@@ -100,7 +100,7 @@ export default function Admin() {
         {tab === "beta" && <><FunnelCard /><BetaTab /><UsedCard /></>}
         {tab === "system" && <SystemTab />}
         {tab === "openings" && <OpeningsTab />}
-        {(tab === "board" || tab === "people" || tab === "calendar" || tab === "hours" || tab === "activity") && <TeamTab tab={tab} />}
+        {(tab === "board" || tab === "calendar" || tab === "team") && <TeamTab tab={tab} />}
       </main>
     </div>
   );
@@ -617,7 +617,7 @@ function OverviewTab() {
               <div><b>{o.offers}</b><span>{o.offers === 1 ? "offer" : "offers"}</span></div>
             </div>
           ) : <Spinner />}
-          <a className="adm2-foot" href="/admin?tab=hours" data-testid="admin-team-band"><span><b>{hours.toFixed(1)} h</b> team hours this week · AI ${d.ai.cost.toFixed(2)}, {d.ai.calls} calls</span><ArrowRight size={14} /></a>
+          <a className="adm2-foot" href="/admin?tab=team" data-testid="admin-team-band"><span><b>{hours.toFixed(1)} h</b> team hours this week · AI ${d.ai.cost.toFixed(2)}, {d.ai.calls} calls</span><ArrowRight size={14} /></a>
         </section>
       </div>
       {allSteps && (
@@ -759,7 +759,7 @@ function People({ members, value, onChange, label }: { members: Member[]; value:
   );
 }
 
-function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "activity" }) {
+function TeamTab({ tab }: { tab: "board" | "calendar" | "team" }) {
   const { run } = useStore();
   const { query } = useRoute();
   const [d, , setD] = useLoad<Team>("/api/admin/team");
@@ -770,6 +770,7 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
   const [note, setNote] = useState("");
   const [past, setPast] = useState({ date: today(), from: "", to: "", note: "" });
   const [drag, setDrag] = useState<string | null>(null);
+  const [panel, setPanel] = useState<"" | "past" | "member" | "entries" | "activity">("");
   const send = async (method: "POST" | "DELETE", path: string, body?: unknown, done?: string) => {
     const r = await run(() => api<Team>(method, path, body), done);
     if (r) setD(r);
@@ -860,54 +861,6 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
     );
   }
 
-  if (tab === "people") {
-    const weekAgo = Date.now() - 7 * 86400_000;
-    return (
-      <div className="stack-lg">
-        <Head title="People" sub="Everyone here can open this dashboard and sees the same board, calendar, hours and activity." />
-        <div className="adm-people">
-          {d.members.map((m) => {
-            const open = d.tasks.filter((t) => list(t.assignee).includes(m.email) && t.status !== "done");
-            const doneWeek = d.tasks.filter((t) => t.done_by === m.email && t.done_at && new Date(t.done_at).getTime() > weekAgo).length;
-            const h = d.hours.find((x) => x.member === m.email);
-            const working = d.entries.some((e) => e.member === m.email && !e.end_at);
-            const last = d.activity.find((a) => a.actor === m.email);
-            return (
-              <section key={m.email} className="adm-card adm-person">
-                <div className="row" style={{ gap: 10, flexWrap: "nowrap" }}>
-                  <Avatar m={m} size={40} />
-                  <div className="grow stack-sm" style={{ gap: 2, minWidth: 0 }}>
-                    <b className="adm-ellipsis">{m.name}{m.email === d.me && <span className="xs muted"> (you)</span>}</b>
-                    <span className="xs muted adm-ellipsis">{m.email}</span>
-                    {working && <span className="chip chip-live" style={{ justifySelf: "start" }}>Working now</span>}
-                  </div>
-                </div>
-                <div className="adm-person-stats" aria-label="This week">
-                  <div><strong>{open.length}</strong><span className="xs muted">open</span></div>
-                  <div><strong>{doneWeek}</strong><span className="xs muted">done, 7 days</span></div>
-                  <div><strong>{h?.week ?? 0} h</strong><span className="xs muted">worked, 7 days</span></div>
-                </div>
-                {open.slice(0, 3).map((t) => <span key={t.id} className="small adm-ellipsis">• {t.title}</span>)}
-                {(() => { const next = d.events.find((e) => e.date >= today()); if (!next) return null; const a = ANSWERS.find(([k]) => k === next.rsvps[m.email]);
-                  return <span className="xs muted adm-ellipsis">Next meeting ({next.title}): {a ? a[1].toLowerCase() : "hasn't answered"}</span>; })()}
-                <span className="xs muted">{last ? `Last: ${last.action.toLowerCase()}, ${ago(last.at)}` : "No activity yet"}</span>
-                <div className="row-between">
-                  <a className="btn btn-ghost btn-sm" href={`/admin?tab=board&person=${encodeURIComponent(m.email)}`}>See their to-dos</a>
-                  {!m.founder && m.email !== d.me && <button className="btn btn-ghost btn-sm" onClick={() => confirm(`Remove ${m.name} from the owners' dashboard?`) && send("DELETE", `/api/admin/members/${encodeURIComponent(m.email)}`, undefined, "Removed")}>Remove</button>}
-                </div>
-              </section>
-            );
-          })}
-        </div>
-        <form className="adm-card adm-form" onSubmit={async (e) => { e.preventDefault(); if (await send("POST", "/api/admin/members", member, "Teammate added. They see this page next time they sign in.")) setMember({ name: "", email: "" }); }}>
-          <input className="input" value={member.name} onChange={(e) => setMember({ ...member, name: e.target.value })} placeholder="Name" aria-label="Teammate name" />
-          <input className="input" type="email" value={member.email} onChange={(e) => setMember({ ...member, email: e.target.value })} placeholder="Email they sign in with" aria-label="Teammate email" />
-          <button className="btn btn-primary btn-sm" disabled={!member.email.includes("@")}><Plus size={15} /> Add teammate</button>
-        </form>
-      </div>
-    );
-  }
-
   if (tab === "calendar") {
     const t0 = today(), upcoming = d.events.filter((e) => e.date >= t0), past = d.events.filter((e) => e.date < t0).reverse();
     const row = (e: TeamEvent, upcoming: boolean) => {
@@ -974,23 +927,7 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
     );
   }
 
-  if (tab === "activity") {
-    return (
-      <div className="stack-lg">
-        <Head title="Activity" sub="Who did what on the team, newest first." />
-        <section className="adm-card adm-list">
-          <More items={d.activity} render={(a) => (
-            <div key={a.id} className="adm-row">
-              <Avatar m={who(a.actor)} size={30} />
-              <div className="grow stack-sm" style={{ gap: 2 }}><span className="small"><b>{nameOf(a.actor)}</b> {a.action.toLowerCase()}{a.detail ? <>: <span className="muted">{pretty(a.detail)}</span></> : null}</span><span className="xs muted">{ago(a.at)}</span></div>
-            </div>
-          )} />
-          {!d.activity.length && <Empty title="No activity yet" body="Adding to-dos, finishing them, meetings and hours all show up here." />}
-        </section>
-      </div>
-    );
-  }
-
+  // Hours, People and Activity in one tab (Nov 24): who's working, how much, and what happened.
   // Monday of each of the last 8 weeks (Chicago time), oldest first, to match the server's weekly totals.
   const mondays = Array.from({ length: 8 }, (_, i) => {
     const x = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }));
@@ -998,26 +935,84 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
     return x.toLocaleDateString("en-CA");
   });
   const top = Math.max(1, ...d.weeks.map((w) => w.hours));
-  const people = d.members.map((m) => ({ m, h: d.hours.find((x) => x.member === m.email) })).sort((a, b) => (b.h?.hours || 0) - (a.h?.hours || 0));
+  const people = d.members.map((m) => ({ m, h: d.hours.find((x) => x.member === m.email) })).sort((a, b) => (b.h?.week || 0) - (a.h?.week || 0) || (b.h?.hours || 0) - (a.h?.hours || 0));
   const addPast = async () => {
     const at = (t: string) => new Date(`${past.date}T${t}`).toISOString();
     if (!past.date || !past.from || !past.to) return;
     if (await send("POST", "/api/admin/hours", { start: at(past.from), end: at(past.to), note: past.note }, "Time logged")) setPast({ ...past, from: "", to: "", note: "" });
   };
+  const weekTotal = people.reduce((x, y) => x + (y.h?.week || 0), 0);
+  const workers = people.filter((p) => (p.h?.week || 0) > 0);
+  const line = !weekTotal ? "No hours logged this week yet." : workers.length === 1 ? `${weekTotal.toFixed(1)} hours this week, all ${workers[0].m.name.split(" ")[0]}'s.` : `${weekTotal.toFixed(1)} hours this week from ${workers.length} people.`;
+  const working = d.members.filter((m) => d.entries.some((e) => e.member === m.email && !e.end_at));
+  // Activity grouped by day, with runs of the same thing by the same person folded into one line.
+  const dayLabel = (iso: string) => { const k = new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Chicago" }); const t = today(); const y = new Date(Date.now() - 86400_000).toLocaleDateString("en-CA", { timeZone: "America/Chicago" }); return k === t ? "Today" : k === y ? "Yesterday" : day(k); };
+  const runs: { label: string; items: Team["activity"] }[] = [];
+  for (const a of d.activity) {
+    const label = dayLabel(a.at); const last = runs[runs.length - 1];
+    if (last && last.label === label && last.items[0].actor === a.actor && last.items[0].action === a.action) last.items.push(a); else runs.push({ label, items: [a] });
+  }
+  const row = (r: (typeof runs)[number], i: number, all: typeof runs) => {
+    const a = r.items[0];
+    return (
+      <div key={a.id} className="adm2-act">
+        {(i === 0 || all[i - 1].label !== r.label) && <span className="adm2-day">{r.label}</span>}
+        <div><Avatar m={who(a.actor)} size={28} /><span className="small"><b>{nameOf(a.actor).split(" ")[0]}</b> {a.action.toLowerCase()}{r.items.length > 1 ? <b> ×{r.items.length}</b> : a.detail ? <span className="muted">: {pretty(a.detail)}</span> : null}</span><span className="xs muted">{ago(a.at)}</span></div>
+      </div>
+    );
+  };
+  const [first8, rest] = [runs.slice(0, 9), runs.length > 9];
+  // Team hours per day for the last 7 days (Chicago, like the server's weekly total), from each entry's start; an open entry counts up to now.
+  const chi = (iso: string | number) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+  const week = Array.from({ length: 7 }, (_, i) => chi(Date.now() - (6 - i) * 86400_000));
+  const perDay = week.map((k) => d.entries.filter((e) => chi(e.start_at) === k).reduce((x, e) => x + ((e.end_at ? +new Date(e.end_at) : Date.now()) - +new Date(e.start_at)) / 3600_000, 0));
+  const dayTop = Math.max(1, ...perDay);
   return (
-    <div className="stack-lg">
-      <Head title="Hours" sub="Time each person put into Remy. Clock in and out as you work, or add time you forgot to clock. Each person logs only their own." />
-      <div className="adm-grid2">
-        <section className={"adm-card adm-clock" + (d.clockedIn ? " on" : "")}>
-          <span className="small muted">{d.clockedIn ? "You're working" : "You're clocked out"}</span>
-          <strong className="adm-clock-n">{d.clockedIn ? `since ${when(d.clockedIn)}` : `${people.find((x) => x.m.email === d.me)?.h?.week || 0} h this week`}</strong>
-          <div className="row">
-            <input className="input grow" value={note} onChange={(e) => setNote(e.target.value)} placeholder={d.clockedIn ? "What did you work on? (optional)" : "What are you working on? (optional)"} aria-label="Note" data-testid="input-clock-note" />
-            <button className={"btn btn-sm " + (d.clockedIn ? "btn-secondary" : "btn-primary")} onClick={async () => { if (await send("POST", "/api/admin/clock", { action: d.clockedIn ? "out" : "in", note }, d.clockedIn ? "Clocked out" : "Clocked in")) setNote(""); }} data-testid="button-clock">{d.clockedIn ? "Clock out" : "Clock in"}</button>
+    <div className="adm2 adm2-full">
+      <div className="adm-head">
+        <div><h1 className="adm-hello">Team &amp; hours</h1><p className="adm2-say"><b>{line}</b>{working.length ? ` ${working.map((m) => m.name.split(" ")[0]).join(" and ")} ${working.length === 1 ? "is" : "are"} working now.` : ""}</p></div>
+        <div className="row adm2-clock">
+          <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder={d.clockedIn ? `Working since ${when(d.clockedIn)}: what on?` : "What are you working on? (optional)"} aria-label="Note" data-testid="input-clock-note" />
+          <button className="btn btn-ghost btn-sm" onClick={() => setPanel("past")} data-testid="button-open-past">Add time you forgot</button>
+          <button className={"btn btn-sm " + (d.clockedIn ? "btn-secondary" : "btn-primary")} onClick={async () => { if (await send("POST", "/api/admin/clock", { action: d.clockedIn ? "out" : "in", note }, d.clockedIn ? "Clocked out" : "Clocked in")) setNote(""); }} data-testid="button-clock">{d.clockedIn ? "Clock out" : "Clock in"}</button>
+        </div>
+      </div>
+      <div className="adm2-row adm2-row-sys">
+        <section className="adm2-card" data-testid="team-everyone">
+          <div className="adm2-h"><h3>Everyone</h3><span className="xs muted">this week · total · last 8 weeks · open to-dos</span></div>
+          <div className="adm2-people">
+            {people.map(({ m, h }) => {
+              const open = d.tasks.filter((t) => list(t.assignee).includes(m.email) && t.status !== "done").length;
+              const last = d.activity.find((a) => a.actor === m.email);
+              const now = working.includes(m);
+              return (
+                <div key={m.email} className="adm2-person" data-testid={`hours-${m.email.split("@")[0]}`}>
+                  <Avatar m={m} size={32} />
+                  <span className="adm2-pn"><b>{m.name}{m.email === d.me && <span className="xs muted"> (you)</span>}{now && <span className="chip chip-live">Working now</span>}</b><small>{last ? `${last.action.toLowerCase()}, ${ago(last.at)}` : "no activity yet"}</small></span>
+                  <b className="adm2-num">{h?.week || 0} h</b>
+                  <span className="adm2-num muted">{h?.hours || 0} h</span>
+                  <span className="adm2-mini" role="img" aria-label={`${m.name}: hours per week for the last 8 weeks`}>
+                    {mondays.map((w) => { const n = d.weeks.find((x) => x.member === m.email && x.week === w)?.hours || 0; return <i key={w} title={`Week of ${day(w)}: ${n} h`} className={n ? "" : "z"} style={{ height: `${Math.max(2, (n / top) * 22)}px` }} />; })}
+                  </span>
+                  <a className="adm2-num" href={`/admin?tab=board&person=${encodeURIComponent(m.email)}`} title="See their to-dos">{open}</a>
+                  {!m.founder && m.email !== d.me ? <button className="icon-btn" onClick={() => confirm(`Remove ${m.name} from the owners' dashboard?`) && send("DELETE", `/api/admin/members/${encodeURIComponent(m.email)}`, undefined, "Removed")} aria-label={`Remove ${m.name}`} data-testid={`button-remove-${m.email.split("@")[0]}`}><Trash2 size={14} /></button> : <span />}
+                </div>
+              );
+            })}
           </div>
+          <div className="adm2-h adm2-push"><h3>Last 7 days, by day</h3><span className="xs muted">team hours</span></div>
+          <div className="adm2-cols" role="img" aria-label={`Team hours this week: ${week.map((k, i) => `${day(k)} ${perDay[i].toFixed(1)} h`).join(", ")}`}>
+            {week.map((k, i) => <div key={k}><small className="adm2-colv">{perDay[i] >= 0.05 ? perDay[i].toFixed(1) : ""}</small><i style={{ height: `${Math.max(2, (perDay[i] / dayTop) * 64)}px` }} /><small>{day(k).split(",")[0]}</small></div>)}
+          </div>
+          <div className="adm2-foot"><button className="btn btn-ghost btn-sm" onClick={() => setPanel("member")} data-testid="button-open-add-teammate"><Plus size={14} /> Add teammate</button><button className="btn btn-ghost btn-sm" onClick={() => setPanel("entries")} data-testid="button-open-entries">Time entries <ArrowRight size={14} /></button></div>
         </section>
-        <section className="adm-card">
-          <h3>Add time you forgot to clock</h3>
+        <section className="adm2-card" data-testid="team-activity">
+          <div className="adm2-h"><h3>Activity</h3>{rest && <button className="btn btn-ghost btn-sm" onClick={() => setPanel("activity")} data-testid="button-all-activity">All <ArrowRight size={14} /></button>}</div>
+          {first8.length ? <div className="adm2-acts">{first8.map(row)}</div> : <Empty title="No activity yet" body="Adding to-dos, finishing them, meetings and hours all show up here." />}
+        </section>
+      </div>
+      {panel === "past" && (
+        <Modal title="Add time you forgot to clock" onClose={() => setPanel("")}>
           <div className="adm-past">
             <input className="input" type="date" max={today()} value={past.date} onChange={(e) => setPast({ ...past, date: e.target.value })} aria-label="Day" data-testid="input-past-date" />
             <input className="input" type="time" value={past.from} onChange={(e) => setPast({ ...past, from: e.target.value })} aria-label="From" data-testid="input-past-from" />
@@ -1025,39 +1020,53 @@ function TeamTab({ tab }: { tab: "board" | "people" | "calendar" | "hours" | "ac
           </div>
           <div className="row">
             <input className="input grow" value={past.note} onChange={(e) => setPast({ ...past, note: e.target.value })} placeholder="What you worked on (optional)" aria-label="What you worked on" data-testid="input-past-note" />
-            <button className="btn btn-secondary btn-sm" disabled={!past.date || !past.from || !past.to} onClick={addPast} data-testid="button-add-past"><Plus size={14} /> Add</button>
+            <button className="btn btn-primary btn-sm" disabled={!past.date || !past.from || !past.to} onClick={addPast} data-testid="button-add-past"><Plus size={14} /> Add</button>
           </div>
-        </section>
-      </div>
-      <div className="adm-people">
-        {people.map(({ m, h }) => (
-          <section key={m.email} className="adm-card adm-hours-person" data-testid={`hours-${m.email.split("@")[0]}`}>
-            <div className="row" style={{ gap: 10 }}><Avatar m={m} size={34} /><div className="grow"><b>{m.name}</b><span className="xs muted" style={{ display: "block" }}>{h?.week || 0} h this week</span></div><strong className="adm-hours-n">{h?.hours || 0}<span className="xs muted"> h</span></strong></div>
-            <div className="adm-mini" role="img" aria-label={`${m.name}: hours per week for the last 8 weeks`}>
-              {mondays.map((w) => { const n = d.weeks.find((x) => x.member === m.email && x.week === w)?.hours || 0; return <span key={w} title={`Week of ${day(w)}: ${n} h`}><i style={{ height: `${(n / top) * 100}%` }} /></span>; })}
-            </div>
-            <span className="xs muted">Last 8 weeks</span>
-          </section>
-        ))}
-      </div>
-      <section className="adm-card adm-list">
-        <h3>Recent entries</h3>
-        <More items={d.entries} render={(e) => (
-          <div key={e.id} className="adm-row">
-            <Avatar m={who(e.member)} size={26} />
-            <div className="grow stack-sm" style={{ gap: 2 }}>
-              <span className="small"><b>{nameOf(e.member)}</b>: {when(e.start_at)} to {e.end_at ? when(e.end_at) : <span className="pass">still working</span>}{e.end_at && <span className="muted"> · {((+new Date(e.end_at) - +new Date(e.start_at)) / 3600_000).toFixed(1)} h</span>}</span>
-              {e.note && <span className="xs muted">{e.note}</span>}
-            </div>
-            {e.member === d.me && e.end_at && <button className="icon-btn" onClick={() => send("DELETE", `/api/admin/hours/${e.id}`, undefined, "Entry removed")} aria-label="Remove this entry" data-testid={`button-remove-entry-${e.id}`}><Trash2 size={14} /></button>}
+          <p className="xs muted">Each person logs only their own time, up to 16 hours at once.</p>
+        </Modal>
+      )}
+      {panel === "member" && (
+        <Modal title="Add a teammate" onClose={() => setPanel("")}>
+          <form className="stack-sm" onSubmit={async (e) => { e.preventDefault(); if (await send("POST", "/api/admin/members", member, "Teammate added. They see this page next time they sign in.")) { setMember({ name: "", email: "" }); setPanel(""); } }}>
+            <input className="input" value={member.name} onChange={(e) => setMember({ ...member, name: e.target.value })} placeholder="Name" aria-label="Teammate name" data-testid="input-member-name" />
+            <input className="input" type="email" value={member.email} onChange={(e) => setMember({ ...member, email: e.target.value })} placeholder="Email they sign in with" aria-label="Teammate email" data-testid="input-member-email" />
+            <button className="btn btn-primary btn-sm" disabled={!member.email.includes("@")} data-testid="button-add-teammate"><Plus size={15} /> Add teammate</button>
+            <p className="xs muted">Everyone here can open this dashboard and sees the same board, calendar, hours and activity.</p>
+          </form>
+        </Modal>
+      )}
+      {panel === "entries" && (
+        <Modal title="Time entries" onClose={() => setPanel("")} wide>
+          <div className="adm-list">
+            <More items={d.entries} render={(e) => (
+              <div key={e.id} className="adm-row">
+                <Avatar m={who(e.member)} size={26} />
+                <div className="grow stack-sm" style={{ gap: 2 }}>
+                  <span className="small"><b>{nameOf(e.member)}</b>: {when(e.start_at)} to {e.end_at ? when(e.end_at) : <span className="pass">still working</span>}{e.end_at && <span className="muted"> · {((+new Date(e.end_at) - +new Date(e.start_at)) / 3600_000).toFixed(1)} h</span>}</span>
+                  {e.note && <span className="xs muted">{e.note}</span>}
+                </div>
+                {e.member === d.me && e.end_at && <button className="icon-btn" onClick={() => send("DELETE", `/api/admin/hours/${e.id}`, undefined, "Entry removed")} aria-label="Remove this entry" data-testid={`button-remove-entry-${e.id}`}><Trash2 size={14} /></button>}
+              </div>
+            )} />
+            {!d.entries.length && <p className="small muted">No hours logged yet.</p>}
           </div>
-        )} />
-        {!d.entries.length && <p className="small muted">No hours logged yet.</p>}
-      </section>
+        </Modal>
+      )}
+      {panel === "activity" && (
+        <Modal title="All activity" onClose={() => setPanel("")} wide>
+          <div className="adm-list">
+            <More items={d.activity} render={(a) => (
+              <div key={a.id} className="adm-row">
+                <Avatar m={who(a.actor)} size={30} />
+                <div className="grow stack-sm" style={{ gap: 2 }}><span className="small"><b>{nameOf(a.actor)}</b> {a.action.toLowerCase()}{a.detail ? <>: <span className="muted">{pretty(a.detail)}</span></> : null}</span><span className="xs muted">{ago(a.at)}</span></div>
+              </div>
+            )} />
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
-
 /** Long dashboard lists show 20 at a time (Nov 23 PM review: Activity ran 5,300 px). */
 function More<T>({ items, render, step = 20 }: { items: T[]; render: (x: T) => ReactNode; step?: number }) {
   const [n, setN] = useState(step);
