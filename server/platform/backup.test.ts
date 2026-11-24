@@ -72,3 +72,16 @@ test("an account deleted after the backup stays deleted when that backup is rest
 test("not configured: nothing happens", async () => {
   assert.equal(await backupIfDue(null), null);
 });
+
+test("old copies past the cut-off are deleted even when a night was missed", async () => {
+  box.set("backup/daily/2026-10-01", { kind: "daily" }); // 31 days back from 2026-11-01 is 2026-10-01; 2026-09-28 was missed
+  box.set("backup/daily/2026-09-28", { kind: "daily" });
+  box.set("backup/full/2026-08-20", { kind: "full" });
+  box.set("backup/daily/2026-10-15", { kind: "daily" }); // inside the 31 days: kept
+  await q("DELETE FROM site_settings WHERE key = 'backup_last_day'");
+  await backupIfDue(store, at("2026-11-01T18:00:00Z"));
+  assert.equal(box.has("backup/daily/2026-10-01"), false);
+  assert.equal(box.has("backup/daily/2026-09-28"), false);
+  assert.equal(box.has("backup/full/2026-08-20"), false);
+  assert.equal(box.has("backup/daily/2026-10-15"), true);
+});

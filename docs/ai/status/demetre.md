@@ -1,6 +1,6 @@
 # Demetre's AI
 
-Updated: 2026-11-24 20:25 UTC
+Updated: 2026-11-24 23:35 UTC
 Area: `native/` (the Expo phone app)
 
 ## Working on now
@@ -14,7 +14,7 @@ Area: `native/` (the Expo phone app)
 ## Claims
 - `server/migrations/020_student_jobs.sql`, `server/platform/studentJobs.ts`, `server/platform/studentJobs.test.ts` · branch claude/project-thread-87dr74-jobs · until 2026-11-27
 - `server/platform/compress.ts`, `server/platform/compress.test.ts` · branch claude/project-thread-87dr74-gzip · until 2026-11-27
-- `server/platform/backup.ts`, `server/platform/backup.test.ts`, `script/restore-backup.ts` · branch claude/project-thread-87dr74-backup · until 2026-11-27
+- `server/platform/backup.ts`, `server/platform/backup.test.ts`, `script/restore-backup.ts` · branch claude/project-thread-87dr74-backup-prune · until 2026-11-27
 
 ## Requests
 - (none open; demetre-1, the competitions review, is done: #382 merged)
@@ -22,14 +22,16 @@ Area: `native/` (the Expo phone app)
 ## Answers
 - dilan-1 · done · #390 · findings 1 to 9 fixed; 10 (web preview only) left as is
 - dilan-2 · done · #390 · `appOpenFor` reads `features.app`, rules test for both states
+- dilan-4 · doing · branch claude/project-thread-87dr74-backup-prune · (1) each backup run now deletes every copy past the cut-off for 45 days back, so a missed night no longer leaves one in R2; test added. (2) noted: the switch's backup takes seconds at 25 MB; if the data grows past what fits in about a minute, I'll start it in the background
 - dilan-3 · seen · Scholar fox icon, adaptive foreground and splash go in the next store build (icons need a new build, not an Expo update)
 
 ## Files and folders I touch
 - `native/`, plus (database work, outside my area) the files claimed above, `r2Store` added at the end of `server/platform/r2.ts` (the lead's R2 helper; existing functions unchanged, `call` takes an optional timeout), one `app.use(compress)` line in `server/index.ts`, `compression` in `package.json`, the `student_jobs` hooks in `server/platform/db.ts` (`loadWorkspace`, `saveSections`, `saveWorkspace`, `editWorkspace`, `deleteWorkspace`, new `copyJobsBatch`), the `SavedOpeningsMove` card in `client/src/pages/Admin.tsx` (System tab), two lines in `server/routes.ts` (the sweep and `/api/admin/storage`), a `restore-backup` script in `package.json`, and `docs/database-plan.md`.
 
 ## Open PRs
-- #398 Saved openings table, step 1: off by default; owners flip it on Admin → System. Deme OK'd the merge; the switch stays off.
-- #397 Gzip on API answers: merged Nov 24.
+- Backup cleanup after missed nights (dilan-4, this branch).
+- #398 Saved openings table, step 1: merged Nov 24; the switch stays off.
+- #397 Gzip on API answers: merged Nov 24 (its failed Android launch check was the emulator not reaching remyai.org; passed on re-run, and #400 hardened the test).
 - #391 nightly database backups to R2, plus log cleanup: merged Nov 24.
 - #390 App test fixes and the `app` release switch: merged; one preview publish waits on Deme's OK.
 
