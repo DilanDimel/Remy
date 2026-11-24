@@ -18,6 +18,8 @@ Area: the website (`client/`, `server/`, `shared/`, `docs/`), releases, `docs/ai
 - Owners' dashboard v2 (`client/src/pages/Admin.tsx`, `adm2-*` in `index.css`): one-screen tabs, 11 tabs to 7. Overview (#316), System (#321), Team & hours (#322) and Board & calendar (#324) Errors & feedback (#325) and Openings (#326) merged; release switches moved to the top of Beta; Beta Insider join step (#351) merged; Students tab (Beta renamed) in review, held until after the release flip; the Beta tab's release controls wait until after the release flip.
 - Students on Claude (Dilan, Nov 24): Render `OR_AI_CHAIN` is Haiku 5.5 → Gemini Flash → GPT-5 mini, all through OpenRouter, and `OR_AI_PRIVACY=on` gives everyone zero-data-retention routing (the direct Gemini key is out of the chain). Privacy page says so.
 
+- Reusable full-body Remy animation rig (Nov 24, marketing only, not in the app): `RemyRig.tsx` + CSS in the shared project folder `remy-rig/` (poses idle, walk, run, push, wave, sip, read, cheer; built on the #360 office body). Use it for any Remy video or animation instead of drawing a new fox; the Remy's World thread has a static port with `sit` and `sleep`. The Big Upgrade launch video v4 uses it.
+
 ## Files and folders I touch
 - Everything outside `native/`. Several Claude threads work in parallel; their open PRs are the live list.
 
