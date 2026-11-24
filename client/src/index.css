@@ -3361,3 +3361,14 @@ button.rw-item:not(:disabled) { cursor: pointer; }
 .adm2-seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 12%, transparent); }
 .adm2-scroll { flex: 1; min-height: 0; overflow: auto; align-content: start; }
 @media (max-width: 900px) { .adm2-scroll { max-height: none; } }
+/* Openings tab (owners' dashboard v2): clickable bars filter the list. */
+button.adm2-bar { background: none; border: 0; padding: 2px 0; font: inherit; color: inherit; text-align: left; cursor: pointer; width: 100%; }
+button.adm2-bar:hover span { text-decoration: underline; }
+.adm2-open { display: flex; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }
+.adm2-open:last-child { border-bottom: 0; }
+.adm2-open .adm-ellipsis { display: block; }
+@media (max-width: 690px) {
+  .adm2-h { flex-wrap: wrap; }
+  .adm2-h h3 { white-space: nowrap; }
+  [data-testid="openings-list"] .adm2-scroll { max-height: 60vh; }
+}

@@ -346,31 +346,60 @@ function OpeningsTab() {
   const [f, setF] = useState({ industry: "", path: "", status: "", company: "" });
   const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString();
   const [d] = useLoad<OpeningsData>(`/api/admin/openings${qs ? "?" + qs : ""}`);
-  if (!d) return <Spinner />;
+  if (!d) return <div className="row"><Spinner /> Loading…</div>;
   const s = d.summary;
+  const open = Math.max(0, s.total - s.closed - s.unchecked);
+  const filtered = Object.values(f).some(Boolean);
+  const bars = (rows: { name: string; n: number }[], on: string, pick: (v: string) => void, id: string, top = 6) => {
+    const max = Math.max(1, ...rows.map((r) => r.n));
+    return <div className="adm2-bars">{rows.slice(0, top).map((r) => <button key={r.name} className={"adm2-bar" + (on === r.name ? " drop" : "")} onClick={() => pick(on === r.name ? "" : r.name)} aria-pressed={on === r.name} data-testid={`${id}-${r.name || "none"}`}><span className="adm-ellipsis" title={r.name || "(none)"}>{r.name || "(none)"}</span><div><i style={{ width: `${(r.n / max) * 100}%` }} /></div><b>{r.n}</b></button>)}</div>;
+  };
   return (
-    <div className="stack">
-      <Head title="Openings Remy knows" sub={`Public postings Remy found or re-checked, shared across students; kept ${s.keepDays} days after last seen. No student data.`} />
-      <div className="adm-kpis">
-        <Kpi n={s.total} label="Openings" note={`${s.companies} employers`} />
-        <Kpi n={s.closed} label="Look closed" />
-        <Kpi n={s.unchecked} label="Not re-checked yet" />
+    <div className="adm2 adm2-full adm2-fixed">
+      <div className="adm-head">
+        <div><h1 className="adm-hello">Openings</h1><p className="adm2-say"><b>{plural(s.total, "opening")} from {plural(s.companies, "employer")}.</b> Public postings only, kept {s.keepDays} days after last seen.</p></div>
       </div>
-      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-        <select className="select" style={{ width: 190 }} value={f.industry} onChange={(e) => setF({ ...f, industry: e.target.value })} aria-label="Industry"><option value="">Every industry</option>{s.byIndustry.map((r) => <option key={r.industry} value={r.industry}>{r.industry || "(none)"} ({r.n})</option>)}</select>
-        <select className="select" style={{ width: 190 }} value={f.path} onChange={(e) => setF({ ...f, path: e.target.value })} aria-label="Career path"><option value="">Every career path</option>{s.byPath.map((r) => <option key={r.career_path} value={r.career_path}>{r.career_path || "(none)"} ({r.n})</option>)}</select>
-        <select className="select" style={{ width: 150 }} value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })} aria-label="Status"><option value="">Any status</option><option value="open">Open</option><option value="closed">Closed</option><option value="unchecked">Not checked</option></select>
-        <input className="input" style={{ width: 180 }} placeholder="Company, then Enter" defaultValue={f.company} onKeyDown={(e) => { if (e.key === "Enter") setF({ ...f, company: (e.target as HTMLInputElement).value.trim() }); }} aria-label="Company (press Enter)" />
+      <div className="adm2-tiles">
+        <div className="adm2-tile"><strong>{s.total}</strong><span className="adm2-tl">Openings</span><span className="adm2-ts">shared across students</span></div>
+        <div className="adm2-tile"><strong>{open}</strong><span className="adm2-tl">Checked, not closed</span><span className="adm2-ts">re-checked at least once</span></div>
+        <div className="adm2-tile"><strong>{s.unchecked}</strong><span className="adm2-tl">Not re-checked yet</span><span className="adm2-ts">link not opened since found</span></div>
+        <div className="adm2-tile"><strong>{s.closed}</strong><span className="adm2-tl">Look closed</span><span className="adm2-ts">posting seems taken down</span></div>
       </div>
-      <section className="adm-card adm-list">
-        <More items={d.openings} render={(o) => (
-          <div key={o.url} className="row-between small" style={{ gap: 10 }}>
-            <span><a href={o.url} target="_blank" rel="noreferrer"><b>{o.title}</b></a> · {o.company}{o.location ? ` · ${o.location}` : ""}<span className="xs muted"> · {[o.industry, o.career_path].filter(Boolean).join(" / ") || "untagged"}</span></span>
-            <span className="xs muted" style={{ whiteSpace: "nowrap" }}>{o.check_result === "closed-signal" ? "looks closed" : o.check_result === "reachable" ? "open" : o.check_result || "not checked"} · seen {o.times_seen}× · {ago(o.last_seen)}</span>
+      <div className="adm2-row adm2-row-sys">
+        <section className="adm2-card" data-testid="openings-list">
+          <div className="adm2-h"><h3>{filtered ? `${plural(d.openings.length, "match", "matches")}` : "Latest openings"}</h3>
+            <div className="adm2-seg" role="group" aria-label="Status">
+              {([["", "All"], ["open", "Open"], ["unchecked", "Not checked"], ["closed", "Closed"]] as const).map(([k, l]) => <button key={k} aria-pressed={f.status === k} onClick={() => setF({ ...f, status: k })} data-testid={`openings-status-${k || "all"}`}>{l}</button>)}
+            </div>
           </div>
-        )} />
-        {!d.openings.length && <p className="small muted">Nothing matches.</p>}
-      </section>
+          <div className="row" style={{ gap: 8 }}>
+            <input className="input grow" placeholder="Search a company, then Enter" defaultValue={f.company} onKeyDown={(e) => { if (e.key === "Enter") setF({ ...f, company: (e.target as HTMLInputElement).value.trim() }); }} aria-label="Company (press Enter)" data-testid="input-openings-company" />
+            {filtered && <button className="btn btn-ghost btn-sm" onClick={() => setF({ industry: "", path: "", status: "", company: "" })} data-testid="button-openings-clear">Clear</button>}
+          </div>
+          <div className="adm2-scroll adm-list">
+            {d.openings.map((o) => (
+              <div key={o.url} className="adm2-open">
+                <div className="grow" style={{ minWidth: 0 }}>
+                  <a href={o.url} target="_blank" rel="noreferrer" className="adm-ellipsis"><b>{o.title}</b></a>
+                  <span className="xs muted adm-ellipsis">{o.company}{o.location ? ` · ${o.location}` : ""} · {[o.industry, o.career_path].filter(Boolean).join(" / ") || "untagged"}</span>
+                </div>
+                <span className="xs muted" style={{ whiteSpace: "nowrap", textAlign: "right" }}>{o.check_result === "closed-signal" ? "looks closed" : o.check_result === "reachable" ? "open" : o.check_result || "not checked"}<br />seen {o.times_seen}× · {ago(o.last_seen)}</span>
+              </div>
+            ))}
+            {!d.openings.length && <Empty title="Nothing matches" body="Try another filter, or Clear." />}
+          </div>
+        </section>
+        <div className="adm2-col">
+          <section className="adm2-card">
+            <div className="adm2-h"><h3>By industry</h3><span className="xs muted">tap to filter</span></div>
+            {s.byIndustry.length ? bars(s.byIndustry.map((r) => ({ name: r.industry, n: r.n })), f.industry, (v) => setF({ ...f, industry: v }), "openings-industry") : <span className="small muted">No openings yet.</span>}
+          </section>
+          <section className="adm2-card grow">
+            <div className="adm2-h"><h3>By career path</h3><span className="xs muted">tap to filter</span></div>
+            {s.byPath.length ? bars(s.byPath.map((r) => ({ name: r.career_path, n: r.n })), f.path, (v) => setF({ ...f, path: v }), "openings-path", 5) : <span className="small muted">No openings yet.</span>}
+          </section>
+        </div>
+      </div>
     </div>
   );
 }
