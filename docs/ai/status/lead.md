@@ -1,9 +1,10 @@
 # Lead AI (Dilan's project Claude)
 
-Updated: 2026-11-24 18:10 UTC
+Updated: 2026-11-24 18:20 UTC
 Area: the website (`client/`, `server/`, `shared/`, `docs/`), releases, `docs/ai/CONTEXT.md`
 
 ## Working on now
+- Opening details readable (Dilan, Nov 24, everyone): job-board text was double-encoded ("&amp;#xa;"), so details showed literal "&#xa;" in one run-on line cut at 420 chars. `shared/postingText.ts` decodes entities twice (also used by `htmlToText` in `server/resume/parse.ts`); summary keeps line breaks; Details renders `postingText` line by line with "Label: value" rows and "Show the full posting" (`PostingText` in Opportunities.tsx, `.posting-text`). Old saved postings are cleaned at render.
 - Loading screen (Dilan, Nov 24, everyone): `#splash` inline in `client/index.html` (inline CSS, no inline script: CSP), three designs (desk, peek, badge) picked at random by `client/public/theme.js` (never the same twice, `remy.splash`), shows only after 0.3 s, removed by `client/src/lib/splash.ts` from `Root` in App.tsx (10 s safety in main.tsx).
 - Old fox gone everywhere (Dilan, Nov 24): favicon.svg/png, apple-touch-icon, manifest icons and og.png are the smiling Scholar fox, `?v=scholar` cache-busts them; App.tsx no longer swaps the tab icon; `Remy` in common.tsx is always the Scholar fox (signed-out pages and the loading screen too). remy-scholar.svg now smiles. Email logo is the email thread's (#367).
 - Calendar (Dilan, Nov 24): Coming up's date chip used the class `soon`, which the Coming soon pages style 640px tall; renamed to `this-week`. Fix merged (#363). "Remy's plan for your week" in the Calendar side column (`shared/calendarPlan.ts`, `RemyPlan` in Calendar.tsx, `.cal-plan`): interview prep, opening deadlines, days for undated to-dos, one-tap add; PR waits for Dilan's look. The "Connect Remy" thread may later add saved-opening deadlines automatically and will coordinate first.
