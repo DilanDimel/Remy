@@ -3,11 +3,12 @@ import { Pressable, Text, View } from "react-native";
 import Svg, { Path as SvgPath } from "react-native-svg";
 import { dailyStreak, dayKey } from "@shared/daily";
 import { Button, Card, Group, Icon, Ring, Row, Screen, Sect, T, tap, type IconName } from "@/components/ui";
-import { go } from "@/lib/nav";
+import { askRemy, go } from "@/lib/nav";
 import { useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
 
-type Stop = { key: string; title: string; sub: string; icon: IconName; path: string };
+// A stop opens where it lives on My Path (steps and skills are in the Skills panel); a semester isn't on My Path, so Remy helps plan it.
+type Stop = { key: string; title: string; sub: string; icon: IconName; path?: string; ask?: string };
 
 export default function PathTab() {
   const { ws, refresh } = useSession();
@@ -19,11 +20,12 @@ export default function PathTab() {
   const streak = dailyStreak(ws.game || { days: {} });
   const roundDone = (["openings", "role", "forecast"] as const).every((k) => ws.game?.days?.[dayKey()]?.includes(k));
   const onRefresh = async () => { setRefreshing(true); await refresh(); setRefreshing(false); };
+  const openStop = (s: Stop) => (s.ask ? askRemy(s.ask) : go(s.path || "/path", "My Path", { page: true }));
   // The road: today's round first, then the plan's steps for the chosen career, its skills and the next terms.
   const stops: Stop[] = [
-    ...(career?.steps || []).slice(0, 5).map((s, i) => ({ key: "s" + i, title: s, sub: "Step", icon: "flag" as IconName, path: "/path" })),
-    ...(plan?.skills || []).slice(0, 2).map((s) => ({ key: s.id, title: s.name, sub: s.type === "certification" ? "Certification" : s.type === "course" ? "Course" : "Skill", icon: "trend" as IconName, path: "/path" })),
-    ...(plan?.academic || []).slice(0, 2).map((a) => ({ key: a.id, title: a.term, sub: "Your semester", icon: "book" as IconName, path: "/path" })),
+    ...(career?.steps || []).slice(0, 5).map((s, i) => ({ key: "s" + i, title: s, sub: "Step", icon: "flag" as IconName, path: "/path?side=skills" })),
+    ...(plan?.skills || []).slice(0, 2).map((s) => ({ key: s.id, title: s.name, sub: s.type === "certification" ? "Certification" : s.type === "course" ? "Course" : "Skill", icon: "trend" as IconName, path: s.type === "certification" ? "/path?side=certs" : "/path?side=skills" })),
+    ...(plan?.academic || []).slice(0, 2).map((a) => ({ key: a.id, title: a.term, sub: "Your semester", icon: "book" as IconName, ask: `Help me plan my ${a.term} semester` })),
   ];
 
   if (!plan) return (
@@ -44,7 +46,7 @@ export default function PathTab() {
         <Icon name="chev" size={18} color={c.faint} />
       </Card>
       <Sect title="Up next" />
-      <Group>{stops.map((s, i) => <Row key={s.key} first={i === 0} title={s.title} sub={s.sub} left={<Icon name={s.icon} color={i === 0 ? c.fox : c.muted} />} onPress={() => go(s.path, "My Path", { page: true })} testID="row-path-step" />)}</Group>
+      <Group>{stops.map((s, i) => <Row key={s.key} first={i === 0} title={s.title} sub={s.sub} left={<Icon name={s.icon} color={i === 0 ? c.fox : c.muted} />} onPress={() => openStop(s)} testID="row-path-step" />)}</Group>
     </Screen>
   );
 
@@ -78,7 +80,7 @@ export default function PathTab() {
         </View>
         {stops.map((s, i) => (
           <View key={s.key} style={{ alignItems: "center", marginBottom: 26, transform: [{ translateX: xs[(i + 1) % xs.length] }] }}>
-            <Pressable testID="button-path-stop" accessibilityRole="button" onPress={() => { tap(); go(s.path, "My Path", { page: true }); }}
+            <Pressable testID="button-path-stop" accessibilityRole="button" onPress={() => { tap(); openStop(s); }}
               style={({ pressed }) => ({ width: 74, height: 74, borderRadius: 37, backgroundColor: c.surface, alignItems: "center", justifyContent: "center", shadowColor: c.nodeShadow, shadowOpacity: 1, shadowRadius: 0, shadowOffset: { width: 0, height: pressed ? 2 : 6 }, elevation: 3, transform: [{ translateY: pressed ? 4 : 0 }] })}>
               <Icon name={s.icon} size={26} />
             </Pressable>

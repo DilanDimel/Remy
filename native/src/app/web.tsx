@@ -13,7 +13,7 @@ import { font, useTheme } from "@/lib/theme";
 const SITE = API_BASE || "https://remyai.org";
 
 // The sheet's title follows the page the student moves to (Resume → Opportunities), using the website's own nav labels (client/src/App.tsx).
-const TITLES: Record<string, string> = { path: "My Path", resume: "Resume", opportunities: "Opportunities", interview: "Interview", community: "People", calendar: "Calendar", progress: "Progress", settings: "Settings", accounts: "Account" };
+const TITLES: Record<string, string> = { path: "My Path", resume: "Resume", opportunities: "Opportunities", interview: "Interview", community: "Community", calendar: "Calendar", progress: "Progress", settings: "Settings", accounts: "Account" };
 function titleFor(url: string): string | undefined {
   try { return TITLES[new URL(url).pathname.split("/")[1] || ""]; } catch { return undefined; }
 }
@@ -42,7 +42,10 @@ const keepFieldInView = (visible: number) => `(function(){
 export default function Web() {
   const { path = "/", title = "Remy" } = useLocalSearchParams<{ path?: string; title?: string }>();
   const { refresh } = useSession();
-  const { c } = useTheme();
+  const { c, dark } = useTheme();
+  // The page follows the app's light or dark look (the phone's setting), not the account's website theme, so a
+  // light app doesn't open a dark page or the other way round. Set before the page's own code runs (client/src/lib/store.tsx).
+  const appTheme = `window.__remyAppTheme = ${JSON.stringify(dark ? "dark" : "light")}; document.documentElement.dataset.theme = window.__remyAppTheme; true;`;
   // Android draws its gesture bar over the bottom of the page: leave that much room so the last field isn't under it.
   const insets = useSafeAreaInsets();
   const web = useRef<any>(null); // the WebView, to tell the page how much of it the keyboard leaves visible
@@ -86,7 +89,7 @@ export default function Web() {
       ) }} />
       {Platform.OS === "web"
         ? <iframe src={SITE + safe} style={{ border: 0, width: "100%", height: "100%" }} title={title} />
-        : <WebView source={{ uri: SITE + safe }} sharedCookiesEnabled thirdPartyCookiesEnabled applicationNameForUserAgent="RemyApp" onLoadEnd={() => setBusy(false)}
+        : <WebView source={{ uri: SITE + safe }} sharedCookiesEnabled thirdPartyCookiesEnabled applicationNameForUserAgent="RemyApp" injectedJavaScriptBeforeContentLoaded={appTheme} onLoadEnd={() => setBusy(false)}
             onNavigationStateChange={(s) => { const t = titleFor(s.url); if (t) setPageTitle(t); }}
             originWhitelist={["*"]} mediaCapturePermissionGrantType="grantIfSameHostElseDeny" onShouldStartLoadWithRequest={onNavigate} onOpenWindow={(e) => openOutside(e.nativeEvent.targetUrl)} onMessage={onMessage}
             ref={web}

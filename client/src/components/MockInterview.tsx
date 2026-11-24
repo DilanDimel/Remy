@@ -137,7 +137,7 @@ export function MockInterview() {
       <div className={"ivc-prep" + (planned ? " ivc-hide-phone" : "")} data-testid="interview-kit">
         {kitTiles.map((t) => (
           <div key={t.id} className={kit === t.id ? "on" : ""}><span><b>{t.label}</b><small>{t.n}</small></span>
-            <button className="ivc-link" aria-expanded={kit === t.id} onClick={() => setKit(kit === t.id ? null : t.id)} data-testid={`kit-${t.id}`}>{kit === t.id ? "Close" : t.act} →</button></div>
+            <button className="ivc-link" aria-expanded={kit === t.id} onClick={() => setKit(kit === t.id ? null : t.id)} data-testid={`kit-${t.id}`}>{kit === t.id ? "Close" : `${t.act} →`}</button></div>
         ))}
         {last && !kit && <div><span><b>Last practice</b><small>{new Date(last.startedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {last.company} · {scoreInterview(last).answered} of {last.questions.length} answered</small></span>
           <button className="ivc-link" onClick={() => setView({ id: last.id, qi: last.questions.length, fb: false })} data-testid="button-last-practice">See it →</button></div>}

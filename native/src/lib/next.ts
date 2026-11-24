@@ -2,7 +2,7 @@ import type { Job, JobFit, Task, Workspace } from "../../../shared/types";
 
 export type Next = { title: string; why: string; path: string; cta: string };
 
-const daysUntil = (iso: string, now = new Date()) => {
+export const daysUntil = (iso: string, now = new Date()) => {
   const t = Date.parse(iso + "T12:00:00");
   return Number.isFinite(t) ? Math.round((t - now.getTime()) / 86_400_000) : null;
 };

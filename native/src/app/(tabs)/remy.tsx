@@ -52,8 +52,13 @@ export default function RemyChat() {
   const [shown, setShown] = useState("");
   const done = useRef<{ w?: Workspace; err?: string; m?: string } | null>(null);
   const [doneTick, setDoneTick] = useState(0);
+  // Keeps the newest message in view: Android closes the keyboard on send and resizes the window, which left the
+  // list scrolled up to older messages while Remy's reply came in off screen.
+  const list = useRef<FlatList<ChatMsg>>(null);
+  const sending = useRef(false);
+  const toBottom = () => requestAnimationFrame(() => list.current?.scrollToOffset({ offset: 0, animated: true }));
   const finish = () => {
-    const d = done.current; done.current = null;
+    const d = done.current; done.current = null; sending.current = false;
     if (d?.w) setWs(d.w);
     if (d?.err) { setErr(d.err); setText(d.m || ""); }
     setLive(""); setShown(""); setPending(null); setBusy(false);
@@ -69,9 +74,12 @@ export default function RemyChat() {
   const [kb, setKb] = useState(false);
   useEffect(() => {
     const a = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", () => setKb(true));
-    const b = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => setKb(false));
+    const b = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => { setKb(false); if (sending.current) toBottom(); });
     return () => { a.remove(); b.remove(); };
   }, []);
+  // Each new message (yours, Remy's first words, the saved reply) brings the list back to the bottom while sending.
+  const count = (ws?.chat.length || 0) + (pending ? 1 : 0) + (shown ? 1 : 0);
+  useEffect(() => { if (sending.current || busy) toBottom(); }, [count, busy]);
   if (!ws) return null;
   const soul = look === "soul";
   const msgs = [...ws.chat, ...(pending ? [pending] : []), ...(pending && shown ? [{ id: "live", role: "assistant", text: tidyPartial(shown), at: pending.at } as ChatMsg] : [])].slice(-60).reverse();
@@ -79,7 +87,7 @@ export default function RemyChat() {
   const send = async (message: string) => {
     const m = message.trim();
     if (!m || busy) return;
-    tap(); Keyboard.dismiss(); setText(""); setErr(""); setBusy(true);
+    tap(); sending.current = true; Keyboard.dismiss(); setText(""); setErr(""); setBusy(true); toBottom();
     setPending({ id: "pending", role: "user", text: m, at: new Date().toISOString() });
     try { done.current = { w: await streamChat<Workspace>({ message: m, page: "home", where: "native app: Remy tab" }, setLive) }; }
     catch (e: any) { done.current = { err: e.message, m }; }
@@ -134,7 +142,7 @@ export default function RemyChat() {
         )}
       </View>
       {/* The inverted list already flips its empty view back (scale -1 on Android, scaleY -1 on iOS). A transform here replaces that, which mirrored this text on Android. */}
-      <FlatList inverted data={msgs} keyExtractor={(m) => m.id} renderItem={({ item }) => bubble(item)} contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12 }} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" onTouchStart={() => Keyboard.dismiss()} style={{ flex: 1 }}
+      <FlatList ref={list} inverted data={msgs} keyExtractor={(m) => m.id} renderItem={({ item }) => bubble(item)} contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12 }} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" onTouchStart={() => Keyboard.dismiss()} style={{ flex: 1 }}
         ListHeaderComponent={busy && !shown ? <TypingDots color={c.muted} bg={c.surface} line={c.line} /> : undefined}
         ListEmptyComponent={<View style={{ paddingTop: 40, alignItems: "center", gap: 8 }}><T kind="h2">Ask Remy anything</T><T kind="muted" style={{ textAlign: "center" }}>About jobs, your resume, interviews or what to do next. Remy only uses what you've told it.</T></View>} />
       {!!err && <T kind="small" style={{ color: c.error, paddingHorizontal: 18, paddingBottom: 6 }}>{err}</T>}

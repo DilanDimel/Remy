@@ -14,6 +14,7 @@ import { NAME_CHECK, firstName, knownName, nameUnsure, sameName } from "@shared/
 import { partialReply } from "./ai/streamReply";
 import { startStream, streamLine } from "./platform/stream";
 import { JOB_INTEREST_REASONS, type JobInterestRating } from "@shared/types";
+import { dropDuplicatePostings } from "./jobs/dedupe";
 import { employerPreferences, interestContext, interestEnabled, ownInterest } from "./jobs/ranking";
 import { keepQuestions, skippedPrefs } from "@shared/setupReply";
 import { newsMark } from "@shared/news";
@@ -2275,7 +2276,9 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     // How many employers Remy reads for this student's field, so an empty list can say why honestly.
     const employers = fieldEmployers(ctx.ws, directoryFor(ctx)).length;
     mark("employers");
-    res.json({ jobs: inOwnerView() ? jobs.map(hospitalFirst) : jobs, fits, interest, interestEnabled: interestEnabled(), refreshing: searching.has(ctx.me.id), fieldEmployers: employers });
+    // Owners: one posting listed under two employer spellings shows once (Nov 23 test: RTX twice in For you).
+    const acted = (id: string) => ctx.ws.savedJobIds.includes(id) || ctx.ws.hiddenJobIds.includes(id) || !!ctx.ws.jobFeedback?.[id];
+    res.json({ jobs: inOwnerView() ? dropDuplicatePostings(jobs, acted).map(hospitalFirst) : jobs, fits, interest, interestEnabled: interestEnabled(), refreshing: searching.has(ctx.me.id), fieldEmployers: employers });
     mark("send");
     if (Date.now() - t0 > 2000 || process.env.OR_TIMING === "1") {
       let prev = t0;
