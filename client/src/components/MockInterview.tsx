@@ -15,6 +15,7 @@ import { replaceRoute, useRoute } from "../lib/router";
 import { useInterviewJobs, JobInterview } from "./JobInterview";
 import { StoryDeck } from "./StoryDeck";
 import { PitchCard } from "./PitchCard";
+import { QuickRate } from "./QuickRate";
 import { Remy, Spinner } from "./common";
 
 const KIND: Record<string, string> = { warmup: "Warm-up", posting: "From the posting", resume: "Your resume", work_sample: "Work sample", pressure: "Pressure", yours: "Your turn" };
@@ -343,6 +344,7 @@ function Scorecard({ iv, again, practice }: { iv: Interview; again: () => void; 
               <button className="btn btn-primary btn-sm" onClick={again} data-testid="button-mock-again"><RotateCcw size={14} /> Run it again</button>
               <button className="btn btn-ghost btn-sm" onClick={() => practice(0, iv.mode === "coach" && iv.answers.some((a) => a.qi === 0))} data-testid="button-mock-plan">See every answer</button>
             </div>
+            {sc.answered > 0 && <QuickRate place="mock" id={"mock:" + iv.id} label="Was this practice useful?" />}
           </section>
         </div>
       </div>

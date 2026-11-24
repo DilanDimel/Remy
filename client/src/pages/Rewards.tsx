@@ -3,7 +3,7 @@
 // levels and titles, Remy's outfits and office, streak and quests, each with what the student has, what's locked and
 // exactly what unlocks it. Everything is read from the same code that awards it (shared/game.ts, pins.ts, daily.ts).
 import { useState } from "react";
-import { ArrowRight, Award, BookOpen, Briefcase, Check, Compass, FileText, Flame, Gift, Hash, Heart, Linkedin, Lock, Mic, Moon, Mountain, RotateCcw, Scissors, Shield, Snowflake, Sprout, Star, Sun, Trophy, Users, Zap, type LucideIcon } from "lucide-react";
+import { ArrowRight, Award, BookOpen, Briefcase, Check, Compass, FileText, FlaskConical, Flame, Gift, Hash, Heart, Linkedin, Lock, Mic, Moon, Mountain, RotateCcw, Scissors, Shield, Snowflake, Sprout, Star, Sun, Trophy, Users, Zap, type LucideIcon } from "lucide-react";
 import { RANKS, OFFICE, WARDROBE, levelReward, rankOf, unlockedOutfits, xpOf, ALL_DONE_BONUS } from "@shared/game";
 import { CARD_XP, FREEZE_EVERY, FREEZE_MAX, dailyStreak, streakDays } from "@shared/daily";
 import { KIND_LABEL, TIER_NAME, pinsOf, type PinKind, type PinState } from "@shared/pins";
@@ -18,7 +18,7 @@ import { CHEST_XP, RARE, rareOwned } from "@shared/chest";
 type Tab = "pins" | "levels" | "wardrobe" | "streak";
 const ICON: Record<string, LucideIcon> = { resume: FileText, pitch: Mic, linkedin: Linkedin, applied: Briefcase, interview: Users, offer: Trophy,
   tailor: Scissors, story: BookOpen, practice: Mic, network: Users, numbers: Hash, explorer: Compass, steady: Flame, hours: Heart,
-  thickskin: Shield, bounce: RotateCcw, comeback: Mountain, nightowl: Moon, earlybird: Sun, allround: Star };
+  thickskin: Shield, bounce: RotateCcw, comeback: Mountain, nightowl: Moon, earlybird: Sun, allround: Star, insider: FlaskConical };
 
 /** One enamel pin: the ring shows the tier reached (bronze, silver, gold); locked pins are drawn as an outline. */
 export function PinArt({ p, size = 44 }: { p: PinState; size?: number }) {

@@ -289,20 +289,22 @@ export async function cleanupOld(days = 30) {
 // Guests are free to create, so they get a smaller daily allowance, and the whole
 // site has a daily budget so scripted accounts can't drain the shared AI quota.
 const SITE_DAILY_AI = Number(process.env.OR_AI_DAILY_BUDGET) || 1500;
-export async function aiAllowed(userId: string, guest = false): Promise<{ ok: boolean; message?: string }> {
+export async function aiAllowed(userId: string, guest = false, heavy?: { kind: string; max: number; message: string }): Promise<{ ok: boolean; message?: string }> {
   await q("DELETE FROM ai_usage WHERE at < now() - interval '1 day'");
   const r = await q1(
     `SELECT COUNT(*)::int AS site,
             COUNT(*) FILTER (WHERE user_id = $1)::int AS day,
-            COUNT(*) FILTER (WHERE user_id = $1 AND at > now() - interval '1 minute')::int AS recent
+            COUNT(*) FILTER (WHERE user_id = $1 AND at > now() - interval '1 minute')::int AS recent,
+            COUNT(*) FILTER (WHERE user_id = $1 AND kind = $2 AND kind <> '')::int AS heavy
      FROM ai_usage`,
-    [userId],
+    [userId, heavy?.kind || ""],
   );
   if (r!.site >= SITE_DAILY_AI) return { ok: false, message: "Remy's AI has reached today's limit for the whole site. It resets within 24 hours; everything else still works." };
   const dayMax = guest ? 40 : 120;
   if (r!.day >= dayMax) return { ok: false, message: guest ? "Guest workspaces get 40 AI requests a day. Sign in to get more." : "Daily AI limit reached for this account (120 requests per 24 hours)." };
   if (r!.recent >= 12) return { ok: false, message: "That was a lot of AI requests at once. Please wait a minute and try again." };
-  await q("INSERT INTO ai_usage (user_id) VALUES ($1)", [userId]);
+  if (heavy && r!.heavy >= heavy.max) return { ok: false, message: heavy.message };
+  await q("INSERT INTO ai_usage (user_id, kind) VALUES ($1, $2)", [userId, heavy?.kind || ""]);
   return { ok: true };
 }
 
