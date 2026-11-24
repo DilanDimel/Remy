@@ -23,6 +23,8 @@ import { GIVE_UP, KONAMI, POKES, QUOTES, SECRETS, SPIN, TAPS, dateLine, pick, ti
 import "./office.css";
 import { OfficeOpens, RemyDid } from "./RemyDid";
 import { NextAsk, useAsks } from "./RemyAsk";
+import { useJobs } from "../lib/jobs";
+import { officeSteps, type OfficeSpot, type OfficeStep } from "@shared/officeSteps";
 import { PLACE_SPOT, PlaceScene } from "./Places";
 import { useAccess } from "./ComingSoon";
 import { PLACES, openPlaces, placeNow, type PlaceKey } from "@shared/places";
@@ -55,6 +57,31 @@ type D = ReturnType<typeof usePathData>;
 /* ------------------------------------------------------------------ the season: a reward at every level */
 
 function Season({ d }: { d: D }) {
+  const lv = d.lv, s = d.streak, se = seasonOf(new Date(), d.year);
+  const pct = lv.max ? 100 : Math.round(((Math.max(0, d.xp - lv.floor)) / Math.max(1, lv.next - lv.floor)) * 100);
+  const bigNext = nextOutfit(lv.n);
+  return (
+    <section className="ps-season" aria-label="This season" data-testid="path-season">
+      <div className="ps-season-top">
+        <div><span className="pm-kicker">{se.name} season · {YEARS[d.year]}</span><h2>{se.goal}</h2></div>
+        {/* One slim row (team meeting, Nov 24): the room below gets the space for Remy's talk; rewards and outfits live on Rewards. */}
+        <div className="ps-xp">
+          <span className="ps-bar" role="progressbar" aria-label="XP to next level" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${pct}%` }} /></span>
+          <span className="ps-xp-txt">{lv.max ? <b>Top level reached.</b> : <><b>{Math.max(0, d.xp - lv.floor)} / {lv.next - lv.floor} XP</b> to level {lv.n + 1}</>}{bigNext ? ` · level ${bigNext[1]} unlocks ${OUTFITS[bigNext[0]].name.toLowerCase()}` : ""}</span>
+        </div>
+        <div className="ps-chips">
+          <span className="ps-chip" title={s.todayDone ? "Done today" : "Do one thing today to keep it"}><Flame size={16} className={"pt-flame" + (s.days ? " lit" : "")} fill="currentColor" aria-hidden="true" /><b>{s.days}</b> day{s.days === 1 ? "" : "s"}</span>
+          <span className="ps-chip ice" title="A freeze covers one missed day. You earn one every 7 days."><Snowflake size={16} aria-hidden="true" /><b>{s.freezes}</b> {s.freezes === 1 ? "freeze" : "freezes"}</span>
+          <span className="ps-chip"><i className="pt-badge">{lv.n}</i>{lv.name}</span>
+          <a className="ps-chip link" href="/rewards" data-testid="link-path-rewards"><Award size={16} aria-hidden="true" />All rewards</a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** Before the office guide (students until it is released): the season with its reward track. */
+function SeasonTrack({ d }: { d: D }) {
   const { save } = useStore();
   const lv = d.lv, s = d.streak, se = seasonOf(new Date(), d.year);
   const owned = unlockedOutfits(lv.n, d.w.profile.classYear), wearing = d.g.outfit && owned.includes(d.g.outfit) ? d.g.outfit : "suit";
@@ -158,6 +185,10 @@ function useDeskFox() {
   return { x, y, walk, face, pose, setPose, moveTo, later, stop, seated: () => at.current === "desk" };
 }
 
+const SPOT_NAME: Record<OfficeSpot, string> = { computer: "My computer", frame: "Resume frame", notes: "My notes" };
+// Where each step's number sits and what glows (scene units: x, y centre, width, height).
+const SPOT_BADGE: Record<OfficeSpot, [number, number]> = { computer: [596, 288], frame: [282, 140], notes: [706, 262] };
+const SPOT_GLOW: Record<OfficeSpot, [number, number, number, number]> = { computer: [544, 312, 110, 62], frame: [328, 144, 104, 128], notes: [673, 304, 76, 106] };
 const KONAMI_KEYS = ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "b", "a"];
 
 /* Day and night (Nov 24, Demetre and Dilan): light mode is the office by day, dark mode the same office at night with the
@@ -179,6 +210,31 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   // Owners (Nov 24): Remy's open questions about the account, asked in his speech bubble (components/RemyAsk.tsx).
   const asks = useAsks();
   const [answered, setAnswered] = useState(false);
+  // Its own row in Feature releases (team rule, Nov 24: new features start owners-only).
+  const guideOn = useAccess()("guide") === "open";
+  // Team meeting (Nov 24): Remy tells you the next thing to do and points at it in his room (shared/officeSteps.ts).
+  const { jobs, fits } = useJobs();
+  const fresh = useMemo(() => { const wk = new Date(Date.now() - 7 * 864e5).toISOString(); return (jobs || []).filter((j) => (j.foundAt || "") > wk && j.kind !== "event" && !d.w.hiddenJobIds.includes(j.id) && !d.w.savedJobIds.includes(j.id) && !fits[j.id]?.excluded && !fits[j.id]?.closed && fits[j.id]?.regionMatch !== false).length; }, [jobs, fits, d.w]);
+  // shortcut: "Later" is remembered per day in this browser only; move to settings if students want it across devices.
+  const laterKey = "remy-office-later:" + dayKey();
+  const [later, setLater] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem(laterKey) || "[]"); } catch { return []; } });
+  const steps = useMemo(() => (guideOn ? officeSteps(d.w, dayKey(), new Date().getHours(), fresh, later) : []), [guideOn, d.w, fresh, later]);
+  const [cur, setCur] = useState(0);
+  const step: OfficeStep | undefined = steps[Math.min(cur, steps.length - 1)];
+  const [doing, setDoing] = useState(false);
+  const laterStep = (s: OfficeStep) => { const l = [...later, s.id]; setLater(l); try { localStorage.setItem(laterKey, JSON.stringify(l)); } catch { /* private mode */ } };
+  const doStep = async (s: OfficeStep) => {
+    if (s.ask) return setCur(steps.indexOf(s));
+    if (s.link) return go(s.link);
+    if (!s.action) return;
+    setDoing(true);
+    const w = await run(() => api<Workspace>("POST", "/api/remy/act", { action: s.action, offerId: s.offerId }));
+    setDoing(false);
+    if (w) setWs(w);
+  };
+  // While his banner has a step for you, he doesn't talk over it on his own (taps still get a line).
+  const talkRef = useRef(false); talkRef.current = !!step;
+  const spotStep = (k: OfficeSpot) => steps.find((s) => s.spot === k);
   const quipT = useRef(0);
   const say = (text: string, by?: string, ms = 6500) => {
     if (saidRef.current || guideRef.current) return;
@@ -255,6 +311,9 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
     if (k === "laptop" && fox.seated()) { fox.setPose("type"); fox.later(() => fox.setPose(""), 3000); }
     if (k === "chair" && fox.seated()) setSpin((s) => s + 1);
     if ((k === "window" || k === "skyline") && fox.seated() && !reduced()) { const ms = fox.moveTo("window", "point"); fox.later(() => fox.moveTo("desk"), ms + 4200); }
+    const sp = k === "laptop" ? spotStep("computer") : k === "resume" ? spotStep("frame") : k === "notes" ? spotStep("notes") : undefined;
+    if (sp) { setCur(steps.indexOf(sp)); if (sp === step) void doStep(sp); return; }
+    if (k === "notes") return go("/accounts?tab=memory");
     const lines = TAPS[k];
     if (lines) say(pick(lines).replace("{time}", now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })));
   };
@@ -276,7 +335,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
     if (g.on) return;
     let t = 0;
     // Hello for the day or the time: once, a few seconds after you arrive.
-    const hello = window.setTimeout(() => { const n = new Date(); say(dateLine(n) || timeLine(n.getHours(), n.getDay())); }, 3500);
+    const hello = window.setTimeout(() => { const n = new Date(); if (!talkRef.current) say(dateLine(n) || timeLine(n.getHours(), n.getDay())); }, 3500);
     if (reduced()) return () => clearTimeout(hello);
     fox.later(() => fox.setPose("type"), 1200);
     const tick = () => { t = window.setTimeout(() => {
@@ -284,7 +343,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
         const r = Math.random();
         if (r < 0.35) { fox.setPose("type"); fox.later(() => fox.setPose(""), 5000); }
         else if (r < 0.52) { const ms = fox.moveTo("window"); fox.later(() => fox.moveTo("desk", "type"), ms + 3800); }
-        else if (r < 0.7) quote();
+        else if (r < 0.7) { if (!talkRef.current) quote(); }
         else act(isNight() && Math.random() < 0.5 ? "yawn" : pick(["coffee", "clean", "read", "push", "tie", "idea", "look"]));
       }
       tick();
@@ -322,6 +381,34 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   const lit = [[576, 178], [584, 192], [600, 150], [604, 166], [599, 184], [638, 138], [648, 152], [640, 168], [650, 184], [678, 176], [686, 192], [718, 194]];
   return (
     <section className="ps-office" aria-label="Remy's office" data-testid="path-office">
+      {guideOn ? <>
+      {/* Remy talks to you here, above his room, tail pointing at him (team meeting, Nov 24): one thing at a time, a button
+          that does it, and his list of up to three. It never covers the room. The walk-through plays here too. */}
+      <div className={"ps-talk" + (g.on ? " guide" : "")} style={{ "--tail": `${Math.min(94, Math.max(6, fx))}%` } as CSSProperties} aria-live="polite" data-testid="office-talk">
+        {g.on ? <div data-testid="path-guide" className="ps-talk-guide">{g.bubble}</div> : <>
+          <div className="ps-talk-top">
+            <span className="pm-kicker">{place === "office" ? "Remy" : PLACES.find((p) => p.key === place)!.name}{step ? ` · ${steps.length > 1 ? `${steps.indexOf(step) + 1} of ${steps.length}` : "one thing"}` : ""}</span>
+            {placesOn && <select className="ps-place-pick" value={placePick || ""} onChange={(e) => setPlacePick((e.target.value || null) as PlaceKey | null)} aria-label="Where Remy is" data-testid="select-office-place">
+                <option value="">Follow my day</option>
+                {PLACES.map((p) => <option key={p.key} value={p.key} disabled={!opened.has(p.key)}>{opened.has(p.key) ? p.name : `${p.name}: ${p.how.toLowerCase()}`}</option>)}
+              </select>}
+            <form className="ps-ask" onSubmit={(e) => { e.preventDefault(); ask(); }}>
+              <input className="input" value={q} onChange={(e) => setQ(e.target.value)} disabled={!aiOn || busy} placeholder={aiOn ? "Ask me anything…" : "Remy's chat is off on this server"} aria-label="Ask Remy" data-testid="input-office-ask" />
+              {canListen && aiOn && <button type="button" className={"btn btn-sm " + (voice.on ? "btn-primary remy-listening" : "btn-secondary")} onClick={voice.toggle} disabled={busy} aria-label={voice.on ? "Stop listening" : "Talk to Remy"} aria-pressed={voice.on} data-testid="button-office-mic">{voice.on ? <Square size={16} /> : <Mic size={16} />}</button>}
+              <button className="btn btn-secondary btn-sm" disabled={!aiOn || busy || !q.trim()} data-testid="button-office-ask">Ask</button>
+            </form>
+          </div>
+          {step?.ask ? <NextAsk kicker={false} />
+            : <p className="ps-talk-say" data-testid="office-step">{step ? step.say : nextItem ? `You're all set for now. Level ${nextItem[2]} adds a ${nextItem[1].toLowerCase()} to my office.` : "You're all set for now. Ask me anything, or tap something in my office."}</p>}
+          <div className="ps-talk-row">
+            {step && !step.ask && <button className="btn btn-primary btn-sm" onClick={() => doStep(step)} disabled={doing} data-testid="button-office-step">{doing ? <Spinner /> : null}{step.cta} <ArrowRight size={14} /></button>}
+            {step && <button className="btn btn-ghost btn-sm" onClick={() => laterStep(step)} data-testid="button-office-later">Later</button>}
+            <button className="btn btn-ghost btn-sm ps-again" onClick={g.start} data-testid="button-hello-again">Walk me through it</button>
+            {steps.length > 1 && <span className="ps-steps">{steps.map((s, i) => <button key={s.id} className={"ps-step" + (s === step ? " on" : "")} onClick={() => setCur(i)} aria-pressed={s === step} aria-label={`Step ${i + 1}: ${SPOT_NAME[s.spot]}`} data-testid={`button-office-step-${s.spot}`}><i>{i + 1}</i><span>{SPOT_NAME[s.spot]}</span></button>)}</span>}
+          </div>
+        </>}
+      </div>
+      </> : <>
       {/* One row above the room (Nov 24): who's here, what to ask him, the walk-through. Saves a row so My Path fits 1440x800. */}
       <div className="pt-card-head"><span className="ps-office-title"><span className="pm-kicker dark">{place === "office" ? "Remy's office" : PLACES.find((p) => p.key === place)!.name}</span>
           {placesOn && !g.on ? <select className="ps-place-pick" value={placePick || ""} onChange={(e) => setPlacePick((e.target.value || null) as PlaceKey | null)} aria-label="Where Remy is" data-testid="select-office-place">
@@ -335,6 +422,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
             <button className="btn btn-primary btn-sm" disabled={!aiOn || busy || !q.trim()} data-testid="button-office-ask">Ask</button>
         </form>}
         {!g.on && <button className="btn btn-ghost btn-sm ps-again" onClick={g.start} data-testid="button-hello-again">Walk me through it</button>}</div>
+      </>}
       <div className="ps-roomwrap">
       <div className={"ps-room" + (g.on ? " guiding" : "") + (lamp ? ` lamp-${lamp}` : "") + (music ? " music" : "")} data-testid="path-hello">
         <svg className="ps-scene" viewBox="0 40 860 420" preserveAspectRatio="xMidYMax meet" aria-hidden="true" onClick={onScene}>
@@ -406,6 +494,9 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
             <path d="M0 20V11" {...L} transform={`rotate(${hh} 0 20)`} /><path d="M0 20V6" {...L} strokeWidth="1.8" transform={`rotate(${mm} 0 20)`} /><circle r="2.2" cx="0" cy="20" fill="var(--fox)" /></g></g>}
           {has("rug") && <g {...it("rug")}><ellipse cx="470" cy="432" rx="230" ry="30" fill="color-mix(in srgb, var(--sch-navy) 60%, var(--room-floor))" stroke="var(--room-line)" strokeWidth="2.5" /><ellipse cx="470" cy="432" rx="200" ry="20" fill="none" stroke={O} strokeOpacity=".5" strokeWidth="2" strokeDasharray="6 6" /></g>}
           {has("globe") && <g {...it("globe")}><g transform="translate(724 358) scale(1.4)"><path d="M10 56h24M22 44v12" {...L} /><path d="M4 22a18 18 0 0 0 36 0" fill="none" {...L} stroke={WOOD2} strokeWidth="4" /><circle cx="22" cy="22" r="18" fill="var(--room-sky)" {...L} /><path d="M10 12c4-3 9-2 10 2s-3 5-1 8-2 6-5 5-6-6-5-10z" fill="var(--sch-tweed)" /><path d="M27 9c4 1 8 5 8 9-3 1-5-1-7 1s-3 4-5 2 0-5 1-7-1-4 3-5z" fill="var(--sch-tweed)" /><path d="M26 30c3-1 6-1 7 1-1 3-5 4-7 3z" fill="var(--sch-tweed)" /><circle cx="22" cy="22" r="18" fill="none" {...L} /></g></g>}
+          {/* the filing cabinet: Remy's notes on you (AI memory). His quick questions about your account live here. */}
+          {guideOn && <g {...it("notes")}><rect x="642" y="274" width="62" height="78" rx="4" fill={WOOD2} {...L} /><rect x="650" y="282" width="46" height="28" rx="2" fill={O} {...L} strokeWidth="2" /><rect x="650" y="316" width="46" height="28" rx="2" fill={O} {...L} strokeWidth="2" />
+            <path d="M666 296h14M666 330h14" {...L} strokeWidth="3" /><rect x="654" y="256" width="36" height="18" rx="2" fill="var(--fox-soft)" {...L} strokeWidth="2" /></g>}
           {/* his chair, then Remy, then the desk in front of him */}
           <g {...it("chair", "ps-chair" + (fox.pose === "lean" && seatedNow ? " lean" : "") + (spin ? ` spin${spin % 2}` : ""))}>
             <path d="M398 340V262c0-22 14-34 57-34s57 12 57 34v78z" fill="var(--room-chair)" {...L} />
@@ -453,15 +544,19 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
         <button className={"ps-tag" + (resume ? "" : " ghost")} style={at(328, 84)} onClick={() => go("/resume")} data-testid="button-office-resume">{resume ? "Resume on file" : "Add your resume"}</button>
         <button className={"ps-tag" + (pins.length ? "" : " ghost")} style={at(472, 146)} onClick={() => go("/rewards")} data-testid="button-office-pins">{pins.length ? `${pinsOf(d.w).filter((p) => p.earned).length} pins` : "Earn your first pin"}</button>
         <span className="ps-tag still" style={at(352, 244)}>{d.streak.days ? `${d.streak.days}-day streak` : "Plant needs a streak"}</span>
+        {guideOn && <button className="ps-tag below" style={at(692, 358)} onClick={() => tap("notes")} data-testid="button-office-notes">My notes on you</button>}
+        {/* Remy's list, numbered on the things he means; the one he's talking about glows. */}
+        {!g.on && steps.map((s, i) => { const [bx, by] = SPOT_BADGE[s.spot]; return <button key={s.id} className={"ps-num" + (s === step ? " on" : "")} style={at(bx, by)} onClick={() => setCur(i)} aria-label={`Step ${i + 1}: ${SPOT_NAME[s.spot]}`} data-testid={`button-office-num-${s.spot}`}>{i + 1}</button>; })}
+        {!g.on && step && (() => { const [x, y, w, h] = SPOT_GLOW[step.spot]; return <span className="ps-glow" style={{ ...at(x, y), width: `${(w / 860) * 100}%`, height: `${(h / 420) * 100}%` }} aria-hidden="true" />; })()}
         <button className={"ps-tag side" + (applied ? "" : " ghost")} style={at(152, 392)} onClick={() => go("/opportunities")} data-testid="button-office-briefcase">{applied ? `${d.w.applications.length} applied` : "First application"}</button></>}
       </div>
-        {g.on ? <div className="ps-bubble" style={{ "--tail": `${Math.min(92, Math.max(8, fx))}%` } as CSSProperties} aria-live="polite" data-testid="path-guide">{g.bubble}</div>
+        {g.on ? (guideOn ? null : <div className="ps-bubble" style={{ "--tail": `${Math.min(92, Math.max(8, fx))}%` } as CSSProperties} aria-live="polite" data-testid="path-guide">{g.bubble}</div>)
           : said ? <div className={"ps-say " + side} style={sayAt} aria-live="polite" data-testid="office-reply">
               <button className="ps-say-x" onClick={() => setSaid(null)} aria-label="Close Remy's answer" data-testid="button-office-reply-close"><X size={14} /></button>
               <div className="ps-say-body">{busy ? (said.live ? <div className="ps-reply"><Rich text={said.live} /></div> : <span className="ps-think" role="status" aria-label="Remy is thinking"><i /><i /><i /></span>)
                 : reply ? <div className="ps-reply"><Rich text={reply.text} /><RemyDid m={reply} /><OfficeOpens actions={reply.actions} /></div> : <p>I couldn't answer that one. Try asking again.</p>}</div>
             </div>
-          : asks.length || answered ? <NextAsk onAnswered={() => setAnswered(true)} wrap={(c) => <div className="ps-bubble" style={{ "--tail": `${Math.min(92, Math.max(8, fx))}%` } as CSSProperties} aria-live="polite" data-testid="office-ask">{c}</div>} />
+          : !guideOn && (asks.length || answered) ? <NextAsk onAnswered={() => setAnswered(true)} wrap={(c) => <div className="ps-bubble" style={{ "--tail": `${Math.min(92, Math.max(8, fx))}%` } as CSSProperties} aria-live="polite" data-testid="office-ask">{c}</div>} />
           : quip && <button className={"ps-say quip " + side} style={sayAt} onClick={() => setQuip(null)} aria-live="polite" data-testid="office-quip"><span className="ps-say-body"><span>{quip.text}</span>{quip.by && <small>{quip.by}</small>}</span></button>}
       </div>
     </section>
@@ -819,10 +914,11 @@ export function PathBoard() {
   const ready = !!(d.careers && d.future);
   useEffect(() => { if (side && ready) setTimeout(() => document.getElementById("path-field")?.scrollIntoView({ behavior: "smooth", block: "start" }), 120); }, [side, ready]);
   const onField = (t: SideTab, o = "") => { setTab(t); setOpen(o); };
+  const guide = useAccess()("guide") === "open";
   if (!d.careers || !d.future) return <div className="card card-pad row"><Spinner /> <span className="muted">Remy is getting your path ready…</span></div>;
   return (
-    <div className="pm ps" data-testid="path-board">
-      <Season d={d} />
+    <div className={"pm ps" + (guide ? " guide" : "")} data-testid="path-board">
+      {guide ? <Season d={d} /> : <SeasonTrack d={d} />}
       <div className="ps-stage">
         <Office d={d} onField={onField} />
         <Side d={d} tab={tab} setTab={setTab} open={open} setOpen={setOpen} />

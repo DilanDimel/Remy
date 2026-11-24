@@ -2,16 +2,47 @@
    Colours are the --room-* tokens in index.css (night values under [data-theme="dark"]). */
 html:not([data-theme="dark"]) .ps-night, [data-theme="dark"] .ps-day { display: none; }
 
-/* Head row: title, the ask box and the walk-through on one line, so My Path fits 1440x800 with no scroll. */
+/* Remy talks above his room (team meeting, Nov 24): his next step in big text, a button that does it, his list of up to three,
+   the ask box and the walk-through. The tail points down at him. It never covers the room. */
 .ps .ps-office { padding: 10px 14px 12px; }
+.ps-talk { position: relative; display: grid; gap: 8px; padding: 10px 14px 12px; margin-bottom: 4px; background: var(--surface); border: 1.5px solid var(--ink); border-radius: 16px; box-shadow: var(--shadow); }
+.ps-talk::after { content: ""; position: absolute; bottom: -8.5px; left: var(--tail, 50%); width: 14px; height: 14px; background: var(--surface); border-right: 1.5px solid var(--ink); border-bottom: 1.5px solid var(--ink); transform: translateX(-50%) rotate(45deg); transition: left .6s ease; }
+.ps-talk > *, .ps-talk .ask, .ps-talk .ask * { min-width: 0; overflow-wrap: anywhere; }
+.ps-talk-top { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+.ps-talk-top .pm-kicker { margin: 0; }
+/* Before the guide (students until released): the head row with title, ask box and walk-through. */
 .ps-office > .pt-card-head { flex-wrap: wrap; gap: 6px 12px; }
 .ps-office-title { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
 .ps-office .pt-card-head .ps-office-title .pm-faint { margin-left: 0; }
 /* Remy's places (Nov 24): one small picker beside the title; "Follow my day" moves him by the clock */
 .ps-place-pick { font: inherit; font-size: .8rem; font-weight: 600; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 2px 6px; max-width: 160px; }
+.ps-talk .ps-ask { flex: 1 1 200px; max-width: 340px; margin: 0 0 0 auto; }
+.ps-talk .ps-ask .input { height: 32px; padding-block: 4px; }
+.ps-talk-say { margin: 0; font-size: clamp(1rem, .55rem + .6vw, 1.2rem); font-weight: 650; line-height: 1.35; color: var(--ink); text-wrap: pretty; }
+.ps-talk .ask > p { font-size: var(--text-base); font-weight: 650; }
+.ps-talk-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.ps-steps { display: flex; gap: 6px; margin-left: auto; }
+.ps-step { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px 0 4px; border-radius: 99px; border: 1.5px solid var(--line); background: none; font: inherit; font-size: var(--text-sm); color: var(--ink); white-space: nowrap; cursor: pointer; }
+.ps-step i { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--surface-2); font-style: normal; font-size: 12px; font-weight: 800; }
+.ps-step.on { border-color: var(--fox); }
+.ps-step.on i { background: var(--fox); color: var(--white); }
+.ps-talk-guide { display: grid; gap: 8px; }
+.ps-talk-guide > p { margin: 0; font-size: var(--text-base); font-weight: 600; line-height: 1.4; color: var(--ink); }
+.ps-talk-guide > p b { color: var(--fox-800); }
+[data-theme="dark"] .ps-talk-guide > p b { color: var(--fox); }
 .ps-office .pt-card-head .ps-ask { flex: 1 1 280px; margin: 0; }
 .ps-office .pt-card-head .ps-ask .input { height: 32px; padding-block: 4px; }
 .ps-office .pt-card-head .ps-again { margin-left: 0; }
+/* His numbers on the things he means, and a glow around the one he's talking about. */
+.ps-num { position: absolute; z-index: 3; transform: translate(-50%, -50%); width: 26px; height: 26px; padding: 0; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--fox-800); border: 2px solid var(--fox); font: inherit; font-weight: 800; font-size: 13px; box-shadow: var(--shadow); cursor: pointer; }
+.ps-num.on { background: var(--fox); color: var(--white); border-color: var(--surface); }
+.ps-glow { position: absolute; z-index: 2; transform: translate(-50%, -50%); border-radius: 14px; border: 3px solid var(--fox); box-shadow: 0 0 0 6px color-mix(in srgb, var(--fox) 22%, transparent); pointer-events: none; animation: ps-ring 1.6s ease-in-out infinite, ps-fade .3s ease-out both; }
+/* The season, one slim row: goal, XP bar, chips. */
+.ps-xp { flex: 1 1 240px; display: flex; align-items: center; gap: 12px; min-width: 0; align-self: center; }
+.ps-xp .ps-bar { flex: 1 1 80px; margin: 0; min-width: 60px; }
+.ps-xp-txt { font-size: var(--text-sm); color: var(--muted-text); }
+.ps-xp-txt b { color: var(--ink); }
+.ps.guide .ps-season-top { align-items: center; }
 
 /* Lamp light: on at night, off by day; tapping the lamp flips it. */
 .ps-lamplight { opacity: 0; transition: opacity .35s; pointer-events: none; }
@@ -103,7 +134,7 @@ html:not([data-theme="dark"]) .ps-night, [data-theme="dark"] .ps-day { display: 
 .ps-roomwrap:has(.ps-say.quip) .ps-tag { opacity: .3; transition: opacity .2s; }
 
 @media (prefers-reduced-motion: reduce) {
-  .ps-it.wig0, .ps-it.wig1, .ps-chair, .ps-fox-bob, .ps-twinkle, .ps-shoot, .ps-bird, .ps-flick, .ps-flag, .ps-room.music .ps-notes, .ps-room.music .ps-vinyl, .ps-say, .ps-think i { animation: none !important; transition: none !important; }
+  .ps-it.wig0, .ps-it.wig1, .ps-chair, .ps-fox-bob, .ps-twinkle, .ps-shoot, .ps-bird, .ps-flick, .ps-flag, .ps-glow, .ps-room.music .ps-notes, .ps-room.music .ps-vinyl, .ps-say, .ps-think i { animation: none !important; transition: none !important; }
   .ps-shoot { display: none; }
 }
 
@@ -111,6 +142,10 @@ html:not([data-theme="dark"]) .ps-night, [data-theme="dark"] .ps-day { display: 
 @container ps (max-width: 600px) {
   .ps-office .pt-card-head .ps-again { order: 1; margin-left: auto; }
   .ps-office .pt-card-head .ps-ask { order: 2; flex-basis: 100%; }
+  .ps-talk .ps-ask { flex-basis: 100%; max-width: none; }
+  .ps-step span { display: none; }
+  .ps-step { padding: 0 3px; }
+  .ps-xp { flex-basis: 100%; order: 3; }
 }
 
 /* Timeline tab beside the office: now, next summer, graduation, 2035. */

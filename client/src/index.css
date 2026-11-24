@@ -2439,7 +2439,12 @@ button.ps-tag:focus-visible { outline: 2px solid var(--fox); outline-offset: 2px
   @media (min-width: 900px) and (min-height: 600px) {
     .ps-stage { flex: 1; min-height: 360px; container: stage / size; display: flex; }
     .ps-office { display: flex; flex-direction: column; padding: 10px 12px 12px; flex: 0 1 calc((100cqh - 66px) * 2.048 + 26px); min-width: 0; max-width: 60%; }
+    .ps.guide .ps-office { flex-basis: calc((100cqh - 230px) * 2.048 + 26px); max-width: 64%; }
+    /* Remy's talk changes height (a question with answers is taller), so the room fits what's left instead of overflowing. */
+    .ps.guide .ps-roomwrap { container: office / size; min-height: 0; align-items: center; }
+    .ps.guide .ps-room { width: min(100%, 100cqh * 860 / 420); }
     .ps-side { flex: 1 1 40%; min-width: 400px; }
+    .ps.guide .ps-side { flex-basis: 36%; min-width: 380px; }
     .ps-roomwrap { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; background: var(--room-wall); border-radius: 16px; }
   }
   /* reward tiles: art beside the label, 56px tall instead of 96 */
