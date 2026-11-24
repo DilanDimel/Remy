@@ -184,7 +184,8 @@ export function OwnWordColoured({ doc, version, on, onFail }: { doc: ResumeDoc; 
 type Box = { left: number; top: number; width: number; height: number; cat?: Cat; flag?: string; t?: string; line?: string };
 /** Their PDF's own pages as images, with the colours placed over the words (positions from the PDF's text). */
 /** `changed`: the resume differs from the uploaded file, so the server rebuilds their pages with the changes in place. */
-export function OwnPdfColoured({ doc, on, onFail, changed }: { doc: ResumeDoc; on: Set<Cat>; onFail: (why: string) => void; changed?: boolean }) {
+/** `onOver`: how many lines a one-page resume now runs onto a second page (0 when it fits). */
+export function OwnPdfColoured({ doc, on, onFail, changed, onOver }: { doc: ResumeDoc; on: Set<Cat>; onFail: (why: string) => void; changed?: boolean; onOver?: (lines: number) => void }) {
   const [pages, setPages] = useState<{ img: string; w: number; h: number; boxes: Box[] }[] | null>(null);
   useEffect(() => {
     let live = true;
@@ -195,6 +196,7 @@ export function OwnPdfColoured({ doc, on, onFail, changed }: { doc: ResumeDoc; o
           : fetch(`${API_BASE}/api/resume/original`, { credentials: "include" })]);
         if (r.status === 409) throw new Error("missed");
         if (!r.ok) throw new Error(String(r.status));
+        if (live) onOver?.(Number(r.headers.get("X-Remy-Over")) || 0);
         const pdf = await getDocumentProxy(new Uint8Array(await r.arrayBuffer()));
         const tools = toolsRegex(doc);
         const bullets = bulletsOf(doc, true).map(norm);

@@ -13,6 +13,7 @@ import { PdfPreview, WordPreview } from "./WordPreview";
 import { OwnPdfColoured, OwnWordColoured } from "./ResumeReal";
 import { exportBasePdf } from "../lib/wordPdf";
 import { NameChoice } from "./NameChoice";
+import { issues } from "@shared/markup";
 
 function CurrentPdf({ version, doc, look }: { version: string; doc: ResumeDoc; look?: ResumeStyle }) {
   const canShow = typeof navigator !== "undefined" && (navigator as any).pdfViewerEnabled === true;
@@ -37,9 +38,17 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
   const realFail = fail?.v === version ? fail.why : null;
   const setRealFail = (why: string) => setFail({ v: version, why });
   // Unsaved changes (Remy's fixes, by-hand edits) are drawn in their own file too, so the page never changes look.
+  // Dilan, Nov 24: a student's resume is one page. When changes run it onto a second page, say by how many lines and
+  // offer the weakest bullets to cut: real sentences only (not a certificate or course name), most flags first, then
+  // the longest, which frees the most room.
+  const [over, setOver] = useState<{ v: string; n: number } | null>(null);
+  const overBy = over?.v === version ? over.n : 0;
+  const weakest = overBy ? doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets)).filter((b) => b.text.trim().split(/\s+/).length >= 8)
+    .map((b) => ({ b, n: issues(b.text, doc).length })).sort((a, b) => b.n - a.n || b.b.text.length - a.b.text.length).slice(0, 3).map((x) => x.b) : [];
+  const cut = (id: string) => upd((d) => { for (const s of d.sections) for (const e of s.entries) e.bullets = e.bullets.filter((b) => b.id !== id); });
   const real = (on: Set<Cat>) => realFail ? null
     : isWord ? <OwnWordColoured doc={doc} version={version} on={on} onFail={setRealFail} />
-    : isPdf ? <OwnPdfColoured doc={doc} changed={edited || dirty} on={on} onFail={setRealFail} />
+    : isPdf ? <OwnPdfColoured doc={doc} changed={edited || dirty} on={on} onFail={setRealFail} onOver={(n) => setOver({ v: version, n })} />
     : null;
   // Said plainly whenever the page is Remy's drawing instead of their own file.
   const drawnWhy = !r.original ? ""
@@ -82,6 +91,19 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
           {view === "resume" ? (
             // Make it stronger lives beside the resume now (Dilan, Nov 21: "can't we just integrate it with this?").
             <>{drawnWhy && <p className="xs muted" data-testid="r1-drawn-why">{drawnWhy}</p>}
+            {overBy > 0 && (
+              <div className="r1-over" role="status" data-testid="r1-over">
+                <span className="small"><b>Your resume now runs {overBy} {overBy === 1 ? "line" : "lines"} onto a second page.</b> Recruiters expect one page from students, so cut about that much. The weakest lines to cut:</span>
+                <ul className="r1-over-list">
+                  {weakest.map((b) => (
+                    <li key={b.id}>
+                      <span className="xs">{b.text}</span>
+                      <button className="btn btn-ghost btn-sm" onClick={() => cut(b.id)} data-testid={`button-cut-${b.id}`}>Cut</button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <ResumeMarkup doc={doc} look={r.style} real={real} upd={upd} onFix={() => document.getElementById("r1-stronger")?.scrollIntoView({ behavior: "smooth", block: "nearest" })} side={(walk: () => void) =>
               // Dilan, Nov 21: Make it stronger, the ATS check and approved versions & downloads as smaller cards beside the resume.
               <div className="r1-side-stack">
