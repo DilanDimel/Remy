@@ -5,12 +5,14 @@
 import PDFDocument from "pdfkit";
 import * as fontkit from "fontkit";
 import path from "path";
+import zlib from "zlib";
 import type { ResumeDoc } from "@shared/types";
 
-type Item = { str: string; x: number; y: number; size: number; w: number; font: string; color?: string; added?: boolean };
+export type Item = { str: string; x: number; y: number; size: number; w: number; font: string; color?: string; added?: boolean };
 type Shape = { x: number; y: number; w: number; h: number; fill: string | null; stroke: string | null; lw: number };
 type Font = { name: string; data?: Buffer; ff?: any; bold: boolean; italic: boolean; serif: boolean; mono: boolean; trusted?: boolean; scale?: number };
-export type TwinPage = { w: number; h: number; items: Item[]; shapes: Shape[] };
+type Img = { x: number; y: number; w: number; h: number; png: Buffer };
+export type TwinPage = { w: number; h: number; items: Item[]; shapes: Shape[]; images?: Img[] };
 export type Twin = { pages: TwinPage[]; fonts: Record<string, Font> };
 
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -46,7 +48,9 @@ export async function readTwin(buf: Buffer): Promise<Twin> {
         fonts[it.fontName] = { name, data: ff ? Buffer.from(fo.data) : undefined, ff, bold: /bold|black|heavy|semibold|demi/i.test(name), italic: /italic|oblique/i.test(name), serif: SERIF.test(name), mono: /mono|courier|consol/i.test(name) };
       }
     }
-    pages.push({ w: vp.width, h: vp.height, items, shapes: ops ? shapesOf(ops, OPS, vp.height) : [] });
+    const marks: { id: string; x: number; y: number; w: number; h: number }[] = [];
+    const shapes = ops ? shapesOf(ops, OPS, vp.height, marks) : [];
+    pages.push({ w: vp.width, h: vp.height, items, shapes, images: await imagesOf(page, marks) });
   }
   const t = { pages, fonts };
   trust(t);
@@ -54,7 +58,7 @@ export async function readTwin(buf: Buffer): Promise<Twin> {
 }
 
 /** Rectangles and straight lines the page fills or strokes (section rules, colour bars, boxes). */
-function shapesOf(list: { fnArray: number[]; argsArray: any[] }, OPS: any, H: number): Shape[] {
+function shapesOf(list: { fnArray: number[]; argsArray: any[] }, OPS: any, H: number, imgs: { id: string; x: number; y: number; w: number; h: number }[] = []): Shape[] {
   const out: Shape[] = [];
   let fill = "#000000", stroke = "#000000", lw = 1, pending: number[] | null = null;
   const hex = (a: any) => typeof a === "string" ? a : typeof a?.[0] === "string" ? a[0] : Array.isArray(a) ? "#" + a.slice(0, 3).map((v: number) => Math.round(v > 1 ? v : v * 255).toString(16).padStart(2, "0")).join("") : "#000000";
@@ -73,6 +77,11 @@ function shapesOf(list: { fnArray: number[]; argsArray: any[] }, OPS: any, H: nu
     else if (fn === OPS.setFillGray) fill = hex([args[0], args[0], args[0]]);
     else if (fn === OPS.setStrokeGray) stroke = hex([args[0], args[0], args[0]]);
     else if (fn === OPS.setLineWidth) lw = args[0];
+    else if (fn === OPS.paintImageXObject && typeof args?.[0] === "string") {
+      // An image fills the unit square of the current transform (a logo, a photo, an icon).
+      const [p0, p1] = [at(0, 0), at(1, 1)];
+      imgs.push({ id: args[0], x: Math.min(p0[0], p1[0]), y: H - Math.max(p0[1], p1[1]), w: Math.abs(p1[0] - p0[0]), h: Math.abs(p1[1] - p0[1]) });
+    }
     else if (fn === OPS.constructPath) {
       // Newer pdf.js: [op, [path], minMax]; older: [ops, coords, minMax]. Either way the last arg is the box.
       const mm = args[args.length - 1];
@@ -96,6 +105,44 @@ function shapesOf(list: { fnArray: number[]; argsArray: any[] }, OPS: any, H: nu
     out.push({ x: x0, y: H - y1, w: x1 - x0, h: y1 - y0, fill: isFill ? fill : null, stroke: isStroke ? stroke : null, lw: lw * Math.hypot(m[0], m[1]) });
   }
   return out;
+}
+
+/** The page's pictures as PNGs at their spot (pdf.js hands them over decoded). Tiny marks and huge scans are left out. */
+async function imagesOf(page: any, marks: { id: string; x: number; y: number; w: number; h: number }[]): Promise<Img[]> {
+  const out: Img[] = [];
+  for (const m of marks) {
+    if (m.w < 4 || m.h < 4) continue;
+    const store = m.id.startsWith("g_") ? page.commonObjs : page.objs;
+    const o: any = await Promise.race([new Promise((r) => { try { store.get(m.id, r); } catch { r(null); } }), new Promise((r) => setTimeout(() => r(null), 2000))]);
+    if (!o?.data || !o.width || !o.height || o.width * o.height > 4_000_000) continue;
+    const png = toPng(o.width, o.height, o.kind, o.data);
+    if (png) out.push({ x: m.x, y: m.y, w: m.w, h: m.h, png });
+  }
+  return out;
+}
+const CRC = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+const crc32 = (b: Buffer) => { let c = 0xffffffff; for (const x of b) c = CRC[(c ^ x) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+/** pdf.js image data (kind 1: 1-bit grey, 2: RGB, 3: RGBA) as a PNG file. */
+export function toPng(w: number, h: number, kind: number, data: Uint8Array | Uint8ClampedArray): Buffer | null {
+  const ch = kind === 3 ? 4 : kind === 2 ? 3 : kind === 1 ? 1 : 0;
+  if (!ch) return null;
+  const rowIn = kind === 1 ? Math.ceil(w / 8) : w * ch;
+  const raw = Buffer.alloc((w * (ch === 1 ? 1 : ch) + 1) * h);
+  for (let y = 0; y < h; y++) {
+    const o = y * (w * ch + 1);
+    raw[o] = 0;
+    if (kind === 1) for (let x = 0; x < w; x++) raw[o + 1 + x] = (data[y * rowIn + (x >> 3)] >> (7 - (x & 7))) & 1 ? 255 : 0;
+    else raw.set(data.subarray(y * rowIn, (y + 1) * rowIn), o + 1);
+  }
+  const chunk = (type: string, body: Buffer) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(body.length);
+    const tb = Buffer.concat([Buffer.from(type), body]);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(tb));
+    return Buffer.concat([len, tb, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = ch === 4 ? 6 : ch === 3 ? 2 : 0;
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr), chunk("IDAT", zlib.deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
 }
 
 /** Text colour, read in drawing order: each piece of text takes the fill colour its letters were drawn in. */
@@ -125,9 +172,10 @@ function colourOf(list: { fnArray: number[]; argsArray: any[] }, OPS: any) {
 }
 
 /** Lines of text on a page: items sharing a baseline, left to right, split where a wide gap separates columns. */
-function linesOf(p: TwinPage) {
+export function linesOf(p: TwinPage) {
   const rows: Item[][] = [];
-  for (const it of [...p.items].sort((a, b) => a.y - b.y || a.x - b.x)) {
+  // Space-only pieces are left out: one can bridge the gap to a right-aligned date and hide the column break.
+  for (const it of p.items.filter((i) => i.str.trim()).sort((a, b) => a.y - b.y || a.x - b.x)) {
     const row = rows.find((r) => Math.abs(r[0].y - it.y) < Math.max(1.5, it.size * 0.25));
     if (row) row.push(it); else rows.push([it]);
   }
@@ -151,8 +199,9 @@ const BULLET = /^[\s•●▪◦‣∙·*–—-]+/;
 /** Applies line edits to the Twin. Each `from` must match one or more whole consecutive lines (the bullet glyph and
  *  wrapping ignored); the new text is wrapped in the same font, size, indent and width, and everything below on the
  *  page moves by the change in height. Returns the edits it couldn't place. */
-export function editTwin(t: Twin, edits: { from: string; to: string }[]): { missed: string[] } {
-  // An empty `to` deletes the line and moves what's below up.
+export function editTwin(t: Twin, edits: { from: string; to: string; after?: boolean }[]): { missed: string[] } {
+  // An empty `to` deletes the line and moves what's below up. `after` adds `to` as a new line under `from`, with the
+  // same bullet, font and indent.
   const missed: string[] = [];
   for (const e of edits) {
     const want = squash(e.from.replace(BULLET, ""));
@@ -182,16 +231,23 @@ export function editTwin(t: Twin, edits: { from: string; to: string }[]): { miss
         const prefix = first.str.match(BULLET)?.[0] ?? "";
         const wrapped = wrap(prefix + e.to.replace(BULLET, "").trim(), font, first.size, right - left, right - cont);
         const gone = !e.to.replace(BULLET, "").trim();
-        const shift = ((gone ? 0 : wrapped.length) - old.length) * lead;
+        const shift = e.after ? wrapped.length * lead : ((gone ? 0 : wrapped.length) - old.length) * lead;
         // A deleted line takes its bullet glyph with it; an edited one keeps it.
-        const oldSet = new Set(gone ? old.flat() : text);
+        const oldSet = new Set(e.after ? [] : gone ? old.flat() : text);
         const bottom = old[old.length - 1][0].y;
-        p.items = p.items.filter((x) => !oldSet.has(x));
         // Only what's below in the same column moves (a sidebar beside it stays put).
         const inCol = (x0: number) => x0 >= colLeft - 1;
+        const lowest = Math.max(...p.items.filter((x) => inCol(x.x) && !oldSet.has(x)).map((x) => x.y));
+        // A change that would push text off the page isn't made (the caller falls back to Remy's drawing).
+        if (shift > 0 && lowest + shift > p.h - 18) continue;
+        p.items = p.items.filter((x) => !oldSet.has(x));
         for (const x of p.items) if (x.y > bottom + 0.5 && inCol(x.x)) x.y += shift;
         for (const s of p.shapes) if (s.y > bottom + 0.5 && inCol(s.x)) s.y += shift;
-        if (!gone) wrapped.forEach((str, k) => p.items.push({ str, x: k ? cont : left, y: first.y + k * lead, size: first.size, w: measure(font, str, first.size), font: first.font, color: first.color, added: true }));
+        for (const im of p.images || []) if (im.y > bottom + 0.5 && inCol(im.x)) im.y += shift;
+        // A new line goes right under the old one, with a copy of its bullet glyph.
+        const top = e.after ? bottom + lead : first.y;
+        if (e.after) for (const g of old[0].filter((x) => !squash(x.str) && x.x < left)) p.items.push({ ...g, y: top + (g.y - first.y), added: true });
+        if (!gone) wrapped.forEach((str, k) => p.items.push({ str, x: k ? cont : left, y: top + k * lead, size: first.size, w: measure(font, str, first.size), font: first.font, color: first.color, added: true }));
         done = true;
       }
       if (done) break;
@@ -289,6 +345,7 @@ export async function twinPdf(t: Twin): Promise<Buffer> {
       if (s.fill && s.stroke) doc.fillAndStroke(s.fill, s.stroke); else if (s.fill) doc.fill(s.fill); else doc.stroke(s.stroke!);
       doc.restore();
     }
+    for (const im of p.images || []) try { doc.image(im.png, im.x, im.y, { width: im.w, height: im.h }); } catch { /* an image pdfkit can't read is left out */ }
     for (const it of p.items) {
       const f = t.fonts[it.font];
       const ws = words(f, it.str, it.size);
@@ -314,22 +371,31 @@ export async function twinPdf(t: Twin): Promise<Buffer> {
 }
 
 /** The base resume as it stands now, drawn on the student's own PDF: every reworded or deleted bullet changed in
- *  place (matched by the text first read from the file, `fileLines`). Lines added in Remy, and changed names, headers
- *  or skills, can't be placed yet: they come back in `missed`, and the caller shows Remy's drawing instead. */
+ *  place (matched by the text first read from the file, `fileLines`), and new bullets added under the one before.
+ *  Changed names, headers or skills can't be placed yet: they come back in `missed`, and the caller shows Remy's
+ *  drawing instead. */
 export async function currentResumePdf(buf: Buffer, doc: ResumeDoc, fileLines: Record<string, string> = {}): Promise<{ buf: Buffer | null; missed: string[] }> {
+  const { twin, missed } = await currentResumeTwin(buf, doc, fileLines);
+  return { buf: twin ? await twinPdf(twin) : null, missed };
+}
+/** The same, as the edited Twin (for a Word copy in the PDF's look, `twinDocx`). */
+export async function currentResumeTwin(buf: Buffer, doc: ResumeDoc, fileLines: Record<string, string> = {}): Promise<{ twin: Twin | null; missed: string[] }> {
   const t = await readTwin(buf);
   const now = new Map(doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => [b.id, b.text] as const))));
-  const edits: { from: string; to: string }[] = [], missed: string[] = [];
-  for (const [id, text] of now) {
-    if (!(id in fileLines)) { if (text.trim()) missed.push(text); continue; }
-    if (squash(text) !== squash(fileLines[id])) edits.push({ from: fileLines[id], to: text });
-  }
+  const edits: { from: string; to: string; after?: boolean }[] = [], adds: typeof edits = [], missed: string[] = [];
+  for (const [id, text] of now) if (id in fileLines && squash(text) !== squash(fileLines[id])) edits.push({ from: fileLines[id], to: text });
   for (const [id, text] of Object.entries(fileLines)) if (!now.has(id)) edits.push({ from: text, to: "" });
+  // A line added in Remy goes under the bullet before it in the same role (as that bullet reads now), once the
+  // edits are in. The first bullet of a role with none from the file has nothing to sit under.
+  for (const e of doc.sections.flatMap((s) => s.entries)) e.bullets.forEach((b, k) => {
+    if (b.id in fileLines || !b.text.trim()) return;
+    if (k === 0) missed.push(b.text); else adds.push({ from: e.bullets[k - 1].text, to: b.text, after: true });
+  });
+  edits.push(...adds);
   const flat = squash(t.pages.flatMap((p) => p.items.map((i) => i.str)).join(""));
   const c = doc.contact;
   for (const v of [c.name, c.email, c.phone, c.location, c.links, ...doc.sections.flatMap((s) => [s.heading, ...s.entries.flatMap((e) => [e.org, e.role, e.location, e.dates])]), ...doc.skills.map((k) => k.items)])
     if (squash(v || "") && !flat.includes(squash(v))) missed.push(v);
   missed.push(...editTwin(t, edits).missed);
-  if (missed.length) return { buf: null, missed };
-  return { buf: await twinPdf(t), missed };
+  return { twin: missed.length ? null : t, missed };
 }

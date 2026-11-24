@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import PDFDocument from "pdfkit";
-import { currentResumePdf, readTwin } from "./pdfTwin";
+import { currentResumePdf, readTwin, twinPdf } from "./pdfTwin";
 
 // A small one-column resume PDF: name, a ruled heading, a job with two bullets, then a second heading.
 async function resumePdf(): Promise<Buffer> {
@@ -40,7 +40,7 @@ test("PDF twin: a reworded line is rewritten in place, wraps in its own width, a
   assert.ok((await lineOf(out.buf!, /•/)).length >= 2);
 });
 
-test("PDF twin: a deleted line closes up; a line added in Remy is reported so the page says so", async () => {
+test("PDF twin: a deleted line closes up", async () => {
   const pdf = await resumePdf();
   const out = await currentResumePdf(pdf, resume([{ id: "b2", text: two }]), { b1: one, b2: two });
   assert.deepEqual(out.missed, []);
@@ -48,7 +48,35 @@ test("PDF twin: a deleted line closes up; a line added in Remy is reported so th
   assert.ok(!text.includes("Manage office"));
   const [before] = await lineOf(pdf, /^SKILLS/), [after] = await lineOf(out.buf!, /^SKILLS/);
   assert.ok(before.y - after.y > 10, "moved up");
-  const added = await currentResumePdf(pdf, resume([{ id: "b1", text: one }, { id: "b2", text: two }, { id: "new", text: "Trained two new student workers" }]), { b1: one, b2: two });
-  assert.equal(added.buf, null);
-  assert.deepEqual(added.missed, ["Trained two new student workers"]);
+});
+
+test("PDF twin: a line added in Remy goes under the bullet before it, with its bullet; one with nothing above is reported", async () => {
+  const pdf = await resumePdf();
+  const added = await currentResumePdf(pdf, resume([{ id: "b1", text: one }, { id: "new", text: "Trained two new student workers" }, { id: "b2", text: two }]), { b1: one, b2: two });
+  assert.deepEqual(added.missed, []);
+  const [a] = await lineOf(added.buf!, /Trained two new/), [b1] = await lineOf(added.buf!, /Manage office/), [b2] = await lineOf(added.buf!, /Deliver administrative/);
+  assert.ok(a.y > b1.y && a.y < b2.y, "between its neighbours");
+  assert.ok(a.str.startsWith("•") && Math.abs(a.x - b1.x) < 1, "same bullet and indent");
+  const [before] = await lineOf(pdf, /^SKILLS/), [after] = await lineOf(added.buf!, /^SKILLS/);
+  assert.ok(after.y - before.y > 10, "what's below moved down");
+  const first = await currentResumePdf(pdf, resume([{ id: "new", text: "Trained two new student workers" }, { id: "b1", text: one }, { id: "b2", text: two }]), { b1: one, b2: two });
+  assert.equal(first.buf, null);
+  assert.deepEqual(first.missed, ["Trained two new student workers"]);
+});
+
+test("PDF twin: a picture (a logo) is carried over at its spot", async () => {
+  const doc = new PDFDocument({ size: "LETTER", margin: 50 });
+  const chunks: Buffer[] = [];
+  doc.on("data", (c: Buffer) => chunks.push(c));
+  const done = new Promise<void>((r) => doc.on("end", () => r()));
+  doc.image("client/public/icon-512.png", 480, 40, { width: 80 });
+  doc.font("Times-Roman").fontSize(11).text("Jordan Lee", 50, 50);
+  doc.end();
+  await done;
+  const t = await readTwin(Buffer.concat(chunks));
+  const [im] = t.pages[0].images!;
+  assert.ok(Math.abs(im.x - 480) < 1 && Math.abs(im.y - 40) < 1 && Math.abs(im.w - 80) < 1, JSON.stringify({ ...im, png: 0 }));
+  assert.equal(im.png.subarray(1, 4).toString(), "PNG");
+  const again = await readTwin(await twinPdf(t));
+  assert.equal(again.pages[0].images!.length, 1);
 });

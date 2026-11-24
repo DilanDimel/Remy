@@ -79,7 +79,8 @@ import { boardsFor, orderEmployers, preferMetros, pruneBoardCache, CAREERONESTOP
 import { emailReady, logEmail, sendEmail } from "./notify/email";
 import { codeEmail } from "./notify/layout";
 import { currentResumeDocx, docxStyle, editResumeDocx } from "./resume/docxEdit";
-import { currentResumePdf } from "./resume/pdfTwin";
+import { currentResumePdf, currentResumeTwin } from "./resume/pdfTwin";
+import { twinDocx } from "./resume/twinDocx";
 import { keepDecided } from "./coach/keepDecided";
 import * as gcal from "./notify/gcal";
 import { q, q1, schema } from "./platform/sql";
@@ -1355,14 +1356,20 @@ export async function registerRoutes(_server: Server, app: Express) {
   // The base resume written into the student's own file: their .docx with every change, or for a PDF, their pages
   // rebuilt with the changed lines rewrapped (server/resume/pdfTwin.ts). `draft`: unsaved changes on the page, so the
   // page shows them in the student's own layout too (Dilan, Nov 24: the page switched to Remy's drawing mid-fix).
-  async function ownCurrentFile(ctx: Ctx, draft?: ResumeDoc): Promise<{ buf: Buffer | null; missed: string[]; mime: string } | null> {
+  const WORD_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  // `asWord`: a PDF upload comes back as a Word copy in the PDF's own look (server/resume/twinDocx.ts).
+  async function ownCurrentFile(ctx: Ctx, draft?: ResumeDoc, asWord = false, doc0?: ResumeDoc): Promise<{ buf: Buffer | null; missed: string[]; mime: string } | null> {
     const r = ctx.ws.resume;
     const mime = r?.original?.mime || "";
     const word = mime.includes("wordprocessingml"), pdf = mime === "application/pdf";
     if (!r || (!word && !pdf)) return null;
     const f = await getFile(ctx.me.id, "resume");
     if (!f) return null;
-    const doc = draft || r.doc;
+    const doc = doc0 || draft || r.doc;
+    if (pdf && asWord) {
+      const out = await currentResumeTwin(f.data, doc, r.fileLines).catch(() => ({ twin: null, missed: ["(file unreadable)"] }));
+      return { buf: out.twin ? await twinDocx(out.twin) : null, missed: out.missed, mime: WORD_MIME };
+    }
     const out = await (word ? currentResumeDocx(f.data, doc, r.removed, r.fileLines) : currentResumePdf(f.data, doc, r.fileLines)).catch(() => ({ buf: null, missed: ["(file unreadable)"] }));
     return { ...out, mime };
   }
@@ -1385,7 +1392,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!ctx.ws.resume) bad("Upload a resume first.");
     const fmt = req.query.format === "docx" ? "docx" : "pdf";
     const doc = ctx.ws.resume!.doc;
-    const own = await ownCurrentFile(ctx);
+    const own = await ownCurrentFile(ctx, undefined, fmt === "docx");
     const mine = own?.buf && !own.missed.length && (fmt === "pdf" ? own.mime === "application/pdf" : own.mime.includes("wordprocessingml")) ? own.buf : null;
     const buf = mine || (fmt === "pdf" ? await resumePdf(doc, ctx.ws.resume!.style) : await resumeDocx(doc, ctx.ws.resume!.style));
     res.setHeader("X-Remy-Layout", mine ? "original" : "remy");
@@ -2774,9 +2781,10 @@ Return JSON:
     let buf: Buffer;
     const style = ctx.ws.resume?.style;
     const own = kind === "resume" && fmt === "docx" ? await ownWordFile(ctx, v!.resume) : null;
-    // They uploaded a PDF: their own pages with the tailored lines rewrapped in place, when every change fits.
-    const ownPdf = kind === "resume" && fmt === "pdf" && ctx.ws.resume?.original?.mime === "application/pdf"
-      ? await getFile(ctx.me.id, "resume").then((f) => f ? currentResumePdf(f.data, v!.resume, ctx.ws.resume!.fileLines) : null).catch(() => null) : null;
+    // They uploaded a PDF: their own pages with the tailored lines rewrapped in place (or a Word copy in that look),
+    // when every change fits.
+    const ownPdf = kind === "resume" && fmt !== "txt" && ctx.ws.resume?.original?.mime === "application/pdf"
+      ? await ownCurrentFile(ctx, undefined, fmt === "docx", v!.resume).catch(() => null) : null;
     if (ownPdf?.buf && !ownPdf.missed.length) {
       buf = ownPdf.buf;
       res.setHeader("X-Remy-Layout", "original");

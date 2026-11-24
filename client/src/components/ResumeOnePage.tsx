@@ -42,7 +42,7 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
     : null;
   // Said plainly whenever the page is Remy's drawing instead of their own file.
   const drawnWhy = !r.original ? ""
-    : realFail === "missed" ? "A change here (like a new line or a new heading) can't go into your own file yet, so this is Remy's drawing of your resume in your font. Your original is under Original file."
+    : realFail === "missed" ? "A change here (like a new heading, a changed name, or more than fits on the page) can't go into your own file yet, so this is Remy's drawing of your resume in your font. Your original is under Original file."
     : realFail ? "Your file couldn't be drawn here, so this is Remy's drawing of it in your font."
     : "";
   const showOriginal = !edited && !!r.original;
