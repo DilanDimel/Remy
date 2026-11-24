@@ -25,7 +25,8 @@ test("releases: defaults, a bad saved value, and what owners and students see", 
   assert.equal(featureAt("/"), undefined);
   assert.equal(redesignOut(r), false);
   assert.equal(redesignOut(releasesOf({ redesign: "released" })), true);
-  assert.equal(releasesOf({ redesign: "released" }).rewards, "owners"); // releasing the redesign leaves Rewards with owners
+  assert.equal(releasesOf({ redesign: "released" }).rewards, "released"); // Rewards rides with The Big Upgrade (Dilan, Nov 24)
+  assert.equal(releasesOf({ rewards: "released" }).rewards, "owners"); // and never on its own
   // The phone app has its own switch: owners-only by default, and releasing the redesign doesn't release it.
   assert.equal(appOut(r), false);
   assert.equal(appOut(releasesOf({ redesign: "released" })), false);

@@ -4,6 +4,7 @@ Updated: 2026-11-24 07:00 UTC
 Area: the website (`client/`, `server/`, `shared/`, `docs/`), releases, `docs/ai/CONTEXT.md`
 
 ## Working on now
+- Rewards rides with The Big Upgrade (`follows: "redesign"` in `shared/features.ts`, no separate Rewards row; Dilan, Nov 24). One flip on Admin → Beta → Feature releases releases both.
 - Streak dots lit-days-first (`shared/daily.ts` `weekDots(..., streakFirst)`, web only; native keeps the default) and the straight setup resume preview.
 - Owner-side bug fixes before "The Big Upgrade" release to students. Full-site pre-release test (Nov 24): new students no longer get the Big Upgrade card on top of the tour (`Onboarding.tsx` finish sets `beta2Seen`, `Beta2Welcome.tsx` waits for the tour, #348). Follow-up: Home to-dos one line when closed, setup field groups full width when open, Team & hours fits one screen, sign-in says "Free during beta".
 - Shared AI system v2 for Julio joining the website: `docs/ai/owners.json`, claims and requests in status files, `npm run check:ai` in CI, `npm run ai:brief` (with `--touch`, `--me`, `--vault`), `DECISIONS.md`, `julio.md`, review checklist, `.github/CODEOWNERS`, PR template. Next: hours and AI cost from PRs plus each person's "Working on now" on the owners' dashboard Team & hours tab (agreed with the dashboard thread).
