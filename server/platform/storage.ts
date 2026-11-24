@@ -42,3 +42,30 @@ export async function warnIfNearLimit(): Promise<boolean> {
   if (!already) await recordError("server", "storage", message, `Largest tables: ${r.tables.slice(0, 4).map((t) => `${t.name} ${t.mb} MB`).join(", ")}`);
   return true;
 }
+
+/** What is pulling data out of the database, for finding Supabase data transfer the server's own counter misses
+ *  (owners only). `connections`: every open connection, grouped by program and role, so a client that isn't this
+ *  server (a preview, a laptop, a script) stands out; this server names itself "remy-server". `statements`: the
+ *  queries that returned the most rows since the stats were last reset (Supabase keeps pg_stat_statements on). */
+export async function trafficReport() {
+  const connections = await q(
+    `SELECT COALESCE(NULLIF(application_name, ''), '(none)') AS app, usename AS role, COALESCE(client_addr::text, 'local') AS addr,
+            COUNT(*)::int AS n, MIN(backend_start)::text AS oldest
+     FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid()
+     GROUP BY 1, 2, 3 ORDER BY n DESC LIMIT 50`,
+  ).catch((e) => [{ error: String(e?.message || e) }]);
+  let statements: Record<string, unknown>[] | null = null, since: string | null = null, note = "";
+  for (const s of ["extensions", "public"]) {
+    try {
+      statements = (await q(
+        `SELECT left(regexp_replace(query, '\\s+', ' ', 'g'), 240) AS query, calls::bigint AS calls, rows::bigint AS rows,
+                round((rows::numeric / GREATEST(calls, 1)), 1) AS rows_per_call, round(total_exec_time::numeric) AS ms
+         FROM ${s}.pg_stat_statements WHERE dbid = (SELECT oid FROM pg_database WHERE datname = current_database())
+         ORDER BY rows DESC LIMIT 25`,
+      )).map((r) => ({ ...r, calls: Number(r.calls), rows: Number(r.rows), rows_per_call: Number(r.rows_per_call), ms: Number(r.ms) }));
+      since = String((await q1(`SELECT stats_reset::text AS t FROM ${s}.pg_stat_statements_info`).catch(() => undefined))?.t || "") || null;
+      break;
+    } catch (e: any) { note = String(e?.message || e); }
+  }
+  return { connections, statements, statsSince: since, note: statements ? "" : `pg_stat_statements isn't readable here: ${note}` };
+}
