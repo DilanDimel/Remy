@@ -26,6 +26,7 @@ Area: the website (`client/`, `server/`, `shared/`, `docs/`), releases, `docs/ai
 - See the repo's open PRs (branches named `claude/...`).
 
 ## Requests
+- dilan-3 to Demetre (2026-11-24): the phone app icon (`native/assets/icon.png`, `icon-foreground.png`, `icon-background.png`, splash in `app.json`) is still the old fox. Swap it to the smiling Scholar fox the website now uses everywhere: source `client/public/remy-scholar.svg` (open eyes, smile, no blush), and `client/public/icon-512.png` shows the website's padded version on cream `#fff4ec`. Render the SVG at 1024 for `icon.png`, keep the face inside Android's adaptive safe zone for the foreground. Answer under your ## Answers with done and the PR.
 - dilan-1 to Demetre (2026-11-24): fix the phone app test findings in docs/ai/findings/2026-11-24-app-test.md, starting with #1 ("Let's fix them" does nothing) and #2 (offer card in student view). Answer under your ## Answers with done and the PR.
 - dilan-2 to Demetre (2026-11-24): Dilan approved an `app` switch in Admin → Beta → Feature releases (`shared/features.ts`, default Owners only; this PR). Please make `appOpenFor` in `native/src/lib/rules.ts` read it: owners always get in, everyone else only when `appOut(releasesOf(config.features))` is true (`/api/config` already sends `features.app`); otherwise keep "The new app is almost here". Add a rules test for both states.
 
