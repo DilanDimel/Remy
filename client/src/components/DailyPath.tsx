@@ -10,7 +10,7 @@ import { NEED_LABEL, ROADS, roadFor, YEARS, yearNumber, type Road } from "@share
 import { seasonFor, SEASON_SOURCE } from "@shared/seasons";
 import { levelOf, xpOf, type GameState } from "@shared/game";
 import { CARD_LABEL, CARD_XP, dailyStreak, dayKey, streakDays, weekDots, withCard, type DailyCard } from "@shared/daily";
-import { api, rid, useStore } from "../lib/store";
+import { api, rid, useOwnerView, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { Spinner } from "./common";
@@ -48,7 +48,7 @@ export function useFieldData(field = "") {
 export function DailyHeader({ onPlay }: { onPlay: () => void }) {
   const { ws } = useStore();
   const w = ws!, g = stateOf(w);
-  const s = dailyStreak(streakDays(w)), dots = weekDots(streakDays(w));
+  const s = dailyStreak(streakDays(w)), dots = weekDots(streakDays(w), undefined, true); // DailyHeader is owners-only
   const xp = xpOf(w, g), lv = levelOf(xp, g.bestLevel);
   const pct = lv.max ? 100 : Math.round((100 * (xp - lv.floor)) / Math.max(1, lv.next - lv.floor));
   const today = g.days?.[dayKey()] || [];
@@ -73,7 +73,7 @@ export function DailyHeader({ onPlay }: { onPlay: () => void }) {
           <Flame size={34} className={s.days ? "lit" : ""} fill="currentColor" />
           <div><b>{s.days}</b><span>day streak</span></div>
         </div>
-        <ol className="dp-dots" aria-label="The last seven days">
+        <ol className="dp-dots" aria-label="This week of your streak">
           {dots.map((d) => <li key={d.key} className={d.status} title={d.status}><i>{d.status === "done" ? <Check size={11} strokeWidth={3.5} /> : d.status === "freeze" ? <Snowflake size={11} /> : null}</i>{d.label}</li>)}
         </ol>
         <div className="dp-streak-meta">
@@ -472,7 +472,8 @@ function ForecastCard({ future, onDone }: { future: FutureData; onDone: (said: s
 function RoundDone({ before, log, onClose }: { before: number; log: string[]; onClose: () => void }) {
   const { ws } = useStore();
   const g = stateOf(ws!);
-  const s = dailyStreak(streakDays(ws!)), dots = weekDots(streakDays(ws!));
+  const owner = useOwnerView();
+  const s = dailyStreak(streakDays(ws!)), dots = weekDots(streakDays(ws!), undefined, owner);
   const n = (g.days?.[dayKey()] || []).length;
   return (
     <div className="dp-done">

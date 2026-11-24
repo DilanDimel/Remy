@@ -55,3 +55,15 @@ test("the streak counts any real step that day, not only My Path's cards (Home a
   assert.equal(dots[0].key, "2026-11-17", "the last seven days, today last");
   assert.deepEqual(w.game.days, {}, "the saved cards are untouched");
 });
+
+test("owners' streak dots put the lit days first, then the days to come", () => {
+  const g = { days: { "2026-11-22": ["openings"], "2026-11-23": ["role"] } };
+  const dots = weekDots(g, "2026-11-23", true);
+  assert.deepEqual(dots.map((d) => d.status), ["done", "done", "future", "future", "future", "future", "future"]);
+  assert.equal(dots[0].key, "2026-11-22", "starts on the streak's first day");
+  const open = weekDots(g, "2026-11-24", true);
+  assert.deepEqual(open.slice(0, 3).map((d) => d.status), ["done", "done", "today"], "today waits after yesterday's lit days");
+  assert.deepEqual(weekDots({ days: {} }, "2026-11-24", true).map((d) => d.status)[0], "today", "no streak: today leads");
+  const week = weekDots({ days: Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`2026-11-${10 + i}`, ["role"]])) }, "2026-11-18", true);
+  assert.ok(week.every((d) => d.status === "done") && week[6].key === "2026-11-18", "7+ days fill the row, ending today");
+});
