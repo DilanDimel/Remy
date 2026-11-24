@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { FEATURES, RELEASES, releasesOf, type Release } from "@shared/features";
-import { Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, Briefcase, CalendarDays, Check, Clock, Database, KanbanSquare, Server, Plus, RotateCcw, Trash2, UserCheck, Users } from "lucide-react";
+import { Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, Briefcase, CalendarDays, Check, Clock, KanbanSquare, Server, Plus, RotateCcw, Trash2, UserCheck, Users } from "lucide-react";
 import { api, fmtDate, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
 import { BetaBadge, CopyButton, Empty, Modal, Remy, Rich, Spinner } from "../components/common";
@@ -37,10 +37,10 @@ type Team = {
 };
 const ANSWERS: [Answer, string][] = [["yes", "Going"], ["maybe", "Maybe"], ["no", "Can't go"]];
 
-const TABS = [["overview", "Overview", BarChart3], ["beta", "Beta", UserCheck], ["services", "Services", Server], ["database", "Database", Database], ["openings", "Openings", Briefcase], ["errors", "Errors & feedback", AlertTriangle], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity]] as const;
+const TABS = [["overview", "Overview", BarChart3], ["beta", "Beta", UserCheck], ["system", "System", Server], ["openings", "Openings", Briefcase], ["errors", "Errors & feedback", AlertTriangle], ["board", "Board", KanbanSquare], ["people", "People", Users], ["calendar", "Calendar", CalendarDays], ["hours", "Hours", Clock], ["activity", "Activity", Activity]] as const;
 type Tab = (typeof TABS)[number][0];
 // The menu in three groups: students first, then data, then the team's own work (Hours first: the one the team checks).
-const NAV_GROUPS: [string, Tab[]][] = [["Students", ["overview", "beta"]], ["Data", ["services", "database", "openings", "errors"]], ["Team", ["hours", "people", "board", "calendar", "activity"]]];
+const NAV_GROUPS: [string, Tab[]][] = [["Students", ["overview", "beta"]], ["Data", ["system", "openings", "errors"]], ["Team", ["hours", "people", "board", "calendar", "activity"]]];
 const HISTORY_AFTER = 3 * 86400_000;
 const COLS: [Status, string][] = [["todo", "To do"], ["doing", "In progress"], ["done", "Done"]];
 const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -62,7 +62,9 @@ const GCAL_RESULT: Record<string, [string, boolean]> = {
 export default function Admin() {
   const { me, toast } = useStore();
   const { query } = useRoute();
-  const tab = (query.get("tab") as Tab) || "overview";
+  // Old links (Services and Database are now System) still open the right tab.
+  const raw = query.get("tab") || "overview";
+  const tab = ((({ services: "system", database: "system" }) as Record<string, Tab>)[raw] || raw) as Tab;
   // Back from Google's consent screen (team calendar): say how it went, then tidy the address bar.
   useEffect(() => {
     const r = GCAL_RESULT[query.get("gcal") || ""];
@@ -96,8 +98,7 @@ export default function Admin() {
         {tab === "overview" && <OverviewTab />}
         {tab === "errors" && <ErrorsTab />}
         {tab === "beta" && <><FunnelCard /><BetaTab /><UsedCard /></>}
-        {tab === "services" && <><ServicesTab /><MessagesCard /></>}
-        {tab === "database" && <DatabaseTab />}
+        {tab === "system" && <SystemTab />}
         {tab === "openings" && <OpeningsTab />}
         {(tab === "board" || tab === "people" || tab === "calendar" || tab === "hours" || tab === "activity") && <TeamTab tab={tab} />}
       </main>
@@ -338,31 +339,6 @@ function FunnelCard() {
 type Outcomes = { applied: number; answered: number; interviews: number; offers: number; applied_tailored: number; answered_tailored: number; students_applying: number; students_rating: number; ratings: number; students: number };
 /** What Remy is for: applications that got answers, interviews and offers, across real students (team left out). */
 type Storage = { usedMb: number; limitMb: number; percent: number; tables: { name: string; mb: number; rows: number }[]; workspaces: { n: number; avg_kb: number; max_kb: number; p90_kb: number }; transfer: { monthMb: number; limitGb: number; days: { day: string; mb: number }[] } };
-/** How full the database is against the plan's limit, and what takes the space (Demetre's space watch). */
-function DatabaseTab() {
-  const [d, reload] = useLoad<Storage>("/api/admin/storage");
-  if (!d) return <Spinner />;
-  return (
-    <div className="stack">
-      <Head title="Database" sub={`Supabase Postgres. Limit set to ${d.limitMb} MB (the free plan); past 80% a warning appears on Errors.`} action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
-      <div className="adm-kpis">
-        <Kpi n={`${d.percent}%`} label="Space used" note={`${d.usedMb} of ${d.limitMb} MB`} />
-        <Kpi n={`${d.workspaces.avg_kb} KB`} label="Average student account" note={`90% under ${d.workspaces.p90_kb} KB · largest ${d.workspaces.max_kb} KB`} />
-        <Kpi n={d.workspaces.n} label="Accounts stored" />
-        <Kpi n={`${(d.transfer.monthMb / 1024).toFixed(2)} GB`} label="Data transfer this month (estimate)" note={`of ${d.transfer.limitGb} GB on the free plan · ${Math.round((100 * d.transfer.monthMb) / 1024 / d.transfer.limitGb)}%`} />
-      </div>
-      <section className="adm-card stack-sm">
-        <span className="small">Every page a student opens reads their whole account, so account size drives speed and data transfer. The transfer number is Remy's own count of what it read from the database (counting started when this was added); Supabase's bill can differ a little, so check Supabase → Usage → Egress now and then.</span>
-        {d.transfer.days.length > 0 && <span className="xs muted">Last days: {d.transfer.days.map((x) => `${x.day.slice(5)} ${x.mb} MB`).join(" · ")}</span>}
-      </section>
-      <section className="adm-card adm-list">
-        <h3>Tables</h3>
-        {d.tables.map((t) => <div key={t.name} className="row-between small"><span>{t.name}</span><span className="muted">{t.mb} MB · {t.rows.toLocaleString()} rows</span></div>)}
-      </section>
-    </div>
-  );
-}
-
 type Opening = { url: string; title: string; company: string; kind: string; location: string; industry: string; career_path: string; source_name: string; deadline: string; first_seen: string; last_seen: string; times_seen: number; last_checked: string | null; check_result: string | null };
 type OpeningsData = { summary: { total: number; closed: number; unchecked: number; companies: number; keepDays: number; byIndustry: { industry: string; n: number }[]; byPath: { career_path: string; n: number }[] }; openings: Opening[] };
 /** Every public posting Remy found or re-checked (Demetre's checked-openings record). No student data. */
@@ -407,39 +383,84 @@ type Services = {
   aiChain: { available: boolean; model: string; via: string; ownerTrial?: string };
 };
 const money = (n?: number | null) => (n == null ? "—" : `$${n.toFixed(2)}`);
-/** Is the site healthy, which version is live, recent deploys, and how much AI money is left. Read-only. */
-function ServicesTab() {
+/** Services and Database in one place (Nov 24): is everything up, what does it cost, and is the database within its plan. Read-only. */
+function SystemTab() {
   const [d, reload] = useLoad<Services>("/api/admin/services");
-  if (!d) return <Spinner />;
+  const [s, reloadS] = useLoad<Storage>("/api/admin/storage");
+  const [o] = useLoad<Overview>("/api/admin/overview");
+  const [tables, setTables] = useState(false);
+  if (!d || !s) return <div className="row"><Spinner /> Loading…</div>;
   const up = d.server.uptimeMin < 90 ? `${d.server.uptimeMin} min` : d.server.uptimeMin < 2880 ? `${Math.round(d.server.uptimeMin / 60)} h` : `${Math.round(d.server.uptimeMin / 1440)} days`;
-  const ai = d.ai.available ? d.ai : null;
+  const ai = d.ai.available && !d.ai.error ? d.ai : null;
   const dep = d.deploys.available ? d.deploys : null;
+  const tp = Math.round((100 * s.transfer.monthMb) / 1024 / s.transfer.limitGb);
+  const memP = d.server.memoryLimitMb ? d.server.memoryMb / d.server.memoryLimitMb : 0;
+  const aiLow = ai && ai.limit != null && ai.remaining != null && ai.remaining < ai.limit * 0.2;
+  const dot = (warn: boolean) => <span className={"adm2-dot" + (warn ? " warn" : "")} aria-label={warn ? "needs a look" : "fine"} />;
+  const watch = [tp >= 80 && "database transfer is over the free plan", s.percent >= 80 && "the database is almost full", memP >= 0.8 && "memory is almost full", aiLow && "AI money is running low"].filter(Boolean) as string[];
+  const maxDay = Math.max(1, ...s.transfer.days.map((x) => x.mb));
+  const dayLimit = (s.transfer.limitGb * 1024) / 30;
+  const refresh = () => { reload("Up to date"); reloadS(); };
   return (
-    <div className="stack">
-      <Head title="Services" sub="Render (the server), OpenRouter (AI) and Supabase (database). Read-only." action={<button className="btn btn-ghost btn-sm" onClick={() => reload("Up to date")}><RotateCcw size={14} /> Refresh</button>} />
-      <div className="adm-kpis">
-        <Kpi n="Up" label="Server" note={`version ${d.server.commit || "local"} · running ${up}`} />
-        <Kpi n={`${d.server.memoryMb} MB`} label="Memory in use" note={`of ${d.server.memoryLimitMb} MB on the Render plan`} />
-        <Kpi n={d.errors.server + d.errors.browser} label="Errors, last 24 hours" note={`${d.errors.server} server · ${d.errors.browser} from browsers`} />
-        <Kpi n={ai && !ai.error ? (ai.remaining != null ? money(ai.remaining) : "No cap") : "—"} label="AI money left on Remy's key" note={ai && !ai.error ? (ai.limit != null ? `${money(ai.usage)} used of ${money(ai.limit)}` : `${money(ai.usage)} used so far; this key has no spending cap`) : ai?.error || "OPENROUTER_API_KEY isn't set"} />
+    <div className="adm2 adm2-full">
+      <div className="adm-head">
+        <div><h1 className="adm-hello">System</h1><p className="adm2-say"><b>{watch.length ? "Everything is up." : "Everything is up and within its plan."}</b>{watch.length ? ` To watch: ${watch.join(", ")}.` : ""}</p></div>
+        <button className="btn btn-ghost btn-sm" onClick={refresh} data-testid="button-system-refresh"><RotateCcw size={14} /> Refresh</button>
       </div>
-      <section className="adm-card stack-sm">
-        <h3>Render (server)</h3>
-        <span className="small">Live version <b>{d.server.commit || "local build"}</b>{d.server.branch ? ` from ${d.server.branch}` : ""}, started {new Date(d.server.startedAt).toLocaleString()}. A new start time means a deploy or restart happened then.</span>
-        {dep?.deploys ? (
-          <div className="stack-sm">{dep.deploys.map((x, i) => <div key={i} className="row-between small"><span><b>{x.status}</b> · {x.message || x.commit}</span><span className="xs muted">{x.createdAt ? ago(x.createdAt) : ""}{x.finishedAt && x.createdAt ? ` · took ${Math.max(1, Math.round((Date.parse(x.finishedAt) - Date.parse(x.createdAt)) / 60000))} min` : ""}</span></div>)}</div>
-        ) : <span className="xs muted">{dep?.error || "Deploy history and live deploy status need a Render API key (RENDER_API_KEY). Render keys can change the whole account, so it's off; check dashboard.render.com for deploys."}</span>}
-      </section>
-      <section className="adm-card stack-sm">
-        <h3>OpenRouter (AI)</h3>
-        <span className="small">AI is {d.aiChain.available ? "on" : "off"}: {d.aiChain.via} · {d.aiChain.model}{d.aiChain.ownerTrial ? <> · owners are trying <b>{d.aiChain.ownerTrial}</b> (private routing)</> : null}</span>
-        {ai && !ai.error && <span className="small">Spent on this key: today {money(ai.usageDaily)} · this week {money(ai.usageWeekly)} · this month {money(ai.usageMonthly)} · all time {money(ai.usage)}{ai.freeTier ? " · free tier" : ""}</span>}
-        <span className="xs muted">The whole account's balance (credits bought minus used) needs an OpenRouter management key, which can create and delete keys, so Remy doesn't hold one: see openrouter.ai/settings/credits. Overview also shows AI spend this week from Remy's own log.</span>
-      </section>
-      <section className="adm-card stack-sm">
-        <h3>Supabase (database)</h3>
-        <span className="small">Space, account sizes and Remy's data-transfer estimate are on the <a href="/admin?tab=database">Database</a> page.</span>
-      </section>
+      <div className="adm2-tiles">
+        <div className="adm2-tile"><strong>Up</strong>{dot(false)}<span className="adm2-tl">Server (Render)</span><span className="adm2-ts">version {d.server.commit || "local"} · running {up}</span></div>
+        <div className="adm2-tile"><strong>{d.server.memoryMb} MB</strong>{dot(memP >= 0.8)}<span className="adm2-tl">Memory in use</span><span className="adm2-ts">of {d.server.memoryLimitMb} MB on the plan</span></div>
+        <div className="adm2-tile"><strong>{ai ? (ai.remaining != null ? money(ai.remaining) : "No cap") : "—"}</strong>{dot(!!aiLow)}<span className="adm2-tl">AI money left</span><span className="adm2-ts">{ai ? (ai.limit != null ? `${money(ai.usage)} used of ${money(ai.limit)}` : `${money(ai.usage)} used so far`) : (d.ai.available && d.ai.error) || "OPENROUTER_API_KEY isn't set"}</span></div>
+        <div className="adm2-tile"><strong>{s.percent}%</strong>{dot(s.percent >= 80)}<span className="adm2-tl">Database space</span><span className="adm2-ts">{s.usedMb} of {s.limitMb} MB · avg account {s.workspaces.avg_kb} KB</span></div>
+      </div>
+      <div className="adm2-row adm2-row-sys">
+        <section className="adm2-card" data-testid="system-transfer">
+          <div className="adm2-h"><h3>{dot(tp >= 80)} Data transfer this month</h3><span className="xs muted">{(s.transfer.monthMb / 1024).toFixed(1)} GB of {s.transfer.limitGb} GB · {tp}%</span></div>
+          {s.transfer.days.length > 0 && (
+            <div className="adm2-cols" role="img" aria-label={`Data read per day: ${s.transfer.days.map((x) => `${x.day.slice(5)} ${x.mb} MB`).join(", ")}`}>
+              {s.transfer.days.map((x) => <div key={x.day} title={`${x.day.slice(5)}: ${x.mb} MB`}><i className={x.mb > dayLimit ? "over" : ""} style={{ height: `${Math.max(2, (x.mb / maxDay) * 80)}px` }} /><small>{Number(x.day.slice(8))}</small></div>)}
+            </div>
+          )}
+          <p className="adm2-note"><b>Orange days read more than the free plan allows per day ({Math.round(dayLimit)} MB).</b> Every page a student opens reads their account, so account size drives this. It's Remy's own count; Supabase → Usage → Egress has the billed number.</p>
+          <div className="adm2-h"><h3>Biggest tables</h3><button className="btn btn-ghost btn-sm" onClick={() => setTables(true)} data-testid="button-all-tables">All {s.tables.length} <ArrowRight size={14} /></button></div>
+          <div className="adm2-list">{s.tables.slice(0, 5).map((t) => <div key={t.name}><code>{t.name}</code><b>{t.mb} MB</b><span>{t.rows.toLocaleString()} rows</span></div>)}</div>
+        </section>
+        <div className="adm2-col">
+          <section className="adm2-card" data-testid="system-ai">
+            <div className="adm2-h"><h3>AI</h3><span className="xs muted">{d.aiChain.available ? "on" : "off"}</span></div>
+            <span className="small muted">{d.aiChain.via} · {d.aiChain.model}{d.aiChain.ownerTrial ? ` · owners are trying ${d.aiChain.ownerTrial}` : ""}</span>
+            <div className="adm2-nums">
+              <div><b>{o ? o.ai.calls : "…"}</b><span>calls this week{o ? `, ${o.ai.failed} failed` : ""}</span></div>
+              <div><b>{ai ? money(ai.usageWeekly) : "—"}</b><span>{ai ? `this week · today ${money(ai.usageDaily)} · month ${money(ai.usageMonthly)}` : "spend"}</span></div>
+            </div>
+          </section>
+          <section className="adm2-card grow" data-testid="admin-texts">
+            <div className="adm2-h"><h3>Emails &amp; texts</h3><span className="xs muted">errors last 24 h: {d.errors.server + d.errors.browser}</span></div>
+            {o?.emails && (
+              <div className="adm2-list">
+                <div><span>Deadline reminders</span><b>{o.emails.ready ? `${o.emails.reminders} students` : "off"}</b></div>
+                <div><span>Weekly digest</span><b>{o.emails.ready ? `${o.emails.digestsWeek} this week · ${o.emails.digest} get it` : "off"}</b></div>
+                {o.emails.nudges && <div><span>Match emails (owners)</span><b>{o.emails.nudges.sent} sent · {o.emails.nudges.yes} Yes</b></div>}
+              </div>
+            )}
+            {o?.emails && !o.emails.ready && <span className="xs muted">Set SMTP_URL on Render to send reminders and digests.</span>}
+            {o?.texts && <div className="adm2-list"><div><span>Urgent texts</span><b>{o.texts.mode === "test" ? "test mode: nothing is sent" : `Twilio · ${o.texts.recent.length} recent`}</b></div></div>}
+            <div className="adm2-links">
+              <a className="btn btn-ghost btn-sm" href="https://dashboard.render.com" target="_blank" rel="noreferrer">Render ↗</a>
+              <a className="btn btn-ghost btn-sm" href="https://openrouter.ai/settings/credits" target="_blank" rel="noreferrer">OpenRouter credits ↗</a>
+              <a className="btn btn-ghost btn-sm" href="https://supabase.com/dashboard" target="_blank" rel="noreferrer">Supabase usage ↗</a>
+            </div>
+          </section>
+        </div>
+      </div>
+      {tables && (
+        <Modal title="Tables, server and messages" onClose={() => setTables(false)}>
+          <div className="adm2-list">{s.tables.map((t) => <div key={t.name}><code>{t.name}</code><b>{t.mb} MB</b><span>{t.rows.toLocaleString()} rows</span></div>)}</div>
+          <p className="xs muted">{s.workspaces.n} accounts stored · 90% under {s.workspaces.p90_kb} KB · largest {s.workspaces.max_kb} KB. Live version {d.server.commit || "local build"}{d.server.branch ? ` from ${d.server.branch}` : ""}, started {new Date(d.server.startedAt).toLocaleString()}.</p>
+          {dep?.deploys ? dep.deploys.map((x, i) => <div key={i} className="row-between small"><span><b>{x.status}</b> · {x.message || x.commit}</span><span className="xs muted">{x.createdAt ? ago(x.createdAt) : ""}</span></div>) : <p className="xs muted">{dep?.error || "Deploy history needs a Render API key (RENDER_API_KEY), which is off on purpose; check dashboard.render.com for deploys."}</p>}
+          {o?.texts?.recent.length ? <ul className="stack-sm small">{o.texts.recent.map((x) => <li key={x.at + x.to}><span className="muted">{fmtDate(x.at.slice(0, 10))} to {x.to}{x.mode === "test" ? " (test)" : ""}:</span> {x.body}</li>)}</ul> : null}
+        </Modal>
+      )}
     </div>
   );
 }
@@ -479,8 +500,8 @@ type Waiting = { applications: { status: string }[] };
 /** Remy's one thing for the owner right now: the first rule that fires, most urgent first. */
 function oneThing(d: Overview, s: Storage | null, steps: [string, number][]): { key: string; title: string; body: string; big?: string; sub?: string; href: string; cta: string } | null {
   const tp = s ? Math.round((100 * s.transfer.monthMb) / 1024 / s.transfer.limitGb) : 0;
-  if (s && tp >= 80) return { key: `transfer-${tp >= 100 ? "over" : "near"}`, title: `Database transfer is at ${tp}% of the free plan.`, body: `Students read ${(s.transfer.monthMb / 1024).toFixed(1)} GB this month against Supabase's ${s.transfer.limitGb} GB. Check Supabase → Usage before it gets billed or slowed down.`, big: `${tp}%`, sub: `of ${s.transfer.limitGb} GB`, href: "/admin?tab=database", cta: "Open Database" };
-  if (s && s.percent >= 80) return { key: "space", title: `The database is ${s.percent}% full.`, body: `${s.usedMb} of ${s.limitMb} MB used. The biggest table is ${s.tables[0]?.name || "workspaces"}.`, big: `${s.percent}%`, sub: "full", href: "/admin?tab=database", cta: "Open Database" };
+  if (s && tp >= 80) return { key: `transfer-${tp >= 100 ? "over" : "near"}`, title: `Database transfer is at ${tp}% of the free plan.`, body: `Students read ${(s.transfer.monthMb / 1024).toFixed(1)} GB this month against Supabase's ${s.transfer.limitGb} GB. Check Supabase → Usage before it gets billed or slowed down.`, big: `${tp}%`, sub: `of ${s.transfer.limitGb} GB`, href: "/admin?tab=system", cta: "Open System" };
+  if (s && s.percent >= 80) return { key: "space", title: `The database is ${s.percent}% full.`, body: `${s.usedMb} of ${s.limitMb} MB used. The biggest table is ${s.tables[0]?.name || "workspaces"}.`, big: `${s.percent}%`, sub: "full", href: "/admin?tab=system", cta: "Open System" };
   if (d.openErrors) return { key: `errors-${d.openErrors}`, title: `${plural(d.openErrors, "error")} students hit ${d.openErrors === 1 ? "is" : "are"} open.`, body: "Look at what happened, fix it, then mark it fixed so the count stays honest.", big: String(d.openErrors), sub: "open", href: "/admin?tab=errors", cta: "Open errors" };
   if (d.feedback) return { key: `feedback-${d.feedback}`, title: `${plural(d.feedback, "student")} sent feedback.`, body: "Read it while it's fresh; it's the clearest signal of what to fix next.", big: String(d.feedback), sub: "new", href: "/admin?tab=errors", cta: "Read feedback" };
   // The biggest drop between two setup steps, when at least two students were lost there.
@@ -625,29 +646,6 @@ function UsedCard() {
       ) : <p className="small muted">Nothing yet this week.</p>}
       <p className="xs muted">AI calls: {d.ai.calls}, {d.ai.failed} failed, {(d.ai.avgMs / 1000).toFixed(1)} s on average.</p>
     </section>
-  );
-}
-
-/** Moved from Overview: emails, texts (shown under Services). */
-function MessagesCard() {
-  const [d] = useLoad<Overview>("/api/admin/overview");
-  if (!d) return null;
-  return (
-    <>
-      <div className="adm-kpis">
-        {d.emails && <Kpi n={d.emails.ready ? d.emails.digestsWeek : "Off"} label={d.emails.ready ? "Weekly digests sent this week" : "Emails aren't set up on the server"}
-          note={d.emails.ready ? `${d.emails.digest} get the digest, ${d.emails.reminders} get deadline reminders` : "Set SMTP_URL on Render to send reminders and digests"} />}
-        {d.emails?.nudges && <Kpi n={d.emails.nudges.sent ? `${Math.round((100 * d.emails.nudges.yes) / d.emails.nudges.sent)}%` : "None yet"} label="Match emails answered Yes (30 days)"
-          note={`${d.emails.nudges.sent} sent, ${d.emails.nudges.yes} Yes, ${d.emails.nudges.later} Not now. Owners only for now`} />}
-      </div>
-      {d.texts && (
-        <section className="adm-card" data-testid="admin-texts">
-          <h3>Urgent texts {d.texts.mode === "test" ? "(test mode: nothing is sent)" : "(sending through Twilio)"}</h3>
-          <p className="xs muted">Owners only for now. {d.texts.mode === "test" ? "Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM on Render to send real texts." : "A Twilio trial texts only numbers verified in Twilio."}</p>
-          {d.texts.recent.length ? <ul className="stack-sm small">{d.texts.recent.map((t) => <li key={t.at + t.to}><span className="muted">{fmtDate(t.at.slice(0, 10))} to {t.to}{t.mode === "test" ? " (test)" : ""}:</span> {t.body}</li>)}</ul> : <p className="small muted">No texts yet. They go out when an owner with texts on has a deadline today or tomorrow.</p>}
-        </section>
-      )}
-    </>
   );
 }
 
