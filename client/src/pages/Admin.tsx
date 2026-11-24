@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { FEATURES, RELEASES, releasesOf, type Release } from "@shared/features";
-import { AlertTriangle, ArrowLeft, ArrowRight, BarChart3, Briefcase, CalendarDays, Check, KanbanSquare, Server, Plus, RotateCcw, Trash2, UserCheck, Users } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, BarChart3, Briefcase, Check, KanbanSquare, Server, Plus, RotateCcw, Trash2, UserCheck, Users } from "lucide-react";
 import { api, fmtDate, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
 import { BetaBadge, CopyButton, Empty, Modal, Remy, Rich, Spinner } from "../components/common";
@@ -37,10 +37,10 @@ type Team = {
 };
 const ANSWERS: [Answer, string][] = [["yes", "Going"], ["maybe", "Maybe"], ["no", "Can't go"]];
 
-const TABS = [["overview", "Overview", BarChart3], ["beta", "Beta", UserCheck], ["system", "System", Server], ["openings", "Openings", Briefcase], ["errors", "Errors & feedback", AlertTriangle], ["board", "Board", KanbanSquare], ["calendar", "Calendar", CalendarDays], ["team", "Team & hours", Users]] as const;
+const TABS = [["overview", "Overview", BarChart3], ["beta", "Beta", UserCheck], ["system", "System", Server], ["openings", "Openings", Briefcase], ["errors", "Errors & feedback", AlertTriangle], ["board", "Board & calendar", KanbanSquare], ["team", "Team & hours", Users]] as const;
 type Tab = (typeof TABS)[number][0];
 // The menu in three groups: students first, then data, then the team's own work (Hours first: the one the team checks).
-const NAV_GROUPS: [string, Tab[]][] = [["Students", ["overview", "beta"]], ["Data", ["system", "openings", "errors"]], ["Team", ["team", "board", "calendar"]]];
+const NAV_GROUPS: [string, Tab[]][] = [["Students", ["overview", "beta"]], ["Data", ["system", "openings", "errors"]], ["Team", ["team", "board"]]];
 const HISTORY_AFTER = 3 * 86400_000;
 const COLS: [Status, string][] = [["todo", "To do"], ["doing", "In progress"], ["done", "Done"]];
 const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -64,13 +64,13 @@ export default function Admin() {
   const { query } = useRoute();
   // Old links (Services and Database are now System) still open the right tab.
   const raw = query.get("tab") || "overview";
-  const tab = ((({ services: "system", database: "system", hours: "team", people: "team", activity: "team" }) as Record<string, Tab>)[raw] || raw) as Tab;
+  const tab = ((({ services: "system", database: "system", hours: "team", people: "team", activity: "team", calendar: "board" }) as Record<string, Tab>)[raw] || raw) as Tab;
   // Back from Google's consent screen (team calendar): say how it went, then tidy the address bar.
   useEffect(() => {
     const r = GCAL_RESULT[query.get("gcal") || ""];
     if (!r) return;
     toast(...r);
-    history.replaceState(null, "", "/admin?tab=calendar");
+    history.replaceState(null, "", "/admin?tab=board");
   }, []);
   // Phone: the tabs are one sideways-scrolling row, so bring the open tab into view.
   useEffect(() => { document.querySelector(".adm-nav a[aria-current]")?.scrollIntoView({ block: "nearest", inline: "nearest" }); }, [tab]);
@@ -100,7 +100,7 @@ export default function Admin() {
         {tab === "beta" && <><FunnelCard /><BetaTab /><UsedCard /></>}
         {tab === "system" && <SystemTab />}
         {tab === "openings" && <OpeningsTab />}
-        {(tab === "board" || tab === "calendar" || tab === "team") && <TeamTab tab={tab} />}
+        {(tab === "board" || tab === "team") && <TeamTab tab={tab} />}
       </main>
     </div>
   );
@@ -759,7 +759,7 @@ function People({ members, value, onChange, label }: { members: Member[]; value:
   );
 }
 
-function TeamTab({ tab }: { tab: "board" | "calendar" | "team" }) {
+function TeamTab({ tab }: { tab: "board" | "team" }) {
   const { run } = useStore();
   const { query } = useRoute();
   const [d, , setD] = useLoad<Team>("/api/admin/team");
@@ -770,7 +770,7 @@ function TeamTab({ tab }: { tab: "board" | "calendar" | "team" }) {
   const [note, setNote] = useState("");
   const [past, setPast] = useState({ date: today(), from: "", to: "", note: "" });
   const [drag, setDrag] = useState<string | null>(null);
-  const [panel, setPanel] = useState<"" | "past" | "member" | "entries" | "activity">("");
+  const [panel, setPanel] = useState<"" | "past" | "member" | "entries" | "activity" | "meeting" | "pastMeetings">("");
   const send = async (method: "POST" | "DELETE", path: string, body?: unknown, done?: string) => {
     const r = await run(() => api<Team>(method, path, body), done);
     if (r) setD(r);
@@ -812,56 +812,12 @@ function TeamTab({ tab }: { tab: "board" | "calendar" | "team" }) {
   };
 
   if (tab === "board") {
+    // Board and Calendar in one tab (Nov 24): the team's to-dos beside what's coming up.
     const mine = person ? d.tasks.filter((t) => list(t.assignee).includes(person)) : d.tasks;
     // Finished to-dos stay in Done for 3 days, then move to History so the board stays short.
     const old = (t: TeamTask) => t.status === "done" && !!t.done_at && Date.now() - new Date(t.done_at).getTime() > HISTORY_AFTER;
     const shown = mine.filter((t) => !old(t));
     const history = mine.filter(old).sort((a, b) => (b.done_at! > a.done_at! ? 1 : -1));
-    return (
-      <div className="stack-lg">
-        <Head title="Board" sub="Drag a card to another column, or use its arrows. Everyone on the team sees the same board." />
-        <form className="adm-card adm-form" onSubmit={async (e) => { e.preventDefault(); if (await send("POST", "/api/admin/tasks", task, "To-do added")) setTask({ title: "", assignee: [], due: "" }); }}>
-          <input className="input" value={task.title} onChange={(e) => setTask({ ...task, title: e.target.value })} placeholder="What needs doing?" aria-label="To-do" />
-          <People members={d.members} value={task.assignee} onChange={(v) => setTask({ ...task, assignee: v })} label="Who does it" />
-          <input className="input" type="date" value={task.due} onChange={(e) => setTask({ ...task, due: e.target.value })} aria-label="Due date" />
-          <button className="btn btn-primary btn-sm" disabled={!task.title.trim()}><Plus size={15} /> Add</button>
-        </form>
-        <div className="row" style={{ gap: 6 }}>
-          <a className="pref-chip" aria-pressed={!person} href="/admin?tab=board">Everyone</a>
-          {d.members.map((m) => <a key={m.email} className="pref-chip" aria-pressed={person === m.email} href={`/admin?tab=board&person=${encodeURIComponent(m.email)}`}>{m.name}</a>)}
-        </div>
-        <div className="adm-board">
-          {COLS.map(([s, label]) => {
-            const list = shown.filter((t) => t.status === s);
-            return (
-              <section key={s} className={"adm-col" + (over === s && drag ? " adm-col-over" : "")} onDragOver={(e) => { e.preventDefault(); if (over !== s) setOver(s); }} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver(null); }} onDrop={(e) => { e.preventDefault(); const t = d.tasks.find((x) => x.id === e.dataTransfer.getData("text/plain")); if (t) move(t, s); setDrag(null); setOver(null); }} aria-label={label}>
-                <h3>{label} <span className="muted small">{list.length}</span></h3>
-                {list.map(card)}
-                {!list.length && <p className="xs muted adm-drop">{s === "done" ? "Finished to-dos land here." : "Drop a card here."}</p>}
-              </section>
-            );
-          })}
-        </div>
-        {history.length > 0 && (
-          <details className="adm-card" data-testid="task-history">
-            <summary className="row-between" style={{ cursor: "pointer" }}><h3>History</h3><span className="xs muted">{history.length} finished more than 3 days ago</span></summary>
-            <div className="stack-sm" style={{ marginTop: 10 }}>
-              {history.map((t) => (
-                <div key={t.id} className="adm-row small" style={{ alignItems: "center" }}>
-                  <Check size={14} className="pass" />
-                  <span className="grow">{t.title}</span>
-                  <span className="xs muted">Done by {nameOf(t.done_by)}, {day(t.done_at!.slice(0, 10))}</span>
-                  <button className="btn btn-ghost btn-sm" onClick={() => move(t, "todo")}>Reopen</button>
-                </div>
-              ))}
-            </div>
-          </details>
-        )}
-      </div>
-    );
-  }
-
-  if (tab === "calendar") {
     const t0 = today(), upcoming = d.events.filter((e) => e.date >= t0), past = d.events.filter((e) => e.date < t0).reverse();
     const row = (e: TeamEvent, upcoming: boolean) => {
       const count = (a: Answer) => Object.values(e.rsvps).filter((x) => x === a).length;
@@ -900,29 +856,99 @@ function TeamTab({ tab }: { tab: "board" | "calendar" | "team" }) {
     };
     const cal = d.calendar;
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const openTasks = mine.filter((t) => t.status !== "done");
+    const dueNow = openTasks.filter((t) => t.due && t.due <= t0).length;
+    const next = upcoming[0];
+    const line = `${plural(openTasks.length, "to-do")} open${dueNow ? `, ${dueNow} due today or late` : ""}.`;
+    const after = next ? ` Next meeting: ${next.title}, ${day(next.date)}.` : " No meetings coming up.";
+    // This month, Monday first, with a dot on days that have a meeting.
+    const [yy, mm] = t0.split("-").map(Number);
+    const lead = (new Date(yy, mm - 1, 1).getDay() + 6) % 7, days = new Date(yy, mm, 0).getDate();
+    const has = new Set(d.events.map((e) => e.date));
+    const ymd = (n: number) => `${yy}-${String(mm).padStart(2, "0")}-${String(n).padStart(2, "0")}`;
     return (
-      <div className="stack-lg">
-        <Head title="Calendar" sub="Meetings with professors, the career center, partners and each other. Tap Going, Maybe or Can't go so everyone sees the headcount." />
-        {cal.available && (
-          <div className="adm-card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }} data-testid="team-gcal">
+      <div className="adm2 adm2-full adm2-fixed">
+        <div className="adm-head">
+          <div><h1 className="adm-hello">Board &amp; calendar</h1><p className="adm2-say"><b>{line}</b>{after}</p></div>
+          <div className="row adm2-chips">
+            <a className="pref-chip" aria-pressed={!person} href="/admin?tab=board" data-testid="filter-person-all">Everyone</a>
+            {d.members.map((m) => <a key={m.email} className="pref-chip" aria-pressed={person === m.email} href={`/admin?tab=board&person=${encodeURIComponent(m.email)}`}>{m.name.split(" ")[0]}</a>)}
+          </div>
+        </div>
+        <form className="adm2-add" onSubmit={async (e) => { e.preventDefault(); if (await send("POST", "/api/admin/tasks", task, "To-do added")) setTask({ title: "", assignee: [], due: "" }); }}>
+          <input className="input" value={task.title} onChange={(e) => setTask({ ...task, title: e.target.value })} placeholder="Add a to-do for the team…" aria-label="To-do" data-testid="input-task-title" />
+          <People members={d.members} value={task.assignee} onChange={(v) => setTask({ ...task, assignee: v })} label="Who does it" />
+          <input className="input" type="date" value={task.due} onChange={(e) => setTask({ ...task, due: e.target.value })} aria-label="Due date" data-testid="input-task-due" />
+          <button className="btn btn-primary btn-sm" disabled={!task.title.trim()} data-testid="button-add-task"><Plus size={15} /> Add</button>
+        </form>
+        <div className="adm2-row adm2-row-board">
+          <div className="adm2-col">
+            <div className="adm-board adm2-board">
+          {COLS.map(([s, label]) => {
+            const list = shown.filter((t) => t.status === s);
+            return (
+              <section key={s} className={"adm-col" + (over === s && drag ? " adm-col-over" : "")} onDragOver={(e) => { e.preventDefault(); if (over !== s) setOver(s); }} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver(null); }} onDrop={(e) => { e.preventDefault(); const t = d.tasks.find((x) => x.id === e.dataTransfer.getData("text/plain")); if (t) move(t, s); setDrag(null); setOver(null); }} aria-label={label}>
+                <h3>{label} <span className="muted small">{list.length}</span></h3>
+                {list.map(card)}
+                {!list.length && <p className="xs muted adm-drop">{s === "done" ? "Finished to-dos land here." : "Drop a card here."}</p>}
+              </section>
+            );
+          })}
+        </div>
+        {history.length > 0 && (
+          <details className="adm2-card" data-testid="task-history">
+            <summary className="row-between" style={{ cursor: "pointer" }}><h3>History</h3><span className="xs muted">{history.length} finished more than 3 days ago</span></summary>
+            <div className="stack-sm" style={{ marginTop: 10 }}>
+              {history.map((t) => (
+                <div key={t.id} className="adm-row small" style={{ alignItems: "center" }}>
+                  <Check size={14} className="pass" />
+                  <span className="grow">{t.title}</span>
+                  <span className="xs muted">Done by {nameOf(t.done_by)}, {day(t.done_at!.slice(0, 10))}</span>
+                  <button className="btn btn-ghost btn-sm" onClick={() => move(t, "todo")}>Reopen</button>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+          </div>
+          <section className="adm2-card" data-testid="team-calendar">
+            <div className="adm2-h"><h3>{new Date(t0 + "T12:00").toLocaleDateString("en-US", { month: "long" })}</h3><button className="btn btn-ghost btn-sm" onClick={() => setPanel("meeting")} data-testid="button-open-meeting"><Plus size={14} /> Meeting</button></div>
+            <div className="adm2-cal" aria-hidden>
+              {["M", "T", "W", "T", "F", "S", "S"].map((x, i) => <span key={i} className="dn">{x}</span>)}
+              {Array.from({ length: lead }, (_, i) => <span key={"e" + i} />)}
+              {Array.from({ length: days }, (_, i) => { const k = ymd(i + 1); return <span key={k} className={(k === t0 ? "today" : k < t0 ? "past" : "") + (has.has(k) ? " has" : "")}>{i + 1}</span>; })}
+            </div>
+            <div className="adm2-h"><h3>Coming up</h3>{past.length > 0 && <button className="btn btn-ghost btn-sm" onClick={() => setPanel("pastMeetings")} data-testid="button-past-meetings">Last 30 days</button>}</div>
+            <div className="adm-list adm2-meets">{upcoming.map((e) => row(e, true))}{!upcoming.length && <p className="small muted">Nothing scheduled. Add a meeting with a professor, the career center or the team, and everyone can say if they're going.</p>}</div>
+            {cal.available && (
+          <div className="adm2-gcal" data-testid="team-gcal">
             {cal.connectedBy
-              ? <span className="small"><Check size={14} /> Meetings go to the <b>Remy team</b> Google Calendar automatically, with who's going. Connected by {nameOf(cal.connectedBy)}.</span>
-              : <span className="small">Connect the team's shared Google account and every meeting here appears on its <b>Remy team</b> calendar, with the headcount.</span>}
+              ? <span className="xs muted"><Check size={12} /> Meetings go to the <b>Remy team</b> Google Calendar automatically, with who's going. Connected by {nameOf(cal.connectedBy)}.</span>
+              : <span className="xs muted">Connect the team's shared Google account and every meeting here appears on its <b>Remy team</b> calendar, with the headcount.</span>}
             {cal.connectedBy
               ? <button className="btn btn-ghost btn-sm" onClick={async () => { if (!confirm("Disconnect the team Google Calendar? The Remy team calendar will be deleted from that Google account.")) return; const r = await run(() => api<{ team: Team }>("DELETE", "/api/admin/calendar"), "Disconnected"); if (r) setD(r.team); }}>Disconnect</button>
               : <a className="btn btn-primary btn-sm" href={`/api/calendar/connect?team=1&tz=${encodeURIComponent(tz)}`} data-testid="button-team-gcal">Connect Google Calendar</a>}
           </div>
         )}
-        <form className="adm-card adm-form adm-form-5" onSubmit={async (e) => { e.preventDefault(); if (await send("POST", "/api/admin/events", ev, "Meeting added")) setEv({ title: "", date: "", time: "", who: "", assignees: [] }); }}>
+          </section>
+        </div>
+        {panel === "meeting" && (
+          <Modal title="Add a meeting" onClose={() => setPanel("")}>
+        <form className="stack-sm" onSubmit={async (e) => { e.preventDefault(); if (await send("POST", "/api/admin/events", ev, "Meeting added")) { setEv({ title: "", date: "", time: "", who: "", assignees: [] }); setPanel(""); } }}>
           <input className="input" value={ev.title} onChange={(e) => setEv({ ...ev, title: e.target.value })} placeholder="Meeting, e.g. Career Center partnership" aria-label="Meeting" />
           <input className="input" value={ev.who} onChange={(e) => setEv({ ...ev, who: e.target.value })} placeholder="With whom (outside the team)" aria-label="With whom" />
           <People members={d.members} value={ev.assignees} onChange={(v) => setEv({ ...ev, assignees: v })} label="Teammates on this meeting" />
           <input className="input" type="date" value={ev.date} onChange={(e) => setEv({ ...ev, date: e.target.value })} aria-label="Date" />
           <input className="input" type="time" value={ev.time} onChange={(e) => setEv({ ...ev, time: e.target.value })} aria-label="Time" />
-          <button className="btn btn-primary btn-sm" disabled={!ev.title.trim() || !ev.date}><Plus size={15} /> Add</button>
+          <button className="btn btn-primary btn-sm" disabled={!ev.title.trim() || !ev.date} data-testid="button-add-meeting"><Plus size={15} /> Add</button>
         </form>
-        <section className="adm-card adm-list"><h3>Coming up</h3>{upcoming.map((e) => row(e, true))}{!upcoming.length && <p className="small muted">Nothing scheduled.</p>}</section>
-        {past.length > 0 && <section className="adm-card adm-list"><h3>Last 30 days</h3>{past.map((e) => row(e, false))}</section>}
+          </Modal>
+        )}
+        {panel === "pastMeetings" && (
+          <Modal title="Meetings, last 30 days" onClose={() => setPanel("")} wide>
+            <div className="adm-list">{past.map((e) => row(e, false))}</div>
+          </Modal>
+        )}
       </div>
     );
   }
