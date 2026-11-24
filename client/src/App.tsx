@@ -1,4 +1,5 @@
 import { uiFlags } from "./lib/router";
+import { hideSplash } from "./lib/splash";
 import { useEffect, useRef, useState } from "react";
 import {
   Award, BarChart3, Briefcase, CalendarDays, ChevronsLeft, ChevronsRight, Compass, FileText, Home as HomeIcon, Menu, Send,
@@ -99,6 +100,9 @@ function Root() {
   // keep the student look. Shell still owns the favicon swap.
   const ownerView = useOwnerView();
   useEffect(() => { document.documentElement.classList.toggle("redesign-2", ownerView); }, [ownerView]);
+  // The loading screen in index.html stays up until there's a page to show.
+  const publicDoc = path === "/about" || path === "/policies" || path === "/privacy" || path === "/terms";
+  useEffect(() => { if (!loading || publicDoc) hideSplash(); }, [loading, publicDoc]);
   // Public pages: readable without signing in.
   if (path === "/about") return <About />;
   if (path === "/policies" || path === "/privacy" || path === "/terms") return <Policies />;

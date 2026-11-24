@@ -1,9 +1,10 @@
 # Lead AI (Dilan's project Claude)
 
-Updated: 2026-11-24 08:55 UTC
+Updated: 2026-11-24 09:00 UTC
 Area: the website (`client/`, `server/`, `shared/`, `docs/`), releases, `docs/ai/CONTEXT.md`
 
 ## Working on now
+- Loading screen (Dilan, Nov 24, everyone): `#splash` inline in `client/index.html` (inline CSS, no inline script: CSP), three designs (desk, peek, badge) picked at random by `client/public/theme.js` (never the same twice, `remy.splash`), shows only after 0.3 s, removed by `client/src/lib/splash.ts` from `Root` in App.tsx (10 s safety in main.tsx).
 - Calendar (Dilan, Nov 24): Coming up's date chip used the class `soon`, which the Coming soon pages style 640px tall; renamed to `this-week`. Next in the same thread: Remy's suggestions in the Calendar side column (plan for the week, opening deadlines, interview prep), real data only, screenshot to Dilan before merging.
 - Office Remy's standing body redrawn (Dilan, Nov 24): hanging arms with paws, raised arm cut to shoulder length, chunkier trousers and shoes, cutaway jacket hem, bushier tail (`PathBoard.tsx` Office, `office.css`). Dilan picked bubble A: quips sit above his head in his cream and outline colours, room labels fade while he talks.
 - Beta testers merged into Beta Insider (everyone, Nov 24): anyone on the old tester list (`beta_list`) gets `ws.insider` on their next `/api/me` (`beta.onList`), so the pin and check-ins; Admin → Students shows one "Beta Insiders" list; tester wording in emails and the homepage says Insider. About/Privacy copy is the "Update the About and Privacy pages" thread's.
