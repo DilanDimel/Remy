@@ -3,7 +3,6 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ConfigProvider } from "@/lib/config";
@@ -27,12 +26,10 @@ function Root() {
         <Stack.Screen name="terms" options={{ animation: "fade" }} />
         <Stack.Screen name="setup" options={{ animation: "fade" }} />
         <Stack.Screen name="not-yet" options={{ animation: "fade" }} />
-        {/* Remy's chat opens over any tab from the floating fox, like the website's Remy panel. On iPhone it's a sheet that
-            rests at about 60% of the screen (the tab stays visible above it) and drags up to full height (handoff P1.2).
-            Android keeps the full-screen page: its form sheets don't move a text field above the keyboard reliably. */}
-        <Stack.Screen name="remy" options={Platform.OS === "ios"
-          ? { presentation: "formSheet", sheetAllowedDetents: [0.6, 1], sheetGrabberVisible: true, sheetCornerRadius: 24, sheetExpandsWhenScrolledToEdge: false, contentStyle: { backgroundColor: c.bg } }
-          : { presentation: "modal" }} />
+        {/* Remy's chat opens over any tab from the floating fox, like the website's Remy panel: a full-height card on
+            iPhone (swipe down to close) and a full-screen page on Android. A half-height iOS form sheet (#338) put the
+            message box over the messages on a real iPhone, so it's back to the card until that can be tested there. */}
+        <Stack.Screen name="remy" options={{ presentation: "modal" }} />
         <Stack.Screen name="soon" options={{ ...sheet, title: "" }} />
         {/* Screens not rebuilt natively yet open the website, signed in, as a sheet. */}
         <Stack.Screen name="web" options={sheet} />

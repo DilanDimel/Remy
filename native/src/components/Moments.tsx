@@ -30,7 +30,7 @@ export function Moments() {
   const [queue, setQueue] = useState<Moment[]>([]);
   const g = ws?.game;
   const fresh = ws ? newPins(ws) : [];
-  const lv = ws ? rankOf(xpOf(ws, g || ({} as NonNullable<Workspace["game"]>)), g?.bestRank).n : 0;
+  const lv = ws ? rankOf(xpOf(ws, g || { weeks: {} }), g?.bestRank).n : 0;
   const best = g?.bestRank || 0;
   const firstPins = !!ws && !g?.pins, firstLevel = !!ws && !best;
   const sig = fresh.map((p) => p.id + p.tier).join(",") + (firstPins ? "+p" : "") + `|${lv}>${best}`;

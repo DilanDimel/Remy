@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, Fragment } from "react";
 import { dreamWithoutOpenings } from "@shared/org";
+import { decodeEntities, postingField, postingLines } from "@shared/postingText";
 import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, BookmarkCheck, CalendarPlus, Check, X, ChevronDown, ChevronUp, Link2, MapPin, Mic, RefreshCw, Search, Sparkles, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
 import { openingRanker, reasonLine } from "@shared/order";
 import type { Job, JobCheck, JobFit, JobInterestReason, JobRanking, Workspace } from "@shared/types";
@@ -303,6 +304,20 @@ function eligChip(f?: JobFit) {
   return f.checked ? <span className="chip chip-live" title={f.eligibilityNote}>You qualify</span> : null;
 }
 
+/** The posting as readable lines, "Label: value" lines as a small table, long text behind "Show more". */
+function PostingText({ text }: { text: string }) {
+  const [all, setAll] = useState(false);
+  const lines = postingLines(text);
+  const shown = all ? lines : lines.slice(0, 6);
+  if (!lines.length) return null;
+  return (
+    <div className="posting-text small" data-testid="posting-text">
+      {shown.map((l, i) => { const f = postingField(l); return f ? <p key={i} className="posting-field"><b>{f[0]}</b><span>{f[1]}</span></p> : <p key={i}>{l}</p>; })}
+      {lines.length > 6 && <button type="button" className="op-link link-btn" onClick={() => setAll(!all)} aria-expanded={all} data-testid="button-posting-more">{all ? "Show less" : "Show the full posting"}</button>}
+    </div>
+  );
+}
+
 function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; fit?: JobFit; moved?: JobRanking; canRate: boolean; defaultOpen: boolean; showPassed: boolean }) {
   const keepPass = useOwnerView(); // redesign stage 3, owners first
   const { ws, save, setWs, run, config } = useStore();
@@ -376,11 +391,11 @@ function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; 
       {open && (
         <div className="stack" style={{ borderTop: "1px solid var(--line)", paddingTop: 12, marginTop: 4 }}>
           {shortTitle(j.title, j.company) !== j.title && <p className="xs muted" data-testid="job-full-title"><strong>Full title: </strong>{j.title}</p>}
-          <p className="small">{j.summary}</p>
+          <PostingText text={j.postingText || j.summary} />
           <div className="grid-2">
-            <div className="stack-sm"><span className="eyebrow">Eligibility (quoted)</span>{j.eligibility.length ? j.eligibility.map((e, i) => <span key={i} className="quote">{e}</span>) : <span className="small muted">Not stated</span>}
+            <div className="stack-sm"><span className="eyebrow">Eligibility (quoted)</span>{j.eligibility.length ? j.eligibility.map((e, i) => <span key={i} className="quote">{decodeEntities(e)}</span>) : <span className="small muted">Not stated</span>}
               {fit && <span className="xs muted">{fit.eligibilityNote}</span>}</div>
-            <div className="stack-sm"><span className="eyebrow">Requirements (quoted)</span>{j.requirements.map((r) => <span key={r.id} className="quote"><strong>{r.keyword}:</strong> {r.quote}</span>)}</div>
+            <div className="stack-sm"><span className="eyebrow">Requirements (quoted)</span>{j.requirements.map((r) => <span key={r.id} className="quote"><strong>{r.keyword}:</strong> {decodeEntities(r.quote)}</span>)}</div>
           </div>
           {(() => { const sc = screeningFor(j); return sc && (
             <details className="notice stack-sm" data-testid="screening">
