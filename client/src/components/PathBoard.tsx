@@ -303,7 +303,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   const seatedNow = fox.y === SPOTS.desk.y && fox.x === SPOTS.desk.x;
   // The speech bubble sits beside his head on the window side, where no labels or furniture sit (Nov 24); at the window it flips left. Phones: below the room.
   const fx = (fox.x / 860) * 100, hy = ((fox.y + 96 - 40) / 420) * 100;
-  const sayAt = { "--fx": `${fx}%`, "--hy": `${hy}%`, "--tail": `${fx}%` } as CSSProperties;
+  const sayAt = { "--fx": `${fx}%`, "--fxn": fx, "--hy": `${hy}%`, "--tail": `${fx}%` } as CSSProperties;
   const side = fx > 70 ? "l" : "r";
   const stars = [[578, 70], [636, 64], [704, 76], [748, 66], [764, 98], [690, 104], [596, 116], [728, 118], [654, 92]];
   const lit = [[576, 178], [584, 192], [600, 150], [604, 166], [599, 184], [638, 138], [648, 152], [640, 168], [650, 184], [678, 176], [686, 192], [718, 194]];
@@ -398,13 +398,14 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
             <g className="ps-fox-y" style={{ transform: `translateY(${fox.y}px)` }}>
               <g transform={`scale(${FOX_S})`}><g transform={fox.face < 0 ? "translate(200 0) scale(-1 1)" : undefined}><g className={"ps-fox-bob" + (spin && seatedNow ? ` spin${spin % 2}` : "")} style={suit}>
                 <g className="ps-legs">
-                  <g className="ps-tail"><path d="M140 262C192 268 214 226 202 188C194 212 176 232 142 242Z" /><path className="tip" d="M202 188C206 200 206 212 201 224C194 212 194 198 202 188Z" /></g>
-                  <g className="ps-leg l"><path className="ps-trouser" d="M64 244L62 300Q62 305 67 305L91 305Q96 305 96 300L98 244Z" /><path className="ps-shoe" d="M96 301L70 301Q54 302 52 311Q51 317 58 317L96 317Q100 317 100 313L100 305Q100 301 96 301Z" /><path className="ps-shine" d="M60 307Q64 304 72 304" /></g>
-                  <g className="ps-leg r"><path className="ps-trouser" d="M102 244L104 300Q104 305 109 305L133 305Q138 305 138 300L136 244Z" /><path className="ps-shoe" d="M104 301L130 301Q146 302 148 311Q149 317 142 317L104 317Q100 317 100 313L100 305Q100 301 104 301Z" /><path className="ps-shine" d="M128 304Q136 304 140 307" /></g>
-                  <path className="ps-hem" d="M32 212C31 228 33 242 38 252Q100 262 162 252C167 242 169 228 168 212Z" />
-                  <path className="ps-hem-line" d="M100 222V256" /><circle className="ps-btn" cx="108" cy="232" r="3" /><circle className="ps-btn" cx="108" cy="244" r="3" />
+                  <g className="ps-tail"><path d="M134 258C172 270 210 254 216 214C219 194 213 180 204 170C197 190 184 206 162 216C148 222 140 234 134 258Z" /><path className="tip" d="M204 170C213 180 219 194 216 212C207 206 199 194 196 184Z" /></g>
+                  <g className="ps-leg l"><path className="ps-trouser" d="M62 248L60 296Q60 302 66 302L92 302Q98 302 98 296L99 248Z" /><path className="ps-shoe" d="M97 296L72 296Q53 297 51 308Q50 317 60 317L94 317Q100 317 100 311L100 300Q100 296 97 296Z" /><path className="ps-shine" d="M59 306Q63 302 71 302" /></g>
+                  <g className="ps-leg r"><path className="ps-trouser" d="M138 248L140 296Q140 302 134 302L108 302Q102 302 102 296L101 248Z" /><path className="ps-shoe" d="M103 296L128 296Q147 297 149 308Q150 317 140 317L106 317Q100 317 100 311L100 300Q100 296 103 296Z" /><path className="ps-shine" d="M129 302Q137 302 141 306" /></g>
+                  <path className="ps-hem" d="M31 212C32 228 36 242 40 256L95 262L100 254L105 262L160 256C164 242 168 228 169 212Z" />
+                  <path className="ps-hem-line" d="M100 222V253" /><circle className="ps-btn" cx="106" cy="230" r="3" /><circle className="ps-btn" cx="106" cy="243" r="3" />
                 </g>
                 <Remy size={200} mood={mood} outfit={wearing} className={fox.pose ? `o-${fox.pose}` : ""} />
+                <g className="ps-arms"><g className="ps-arm l"><path className="ps-sleeve-ol" d="M48 184Q35 212 36 244" /><path className="ps-sleeve" d="M48 184Q35 212 36 244" /><path className="ps-cuff" d="M28 245L44 246" /><ellipse className="ps-paw" cx="36" cy="255" rx="11" ry="10" /></g><g className="ps-arm r"><path className="ps-sleeve-ol" d="M152 184Q165 212 164 244" /><path className="ps-sleeve" d="M152 184Q165 212 164 244" /><path className="ps-cuff" d="M156 246L172 245" /><ellipse className="ps-paw" cx="164" cy="255" rx="11" ry="10" /></g></g>
               </g></g></g>
             </g>
           </g>

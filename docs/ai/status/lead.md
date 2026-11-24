@@ -4,6 +4,7 @@ Updated: 2026-11-24 08:30 UTC
 Area: the website (`client/`, `server/`, `shared/`, `docs/`), releases, `docs/ai/CONTEXT.md`
 
 ## Working on now
+- Office Remy's standing body redrawn (Dilan, Nov 24): hanging arms with paws, raised arm cut to shoulder length, chunkier trousers and shoes, cutaway jacket hem, bushier tail (`PathBoard.tsx` Office, `office.css`). Dilan picked bubble A: quips sit above his head in his cream and outline colours, room labels fade while he talks.
 - Beta testers merged into Beta Insider (everyone, Nov 24): anyone on the old tester list (`beta_list`) gets `ws.insider` on their next `/api/me` (`beta.onList`), so the pin and check-ins; Admin → Students shows one "Beta Insiders" list; tester wording in emails and the homepage says Insider. About/Privacy copy is the "Update the About and Privacy pages" thread's.
 - About, Privacy & terms and the beta terms brought up to date (`client/src/pages/Info.tsx`, top of `shared/beta.ts`; terms versions bumped so everyone agrees once more). Public page: waits for Dilan's go before merge.
 - Account v2 for everyone (Dilan approved the mockups Nov 24; gated by useOwnerView, which includes students now that The Big Upgrade is released): all five tabs in `client/src/pages/Accounts.tsx` (`Owner*` components, `ac-*` in `index.css`), students keep the old tabs. Mockups: /mnt/project-files/account-settings-v2/.
