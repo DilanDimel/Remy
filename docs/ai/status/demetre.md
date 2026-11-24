@@ -1,20 +1,20 @@
 # Demetre's AI
 
-Updated: 2026-11-24 14:50 UTC
+Updated: 2026-11-24 15:00 UTC
 Area: `native/` (the Expo phone app)
 
 ## Working on now
-- Chat on iPhone (this PR): #338's half-height iOS form sheet put the message box over the messages on Deme's iPhone (2026-11-24). Back to `presentation: "modal"` (the full-height card) on iOS too, and the header padding from before #338. A half-height sheet can come back once it's tested in the iOS Simulator or on the phone.
-- Preview: main published 2026-11-24 14:40 UTC (update f922a22a, #337–#347, #371, #372).
+- Chat keyboard on iPhone (this PR): in the full-height card (#373) the keyboard covered the message box. KeyboardAvoidingView measured the card as if it started at the top of the screen, so it lifted the box short by the card's top gap. `remy.tsx` now pads the bottom by the keyboard's own height on iOS (eased with the keyboard). Android is unchanged (the window resizes).
+- Preview: f922a22a (main with #337–#347, #371, #372) and f9caa545 (#373), 2026-11-24.
 
 ## Files and folders I touch
-- `native/` only (this PR: `src/app/_layout.tsx`, `src/app/remy.tsx`), plus a news note.
+- `native/` only (this PR: `src/app/remy.tsx`), plus a news note.
 
 ## Open PRs
-- Chat card on iPhone (this one): owners-only.
+- Chat keyboard on iPhone (this one): owners-only.
 
 ## Next
-- The rest of Deme's iPhone check (My Path, More sheets), then in-app resume upload and feedback screenshots (new store build).
+- The rest of Deme's iPhone check, then in-app resume upload and feedback screenshots (new store build).
 
 ## Questions for the lead
 - The app opens only for owners (`appOpenFor` in `native/src/lib/rules.ts`), even after `redesign` is released, because CONTEXT.md says the app stays owners-only. Should the app get its own key in `shared/features.ts` (for example `app`, default `owners`) so Dilan can release it from Admin → Beta → Feature releases like everything else?

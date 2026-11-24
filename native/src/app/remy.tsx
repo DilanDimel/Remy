@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import { Alert, Animated, Easing, FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { Alert, Animated, Easing, FlatList, Keyboard, LayoutAnimation, Platform, Pressable, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ChatAction, ChatDid, ChatMsg, Workspace } from "@shared/types";
 import { resumeDiff } from "@shared/resumeDiff";
@@ -132,10 +132,15 @@ export default function RemyChat() {
   }, [live, shown, doneTick]);
   const [err, setErr] = useState("");
   // The box sits above the home indicator; with the keyboard up, just above the keyboard instead.
+  // On iPhone the chat is a card that ends at the bottom of the screen, but KeyboardAvoidingView measures it as if it
+  // started at the top, so it lifted the box short by the card's top gap and the keyboard covered it (Nov 24, on
+  // Deme's iPhone). The keyboard's own height, as bottom padding, puts the box right on top of it.
   const [kb, setKb] = useState(false);
+  const [kbH, setKbH] = useState(0);
   useEffect(() => {
-    const a = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", () => setKb(true));
-    const b = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => { setKb(false); if (sending.current) toBottom(); });
+    const ease = (e: { duration?: number }) => { if (Platform.OS === "ios") LayoutAnimation.configureNext({ duration: e.duration || 250, update: { type: LayoutAnimation.Types.keyboard } }); };
+    const a = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", (e) => { ease(e); setKb(true); setKbH(e.endCoordinates.height); });
+    const b = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", (e) => { ease(e); setKb(false); setKbH(0); if (sending.current) toBottom(); });
     return () => { a.remove(); b.remove(); };
   }, []);
   // Each new message (yours, Remy's first words, the saved reply) brings the list back to the bottom while sending.
@@ -223,7 +228,7 @@ export default function RemyChat() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <View style={{ flex: 1, backgroundColor: c.bg, paddingBottom: Platform.OS === "ios" ? kbH : 0 }}>
       {/* A sheet on iOS (no status bar to clear, room for the grabber); full screen on Android. */}
       <View style={{ paddingTop: Platform.OS === "ios" ? 14 : insets.top + 8, paddingHorizontal: 16, paddingBottom: 10, flexDirection: "row", alignItems: "center", gap: 10, borderBottomWidth: 1, borderColor: c.line }}>
         <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.foxSoft, alignItems: "center", justifyContent: "center", overflow: "hidden" }}><Remy size={38} icon /></View>
@@ -259,6 +264,6 @@ export default function RemyChat() {
           <Icon name="up" size={19} color={text.trim() ? c.onFox : c.faint} strokeWidth={2.6} />
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
