@@ -16,7 +16,10 @@ services:
       - key: OR_DB_PATH
         value: /data/data.db
       - key: OR_AI_CHAIN
-        value: openrouter:google/gemini-3.8-flash,openrouter:openai/gpt-5-mini,gemini:gemini-3.8-flash
+        value: openrouter:anthropic/claude-haiku-5.5,openrouter:google/gemini-3.8-flash,openrouter:openai/gpt-5-mini
+      # Every OpenRouter call uses zero-data-retention providers only (privacyRouting in server/ai/ai.ts).
+      - key: OR_AI_PRIVACY
+        value: "on"
       # Optional: a stronger model for resume tailoring only (team decision; costs more per call).
       # Example: openrouter:openai/gpt-5.1,openrouter:google/gemini-3.8-flash
       # - key: OR_AI_TAILOR_CHAIN

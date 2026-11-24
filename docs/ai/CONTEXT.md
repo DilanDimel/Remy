@@ -61,7 +61,7 @@ The dated reasons behind these are in [`DECISIONS.md`](DECISIONS.md).
 ## Status right now (Nov 24, 2026)
 
 - The website redesign ("The Big Upgrade") is finished for owners and about to be released to students in one switch, together with Rewards. Interview and Community stay locked ("coming soon") for students; Opportunities is open.
-- Students use Gemini Flash; owners trial a Claude model (`OR_AI_CHAIN_OWNERS`).
+- Everyone uses Claude Haiku 5.5 through OpenRouter, with Gemini Flash and GPT-5 mini as fallbacks (`OR_AI_CHAIN`), zero data retention on (`OR_AI_PRIVACY=on`, Nov 24). Owners can still trial other models (`OR_AI_CHAIN_OWNERS`).
 - Background jobs run hourly from a Cloudflare cron that calls `/api/cron/tick`.
 - The phone app (`native/`) is an owners-only Expo preview: native Today, Path, Remy and Jobs tabs; other pages open the website in a signed-in sheet. Demetre is taking it over now, from a handoff the lead wrote for him.
 - Supabase (free plan) went over its 5 GB data-transfer quota. The cause, the server re-downloading each workspace on every request, is fixed in #310. Supabase support confirmed (Nov 24): if the cycle that starts Dec 18 stays under the free 5 GB, nothing gets restricted; going over again means a restriction with no new grace period. So: stay on Free, no Pro, Neon or Render Postgres move needed. Never load a whole workspace per request in new code, and bump `updated_at` in any raw SQL that edits `workspaces`. Details in `status/lead.md`.

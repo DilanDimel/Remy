@@ -45,7 +45,8 @@ Secrets live in the Render dashboard, never in the repo.
 
 | Variable | Purpose |
 |---|---|
-| `OR_AI_CHAIN` | AI providers to try in order, e.g. `openrouter:google/gemini-3.8-flash,gemini:gemini-3.8-flash`. Keys: `OPENROUTER_API_KEY`, `GEMINI_API_KEY` |
+| `OR_AI_CHAIN` | AI providers to try in order, e.g. `openrouter:anthropic/claude-haiku-5.5,openrouter:google/gemini-3.8-flash`. Keys: `OPENROUTER_API_KEY`, `GEMINI_API_KEY` |
+| `OR_AI_PRIVACY` | `on`: every OpenRouter call uses zero-data-retention providers only (owners' trial always does) |
 | `OR_AI_CHAIN_OWNERS` | Separate chain for owners' accounts (trial models) |
 | `OR_AI_TAILOR_CHAIN` | Optional stronger chain for resume tailoring only |
 | `OR_AI_DAILY_BUDGET` | Site-wide AI requests per 24 hours (default 1500) |
