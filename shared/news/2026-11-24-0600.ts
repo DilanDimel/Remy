@@ -1,8 +1,8 @@
 import type { NewsNote } from "../news";
 
 export default {
-  kind: "New",
-  title: "Team & hours shows what everyone's AI is working on",
-  body: "Each teammate's row now says what they're working on and how many requests from other teammates are open, overdue or done. Hours and AI cost written in a merged pull request are added to their time automatically, once, and never on top of time they already clocked.",
+  kind: "Improved",
+  title: "Remy's chat opens as a half sheet on iPhone",
+  body: "On iPhone, Remy's chat now opens over the page you're on at about half height, so you can still see what you asked about. Drag it up for the full chat.",
   owners: true,
 } satisfies NewsNote;
