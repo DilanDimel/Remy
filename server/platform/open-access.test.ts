@@ -62,8 +62,17 @@ test("open access: owners flip it, anyone signs in, terms and insider follow, an
   assert.equal((await call(student, "POST", "/api/beta/agree", { version: BETA_TERMS_VERSION })).status, 409);
   assert.equal((await call(student, "POST", "/api/beta/agree", { version: OPEN_TERMS_VERSION })).data.betaAgreed.version, OPEN_TERMS_VERSION);
 
+  // Old beta testers are Beta Insiders (Nov 24): someone on the tester list joins on their next visit, no form, no 3 days.
+  assert.equal((await call(boss, "POST", "/api/admin/beta", { emails: "tester@open.test", note: "Cohort 1" })).status, 200);
+  const tester = await account("sb:open-tester", "tester@open.test");
+  const visit = (await call(tester, "GET", "/api/me")).data.workspace;
+  assert.ok(visit.insider?.joinedAt);
+  assert.equal(pinsOf(visit).find((p) => p.id === "insider")?.earned, true);
+  assert.equal((await call(tester, "GET", "/api/me")).data.workspace.insider.joinedAt, visit.insider.joinedAt); // joins once
+
   // Beta Insider: a newcomer must use Remy on 3 days first; a regular joins and gets the secret pin.
   const newcomer = await account("sb:open-new", "newcomer@open.test", ["2026-11-22"]);
+  assert.equal((await call(newcomer, "GET", "/api/me")).data.workspace.insider, undefined); // not on the list: invited after 3 days
   assert.equal((await call(newcomer, "POST", "/api/insider")).status, 400);
   const joined = await call(student, "POST", "/api/insider", { answers: { goal: "A finance internship", stuck: "Networking", tools: "LinkedIn", source: "A friend" } });
   assert.equal(joined.status, 200);

@@ -240,9 +240,11 @@ type BetaRow = { email: string; note: string; addedBy: string; addedAt: string; 
 type BetaData = { on: boolean; inviteOnly: boolean; open: boolean; formUrl: string; emailReady: boolean; list: BetaRow[] };
 type Person = { email: string; name: string; school: string; major: string; classYear: string; goal: string; stuck: string; tools: string; source: string; status: AppStatus; onList: boolean; cohort: string; appliedAt: string | null; signedUpAt: string | null; days: number; lastDay: string | null; insider: { joinedAt: string; surveyAt?: string } | null };
 type StudentsData = { people: Person[]; surveys: { question: string; answer: string; email: string; at: string }[] };
-const tester = (p: Person) => !!p.insider || p.onList || p.status === "accepted";
+// Beta testers and Beta Insiders are one group (Nov 24): anyone on the old tester list joins Insider on their next visit.
+const insider = (p: Person) => !!p.insider || p.onList || p.status === "accepted";
 type Tone = "fox" | "sage" | "amber" | "lav";
 const stage = (p: Person): [string, Tone] => p.insider ? [`Insider since ${day(p.insider.joinedAt)}`, "fox"]
+  : p.signedUpAt && (p.onList || p.status === "accepted") ? ["Insider from next visit", "fox"]
   : p.signedUpAt && p.days >= 3 ? ["Invited to Insider", "sage"] : p.signedUpAt ? [`${p.days} of 3 days`, "sage"] : [p.status === "accepted" || p.onList ? "Hasn't signed in" : p.status === "next" ? "Next cohort" : p.status === "declined" ? "Declined" : "Applied", p.status === "accepted" || p.onList ? "amber" : "lav"];
 const initials = (p: Person) => (p.name || p.email).split(/[\s.@]+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join("").toUpperCase();
 
@@ -257,7 +259,7 @@ function BetaTab() {
   const [note, setNote] = useState("");
   const [notify, setNotify] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [view, setView] = useState<"testers" | "insiders" | "applied">("testers");
+  const [view, setView] = useState<"insiders" | "applied">("insiders");
   const [find, setFind] = useState("");
   const [panel, setPanel] = useState<"" | "apps" | "add" | "more">("");
   const [who, setWho] = useState<Person | null>(null);
@@ -287,16 +289,16 @@ function BetaTab() {
     if (r) { setD({ ...d, list: r.list }); setWho(null); reloadSt(); }
   };
   const people = st?.people || [];
-  const testers = people.filter(tester), insiders = people.filter((p) => p.insider), applied = people.filter((p) => p.status === "new" || p.status === "next");
-  const shown = (view === "testers" ? testers : view === "insiders" ? insiders : applied)
+  const insiders = people.filter(insider), applied = people.filter((p) => p.status === "new" || p.status === "next");
+  const shown = (view === "insiders" ? insiders : applied)
     .filter((p) => !find || `${p.name} ${p.email} ${p.school} ${p.major}`.toLowerCase().includes(find.toLowerCase()));
-  const signedIn = testers.filter((p) => p.signedUpAt).length;
+  const signedIn = insiders.filter((p) => p.signedUpAt).length;
   const rates = (st?.surveys || []).filter((x) => /^[1-5]$/.test(x.answer)).map((x) => Number(x.answer));
   const words = (st?.surveys || []).filter((x) => !/^[1-5]$/.test(x.answer));
   return (
     <div className="adm2 adm2-full adm2-fixed">
       <div className="adm-head">
-        <div><h1 className="adm-hello">Students</h1><p className="adm2-say"><b>{plural(testers.length, "tester")}, {plural(insiders.length, "Beta Insider")}.</b> {applied.length ? `${plural(applied.length, "application")} waiting for a decision.` : `${signedIn} of them signed in.`}</p></div>
+        <div><h1 className="adm-hello">Students</h1><p className="adm2-say"><b>{plural(insiders.length, "Beta Insider")}.</b> {applied.length ? `${plural(applied.length, "application")} waiting for a decision.` : `${signedIn} of them signed in.`}</p></div>
         <div className="row adm2-headbtns" style={{ gap: 6, flexWrap: "wrap" }}>
           <button className="btn btn-secondary btn-sm" onClick={() => setPanel("apps")} data-testid="button-open-applications">Applications{applied.length ? ` (${applied.length})` : ""}</button>
           <button className="btn btn-ghost btn-sm" onClick={() => setPanel("add")} data-testid="button-open-add-emails"><Plus size={14} /> Add by email</button>
@@ -315,7 +317,7 @@ function BetaTab() {
         <section className="adm2-card" data-testid="students-list">
           <div className="adm2-h"><h3>Who's in</h3>
             <div className="adm2-seg" role="group" aria-label="Show">
-              {([["testers", `Testers ${testers.length}`], ["insiders", `Insiders ${insiders.length}`], ["applied", `Applied ${applied.length}`]] as const).map(([k, l]) => <button key={k} aria-pressed={view === k} onClick={() => setView(k)} data-testid={`students-view-${k}`}>{l}</button>)}
+              {([["insiders", `Beta Insiders ${insiders.length}`], ["applied", `Applied ${applied.length}`]] as const).map(([k, l]) => <button key={k} aria-pressed={view === k} onClick={() => setView(k)} data-testid={`students-view-${k}`}>{l}</button>)}
             </div>
           </div>
           <input className="input" placeholder="Search a name, email, school or major" value={find} onChange={(e) => setFind(e.target.value)} aria-label="Search students" data-testid="input-students-search" />
@@ -370,7 +372,7 @@ function BetaTab() {
       {panel === "add" && (
         <Modal title="Add by email" onClose={() => setPanel("")}>
           <form className="stack-sm" onSubmit={(e) => { e.preventDefault(); add(); }}>
-            <span className="small muted">Lets them sign in while Remy is invite-only. Once it's open to everyone, nobody needs this.</span>
+            <span className="small muted">Makes them Beta Insiders (the secret pin and the check-ins) on their next visit, and lets them sign in if Remy goes back to invite-only.</span>
             <textarea className="textarea" value={emails} onChange={(e) => setEmails(e.target.value)} placeholder="Emails, one per line or separated by commas" aria-label="Emails to accept" data-testid="input-beta-emails" />
             <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note, e.g. Cohort 1 · tcu-table (optional)" aria-label="Note" maxLength={200} />
             <label className="row small"><input type="checkbox" checked={notify && d.emailReady} disabled={!d.emailReady} onChange={(e) => setNotify(e.target.checked)} /> Email them “You're in” with the sign-in link{d.emailReady ? "" : " (email isn't set up on this server)"}</label>

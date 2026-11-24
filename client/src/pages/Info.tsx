@@ -7,7 +7,7 @@ import { Top } from "./Landing2";
 import { BETA_TERMS_LEAD, termsFor } from "@shared/beta";
 
 const CONTACT = "hello@remyai.org";
-const UPDATED = "November 23, 2026";
+const UPDATED = "November 24, 2026";
 
 const slug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const Section = ({ title, children }: { title: string; children: ReactNode }) => (
@@ -58,29 +58,36 @@ export const TEAM: { name: string; role: string; photo: string; email?: string }
 export function About() {
   const config = useStore()?.config;
   return (
-    <Page title="About Remy" lead={`Remy is a career coach for college students: it finds real openings that fit you and helps you apply honestly. ${config?.beta?.open ? "During the beta anyone can sign in and start right away." : "During the beta it's invite-only: apply to be a beta tester on the homepage."}`}>
+    <Page title="About Remy" lead={`Remy is an AI career coach for college students: he maps out your path, finds real openings that fit you and helps you apply honestly. ${config?.beta?.open ? "Remy is free during beta, and anyone can sign up and start right away." : "Remy is free during beta, and invite-only for now."}`}>
       <Section title="Why we built it">
         <p>Most students, freshmen especially, don't know where to start: what to put on a resume, which openings fit, or who to talk to. Remy walks you through it, from your first resume to your first offer.</p>
       </Section>
       <Section title="What Remy does">
         <ul className="stack-sm" style={{ paddingLeft: 18 }}>
+          <li><b>Shows you the road ahead.</b> My Path maps your field year by year: the roles, skills and exams that matter, when internship season opens, and a short daily round of real steps. Remy works on it with you from his office.</li>
           <li><b>Reads your resume, or builds one with you.</b> No resume yet? Remy builds one from a few taps and short answers, using only what you say.</li>
-          <li><b>Finds real openings.</b> Remy reads employers' own career sites and shows openings that fit your major, year and where you want to work.</li>
-          <li><b>Tailors honestly.</b> Every suggested change is checked against your own resume. Remy never invents numbers, titles or experience.</li>
-          <li><b>Helps you reach out.</b> Remy helps write the first email to people you've met. You approve every word and send it yourself. Alumni matching is coming soon.</li>
-          <li><b>Keeps you on track.</b> A plan, deadlines, a calendar and an application tracker in one place, and it shows how many of your applications got an answer, so you can see what works.</li>
+          <li><b>Fixes your resume himself, honestly.</b> Remy rewrites weak lines using facts already on your resume and shows each one next to the original, for you to accept, edit or skip. If a fact is missing, he asks you. He never invents numbers, titles or experience.</li>
+          <li><b>Finds real openings.</b> Remy reads employers' own career sites and shows openings that fit your major, year and where you want to work, and says whether you qualify and why.</li>
+          <li><b>Does things for you, and shows you what he did.</b> Ask Remy in chat to add a to-do, save an opening or update your plan, and he does it. Every action is listed so you can undo it. He also reaches out first with reminders and what to do next.</li>
+          <li><b>Helps you reach out.</b> Remy helps write the first email to people you've met. You approve every word and send it yourself from your own email.</li>
+          <li><b>Keeps you on track, and makes it fun.</b> A plan, deadlines, a calendar and an application tracker in one place. Rewards add XP, a streak, pins to collect and items for Remy's office as you make progress.</li>
+          <li><b>Coming soon:</b> interview practice built from real postings, and Community for alumni connections.</li>
         </ul>
       </Section>
       <Section title="Our promises">
         <ul className="stack-sm" style={{ paddingLeft: 18 }}>
-          <li>Remy only uses what you give it, and you can see and change all of it.</li>
+          <li>Remy only uses what you give it, and you can see and change all of it, including what he remembers about you.</li>
+          <li>Remy never applies, emails or sends anything for you.</li>
           <li>Remy never asks for your passwords.</li>
           <li>Delete your account and everything that identifies you is deleted right away.</li>
           <li>Remy never records your screen or what you type to learn how it's used: when something breaks, it reports only what failed and where.</li>
         </ul>
       </Section>
+      <Section title="Beta Insiders">
+        <p>Remy is free during beta. After you've used Remy on a few different days, you can join Beta Insiders: a secret pin, and a three-question check-in every two weeks that shapes what we build next. Everyone who signed up as a beta tester before sign-ups opened is already an Insider.</p>
+      </Section>
       <Section title="Who we are">
-        <p>Remy is a career coach for college students, built by a small team in Fort Worth, Texas. We started it in October 2026 and ship improvements every week.</p>
+        <p>Remy is made by RemyAI LLC, a company in Fort Worth, Texas. We started building it in October 2026 and ship improvements every week.</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(128px, 1fr))", gap: 12 }}>
           {TEAM.map((m) => (
             <figure key={m.name} className="stack-sm" style={{ margin: 0, alignItems: "center", textAlign: "center" }}>
@@ -104,12 +111,16 @@ export function Policies() {
       <Section title="What Remy collects">
         <ul className="stack-sm" style={{ paddingLeft: 18 }}>
           <li><b>From signing in:</b> your name, email address and profile photo.</li>
-          <li><b>What you give Remy:</b> your resume (the file and its text), a LinkedIn profile PDF if you upload one, your answers in setup and the resume builder, your preferences, saved openings, applications, tracker, calendar items, contacts you add, email drafts and chat messages.</li>
+          <li><b>What you give Remy:</b> your resume (the file and its text), a LinkedIn profile PDF if you upload one, your answers in setup and the resume builder, anything you paste in from Handshake, your degree plan or an employer's email, your preferences and settings (like light or dark mode), saved openings, applications, tracker, calendar items, contacts you add, email drafts and chat messages.</li>
+          <li><b>What Remy remembers about you:</b> short facts he learns from your resume, setup and chats (like your goals or where you want to work). New ones wait for your OK, and you can edit or delete any of them in Account → AI memory.</li>
+          <li><b>What Remy does for you:</b> a list of the actions he takes in your account when you ask (like saving an opening or adding a to-do), so you can see and undo them.</li>
+          <li><b>Your progress and rewards:</b> your daily round, streak, XP, level, pins and the items in Remy's office.</li>
           <li><b>Your school email</b>, if you verify it (for example name@tcu.edu), so Remy knows you're a student there.</li>
-          <li><b>Your beta tester application</b>, if you apply with our Google Form: your name, school, the email you'll sign in with, major, class year, what you're looking for, where you're stuck, the tools you use, whether you'll give weekly feedback and how you heard about Remy. The team uses it to choose who joins the beta. Google Forms' own privacy policy applies to the form itself.</li>
+          <li><b>Beta Insider answers</b>, if you join: your short answers when you join (what you're looking for, where you're stuck, the tools you use and how you heard about Remy) and your answers to the check-in every two weeks. If you applied to be a beta tester before sign-ups opened, we also keep the answers from that Google Form (name, school, sign-in email, major, class year and the same questions). Google Forms' own privacy policy applies to the form itself.</li>
           <li><b>Your ratings and feedback:</b> “More like this” / “Not for me” on openings, one-tap 👍 / 👎, anything you send with Send feedback, and your one-tap answers to Remy's questions after something happens (like how an interview went).</li>
           <li><b>Automatic problem reports:</b> when something breaks for you (a page error, or a request that fails or is very slow), your browser tells Remy which page and what failed, linked to your account so we can fix it. Remy also counts which pages are opened and when a button is clicked over and over (a sign it's broken), without your name. Remy never records your screen or what you type.</li>
           <li><b>Your phone number</b>, only if you turn on texts for urgent deadlines in Account. You can turn them off or remove the number at any time.</li>
+          <li><b>That you agreed to the beta terms</b>, with the version and the time.</li>
           <li><b>A sign-in cookie</b> that keeps you signed in. Remy uses your network address briefly to stop abuse (like too many requests at once) and doesn't store it.</li>
         </ul>
       </Section>
@@ -125,14 +136,15 @@ export function Policies() {
         <p>Only to run Remy for you: building your profile, finding openings that fit, tailoring applications, drafting emails, and planning your next steps.</p>
         <p>Some of this uses AI. When it does, Remy sends only the text that task needs (for example, your resume and a job posting) to an AI provider, either directly or through OpenRouter: currently Google's Gemini models, and for the team's own test accounts Anthropic's Claude models. Those providers' own privacy policies apply. Remy checks what the AI writes against your own words before showing it to you.</p>
         <p>If you practice an interview answer out loud, your browser's own speech recognition turns your voice into text (in Chrome, Google handles this). Remy receives only the text, never a recording.</p>
-        <p>Remy emails you 6-digit sign-in codes and, unless you turn them off in Account → Appearance & alerts, deadline reminders and a weekly digest, from remy@mail.remyai.org. These emails are sent through our email provider, Resend (with a Gmail account as a backup only if Resend fails), and replies go to hello@remyai.org. If you turn on deadline texts, they're sent through our text provider, Twilio. If you're accepted as a beta tester, the team sends you a welcome email with how to sign in.</p>
+        <p>Some of Remy's work happens while you're away. About once a day he looks for new openings that fit your profile, every few days he checks whether your saved openings are still open, and he sends the reminders you've turned on. This uses your saved preferences inside Remy; it doesn't send anything for you or share your information with employers.</p>
+        <p>Remy emails you 6-digit sign-in codes and, unless you turn them off in Account → Appearance & alerts, deadline reminders and a weekly digest, from remy@mail.remyai.org. These emails are sent through our email provider, Resend (with a Gmail account as a backup only if Resend fails), and replies go to hello@remyai.org. If you turn on deadline texts, they're sent through our text provider, Twilio.</p>
         <p>The team's dashboard shows counts across students (for example, how many applications got an answer, or how many students opened a page), never what you wrote. We may keep combined statistics that can't identify anyone to improve Remy.</p>
       </Section>
       <Section title="Where it's stored">
-        <p>Your information is stored in a Supabase database and served from Render, both in the United States. Sign-in is handled by Supabase (with Google or LinkedIn), Google, or Remy's own emailed 6-digit code. Public job postings Remy finds are kept in one shared list with no student information. If you connect Google Calendar, Remy keeps an encrypted Google access key so it can update and delete its “Remy” calendar; disconnecting deletes the calendar and the key.</p>
+        <p>Your information is stored in a Supabase database and served from Render, both in the United States. Visits to remyai.org pass through Cloudflare's network, which protects the site and keeps it fast, and Cloudflare also starts Remy's hourly background jobs. The site's fonts and company logos load from Google, so Google sees your network address when they load, as with most websites. Sign-in is handled by Supabase (with Google or LinkedIn), Google, or Remy's own emailed 6-digit code. Public job postings Remy finds are kept in one shared list with no student information. If you connect Google Calendar, Remy keeps an encrypted Google access key so it can update and delete its “Remy” calendar; disconnecting deletes the calendar and the key.</p>
       </Section>
       <Section title="Deleting your information">
-        <p>Go to <b>Account → Account & data → Delete everything</b>. Your resume, files, profile, applications, calendar, contacts, chat, ratings, feedback and problem reports, verified school email, beta tester application, sign-in record and account are deleted immediately, the “Remy” calendar is deleted from your Google Calendar if you connected it, and you're signed out. Remy keeps nothing that identifies you. Combined statistics, if any, can't be traced back to you.</p>
+        <p>Go to <b>Account → Account & data → Delete everything</b>. Your resume, files, profile, applications, calendar, contacts, chat, AI memory, rewards and progress, ratings, feedback and problem reports, Beta Insider answers, verified school email, beta tester application, sign-in record and account are deleted immediately, the “Remy” calendar is deleted from your Google Calendar if you connected it, and you're signed out. Remy keeps nothing that identifies you. Combined statistics, if any, can't be traced back to you.</p>
         <p>You can also <b>download all your data</b> from the same page at any time: your account, workspace, uploaded files, feedback and problem reports, AI use, beta application and whether Google Calendar is connected. Left out on purpose: sign-in secrets (sign-in codes and the Google Calendar key) and the team's internal notes on beta applications. Guest (demo) accounts are deleted automatically after 30 days without use. Applications the team declines are deleted after their cohort closes. Copies in our hosting providers' routine backups expire on their own schedule.</p>
       </Section>
 
