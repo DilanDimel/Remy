@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
-import fs from "node:fs";
 import type { Me, Workspace } from "@shared/types";
 import { q, q1, tx } from "./sql";
+import { r2Delete, r2Get, r2Put, r2Ready } from "./r2";
 
 export const nowIso = () => new Date().toISOString();
 export { uid } from "./ids";
@@ -175,34 +175,31 @@ function fromStored(data: any): Workspace {
 // the hourly background jobs read every workspace). A hand edit in the database must set updated_at = now().
 const cache = new Map<string, { v: string; data: any; at: number }>();
 const CACHE_MAX = 200, CACHE_MS = 24 * 60 * 60_000;
-// On Render the copies are also kept on the service's disk (/data), so a deploy (dozens a day) doesn't re-download
-// every workspace. They're still checked against updated_at before use, so a stale file is never served.
-// shortcut: files are removed only when an account or workspace is deleted; prune by age if /data (1 GB) fills up.
-const DISK = (() => {
-  if (process.env.NODE_ENV !== "production" || !fs.existsSync("/data")) return "";
-  try { fs.mkdirSync("/data/ws-cache", { recursive: true, mode: 0o700 }); return "/data/ws-cache"; } catch { return ""; }
-})();
-const diskFile = (userId: string) => `${DISK}/${sha(userId)}.json`;
-function remember(userId: string, v: string, data: any, at = Date.now(), toDisk = true) {
+// On Render the copies are also kept, encrypted, in a private Cloudflare R2 bucket (./r2.ts), so a deploy (dozens a
+// day) doesn't re-download every workspace. They're still checked against updated_at before use, so a stale copy is never served.
+// shortcut: files are removed only when an account or workspace is deleted; add an R2 lifecycle rule if the bucket grows.
+const cacheName = (userId: string) => `ws/${sha(userId)}`;
+function remember(userId: string, v: string, data: any, at = Date.now(), share = true) {
   cache.delete(userId);
   cache.set(userId, { v, data, at });
   if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value!);
-  if (DISK && toDisk) fs.promises.writeFile(diskFile(userId), JSON.stringify({ v, at, data }), { mode: 0o600 }).catch(() => {});
+  if (share) r2Put(cacheName(userId), { v, at, data });
 }
-function fromDisk(userId: string) {
-  if (!DISK || cache.has(userId)) return;
-  try { const f = JSON.parse(fs.readFileSync(diskFile(userId), "utf8")); remember(userId, f.v, f.data, f.at, false); } catch { /* none yet */ }
+async function fromShared(userId: string) {
+  if (!r2Ready() || cache.has(userId)) return;
+  const f = await r2Get(cacheName(userId));
+  if (f?.v && !cache.has(userId)) remember(userId, f.v, f.data, f.at, false);
 }
 function forget(userId: string) {
   cache.delete(userId);
-  if (DISK) fs.promises.rm(diskFile(userId), { force: true }).catch(() => {});
+  r2Delete(cacheName(userId));
 }
 const parse = (d: any) => (typeof d === "string" ? JSON.parse(d) : d);
 // Taken before the query: another request may replace the entry while this one waits.
-const cached = (userId: string) => { fromDisk(userId); const c = cache.get(userId); return c && Date.now() - c.at < CACHE_MS ? c : { v: "", data: null }; };
+const cached = async (userId: string) => { await fromShared(userId); const c = cache.get(userId); return c && Date.now() - c.at < CACHE_MS ? c : { v: "", data: null }; };
 /** The stored JSON (never mutate it): the cached copy when the row is unchanged, else downloaded and cached. */
 async function readStored(run: typeof q, userId: string, lock = ""): Promise<any> {
-  const c = cached(userId);
+  const c = await cached(userId);
   const r = (await run(`SELECT updated_at::text AS v, CASE WHEN updated_at::text = $2 THEN NULL ELSE data END AS data FROM workspaces WHERE user_id=$1 ${lock}`, [userId, c.v]))[0];
   if (!r) { forget(userId); return null; }
   if (c.v && r.v === c.v) return c.data;
@@ -246,7 +243,7 @@ export async function saveSections(userId: string, sections: Partial<Workspace>)
   const base = JSON.stringify({ ...emptyWorkspace(), ...patch }, noNul);
   // The merged row comes back only when our cached copy isn't the version this save started from;
   // otherwise the merge is done here, and nothing large crosses the network.
-  const c = cached(userId);
+  const c = await cached(userId);
   const r = await q1(
     `WITH old AS (SELECT updated_at::text AS v FROM workspaces WHERE user_id=$1 FOR UPDATE)
      INSERT INTO workspaces (user_id, data, updated_at) VALUES ($1, $2::jsonb, now())
