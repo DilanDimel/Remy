@@ -2,6 +2,10 @@
 
 Remy is an AI career coach for college students (remyai.org). `README.md` is the product overview. `docs/development.md` has how to run, test, deploy and configure it, and `docs/architecture.md` has the folder layout and how the code fits together.
 
+## Other AIs work here too
+
+Read `docs/ai/CONTEXT.md` (who owns what, current status) and every `docs/ai/status/*.md` and open PR before you start. The project's Claude is the lead AI: it keeps CONTEXT.md current and its threads update `docs/ai/status/lead.md`. Every other AI updates only its own status file, before every PR. `native/` belongs to Demetre: lead threads don't edit it without reading `docs/ai/status/demetre.md` and noting the change in `docs/ai/status/lead.md` first. `AGENTS.md` points non-Claude tools here.
+
 ## Before you push
 
 Run these; CI runs the first three and Render deploys whatever lands on `main`.
