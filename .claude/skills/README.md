@@ -5,8 +5,8 @@ Copied so every Claude Code session on this repo (cloud or local) has them. They
 | Skill | Source | Pinned at | License |
 |---|---|---|---|
 | `impeccable` | github.com/pbakaus/impeccable (`.claude/skills/impeccable`) | b49177d | Apache 2.0 (LICENSE in folder) |
-| `web-design-guidelines` | github.com/vercel-labs/agent-skills (`skills/web-design-guidelines`) | 5a37a63 | MIT |
-| `react-best-practices` | github.com/vercel-labs/agent-skills (`skills/react-best-practices`) | 5a37a63 | MIT |
+| `web-design-guidelines` | github.com/vercel-labs/agent-skills (`skills/web-design-guidelines`) | 5a37a63 | MIT (LICENSE in folder) |
+| `react-best-practices` | github.com/vercel-labs/agent-skills (`skills/react-best-practices`) | 5a37a63 | MIT (LICENSE in folder) |
 
 Notes
 - Impeccable's design hook is NOT installed (manual copy). Its `scripts/impeccable` launcher downloads an engine binary the first time it runs; don't run it unattended or add it to CI without the team's OK.

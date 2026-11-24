@@ -27,7 +27,7 @@ Career centers are stretched thin, and most job tools either spam students with 
 
 **Remy, the coach.** Remy lives in a side panel on every page. Students can chat with him about anything career-related, and he can take actions like adding a to-do or saving an opening. The Activity tab shows what he has done and lets them undo it.
 
-**Community, Calendar and Progress.** Alumni matches for students with a verified school email, Google Calendar deadlines and interviews, a LinkedIn coach, a weekly check-in that turns what they did into resume lines, and an application tracker.
+**Community, Calendar and Progress.** Contacts the student adds themselves (an alumni directory is planned, not live), Google Calendar deadlines and interviews, a LinkedIn coach, a weekly check-in that turns what they did into resume lines, and an application tracker.
 
 **Emails and texts.** Reminders, a weekly digest and sign-in codes by email, and optional text reminders.
 
