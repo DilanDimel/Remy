@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
 import type { Me, Workspace } from "@shared/types";
 import { q, q1, tx } from "./sql";
 
@@ -174,19 +175,36 @@ function fromStored(data: any): Workspace {
 // the hourly background jobs read every workspace). A hand edit in the database must set updated_at = now().
 const cache = new Map<string, { v: string; data: any; at: number }>();
 const CACHE_MAX = 200, CACHE_MS = 24 * 60 * 60_000;
-function remember(userId: string, v: string, data: any) {
+// On Render the copies are also kept on the service's disk (/data), so a deploy (dozens a day) doesn't re-download
+// every workspace. They're still checked against updated_at before use, so a stale file is never served.
+// shortcut: files are removed only when an account or workspace is deleted; prune by age if /data (1 GB) fills up.
+const DISK = (() => {
+  if (process.env.NODE_ENV !== "production" || !fs.existsSync("/data")) return "";
+  try { fs.mkdirSync("/data/ws-cache", { recursive: true, mode: 0o700 }); return "/data/ws-cache"; } catch { return ""; }
+})();
+const diskFile = (userId: string) => `${DISK}/${sha(userId)}.json`;
+function remember(userId: string, v: string, data: any, at = Date.now(), toDisk = true) {
   cache.delete(userId);
-  cache.set(userId, { v, data, at: Date.now() });
+  cache.set(userId, { v, data, at });
   if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value!);
+  if (DISK && toDisk) fs.promises.writeFile(diskFile(userId), JSON.stringify({ v, at, data }), { mode: 0o600 }).catch(() => {});
+}
+function fromDisk(userId: string) {
+  if (!DISK || cache.has(userId)) return;
+  try { const f = JSON.parse(fs.readFileSync(diskFile(userId), "utf8")); remember(userId, f.v, f.data, f.at, false); } catch { /* none yet */ }
+}
+function forget(userId: string) {
+  cache.delete(userId);
+  if (DISK) fs.promises.rm(diskFile(userId), { force: true }).catch(() => {});
 }
 const parse = (d: any) => (typeof d === "string" ? JSON.parse(d) : d);
 // Taken before the query: another request may replace the entry while this one waits.
-const cached = (userId: string) => { const c = cache.get(userId); return c && Date.now() - c.at < CACHE_MS ? c : { v: "", data: null }; };
+const cached = (userId: string) => { fromDisk(userId); const c = cache.get(userId); return c && Date.now() - c.at < CACHE_MS ? c : { v: "", data: null }; };
 /** The stored JSON (never mutate it): the cached copy when the row is unchanged, else downloaded and cached. */
 async function readStored(run: typeof q, userId: string, lock = ""): Promise<any> {
   const c = cached(userId);
   const r = (await run(`SELECT updated_at::text AS v, CASE WHEN updated_at::text = $2 THEN NULL ELSE data END AS data FROM workspaces WHERE user_id=$1 ${lock}`, [userId, c.v]))[0];
-  if (!r) { cache.delete(userId); return null; }
+  if (!r) { forget(userId); return null; }
   if (c.v && r.v === c.v) return c.data;
   const data = parse(r.data);
   remember(userId, r.v, data);
@@ -242,7 +260,7 @@ export async function saveSections(userId: string, sections: Partial<Workspace>)
   return fromStored(structuredClone(stored));
 }
 export async function deleteWorkspace(userId: string) {
-  cache.delete(userId);
+  forget(userId);
   await q("DELETE FROM workspaces WHERE user_id=$1", [userId]);
   await q("DELETE FROM files WHERE user_id=$1", [userId]);
 }
@@ -283,7 +301,7 @@ export async function deleteAccount(userId: string) {
       await run("DELETE FROM beta_list WHERE lower(email)=$1", [e]);
       await run("DELETE FROM signin_codes WHERE lower(email)=$1", [e]);
     }
-    cache.delete(userId);
+    forget(userId);
     await run("DELETE FROM workspaces WHERE user_id=$1", [userId]);
     await run("DELETE FROM files WHERE user_id=$1", [userId]);
     await run("DELETE FROM ai_usage WHERE user_id=$1", [userId]);
