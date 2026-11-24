@@ -2,13 +2,74 @@ import { useEffect, useRef, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { Alert, Animated, Easing, FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { ChatDid, ChatMsg, Workspace } from "@shared/types";
+import type { ChatAction, ChatDid, ChatMsg, Workspace } from "@shared/types";
+import { resumeDiff } from "@shared/resumeDiff";
 import { Icon, Remy, RichText, T, success, tap } from "@/components/ui";
 import { api, streamChat } from "@/lib/api";
 import { go } from "@/lib/nav";
 import { tidyPartial } from "@/lib/partial";
 import { useSession } from "@/lib/session";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
+
+const PROFILE_NAME: Record<string, string> = { major: "Major", minors: "Minors", school: "School", graduation: "Graduation", location: "Location" };
+const NOTIFY_NAME: Record<string, string> = { "notify.deadlines": "deadline reminders", "notify.statusChanges": "status-change alerts", "notify.weeklyPlan": "weekly plan emails" };
+const rolesOf = (ws: Workspace) => ws.profile.targetRoles.split(/,\s*/).filter(Boolean);
+/** The button's words, the website's (client/src/App.tsx). Kinds Remy does himself are never offered as buttons. */
+function actionLabel(a: ChatAction, ws: Workspace): string {
+  if (a.kind === "task") return `Add to-do: ${a.title}`;
+  if (a.kind === "role") return `Look for ${a.title} openings`;
+  if (a.kind === "open") return a.label;
+  if (a.kind === "profile") return `Change ${PROFILE_NAME[a.field]?.toLowerCase() || a.field} to ${a.value}`;
+  if (a.kind === "setting") return a.key === "theme" ? (a.value === "system" ? "Match my device's theme" : `Turn on ${String(a.value)} mode`) : `Turn ${NOTIFY_NAME[a.key] || a.key} ${a.value ? "on" : "off"}`;
+  return "";
+}
+function isDone(a: ChatAction, ws: Workspace) {
+  if (a.kind === "task") return ws.tasks.some((t) => t.title === a.title);
+  if (a.kind === "role") return rolesOf(ws).some((r) => r.toLowerCase() === a.title.toLowerCase());
+  if (a.kind === "profile") return ws.profile[a.field] === a.value;
+  if (a.kind === "setting") return a.key === "theme" ? ws.settings.theme === a.value : ws.settings.notify[a.key.split(".")[1] as keyof Workspace["settings"]["notify"]] === a.value;
+  return false;
+}
+
+/** A resume change Remy drafted from the chat: what changes, before and after, saved only on "Use this" (the website's
+ *  chat-proposal). Edit opens the resume; Not now hides it. The server checked it for invented claims before sending. */
+function Proposal({ m }: { m: ChatMsg }) {
+  const { ws, setWs } = useSession();
+  const { c } = useTheme();
+  const [hidden, setHidden] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const p = m.resumeProposal;
+  const r = ws?.resume;
+  if (!p || !r || hidden) return null;
+  if (JSON.stringify(p.doc) === JSON.stringify(r.doc)) return <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 8 }} testID="chat-resume-saved"><Icon name="check" size={14} color={c.sage} strokeWidth={2.6} /><T kind="small" style={{ color: c.sage }}>Saved to your resume</T></View>;
+  // Drafted on an older version: saving it would undo the changes made since.
+  if (p.base !== (r.editedAt || r.uploadedAt)) return <T kind="small" style={{ paddingTop: 8 }}>Your resume changed since this draft. Ask again and Remy will draft it on your latest version.</T>;
+  const diff = resumeDiff(r.doc, p.doc);
+  if (!diff.length) return null;
+  const use = async () => {
+    setBusy(true); setErr("");
+    try { setWs(await api<Workspace>("PUT", "/api/resume/doc", { doc: p.doc, base: p.base })); success(); } catch (e: any) { setErr(e.message); }
+    setBusy(false);
+  };
+  return (
+    <View testID="chat-resume-proposal" style={{ marginTop: 8, backgroundColor: c.surface, borderRadius: 16, borderWidth: 1, borderColor: c.line, padding: 12, gap: 10, maxWidth: "96%" }}>
+      {diff.slice(0, 6).map((d, i) => (
+        <View key={i} style={{ gap: 4 }}>
+          <T kind="small">{d.where}</T>
+          {!!d.before && <Text style={{ fontFamily: font.body, fontSize: 14, lineHeight: 20, color: c.mutedText, textDecorationLine: "line-through" }}>{d.before}</Text>}
+          {!!d.after && <Text style={{ fontFamily: font.body, fontSize: 14, lineHeight: 20, color: c.ink, backgroundColor: c.sageBg, borderRadius: 4, paddingHorizontal: 4 }}>{d.after}</Text>}
+        </View>
+      ))}
+      {!!err && <T kind="small" style={{ color: c.error }}>{err}</T>}
+      <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+        <Pressable testID="button-chat-use-change" disabled={busy} onPress={use} style={{ borderRadius: BUTTON_RADIUS, backgroundColor: c.ink, paddingHorizontal: 14, paddingVertical: 9, opacity: busy ? 0.6 : 1 }}><Text style={{ fontFamily: font.bold, fontSize: 14, color: c.onInk }}>Use this</Text></Pressable>
+        <Pressable testID="button-chat-edit-change" onPress={() => go("/resume?tab=base", "Resume")} style={{ borderRadius: BUTTON_RADIUS, borderWidth: 1, borderColor: c.line, paddingHorizontal: 14, paddingVertical: 9 }}><Text style={{ fontFamily: font.bold, fontSize: 14, color: c.ink }}>Edit</Text></Pressable>
+        <Pressable testID="button-chat-skip-change" onPress={() => { tap(); setHidden(true); }} style={{ paddingHorizontal: 10, paddingVertical: 9 }}><Text style={{ fontFamily: font.semi, fontSize: 14, color: c.mutedText }}>Not now</Text></Pressable>
+      </View>
+    </View>
+  );
+}
 
 const QUICK = ["What should I do today?", "Which opening fits me best?", "Help me with my resume"];
 
@@ -97,6 +158,25 @@ export default function RemyChat() {
     { text: "Keep", style: "cancel" },
     { text: "Clear chat", style: "destructive", onPress: async () => { try { setWs(await api<Workspace>("DELETE", "/api/chat")); success(); } catch (e: any) { setErr(e.message); } } },
   ]);
+  const remember = async (t: string) => {
+    tap();
+    try { setWs(await api<Workspace>("POST", "/api/memory/remember", { text: t })); success(); } catch (e: any) { setErr(e.message); }
+  };
+  // The website's act() (client/src/App.tsx): a link opens its page; a to-do, setting, profile change or new role is
+  // saved, then shows as done. Everything else Remy does himself, with Undo.
+  const act = async (a: ChatAction) => {
+    if (a.kind === "open") return go(a.link, a.label);
+    const save = (section: string, value: unknown) => api<Workspace>("PUT", `/api/ws/${section}` as `/api/${string}`, { value });
+    try {
+      let w: Workspace | undefined;
+      if (a.kind === "task") w = await save("tasks", [{ id: "t" + Math.random().toString(36).slice(2, 10), title: a.title, why: a.why, due: a.due || "", category: "Prepare", done: false, source: "Remy chat" }, ...ws.tasks]);
+      else if (a.kind === "setting" && a.key === "theme") w = await save("settings", { ...ws.settings, theme: a.value, themeChosen: true });
+      else if (a.kind === "setting") w = await save("settings", { ...ws.settings, notify: { ...ws.settings.notify, [a.key.split(".")[1]]: a.value } });
+      else if (a.kind === "profile") w = await save("profile", { ...ws.profile, [a.field]: a.value });
+      else if (a.kind === "role") w = await save("profile", { ...ws.profile, targetRoles: [...rolesOf(ws), a.title].join(", ") });
+      if (w) { setWs(w); success(); }
+    } catch (e: any) { setErr(e.message); }
+  };
   const undo = async (mid: string, d: ChatDid) => {
     try { setWs(await api<Workspace>("POST", `/api/chat/${mid}/undo/${d.id}`)); success(); } catch (e: any) { setErr(e.message); }
   };
@@ -108,18 +188,34 @@ export default function RemyChat() {
         <View style={{ maxWidth: "84%", alignSelf: me ? "flex-end" : "flex-start", backgroundColor: me ? c.ink : c.surface, borderRadius: 20, borderBottomRightRadius: me ? 6 : 20, borderBottomLeftRadius: me ? 20 : 6, paddingHorizontal: 15, paddingVertical: 11, borderWidth: me ? 0 : 1, borderColor: c.line }}>
           <RichText text={m.text} style={{ fontFamily: font.body, fontSize: 15.5, lineHeight: 22, color: me ? c.onInk : c.ink }} />
         </View>
-        {m.resumeProposal && (
-          <Pressable testID="button-review-resume-change" onPress={() => go("/resume?tab=base", "Resume")} style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.surface, borderRadius: 18, padding: 12, borderWidth: 1, borderColor: c.line, marginTop: 8 }}>
-            <View style={{ width: 38, height: 38, borderRadius: BUTTON_RADIUS, backgroundColor: c.foxSoft, alignItems: "center", justifyContent: "center" }}><Icon name="doc" size={20} color={c.foxDeep} /></View>
-            <View style={{ flex: 1 }}><Text style={{ fontFamily: font.bold, fontSize: 15, color: c.ink }}>Resume change to review</Text><T kind="small" numberOfLines={1}>{m.resumeProposal.summary || "See original vs new"}</T></View>
-            <Icon name="chev" size={18} color={c.faint} />
-          </Pressable>
-        )}
+        <Proposal m={m} />
         {(m.did || []).map((d) => (
           <View key={d.id} style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 4, paddingTop: 6 }}>
             <Icon name={d.undone ? "undo" : "check"} size={16} color={d.undone ? c.faint : c.sage} />
             <Text style={{ flex: 1, fontFamily: font.body, fontSize: 13.5, color: c.mutedText, textDecorationLine: d.undone ? "line-through" : "none" }} numberOfLines={2}>{d.label}</Text>
             {!d.undone && <Pressable testID="button-undo" hitSlop={8} onPress={() => undo(m.id, d)} style={{ flexDirection: "row", alignItems: "center", gap: 3 }}><Icon name="undo" size={14} /><Text style={{ fontFamily: font.bold, fontSize: 13.5, color: c.ink }}>Undo</Text></Pressable>}
+          </View>
+        ))}
+        {/* Buttons Remy offered under his reply: nothing happens until the student taps one. Done ones say so. */}
+        {!!m.actions?.length && (
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, paddingTop: 8, maxWidth: "92%" }}>
+            {m.actions.map((a, i) => {
+              const label = actionLabel(a, ws);
+              if (!label) return null;
+              return isDone(a, ws)
+                ? <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 999, backgroundColor: c.sageBg, paddingHorizontal: 10, height: 30 }}><Icon name="check" size={13} color={c.sage} strokeWidth={2.6} /><Text style={{ fontFamily: font.semi, fontSize: 13, color: c.sage }}>{a.kind === "task" ? "On your to-dos" : a.kind === "role" ? "In your search" : "Done"}</Text></View>
+                : <Pressable key={i} testID="button-chat-action" onPress={() => { tap(); act(a); }} style={({ pressed }) => ({ borderRadius: BUTTON_RADIUS, borderWidth: 1, borderColor: c.line, backgroundColor: pressed ? c.surface2 : c.surface, paddingHorizontal: 12, paddingVertical: 8 })}><Text style={{ fontFamily: font.semi, fontSize: 13.5, color: c.ink }}>{label}</Text></Pressable>;
+            })}
+          </View>
+        )}
+        {/* "Remember this?": a fact Remy noticed, saved to his memory only when the student says so. */}
+        {(m.memorySuggestions || []).filter((t) => !ws.memory.some((x) => x.text === t)).map((t) => (
+          <View key={t} style={{ marginTop: 8, maxWidth: "92%", backgroundColor: c.surface, borderRadius: 14, borderWidth: 1, borderColor: c.line, padding: 12, gap: 6 }} testID="card-remember">
+            <T kind="small">Remember this?</T>
+            <T>{t}</T>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <Pressable testID="button-remember" onPress={() => remember(t)} style={{ borderRadius: BUTTON_RADIUS, backgroundColor: c.ink, paddingHorizontal: 14, paddingVertical: 8 }}><Text style={{ fontFamily: font.bold, fontSize: 13.5, color: c.onInk }}>Remember</Text></Pressable>
+            </View>
           </View>
         ))}
       </View>
@@ -148,8 +244,8 @@ export default function RemyChat() {
         ListHeaderComponent={busy && !shown ? <TypingDots color={c.mutedText} bg={c.surface} line={c.line} /> : undefined}
         ListEmptyComponent={<View style={{ paddingTop: 40, alignItems: "center", gap: 8 }}><Remy size={92} /><T kind="h2">Ask Remy anything</T><T kind="muted" style={{ textAlign: "center" }}>About jobs, your resume, interviews or what to do next. Remy only uses what you've told it.</T></View>} />
       {!!err && <T kind="small" style={{ color: c.error, paddingHorizontal: 18, paddingBottom: 6 }}>{err}</T>}
-      {/* Starters wrap onto a second line instead of running off the edge (they were cut off). */}
-      {!text && !busy && (
+      {/* Starters (only for an empty chat, like the website) wrap instead of running off the edge. */}
+      {!text && !busy && !ws.chat.length && (
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 14, paddingTop: 4, paddingBottom: 8 }}>
           {QUICK.map((q) => <Pressable key={q} testID="button-quick-reply" onPress={() => send(q)} style={{ minHeight: 36, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, justifyContent: "center" }}><Text style={{ fontFamily: font.semi, fontSize: 13.5, color: c.ink }}>{q}</Text></Pressable>)}
         </View>
