@@ -1,9 +1,10 @@
 # Lead AI (Dilan's project Claude)
 
-Updated: 2026-11-24 18:20 UTC
+Updated: 2026-11-24 18:50 UTC
 Area: the website (`client/`, `server/`, `shared/`, `docs/`), releases, `docs/ai/CONTEXT.md`
 
 ## Working on now
+- Deploy downtime (Dilan chose this, Nov 24): Render can't do zero-downtime deploys with a disk attached, so the workspace cache moves from /data/ws-cache to a private Cloudflare R2 bucket (`server/platform/r2.ts`, gzipped + AES-256-GCM, env R2_ACCOUNT_ID/R2_BUCKET/R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY/WS_CACHE_KEY; no-op when unset). Then the Render disk is removed. Coordinated with: Supabase data-transfer thread (#377).
 - Remy keeps your account up to date, batch 1 (Dilan, Nov 24; real owners only until Dilan releases it): `shared/remyAsks.ts` lists Remy's quick questions (memory conflicts, sign-in vs resume name, new resume vs typed profile, import/setup facts to confirm); `server/coach/asks.ts` + `POST /api/remy/ask` does the fix with Undo; shown in the My Path office bubble, the chat/page card (`RemyAsk.tsx`) and AI memory. To-dos tick themselves when done (`tickDone`). Batches 2-3 wait for Dilan.
 - Opening details readable (Dilan, Nov 24, everyone): job-board text was double-encoded ("&amp;#xa;"), so details showed literal "&#xa;" in one run-on line cut at 420 chars. `shared/postingText.ts` decodes entities twice (also used by `htmlToText` in `server/resume/parse.ts`); summary keeps line breaks; Details renders `postingText` line by line with "Label: value" rows and "Show the full posting" (`PostingText` in Opportunities.tsx, `.posting-text`). Old saved postings are cleaned at render.
 - Loading screen (Dilan, Nov 24, everyone): `#splash` inline in `client/index.html` (inline CSS, no inline script: CSP), three designs (desk, peek, badge) picked at random by `client/public/theme.js` (never the same twice, `remy.splash`), shows only after 0.3 s, removed by `client/src/lib/splash.ts` from `Root` in App.tsx (10 s safety in main.tsx).
