@@ -881,7 +881,11 @@ export async function registerRoutes(_server: Server, app: Express) {
       let ws = await loadWorkspace(me.id);
       // Days the student opened Remy (Central dates, kept 120), so owners can see who comes back. Counts only.
       const today = centralToday();
-      if (!(ws.visits || []).includes(today)) ws = await saveSections(me.id, { visits: [...(ws.visits || []), today].slice(-120) } as any);
+      // Beta testers are Beta Insiders now (Nov 24): anyone on the old tester list joins on their next visit, no form.
+      const join = !ws.insider && (await beta.onList(me.email || ""));
+      if (join || !(ws.visits || []).includes(today)) {
+        ws = await saveSections(me.id, { visits: [...new Set([...(ws.visits || []), today])].slice(-120), ...(join ? { insider: { joinedAt: today } } : {}) } as any);
+      }
       // Checklists saved before the font check was real said "pass" without looking; work them out again (Nov 2).
       const stale = ws.applications.filter((a) => a.ats?.some((c) => c.id === "font" && c.detail === "Downloads keep your own resume's font, size and margins."));
       if (stale.length) {
