@@ -2880,11 +2880,11 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 @media (min-width: 900px) { .redesign-2 .ps-roomwrap > .ps-bubble:not(.chat) { position: absolute; left: 14px; right: 14px; bottom: 14px; margin: 0; } }
 /* Owners' Calendar (Nov 23 PM review): month beside "Coming up", one screen at 1440x800. */
 .cal-owner { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(260px, 1fr); gap: 16px; align-items: start; }
-.cal-owner > aside .cal-week { grid-template-columns: minmax(0, 1fr); max-height: 300px; overflow: auto; }
+.cal-owner > aside .cal-week { grid-template-columns: minmax(0, 1fr); max-height: 220px; overflow: auto; }
 .cal-owner > aside .conn-row { flex-wrap: wrap; gap: 8px 12px; }
 .cal-owner > aside .conn-row .grow { flex: 1 1 140px; min-width: 0; }
 .cal-owner > aside .conn-row .grow > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-html.redesign-2 .cal-owner .cal-cell { min-height: clamp(56px, 7.5vh, 84px); }
+html.redesign-2 .cal-owner .cal-cell { min-height: clamp(56px, calc((100dvh - 330px) / var(--weeks, 6)), 120px); }
 @media (max-width: 1100px) { .cal-owner { grid-template-columns: minmax(0, 1fr); } }
 /* Phones (Nov 23 PM review): "Refresh Remy's suggestions" beside the title squeezed "My Path" onto two lines and the
    subtitle into a column of single words. The button goes under the subtitle, and the office header row wraps cleanly. */
@@ -3565,3 +3565,14 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 .adm2-bubbles { display: flex; flex-direction: column; gap: 8px; }
 .adm2-bubble { background: var(--bg); border-radius: 14px 14px 14px 4px; padding: 8px 12px; }
 .adm2-bubble p { margin: 0 0 2px; font-size: var(--text-sm); }
+/* Owners' Calendar (Dilan, Nov 24): Remy's plan for the week fills the side column; the month's days grow to fill the screen height. */
+.cal-plan { display: grid; gap: 10px; }
+.cal-plan-head { display: flex; align-items: center; gap: 8px; }
+.cal-plan-head .remy-offer-kicker { margin: 0; font-size: var(--text-sm); }
+.cal-plan ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 8px 16px; }
+.cal-plan li { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-width: 0; }
+.cal-plan-ic { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: var(--fox-soft); color: var(--fox-deep); }
+.cal-plan-txt { display: grid; min-width: 0; }
+.cal-plan-txt b { font-size: var(--text-sm); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cal-plan-txt small { font-size: var(--text-xs); color: var(--muted-text); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cal-plan li .btn { white-space: nowrap; }
