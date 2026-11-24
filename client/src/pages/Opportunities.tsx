@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, Fragment } from "react";
 import { dreamWithoutOpenings } from "@shared/org";
 import { decodeEntities, postingField, postingLines } from "@shared/postingText";
+import { authKind } from "@shared/workAuth";
 import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, BookmarkCheck, CalendarPlus, Check, X, ChevronDown, ChevronUp, Link2, MapPin, Mic, RefreshCw, Search, Sparkles, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
 import { openingRanker, reasonLine } from "@shared/order";
 import type { Job, JobCheck, JobFit, JobInterestReason, JobRanking, Workspace } from "@shared/types";
@@ -253,7 +254,7 @@ function OppRail({ jobs }: { jobs: Job[] }) {
 function nothingFits(p: Workspace["profile"]) {
   const tips = [
     /first|fresh|soph/i.test(p.classYear) && !/program|insight/i.test(p.opportunityTypes) && "Internships that take first-years and sophomores are rare; add \"Programs & insight days\" to what you're looking for.",
-    /sponsor|visa/i.test(p.workAuth) && "Fewer postings work when you need sponsorship. Your school's international student office can tell you which roles you can take.",
+    authKind(p.workAuth) === "sponsor" && "Fewer postings work when you need sponsorship. Your school's international student office can tell you which roles you can take.",
     p.regions && !/remote|anywhere/i.test(p.regions) && "Widening where you'll look (Remote or Anywhere in the US) usually finds more.",
   ].filter(Boolean);
   return [...(tips.length ? tips : ["Try another filter."]), "You can also import a posting you found yourself, or change these choices in Account → Profile."].join(" ");
