@@ -1,34 +1,56 @@
-// Beta 2 (Nov 24): the first time a student opens Remy after owners release the redesign (shared/features.ts),
+// The big update (Nov 24): the first time a student opens Remy after owners release the redesign (shared/features.ts),
 // Remy says what changed, once, and offers the new tour. Owners never see it; new students get setup and the tour instead.
-import { Modal, Remy } from "./common";
+import { useEffect } from "react";
+import { createPortal } from "react-dom";
+import { Compass, FileCheck2, Sparkles, Target, X, type LucideIcon } from "lucide-react";
+import { Remy } from "./common";
 import { tourAgain } from "./Tour";
 import { useOwnersOnly, useOwnerView, useStore } from "../lib/store";
 
-const NEW = [
-  ["A new look, and a new Remy", "Every page is cleaner, and Remy has a fresh look to match."],
-  ["Remy does things for you", "Ask him in chat to save an opening, add a to-do or fix a resume line. You approve every change, and anything can be undone."],
-  ["My Path is Remy's office", "Your plan, your streak and your level in one place. Every step you take earns XP."],
-  ["Openings that really fit", "Remy checks each opening against your major, year and resume, and tells you why it fits."],
-] as const;
+/** The update's name, shown to students. One place, so a rename is one line. */
+export const UPDATE_NAME = "The Big Upgrade";
+
+const NEW: [LucideIcon, string, string][] = [
+  [Sparkles, "A fresh look", "Every page is cleaner, and Remy has a new look to match."],
+  [FileCheck2, "Remy does it for you", "Ask him to save an opening, add a to-do or fix a resume line. You approve every change."],
+  [Compass, "My Path is his office", "Your plan, streak and level in one place. Every step earns XP."],
+  [Target, "Openings that fit", "Each opening is checked against your major, year and resume, with the reason why."],
+];
 
 export function Beta2Welcome() {
   const { ws, save } = useStore();
   const released = useOwnerView(), owner = useOwnersOnly();
-  if (!released || owner || !ws?.onboarding.done || ws.settings.beta2Seen) return null;
+  const show = released && !owner && !!ws?.onboarding.done && !ws.settings.beta2Seen;
   const close = () => save("settings", { beta2Seen: true }).catch(() => {});
-  return (
-    <Modal title="Welcome to Beta 2" onClose={close}>
-      <div className="b2-welcome" data-testid="beta2-welcome">
-        <Remy size={64} mood="happy" />
-        <p className="b2-lead">Remy just got his biggest update yet. Here's what's new:</p>
-        <ul className="b2-list">
-          {NEW.map(([t, d]) => <li key={t}><b>{t}</b><span>{d}</span></li>)}
+  useEffect(() => {
+    if (!show) return;
+    const k = (e: KeyboardEvent) => e.key === "Escape" && close();
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  });
+  if (!show) return null;
+  return createPortal(
+    <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+      <div className="modal b2" role="dialog" aria-modal="true" aria-labelledby="b2-title" data-testid="beta2-welcome">
+        <button className="icon-btn b2-x" onClick={close} aria-label="Close" data-testid="button-beta2-x"><X size={18} /></button>
+        <header className="b2-head">
+          <div className="asst-avatar b2-face"><Remy size={58} mood="happy" /></div>
+          <div>
+            <span className="b2-kicker">New update · {UPDATE_NAME}</span>
+            <h2 id="b2-title">Remy just got his biggest update yet</h2>
+          </div>
+        </header>
+        <ul className="b2-grid">
+          {NEW.map(([Icon, t, d]) => (
+            <li key={t}><span className="b2-ic"><Icon size={18} aria-hidden="true" /></span><b>{t}</b><span>{d}</span></li>
+          ))}
         </ul>
-        <div className="row b2-actions">
+        <div className="b2-actions">
+          <button className="btn btn-ghost" onClick={close} data-testid="button-beta2-close">Maybe later</button>
           <button className="btn btn-primary" onClick={() => { close(); tourAgain(save); }} data-testid="button-beta2-tour">Show me around</button>
-          <button className="btn btn-ghost" onClick={close} data-testid="button-beta2-close">Got it</button>
         </div>
       </div>
-    </Modal>
+    </div>,
+    document.body,
   );
 }
