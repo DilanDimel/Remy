@@ -4,24 +4,28 @@
 export type Release = "owners" | "locked" | "released";
 export const RELEASES: Release[] = ["owners", "locked", "released"];
 
-export type Feature = { key: string; label: string; path: string; release: Release; teaser: string };
+/** follows: released together with that feature (Dilan, Nov 24: Rewards is part of The Big Upgrade, one flip). */
+export type Feature = { key: string; label: string; path: string; release: Release; teaser: string; follows?: string };
 export const FEATURES: Feature[] = [
   // The whole owner redesign (html.redesign-2 and every useOwnerView() gate), released to students in one step (Nov 24).
   // It has no page, so "locked" means the same as owners-only here.
-  { key: "redesign", label: "The Big Upgrade: the new Remy (whole app)", path: "", release: "owners", teaser: "" },
+  { key: "redesign", label: "The Big Upgrade: the new Remy and Rewards (whole app)", path: "", release: "owners", teaser: "" },
   { key: "interview", label: "Interview", path: "/interview", release: "locked", teaser: "Practice a real mock interview with Remy for the jobs you want, out loud, with feedback on every answer." },
   { key: "community", label: "Community", path: "/community", release: "locked", teaser: "Keep track of everyone you meet, and Remy tells you what to say, when to follow up and how to stay in touch." },
   // The phone app (native/), released to students on its own (Dilan, Nov 24). No page; until "released" students who sign
   // in to the app see "The new app is almost here" and a link to the website.
   { key: "app", label: "Phone app", path: "", release: "owners", teaser: "" },
-  { key: "rewards", label: "Rewards", path: "/rewards", release: "owners", teaser: "Everything you can earn in Remy, in one place." },
+  { key: "rewards", label: "Rewards", path: "/rewards", release: "owners", teaser: "Everything you can earn in Remy, in one place.", follows: "redesign" },
 ];
 
 export type Releases = Record<string, Release>;
 /** Each feature's state: an owner's saved choice when there is one, otherwise the default above. */
 export function releasesOf(saved: unknown): Releases {
   const s = saved && typeof saved === "object" ? (saved as Record<string, unknown>) : {};
-  return Object.fromEntries(FEATURES.map((f) => [f.key, RELEASES.includes(s[f.key] as Release) ? (s[f.key] as Release) : f.release]));
+  const own = (f: Feature): Release => (RELEASES.includes(s[f.key] as Release) ? (s[f.key] as Release) : f.release);
+  const r: Releases = Object.fromEntries(FEATURES.map((f) => [f.key, own(f)]));
+  for (const f of FEATURES) if (f.follows) r[f.key] = r[f.follows] === "released" ? "released" : f.release;
+  return r;
 }
 /** What one person sees: owners in owner view get everything; others get the feature's state. */
 export const accessOf = (r: Releases, key: string, ownerView: boolean): "open" | "locked" | "hidden" => {

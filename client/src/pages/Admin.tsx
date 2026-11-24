@@ -224,7 +224,7 @@ function Releases() {
     <section className="adm-card stack-sm" data-testid="feature-releases">
       <h3>Feature releases</h3>
       <span className="small muted">New features are built for owners first. Lock one to show students it's coming, or release it to everyone. Changes reach students within a minute, with no deploy. Switch to student view to preview.</span>
-      {FEATURES.map((f) => (
+      {FEATURES.filter((f) => !f.follows).map((f) => ( // Rewards rides with The Big Upgrade
         <div key={f.key} className="feat-row">
           <div><b>{f.label}</b> <span className="small muted">{f.path || (f.key === "app" ? "iPhone and Android" : "every page")}</span></div>
           <select className="select" style={{ width: 260, maxWidth: "100%" }} value={r[f.key]} onChange={(e) => set(f.key, e.target.value as Release)} aria-label={`${f.label} release`} data-testid={`select-release-${f.key}`}>

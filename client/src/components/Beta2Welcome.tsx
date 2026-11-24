@@ -2,7 +2,7 @@
 // Remy says what changed, once, and offers the new tour. Owners never see it; new students get setup and the tour instead.
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Compass, FileCheck2, Sparkles, Target, X, type LucideIcon } from "lucide-react";
+import { Award, FileCheck2, Sparkles, Target, X, type LucideIcon } from "lucide-react";
 import { Remy } from "./common";
 import { tourAgain } from "./Tour";
 import { useOwnersOnly, useOwnerView, useStore } from "../lib/store";
@@ -13,7 +13,7 @@ export const UPDATE_NAME = "The Big Upgrade";
 const NEW: [LucideIcon, string, string][] = [
   [Sparkles, "A fresh look", "Every page is cleaner, and Remy has a new look to match."],
   [FileCheck2, "Remy does it for you", "Ask him to save an opening, add a to-do or fix a resume line. You approve every change."],
-  [Compass, "My Path is his office", "Your plan, streak and level in one place. Every step earns XP."],
+  [Award, "Rewards for every step", "My Path is now Remy's office, and the new Rewards page shows every pin, level and outfit you can earn."],
   [Target, "Openings that fit", "Each opening is checked against your major, year and resume, with the reason why."],
 ];
 
