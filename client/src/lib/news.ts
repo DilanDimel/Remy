@@ -2,5 +2,5 @@
 import { latestNewsId as latest, toNews, unseenNews as unseen, type NewsNote } from "@shared/news";
 
 export const NEWS = toNews(import.meta.glob<NewsNote>("@shared/news/*.ts", { eager: true, import: "default" }));
-export const unseenNews = (seen: string | undefined, owner = false) => unseen(NEWS, seen, owner);
+export const unseenNews = (seen: string | undefined, owner = false, redesign = false) => unseen(NEWS, seen, owner, redesign);
 export const latestNewsId = () => latest(NEWS);
