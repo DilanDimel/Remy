@@ -8,6 +8,7 @@ import { download, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
 import { Modal, Remy, StatusChip } from "../components/common";
 import { CareerTime, careerItems } from "../components/CareerTime";
 import { useJobs } from "../lib/jobs";
+import { useIsMobile } from "../hooks/use-mobile";
 
 const KINDS: CalItem["kind"][] = ["Deadline", "Event", "Task", "Interview", "Advising"];
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -84,9 +85,42 @@ function RemyPlan({ steps, onAdd }: { steps: CalSuggestion[]; onAdd: (s: CalSugg
   );
 }
 
+/** Phones (Dilan, Nov 25): a week you swipe with the arrows instead of a month of empty boxes, and the picked day's items
+ *  under it. Dots mark days that have something. */
+function WeekStrip({ items, today, onOpen }: { items: CalItem[]; today: string; onOpen: (c: CalItem) => void }) {
+  const [day, setDay] = useState(today);
+  const d0 = new Date(day + "T12:00"); d0.setDate(d0.getDate() - d0.getDay());
+  const week = Array.from({ length: 7 }, (_, i) => { const d = new Date(d0); d.setDate(d0.getDate() + i); return d; });
+  const shift = (n: number) => { const d = new Date(day + "T12:00"); d.setDate(d.getDate() + n); setDay(iso(d)); };
+  const on = items.filter((i) => i.date === day);
+  return (
+    <section className="card card-pad cal-week-strip" data-testid="calendar-week-strip">
+      <div className="row-between">
+        <h2>{d0.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h2>
+        <div className="row">
+          <button className="icon-btn" onClick={() => shift(-7)} aria-label="Previous week" data-testid="button-week-prev"><ChevronLeft size={18} /></button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setDay(today)} data-testid="button-week-today">Today</button>
+          <button className="icon-btn" onClick={() => shift(7)} aria-label="Next week" data-testid="button-week-next"><ChevronRight size={18} /></button>
+        </div>
+      </div>
+      <div className="cal-days" role="group" aria-label="Pick a day">
+        {week.map((d) => { const k = iso(d); return (
+          <button key={k} className={"cal-day" + (k === today ? " today" : "")} aria-pressed={k === day} onClick={() => setDay(k)} data-testid={`button-day-${k}`}>
+            <small>{d.toLocaleDateString("en-US", { weekday: "narrow" })}</small><b>{d.getDate()}</b>{items.some((i) => i.date === k) ? <i aria-label="has items" /> : <i className="none" />}
+          </button>); })}
+      </div>
+      <span className="op-kick">{new Date(day + "T12:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</span>
+      {on.length ? <ul className="cal-agenda">{on.map((i) => (
+        <li key={i.id}><button className={`cal-ag ${i.kind}`} onClick={() => onOpen(i)} data-testid="button-day-item"><strong>{i.title}</strong><span>{i.kind}{i.time ? ` · ${clock(i.time)}` : ""}</span></button></li>
+      ))}</ul> : <p className="small muted">Nothing on this day.</p>}
+    </section>
+  );
+}
+
 export default function CalendarPage() {
   const { ws, save, run, toast } = useStore();
   const owner = useOwnerView();
+  const phone = useIsMobile();
   const w = ws!;
   const [month, setMonth] = useState(() => { const d = new Date(); d.setDate(1); return d; });
   const [edit, setEdit] = useState<CalItem | null>(null);
@@ -148,11 +182,11 @@ export default function CalendarPage() {
         <div>
           <span className="eyebrow">Calendar</span>
           <h1><span className="title-slogan">Deadlines, events and prep — in one place.</span><span className="title-plain">Calendar</span></h1>
-          {owner ? <CalLine upcoming={upcoming} today={today} /> : <p>Items you approve live here. Export them to your own calendar whenever you like.</p>}
+          {owner ? <div className="hide-phone"><CalLine upcoming={upcoming} today={today} /></div> : <p>Items you approve live here. Export them to your own calendar whenever you like.</p>}
         </div>
         <div className="row">
           <button className="btn btn-ghost" onClick={() => go("/progress?tab=email&paste=1")} data-testid="button-paste-invite"><Mail size={16} /> Paste an interview invite</button>
-          <button className="btn btn-secondary" onClick={() => download("/api/calendar.ics", "remy.ics").catch((e) => toast(e.message, true))} disabled={!w.calendar.length && !w.settings.careerTime} data-testid="button-export-ics"><Download size={16} /> Export .ics</button>
+          <button className="btn btn-secondary hide-phone" onClick={() => download("/api/calendar.ics", "remy.ics").catch((e) => toast(e.message, true))} disabled={!w.calendar.length && !w.settings.careerTime} data-testid="button-export-ics"><Download size={16} /> Export .ics</button>
           <button className="btn btn-primary" onClick={() => setEdit({ id: rid("cal"), title: "", date: today, time: "", kind: "Event", source: "Added by you", notes: "" })} data-testid="button-add-event"><Plus size={16} /> Add</button>
         </div>
       </div>
@@ -160,7 +194,7 @@ export default function CalendarPage() {
       {/* Owners (Nov 23 PM review): the month left and Coming up beside it, Google Calendar under the list, so the page
           fits 1440x800 instead of three full-width bands with a mostly empty grid at the bottom. */}
       <div className={owner ? "cal-owner" : "stack-lg"}>
-        {owner && monthCard}
+        {owner && (phone ? <WeekStrip items={items} today={today} onOpen={setSel} /> : monthCard)}
         {owner ? <aside className="stack">{owner && upcoming.length > 0 && <ComingUp items={upcoming} weekEnd={iso(new Date(Date.now() + 6 * 864e5))} onOpen={setSel} />}
         {plan.length > 0 && <RemyPlan steps={plan} onAdd={addStep} />}
         {owner && !upcoming.length && (

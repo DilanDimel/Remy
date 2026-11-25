@@ -3807,3 +3807,39 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
   .redesign-2 .rm-coach { position: fixed !important; top: auto !important; left: 8px !important; right: 8px; width: auto !important; bottom: calc(72px + env(safe-area-inset-bottom)); max-height: 55vh; overflow-y: auto; z-index: 60; }
   .redesign-2 .rm-coach-mark { scroll-margin-top: 72px; }
 }
+/* Phone Calendar (Dilan, Nov 25): a week strip and the picked day's list instead of a month of empty boxes. */
+.cal-week-strip { gap: 10px; }
+.cal-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal-day { display: grid; justify-items: center; gap: 2px; padding: 6px 0 5px; border-radius: 12px; color: var(--ink); }
+.cal-day small { font-size: 11px; font-weight: 700; color: var(--muted-text); }
+.cal-day b { font-size: 1.15rem; font-weight: 800; }
+.cal-day i { width: 5px; height: 5px; border-radius: 50%; background: var(--fox); }
+.cal-day i.none { background: none; }
+.cal-day.today b { color: var(--fox); }
+.cal-day[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.cal-day[aria-pressed="true"] small, .cal-day[aria-pressed="true"].today b { color: inherit; }
+.cal-agenda { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.cal-ag { display: grid; gap: 2px; width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-left: 4px solid var(--plum); border-radius: 12px; background: var(--surface); color: var(--ink); }
+.cal-ag span { font-size: 12.5px; color: var(--muted-text); }
+.cal-ag.Deadline { border-left-color: var(--amber); }
+.cal-ag.Interview { border-left-color: var(--sage); }
+.cal-week-strip > .row-between { flex-wrap: nowrap; } .cal-week-strip > .row-between h2 { font-size: 1.1rem; white-space: nowrap; }
+.cal-week-strip > .row-between .row { flex-wrap: nowrap; gap: 2px; }
+@media (max-width: 360px) { .cal-week-strip > .row-between h2 { font-size: 1rem; } .cal-week-strip > .row-between .btn-sm { padding-inline: 6px; } }
+/* Phone Remy chat (Dilan, Nov 25): a slim header (face, name, Chat/Activity, close) so the chat gets the screen, and
+   "Remy noticed" sits in the chat as his message instead of a card that squeezed it. */
+@media (max-width: 760px) {
+  .redesign-2 .asst-profile { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "face name tabs x" "face status tabs x" "clear clear clear clear"; align-items: center; column-gap: 10px; row-gap: 0; padding: 10px 12px; }
+  .redesign-2 .asst-profile .asst-avatar { grid-area: face; width: 44px; height: 44px; }
+  .redesign-2 .asst-profile .asst-avatar > svg { width: 34px; }
+  .redesign-2 .asst-profile .asst-avatar > .fox.scholar { width: 42px; margin-top: 5px; }
+  .redesign-2 .asst-name { grid-area: name; margin: 0; align-self: end; }
+  .redesign-2 .asst-status { grid-area: status; align-self: start; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .redesign-2 .asst-status i { display: inline-block; margin-right: 5px; vertical-align: 1px; }
+  .redesign-2 .asst-tabs { grid-area: tabs; margin: 0; width: auto; }
+  .redesign-2 .asst-tabs button { padding-inline: 10px; }
+  .redesign-2 .asst-x { grid-area: x; position: static; }
+  .redesign-2 .asst-profile > :is(.btn, span.row) { grid-area: clear; justify-self: center; margin-top: 4px; }
+  .redesign-2 .asst-body .remy-offer.docked { margin: 4px 0 0; max-width: 92%; box-shadow: none; }
+  .redesign-2 .asst-body .remy-offer.docked .remy-offer-face { display: none; }
+}

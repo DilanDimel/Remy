@@ -25,6 +25,7 @@ import { Avatar } from "./components/ProfilePhoto";
 import { useRemyDoes, useRemyReachOut } from "./lib/remyDoes";
 import { RemyDid } from "./components/RemyDid";
 import { OfferSlot, RemyOffer } from "./components/RemyOffer";
+import { useIsMobile } from "./hooks/use-mobile";
 import { Insider } from "./components/Insider";
 import { RemyAway } from "./components/RemyAway";
 import { Beta2Welcome } from "./components/Beta2Welcome";
@@ -476,6 +477,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   const { ws, setWs, run, save, config, theme, setTheme, toast } = useStore();
   const preview = true; // Remy's page-specific opening line, released to everyone Nov 21 (was owners only)
   const stage2 = useOwnerView(); // redesign stage 2: profile header + Activity tab, owners first
+  const phone = useIsMobile(); // phones: "Remy noticed" is his message in the chat, not a card squeezing it (Dilan, Nov 25)
   const pg = stage2 && page === "Account" ? "Accounts" : page; // owners: Account had Home's intro (the nav label is "Account")
   const [msg, setMsg] = useDraft("chat");
   const [busy, setBusy] = useState(false);
@@ -611,6 +613,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
           <div className="asst-intro" data-testid="assistant-welcome">
             {stage2 && <RemyToday onActivity={() => setView("activity")} />}
             <div className="bubble bubble-ai">{INTRO[pg] || INTRO.Home}</div>
+            {stage2 && phone && <OfferSlot />}
             <p className="xs muted">I only use what's in your approved profile, and I never send anything for you.</p>
             <div className="asst-asks">
               <span className="xs muted">You could ask</span>
@@ -711,9 +714,10 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
             ))}
           </div>
         )}
+        {stage2 && phone && !(chat.length === 0 && !tailor && !busy && preview) && <OfferSlot />}
         <div ref={end} />
       </div>
-      {stage2 && <OfferSlot />}
+      {stage2 && !phone && <OfferSlot />}
       <form className="asst-foot" onSubmit={(e) => { e.preventDefault(); send(msg); }}>
         <textarea
           className="input asst-input"
