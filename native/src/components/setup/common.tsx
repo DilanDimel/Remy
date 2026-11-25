@@ -24,7 +24,7 @@ export function Page({ children, testID, scrollRef }: { children: ReactNode; tes
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView ref={scrollRef} testID={testID} style={{ flex: 1 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets
-        contentContainerStyle={{ paddingTop: insets.top + 16, paddingHorizontal: 16, paddingBottom: insets.bottom + 32, gap: 18 }}>
+        contentContainerStyle={{ paddingTop: insets.top + 16, paddingHorizontal: 16, paddingBottom: insets.bottom + 24, gap: 18, flexGrow: 1 }}>
         {children}
       </ScrollView>
     </KeyboardAvoidingView>
@@ -103,7 +103,8 @@ export function Input({ label, style, ...props }: TextInputProps & { label?: str
 /** Back on the left, the step's main button on the right; a short note above says what's still missing. */
 export function Nav({ note, onBack, next }: { note?: string; onBack?: () => void; next: ReactNode }) {
   return (
-    <View style={{ gap: 10, marginTop: 4 }}>
+    // marginTop auto: on a tall screen the buttons sit at the bottom instead of leaving empty space under them.
+    <View style={{ gap: 10, marginTop: "auto", paddingTop: 4 }}>
       {!!note && <T kind="small">{note}</T>}
       {next}
       {onBack && <Button testID="button-setup-back" kind="ghost" label="Back" onPress={onBack} flex />}

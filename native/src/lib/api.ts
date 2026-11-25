@@ -78,10 +78,16 @@ export async function streamChat<T>(body: unknown, onReply: (soFar: string) => v
 
 /** A file upload as a form (`file` field plus extra fields), the way the website sends resumes and screenshots. */
 export async function apiForm<T>(path: `/api/${string}`, file: { uri: string; name: string; type: string }, fields: Record<string, string> = {}): Promise<T> {
+  // Phones send the file as base64 JSON: Android React Native 0.8x fails FormData file uploads before they leave the
+  // phone ("Network request failed", react-native#54881/#56404). The server reads both (server/platform/upload.ts).
+  if (Platform.OS !== "web") {
+    const { File } = require("expo-file-system") as typeof import("expo-file-system");
+    let data: string;
+    try { data = await new File(file.uri).base64(); } catch { throw new ApiError("Remy couldn't open that file. Try choosing it again.", 0); }
+    return api<T>("POST", path, { ...fields, file: { name: file.name, type: file.type, data } });
+  }
   const form = new FormData();
-  // React Native's FormData takes { uri, name, type } for a file on the phone; the web preview needs a real Blob.
-  if (Platform.OS === "web") form.append("file", await (await fetch(file.uri)).blob(), file.name);
-  else form.append("file", file as any);
+  form.append("file", await (await fetch(file.uri)).blob(), file.name); // the web preview needs a real Blob
   for (const [k, v] of Object.entries(fields)) form.append(k, v);
   let r: Response;
   try {

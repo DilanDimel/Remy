@@ -18,14 +18,12 @@ declare module "http" {
   }
 }
 
-app.use(
-  express.json({
-    limit: "1mb",
-    verify: (req, _res, buf) => {
-      req.rawBody = buf;
-    },
-  }),
-);
+const keepRaw = (req: any, _res: unknown, buf: Buffer) => { req.rawBody = buf; };
+const json = express.json({ limit: "1mb", verify: keepRaw });
+// The phone app sends uploads as base64 JSON (server/platform/upload.ts): up to 5 MB of file is about 6.7 MB of text.
+const jsonUpload = express.json({ limit: "7mb", verify: keepRaw });
+const UPLOADS = new Set(["/api/resume/upload", "/api/profile/photo", "/api/import/profile", "/api/feedback"]);
+app.use((req, res, next) => (UPLOADS.has(req.path) ? jsonUpload : json)(req, res, next));
 
 app.use(express.urlencoded({ extended: false }));
 

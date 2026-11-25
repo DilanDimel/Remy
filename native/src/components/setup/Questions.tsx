@@ -72,7 +72,7 @@ export function Questions({ onBack, onNext }: { onBack: () => void; onNext: () =
     </View>
   );
   return (
-    <View style={{ gap: 18 }}>
+    <View style={{ flexGrow: 1, gap: 18 }}>
       <Say size={56}>
         <T kind="label">{qs.length ? `Question ${Math.min(idx + 1, qs.length)} of ${qs.length}` : "A few questions"}</T>
         <T kind="muted">Three quick questions so I can pick better openings for you.</T>

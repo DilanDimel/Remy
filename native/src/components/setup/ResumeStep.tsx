@@ -41,7 +41,7 @@ export function ResumeStep({ onBack, onNext }: { onBack: () => void; onNext: () 
   const files = canPickFiles();
   const how = r ? `${r.doc.sections.length} section${r.doc.sections.length === 1 ? "" : "s"}${r.parsedBy === "ai" ? ", checked against your file" : r.parsedBy === "builder" ? ", built with Remy" : ""}` : "";
   return (
-    <View style={{ gap: 20 }}>
+    <View style={{ flexGrow: 1, gap: 20 }}>
       <Say title="Start with your resume">About 5 minutes. Your resume is what I build everything on, and I only use what's on it.</Say>
       {busy && (
         <Card testID="resume-reading" style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>

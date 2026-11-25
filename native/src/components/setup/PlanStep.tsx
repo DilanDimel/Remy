@@ -30,7 +30,7 @@ export function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: (
   useEffect(() => { if (!w.plan && config?.ai.available) make(); }, []);
   const finish = async () => { setFinishing(true); try { await onFinish(); } catch (e: any) { setError(e.message); setFinishing(false); } };
   return (
-    <View style={{ gap: 18 }}>
+    <View style={{ flexGrow: 1, gap: 18 }}>
       <Say title={busy ? "Putting your plan together…" : w.plan ? "Here's where I'd start" : "Your workspace is ready"}>Suggestions, not requirements. You can change anything.</Say>
       {busy && (
         <Card style={{ gap: 10 }}>
