@@ -55,6 +55,8 @@ async function connect(): Promise<Client> {
  *  check and is logged, for emergencies only. */
 export function sslFor(url: string) {
   if (/@(localhost|127\.0\.0\.1)(:|\/)/.test(url)) return undefined;
+  // A host with no dot is a private-network name, e.g. Render's internal "dpg-…-a": that traffic never leaves Render, and it has no TLS.
+  if (/@[a-z0-9-]+(:|\/)/i.test(url)) return undefined;
   if (process.env.DB_SSL_INSECURE === "1") {
     console.warn("DB_SSL_INSECURE=1: the database certificate is NOT being checked.");
     return { rejectUnauthorized: false };
