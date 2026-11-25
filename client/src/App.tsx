@@ -67,6 +67,9 @@ const NAV: { path: string; label: string; icon: typeof HomeIcon; feature?: strin
   { path: "/calendar", label: "Calendar", icon: CalendarDays },
   { path: "/progress", label: "Progress", icon: BarChart3 },
 ];
+/** The phone tab bar, like the phone app (Dilan, Nov 25); every other page is a tile in More. */
+const TABS = ["/", "/path", "/resume", "/opportunities"];
+const PHONE_NAME: Record<string, string> = { "Resume/CV": "Resume", Opportunities: "Jobs" };
 const ACCOUNTS: (typeof NAV)[number] = { path: "/accounts", label: "Account", icon: UserCog };
 const THEME_NAME: Record<Theme, string> = { dark: "Dark mode", light: "Light mode", system: "Matching your device" };
 const NOTIFY_NAME: Record<string, string> = { "notify.deadlines": "Deadline reminders", "notify.statusChanges": "Status-change alerts", "notify.weeklyPlan": "Weekly plan emails" };
@@ -299,7 +302,7 @@ function Shell() {
       <RemyTour />
       <main className="main" id="main">
         <div className="topbar">
-          <div className="crumb">Remy › <b>{current.label}</b></div>
+          <div className={"crumb" + (current.path === "/" ? " home" : "")}><span className="crumb-root">Remy › </span><b data-short={PHONE_NAME[current.label] || current.label}>{current.label}</b></div>
           <div style={{ marginLeft: "auto" }} className="row">
             {!asstOpen && !ownerView && (
               <button className="btn btn-secondary btn-sm hide-sm" onClick={() => setAsst(true)} data-testid="button-open-assistant">
@@ -322,13 +325,13 @@ function Shell() {
       {asstOpen && <aside className="assistant" aria-label="Remy assistant" data-testid="assistant-panel"><ErrorBoundary where="assistant" compact><Assistant page={current.label} onMinimize={() => setAsst(false)} flyIn={flyIn} /></ErrorBoundary></aside>}
 
       <nav className="mobile-nav" aria-label="Mobile navigation">
-        {NAV.filter((n) => ["/", "/path", "/resume", "/opportunities", "/progress"].includes(n.path)).map((n) => (
+        {NAV.filter((n) => TABS.includes(n.path)).map((n) => (
           <a key={n.path} href={n.path} aria-current={current.path === n.path ? "page" : undefined}>
             <n.icon size={19} />
-            {n.label === "Opportunities" ? "Jobs" : n.label === "Resume/CV" ? "Resume" : n.label}
+            {PHONE_NAME[n.label] || n.label}
           </a>
         ))}
-        <a href="#" onClick={(e) => { e.preventDefault(); setMore(true); }} data-testid="mobile-more"><Menu size={19} />More</a>
+        <a href="#" onClick={(e) => { e.preventDefault(); setMore(true); }} aria-current={!TABS.includes(current.path) ? "page" : undefined} data-testid="mobile-more"><Menu size={19} />More</a>
       </nav>
       {!asstOpen && !inOffice && (
         <button className="asst-fab fade-up" onClick={() => setAsst(true)} data-testid="button-fab-assistant" aria-label="Open Remy">
@@ -337,21 +340,20 @@ function Shell() {
       )}
       {more && (
         <Modal title="More" onClose={() => setMore(false)}>
-          {/* Grouped like the side bar (Dilan, Nov 25: the flat list read as out of order): pages, then help, then about. */}
+          {/* Phones (Dilan, Nov 25): a bottom sheet with the other pages as tiles, in side bar order, then help and about. */}
           <div className="more-sheet">
-            <p className="more-h">Pages</p>
-            {[...nav.filter((n) => ["/rewards", "/interview", "/community", "/calendar"].includes(n.path)), ACCOUNTS].map((n) => (
-              <button key={n.path} className="nav-item" onClick={() => { setMore(false); go(n.path); }} data-testid={`more-${n.label.toLowerCase().replace(/[^a-z]/g, "")}`}><n.icon size={19} />{n.label}{locked(n) && <Lock size={14} className="nav-lock" aria-label="Coming soon" />}</button>
-            ))}
-            <p className="more-h">Help</p>
+            <div className="more-tiles">
+              {[...nav.filter((n) => !TABS.includes(n.path)), ACCOUNTS].map((n) => (
+                <button key={n.path} className="more-tile" aria-current={current.path === n.path ? "page" : undefined} onClick={() => { setMore(false); go(n.path); }} data-testid={`more-${n.label.toLowerCase().replace(/[^a-z]/g, "")}`}><n.icon size={21} /><span>{n.label}</span>{locked(n) && <Lock size={13} className="nav-lock" aria-label="Coming soon" />}</button>
+              ))}
+            </div>
             <WhatsNew />
             <button className="nav-item" onClick={() => { setMore(false); setFeedback(true); }} data-testid="more-feedback"><Send size={19} />Send feedback</button>
             <button className="nav-item" onClick={() => { setMore(false); tourAgain(save); go("/"); }} data-testid="mobile-tour"><Compass size={19} />Show me around again</button>
-            <p className="more-h">Remy</p>
             <a className="nav-item" href="/welcome" data-testid="more-homepage"><HomeIcon size={19} />Remy homepage</a>
             <button className="nav-item" onClick={() => { setMore(false); go("/about"); }} data-testid="more-about"><Info size={19} />About Remy</button>
             <button className="nav-item" onClick={() => { setMore(false); go("/policies"); }} data-testid="more-policies"><ShieldCheck size={19} />Privacy & terms</button>
-            {me?.owner ? <><p className="more-h">Owners</p><OwnerTools onDone={() => setMore(false)} /></> : null}
+            {me?.owner ? <OwnerTools onDone={() => setMore(false)} /> : null}
           </div>
         </Modal>
       )}
