@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import type { Workspace } from "@shared/types";
 import { Button, Card, Chip, Icon, T } from "@/components/ui";
 import { api, apiForm } from "@/lib/api";
@@ -17,7 +17,8 @@ export function ResumeStep({ onBack, onNext }: { onBack: () => void; onNext: () 
   const { c } = useTheme();
   const w = ws!;
   const r = w.resume;
-  const [paste, setPaste] = useState(!r);
+  // With a file picker, the paste box waits behind a button so the step fits on one screen.
+  const [paste, setPaste] = useState(!r && !canPickFiles());
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -42,6 +43,12 @@ export function ResumeStep({ onBack, onNext }: { onBack: () => void; onNext: () 
   return (
     <View style={{ gap: 20 }}>
       <Say title="Start with your resume">About 5 minutes. Your resume is what I build everything on, and I only use what's on it.</Say>
+      {busy && (
+        <Card testID="resume-reading" style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <ActivityIndicator color={c.fox} />
+          <View style={{ flex: 1 }}><T style={{ fontFamily: font.bold }}>Reading your resume</T><T kind="small">About 20 seconds. Remy checks each line against your file.</T></View>
+        </Card>
+      )}
       {files && <Button testID="button-upload-resume" label={r ? "Upload a new file" : "Upload my resume (PDF or Word)"} icon="up" onPress={upload} busy={busy} flex />}
       {r && (
         <Card testID="resume-loaded" style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
@@ -59,7 +66,7 @@ export function ResumeStep({ onBack, onNext }: { onBack: () => void; onNext: () 
           {r && <Button testID="button-cancel-paste" kind="ghost" label="Keep the one I have" onPress={() => setPaste(false)} flex />}
         </View>
       ) : (
-        <Button testID="button-replace-resume" kind="ghost" label="Paste a new version" onPress={() => setPaste(true)} flex />
+        <Button testID="button-replace-resume" kind="ghost" label={r ? "Paste a new version" : "Paste the text instead"} onPress={() => setPaste(true)} flex />
       )}
       <Card testID="button-upload-on-website" onPress={() => go("/", "Set up Remy", { page: true })} style={{ backgroundColor: c.foxSoft, borderColor: c.foxSoft, gap: 4 }}>
         <T style={{ fontFamily: font.bold }}>{files ? "No resume yet? Build one with Remy" : r ? "Upload a file instead" : "Upload a file, or build one with Remy"}</T>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import type { Profile, Workspace } from "@shared/types";
 import { nameConcern } from "@shared/junk";
 import { Button, Card, Chip, Icon, T } from "@/components/ui";
@@ -26,6 +26,7 @@ export function Review({ onBack, onNext }: { onBack: () => void; onNext: () => v
   const w = ws!;
   const [p, setP] = useState<Profile>(w.profile);
   const [typing, setTyping] = useState("");
+  const [editing, setEditing] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const dirty = JSON.stringify(p) !== JSON.stringify(w.profile);
@@ -66,19 +67,31 @@ export function Review({ onBack, onNext }: { onBack: () => void; onNext: () => v
       )}
       <View style={{ gap: 4 }}>
         <T kind="title">Is this right?</T>
-        <T kind="muted">Correct anything that's off. Remy only uses what you confirm here.</T>
+        <T kind="muted">Tap anything that's off. Remy only uses what you confirm here.</T>
       </View>
-      {FIELDS.map(([k, label, ph]) => {
-        const warn = (k === "name" || k === "preferredName") && typing !== k ? nameConcern(String(p[k] || ""), k === "preferredName") : "";
-        return (
-          <View key={k} style={{ gap: 4 }}>
-            <Input testID={`input-profile-${k}`} label={(p.path && p.path !== "four-year" && OTHER_PATH[k]) || label} value={String(p[k] ?? "")} placeholder={ph} maxLength={600}
-              onChangeText={(v) => setP({ ...p, [k]: v })} onFocus={() => setTyping(k)} onBlur={() => setTyping("")}
-              autoCapitalize={k === "applicationEmail" ? "none" : "sentences"} keyboardType={k === "applicationEmail" ? "email-address" : k === "gpa" ? "decimal-pad" : "default"} />
-            {!!warn && <T kind="small" style={{ color: c.foxDeep }}>{warn}</T>}
-          </View>
-        );
-      })}
+      {/* What Remy read, as rows: tap one to fix it, so the step isn't nine open boxes in a long scroll. */}
+      <View style={{ backgroundColor: c.surface, borderRadius: 16, borderWidth: 1, borderColor: c.line, overflow: "hidden" }} testID="profile-rows">
+        {FIELDS.map(([k, label, ph], i) => {
+          const warn = (k === "name" || k === "preferredName") && typing !== k ? nameConcern(String(p[k] || ""), k === "preferredName") : "";
+          const name = (p.path && p.path !== "four-year" && OTHER_PATH[k]) || label;
+          const value = String(p[k] ?? "").trim();
+          return (
+            <View key={k} style={{ paddingVertical: 12, paddingHorizontal: 16, gap: 4, borderTopWidth: i ? StyleSheet.hairlineWidth : 0, borderColor: c.line }}>
+              {editing === k ? (
+                <Input testID={`input-profile-${k}`} label={name} value={String(p[k] ?? "")} placeholder={ph} maxLength={600} autoFocus
+                  onChangeText={(v) => setP({ ...p, [k]: v })} onFocus={() => setTyping(k)} onBlur={() => { setTyping(""); setEditing(""); }} onSubmitEditing={() => setEditing("")} returnKeyType="done"
+                  autoCapitalize={k === "applicationEmail" ? "none" : "sentences"} keyboardType={k === "applicationEmail" ? "email-address" : k === "gpa" ? "decimal-pad" : "default"} />
+              ) : (
+                <Pressable testID={`row-profile-${k}`} accessibilityRole="button" accessibilityLabel={`${name}: ${value || "Not added"}. Tap to change.`} onPress={() => setEditing(k)} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  <View style={{ flex: 1 }}><T kind="small" style={{ fontFamily: font.semi }}>{name}</T><T numberOfLines={2} style={value ? undefined : { color: c.faint }}>{value || "Not added"}</T></View>
+                  <Icon name="chev" size={16} color={c.faint} />
+                </Pressable>
+              )}
+              {!!warn && <T kind="small" style={{ color: c.foxDeep }}>{warn}</T>}
+            </View>
+          );
+        })}
+      </View>
       {w.resume && (
         <View style={{ gap: 8 }}>
           <T kind="h2">From your resume</T>
