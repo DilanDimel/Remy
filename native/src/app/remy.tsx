@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ChatAction, ChatDid, ChatMsg, Workspace } from "@shared/types";
 import { resumeDiff } from "@shared/resumeDiff";
 import { Icon, Remy, RichText, T, success, tap } from "@/components/ui";
+import { HearIt } from "@/components/HearIt";
 import { api, streamChat } from "@/lib/api";
 import { go } from "@/lib/nav";
 import { tidyPartial } from "@/lib/partial";
@@ -200,6 +201,7 @@ export default function RemyChat() {
         <View style={{ maxWidth: "84%", alignSelf: me ? "flex-end" : "flex-start", backgroundColor: me ? c.ink : c.surface, borderRadius: 20, borderBottomRightRadius: me ? 6 : 20, borderBottomLeftRadius: me ? 20 : 6, paddingHorizontal: 15, paddingVertical: 11, borderWidth: me ? 0 : 1, borderColor: c.line }}>
           <RichText text={m.text} style={{ fontFamily: font.body, fontSize: 15.5, lineHeight: 22, color: me ? c.onInk : c.ink }} />
         </View>
+        {!me && m.id !== "live" && <View style={{ paddingLeft: 6, paddingTop: 2 }}><HearIt text={m.text} testID="button-chat-hear-it" /></View>}
         <Proposal m={m} />
         {(m.did || []).map((d) => (
           <View key={d.id} style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 4, paddingTop: 6 }}>

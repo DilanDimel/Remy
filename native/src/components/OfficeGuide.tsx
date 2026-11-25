@@ -1,4 +1,5 @@
 import { router } from "expo-router";
+import { HearIt } from "@/components/HearIt";
 import { useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { Workspace } from "@shared/types";
@@ -89,6 +90,7 @@ export function GuideBanner({ g, nextItem }: { g: Guide; nextItem?: [string, str
         : <Text testID="office-step" style={{ fontFamily: font.body, fontSize: 15.5, lineHeight: 22, color: c.ink }}>
             {step ? step.say : nextItem ? `You're all set for now. Level ${nextItem[2]} adds a ${nextItem[1].toLowerCase()} to my office.` : "You're all set for now. Ask me anything, or tap something in my office."}
           </Text>}
+      {!step?.ask && !!step?.say && <HearIt text={step.say} testID="button-office-hear-it" />}
       {!!g.err && <Text style={{ fontFamily: font.body, fontSize: 13, color: c.error }}>{g.err}</Text>}
       {step && !step.ask && <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {!step.ask && <Button testID="button-office-step" label={step.cta} icon="arrow" onPress={() => g.doStep(step)} busy={g.doing} style={{ height: 42, paddingHorizontal: 16 }} />}
