@@ -2,8 +2,8 @@
 // Admin page) and Remy's owners/team can sign in or keep using Remy; guest workspaces are off. Students apply with the
 // team's form (OR_BETA_FORM_URL). Off by default, so nothing changes until the switch is set on a server.
 import type { Me } from "@shared/types";
-import { isOwner } from "./admin";
-import { q } from "./sql";
+import { isOwner, studentsOnly } from "./admin";
+import { q, q1 } from "./sql";
 
 // Instant access (Nov 24, Julio's friends didn't want to apply first): one owner switch on the Admin page lets anyone sign
 // in, with daily limits on the heavy AI features. Off (no row) keeps today's invite-only beta; turning it off again is
@@ -197,7 +197,9 @@ export async function saveInsider(email: string, p: { name: string; school: stri
 export async function students() {
   const people = await q(
     `WITH p AS (SELECT email FROM beta_applications UNION SELECT email FROM beta_list
-                UNION SELECT lower(u.email) FROM users u JOIN workspaces w ON w.user_id = u.id WHERE w.data ? 'insider' AND u.email <> '')
+                UNION SELECT lower(u.email) FROM users u JOIN workspaces w ON w.user_id = u.id WHERE w.data ? 'insider' AND u.email <> ''
+                -- Every account too (Nov 25): since "Let everyone in", most students sign up without applying.
+                UNION SELECT lower(email) FROM users WHERE kind IN ('google','supabase') AND email <> '')
      SELECT p.email, a.name, a.school, a.major, a.class_year, a.goal, a.stuck, a.tools, a.source, a.status, a.cohort, a.received_at,
             l.note, l.added_at, u.created_at AS signed_up, w.data->'insider' AS insider,
             jsonb_array_length(COALESCE(w.data->'visits', '[]'::jsonb)) AS days, w.data->'visits'->>-1 AS last_day,
@@ -208,8 +210,26 @@ export async function students() {
      ORDER BY COALESCE(a.received_at, l.added_at, u.created_at) DESC LIMIT 3000`,
   );
   const surveys = await q("SELECT message, detail, at FROM error_reports WHERE place = 'insider-survey' ORDER BY at DESC LIMIT 200");
+  // Profile counts, one per email (a Google and an email sign-in for the same person count once), team left out.
+  const c = (await q1(
+    `WITH s AS (SELECT lower(u.email) AS email, MIN(u.created_at) AS created_at, MAX(w.updated_at) AS seen,
+                       bool_or(COALESCE((w.data->'onboarding'->>'done')::boolean, false)) AS set_up,
+                       bool_or(w.data->'resume' IS NOT NULL AND w.data->'resume' <> 'null'::jsonb) AS resume
+                FROM users u LEFT JOIN workspaces w ON w.user_id = u.id WHERE ${await studentsOnly()} AND u.email <> '' GROUP BY 1)
+     SELECT COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE created_at >= date_trunc('day', now() AT TIME ZONE 'America/Chicago') AT TIME ZONE 'America/Chicago')::int AS today,
+            COUNT(*) FILTER (WHERE created_at > now() - interval '7 days')::int AS week,
+            COUNT(*) FILTER (WHERE created_at > now() - interval '30 days')::int AS month,
+            COUNT(*) FILTER (WHERE seen > now() - interval '1 day')::int AS active_today,
+            COUNT(*) FILTER (WHERE seen > now() - interval '7 days')::int AS active_week,
+            COUNT(*) FILTER (WHERE set_up)::int AS set_up, COUNT(*) FILTER (WHERE resume)::int AS resume,
+            (SELECT COUNT(DISTINCT lower(email))::int FROM users WHERE kind IN ('google','supabase') AND email <> '') AS accounts
+     FROM s`,
+  )) || {};
+  const n = (k: string) => Number(c[k] || 0);
   const iso = (v: unknown) => (v ? new Date(v as string).toISOString() : null);
   return {
+    counts: { total: n("total"), today: n("today"), week: n("week"), month: n("month"), activeToday: n("active_today"), activeWeek: n("active_week"), setUp: n("set_up"), resume: n("resume"), team: Math.max(0, n("accounts") - n("total")) },
     people: people.map((r) => ({
       email: String(r.email), name: String(r.name || r.profile_name || ""), school: String(r.school || r.profile_school || ""), major: String(r.major || ""), classYear: String(r.class_year || ""),
       goal: String(r.goal || ""), stuck: String(r.stuck || ""), tools: String(r.tools || ""), source: String(r.source || ""),

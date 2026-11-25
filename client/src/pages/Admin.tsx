@@ -239,12 +239,14 @@ function Releases() {
 type BetaRow = { email: string; note: string; addedBy: string; addedAt: string; invitedAt: string | null };
 type BetaData = { on: boolean; inviteOnly: boolean; open: boolean; formUrl: string; emailReady: boolean; list: BetaRow[] };
 type Person = { email: string; name: string; school: string; major: string; classYear: string; goal: string; stuck: string; tools: string; source: string; status: AppStatus; onList: boolean; cohort: string; appliedAt: string | null; signedUpAt: string | null; days: number; lastDay: string | null; insider: { joinedAt: string; surveyAt?: string } | null };
-type StudentsData = { people: Person[]; surveys: { question: string; answer: string; email: string; at: string }[] };
+type Counts = { total: number; today: number; week: number; month: number; activeToday: number; activeWeek: number; setUp: number; resume: number; team: number };
+type StudentsData = { counts?: Counts; people: Person[]; surveys: { question: string; answer: string; email: string; at: string }[] };
 // Beta testers and Beta Insiders are one group (Nov 24): anyone on the old tester list joins Insider on their next visit.
-const insider = (p: Person) => !!p.insider || p.onList || p.status === "accepted";
+// (An account with no application and no list row isn't an Insider: since Nov 25 the list has every account.)
+const insider = (p: Person) => !!p.insider || p.onList || (!!p.appliedAt && p.status === "accepted");
 type Tone = "fox" | "sage" | "amber" | "lav";
 const stage = (p: Person): [string, Tone] => p.insider ? [`Insider since ${day(p.insider.joinedAt)}`, "fox"]
-  : p.signedUpAt && (p.onList || p.status === "accepted") ? ["Insider from next visit", "fox"]
+  : p.signedUpAt && insider(p) ? ["Insider from next visit", "fox"]
   : p.signedUpAt && p.days >= 3 ? ["Invited to Insider", "sage"] : p.signedUpAt ? [`${p.days} of 3 days`, "sage"] : [p.status === "accepted" || p.onList ? "Hasn't signed in" : p.status === "next" ? "Next cohort" : p.status === "declined" ? "Declined" : "Applied", p.status === "accepted" || p.onList ? "amber" : "lav"];
 const initials = (p: Person) => (p.name || p.email).split(/[\s.@]+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join("").toUpperCase();
 
@@ -259,7 +261,7 @@ function BetaTab() {
   const [note, setNote] = useState("");
   const [notify, setNotify] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [view, setView] = useState<"insiders" | "applied">("insiders");
+  const [view, setView] = useState<"everyone" | "insiders" | "applied">("everyone");
   const [find, setFind] = useState("");
   const [panel, setPanel] = useState<"" | "apps" | "add" | "more">("");
   const [who, setWho] = useState<Person | null>(null);
@@ -290,7 +292,10 @@ function BetaTab() {
   };
   const people = st?.people || [];
   const insiders = people.filter(insider), applied = people.filter((p) => p.status === "new" || p.status === "next");
-  const shown = (view === "insiders" ? insiders : applied)
+  // Everyone = every account (Google or email sign-in), newest first, so today's sign-ups are on top.
+  const everyone = people.filter((p) => p.signedUpAt).sort((a, b) => (b.signedUpAt || "").localeCompare(a.signedUpAt || ""));
+  const k = st?.counts;
+  const shown = (view === "everyone" ? everyone : view === "insiders" ? insiders : applied)
     .filter((p) => !find || `${p.name} ${p.email} ${p.school} ${p.major}`.toLowerCase().includes(find.toLowerCase()));
   const signedIn = insiders.filter((p) => p.signedUpAt).length;
   const rates = (st?.surveys || []).filter((x) => /^[1-5]$/.test(x.answer)).map((x) => Number(x.answer));
@@ -298,7 +303,7 @@ function BetaTab() {
   return (
     <div className="adm2 adm2-full adm2-fixed">
       <div className="adm-head">
-        <div><h1 className="adm-hello">Students</h1><p className="adm2-say"><b>{plural(insiders.length, "Beta Insider")}.</b> {applied.length ? `${plural(applied.length, "application")} waiting for a decision.` : `${signedIn} of them signed in.`}</p></div>
+        <div><h1 className="adm-hello">Students</h1><p className="adm2-say">{k ? <><b>{plural(k.total, "student profile")}.</b> {k.today} new today, {k.week} this week. </> : null}{plural(insiders.length, "Beta Insider")}{applied.length ? `, ${plural(applied.length, "application")} waiting for a decision.` : `, ${signedIn} signed in.`}</p></div>
         <div className="row adm2-headbtns" style={{ gap: 6, flexWrap: "wrap" }}>
           <button className="btn btn-secondary btn-sm" onClick={() => setPanel("apps")} data-testid="button-open-applications">Applications{applied.length ? ` (${applied.length})` : ""}</button>
           <button className="btn btn-ghost btn-sm" onClick={() => setPanel("add")} data-testid="button-open-add-emails"><Plus size={14} /> Add by email</button>
@@ -317,7 +322,7 @@ function BetaTab() {
         <section className="adm2-card" data-testid="students-list">
           <div className="adm2-h"><h3>Who's in</h3>
             <div className="adm2-seg" role="group" aria-label="Show">
-              {([["insiders", `Beta Insiders ${insiders.length}`], ["applied", `Applied ${applied.length}`]] as const).map(([k, l]) => <button key={k} aria-pressed={view === k} onClick={() => setView(k)} data-testid={`students-view-${k}`}>{l}</button>)}
+              {([["everyone", `Everyone ${everyone.length}`], ["insiders", `Insiders ${insiders.length}`], ["applied", `Applied ${applied.length}`]] as const).map(([k, l]) => <button key={k} aria-pressed={view === k} onClick={() => setView(k)} data-testid={`students-view-${k}`}>{l}</button>)}
             </div>
           </div>
           <input className="input" placeholder="Search a name, email, school or major" value={find} onChange={(e) => setFind(e.target.value)} aria-label="Search students" data-testid="input-students-search" />
@@ -330,16 +335,24 @@ function BetaTab() {
                   <span className={"adm2-ini " + tone} aria-hidden>{initials(p)}</span>
                   <div className="grow" style={{ minWidth: 0 }}>
                     <b className="adm-ellipsis">{p.name || p.email}</b>
-                    <span className="xs muted adm-ellipsis">{[p.name ? p.email : "", p.school, p.classYear, p.major].filter(Boolean).join(" · ")}{p.goal ? ` · wants ${p.goal}` : ""}</span>
+                    <span className="xs muted adm-ellipsis">{[p.name ? p.email : "", view === "everyone" && p.signedUpAt ? `joined ${ago(p.signedUpAt)}` : "", p.school, p.classYear, p.major].filter(Boolean).join(" · ")}{p.goal ? ` · wants ${p.goal}` : ""}</span>
                   </div>
                   <span className={"adm2-pill " + tone}>{label}</span>
                 </button>
               );
             })}
-            {st && !shown.length && <Empty title={find ? "Nobody matches" : view === "insiders" ? "No insiders yet" : view === "applied" ? "No applications waiting" : "Nobody yet"} body={view === "insiders" ? "Students are invited after 3 days of use, once Remy is open to everyone." : undefined} />}
+            {st && !shown.length && <Empty title={find ? "Nobody matches" : view === "everyone" ? "No accounts yet" : view === "insiders" ? "No insiders yet" : view === "applied" ? "No applications waiting" : "Nobody yet"} body={view === "insiders" ? "Students are invited after 3 days of use, once Remy is open to everyone." : undefined} />}
           </div>
         </section>
         <div className="adm2-col">
+          <section className="adm2-card" data-testid="student-counts">
+            <div className="adm2-h"><h3>Student profiles</h3>{k && k.team > 0 && <span className="xs muted">Team ({k.team}) not counted</span>}</div>
+            {k ? <div className="adm2-steps">
+              {([["Profiles", k.total, "all time", `${k.month} joined in the last 30 days`], ["Today", k.today, "new", "Joined since midnight, Central time"], ["7 days", k.week, "new", "Joined in the last 7 days"], ["Active", k.activeWeek, `${k.activeToday} today`, "Used Remy in the last 7 days"], ["Set up", k.setUp, "finished", `Finished setup · ${k.resume} added a resume`]] as const).map(([l, n, note, tip]) => (
+                <div key={l} title={tip}><strong>{n}</strong><span>{l}</span><em>{note}</em></div>
+              ))}
+            </div> : <Spinner />}
+          </section>
           <section className="adm2-card" data-testid="beta-steps">
             <div className="adm2-h"><h3>From sign-up to using Remy</h3></div>
             {fun ? <div className="adm2-steps">
