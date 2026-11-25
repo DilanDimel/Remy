@@ -9,7 +9,7 @@ import { Button, Group, Icon, Remy, Row, T, success, tap } from "@/components/ui
 import { useGateRedirect } from "@/lib/gate";
 import { api } from "@/lib/api";
 import { useConfig } from "@/lib/config";
-import { parseReturn } from "@/lib/auth";
+import { newVerifier, parseReturn } from "@/lib/auth";
 import { useSession } from "@/lib/session";
 import { brand } from "@/lib/tokens";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
@@ -65,18 +65,23 @@ export default function SignIn() {
     setBusy(false);
   };
   // Google and LinkedIn go through Supabase in the system browser sheet (Google refuses sign-in inside an app's web
-  // view), then come back on the app's own link with a token our server checks, the same as the website's buttons.
+  // view), then come back on the app's own link with a one-time code (PKCE) that only this app can swap for the token our server checks, the same as the website's buttons.
   const sso = async (p: Sso) => {
     const sb = config?.supabase;
     if (!sb) return;
     setSsoBusy(p); setErr("");
     try {
       const back = Linking.createURL("auth");
-      const r = await WebBrowser.openAuthSessionAsync(`${sb.url}/auth/v1/authorize?provider=${p}&redirect_to=${encodeURIComponent(back)}`, back);
+      const verifier = newVerifier();
+      const r = await WebBrowser.openAuthSessionAsync(`${sb.url}/auth/v1/authorize?provider=${p}&redirect_to=${encodeURIComponent(back)}&code_challenge=${verifier}&code_challenge_method=plain`, back);
       if (r.type === "success") {
-        const { token, error } = parseReturn(r.url);
-        if (!token) throw new Error(error ? `Sign-in didn't finish: ${error}` : "Sign-in didn't finish. Please try again.");
-        const s = await api<{ me: Me; workspace: Workspace }>("POST", "/api/auth/supabase", { accessToken: token });
+        const { code, error } = parseReturn(r.url);
+        if (!code) throw new Error(error ? `Sign-in didn't finish: ${error}` : "Sign-in didn't finish. Please try again.");
+        // The code is only good with the verifier this app kept, so it's swapped for the token here, not in the link.
+        const t = await fetch(`${sb.url}/auth/v1/token?grant_type=pkce`, { method: "POST", headers: { apikey: sb.anonKey, "Content-Type": "application/json" }, body: JSON.stringify({ auth_code: code, code_verifier: verifier }) });
+        const tok = await t.json().catch(() => ({}));
+        if (!t.ok || !tok.access_token) throw new Error(tok.error_description || tok.msg || "Sign-in didn't finish. Please try again.");
+        const s = await api<{ me: Me; workspace: Workspace }>("POST", "/api/auth/supabase", { accessToken: tok.access_token });
         success(); signedIn(s.me, s.workspace);
       }
     } catch (e: any) { setErr(e.message); }
