@@ -149,7 +149,6 @@ export function Policies() {
   const config = useStore()?.config;
   return (
     <Page title="Privacy & terms" lead={`How Remy handles your information, and the rules for using it. Last updated ${UPDATED}.`}>
-      <h2 className="eyebrow">Privacy policy</h2>
       <Section title="What Remy collects">
         <ul className="stack-sm" style={{ paddingLeft: 18 }}>
           <li><b>From signing in:</b> your name, email address and profile photo.</li>
