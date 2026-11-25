@@ -30,6 +30,7 @@ function Root() {
             iPhone (swipe down to close) and a full-screen page on Android. A half-height iOS form sheet (#338) put the
             message box over the messages on a real iPhone, so it's back to the card until that can be tested there. */}
         <Stack.Screen name="remy" options={{ presentation: "modal" }} />
+        <Stack.Screen name="round" options={{ presentation: "fullScreenModal" }} />
         <Stack.Screen name="soon" options={{ ...sheet, title: "" }} />
         {/* Screens not rebuilt natively yet open the website, signed in, as a sheet. */}
         <Stack.Screen name="web" options={sheet} />

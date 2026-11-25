@@ -9,6 +9,8 @@ export function go(path: string, title = "Remy", opts: { page?: boolean } = {}) 
   // (Parsed by hand: React Native's URLSearchParams has no get() on every version.)
   const q = Object.fromEntries((query || "").split("&").filter(Boolean).map((kv) => { const [k, v = ""] = kv.split("="); return [k, decodeURIComponent(v)]; }));
   if (!opts.page && base === "/resume" && q.tab === "tailor") return router.push({ pathname: "/tailor", params: { ...(q.job ? { job: q.job } : {}), ...(q.app ? { app: q.app } : {}) } } as any);
+  // Today's round is native: Home's streak row, its quest row and My Path's quests all link to /path?play=1.
+  if (!opts.page && base === "/path" && q.play) return router.push("/round" as any);
   // Rewards is native too (More → Rewards, and links from My Path and pins).
   if (!opts.page && base === "/rewards") return router.push({ pathname: "/rewards", params: q.tab ? { tab: q.tab } : {} } as any);
   // Progress is native for Applications and To-dos; Email updates and Hours stay the website's tabs for now.
