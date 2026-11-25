@@ -12,6 +12,11 @@ export const brand = {
   stage3: "#121212",
   stageDeep: "#111111",
   paper: "#f5f5f3",
+  // Third-party sign-in marks, drawn in their owners' required colours.
+  googleBlue: "#4285F4",
+  googleGreen: "#34A853",
+  googleYellow: "#FBBC05",
+  googleRed: "#EA4335",
   schFur: "#e86a2a",
   schCream: "#fff7ed",
   schInk: "#1a120b",

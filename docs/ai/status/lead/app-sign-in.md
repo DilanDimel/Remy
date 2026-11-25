@@ -1,0 +1,7 @@
+App sign-in fixes (Dilan, Nov 25 ~9:46 UTC; thread cmsg_012oEYinQ9jHxQSr4gSXfn6cQHwJ77iLYwP1uYjTaESQmu). Touches `native/` (read `docs/ai/status/demetre.md` first, as the app fix-up does).
+
+- Google and LinkedIn sign-in in the app (the website's two Supabase providers; Apple is off on the site too). `native/src/app/sign-in.tsx` opens `<supabase>/auth/v1/authorize?provider=…&redirect_to=<Linking.createURL("auth")>` with `WebBrowser.openAuthSessionAsync` (implicit flow, so the token comes back after `#`), reads it with `parseReturn` (`native/src/lib/auth.ts`, tested) and posts it to the existing `POST /api/auth/supabase`. Buttons only show for providers switched on in `/api/config`. `native/src/app/auth.tsx` catches the `remy://auth` link so the router doesn't show "not found".
+- Supabase Auth → URL Configuration → Redirect URLs must list `remy://**` (the app) and `exp://**` (Expo Go), or Supabase sends people to the Site URL instead of back to the app.
+- Layout: the email and code steps sit in the middle of the screen (max 440 wide), Back stays at the top, Send code / Sign in sit under the field instead of at the bottom.
+- Privacy and Terms links (welcome, email step, terms gate) open inside the app in the `/web` sheet (`/privacy`, `/terms`, `/policies`), not the outside browser.
+- The "no code email" report: both codes Dilan asked for (09:44 UTC) were sent by Resend and delivered to his Gmail; nothing was broken on the server.
