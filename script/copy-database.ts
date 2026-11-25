@@ -3,10 +3,11 @@
 //     npx tsx script/copy-database.ts --from sqlite:/data/data.db        (the old live-site file)
 //     npx tsx script/copy-database.ts --from postgres://user:pass@host/db (moving between Postgres hosts)
 // The target's tables are created by server/migrations first. Rows that already exist are left as they are,
-// so running it twice is safe.
+// so running it twice is safe. Between Postgres hosts every table in DB_SCHEMA is copied (parents before
+// children), the id counters are moved past the copied ids, and each table's row count is checked.
 import Database from "better-sqlite3";
 import pg from "pg";
-import { closeDb, q, sslFor } from "../server/platform/sql";
+import { closeDb, q, schema, sslFor } from "../server/platform/sql";
 
 const from = process.argv[process.argv.indexOf("--from") + 1];
 if (!from || from === process.argv[1]) {
@@ -32,12 +33,7 @@ async function readSource(): Promise<Record<(typeof TABLES)[number], Row[]>> {
     db.close();
     return out;
   }
-  const src = new pg.Client({ connectionString: from, ssl: sslFor(from) });
-  await src.connect();
-  const out = {} as Record<(typeof TABLES)[number], Row[]>;
-  for (const t of TABLES) out[t] = (await src.query(`SELECT * FROM ${t}`)).rows;
-  await src.end();
-  return out;
+  throw new Error("only sqlite: sources come here; Postgres sources use copyPostgres()");
 }
 
 const INSERT: Record<(typeof TABLES)[number], [string, (r: Row) => unknown[]]> = {
@@ -48,6 +44,43 @@ const INSERT: Record<(typeof TABLES)[number], [string, (r: Row) => unknown[]]> =
   // Tokens are encrypted with GCAL_CLIENT_SECRET: the new host needs the same secret.
   google_calendar: ["INSERT INTO google_calendar (user_id, refresh, calendar_id, tz, connected_at) VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING", (r) => [r.user_id, r.refresh, r.calendar_id, r.tz, r.connected_at]],
 };
+
+/** Postgres to Postgres: every table in the schema, whatever migrations have added since this script was written. */
+async function copyPostgres() {
+  const src = new pg.Client({ connectionString: from, ssl: sslFor(from), options: `-c search_path=${schema}` });
+  await src.connect();
+  await q("SELECT 1"); // creates the target's tables (server/migrations)
+  const names = (await src.query("SELECT table_name AS t FROM information_schema.tables WHERE table_schema = $1 AND table_type = 'BASE TABLE'", [schema])).rows.map((r) => String(r.t));
+  const parents = new Map(names.map((t) => [t, new Set<string>()]));
+  for (const r of (await src.query(`SELECT c.conrelid::regclass::text AS child, c.confrelid::regclass::text AS parent FROM pg_constraint c
+      JOIN pg_namespace n ON n.oid = c.connamespace WHERE c.contype = 'f' AND n.nspname = $1`, [schema])).rows) {
+    const strip = (x: string) => x.replace(/^.*\./, "").replace(/"/g, "");
+    if (strip(r.child) !== strip(r.parent)) parents.get(strip(r.child))?.add(strip(r.parent));
+  }
+  const order: string[] = [];
+  const visit = (t: string) => { if (order.includes(t)) return; parents.set(t, parents.get(t) || new Set()); for (const p of parents.get(t)!) if (!order.includes(p)) visit(p); order.push(t); };
+  names.forEach(visit);
+  let ok = true;
+  for (const t of order) {
+    if (!/^[a-z0-9_]+$/.test(t)) throw new Error(`unexpected table name ${t}`);
+    const rows = (await src.query(`SELECT row_to_json(x)::text AS j FROM ${t} x`)).rows.map((r) => r.j as string);
+    // shortcut: 25 rows per insert keeps each statement under about 20 MB with 0.6 MB workspaces; raise it if tables get much bigger.
+    for (let i = 0; i < rows.length; i += 25) {
+      await q(`INSERT INTO ${t} SELECT * FROM json_populate_recordset(null::${t}, $1::json) ON CONFLICT DO NOTHING`, [`[${rows.slice(i, i + 25).join(",")}]`]);
+    }
+    for (const c of await q("SELECT column_name AS c FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 AND column_default LIKE 'nextval(%'", [schema, t])) {
+      await q(`SELECT setval(pg_get_serial_sequence('${t}', '${c.c}'), GREATEST((SELECT MAX(${c.c}) FROM ${t}), 1))`);
+    }
+    const got = Number((await q(`SELECT COUNT(*)::int AS n FROM ${t}`))[0].n);
+    const fine = got >= rows.length;
+    ok &&= fine;
+    console.log(`  ${fine ? "✓" : "✗"} ${t}: ${rows.length} in source, ${got} in target`);
+  }
+  await src.end();
+  await closeDb();
+  process.exit(ok ? 0 : 1);
+}
+if (!from.startsWith("sqlite:")) await copyPostgres();
 
 const source = await readSource();
 // Rows that point at a missing user (left over from old deletes) can't be copied into tables with foreign keys.
