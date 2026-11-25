@@ -3739,8 +3739,8 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
   .redesign-2 :is(.page-head, .pm-head) h1:not([data-testid="text-greeting"]) { display: none; }
   .redesign-2 .page { padding-top: 4px; }
 }
-.modal-back:has(.more-sheet) { align-items: flex-end; padding: 0; }
-.modal:has(.more-sheet) { border-radius: 22px 22px 0 0; max-height: 88vh; padding: 18px 16px calc(16px + env(safe-area-inset-bottom)); gap: 12px; }
+.modal-back:has(.more-sheet, .job-sheet) { align-items: flex-end; padding: 0; }
+.modal:has(.more-sheet, .job-sheet) { border-radius: 22px 22px 0 0; max-height: 88vh; padding: 18px 16px calc(16px + env(safe-area-inset-bottom)); gap: 12px; }
 .more-sheet { display: flex; flex-direction: column; gap: 2px; }
 .more-sheet .nav-item { min-height: 42px; }
 .more-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
@@ -3755,4 +3755,46 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
   .auth-stage:not(:has(.terms-card)) .lp-beam { display: none; }
   .auth-stage:not(:has(.terms-card)) .landing-card { max-width: none; width: 100%; min-height: 100dvh; border: 0; border-radius: 0; box-shadow: none; background: var(--bg); display: flex; flex-direction: column; justify-content: center; padding: 16px 20px calc(24px + env(safe-area-inset-bottom)); }
   .auth-stage:not(:has(.terms-card)) .landing-card > .row-between { position: absolute; top: 12px; left: 12px; right: 12px; }
+}
+/* Phone Home (Dilan, Nov 25 mockup): "Remy noticed" shrinks to a slim row, the greeting and Remy's one thing fit the
+   first screen. Other pages get the same slim offer row. */
+@media (max-width: 760px) {
+  .redesign-2 .remy-offer:not(.docked) { width: calc(100% - 32px); margin: 4px auto 6px; padding: 10px 34px 10px 12px; gap: 10px; }
+  .redesign-2 .remy-offer:not(.docked) .remy-offer-face { display: none; }
+  .redesign-2 .remy-offer:not(.docked) > .stack-sm { flex-wrap: nowrap; gap: 10px !important; }
+  .redesign-2 .remy-offer:not(.docked) .remy-offer-text { flex: 1 1 auto; min-width: 0; font-size: 13.5px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .redesign-2 .remy-offer:not(.docked) [data-testid="button-offer-not-now"] { display: none; }
+  .redesign-2 .remy-offer:not(.docked) .remy-offer-kicker { font-size: 11px; }
+  .redesign-2 .page-head h1[data-testid="text-greeting"] { font-size: 1.7rem; }
+  .redesign-2 .page-head .remy-line { font-size: 15px; margin-top: 4px; }
+  .redesign-2 .page-head { gap: 12px; }
+  .redesign-2 .page-head .streak-peek { width: 100%; }
+  .redesign-2 .hero2-bubble { padding: 16px; }
+  .redesign-2 .hero2-bubble h2 { font-size: 1.35rem; padding-right: 64px; }
+  .redesign-2 .hero2-bubble p { font-size: 14.5px; margin-bottom: 12px; }
+}
+/* Phone Jobs (Dilan, Nov 25): For you / Saved / Applied on top, short rows, an opening opens as a bottom sheet. */
+.jobs-seg { display: none; }
+@media (max-width: 760px) {
+  .redesign-2 .jobs-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; margin-bottom: 4px; }
+  .redesign-2 .jobs-seg button { justify-content: center; }
+}
+.job-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; color: var(--ink); }
+.job-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.job-row-main b { font-size: 14.5px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.job-row-main span { font-size: 12.5px; color: var(--muted-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.job-row .chip { flex: none; }
+.redesign-2 .stack:has(> .job-row) { gap: 8px; }
+.job-sheet .job-card { border: 0; padding: 0; box-shadow: none; background: none; }
+.job-sheet .job-top h3 { display: none; }
+.job-sheet .job-acts { position: sticky; bottom: 0; background: var(--surface); padding-top: 8px; }
+.modal:has(.job-sheet) > .row-between { flex-wrap: nowrap; align-items: flex-start; gap: 12px; }
+.modal:has(.job-sheet) > .row-between h2 { flex: 1; min-width: 0; font-size: 1.2rem; line-height: 1.25; }
+.job-sheet .job-top { flex-direction: row; align-items: center !important; }
+.job-sheet .job-card .job-why { display: block !important; -webkit-line-clamp: unset !important; overflow: visible !important; }
+/* Phone Applied (Progress): the stages stack as a list instead of a board that scrolls sideways; empty ones are one line. */
+@media (max-width: 760px) {
+  .redesign-2 .pr-flow { grid-template-columns: minmax(0, 1fr); overflow: visible; }
+  .redesign-2 .pr-lane > .pr-ghost { display: none; }
+  .redesign-2 .pr-lane:not(:has(> :not(h4, .pr-ghost))) { padding: 8px 10px; }
 }
