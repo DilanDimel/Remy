@@ -1449,12 +1449,11 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.send(buf);
   }));
 
-  // Format check (owners first, Nov 25): what hurts the file's format for the student's level, and three clean formats.
+  // Format check (Nov 25; released to students by Dilan, Nov 25 5:03 AM CT): what hurts the file's format for the student's level, and three clean formats.
   const isStudent = (ws: Workspace) => ["First-year", "Sophomore", "Junior", "Senior"].includes(classYearOf(ws));
   const formatStyle = (ws: Workspace, look: ResumeLook): ResumeStyle => ({ ...(ws.resume!.style || { serif: false, size: 10, margin: 50, pages: 1 }), look, pages: isStudent(ws) ? 1 : 2 });
   const LOOKS = ["classic", "modern", "compact"] as const;
   app.get("/api/resume/format", route(async (_req, res, ctx) => {
-    if (!(await admin.isOwner(ctx.me))) bad("Not available yet.", 403);
     const r = ctx.ws.resume;
     if (!r) bad("Upload a resume first.");
     // With one of Remy's formats picked, only what the words themselves still need is left (the file's photo, pages and
@@ -1466,7 +1465,6 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.json({ findings, layout: r!.layout || null, look: look || null, student: isStudent(ctx.ws) });
   }));
   app.get("/api/resume/format/preview", route(async (req, res, ctx) => {
-    if (!(await admin.isOwner(ctx.me))) bad("Not available yet.", 403);
     if (!ctx.ws.resume) bad("Upload a resume first.");
     const look = LOOKS.find((l) => l === req.query.look) || "classic";
     res.setHeader("Content-Type", "application/pdf");
@@ -1474,7 +1472,6 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.send(await resumePdf(withoutPersonal(ctx.ws.resume!.doc), formatStyle(ctx.ws, look)));
   }));
   app.post("/api/resume/format", route(async (req, res, ctx) => {
-    if (!(await admin.isOwner(ctx.me))) bad("Not available yet.", 403);
     if (!ctx.ws.resume) bad("Upload a resume first.");
     const look = z.object({ look: z.enum(LOOKS).nullable() }).parse(req.body).look;
     // Picking a format keeps their words and changes only the look; "Keep my own file" goes back to it.
