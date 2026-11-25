@@ -18,7 +18,9 @@ export const success = () => { if (Platform.OS !== "web") Haptics.notificationAs
 export function Screen({ children, refreshing, onRefresh, scroll = true, style }: { children: ReactNode; refreshing?: boolean; onRefresh?: () => void; scroll?: boolean; style?: StyleProp<ViewStyle> }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
-  const pad = { paddingTop: insets.top + 8, paddingHorizontal: 16, paddingBottom: insets.bottom + 180 }; // room for the tab bar and the floating fox, so the last row scrolls clear of both
+  // Just enough room at the end for the last row to clear the floating fox. iPhone pages scroll under the glass tab bar;
+  // Android's tab bar sits below the page, so it needs only the fox's height (180 left a screen of blank paper there).
+  const pad = { paddingTop: insets.top + 8, paddingHorizontal: 16, paddingBottom: Platform.OS === "ios" ? insets.bottom + 126 : 76 };
   if (!scroll) return <View style={[{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top + 8 }, style]}>{children}</View>;
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>

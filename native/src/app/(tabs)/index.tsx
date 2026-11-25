@@ -140,7 +140,7 @@ export default function Home() {
         </View>
       )}
 
-      <T kind="display" style={{ marginTop: offer ? 18 : 36 }}>{greeting()}{name ? `, ${name}` : ""}.</T>
+      <T kind="display" style={{ marginTop: offer ? 8 : 12 }}>{greeting()}{name ? `, ${name}` : ""}.</T>
       <T kind="muted" style={{ marginTop: 6, fontSize: 17, lineHeight: 24 }} numberOfLines={2}>{line}</T>
 
       {/* The streak: flame (orange once today's round is done), the number, the last seven days, and today's round. */}

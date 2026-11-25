@@ -42,7 +42,7 @@ export default function More() {
 
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
-      <T kind="display" style={{ marginTop: 28 }}>{ws?.profile.name || "More"}</T>
+      <T kind="display" style={{ marginTop: 8 }}>{ws?.profile.name || "More"}</T>
       <T kind="muted">{[ws?.profile.major, ws?.profile.school].filter(Boolean).join(" · ") || me?.email}</T>
 
       {/* Owners only, in both views, so they can always switch back (the website's OwnerTools). Saved on the account,
