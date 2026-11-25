@@ -535,7 +535,7 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, e
   // and the caller fills its text in place (refillEmpty) instead of keeping a card that can't say why it fits.
   const known = new Set([...ws.jobs.filter((j) => !isEmptyListing(j)).flatMap((j) => [j.applyUrl, j.sourceUrl]), ...(ws.droppedJobUrls || [])]);
   const reached: string[] = [];
-  const found: { job: Job; rel: number; preference: number; inArea: boolean }[] = [];
+  const found: { job: Job; text: string; rel: number; preference: number; inArea: boolean }[] = [];
   let i = 0;
   const worker = async () => {
     while (i < boards.length) {
@@ -548,7 +548,8 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, e
       // The student's own places first: out-of-area postings (kept only by their relocation answer) never use the
       // detail reads or the per-employer slots an in-area posting would have had (skeptic review).
       const outsideAt = (location: string) => regionMatch(ws, { location, format: /remote/i.test(location) ? "Remote" : "" } as Job) === false;
-      const ordered = [...raws].sort((a, z) => Number(outsideAt(a.location)) - Number(outsideAt(z.location)));
+      // Each place checked once (the catalog is thousands of postings; a sort would check each one many times).
+      const ordered = raws.map((r) => ({ r, out: outsideAt(r.location) })).sort((a, z) => Number(a.out) - Number(z.out)).map((x) => x.r);
       for (const r of ordered) {
         if (!r.url || known.has(r.url) || (!r.student && !studentTitle(r.title))) continue;
         if (undergrad && GRAD_LEVEL.test(r.title)) continue;
@@ -587,12 +588,13 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, e
         const job: Job = {
           id: uid("j"), kind: kindOf(r.title), title: r.title, company: r.company || b.company, location: tidyLocation(r.location) || "Not stated",
           format: /remote/i.test(r.location) ? "Remote" : "", dates: "", deadline: r.deadline || "", deadlineText: r.deadline ? `Closes ${r.deadline}` : "Not stated on the board — check the posting",
-          eligibility: eligibilityFrom(r.text), requirements: requirementsFrom(r.text), summary: postingLines(r.text).join("\n").slice(0, 420),
+          // Filled in only for the openings kept below: reading requirements is the slow part, and the catalog passes thousands.
+          eligibility: "", requirements: [], summary: "",
           applyUrl: r.url, sourceUrl: r.url, sourceName: `${r.company || b.company} careers (${ats[0].toUpperCase() + ats.slice(1)} job board)`,
-          label: "Live", checkedAt: new Date().toISOString(), foundAt: new Date().toISOString(), checks: [], origin: "imported", postingText: r.text.slice(0, 12000),
+          label: "Live", checkedAt: new Date().toISOString(), foundAt: new Date().toISOString(), checks: [], origin: "imported", postingText: "",
         };
         known.add(r.url);
-        found.push({ job, rel, preference: preferenceAdjustment(ws, job, enabled).adjustment, inArea: !outsideAt(r.location) });
+        found.push({ job, text: r.text, rel, preference: preferenceAdjustment(ws, job, enabled).adjustment, inArea: !outsideAt(r.location) });
       }
     }
   };
@@ -607,7 +609,7 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, e
     if (n >= 4 || jobs.length >= limit) continue;
     if (fields.length && f.rel === 0 && found.some((x) => x.rel > 0)) continue;
     perCompany.set(f.job.company, n + 1);
-    jobs.push(f.job);
+    jobs.push({ ...f.job, eligibility: eligibilityFrom(f.text), requirements: requirementsFrom(f.text), summary: postingLines(f.text).join("\n").slice(0, 420), postingText: f.text.slice(0, 12000) });
   }
   return { jobs, scanned: boards.length, reached };
 }
