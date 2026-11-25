@@ -801,7 +801,7 @@ export function majorsOf(e?: Entry): string {
   const role = e.role.replace(/[,(]?\s*\b(?:(?:expected|anticipated|graduat\w*|class of)\s+)?(?:(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+)?(?:19|20)\d{2}\b\)?\.?/gi, (m) => (/expected|anticipated|graduat|class of|[a-z]{3}/i.test(m) ? "" : m));
   const all = [role, ...e.bullets.map((b) => b.text)].join("\n");
   const listed = all.match(/\bmajors?\s*:\s*([^\n]+)/i)?.[1];
-  const pieces = (listed ? listed.replace(/\bGPA\b.*$/i, "").split(/\s*[|;\/]\s*|,\s+(?=\p{Lu})/u) : role.split(/\s*[|;]\s*|,\s+(?=\p{Lu})/u))
+  const pieces = (listed ? listed.replace(/\bGPA\b.*$/i, "").split(/\s*[|;\/]\s*|,\s+(?=\p{Lu})/u) : role.split(/\s*[|;·•]\s*|,\s+(?=\p{Lu})/u))
     .map((p) => p.replace(/\bGPA\b.*$/i, "").replace(/,?\s*\bminors?\b.*$/i, "").replace(/\bwith\b.*$/i, (m) => (/certific|concentration|minor/i.test(m) ? m : "")).replace(/[\s,.]+$/, "").replace(/^[\s,.;:|–-]+/, "").trim())
     .filter((p) => p && !NOT_A_MAJOR.test(p) && !/^minors?\b/i.test(p))
     .map(degreeField)
