@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import type { Me, Workspace } from "@shared/types";
 import { q, q1, tx } from "./sql";
 import { r2Delete, r2Get, r2Put, r2Ready } from "./r2";
-import { copyAll, deleteCopy, forgetCopy, jobsFromTable, jobsMode, syncJobs } from "./studentJobs";
+import { copyAll, deleteCopy, forgetCopy, jobsFromTable, jobsMode, primeJobs, syncJobs, type Written } from "./studentJobs";
 
 export const nowIso = () => new Date().toISOString();
 export { uid } from "./ids";
@@ -223,10 +223,10 @@ export async function copyJobsBatch(limit = 10): Promise<number> {
     `SELECT w.user_id AS id FROM workspaces w LEFT JOIN student_jobs_state s ON s.user_id = w.user_id
      WHERE s.user_id IS NULL ORDER BY w.updated_at DESC LIMIT $1`, [limit]);
   for (const { id } of ids)
-    await tx(async (run) => {
+    primeJobs(String(id), await tx(async (run): Promise<Written> => {
       const data = await readStored(run, String(id), "FOR UPDATE");
-      if (data) await copyAll(run, String(id), data.jobs);
-    });
+      return data ? copyAll(run, String(id), data.jobs) : undefined;
+    }));
   return ids.length;
 }
 export async function hasWorkspace(userId: string) {
@@ -271,14 +271,16 @@ export async function saveSections(userId: string, sections: Partial<Workspace>)
      RETURNING updated_at::text AS v, CASE WHEN (SELECT v FROM old) = $4 THEN NULL ELSE data END AS data`;
   const args = [userId, base, json, c.v];
   // With the student_jobs switch on, openings are also written there in the same transaction, under the row lock.
+  let wrote: Written;
   const r = "jobs" in sections && (await jobsMode()) !== "off"
     ? await tx(async (run) => {
         const row = (await run(sql, args))[0];
         const after = row.data == null ? patch.jobs : parse(row.data).jobs;
-        await syncJobs(run, userId, row.data == null ? c.data?.jobs : null, after);
+        wrote = await syncJobs(run, userId, row.data == null ? c.data?.jobs : null, after);
         return row;
       })
     : await q1(sql, args);
+  primeJobs(userId, wrote); // after the commit
   const stored = r!.data == null ? { ...c.data, ...JSON.parse(json) } : parse(r!.data);
   remember(userId, r!.v, stored);
   if (JSON.stringify(stored).length > 4_000_000) throw Object.assign(new Error("Workspace is too large."), { status: 413 });
@@ -294,7 +296,8 @@ export async function deleteWorkspace(userId: string) {
 /** Read and edit one owner's current workspace under a database row lock.
  * Feedback edits use this so simultaneous ratings never replace each other's entries. */
 export async function editWorkspace(userId: string, edit: (ws: Workspace) => void): Promise<Workspace> {
-  return tx(async (run) => {
+  let wrote: Written;
+  const out = await tx(async (run) => {
     const row = await readStored(run, userId, "FOR UPDATE");
     const ws = fromStored(structuredClone(row));
     const before = new Map(Object.entries(ws).map(([key, value]) => [key, JSON.stringify(value)]));
@@ -309,10 +312,12 @@ export async function editWorkspace(userId: string, edit: (ws: Workspace) => voi
       throw Object.assign(new Error("Workspace is too large."), { status: 413 });
     const patch = JSON.stringify({ ...changed, updatedAt: ws.updatedAt }, noNul);
     const up = await run("UPDATE workspaces SET data = data || $2::jsonb, updated_at = now() WHERE user_id=$1 RETURNING updated_at::text AS v", [userId, patch]);
-    if ("jobs" in changed) await syncJobs(run, userId, row.jobs, ws.jobs);
+    if ("jobs" in changed) wrote = await syncJobs(run, userId, row.jobs, ws.jobs);
     remember(userId, up[0].v, { ...row, ...JSON.parse(patch) });
     return ws;
   });
+  primeJobs(userId, wrote); // after the commit
+  return out;
 }
 export async function deleteAccount(userId: string) {
   const u = await q1("SELECT email, school_email FROM users WHERE id=$1", [userId]);

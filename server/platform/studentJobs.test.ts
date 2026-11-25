@@ -33,7 +33,8 @@ test("student_jobs: off by default, a backup first, copied in batches, kept in s
   // No backups, no start.
   await assert.rejects(setJobsMode("copy", "owner@sj.test", null), /fresh backup/);
   assert.equal(await jobsMode(true), "off");
-  await assert.rejects(setJobsMode("everyone", "owner@sj.test", store), /off, copy or owners/);
+  await assert.rejects(setJobsMode("nobody", "owner@sj.test", store), /off, copy, owners or everyone/);
+  await assert.rejects(setJobsMode("everyone", "owner@sj.test", store), /Owners read it first/, "never straight from off");
 
   const on = await setJobsMode("copy", "owner@sj.test", store);
   assert.equal(on.backup?.kind, "full");
@@ -86,6 +87,31 @@ test("student_jobs: off by default, a backup first, copied in batches, kept in s
   assert.equal((await jobsReport()).differ, 0);
   const own = await loadWorkspace("sj:own");
   assert.deepEqual(own.jobs.map((j) => j.id), ["o1", "o2"]);
+
+  // Step 2, 'everyone': only after 'owners'; then students read the table too, and their saves keep it current.
+  await setJobsMode("copy", "owner@sj.test", store);
+  await assert.rejects(setJobsMode("everyone", "owner@sj.test", store), /Owners read it first/);
+  await setJobsMode("owners", "owner@sj.test", store);
+  await setJobsMode("everyone", "owner@sj.test", store);
+  await q("UPDATE student_jobs SET data = jsonb_set(data, '{title}', '\"Student table\"') WHERE user_id = 'sj:b' AND pos = 0");
+  await q("UPDATE student_jobs_state SET jobs_v = jobs_v + 1 WHERE user_id = 'sj:b'");
+  assert.equal((await loadWorkspace("sj:b")).jobs[0].title, "Student table", "students read the table now");
+  await saveSections("sj:b", { jobs: [job("k9", "Saved by the student"), job("k10")] });
+  const back = await loadWorkspace("sj:b");
+  assert.deepEqual(back.jobs.map((j) => [j.id, j.title]), [["k9", "Saved by the student"], ["k10", "Analyst intern"]]);
+  // That read came from this server's own copy of what it just wrote, not a download: a change in the table that
+  // didn't bump jobs_v isn't seen.
+  await q("UPDATE student_jobs SET data = jsonb_set(data, '{title}', '\"Not downloaded\"') WHERE user_id = 'sj:b' AND job_id = 'k10'");
+  assert.equal((await loadWorkspace("sj:b")).jobs[1].title, "Analyst intern");
+  await editWorkspace("sj:b", (ws) => { ws.jobs = ws.jobs.slice(1); });
+  assert.deepEqual((await loadWorkspace("sj:b")).jobs.map((j) => j.id), ["k10"]);
+  assert.equal((await jobsReport()).differ, 0);
+  // Back to owners: students read their workspace again at once.
+  await setJobsMode("owners", "owner@sj.test", store);
+  await q("UPDATE student_jobs SET data = jsonb_set(data, '{title}', '\"Only in the table\"') WHERE user_id = 'sj:b'");
+  await q("UPDATE student_jobs_state SET jobs_v = jobs_v + 1 WHERE user_id = 'sj:b'");
+  assert.equal((await loadWorkspace("sj:b")).jobs[0].title, "Analyst intern");
+  await jobsReport(true); await copyJobsBatch();
 
   // Undo: switch off and nothing is read from the table; on again starts every copy from scratch.
   await setJobsMode("off", "owner@sj.test", store);
