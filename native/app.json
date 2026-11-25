@@ -58,7 +58,8 @@
             "backgroundColor": "#161616"
           }
         }
-      ]
+      ],
+      ["expo-audio", { "recordAudioAndroid": false, "enableBackgroundPlayback": false }]
     ],
     "experiments": {
       "typedRoutes": false
