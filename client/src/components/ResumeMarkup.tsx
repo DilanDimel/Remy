@@ -153,10 +153,12 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
     return () => clearInterval(t);
   }, [cur?.b.id, walk?.i, doc]);
   const coach = useRef<HTMLDivElement>(null);
+  const markEl = useRef<HTMLDivElement>(null);
   useEffect(() => { // bring each new question into view, whatever scrolls the page
     if (!pos || !walk || scrolledTo.current === cur!.b.id + walk.i) return;
     scrolledTo.current = cur!.b.id + walk.i;
-    coach.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Phones: the question is a card pinned above the tab bar, so bring the line itself up top instead.
+    (matchMedia("(max-width: 760px)").matches ? markEl.current : coach.current)?.scrollIntoView({ behavior: "smooth", block: matchMedia("(max-width: 760px)").matches ? "start" : "center" });
   }, [pos, walk?.i]);
   const step = (d: number) => setWalk((w) => (w && w.i + d >= 0 && w.i + d < w.list.length ? { ...w, i: w.i + d } : null));
   const bullets = doc.sections.filter((s) => !isListSection(s.heading, true)).flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => b.text))).filter((t) => t.trim());
@@ -203,7 +205,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
             {doc.skills.map((k) => <p key={k.id} className="rm-skill"><b>{k.label ? k.label + ": " : ""}</b>{marked(k.items, tools, on)}</p>)}
           </>)}
         </article>}
-        {walk && cur && mark && upd && <div className="rm-coach-mark" style={mark} aria-hidden="true" data-testid="rm-coach-mark" />}
+        {walk && cur && mark && upd && <div ref={markEl} className="rm-coach-mark" style={mark} aria-hidden="true" data-testid="rm-coach-mark" />}
         {walk && cur && pos && upd && (
           <div ref={coach} className="rm-coach" style={{ top: pos.top, left: pos.left, width: pos.width }} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Remy's question about this line" data-testid="rm-coach">
             <div className="row-between" style={{ gap: 8, flexWrap: "nowrap" }}>
