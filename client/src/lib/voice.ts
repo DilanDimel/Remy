@@ -39,36 +39,51 @@ export function useVoice(partial: (t: string) => void, done: (t: string) => void
 export const spoken = (md: string) => md.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/[*_`#>]/g, "").replace(/^\s*[•-]\s*/gm, "").replace(/\s+/g, " ").trim();
 
 type Events = { onStart?: () => void; onEnd?: () => void; onError?: (browserError?: string) => void };
-let playing: HTMLAudioElement | null = null;
+// One shared player. Phones only let audio play if it starts on a tap, and Remy's voice arrives a moment after it,
+// so the first tap anywhere plays a split second of silence on this player; after that it may play later on its own.
+const player = typeof Audio !== "undefined" ? new Audio() : null;
+const SILENT = "data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA//NwwAAAAAAAAAAAAEluZm8AAAAPAAAABgAAAykAWlpaWlpaWlpaWlpaWlpaWnt7e3t7e3t7e3t7e3t7e3t7nJycnJycnJycnJycnJycnL29vb29vb29vb29vb29vb293t7e3t7e3t7e3t7e3t7e3t7/////////////////////AAAAAExhdmM2MC4zMQAAAAAAAAAAAAAAACQCowAAAAAAAAMpso+sIAAAAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//NCxKMAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//NAxKQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVX/80LEowAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVU=";
+let unlocked = false;
+function unlock() {
+  if (unlocked || !player || !player.paused) return;
+  player.src = SILENT;
+  player.play().then(() => { unlocked = true; }, () => {});
+}
+if (typeof document !== "undefined") for (const e of ["pointerdown", "touchend", "keydown"]) document.addEventListener(e, unlock, { capture: true, passive: true });
+
 let turn = 0;
+let current: Events | null = null;
+let url = "";
 
 /** Stops whatever Remy is saying, in his voice or the browser's. */
 export function hush() {
   turn++;
-  playing?.pause(); playing = null;
+  player?.pause();
+  const c = current; current = null; c?.onEnd?.();
   window.speechSynthesis?.cancel();
 }
 
 /** Remy says `text` in his own voice (Arthur, from the server). If that isn't available, the browser's voice reads it. */
 export async function say(text: string, ev: Events = {}, rate = 1.05) {
   hush();
+  unlock(); // a "Hear it" tap counts as the tap
   const mine = turn;
   if (!text) return;
   try {
+    if (!player) throw new Error("no audio");
     const { api } = await import("./store"); // lazy: server tests import this file, and store.tsx needs a window
     const mp3 = await api<Blob>("POST", "/api/voice", { text });
     if (mine !== turn) return; // stopped, or something newer started, while it loaded
-    const a = new Audio(URL.createObjectURL(mp3));
-    playing = a;
-    const done = () => { URL.revokeObjectURL(a.src); if (playing === a) playing = null; };
-    a.onplay = () => ev.onStart?.();
-    a.onended = () => { done(); ev.onEnd?.(); };
-    a.onpause = () => { if (!a.ended) { done(); ev.onEnd?.(); } };
-    await a.play();
+    if (url) URL.revokeObjectURL(url);
+    player.src = url = URL.createObjectURL(mp3);
+    player.onended = () => { if (mine === turn) { current = null; ev.onEnd?.(); } };
+    current = ev;
+    await player.play();
+    ev.onStart?.();
     return;
   } catch {
-    playing = null;
     if (mine !== turn) return;
+    current = null;
   }
   // Fallback: the browser's built-in voice.
   const s = window.speechSynthesis;
