@@ -64,10 +64,12 @@ test("catalogTick: one part per run into the store, skipped while fresh; searche
   assert.ok(files.has("catalog/part-0") && files.has("catalog/meta"));
   const second = await catalogTick(store, read, async () => {});
   assert.ok(second && files.has("catalog/part-1")); // the next part, not part 0 again
-  const all = await catalogPostings(store);
+  resetCatalog(); // a fresh server: parts come from the store
+  const all = await catalogPostings(store, true);
   assert.equal(all.length, first!.kept + second!.kept);
   const s = await catalogStats(store);
   assert.equal(s?.partsRead, 2);
+  assert.equal((await catalogPostings(store)).length, all.length); // already in memory
   assert.equal(s?.employers, CATALOG.length);
 });
 

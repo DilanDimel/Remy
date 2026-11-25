@@ -77,8 +77,9 @@ export async function readPart(p: number, boards = CATALOG, read = readBoard, pa
   const queue = mine.filter((b) => b.ats !== "workable");
   let i = 0;
   const worker = async () => { while (i < queue.length) await one(queue[i++]); };
+  // 4 boards at a time: gentle on each system, and the hour has room for it.
   const slow = (async () => { for (const b of mine.filter((x) => x.ats === "workable")) { await one(b); await pause(1500); } })();
-  await Promise.all([...Array.from({ length: 8 }, worker), slow]);
+  await Promise.all([...Array.from({ length: 4 }, worker), slow]);
   return { kept, stats: { at: new Date().toISOString(), boards: mine.length, reached, postings, kept: kept.length } as PartStats };
 }
 
@@ -110,17 +111,22 @@ export async function catalogTick(store = r2Store(), read = readBoard, pause?: (
   return stats;
 }
 
-/** Every catalog posting, for a search. Parts are downloaded once and again only after they're re-read (about daily).
+/** Every catalog posting, for a search. Parts are downloaded once and again only after they're re-read (about daily),
+ *  in the background: a search never waits for the download (the first ones after a deploy just get fewer).
  *  Empty when R2 isn't set up or nothing has been read yet. */
-export async function catalogPostings(store = r2Store()): Promise<Raw[]> {
+let loading: Promise<void> | null = null;
+export async function catalogPostings(store = r2Store(), wait = false): Promise<Raw[]> {
   if (!store) return [];
-  const m = await loadMeta(store);
-  await Promise.all(Object.entries(m.parts).map(async ([k, s]) => {
-    const p = Number(k);
-    if (parts.get(p)?.at === s.at) return;
-    const raws = await store.get(`catalog/part-${p}`).catch(() => null);
-    if (Array.isArray(raws)) parts.set(p, { at: s.at, raws });
-  }));
+  loading ||= (async () => {
+    const m = await loadMeta(store);
+    for (const [k, s] of Object.entries(m.parts)) {
+      const p = Number(k);
+      if (parts.get(p)?.at === s.at) continue;
+      const raws = await store.get(`catalog/part-${p}`).catch(() => null);
+      if (Array.isArray(raws)) parts.set(p, { at: s.at, raws });
+    }
+  })().catch(() => {}).finally(() => { loading = null; });
+  if (wait) await loading;
   return [...parts.values()].flatMap((x) => x.raws);
 }
 
@@ -140,4 +146,4 @@ export async function catalogStats(store = r2Store()) {
 }
 
 /** Tests only. */
-export const resetCatalog = () => { parts.clear(); meta = null; metaAt = 0; };
+export const resetCatalog = () => { parts.clear(); meta = null; metaAt = 0; loading = null; };
