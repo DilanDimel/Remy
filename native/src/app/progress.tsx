@@ -63,7 +63,7 @@ function line(ws: Workspace, kept: number) {
   return `**${sent} application${sent === 1 ? "" : "s"} out, ${replies} ${replies === 1 ? "reply" : "replies"} in.**${q ? ` ${q.company} hasn't answered in ${daysSince(lastAt(q))} days, so a short follow-up is worth it.` : ""}`;
 }
 
-function Tracker({ ws }: { ws: Workspace }) {
+export function Tracker({ ws }: { ws: Workspace }) {
   const { setWs } = useSession();
   const { c } = useTheme();
   const { jobs } = useJobs();
