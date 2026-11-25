@@ -88,6 +88,7 @@ import * as gcal from "./notify/gcal";
 import { q, q1, schema } from "./platform/sql";
 import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./resume/docs";
 import { pageGuide } from "./ai/pageGuide";
+import { posthogConfig } from "./platform/posthog";
 
 // Email domains whose owners count as students of the partner school (TCU).
 const ALUMNI_DOMAINS = (process.env.OR_ALUMNI_EMAIL_DOMAINS || "tcu.edu").split(",").map((d) => d.trim().toLowerCase()).filter(Boolean);
@@ -738,6 +739,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       build: buildId(),
       beta: { on: await beta.betaOn(), formUrl: beta.betaFormUrl(), open: await beta.openAccess() },
       features: await features.releases(),
+      posthog: posthogConfig(),
     };
     res.json(cfg);
   });

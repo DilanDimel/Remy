@@ -4,6 +4,7 @@ import { redesignOut, releasesOf } from "@shared/features";
 import { finishSupabaseRedirect } from "./supabase";
 import { keepNewerJobFeedback } from "./jobFeedback";
 import { apiResult } from "./signals";
+import { trackDownload } from "./analytics";
 import { saveFileNative } from "./native";
 
 declare global {
@@ -114,6 +115,7 @@ export async function download(url: string, fallbackName: string, body?: unknown
     try { msg = (await res.json()).message || msg; } catch {}
     throw new Error(msg);
   }
+  trackDownload(url);
   const cd = res.headers.get("content-disposition") || "";
   const name = cd.match(/filename="([^"]+)"/)?.[1] || fallbackName;
   const blob = await res.blob();

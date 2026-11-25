@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from "react";
 import { API_BASE } from "../lib/store";
+import { trackError } from "../lib/analytics";
 import { Remy } from "./common";
 
 /** Reports a client-side error to the server log so crashes on the live site
@@ -25,6 +26,7 @@ export class ErrorBoundary extends Component<{ where: string; resetKey?: string;
   }
   componentDidCatch(error: Error) {
     reportClientError(this.props.where, error);
+    trackError(this.props.where, error); // window errors reach PostHog on their own; React-caught ones don't
   }
   componentDidUpdate(prev: { resetKey?: string }) {
     if (this.state.error && prev.resetKey !== this.props.resetKey) this.setState({ error: null });

@@ -2,6 +2,7 @@
 // Counts only (which page, which button got rage-clicked, 👍/👎 per feature) plus error reports; never what a
 // student typed or what's on their screen. Sent in small batches; only signed-in students are counted (the server checks).
 import { API_BASE } from "./store";
+import { trackAction } from "./analytics";
 
 const events: string[] = [];
 const problems: { where: string; message: string }[] = [];
@@ -28,6 +29,7 @@ export function problem(where: string, message: string) {
 export function apiResult(method: string, url: string, status: number, ms: number) {
   const where = `${method} ${tidyPath(url)}`;
   if (url.startsWith("/api/signals") || url.startsWith("/api/client-error")) return;
+  if (status >= 200 && status < 300) trackAction(method, url);
   if (status === 0) problem(where, "Request didn't reach Remy (network dropped or server restarting)");
   else if (status >= 500) problem(where, `Request failed (${status})`);
   // AI answers (tailoring, coach, plans, searches) normally take a while; only flag them when far slower than usual.
