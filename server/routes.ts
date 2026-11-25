@@ -47,7 +47,7 @@ import { acceptHtml } from "@shared/acceptEmail";
 import { recordError } from "./platform/admin";
 import { careersFor, futureFor, occupationDetails, officialFor } from "./jobs/future";
 import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase, appReturnPage } from "./platform/auth";
-import { aiExtractPosting, CLOSED_SIGNALS, docxPreviewHtml, fetchPublic, fileToText, htmlToText, norm, pdfStyle } from "./resume/parse";
+import { aiExtractPosting, CLOSED_SIGNALS, docxPreviewHtml, fetchPublic, fileToText, htmlToText, norm, pdfStyle, scanText } from "./resume/parse";
 import { formatCheck, pdfLayout, withoutPersonal } from "./resume/format";
 import {
   aiParseResume, chooseReading, extractSkills, skillsPosition, graduationOf, gpaOf, majorsOf, minorsOf, preCollegeIds, normalizeResumeText, parseQuality, primaryEducation, resumeToText, rulesParse, schoolName,
@@ -1305,7 +1305,13 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.post("/api/resume/upload", uploadFile, route(async (req, res, ctx) => {
     const f = (req as any).file as Express.Multer.File | undefined;
     if (!f) bad("Choose a file to upload.");
-    const raw = await fileToText(f!.buffer, f!.originalname, f!.mimetype);
+    let raw = await fileToText(f!.buffer, f!.originalname, f!.mimetype);
+    // A scanned or photographed PDF has no text: the AI reads the pages instead (Dilan, Nov 25: 18% of real designed resumes).
+    let scanned = false;
+    if (raw.replace(/\s/g, "").length < 200 && f!.buffer.subarray(0, 5).toString("latin1") === "%PDF-" && aiStatus().available) {
+      const t = await withAi(ctx, "Read scanned resume", () => scanText(f!.buffer)).catch(() => "");
+      if (t.replace(/\s/g, "").length >= 200) { raw = t; scanned = true; }
+    }
     const fromLinkedIn = req.body?.source === "linkedin";
     const prev = ctx.ws.resume;
     if (fromLinkedIn && prev && prev.from !== "LinkedIn") {
@@ -1313,6 +1319,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       return res.json(ctx.ws);
     }
     await ingestResume(ctx, raw, f!.originalname, fromLinkedIn ? "LinkedIn" : undefined);
+    if (scanned) ctx.ws.resume!.quality?.warnings.unshift("Your file is a scan, so Remy read the words off the page images. Check every line against your original before you use it.");
     if (!fromLinkedIn && prev?.from === "LinkedIn") await importProfile(ctx, LINKEDIN, prev.rawText, prev.fileName).catch(() => {}); // the resume itself is saved either way
     const mime = /\.pdf$/i.test(f!.originalname) ? "application/pdf" : /\.docx$/i.test(f!.originalname) ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "text/plain; charset=utf-8";
     await saveFile(ctx.me.id, "resume", f!.originalname, mime, f!.buffer);

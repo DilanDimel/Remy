@@ -5,7 +5,7 @@ import dns from "node:dns/promises";
 import net from "node:net";
 import type { Requirement, ResumeStyle } from "@shared/types";
 import { decodeEntities } from "@shared/postingText";
-import { aiJson } from "../ai/ai";
+import { aiJson, aiText } from "../ai/ai";
 
 // ---------- file → text ----------
 const unreadable = (message: string, status = 422) => Object.assign(new Error(message), { status });
@@ -35,6 +35,17 @@ export async function fileToText(buf: Buffer, name: string, mime: string): Promi
     return buf[0] === 0xff && buf[1] === 0xfe ? buf.subarray(2).toString("utf16le") : buf.toString("utf8");
   }
   throw unreadable("Please upload a PDF, Word (.docx) or plain-text file.", 415);
+}
+
+/** A scanned or photographed PDF (no text layer): the AI reads the page images and writes out the words exactly as
+ *  they are, nothing added. "" when it isn't a resume or can't be read. The student still checks it ("Looks right"). */
+export async function scanText(buf: Buffer): Promise<string> {
+  const out = await aiText(
+    "You copy the text of a scanned resume. Write every word exactly as printed, top to bottom, one line per printed line, headings on their own line, each bullet as \"- text\". Read side columns after the main column. Never add, reword, fix or guess words; skip anything you can't read. No commentary. If the file is not a resume or has no readable text, answer only NOT_A_RESUME.",
+    [{ type: "text", text: "Copy this resume's text." }, { type: "file", file: { filename: "resume.pdf", file_data: "data:application/pdf;base64," + buf.toString("base64") } }],
+    4000,
+  );
+  return /NOT_A_RESUME/.test(out) ? "" : out.replace(/^```\w*\n?|```$/g, "").trim();
 }
 
 async function pdfText(buf: Buffer): Promise<string> {
