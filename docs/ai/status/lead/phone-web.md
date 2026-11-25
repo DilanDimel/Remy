@@ -8,3 +8,4 @@
 - Nov 25: Resume on phones: My resume / Tailor switch, Remy's line-by-line question pinned above the tab bar with the line at the top, laptop note gone in owner view.
 - Nov 25: My Path on phones: office first, Remy's talk below it (tail up), season chips one swipe row, lede hidden.
 - Nov 25: Calendar on phones: week strip (WeekStrip) + picked day's list, Export .ics and lede hidden. Remy chat on phones: slim one-row header; OfferSlot moves into the chat (after his intro, or at the end) so "Remy noticed" is his message.
+- Nov 25: first visit on phones (Dilan approved the wording): "Get started with Remy" sign-in with email open, auto-submit code + Send a new code, light terms on phones, slim setup header, About/Privacy jump row + SignupBar (Info.tsx, also on Landing2). Mockups /mnt/project-files/phone-web/first-visit/. Not built yet: setup step-3 rows, fields search, add-more fold, 6-box code.

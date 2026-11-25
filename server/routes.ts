@@ -62,6 +62,7 @@ import { dueReminders, reminderEmail, weeklyDigest } from "./notify/reminders";
 import { answerNudge, overnightPicks, sendNudges } from "./coach/nudges";
 import { markDay } from "@shared/daily";
 import { doActions, undoDid } from "./ai/chatDo";
+import { forSpeech, speech } from "./ai/voice";
 import { addLoop, MORE_TOOLS, moreContext, reachOut } from "./ai/remyTools";
 import { sendTexts, usPhone } from "./notify/texts";
 import { step } from "@shared/progress";
@@ -2138,6 +2139,16 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     else delete ctx.ws.plan.chosenCareerId;
     await ctx.save();
     res.json(ctx.ws);
+  }));
+
+  // Remy reads a line out loud in his own voice (Arthur). 503 → the browser reads it with its built-in voice instead.
+  app.post("/api/voice", route(async (req, res, ctx) => {
+    const text = forSpeech(String(req.body?.text || ""));
+    if (!text) bad("Nothing to read.");
+    if (!(await allow("voice:" + ctx.me.id, 60, 60 * 60_000))) bad("Remy has read a lot out loud this hour. Your browser's voice will read for now.", 429);
+    const out = await speech(text);
+    if (!out) return res.status(503).json({ message: "Remy's voice isn't available right now.", code: "voice-off" });
+    res.set({ "Content-Type": "audio/mpeg", "Cache-Control": "private, max-age=86400" }).send(out.mp3);
   }));
 
   // ---------- assistant chat ----------
