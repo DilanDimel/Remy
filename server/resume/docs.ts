@@ -86,12 +86,16 @@ function pdfBuffer(build: (pdf: PDFKit.PDFDocument) => void): Promise<Buffer> {
 }
 
 function renderResume(doc: ResumeDoc, style: ResumeStyle | undefined, scale: number, tight: number): Promise<{ buf: Buffer; pages: number }> {
-  const M = style?.margin ?? 46;
+  // One of Remy's three formats, when the student picked one (owners first, Nov 25): Classic (serif, centred, ruled),
+  // Modern (sans, name on the left, spaced headings) or Compact (sans, smaller margins, for a full page of experience).
+  const look = style?.look;
+  const M = look === "compact" ? 36 : look ? 50 : style?.margin ?? 46;
   // PDFs use the built-in font closest to the student's: monospace, serif or sans. No italics if their resume has none.
-  const fam = style?.mono || /courier|mono/i.test(style?.font || "") ? { r: "Courier", b: "Courier-Bold", i: "Courier-Oblique" }
+  const fam = look === "classic" ? { r: "Times-Roman", b: "Times-Bold", i: "Times-Italic" } : look ? { r: "Helvetica", b: "Helvetica-Bold", i: "Helvetica-Oblique" }
+    : style?.mono || /courier|mono/i.test(style?.font || "") ? { r: "Courier", b: "Courier-Bold", i: "Courier-Oblique" }
     : style?.serif ? { r: "Times-Roman", b: "Times-Bold", i: "Times-Italic" } : { r: "Helvetica", b: "Helvetica-Bold", i: "Helvetica-Oblique" };
-  const F = { ...fam, i: style?.italic === false ? fam.r : fam.i };
-  const base = (style?.size ?? 9.5) * scale;
+  const F = { ...fam, i: style?.italic === false && !look ? fam.r : fam.i };
+  const base = (look === "classic" ? 11 : look === "modern" ? 10 : look === "compact" ? 9.5 : style?.size ?? 9.5) * scale;
   return new Promise((resolve, reject) => {
     const edge = Math.min(M, 40) - 14 * tight; // top and bottom margins give a little room when it must fit
     const pdf = new PDFDocument({ size: "LETTER", bufferPages: true, margins: { top: edge, bottom: edge, left: M, right: M }, info: { Creator: "Remy" } });
@@ -102,12 +106,15 @@ function renderResume(doc: ResumeDoc, style: ResumeStyle | undefined, scale: num
     // tight 0 → 1: less room between lines, entries and sections before any text gets smaller.
     const lineGap = -1.2 * tight;
     pdf.on("pageAdded", () => pdf.x = M);
-    pdf.font(F.b).fontSize(base + 5.5).text(doc.contact.name, { align: "center" });
-    pdf.font(F.r).fontSize(base - 0.5).text([doc.contact.location, doc.contact.email, doc.contact.phone, doc.contact.links].filter(Boolean).join(" | "), { align: "center" });
+    const left = look === "modern" || look === "compact";
+    pdf.font(F.b).fontSize(base + (look === "modern" ? 9 : 5.5)).text(doc.contact.name, { align: left ? "left" : "center" });
+    pdf.font(F.r).fontSize(base - 0.5).text([doc.contact.location, doc.contact.email, doc.contact.phone, doc.contact.links].filter(Boolean).join(look === "modern" ? "  ·  " : " | "), { align: left ? "left" : "center" });
     const rule = (title: string) => {
-      pdf.moveDown(0.45 * (1 - 0.5 * tight)).font(F.b).fontSize(base + 1).text(title.toUpperCase(), M, pdf.y);
+      pdf.moveDown((look === "modern" ? 0.8 : 0.45) * (1 - 0.5 * tight));
+      if (look === "modern") pdf.font(F.b).fontSize(base - 0.5).fillColor("#555555").text(title.toUpperCase(), M, pdf.y, { characterSpacing: 1.6 }).fillColor("#000000");
+      else pdf.font(F.b).fontSize(base + 1).text(look === "classic" ? title : title.toUpperCase(), M, pdf.y);
       const y = pdf.y + 1;
-      pdf.moveTo(M, y).lineTo(M + W, y).lineWidth(0.7).stroke();
+      if (look !== "modern") pdf.moveTo(M, y).lineTo(M + W, y).lineWidth(look === "compact" ? 0.4 : 0.7).stroke();
       pdf.moveDown(0.25 * (1 - 0.6 * tight));
     };
     const row = (left: string, right: string, font: string) => {
