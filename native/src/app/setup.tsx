@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { firstName } from "@shared/names";
 import { Button, Card, Chip, T } from "@/components/ui";
 import { Dots, Page, Say, useSave } from "@/components/setup/common";
@@ -11,6 +11,7 @@ import { ResumeStep } from "@/components/setup/ResumeStep";
 import { Review } from "@/components/setup/Review";
 import { useGateRedirect } from "@/lib/gate";
 import { useSession } from "@/lib/session";
+import { font, useTheme } from "@/lib/theme";
 
 /** Setup for someone who hasn't finished it (`onboarding.done` is false), native, with the website's steps and the same
  *  saves (client/src/pages/Onboarding.tsx): goal, resume, review, preferences, three questions, first plan. The step
@@ -18,6 +19,7 @@ import { useSession } from "@/lib/session";
  *  done the gate sends the student to Home. */
 export default function Setup() {
   const { ws, signOut } = useSession();
+  const { c } = useTheme();
   const away = useGateRedirect("setup");
   const save = useSave();
   const scroll = useRef<any>(null);
@@ -35,7 +37,7 @@ export default function Setup() {
   const finish = async () => { await save("onboarding", { ...w.onboarding, done: true }); };
   return (
     <Page testID="setup" scrollRef={scroll}>
-      <Dots shown={shown} />
+      <Dots shown={shown} right={shown === 0 && !welcomeBack ? <Text testID="button-sign-out" accessibilityRole="button" onPress={signOut} style={{ fontFamily: font.semi, fontSize: 14, color: c.mutedText, paddingVertical: 6, paddingLeft: 12 }}>Sign out</Text> : undefined} />
       {welcomeBack ? <WelcomeBack onContinue={() => setWelcomeBack(false)} onRestart={async () => { await save("onboarding", { ...w.onboarding, step: 1, answers: [], questions: [], targets: [] }); setWelcomeBack(false); }} />
         : shown === 0 ? <Goal />
         : shown === 1 ? <ResumeStep onBack={() => save("onboarding", { ...w.onboarding, focus: undefined })} onNext={() => setStep(2)} />
@@ -43,7 +45,6 @@ export default function Setup() {
         : shown === 3 ? <Preferences onBack={() => setStep(2)} scrollTop={top} />
         : shown === 4 ? <Questions onBack={() => setStep(3)} onNext={() => setStep(5)} />
         : <PlanStep onBack={() => setStep(4)} onFinish={finish} />}
-      {shown === 0 && !welcomeBack && <Button testID="button-sign-out" kind="ghost" label="Sign out" onPress={signOut} flex />}
     </Page>
   );
 }

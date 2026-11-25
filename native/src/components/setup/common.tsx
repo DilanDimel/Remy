@@ -33,14 +33,17 @@ export function Page({ children, testID, scrollRef }: { children: ReactNode; tes
 
 /** The step dots across the top: the website's six steps, by its chapter names (client/src/pages/Onboarding.tsx CHAPTERS). */
 export const STEPS = ["Hello", "Your story", "Check my notes", "Where to look", "Getting to know you", "Your first step"];
-export function Dots({ shown }: { shown: number }) {
+export function Dots({ shown, right }: { shown: number; right?: ReactNode }) {
   const { c } = useTheme();
   return (
     <View style={{ gap: 8 }} accessibilityLabel={`Step ${shown + 1} of ${STEPS.length}: ${STEPS[shown]}`}>
       <View style={{ flexDirection: "row", gap: 6 }}>
         {STEPS.map((s, i) => <View key={s} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: i <= shown ? c.fox : c.line }} />)}
       </View>
-      <T kind="label">{`Step ${shown + 1} of ${STEPS.length} · ${STEPS[shown]}`}</T>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <T kind="label">{`Step ${shown + 1} of ${STEPS.length} · ${STEPS[shown]}`}</T>
+        {right}
+      </View>
     </View>
   );
 }
@@ -49,7 +52,7 @@ export function Dots({ shown }: { shown: number }) {
 export function Say({ title, children, size = 64 }: { title?: string; children?: ReactNode; size?: number }) {
   return (
     <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
-      <Remy size={size} />
+      <Remy size={size} alive />
       <View style={{ flex: 1, gap: 6 }}>
         {!!title && <T kind="title">{title}</T>}
         {typeof children === "string" ? <T kind="muted">{children}</T> : children}

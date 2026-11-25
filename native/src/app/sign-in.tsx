@@ -128,7 +128,7 @@ export default function SignIn() {
   </>;
   const typeCode = (v: string) => { const d = v.replace(/\D/g, "").slice(0, 6); setCode(d); if (d.length === 6 && !busy) verify(d); };
   // Privacy and Terms open inside the app (a sheet over this screen), never in an outside browser.
-  const link = (label: string) => <Text onPress={() => router.push({ pathname: "/web", params: { path: /terms/i.test(label) ? "/terms" : "/privacy", title: /terms/i.test(label) ? "Terms" : "Privacy" } })} style={{ textDecorationLine: "underline" }}>{label}</Text>;
+  const link = (label: string, path: string) => <Text onPress={() => router.push({ pathname: "/web", params: { path, title: label } })} style={{ textDecorationLine: "underline" }}>{label}</Text>;
   const backBtn = (to: "welcome" | "email") => (
     <Pressable testID="button-back" accessibilityRole="button" accessibilityLabel="Back" hitSlop={10} onPress={() => { tap(); setErr(""); setStep(to); }} style={{ flexDirection: "row", alignItems: "center", gap: 2, alignSelf: "flex-start", marginLeft: -4 }}>
       <View style={{ transform: [{ rotate: "180deg" }] }}><Icon name="chev" size={22} color={c.fox} strokeWidth={2.4} /></View>
@@ -148,7 +148,7 @@ export default function SignIn() {
   );
 
   if (step === "welcome") return shell(<>
-    <View style={{ alignItems: "center", marginTop: 8 }}><Remy size={130} /></View>
+    <View style={{ alignItems: "center", marginTop: 8 }}><Remy size={130} alive /></View>
     <T kind="display" style={{ textAlign: "center" }}>Find the jobs you can actually get.</T>
     <T kind="muted" style={{ textAlign: "center" }}>I'm Remy, your career coach for college. I work on your resume, find openings that fit you and plan your next step with you.</T>
     <Group style={{ marginTop: 8 }}>
@@ -159,11 +159,11 @@ export default function SignIn() {
   </>, <>
     <Button testID="button-get-started" kind="fox" label="Get started" icon="arrow" onPress={() => setStep("email")} flex />
     <Button testID="button-have-account" kind="ghost" label="I already have an account" onPress={() => setStep("email")} flex />
-    <T kind="small" style={{ textAlign: "center" }}>Free during beta · {link("Privacy")} · {link("Terms")}</T>
+    <T kind="small" style={{ textAlign: "center" }}>Free during beta · {link("Privacy & Terms", "/policies")} · {link("About", "/about")}</T>
   </>);
 
   if (step === "email") return shell(<>
-    <View style={{ alignSelf: "center" }}><Remy size={80} /></View>
+    <View style={{ alignSelf: "center" }}><Remy size={80} alive /></View>
     <T kind="display" style={{ textAlign: "center" }}>Get started with Remy</T>
     <T kind="muted" style={{ textAlign: "center" }}>Free during beta. New or back, enter your email and Remy sends a 6-digit code.</T>
     <TextInput testID="input-email" autoFocus style={{ height: 54, borderRadius: BUTTON_RADIUS, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, paddingHorizontal: 16, fontFamily: font.body, fontSize: 17, color: c.ink, marginTop: 8 }}
@@ -173,7 +173,7 @@ export default function SignIn() {
     {!!err && <T kind="small" style={{ color: c.error }}>{err}</T>}
     {ssoButtons}
     <T kind="small" style={{ textAlign: "center" }}>Already have an account? Use the same email or the same Google or LinkedIn account and you'll pick up where you left off, on the website too.</T>
-  </>, <T kind="small" style={{ textAlign: "center" }}>By continuing you agree to Remy's {link("Terms")} and {link("Privacy Policy")}.</T>, backBtn("welcome"));
+  </>, <T kind="small" style={{ textAlign: "center" }}>By continuing you agree to Remy's {link("Terms", "/terms")} and {link("Privacy Policy", "/privacy")}.</T>, backBtn("welcome"));
 
   // The code: six boxes over one hidden field, so the phone's "from Messages/Mail" suggestion fills all six at once.
   return shell(<>

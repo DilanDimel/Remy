@@ -32,8 +32,8 @@ export function Goal() {
     setBusy(false);
   };
   return (
-    <View style={{ gap: 22 }} testID="focus-pick">
-      <Say title={`Hi${first ? ` ${first}` : ""}! What are you working toward?`}>Everything Remy suggests starts from this, so be as specific as you like. "Not sure yet" is a fine answer.</Say>
+    <View style={{ gap: 16 }} testID="focus-pick">
+      <Say title={`Hi${first ? ` ${first}` : ""}! What are you working toward?`}>"Not sure yet" is a fine answer.</Say>
       <Q title="Where are you right now?">
         <Chips options={PATHS.map(([, l]) => l)} value={PATHS.filter(([k]) => k === path).map(([, l]) => l)} multi={false} testID="path"
           onChange={([l]) => setPath(PATHS.find(([, x]) => x === l)?.[0] || "")} />
@@ -42,7 +42,7 @@ export function Goal() {
         <Chips options={GOALS.map(([g]) => g)} value={chip ? [goal] : []} multi={false} testID="goal" onChange={([g]) => setGoal(g || "")} />
         <Input testID="input-goal" value={chip ? "" : goal} onChangeText={setGoal} maxLength={300} placeholder="Or in your own words" />
       </Q>
-      <Nav note={error || (!path ? "Pick where you are right now." : !goal.trim() ? "Tap a goal or write your own." : "Next: your resume.")}
+      <Nav note={error || (!path ? "Pick where you are right now." : !goal.trim() ? "Tap a goal or write your own." : undefined)}
         next={<Button testID="button-goal-next" label="Continue" icon="arrow" onPress={next} busy={busy} disabled={!ready} flex />} />
     </View>
   );
