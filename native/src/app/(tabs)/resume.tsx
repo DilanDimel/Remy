@@ -144,6 +144,8 @@ export default function Resume() {
   const [fix, setFix] = useState<number | null>(null);
   const [edit, setEdit] = useState<{ id: string; text: string; where: string } | null>(null);
   const [contactOpen, setContactOpen] = useState(false);
+  // The resume shows its top part until opened, so the tab isn't one long scroll (Dilan, Nov 25).
+  const [whole, setWhole] = useState(false);
   const doc = ws?.resume?.doc;
   const tools = useMemo(() => (doc ? toolsRegex(doc) : /$^/), [doc]);
   const review = useMemo(() => (doc ? reviewResume(doc, { listLike: true }) : { todo: [], good: [] }), [doc]);
@@ -197,7 +199,7 @@ export default function Resume() {
   return (
     <>
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
-      <T kind="display" style={{ marginTop: 28 }}>Resume</T>
+      <T kind="display" style={{ marginTop: 8 }}>Resume</T>
       <T kind="muted"><Text style={{ fontFamily: font.bold }}>Your resume, kept true.</Text> Every change Remy suggests uses only what you already wrote, and you approve each one.</T>
       {note && (
         <View style={[card, { flexDirection: "row", gap: 10, alignItems: "flex-start", backgroundColor: c.surface2, borderColor: c.surface2 }]} testID="resume-phone-note">
@@ -230,7 +232,7 @@ export default function Resume() {
         </View>
         {/* Titles only on a phone: the whys mention the website's Edit tab, and Remy's fixes below explain each line. */}
         {review.todo.map((it) => <View key={it.kind + it.title} style={{ flexDirection: "row", gap: 8, marginTop: 8 }}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.fox, marginTop: 7 }} /><T kind="small" style={{ flex: 1 }}>{it.title}</T></View>)}
-        {review.good.map((g) => <View key={g} style={{ flexDirection: "row", gap: 6, marginTop: 6 }}><Icon name="check" size={15} color={c.sage} /><T kind="small" style={{ flex: 1 }}>{g}</T></View>)}
+        {!review.todo.length && review.good.map((g) => <View key={g} style={{ flexDirection: "row", gap: 6, marginTop: 6 }}><Icon name="check" size={15} color={c.sage} /><T kind="small" style={{ flex: 1 }}>{g}</T></View>)}
         {steps.length > 0 && <Button testID="button-fix-lines" label={`Remy can fix ${steps.length} line${steps.length === 1 ? "" : "s"}`} icon="arrow" flex onPress={() => setFix(0)} style={{ marginTop: 14 }} />}
         {review.todo.some((it) => it.kind === "contact" || it.kind === "dates") && <Button testID="button-fix-on-site" kind="ghost" label="Fix contact and dates" flex onPress={() => { tap(); setContactOpen(true); }} style={{ marginTop: 8 }} />}
       </View>
@@ -239,7 +241,7 @@ export default function Resume() {
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
         {CATS.map(([k, label]) => <View key={k} style={{ backgroundColor: c[HL[k]], borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}><Text style={{ fontFamily: font.semi, fontSize: 12, color: c.ink }}>{label}</Text></View>)}
       </View>
-      <View style={[card, { marginTop: 0 }]} testID="resume-read-view">
+      <View style={[card, { marginTop: 0 }, !whole && { maxHeight: 420, overflow: "hidden" }]} testID="resume-read-view">
         {!!doc.contact.name && <Text style={{ fontFamily: font.display, fontSize: 22, color: c.ink, textAlign: "center" }}>{doc.contact.name}</Text>}
         <T kind="small" style={{ textAlign: "center", color: c.mutedText }}>{[doc.contact.email, doc.contact.phone, doc.contact.location].filter(Boolean).join(" · ")}</T>
         {doc.sections.map((s) => {
@@ -269,8 +271,8 @@ export default function Resume() {
         )}
       </View>
 
-      <Sect title="Tailor for an opening" />
-      <Button testID="button-tailor" kind="ghost" label="Tailor my resume for an opening" icon="arrow" flex onPress={() => go("/resume?tab=tailor", "Tailor")} />
+      <Button testID="button-resume-whole" kind="ghost" label={whole ? "Show less" : "Show the whole resume"} flex onPress={() => setWhole(!whole)} style={{ marginTop: 8 }} />
+      <Button testID="button-tailor" label="Tailor my resume for an opening" icon="arrow" flex onPress={() => go("/resume?tab=tailor", "Tailor")} style={{ marginTop: 14 }} />
     </Screen>
     <Modal visible={fix !== null} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setFix(null)}>
       {fix !== null && <FixFlow steps={steps} start={fix} onClose={() => setFix(null)} />}

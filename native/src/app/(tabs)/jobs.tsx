@@ -129,7 +129,7 @@ export default function Jobs() {
     </ScrollView>
   );
   const empty = (
-    <View style={{ paddingVertical: 50, alignItems: "center", gap: 8 }}>
+    <View style={{ paddingVertical: 24, alignItems: "center", gap: 8 }}>
       <T kind="h2">{loading ? "Finding openings…" : filter === "kept" ? "Nothing saved yet" : filter === "passed" ? "Nothing passed" : filter === "events" ? "No events right now" : "You're all caught up"}</T>
       <T kind="muted" style={{ textAlign: "center" }}>{error || (filter === "kept" ? "Keep openings you like and they'll wait here as Saved." : filter === "passed" ? "Openings you pass on wait here in case you change your mind." : filter === "events" ? "Career fairs, info sessions and competitions show up here when Remy finds them." : "Remy checks employers' sites every few hours. Pull down to check now.")}</T>
       {!loading && !error && filter === "new" && kept.length > 0 && <Button testID="button-see-kept" label={`See your ${kept.length} saved`} icon="arrow" onPress={() => setFilter("kept")} style={{ marginTop: 12, alignSelf: "center" }} />}
@@ -140,7 +140,7 @@ export default function Jobs() {
   return (
     <View style={{ flex: 1 }}>
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
-      <T kind="display" style={{ marginTop: 28 }}>Opportunities</T>
+      <T kind="display" style={{ marginTop: 8 }}>Opportunities</T>
       {!!line && <T kind="muted" style={{ marginTop: 4 }}>{line}</T>}
       {filters}
       {!!err && <T kind="small" style={{ color: c.error, marginTop: 8 }}>{err}</T>}
@@ -162,7 +162,8 @@ export default function Jobs() {
               </JobCard>
             );
             return filter === "new" && j.kind !== "event" ? (
-              <Swipeable key={j.id} friction={2} leftThreshold={80} rightThreshold={80} overshootLeft={false} overshootRight={false}
+              // A sideways swipe starts only after 30pt of sideways travel (default 10), so a slightly diagonal scroll on Android stays a scroll.
+              <Swipeable key={j.id} friction={2} leftThreshold={80} rightThreshold={80} dragOffsetFromLeft={30} dragOffsetFromRight={30} overshootLeft={false} overshootRight={false}
                 renderLeftActions={side("Keep", c.foxSoft, c.foxDeep, "heart", true)} renderRightActions={side("Pass", c.surface2, c.mutedText, "x", false)}
                 onSwipeableOpen={(dir) => decide(j, dir === SwipeDirection.RIGHT)}>
                 {card}

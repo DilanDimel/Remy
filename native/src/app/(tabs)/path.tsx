@@ -94,7 +94,7 @@ export default function PathTab() {
 
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
-      <T kind="display" style={{ marginTop: 28 }}>My Path</T>
+      <T kind="display" style={{ marginTop: 8 }}>My Path</T>
       <T kind="muted"><Text style={{ fontFamily: font.bold }}>Every step anywhere in Remy earns XP.</Text> Every level gives you something new.</T>
       {!!err && <T kind="small" style={{ color: c.error, marginTop: 8 }}>{err}</T>}
 
