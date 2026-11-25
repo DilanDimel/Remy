@@ -1,5 +1,5 @@
-// Remy's employer catalog: about 15,600 companies' public job boards (Greenhouse, Lever, Ashby, Workable, Recruitee,
-// SmartRecruiters), read a 24th at a time on each hourly sweep, so every board is read about once a day.
+// Remy's employer catalog: about 80,000 companies' public job boards (Greenhouse, Lever, Ashby, Workable, Recruitee,
+// SmartRecruiters, Workday, Oracle, BambooHR, Breezy, JazzHR, Paylocity, Rippling), read a 24th at a time on each hourly sweep, so every board is read about once a day.
 // Only US postings with a student-level title are kept, with their text, so a search needs no extra reads.
 // Each part is one sealed file in the R2 bucket (catalog/part-N); a search reads them from memory. Nothing touches
 // Supabase, which keeps the free plan's data transfer flat however many employers Remy reads.
@@ -12,7 +12,7 @@ import { r2Store } from "../platform/r2";
 import { inUS } from "./fit";
 import { fetchBoard, studentTitle, withDetail, type Raw } from "./sources";
 
-type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle";
+type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling";
 export type CatalogBoard = { ats: Ats; slug: string; company: string };
 export const PARTS = 24;
 /** Text kept per posting: enough for its requirements and summary (an opening keeps up to 12,000 when saved). */
@@ -32,6 +32,7 @@ export const partOf = (b: CatalogBoard) => {
   return h % PARTS;
 };
 
+const sub = (s: string) => (/^[a-z0-9][a-z0-9-]*$/i.test(s) ? s : null);
 // Stapply's per-system company lists (name,slug,url). Each row's url gives the board in the form Remy's readers take.
 const STAPPLY = "https://storage.stapply.ai/jobs/v1";
 const STAPPLY_ATS: Record<Ats, (slug: string, url: string) => string | null> = {
@@ -40,6 +41,9 @@ const STAPPLY_ATS: Record<Ats, (slug: string, url: string) => string | null> = {
   workday: (_, u) => { const m = u.match(/^https:\/\/([^./]+)\.(wd\d+)\.myworkdayjobs\.com\/(?:[a-z]{2}-[A-Z]{2}\/)?([^/?#]+)/); return m ? `${m[1]}|${m[2]}|${m[3]}` : null; },
   // https://ebwg.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX → "ebwg.fa.us2.oraclecloud.com|CX"
   oracle: (_, u) => { const m = u.match(/^https:\/\/([^/]+\.oraclecloud\.com)\/hcmUI\/CandidateExperience\/[^/]+\/sites\/([^/?#]+)/); return m ? `${m[1]}|${m[2]}` : null; },
+  // Mid-size employers: subdomains (bamboohr, breezy, jazzhr's applytojob), a Rippling board name, a Paylocity company GUID.
+  bamboohr: sub, breezy: sub, jazzhr: sub, rippling: sub,
+  paylocity: (s) => (/^[0-9a-f-]{36}$/i.test(s) ? s : null),
 };
 
 /** Rows of a CSV with quoted fields. */
@@ -100,6 +104,25 @@ async function getJson(url: string) {
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
+// Paylocity, JazzHR and Rippling serve their boards as web pages, which answer a browser's user agent.
+const BROWSER = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36";
+async function getPage(url: string) {
+  const r = await fetch(url, { headers: { "User-Agent": BROWSER }, signal: AbortSignal.timeout(15_000) });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.text();
+}
+/** A posting page's schema.org JobPosting description (Breezy, Paylocity). */
+export function ldDescription(html: string): string {
+  for (const m of html.matchAll(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/g)) {
+    try { const d = [JSON.parse(m[1])].flat().find((x: any) => x?.["@type"] === "JobPosting"); if (d?.description) return htmlToText(String(d.description)); } catch {}
+  }
+  return "";
+}
+/** A JazzHR board page's postings: link, title and place. */
+export function jazzList(html: string): { url: string; title: string; location: string }[] {
+  return [...html.matchAll(/<a href="(https:\/\/[^"]+\.applytojob\.com\/apply\/[^"]+)">\s*([^<]+?)\s*<\/a>\s*<\/h3>\s*<ul[^>]*>\s*(?:<li><i class='fa fa-map-marker'><\/i>([^<]*)<\/li>)?/g)]
+    .map((m) => ({ url: m[1], title: htmlToText(m[2]), location: htmlToText(m[3] || "") }));
+}
 
 /** One board's postings. Greenhouse is listed without descriptions (some boards have thousands of roles) and only
  *  the kept postings' text is read; the others come through the readers every employer already uses. */
@@ -111,7 +134,52 @@ export async function readBoard(b: CatalogBoard, read = fetchBoard): Promise<Raw
       detail: async () => ({ text: htmlToText(String((await getJson(`https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(b.slug)}/jobs/${x.id}`)).content || "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")) }),
     }));
   }
-  return withDetail(await read({ ats: b.ats, slug: b.slug, company: b.company }, ""));
+  const slug = encodeURIComponent(b.slug);
+  if (b.ats === "bamboohr") {
+    const j = await getJson(`https://${slug}.bamboohr.com/careers/list`);
+    return (j.result || []).map((x: any): Raw => ({
+      title: String(x.jobOpeningName || "").trim(), location: [[x.location?.city, x.location?.state].filter(Boolean).join(", "), x.isRemote ? "Remote" : ""].filter(Boolean).join(" · "),
+      url: `https://${slug}.bamboohr.com/careers/${x.id}`, text: "",
+      detail: async () => { const d = (await getJson(`https://${slug}.bamboohr.com/careers/${x.id}/detail`)).result?.jobOpening || {}; return { text: htmlToText(String(d.description || "")) }; },
+    }));
+  }
+  if (b.ats === "breezy") {
+    const j = await getJson(`https://${slug}.breezy.hr/json`);
+    return (Array.isArray(j) ? j : []).map((x: any): Raw => ({
+      title: String(x.name || ""), location: [x.location?.name, x.location?.is_remote && x.location?.country?.id === "US" ? "Remote" : ""].filter(Boolean).join(" · "),
+      url: String(x.url || ""), text: "", posted: x.published_date, detail: async () => ({ text: ldDescription(await getPage(String(x.url))) }),
+    }));
+  }
+  if (b.ats === "paylocity") {
+    const m = (await getPage(`https://recruiting.paylocity.com/Recruiting/Jobs/All/${slug}`)).match(/window\.pageData = (\{.*\});\s*$/m);
+    return ((m ? JSON.parse(m[1]).Jobs : []) || []).filter((x: any) => !x.IsInternal).map((x: any): Raw => {
+      const url = `https://recruiting.paylocity.com/Recruiting/Jobs/Details/${x.JobId}`;
+      const l = x.JobLocation || {};
+      return { title: String(x.JobTitle || ""), location: [l.City, l.State, l.Country].filter(Boolean).join(", ") || String(x.LocationName || ""), url, text: "", posted: x.PublishedDate, detail: async () => ({ text: ldDescription(await getPage(url)) }) };
+    });
+  }
+  if (b.ats === "jazzhr") {
+    return jazzList(await getPage(`https://${slug}.applytojob.com/apply`)).map((x): Raw => ({
+      ...x, text: "",
+      detail: async () => { const h = await getPage(x.url); const i = h.indexOf('id="job-description"'); return { text: i < 0 ? "" : htmlToText(h.slice(i + 21, i + 40_000).split(/<div[^>]+id="resumator-|<form/)[0]) }; },
+    }));
+  }
+  if (b.ats === "rippling") {
+    const items: any[] = [];
+    for (let page = 0; page < 5; page++) { // a few hundred roles at most; big boards list newest first
+      const j = await getJson(`https://ats.rippling.com/api/v2/board/${slug}/jobs?page=${page}`);
+      items.push(...(j.items || []));
+      if (page + 1 >= (j.totalPages || 0)) break;
+    }
+    return items.map((x: any): Raw => ({
+      title: String(x.name || ""), location: (x.locations || []).map((l: any) => l.name).filter(Boolean).join("; "), url: String(x.url || ""), text: "",
+      detail: async () => {
+        const m = (await getPage(String(x.url))).match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+        return { text: m ? htmlToText(String(JSON.parse(m[1]).props?.pageProps?.apiData?.jobPost?.description?.role || "")) : "" };
+      },
+    }));
+  }
+  return withDetail(await read({ ats: b.ats as Parameters<typeof read>[0]["ats"], slug: b.slug, company: b.company }, ""));
 }
 
 /** The postings a board adds to the catalog: US, student-level title, a link, with text (read now if needed). */
@@ -134,7 +202,9 @@ export type PartStats = { at: string; boards: number; reached: number; postings:
 const TEXAS = /\b(TX|Texas)\b/;
 export type Meta = { parts: Record<string, PartStats> };
 
-/** Reads every board in one part. Workable turns fast bursts away (HTTP 429), so its boards go one at a time. */
+/** Reads every board in one part. Workable and Paylocity turn fast bursts away (HTTP 429), so each of them gets its own
+ *  lane, one board at a time. */
+const SLOW: Ats[] = ["workable", "paylocity"];
 export async function readPart(p: number, boards = CATALOG, read = readBoard, pause: (ms: number) => Promise<unknown> = (ms) => new Promise((r) => setTimeout(r, ms))) {
   const mine = boards.filter((b) => partOf(b) === p);
   const kept: Raw[] = [];
@@ -147,12 +217,12 @@ export async function readPart(p: number, boards = CATALOG, read = readBoard, pa
       kept.push(...(await keep(b, raws)));
     } catch {}
   };
-  const queue = mine.filter((b) => b.ats !== "workable");
+  const queue = mine.filter((b) => !SLOW.includes(b.ats));
   let i = 0;
   const worker = async () => { while (i < queue.length) await one(queue[i++]); };
   // 4 boards at a time: gentle on each system, and the hour has room for it.
-  const slow = (async () => { for (const b of mine.filter((x) => x.ats === "workable")) { await one(b); await pause(1500); } })();
-  await Promise.all([...Array.from({ length: 4 }, worker), slow]);
+  const slow = SLOW.map(async (ats) => { for (const b of mine.filter((x) => x.ats === ats)) { await one(b); await pause(1500); } });
+  await Promise.all([...Array.from({ length: 4 }, worker), ...slow]);
   return { kept, stats: { at: new Date().toISOString(), boards: mine.length, reached, postings, kept: kept.length, texas: kept.filter((r) => TEXAS.test(r.location)).length } as PartStats };
 }
 

@@ -1,7 +1,7 @@
 // Remy's employer catalog: what it keeps, how it reads a part, and that it lives in R2 (a fake store here). `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CATALOG, PARTS, allBoards, catalogPostings, catalogStats, catalogTick, csvRows, keep, partOf, readPart, resetCatalog, stapplyBoards, type CatalogBoard } from "./catalog";
+import { CATALOG, PARTS, allBoards, catalogPostings, catalogStats, catalogTick, csvRows, jazzList, keep, ldDescription, partOf, readPart, resetCatalog, stapplyBoards, type CatalogBoard } from "./catalog";
 import { inUS } from "./fit";
 import { fetchBoard, type Raw } from "./sources";
 
@@ -69,11 +69,14 @@ test("Stapply lists: each system's rows become boards Remy's readers take; repo 
     greenhouse: 'name,slug,url\n"Acme, Inc.",acme,https://boards.greenhouse.io/acme\nNewCo,newco,https://boards.greenhouse.io/newco\n',
     workday: "name,slug,url\n23Andme,23andme/23,https://23andme.wd5.myworkdayjobs.com/en-US/23\nBad,x,https://example.com\n",
     oracle: "name,slug,url\nEB,ebwg,https://ebwg.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX\n",
+    bamboohr: "name,slug,url\nCoker Legal,cokerlegal,https://cokerlegal.bamboohr.com/careers\nBad,../x,https://x\n",
+    paylocity: "name,slug,url\nCochran,96be65ce-a51e-4c4e-8db5-091703033567,https://recruiting.paylocity.com/Recruiting/Jobs/All/96be65ce-a51e-4c4e-8db5-091703033567\nBad,nope,https://x\n",
   };
   const got = await stapplyBoards(async (url) => { const a = url.split("/").at(-2)!; if (!lists[a]) throw new Error("404"); return lists[a]; });
   assert.deepEqual(got.map((b) => [b.ats, b.slug, b.company]), [
     ["greenhouse", "acme", "Acme, Inc."], ["greenhouse", "newco", "NewCo"],
     ["workday", "23andme|wd5|23", "23Andme"], ["oracle", "ebwg.fa.us2.oraclecloud.com|CX", "EB"],
+    ["bamboohr", "cokerlegal", "Coker Legal"], ["paylocity", "96be65ce-a51e-4c4e-8db5-091703033567", "Cochran"],
   ]);
   assert.deepEqual(csvRows('a,"b ""c"", d"\r\n1,2'), [["a", 'b "c", d'], ["1", "2"]]);
   resetCatalog();
@@ -134,4 +137,18 @@ test("Workable and Recruitee boards: title, place, link and text", async () => {
     assert.match(r[0].location, /Remote/);
     assert.match(r[0].text, /Clean data[\s\S]*SQL/);
   } finally { globalThis.fetch = real; }
+});
+
+test("page readers: a JobPosting's description from JSON-LD, and a JazzHR board's links, titles and places", () => {
+  const ld = `<script type="application/ld+json">{"@type":"WebSite"}</script><script type="application/ld+json">{"@type":"JobPosting","description":"<p>Learn &amp; build</p>"}</script>`;
+  assert.equal(ldDescription(ld), "Learn & build");
+  assert.equal(ldDescription("<p>no data</p>"), "");
+  const jazz = `<h3 class='list-group-item-heading'>
+      <a href="https://acme.applytojob.com/apply/AbC123/Accounting-Intern">
+          Accounting Intern    </a>
+  </h3>
+  <ul class='list-inline list-group-item-text'>
+      <li><i class='fa fa-map-marker'></i>Fort Worth, TX</li>
+  </ul>`;
+  assert.deepEqual(jazzList(jazz), [{ url: "https://acme.applytojob.com/apply/AbC123/Accounting-Intern", title: "Accounting Intern", location: "Fort Worth, TX" }]);
 });
