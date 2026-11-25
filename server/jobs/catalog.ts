@@ -12,7 +12,7 @@ import { r2Store } from "../platform/r2";
 import { inUS } from "./fit";
 import { fetchBoard, studentTitle, withDetail, type Raw } from "./sources";
 
-type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors";
+type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom";
 export type CatalogBoard = { ats: Ats; slug: string; company: string };
 export const PARTS = 24;
 /** Text kept per posting: enough for its requirements and summary (an opening keeps up to 12,000 when saved). */
@@ -54,6 +54,8 @@ const STAPPLY_ATS: Record<Ats, (slug: string, url: string) => string | null> = {
   icims: (_, u) => sub(u.match(/^https:\/\/([a-z0-9-]+)\.icims\.com/i)?.[1] || ""),
   // SAP SuccessFactors career sites on the employer's own domain ("jobs.adamed.com"). career*.successfactors.com
   // hosts are skipped: their robots.txt disallows everything.
+  // Phenom career sites: https://careers.browardhealth.org → "careers.browardhealth.org" (US sites only; searched for "intern")
+  phenom: (_, u) => u.match(/^https:\/\/([a-z0-9.-]+\.[a-z]{2,})\/?$/i)?.[1]?.toLowerCase() || null,
   successfactors: (_, u) => { const h = u.match(/^https:\/\/([a-z0-9.-]+\.[a-z]{2,})(?:\/|$)/i)?.[1]; return h && !/successfactors\.(com|eu)$/i.test(h) ? h.toLowerCase() : null; },
 };
 
@@ -83,7 +85,10 @@ export async function stapplyBoards(get = getText): Promise<CatalogBoard[]> {
   const out: CatalogBoard[] = [];
   for (const ats of Object.keys(STAPPLY_ATS) as Ats[]) {
     try {
-      for (const [name, slug, url] of csvRows(await get(`${STAPPLY}/${ats}/companies.csv`)).slice(1)) {
+      for (const row of csvRows(await get(`${STAPPLY}/${ats}/companies.csv`)).slice(1)) {
+        // Phenom's list is url,name,company_code,locale,country; the others are name,slug,url.
+        if (ats === "phenom" && row[4] !== "us") continue;
+        const [name, slug, url] = ats === "phenom" ? [row[1], row[0], row[0]] : row;
         const board = slug && STAPPLY_ATS[ats](slug, url || "");
         if (board) out.push({ ats, slug: board, company: (name || "").trim() || board });
       }

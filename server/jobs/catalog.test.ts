@@ -10,7 +10,7 @@ const raw = (title: string, location: string, extra: Partial<Raw> = {}): Raw => 
 
 test("catalog list: thousands of boards, spread evenly over the parts", () => {
   assert.ok(CATALOG.length > 15_000);
-  assert.ok(CATALOG.every((x) => x.slug && x.company && ["greenhouse", "lever", "ashby", "workable", "recruitee", "smartrecruiters"].includes(x.ats)));
+  assert.ok(CATALOG.every((x) => x.slug && x.company && !/[\t\n]/.test(x.slug)));
   const sizes = Array.from({ length: PARTS }, (_, p) => CATALOG.filter((b) => partOf(b) === p).length);
   const even = CATALOG.length / PARTS;
   assert.ok(Math.max(...sizes) < even * 1.1 && Math.min(...sizes) > even * 0.9, String(sizes));
@@ -75,6 +75,7 @@ test("Stapply lists: each system's rows become boards Remy's readers take; repo 
     adp: "name,slug,url\nHansons,323017e4-7f2e-49e2-bca0-e798b69a8e90/19000101_000001,https://workforcenow.adp.com/x\nBad,nope,https://x\n",
     icims: "name,slug,url\n360care LLC,360care,https://careers-360care.icims.com\n",
     successfactors: "name,slug,url\nAdamed,adamed,https://jobs.adamed.com\nAmkor,amkor,https://career8.successfactors.com/career?company=amkor\n",
+    phenom: "url,name,company_code,locale,country\nhttps://careers.browardhealth.org,Broward Health,,en_us,us\nhttps://careers.enbw.com,EnBW,,de_de,de\n",
     applitrack: "name,slug,url\nAldine ISD,https://www.applitrack.com/aldineisd/onlineapp,https://www.applitrack.com/aldineisd/onlineapp\n",
   };
   const got = await stapplyBoards(async (url) => { const a = url.split("/").at(-2)!; if (!lists[a]) throw new Error("404"); return lists[a]; });
@@ -84,7 +85,8 @@ test("Stapply lists: each system's rows become boards Remy's readers take; repo 
     ["bamboohr", "cokerlegal", "Coker Legal"], ["paylocity", "96be65ce-a51e-4c4e-8db5-091703033567", "Cochran"],
     ["applitrack", "aldineisd", "Aldine ISD"],
     ["ukg", "recruiting2|NDS1000NDSW|0e836885-d812-4a6b-8037-9c1ca641e913", "2nd Swing"], ["adp", "323017e4-7f2e-49e2-bca0-e798b69a8e90|19000101_000001", "Hansons"],
-    ["icims", "careers-360care", "360care LLC"], ["successfactors", "jobs.adamed.com", "Adamed"],
+    ["icims", "careers-360care", "360care LLC"], ["phenom", "careers.browardhealth.org", "Broward Health"],
+    ["successfactors", "jobs.adamed.com", "Adamed"],
   ]);
   assert.equal(districtState("<a href='https://maps.google.com/?q=loc:15010 Aldine Westfield Rd  Houston, TX 77032'>"), "TX");
   assert.equal(districtState("<p>Call 555-12345</p>"), undefined);
