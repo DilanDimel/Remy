@@ -38,23 +38,35 @@ export async function renderDeploys() {
   }
 }
 
-/** The OpenRouter key's own usage and limit (GET /api/v1/key works with Remy's normal key). The account's total
- *  balance needs a management key, which Remy deliberately doesn't hold. */
+/** AI money from OpenRouter. The main number is the ACCOUNT's balance (GET /api/v1/credits: everything bought minus
+ *  everything spent by every key on the account), because that's what runs out. OpenRouter may answer that only for a
+ *  management key, so an optional read-only OPENROUTER_MANAGEMENT_KEY is tried first, then Remy's normal key. The
+ *  live key's own usage and cap (GET /api/v1/key) come along as detail. */
 export async function openRouter() {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) return { available: false as const };
-  for (const path of ["/api/v1/key", "/api/v1/auth/key"]) {
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  const get = async (path: string, bearer: string) => {
     try {
-      const r = await fetch(`https://openrouter.ai${path}`, { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(8000) });
-      if (!r.ok) continue;
-      const d = ((await r.json()) as any)?.data || {};
-      const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
-      return {
-        available: true as const, label: String(d.label || ""), freeTier: !!d.is_free_tier,
-        usage: num(d.usage), limit: num(d.limit), remaining: num(d.limit_remaining),
-        usageDaily: num(d.usage_daily), usageWeekly: num(d.usage_weekly), usageMonthly: num(d.usage_monthly),
-      };
-    } catch {}
-  }
-  return { available: true as const, error: "Couldn't reach OpenRouter" };
+      const r = await fetch(`https://openrouter.ai${path}`, { headers: { Authorization: `Bearer ${bearer}` }, signal: AbortSignal.timeout(8000) });
+      return r.ok ? (((await r.json()) as any)?.data || {}) : null;
+    } catch { return null; }
+  };
+  const keyInfo = async () => (await get("/api/v1/key", key)) || (await get("/api/v1/auth/key", key));
+  const credits = async () => {
+    for (const k of [process.env.OPENROUTER_MANAGEMENT_KEY, key]) {
+      const d = k && (await get("/api/v1/credits", k));
+      if (d && num(d.total_credits) != null) return { bought: num(d.total_credits)!, spent: num(d.total_usage) ?? 0 };
+    }
+    return null;
+  };
+  const [d, acct] = await Promise.all([keyInfo(), credits()]);
+  if (!d && !acct) return { available: true as const, error: "Couldn't reach OpenRouter" };
+  const k = d || {};
+  return {
+    available: true as const, label: String(k.label || ""), freeTier: !!k.is_free_tier,
+    account: acct ? { left: Math.round((acct.bought - acct.spent) * 100) / 100, bought: acct.bought, spent: acct.spent } : null,
+    usage: num(k.usage), limit: num(k.limit), remaining: num(k.limit_remaining),
+    usageDaily: num(k.usage_daily), usageWeekly: num(k.usage_weekly), usageMonthly: num(k.usage_monthly),
+  };
 }

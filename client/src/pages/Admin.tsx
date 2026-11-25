@@ -489,7 +489,7 @@ type Services = {
   server: { commit: string; branch: string; instance: string; startedAt: string; uptimeMin: number; memoryMb: number; memoryLimitMb: number; node: string };
   errors: { server: number; browser: number };
   deploys: { available: false } | { available: true; error?: string; deploys?: { status: string; createdAt: string | null; finishedAt: string | null; message: string; commit: string }[] };
-  ai: { available: false } | { available: true; error?: string; label?: string; freeTier?: boolean; usage?: number | null; limit?: number | null; remaining?: number | null; usageDaily?: number | null; usageWeekly?: number | null; usageMonthly?: number | null };
+  ai: { available: false } | { available: true; error?: string; label?: string; freeTier?: boolean; account?: { left: number; bought: number; spent: number } | null; usage?: number | null; limit?: number | null; remaining?: number | null; usageDaily?: number | null; usageWeekly?: number | null; usageMonthly?: number | null };
   aiChain: { available: boolean; model: string; via: string; ownerTrial?: string };
 };
 const money = (n?: number | null) => (n == null ? "—" : `$${n.toFixed(2)}`);
@@ -505,7 +505,12 @@ function SystemTab() {
   const dep = d.deploys.available ? d.deploys : null;
   const tp = Math.round((100 * s.transfer.monthMb) / 1024 / s.transfer.limitGb);
   const memP = d.server.memoryLimitMb ? d.server.memoryMb / d.server.memoryLimitMb : 0;
-  const aiLow = ai && ai.limit != null && ai.remaining != null && ai.remaining < ai.limit * 0.2;
+  // The account balance is what runs out (every key draws from it); the live key's own cap is a second limit.
+  const aiLeft = ai?.account ? Math.min(ai.account.left, ai.remaining ?? Infinity) : ai?.remaining ?? null;
+  const aiLow = ai && ((ai.account && ai.account.left < 2) || (ai.limit != null && ai.remaining != null && ai.remaining < ai.limit * 0.2));
+  // OpenRouter's label is the key's name, or a masked key; show only the last 3 characters of a masked one.
+  const keyName = !ai?.label ? "" : ai.label.startsWith("sk-") ? `…${ai.label.slice(-3)}` : ai.label;
+  const keyLine = ai ? `key ${keyName ? `"${keyName}"` : "in use"}: ${money(ai.usage)} used${ai.limit != null ? ` of its ${money(ai.limit)} cap` : ""}` : "";
   const dot = (warn: boolean) => <span className={"adm2-dot" + (warn ? " warn" : "")} aria-label={warn ? "needs a look" : "fine"} />;
   const watch = [tp >= 80 && "database transfer is over the free plan", s.percent >= 80 && "the database is almost full", memP >= 0.8 && "memory is almost full", aiLow && "AI money is running low"].filter(Boolean) as string[];
   const maxDay = Math.max(1, ...s.transfer.days.map((x) => x.mb));
@@ -520,7 +525,7 @@ function SystemTab() {
       <div className="adm2-tiles">
         <div className="adm2-tile"><strong>Up</strong>{dot(false)}<span className="adm2-tl">Server (Render)</span><span className="adm2-ts">version {d.server.commit || "local"} · running {up}</span></div>
         <div className="adm2-tile"><strong>{d.server.memoryMb} MB</strong>{dot(memP >= 0.8)}<span className="adm2-tl">Memory in use</span><span className="adm2-ts">of {d.server.memoryLimitMb} MB on the plan</span></div>
-        <div className="adm2-tile"><strong>{ai ? (ai.remaining != null ? money(ai.remaining) : "No cap") : "—"}</strong>{dot(!!aiLow)}<span className="adm2-tl">AI money left</span><span className="adm2-ts">{ai ? (ai.limit != null ? `${money(ai.usage)} used of ${money(ai.limit)}` : `${money(ai.usage)} used so far`) : (d.ai.available && d.ai.error) || "OPENROUTER_API_KEY isn't set"}</span></div>
+        <div className="adm2-tile" data-testid="system-ai-money"><strong>{ai ? (aiLeft != null ? money(aiLeft) : "No cap") : "—"}</strong>{dot(!!aiLow)}<span className="adm2-tl">AI money left</span><span className="adm2-ts">{!ai ? (d.ai.available && d.ai.error) || "OPENROUTER_API_KEY isn't set" : ai.account ? `OpenRouter balance: ${money(ai.account.spent)} spent of ${money(ai.account.bought)} · ${keyLine}` : `Only this key's cap; add OPENROUTER_MANAGEMENT_KEY for the account balance · ${keyLine}`}</span></div>
         <div className="adm2-tile"><strong>{s.percent}%</strong>{dot(s.percent >= 80)}<span className="adm2-tl">Database space</span><span className="adm2-ts">{s.usedMb} of {s.limitMb} MB · avg account {s.workspaces.avg_kb} KB</span></div>
       </div>
       <div className="adm2-row adm2-row-sys">
