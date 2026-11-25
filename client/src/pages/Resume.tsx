@@ -98,6 +98,7 @@ function BaseResume({ subParam }: { subParam: string | null }) {
   const [replace, setReplace] = useState(false);
   // Students who'd rather not see their file can minimize it; the choice is remembered on this device.
   // No choice yet: open on laptops, minimized on phones (the file preview is a screen tall there).
+  const [exported, setExported] = useState(false); // asks "Did Remy help?" once, after a download
   const [preview, setPreviewState] = useState(() => { try { const v = localStorage.getItem("remy.resumePreview"); return v ? v !== "hidden" : !window.matchMedia("(max-width: 640px)").matches; } catch { return true; } });
   const setPreview = (fn: (p: boolean) => boolean) => setPreviewState((p) => { const n = fn(p); try { localStorage.setItem("remy.resumePreview", n ? "shown" : "hidden"); } catch { /* private mode */ } return n; });
   const [building, setBuilding] = useState(false);
@@ -185,10 +186,11 @@ function BaseResume({ subParam }: { subParam: string | null }) {
           </div>
           <div className="row">
             {w.resume.original && <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/original?download=1", w.resume!.original!.name).catch((e) => toast(e.message, true))} data-testid="button-download-original"><Download size={14} /> Original</button>}
-            <button className="btn btn-primary btn-sm" onClick={() => exportBasePdf(!!w.resume?.original?.mime.includes("wordprocessingml")).catch((e) => toast(e.message, true))} disabled={dirty} title={dirty ? "Save your edits first" : undefined} data-testid="button-export-base-pdf"><Download size={14} /> Export PDF</button>
-            <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/export?format=docx", "Resume.docx").catch((e) => toast(e.message, true))} disabled={dirty} data-testid="button-export-base-docx">Word</button>
+            <button className="btn btn-primary btn-sm" onClick={() => exportBasePdf(!!w.resume?.original?.mime.includes("wordprocessingml")).then(() => setExported(true)).catch((e) => toast(e.message, true))} disabled={dirty} title={dirty ? "Save your edits first" : undefined} data-testid="button-export-base-pdf"><Download size={14} /> Export PDF</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/export?format=docx", "Resume.docx").then(() => setExported(true)).catch((e) => toast(e.message, true))} disabled={dirty} data-testid="button-export-base-docx">Word</button>
           </div>
         </div>
+        {exported && <QuickRate place="export" id="export:resume" label="Did Remy help with your resume?" />}
         {(() => { // live from the current bullets, so it's gone as soon as the line is reworded
           const rude = w.resume.doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets.filter((b) => textConcern(b.text)).map((b) => b.text)));
           return rude.length > 0 && <div className="notice notice-bad" role="alert" data-testid="warn-rude-lines"><AlertTriangle size={16} /> <span>{rude.length === 1 ? "One line has" : `${rude.length} lines have`} language most employers would reject: “{rude[0].length > 90 ? rude[0].slice(0, 90) + "…" : rude[0]}”. Reword {rude.length === 1 ? "it" : "them"} in Edit before you apply.</span></div>;

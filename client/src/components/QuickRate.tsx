@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
 import { api } from "../lib/store";
 import { count } from "../lib/signals";
+import { track } from "../lib/analytics";
 
 const KEY = "remy.rated";
 const rated = (): string[] => { try { return JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { return []; } };
@@ -15,6 +16,7 @@ export function QuickRate({ place, id, label = "Was this useful?" }: { place: st
   if (state === "done") return null;
   const vote = (up: boolean) => {
     count(`rate:${place}:${up ? "up" : "down"}`);
+    track("rated", { place, helpful: up });
     remember(id);
     if (up) setState("done"); else setState("why");
   };

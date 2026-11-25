@@ -54,6 +54,9 @@ export function trackAction(method: string, url: string) {
   if (url === "/api/auth/logout") ph?.reset();
 }
 
+/** A named moment with a few plain values, e.g. track("rated", { place: "export", helpful: true }). */
+export function track(name: string, props: Record<string, string | number | boolean>) { ph?.capture(name, props); }
+
 export function trackDownload(url: string) {
   const fmt = url.match(/format=(\w+)/)?.[1];
   const name = `DOWNLOAD ${tidyPath(url)}`;

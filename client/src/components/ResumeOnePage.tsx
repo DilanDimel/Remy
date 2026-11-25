@@ -6,6 +6,7 @@ import { Download, FileText } from "lucide-react";
 import type { ResumeDoc, ResumeStyle, Workspace } from "@shared/types";
 import { API_BASE, api, download, fmtDate, useStore } from "../lib/store";
 import { ResumeMarkup, type Cat } from "./ResumeMarkup";
+import { QuickRate } from "./QuickRate";
 import { ResumeReview } from "./ResumeReview";
 import { AtsXray } from "./AtsXray";
 import { LinkedInFlags } from "./LinkedInCoach";
@@ -27,6 +28,7 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
   const { ws, setWs, run, toast } = useStore();
   const r = ws!.resume!;
   const [view, setView] = useState<"resume" | "file">("resume");
+  const [exported, setExported] = useState(false); // asks "Did Remy help?" once, after a download
   // Changed since upload: the saved stamp, or (for edits made before Remy kept one) a line that isn't in the file's text.
   const squash = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, "");
   const raw = squash(r.rawText || "");
@@ -64,12 +66,13 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
       <div className="r1-bar">
         <div className="row" style={{ gap: 8 }}><FileText size={17} /><b>{r.fileName}</b><span className="xs muted">{edited ? `Edited ${fmtDate(r.editedAt!)}` : `Added ${fmtDate(r.uploadedAt)}`}</span></div>
         <div className="row" style={{ gap: 6 }}>
-          <button className="btn btn-primary btn-sm" onClick={() => exportBasePdf(!!r.original?.mime.includes("wordprocessingml")).catch((e) => toast(e.message, true))} data-testid="button-export-base-pdf"><Download size={14} /> PDF</button>
-          <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/export?format=docx", "Resume.docx").catch((e) => toast(e.message, true))} data-testid="button-export-base-docx">Word</button>
+          <button className="btn btn-primary btn-sm" onClick={() => exportBasePdf(!!r.original?.mime.includes("wordprocessingml")).then(() => setExported(true)).catch((e) => toast(e.message, true))} data-testid="button-export-base-pdf"><Download size={14} /> PDF</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/export?format=docx", "Resume.docx").then(() => setExported(true)).catch((e) => toast(e.message, true))} data-testid="button-export-base-docx">Word</button>
           <button className="btn btn-ghost btn-sm" onClick={onReplace} data-testid="button-replace-resume">Replace file</button>
           <button className="btn btn-ghost btn-sm" onClick={onEditByHand} data-testid="button-edit-by-hand">Edit by hand</button>
         </div>
       </div>
+      {exported && <QuickRate place="export" id="export:resume" label="Did Remy help with your resume?" />}
 
       <NameChoice />
       {!r.confirmedAt && (
