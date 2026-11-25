@@ -92,7 +92,10 @@ export function allBoards(): CatalogBoard[] {
 }
 async function loadExtra(store: NonNullable<ReturnType<typeof r2Store>>, list: (() => Promise<CatalogBoard[]>) | null = stapplyBoards) {
   extra ||= ((await store.get("catalog/boards").catch(() => null)) as typeof extra) || { at: "", boards: [] };
-  if (list && !(Date.now() - Date.parse(extra.at || "") < LIST_EVERY)) { // never fetched: NaN, so due
+  // Due weekly, and at once when Remy has learned to read a system the saved list doesn't include yet.
+  const systems = new Set(extra.boards.map((b) => b.ats));
+  const stale = !(Date.now() - Date.parse(extra.at || "") < LIST_EVERY) || (list === stapplyBoards && Object.keys(STAPPLY_ATS).some((a) => !systems.has(a as Ats)));
+  if (list && stale) { // never fetched: NaN, so due
     const boards = await list();
     // A fetch that came back short (an outage) keeps the old list.
     if (boards.length && boards.length > extra.boards.length / 2) { extra = { at: new Date().toISOString(), boards }; await store.put("catalog/boards", extra); }
