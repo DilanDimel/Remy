@@ -173,7 +173,9 @@ export function OwnWordColoured({ doc, version, on, onFail }: { doc: ResumeDoc; 
         srcDoc={html.replace("</head>", `<style>body{zoom:${zoom.toFixed(3)}}</style></head>`)}
         onLoad={() => {
           const f = frame.current, d = f?.contentDocument; if (!f || !d) return;
-          setHeight(Math.ceil(d.documentElement.scrollHeight) + 4);
+          // The body's own box, not scrollHeight: scrollHeight never drops below the frame's current height, so a page
+          // shrunk to fit a phone left a big gap under it (Dilan, Nov 25).
+          setHeight(Math.ceil(d.body.getBoundingClientRect().height) + 4);
           // Clicks inside the frame don't reach the page; hand taps on a highlight or flag to the page's "why" popover.
           d.addEventListener("click", (ev) => { const r = f.getBoundingClientRect(); f.dispatchEvent(new CustomEvent("rr-tap", { bubbles: true, detail: { el: ev.target, x: r.left + ev.clientX, y: r.top + ev.clientY } })); });
         }} />
