@@ -8,6 +8,7 @@ import { firstName } from "@shared/names";
 import { daysFrom, nextAction } from "@shared/nextAction";
 import { gettingStarted } from "@shared/progress";
 import { offerFor, remyOffers } from "@shared/remyOffers";
+import { ApplyNudge } from "@/components/ApplyNudge";
 import { InsiderCard } from "@/components/Insider";
 import { Button, Group, Icon, Loading, Logo, Remy, Row, Screen, Sect, T, success, tap } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -167,6 +168,8 @@ export default function Home() {
         <Button testID="button-next-action" label={next.cta} icon="arrow" onPress={openNext} style={{ marginTop: 14 }} flex />
         {!!etaFor(next.link, !!next.interview) && <T kind="small" style={{ textAlign: "center", marginTop: 8 }}>{etaFor(next.link, !!next.interview)}</T>}
       </View>
+      {/* "Did you apply?" / "Follow up?", one question at a time (the website's ApplyNudge). */}
+      <ApplyNudge />
       {/* Getting started: a compact five-part bar and the current step (the website lists all five). */}
       {current && (
         <Pressable testID="button-getting-started" onPress={() => go(current.link, current.label)} style={{ marginTop: 12, marginHorizontal: 4, gap: 6 }}>
