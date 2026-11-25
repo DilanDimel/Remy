@@ -322,7 +322,9 @@ export function Round({ onClose }: { onClose: () => void }) {
     setPool(jobs.filter((j) => j.kind !== "event" && !w.hiddenJobIds.includes(j.id) && !w.savedJobIds.includes(j.id) && !w.jobFeedback?.[j.id] && !fits[j.id]?.excluded && !fits[j.id]?.closed)
       .sort((a, b) => (fits[b.id]?.score || 0) - (fits[a.id]?.score || 0)).slice(0, 4));
   }, [jobs]);
-  const cards: DailyCard[] = pool?.length ? ["openings", "role", "forecast"] : ["role", "forecast"];
+  // A reload mid-round (tester, Nov 25: "Remy was updated. Reload") picks up at the first card not finished today.
+  const [doneAtStart] = useState(() => stateOf(w).days?.[today] || []);
+  const cards = (pool?.length ? ["openings", "role", "forecast"] as DailyCard[] : ["role", "forecast"] as DailyCard[]).filter((c) => !doneAtStart.includes(c));
   const finish = async (card: DailyCard, said: string) => {
     setLog((l) => [...l, said]);
     const g = stateOf(ws!);
@@ -448,8 +450,10 @@ const TINTS = ["blue", "fox", "amber", "plain"];
 function RoleCard({ careers, onDone }: { careers: { field: string; jobs: Occ[] }[]; onDone: (said: string) => void }) {
   const { ws, save } = useStore();
   const known = new Set((stateOf(ws!).known || []).map((k) => k.toLowerCase()));
+  // The quiz stays in the student's first field (their major's, server sorts it first) when it has enough jobs for four answers.
+  const mine = (careers[0]?.jobs.length ?? 0) >= 4 ? careers.slice(0, 1) : careers;
   // One entry per job (a job can sit in two of the student's fields).
-  const all = [...new Map(careers.flatMap((c) => c.jobs).map((o) => [o.soc, o])).values()];
+  const all = [...new Map(mine.flatMap((c) => c.jobs).map((o) => [o.soc, o])).values()];
   // Today's jobs to decode, new ones first; a job with no duties on file is skipped for the next one.
   const [order] = useState(() => { const fresh = all.filter((o) => !known.has(o.title.toLowerCase())); const list = fresh.length ? fresh : all; const k = seedOf(dayKey()) % Math.max(1, list.length); return [...list.slice(k), ...list.slice(0, k)]; });
   const [tries, setTries] = useState(0);

@@ -1357,7 +1357,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 /* Panel closed: a small Remy waits at the top centre. */
 .main { position: relative; }
 .remy-dock { display: flex; align-items: center; border-radius: 50%; }
-.remy-dock-face { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); box-shadow: 0 0 0 2px var(--fox), 0 6px 18px -8px rgba(0, 0, 0, .35); transition: transform .18s ease; }
+.remy-dock-face { width: 46px; height: 46px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: var(--surface); box-shadow: 0 0 0 2px var(--fox), 0 6px 18px -8px rgba(0, 0, 0, .35); transition: transform .18s ease; }
 .remy-dock:hover .remy-dock-face { transform: translateY(-2px) scale(1.05); }
 .remy-dock-name { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { .asst-avatar::after, .act-row { animation: none !important; } }

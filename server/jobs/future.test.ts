@@ -34,6 +34,12 @@ test("careers: a psychology major sees the jobs that hire the most, busiest firs
   for (const f of c) for (let i = 1; i < f.jobs.length; i++) assert.ok((f.jobs[i - 1].openings ?? 0) >= (f.jobs[i].openings ?? 0));
   assert.ok(careersFor(student(""), "Nursing").some((f) => f.field === "nursing"), "browsing a field works with no major");
 });
+test("careers: the major's field comes first, ahead of a goal that matches another field", () => {
+  const c = careersFor(student("Mechanical Engineering", "Aerospace engineer"));
+  assert.ok(c.some((f) => f.field === "aviation"), "aerospace still brings aviation");
+  assert.notEqual(c[0].field, "aviation");
+  assert.ok(!c[0].jobs.some((o) => /flight attendant/i.test(o.title)));
+});
 test("careers: a typed job title finds its official occupation", () => {
   assert.match(officialFor("actuary")!.title, /Actuar/);
   assert.match(officialFor("registered nurse")!.title, /Registered nurses/i);
