@@ -41,17 +41,17 @@ const CORE = new Set(
     "competencies competencias proficiencies aptitudes certifications certificaciones certificates licenses licencias honors honours awards " +
     "premios reconocimientos distinciones achievements accomplishments logros athletics deportes coursework cursos scholarships becas " +
     "publications publicaciones presentations languages idiomas interests intereses hobbies references referencias summary resumen profile " +
-    "perfil objective objetivo introduction qualifications affiliations memberships competitions concursos internships externships practicas").split(" "),
+    "perfil objective objetivo introduction qualifications affiliations memberships competitions concursos internships externships practicas expertise rotations").split(" "),
 );
 // Words that are headings in capitals ("RESEARCH") but too often names or roles in Title Case ("Research Assistant").
 const WEAK = new Set(
   ("research volunteer service training sports arts history highlights courses organizations scores award honor project publication language " +
-    "skill certification interest about internship externship information info links").split(" "),
+    "skill certification interest about internship externship information info links background portfolio development").split(" "),
 );
 const MODIFIER = new Set(
   ("additional other others relevant related selected professional technical computer academic campus community personal key core work " +
     "laboral profesional academica academico adicional adicionales otros otras test extra career industry international athletic artistic " +
-    "artisticas musical creative military teaching summer class college customer graduate undergraduate student clinical healthcare nursing medical research lab laboratory engineering design and of y e de del la las los en para").split(" "),
+    "artisticas musical creative military teaching summer class college customer graduate undergraduate student clinical healthcare nursing medical research lab laboratory engineering design areas me and of y e de del la las los en para").split(" "),
 );
 const headingWords = (s: string) => fold(s).split(/[\s&/+,]+/).map((w) => w.replace(/[^a-z]/g, "")).filter(Boolean);
 function isHeadingPhrase(s: string, caps: boolean) {
@@ -714,13 +714,15 @@ export function resumeToText(doc: ResumeDoc, opts: { verifiedOnly?: boolean } = 
 
 // ---------- profile facts from the resume ----------
 const UNIVERSITY = /universit|college|institute of technology|polytechnic|school of (business|law|engineering|medicine)|universidad|instituto tecnol[oó]gico|polit[eé]cnic/i;
+const COLLEGE_NAME = /institut|academ|hochschule|augstskola|\btech\b|\bschool\b|universi|politec/i;
 const HIGH_SCHOOL = /high school|secondary school|preparatoria|\bprepa\b|bachillerato|secundaria|lyc[eé]e/i;
 
 /** The student's current university entry: not simply the first education line, which is often a high school. */
 export function primaryEducation(doc?: ResumeDoc): Entry | undefined {
   const entries = (doc?.sections || []).filter((s) => kindOf(s.heading) === "education").flatMap((s) => s.entries);
   const text = (e: Entry) => `${e.org} ${e.role}`;
-  const college = (e: Entry) => UNIVERSITY.test(text(e)) && !HIGH_SCHOOL.test(text(e));
+  // Schools named without "University" or "College" (Virginia Tech, Riga Institute of…, Hochschule…) count when the entry names a degree.
+  const college = (e: Entry) => !HIGH_SCHOOL.test(text(e)) && (UNIVERSITY.test(text(e)) || (COLLEGE_NAME.test(e.org) && (DEGREE_WORD.test(e.role) || DEGREE_HEAD.test(e.role))) || (!!e.org && DEGREE_HEAD.test(e.role) && !/certificate|diploma/i.test(e.role)));
   // A heading Remy didn't recognize ("school stuff:"): a college entry with a degree word anywhere still counts.
   return entries.find(college) || (doc?.sections || []).flatMap((s) => s.entries).find((e) => college(e) && DEGREE_WORD.test(e.role));
 }
@@ -728,7 +730,10 @@ const DEGREE_WORD = /\b(b\.?[sa]\.?|bachelor|bba|bfa|bsn|bsw|b\.?m\.?|associate|
 
 /** "TEXAS CHRISTIAN UNIVERSITY (TCU) - FULL RIDE SCHOLARSHIP" → "Texas Christian University (TCU)". */
 export function schoolName(org: string): string {
-  const parts = org.split(/\s+[-–—|]\s+|,\s+/).map((p) => p.replace(/^(?:ph\.?\s?d\.?|bsc?|msc?|ba|ma|mba|meng|b\.[sa]\.|m\.[sa]\.)\s+(?=\p{Lu})/iu, "").trim()).filter(Boolean);
+  // "University of California, Los Angeles": the campus after the comma is part of the name.
+  const campus = org.match(/^((?:University|UNIVERSITY) (?:of|OF) [\p{L} ]+?),\s+((?:\p{Lu}[\p{L}.]*\s?){1,3})(?=$|\s*[,|–—-])/u);
+  const whole = campus && !DEGREE_HEAD.test(campus[2]) && !/\b(?:gpa|class|honou?rs|scholar)/i.test(campus[2]) ? org.replace(", ", "\u2063") : org;
+  const parts = whole.split(/\s+[-–—|]\s+|,\s+/).map((p) => p.replace(/\u2063/g, ", ").replace(/^(?:ph\.?\s?d\.?|bsc?|msc?|ba|ma|mba|meng|b\.[sa]\.|m\.[sa]\.)\s+(?=\p{Lu})/iu, "").trim()).filter(Boolean);
   const name = parts.find((p) => /universit|universidad|college/i.test(p)) || parts.find((p) => UNIVERSITY.test(p)) || parts[0] || "";
   if (!isCaps(name)) return name;
   return name
@@ -738,7 +743,26 @@ export function schoolName(org: string): string {
 }
 
 const NOT_A_MAJOR = /scholarship|honou?rs?|award|dean|student|high school|toefl|\bsat\b|\bact\b|\bgpa\b|\b(19|20)\d{2}\b|expected/i;
-const DEGREE_WORDS = /^(?:(?:bachelor|master)(?:'s)?\s+of\s+(?:science|arts|business administration|fine arts)|b\.?\s?[sa]\.?|bba|bs|ba|a\.b\.)\b\s*(?:in\s+|,\s*)?/i;
+// The degree words at the start of a degree line: "Bachelor of Science", "MS", "B.S.", "BSEd", "Associate of Applied Science",
+// "Diploma", "Double major". What follows "in", a comma or a colon is the major.
+const DEGREE_HEAD = /^(?:(?:professional|honou?rs|joint|dual|double)\s+)?(?:(?:bachelor|master|doctor|associate)(?:'?s)?(?:\s+(?:degree|of\s+[\p{L} ]+?))?|diplom[ae]?|certificate(?:\s+of\s+[\p{L} ]+?)?|majors?|ph\.?\s?d\.?|a\.?b\.?|a\.?a\.?s?\.?|a\.?s\.?|b\.?\s?(?:a|s|sc|se|sed|sn|sw|ba|fa|m|eng|as)\.?|m\.?\s?(?:a|s|sc|sn|sw|ba|acc|eng|fa|ph|pa|ed)\.?)(?![\p{L}])/iu;
+// A degree that names its own field when no major is written: "BSN" is nursing, "MBA" is business administration.
+const DEGREE_FIELD: Record<string, string> = { bsn: "Nursing", msn: "Nursing", bsw: "Social Work", msw: "Social Work", mba: "Business Administration", bba: "Business Administration", macc: "Accounting", bsed: "Education", med: "Education", bfa: "Fine Arts", mfa: "Fine Arts", mph: "Public Health", mpa: "Public Administration", bm: "Music" };
+/** The field in one piece of a degree line, and whether it only came from the degree's own name ("Bachelor of Social Work"). */
+function degreeField(p: string): { field: string; named: boolean } {
+  const m = p.match(DEGREE_HEAD);
+  if (!m) return { field: p, named: false };
+  const sep = p.match(/\s+in\s+|\s*[,:]\s+|\s+[-–—]\s+/);
+  if (sep && sep.index! + sep[0].length < p.length) return { field: p.slice(sep.index! + sep[0].length).trim(), named: false };
+  const rest = p.slice(m[0].length).trim();
+  const of = m[0].match(/\bof\s+(.+)$/i)?.[1];
+  if (of) {
+    const name = `${of} ${rest}`.trim();
+    return { field: /^(?:applied\s+)?(?:science|arts|philosophy|laws?)$/i.test(name) ? "" : name, named: true };
+  }
+  if (rest) return { field: rest, named: false }; // "B.S. Mechanical Engineering"
+  return { field: DEGREE_FIELD[m[0].replace(/[^a-z]/gi, "").toLowerCase()] || "", named: true };
+}
 /** The student's major(s) from the university entry: "Majors: A | B", "B.S., Mathematics; B.S., Physics" or the degree line. */
 export function majorsOf(e?: Entry): string {
   if (!e) return "";
@@ -746,10 +770,14 @@ export function majorsOf(e?: Entry): string {
   const role = e.role.replace(/[,(]?\s*\b(?:(?:expected|anticipated|graduat\w*|class of)\s+)?(?:(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+)?(?:19|20)\d{2}\b\)?\.?/gi, (m) => (/expected|anticipated|graduat|class of|[a-z]{3}/i.test(m) ? "" : m));
   const all = [role, ...e.bullets.map((b) => b.text)].join("\n");
   const listed = all.match(/\bmajors?\s*:\s*([^\n]+)/i)?.[1];
-  const parts = (listed ? listed.replace(/\bGPA\b.*$/i, "").split(/\s*[|;\/]\s*|,\s+(?=\p{Lu})/u) : role.split(/\s*[|;]\s*|,\s+(?=\p{Lu})/u))
-    .map((p) => p.replace(/\bGPA\b.*$/i, "").replace(/,?\s*\bminors?\b.*$/i, "").replace(DEGREE_WORDS, "").replace(/\bwith\b.*$/i, (m) => (/certific|concentration|minor/i.test(m) ? m : "")).replace(/[\s,.]+$/, "").replace(/^[\s,.;:|–-]+/, "").trim())
-    .filter((p) => p && !NOT_A_MAJOR.test(p) && !/^minors?\b/i.test(p));
-  if (!parts.length) return listed ? "" : DEGREE_WORDS.test(role) ? role.replace(/\bGPA\b.*$/i, "").split(/[|;]/)[0].trim() : "";
+  const pieces = (listed ? listed.replace(/\bGPA\b.*$/i, "").split(/\s*[|;\/]\s*|,\s+(?=\p{Lu})/u) : role.split(/\s*[|;]\s*|,\s+(?=\p{Lu})/u))
+    .map((p) => p.replace(/\bGPA\b.*$/i, "").replace(/,?\s*\bminors?\b.*$/i, "").replace(/\bwith\b.*$/i, (m) => (/certific|concentration|minor/i.test(m) ? m : "")).replace(/[\s,.]+$/, "").replace(/^[\s,.;:|–-]+/, "").trim())
+    .filter((p) => p && !NOT_A_MAJOR.test(p) && !/^minors?\b/i.test(p))
+    .map(degreeField)
+    .filter((x) => x.field && !NOT_A_MAJOR.test(x.field));
+  // A written major wins over a field read from the degree's name ("BFA, Interior Design" is Interior Design).
+  const parts = (pieces.some((x) => !x.named) ? pieces.filter((x) => !x.named) : pieces).map((x) => x.field.replace(/[\s,.]+$/, ""));
+  if (!parts.length) return "";
   // "ENTREPRENEURSHIP AND INNOVATION NEELEY SCHOOL OF BUSINESS" → "Entrepreneurship and Innovation".
   const clean = parts.map((p) => p.replace(/\s*[-–,]?\s*\b(?:[\p{L}.]+\s+)?(?:school|college) of [\p{L} ]+$/iu, "").trim()).filter(Boolean)
     .map((p) => (isCaps(p) ? p.split(" ").map((w, k) => (k > 0 && /^(AND|OF|IN|THE|WITH|&)$/.test(w) ? w.toLowerCase() : titleCase(w))).join(" ") : p));

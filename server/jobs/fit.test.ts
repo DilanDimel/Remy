@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Job, Workspace } from "@shared/types";
-import { abroad, chosenFieldText, classYearOf, computeFit, dealbreaker, FIELD_TITLES, fieldMatch, planJobs, regionMatch, typeMatch } from "./fit";
+import { abroad, chosenFieldText, classYearOf, computeFit, dealbreaker, FIELD_TITLES, fieldMatch, gradDate, planJobs, regionMatch, typeMatch } from "./fit";
 import { dreamWithoutOpenings } from "../../shared/org";
 import { FIELD_GROUPS } from "@shared/fields";
 import { runAiAs } from "../ai/ai";
@@ -670,4 +670,13 @@ test("owners: an 'Emergency Management … or related field' degree list isn't '
     assert.ok(!/check yours counts/.test(computeFit(fin, ok, "").eligibilityNote));
   });
   assert.equal(computeFit(fin, j, "").checked, true);
+});
+
+test("graduation written as month/year counts its month", async () => {
+  const { emptyWorkspace } = await import("../platform/db");
+  const ws = emptyWorkspace();
+  ws.profile.graduation = "12/2026";
+  assert.deepEqual(gradDate(ws), { y: 2026, m: 12 });
+  ws.profile.graduation = "Fall 2027";
+  assert.deepEqual(gradDate(ws), { y: 2027, m: 12 });
 });
