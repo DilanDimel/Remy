@@ -48,7 +48,9 @@ const CSP = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https:",
-  `connect-src 'self' https://accounts.google.com ${supabaseOrigin}`.trim(),
+  `connect-src 'self' https://accounts.google.com https://us.i.posthog.com https://us-assets.i.posthog.com ${supabaseOrigin}`.trim(),
+  // PostHog's replay compresses in a blob worker (client/src/lib/analytics.ts).
+  "worker-src 'self' blob:",
   "frame-src 'self' https://accounts.google.com",
   "frame-ancestors 'self'",
   "object-src 'none'",

@@ -679,6 +679,8 @@ export interface AppConfig {
   beta?: { on: boolean; formUrl: string; open?: boolean };
   /** Feature releases (shared/features.ts): owners-only, locked with a teaser, or released, per feature key. */
   features?: Record<string, "owners" | "locked" | "released">;
+  /** PostHog analytics (public project key, not a secret); null when POSTHOG_KEY is set to "" to switch it off. */
+  posthog?: { key: string; host: string } | null;
 }
 
 export interface HoursEntry {

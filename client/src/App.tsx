@@ -33,6 +33,7 @@ import { answer as answerTailor, endSession as endTailor, isAsking, onCloseReque
 import Welcome from "./pages/Welcome";
 import { Careers } from "./pages/Landing2";
 import { count as countSignal, startSignals, tidyPath } from "./lib/signals";
+import { startAnalytics } from "./lib/analytics";
 import Onboarding from "./pages/Onboarding";
 import Home from "./pages/Home";
 import PathPage from "./pages/Path";
@@ -102,6 +103,8 @@ function Root() {
   }, [loading, signedOut, path]);
   // Signed-in students: automatic signals for the owners (page visits, rage clicks, errors). Counts only.
   useEffect(() => { if (!loading && !signedOut) { startSignals(); countSignal("page:" + tidyPath(path)); } }, [loading, signedOut, path]);
+  // PostHog (lib/analytics.ts): signed-in only, masked, off with Do Not Track.
+  useEffect(() => { if (!loading && me) startAnalytics(me, config); }, [loading, me, config]);
   // Owner styling has to live here, not in Shell: /about and /admin render outside Shell, so they'd otherwise
   // keep the student look.
   const ownerView = useOwnerView();
