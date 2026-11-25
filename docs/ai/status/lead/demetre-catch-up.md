@@ -1,4 +1,4 @@
-# Catch-up for Demetre's AI (written Nov 25, 2026, 09:20 UTC; sign-in update 10:05 UTC; resume, jobs and app update 11:20 UTC)
+# Catch-up for Demetre's AI (written Nov 25, 2026, 09:20 UTC; sign-in update 10:05 UTC; resume, jobs and app update 11:20 UTC; upload fix 15:50 UTC)
 
 Your last status update was Nov 25, 00:40 UTC (main at `dee4a4c`, #413). Since then Dilan and the lead AI (Dilan's project Claude) merged about 35 PRs, many of them in your areas. Read this first, then run `npm run ai:brief -- --me Demetre` as usual, then rewrite `docs/ai/status/demetre.md` before your next PR.
 
@@ -52,6 +52,7 @@ Merged (all straight to `main`):
 | #442 | Android feedback: `Screen` bottom padding is now iOS inset+126 / Android 76, tab titles sit higher, Resume shows its top part with "Show the whole resume", the floating fox is the smiling `SCHOLAR_ICON`. |
 | #443, #446 | Jobs swipe on Android. **Root cause:** in ReanimatedSwipeable, `dragOffsetFromRight` must be **negative** (`activeOffsetX: [right, left]`); `+30` grabbed every vertical drag. Now it's `dragOffsetFromLeft={24} dragOffsetFromRight={-24}`, swipe works on both phones, and `Screen` uses gesture-handler's `ScrollView`. Keep and Pass buttons are on every card. Dilan confirmed it works on his Android phone. |
 | #445 | "Hear it" plays Remy's real voice (Arthur) under chat replies and the office guide line: `native/src/components/HearIt.tsx` → `POST /api/voice` → cached file → `expo-audio`. |
+| #471 | **Resume upload on Android.** The APK's upload failed with "can't reach the internet" because Android React Native 0.8x drops FormData file uploads (react-native#54881/#56404). `apiForm` in `native/src/lib/api.ts` now sends `{file: {name, type, data: base64}}` JSON through `api()` on phones; `uploadFile` in `server/routes.ts` turns it into a multer-style file (`fileFromJson`, `server/platform/upload.ts`, tested), and `server/index.ts` allows 7 MB JSON on the four upload routes only. Setup steps pin their buttons to the bottom of the screen (`Nav` marginTop auto, `Page` flexGrow). |
 | #468 | **Welcome and setup.** The welcome footer reads "Privacy & Terms · About" (`/policies`, `/about`, in the `/web` sheet). `<Remy alive />` (`LiveRemy` in `components/ui.tsx`) hops hello, bobs, blinks and now and then hops or tilts, like the website homepage; used on sign-in and in setup's `Say`, still under Reduce Motion. Setup step 1 fits a phone with a large font: Sign out is a small link beside the step label, one-line intro. |
 | #455 | **Sign-in (Dilan's Android feedback).** Continue with Google and Continue with LinkedIn on the email step (the website's two Supabase providers; Apple is off on the site too). It opens `<supabase>/auth/v1/authorize?provider=…&redirect_to=<Linking.createURL("auth")>` with `WebBrowser.openAuthSessionAsync` and PKCE (the link carries only a one-time `?code`; the app swaps it at `/auth/v1/token?grant_type=pkce` with its own verifier, `native/src/lib/auth.ts`), then posts the token to the existing `POST /api/auth/supabase`. `native/src/app/auth.tsx` catches `remy://auth` so the router doesn't show "not found". The email and code steps are centered (max 440 wide, Back at the top, Send code / Sign in under the field). Privacy and Terms on the welcome, email and terms screens open the `/web` sheet (`/privacy`, `/terms`, `/policies`), never the outside browser. Supabase Redirect URLs need `remy://auth` (exact, no wildcard). Follow-up #457: Supabase now returns to `https://remyai.org/api/auth/app-return` (`appReturnPage` in `server/platform/auth.ts`), which opens the app itself and shows "Almost done / Continue", because Android Chrome wouldn't open the app straight from the redirect. #459: on Android that link is `intent://auth?code…#Intent;scheme=remy;package=org.remyai.app;end`. #464: Expo Go can't receive `remy://`, so there the app adds `?state=<random key>`, the page saves the code under it (`putHandoff`, 2 min in memory) and the app polls `GET /api/auth/app-handoff` and finishes with its own PKCE verifier. The "no code email" report was not a bug: both codes were delivered. |
 
@@ -116,7 +117,7 @@ Still opening the website in a sheet: Build my path, profile editing, other sour
 
 ## 5. What's open or claimed right now
 
-- **Open PRs:** none (checked Nov 25, 11:20 UTC).
+- **Open PRs:** none (checked Nov 25, 15:50 UTC).
 - **Requests for you:** none open. Your answers dilan-1 to dilan-5 are all done.
 - **Your stale claims:** see section 1. Please remove them.
 - **Ideas for your next work, if you want them:**
