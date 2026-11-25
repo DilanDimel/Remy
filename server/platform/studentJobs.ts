@@ -7,6 +7,9 @@
 //          lock as the workspace, and the hourly sweep copies 10 accounts at a time that aren't copied yet. Nothing
 //          is read from here: workspaces.data.jobs stays the real copy.
 //   owners as copy, and owners' openings are read from here, so the move is checked on real accounts first.
+//   everyone (step 2, Dilan said go Nov 24 6:25 PM CT, a day after owners) everyone's copied openings are read from
+//          here. Only reachable from owners, so the backup and the owners' check always come first. The workspace
+//          still keeps its own copy until a later PR removes it after a few days with no problems.
 // Turning it on from off first takes a fresh full backup (refused when backups aren't set up) and starts every
 // copy from scratch. The hourly check compares each copied account with its workspace inside Postgres (only counts
 // come back) and copies again any that differ. Removing jobs from the workspace is a later PR, once this is checked.
@@ -19,8 +22,8 @@ import { q, q1 } from "./sql";
 import { backupNow, type Store } from "./backup";
 import { r2Store } from "./r2";
 
-export type JobsMode = "off" | "copy" | "owners";
-export const JOBS_MODES: JobsMode[] = ["off", "copy", "owners"];
+export type JobsMode = "off" | "copy" | "owners" | "everyone";
+export const JOBS_MODES: JobsMode[] = ["off", "copy", "owners", "everyone"];
 const bad = (message: string) => Object.assign(new Error(message), { status: 400 });
 const noNul = (_k: string, v: unknown) => (typeof v === "string" && v.includes("\u0000") ? v.replace(/\u0000/g, "") : v);
 const asList = (jobs: unknown): Job[] => (Array.isArray(jobs) ? jobs.filter((j) => j && typeof j === "object" && typeof j.id === "string") : []);
@@ -35,8 +38,9 @@ export async function jobsMode(fresh = false): Promise<JobsMode> {
 
 /** Owners flip the switch. From off, a fresh full backup comes first, and every account is copied again from scratch. */
 export async function setJobsMode(mode: string, by: string, store: Store | null = r2Store()) {
-  if (!JOBS_MODES.includes(mode as JobsMode)) throw bad("Say off, copy or owners.");
+  if (!JOBS_MODES.includes(mode as JobsMode)) throw bad("Say off, copy, owners or everyone.");
   const was = await jobsMode(true);
+  if (mode === "everyone" && was !== "owners" && was !== "everyone") throw bad("Turn on Owners read it first, and check owners' openings for a day.");
   let backup: { kind: string; rows: number } | null = null;
   if (was === "off" && mode !== "off") {
     backup = await backupNow(store);
@@ -52,7 +56,9 @@ export async function setJobsMode(mode: string, by: string, store: Store | null 
 const dupIds = (jobs: Job[]) => new Set(jobs.map((j) => j.id)).size !== jobs.length;
 
 /** Replaces one account's copy with `jobs` and marks it copied. Run inside a transaction holding the workspace row. */
-export async function copyAll(run: typeof q, userId: string, raw: unknown) {
+export type Written = { v: number; jobs: Job[] } | undefined;
+const written = (v: unknown, jobs: Job[]): Written => (v == null ? undefined : { v: Number(v), jobs });
+export async function copyAll(run: typeof q, userId: string, raw: unknown): Promise<Written> {
   const jobs = asList(raw);
   if (dupIds(jobs)) {
     await run("DELETE FROM student_jobs WHERE user_id=$1", [userId]);
@@ -68,14 +74,15 @@ export async function copyAll(run: typeof q, userId: string, raw: unknown) {
      WHERE student_jobs.pos IS DISTINCT FROM EXCLUDED.pos OR student_jobs.data IS DISTINCT FROM EXCLUDED.data`,
     [userId, JSON.stringify(jobs, noNul)],
   );
-  await run(`INSERT INTO student_jobs_state (user_id) VALUES ($1)
-             ON CONFLICT (user_id) DO UPDATE SET note = '', copied_at = now(), jobs_v = student_jobs_state.jobs_v + 1`, [userId]);
+  const v = await run(`INSERT INTO student_jobs_state (user_id) VALUES ($1)
+             ON CONFLICT (user_id) DO UPDATE SET note = '', copied_at = now(), jobs_v = student_jobs_state.jobs_v + 1 RETURNING jobs_v`, [userId]);
+  return written(v[0]?.jobs_v, jobs);
 }
 
 /** Called by every workspace write that changes openings, in its transaction after the workspace row is written.
  *  `before` is the list this write started from when the server knows it exactly (then only changed rows are sent),
  *  or null (then the whole list is). Accounts not copied yet are left to the hourly copy. */
-export async function syncJobs(run: typeof q, userId: string, before: unknown, after: unknown) {
+export async function syncJobs(run: typeof q, userId: string, before: unknown, after: unknown): Promise<Written> {
   if ((await jobsMode()) === "off") return;
   const s = (await run("SELECT note FROM student_jobs_state WHERE user_id=$1 FOR UPDATE", [userId]))[0];
   if (!s) return;
@@ -97,7 +104,8 @@ export async function syncJobs(run: typeof q, userId: string, before: unknown, a
        ON CONFLICT (user_id, job_id) DO UPDATE SET pos = EXCLUDED.pos, data = EXCLUDED.data, updated_at = now()`,
       [userId, JSON.stringify(changed, noNul)],
     );
-  await run("UPDATE student_jobs_state SET jobs_v = jobs_v + 1 WHERE user_id=$1", [userId]);
+  const v = await run("UPDATE student_jobs_state SET jobs_v = jobs_v + 1 WHERE user_id=$1 RETURNING jobs_v", [userId]);
+  return written(v[0]?.jobs_v, next);
 }
 
 /** A whole-workspace write the server can't diff: the account is copied again by the hourly copy. */
@@ -125,16 +133,29 @@ async function ownerIds() {
 }
 
 const tableCache = new Map<string, { v: number; jobs: Job[] }>();
-/** Owners' openings from the table when the switch is 'owners' and their copy is good; otherwise null (use the workspace). */
+const TABLE_CACHE_MAX = 200;
+function remember(userId: string, v: number, jobs: Job[]) {
+  tableCache.delete(userId);
+  tableCache.set(userId, { v, jobs });
+  if (tableCache.size > TABLE_CACHE_MAX) tableCache.delete(tableCache.keys().next().value!);
+}
+/** Called after a save's transaction committed, with what syncJobs/copyAll wrote: this server keeps those openings,
+ *  so the next read doesn't download them again (only the tiny jobs_v number crosses the network). Never before the
+ *  commit: a rolled-back save must not leave a copy that a later jobs_v could match. */
+export function primeJobs(userId: string, w: Written) {
+  if (w) remember(userId, w.v, structuredClone(w.jobs));
+}
+/** Openings from the table when the switch says this account reads it ('owners': owners only; 'everyone': all) and
+ *  its copy is good; otherwise null (use the workspace). */
 export async function jobsFromTable(userId: string): Promise<Job[] | null> {
-  if ((await jobsMode()) !== "owners" || !(await ownerIds()).has(userId)) return null;
+  const mode = await jobsMode();
+  if (mode !== "everyone" && (mode !== "owners" || !(await ownerIds()).has(userId))) return null;
   const s = await q1("SELECT jobs_v, note FROM student_jobs_state WHERE user_id=$1", [userId]);
   if (!s || s.note) return null;
   const v = Number(s.jobs_v), c = tableCache.get(userId);
   if (c && c.v === v) return structuredClone(c.jobs);
   const jobs = (await q("SELECT data FROM student_jobs WHERE user_id=$1 ORDER BY pos", [userId])).map((r) => (typeof r.data === "string" ? JSON.parse(r.data) : r.data)) as Job[];
-  tableCache.set(userId, { v, jobs });
-  if (tableCache.size > 50) tableCache.delete(tableCache.keys().next().value!);
+  remember(userId, v, jobs);
   return structuredClone(jobs);
 }
 
