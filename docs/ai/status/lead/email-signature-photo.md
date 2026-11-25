@@ -1,0 +1,1 @@
+Email signature photo (Dilan, Nov 25 1:56 PM: "Can you update it?"). Adds `client/public/team/dilan-email.jpg`, a 256 px crop of the retouched headshot Dilan picked, so his Zoho signature can load it from remyai.org. Nothing on the site uses it; the About page keeps `/team/dilan.jpg`.
