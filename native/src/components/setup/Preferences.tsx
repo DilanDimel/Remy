@@ -91,7 +91,7 @@ export function Preferences({ onBack, scrollTop }: { onBack: () => void; scrollT
   });
   const unsureChip = <Pill testID="pref-unsure" label="I'm not sure yet" on={unsure} onPress={() => setUnsure(!unsure)} />;
   return (
-    <View style={{ gap: 22 }}>
+    <View style={{ flexGrow: 1, gap: 22 }}>
       <Say>
         <T kind="label">{`Page ${page + 1} of 2`}</T>
         <T kind="muted">{page === 0 ? "What are you looking for? This decides which openings I show you, and anything that rules you out stays hidden." : "Almost there. Where should I look, and is there anything that would rule an opening out?"}</T>

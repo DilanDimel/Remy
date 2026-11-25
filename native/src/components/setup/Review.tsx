@@ -55,7 +55,7 @@ export function Review({ onBack, onNext }: { onBack: () => void; onNext: () => v
     setBusy(false);
   };
   return (
-    <View style={{ gap: 18 }}>
+    <View style={{ flexGrow: 1, gap: 18 }}>
       {(looking || first.length > 0) && (
         <Card testID="first-matches" style={{ gap: 6 }}>
           {first.length ? <>

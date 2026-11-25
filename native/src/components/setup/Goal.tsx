@@ -32,7 +32,7 @@ export function Goal() {
     setBusy(false);
   };
   return (
-    <View style={{ gap: 16 }} testID="focus-pick">
+    <View style={{ flexGrow: 1, gap: 16 }} testID="focus-pick">
       <Say title={`Hi${first ? ` ${first}` : ""}! What are you working toward?`}>"Not sure yet" is a fine answer.</Say>
       <Q title="Where are you right now?">
         <Chips options={PATHS.map(([, l]) => l)} value={PATHS.filter(([k]) => k === path).map(([, l]) => l)} multi={false} testID="path"

@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import multer from "multer";
+import { fileFromJson, MAX_UPLOAD } from "./platform/upload";
 import { z } from "zod";
 import type {
   Application, AppConfig, BulletChange, ChatAction, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, ResumeLook, ResumeStyle, Suggestion, TrackStatus, Workspace, Story, StoryPart } from "@shared/types";
@@ -98,11 +99,17 @@ const ALUMNI_DOMAINS = (process.env.OR_ALUMNI_EMAIL_DOMAINS || "tcu.edu").split(
 // Without an email sender, local runs print the code to the server log so the flow can be tested.
 const devCodes = () => !emailReady() && process.env.NODE_ENV !== "production";
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_UPLOAD } });
 // Turns upload errors into messages a student can act on instead of a generic 500.
 const uploadFile = (req: Request, res: Response, next: NextFunction) =>
   upload.single("file")(req, res, (err: any) => {
-    if (!err) return next();
+    if (!err) {
+      // The phone app sends the file as JSON base64: Android React Native 0.8x drops FormData file uploads before they leave the phone.
+      const f = (req as any).file ? undefined : fileFromJson(req.body?.file);
+      if (f === null) return res.status(413).json({ message: "That file is over 5 MB. Export a smaller PDF, or upload a Word (.docx) file." });
+      if (f) (req as any).file = f;
+      return next();
+    }
     const tooBig = err?.code === "LIMIT_FILE_SIZE";
     res.status(tooBig ? 413 : 400).json({ message: tooBig ? "That file is over 5 MB. Export a smaller PDF, or upload a Word (.docx) file." : "That upload didn't come through. Please try again." });
   });
