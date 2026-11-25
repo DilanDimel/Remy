@@ -46,6 +46,7 @@ Secrets live in the Render dashboard (environment group `remy-server-env`), neve
 | Variable | Purpose |
 |---|---|
 | `OR_AI_CHAIN` | AI providers to try in order, e.g. `openrouter:anthropic/claude-haiku-5.5,openrouter:google/gemini-3.8-flash`. Keys: `OPENROUTER_API_KEY`, `GEMINI_API_KEY` |
+| `OPENROUTER_MANAGEMENT_KEY` | Optional. Lets Admin → System show the whole OpenRouter account balance (all keys) when OpenRouter only gives that to management keys. |
 | `OR_AI_PRIVACY` | `on`: every OpenRouter call uses zero-data-retention providers only (owners' trial always does) |
 | `OR_AI_CHAIN_OWNERS` | Separate chain for owners' accounts (trial models) |
 | `OR_AI_TAILOR_CHAIN` | Optional stronger chain for resume tailoring only |
