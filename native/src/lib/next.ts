@@ -13,6 +13,13 @@ export function visibleJobs(w: Pick<Workspace, "hiddenJobIds">, jobs: Job[], fit
     .sort((a, b) => (fits[b.id]?.score ?? 0) - (fits[a.id]?.score ?? 0));
 }
 
+/** Events and competitions (kind "event"), soonest first: the website's Events filter. Hidden or closed ones and past dates drop out. */
+export function upcomingEvents(w: Pick<Workspace, "hiddenJobIds">, jobs: Job[], fits: Record<string, JobFit | undefined>, now = new Date()) {
+  return jobs
+    .filter((j) => j.kind === "event" && !w.hiddenJobIds.includes(j.id) && !fits[j.id]?.closed && fits[j.id]?.regionMatch !== false && (!j.deadline || (daysUntil(j.deadline, now) ?? 0) >= 0))
+    .sort((a, b) => (a.deadline || "9999").localeCompare(b.deadline || "9999"));
+}
+
 export function greeting(d = new Date()) {
   const h = d.getHours();
   return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";

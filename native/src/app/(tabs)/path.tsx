@@ -10,7 +10,7 @@ import { prepChain } from "@shared/prep";
 import { YEARS, yearNumber } from "@shared/roads";
 import { Office } from "@/components/Office";
 import { GuideBanner, useOfficeGuide } from "@/components/OfficeGuide";
-import { Button, Group, Icon, Remy, Row, Screen, Sect, T, success, tap, type IconName } from "@/components/ui";
+import { Button, Group, Icon, Loading, Remy, Row, Screen, Sect, T, success, tap, type IconName } from "@/components/ui";
 import { OUTFIT_NAME, type Outfit } from "@/components/scholarSvg";
 import { api } from "@/lib/api";
 import { askRemy, go, openResumeFix } from "@/lib/nav";
@@ -34,7 +34,7 @@ export default function PathTab() {
   const [moment, setMoment] = useState("");
   const [err, setErr] = useState("");
   const guide = useOfficeGuide();
-  if (!ws) return null;
+  if (!ws) return <Loading />;
   const g = ws.game || { weeks: {} };
   const saveGame = async (game: Workspace["game"]) => setWs(await api<Workspace>("PUT", "/api/ws/game", { value: game }));
   const onRefresh = async () => { setRefreshing(true); await refresh(); setRefreshing(false); };

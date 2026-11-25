@@ -9,6 +9,9 @@ import { useSession } from "./session";
 // A new colour goes in index.css first, then tokens.ts is regenerated. Two names are the app's own, both website values:
 // onFox is the text on an orange button (white), onInk the text on an ink button (the website's --plum-ink).
 export type Colors = Record<keyof typeof lightTokens | "onFox" | "onInk", string>;
+/** Just above the tab bar: iOS's bar is about 49 pt over the home indicator, Android's Material bar about 80 dp. Remy's fox sits here, and toasts sit level with him. */
+export const aboveTabs = (bottomInset: number) => bottomInset + (Platform.OS === "ios" ? 62 : 92);
+
 const light: Colors = { ...lightTokens, onFox: brand.white, onInk: lightTokens.plumInk };
 const dark: Colors = { ...darkTokens, onFox: brand.white, onInk: darkTokens.plumInk };
 

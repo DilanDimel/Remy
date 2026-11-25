@@ -6,7 +6,7 @@ import type { ResumeDoc, Workspace } from "@shared/types";
 import { CATS, issues, ranges, toolsRegex, type Cat } from "@shared/markup";
 import { reviewResume, type BulletRef } from "@shared/review";
 import { isListSection } from "@shared/bullets";
-import { Button, Icon, Remy, Screen, Sect, T, success, tap } from "@/components/ui";
+import { Button, Icon, Loading, Remy, Screen, Sect, T, success, tap } from "@/components/ui";
 import { api, apiForm } from "@/lib/api";
 import { canPickFiles, pickResume } from "@/lib/pick";
 import { shareFromServer } from "@/lib/files";
@@ -153,7 +153,7 @@ export default function Resume() {
   // Opened by "Let's fix them" (Home's offer) or My Path's "Add a real number" (openResumeFix): straight into the fixes.
   const { fix: fixNow, at } = useLocalSearchParams<{ fix?: string; at?: string }>();
   useEffect(() => { if (fixNow && steps.length) setFix(0); }, [fixNow, at, steps.length > 0]);
-  if (!ws) return null;
+  if (!ws) return <Loading />;
   const onRefresh = async () => { setRefreshing(true); await refresh(); setRefreshing(false); };
   const open = (q = "") => go(`/resume${q}`, "Resume", { page: true });
   // A PDF or Word file from the phone (builds from Nov 24 on); older builds open the website's Resume page instead.
