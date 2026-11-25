@@ -18,7 +18,7 @@ CI also runs `npm run check:ai` (owned files, claims, status file; see `docs/ai/
 
 ## Rules every change follows
 
-- **Owner view first.** New and redesigned features are owners-only until the team releases them. Gate client code with `useOwnerView()` (`client/src/lib/store.tsx`); owner styling hangs off the `html.redesign-2` class. Server checks use `isOwner` (`server/platform/admin.ts`). Never ship a change to students without the team's explicit go-ahead.
+- **Owner view first, for brand-new features only.** Only brand-new features (something Remy never had before) ship owners-only first. Bug fixes, fixes to existing functions and important improvements to existing features go straight to students, with no owners-first switch or staged rollout (Dilan, Nov 24, 6:44 PM CT). Gate client code with `useOwnerView()` (`client/src/lib/store.tsx`); owner styling hangs off the `html.redesign-2` class. Server checks use `isOwner` (`server/platform/admin.ts`). Brand-new features reach students only with the team's go-ahead.
 - **Test and screenshot in owner view**, signed in as an owner with the owner/student toggle on owner.
 - **No invented claims.** Every AI rewrite is checked by `server/ai/claims.ts` and shown as original vs. proposed for the student to accept, edit or reject. Only approved versions export.
 - **Nothing is sent for the student.** Outreach opens in their own mail app; status changes from email wait for them to confirm.
@@ -35,7 +35,7 @@ CI also runs `npm run check:ai` (owned files, claims, status file; see `docs/ai/
 
 - One feature per branch and PR, rebased on `main` before opening.
 - Several Claude threads work here at once. Before editing a file another open PR touches, check the open PRs and coordinate, so changes don't collide.
-- Owners-only PRs may be merged once CI passes. Anything that reaches students waits for the team.
+- PRs may be merged once CI passes, including fixes and improvements that reach students. Only a brand-new feature released to students waits for the team.
 
 ## Design skills
 
