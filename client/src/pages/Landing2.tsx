@@ -5,7 +5,7 @@ import { go } from "../lib/router";
 import { useOwnerView, useStore } from "../lib/store";
 import { BetaBadge, Remy } from "../components/common";
 import { ThemeToggle } from "../components/ThemeToggle";
-import { useTeam } from "./Info";
+import { SignupBar, useTeam } from "./Info";
 import { FieldBrowser, LinkedInMark, applyHref } from "./Welcome";
 
 export const INSTAGRAM = "https://www.instagram.com/coachremyai/";
@@ -379,6 +379,7 @@ export default function Landing2() {
           </nav>
         </footer>
       </div>
+      {!inside && !beta && <SignupBar after={700} />}
     </div>
   );
 }

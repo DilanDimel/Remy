@@ -3843,3 +3843,41 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
   .redesign-2 .asst-body .remy-offer.docked { margin: 4px 0 0; max-width: 92%; box-shadow: none; }
   .redesign-2 .asst-body .remy-offer.docked .remy-offer-face { display: none; }
 }
+/* Phone first visit (Dilan, Nov 25): terms on the light paper look, About/Privacy with a light header and a
+   swipeable "jump to" row, setup with one slim header (logo, thin step bar, Remy's one line). */
+@media (max-width: 640px) {
+  .auth-stage:has(.terms-card) { background: var(--bg); color: var(--ink); padding: 12px; }
+  .auth-stage:has(.terms-card) .lp-beam { display: none; }
+  .auth-stage:has(.terms-card) .terms-card { box-shadow: none; }
+}
+@media (max-width: 480px) {
+  .doc-top { flex-wrap: nowrap; padding: 12px 0; }
+  .doc-top nav { width: auto; gap: 4px; }
+  .doc-top nav .doc-pill { background: none; color: var(--ink); }
+  .doc-top nav .doc-back { background: none; color: var(--muted-text); padding-inline: 6px; }
+  .doc-top nav .doc-back span { display: none; }
+}
+@media (max-width: 860px) {
+  .doc-toc { display: flex; flex-direction: row; position: sticky; top: 0; z-index: 5; gap: 6px; margin: 0 -16px; padding: 10px 16px; overflow-x: auto; scrollbar-width: none; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .doc-toc b { display: none; }
+  .doc-toc a { flex: none; white-space: nowrap; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+  .doc-toc a[aria-current="location"] { border-color: var(--ink); background: var(--ink); color: var(--surface); }
+  .doc-body .info-sec { scroll-margin-top: 64px; }
+  .ob-note { gap: 8px; padding: 10px 16px 10px; }
+  .ob-chapters { padding-bottom: 0; gap: 4px; }
+  .ob-chapters li { display: block; }
+  .ob-dot { width: 100%; height: 4px; border: 0; border-radius: 2px; background: var(--line); font-size: 0; }
+  .ob-dot svg { display: none; }
+  .ob-chapters li.done .ob-dot, .ob-chapters li.now .ob-dot { background: var(--fox); }
+  .ob-chapters li.now .ob-ch-name { display: none; }
+  .ob-known { display: none; }
+}
+.signup-bar { display: none; }
+@media (max-width: 640px) {
+  .signup-bar { display: flex; gap: 10px; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; padding: 10px 16px calc(12px + env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--bg) 94%, transparent); border-top: 1px solid var(--line); backdrop-filter: blur(8px); transform: translateY(110%); transition: transform .25s ease; }
+  .signup-bar.on { transform: none; }
+  .signup-bar .btn { flex: 1; justify-content: center; min-height: 46px; }
+  .signup-bar .btn-primary { flex: 2; background: var(--fox); border-color: var(--fox); color: var(--white); }
+  .doc:has(.signup-bar), div:has(> .signup-bar) { padding-bottom: 84px; }
+}
+@media (prefers-reduced-motion: reduce) { .signup-bar { transition: none; } }

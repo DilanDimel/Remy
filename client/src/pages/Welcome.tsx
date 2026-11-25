@@ -74,7 +74,7 @@ function BetaNote({ onOther }: { onOther: () => void }) {
 function SignIn() {
   const { setSession, run, config, toast } = useStore();
   const [busy, setBusy] = useState<"" | Provider | "google">("");
-  const [emailOpen, setEmailOpen] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(true); // open from the start: no extra tap to reach the email box (Nov 25)
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState("");
   const [code, setCode] = useState("");
@@ -103,15 +103,16 @@ function SignIn() {
     await run(() => startOAuth(config!, p)); // leaves the page on success
     setBusy("");
   };
-  const magic = async () => {
+  const magicTo = async (to: string) => {
     setBusy("Work/School Email");
-    const ok = await run(() => (codes ? api("POST", "/api/auth/email/start", { email: email.trim() }) : sendMagicLink(config!, email.trim())).then(() => true));
-    if (ok) { setSent(email.trim()); setCode(""); toast(codes ? "Check your inbox for a 6-digit code" : "Check your inbox for a sign-in link"); }
+    const ok = await run(() => (codes ? api("POST", "/api/auth/email/start", { email: to }) : sendMagicLink(config!, to)).then(() => true));
+    if (ok) { setSent(to); setCode(""); toast(codes ? "Check your inbox for a 6-digit code" : "Check your inbox for a sign-in link"); }
     setBusy("");
   };
-  const verify = async () => {
+  const magic = () => magicTo(email.trim());
+  const verify = async (c = code) => {
     setBusy("Work/School Email");
-    const r = await run(() => api("POST", "/api/auth/email/verify", { email: sent, code }));
+    const r = await run(() => api("POST", "/api/auth/email/verify", { email: sent, code: c }));
     if (r) setSession(r.me, r.workspace);
     setBusy("");
   };
@@ -137,8 +138,8 @@ function SignIn() {
         <div className="row-between">{isNativeApp ? <span /> : <a className="btn btn-ghost auth-back" href="/"><ArrowLeft size={16} /> What Remy does</a>}<ThemeToggle /></div>
         <div className="landing">
           <Remy size={72} mood="wave" />
-          <h1 className="motto">Sign in to Remy</h1>
-          <p className="sub">{config?.beta?.on ? "Free during beta. Setup takes about 5 minutes." : "Free during beta. New here? Signing in creates your account; setup takes about 5 minutes."}</p>
+          <h1 className="motto">{sent && codes ? "Check your email" : "Get started with Remy"}</h1>
+          <p className="sub">{sent && codes ? null : config?.beta?.on ? "Free during beta. Setup takes about 5 minutes." : "Free during beta. New or back, enter your email and Remy sends a 6-digit code."}</p>
         </div>
         <BetaNote onOther={() => { setSent(""); setEmail(""); setCode(""); }} />
         <div className="sso-list">
@@ -156,24 +157,27 @@ function SignIn() {
           {sso("LinkedIn", <LinkedInMark />)}
           {sso("Apple", <AppleMark />)}
           {sso("Microsoft", <MicrosoftMark />)}
-          {sso("Work/School Email", <MailMark />)}
-          {emailOpen && (
+          {!emailOpen && sso("Work/School Email", <MailMark />)}
+          {emailOpen && (codes || providerOn(config, "email")) && (
             sent && codes ? (
               <form className="stack-sm fade-up" onSubmit={(e) => { e.preventDefault(); verify(); }} data-testid="email-code-form">
                 <span className="small">{config?.beta?.on
                   ? <>If <strong>{sent}</strong> is on Remy's beta tester list, a 6-digit code is on its way (it expires in 10 minutes). Nothing after a few minutes? Check spam, then make sure it's the email you applied with, or <a className="auth-link" href={applyHref(config.beta.formUrl)} target="_blank" rel="noreferrer">apply here</a>.</>
-                  : <>We emailed a 6-digit code to <strong>{sent}</strong>. It works on any device and expires in 10 minutes. Not there? Check spam or Promotions.</>}</span>
+                  : <>We sent a 6-digit code to <strong>{sent}</strong>. It expires in 10 minutes. Not there? Check spam or Promotions.</>}</span>
                 <div className="row">
-                  <input className="input" style={{ flex: 1, minWidth: 140, letterSpacing: 4 }} inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="123456" aria-label="6-digit code" data-testid="input-email-code" />
+                  <input className="input" style={{ flex: 1, minWidth: 140, letterSpacing: 4 }} inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus value={code} onChange={(e) => { const c = e.target.value.replace(/\D/g, "").slice(0, 6); setCode(c); if (c.length === 6 && !busy) void verify(c); /* signs in by itself at the 6th digit */ }} placeholder="123456" aria-label="6-digit code" data-testid="input-email-code" />
                   <button className="btn btn-primary auth-go" disabled={code.length !== 6 || !!busy} data-testid="button-verify-code">{busy === "Work/School Email" ? <Spinner /> : null} Sign in</button>
                 </div>
-                <button type="button" className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start", padding: 0 }} onClick={() => setSent("")}>Use a different email or send a new code</button>
+                <div className="row" style={{ gap: 18 }}>
+                  <button type="button" className="btn btn-ghost btn-sm auth-link" style={{ padding: 0 }} onClick={() => { void magicTo(sent); }} disabled={!!busy} data-testid="button-resend-code">Send a new code</button>
+                  <button type="button" className="btn btn-ghost btn-sm" style={{ padding: 0 }} onClick={() => { setSent(""); setCode(""); }} data-testid="button-other-email">Use a different email</button>
+                </div>
               </form>
             ) : sent ? (
               <div className="notice notice-good fade-up" data-testid="magic-link-sent"><Check size={16} /><div>We sent a sign-in link to <strong>{sent}</strong>. Open it on this device to continue.</div></div>
             ) : (
               <form className="row fade-up" onSubmit={(e) => { e.preventDefault(); magic(); }}>
-                <input className="input" style={{ flex: 1, minWidth: 180 }} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Any email address" autoComplete="email" autoCapitalize="none" aria-label="Email address" data-testid="input-magic-email" />
+                <input className="input" style={{ flex: 1, minWidth: 180 }} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@school.edu" autoComplete="email" autoCapitalize="none" aria-label="Email address" data-testid="input-magic-email" />
                 <button className="btn btn-primary auth-go" disabled={!/.+@.+\..+/.test(email) || !!busy} data-testid="button-send-magic">{busy === "Work/School Email" ? <Spinner /> : null} {codes ? "Send code" : "Send link"}</button>
               </form>
             )
