@@ -1,5 +1,5 @@
 // Remy's employer catalog: about 80,000 companies' public job boards (Greenhouse, Lever, Ashby, Workable, Recruitee,
-// SmartRecruiters, Workday, Oracle, BambooHR, Breezy, JazzHR, Paylocity, Rippling, UKG, ADP, and school districts on AppliTrack), read a 24th at a time on each hourly sweep, so every board is read about once a day.
+// SmartRecruiters, Workday, Oracle, BambooHR, Breezy, JazzHR, Paylocity, Rippling, UKG, ADP, iCIMS, and school districts on AppliTrack), read a 24th at a time on each hourly sweep, so every board is read about once a day.
 // Only US postings with a student-level title are kept, with their text, so a search needs no extra reads.
 // Each part is one sealed file in the R2 bucket (catalog/part-N); a search reads them from memory. Nothing touches
 // Supabase, which keeps the free plan's data transfer flat however many employers Remy reads.
@@ -12,7 +12,7 @@ import { r2Store } from "../platform/r2";
 import { inUS } from "./fit";
 import { fetchBoard, studentTitle, withDetail, type Raw } from "./sources";
 
-type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp";
+type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims";
 export type CatalogBoard = { ats: Ats; slug: string; company: string };
 export const PARTS = 24;
 /** Text kept per posting: enough for its requirements and summary (an opening keeps up to 12,000 when saved). */
@@ -50,6 +50,8 @@ const STAPPLY_ATS: Record<Ats, (slug: string, url: string) => string | null> = {
   ukg: (_, u) => { const m = u.match(/^https:\/\/(recruiting\d*)\.ultipro\.com\/([A-Za-z0-9]+)\/JobBoard\/([0-9a-f-]{36})/i); return m ? `${m[1]}|${m[2]}|${m[3]}` : null; },
   // ADP Workforce Now: "cid/ccId" → "cid|ccId"
   adp: (s) => (/^[0-9a-f-]{36}\/[0-9_]+$/i.test(s) ? s.replace("/", "|") : null),
+  // iCIMS: https://careers-360care.icims.com → "careers-360care"
+  icims: (_, u) => sub(u.match(/^https:\/\/([a-z0-9-]+)\.icims\.com/i)?.[1] || ""),
 };
 
 /** Rows of a CSV with quoted fields. */
@@ -121,11 +123,19 @@ async function getPage(url: string) {
   return r.text();
 }
 /** A posting page's schema.org JobPosting description (Breezy, Paylocity). */
-export function ldDescription(html: string): string {
+export const ldDescription = (html: string) => ldPosting(html).text;
+/** A posting page's schema.org JobPosting: its text and US places ("Omaha, NE"). */
+export function ldPosting(html: string): { text: string; location: string } {
   for (const m of html.matchAll(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/g)) {
-    try { const d = [JSON.parse(m[1])].flat().find((x: any) => x?.["@type"] === "JobPosting"); if (d?.description) return htmlToText(String(d.description)); } catch {}
+    try {
+      const d = [JSON.parse(m[1])].flat().find((x: any) => x?.["@type"] === "JobPosting");
+      if (!d?.description) continue;
+      const location = [d.jobLocation].flat().map((l: any) => l?.address).filter(Boolean)
+        .map((a: any) => [a.addressLocality, a.addressRegion, a.addressCountry].filter((v) => v && v !== "UNAVAILABLE").join(", ")).filter(Boolean).join("; ");
+      return { text: htmlToText(String(d.description)), location };
+    } catch {}
   }
-  return "";
+  return { text: "", location: "" };
 }
 /** A JazzHR board page's postings: link, title and place. */
 export function jazzList(html: string): { url: string; title: string; location: string }[] {
@@ -133,6 +143,11 @@ export function jazzList(html: string): { url: string; title: string; location: 
     .map((m) => ({ url: m[1], title: htmlToText(m[2]), location: htmlToText(m[3] || "") }));
 }
 
+/** An iCIMS sitemap's postings, titled from their links (".../jobs/5324/mobile-medical-technician/job"). */
+export function icimsJobs(xml: string): { url: string; title: string; posted?: string }[] {
+  return [...xml.matchAll(/<loc>(https:\/\/[a-z0-9-]+\.icims\.com\/jobs\/\d+\/([^/<]+)\/job)<\/loc>(?:<lastmod>([^<]+)<\/lastmod>)?/gi)]
+    .map((m) => ({ url: m[1], title: decodeURIComponent(m[2]).replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()), posted: m[3] }));
+}
 /** A UKG posting page's full description, from the data its script starts with. */
 export function ukgDescription(html: string): string {
   const i = html.indexOf("CandidateOpportunityDetail(");
@@ -228,6 +243,14 @@ export async function readBoard(b: CatalogBoard, read = fetchBoard): Promise<Raw
       detail: async () => ({ text: htmlToText(String(JSON.parse(await getPage(`${api}/${encodeURIComponent(x.itemID)}?${q}`)).requisitionDescription || "")) }),
     }));
   }
+  if (b.ats === "icims") {
+    // iCIMS has no open job list, but its robots.txt offers a sitemap of every posting; the title is in the link.
+    const xml = await getPage(`https://${slug}.icims.com/sitemap.xml`);
+    return icimsJobs(xml).map((x): Raw => ({
+      ...x, location: "", text: "",
+      detail: async () => ldPosting(await getPage(`${x.url}?in_iframe=1`)),
+    }));
+  }
   if (b.ats === "applitrack") {
     // The job list names buildings, not places; the district's home page has its address ("Houston, TX 77032").
     const state = districtState(await getPage(`https://www.applitrack.com/${slug}/onlineapp/default.aspx`));
@@ -243,10 +266,12 @@ export async function keep(b: CatalogBoard, raws: Raw[]): Promise<Raw[]> {
   let details = 0;
   for (const r of raws) {
     if (out.length >= PER_BOARD) break;
-    if (!r.url || !(r.student || studentTitle(r.title)) || !inUS(r.location)) continue;
+    // A posting listed without a place (iCIMS) gets it from its full posting.
+    if (!r.url || !(r.student || studentTitle(r.title)) || (r.location ? !inUS(r.location) : !r.detail)) continue;
     if (!r.text && r.detail) {
       if (details++ >= DETAILS_PER_BOARD) continue;
       try { const d = await r.detail(); r.text = d.text; if (d.location) r.location = d.location; } catch { continue; }
+      if (!inUS(r.location)) continue;
     }
     out.push({ title: r.title, location: r.location, url: r.url, text: (r.text || "").slice(0, TEXT_MAX), posted: r.posted, deadline: r.deadline, company: r.company || b.company, ats: b.ats });
   }
@@ -259,7 +284,7 @@ export type Meta = { parts: Record<string, PartStats> };
 
 /** Reads every board in one part. Workable and Paylocity turn fast bursts away (HTTP 429), so each of them gets its own
  *  lane, one board at a time. */
-const SLOW: Ats[] = ["workable", "paylocity"];
+const SLOW: Ats[] = ["workable", "paylocity", "icims"];
 export async function readPart(p: number, boards = CATALOG, read = readBoard, pause: (ms: number) => Promise<unknown> = (ms) => new Promise((r) => setTimeout(r, ms))) {
   const mine = boards.filter((b) => partOf(b) === p);
   const kept: Raw[] = [];

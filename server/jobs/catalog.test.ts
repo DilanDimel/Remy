@@ -1,7 +1,7 @@
 // Remy's employer catalog: what it keeps, how it reads a part, and that it lives in R2 (a fake store here). `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CATALOG, PARTS, allBoards, catalogPostings, catalogStats, catalogTick, csvRows, districtState, jazzList, ukgDescription, keep, ldDescription, partOf, readPart, resetCatalog, stapplyBoards, type CatalogBoard } from "./catalog";
+import { CATALOG, PARTS, allBoards, catalogPostings, catalogStats, catalogTick, csvRows, districtState, jazzList, ukgDescription, icimsJobs, ldPosting, keep, ldDescription, partOf, readPart, resetCatalog, stapplyBoards, type CatalogBoard } from "./catalog";
 import { inUS } from "./fit";
 import { fetchBoard, type Raw } from "./sources";
 
@@ -73,6 +73,7 @@ test("Stapply lists: each system's rows become boards Remy's readers take; repo 
     paylocity: "name,slug,url\nCochran,96be65ce-a51e-4c4e-8db5-091703033567,https://recruiting.paylocity.com/Recruiting/Jobs/All/96be65ce-a51e-4c4e-8db5-091703033567\nBad,nope,https://x\n",
     ukg: "name,slug,url\n2nd Swing,x,https://recruiting2.ultipro.com/NDS1000NDSW/JobBoard/0e836885-d812-4a6b-8037-9c1ca641e913\n",
     adp: "name,slug,url\nHansons,323017e4-7f2e-49e2-bca0-e798b69a8e90/19000101_000001,https://workforcenow.adp.com/x\nBad,nope,https://x\n",
+    icims: "name,slug,url\n360care LLC,360care,https://careers-360care.icims.com\n",
     applitrack: "name,slug,url\nAldine ISD,https://www.applitrack.com/aldineisd/onlineapp,https://www.applitrack.com/aldineisd/onlineapp\n",
   };
   const got = await stapplyBoards(async (url) => { const a = url.split("/").at(-2)!; if (!lists[a]) throw new Error("404"); return lists[a]; });
@@ -82,6 +83,7 @@ test("Stapply lists: each system's rows become boards Remy's readers take; repo 
     ["bamboohr", "cokerlegal", "Coker Legal"], ["paylocity", "96be65ce-a51e-4c4e-8db5-091703033567", "Cochran"],
     ["applitrack", "aldineisd", "Aldine ISD"],
     ["ukg", "recruiting2|NDS1000NDSW|0e836885-d812-4a6b-8037-9c1ca641e913", "2nd Swing"], ["adp", "323017e4-7f2e-49e2-bca0-e798b69a8e90|19000101_000001", "Hansons"],
+    ["icims", "careers-360care", "360care LLC"],
   ]);
   assert.equal(districtState("<a href='https://maps.google.com/?q=loc:15010 Aldine Westfield Rd  Houston, TX 77032'>"), "TX");
   assert.equal(districtState("<p>Call 555-12345</p>"), undefined);
@@ -159,4 +161,16 @@ test("page readers: a JobPosting's description from JSON-LD, and a JazzHR board'
       <li><i class='fa fa-map-marker'></i>Fort Worth, TX</li>
   </ul>`;
   assert.deepEqual(jazzList(jazz), [{ url: "https://acme.applytojob.com/apply/AbC123/Accounting-Intern", title: "Accounting Intern", location: "Fort Worth, TX" }]);
+});
+
+test("iCIMS: postings from the sitemap, place and text from the posting's JobPosting data", async () => {
+  const xml = "<urlset><url><loc>https://careers-x.icims.com/jobs/search</loc></url><url><loc>https://careers-x.icims.com/jobs/5324/summer-engineering-intern/job</loc><lastmod>2026-11-25T11:04:46-05:00</lastmod></url></urlset>";
+  assert.deepEqual(icimsJobs(xml), [{ url: "https://careers-x.icims.com/jobs/5324/summer-engineering-intern/job", title: "Summer Engineering Intern", posted: "2026-11-25T11:04:46-05:00" }]);
+  const page = '<script type="application/ld+json">{"@type":"JobPosting","description":"<p>Help our team</p>","jobLocation":[{"address":{"addressLocality":"Houston","addressRegion":"TX","addressCountry":"US","postalCode":"UNAVAILABLE"}}]}</script>';
+  assert.deepEqual(ldPosting(page), { text: "Help our team", location: "Houston, TX, US" });
+  // A posting listed without a place is kept only if its full posting is in the US.
+  const raw = (location: string) => ({ title: "Summer Engineering Intern", location: "", url: "https://x/1", text: "", detail: async () => ({ text: "Help", location }) });
+  const b = { ats: "icims" as const, slug: "careers-x", company: "X" };
+  assert.equal((await keep(b, [raw("Houston, TX, US")])).length, 1);
+  assert.equal((await keep(b, [raw("Toronto, ON, CA")])).length, 0);
 });
