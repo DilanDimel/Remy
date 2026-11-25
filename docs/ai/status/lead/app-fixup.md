@@ -1,0 +1,5 @@
+App fix-up (Dilan, Nov 25; thread cmsg_012oEYinQ9jHxQSr4gSXfn6cKzzxhp5qUs2mj5RDMy7TKz): Dilan approved the plan and the 26-screen mockups (https://claude.ai/artifact/WQgeYckn4uiUPhk3qquj86) and said no split, since Demetre is out of credits, so lead threads now edit `native/` (read `docs/ai/status/demetre.md` first). Keep Demetre's design; fix bugs, match the website, add the missing features, one small PR each.
+
+PR 1, bug fixes: Jobs gets an Events filter (`upcomingEvents` in `native/src/lib/next.ts`; `visibleJobs` still drops events, so For you is unchanged) and Show more (40 at a time, was capped at 40). The pill row scrolls sideways. The Undo toast sits level with the fox and to its left (`aboveTabs` in `native/src/lib/theme.tsx`, shared with the fox button). Home's streak row wraps under 390 pt (the dots spilled out at 360). Home, Jobs, My Path and Resume show a spinner while loading instead of a blank screen. Swipe direction checked against RNGH 3.3 source: right keeps, left passes, correct.
+
+Next: Resume edit and contact/dates as native sheets, native Today's round and plan steps, then welcome, Did you apply? and the More screens.
