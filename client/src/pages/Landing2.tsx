@@ -19,7 +19,7 @@ function InstagramMark({ size = 18 }: { size?: number }) {
   );
 }
 
-/** The simpler front page (owners only until Dilan releases it): one message, the real app, the real team, our socials. */
+/** The simpler front page (everyone, Nov 25): one message, the real app, the real team, our socials. */
 export function Top({ inside, what = "#what" }: { inside: boolean; what?: string }) {
   return (
     <header className="lp2-top">

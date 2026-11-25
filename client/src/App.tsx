@@ -337,16 +337,21 @@ function Shell() {
       )}
       {more && (
         <Modal title="More" onClose={() => setMore(false)}>
-          <div className="stack-sm">
+          {/* Grouped like the side bar (Dilan, Nov 25: the flat list read as out of order): pages, then help, then about. */}
+          <div className="more-sheet">
+            <p className="more-h">Pages</p>
             {[...nav.filter((n) => ["/rewards", "/interview", "/community", "/calendar"].includes(n.path)), ACCOUNTS].map((n) => (
-              <button key={n.path} className="nav-item" onClick={() => { setMore(false); go(n.path); }}><n.icon size={19} />{n.label}{locked(n) && <Lock size={14} className="nav-lock" aria-label="Coming soon" />}</button>
+              <button key={n.path} className="nav-item" onClick={() => { setMore(false); go(n.path); }} data-testid={`more-${n.label.toLowerCase().replace(/[^a-z]/g, "")}`}><n.icon size={19} />{n.label}{locked(n) && <Lock size={14} className="nav-lock" aria-label="Coming soon" />}</button>
             ))}
-            <button className="nav-item" onClick={() => { setMore(false); tourAgain(save); go("/"); }} data-testid="mobile-tour"><Compass size={19} />Show me around again</button>
-            <button className="nav-item" onClick={() => { setMore(false); go("/about"); }}><Info size={19} />About Remy</button>
-            <button className="nav-item" onClick={() => { setMore(false); go("/policies"); }}><ShieldCheck size={19} />Privacy & terms</button>
-            <button className="nav-item" onClick={() => { setMore(false); setFeedback(true); }}><Send size={19} />Send feedback</button>
-            {me?.owner ? <OwnerTools onDone={() => setMore(false)} /> : null}
+            <p className="more-h">Help</p>
             <WhatsNew />
+            <button className="nav-item" onClick={() => { setMore(false); setFeedback(true); }} data-testid="more-feedback"><Send size={19} />Send feedback</button>
+            <button className="nav-item" onClick={() => { setMore(false); tourAgain(save); go("/"); }} data-testid="mobile-tour"><Compass size={19} />Show me around again</button>
+            <p className="more-h">Remy</p>
+            <a className="nav-item" href="/welcome" data-testid="more-homepage"><HomeIcon size={19} />Remy homepage</a>
+            <button className="nav-item" onClick={() => { setMore(false); go("/about"); }} data-testid="more-about"><Info size={19} />About Remy</button>
+            <button className="nav-item" onClick={() => { setMore(false); go("/policies"); }} data-testid="more-policies"><ShieldCheck size={19} />Privacy & terms</button>
+            {me?.owner ? <><p className="more-h">Owners</p><OwnerTools onDone={() => setMore(false)} /></> : null}
           </div>
         </Modal>
       )}
