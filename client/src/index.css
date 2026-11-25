@@ -3798,3 +3798,12 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
   .redesign-2 .pr-lane > .pr-ghost { display: none; }
   .redesign-2 .pr-lane:not(:has(> :not(h4, .pr-ghost))) { padding: 8px 10px; }
 }
+/* Phone Resume (Dilan, Nov 25): My resume / Tailor as a segmented switch, and Remy's question about a line is a card
+   pinned above the tab bar while the line he's fixing sits at the top of the screen. */
+@media (max-width: 760px) {
+  .redesign-2 .res-tabs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 12px; background: var(--lav-2); }
+  .redesign-2 .res-tabs .tab { justify-content: center; text-align: center; border: 0; border-radius: 9px; }
+  .redesign-2 .res-tabs .tab[aria-selected="true"] { background: var(--surface); box-shadow: var(--shadow); }
+  .redesign-2 .rm-coach { position: fixed !important; top: auto !important; left: 8px !important; right: 8px; width: auto !important; bottom: calc(72px + env(safe-area-inset-bottom)); max-height: 55vh; overflow-y: auto; z-index: 60; }
+  .redesign-2 .rm-coach-mark { scroll-margin-top: 72px; }
+}

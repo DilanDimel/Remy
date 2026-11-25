@@ -5,3 +5,4 @@
 - Dilan said "all" (Nov 25): build every page from the mockups, one PR each, straight to students.
 - Shell (#425): phone tabs Home · My Path · Resume · Jobs · More (`TABS`, `PHONE_NAME`, `tabOf` in `App.tsx`); other pages are tiles in the More bottom sheet (`.more-tiles`); on phones the top bar names the page (`.crumb b[data-short]`) and the page's own h1 hides; phone sign-in uses the light paper look (`.auth-stage` at ≤640px).
 - Home + Jobs: "Remy noticed" (`.remy-offer:not(.docked)`) is a slim row on phones. Jobs: `JobsSeg` (For you / Saved / Applied, in `Opportunities.tsx`, also on Progress, which counts as the Jobs tab on phones); `JobCard` is a short `.job-row` on phones and opens as a bottom sheet (`.job-sheet` in a `Modal`); Progress stages stack on phones.
+- Nov 25: Resume on phones: My resume / Tailor switch, Remy's line-by-line question pinned above the tab bar with the line at the top, laptop note gone in owner view.

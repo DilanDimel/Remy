@@ -49,14 +49,14 @@ export default function Resume({ query }: { query: URLSearchParams }) {
           <span className="eyebrow">Resume/CV</span>
           <h1><span className="title-slogan">Your experience, clearly expressed.</span><span className="title-plain">Resume &amp; CV</span></h1>
           {ownerTabs
-            ? <p className="op-say"><b>Your resume, kept true.</b> Every tailored change shows what the posting asks for and the line of yours that backs it.</p>
+            ? <p className="op-say hide-phone"><b>Your resume, kept true.</b> Every tailored change shows what the posting asks for and the line of yours that backs it.</p>
             : <p className="hide-phone">Every tailored change shows the posting requirement behind it and the evidence from your own resume.</p>}
         </div>
       </div>
-      <LaptopNudge />
-      <div className="tabs" role="tablist">
+      {!ownerTabs && <LaptopNudge /> /* owner view: Remy's line-by-line fix works on phones, so no "use a laptop" */}
+      <div className="tabs res-tabs" role="tablist">
         {([["base", "Base resume"], ["tailor", "Tailor for an opening"], ["linkedin", "LinkedIn"], ["library", "Approved & exports"]] as [Tab, string][]).filter(([k]) => !(ownerTabs && (k === "library" || k === "linkedin"))).map(([k, l]) => (
-          <button key={k} role="tab" className="tab" aria-selected={effective === k} onClick={() => setTab(k)} data-testid={`tab-resume-${k}`}>{l}</button>
+          <button key={k} role="tab" className="tab" aria-selected={effective === k} onClick={() => setTab(k)} data-testid={`tab-resume-${k}`}>{k === "tailor" ? <><span className="hide-phone">{l}</span><span className="phone-only">Tailor for a job</span></> : l}</button>
         ))}
       </div>
       {effective === "base" && <BaseResume subParam={query.get("sub")} />}
