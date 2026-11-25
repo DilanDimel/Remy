@@ -29,6 +29,8 @@ export function gradDate(ws: Workspace): { y: number; m: number } | null {
   // The last month and year: a range ("Aug 2025 – May 2029") ends at graduation.
   const m = [...src.matchAll(/([A-Za-z]{3})[a-z]*\.?\s+(\d{4})/g)].pop();
   if (m) return { y: +m[2], m: MONTHS[m[1].toLowerCase()] || 5 };
+  const n = [...src.matchAll(/\b(\d{1,2})\/(20\d\d)\b/g)].pop(); // "12/2026"
+  if (n && +n[1] >= 1 && +n[1] <= 12) return { y: +n[2], m: +n[1] };
   const y = src.match(/20\d\d/g)?.pop();
   return y ? { y: +y, m: 5 } : null;
 }

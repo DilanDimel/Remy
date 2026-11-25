@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Entry, ResumeDoc } from "@shared/types";
-import { gpaOf, graduationOf, majorsOf, minorsOf, nameCase, preCollegeIds, primaryEducation, rulesParse, verifyAiDoc } from "./resume";
+import { gpaOf, graduationOf, majorsOf, minorsOf, nameCase, preCollegeIds, primaryEducation, rulesParse, schoolName, verifyAiDoc } from "./resume";
 import { normalizeResumeText } from "./resume";
 
 let n = 0;
@@ -138,4 +138,23 @@ test("export: the graduation date prints once and a plain Skills group isn't lab
   const txt = resumeToText(doc as any);
   assert.match(txt, /SKILLS\nExcel, PowerPoint\nLanguages: Spanish/);
   assert.doesNotMatch(txt, /SKILLS: /);
+});
+
+// Found by the 1,000-resume test set (Nov 25): degree lines and school names Remy didn't read before.
+test("majors: every common way of writing the degree", () => {
+  const cases: [string, string][] = [
+    ["MS in Finance", "Finance"], ["BSEd, Special Education", "Special Education"], ["BFA, Interior Design", "Interior Design"],
+    ["BSW in Social Work", "Social Work"], ["Bachelor of Engineering in Computer Systems", "Computer Systems"], ["Bachelor in Computer Systems Engineering", "Computer Systems Engineering"],
+    ["Associate of Applied Science in Network Administration", "Network Administration"], ["Master of Accountancy in Taxation", "Taxation"], ["Diploma in Business Informatics", "Business Informatics"],
+    ["Doctor of Philosophy in Machine Learning", "Machine Learning"], ["Double Major in Finance and Accounting", "Finance and Accounting"],
+    ["BSN", "Nursing"], ["MBA", "Business Administration"], ["Bachelor of Social Work", "Social Work"], ["Bachelor of Science", ""], ["B.A.", ""],
+  ];
+  for (const [role, want] of cases) assert.equal(majorsOf(entry("Example University", role)), want, role);
+});
+test("school: named without 'University' or 'College', and the campus after a comma", () => {
+  for (const org of ["Virginia Tech", "Riga Institute of Engineering Sciences", "Latvian Academy of Applied Computing", "Hochschule Ostwald-Rheinau"])
+    assert.equal(primaryEducation(doc([["Education", [entry(org, "Bachelor of Science in Biology")]]]))?.org, org);
+  assert.equal(primaryEducation(doc([["Education", [entry("Westlake Academy", "High School Diploma")]]])), undefined);
+  assert.equal(schoolName("University of California, Los Angeles"), "University of California, Los Angeles");
+  assert.equal(schoolName("University of Texas at Austin, BBA Finance"), "University of Texas at Austin");
 });
