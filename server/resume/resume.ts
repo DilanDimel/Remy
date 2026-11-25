@@ -273,7 +273,16 @@ function readContact(doc: ResumeDoc, head: string[]): string[] {
   let first = true;
   for (const line of head) {
     if (/^(resume|résumé|curriculum vitae|cv)$|^last updated\b/i.test(line)) continue;
-    const parts = line.split(/\s*[|•·\t]\s*/).map((p) => p.trim()).filter(Boolean);
+    // Pieces split by separators; contact details run together with spaces ("Plano, TX  ana@example.com  817-555-0101") are pulled apart too.
+    const parts = line.split(/\s*[|•·\t]\s*|\s+[—–]\s+/).flatMap((p) => {
+      const out: string[] = [];
+      let rest = p;
+      for (const re of [EMAIL, PHONE]) {
+        const m = rest.match(re);
+        if (m && rest.trim() !== m[0]) { out.push(m[0]); rest = rest.replace(m[0], " "); }
+      }
+      return [...out, rest].map((x) => x.trim()).filter((x) => x && !/^\W+$/.test(x));
+    });
     const left: string[] = [];
     let contact = false;
     for (const part of parts) {
@@ -296,6 +305,20 @@ function readContact(doc: ResumeDoc, head: string[]): string[] {
   }
   c.location ||= address.join(", ");
   return prose;
+}
+
+/** A line made only of an email, a phone number and/or profile links. */
+function contactOnly(line: string): { email: string; phone: string; links: string } | null {
+  const out = { email: "", phone: "", links: "" };
+  for (const part of line.split(/\s*[|•·\t]\s*/).map((p) => p.trim()).filter(Boolean)) {
+    const email = part.match(EMAIL)?.[0];
+    const phone = part.match(PHONE)?.[0];
+    if (email && part.replace(email, "").replace(/^\W*(?:e-?mail)?\W*$/i, "") === "") out.email ||= email;
+    else if (phone && /^\W*(?:phone|tel|cell|mobile|m|p)?\W*$/i.test(part.replace(phone, ""))) out.phone ||= phone.trim();
+    else if (part.length <= 100 && /linkedin\.com|github\.com|^https?:\/\/|^www\./i.test(part)) out.links = out.links ? `${out.links} | ${part}` : part;
+    else return null;
+  }
+  return out.email || out.phone || out.links ? out : null;
 }
 
 // Education lines: a school starts an entry; a degree or a detail line belongs to the school above it.
@@ -532,6 +555,14 @@ export function rulesParse(text: string): ResumeDoc {
       const rests = words.slice(0, n).map((w) => w.rest).filter(Boolean);
       rests.forEach((r, k) => handle(r, rests[k - 1] || "", rests[k + 1] || lines[i + n] || ""));
       i += n - 1;
+      continue;
+    }
+    // Email, phone or profile links printed lower down (a sidebar read after the main column).
+    const found = contactOnly(line);
+    if (found && ((found.email && !doc.contact.email) || (found.phone && !doc.contact.phone) || (found.links && !doc.contact.links))) {
+      doc.contact.email ||= found.email;
+      doc.contact.phone ||= found.phone;
+      if (found.links && !doc.contact.links) doc.contact.links = found.links;
       continue;
     }
     const h = headingOf(line);

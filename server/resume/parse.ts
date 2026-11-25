@@ -43,7 +43,7 @@ async function pdfText(buf: Buffer): Promise<string> {
   const pages: string[][] = [];
   for (let p = 1; p <= pdf.numPages; p++) {
     const { items } = await (await pdf.getPage(p)).getTextContent();
-    pages.push(layoutLines(items as PdfTextItem[]));
+    pages.push(markIndentedBullets(placedLines(items as PdfTextItem[])));
   }
   return dropRunningLines(pages).map((lines) => lines.join("\n")).join("\n");
 }
@@ -107,14 +107,20 @@ type PdfTextItem = { str?: string; transform?: number[]; width?: number; height?
  * right-aligned date or location, a table column) becomes a tab, so the
  * parsers can tell "Texas Christian University⇥Fort Worth, TX" apart. */
 export function layoutLines(items: PdfTextItem[]): string[] {
-  const lines: string[] = [];
+  return placedLines(items).map((l) => l.text);
+}
+type PlacedLine = { text: string; x: number; end: number; size: number };
+function placedLines(items: PdfTextItem[]): PlacedLine[] {
+  const lines: PlacedLine[] = [];
+  let start = NaN; // where this line's first visible text began
   let line = "";
   let end = NaN; // where the last visible text on this line ended
   let y = NaN;
   let size = 10;
   let spaced = false;
   const flush = () => {
-    if (line.trim()) lines.push(line.trim());
+    if (line.trim()) lines.push({ text: line.trim(), x: start, end, size });
+    start = NaN;
     line = "";
     end = y = NaN;
     spaced = false;
@@ -134,6 +140,7 @@ export function layoutLines(items: PdfTextItem[]): string[] {
       if (gap > size * 2) line = line.trimEnd() + "\t";
       else if ((spaced || gap > size * 0.15 || gap < -size) && !/\s$/.test(line) && !/^\s/.test(it.str)) line += " ";
     }
+    if (Number.isNaN(start)) start = x;
     line += it.str;
     end = x + (it.width || it.str.length * size * 0.5);
     y = ty;
@@ -142,6 +149,29 @@ export function layoutLines(items: PdfTextItem[]): string[] {
   }
   flush();
   return lines;
+}
+
+/** Lists printed without a bullet character (browsers, Canva and some templates draw the dot as a shape): a line indented a
+ *  little from a left edge that many lines share starts a bullet, unless it continues the full-width line above it.
+ *  Pages that already print bullet characters are left alone. */
+export function markIndentedBullets(lines: PlacedLine[]): string[] {
+  const text = lines.map((l) => l.text);
+  if (lines.filter((l) => /^[•●▪◦■\uf0b7\uf0a7-]\s/.test(l.text)).length >= 2) return text;
+  const at = (x: number) => Math.round(x / 2);
+  const count = new Map<number, number>();
+  for (const l of lines) if (Number.isFinite(l.x)) count.set(at(l.x), (count.get(at(l.x)) || 0) + 1);
+  const edges = [...count].filter(([, n]) => n >= 3).map(([k]) => k * 2);
+  const widest = new Map<number, number>();
+  for (const l of lines) if (Number.isFinite(l.end)) widest.set(at(l.x), Math.max(widest.get(at(l.x)) || 0, l.end));
+  const indented = lines.map((l) => Number.isFinite(l.x) && (count.get(at(l.x)) || 0) >= 2 && edges.some((e) => l.x - e >= 6 && l.x - e <= 40));
+  return lines.map((l, k) => {
+    if (!indented[k] || l.text.split(/\s+/).length < 3) return l.text;
+    const prev = lines[k - 1];
+    // The rest of the bullet above: it starts in lower case, the line above ends mid-phrase, or the line above ran to the margin.
+    const wraps = !!prev && indented[k - 1] && at(prev.x) === at(l.x) && !/[.!?]$/.test(prev.text) &&
+      (/^\p{Ll}/u.test(l.text) || /[,;:&/–—-]$|\b(?:and|or|of|the|to|for|with|in|on|at|by|a|an)$/i.test(prev.text) || prev.end >= (widest.get(at(l.x)) || 0) * 0.95);
+    return wraps ? l.text : "• " + l.text;
+  });
 }
 
 async function docxText(buf: Buffer): Promise<string> {

@@ -158,3 +158,25 @@ test("school: named without 'University' or 'College', and the campus after a co
   assert.equal(schoolName("University of California, Los Angeles"), "University of California, Los Angeles");
   assert.equal(schoolName("University of Texas at Austin, BBA Finance"), "University of Texas at Austin");
 });
+
+test("PDF lists drawn without a bullet character still read as bullets", async () => {
+  const { markIndentedBullets } = await import("./parse");
+  const L = (text: string, x: number, end: number) => ({ text, x, end, size: 10 });
+  const out = markIndentedBullets([
+    L("Example Labs\tAustin, TX", 50, 560), L("Data Intern\tJun 2025 – Aug 2025", 50, 560),
+    L("Built a dashboard used by 40 engineers to track every test run across", 64, 559), L("three teams", 64, 120),
+    L("Wrote unit tests for a payments service", 64, 300), L("Retail Co\tDallas, TX", 50, 560), L("Cashier\t2024", 50, 560),
+    L("Helped 100 customers a shift and handled the register", 64, 330),
+  ]);
+  assert.deepEqual(out.filter((l) => l.startsWith("• ")), ["• Built a dashboard used by 40 engineers to track every test run across", "• Wrote unit tests for a payments service", "• Helped 100 customers a shift and handled the register"]);
+  // A page that prints its own bullets is left alone.
+  assert.equal(markIndentedBullets([L("• One", 50, 90), L("• Two", 50, 90), L("next line of two", 60, 200)])[2], "next line of two");
+});
+test("contact details lower down, or run together on one line", () => {
+  const d = rulesParse("Quinn Hussein\nEXPERIENCE\nLocal Diner\nServer\tJan 2025 – Present\n• Helped 75 customers\nquinn@example.com\n(817) 555-0166\nSKILLS\nExcel");
+  assert.equal(d.contact.email, "quinn@example.com");
+  assert.equal(d.contact.phone, "(817) 555-0166");
+  const e = rulesParse("Ana Ruiz\nPlano, TX ana@example.com 817-555-0101\nEDUCATION\nExample University");
+  assert.equal(e.contact.email, "ana@example.com");
+  assert.equal(e.contact.phone, "817-555-0101");
+});
