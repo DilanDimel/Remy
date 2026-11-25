@@ -3,7 +3,7 @@
 // matched exactly first, then by shared words weighted by how rare they are. Major → SOC: the NCES CIP 2020 to SOC 2018
 // crosswalk, the major matched to a program name the same way. No AI and no network: one file read at start-up.
 // Data: O*NET 30.2 (U.S. Department of Labor, CC BY 4.0) and NCES CIP-SOC crosswalk (public domain); see server/data/SOURCES.md.
-// Measured on 159 hand-labelled posting titles (Nov 25, 2026): exact code 62%, right major group 80%, right code in the top 10 91%.
+// Measured on 159 hand-labelled posting titles (Nov 25, 2026): exact code 67%, right major group 84%, right code in the top 10 92%.
 import fs from "node:fs";
 import path from "node:path";
 
@@ -87,16 +87,21 @@ function score(ix: Index, text: string, bySegment = true) {
 }
 
 export type SocMatch = { soc: string; title: string; score: number };
-/** The likeliest occupations for a job title, best first (up to 10). Empty when no word of it is known. */
-export function matchTitle(title: string): { soc: string; title: string; score: number; candidates: SocMatch[] } | null {
+/** The likeliest occupations for a job title, best first (up to 10); null when no word of it is known. `broad` means the
+ *  title names only a field, so the major group is a better guide than the exact code. */
+export function matchTitle(title: string): { soc: string; title: string; score: number; broad: boolean; candidates: SocMatch[] } | null {
   if (!words(title).length) return null; // "Intern" alone says nothing about the job
   const ix = titles();
   const named = (soc: string, s: number): SocMatch => ({ soc, title: DATA.occupations[soc] || soc, score: Math.round(s * 1000) / 1000 });
-  const hit = ix.exact.get(title.toLowerCase().trim());
+  // A title that names only a field ("Engineering Intern", "Finance Intern") is broad: the occupations that most often
+  // carry that word win, instead of whichever rare one-word O*NET title happens to match it ("Engineer" = Logisticians).
+  const known = words(title).filter((x) => ix.idf.has(x));
+  const broad = known.length === 1;
+  const hit = broad ? undefined : ix.exact.get(title.toLowerCase().trim());
   let list: SocMatch[];
   if (hit) list = [...hit].sort().map((soc) => named(soc, 1));
   else {
-    const best = score(ix, title);
+    const best = broad ? popular(ix, known[0]) : score(ix, title);
     const teaching = /teach|professor|instructor|lecturer|faculty/i.test(title);
     for (const [soc, s] of best) {
       let v = s;
@@ -107,7 +112,15 @@ export function matchTitle(title: string): { soc: string; title: string; score: 
     }
     list = [...best].sort((a, z) => z[1] - a[1] || a[0].localeCompare(z[0])).slice(0, 10).map(([soc, s]) => named(soc, s));
   }
-  return list.length ? { ...list[0], candidates: list } : null;
+  return list.length ? { ...list[0], broad, candidates: list } : null;
+}
+
+/** For one-word queries: each occupation's share of the titles that carry the word (0 to 1). */
+function popular(ix: Index, word: string) {
+  const n = new Map<string, number>();
+  for (const i of ix.byWord.get(word) || []) n.set(ix.rows[i].soc, (n.get(ix.rows[i].soc) || 0) + 1);
+  const top = Math.max(0, ...n.values());
+  return new Map([...n].map(([soc, k]) => [soc, k / top]));
 }
 
 /** O*NET Job Zone (1 = little preparation … 5 = extensive), or null when O*NET has none for the code. */

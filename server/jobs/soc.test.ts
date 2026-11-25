@@ -23,8 +23,8 @@ test("matchTitle: accuracy on hand-labelled posting titles stays where it was me
     if (m.candidates.some((c) => ok.includes(c.soc))) top10++;
   }
   const n = labels.length;
-  assert.ok(exact / n >= 0.6, `exact ${exact}/${n}`);
-  assert.ok(group / n >= 0.8, `group ${group}/${n}`);
+  assert.ok(exact / n >= 0.65, `exact ${exact}/${n}`);
+  assert.ok(group / n >= 0.82, `group ${group}/${n}`);
   assert.ok(top10 / n >= 0.9, `top10 ${top10}/${n}`);
 });
 
@@ -32,6 +32,12 @@ test("matchTitle: common cases", () => {
   assert.equal(matchTitle("Software Engineer Intern")?.soc, "15-1252");
   assert.equal(matchTitle("Registered Nurse")?.soc.slice(0, 2), "29");
   assert.equal(matchTitle("Intern"), null);
+  // A field and nothing else: the field's usual occupations, flagged broad
+  const eng = matchTitle("Engineering Intern")!;
+  assert.equal(eng.broad, true);
+  assert.equal(eng.soc.slice(0, 3), "17-");
+  assert.equal(matchTitle("Accounting Intern")?.soc, "13-2011");
+  assert.equal(matchTitle("Software Engineer Intern")?.broad, false);
 });
 
 test("jobZone and majorSocs", () => {
