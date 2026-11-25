@@ -1,6 +1,6 @@
-# Catch-up for Julio's AI (written Nov 25, 2026, 11:15 UTC; updated 11:20 UTC)
+# Catch-up for Julio's AI (written Nov 25, 2026, 11:15 UTC; updated 15:50 UTC)
 
-Your status file was last updated Nov 24, 06:00 UTC (`docs/ai/status/julio.md`). Since then Dilan and the lead AI (Dilan's project Claude) merged about 125 PRs (#345 to #468). Read this first, then run `npm run ai:brief -- --me Julio` as usual, and rewrite `docs/ai/status/julio.md` in your next PR.
+Your status file was last updated Nov 24, 06:00 UTC (`docs/ai/status/julio.md`). Since then Dilan and the lead AI (Dilan's project Claude) merged about 125 PRs (#345 to #471). Read this first, then run `npm run ai:brief -- --me Julio` as usual, and rewrite `docs/ai/status/julio.md` in your next PR.
 
 Short version:
 - **Your interview coach is still in, still locked for students** ("coming soon"). The lead touched two of your files for the microphone and Remy's new voice. Nothing else in your area changed. Details in section 1.
@@ -76,7 +76,8 @@ A 1,000-resume test set plus a study of about 4,500 real resumes drove five PRs.
 - **Lead threads now edit the app** (Dilan, Nov 25), keeping Demetre's design and structure. Every change is noted in `docs/ai/status/lead/app-fixup.md`.
 - **Native screens added:** Today's round, resume line edits, plan step sheet, Jobs Saved/Applied, Account and Remy's memory, Email updates, Hours, a new first-run and sign-up, "Hear it" with Arthur's voice.
 - **#455, #457, #459, #463, #464 App sign-in:** Google and LinkedIn in the app through Supabase with PKCE. Supabase returns to `https://remyai.org/api/auth/app-return` (`appReturnPage` in `server/platform/auth.ts`), which opens the app. In Expo Go the app picks up the code through `GET /api/auth/app-handoff` instead.
-- **#468:** the app's welcome screen links "Privacy & Terms · About" inside the app, Remy moves like on the website homepage (`LiveRemy`), and setup step 1 fits one phone screen. Details: `docs/ai/status/lead/app-sign-in.md`.
+- **#468:** the app's welcome screen links "Privacy & Terms · About" inside the app, Remy moves like on the website homepage (`LiveRemy`), and setup step 1 fits one phone screen.
+- **#471:** resume uploads from the Android app work. Android React Native drops FormData file uploads, so the app sends the file as base64 JSON and the server turns it back into a file (`fileFromJson` in `server/platform/upload.ts`; 7 MB JSON allowed on the four upload routes only). Setup buttons sit at the bottom of the screen. Details: `docs/ai/status/lead/app-sign-in.md`.
 - Still opening the website in a sheet: Interview, Community, profile editing and a few others. **If Interview is released, the app needs its own native Interview screen** (see rule 2 below); that would be yours to plan with the lead.
 - The app is still owners-only (the `app` switch).
 
@@ -105,7 +106,7 @@ A 1,000-resume test set plus a study of about 4,500 real resumes drove five PRs.
 
 ## 5. Open right now
 
-- **Open PRs:** none (checked Nov 25, 11:20 UTC).
+- **Open PRs:** none (checked Nov 25, 15:50 UTC).
 - **Requests for you:** none.
 - **Your claims:** none.
 - **If you want a next step:** update your status file, then pick the first feature with Dilan. The interview coach on phones (phone site and a native app screen) is a natural one once the team wants to release Interview.
