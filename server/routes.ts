@@ -164,7 +164,9 @@ function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: 
       // Owners in owner view run the AI setup being trialled (OR_AI_CHAIN_OWNERS); students keep OR_AI_CHAIN.
       // Everyone gets the redesign's server side (inOwnerView()) once owners release it (shared/features.ts).
       const trial = !!me.owner && ws.settings.ownerView !== false;
-      await runAiAs(trial || redesignOut(await features.releases()), () => fn(req, res, ctx) as Promise<unknown>, trial);
+      // PostHog AI cost per feature (numbers only): signed-in accounts, not with Do Not Track / Global Privacy Control.
+      const track = me.kind === "guest" || me.kind === "visitor" || req.header("dnt") === "1" || req.header("sec-gpc") === "1" ? null : { distinctId: me.id, feature: `${req.method} ${req.route?.path || req.path}` };
+      await runAiAs(trial || redesignOut(await features.releases()), () => fn(req, res, ctx) as Promise<unknown>, trial, track);
     } catch (e: any) {
       if (e instanceof AiUnavailable) return res.status(503).json({ message: e.message, code: "ai-unavailable" });
       const status = e?.status || 500;

@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { AI_SAFETY } from "./safety";
+import { aiEvent, capture, type AiTracking } from "../platform/posthog";
 
 // AI provider resolution, in order:
 // 1. A user-supplied OpenAI key routed through the hosting credential proxy
@@ -56,10 +57,10 @@ function chainClient(p: string) {
 // last AI call, so a student's records never name a model an owner's request used at the same moment (skeptic, Nov 21).
 // owner: this request sees the redesign (owners in owner view, or everyone once "redesign" is released);
 // trial: an owner in owner view, who runs the owners' AI trial. Releasing the redesign never moves students' AI model.
-const aiScope = new AsyncLocalStorage<{ owner: boolean; trial: boolean; model?: string; spend?: number; usage?: any }>();
+const aiScope = new AsyncLocalStorage<{ owner: boolean; trial: boolean; model?: string; spend?: number; usage?: any; track?: AiTracking }>();
 /** Token counts of this request's last AI call (prompt, reasoning), for the owners' chat timing line. */
 export const lastUsage = () => { const u = aiScope.getStore()?.usage; return u ? { tokensIn: u.prompt_tokens, cached: u.prompt_tokens_details?.cached_tokens, reasoning: u.completion_tokens_details?.reasoning_tokens } : undefined; };
-export const runAiAs = <T>(owner: boolean, fn: () => Promise<T>, trial = owner) => aiScope.run({ owner, trial }, fn);
+export const runAiAs = <T>(owner: boolean, fn: () => Promise<T>, trial = owner, track: AiTracking = null) => aiScope.run({ owner, trial, track }, fn);
 export const inOwnerTrial = () => ownerTrial();
 /** This request sees the redesign: an owner in owner view, or anyone once it is released (owners-first checks). */
 export const inOwnerView = () => !!aiScope.getStore()?.owner;
@@ -183,6 +184,7 @@ export async function aiText(system: string, user: string, maxTokens = 1200, cha
       const anyKey = p + ":*" + mode;
       if ((exhausted.get(key) || 0) > Date.now() || (exhausted.get(anyKey) || 0) > Date.now()) continue;
       for (let attempt = 0; attempt < 2; attempt++) {
+        const started = Date.now();
         try {
           const req = {
             model: m,
@@ -224,6 +226,7 @@ export async function aiText(system: string, user: string, maxTokens = 1200, cha
           lastSpend = typeof r.usage?.cost === "number" ? r.usage.cost : undefined;
           const scope = aiScope.getStore();
           if (scope) { scope.model = m; scope.spend = lastSpend; scope.usage = r.usage; }
+          capture(aiEvent(scope?.track ?? null, { model: m, provider: lastVia || p, ms: Date.now() - started, usage: r.usage, streamed: !!onText }));
           const ann = (r.choices?.[0]?.message?.annotations || []).filter((a: any) => a?.type === "url_citation").map((a: any) => ({ url: String(a.url_citation?.url || ""), title: String(a.url_citation?.title || "") }));
           lastSources = ann.length ? ann : (Array.isArray(r.citations) ? r.citations : []).map((u: any) => ({ url: String(u), title: "" }));
           return out;
