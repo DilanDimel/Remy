@@ -4,6 +4,8 @@
   From the [StoreSignal ATS job boards directory](https://github.com/storesignalhq/ats-job-boards) (verified Nov 16, 2026),
   licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Trimmed to three columns; Remy re-checks every board
   when it reads it. Company names and trademarks belong to their owners.
+- Not in the repo: the employer catalog also reads the boards listed in [Stapply's open company lists](https://storage.stapply.ai/jobs/v1/manifest.json)
+  (from the MIT-licensed `ats-scrapers` project), fetched weekly into Remy's own storage. Remy reads each board itself.
 - `employers.json`: Remy's hand-picked employers, with the fields they hire for.
 - `onet-tasks.json`: from O*NET (U.S. Department of Labor), CC BY 4.0.
 - `onet-titles.json`: occupation titles, Job Zones and about 50,000 sample and reported job titles from
