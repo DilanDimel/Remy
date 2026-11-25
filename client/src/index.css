@@ -1468,6 +1468,11 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .nav-collapsed .owner-seg { display: none; }
 .nav-collapsed .owner-flip { display: inline-grid; }
 .modal .owner-tools { padding: 4px 0; }
+/* Phones' More sheet: short headings group the list (pages, help, about, owners). */
+.more-sheet { display: flex; flex-direction: column; gap: 2px; }
+.more-sheet .nav-item { min-height: 42px; }
+.more-h { margin: 10px 0 2px; padding-left: 12px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-text); }
+.more-sheet .more-h:first-child { margin-top: 0; }
 .menu-links { display: flex; gap: 2px; padding: 0 4px; }
 .menu-links button { flex: 1; text-align: center !important; font-size: var(--text-xs); color: var(--muted-text); padding: 6px 4px; border-radius: 8px; }
 .menu-links button:hover { color: var(--ink); background: var(--surface-2); }
@@ -2775,6 +2780,8 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
   .redesign-2 .asst-profile { padding: 10px 16px 8px; gap: 2px; }
   .redesign-2 .asst-avatar { width: 56px; height: 56px; }
   .redesign-2 .asst-avatar > svg { width: 44px; height: auto; }
+  /* The Scholar fox's own rule (scholar.css, 80px) outranked the line above, so he sat off-centre and cut off in the 56px circle. */
+  .redesign-2 .asst-avatar > .fox.scholar { width: 53px; margin-top: 6px; }
   .redesign-2 .asst-name { margin-top: 2px; }
   .redesign-2 .asst-tabs { margin-top: 6px; }
 }
