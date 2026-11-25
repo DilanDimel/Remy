@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { Job, Requirement, Workspace } from "@shared/types";
@@ -7,6 +8,7 @@ import { topSkills } from "@shared/requirements";
 import { uid } from "../platform/ids";
 import { abroad, COUNTRY_IN_TEXT, FIELD_SEARCH, FIELD_TITLES, regionMatch, chosenFieldText, relocateReason } from "./fit";
 import { q, q1 } from "../platform/sql";
+import { r2Get, r2Put } from "../platform/r2";
 import { interestEnabled, preferenceAdjustment } from "./ranking";
 
 // Live openings from employers' own career sites (Greenhouse, Lever, Ashby, Workday, SmartRecruiters,
@@ -419,18 +421,32 @@ const BOARD_STALE = 3 * 24 * 60 * 60_000;
 // downloads it again only when its fetched_at changed (a newer fetch, here or on another server).
 const boardMemo = new Map<string, { at: string; fetched_at: Date; raws: any }>();
 const BOARD_MEMO_MAX = 300;
+// The kept copies are also sealed in the private R2 bucket (server/platform/r2.ts), so a deploy (dozens a day)
+// doesn't download every board again. They're still checked against fetched_at, so a stale copy is never used.
+const boardName = (key: string) => `board/${crypto.createHash("sha256").update(key).digest("hex")}`;
+function keepBoard(key: string, at: string, fetched_at: Date, raws: any, share: boolean) {
+  boardMemo.delete(key);
+  boardMemo.set(key, { at, fetched_at, raws: structuredClone(raws) });
+  if (boardMemo.size > BOARD_MEMO_MAX) boardMemo.delete(boardMemo.keys().next().value!);
+  if (share) r2Put(boardName(key), { at, fetched_at: fetched_at.toISOString(), raws });
+}
 /** A board_cache entry (raws and fetched_at), downloading raws only when this server's copy is out of date. */
 export async function readBoardCache(key: string): Promise<{ raws: any; fetched_at: Date } | undefined> {
-  const memo = boardMemo.get(key);
+  let memo = boardMemo.get(key);
+  if (!memo) {
+    const f = await r2Get(boardName(key));
+    if (typeof f?.at === "string" && f.raws) memo = { at: f.at, fetched_at: new Date(f.fetched_at), raws: f.raws };
+  }
   const r = await q1("SELECT fetched_at, fetched_at::text AS at, CASE WHEN fetched_at::text = $2 THEN NULL ELSE raws END AS raws FROM board_cache WHERE key = $1", [key, memo?.at || ""]);
   if (!r) { boardMemo.delete(key); return undefined; }
   // A copy each time: callers may change what they get, and the kept copy must stay as stored.
-  if (memo && r.at === memo.at) return { raws: structuredClone(memo.raws), fetched_at: memo.fetched_at };
+  if (memo && r.at === memo.at) {
+    if (!boardMemo.has(key)) keepBoard(key, memo.at, memo.fetched_at, memo.raws, false);
+    return { raws: structuredClone(memo.raws), fetched_at: memo.fetched_at };
+  }
   const raws = typeof r.raws === "string" ? JSON.parse(r.raws) : r.raws;
   const fetched_at = new Date(r.fetched_at);
-  boardMemo.delete(key);
-  boardMemo.set(key, { at: r.at, fetched_at, raws: structuredClone(raws) });
-  if (boardMemo.size > BOARD_MEMO_MAX) boardMemo.delete(boardMemo.keys().next().value!);
+  keepBoard(key, r.at, fetched_at, raws, true);
   return { raws, fetched_at };
 }
 export async function cachedBoard(b: Board, field: string, region: string, fetch = fetchBoard): Promise<Raw[]> {
@@ -447,7 +463,9 @@ export async function cachedBoard(b: Board, field: string, region: string, fetch
     // Empty answers aren't saved (a site under maintenance often answers with nothing); huge boards aren't either.
     const slim = JSON.stringify(slimForCache(raws));
     if (raws.length && slim.length < 3_000_000)
-      await q("INSERT INTO board_cache (key, raws) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET raws = EXCLUDED.raws, fetched_at = now()", [key, slim]).catch(() => {});
+      // Kept here too, so the next read doesn't download what this server just wrote.
+      await q1("INSERT INTO board_cache (key, raws) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET raws = EXCLUDED.raws, fetched_at = now() RETURNING fetched_at, fetched_at::text AS at", [key, slim])
+        .then((r) => r && keepBoard(key, r.at, new Date(r.fetched_at), JSON.parse(slim), true)).catch(() => {});
     if (raws.length || !hit || age > BOARD_STALE) return withDetail(raws);
   } catch (e) {
     if (!hit || age > BOARD_STALE) throw e;
