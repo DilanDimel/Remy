@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
 import type { Workspace } from "@shared/types";
@@ -19,6 +19,7 @@ export default function Terms() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const [ok, setOk] = useState(false);
+  const [open, setOpen] = useState(-1);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const away = useGateRedirect("terms");
@@ -41,12 +42,17 @@ export default function Terms() {
           <Remy size={56} icon />
           <View style={{ flex: 1 }}><T kind="title">Before you start</T><T kind="small">{BETA_TERMS_LEAD}</T></View>
         </View>
-        <View style={{ marginTop: 18, gap: 12 }} testID="beta-agreement">
+        {/* Each point's short head first; tap it for the full words (the same text as the website). */}
+        <View style={{ marginTop: 18, backgroundColor: c.surface, borderRadius: 16, borderWidth: 1, borderColor: c.line, overflow: "hidden" }} testID="beta-agreement">
           {terms.map((t, i) => (
-            <View key={t} style={{ flexDirection: "row", gap: 10 }}>
-              <Text style={{ fontFamily: font.bold, fontSize: 14, color: c.foxDeep, width: 20 }}>{i + 1}.</Text>
-              <Text style={{ flex: 1, fontFamily: font.body, fontSize: 15, lineHeight: 21, color: c.ink }}><Text style={{ fontFamily: font.bold }}>{heads[i] || `Point ${i + 1}`}. </Text>{t}</Text>
-            </View>
+            <Pressable key={t} testID="term-row" accessibilityRole="button" accessibilityState={{ expanded: open === i }} onPress={() => { tap(); setOpen(open === i ? -1 : i); }}
+              style={{ paddingVertical: 13, paddingHorizontal: 16, gap: 6, borderTopWidth: i ? StyleSheet.hairlineWidth : 0, borderColor: c.line }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <Text style={{ flex: 1, fontFamily: font.body, fontSize: 15.5, color: c.ink }}><Text style={{ fontFamily: font.bold }}>{i + 1}. </Text>{heads[i] || `Point ${i + 1}`}</Text>
+                <View style={{ transform: [{ rotate: open === i ? "90deg" : "0deg" }] }}><Icon name="chev" size={16} color={c.faint} /></View>
+              </View>
+              {open === i && <Text style={{ fontFamily: font.body, fontSize: 14.5, lineHeight: 21, color: c.mutedText }}>{t}</Text>}
+            </Pressable>
           ))}
         </View>
         <Pressable testID="link-policies" onPress={() => WebBrowser.openBrowserAsync("https://remyai.org/policies")} style={{ marginTop: 16 }}>
