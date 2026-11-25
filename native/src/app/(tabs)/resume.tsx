@@ -7,6 +7,7 @@ import { CATS, issues, ranges, toolsRegex, type Cat } from "@shared/markup";
 import { reviewResume, type BulletRef } from "@shared/review";
 import { isListSection } from "@shared/bullets";
 import { Button, Icon, Loading, Remy, Screen, Sect, T, success, tap } from "@/components/ui";
+import { ContactDates, EditLine } from "@/components/ResumeEdit";
 import { api, apiForm } from "@/lib/api";
 import { canPickFiles, pickResume } from "@/lib/pick";
 import { shareFromServer } from "@/lib/files";
@@ -20,14 +21,14 @@ const HL: Record<Cat, keyof Colors> = { action: "hlAction", hard: "hlHard", soft
 const clean = (t: string) => t.trim().replace(/^[•\-–*]\s*/, "");
 
 /** One resume line with the website's colour marks (shared/markup.ts) and its flags. */
-function Line({ text, tools, flags, onPress, c }: { text: string; tools: RegExp; flags: string[]; onPress?: () => void; c: Colors }) {
+function Line({ text, tools, flags, onPress, c, testID }: { text: string; tools: RegExp; flags: string[]; onPress?: () => void; c: Colors; testID: string }) {
   const t = clean(text);
   const parts: { s: string; cat?: Cat }[] = [];
   let at = 0;
   for (const [s, e, cat] of ranges(t, tools)) { if (s > at) parts.push({ s: t.slice(at, s) }); parts.push({ s: t.slice(s, e), cat }); at = e; }
   if (at < t.length) parts.push({ s: t.slice(at) });
   return (
-    <Pressable disabled={!onPress} onPress={onPress} testID={onPress ? "resume-line-flagged" : undefined} style={{ flexDirection: "row", gap: 8, paddingVertical: 4 }}>
+    <Pressable disabled={!onPress} onPress={onPress} testID={testID} style={{ flexDirection: "row", gap: 8, paddingVertical: 4 }}>
       <Text style={{ fontFamily: font.body, fontSize: 14.5, lineHeight: 21, color: c.mutedText }}>•</Text>
       <Text style={{ flex: 1, fontFamily: font.body, fontSize: 14.5, lineHeight: 21, color: c.ink }}>
         {parts.map((p, i) => <Text key={i} style={p.cat ? { backgroundColor: c[HL[p.cat]] } : undefined}>{p.s}</Text>)}
@@ -131,7 +132,7 @@ function FixFlow({ steps: given, start, onClose }: { steps: Step[]; start: numbe
 }
 
 /** Resume & CV, native (handoff P1.6): the file and its downloads, Remy's checks, the resume with the website's colour
- *  marks and flags, and his one-line-at-a-time fixes. Tailoring, editing by hand and uploading still open the website. */
+ *  marks and flags, and his one-line-at-a-time fixes. Tap a line to change it, and fix contact details and dates, here in the app. */
 export default function Resume() {
   const { ws, setWs } = useSession();
   const refresh = useRefreshAll();
@@ -141,6 +142,8 @@ export default function Resume() {
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
   const [fix, setFix] = useState<number | null>(null);
+  const [edit, setEdit] = useState<{ id: string; text: string; where: string } | null>(null);
+  const [contactOpen, setContactOpen] = useState(false);
   const doc = ws?.resume?.doc;
   const tools = useMemo(() => (doc ? toolsRegex(doc) : /$^/), [doc]);
   const review = useMemo(() => (doc ? reviewResume(doc, { listLike: true }) : { todo: [], good: [] }), [doc]);
@@ -198,7 +201,7 @@ export default function Resume() {
       <T kind="muted"><Text style={{ fontFamily: font.bold }}>Your resume, kept true.</Text> Every change Remy suggests uses only what you already wrote, and you approve each one.</T>
       {note && (
         <View style={[card, { flexDirection: "row", gap: 10, alignItems: "flex-start", backgroundColor: c.surface2, borderColor: c.surface2 }]} testID="resume-phone-note">
-          <T kind="small" style={{ flex: 1 }}>Editing a resume is easier on a laptop. On your phone you can review changes, approve them and download your files.</T>
+          <T kind="small" style={{ flex: 1 }}>Tap any line to change it. Big rewrites are easier on a laptop.</T>
           <Pressable testID="button-dismiss-note" onPress={() => { tap(); setNote(false); }} hitSlop={8}><Text style={{ fontFamily: font.bold, fontSize: 14, color: c.fox }}>Got it</Text></Pressable>
         </View>
       )}
@@ -229,7 +232,7 @@ export default function Resume() {
         {review.todo.map((it) => <View key={it.kind + it.title} style={{ flexDirection: "row", gap: 8, marginTop: 8 }}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.fox, marginTop: 7 }} /><T kind="small" style={{ flex: 1 }}>{it.title}</T></View>)}
         {review.good.map((g) => <View key={g} style={{ flexDirection: "row", gap: 6, marginTop: 6 }}><Icon name="check" size={15} color={c.sage} /><T kind="small" style={{ flex: 1 }}>{g}</T></View>)}
         {steps.length > 0 && <Button testID="button-fix-lines" label={`Remy can fix ${steps.length} line${steps.length === 1 ? "" : "s"}`} icon="arrow" flex onPress={() => setFix(0)} style={{ marginTop: 14 }} />}
-        {review.todo.some((it) => it.kind === "contact" || it.kind === "dates") && <Button testID="button-fix-on-site" kind="ghost" label="Fix contact and dates" flex onPress={() => open("?tab=base")} style={{ marginTop: 8 }} />}
+        {review.todo.some((it) => it.kind === "contact" || it.kind === "dates") && <Button testID="button-fix-on-site" kind="ghost" label="Fix contact and dates" flex onPress={() => { tap(); setContactOpen(true); }} style={{ marginTop: 8 }} />}
       </View>
 
       <Sect title="Your resume" />
@@ -251,7 +254,7 @@ export default function Resume() {
                   {e.bullets.filter((b) => b.text.trim()).map((b) => {
                     const flags = list ? [] : issues(b.text);
                     const at = stepOf(b.id);
-                    return <Line key={b.id} text={b.text} tools={tools} flags={flags} c={c} onPress={at >= 0 ? () => { tap(); setFix(at); } : undefined} />;
+                    return <Line key={b.id} testID={at >= 0 ? "resume-line-flagged" : "resume-line"} text={b.text} tools={tools} flags={flags} c={c} onPress={() => { tap(); if (at >= 0) setFix(at); else setEdit({ id: b.id, text: b.text, where: [e.role, e.org].filter(Boolean).join(", ") || s.heading }); }} />;
                   })}
                 </View>
               ))}
@@ -271,6 +274,12 @@ export default function Resume() {
     </Screen>
     <Modal visible={fix !== null} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setFix(null)}>
       {fix !== null && <FixFlow steps={steps} start={fix} onClose={() => setFix(null)} />}
+    </Modal>
+    <Modal visible={!!edit} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setEdit(null)}>
+      {edit && <EditLine {...edit} onClose={() => setEdit(null)} />}
+    </Modal>
+    <Modal visible={contactOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setContactOpen(false)}>
+      {contactOpen && <ContactDates doc={doc} todo={review.todo} onClose={() => setContactOpen(false)} />}
     </Modal>
     </>
   );
