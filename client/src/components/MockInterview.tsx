@@ -10,7 +10,7 @@ import { LEVEL_WORD, listenFor, pickProfile, scoreInterview, weeklyLeft, WEEKLY_
 import { jobQuestions } from "@shared/jobInterview";
 import { STORY_PARTS } from "@shared/stories";
 import { speechFeedback } from "@shared/speech";
-import { micProblem } from "../lib/voice";
+import { hush, micProblem, say } from "../lib/voice";
 import { api, useStore } from "../lib/store";
 import { replaceRoute, useRoute } from "../lib/router";
 import { useInterviewJobs, JobInterview } from "./JobInterview";
@@ -222,7 +222,7 @@ function Answer({ initial, hint, onSend, skip, stop, last }: { initial: string; 
     if (on) { rec.current?.stop(); rec.current = null; setOn(false); return; }
     setOn(true); setProblem(null);
     if (!Speech) return;
-    window.speechSynthesis?.cancel(); // don't transcribe Remy reading the question
+    hush(); // don't transcribe Remy reading the question
     base.current = text ? text.trim() + " " : "";
     const r = new Speech();
     r.lang = "en-US"; r.continuous = true; r.interimResults = true;
@@ -252,26 +252,17 @@ function Answer({ initial, hint, onSend, skip, stop, last }: { initial: string; 
   );
 }
 
-/** Reads the question out loud with the browser's voice (nothing leaves the browser beyond what it does itself). */
+/** Reads the question out loud in Remy's voice (the browser's own voice if his isn't available). */
 function ReadAloud({ text, auto }: { text: string; auto?: boolean }) {
-  const ok = typeof window !== "undefined" && "speechSynthesis" in window;
   const { toast } = useStore();
   const [playing, setPlaying] = useState(false);
-  const say = (fromClick: boolean) => {
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text); u.lang = "en-US"; u.rate = 0.98;
-    u.onstart = () => setPlaying(true);
-    u.onend = () => setPlaying(false);
-    // "interrupted"/"canceled" is us stopping it; an auto read the browser blocks before any click just stays quiet.
-    u.onerror = (e) => { setPlaying(false); if (fromClick && e.error !== "interrupted" && e.error !== "canceled") toast("Your browser couldn't read this out loud. Check your sound is on, or try Chrome or Edge.", true); };
-    speechSynthesis.speak(u);
-  };
+  // An auto read the browser blocks before any click just stays quiet; a click that can't play says why.
+  const read = (fromClick: boolean) => say(text, { onStart: () => setPlaying(true), onEnd: () => setPlaying(false), onError: () => { if (fromClick) toast("Your browser couldn't read this out loud. Check your sound is on, or try Chrome or Edge.", true); } }, 0.98);
   // "Like the real thing": the interviewer asks out loud, as in Julio's voice interview. Stops when the question changes.
-  useEffect(() => { if (!ok || !auto) return; say(false); return () => { speechSynthesis.cancel(); setPlaying(false); }; }, [text, auto]);
-  useEffect(() => () => { if (ok) speechSynthesis.cancel(); }, []);
-  if (!ok) return null;
-  const stop = () => { speechSynthesis.cancel(); setPlaying(false); };
-  return <button className="btn btn-ghost btn-sm" style={{ flex: "none" }} onClick={() => (playing ? stop() : say(true))} aria-pressed={playing} data-testid="button-read-aloud">{playing ? <><Square size={14} /> Stop</> : <><Volume2 size={14} /> Hear it</>}</button>;
+  useEffect(() => { if (!auto) return; read(false); return () => { hush(); setPlaying(false); }; }, [text, auto]);
+  useEffect(() => () => { hush(); }, []);
+  const stop = () => { hush(); setPlaying(false); };
+  return <button className="btn btn-ghost btn-sm" style={{ flex: "none" }} onClick={() => (playing ? stop() : read(true))} aria-pressed={playing} data-testid="button-read-aloud">{playing ? <><Square size={14} /> Stop</> : <><Volume2 size={14} /> Hear it</>}</button>;
 }
 
 /** Remy's take on one answer (coach mode): what landed, one fix, and what he heard per skill. */
