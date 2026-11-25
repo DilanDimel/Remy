@@ -46,7 +46,7 @@ import * as signals from "./jobs/signals";
 import { acceptHtml } from "@shared/acceptEmail";
 import { recordError } from "./platform/admin";
 import { careersFor, futureFor, occupationDetails, officialFor } from "./jobs/future";
-import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase, appReturnPage } from "./platform/auth";
+import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase, appReturnPage, takeHandoff } from "./platform/auth";
 import { aiExtractPosting, CLOSED_SIGNALS, docxPreviewHtml, fetchPublic, fileToText, htmlToText, norm, pdfStyle, scanText } from "./resume/parse";
 import { formatCheck, pdfLayout, withoutPersonal } from "./resume/format";
 import {
@@ -1004,6 +1004,10 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'");
     res.send(appReturnPage(req.query as Record<string, unknown>, /android/i.test(String(req.headers["user-agent"] || ""))));
+  });
+  app.get("/api/auth/app-handoff", (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ result: takeHandoff(String(req.query.state || "")) });
   });
   // Email sign-in with a 6-digit code Remy sends itself: works on any device (a link only works in the browser that
   // asked for it) and isn't held to Supabase's shared hourly email limit. The code proves the student owns the email,
