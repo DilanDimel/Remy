@@ -43,7 +43,14 @@ export interface ResumeStyle {
   font?: string; mono?: boolean; italic?: boolean;
   /** Word layout features some applicant tracking systems read out of order (unset for PDFs and older uploads). */
   layout?: { tables: boolean; textBoxes: boolean; columns: boolean };
+  /** A clean format the student picked from Remy's three (owners first, Nov 25): downloads use it instead of their file. */
+  look?: ResumeLook;
 }
+export type ResumeLook = "classic" | "modern" | "compact";
+/** Page 1 of an uploaded PDF as laid out: what the format check reads. */
+export interface ResumeLayout { pages: number; photo: boolean; columns: boolean; bodySize: number; margin: number }
+/** One thing about a resume's format that hurts it ("bad"), should change ("fix"), or might ("tip"). */
+export interface FormatFinding { id: string; level: "bad" | "fix" | "tip"; title: string; detail: string }
 /** How completely the structured resume reflects the uploaded file. */
 export interface ResumeQuality {
   /** Share of the file's words that made it into the structured resume (0–1). */
@@ -70,6 +77,8 @@ export interface BaseResume {
   /** The uploaded file itself is kept server-side for preview and download. */
   original?: { name: string; mime: string; size: number };
   style?: ResumeStyle;
+  /** The uploaded PDF's layout (pages, photo, columns, text size), read for the format check. */
+  layout?: ResumeLayout;
   quality?: ResumeQuality;
   /** Lines the student deleted in Remy, so the Word download can take them out of their own file too. */
   removed?: string[];

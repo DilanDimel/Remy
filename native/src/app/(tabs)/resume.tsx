@@ -8,6 +8,7 @@ import { reviewResume, type BulletRef } from "@shared/review";
 import { isListSection } from "@shared/bullets";
 import { Button, Icon, Loading, Remy, Screen, Sect, T, success, tap } from "@/components/ui";
 import { ContactDates, EditLine } from "@/components/ResumeEdit";
+import { FormatCard } from "@/components/FormatCard";
 import { api, apiForm } from "@/lib/api";
 import { canPickFiles, pickResume } from "@/lib/pick";
 import { shareFromServer } from "@/lib/files";
@@ -236,6 +237,8 @@ export default function Resume() {
         {steps.length > 0 && <Button testID="button-fix-lines" label={`Remy can fix ${steps.length} line${steps.length === 1 ? "" : "s"}`} icon="arrow" flex onPress={() => setFix(0)} style={{ marginTop: 14 }} />}
         {review.todo.some((it) => it.kind === "contact" || it.kind === "dates") && <Button testID="button-fix-on-site" kind="ghost" label="Fix contact and dates" flex onPress={() => { tap(); setContactOpen(true); }} style={{ marginTop: 8 }} />}
       </View>
+
+      <FormatCard />
 
       <Sect title="Your resume" />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>

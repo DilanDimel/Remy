@@ -7,7 +7,7 @@ import path from "node:path";
 import multer from "multer";
 import { z } from "zod";
 import type {
-  Application, AppConfig, BulletChange, ChatAction, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, Suggestion, TrackStatus, Workspace, Story, StoryPart } from "@shared/types";
+  Application, AppConfig, BulletChange, ChatAction, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, ResumeLook, ResumeStyle, Suggestion, TrackStatus, Workspace, Story, StoryPart } from "@shared/types";
 import { PATHS } from "@shared/types";
 import { INSIDER_AFTER_DAYS, INSIDER_SURVEY, insiderEligible, insiderSurveyDue, termsFor } from "@shared/beta";
 import { NAME_CHECK, firstName, knownName, nameUnsure, sameName } from "@shared/names";
@@ -47,6 +47,7 @@ import { recordError } from "./platform/admin";
 import { careersFor, futureFor, occupationDetails, officialFor } from "./jobs/future";
 import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase, appReturnPage } from "./platform/auth";
 import { aiExtractPosting, CLOSED_SIGNALS, docxPreviewHtml, fetchPublic, fileToText, htmlToText, norm, pdfStyle } from "./resume/parse";
+import { formatCheck, pdfLayout, withoutPersonal } from "./resume/format";
 import {
   aiParseResume, chooseReading, extractSkills, skillsPosition, graduationOf, gpaOf, majorsOf, minorsOf, preCollegeIds, normalizeResumeText, parseQuality, primaryEducation, resumeToText, rulesParse, schoolName,
   stillMissing, nameCase,
@@ -1312,6 +1313,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     ctx.ws.resume!.original = { name: f!.originalname, mime, size: f!.size };
     // So downloads can match the student's look (font, size, margins, length).
     ctx.ws.resume!.style = (await (mime === "application/pdf" ? pdfStyle(f!.buffer) : mime.includes("wordprocessingml") ? docxStyle(f!.buffer) : Promise.resolve(null)).catch(() => null)) || undefined;
+    ctx.ws.resume!.layout = (mime === "application/pdf" ? await pdfLayout(f!.buffer).catch(() => null) : null) || undefined; // for the format check
     for (const a of ctx.ws.applications) refreshAts(ctx.ws, a); // saved checks describe the new file, not the old one
     await ctx.save();
     res.json(ctx.ws);
@@ -1423,14 +1425,51 @@ export async function registerRoutes(_server: Server, app: Express) {
     const fmt = req.query.format === "docx" ? "docx" : "pdf";
     const doc = ctx.ws.resume!.doc;
     const own = await ownCurrentFile(ctx, undefined, fmt === "docx");
-    const mine = own?.buf && !own.missed.length && (fmt === "pdf" ? own.mime === "application/pdf" : own.mime.includes("wordprocessingml")) ? own.buf : null;
-    const buf = mine || (fmt === "pdf" ? await resumePdf(doc, ctx.ws.resume!.style) : await resumeDocx(doc, ctx.ws.resume!.style));
+    const mine = !ctx.ws.resume!.style?.look && own?.buf && !own.missed.length && (fmt === "pdf" ? own.mime === "application/pdf" : own.mime.includes("wordprocessingml")) ? own.buf : null;
+    const look = ctx.ws.resume!.style?.look;
+    const buf = mine || (fmt === "pdf" ? await resumePdf(look ? withoutPersonal(doc) : doc, look ? formatStyle(ctx.ws, look) : ctx.ws.resume!.style) : await resumeDocx(doc, ctx.ws.resume!.style));
     res.setHeader("X-Remy-Layout", mine ? "original" : "remy");
     const name = (nameUnsure(ctx.ws) ? "Resume" : ctx.ws.profile.name || doc.contact.name || "Resume").replace(/[^A-Za-z]+/g, "-") + "-Resume";
     res.setHeader("Content-Type", fmt === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
     // ?inline=1 shows the current version inside the Resume page (redesign stage 3); downloads stay attachments.
     res.setHeader("Content-Disposition", `${req.query.inline === "1" && fmt === "pdf" ? "inline" : "attachment"}; filename="${name}.${fmt}"`);
     res.send(buf);
+  }));
+
+  // Format check (owners first, Nov 25): what hurts the file's format for the student's level, and three clean formats.
+  const isStudent = (ws: Workspace) => ["First-year", "Sophomore", "Junior", "Senior"].includes(classYearOf(ws));
+  const formatStyle = (ws: Workspace, look: ResumeLook): ResumeStyle => ({ ...(ws.resume!.style || { serif: false, size: 10, margin: 50, pages: 1 }), look, pages: isStudent(ws) ? 1 : 2 });
+  const LOOKS = ["classic", "modern", "compact"] as const;
+  app.get("/api/resume/format", route(async (_req, res, ctx) => {
+    if (!(await admin.isOwner(ctx.me))) bad("Not available yet.", 403);
+    const r = ctx.ws.resume;
+    if (!r) bad("Upload a resume first.");
+    // With one of Remy's formats picked, only what the words themselves still need is left (the file's photo, pages and
+    // personal details are gone from what they download).
+    const look = r!.style?.look;
+    const findings = look
+      ? formatCheck(withoutPersonal(r!.doc), (r!.rawText || "").split("\n").filter((l) => !/birth|nationality|marital|gender|religion|passport/i.test(l)).join("\n"), { pages: 1, photo: false, columns: false, bodySize: 10, margin: 50 }, isStudent(ctx.ws))
+      : formatCheck(r!.doc, r!.rawText || "", r!.layout, isStudent(ctx.ws));
+    res.json({ findings, layout: r!.layout || null, look: look || null, student: isStudent(ctx.ws) });
+  }));
+  app.get("/api/resume/format/preview", route(async (req, res, ctx) => {
+    if (!(await admin.isOwner(ctx.me))) bad("Not available yet.", 403);
+    if (!ctx.ws.resume) bad("Upload a resume first.");
+    const look = LOOKS.find((l) => l === req.query.look) || "classic";
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="Resume-${look}.pdf"`);
+    res.send(await resumePdf(withoutPersonal(ctx.ws.resume!.doc), formatStyle(ctx.ws, look)));
+  }));
+  app.post("/api/resume/format", route(async (req, res, ctx) => {
+    if (!(await admin.isOwner(ctx.me))) bad("Not available yet.", 403);
+    if (!ctx.ws.resume) bad("Upload a resume first.");
+    const look = z.object({ look: z.enum(LOOKS).nullable() }).parse(req.body).look;
+    // Picking a format keeps their words and changes only the look; "Keep my own file" goes back to it.
+    const st = ctx.ws.resume!.style;
+    if (look) ctx.ws.resume!.style = { ...(st || { serif: false, size: 10, margin: 50, pages: 1 }), look };
+    else if (st) delete st.look;
+    await ctx.save();
+    res.json(ctx.ws);
   }));
 
   // A Word upload's PDF in its own look: the page lays out their Word file in the browser (the only free place with a
