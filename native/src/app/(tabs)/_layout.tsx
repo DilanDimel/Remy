@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Loading, Remy, tap } from "@/components/ui";
 import { Moments } from "@/components/Moments";
 import { gateRoute, useGate } from "@/lib/gate";
-import { font, useTheme } from "@/lib/theme";
+import { aboveTabs, font, useTheme } from "@/lib/theme";
 import { shadow } from "@/lib/tokens";
 
 /** Remy isn't a tab: like the website, he is a floating fox button above the tab bar that opens his chat from any page.
@@ -15,8 +15,7 @@ function RemyButton({ hidden }: { hidden: boolean }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   if (hidden) return null;
-  // Above the tab bar: iOS's bar is about 49 pt over the home indicator, Android's Material bar about 80 dp.
-  const bottom = insets.bottom + (Platform.OS === "ios" ? 62 : 92);
+  const bottom = aboveTabs(insets.bottom);
   return (
     <Pressable testID="button-remy" accessibilityRole="button" accessibilityLabel="Ask Remy" onPress={() => { tap(); router.push("/remy"); }} hitSlop={6}
       style={({ pressed }) => [{ position: "absolute", right: 16, bottom, width: 56, height: 56, borderRadius: 28, backgroundColor: c.surface, borderWidth: 2, borderColor: c.fox, alignItems: "center", justifyContent: "center", overflow: "visible", transform: [{ scale: pressed ? 0.94 : 1 }] }, shadow.floating]}>

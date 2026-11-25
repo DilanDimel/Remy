@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text, View, useWindowDimensions } from "react-native";
 import type { Job, Task, Workspace } from "@shared/types";
 import { dailyStreak, dayKey, streakDays, weekDots } from "@shared/daily";
 import { remyLine } from "@shared/homeLine";
@@ -9,7 +9,7 @@ import { daysFrom, nextAction } from "@shared/nextAction";
 import { gettingStarted } from "@shared/progress";
 import { offerFor, remyOffers } from "@shared/remyOffers";
 import { InsiderCard } from "@/components/Insider";
-import { Button, Group, Icon, Logo, Remy, Row, Screen, Sect, T, success, tap } from "@/components/ui";
+import { Button, Group, Icon, Loading, Logo, Remy, Row, Screen, Sect, T, success, tap } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useJobs } from "@/lib/jobs";
 import { askRemy, go, openJobs, openResumeFix } from "@/lib/nav";
@@ -31,6 +31,8 @@ export default function Home() {
   const refreshAll = useRefreshAll();
   const { jobs, fits, reload } = useJobs();
   const { c } = useTheme();
+  // Under 390 pt the seven day dots and Today's round don't fit on one line (they spilled out at 360): the button gets its own line.
+  const narrow = useWindowDimensions().width < 390;
   const [refreshing, setRefreshing] = useState(false);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -40,7 +42,7 @@ export default function Home() {
   const since = useRef(ws?.settings.lastSeenAt || "").current;
   useEffect(() => { if (ws && (!since || Date.now() - Date.parse(since) > 30 * 60_000)) saveSettings({ lastSeenAt: new Date().toISOString() }).catch(() => {}); }, []);
   const next = useMemo(() => (ws ? nextAction(ws, jobs, fits, { ownerView }) : null), [ws, jobs, fits, ownerView]);
-  if (!ws || !next) return null;
+  if (!ws || !next) return <Loading />;
 
   const today = dayKey();
   const name = firstName(ws);
@@ -141,7 +143,7 @@ export default function Home() {
       <T kind="muted" style={{ marginTop: 6, fontSize: 17, lineHeight: 24 }} numberOfLines={2}>{line}</T>
 
       {/* The streak: flame (orange once today's round is done), the number, the last seven days, and today's round. */}
-      <Pressable testID="row-streak" onPress={() => { tap(); router.navigate("/path"); }} style={{ marginTop: 16, flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.line, paddingVertical: 12, paddingHorizontal: 14 }}>
+      <Pressable testID="row-streak" onPress={() => { tap(); router.navigate("/path"); }} style={{ marginTop: 16, flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 12, backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.line, paddingVertical: 12, paddingHorizontal: 14 }}>
         <Icon name="flame" size={26} color={roundDone ? c.fox : c.faint} />
         <View style={{ flex: 1, gap: 5 }}>
           <Text style={{ fontFamily: font.bold, fontSize: 15, color: c.ink }}>{streak.days ? `${streak.days} day streak` : "Start a streak today"}<Text style={{ fontFamily: font.body, color: c.mutedText }}>{streak.days && streak.days >= streak.best ? " · your best yet" : streak.best ? ` · best ${streak.best}` : ""}</Text></Text>
@@ -149,7 +151,7 @@ export default function Home() {
             {dots.map((d) => <View key={d.key} style={{ width: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center", backgroundColor: d.status === "done" ? c.fox : d.status === "freeze" ? c.blueBg : c.surface2, borderWidth: d.status === "today" ? 1.5 : 0, borderColor: c.fox }}><Text style={{ fontFamily: font.bold, fontSize: 9, color: d.status === "done" ? c.onFox : c.mutedText }}>{d.label}</Text></View>)}
           </View>
         </View>
-        <Button testID="button-todays-round" kind={roundDone ? "ghost" : "ink"} label={roundDone ? "Done for today" : "Today's round"} onPress={() => go("/path?play=1", "Today's round")} style={{ height: 38, paddingHorizontal: 12 }} />
+        <Button testID="button-todays-round" kind={roundDone ? "ghost" : "ink"} label={roundDone ? "Done for today" : "Today's round"} onPress={() => go("/path?play=1", "Today's round")} style={[{ height: 38, paddingHorizontal: 12 }, narrow && { flexBasis: "100%" }]} />
       </Pressable>
 
       {/* Remy's one thing: the page's one peach card. Remy beside his speech bubble, the button full width for the thumb. */}

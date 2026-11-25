@@ -1,18 +1,21 @@
 import { useLocalSearchParams, router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Swipeable, { SwipeDirection } from "react-native-gesture-handler/ReanimatedSwipeable";
 import type { Job, JobFit } from "@shared/types";
 import { shortTitle } from "@shared/org";
-import { Button, Chip, FitBadge, Icon, Logo, Pill, Screen, Sect, T, success, tap } from "@/components/ui";
+import { Button, Chip, FitBadge, Icon, Loading, Logo, Pill, Screen, Sect, T, success, tap } from "@/components/ui";
 import { useJobs } from "@/lib/jobs";
 import { go } from "@/lib/nav";
-import { deadlineChip, jobsLine, kindLabel, passedJobs, shortPlace, visibleJobs } from "@/lib/next";
+import { deadlineChip, jobsLine, kindLabel, passedJobs, shortPlace, upcomingEvents, visibleJobs } from "@/lib/next";
 import { useRefreshAll, useSession } from "@/lib/session";
-import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
+import { BUTTON_RADIUS, aboveTabs, font, useTheme } from "@/lib/theme";
 import { radius } from "@/lib/tokens";
 
-type Filter = "new" | "kept" | "passed";
+type Filter = "new" | "kept" | "passed" | "events";
+// Cards drawn at a time; "Show more" adds this many again (the list used to stop at 40 with no way to see the rest).
+const PAGE = 40;
 
 /** One opening, like the website's job card: logo, "company · kind", title, place, chips, and why it fits. */
 export function JobCard({ j, fit, children, onPress }: { j: Job; fit?: JobFit; children?: React.ReactNode; onPress?: () => void }) {
@@ -45,6 +48,7 @@ export default function Jobs() {
   const refreshAll = useRefreshAll();
   const { jobs, fits, loading, error, reload, keep, pass, undo } = useJobs();
   const { c } = useTheme();
+  const insets = useSafeAreaInsets();
   // Keep / Pass feel instant: the card goes at once, the server catches up, and Undo stays up for a few seconds.
   const [gone, setGone] = useState<Record<string, true>>({});
   const [last, setLast] = useState<{ job: Job; kept: boolean } | null>(null);
@@ -54,19 +58,22 @@ export default function Jobs() {
   const [keptNow, setKeptNow] = useState<Record<string, true>>({});
   const [filter, setFilter] = useState<Filter>("new");
   const [leaving, setLeaving] = useState<Record<string, true>>({});
+  const [limit, setLimit] = useState(PAGE);
+  useEffect(() => setLimit(PAGE), [filter]);
   // Opened from Today: on the tab that has the opening (a kept one is under Kept, not For you).
   const { show, at } = useLocalSearchParams<{ show?: string; at?: string }>();
-  useEffect(() => { if (show === "new" || show === "kept" || show === "passed") setFilter(show); }, [show, at]);
+  useEffect(() => { if (show === "new" || show === "kept" || show === "passed" || show === "events") setFilter(show); }, [show, at]);
   const [err, setErr] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const all = useMemo(() => (ws ? visibleJobs(ws, jobs, fits) : []), [ws, jobs, fits]);
-  if (!ws) return null;
+  const events = useMemo(() => (ws ? upcomingEvents(ws, jobs, fits) : []), [ws, jobs, fits]);
+  if (!ws) return <Loading />;
   // Kept is every saved opening, like Progress counts them: one that closed or left the feed still shows (marked closed).
   const kept = [...new Set([...ws.savedJobIds, ...Object.keys(keptNow)])].map((id) => jobs.find((j) => j.id === id)).filter((j): j is Job => !!j && !leaving[j.id]);
   // A Pass counts in Passed straight away; only a card being brought back leaves it.
   const passed = [...passedJobs(ws, jobs).filter((j) => !leaving[j.id]), ...(last && !last.kept && !ws.hiddenJobIds.includes(last.job.id) ? [last.job] : [])];
   const fresh = all.filter((j) => !gone[j.id] && !ws.savedJobIds.includes(j.id) && !ws.jobFeedback?.[j.id]);
-  const shown = filter === "kept" ? kept : filter === "passed" ? passed : fresh;
+  const shown = filter === "kept" ? kept : filter === "passed" ? passed : filter === "events" ? events : fresh;
   const onRefresh = async () => { setRefreshing(true); await Promise.all([reload(), refreshAll()]); setRefreshing(false); };
   const decide = async (j: Job, yes: boolean) => {
     if (yes) success(); else tap();
@@ -89,7 +96,7 @@ export default function Jobs() {
   const open = (j: Job) => { tap(); router.push({ pathname: "/job", params: { id: j.id } }); };
 
   const toast = last && (
-    <View style={{ position: "absolute", left: 16, right: 16, bottom: 104, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.ink, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 16 }} testID="toast-undo">
+    <View style={{ position: "absolute", left: 16, right: 84, bottom: aboveTabs(insets.bottom), flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.ink, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 16 }} testID="toast-undo">
       {/* Handoff 09's words: "Kept. See kept" and "Passed. Undo" (Undo works after Keep too). */}
       <Text style={{ flex: 1, fontFamily: font.semi, fontSize: 14.5, color: c.onInk }} numberOfLines={1}>{last.kept ? "Kept." : "Passed."}</Text>
       {last.kept && <Pressable testID="button-see-kept" hitSlop={10} onPress={() => { tap(); setFilter("kept"); }}><Text style={{ fontFamily: font.bold, fontSize: 14.5, color: c.onInk }}>See kept</Text></Pressable>}
@@ -110,16 +117,18 @@ export default function Jobs() {
   );
 
   const filters = (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 14, marginHorizontal: -16 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}>
       <Pill testID="filter-new" label={`For you · ${fresh.length}`} on={filter === "new"} onPress={() => setFilter("new")} />
       <Pill testID="filter-kept" label={`Kept · ${kept.length}`} on={filter === "kept"} onPress={() => setFilter("kept")} />
       <Pill testID="filter-passed" label={`Passed · ${passed.length}`} on={filter === "passed"} onPress={() => setFilter("passed")} />
-    </View>
+      {/* Events and competitions, like the website's Events filter (the app used to drop them). */}
+      {events.length > 0 && <Pill testID="filter-events" label={`Events · ${events.length}`} on={filter === "events"} onPress={() => setFilter("events")} />}
+    </ScrollView>
   );
   const empty = (
     <View style={{ paddingVertical: 50, alignItems: "center", gap: 8 }}>
-      <T kind="h2">{loading ? "Finding openings…" : filter === "kept" ? "Nothing kept yet" : filter === "passed" ? "Nothing passed" : "You're all caught up"}</T>
-      <T kind="muted" style={{ textAlign: "center" }}>{error || (filter === "kept" ? "Keep openings you like and they'll wait here." : filter === "passed" ? "Openings you pass on wait here in case you change your mind." : "Remy checks employers' sites every few hours. Pull down to check now.")}</T>
+      <T kind="h2">{loading ? "Finding openings…" : filter === "kept" ? "Nothing kept yet" : filter === "passed" ? "Nothing passed" : filter === "events" ? "No events right now" : "You're all caught up"}</T>
+      <T kind="muted" style={{ textAlign: "center" }}>{error || (filter === "kept" ? "Keep openings you like and they'll wait here." : filter === "passed" ? "Openings you pass on wait here in case you change your mind." : filter === "events" ? "Career fairs, info sessions and competitions show up here when Remy finds them." : "Remy checks employers' sites every few hours. Pull down to check now.")}</T>
       {!loading && !error && filter === "new" && kept.length > 0 && <Button testID="button-see-kept" label={`See your ${kept.length} kept`} icon="arrow" onPress={() => setFilter("kept")} style={{ marginTop: 12, alignSelf: "center" }} />}
     </View>
   );
@@ -133,9 +142,9 @@ export default function Jobs() {
       {filters}
       {!!err && <T kind="small" style={{ color: c.error, marginTop: 8 }}>{err}</T>}
       {shown.length ? <>
-        <Sect title={filter === "kept" ? "Kept" : filter === "passed" ? "Passed" : `${shown.length} for you`} />
+        <Sect title={filter === "kept" ? "Kept" : filter === "passed" ? "Passed" : filter === "events" ? "Events and competitions" : `${shown.length} for you`} />
         <View style={{ gap: 12 }}>
-          {shown.slice(0, 40).map((j) => {
+          {shown.slice(0, limit).map((j) => {
             const card = (
               <JobCard key={j.id} j={j} fit={fits[j.id]} onPress={() => open(j)}>
                 {filter === "new" && j.kind !== "event" && <View style={{ flexDirection: "row", gap: 8 }}>
@@ -158,6 +167,7 @@ export default function Jobs() {
             ) : card;
           })}
         </View>
+        {shown.length > limit && <Button testID="button-show-more" kind="ghost" label={`Show ${Math.min(PAGE, shown.length - limit)} more`} onPress={() => setLimit((n) => n + PAGE)} style={{ marginTop: 12 }} flex />}
       </> : empty}
     </Screen>
     {toast}
