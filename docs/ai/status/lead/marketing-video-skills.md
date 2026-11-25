@@ -1,0 +1,1 @@
+Marketing and video skills (Nov 25): 9 skills copied from coreyhaines31/marketingskills at 8fd2fca (MIT, read before adding; markdown only) plus Remy's own `remy-reel` skill with the launch-video rules and recording rig, all in `.claude/skills/`. Dev tooling only; nothing students see.
