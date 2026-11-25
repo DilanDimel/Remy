@@ -22,6 +22,7 @@ function Root() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="sign-in" options={{ animation: "fade" }} />
+        <Stack.Screen name="auth" options={{ animation: "none" }} />
         <Stack.Screen name="beta" options={{ animation: "fade" }} />
         <Stack.Screen name="terms" options={{ animation: "fade" }} />
         <Stack.Screen name="setup" options={{ animation: "fade" }} />

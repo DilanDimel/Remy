@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as WebBrowser from "expo-web-browser";
+import { router } from "expo-router";
 import type { Workspace } from "@shared/types";
 import { BETA_TERMS_LEAD, termsFor } from "@shared/beta";
 import { Button, Icon, Remy, T, tap } from "@/components/ui";
@@ -55,7 +55,7 @@ export default function Terms() {
             </Pressable>
           ))}
         </View>
-        <Pressable testID="link-policies" onPress={() => WebBrowser.openBrowserAsync("https://remyai.org/policies")} style={{ marginTop: 16 }}>
+        <Pressable testID="link-policies" onPress={() => router.push({ pathname: "/web", params: { path: "/policies", title: "Privacy & terms" } })} style={{ marginTop: 16 }}>
           <T kind="small" style={{ textDecorationLine: "underline" }}>Read the full privacy policy and terms</T>
         </Pressable>
       </ScrollView>
