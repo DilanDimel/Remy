@@ -13,7 +13,8 @@ import { shortTitle } from "@shared/org";
 import { screeningFor } from "@shared/screening";
 import { postingSkills, skillsIn } from "@shared/requirements";
 import { isRoleOpening } from "@shared/roleMatch";
-import { Empty, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
+import { Empty, Modal, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
+import { useIsMobile } from "../hooks/use-mobile";
 import { OrgLogo } from "../components/OrgLogo";
 
 type Kind = "all" | "jobs" | "campus" | "event";
@@ -50,8 +51,8 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const [myRegions, setMyRegions] = useState<boolean>(!!regions && !regions.split(/[,;/]+/).some((r) => /^\s*anywhere\b/i.test(r) && !/^\s*anywhere in (?!the\b|us\b|usa\b|u\.s|united|america)[a-z]+\s*$/i.test(r)));
   useEffect(() => { try { localStorage.setItem("remy.opps", JSON.stringify({ savedOnly })); } catch {} }, [savedOnly]);
   // "See kept" after a Keep (Demetre, Nov 24) lands here with ?kept=1.
-  const keptLink = query.get("kept") === "1";
-  useEffect(() => { if (keptLink) setSavedOnly(true); }, [keptLink]);
+  const keptLink = query.get("kept");
+  useEffect(() => { if (keptLink) setSavedOnly(keptLink === "1"); }, [keptLink]);
   // The best 10 first, then 10 more at a time (99 cards were 40 phone screens long); a new search or filter starts over.
   const [shown, setShown] = useState(10);
   useEffect(() => { setShown(10); }, [kind, q, savedOnly, myRegions, showHidden, showIneligible, role]);
@@ -102,6 +103,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
       {needsProfile && <div className="notice" data-testid="needs-profile">{needsProfile}</div>}
       {role && <div className="notice row-between" data-testid="role-filter"><span>Showing {list.length} <b>{role}</b> opening{list.length === 1 ? "" : "s"}, from My Path.</span><button className="btn btn-ghost btn-sm" onClick={() => go("/opportunities")}>Show all openings</button></div>}
       {refreshing && <div className="notice" data-testid="openings-refreshing"><Spinner /> Remy is checking employers' career sites for new openings that fit you. They'll appear here in a moment.</div>}
+      {owner && <JobsSeg at={savedOnly ? "saved" : "for"} onSaved={setSavedOnly} />}
       <div className="page-head">
         <div>
           <span className="eyebrow">Opportunities</span>
@@ -134,7 +136,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
         </div>
         <div className="row">
           <input className="input opp-search" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search openings" data-testid="input-search-jobs" />
-          <label className="row small"><input type="checkbox" checked={savedOnly} onChange={(e) => setSavedOnly(e.target.checked)} data-testid="checkbox-saved-only" /> {owner ? `Kept only${w.savedJobIds.length ? ` (${w.savedJobIds.length})` : ""}` : "Saved only"}</label>
+          <label className={"row small" + (owner ? " hide-phone" : "")}><input type="checkbox" checked={savedOnly} onChange={(e) => setSavedOnly(e.target.checked)} data-testid="checkbox-saved-only" /> {owner ? `Kept only${w.savedJobIds.length ? ` (${w.savedJobIds.length})` : ""}` : "Saved only"}</label>
           {regions && <label className="row small" title={`Your regions: ${regions}`}><input type="checkbox" checked={myRegions} onChange={(e) => setMyRegions(e.target.checked)} data-testid="checkbox-my-regions" /> Only where I want to work</label>}
           {w.hiddenJobIds.length > 0 && <label className="row small"><input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} /> Show ones I'm not interested in</label>}
         </div>
@@ -201,6 +203,19 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
         return owner ? <><div className="op-cols"><div className="stack">{listBlock}</div><OppRail jobs={jobs || []} /></div></> : listBlock; // season band lives on Home only (it showed on both, Nov 23 review)
       })()}
     </>
+  );
+}
+
+/** Phones (Dilan, Nov 25): Jobs holds For you, Saved and Applied (the Progress page), like the phone app's Jobs tab. */
+export function JobsSeg({ at, onSaved }: { at: "for" | "saved" | "applied"; onSaved?: (saved: boolean) => void }) {
+  const w = useStore().ws!;
+  const pick = (k: "for" | "saved" | "applied") => k === "applied" ? go("/progress") : onSaved ? onSaved(k === "saved") : go(`/opportunities?kept=${k === "saved" ? 1 : 0}`);
+  return (
+    <div className="seg jobs-seg" role="group" aria-label="Openings">
+      {([["for", "For you", 0], ["saved", "Saved", w.savedJobIds.length], ["applied", "Applied", w.tracker.length]] as const).map(([k, l, n]) => (
+        <button key={k} aria-pressed={at === k} onClick={() => pick(k)} data-testid={`jobs-seg-${k}`}>{l}{n ? <em className="op-n">{n}</em> : null}</button>
+      ))}
+    </div>
   );
 }
 
@@ -324,6 +339,9 @@ function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; 
   const { ws, save, setWs, run, config } = useStore();
   const w = ws!;
   const [open, setOpen] = useState(defaultOpen);
+  // Phones (Dilan, Nov 25): a short row in the list; tapping it opens the whole card as a sheet from the bottom.
+  const phone = useIsMobile() && keepPass;
+  const [sheet, setSheet] = useState(defaultOpen);
   // Pass (Demetre, Nov 24): the card swipes aside and fades, then the gap closes, instead of vanishing when the server answers.
   const card = useRef<HTMLElement>(null);
   const [gone, setGone] = useState(false);
@@ -360,8 +378,16 @@ function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; 
     setBusy("");
   };
   if (gone) return null;
+  const due = j.deadline && d !== null && d >= 0 && d <= 14 ? `closes ${fmtDate(j.deadline)}` : "";
+  if (phone && !sheet) return (
+    <button className="job-row" onClick={() => setSheet(true)} id={"job-" + j.id} data-testid="job-row">
+      <OrgLogo company={j.company} url={j.applyUrl} />
+      <span className="job-row-main"><b>{shortTitle(j.title, j.company)}</b><span>{[j.company, kindLabel[j.kind], due || shortPlace(j.location)].filter(Boolean).join(" · ")}</span></span>
+      {eligChip(fit)}
+    </button>
+  );
   const addCal = () => run(() => save("calendar", [...w.calendar, { id: rid("cal"), title: `${j.company}: ${j.kind === "event" ? "event" : "deadline"}`, date: j.deadline, time: "", kind: j.kind === "event" ? "Event" : "Deadline", source: j.label === "Live" ? "From verified posting" : "From imported posting", linkedId: j.id, notes: j.deadlineText }]), "Added to your Remy calendar");
-  return (
+  const full = (
     <article ref={card} id={"job-" + j.id} className={"card card-pad stack-sm job-card" + (open ? " open" : "")} style={defaultOpen ? { borderColor: "var(--plum)" } : undefined} data-testid="card-job">
       <div className="row-between job-top" style={{ alignItems: "flex-start" }}>
         {keepPass && <OrgLogo company={j.company} url={j.applyUrl} />}
@@ -437,6 +463,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; 
       {last && open && <span className={"xs " + (last.result === "reachable" ? "pass" : "fail")} data-testid="text-last-check">Last re-check {new Date(last.at).toLocaleString()}: {last.result === "reachable" ? "reachable" : last.result === "closed-signal" ? "page suggests it's closed" : "couldn't reach"}{last.httpStatus ? ` (HTTP ${last.httpStatus})` : ""}</span>}
     </article>
   );
+  return phone ? <Modal title={shortTitle(j.title, j.company)} onClose={() => setSheet(false)}><div className="job-sheet">{full}</div></Modal> : full;
 }
 
 // "More like this" / "Not for me" (Julio's interest system, Nov 6 2026): the student's own taps re-order their openings,

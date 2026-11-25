@@ -9,6 +9,7 @@ import { Empty, Modal, Remy, Spinner, StatusChip } from "../components/common";
 import { MIN_FOR_RATE, keptUntracked, replyStats } from "@shared/progress";
 import { scoreInterview } from "@shared/interview";
 import { OrgLogo } from "../components/OrgLogo";
+import { JobsSeg } from "./Opportunities";
 
 const STATUSES: TrackStatus[] = ["Saved", "Applied", "Received", "Heard back", "Interview", "Offer", "Rejected", "No reply", "Withdrawn"];
 const STATUS_HELP: Record<string, string> = {
@@ -34,6 +35,7 @@ export default function Progress() {
     .sort((a, b) => (fits[b.id]?.score || 0) - (fits[a.id]?.score || 0)).slice(0, 2) : []; // same pick as Home's main card
   return (
     <>
+      {owner && <JobsSeg at="applied" />}
       <div className="page-head">
         <div>
           <span className="eyebrow">Progress</span>

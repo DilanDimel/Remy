@@ -69,7 +69,9 @@ const NAV: { path: string; label: string; icon: typeof HomeIcon; feature?: strin
 ];
 /** The phone tab bar, like the phone app (Dilan, Nov 25); every other page is a tile in More. */
 const TABS = ["/", "/path", "/resume", "/opportunities"];
-const PHONE_NAME: Record<string, string> = { "Resume/CV": "Resume", Opportunities: "Jobs" };
+/** The tab a page lives under on phones: Progress is Jobs → Applied. */
+const tabOf = (path: string) => (path === "/progress" ? "/opportunities" : path);
+const PHONE_NAME: Record<string, string> = { "Resume/CV": "Resume", Opportunities: "Jobs", Progress: "Jobs" };
 const ACCOUNTS: (typeof NAV)[number] = { path: "/accounts", label: "Account", icon: UserCog };
 const THEME_NAME: Record<Theme, string> = { dark: "Dark mode", light: "Light mode", system: "Matching your device" };
 const NOTIFY_NAME: Record<string, string> = { "notify.deadlines": "Deadline reminders", "notify.statusChanges": "Status-change alerts", "notify.weeklyPlan": "Weekly plan emails" };
@@ -326,12 +328,12 @@ function Shell() {
 
       <nav className="mobile-nav" aria-label="Mobile navigation">
         {NAV.filter((n) => TABS.includes(n.path)).map((n) => (
-          <a key={n.path} href={n.path} aria-current={current.path === n.path ? "page" : undefined}>
+          <a key={n.path} href={n.path} aria-current={tabOf(current.path) === n.path ? "page" : undefined}>
             <n.icon size={19} />
             {PHONE_NAME[n.label] || n.label}
           </a>
         ))}
-        <a href="#" onClick={(e) => { e.preventDefault(); setMore(true); }} aria-current={!TABS.includes(current.path) ? "page" : undefined} data-testid="mobile-more"><Menu size={19} />More</a>
+        <a href="#" onClick={(e) => { e.preventDefault(); setMore(true); }} aria-current={!TABS.includes(tabOf(current.path)) ? "page" : undefined} data-testid="mobile-more"><Menu size={19} />More</a>
       </nav>
       {!asstOpen && !inOffice && (
         <button className="asst-fab fade-up" onClick={() => setAsst(true)} data-testid="button-fab-assistant" aria-label="Open Remy">
@@ -343,7 +345,7 @@ function Shell() {
           {/* Phones (Dilan, Nov 25): a bottom sheet with the other pages as tiles, in side bar order, then help and about. */}
           <div className="more-sheet">
             <div className="more-tiles">
-              {[...nav.filter((n) => !TABS.includes(n.path)), ACCOUNTS].map((n) => (
+              {[...nav.filter((n) => !TABS.includes(tabOf(n.path))), ACCOUNTS].map((n) => (
                 <button key={n.path} className="more-tile" aria-current={current.path === n.path ? "page" : undefined} onClick={() => { setMore(false); go(n.path); }} data-testid={`more-${n.label.toLowerCase().replace(/[^a-z]/g, "")}`}><n.icon size={21} /><span>{n.label}</span>{locked(n) && <Lock size={13} className="nav-lock" aria-label="Coming soon" />}</button>
               ))}
             </div>
