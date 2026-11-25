@@ -10,6 +10,7 @@ import { prepChain } from "@shared/prep";
 import { YEARS, yearNumber } from "@shared/roads";
 import { Office } from "@/components/Office";
 import { GuideBanner, useOfficeGuide } from "@/components/OfficeGuide";
+import { PlanStepSheet, type PlanStop } from "@/components/PlanStepSheet";
 import { Button, Group, Icon, Loading, Remy, Row, Screen, Sect, T, success, tap, type IconName } from "@/components/ui";
 import { OUTFIT_NAME, type Outfit } from "@/components/scholarSvg";
 import { api } from "@/lib/api";
@@ -20,8 +21,8 @@ import { radius } from "@/lib/tokens";
 
 const QUEST_ICON: Record<string, IconName> = { rate: "eye", role: "compass", xp: "zap" };
 
-// A plan stop opens where it lives on the website's My Path; a semester isn't there, so Remy helps plan it.
-type Stop = { key: string; title: string; sub: string; icon: IconName; path?: string; ask?: string };
+// A plan stop opens its own sheet with what the plan says about it (it opened the website's My Path before).
+type Stop = PlanStop & { icon: IconName };
 
 /** My Path = Remy's office (handoff P1.5), the website's PathBoard as native sections: the season and its level track,
  *  the office, an ask box, today's quests and chest, this week's big move (or interview prep), then the plan's steps. */
@@ -33,6 +34,7 @@ export default function PathTab() {
   const [q, setQ] = useState("");
   const [moment, setMoment] = useState("");
   const [err, setErr] = useState("");
+  const [stop, setStop] = useState<Stop | null>(null);
   const guide = useOfficeGuide();
   if (!ws) return <Loading />;
   const g = ws.game || { weeks: {} };
@@ -73,11 +75,11 @@ export default function PathTab() {
   const plan = ws.plan;
   const career = plan?.careers.find((x) => x.id === plan.chosenCareerId) || plan?.careers[0];
   const stops: Stop[] = [
-    ...(career?.steps || []).slice(0, 5).map((s, i) => ({ key: "s" + i, title: s, sub: "Step", icon: "flag" as IconName, path: "/path?side=skills" })),
-    ...(plan?.skills || []).slice(0, 2).map((s) => ({ key: s.id, title: s.name, sub: s.type === "certification" ? "Certification" : s.type === "course" ? "Course" : "Skill", icon: "trend" as IconName, path: s.type === "certification" ? "/path?side=certs" : "/path?side=skills" })),
-    ...(plan?.academic || []).slice(0, 2).map((a) => ({ key: a.id, title: a.term, sub: "Your semester", icon: "book" as IconName, ask: `Help me plan my ${a.term} semester` })),
+    ...(career?.steps || []).slice(0, 5).map((s, i) => ({ key: "s" + i, title: s, sub: career ? `Step toward ${career.title}` : "Step", why: i === 0 && career?.what ? career.what : undefined, icon: "flag" as IconName, ask: `Help me with this step in my plan: ${s}` })),
+    ...(plan?.skills || []).slice(0, 2).map((s) => ({ key: s.id, title: s.name, sub: s.type === "certification" ? "Certification" : s.type === "course" ? "Course" : "Skill", why: s.why, verify: s.verify, icon: "trend" as IconName, ask: `How do I get started on ${s.name}?` })),
+    ...(plan?.academic || []).slice(0, 2).map((a) => ({ key: a.id, title: a.term, sub: "Your semester", items: a.items, note: a.note, icon: "book" as IconName, ask: `Help me plan my ${a.term} semester` })),
   ];
-  const openStop = (s: Stop) => (s.ask ? askRemy(s.ask) : go(s.path || "/path", "My Path", { page: true }));
+  const openStop = (s: Stop) => { tap(); setStop(s); };
   // Empty, the arrow just opens his chat; with a question, it asks it there.
   const ask = () => { const t = q.trim(); tap(); if (!t) return void router.push("/remy"); setQ(""); askRemy(t, { send: true }); };
 
@@ -198,6 +200,10 @@ export default function PathTab() {
           <Button testID="button-build-path" label="Build my path" icon="arrow" onPress={() => go("/path", "My Path", { page: true })} style={{ marginTop: 12 }} />
         </View>
       )}
+
+      <Modal visible={!!stop} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setStop(null)}>
+        {stop && <PlanStepSheet stop={stop} onClose={() => setStop(null)} />}
+      </Modal>
 
       <Modal visible={!!moment} transparent animationType="fade" onRequestClose={() => setMoment("")}>
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center", padding: 24 }}>
