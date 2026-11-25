@@ -45,7 +45,7 @@ import * as signals from "./jobs/signals";
 import { acceptHtml } from "@shared/acceptEmail";
 import { recordError } from "./platform/admin";
 import { careersFor, futureFor, occupationDetails, officialFor } from "./jobs/future";
-import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase } from "./platform/auth";
+import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase, appReturnPage } from "./platform/auth";
 import { aiExtractPosting, CLOSED_SIGNALS, docxPreviewHtml, fetchPublic, fileToText, htmlToText, norm, pdfStyle } from "./resume/parse";
 import {
   aiParseResume, chooseReading, extractSkills, skillsPosition, graduationOf, gpaOf, majorsOf, minorsOf, preCollegeIds, normalizeResumeText, parseQuality, primaryEducation, resumeToText, rulesParse, schoolName,
@@ -991,6 +991,13 @@ export async function registerRoutes(_server: Server, app: Express) {
     }
   });
 
+  // The phone app's Google/LinkedIn sign-in lands here and is handed to the app (see appReturnPage).
+  app.get("/api/auth/app-return", (req, res) => {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'");
+    res.send(appReturnPage(req.query as Record<string, unknown>));
+  });
   // Email sign-in with a 6-digit code Remy sends itself: works on any device (a link only works in the browser that
   // asked for it) and isn't held to Supabase's shared hourly email limit. The code proves the student owns the email,
   // so it opens the account already using that email (an earlier link or Google sign-in) or creates one.
