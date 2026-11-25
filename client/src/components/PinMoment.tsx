@@ -5,6 +5,7 @@ import { TIER_NAME, newPins, pinsSeen, type PinState } from "@shared/pins";
 import { useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { Modal, Remy } from "./common";
+import { tourOn } from "./Tour";
 import { PinArt } from "../pages/Rewards";
 import type { Workspace } from "@shared/types";
 
@@ -14,11 +15,13 @@ export function PinMoment() {
   const fresh = ws ? newPins(ws) : [];
   const first = !!ws && !ws.game?.pins;
   const sig = fresh.map((p) => p.id + p.tier).join(",") + (first ? "+first" : "");
+  // Never on top of the tour (tester, Nov 25): a pin earned mid-tour waits, unseen, until the tour ends.
+  const touring = !!ws && tourOn(ws);
   useEffect(() => {
-    if (!ws || (!fresh.length && !first)) return;
+    if (!ws || touring || (!fresh.length && !first)) return;
     save("game", { ...(ws.game || { weeks: {} }), pins: { ...(ws.game?.pins || {}), ...pinsSeen(ws) } }).catch(() => {});
     if (!first) setShown(fresh);
-  }, [sig]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sig, touring]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!shown.length) return null;
   // A first interview or first offer is the big one: its own celebration, ahead of any other new pins.
   const big = shown.find((x) => x.id === "offer") || shown.find((x) => x.id === "interview");

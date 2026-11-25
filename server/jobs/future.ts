@@ -79,7 +79,12 @@ export function futureFor(ws: Workspace, browse = ""): { source: string; allJobs
 export type CareerOptions = { field: string; jobs: FutureOcc[] }[];
 const fieldsIn = (text: string) => FIELD_SEARCH.filter((_, k) => FIELD_TITLES[k][0].test(text));
 export function careersFor(ws: Workspace, browse = ""): CareerOptions {
-  const fields = fieldsIn(browse || [ws.profile.major, ws.profile.minors, ws.profile.targetRoles, ws.profile.interests].join(" ")).slice(0, 4);
+  // The major's own field first (tester, Nov 25: "aerospace" in a mechanical engineer's goals also matched Aviation,
+  // and "What's the job?" then asked about flight attendants). Stable sort keeps the rest in order.
+  const major = browse ? "" : ws.profile.major || "";
+  const fields = fieldsIn(browse || [ws.profile.major, ws.profile.minors, ws.profile.targetRoles, ws.profile.interests].join(" "))
+    .map((f) => ({ f, mine: major && FIELD_TITLES[FIELD_SEARCH.indexOf(f)][0].test(major) ? 1 : 0 }))
+    .sort((a, b) => b.mine - a.mine).map(({ f }) => f).slice(0, 4);
   return fields.map((field) => {
     const prefixes = FIELD_SOC[field] || [];
     const occs = DATA.occupations.filter((o) => (o.emp ?? 0) >= 5 && o.open != null && prefixes.some((p) => o.soc.startsWith(p)));

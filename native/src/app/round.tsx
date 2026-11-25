@@ -35,6 +35,8 @@ export default function Round() {
   const [log, setLog] = useState<string[]>([]);
   const [before] = useState(() => (ws ? dailyStreak(streakDays(ws)).days : 0));
   const [already] = useState(() => !!ws && CARDS.every((k) => stateOf(ws).days?.[today]?.includes(k)));
+  // Reopened mid-round (tester, Nov 25): pick up at the first card not finished today.
+  const [doneAtStart] = useState<string[]>(() => (ws && stateOf(ws).days?.[today]) || []);
   const [careers, setCareers] = useState<{ jobs: Occ[] }[] | null>(null);
   const [future, setFuture] = useState<Future | null>(null);
   const [pool, setPool] = useState<Job[] | null>(null);
@@ -51,7 +53,7 @@ export default function Round() {
       .sort((a, b) => (fits[b.id]?.score || 0) - (fits[a.id]?.score || 0)).slice(0, 4));
   }, [loading, ws, jobs]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!ws) return null;
-  const cards: DailyCard[] = pool?.length ? ["openings", "role", "forecast"] : ["role", "forecast"];
+  const cards = (pool?.length ? ["openings", "role", "forecast"] as DailyCard[] : ["role", "forecast"] as DailyCard[]).filter((k) => !doneAtStart.includes(k));
   const finish = async (card: DailyCard, said: string) => {
     setLog((l) => [...l, said]);
     try { setWs(await api<Workspace>("PUT", "/api/ws/game", { value: withCard(stateOf(ws), card, today) })); } catch { /* the round still moves on */ }
@@ -138,7 +140,8 @@ function RoleCard({ careers, onDone }: { careers: { jobs: Occ[] }[]; onDone: (sa
   const { ws, setWs } = useSession();
   const { c } = useTheme();
   const known = new Set((stateOf(ws!).known || []).map((k) => k.toLowerCase()));
-  const all = useMemo(() => [...new Map(careers.flatMap((x) => x.jobs).map((o) => [o.soc, o])).values()], [careers]);
+  // The quiz stays in the student's first field (their major's, the server sorts it first) when it has four jobs or more.
+  const all = useMemo(() => [...new Map(((careers[0]?.jobs.length ?? 0) >= 4 ? careers.slice(0, 1) : careers).flatMap((x) => x.jobs).map((o) => [o.soc, o])).values()], [careers]);
   // New jobs first, starting at the day's pick; a job with no duties on file is skipped for the next one.
   const [order] = useState(() => { const fresh = all.filter((o) => !known.has(o.title.toLowerCase())); const list = fresh.length ? fresh : all; const k = seedOf(dayKey()) % Math.max(1, list.length); return [...list.slice(k), ...list.slice(0, k)]; });
   const [tries, setTries] = useState(0);

@@ -196,6 +196,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const saveSeq = useRef(0);
   const savingNow = useRef(0);
   const [updated, setUpdated] = useState(false);
+  const dismissed = useRef<string | undefined>(undefined); // the newer build the bar already told them about
 
   const refresh = useCallback(async () => {
     const c = await api<AppConfig>("GET", "/api/config");
@@ -232,7 +233,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     lastLoad.current = Date.now();
     const c = await api<AppConfig>("GET", "/api/config").catch(() => null);
     if (c) {
-      if (build.current && c.build && c.build !== build.current) setUpdated(true);
+      if (build.current && c.build && c.build !== build.current && c.build !== dismissed.current) { dismissed.current = c.build; setUpdated(true); }
       setConfig((prev) => (prev && JSON.stringify(prev) === JSON.stringify(c) ? prev : c));
     }
     const m = await api<{ me: Me | null; workspace: Workspace | null }>("GET", "/api/me").catch(() => null);
@@ -349,6 +350,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       {updated && (
         <div className="save-status update-bar" role="status" data-testid="update-bar">
           Remy was updated. <button onClick={() => location.reload()} data-testid="button-reload">Reload</button>
+          {/* Tester, Nov 25: it wouldn't go away. "Later" hides it until the next update. */}
+          <button onClick={() => setUpdated(false)} data-testid="button-reload-later">Later</button>
         </div>
       )}
       <div className="toast-wrap" aria-live="polite">
