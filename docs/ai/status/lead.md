@@ -5,6 +5,8 @@ Area: the website (`client/`, `server/`, `shared/`, `docs/`), releases, `docs/ai
 ## Working on now
 One file per piece of work in [`lead/`](lead/) (see [README.md](README.md)), so parallel lead threads never edit the same lines.
 
+- Reusable full-body Remy animation rig (Nov 24, marketing only, not in the app): `RemyRig.tsx` + CSS in the shared project folder `remy-rig/` (poses idle, walk, run, push, wave, sip, read, cheer; built on the #360 office body). Use it for any Remy video or animation instead of drawing a new fox; the Remy's World thread has a static port with `sit` and `sleep`. The Big Upgrade launch video v4 uses it.
+
 ## Files and folders I touch
 - Everything outside `native/`. Several Claude threads work in parallel; their open PRs are the live list.
 
