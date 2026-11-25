@@ -39,26 +39,35 @@ export function useVoice(partial: (t: string) => void, done: (t: string) => void
 export const spoken = (md: string) => md.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/[*_`#>]/g, "").replace(/^\s*[•-]\s*/gm, "").replace(/\s+/g, " ").trim();
 
 type Events = { onStart?: () => void; onEnd?: () => void; onError?: (why: string) => void };
-// One shared player. Phones only let audio play if it starts on a tap, and Remy's voice arrives a moment after it,
-// so the first tap anywhere plays a split second of silence on this player; after that it may play later on its own.
-const player = typeof Audio !== "undefined" ? new Audio() : null;
-const SILENT = "data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA//NwwAAAAAAAAAAAAEluZm8AAAAPAAAABgAAAykAWlpaWlpaWlpaWlpaWlpaWnt7e3t7e3t7e3t7e3t7e3t7nJycnJycnJycnJycnJycnL29vb29vb29vb29vb29vb293t7e3t7e3t7e3t7e3t7e3t7/////////////////////AAAAAExhdmM2MC4zMQAAAAAAAAAAAAAAACQCowAAAAAAAAMpso+sIAAAAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//NCxKMAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//NAxKQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVX/80LEowAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVU=";
-let unlocked = false;
+// Played through Web Audio, not an <audio> element: iPhones (Safari and the app's web view) refused the MP3 as a blob
+// source ("no supported source"). Phones also only allow sound that starts on a tap, and Remy's voice arrives a moment
+// after it, so the first tap anywhere wakes the sound engine; after that he may speak on his own (a chat reply).
+let ctx: AudioContext | null = null;
 function unlock() {
-  if (unlocked || !player || !player.paused) return;
-  player.src = SILENT;
-  player.play().then(() => { unlocked = true; }, () => {});
+  try {
+    const AC = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AC) return;
+    // Safari 17+: play like a media app, so the silent switch doesn't mute Remy.
+    const session = (navigator as any).audioSession;
+    if (session && session.type !== "playback") session.type = "playback";
+    ctx ??= new AC();
+    if (ctx.state !== "running") {
+      ctx.resume().catch(() => {});
+      const s = ctx.createBufferSource(); s.buffer = ctx.createBuffer(1, 1, 22050); s.connect(ctx.destination); s.start(0);
+    }
+  } catch {}
 }
 if (typeof document !== "undefined") for (const e of ["pointerdown", "touchend", "keydown"]) document.addEventListener(e, unlock, { capture: true, passive: true });
 
 let turn = 0;
 let current: Events | null = null;
-let url = "";
+let source: AudioBufferSourceNode | null = null;
 
 /** Stops whatever Remy is saying. */
 export function hush() {
   turn++;
-  player?.pause();
+  try { source?.stop(); } catch {}
+  source = null;
   const c = current; current = null; c?.onEnd?.();
 }
 
@@ -68,24 +77,28 @@ export async function say(text: string, ev: Events = {}) {
   unlock(); // a "Hear it" tap counts as the tap
   const mine = turn;
   if (!text) return;
+  let got = "";
   try {
-    if (!player) throw new Error("no audio");
+    if (!ctx) throw new Error("This browser can't play sound.");
     const { api } = await import("./store"); // lazy: server tests import this file, and store.tsx needs a window
     const mp3 = await api<Blob>("POST", "/api/voice", { text });
+    got = ` (${mp3.type || "no type"}, ${mp3.size} bytes)`;
+    const audio = await ctx.decodeAudioData(await mp3.arrayBuffer());
     if (mine !== turn) return; // stopped, or something newer started, while it loaded
-    if (url) URL.revokeObjectURL(url);
-    player.src = url = URL.createObjectURL(mp3);
-    player.onended = () => { if (mine === turn) { current = null; ev.onEnd?.(); } };
-    current = ev;
-    await player.play();
+    if (ctx.state !== "running") await ctx.resume();
+    const s = ctx.createBufferSource();
+    s.buffer = audio; s.connect(ctx.destination);
+    s.onended = () => { if (source === s) { source = null; current = null; ev.onEnd?.(); } };
+    source = s; current = ev;
+    s.start(0);
     ev.onStart?.();
-    return;
   } catch (e) {
     if (mine !== turn) return;
     current = null;
     // No robot fallback (Dilan, Nov 25): say why it stayed quiet, and log it for the owners' Errors page.
     ev.onError?.((e as Error)?.name || "voice");
-    import("../components/ErrorBoundary").then((m) => m.reportClientError("voice", e)).catch(() => {});
+    const err = new Error(`${(e as Error)?.message || e}${got}${ctx ? ` [audio ${ctx.state}]` : ""}`);
+    import("../components/ErrorBoundary").then((m) => m.reportClientError("voice", err)).catch(() => {});
   }
 }
 

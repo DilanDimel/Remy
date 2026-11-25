@@ -3894,3 +3894,16 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 .pf-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); min-width: 0; }
 .pf-row .grow { display: grid; gap: 2px; min-width: 0; }
 .pf-row b { font-weight: 500; overflow-wrap: anywhere; }
+/* Phones (Dilan, Nov 25 review): no dead space. Pages end just above the tab bar (it was ~250px of empty paper),
+   sections sit closer together, and nothing slides sideways. */
+@media (max-width: 760px) {
+  .page { padding-bottom: 16px; gap: 14px; }
+  #main { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 640px) {
+  .rw .tabs .tab { white-space: normal; flex-shrink: 1; }
+  .ps-side-seg { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); overflow: visible; }
+  .ps-side-seg button { padding: 6px 2px; font-size: var(--text-xs); flex-direction: column; gap: 0; line-height: 1.2; min-width: 0; }
+}
+/* Privacy & terms: "Privacy policy" / "Terms of use" read as quiet part labels, not a stray orange word (Nov 25). */
+.doc-body > h2.eyebrow { margin: 6px 0 -6px; color: var(--muted-text); font-size: var(--text-xs); letter-spacing: .08em; text-transform: uppercase; }
