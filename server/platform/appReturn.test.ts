@@ -9,4 +9,5 @@ test("appReturnPage hands only the code or error to remy://auth, escaped", () =>
   const bad = appReturnPage({ error: "access_denied", error_description: 'No "way" <b>' });
   assert.match(bad, /remy:\/\/auth\?error=access_denied&amp;error_description=No\+%22way%22\+%3Cb%3E/);
   assert.doesNotMatch(bad, /<b>/);
+  assert.match(appReturnPage({ code: "c1" }, true), /href="intent:\/\/auth\?code=c1#Intent;scheme=remy;package=org\.remyai\.app;end"/);
 });

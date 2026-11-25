@@ -137,13 +137,14 @@ export async function verifySupabase(accessToken: string): Promise<SupabaseUser>
  *  one-time code to the app on remy://auth. Android's Chrome won't open an app link at the end of a long sign-in
  *  (after a phone prompt, say) unless the person taps something, so there's a button as well as the automatic try.
  *  Only code and error pass through; the code is useless without the secret the app kept (PKCE). */
-export function appReturnPage(query: Record<string, unknown>): string {
+export function appReturnPage(query: Record<string, unknown>, android = false): string {
   const keep = new URLSearchParams();
   for (const k of ["code", "error", "error_description"]) if (typeof query[k] === "string") keep.set(k, (query[k] as string).slice(0, 500));
-  const target = `remy://auth?${keep}`;
+  // Android's Chrome ignores a plain remy:// link here; its intent: form names the app's package and always opens it.
+  const target = android ? `intent://auth?${keep}#Intent;scheme=remy;package=org.remyai.app;end` : `remy://auth?${keep}`;
   const href = target.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Back to Remy</title>
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Finish signing in</title>
 <style>body{font-family:system-ui,sans-serif;background:#161616;color:#fff;display:flex;min-height:100vh;margin:0;align-items:center;justify-content:center;text-align:center;padding:24px;box-sizing:border-box}a{display:inline-block;margin-top:16px;background:#e86a2a;color:#fff;font-weight:700;text-decoration:none;padding:14px 28px;border-radius:12px;font-size:17px}p{color:#bbb}</style></head>
-<body><main><h1>You're signed in</h1><p>Tap below if the Remy app didn't open by itself.</p><a id="open" href="${href}" data-testid="link-open-app">Open the Remy app</a></main>
+<body><main><h1>Almost done</h1><p>Tap Continue to finish signing in.</p><a id="open" href="${href}" data-testid="link-open-app">Continue</a></main>
 <script>location.replace(document.getElementById("open").href)</script></body></html>`;
 }
