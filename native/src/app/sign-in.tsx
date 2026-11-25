@@ -18,6 +18,8 @@ import type { Me, Workspace } from "@shared/types";
 
 const WAIT = 30;
 type Sso = "google" | "linkedin_oidc";
+// Expo Go (testing) can't receive remy:// links, so its sign-in collects the result from the server instead.
+const expoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 const SSO: { id: Sso; label: string }[] = [{ id: "google", label: "Google" }, { id: "linkedin_oidc", label: "LinkedIn" }];
 
 const GoogleMark = () => (
@@ -74,12 +76,31 @@ export default function SignIn() {
     try {
       // Supabase returns to a remyai.org page that opens remy://auth: Android's Chrome won't follow a redirect
       // straight into the app at the end of a long sign-in (after a phone prompt), but it will from a tap there.
+      // Expo Go can't receive remy://, so there the page leaves the code with our server under a random key and
+      // the app collects it (the code is useless without this app's verifier).
       const back = Linking.createURL("auth");
       const verifier = newVerifier();
-      const via = `${API_BASE || "https://remyai.org"}/api/auth/app-return`;
-      const r = await WebBrowser.openAuthSessionAsync(`${sb.url}/auth/v1/authorize?provider=${p}&redirect_to=${encodeURIComponent(via)}&code_challenge=${verifier}&code_challenge_method=plain`, back);
-      if (r.type === "success") {
-        const { code, error } = parseReturn(r.url);
+      const key = expoGo ? newVerifier().replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40) : "";
+      const via = `${API_BASE || "https://remyai.org"}/api/auth/app-return${key ? `?state=${key}` : ""}`;
+      const session = WebBrowser.openAuthSessionAsync(`${sb.url}/auth/v1/authorize?provider=${p}&redirect_to=${encodeURIComponent(via)}&code_challenge=${verifier}&code_challenge_method=plain`, back);
+      let backUrl = "";
+      if (key) {
+        let closed = false;
+        session.finally(() => { closed = true; }).catch(() => {});
+        // Checks every second while the page is open, and a few more times once they're back in the app.
+        for (let i = 0, after = 0; i < 300 && after < 5 && !backUrl; i++) {
+          await new Promise((ok) => setTimeout(ok, 1000));
+          const h = await api<{ result: string | null }>("GET", `/api/auth/app-handoff?state=${key}` as `/api/${string}`).catch(() => ({ result: null }));
+          if (h.result) backUrl = `remy://auth?${h.result}`;
+          else if (closed) after++;
+        }
+        if (backUrl) Promise.resolve().then(() => WebBrowser.dismissBrowser()).catch(() => {});
+      } else {
+        const r = await session;
+        if (r.type === "success") backUrl = r.url;
+      }
+      if (backUrl) {
+        const { code, error } = parseReturn(backUrl);
         if (!code) throw new Error(error ? `Sign-in didn't finish: ${error}` : "Sign-in didn't finish. Please try again.");
         // The code is only good with the verifier this app kept, so it's swapped for the token here, not in the link.
         const t = await fetch(`${sb.url}/auth/v1/token?grant_type=pkce`, { method: "POST", headers: { apikey: sb.anonKey, "Content-Type": "application/json" }, body: JSON.stringify({ auth_code: code, code_verifier: verifier }) });
@@ -91,8 +112,7 @@ export default function SignIn() {
     } catch (e: any) { setErr(e.message); }
     setSsoBusy("");
   };
-  // Expo Go can't receive the remy:// return link, so Google and LinkedIn only show in the real app.
-  const ssoOn = Constants.executionEnvironment === ExecutionEnvironment.StoreClient ? [] : SSO.filter((s) => config?.supabase?.providers[s.id]);
+  const ssoOn = SSO.filter((s) => config?.supabase?.providers[s.id]);
   const ssoButtons = !!ssoOn.length && <>
     <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 4 }}>
       <View style={{ flex: 1, height: 1, backgroundColor: c.line }} /><T kind="small">or</T><View style={{ flex: 1, height: 1, backgroundColor: c.line }} />
