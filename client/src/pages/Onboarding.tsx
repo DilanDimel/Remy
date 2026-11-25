@@ -15,6 +15,7 @@ import { ConflictChoice } from "../components/ConflictChoice";
 import { ResumeBuilder } from "../components/ResumeBuilder";
 import { LinkedInGuide } from "../components/LinkedInGuide";
 import { useGoogleCalendar } from "../components/GoogleCalendar";
+import { useIsMobile } from "../hooks/use-mobile";
 import { LinkedInMark } from "./Welcome";
 import { CareerTime } from "../components/CareerTime";
 import { firstName } from "@shared/names";
@@ -322,6 +323,7 @@ function ResumeStep({ onNext, onBusy }: { onNext: () => void; onBusy?: (busy: bo
   const [page, setPage] = useState<"" | "build" | "linkedin">("");
   const linkedin = w.imports.find((i) => /linkedin/i.test(i.kind));
   const gc = useGoogleCalendar();
+  const phone = useIsMobile();
   if (page === "build" && !w.resume) return <ResumeBuilder onDone={onNext} onCancel={() => setPage("")} />;
   if (page === "linkedin") return <LinkedInGuide onDone={() => setPage("")} />;
   // Handshake is used by most colleges; the TCU account and Stellic only exist at TCU.
@@ -356,8 +358,10 @@ function ResumeStep({ onNext, onBusy }: { onNext: () => void; onBusy?: (busy: bo
         )}
       </div>
 
+      {/* Phones (Dilan, Nov 25): the optional accounts fold into one row so the resume stays the one thing on screen. */}
+      <details className="conn-more" open={!phone}>
+      <summary className="eyebrow" data-testid="toggle-other-accounts">Other accounts · optional<span className="conn-more-hint">LinkedIn, school email, transcript</span></summary>
       <div className="stack-sm">
-        <span className="eyebrow">Other accounts · optional</span>
         <div className="conn-row">
           <span className="conn-ico linkedin" aria-hidden><LinkedInMark /></span>
           <div className="grow"><b>LinkedIn</b><span>{linkedin ? `${linkedin.fileName} · ${linkedin.factsAdded} fact${linkedin.factsAdded === 1 ? "" : "s"} to review on the next step` : "Adds experience that isn't on your resume"}</span></div>
@@ -396,6 +400,7 @@ function ResumeStep({ onNext, onBusy }: { onNext: () => void; onBusy?: (busy: bo
           </>
         ) : <p className="xs muted conn-soon" data-testid="conn-soon">Coming soon: {[...(gc.available ? [] : ["Google Calendar"]), ...soon.map(([, title]) => title)].join(", ")}.</p>}
       </div>
+      </details>
       <p className="xs muted">Remy never asks for your passwords. <a className="auth-link" href="/policies">How Remy handles your information</a></p>
       <div className="row-between">
         <span className="xs muted">{!w.resume && "Add your resume, or build one, to continue."}</span>
@@ -417,8 +422,11 @@ export const PROFILE_FIELDS: [keyof Profile, string, string?][] = [
 // Onboarding asks roles, regions and opportunity types on its own preferences step, so its review step leaves them out.
 const PREF_KEYS: (keyof Profile)[] = ["classYear", "graduation", "targetRoles", "regions", "opportunityTypes", "timeline", "relocation", "workAuth", "dreamEmployers", "avoid", "constraints", "worries"];
 /** draft: when given, the parent saves unsaved edits itself (setup's "Looks right"), so there's no separate Save button. */
-export function ProfileForm({ onSaved, hidePrefs, draft }: { onSaved?: () => void; hidePrefs?: boolean; draft?: { current: Profile | null } }) {
+export function ProfileForm({ onSaved, hidePrefs, draft, compact }: { onSaved?: () => void; hidePrefs?: boolean; draft?: { current: Profile | null }; compact?: boolean }) {
   const [typing, setTyping] = useState(""); // name notes wait until the student leaves the field
+  // compact (setup on phones): filled answers show as short rows; Edit opens that one box.
+  const [editing, setEditing] = useState<string[]>([]);
+  const asRow = (k: string, v: string, warn = "") => compact && !!v.trim() && !warn && !editing.includes(k);
   const { ws, save, run } = useStore();
   const [p, setP] = useState<Profile>(ws!.profile);
   // When the saved profile changes underneath (a conflict answered on the same page, a save elsewhere), take the new
@@ -438,9 +446,13 @@ export function ProfileForm({ onSaved, hidePrefs, draft }: { onSaved?: () => voi
   return (
     <div className="stack">
       <div className="grid-2">
-        {PROFILE_FIELDS.filter(([k]) => !(hidePrefs && PREF_KEYS.includes(k))).map(([k, label, ph]) => (
+        {PROFILE_FIELDS.filter(([k]) => !(hidePrefs && PREF_KEYS.includes(k))).map(([k, label0, ph]) => {
+          const label = p.path && p.path !== "four-year" ? ({ major: "Program, trade or field", classYear: "Year (if in school)", graduation: "Expected finish date" } as Record<string, string>)[k] || label0 : label0;
+          const v = String(p[k] ?? "");
+          if (asRow(k, v, (k === "name" || k === "preferredName") ? nameConcern(v, k === "preferredName") || "" : "")) return <ProfileRow key={k} k={k} label={label} value={k === "path" ? PATHS.find(([x]) => x === v)?.[1] || v : v} onEdit={() => setEditing([...editing, k])} />;
+          return (
           <label key={k} className="field">
-            <span>{p.path && p.path !== "four-year" ? ({ major: "Program, trade or field", classYear: "Year (if in school)", graduation: "Expected finish date" } as Record<string, string>)[k] || label : label}</span>
+            <span>{label}</span>
             {k === "path" ? (
               <select className="select" value={p.path || ""} onChange={(e) => setP({ ...p, path: e.target.value })} data-testid="select-path">
                 <option value="">Choose…</option>
@@ -461,13 +473,24 @@ export function ProfileForm({ onSaved, hidePrefs, draft }: { onSaved?: () => voi
             )}
             {(k === "name" || k === "preferredName") && typing !== k && nameConcern(p[k] || "", k === "preferredName") && <span className="xs field-warn" role="note" data-testid={`warn-profile-${k}`}>{nameConcern(p[k] || "", k === "preferredName")}</span>}
           </label>
-        ))}
+          );
+        })}
       </div>
-      <label className="field"><span>Goals</span><textarea className="textarea" maxLength={600} value={p.goals} onChange={(e) => setP({ ...p, goals: e.target.value })} placeholder="What would a great next year look like?" data-testid="input-profile-goals" /></label>
+      {asRow("goals", p.goals || "") ? <ProfileRow k="goals" label="Goals" value={p.goals} onEdit={() => setEditing([...editing, "goals"])} /> :
+      <label className="field"><span>Goals</span><textarea className="textarea" maxLength={600} value={p.goals} onChange={(e) => setP({ ...p, goals: e.target.value })} placeholder="What would a great next year look like?" data-testid="input-profile-goals" /></label>}
       {!draft && (<div className="row">
         <button className="btn btn-primary btn-sm" disabled={!dirty} onClick={async () => { const r = await run(() => save("profile", p), "Profile saved"); if (r) onSaved?.(); }} data-testid="button-save-profile">Save profile</button>
         {dirty && <span className="xs muted">Unsaved changes</span>}
       </div>)}
+    </div>
+  );
+}
+
+function ProfileRow({ k, label, value, onEdit }: { k: string; label: string; value: string; onEdit: () => void }) {
+  return (
+    <div className="pf-row">
+      <span className="grow"><span className="xs muted">{label}</span><b>{value}</b></span>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={onEdit} aria-label={`Edit ${label}`} data-testid={`button-edit-profile-${k}`}>Edit</button>
     </div>
   );
 }
@@ -526,6 +549,10 @@ function Preferences({ onBack }: { onBack: () => void }) {
     const picked = splitFieldList(p.targetRoles);
     return FIELD_GROUPS.filter(([, opts]) => opts.some((o) => picked.includes(o) || FIELD_MAJORS[o]?.test(about))).map(([g]) => g);
   });
+  // Phones: one search box finds a field across every group, so nobody scrolls through all of them.
+  const phone = useIsMobile();
+  const [fieldQ, setFieldQ] = useState("");
+  const fieldHits = fieldQ.trim() ? FIELD_GROUPS.flatMap(([, o]) => o).filter((o, i, all) => all.indexOf(o) === i && o.toLowerCase().includes(fieldQ.trim().toLowerCase())) : [];
   const toggleGroup = (g: string) => setOpenGroups((o) => (o.includes(g) ? o.filter((x) => x !== g) : [...o, g]));
   const [unsure, setUnsure] = useState(!!ws!.onboarding.exploring);
   const [page, setPage] = useState(0);
@@ -595,6 +622,9 @@ function Preferences({ onBack }: { onBack: () => void }) {
               <button type="button" className="pref-chip pref-unsure" aria-pressed={unsure} onClick={() => setUnsure(!unsure)} data-testid="pref-unsure">I'm not sure yet</button>
               {unsure && <span className="xs muted fade-up">No problem. Pick any that sound interesting, or none. Remy will search by your major and show you where it leads on My Path.</span>}
             </div>}
+            {phone && <input className="input" type="text" enterKeyHint="search" value={fieldQ} onChange={(e) => setFieldQ(e.target.value)} placeholder="Search fields, e.g. nursing" aria-label="Search fields" data-testid="input-pref-field-search" />}
+            {fieldQ.trim() ? (fieldHits.length ? <Chips options={fieldHits} value={fields} onChange={setFields} testid="pref-field" />
+              : <span className="xs muted">No field by that name. Type it in the box below and Remy searches for it.</span>) :
             <div className="pref-groups">
               {FIELD_GROUPS.map(([group, opts]) => {
                 const open = openGroups.includes(group);
@@ -610,7 +640,7 @@ function Preferences({ onBack }: { onBack: () => void }) {
                   </div>
                 );
               })}
-            </div>
+            </div>}
             {/* Owners: "not sure" sits beside the free-text box, saving a row (Dilan, Nov 23: no scrolling). */}
             <div className={owner ? "pref-inline" : undefined} style={owner ? undefined : { display: "contents" }}>
               <input className="input pref-grow" value={otherField} onChange={(e) => setOtherField(e.target.value)} placeholder="Something more specific?" aria-label="Other fields" data-testid="input-pref-field" />
@@ -668,6 +698,7 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
   const setFact = (id: string, patch: any) => save("memory", w.memory.map((m) => (m.id === id ? { ...m, ...patch } : m)));
   const removeFact = (id: string) => save("memory", w.memory.filter((m) => m.id !== id));
   const [skipVerify, setSkipVerify] = useState(false);
+  const phone = useIsMobile();
   // Value first: start the search from the resume alone, so real openings show before any more questions.
   const { jobs, fits } = useJobs();
   const [looking, setLooking] = useState(false);
@@ -689,7 +720,7 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
         <h2>Is this right?</h2>
         <p className="small muted">Correct anything that's off. Remy only uses what you confirm here.</p>
       </div>
-      <ProfileForm hidePrefs draft={profileDraft} />
+      <ProfileForm hidePrefs draft={profileDraft} compact={phone} />
       {atAlumniSchool(w) && !skipVerify && <SchoolVerify onSkip={() => setSkipVerify(true)} />}
       {w.resume && (
         <div className="stack-sm">
