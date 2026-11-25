@@ -7,13 +7,15 @@ import type { Job, JobFit } from "@shared/types";
 import { shortTitle } from "@shared/org";
 import { Button, Chip, FitBadge, Icon, Loading, Logo, Pill, Screen, Sect, T, success, tap } from "@/components/ui";
 import { useJobs } from "@/lib/jobs";
+import { Tracker } from "../progress";
 import { go } from "@/lib/nav";
 import { deadlineChip, jobsLine, kindLabel, passedJobs, shortPlace, upcomingEvents, visibleJobs } from "@/lib/next";
 import { useRefreshAll, useSession } from "@/lib/session";
 import { BUTTON_RADIUS, aboveTabs, font, useTheme } from "@/lib/theme";
 import { radius } from "@/lib/tokens";
 
-type Filter = "new" | "kept" | "passed" | "events";
+// "kept" shows as Saved and "applied" is the applications board, like the website's For you / Saved / Applied (#427).
+type Filter = "new" | "kept" | "applied" | "passed" | "events";
 // Cards drawn at a time; "Show more" adds this many again (the list used to stop at 40 with no way to see the rest).
 const PAGE = 40;
 
@@ -62,7 +64,7 @@ export default function Jobs() {
   useEffect(() => setLimit(PAGE), [filter]);
   // Opened from Today: on the tab that has the opening (a kept one is under Kept, not For you).
   const { show, at } = useLocalSearchParams<{ show?: string; at?: string }>();
-  useEffect(() => { if (show === "new" || show === "kept" || show === "passed" || show === "events") setFilter(show); }, [show, at]);
+  useEffect(() => { if (show === "new" || show === "kept" || show === "applied" || show === "passed" || show === "events") setFilter(show); }, [show, at]);
   const [err, setErr] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const all = useMemo(() => (ws ? visibleJobs(ws, jobs, fits) : []), [ws, jobs, fits]);
@@ -98,8 +100,8 @@ export default function Jobs() {
   const toast = last && (
     <View style={{ position: "absolute", left: 16, right: 84, bottom: aboveTabs(insets.bottom), flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.ink, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 16 }} testID="toast-undo">
       {/* Handoff 09's words: "Kept. See kept" and "Passed. Undo" (Undo works after Keep too). */}
-      <Text style={{ flex: 1, fontFamily: font.semi, fontSize: 14.5, color: c.onInk }} numberOfLines={1}>{last.kept ? "Kept." : "Passed."}</Text>
-      {last.kept && <Pressable testID="button-see-kept" hitSlop={10} onPress={() => { tap(); setFilter("kept"); }}><Text style={{ fontFamily: font.bold, fontSize: 14.5, color: c.onInk }}>See kept</Text></Pressable>}
+      <Text style={{ flex: 1, fontFamily: font.semi, fontSize: 14.5, color: c.onInk }} numberOfLines={1}>{last.kept ? "Saved." : "Passed."}</Text>
+      {last.kept && <Pressable testID="button-see-kept" hitSlop={10} onPress={() => { tap(); setFilter("kept"); }}><Text style={{ fontFamily: font.bold, fontSize: 14.5, color: c.onInk }}>See saved</Text></Pressable>}
       <Pressable testID="button-undo-decision" hitSlop={10} onPress={takeBack}><Text style={{ fontFamily: font.bold, fontSize: 14.5, color: c.fox }}>Undo</Text></Pressable>
     </View>
   );
@@ -119,7 +121,8 @@ export default function Jobs() {
   const filters = (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 14, marginHorizontal: -16 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}>
       <Pill testID="filter-new" label={`For you · ${fresh.length}`} on={filter === "new"} onPress={() => setFilter("new")} />
-      <Pill testID="filter-kept" label={`Kept · ${kept.length}`} on={filter === "kept"} onPress={() => setFilter("kept")} />
+      <Pill testID="filter-kept" label={`Saved · ${kept.length}`} on={filter === "kept"} onPress={() => setFilter("kept")} />
+      <Pill testID="filter-applied" label={`Applied · ${ws.tracker.length}`} on={filter === "applied"} onPress={() => setFilter("applied")} />
       <Pill testID="filter-passed" label={`Passed · ${passed.length}`} on={filter === "passed"} onPress={() => setFilter("passed")} />
       {/* Events and competitions, like the website's Events filter (the app used to drop them). */}
       {events.length > 0 && <Pill testID="filter-events" label={`Events · ${events.length}`} on={filter === "events"} onPress={() => setFilter("events")} />}
@@ -127,9 +130,9 @@ export default function Jobs() {
   );
   const empty = (
     <View style={{ paddingVertical: 50, alignItems: "center", gap: 8 }}>
-      <T kind="h2">{loading ? "Finding openings…" : filter === "kept" ? "Nothing kept yet" : filter === "passed" ? "Nothing passed" : filter === "events" ? "No events right now" : "You're all caught up"}</T>
-      <T kind="muted" style={{ textAlign: "center" }}>{error || (filter === "kept" ? "Keep openings you like and they'll wait here." : filter === "passed" ? "Openings you pass on wait here in case you change your mind." : filter === "events" ? "Career fairs, info sessions and competitions show up here when Remy finds them." : "Remy checks employers' sites every few hours. Pull down to check now.")}</T>
-      {!loading && !error && filter === "new" && kept.length > 0 && <Button testID="button-see-kept" label={`See your ${kept.length} kept`} icon="arrow" onPress={() => setFilter("kept")} style={{ marginTop: 12, alignSelf: "center" }} />}
+      <T kind="h2">{loading ? "Finding openings…" : filter === "kept" ? "Nothing saved yet" : filter === "passed" ? "Nothing passed" : filter === "events" ? "No events right now" : "You're all caught up"}</T>
+      <T kind="muted" style={{ textAlign: "center" }}>{error || (filter === "kept" ? "Keep openings you like and they'll wait here as Saved." : filter === "passed" ? "Openings you pass on wait here in case you change your mind." : filter === "events" ? "Career fairs, info sessions and competitions show up here when Remy finds them." : "Remy checks employers' sites every few hours. Pull down to check now.")}</T>
+      {!loading && !error && filter === "new" && kept.length > 0 && <Button testID="button-see-kept" label={`See your ${kept.length} saved`} icon="arrow" onPress={() => setFilter("kept")} style={{ marginTop: 12, alignSelf: "center" }} />}
     </View>
   );
   const line = filter === "new" ? jobsLine(fresh, fits) : "";
@@ -141,8 +144,8 @@ export default function Jobs() {
       {!!line && <T kind="muted" style={{ marginTop: 4 }}>{line}</T>}
       {filters}
       {!!err && <T kind="small" style={{ color: c.error, marginTop: 8 }}>{err}</T>}
-      {shown.length ? <>
-        <Sect title={filter === "kept" ? "Kept" : filter === "passed" ? "Passed" : filter === "events" ? "Events and competitions" : `${shown.length} for you`} />
+      {filter === "applied" ? <View style={{ marginTop: 8 }}><Tracker ws={ws} /></View> : shown.length ? <>
+        <Sect title={filter === "kept" ? "Saved" : filter === "passed" ? "Passed" : filter === "events" ? "Events and competitions" : `${shown.length} for you`} />
         <View style={{ gap: 12 }}>
           {shown.slice(0, limit).map((j) => {
             const card = (
