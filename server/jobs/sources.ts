@@ -607,7 +607,7 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, e
           id: uid("j"), kind: kindOf(r.title), title: r.title, company: r.company || b.company, location: tidyLocation(r.location) || "Not stated",
           format: /remote/i.test(r.location) ? "Remote" : "", dates: "", deadline: r.deadline || "", deadlineText: r.deadline ? `Closes ${r.deadline}` : "Not stated on the board — check the posting",
           // Filled in only for the openings kept below: reading requirements is the slow part, and the catalog passes thousands.
-          eligibility: "", requirements: [], summary: "",
+          eligibility: [], requirements: [], summary: "",
           applyUrl: r.url, sourceUrl: r.url, sourceName: `${r.company || b.company} careers (${ats[0].toUpperCase() + ats.slice(1)} job board)`,
           label: "Live", checkedAt: new Date().toISOString(), foundAt: new Date().toISOString(), checks: [], origin: "imported", postingText: "",
         };
