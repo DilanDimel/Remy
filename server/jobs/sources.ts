@@ -104,7 +104,7 @@ export function kindOf(title: string): Job["kind"] {
 // Boards that list titles only keep where the full posting is (`more`), as plain data: the shared board cache stores
 // raws as JSON, so a `detail` function never survived it and every student after the first got postings with no text.
 type More = { kind: "workday" | "smartrecruiters" | "oracle" | "eightfold" | "phenom" | "schoolspring" | "taleo"; url: string; seq?: string; teaser?: string };
-export type Raw = { title: string; location: string; url: string; text: string; posted?: string; company?: string; ats?: string; deadline?: string; student?: boolean; nearby?: boolean; more?: More; detail?: () => Promise<{ text: string; location?: string }> };
+export type Raw = { title: string; location: string; url: string; text: string; posted?: string; company?: string; ats?: string; deadline?: string; student?: boolean; nearby?: boolean; more?: More; detail?: () => Promise<{ text: string; location?: string; title?: string }> };
 /** Reads the full posting a title-only board points to. */
 async function readMore(m: More): Promise<{ text: string; location?: string }> {
   switch (m.kind) {
