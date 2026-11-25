@@ -54,7 +54,7 @@ Secrets live in the Render dashboard (environment group `remy-server-env`), neve
 | `DATABASE_URL`, `DB_SCHEMA`, `DB_SSL_CA_FILE` | Postgres connection (schema defaults to `remy`). Unset: PGlite in `OR_DB_PATH` or in memory |
 | `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `WS_CACHE_KEY` | Encrypted workspace cache in a private Cloudflare R2 bucket, kept across deploys (`server/platform/r2.ts`). Unset: memory only |
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Supabase Auth (the publishable key is public by design) |
-| `ELEVENLABS_API_KEY` | Remy's speaking voice (Arthur) for read-aloud, `server/ai/voice.ts`. Lines are cached in memory and R2. Unset: the browser's own voice reads |
+| `ELEVENLABS_API_KEY` | Remy's speaking voice (Arthur) for read-aloud, `server/ai/voice.ts`. Lines are cached in memory and R2. Unset: Remy doesn't read out loud (no robot browser voice) |
 | `OWNER_EMAILS` | Founders' emails; owners see owner view and the Owners' dashboard |
 | `RESEND_SMTP_URL`, `SMTP_URL`, `MAIL_FROM`, `MAIL_REPLY_TO` | Outgoing mail (Resend first, Gmail fallback) |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` | Text messages (optional) |

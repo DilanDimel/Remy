@@ -38,7 +38,7 @@ export function useVoice(partial: (t: string) => void, done: (t: string) => void
 /** Plain words for reading aloud: no markdown, bullets or links. */
 export const spoken = (md: string) => md.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/[*_`#>]/g, "").replace(/^\s*[•-]\s*/gm, "").replace(/\s+/g, " ").trim();
 
-type Events = { onStart?: () => void; onEnd?: () => void; onError?: (browserError?: string) => void };
+type Events = { onStart?: () => void; onEnd?: () => void; onError?: (why: string) => void };
 // One shared player. Phones only let audio play if it starts on a tap, and Remy's voice arrives a moment after it,
 // so the first tap anywhere plays a split second of silence on this player; after that it may play later on its own.
 const player = typeof Audio !== "undefined" ? new Audio() : null;
@@ -55,16 +55,15 @@ let turn = 0;
 let current: Events | null = null;
 let url = "";
 
-/** Stops whatever Remy is saying, in his voice or the browser's. */
+/** Stops whatever Remy is saying. */
 export function hush() {
   turn++;
   player?.pause();
   const c = current; current = null; c?.onEnd?.();
-  window.speechSynthesis?.cancel();
 }
 
-/** Remy says `text` in his own voice (Arthur, from the server). If that isn't available, the browser's voice reads it. */
-export async function say(text: string, ev: Events = {}, rate = 1.05) {
+/** Remy says `text` in his own voice (Arthur, from the server). Nothing else ever speaks for him. */
+export async function say(text: string, ev: Events = {}) {
   hush();
   unlock(); // a "Hear it" tap counts as the tap
   const mine = turn;
@@ -81,19 +80,13 @@ export async function say(text: string, ev: Events = {}, rate = 1.05) {
     await player.play();
     ev.onStart?.();
     return;
-  } catch {
+  } catch (e) {
     if (mine !== turn) return;
     current = null;
+    // No robot fallback (Dilan, Nov 25): say why it stayed quiet, and log it for the owners' Errors page.
+    ev.onError?.((e as Error)?.name || "voice");
+    import("../components/ErrorBoundary").then((m) => m.reportClientError("voice", e)).catch(() => {});
   }
-  // Fallback: the browser's built-in voice.
-  const s = window.speechSynthesis;
-  if (!s) return ev.onError?.("unsupported");
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "en-US"; u.rate = rate;
-  u.onstart = () => ev.onStart?.();
-  u.onend = () => ev.onEnd?.();
-  u.onerror = (e) => { ev.onEnd?.(); if (e.error !== "interrupted" && e.error !== "canceled") ev.onError?.(e.error); };
-  s.speak(u);
 }
 
 export function speak(md: string) {
