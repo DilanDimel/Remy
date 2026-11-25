@@ -1,6 +1,6 @@
-# Catch-up for Julio's AI (written Nov 25, 2026, 11:15 UTC)
+# Catch-up for Julio's AI (written Nov 25, 2026, 11:15 UTC; updated 11:20 UTC)
 
-Your status file was last updated Nov 24, 06:00 UTC (`docs/ai/status/julio.md`). Since then Dilan and the lead AI (Dilan's project Claude) merged about 120 PRs (#345 to #465). Read this first, then run `npm run ai:brief -- --me Julio` as usual, and rewrite `docs/ai/status/julio.md` in your next PR.
+Your status file was last updated Nov 24, 06:00 UTC (`docs/ai/status/julio.md`). Since then Dilan and the lead AI (Dilan's project Claude) merged about 125 PRs (#345 to #468). Read this first, then run `npm run ai:brief -- --me Julio` as usual, and rewrite `docs/ai/status/julio.md` in your next PR.
 
 Short version:
 - **Your interview coach is still in, still locked for students** ("coming soon"). The lead touched two of your files for the microphone and Remy's new voice. Nothing else in your area changed. Details in section 1.
@@ -8,7 +8,7 @@ Short version:
 - **The release rule changed.** Only brand-new features ship owners-only first. Fixes and improvements go straight to students.
 - **New rule: works everywhere.** Every change has to work on the desktop site, the phone site and the phone app, each with its own design.
 - **Lead threads now edit the phone app (`native/`)** too, because Demetre's AI ran out of credits.
-- **Nothing is waiting on you.** One open PR (#464, the lead's, app sign-in in Expo Go), not in your area.
+- **Nothing is waiting on you.** No open PRs right now.
 
 ---
 
@@ -48,6 +48,7 @@ A 1,000-resume test set plus a study of about 4,500 real resumes drove five PRs.
 - **#454:** PDFs that draw bullets as shapes get real bullets; contact details printed in a sidebar are found.
 - **#456:** job matching counts the openings each major really takes as in-field (`server/jobs/fit.ts`, `FIT_RULES_VERSION` 21). Own-field openings wrongly hidden went from 16.6% to 1.4%.
 - **#458 Format check (brand-new, owners only):** `server/resume/format.ts` says when a resume's format hurts it (pages, photo, personal details, columns, tiny text, crowded edges) and offers three clean formats (classic, modern, compact). Routes `GET/POST /api/resume/format`, `GET /api/resume/format/preview`. Website `FormatCheck.tsx`, app `native/src/components/FormatCard.tsx`.
+- **#467 Format check released to students** on the website's Resume page (a straight release; the app card stays owners-only because the app isn't released yet).
 - **#461:** scanned or photo PDFs (under 200 letters of text) go to the AI as the PDF itself, which copies the words; the student still confirms "Does this look like your resume?".
 - **Earlier (Nov 24):** resumes keep their own look after edits, export PDF and Word, and stay one page (#386, #392, #394, #404).
 
@@ -74,7 +75,8 @@ A 1,000-resume test set plus a study of about 4,500 real resumes drove five PRs.
 ### Phone app (`native/`)
 - **Lead threads now edit the app** (Dilan, Nov 25), keeping Demetre's design and structure. Every change is noted in `docs/ai/status/lead/app-fixup.md`.
 - **Native screens added:** Today's round, resume line edits, plan step sheet, Jobs Saved/Applied, Account and Remy's memory, Email updates, Hours, a new first-run and sign-up, "Hear it" with Arthur's voice.
-- **#455, #457, #459, #463 App sign-in:** Google and LinkedIn in the app through Supabase with PKCE. Supabase returns to `https://remyai.org/api/auth/app-return` (`appReturnPage` in `server/platform/auth.ts`), which opens the app. Details: `docs/ai/status/lead/app-sign-in.md`.
+- **#455, #457, #459, #463, #464 App sign-in:** Google and LinkedIn in the app through Supabase with PKCE. Supabase returns to `https://remyai.org/api/auth/app-return` (`appReturnPage` in `server/platform/auth.ts`), which opens the app. In Expo Go the app picks up the code through `GET /api/auth/app-handoff` instead.
+- **#468:** the app's welcome screen links "Privacy & Terms · About" inside the app, Remy moves like on the website homepage (`LiveRemy`), and setup step 1 fits one phone screen. Details: `docs/ai/status/lead/app-sign-in.md`.
 - Still opening the website in a sheet: Interview, Community, profile editing and a few others. **If Interview is released, the app needs its own native Interview screen** (see rule 2 below); that would be yours to plan with the lead.
 - The app is still owners-only (the `app` switch).
 
@@ -103,7 +105,7 @@ A 1,000-resume test set plus a study of about 4,500 real resumes drove five PRs.
 
 ## 5. Open right now
 
-- **Open PRs:** #464 (lead, app sign-in in Expo Go). Not in your area.
+- **Open PRs:** none (checked Nov 25, 11:20 UTC).
 - **Requests for you:** none.
 - **Your claims:** none.
 - **If you want a next step:** update your status file, then pick the first feature with Dilan. The interview coach on phones (phone site and a native app screen) is a natural one once the team wants to release Interview.

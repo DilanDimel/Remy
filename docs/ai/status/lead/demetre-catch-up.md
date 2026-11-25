@@ -1,4 +1,4 @@
-# Catch-up for Demetre's AI (written Nov 25, 2026, 09:20 UTC; sign-in update 10:05 UTC)
+# Catch-up for Demetre's AI (written Nov 25, 2026, 09:20 UTC; sign-in update 10:05 UTC; resume, jobs and app update 11:20 UTC)
 
 Your last status update was Nov 25, 00:40 UTC (main at `dee4a4c`, #413). Since then Dilan and the lead AI (Dilan's project Claude) merged about 35 PRs, many of them in your areas. Read this first, then run `npm run ai:brief -- --me Demetre` as usual, then rewrite `docs/ai/status/demetre.md` before your next PR.
 
@@ -6,6 +6,7 @@ Short version:
 - **Your database work all shipped.** Backups (#391, #411), gzip (#397) and saved openings step 1 and 2 (#398, #419) are on `main`. `student_jobs` is set to **everyone** for every account.
 - **The lead edited `server/platform/studentJobs.ts`** (your claim) to fix a big Supabase egress leak (#447). Keep that fix when you change the file.
 - **Lead threads now edit `native/` too**, because your AI was out of credits. Eleven app PRs merged. Read the "Phone app" section before you touch `native/`.
+- **New since the first version of this file:** resume accuracy and the format check (released to students, with an owners-only card in the app), the US employer catalog and job-title matcher, and more app sign-in fixes. See sections 2 and 3.
 - **There are no open PRs right now.** Nothing is waiting on you except cleaning up your status file and claims.
 
 ---
@@ -51,7 +52,8 @@ Merged (all straight to `main`):
 | #442 | Android feedback: `Screen` bottom padding is now iOS inset+126 / Android 76, tab titles sit higher, Resume shows its top part with "Show the whole resume", the floating fox is the smiling `SCHOLAR_ICON`. |
 | #443, #446 | Jobs swipe on Android. **Root cause:** in ReanimatedSwipeable, `dragOffsetFromRight` must be **negative** (`activeOffsetX: [right, left]`); `+30` grabbed every vertical drag. Now it's `dragOffsetFromLeft={24} dragOffsetFromRight={-24}`, swipe works on both phones, and `Screen` uses gesture-handler's `ScrollView`. Keep and Pass buttons are on every card. Dilan confirmed it works on his Android phone. |
 | #445 | "Hear it" plays Remy's real voice (Arthur) under chat replies and the office guide line: `native/src/components/HearIt.tsx` → `POST /api/voice` → cached file → `expo-audio`. |
-| #455 | **Sign-in (Dilan's Android feedback).** Continue with Google and Continue with LinkedIn on the email step (the website's two Supabase providers; Apple is off on the site too). It opens `<supabase>/auth/v1/authorize?provider=…&redirect_to=<Linking.createURL("auth")>` with `WebBrowser.openAuthSessionAsync` and PKCE (the link carries only a one-time `?code`; the app swaps it at `/auth/v1/token?grant_type=pkce` with its own verifier, `native/src/lib/auth.ts`), then posts the token to the existing `POST /api/auth/supabase`. `native/src/app/auth.tsx` catches `remy://auth` so the router doesn't show "not found". The email and code steps are centered (max 440 wide, Back at the top, Send code / Sign in under the field). Privacy and Terms on the welcome, email and terms screens open the `/web` sheet (`/privacy`, `/terms`, `/policies`), never the outside browser. Supabase Redirect URLs need `remy://auth` (exact, no wildcard). Follow-up #457: Supabase now returns to `https://remyai.org/api/auth/app-return` (`appReturnPage` in `server/platform/auth.ts`), which opens `remy://auth?code` with an "Open the Remy app" button, because Android Chrome wouldn't open the app straight from the redirect. The "no code email" report was not a bug: both codes were delivered. |
+| #468 | **Welcome and setup.** The welcome footer reads "Privacy & Terms · About" (`/policies`, `/about`, in the `/web` sheet). `<Remy alive />` (`LiveRemy` in `components/ui.tsx`) hops hello, bobs, blinks and now and then hops or tilts, like the website homepage; used on sign-in and in setup's `Say`, still under Reduce Motion. Setup step 1 fits a phone with a large font: Sign out is a small link beside the step label, one-line intro. |
+| #455 | **Sign-in (Dilan's Android feedback).** Continue with Google and Continue with LinkedIn on the email step (the website's two Supabase providers; Apple is off on the site too). It opens `<supabase>/auth/v1/authorize?provider=…&redirect_to=<Linking.createURL("auth")>` with `WebBrowser.openAuthSessionAsync` and PKCE (the link carries only a one-time `?code`; the app swaps it at `/auth/v1/token?grant_type=pkce` with its own verifier, `native/src/lib/auth.ts`), then posts the token to the existing `POST /api/auth/supabase`. `native/src/app/auth.tsx` catches `remy://auth` so the router doesn't show "not found". The email and code steps are centered (max 440 wide, Back at the top, Send code / Sign in under the field). Privacy and Terms on the welcome, email and terms screens open the `/web` sheet (`/privacy`, `/terms`, `/policies`), never the outside browser. Supabase Redirect URLs need `remy://auth` (exact, no wildcard). Follow-up #457: Supabase now returns to `https://remyai.org/api/auth/app-return` (`appReturnPage` in `server/platform/auth.ts`), which opens the app itself and shows "Almost done / Continue", because Android Chrome wouldn't open the app straight from the redirect. #459: on Android that link is `intent://auth?code…#Intent;scheme=remy;package=org.remyai.app;end`. #464: Expo Go can't receive `remy://`, so there the app adds `?state=<random key>`, the page saves the code under it (`putHandoff`, 2 min in memory) and the app polls `GET /api/auth/app-handoff` and finishes with its own PKCE verifier. The "no code email" report was not a bug: both codes were delivered. |
 
 Still opening the website in a sheet: Build my path, profile editing, other sources, Delete everything, the Owners' dashboard, Interview and Community. The room colours in `tokens.ts` still differ from `client/src/index.css`; that needs a visual check before anyone changes them.
 
@@ -80,6 +82,15 @@ Still opening the website in a sheet: Build my path, profile editing, other sour
 - **#421:** Admin → System shows the real OpenRouter balance as "AI money left".
 - **#416:** the microphone works on the site again (Permissions-Policy).
 - **#444:** Privacy & terms layout tidy.
+- **#453, #454, #456, #461 Resume accuracy (everyone).** Built from a 1,000-resume test set and about 4,500 real resumes (details: `docs/ai/status/lead/resume-accuracy.md`).
+  - **#453:** reads every common degree form, schools without "University", campus names, "12/2026" dates. Profile facts fully right went from 71% to 98% on the set.
+  - **#454:** PDFs that draw bullets as shapes get real bullets; contact details printed in a sidebar are found.
+  - **#456:** job matching counts the openings each major really takes as in-field (`server/jobs/fit.ts`, `FIT_RULES_VERSION` 21).
+  - **#461:** scanned or photo PDFs go to the AI as the PDF itself, which copies the words; the student still confirms the reading.
+- **#458, #467 Format check.** `server/resume/format.ts` says when a resume's format hurts it (pages, photo, personal details, columns, tiny text) and offers three clean formats (classic, modern, compact). Routes `GET/POST /api/resume/format`, `GET /api/resume/format/preview`. **Released to students on the website** (#467). **In the app** it's `native/src/components/FormatCard.tsx` plus one line in `(tabs)/resume.tsx`, still owners-only because the app isn't released yet.
+- **#460 Employer catalog.** `server/jobs/catalog.ts` reads about 15,600 companies' public job boards (Greenhouse, Lever, Ashby, Workable, Recruitee, SmartRecruiters) a slice each hour, keeps US student-level postings and stores them sealed in R2. **Never Supabase**, so it adds no egress. Details: `docs/ai/status/lead/employer-catalog.md`.
+- **#462, #465 Job-title matcher.** `server/jobs/soc.ts`: `matchTitle(title)`, `majorSocs(major)`, `jobZone(soc)`, offline with no AI (`server/data/onet-titles.json`, server only). Not wired into ranking yet.
+- **#466:** a catch-up file like this one for Julio's AI (`docs/ai/status/lead/julio-catch-up.md`).
 - **#418, #449:** marketing, voice and Instagram/LinkedIn skills for Claude sessions (`.claude/skills/`). Nothing changed in the app code.
 
 ## 4. Current rules (what changed for you)
@@ -105,7 +116,7 @@ Still opening the website in a sheet: Build my path, profile editing, other sour
 
 ## 5. What's open or claimed right now
 
-- **Open PRs:** none (checked Nov 25, 09:15 UTC).
+- **Open PRs:** none (checked Nov 25, 11:20 UTC).
 - **Requests for you:** none open. Your answers dilan-1 to dilan-5 are all done.
 - **Your stale claims:** see section 1. Please remove them.
 - **Ideas for your next work, if you want them:**
