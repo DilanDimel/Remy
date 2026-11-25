@@ -1,27 +1,51 @@
+import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
+import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import Svg, { Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, Group, Icon, Remy, Row, T, success, tap } from "@/components/ui";
 import { useGateRedirect } from "@/lib/gate";
 import { api } from "@/lib/api";
+import { useConfig } from "@/lib/config";
+import { newVerifier, parseReturn } from "@/lib/auth";
 import { useSession } from "@/lib/session";
+import { brand } from "@/lib/tokens";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
 import type { Me, Workspace } from "@shared/types";
 
-const POLICIES = "https://remyai.org/policies";
 const WAIT = 30;
+type Sso = "google" | "linkedin_oidc";
+const SSO: { id: Sso; label: string }[] = [{ id: "google", label: "Google" }, { id: "linkedin_oidc", label: "LinkedIn" }];
+
+const GoogleMark = () => (
+  <Svg width={20} height={20} viewBox="0 0 48 48">
+    <Path fill={brand.googleRed} d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z" />
+    <Path fill={brand.googleBlue} d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z" />
+    <Path fill={brand.googleYellow} d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z" />
+    <Path fill={brand.googleGreen} d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z" />
+  </Svg>
+);
+const LinkedInMark = () => (
+  <Svg width={20} height={20} viewBox="0 0 24 24">
+    <Path fill={brand.linkedin} d="M20.45 20.45h-3.56v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z" />
+  </Svg>
+);
+
 
 /** First screen for anyone signed out: the welcome, then one email screen for new and returning people (the server
  *  makes the account on the first code), then the 6-digit code. Same words as the phone website's sign-up. */
 export default function SignIn() {
   const { signedIn } = useSession();
+  const { config } = useConfig();
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState<"welcome" | "email" | "code">("welcome");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
+  const [ssoBusy, setSsoBusy] = useState<Sso | "">("");
   const [err, setErr] = useState("");
   const [wait, setWait] = useState(0);
   const codeRef = useRef<any>(null);
@@ -40,19 +64,60 @@ export default function SignIn() {
     catch (e: any) { setErr(e.message); setCode(""); codeRef.current?.focus(); }
     setBusy(false);
   };
+  // Google and LinkedIn go through Supabase in the system browser sheet (Google refuses sign-in inside an app's web
+  // view), then come back on the app's own link with a one-time code (PKCE) that only this app can swap for the token our server checks, the same as the website's buttons.
+  const sso = async (p: Sso) => {
+    const sb = config?.supabase;
+    if (!sb) return;
+    setSsoBusy(p); setErr("");
+    try {
+      const back = Linking.createURL("auth");
+      const verifier = newVerifier();
+      const r = await WebBrowser.openAuthSessionAsync(`${sb.url}/auth/v1/authorize?provider=${p}&redirect_to=${encodeURIComponent(back)}&code_challenge=${verifier}&code_challenge_method=plain`, back);
+      if (r.type === "success") {
+        const { code, error } = parseReturn(r.url);
+        if (!code) throw new Error(error ? `Sign-in didn't finish: ${error}` : "Sign-in didn't finish. Please try again.");
+        // The code is only good with the verifier this app kept, so it's swapped for the token here, not in the link.
+        const t = await fetch(`${sb.url}/auth/v1/token?grant_type=pkce`, { method: "POST", headers: { apikey: sb.anonKey, "Content-Type": "application/json" }, body: JSON.stringify({ auth_code: code, code_verifier: verifier }) });
+        const tok = await t.json().catch(() => ({}));
+        if (!t.ok || !tok.access_token) throw new Error(tok.error_description || tok.msg || "Sign-in didn't finish. Please try again.");
+        const s = await api<{ me: Me; workspace: Workspace }>("POST", "/api/auth/supabase", { accessToken: tok.access_token });
+        success(); signedIn(s.me, s.workspace);
+      }
+    } catch (e: any) { setErr(e.message); }
+    setSsoBusy("");
+  };
+  const ssoOn = SSO.filter((s) => config?.supabase?.providers[s.id]);
+  const ssoButtons = !!ssoOn.length && <>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 4 }}>
+      <View style={{ flex: 1, height: 1, backgroundColor: c.line }} /><T kind="small">or</T><View style={{ flex: 1, height: 1, backgroundColor: c.line }} />
+    </View>
+    {ssoOn.map((s) => (
+      <Pressable key={s.id} testID={`button-sso-${s.id === "google" ? "google" : "linkedin"}`} accessibilityRole="button" accessibilityLabel={`Continue with ${s.label}`} disabled={!!ssoBusy || busy}
+        onPress={() => { tap(); sso(s.id); }}
+        style={({ pressed }) => ({ height: 50, borderRadius: BUTTON_RADIUS, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, opacity: pressed ? 0.8 : 1 })}>
+        {ssoBusy === s.id ? <ActivityIndicator color={c.ink} /> : s.id === "google" ? <GoogleMark /> : <LinkedInMark />}
+        <Text style={{ fontFamily: font.bold, fontSize: 16, color: c.ink }}>Continue with {s.label}</Text>
+      </Pressable>
+    ))}
+  </>;
   const typeCode = (v: string) => { const d = v.replace(/\D/g, "").slice(0, 6); setCode(d); if (d.length === 6 && !busy) verify(d); };
-  const link = (label: string) => <Text onPress={() => WebBrowser.openBrowserAsync(POLICIES)} style={{ textDecorationLine: "underline" }}>{label}</Text>;
+  // Privacy and Terms open inside the app (a sheet over this screen), never in an outside browser.
+  const link = (label: string) => <Text onPress={() => router.push({ pathname: "/web", params: { path: /terms/i.test(label) ? "/terms" : "/privacy", title: /terms/i.test(label) ? "Terms" : "Privacy" } })} style={{ textDecorationLine: "underline" }}>{label}</Text>;
   const backBtn = (to: "welcome" | "email") => (
     <Pressable testID="button-back" accessibilityRole="button" accessibilityLabel="Back" hitSlop={10} onPress={() => { tap(); setErr(""); setStep(to); }} style={{ flexDirection: "row", alignItems: "center", gap: 2, alignSelf: "flex-start", marginLeft: -4 }}>
       <View style={{ transform: [{ rotate: "180deg" }] }}><Icon name="chev" size={22} color={c.fox} strokeWidth={2.4} /></View>
       <Text style={{ fontFamily: font.bold, fontSize: 16, color: c.fox }}>Back</Text>
     </Pressable>
   );
-  const shell = (body: React.ReactNode, foot?: React.ReactNode) => (
+  // The back link stays at the top; everything else sits in the middle of the screen (not stuck to the top with an
+  // empty half below), capped at 440 wide so it doesn't stretch on big phones and tablets.
+  const shell = (body: React.ReactNode, foot?: React.ReactNode, top?: React.ReactNode) => (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 12, paddingHorizontal: 16, paddingBottom: insets.bottom + 16, gap: 12 }}>
-        <View style={{ flex: 1, gap: 12 }}>{body}</View>
-        {foot && <View style={{ gap: 10, paddingTop: 12 }}>{foot}</View>}
+        {top}
+        <View style={{ flex: 1, gap: 12, justifyContent: "center", width: "100%", maxWidth: 440, alignSelf: "center" }}>{body}</View>
+        {foot && <View style={{ gap: 10, paddingTop: 12, width: "100%", maxWidth: 440, alignSelf: "center" }}>{foot}</View>}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -73,26 +138,23 @@ export default function SignIn() {
   </>);
 
   if (step === "email") return shell(<>
-    {backBtn("welcome")}
-    <View style={{ alignSelf: "flex-start" }}><Remy size={80} /></View>
-    <T kind="display">Get started with Remy</T>
-    <T kind="muted">Free during beta. New or back, enter your email and Remy sends a 6-digit code.</T>
+    <View style={{ alignSelf: "center" }}><Remy size={80} /></View>
+    <T kind="display" style={{ textAlign: "center" }}>Get started with Remy</T>
+    <T kind="muted" style={{ textAlign: "center" }}>Free during beta. New or back, enter your email and Remy sends a 6-digit code.</T>
     <TextInput testID="input-email" autoFocus style={{ height: 54, borderRadius: BUTTON_RADIUS, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, paddingHorizontal: 16, fontFamily: font.body, fontSize: 17, color: c.ink, marginTop: 8 }}
       placeholder="you@school.edu" placeholderTextColor={c.faint} autoCapitalize="none" autoComplete="email" keyboardType="email-address" textContentType="emailAddress"
       value={email} onChangeText={setEmail} onSubmitEditing={() => /.+@.+\..+/.test(email.trim()) && send()} returnKeyType="send" />
-    <T kind="small">Already have an account? Use the same email and you'll pick up where you left off, on the website too.</T>
+    <Button testID="button-send-code" kind="fox" label="Send code" onPress={send} busy={busy} disabled={!/.+@.+\..+/.test(email.trim()) || !!ssoBusy} flex />
     {!!err && <T kind="small" style={{ color: c.error }}>{err}</T>}
-  </>, <>
-    <Button testID="button-send-code" kind="fox" label="Send code" onPress={send} busy={busy} disabled={!/.+@.+\..+/.test(email.trim())} flex />
-    <T kind="small" style={{ textAlign: "center" }}>By continuing you agree to Remy's {link("Terms")} and {link("Privacy Policy")}.</T>
-  </>);
+    {ssoButtons}
+    <T kind="small" style={{ textAlign: "center" }}>Already have an account? Use the same email or the same Google or LinkedIn account and you'll pick up where you left off, on the website too.</T>
+  </>, <T kind="small" style={{ textAlign: "center" }}>By continuing you agree to Remy's {link("Terms")} and {link("Privacy Policy")}.</T>, backBtn("welcome"));
 
   // The code: six boxes over one hidden field, so the phone's "from Messages/Mail" suggestion fills all six at once.
   return shell(<>
-    {backBtn("email")}
-    <T kind="display">Check your email</T>
-    <T kind="muted">We sent a 6-digit code to <Text style={{ fontFamily: font.bold, color: c.ink }}>{email.trim()}</Text>. It expires in 10 minutes. Not there? Check spam or Promotions.</T>
-    <Pressable onPress={() => codeRef.current?.focus()} style={{ flexDirection: "row", gap: 8, marginTop: 8 }} accessible={false}>
+    <T kind="display" style={{ textAlign: "center" }}>Check your email</T>
+    <T kind="muted" style={{ textAlign: "center" }}>We sent a 6-digit code to <Text style={{ fontFamily: font.bold, color: c.ink }}>{email.trim()}</Text>. It expires in 10 minutes. Not there? Check spam or Promotions.</T>
+    <Pressable onPress={() => codeRef.current?.focus()} style={{ flexDirection: "row", justifyContent: "center", gap: 8, marginTop: 8 }} accessible={false}>
       {[0, 1, 2, 3, 4, 5].map((i) => {
         const at = i === code.length && !busy;
         return (
@@ -113,5 +175,6 @@ export default function SignIn() {
         <Text style={{ fontFamily: font.bold, fontSize: 14, color: c.foxDeep }}>Use a different email</Text>
       </Pressable>
     </View>
-  </>, <Button testID="button-verify" label="Sign in" onPress={() => verify(code)} busy={busy} disabled={code.length !== 6} flex />);
+    <Button testID="button-verify" label="Sign in" onPress={() => verify(code)} busy={busy} disabled={code.length !== 6} flex style={{ marginTop: 6 }} />
+  </>, undefined, backBtn("email"));
 }

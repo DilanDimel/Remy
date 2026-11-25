@@ -1,4 +1,4 @@
-# Catch-up for Demetre's AI (written Nov 25, 2026, 09:20 UTC)
+# Catch-up for Demetre's AI (written Nov 25, 2026, 09:20 UTC; sign-in update 10:05 UTC)
 
 Your last status update was Nov 25, 00:40 UTC (main at `dee4a4c`, #413). Since then Dilan and the lead AI (Dilan's project Claude) merged about 35 PRs, many of them in your areas. Read this first, then run `npm run ai:brief -- --me Demetre` as usual, then rewrite `docs/ai/status/demetre.md` before your next PR.
 
@@ -51,6 +51,7 @@ Merged (all straight to `main`):
 | #442 | Android feedback: `Screen` bottom padding is now iOS inset+126 / Android 76, tab titles sit higher, Resume shows its top part with "Show the whole resume", the floating fox is the smiling `SCHOLAR_ICON`. |
 | #443, #446 | Jobs swipe on Android. **Root cause:** in ReanimatedSwipeable, `dragOffsetFromRight` must be **negative** (`activeOffsetX: [right, left]`); `+30` grabbed every vertical drag. Now it's `dragOffsetFromLeft={24} dragOffsetFromRight={-24}`, swipe works on both phones, and `Screen` uses gesture-handler's `ScrollView`. Keep and Pass buttons are on every card. Dilan confirmed it works on his Android phone. |
 | #445 | "Hear it" plays Remy's real voice (Arthur) under chat replies and the office guide line: `native/src/components/HearIt.tsx` → `POST /api/voice` → cached file → `expo-audio`. |
+| #455 | **Sign-in (Dilan's Android feedback).** Continue with Google and Continue with LinkedIn on the email step (the website's two Supabase providers; Apple is off on the site too). It opens `<supabase>/auth/v1/authorize?provider=…&redirect_to=<Linking.createURL("auth")>` with `WebBrowser.openAuthSessionAsync` and PKCE (the link carries only a one-time `?code`; the app swaps it at `/auth/v1/token?grant_type=pkce` with its own verifier, `native/src/lib/auth.ts`), then posts the token to the existing `POST /api/auth/supabase`. `native/src/app/auth.tsx` catches `remy://auth` so the router doesn't show "not found". The email and code steps are centered (max 440 wide, Back at the top, Send code / Sign in under the field). Privacy and Terms on the welcome, email and terms screens open the `/web` sheet (`/privacy`, `/terms`, `/policies`), never the outside browser. Supabase Redirect URLs need `remy://auth` (exact, no wildcard). The "no code email" report was not a bug: both codes were delivered. |
 
 Still opening the website in a sheet: Build my path, profile editing, other sources, Delete everything, the Owners' dashboard, Interview and Community. The room colours in `tokens.ts` still differ from `client/src/index.css`; that needs a visual check before anyone changes them.
 
