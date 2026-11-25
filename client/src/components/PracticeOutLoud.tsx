@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Mic, Square } from "lucide-react";
 import { PACE, speechFeedback } from "@shared/speech";
+import { micProblem } from "../lib/voice";
 
 const Speech = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
@@ -12,12 +13,13 @@ export function PracticeOutLoud({ goal, label = "Practice out loud", script = ""
   const [secs, setSecs] = useState<number | null>(null);
   const [on, setOn] = useState(false);
   const [heard, setHeard] = useState("");
+  const [problem, setProblem] = useState<string | null>(null);
   const rec = useRef<any>(null);
   const span = useRef<{ first: number; last: number }>({ first: 0, last: 0 }); // when words were first and last heard
   useEffect(() => { if (!on) return; const t = setTimeout(() => setSecs((s) => (s ?? 0) + 1), 1000); return () => clearTimeout(t); }, [on, secs]);
   useEffect(() => () => { rec.current?.abort(); }, []);
   const start = () => {
-    setSecs(0); setHeard(""); setOn(true); span.current = { first: 0, last: 0 };
+    setSecs(0); setHeard(""); setProblem(null); setOn(true); span.current = { first: 0, last: 0 };
     if (!Speech) return;
     const r = new Speech();
     r.lang = "en-US"; r.continuous = true;
@@ -27,8 +29,9 @@ export function PracticeOutLoud({ goal, label = "Practice out loud", script = ""
       span.current.last = now;
       setHeard([...e.results].map((x: any) => x[0].transcript).join(" "));
     };
-    r.onerror = () => {};
-    rec.current = r; r.start();
+    r.onerror = (e: any) => setProblem(micProblem(e.error));
+    rec.current = r;
+    try { r.start(); } catch { rec.current = null; }
   };
   const stop = () => { setOn(false); rec.current?.stop(); rec.current = null; onDone?.({ secs: secs || 0, fillers: heard ? fb.fillers.length : 0, wpm: fb.wpm }); };
   // Talking time, not the stopwatch (+1s for the first words before the first result). Android's recognizer repeats
@@ -44,6 +47,7 @@ export function PracticeOutLoud({ goal, label = "Practice out loud", script = ""
       {on
         ? <button className={primary ? "btn btn-secondary" : "btn btn-ghost btn-sm"} onClick={stop} data-testid="button-practice-stop"><Square size={14} /> {secs}s · Stop</button>
         : <button className={primary ? "btn btn-primary" : "btn btn-ghost btn-sm"} onClick={start} data-testid="button-practice"><Mic size={14} /> {secs === null ? label : "Try again"}</button>}
+      {problem && <span className="xs" role="alert" data-testid="practice-mic-problem">{problem}</span>}
       {!on && secs !== null && (
         <div className="xs stack-sm" style={{ gap: 2 }} data-testid="practice-result">
           <span>{secs} seconds: {secs < lo ? `a bit short, aim for ${lo} to ${hi}` : secs > hi ? `a bit long, aim for ${lo} to ${hi}` : "right on time"}.</span>

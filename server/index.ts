@@ -55,11 +55,12 @@ const CSP = [
   "base-uri 'self'",
   "form-action 'self'",
 ].join("; ");
+// microphone=(self): "Answer out loud" and the Remy mic need it; microphone=() made every browser refuse the mic.
 app.use((_req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(self), geolocation=()");
   if (process.env.NODE_ENV === "production") {
     res.setHeader("Content-Security-Policy", CSP);
     res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");

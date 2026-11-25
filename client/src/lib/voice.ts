@@ -5,8 +5,17 @@ import { useEffect, useRef, useState } from "react";
 const Speech = typeof window !== "undefined" ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null;
 export const canListen = !!Speech;
 
+/** Plain words for why the browser stopped listening (SpeechRecognition error codes), or null when it's nothing to show. */
+export function micProblem(code: string): string | null {
+  if (code === "not-allowed" || code === "service-not-allowed") return "Your browser blocked the microphone. Click the mic or lock icon in the address bar, allow it, then try again.";
+  if (code === "audio-capture") return "I couldn't find a microphone. Plug one in or check your sound settings, then try again.";
+  if (code === "no-speech") return "I didn't hear anything. Try again a little closer to the mic.";
+  if (code === "network") return "Your browser's speech service isn't reachable right now. You can type instead.";
+  return null; // "aborted" is us stopping it
+}
+
 /** One spoken message: `partial` shows what it's hearing, `done` gets the final words when you stop talking. */
-export function useVoice(partial: (t: string) => void, done: (t: string) => void) {
+export function useVoice(partial: (t: string) => void, done: (t: string) => void, problem: (msg: string) => void) {
   const [on, setOn] = useState(false);
   const rec = useRef<any>(null);
   useEffect(() => () => rec.current?.abort(), []);
@@ -18,9 +27,10 @@ export function useVoice(partial: (t: string) => void, done: (t: string) => void
     const r = new Speech();
     r.lang = "en-US"; r.continuous = false; r.interimResults = true;
     r.onresult = (e: any) => { heard = [...e.results].map((x: any) => x[0].transcript).join(" "); partial(heard); };
-    r.onerror = () => {};
+    r.onerror = (e: any) => { const m = micProblem(e.error); if (m) problem(m); };
     r.onend = () => { setOn(false); rec.current = null; if (heard.trim()) done(heard.trim()); };
-    rec.current = r; setOn(true); r.start();
+    rec.current = r; setOn(true);
+    try { r.start(); } catch { setOn(false); rec.current = null; }
   };
   return { on, toggle };
 }

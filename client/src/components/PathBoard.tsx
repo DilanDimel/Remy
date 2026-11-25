@@ -199,7 +199,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   const fox = useDeskFox();
   const [mood, setMood] = useState<"idle" | "wave" | "think">("idle");
   // On My Path his side panel is closed (App.tsx): you talk to him here, and he answers in the room.
-  const { config, setWs, run } = useStore();
+  const { config, setWs, run, toast } = useStore();
   const [q, setQ] = useState(""), [busy, setBusy] = useState(false), [said, setSaid] = useState<{ q: string; id?: string; live?: string } | null>(null);
   const busyRef = useRef(false), saidRef = useRef(said), guideRef = useRef(g.on);
   saidRef.current = said; guideRef.current = g.on;
@@ -251,7 +251,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   };
   const quote = () => { const x = pick(QUOTES); if (fox.seated()) { fox.setPose("lean"); fox.later(() => fox.setPose(""), 9000); } say(`“${x.q}”`, x.by, 8000); };
   // Talk to him here too: what you say is sent when you stop, and his answer is read back.
-  const voice = useVoice(setQ, (t) => ask(t, true));
+  const voice = useVoice(setQ, (t) => ask(t, true), (m) => toast(m, true));
   const ask = async (said0?: string, spoken = false) => {
     const text = (said0 ?? q).trim();
     if (!text || busy) return;

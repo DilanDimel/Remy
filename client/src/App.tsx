@@ -464,7 +464,7 @@ const STARTERS: Record<string, string[]> = {
 };
 
 function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () => void; flyIn: boolean }) {
-  const { ws, setWs, run, save, config, theme, setTheme } = useStore();
+  const { ws, setWs, run, save, config, theme, setTheme, toast } = useStore();
   const preview = true; // Remy's page-specific opening line, released to everyone Nov 21 (was owners only)
   const stage2 = useOwnerView(); // redesign stage 2: profile header + Activity tab, owners first
   const pg = stage2 && page === "Account" ? "Accounts" : page; // owners: Account had Home's intro (the nav label is "Account")
@@ -495,7 +495,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   const lastAi = [...chat].reverse().find((m) => m.role !== "user")?.id;
   // Owners: talk to Remy. A message you said out loud gets its answer read back.
   const talked = useRef<string | null>(null);
-  const voice = useVoice(setMsg, (t) => { talked.current = lastAi || ""; send(t); });
+  const voice = useVoice(setMsg, (t) => { talked.current = lastAi || ""; send(t); }, (m) => toast(m, true));
   useEffect(() => {
     if (talked.current === null || !lastAi || lastAi === talked.current || busy) return;
     talked.current = null;
