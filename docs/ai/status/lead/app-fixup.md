@@ -5,3 +5,5 @@ PR 1, bug fixes: Jobs gets an Events filter (`upcomingEvents` in `native/src/lib
 Next: Resume edit and contact/dates as native sheets, native Today's round and plan steps, then welcome, Did you apply? and the More screens.
 
 PR 2, Resume edits in the app: tapping a line Remy can't fix opens `EditLine` (change or delete it; your own words, so no claims check), and "Fix contact and dates" opens `ContactDates` (contact fields plus the entries `reviewResume` flags as undated) instead of the website's editor. Both in `native/src/components/ResumeEdit.tsx`, saving through `PUT /api/resume/doc` with `base`, like Remy's fixes.
+
+PR 3, Today's round native: `native/src/app/round.tsx` (full-screen modal) ports the website's Round from `client/src/components/DailyPath.tsx`: same three cards, same `withCard` save to `PUT /api/ws/game`, same O*NET/BLS calls. `go()` sends `/path?play=1` there, so Home's streak and quest rows and My Path's quests open it.
