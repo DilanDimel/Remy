@@ -6,3 +6,8 @@
   when it reads it. Company names and trademarks belong to their owners.
 - `employers.json`: Remy's hand-picked employers, with the fields they hire for.
 - `onet-tasks.json`: from O*NET (U.S. Department of Labor), CC BY 4.0.
+- `onet-titles.json`: occupation titles, Job Zones and about 50,000 sample and reported job titles from
+  [O*NET 30.2](https://www.onetcenter.org/database.html) (U.S. Department of Labor, Employment and Training Administration),
+  licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), plus the
+  [NCES CIP 2020 to SOC 2018 crosswalk](https://nces.ed.gov/ipeds/cipcode/resources.aspx?y=56) (public domain), used to
+  match job titles and majors to occupations (`server/jobs/soc.ts`). O*NET® is a trademark of USDOL/ETA.
