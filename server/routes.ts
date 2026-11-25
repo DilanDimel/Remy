@@ -1003,7 +1003,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'");
-    res.send(appReturnPage(req.query as Record<string, unknown>));
+    res.send(appReturnPage(req.query as Record<string, unknown>, /android/i.test(String(req.headers["user-agent"] || ""))));
   });
   // Email sign-in with a 6-digit code Remy sends itself: works on any device (a link only works in the browser that
   // asked for it) and isn't held to Supabase's shared hourly email limit. The code proves the student owns the email,
