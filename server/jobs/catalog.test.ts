@@ -1,7 +1,7 @@
 // Remy's employer catalog: what it keeps, how it reads a part, and that it lives in R2 (a fake store here). `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CATALOG, PARTS, catalogPostings, catalogStats, catalogTick, keep, partOf, readPart, resetCatalog, type CatalogBoard } from "./catalog";
+import { CATALOG, PARTS, allBoards, catalogPostings, catalogStats, catalogTick, csvRows, keep, partOf, readPart, resetCatalog, stapplyBoards, type CatalogBoard } from "./catalog";
 import { inUS } from "./fit";
 import { fetchBoard, type Raw } from "./sources";
 
@@ -11,13 +11,14 @@ const raw = (title: string, location: string, extra: Partial<Raw> = {}): Raw => 
 test("catalog list: thousands of boards, spread evenly over the parts", () => {
   assert.ok(CATALOG.length > 15_000);
   assert.ok(CATALOG.every((x) => x.slug && x.company && ["greenhouse", "lever", "ashby", "workable", "recruitee", "smartrecruiters"].includes(x.ats)));
-  const sizes = Array.from({ length: PARTS }, (_, p) => CATALOG.filter((_, i) => partOf(i) === p).length);
-  assert.ok(Math.max(...sizes) - Math.min(...sizes) <= 1);
+  const sizes = Array.from({ length: PARTS }, (_, p) => CATALOG.filter((b) => partOf(b) === p).length);
+  const even = CATALOG.length / PARTS;
+  assert.ok(Math.max(...sizes) < even * 1.1 && Math.min(...sizes) > even * 0.9, String(sizes));
 });
 
 test("inUS: a state, the country or Remote; never abroad or vague", () => {
-  for (const l of ["Dallas, TX", "New York, New York, United States", "Remote", "Remote - US", "Austin, Texas; London, UK"]) assert.equal(inUS(l), true, l);
-  for (const l of ["London, UK", "Toronto, ON, Canada", "Remote, Germany", "Deutschland, remote", "Hybrid", "", "Bengaluru"]) assert.equal(inUS(l), false, l);
+  for (const l of ["US-OK-CLAREMORE-2210 E L ANDERSON BLVD", "Dallas, TX", "New York, New York, United States", "Remote", "Remote - US", "Austin, Texas; London, UK"]) assert.equal(inUS(l), true, l);
+  for (const l of ["London, UK", "Toronto, ON, Canada", "Remote, Germany", "Deutschland, remote", "Hybrid", "", "Bengaluru", "VN-VUNG TAU CITY-65A 30/4 ROAD WARD 9"]) assert.equal(inUS(l), false, l);
 });
 
 test("keep: US student-level postings only, with the company and system on each", async () => {
@@ -45,13 +46,38 @@ test("keep: title-only postings get their text read, at most 12 per board", asyn
 });
 
 test("readPart: reads only its boards, counts failures, keeps going", async () => {
-  const boards: CatalogBoard[] = Array.from({ length: 48 }, (_, k) => ({ ats: k === 24 ? "workable" : "lever", slug: `s${k}`, company: `Co ${k}` }));
+  const boards: CatalogBoard[] = Array.from({ length: 200 }, (_, k) => ({ ats: k % 50 === 0 ? "workable" : "lever", slug: `s${k}`, company: `Co ${k}` }));
+  const p = partOf(boards[0]); // s0: a Workable board, read on the slow lane
+  const mine = boards.filter((b) => partOf(b) === p).map((b) => b.slug);
   const asked: string[] = [];
-  const r = await readPart(0, boards, async (x) => { asked.push(x.slug); if (x.slug === "s0") throw new Error("down"); return [raw("Intern", "Denver, CO", { url: `https://x.test/${x.slug}` })]; }, async () => {});
-  assert.deepEqual(asked.sort(), ["s0", "s24"]);
-  assert.equal(r.stats.boards, 2);
-  assert.equal(r.stats.reached, 1);
-  assert.equal(r.kept.length, 1);
+  const r = await readPart(p, boards, async (x) => { asked.push(x.slug); if (x.slug === "s0") throw new Error("down"); return [raw("Intern", "Denver, TX", { url: `https://x.test/${x.slug}` })]; }, async () => {});
+  assert.deepEqual(asked.sort(), mine.sort());
+  assert.ok(mine.length > 2 && mine.length < 20);
+  assert.equal(r.stats.boards, mine.length);
+  assert.equal(r.stats.reached, mine.length - 1);
+  assert.equal(r.kept.length, mine.length - 1);
+  assert.equal(r.stats.texas, mine.length - 1);
+});
+
+test("Stapply lists: each system's rows become boards Remy's readers take; repo boards win duplicates", async () => {
+  const lists: Record<string, string> = {
+    greenhouse: 'name,slug,url\n"Acme, Inc.",acme,https://boards.greenhouse.io/acme\nNewCo,newco,https://boards.greenhouse.io/newco\n',
+    workday: "name,slug,url\n23Andme,23andme/23,https://23andme.wd5.myworkdayjobs.com/en-US/23\nBad,x,https://example.com\n",
+    oracle: "name,slug,url\nEB,ebwg,https://ebwg.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX\n",
+  };
+  const got = await stapplyBoards(async (url) => { const a = url.split("/").at(-2)!; if (!lists[a]) throw new Error("404"); return lists[a]; });
+  assert.deepEqual(got.map((b) => [b.ats, b.slug, b.company]), [
+    ["greenhouse", "acme", "Acme, Inc."], ["greenhouse", "newco", "NewCo"],
+    ["workday", "23andme|wd5|23", "23Andme"], ["oracle", "ebwg.fa.us2.oraclecloud.com|CX", "EB"],
+  ]);
+  assert.deepEqual(csvRows('a,"b ""c"", d"\r\n1,2'), [["a", 'b "c", d'], ["1", "2"]]);
+  resetCatalog();
+  const files = new Map<string, unknown>();
+  const store = { put: async (k: string, v: unknown) => { files.set(k, structuredClone(v)); }, get: async (k: string) => structuredClone(files.get(k) ?? null), del: async () => {} };
+  const dup = CATALOG[0];
+  await catalogTick(store, async () => [], async () => {}, async () => [...got, { ...dup, company: "Other name" }]);
+  assert.equal(allBoards().length, CATALOG.length + got.filter((b) => !CATALOG.some((c) => c.ats === b.ats && c.slug === b.slug)).length);
+  assert.ok(files.has("catalog/boards"));
 });
 
 test("catalogTick: one part per run into the store, skipped while fresh; searches read it from memory", async () => {
@@ -59,15 +85,17 @@ test("catalogTick: one part per run into the store, skipped while fresh; searche
   const files = new Map<string, unknown>();
   const store = { put: async (k: string, v: unknown) => { files.set(k, structuredClone(v)); }, get: async (k: string) => structuredClone(files.get(k) ?? null), del: async () => {} };
   const read = async (x: CatalogBoard) => [raw("Accounting Intern", "Fort Worth, TX", { url: `https://x.test/${x.slug}` })];
-  const first = await catalogTick(store, read, async () => {});
+  const first = await catalogTick(store, read, async () => {}, async () => []);
   assert.ok(first && first.reached > 600 && first.kept === first.reached);
   assert.ok(files.has("catalog/part-0") && files.has("catalog/meta"));
-  const second = await catalogTick(store, read, async () => {});
+  const second = await catalogTick(store, read, async () => {}, async () => []);
   assert.ok(second && files.has("catalog/part-1")); // the next part, not part 0 again
-  const all = await catalogPostings(store);
+  resetCatalog(); // a fresh server: parts come from the store
+  const all = await catalogPostings(store, true);
   assert.equal(all.length, first!.kept + second!.kept);
   const s = await catalogStats(store);
   assert.equal(s?.partsRead, 2);
+  assert.equal((await catalogPostings(store)).length, all.length); // already in memory
   assert.equal(s?.employers, CATALOG.length);
 });
 
@@ -75,7 +103,7 @@ test("catalogTick: a part where most boards failed keeps its old copy", async ()
   resetCatalog();
   const files = new Map<string, unknown>();
   const store = { put: async (k: string, v: unknown) => { files.set(k, v); }, get: async (k: string) => files.get(k) ?? null, del: async () => {} };
-  assert.equal(await catalogTick(store, async () => { throw new Error("offline"); }, async () => {}), null);
+  assert.equal(await catalogTick(store, async () => { throw new Error("offline"); }, async () => {}, async () => []), null);
   assert.equal(files.size, 0);
 });
 

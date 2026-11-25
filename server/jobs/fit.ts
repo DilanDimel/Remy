@@ -125,7 +125,8 @@ export function abroad(location: string): boolean {
 /** Positive sign a place is in the US: a state, "United States"/"USA", or "Remote" with nothing foreign (the employer
  *  catalog keeps only these; abroad() alone would let a vague "Hybrid" or an unlisted foreign city through). */
 export function inUS(location: string): boolean {
-  return !abroad(location) && (US_STATE_CODE.test(location) || US_STATE_NAME.test(location) || /\bremote\b/i.test(location));
+  // Workday sites often write "US-TX-MIDLAND-2065 MARKET STREET"
+  return !abroad(location) && (US_STATE_CODE.test(location) || US_STATE_NAME.test(location) || /\bremote\b/i.test(location) || /(?:^|[;,]\s*)US-[A-Z]{2}-/.test(location));
 }
 function abroadOne(place: string): boolean {
   const prefix = /^([A-Z]{2})\s?-\s/.exec(place);
