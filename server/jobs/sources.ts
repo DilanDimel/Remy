@@ -15,7 +15,7 @@ import { interestEnabled, preferenceAdjustment } from "./ranking";
 // posting links straight back to the employer. No login, no scraping of
 // third-party aggregators.
 
-type Board = { ats: "greenhouse" | "lever" | "ashby" | "workday" | "smartrecruiters" | "oracle" | "eightfold" | "phenom" | "usajobs" | "applitrack" | "schoolspring" | "taleo" | "careeronestop"; slug: string; company: string; fields?: string[]; metros?: Metro[]; preview?: boolean };
+type Board = { ats: "greenhouse" | "lever" | "ashby" | "workday" | "smartrecruiters" | "oracle" | "eightfold" | "phenom" | "usajobs" | "applitrack" | "schoolspring" | "taleo" | "careeronestop" | "workable" | "recruitee" | "catalog"; slug: string; company: string; fields?: string[]; metros?: Metro[]; preview?: boolean };
 
 // Employers whose career sites Remy reads, with the fields they hire for (server/data/employers.json).
 export const EMPLOYERS: Board[] = (JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "server", "data", "employers.json"), "utf8")).employers as { company: string; ats: Board["ats"]; board: string; fields: string[]; metros?: Metro[]; preview?: boolean }[])
@@ -67,6 +67,8 @@ export const DEFAULT_BOARDS: Board[] = EMPLOYERS.length ? EMPLOYERS : [
 
 const EARLY = /\b(junior|trainee|(?:teaching|research|marketing|legal|administrative) assistant|intern(ship)?s?|co-?op|new grad(uate)?|early career|entry[- ]level|campus|university|student|summer analyst|analyst program|rotational|apprentice|fellow(ship)?|insight|cadets?|recruits?|extern(ship)?s?|nurse residen\w*|graduate nurse|nurse intern|new grad rn|freshm[ae]n|sophomores?|first[- ]year|discover\w*|explore|launch|ambassadors?|leadership program|diversity program|pathways|recent graduate|trainee)\b/i;
 const SENIOR = /\b(senior|sr\.?|staff|principal|lead|manager|director|head of|vp|vice president|professor|ii|iii|iv)\b/i;
+/** A title a student could hold: early-career words, and not senior unless it's an internship, co-op or new-grad role. */
+export const studentTitle = (title: string) => EARLY.test(title) && !(SENIOR.test(title) && !/intern|co-?op|new grad|student/i.test(title));
 // What the job itself involves: a posting's sentences minus benefits, "about us", equal-opportunity and
 // "any major" lines, which mention fields without being about the work (from Julio's relevance design).
 const NOT_DUTIES = /benefit|insurance|wellness|discount|equal opportunity|protected by law|about us|our (company|platform|mission)|any major|qualifications:|we provide|perks/i;
@@ -100,7 +102,7 @@ export function kindOf(title: string): Job["kind"] {
 // Boards that list titles only keep where the full posting is (`more`), as plain data: the shared board cache stores
 // raws as JSON, so a `detail` function never survived it and every student after the first got postings with no text.
 type More = { kind: "workday" | "smartrecruiters" | "oracle" | "eightfold" | "phenom" | "schoolspring" | "taleo"; url: string; seq?: string; teaser?: string };
-type Raw = { title: string; location: string; url: string; text: string; posted?: string; company?: string; deadline?: string; student?: boolean; nearby?: boolean; more?: More; detail?: () => Promise<{ text: string; location?: string }> };
+export type Raw = { title: string; location: string; url: string; text: string; posted?: string; company?: string; ats?: string; deadline?: string; student?: boolean; nearby?: boolean; more?: More; detail?: () => Promise<{ text: string; location?: string }> };
 /** Reads the full posting a title-only board points to. */
 async function readMore(m: More): Promise<{ text: string; location?: string }> {
   switch (m.kind) {
@@ -239,6 +241,8 @@ async function phenom(b: Board, field: string): Promise<Raw[]> {
 }
 // USAJOBS, the federal government's official job API (free key; USAJOBS_KEY + USAJOBS_EMAIL). Searches
 // student and recent-graduate roles (Pathways) near the student's region, plus remote ones.
+/** All of Remy's employer catalog as one source (see server/jobs/catalog.ts). */
+export const CATALOG_BOARD: Board = { ats: "catalog", slug: "catalog", company: "Remy's employer catalog", fields: [] };
 export const USAJOBS: Board = { ats: "usajobs", slug: "usajobs", company: "U.S. federal government", fields: [] };
 async function usajobs(field: string, region: string): Promise<Raw[]> {
   const key = process.env.USAJOBS_KEY, email = process.env.USAJOBS_EMAIL;
@@ -365,6 +369,16 @@ export async function fetchBoard(b: Board, field: string, region = ""): Promise<
   if (b.ats === "schoolspring") return schoolspring(b);
   if (b.ats === "taleo") return taleo(b);
   if (b.ats === "careeronestop") return careeronestop(field, region);
+  // Every posting in Remy's employer catalog (server/jobs/catalog.ts); loaded lazily, since the catalog reads boards with this file.
+  if (b.ats === "catalog") return (await import("./catalog")).catalogPostings();
+  if (b.ats === "workable") {
+    const j = await getJson(`https://apply.workable.com/api/v1/widget/accounts/${encodeURIComponent(b.slug)}?details=true`);
+    return (j.jobs || []).map((x: any) => ({ title: String(x.title || ""), location: [x.telecommuting ? "Remote" : "", [x.city, x.state, x.country].filter(Boolean).join(", ")].filter(Boolean).join(" · "), url: String(x.url || x.shortlink || ""), text: htmlToText(String(x.description || "")), posted: x.published_on }));
+  }
+  if (b.ats === "recruitee") {
+    const j = await getJson(`https://${encodeURIComponent(b.slug)}.recruitee.com/api/offers/`);
+    return (j.offers || []).map((x: any) => ({ title: String(x.title || ""), location: [x.remote ? "Remote" : "", x.location || [x.city, x.state_code || x.state, x.country].filter(Boolean).join(", ")].filter(Boolean).join(" · "), url: String(x.careers_url || x.careers_apply_url || ""), text: htmlToText([x.description, x.requirements].filter(Boolean).join("\n")), posted: x.published_at }));
+  }
   if (b.ats === "usajobs") return usajobs(field, region);
   if (b.ats === "applitrack") return applitrack(b);
   if (b.ats === "phenom") return phenom(b, field);
@@ -420,6 +434,7 @@ export async function readBoardCache(key: string): Promise<{ raws: any; fetched_
   return { raws, fetched_at };
 }
 export async function cachedBoard(b: Board, field: string, region: string, fetch = fetchBoard): Promise<Raw[]> {
+  if (b.ats === "catalog") return fetch(b, field, region); // kept in R2 and memory, never in Supabase's board_cache
   // Sources that search by field or place get one entry per search; whole-board sources get one entry.
   // "v2" on title-only boards: entries saved before postings kept their reader (`more`) would stay textless for hours.
   const TITLE_ONLY = ["workday", "smartrecruiters", "oracle", "eightfold", "phenom", "schoolspring", "taleo"];
@@ -535,7 +550,7 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, e
       const outsideAt = (location: string) => regionMatch(ws, { location, format: /remote/i.test(location) ? "Remote" : "" } as Job) === false;
       const ordered = [...raws].sort((a, z) => Number(outsideAt(a.location)) - Number(outsideAt(z.location)));
       for (const r of ordered) {
-        if (!r.url || known.has(r.url) || (!r.student && (!EARLY.test(r.title) || (SENIOR.test(r.title) && !/intern|co-?op|new grad|student/i.test(r.title))))) continue;
+        if (!r.url || known.has(r.url) || (!r.student && !studentTitle(r.title))) continue;
         if (undergrad && GRAD_LEVEL.test(r.title)) continue;
         // A country in the title ("Key Account Trainee – Iberia (España y Portugal)") means abroad, even when the location is vague.
         if (COUNTRY_IN_TEXT.test(r.title)) continue; // a country in the title ("Analyst - Germany"); regions and cities don't count
@@ -568,11 +583,12 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, e
         // Passing the field check counts: a "Brand Intern" is marketing even if the word "marketing" never appears.
         const rel = fields.filter((f) => hay.includes(f)).length + (titleFits.some((t) => t.test(r.title)) ? 2 : titleFits.some((t) => t.test(duties(r.text))) ? 1 : 0)
           + 3 * specificWords(ws).filter((w) => new RegExp(`\\b${w}`, "i").test(r.title)).length;
+        const ats = r.ats || b.ats;
         const job: Job = {
           id: uid("j"), kind: kindOf(r.title), title: r.title, company: r.company || b.company, location: tidyLocation(r.location) || "Not stated",
           format: /remote/i.test(r.location) ? "Remote" : "", dates: "", deadline: r.deadline || "", deadlineText: r.deadline ? `Closes ${r.deadline}` : "Not stated on the board — check the posting",
           eligibility: eligibilityFrom(r.text), requirements: requirementsFrom(r.text), summary: postingLines(r.text).join("\n").slice(0, 420),
-          applyUrl: r.url, sourceUrl: r.url, sourceName: `${b.company} careers (${b.ats[0].toUpperCase() + b.ats.slice(1)} job board)`,
+          applyUrl: r.url, sourceUrl: r.url, sourceName: `${r.company || b.company} careers (${ats[0].toUpperCase() + ats.slice(1)} job board)`,
           label: "Live", checkedAt: new Date().toISOString(), foundAt: new Date().toISOString(), checks: [], origin: "imported", postingText: r.text.slice(0, 12000),
         };
         known.add(r.url);

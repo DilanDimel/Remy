@@ -16,6 +16,7 @@ import { answerAsk, tickDone } from "./coach/asks";
 import { partialReply } from "./ai/streamReply";
 import { startStream, streamLine } from "./platform/stream";
 import { allow, allowLocal, cleanupLimits, ipKey } from "./platform/limits";
+import { r2Ready } from "./platform/r2";
 import { JOB_INTEREST_REASONS, type JobInterestRating } from "@shared/types";
 import { dropDuplicatePostings } from "./jobs/dedupe";
 import { employerPreferences, interestContext, interestEnabled, ownInterest } from "./jobs/ranking";
@@ -46,7 +47,7 @@ import { acceptHtml } from "@shared/acceptEmail";
 import { recordError } from "./platform/admin";
 import { careersFor, futureFor, occupationDetails, officialFor } from "./jobs/future";
 import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase, appReturnPage } from "./platform/auth";
-import { aiExtractPosting, CLOSED_SIGNALS, docxPreviewHtml, fetchPublic, fileToText, htmlToText, norm, pdfStyle } from "./resume/parse";
+import { aiExtractPosting, CLOSED_SIGNALS, docxPreviewHtml, fetchPublic, fileToText, htmlToText, norm, pdfStyle, scanText } from "./resume/parse";
 import { formatCheck, pdfLayout, withoutPersonal } from "./resume/format";
 import {
   aiParseResume, chooseReading, extractSkills, skillsPosition, graduationOf, gpaOf, majorsOf, minorsOf, preCollegeIds, normalizeResumeText, parseQuality, primaryEducation, resumeToText, rulesParse, schoolName,
@@ -78,7 +79,8 @@ import * as services from "./platform/services";
 import { pruneOpenings, recordFound, recordCheck, listOpenings, openingsSummary } from "./jobs/openings";
 import { askedLength, keepAskedLength } from "./coach/outreachAsk";
 import { noUpgrade } from "./coach/noUpgrade";
-import { boardsFor, orderEmployers, preferMetros, pruneBoardCache, CAREERONESTOP, discoverJobs, EMPLOYERS, isEmptyListing, refillEmpty, kindOf, USAJOBS } from "./jobs/sources";
+import { boardsFor, orderEmployers, preferMetros, pruneBoardCache, CAREERONESTOP, CATALOG_BOARD, discoverJobs, EMPLOYERS, isEmptyListing, refillEmpty, kindOf, USAJOBS } from "./jobs/sources";
+import { catalogStats, catalogTick } from "./jobs/catalog";
 import { emailReady, logEmail, sendEmail } from "./notify/email";
 import { codeEmail } from "./notify/layout";
 import { currentResumeDocx, docxStyle, editResumeDocx } from "./resume/docxEdit";
@@ -461,8 +463,9 @@ async function findOpenings(ctx: Ctx, named: string[] = [], opts: { background?:
   // Remy knows their career site, otherwise by guessing their Greenhouse/Lever/Ashby board.
   const dream = (p.dreamEmployers || "").split(/[,;]+/).map((x) => x.trim()).filter((x) => x.length > 1).slice(0, 5);
   const dreamBoards = dream.flatMap((d) => { const hit = directory.filter((e) => e.company.toLowerCase().includes(d.toLowerCase())); return hit.length ? hit : boardsFor(d); });
-  // Federal student roles (USAJOBS) and the Labor Department's job search (CareerOneStop) fit every field, so they're always included.
-  const boards = [...named.flatMap(boardsFor), ...dreamBoards, ...picked.slice(0, 15), ...(process.env.USAJOBS_KEY ? [USAJOBS] : []), ...(process.env.COS_TOKEN ? [CAREERONESTOP] : [])];
+  // Federal student roles (USAJOBS), the Labor Department's job search (CareerOneStop) and Remy's employer catalog
+  // (thousands of companies' boards, read daily in the background) fit every field, so they're always included.
+  const boards = [...named.flatMap(boardsFor), ...dreamBoards, ...picked.slice(0, 15), ...(process.env.USAJOBS_KEY ? [USAJOBS] : []), ...(process.env.COS_TOKEN ? [CAREERONESTOP] : []), ...(r2Ready() ? [CATALOG_BOARD] : [])];
   const seen = new Set<string>();
   const unique = boards.filter((b) => { const k = b.ats + ":" + b.slug; if (seen.has(k)) return false; seen.add(k); return true; });
   const r = await discoverJobs(ctx.ws, unique);
@@ -675,6 +678,8 @@ export async function registerRoutes(_server: Server, app: Express) {
   const sweep = () => {
     sweeping ||= Promise.all([
       pruneBoardCache().catch(() => {}),
+      // A 24th of the employer catalog's boards each run, into R2 (never Supabase); each board about once a day.
+      catalogTick().then((p) => { if (p) console.log(`catalog: read ${p.reached}/${p.boards} boards, ${p.postings} postings, kept ${p.kept}`); }).catch((e) => console.error("catalog read failed", e?.message)),
       warnIfNearLimit().catch((e) => console.error("storage check failed", e?.message)),
       backupIfDue().then((b) => { if (b) console.log(`backup: ${b.kind} copy, ${b.rows} rows`); }).catch((e) => console.error("backup failed", e?.message)),
       pruneLogs().catch((e) => console.error("log cleanup failed", e?.message)),
@@ -804,6 +809,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const status = s("status");
     res.json({
       summary: await openingsSummary(),
+      catalog: await catalogStats().catch(() => null),
       openings: await listOpenings({ company: s("company"), industry: s("industry"), careerPath: s("path"), status: status === "open" || status === "closed" || status === "unchecked" ? status : undefined, limit: Number(s("limit")) || undefined }),
     });
   }));
@@ -1299,7 +1305,13 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.post("/api/resume/upload", uploadFile, route(async (req, res, ctx) => {
     const f = (req as any).file as Express.Multer.File | undefined;
     if (!f) bad("Choose a file to upload.");
-    const raw = await fileToText(f!.buffer, f!.originalname, f!.mimetype);
+    let raw = await fileToText(f!.buffer, f!.originalname, f!.mimetype);
+    // A scanned or photographed PDF has no text: the AI reads the pages instead (Dilan, Nov 25: 18% of real designed resumes).
+    let scanned = false;
+    if (raw.replace(/\s/g, "").length < 200 && f!.buffer.subarray(0, 5).toString("latin1") === "%PDF-" && aiStatus().available) {
+      const t = await withAi(ctx, "Read scanned resume", () => scanText(f!.buffer)).catch(() => "");
+      if (t.replace(/\s/g, "").length >= 200) { raw = t; scanned = true; }
+    }
     const fromLinkedIn = req.body?.source === "linkedin";
     const prev = ctx.ws.resume;
     if (fromLinkedIn && prev && prev.from !== "LinkedIn") {
@@ -1307,6 +1319,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       return res.json(ctx.ws);
     }
     await ingestResume(ctx, raw, f!.originalname, fromLinkedIn ? "LinkedIn" : undefined);
+    if (scanned) ctx.ws.resume!.quality?.warnings.unshift("Your file is a scan, so Remy read the words off the page images. Check every line against your original before you use it.");
     if (!fromLinkedIn && prev?.from === "LinkedIn") await importProfile(ctx, LINKEDIN, prev.rawText, prev.fileName).catch(() => {}); // the resume itself is saved either way
     const mime = /\.pdf$/i.test(f!.originalname) ? "application/pdf" : /\.docx$/i.test(f!.originalname) ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "text/plain; charset=utf-8";
     await saveFile(ctx.me.id, "resume", f!.originalname, mime, f!.buffer);
