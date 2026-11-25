@@ -1,5 +1,7 @@
 # Start here, Julio
 
+Catching up after Nov 24? Read [`status/lead/julio-catch-up.md`](status/lead/julio-catch-up.md) first.
+
 Welcome to the main repo. This page is for you and whichever AI you're using (Codex, Claude, Gemini, Muse, Emergent or anything else).
 
 ## How the team works
@@ -24,7 +26,7 @@ Dilan does most of the work and his project Claude is the main AI (the lead). Th
 1. `git pull`, then `npm run ai:brief -- --me Julio` (add `--vault <your vault folder>` to refresh `remy/BRIEF.md` in your vault). Answer any "Requests for you" first, under `## Answers` in your status file (`seen`, `doing`, `done · #PR`, `declined · why`).
 2. Starting a feature: `git checkout -b julio/<feature>`, then `npm run ai:brief -- --me Julio --touch <files you'll change>`. If there are warnings, talk to that person first.
 3. Add a claim for those files in [`status/julio.md`](status/julio.md). Need something from Dilan or Demetre? Add `- julio-<n> to <Name> (date): <what>` under `## Requests`; their answer shows in your briefing.
-4. Build it owners-only (`useOwnerView()` on the client, `isOwner` on the server), add a `shared/news/` note with `owners: true`.
+4. A brand-new feature ships owners-only (`useOwnerView()` on the client, `isOwner` on the server) with a `shared/news/` note marked `owners: true`; fixes and improvements to existing features go straight to students. Make it work on the desktop site, the phone site and the phone app (`native/`), each with its own design.
 5. `npm run check && npm run check:contract && npm test && npm run check:ai`, then open the PR and fill in the template (including `Hours:`).
 6. After it merges, remove the claim and update "Working on now".
 
@@ -32,7 +34,7 @@ Dilan does most of the work and his project Claude is the main AI (the lead). Th
 
 Your old copy used SQLite and called OpenAI directly. In this repo:
 
-- **AI calls** go through `server/ai/` (students get Gemini, owners get Claude, with usage logging and the claim checker). Don't call OpenAI directly. If you want OpenAI for local testing, ask the lead to add it as an optional provider there.
+- **AI calls** go through `server/ai/` (everyone gets Claude Haiku 5.5 through OpenRouter, with usage logging and the claim checker). Don't call OpenAI directly. If you want OpenAI for local testing, ask the lead to add it as an optional provider there.
 - **Data** goes in Postgres through a new numbered file in `server/migrations/`. Never edit a migration that has shipped.
 - **Routes** go in `server/routes.ts` next to related ones, logic in the matching `server/<area>/` file, with a `*.test.ts` beside it.
 - **Every AI line about a student** is checked by `server/ai/claims.ts`, so Remy never invents facts.
