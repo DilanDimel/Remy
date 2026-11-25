@@ -163,7 +163,7 @@ let lastFinish = "";
 /** `chainSpec` overrides OR_AI_CHAIN for one call (e.g. a stronger model just for tailoring); if none of its providers is configured, the default chain is used. */
 /** `onText`, when given, streams the reply: it is called with the whole text so far as each piece arrives (a retry or
  * the next model in the chain starts again from ""). Chat uses it to show Remy's answer as it is written. */
-export async function aiText(system: string, user: string, maxTokens = 1200, chainSpec?: string, onText?: (soFar: string) => void): Promise<string> {
+export async function aiText(system: string, user: string | any[], maxTokens = 1200, chainSpec?: string, onText?: (soFar: string) => void): Promise<string> {
   lastFinish = ""; // set again from this call's reply, so a value from an earlier call is never read
   const c = init();
   if (!c) throw new AiUnavailable();
