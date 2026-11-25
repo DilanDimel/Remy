@@ -15,6 +15,7 @@ import { OwnPdfColoured, OwnWordColoured } from "./ResumeReal";
 import { exportBasePdf } from "../lib/wordPdf";
 import { NameChoice } from "./NameChoice";
 import { issues } from "@shared/markup";
+import { FormatCard, FormatPicker, FormatStrip } from "./FormatCheck";
 
 function CurrentPdf({ version, doc, look }: { version: string; doc: ResumeDoc; look?: ResumeStyle }) {
   const canShow = typeof navigator !== "undefined" && (navigator as any).pdfViewerEnabled === true;
@@ -28,6 +29,7 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
   const { ws, setWs, run, toast } = useStore();
   const r = ws!.resume!;
   const [view, setView] = useState<"resume" | "file">("resume");
+  const [formats, setFormats] = useState(false); // Remy's three clean formats in place of the resume
   const [exported, setExported] = useState(false); // asks "Did Remy help?" once, after a download
   // Changed since upload: the saved stamp, or (for edits made before Remy kept one) a line that isn't in the file's text.
   const squash = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -84,14 +86,15 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
           </div>
         </div>
       )}
-      <p className="small muted r1-hint hide-phone">Want to change something? Just tell Remy in the chat, like "add Tableau to my skills" or "remove the coursework line". He shows you the change first.</p>
+      {!formats && <FormatStrip onFormats={() => setFormats(true)} />}
+      {!formats && <p className="small muted r1-hint hide-phone">Want to change something? Just tell Remy in the chat, like "add Tableau to my skills" or "remove the coursework line". He shows you the change first.</p>}
       <div className="r1-grid">
         <section className="r1-view">
           <div className="seg r1-tabs" role="group" aria-label="Show">
             <button aria-pressed={view === "resume"} onClick={() => setView("resume")} data-testid="r1-tab-resume">Your resume</button>
             <button aria-pressed={view === "file"} onClick={() => setView("file")} data-testid="r1-tab-file">{showOriginal ? "Original file" : "Your file"}</button>
           </div>
-          {view === "resume" ? (
+          {formats ? <FormatPicker onClose={() => setFormats(false)} /> : view === "resume" ? (
             // Make it stronger lives beside the resume now (Dilan, Nov 21: "can't we just integrate it with this?").
             <>{drawnWhy && <p className="xs muted" data-testid="r1-drawn-why">{drawnWhy}</p>}
             {overBy > 0 && (
@@ -110,6 +113,7 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
             <ResumeMarkup doc={doc} look={r.style} real={real} upd={upd} onFix={() => document.getElementById("r1-stronger")?.scrollIntoView({ behavior: "smooth", block: "nearest" })} side={(walk: () => void) =>
               // Dilan, Nov 21: Make it stronger, the ATS check and approved versions & downloads as smaller cards beside the resume.
               <div className="r1-side-stack">
+                <FormatCard onFormats={() => { setFormats(true); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
                 <div className="r1-side-card" id="r1-stronger"><ResumeReview doc={doc} upd={upd} onEdit={onEditByHand} beside onWalk={walk} /></div>
                 <div className="r1-side-card" data-testid="r1-side-ats">
                   <AtsXray doc={doc} quality={r.quality} upd={upd} />
