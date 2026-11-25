@@ -1,5 +1,5 @@
 // Remy's employer catalog: about 80,000 companies' public job boards (Greenhouse, Lever, Ashby, Workable, Recruitee,
-// SmartRecruiters, Workday, Oracle, BambooHR, Breezy, JazzHR, Paylocity, Rippling), read a 24th at a time on each hourly sweep, so every board is read about once a day.
+// SmartRecruiters, Workday, Oracle, BambooHR, Breezy, JazzHR, Paylocity, Rippling, and school districts on AppliTrack), read a 24th at a time on each hourly sweep, so every board is read about once a day.
 // Only US postings with a student-level title are kept, with their text, so a search needs no extra reads.
 // Each part is one sealed file in the R2 bucket (catalog/part-N); a search reads them from memory. Nothing touches
 // Supabase, which keeps the free plan's data transfer flat however many employers Remy reads.
@@ -12,7 +12,7 @@ import { r2Store } from "../platform/r2";
 import { inUS } from "./fit";
 import { fetchBoard, studentTitle, withDetail, type Raw } from "./sources";
 
-type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling";
+type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack";
 export type CatalogBoard = { ats: Ats; slug: string; company: string };
 export const PARTS = 24;
 /** Text kept per posting: enough for its requirements and summary (an opening keeps up to 12,000 when saved). */
@@ -44,6 +44,8 @@ const STAPPLY_ATS: Record<Ats, (slug: string, url: string) => string | null> = {
   // Mid-size employers: subdomains (bamboohr, breezy, jazzhr's applytojob), a Rippling board name, a Paylocity company GUID.
   bamboohr: sub, breezy: sub, jazzhr: sub, rippling: sub,
   paylocity: (s) => (/^[0-9a-f-]{36}$/i.test(s) ? s : null),
+  // School districts: https://www.applitrack.com/aldineisd/onlineapp → "aldineisd"
+  applitrack: (_, u) => sub(u.match(/applitrack\.com\/([^/]+)\/onlineapp/i)?.[1] || ""),
 };
 
 /** Rows of a CSV with quoted fields. */
@@ -127,6 +129,9 @@ export function jazzList(html: string): { url: string; title: string; location: 
     .map((m) => ({ url: m[1], title: htmlToText(m[2]), location: htmlToText(m[3] || "") }));
 }
 
+/** A district home page's state, from its address ("Houston, TX 77032"). */
+export const districtState = (html: string) => html.match(/,\s*([A-Z]{2}),?\s+\d{5}\b/)?.[1];
+
 /** One board's postings. Greenhouse is listed without descriptions (some boards have thousands of roles) and only
  *  the kept postings' text is read; the others come through the readers every employer already uses. */
 export async function readBoard(b: CatalogBoard, read = fetchBoard): Promise<Raw[]> {
@@ -181,6 +186,12 @@ export async function readBoard(b: CatalogBoard, read = fetchBoard): Promise<Raw
         return { text: m ? htmlToText(String(JSON.parse(m[1]).props?.pageProps?.apiData?.jobPost?.description?.role || "")) : "" };
       },
     }));
+  }
+  if (b.ats === "applitrack") {
+    // The job list names buildings, not places; the district's home page has its address ("Houston, TX 77032").
+    const state = districtState(await getPage(`https://www.applitrack.com/${slug}/onlineapp/default.aspx`));
+    if (!state) return [];
+    return read({ ats: "applitrack", slug: `${b.slug}|${b.company}, ${state}`, company: b.company }, "");
   }
   return withDetail(await read({ ats: b.ats as Parameters<typeof read>[0]["ats"], slug: b.slug, company: b.company }, ""));
 }

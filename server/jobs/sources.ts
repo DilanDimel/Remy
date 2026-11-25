@@ -273,7 +273,8 @@ const SCHOOL_STUDENT = /\b(tutors?|student (worker|observer)s?|interns?(hip)?|su
 const HIGH_SCHOOLER = /\b(for )?high school students?\b|\bhs students?\b/i;
 const collegeRole = (title: string) => SCHOOL_STUDENT.test(title) && !HIGH_SCHOOLER.test(title);
 export function applitrackPostings(js: string, slug: string, city: string): Raw[] {
-  const html = js.replace(/\\'/g, "'").replace(/\\"/g, '"').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+  // The page is many document.write('...') calls with script between them; keep only the written HTML.
+  const html = js.replace(/'\);[\s\S]*?document\.write\('/g, "").replace(/\\'/g, "'").replace(/\\"/g, '"').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
   return html.split("<ul class='postingsList' id='p").slice(1).flatMap((chunk) => {
     const id = chunk.match(/^(\d+)_/)?.[1];
     // Districts prefix titles with pool codes ("35770* ", "Generic - ").
