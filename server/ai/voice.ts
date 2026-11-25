@@ -1,11 +1,11 @@
 // Remy's speaking voice (Nov 25, Dilan picked "Arthur" from ElevenLabs demos over the browser's robotic default).
 // Each line is made once, then kept: in memory, and sealed in R2 (./platform/r2.ts) so a deploy doesn't pay again.
-// Not configured (no ELEVENLABS_API_KEY) or ElevenLabs fails → null, and the browser reads it with its own voice.
+// Not configured (no ELEVENLABS_API_KEY) or ElevenLabs fails → null, and Remy stays quiet (no robot browser voice).
 import crypto from "node:crypto";
 import { r2Get, r2Put } from "../platform/r2";
 
 export const VOICE_ID = "3LPKEa2TICTsITcoxL7H"; // Arthur, Conversational American (ElevenLabs library)
-const MODEL = "eleven_flash_v2_5"; // fast enough to answer a click; half the credits of the studio models
+const MODEL = "eleven_v4_turbo"; // the v4 voice Dilan picked, in its real-time version
 export const MAX_CHARS = 1000;
 
 export const voiceReady = () => !!process.env.ELEVENLABS_API_KEY;
