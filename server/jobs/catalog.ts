@@ -16,9 +16,11 @@ type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartr
 export type CatalogBoard = { ats: Ats; slug: string; company: string };
 export const PARTS = 24;
 /** Text kept per posting: enough for its requirements and summary (an opening keeps up to 12,000 when saved). */
-const TEXT_MAX = 6000;
+const TEXT_MAX = 4000; // about 42,000 boards' openings stay in memory on a 512 MB server
 /** Full-posting reads per board for title-only systems, so one huge board can't eat the hour. */
 const DETAILS_PER_BOARD = 12;
+/** Openings kept per board, so one giant employer can't fill the catalog. */
+const PER_BOARD = 12;
 
 export const CATALOG: CatalogBoard[] = fs.readFileSync(path.resolve(process.cwd(), "server", "data", "catalog-boards.tsv"), "utf8")
   .split("\n").filter(Boolean).map((line) => { const [ats, slug, company] = line.split("\t"); return { ats: ats as Ats, slug, company: company || slug }; });
@@ -117,6 +119,7 @@ export async function keep(b: CatalogBoard, raws: Raw[]): Promise<Raw[]> {
   const out: Raw[] = [];
   let details = 0;
   for (const r of raws) {
+    if (out.length >= PER_BOARD) break;
     if (!r.url || !(r.student || studentTitle(r.title)) || !inUS(r.location)) continue;
     if (!r.text && r.detail) {
       if (details++ >= DETAILS_PER_BOARD) continue;
@@ -184,6 +187,7 @@ async function tick(store: NonNullable<ReturnType<typeof r2Store>>, read: typeof
   m.parts[p] = stats;
   await store.put("catalog/meta", m);
   parts.set(p, { at: stats.at, raws: kept });
+  console.log(`catalog: part ${p} kept ${stats.kept} (${stats.texas} in Texas) from ${stats.reached}/${stats.boards} boards; memory ${Math.round(process.memoryUsage().rss / 1e6)} MB`);
   return stats;
 }
 
