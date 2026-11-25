@@ -1,7 +1,7 @@
 // Remy's employer catalog: what it keeps, how it reads a part, and that it lives in R2 (a fake store here). `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CATALOG, PARTS, allBoards, catalogPostings, catalogStats, catalogTick, csvRows, districtState, jazzList, keep, ldDescription, partOf, readPart, resetCatalog, stapplyBoards, type CatalogBoard } from "./catalog";
+import { CATALOG, PARTS, allBoards, catalogPostings, catalogStats, catalogTick, csvRows, districtState, jazzList, ukgDescription, keep, ldDescription, partOf, readPart, resetCatalog, stapplyBoards, type CatalogBoard } from "./catalog";
 import { inUS } from "./fit";
 import { fetchBoard, type Raw } from "./sources";
 
@@ -71,6 +71,8 @@ test("Stapply lists: each system's rows become boards Remy's readers take; repo 
     oracle: "name,slug,url\nEB,ebwg,https://ebwg.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX\n",
     bamboohr: "name,slug,url\nCoker Legal,cokerlegal,https://cokerlegal.bamboohr.com/careers\nBad,../x,https://x\n",
     paylocity: "name,slug,url\nCochran,96be65ce-a51e-4c4e-8db5-091703033567,https://recruiting.paylocity.com/Recruiting/Jobs/All/96be65ce-a51e-4c4e-8db5-091703033567\nBad,nope,https://x\n",
+    ukg: "name,slug,url\n2nd Swing,x,https://recruiting2.ultipro.com/NDS1000NDSW/JobBoard/0e836885-d812-4a6b-8037-9c1ca641e913\n",
+    adp: "name,slug,url\nHansons,323017e4-7f2e-49e2-bca0-e798b69a8e90/19000101_000001,https://workforcenow.adp.com/x\nBad,nope,https://x\n",
     applitrack: "name,slug,url\nAldine ISD,https://www.applitrack.com/aldineisd/onlineapp,https://www.applitrack.com/aldineisd/onlineapp\n",
   };
   const got = await stapplyBoards(async (url) => { const a = url.split("/").at(-2)!; if (!lists[a]) throw new Error("404"); return lists[a]; });
@@ -79,9 +81,11 @@ test("Stapply lists: each system's rows become boards Remy's readers take; repo 
     ["workday", "23andme|wd5|23", "23Andme"], ["oracle", "ebwg.fa.us2.oraclecloud.com|CX", "EB"],
     ["bamboohr", "cokerlegal", "Coker Legal"], ["paylocity", "96be65ce-a51e-4c4e-8db5-091703033567", "Cochran"],
     ["applitrack", "aldineisd", "Aldine ISD"],
+    ["ukg", "recruiting2|NDS1000NDSW|0e836885-d812-4a6b-8037-9c1ca641e913", "2nd Swing"], ["adp", "323017e4-7f2e-49e2-bca0-e798b69a8e90|19000101_000001", "Hansons"],
   ]);
   assert.equal(districtState("<a href='https://maps.google.com/?q=loc:15010 Aldine Westfield Rd  Houston, TX 77032'>"), "TX");
   assert.equal(districtState("<p>Call 555-12345</p>"), undefined);
+  assert.equal(ukgDescription('x new US.Opportunity.CandidateOpportunityDetail({"Id":"1","Description":"\\u003cp\\u003eAssembles \\"parts\\"\\u003c/p\\u003e","X":1})'), 'Assembles "parts"');
   assert.deepEqual(csvRows('a,"b ""c"", d"\r\n1,2'), [["a", 'b "c", d'], ["1", "2"]]);
   resetCatalog();
   const files = new Map<string, unknown>();

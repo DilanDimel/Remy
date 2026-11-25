@@ -1,5 +1,5 @@
 // Remy's employer catalog: about 80,000 companies' public job boards (Greenhouse, Lever, Ashby, Workable, Recruitee,
-// SmartRecruiters, Workday, Oracle, BambooHR, Breezy, JazzHR, Paylocity, Rippling, and school districts on AppliTrack), read a 24th at a time on each hourly sweep, so every board is read about once a day.
+// SmartRecruiters, Workday, Oracle, BambooHR, Breezy, JazzHR, Paylocity, Rippling, UKG, ADP, and school districts on AppliTrack), read a 24th at a time on each hourly sweep, so every board is read about once a day.
 // Only US postings with a student-level title are kept, with their text, so a search needs no extra reads.
 // Each part is one sealed file in the R2 bucket (catalog/part-N); a search reads them from memory. Nothing touches
 // Supabase, which keeps the free plan's data transfer flat however many employers Remy reads.
@@ -12,7 +12,7 @@ import { r2Store } from "../platform/r2";
 import { inUS } from "./fit";
 import { fetchBoard, studentTitle, withDetail, type Raw } from "./sources";
 
-type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack";
+type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp";
 export type CatalogBoard = { ats: Ats; slug: string; company: string };
 export const PARTS = 24;
 /** Text kept per posting: enough for its requirements and summary (an opening keeps up to 12,000 when saved). */
@@ -46,6 +46,10 @@ const STAPPLY_ATS: Record<Ats, (slug: string, url: string) => string | null> = {
   paylocity: (s) => (/^[0-9a-f-]{36}$/i.test(s) ? s : null),
   // School districts: https://www.applitrack.com/aldineisd/onlineapp → "aldineisd"
   applitrack: (_, u) => sub(u.match(/applitrack\.com\/([^/]+)\/onlineapp/i)?.[1] || ""),
+  // UKG (UltiPro): https://recruiting2.ultipro.com/NDS1000NDSW/JobBoard/0e83… → "recruiting2|NDS1000NDSW|0e83…"
+  ukg: (_, u) => { const m = u.match(/^https:\/\/(recruiting\d*)\.ultipro\.com\/([A-Za-z0-9]+)\/JobBoard\/([0-9a-f-]{36})/i); return m ? `${m[1]}|${m[2]}|${m[3]}` : null; },
+  // ADP Workforce Now: "cid/ccId" → "cid|ccId"
+  adp: (s) => (/^[0-9a-f-]{36}\/[0-9_]+$/i.test(s) ? s.replace("/", "|") : null),
 };
 
 /** Rows of a CSV with quoted fields. */
@@ -129,6 +133,12 @@ export function jazzList(html: string): { url: string; title: string; location: 
     .map((m) => ({ url: m[1], title: htmlToText(m[2]), location: htmlToText(m[3] || "") }));
 }
 
+/** A UKG posting page's full description, from the data its script starts with. */
+export function ukgDescription(html: string): string {
+  const i = html.indexOf("CandidateOpportunityDetail(");
+  const m = i < 0 ? null : html.slice(i, i + 200_000).match(/"Description":"((?:\\.|[^"\\])*)"/);
+  return m ? htmlToText(JSON.parse(`"${m[1]}"`)) : "";
+}
 /** A district home page's state, from its address ("Houston, TX 77032"). */
 export const districtState = (html: string) => html.match(/,\s*([A-Z]{2}),?\s+\d{5}\b/)?.[1];
 
@@ -185,6 +195,37 @@ export async function readBoard(b: CatalogBoard, read = fetchBoard): Promise<Raw
         const m = (await getPage(String(x.url))).match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
         return { text: m ? htmlToText(String(JSON.parse(m[1]).props?.pageProps?.apiData?.jobPost?.description?.role || "")) : "" };
       },
+    }));
+  }
+  if (b.ats === "ukg") {
+    const [host, tenant, board] = b.slug.split("|");
+    const base = `https://${host}.ultipro.com/${tenant}/JobBoard/${board}`;
+    const items: any[] = [];
+    for (let skip = 0; skip < 300; skip += 100) { // newest first; a few hundred roles is plenty for student titles
+      const r = await fetch(`${base}/JobBoardView/LoadSearchResults`, {
+        method: "POST", headers: { "Content-Type": "application/json", "User-Agent": BROWSER }, signal: AbortSignal.timeout(15_000),
+        body: JSON.stringify({ opportunitySearch: { Top: 100, Skip: skip, QueryString: "", OrderBy: [{ Value: "postedDateDesc", PropertyName: "PostedDate", Ascending: false }], Filters: [] } }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const j = await r.json();
+      items.push(...(j.opportunities || []));
+      if (items.length >= (j.totalCount || 0) || !(j.opportunities || []).length) break;
+    }
+    return items.map((x: any): Raw => {
+      const url = `${base}/OpportunityDetail?opportunityId=${x.Id}`;
+      const location = (x.Locations || []).map((l: any) => [l.Address?.City, l.Address?.State?.Code, l.Address?.Country?.Code === "USA" ? "US" : l.Address?.Country?.Name].filter(Boolean).join(", ")).filter(Boolean).join("; ");
+      return { title: String(x.Title || ""), location, url, text: "", posted: x.PostedDate, detail: async () => ({ text: ukgDescription(await getPage(url)) || htmlToText(String(x.BriefDescription || "")) }) };
+    });
+  }
+  if (b.ats === "adp") {
+    const [cid, cc] = b.slug.split("|").map(encodeURIComponent);
+    const api = "https://workforcenow.adp.com/mascsr/default/careercenter/public/events/staffing/v1/job-requisitions";
+    const q = `cid=${cid}&ccId=${cc}&lang=en_US&locale=en_US`;
+    const list = JSON.parse(await getPage(`${api}?${q}&$top=200`)).jobRequisitions || [];
+    return list.map((x: any): Raw => ({
+      title: String(x.requisitionTitle || ""), location: (x.requisitionLocations || []).map((l: any) => String(l.nameCode?.shortName || "").trim()).filter(Boolean).join("; "),
+      url: `https://workforcenow.adp.com/mascsr/default/mdf/recruitment/recruitment.html?${q}&jobId=${encodeURIComponent(x.itemID)}`, text: "", posted: x.postDate,
+      detail: async () => ({ text: htmlToText(String(JSON.parse(await getPage(`${api}/${encodeURIComponent(x.itemID)}?${q}`)).requisitionDescription || "")) }),
     }));
   }
   if (b.ats === "applitrack") {
