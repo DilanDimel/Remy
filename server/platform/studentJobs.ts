@@ -20,7 +20,8 @@
 import type { Job } from "@shared/types";
 import { q, q1 } from "./sql";
 import { backupNow, type Store } from "./backup";
-import { r2Store } from "./r2";
+import crypto from "node:crypto";
+import { r2Delete, r2Get, r2Put, r2Store } from "./r2";
 
 export type JobsMode = "off" | "copy" | "owners" | "everyone";
 export const JOBS_MODES: JobsMode[] = ["off", "copy", "owners", "everyone"];
@@ -56,8 +57,8 @@ export async function setJobsMode(mode: string, by: string, store: Store | null 
 const dupIds = (jobs: Job[]) => new Set(jobs.map((j) => j.id)).size !== jobs.length;
 
 /** Replaces one account's copy with `jobs` and marks it copied. Run inside a transaction holding the workspace row. */
-export type Written = { v: number; jobs: Job[] } | undefined;
-const written = (v: unknown, jobs: Job[]): Written => (v == null ? undefined : { v: Number(v), jobs });
+export type Written = { v: number; jobs: Job[]; at?: string } | undefined;
+const written = (r: any, jobs: Job[]): Written => (r?.jobs_v == null ? undefined : { v: Number(r.jobs_v), jobs, at: r.at });
 export async function copyAll(run: typeof q, userId: string, raw: unknown): Promise<Written> {
   const jobs = asList(raw);
   if (dupIds(jobs)) {
@@ -75,8 +76,8 @@ export async function copyAll(run: typeof q, userId: string, raw: unknown): Prom
     [userId, JSON.stringify(jobs, noNul)],
   );
   const v = await run(`INSERT INTO student_jobs_state (user_id) VALUES ($1)
-             ON CONFLICT (user_id) DO UPDATE SET note = '', copied_at = now(), jobs_v = student_jobs_state.jobs_v + 1 RETURNING jobs_v`, [userId]);
-  return written(v[0]?.jobs_v, jobs);
+             ON CONFLICT (user_id) DO UPDATE SET note = '', copied_at = now(), jobs_v = student_jobs_state.jobs_v + 1 RETURNING jobs_v, copied_at::text AS at`, [userId]);
+  return written(v[0], jobs);
 }
 
 /** Called by every workspace write that changes openings, in its transaction after the workspace row is written.
@@ -104,8 +105,8 @@ export async function syncJobs(run: typeof q, userId: string, before: unknown, a
        ON CONFLICT (user_id, job_id) DO UPDATE SET pos = EXCLUDED.pos, data = EXCLUDED.data, updated_at = now()`,
       [userId, JSON.stringify(changed, noNul)],
     );
-  const v = await run("UPDATE student_jobs_state SET jobs_v = jobs_v + 1 WHERE user_id=$1 RETURNING jobs_v", [userId]);
-  return written(v[0]?.jobs_v, next);
+  const v = await run("UPDATE student_jobs_state SET jobs_v = jobs_v + 1 WHERE user_id=$1 RETURNING jobs_v, copied_at::text AS at", [userId]);
+  return written(v[0], next);
 }
 
 /** A whole-workspace write the server can't diff: the account is copied again by the hourly copy. */
@@ -117,6 +118,7 @@ export async function deleteCopy(userId: string) {
   await q("DELETE FROM student_jobs WHERE user_id=$1", [userId]);
   await q("DELETE FROM student_jobs_state WHERE user_id=$1", [userId]);
   tableCache.delete(userId);
+  r2Delete(sharedName(userId));
 }
 
 let owners = { at: 0, ids: new Set<string>() };
@@ -134,7 +136,12 @@ async function ownerIds() {
 
 const tableCache = new Map<string, { v: number; jobs: Job[] }>();
 const TABLE_CACHE_MAX = 200;
-function remember(userId: string, v: number, jobs: Job[]) {
+// Also kept, sealed, in the private R2 bucket like the workspace cache (db.ts), so a deploy (dozens a day) doesn't
+// download every student's openings again. Keyed by copied_at and jobs_v: jobs_v restarts at 1 when an account is
+// copied again, but copied_at changes then, so an old file never matches.
+const sharedName = (userId: string) => `jobs/${crypto.createHash("sha256").update(userId).digest("hex")}`;
+function remember(userId: string, v: number, jobs: Job[], at?: string) {
+  if (at) r2Put(sharedName(userId), { k: `${at}|${v}`, jobs });
   tableCache.delete(userId);
   tableCache.set(userId, { v, jobs });
   if (tableCache.size > TABLE_CACHE_MAX) tableCache.delete(tableCache.keys().next().value!);
@@ -143,19 +150,21 @@ function remember(userId: string, v: number, jobs: Job[]) {
  *  so the next read doesn't download them again (only the tiny jobs_v number crosses the network). Never before the
  *  commit: a rolled-back save must not leave a copy that a later jobs_v could match. */
 export function primeJobs(userId: string, w: Written) {
-  if (w) remember(userId, w.v, structuredClone(w.jobs));
+  if (w) remember(userId, w.v, structuredClone(w.jobs), w.at);
 }
 /** Openings from the table when the switch says this account reads it ('owners': owners only; 'everyone': all) and
  *  its copy is good; otherwise null (use the workspace). */
 export async function jobsFromTable(userId: string): Promise<Job[] | null> {
   const mode = await jobsMode();
   if (mode !== "everyone" && (mode !== "owners" || !(await ownerIds()).has(userId))) return null;
-  const s = await q1("SELECT jobs_v, note FROM student_jobs_state WHERE user_id=$1", [userId]);
+  const s = await q1("SELECT jobs_v, note, copied_at::text AS at FROM student_jobs_state WHERE user_id=$1", [userId]);
   if (!s || s.note) return null;
   const v = Number(s.jobs_v), c = tableCache.get(userId);
   if (c && c.v === v) return structuredClone(c.jobs);
+  const f = await r2Get(sharedName(userId));
+  if (f?.k === `${s.at}|${v}` && Array.isArray(f.jobs)) { remember(userId, v, f.jobs); return structuredClone(f.jobs); }
   const jobs = (await q("SELECT data FROM student_jobs WHERE user_id=$1 ORDER BY pos", [userId])).map((r) => (typeof r.data === "string" ? JSON.parse(r.data) : r.data)) as Job[];
-  remember(userId, v, jobs);
+  remember(userId, v, jobs, s.at);
   return structuredClone(jobs);
 }
 
