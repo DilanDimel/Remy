@@ -576,11 +576,12 @@ function SystemTab() {
   );
 }
 
-type JobsMove = { mode: "off" | "copy" | "owners"; accounts: number; copied: number; left: number; differ: number; skipped: number; jobsInWorkspaces: number; jobsInTable: number };
+type JobsMove = { mode: "off" | "copy" | "owners" | "everyone"; accounts: number; copied: number; left: number; differ: number; skipped: number; jobsInWorkspaces: number; jobsInTable: number };
 const MOVE_SAY: Record<JobsMove["mode"], string> = {
   off: "Off. Saved openings live only inside each account, as before.",
   copy: "Copying. Every save also writes the openings to their own table, and each hourly check copies 10 more accounts. Nothing is read from the table yet.",
-  owners: "Owners read from the table. Students still read their account's own copy.",
+  owners: "Owners read from the table. Students still read their account's own copy. Check owners' openings for a day before Everyone.",
+  everyone: "Everyone's copied openings are read from the table. Accounts still keep their own copy until a later update removes it.",
 };
 /** The switch for moving saved openings into their own table (server/platform/studentJobs.ts), and how the copy is going. */
 function SavedOpeningsMove() {
@@ -589,6 +590,7 @@ function SavedOpeningsMove() {
   if (!m) return null;
   const pick = async (mode: JobsMove["mode"]) => {
     if (mode === m.mode) return;
+    if (mode === "everyone" && !confirm("Read every student's saved openings from the new table? Owners should have checked theirs for a day. Each account still keeps its own copy, and Owners read it or Off switches back at once.")) return;
     if (m.mode === "off" && !confirm("Start copying saved openings into their own table? Remy takes a fresh full backup first, then copies 10 accounts an hour. Accounts keep their own copy, and Off undoes it at once.")) return;
     const r = await run(() => api<JobsMove>("POST", "/api/admin/student-jobs", { mode }), mode === "off" ? "Switched off" : "Switch saved");
     if (r) setM(r);
@@ -605,9 +607,9 @@ function SavedOpeningsMove() {
         </div>
       )}
       <div className="adm2-links">
-        {(["off", "copy", "owners"] as const).map((x) => (
-          <button key={x} className={"btn btn-sm " + (m.mode === x ? "btn-primary" : "btn-ghost")} onClick={() => pick(x)} data-testid={`button-student-jobs-${x}`}>
-            {x === "off" ? "Off" : x === "copy" ? "Copy" : "Owners read it"}
+        {(["off", "copy", "owners", "everyone"] as const).map((x) => (
+          <button key={x} className={"btn btn-sm " + (m.mode === x ? "btn-primary" : "btn-ghost")} onClick={() => pick(x)} disabled={x === "everyone" && m.mode !== "owners" && m.mode !== "everyone"} data-testid={`button-student-jobs-${x}`}>
+            {x === "off" ? "Off" : x === "copy" ? "Copy" : x === "owners" ? "Owners read it" : "Everyone reads it"}
           </button>
         ))}
       </div>
