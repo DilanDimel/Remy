@@ -2,8 +2,8 @@ import * as Haptics from "expo-haptics";
 import type { ReactNode } from "react";
 import type { JobFit } from "@shared/types";
 import { logoFor } from "@shared/logos";
-import { useState } from "react";
-import { ActivityIndicator, Image, Platform, Pressable, RefreshControl, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Image, Platform, Pressable, RefreshControl, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScrollView } from "react-native-gesture-handler";
 import Svg, { Circle, Path, SvgXml } from "react-native-svg";
@@ -105,12 +105,54 @@ export function RichText({ text, style, boldStyle }: { text: string; style?: Sty
 
 /** Scholar Remy, the same fox as the website, in the outfit the student picked on Rewards (saved in `game.outfit`).
  *  `size` is his width; `icon` draws the round head-only icon instead (small avatars, the floating button). */
-export function Remy({ size = 64, icon, outfit }: { size?: number; icon?: boolean; outfit?: Outfit }) {
+export function Remy({ size = 64, icon, outfit, alive }: { size?: number; icon?: boolean; outfit?: Outfit; alive?: boolean }) {
   const { ws } = useSession();
   if (icon) return <SvgXml xml={SCHOLAR_ICON} width={size} height={size} accessibilityLabel="Remy" />;
   const saved = ws?.game?.outfit as Outfit | undefined;
   const xml = OUTFITS[outfit || (saved && saved in OUTFITS ? saved : "suit")];
+  if (alive) return <LiveRemy xml={xml} size={size} />;
   return <SvgXml xml={xml} width={size} height={size * 222 / 200} accessibilityLabel="Remy the fox, your career coach" />;
+}
+
+// Closed eyes: the pupils (ry 7) go flat and the catchlights (r 1.8) go away. Those values only appear on the eyes.
+export const blinkXml = (xml: string) => xml.replace(/ry="7"/g, 'ry="0.9"').replace(/r="1\.8"/g, 'r="0"');
+
+/** The website homepage's moving Remy (index.css .fox.wave): hops hello, then bobs, blinks and now and then hops or
+ *  tilts his head. shortcut: moves the whole drawing, not ears/arms like the web's per-part CSS; upgrade with layered SVG. */
+function LiveRemy({ xml, size }: { xml: string; size: number }) {
+  const h = size * 222 / 200;
+  const bob = useRef(new Animated.Value(0)).current, hop = useRef(new Animated.Value(0)).current, tilt = useRef(new Animated.Value(0)).current;
+  const [shut, setShut] = useState(false);
+  useEffect(() => {
+    let off = false, timers: ReturnType<typeof setTimeout>[] = [];
+    const later = (fn: () => void, ms: number) => { timers.push(setTimeout(() => { if (!off) fn(); }, ms)); };
+    const t = (v: Animated.Value, to: number, ms: number, ease = Easing.inOut(Easing.sin)) => Animated.timing(v, { toValue: to, duration: ms, easing: ease, useNativeDriver: true });
+    const hops = (n: number) => Animated.sequence(Array.from({ length: n }, () => Animated.sequence([t(hop, 1, 360, Easing.out(Easing.quad)), t(hop, 0, 300, Easing.in(Easing.quad))])));
+    AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
+      if (reduce || off) return;
+      hops(3).start();
+      Animated.loop(Animated.sequence([t(bob, 1, 1700), t(bob, 0, 1700)])).start();
+      const blink = () => later(() => { setShut(true); later(() => { setShut(false); blink(); }, 140); }, 3200 + Math.random() * 2600);
+      blink();
+      const act = () => later(() => {
+        (Math.random() < 0.5 ? hops(2) : Animated.sequence([t(tilt, 1, 500), t(tilt, -1, 700), t(tilt, 0, 500)])).start();
+        act();
+      }, 8000 + Math.random() * 8000);
+      act();
+    }).catch(() => {});
+    return () => { off = true; timers.forEach(clearTimeout); [bob, hop, tilt].forEach((v) => v.stopAnimation()); };
+  }, [bob, hop, tilt]);
+  const shown = shut ? blinkXml(xml) : xml;
+  return (
+    <Animated.View style={{ width: size, height: h, transform: [
+      { translateY: Animated.add(bob.interpolate({ inputRange: [0, 1], outputRange: [0, -size * 0.02] }), hop.interpolate({ inputRange: [0, 1], outputRange: [0, -size * 0.05] })) },
+      { rotate: tilt.interpolate({ inputRange: [-1, 1], outputRange: ["-4deg", "4deg"] }) },
+      { scaleX: hop.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) },
+      { scaleY: hop.interpolate({ inputRange: [0, 1], outputRange: [1, 0.98] }) },
+    ] }}>
+      <SvgXml xml={shown} width={size} height={h} accessibilityLabel="Remy the fox, your career coach" />
+    </Animated.View>
+  );
 }
 
 /** The company's logo on a white tile with a thin outline, like the website's OrgLogo (shared/logos.ts). Initials only
