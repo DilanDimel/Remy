@@ -1851,6 +1851,21 @@ html.redesign-2:has(.tour) .remy-offer { display: none; }
 .r1-side-stack { display: flex; flex-direction: column; gap: 12px; }
 .r1-side-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .r1-side-card h3 { margin: 0; font-size: 1rem; }
+/* Format check (owners first, Nov 25): findings with a coloured edge by weight, three formats side by side. */
+.fmt-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.fmt-list li { display: grid; gap: 2px; padding-left: 10px; border-left: 3px solid var(--line); }
+.fmt-list li.fmt-bad { border-left-color: var(--error); }
+.fmt-list li.fmt-fix { border-left-color: var(--fox); }
+.fmt-card .btn { align-self: flex-start; }
+.fmt-picker h3 { margin: 0; }
+.fmt-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.fmt-option { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); min-width: 0; }
+.fmt-option[aria-current="true"] { border-color: var(--fox); }
+.fmt-option-head { flex-wrap: nowrap; gap: 8px; }
+.fmt-preview { display: block; height: clamp(200px, calc(100vh - 500px), 680px); width: auto; max-width: 100%; margin: 0 auto; aspect-ratio: 8.5 / 11; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); object-fit: contain; }
+.fmt-loading { background: var(--surface-2, var(--line)); }
+.fmt-strip { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid var(--line); border-left: 3px solid var(--error); border-radius: var(--radius); }
+@media (max-width: 690px) { .fmt-grid { grid-template-columns: 1fr; } }
 .r1-side-card > .card, .r1-side-card .card { border: 0; padding: 0; box-shadow: none; background: none; }
 .rm-side-review { max-height: none; overflow: visible; position: static; }
 .r1 .rm-paper { max-width: none; }

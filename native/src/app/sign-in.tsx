@@ -7,7 +7,7 @@ import Svg, { Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, Group, Icon, Remy, Row, T, success, tap } from "@/components/ui";
 import { useGateRedirect } from "@/lib/gate";
-import { api } from "@/lib/api";
+import { api, API_BASE } from "@/lib/api";
 import { useConfig } from "@/lib/config";
 import { newVerifier, parseReturn } from "@/lib/auth";
 import { useSession } from "@/lib/session";
@@ -71,9 +71,12 @@ export default function SignIn() {
     if (!sb) return;
     setSsoBusy(p); setErr("");
     try {
+      // Supabase returns to a remyai.org page that opens remy://auth: Android's Chrome won't follow a redirect
+      // straight into the app at the end of a long sign-in (after a phone prompt), but it will from a tap there.
       const back = Linking.createURL("auth");
       const verifier = newVerifier();
-      const r = await WebBrowser.openAuthSessionAsync(`${sb.url}/auth/v1/authorize?provider=${p}&redirect_to=${encodeURIComponent(back)}&code_challenge=${verifier}&code_challenge_method=plain`, back);
+      const via = `${API_BASE || "https://remyai.org"}/api/auth/app-return`;
+      const r = await WebBrowser.openAuthSessionAsync(`${sb.url}/auth/v1/authorize?provider=${p}&redirect_to=${encodeURIComponent(via)}&code_challenge=${verifier}&code_challenge_method=plain`, back);
       if (r.type === "success") {
         const { code, error } = parseReturn(r.url);
         if (!code) throw new Error(error ? `Sign-in didn't finish: ${error}` : "Sign-in didn't finish. Please try again.");
