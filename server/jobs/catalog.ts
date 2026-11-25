@@ -16,7 +16,7 @@ type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartr
 export type CatalogBoard = { ats: Ats; slug: string; company: string };
 export const PARTS = 24;
 /** Text kept per posting: enough for its requirements and summary (an opening keeps up to 12,000 when saved). */
-const TEXT_MAX = 4000; // about 42,000 boards' openings stay in memory on a 512 MB server
+const TEXT_MAX = 2500; // ~25,000 openings in memory hit 390 MB of 512 at 4,000 (Nov 25); search only reads the first 3,000
 /** Full-posting reads per board for title-only systems, so one huge board can't eat the hour. */
 const DETAILS_PER_BOARD = 12;
 /** Openings kept per board, so one giant employer can't fill the catalog. */
@@ -377,7 +377,7 @@ export async function catalogPostings(store = r2Store(), wait = false): Promise<
       const p = Number(k);
       if (parts.get(p)?.at === s.at) continue;
       const raws = await store.get(`catalog/part-${p}`).catch(() => null);
-      if (Array.isArray(raws)) parts.set(p, { at: s.at, raws });
+      if (Array.isArray(raws)) parts.set(p, { at: s.at, raws: raws.map((r: Raw) => (r.text && r.text.length > TEXT_MAX ? { ...r, text: r.text.slice(0, TEXT_MAX) } : r)) });
     }
   })().catch(() => {}).finally(() => { loading = null; });
   if (wait) await loading;
