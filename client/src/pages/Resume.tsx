@@ -12,6 +12,7 @@ import type { Application, BulletChange, ClaimFlag, Job, ResumeDoc, Workspace } 
 import { API_BASE, api, download, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
 import { exportBasePdf, ownWordPdf } from "../lib/wordPdf";
 import { ResumeOnePage } from "../components/ResumeOnePage";
+import { FormatCard, FormatPicker, FormatStrip } from "../components/FormatCheck";
 import { go, replaceRoute } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Empty, Modal, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
@@ -102,6 +103,7 @@ function BaseResume({ subParam }: { subParam: string | null }) {
   const [preview, setPreviewState] = useState(() => { try { const v = localStorage.getItem("remy.resumePreview"); return v ? v !== "hidden" : !window.matchMedia("(max-width: 640px)").matches; } catch { return true; } });
   const setPreview = (fn: (p: boolean) => boolean) => setPreviewState((p) => { const n = fn(p); try { localStorage.setItem("remy.resumePreview", n ? "shown" : "hidden"); } catch { /* private mode */ } return n; });
   const [building, setBuilding] = useState(false);
+  const [formats, setFormats] = useState(false); // Remy's three clean formats
   // Review first (Remy's top fixes), then Edit, then the file itself. ?sub= opens one directly.
   const [sub, setSubState] = useState<"review" | "edit" | "file">(() => { const v = new URLSearchParams(location.search).get("sub") || new URLSearchParams(location.hash.split("?")[1] || "").get("sub"); return v === "edit" || v === "file" || v === "review" ? v : w.resume?.confirmedAt ? "review" : "edit"; });
   const setSub = (v: "review" | "edit" | "file") => { setSubState(v); window.scrollTo({ top: 0 }); };
@@ -165,6 +167,7 @@ function BaseResume({ subParam }: { subParam: string | null }) {
         </div>
       </div>
       {replace && <div className="card card-pad"><ResumeUpload compact onDone={() => setReplace(false)} /></div>}
+      {formats ? <div className="card card-pad"><FormatPicker onClose={() => setFormats(false)} /></div> : <FormatStrip onFormats={() => setFormats(true)} />}
       {stage3 && <button className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setByHand(false)} data-testid="button-back-simple">← Back to the simple view</button>}
       {(() => {
         // 1 check what Remy read and confirm it, 2 make it stronger, 3 the file. New students start at 1.
@@ -182,7 +185,7 @@ function BaseResume({ subParam }: { subParam: string | null }) {
         <div className="row-between">
           <div className="stack-sm">
             <h3>Your resume, as a file</h3>
-            <span className="xs muted">{w.resume.original ? "Downloads keep your own layout with your edits in place. If a change can't fit into your file (like a new heading), Remy uses his clean layout in your font instead." : w.resume.parsedBy === "builder" ? "You built this resume with Remy, so there's no original file. Export it as a clean PDF or Word file." : "This resume was pasted, so there's no original file. Export it as a clean PDF or Word file."}</span>
+            <span className="xs muted">{w.resume.style?.look ? `Downloads use the ${w.resume.style.look[0].toUpperCase() + w.resume.style.look.slice(1)} format you picked, with your same words. Original is your file as you uploaded it.` : w.resume.original ? "Downloads keep your own layout with your edits in place. If a change can't fit into your file (like a new heading), Remy uses his clean layout in your font instead." : w.resume.parsedBy === "builder" ? "You built this resume with Remy, so there's no original file. Export it as a clean PDF or Word file." : "This resume was pasted, so there's no original file. Export it as a clean PDF or Word file."}</span>
           </div>
           <div className="row">
             {w.resume.original && <button className="btn btn-secondary btn-sm" onClick={() => download("/api/resume/original?download=1", w.resume!.original!.name).catch((e) => toast(e.message, true))} data-testid="button-download-original"><Download size={14} /> Original</button>}
@@ -209,6 +212,7 @@ function BaseResume({ subParam }: { subParam: string | null }) {
           </div>
         )}
       </div>
+      {!formats && <FormatCard onFormats={() => { setFormats(true); window.scrollTo({ top: 0, behavior: "smooth" }); }} />}
       {showRaw && <pre className="card card-pad xs" style={{ whiteSpace: "pre-wrap", maxHeight: 320, overflow: "auto", margin: 0 }}>{w.resume.rawText}</pre>}
 
       </>}
