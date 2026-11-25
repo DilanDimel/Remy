@@ -3907,3 +3907,8 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 }
 /* Privacy & terms: "Privacy policy" / "Terms of use" read as quiet part labels, not a stray orange word (Nov 25). */
 .doc-body > h2.eyebrow { margin: 6px 0 -6px; color: var(--muted-text); font-size: var(--text-xs); letter-spacing: .08em; text-transform: uppercase; }
+/* The first section sits right under the title/jump row: no second rule there (Dilan, Nov 25 "looks weird right there"). */
+.doc-body > .info-sec:first-child { border-top: 0; padding-top: 16px; }
+/* "Terms of use" starts a new part: one line above the label, none between it and its first section. */
+.doc-body > h2.eyebrow { margin-top: 0; padding-top: 28px; border-top: 1px solid var(--line); }
+.doc-body > h2.eyebrow + .info-sec { border-top: 0; padding-top: 6px; }
