@@ -3,8 +3,9 @@ import type { ReactNode } from "react";
 import type { JobFit } from "@shared/types";
 import { logoFor } from "@shared/logos";
 import { useState } from "react";
-import { ActivityIndicator, Image, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { ActivityIndicator, Image, Platform, Pressable, RefreshControl, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ScrollView } from "react-native-gesture-handler";
 import Svg, { Circle, Path, SvgXml } from "react-native-svg";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
 import { brand, light as lightTokens, radius } from "@/lib/tokens";
@@ -24,6 +25,7 @@ export function Screen({ children, refreshing, onRefresh, scroll = true, style }
   if (!scroll) return <View style={[{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top + 8 }, style]}>{children}</View>;
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
+      {/* Gesture-handler's ScrollView, so on Android a vertical drag wins over a card's sideways swipe (Jobs). */}
       <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={[pad, style]} contentInsetAdjustmentBehavior="never"
         refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={c.fox} /> : undefined}>
         {children}

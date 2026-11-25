@@ -1,6 +1,6 @@
 import { useLocalSearchParams, router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Swipeable, { SwipeDirection } from "react-native-gesture-handler/ReanimatedSwipeable";
 import type { Job, JobFit } from "@shared/types";
@@ -162,9 +162,8 @@ export default function Jobs() {
               </JobCard>
             );
             return filter === "new" && j.kind !== "event" ? (
-              // Swipe to keep or pass on iPhone only: on Android the swipe held the list's vertical scroll (Dilan's recording,
-              // Nov 25) even with a bigger start offset. Keep and Pass buttons are on every card.
-              <Swipeable key={j.id} enabled={Platform.OS === "ios"} friction={2} leftThreshold={80} rightThreshold={80} dragOffsetFromLeft={30} dragOffsetFromRight={30} overshootLeft={false} overshootRight={false}
+              // dragOffsetFromRight must be negative: #442 set +30, which made the swipe grab every touch on Android and hold the scroll.
+              <Swipeable key={j.id} friction={2} leftThreshold={80} rightThreshold={80} dragOffsetFromLeft={24} dragOffsetFromRight={-24} overshootLeft={false} overshootRight={false}
                 renderLeftActions={side("Keep", c.foxSoft, c.foxDeep, "heart", true)} renderRightActions={side("Pass", c.surface2, c.mutedText, "x", false)}
                 onSwipeableOpen={(dir) => decide(j, dir === SwipeDirection.RIGHT)}>
                 {card}
