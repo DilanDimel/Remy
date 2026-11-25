@@ -1,5 +1,5 @@
 // Remy's employer catalog: about 80,000 companies' public job boards (Greenhouse, Lever, Ashby, Workable, Recruitee,
-// SmartRecruiters, Workday, Oracle, BambooHR, Breezy, JazzHR, Paylocity, Rippling, UKG, ADP, iCIMS, and school districts on AppliTrack), read a 24th at a time on each hourly sweep, so every board is read about once a day.
+// SmartRecruiters, Workday, Oracle, BambooHR, Breezy, JazzHR, Paylocity, Rippling, UKG, ADP, iCIMS, SuccessFactors, and school districts on AppliTrack), read a 24th at a time on each hourly sweep, so every board is read about once a day.
 // Only US postings with a student-level title are kept, with their text, so a search needs no extra reads.
 // Each part is one sealed file in the R2 bucket (catalog/part-N); a search reads them from memory. Nothing touches
 // Supabase, which keeps the free plan's data transfer flat however many employers Remy reads.
@@ -12,7 +12,7 @@ import { r2Store } from "../platform/r2";
 import { inUS } from "./fit";
 import { fetchBoard, studentTitle, withDetail, type Raw } from "./sources";
 
-type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims";
+type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors";
 export type CatalogBoard = { ats: Ats; slug: string; company: string };
 export const PARTS = 24;
 /** Text kept per posting: enough for its requirements and summary (an opening keeps up to 12,000 when saved). */
@@ -52,6 +52,9 @@ const STAPPLY_ATS: Record<Ats, (slug: string, url: string) => string | null> = {
   adp: (s) => (/^[0-9a-f-]{36}\/[0-9_]+$/i.test(s) ? s.replace("/", "|") : null),
   // iCIMS: https://careers-360care.icims.com → "careers-360care"
   icims: (_, u) => sub(u.match(/^https:\/\/([a-z0-9-]+)\.icims\.com/i)?.[1] || ""),
+  // SAP SuccessFactors career sites on the employer's own domain ("jobs.adamed.com"). career*.successfactors.com
+  // hosts are skipped: their robots.txt disallows everything.
+  successfactors: (_, u) => { const h = u.match(/^https:\/\/([a-z0-9.-]+\.[a-z]{2,})(?:\/|$)/i)?.[1]; return h && !/successfactors\.(com|eu)$/i.test(h) ? h.toLowerCase() : null; },
 };
 
 /** Rows of a CSV with quoted fields. */
@@ -147,6 +150,22 @@ export function jazzList(html: string): { url: string; title: string; location: 
 export function icimsJobs(xml: string): { url: string; title: string; posted?: string }[] {
   return [...xml.matchAll(/<loc>(https:\/\/[a-z0-9-]+\.icims\.com\/jobs\/\d+\/([^/<]+)\/job)<\/loc>(?:<lastmod>([^<]+)<\/lastmod>)?/gi)]
     .map((m) => ({ url: m[1], title: decodeURIComponent(m[2]).replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()), posted: m[3] }));
+}
+/** A SuccessFactors career site's sitemap postings (".../job/Dallas-Consulting-Analyst-TX-75201/459314600/"). */
+export function sfJobs(xml: string): { url: string; title: string; posted?: string }[] {
+  return [...xml.matchAll(/<loc>(https:\/\/[^<]+?\/job\/([^/<]+)\/\d+\/)<\/loc>(?:<lastmod>([^<]+)<\/lastmod>)?/g)]
+    .map((m) => ({ url: m[1], title: decodeURIComponent(m[2]).replace(/-/g, " "), posted: m[3] }));
+}
+/** A SuccessFactors posting page: its title, text and place, from the page's schema.org microdata. */
+export function sfPosting(html: string): { title?: string; text: string; location: string } {
+  const meta = (p: string) => html.match(new RegExp(`itemprop="${p}" content="([^"]*)"`))?.[1]?.replace(/\s*\(.*?\)/g, "").trim() || "";
+  const i = html.indexOf('itemprop="description"');
+  const title = htmlToText(html.match(/itemprop="title"[^>]*>([^<]+)</)?.[1] || "").trim();
+  return {
+    title: title || undefined,
+    text: i < 0 ? "" : htmlToText(html.slice(i + 22, i + 60_000).split(/<\/span>\s*<\/div>/)[0].replace(/^[^>]*>/, "")),
+    location: [meta("addressLocality"), meta("addressRegion"), meta("addressCountry")].filter(Boolean).join(", "),
+  };
 }
 /** A UKG posting page's full description, from the data its script starts with. */
 export function ukgDescription(html: string): string {
@@ -251,6 +270,11 @@ export async function readBoard(b: CatalogBoard, read = fetchBoard): Promise<Raw
       detail: async () => ldPosting(await getPage(`${x.url}?in_iframe=1`)),
     }));
   }
+  if (b.ats === "successfactors") {
+    // Career Site Builder lists every posting in its sitemap; the link holds place and title, the page the rest.
+    const xml = await getPage(`https://${b.slug}/sitemap.xml`);
+    return sfJobs(xml).map((x): Raw => ({ ...x, location: "", text: "", detail: async () => sfPosting(await getPage(x.url)) }));
+  }
   if (b.ats === "applitrack") {
     // The job list names buildings, not places; the district's home page has its address ("Houston, TX 77032").
     const state = districtState(await getPage(`https://www.applitrack.com/${slug}/onlineapp/default.aspx`));
@@ -270,8 +294,8 @@ export async function keep(b: CatalogBoard, raws: Raw[]): Promise<Raw[]> {
     if (!r.url || !(r.student || studentTitle(r.title)) || (r.location ? !inUS(r.location) : !r.detail)) continue;
     if (!r.text && r.detail) {
       if (details++ >= DETAILS_PER_BOARD) continue;
-      try { const d = await r.detail(); r.text = d.text; if (d.location) r.location = d.location; } catch { continue; }
-      if (!inUS(r.location)) continue;
+      try { const d = await r.detail(); r.text = d.text; if (d.location) r.location = d.location; if (d.title) r.title = d.title; } catch { continue; }
+      if (!inUS(r.location) || !(r.student || studentTitle(r.title))) continue;
     }
     out.push({ title: r.title, location: r.location, url: r.url, text: (r.text || "").slice(0, TEXT_MAX), posted: r.posted, deadline: r.deadline, company: r.company || b.company, ats: b.ats });
   }
@@ -284,7 +308,7 @@ export type Meta = { parts: Record<string, PartStats> };
 
 /** Reads every board in one part. Workable and Paylocity turn fast bursts away (HTTP 429), so each of them gets its own
  *  lane, one board at a time. */
-const SLOW: Ats[] = ["workable", "paylocity", "icims"];
+const SLOW: Ats[] = ["workable", "paylocity", "icims", "successfactors"];
 export async function readPart(p: number, boards = CATALOG, read = readBoard, pause: (ms: number) => Promise<unknown> = (ms) => new Promise((r) => setTimeout(r, ms))) {
   const mine = boards.filter((b) => partOf(b) === p);
   const kept: Raw[] = [];

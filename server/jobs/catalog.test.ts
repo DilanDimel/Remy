@@ -1,7 +1,7 @@
 // Remy's employer catalog: what it keeps, how it reads a part, and that it lives in R2 (a fake store here). `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CATALOG, PARTS, allBoards, catalogPostings, catalogStats, catalogTick, csvRows, districtState, jazzList, ukgDescription, icimsJobs, ldPosting, keep, ldDescription, partOf, readPart, resetCatalog, stapplyBoards, type CatalogBoard } from "./catalog";
+import { CATALOG, PARTS, allBoards, catalogPostings, catalogStats, catalogTick, csvRows, districtState, jazzList, ukgDescription, icimsJobs, ldPosting, sfJobs, sfPosting, keep, ldDescription, partOf, readPart, resetCatalog, stapplyBoards, type CatalogBoard } from "./catalog";
 import { inUS } from "./fit";
 import { fetchBoard, type Raw } from "./sources";
 
@@ -74,6 +74,7 @@ test("Stapply lists: each system's rows become boards Remy's readers take; repo 
     ukg: "name,slug,url\n2nd Swing,x,https://recruiting2.ultipro.com/NDS1000NDSW/JobBoard/0e836885-d812-4a6b-8037-9c1ca641e913\n",
     adp: "name,slug,url\nHansons,323017e4-7f2e-49e2-bca0-e798b69a8e90/19000101_000001,https://workforcenow.adp.com/x\nBad,nope,https://x\n",
     icims: "name,slug,url\n360care LLC,360care,https://careers-360care.icims.com\n",
+    successfactors: "name,slug,url\nAdamed,adamed,https://jobs.adamed.com\nAmkor,amkor,https://career8.successfactors.com/career?company=amkor\n",
     applitrack: "name,slug,url\nAldine ISD,https://www.applitrack.com/aldineisd/onlineapp,https://www.applitrack.com/aldineisd/onlineapp\n",
   };
   const got = await stapplyBoards(async (url) => { const a = url.split("/").at(-2)!; if (!lists[a]) throw new Error("404"); return lists[a]; });
@@ -83,7 +84,7 @@ test("Stapply lists: each system's rows become boards Remy's readers take; repo 
     ["bamboohr", "cokerlegal", "Coker Legal"], ["paylocity", "96be65ce-a51e-4c4e-8db5-091703033567", "Cochran"],
     ["applitrack", "aldineisd", "Aldine ISD"],
     ["ukg", "recruiting2|NDS1000NDSW|0e836885-d812-4a6b-8037-9c1ca641e913", "2nd Swing"], ["adp", "323017e4-7f2e-49e2-bca0-e798b69a8e90|19000101_000001", "Hansons"],
-    ["icims", "careers-360care", "360care LLC"],
+    ["icims", "careers-360care", "360care LLC"], ["successfactors", "jobs.adamed.com", "Adamed"],
   ]);
   assert.equal(districtState("<a href='https://maps.google.com/?q=loc:15010 Aldine Westfield Rd  Houston, TX 77032'>"), "TX");
   assert.equal(districtState("<p>Call 555-12345</p>"), undefined);
@@ -173,4 +174,11 @@ test("iCIMS: postings from the sitemap, place and text from the posting's JobPos
   const b = { ats: "icims" as const, slug: "careers-x", company: "X" };
   assert.equal((await keep(b, [raw("Houston, TX, US")])).length, 1);
   assert.equal((await keep(b, [raw("Toronto, ON, CA")])).length, 0);
+});
+
+test("SuccessFactors: postings from the career site's sitemap, title, text and place from the page", () => {
+  assert.deepEqual(sfJobs("<url><loc>https://jobs.x.com/job/Dallas-%280300%29-Consulting-Analyst-TX-75201/459314600/</loc><lastmod>2026-11-21</lastmod></url>"),
+    [{ url: "https://jobs.x.com/job/Dallas-%280300%29-Consulting-Analyst-TX-75201/459314600/", title: "Dallas (0300) Consulting Analyst TX 75201", posted: "2026-11-21" }]);
+  const page = '<meta itemprop="addressLocality" content="Dallas (0300-0005)"><meta itemprop="addressRegion" content="TX"><meta itemprop="addressCountry" content="US"><h1 id="job-title" itemprop="title">Consulting Analyst</h1><span itemprop="description" class="jobdescription"><p>Do the work</p></span></div><div>Apply</div>';
+  assert.deepEqual(sfPosting(page), { title: "Consulting Analyst", text: "Do the work", location: "Dallas, TX, US" });
 });
