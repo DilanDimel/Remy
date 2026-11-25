@@ -8,7 +8,7 @@ export function acceptDraft(o: { name: string; email: string; cohort: string }) 
     message: [
       `Hi ${first},`,
       `You're one of Remy's first Beta Insiders${o.cohort ? ` (${o.cohort})` : ""}. Here's how to get in:`,
-      `1. Go to remyai.org and click Sign in.\n2. Click "Continue with Email" and type ${o.email}. It has to be this exact address: it's the one we let in.\n3. Type the 6-digit code Remy emails you (check spam or Promotions if you don't see it).\n4. Setup takes about 5 minutes: add your resume and tell Remy what you're working toward.`,
+      `1. Go to remyai.org and click Sign in.\n2. In the email box, type ${o.email}. It has to be this exact address: it's the one we let in.\n3. Type the 6-digit code Remy emails you (check spam or Promotions if you don't see it).\n4. Setup takes about 5 minutes: add your resume and tell Remy what you're working toward.`,
       `What we ask in return: use Remy about once a week and tell us anything that's confusing or wrong. Just reply to this email.`,
       `Thanks for helping build this,\nThe Remy team`,
     ].join("\n\n"),

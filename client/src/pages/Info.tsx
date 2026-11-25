@@ -13,6 +13,22 @@ const Section = ({ title, children }: { title: string; children: ReactNode }) =>
   <section className="stack-sm info-sec" id={slug(title)}><h2 style={{ fontSize: "1.15rem" }}>{title}</h2>{children}</section>
 );
 
+/** Phones, signed out (Dilan, Nov 25): once you've scrolled a screen, "Create your account" stays at the bottom. */
+export function SignupBar({ after = 500 }: { after?: number }) {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const f = () => setOn(window.scrollY > after);
+    f(); window.addEventListener("scroll", f, { passive: true });
+    return () => window.removeEventListener("scroll", f);
+  }, [after]);
+  return (
+    <div className={"signup-bar" + (on ? " on" : "")} aria-hidden={!on}>
+      <a className="btn btn-primary" href="/signin" tabIndex={on ? 0 : -1} data-testid="button-signup-bar">Create your account</a>
+      <a className="btn btn-secondary" href="/signin" tabIndex={on ? 0 : -1} data-testid="button-signup-bar-signin">Sign in</a>
+    </div>
+  );
+}
+
 // Nov 23 (Dilan: fix About for everyone): every visitor gets the full-width reading page.
 const Page = DocPage;
 
@@ -46,7 +62,7 @@ function DocPage({ title, lead, children }: { title: string; lead: string; child
         <nav className="row small">
           {about ? <a className="doc-pill" href="/policies" data-testid="link-doc-privacy">Privacy & terms</a> : <a className="doc-pill" href="/about" data-testid="link-doc-about">About Remy</a>}
           <ThemeToggle />
-          <a className="doc-back" href="/" data-testid="link-back-to-remy"><ArrowLeft size={14} /> {inside ? "Back to Remy" : "Back to homepage"}</a>
+          <a className="doc-back" href="/" data-testid="link-back-to-remy"><ArrowLeft size={14} /> <span>{inside ? "Back to Remy" : "Back to homepage"}</span></a>
         </nav>
       </header>
       <div className="doc-head"><h1>{title}</h1><p>{lead}</p></div>
@@ -57,6 +73,7 @@ function DocPage({ title, lead, children }: { title: string; lead: string; child
           <p className="xs muted">Questions? Email <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.</p>
         </article>
       </div>
+      {!inside && <SignupBar />}
     </div>
   );
 }
