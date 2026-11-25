@@ -31,8 +31,8 @@ export function Page({ children, testID, scrollRef }: { children: ReactNode; tes
   );
 }
 
-/** The step dots across the top: the website's six steps (goal, resume, review, preferences, questions, plan). */
-export const STEPS = ["Your goal", "Your resume", "Review", "Preferences", "Questions", "Your plan"];
+/** The step dots across the top: the website's six steps, by its chapter names (client/src/pages/Onboarding.tsx CHAPTERS). */
+export const STEPS = ["Hello", "Your story", "Check my notes", "Where to look", "Getting to know you", "Your first step"];
 export function Dots({ shown }: { shown: number }) {
   const { c } = useTheme();
   return (
