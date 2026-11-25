@@ -434,7 +434,7 @@ type Outcomes = { applied: number; answered: number; interviews: number; offers:
 /** What Remy is for: applications that got answers, interviews and offers, across real students (team left out). */
 type Storage = { usedMb: number; limitMb: number; percent: number; tables: { name: string; mb: number; rows: number }[]; workspaces: { n: number; avg_kb: number; max_kb: number; p90_kb: number }; transfer: { monthMb: number; limitGb: number; days: { day: string; mb: number }[] } };
 type Opening = { url: string; title: string; company: string; kind: string; location: string; industry: string; career_path: string; source_name: string; deadline: string; first_seen: string; last_seen: string; times_seen: number; last_checked: string | null; check_result: string | null };
-type OpeningsData = { summary: { total: number; closed: number; unchecked: number; companies: number; keepDays: number; byIndustry: { industry: string; n: number }[]; byPath: { career_path: string; n: number }[] }; openings: Opening[] };
+type OpeningsData = { summary: { total: number; closed: number; unchecked: number; companies: number; keepDays: number; byIndustry: { industry: string; n: number }[]; byPath: { career_path: string; n: number }[] }; openings: Opening[]; catalog?: { employers: number; partsRead: number; reached: number; studentLevel: number; oldest: string | null } | null };
 /** Every public posting Remy found or re-checked (Demetre's checked-openings record). No student data. */
 function OpeningsTab() {
   const [f, setF] = useState({ industry: "", path: "", status: "", company: "" });
@@ -451,7 +451,8 @@ function OpeningsTab() {
   return (
     <div className="adm2 adm2-full adm2-fixed">
       <div className="adm-head">
-        <div><h1 className="adm-hello">Openings</h1><p className="adm2-say"><b>{plural(s.total, "opening")} from {plural(s.companies, "employer")}.</b> Public postings only, kept {s.keepDays} days after last seen.</p></div>
+        <div><h1 className="adm-hello">Openings</h1><p className="adm2-say"><b>{plural(s.total, "opening")} from {plural(s.companies, "employer")}.</b> Public postings only, kept {s.keepDays} days after last seen.</p>
+          {d.catalog && <p className="adm2-say" data-testid="openings-catalog">Employer catalog: {d.catalog.studentLevel.toLocaleString()} student-level US postings from {d.catalog.reached.toLocaleString()} of {d.catalog.employers.toLocaleString()} employers' boards ({d.catalog.partsRead} of 24 parts read{d.catalog.oldest ? `, oldest ${ago(d.catalog.oldest)}` : ""}).</p>}</div>
       </div>
       <div className="adm2-tiles">
         <div className="adm2-tile"><strong>{s.total}</strong><span className="adm2-tl">Openings</span><span className="adm2-ts">shared across students</span></div>
