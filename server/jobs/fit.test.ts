@@ -119,6 +119,11 @@ test("fields: nursing students match nursing roles; mechanical engineers aren't 
   assert.equal(fieldMatch(mech, job({ title: "Manufacturing Engineering Intern", origin: "verified-catalog" } as Partial<Job>)), true);
   assert.equal(fieldMatch(mech, job({ title: "Software Engineer Intern", origin: "verified-catalog" } as Partial<Job>)), false);
 });
+test("fields: majors see the openings people in that field actually take (Nov 25 resume set)", () => {
+  const cases: [string, string][] = [["Accounting", "Bookkeeper (Part-Time)"], ["Communication Studies", "Public Relations Intern"], ["Business Administration", "Marketing Coordinator Intern"], ["Criminal Justice", "Paralegal Intern"], ["Data Science", "Machine Learning Intern"]];
+  for (const [major, title] of cases) assert.equal(fieldMatch(student({ major, targetRoles: "", interests: "" }), job({ title })), true, `${major} → ${title}`);
+  assert.equal(fieldMatch(student({ major: "Accounting", targetRoles: "", interests: "" }), job({ title: "Registered Nurse" })), false);
+});
 test("regions: 'Dallas-Fort Worth, Texas' means DFW, not anywhere in Texas; 'Texas' alone still means the state", () => {
   assert.equal(regionMatch(student({ regions: "Dallas-Fort Worth, Texas" }), job({ location: "El Paso, TX, United States" })), false);
   assert.equal(regionMatch(student({ regions: "Dallas-Fort Worth, Texas" }), job({ location: "Irving, TX" })), true);
