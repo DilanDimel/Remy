@@ -180,6 +180,7 @@ html:not([data-theme="dark"]) .ps-night, [data-theme="dark"] .ps-day { display: 
   .redesign-2 .ps-office > .ps-talk { order: 1; margin: 6px 0 0; }
   .redesign-2 .ps-office > .ps-talk::after { top: -8.5px; bottom: auto; transform: translateX(-50%) rotate(225deg); }
   .redesign-2 .ps-season { grid-template-columns: minmax(0, 1fr); min-width: 0; }
-  .redesign-2 .ps-season .ps-chips { flex: 1 1 100%; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-  .redesign-2 .ps-season .ps-chip { flex: none; }
+  /* Dilan, Nov 25: no sideways scrolling here; small chips that wrap instead. */
+  .redesign-2 .ps-season .ps-chips { flex: 1 1 100%; min-width: 0; flex-wrap: wrap; gap: 4px; }
+  .redesign-2 .ps-season .ps-chip { flex: none; padding: 3px 9px 3px 6px; font-size: var(--text-xs); gap: 4px; }
 }

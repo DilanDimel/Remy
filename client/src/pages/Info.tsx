@@ -54,6 +54,12 @@ function DocPage({ title, lead, children }: { title: string; lead: string; child
     window.addEventListener("scroll", spy, { passive: true });
     return () => window.removeEventListener("scroll", spy);
   }, [title]);
+  // Phones: the jump row is one sideways strip, so it slides to keep the section you're reading in view (Dilan, Nov 25).
+  const tocRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const nav = tocRef.current, a = nav?.querySelector<HTMLElement>('a[aria-current="location"]');
+    if (nav && a && nav.scrollWidth > nav.clientWidth) nav.scrollTo({ left: a.offsetLeft - 16, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }, [at]);
   return (
     <div className="doc">
       {/* One header for everyone (Dilan, Nov 24): back to wherever you came from, and the other page one tap away. */}
@@ -67,7 +73,7 @@ function DocPage({ title, lead, children }: { title: string; lead: string; child
       </header>
       <div className="doc-head"><h1>{title}</h1><p>{lead}</p></div>
       <div className="doc-grid">
-        {toc.length > 2 && <nav className="doc-toc" aria-label="On this page"><b>On this page</b>{toc.map((t) => <a key={t.id} href={`#${t.id}`} aria-current={t.id === at ? "location" : undefined} data-testid={`link-toc-${t.id}`}>{t.text}</a>)}</nav>}
+        {toc.length > 2 && <nav ref={tocRef} className="doc-toc" aria-label="On this page"><b>On this page</b>{toc.map((t) => <a key={t.id} href={`#${t.id}`} aria-current={t.id === at ? "location" : undefined} data-testid={`link-toc-${t.id}`}>{t.text}</a>)}</nav>}
         <article className="doc-body" ref={body}>
           {children}
           <p className="xs muted">Questions? Email <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.</p>
