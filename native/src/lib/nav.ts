@@ -13,7 +13,9 @@ export function go(path: string, title = "Remy", opts: { page?: boolean } = {}) 
   if (!opts.page && base === "/path" && q.play) return router.push("/round" as any);
   // Rewards is native too (More → Rewards, and links from My Path and pins).
   if (!opts.page && base === "/rewards") return router.push({ pathname: "/rewards", params: q.tab ? { tab: q.tab } : {} } as any);
-  // Progress is native for Applications and To-dos; Email updates and Hours stay the website's tabs for now.
+  // Email updates and Hours, Progress's other two tabs, are native screens of their own.
+  if (!opts.page && base === "/progress" && (q.tab === "email" || q.tab === "hours")) return router.push(`/${q.tab}` as any);
+  // Progress is native for Applications and To-dos.
   if (!opts.page && base === "/progress" && (!q.tab || q.tab === "tracker" || q.tab === "todos")) return router.push({ pathname: "/progress", params: q.tab ? { tab: q.tab } : {} } as any);
   // Account is native for the profile summary, Remy's memory, sources and data; its other tabs stay the website's.
   if (!opts.page && base === "/accounts" && (!q.tab || q.tab === "memory")) return router.push("/account" as any);
