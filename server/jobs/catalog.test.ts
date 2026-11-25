@@ -45,6 +45,11 @@ test("keep: title-only postings get their text read, at most 12 per board", asyn
   assert.equal(out[0].text, "Posting 0");
 });
 
+test("keep: at most 12 openings per board, so one giant employer can't fill the catalog", async () => {
+  const out = await keep(b, Array.from({ length: 30 }, (_, k) => raw(`Intern ${k}`, "Austin, TX")));
+  assert.equal(out.length, 12);
+});
+
 test("readPart: reads only its boards, counts failures, keeps going", async () => {
   const boards: CatalogBoard[] = Array.from({ length: 200 }, (_, k) => ({ ats: k % 50 === 0 ? "workable" : "lever", slug: `s${k}`, company: `Co ${k}` }));
   const p = partOf(boards[0]); // s0: a Workable board, read on the slow lane
