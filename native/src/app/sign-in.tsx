@@ -112,8 +112,7 @@ export default function SignIn() {
     } catch (e: any) { setErr(e.message); }
     setSsoBusy("");
   };
-  // Expo Go can't receive the remy:// return link, so Google and LinkedIn only show in the real app.
-  const ssoOn = Constants.executionEnvironment === ExecutionEnvironment.StoreClient ? [] : SSO.filter((s) => config?.supabase?.providers[s.id]);
+  const ssoOn = SSO.filter((s) => config?.supabase?.providers[s.id]);
   const ssoButtons = !!ssoOn.length && <>
     <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 4 }}>
       <View style={{ flex: 1, height: 1, backgroundColor: c.line }} /><T kind="small">or</T><View style={{ flex: 1, height: 1, backgroundColor: c.line }} />
