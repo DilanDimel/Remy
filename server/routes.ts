@@ -1462,7 +1462,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const appId = String(req.query.app || "");
     const a = appId ? ctx.ws.applications.find((x) => x.id === appId) : undefined;
     const job = a ? findJob(ctx.ws, a.jobId) : undefined;
-    const opts = { owner: inOwnerView() };
+    const opts = { owner: true }; // the Nov 23 owners-first checks are fixes, so students get them too (Nov 26)
     if (a && job) {
       const kws = postingSkills(job.requirements);
       res.json({
