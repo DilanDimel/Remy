@@ -91,7 +91,7 @@ export default function App() {
 }
 
 function Root() {
-  const { loading, ws, me, config } = useStore();
+  const { loading, bootError, ws, me, config } = useStore();
   const { path } = useRoute();
   // Keep the address honest: signed out, only the front page and sign-in page exist (so deleting an account or
   // signing out doesn't leave /accounts in the bar for the next account); signed in, /signin goes home.
@@ -115,8 +115,8 @@ function Root() {
   // Public pages: readable without signing in.
   if (path === "/about") return <About />;
   if (path === "/policies" || path === "/privacy" || path === "/terms") return <Policies />;
-  if (loading)
-    return <SlowLoading />;
+  if (loading || bootError)
+    return <SlowLoading failed={!!bootError} />;
   if (path === "/admin" && me) return <Admin />;
   // The public homepage stays reachable while signed in (its buttons then open the student's Remy).
   // (The phone app has no homepage, so signed in it goes straight to the student's Remy.)
@@ -168,9 +168,26 @@ function BetaAgreement() {
 
 // A reload checks the session in well under a second; showing Remy's loading screen for that long reads as a
 // different page flashing by, so the screen stays blank unless loading is actually slow.
-function SlowLoading() {
+/** How long the first load may take before Remy says so instead of spinning on (the app's sheets use the same 25 s, #526). */
+const STUCK_MS = 25_000;
+
+function SlowLoading({ failed }: { failed?: boolean }) {
   const [slow, setSlow] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setSlow(true), 800); return () => clearTimeout(t); }, []);
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setSlow(true), 800), u = setTimeout(() => setStuck(true), STUCK_MS); return () => { clearTimeout(t); clearTimeout(u); }; }, []);
+  // The loading screen in index.html covers the page, so it has to go for the message to show.
+  useEffect(() => { if (failed || stuck) hideSplash(); }, [failed, stuck]);
+  if (failed || stuck)
+    return (
+      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 16 }} role="alert" data-testid="boot-stuck">
+        <div className="stack" style={{ alignItems: "center", textAlign: "center", maxWidth: 360 }}>
+          <Remy size={64} mood="think" />
+          <h2>This page isn't loading</h2>
+          <p className="muted small">Remy's page is taking longer than it should. Check your connection, then try again.</p>
+          <button type="button" className="btn btn-primary" onClick={() => location.reload()} data-testid="button-boot-retry">Try again</button>
+        </div>
+      </div>
+    );
   if (!slow) return null;
   return (
     <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
