@@ -202,7 +202,7 @@ const ROLE_WORDS =
   "gerente|asistente|analista|coordinador\\w*|voluntari[oa]|presidente|tesorer[oa]|secretari[oa]";
 const ROLE = new RegExp(`\\b(?:${ROLE_WORDS})\\b`, "i");
 const NOT_A_PLACE = new RegExp(
-  "\\b(?:universit\\w*|college|institut\\w*|school|academy|society|association|club|council|bank|group|partners|capital|inc|llc|ltd|corp\\w*|" +
+  "\\b(?:universit\\w*|(?<!state )college(?! (?:park|station|place|point)\\b)|institut\\w*|school|academy|society|association|club|council|bank|group|partners|capital|inc|llc|ltd|corp\\w*|" +
     "company|program\\w*|projects?|foundation|centers?|department|office|studies|lab|labs|team|committee|chapter|board|services?|solutions|systems|" +
     `technologies|consulting|ventures|holdings|museum|library|hospital|church|${ROLE_WORDS})\\b|\\bco\\.`,
   "i",
@@ -211,7 +211,7 @@ const NOT_A_PLACE = new RegExp(
 // needs a word that cities share: "Fort Worth", "San Antonio", "Johnson City", "Colorado Springs".
 const CITY_FIRST =
   /^(?:san|santa|santo|são|sao|los|las|la|le|el|new|fort|ft\.|st\.|saint|salt|grand|palo|corpus|little|kansas|oklahoma|baton|ann|cedar|colorado|des|long|mountain|north|south|east|west|port|sioux|virginia|college|glen|green|high|jersey|lake|mount|mt\.|myrtle|oak|ocean|overland|rancho|rio|rock|round|silver|sugar|sun|thousand|upper|walnut|white|winston|nuevo|nueva|ciudad|puerto|villa|monte|buenos|hong|tel|kuala|abu|cape|central|bowling|chapel|coral|falls|iowa|newport)$/i;
-const CITY_LAST = /^(?:city|springs|beach|park|heights|hills|falls|rapids|creek|valley|grove|lake|bay|harbor|point|island|station|junction|village|town|ridge|field|woods|square)$/i;
+const CITY_LAST = /^(?:city|college|springs|beach|park|heights|hills|falls|rapids|creek|valley|grove|lake|bay|harbor|point|island|station|junction|village|town|ridge|field|woods|square)$/i;
 export function splitLocation(text: string): { text: string; location: string } {
   for (const re of LOC_END) {
     const m = text.match(re);

@@ -315,3 +315,9 @@ test("SchoolSpring by state: national site searched for one state, each opening 
     assert.deepEqual([out[0].company, out[0].location, out[0].url], ["Sumter School District", "Sumter, South Carolina", "https://www.schoolspring.com/?jobid=7"]);
   } finally { globalThis.fetch = real; }
 });
+
+test("studentTitle: first jobs in aviation and sports count, their senior versions don't", async () => {
+  const { studentTitle } = await import("./sources");
+  for (const t of ["Flight Attendant Trainee", "Ramp Agent", "First Officer - CRJ900", "Certified Flight Instructor", "Ticket Sales Representative", "Game Day Crew", "Grounds Crew (Seasonal)", "Aircraft Maintenance Technician", "A&P Mechanic - Line"]) assert.ok(studentTitle(t), t);
+  for (const t of ["Lead Ramp Agent", "Senior Ticket Sales Executive", "Flight Operations Manager"]) assert.ok(!studentTitle(t), t);
+});
