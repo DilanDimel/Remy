@@ -51,9 +51,9 @@ import { careersFor, futureFor, occupationDetails, officialFor } from "./jobs/fu
 import { endSession, googleClientId, identify, newGuest, startSession, verifyGoogle, appReturnPage, takeHandoff, readCookie } from "./platform/auth";
 import { authorizeUrl, finishOAuth, isProvider, newState, newTicket, oauthReady, ownSignin, redeemTicket, takeState, type OAuthProvider, type OAuthUser } from "./platform/oauth";
 import { aiExtractPosting, CLOSED_SIGNALS, docxPreviewHtml, fetchPublic, fileToText, htmlToText, norm, pdfStyle, scanText } from "./resume/parse";
-import { formatCheck, pdfLayout, withoutPersonal } from "./resume/format";
+import { docxLayout, formatCheck, pdfLayout, withoutPersonal } from "./resume/format";
 import {
-  aiParseResume, chooseReading, extractSkills, skillsPosition, graduationOf, gpaOf, majorsOf, minorsOf, preCollegeIds, normalizeResumeText, parseQuality, primaryEducation, resumeToText, rulesParse, schoolName,
+  aiParseResume, chooseReading, extractSkills, skillsPosition, graduationOf, gpaOf, majorsOf, minorsOf, preCollegeIds, normalizeResumeText, parseQuality, primaryEducation, highSchoolEducation, resumeToText, rulesParse, schoolName,
   stillMissing, nameCase,
 } from "./resume/resume";
 import { atsChecks, claimCheck } from "./ai/claims";
@@ -325,6 +325,7 @@ function addFact(ws: Workspace, text: string, category: MemoryFact["category"], 
 // What a resume puts into the profile.
 function fromResume(doc: ResumeDoc) {
   const edu = primaryEducation(doc);
+  const hs = highSchoolEducation(doc); // no college yet: the high school, its GPA and graduation
   const sure = (f: "org" | "role") => !!edu && !edu.unverified?.includes(f);
   return {
     name: doc.contact.name ? nameCase(doc.contact.name) : "",
@@ -335,6 +336,7 @@ function fromResume(doc: ResumeDoc) {
     minors: edu ? minorsOf(edu) : "",
     gpa: edu ? gpaOf(edu) : "",
     graduation: edu ? graduationOf(edu.dates) : "",
+    ...(hs ? { school: schoolName(hs.org || hs.role), gpa: gpaOf(hs), graduation: graduationOf(hs.dates || hs.role) } : {}),
   };
 }
 
@@ -1405,7 +1407,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     ctx.ws.resume!.original = { name: f!.originalname, mime, size: f!.size };
     // So downloads can match the student's look (font, size, margins, length).
     ctx.ws.resume!.style = (await (mime === "application/pdf" ? pdfStyle(f!.buffer) : mime.includes("wordprocessingml") ? docxStyle(f!.buffer) : Promise.resolve(null)).catch(() => null)) || undefined;
-    ctx.ws.resume!.layout = (mime === "application/pdf" ? await pdfLayout(f!.buffer).catch(() => null) : null) || undefined; // for the format check
+    ctx.ws.resume!.layout = (mime === "application/pdf" ? await pdfLayout(f!.buffer).catch(() => null) : /wordprocessingml/.test(mime) ? await docxLayout(f!.buffer).catch(() => null) : null) || undefined; // for the format check
     for (const a of ctx.ws.applications) refreshAts(ctx.ws, a); // saved checks describe the new file, not the old one
     await ctx.save();
     res.json(ctx.ws);
@@ -1462,7 +1464,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const appId = String(req.query.app || "");
     const a = appId ? ctx.ws.applications.find((x) => x.id === appId) : undefined;
     const job = a ? findJob(ctx.ws, a.jobId) : undefined;
-    const opts = { owner: inOwnerView() };
+    const opts = { owner: true }; // the Nov 23 owners-first checks are fixes, so students get them too (Nov 26)
     if (a && job) {
       const kws = postingSkills(job.requirements);
       res.json({

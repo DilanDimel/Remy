@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { ResumeDoc } from "@shared/types";
 import { atsScore, hasKeyword } from "./ats";
+import { rulesParse } from "./resume";
 
 const doc = (bullets: string[], skills = ""): ResumeDoc => ({
   contact: { name: "Dilan Desman", email: "d@example.com", phone: "682-000-0000", location: "Fort Worth, TX", links: "linkedin.com/in/x" },
@@ -159,4 +160,12 @@ test("skills: Microsoft Excel / MS Excel is the resume's Excel; Microsoft Office
     assert.equal(hasKeyword(t, "Microsoft Excel"), hasKeyword(t, "Excel"), t);
   }
   for (const t of ["Skills: outlook", "Sent weekly Outlook invites", "gmail and outlook"]) assert.equal(hasKeyword(t, "Microsoft Outlook"), hasKeyword(t, "Outlook"), t);
+});
+
+test("short years count as dates and a summary isn't judged as bullets", () => {
+  const doc = rulesParse("Ana Ruiz\nana@x.com | 817-555-0101 | Champaign IL\n\nSUMMARY\nMotivated nursing student seeking a hospital role.\n\nEXPERIENCE\nNurse Aide\nBluebonnet Health — Champaign, IL\nJun. '26 – Present\n- Cared for 12 patients a shift\n");
+  assert.equal(doc.contact.location, "Champaign IL");
+  const items = atsScore(doc, null, "").categories.flatMap((c) => c.items);
+  assert.ok(items.find((i) => /dates/.test(i.text) && /entr/.test(i.text))?.ok, "every entry has dates");
+  assert.ok(!items.some((i) => !i.ok && i.examples?.some((x: string) => /seeking/.test(x))), "summary line not flagged");
 });

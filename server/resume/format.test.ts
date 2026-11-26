@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import PDFDocument from "pdfkit";
 import type { ResumeDoc } from "@shared/types";
-import { formatCheck, pdfLayout, withoutPersonal, yearsShown } from "./format";
+import { docxLayout, formatCheck, pdfLayout, withoutPersonal, yearsShown } from "./format";
 import { toPng } from "./pdfTwin";
 import { resumePdf } from "./docs";
 
@@ -69,4 +69,23 @@ test("format: the clean formats leave out birthday and nationality lines, and se
   const out = withoutPersonal(d);
   assert.deepEqual(out.sections.map((s) => s.heading), ["Experience", "Education"]);
   assert.equal(d.sections.length, 3); // the saved resume isn't touched
+});
+
+test("format: a Word file's pages, photo, columns, text size and margins", async () => {
+  const { default: JSZip } = await import("jszip");
+  const run = (t: string, sz = 0) => `<w:r>${sz ? `<w:rPr><w:sz w:val="${sz}"/></w:rPr>` : ""}<w:t>${t}</w:t></w:r>`;
+  const cell = (t: string) => `<w:tc><w:p>${run(t, 16)}</w:p></w:tc>`;
+  const make = async (body: string, pages?: number) => {
+    const z = new JSZip();
+    z.file("word/document.xml", `<w:document><w:body>${body}<w:sectPr><w:pgMar w:top="720" w:right="360" w:bottom="720" w:left="720"/></w:sectPr></w:body></w:document>`);
+    z.file("word/styles.xml", `<w:styles><w:docDefaults><w:rPrDefault><w:rPr><w:sz w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults></w:styles>`);
+    if (pages) z.file("docProps/app.xml", `<Properties><Pages>${pages}</Pages></Properties>`);
+    return z.generateAsync({ type: "nodebuffer" });
+  };
+  const row = `<w:tr>${cell("Managed a team of twelve volunteers at events")}${cell("Built the club website and grew traffic a lot")}</w:tr>`;
+  const designed = await make(`<w:p>${run("Jordan Lee")}<w:drawing><wp:inline><wp:extent cx="1188720" cy="1371600"/></wp:inline></w:drawing></w:p><w:tbl>${row.repeat(5)}</w:tbl>`, 3);
+  const l = (await docxLayout(designed))!;
+  assert.deepEqual(l, { pages: 3, photo: true, columns: true, bodySize: 8, margin: 18 });
+  const plain = (await docxLayout(await make(`<w:p>${run("Jordan Lee")}</w:p><w:p>${run("Analyst at Acme, built reports every week for the team")}</w:p>`)))!;
+  assert.deepEqual(plain, { pages: 1, photo: false, columns: false, bodySize: 11, margin: 18 });
 });

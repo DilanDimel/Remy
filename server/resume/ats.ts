@@ -18,7 +18,7 @@ function textOf(doc: ResumeDoc) {
  *  so it doesn't change when the student's openings change. Keywords are checked per posting. */
 /** `owner` (owners first, Nov 23): "Activities and Leadership" lines count as achievement bullets, and certifications,
  *  awards and courses aren't asked for dates (they're listed like skills), matching the Resume page's own checks. */
-export function atsScore(doc: ResumeDoc, keywords: string[] | null, against: string, { owner = false } = {}): AtsScore {
+export function atsScore(doc: ResumeDoc, keywords: string[] | null, against: string, { owner = true } = {}): AtsScore {
   const text = textOf(doc);
   const low = lc(text);
   // Coursework, honors and skills lines aren't achievement bullets; judge the rest.
@@ -42,8 +42,8 @@ export function atsScore(doc: ResumeDoc, keywords: string[] | null, against: str
   ]);
 
   const has = (re: RegExp) => headings.some((h) => re.test(h));
-  const entries = doc.sections.filter((s) => !(owner ? /skill|interest|language|certif|licen[cs]e|award|honou?r|course/i : /skill|interest|language/i).test(s.heading)).flatMap((s) => s.entries.map((e) => ({ ...e, section: s.heading })));
-  const undated = entries.filter((e) => !/\d{4}|present/i.test(e.dates));
+  const entries = doc.sections.filter((s) => !(owner ? /skill|interest|language|certif|licen[cs]e|award|honou?r|course|summary|profile|objective/i : /skill|interest|language/i).test(s.heading)).flatMap((s) => s.entries.map((e) => ({ ...e, section: s.heading })));
+  const undated = entries.filter((e) => !/\d{4}|present|['’‘]\d{2}\b/i.test(e.dates)); // "Jun. '26" has a date
   const dated = entries.length - undated.length;
   const structure = cat("Sections & structure", 20, [
     item(has(/experience|employment|work/), 6, "Standard \"Experience\" section.", "Add a section titled exactly \"Experience\" — ATS parsers look for that word."),
@@ -70,7 +70,7 @@ export function atsScore(doc: ResumeDoc, keywords: string[] | null, against: str
   const format = cat("Length & format", 15, [
     item(words >= 250 && words <= 800, 8, `${words} words — a healthy one-page length.`, words < 250 ? `Only ${words} words — add detail to your strongest roles.` : `${words} words — trim to one page (about 450-700 words).`, words < 250 ? words / 250 : words > 800 ? Math.max(0, 1 - (words - 800) / 600) : 1),
     item(!/[│┃■◆★►]|\t{2,}/.test(text), 4, "No symbols that confuse parsers.", "Remove decorative symbols and tab-aligned columns; ATS reads them as noise."),
-    item(new Set(entries.filter((e) => e.dates.trim()).map((e) => (/[a-z]{3}\s+\d{4}/i.test(e.dates) ? "word" : /\d{1,2}\/\d{4}/.test(e.dates) ? "num" : "other"))).size <= 1, 3, "Dates use one consistent format.", "Use one date format everywhere (e.g. \"Jun 2026 – Aug 2026\")."),
+    item(new Set(entries.filter((e) => e.dates.trim()).map((e) => (/[a-z]{3}\.?\s+(?:\d{4}|['’‘]\d{2}\b)/i.test(e.dates) ? "word" : /\d{1,2}\/\d{4}/.test(e.dates) ? "num" : "other"))).size <= 1, 3, "Dates use one consistent format.", "Use one date format everywhere (e.g. \"Jun 2026 – Aug 2026\")."),
   ]);
 
   const kws = Array.from(new Set((keywords || []).map((k) => k.trim()).filter((k) => k && isSkillKeyword(k)))).slice(0, 15);

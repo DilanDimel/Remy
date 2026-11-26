@@ -1,7 +1,7 @@
 import { go, uiFlags } from "../lib/router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Check, ChevronDown, FileText, GraduationCap, Mail, Sparkles } from "lucide-react";
-import { PATHS, type Profile, type SetupFocus, type Workspace } from "@shared/types";
+import { PATHS, type Job, type Profile, type SetupFocus, type Workspace } from "@shared/types";
 import { FIELD_GROUPS, FIELD_MAJORS, splitFieldList } from "@shared/fields";
 import { AUTH_OPTS, authChip } from "@shared/workAuth";
 import { alreadyIn, fitsField, inField, setupReply, tappedResumeClaim } from "@shared/setupReply";
@@ -164,6 +164,15 @@ function SetupNotebook({ shown, back }: { shown: number; back: boolean }) {
   );
 }
 
+/** Before the preferences step is saved, Remy only knows the student's home and goal: keep the preview to their state
+ *  (or remote) and drop internships when they came for a full-time job (setup tests, Nov 26: Milan internships for a
+ *  San Antonio veteran). Once places and kinds are saved, the server's fit decides. */
+function beforePrefs(w: Workspace, j: Job) {
+  const st = !w.profile.regions && (w.profile.location || "").match(/,\s*([A-Z]{2})\b/)?.[1];
+  if (st && j.location && !/remote/i.test(j.location) && !new RegExp(`\\b${st}\\b`).test(j.location)) return false;
+  return !!w.profile.opportunityTypes || !/full.?time|switch/i.test(w.profile.goal || "") || j.kind !== "internship";
+}
+
 /** Owner setup's right side (Dilan, Nov 23): a live preview of what Remy is building from each step, so the screen
  *  isn't half empty. Resume steps show Remy reading the file; later steps show the first openings arriving. */
 function SetupPreview({ shown, reading }: { shown: number; reading: boolean }) {
@@ -198,7 +207,7 @@ function SetupPreview({ shown, reading }: { shown: number; reading: boolean }) {
       </aside>
     );
   }
-  const matches = (jobs || []).filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false);
+  const matches = (jobs || []).filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false && beforePrefs(w, j));
   const looking = refreshing || !jobs;
   return (
     <aside className="ob-pv" aria-label="Your first openings" data-testid="setup-preview">
@@ -897,7 +906,7 @@ function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: (tour?: 
   const w = ws!;
   const owner = useOwnerView();
   const { jobs, fits, refreshing } = useJobs();
-  const matches = (jobs || []).filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false);
+  const matches = (jobs || []).filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false && beforePrefs(w, j));
   const [busy, setBusy] = useState(false);
   // Owner view: an opening links into the workspace (finish setup, then open it) — they were dead text before.
   const openJob = async (id: string) => { await onFinish(false); go(`/opportunities?kind=all&id=${id}`); };

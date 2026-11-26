@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Entry, ResumeDoc } from "@shared/types";
-import { gpaOf, graduationOf, majorsOf, minorsOf, nameCase, preCollegeIds, primaryEducation, rulesParse, schoolName, verifyAiDoc } from "./resume";
+import { gpaOf, graduationOf, highSchoolEducation, majorsOf, minorsOf, nameCase, preCollegeIds, primaryEducation, rulesParse, schoolName, verifyAiDoc } from "./resume";
 import { normalizeResumeText } from "./resume";
 
 let n = 0;
@@ -204,4 +204,13 @@ test("bullets that lost their dots and a role, org line stay with their job", ()
   const doc = rulesParse("Parker Romero\nparker@x.com\n\nWORK EXPERIENCE:\nElementary Teacher\nNorthwind Co. — Nashville, TN\nJune 2026 – Present\nTaught a 2nd grade class of 22 during student teaching\n\nServer, Olive Garden — Nashville, TN\nSeptember 2025 – Present\nClosed the store 3 nights a week\n");
   const jobs = doc.sections[0].entries.map((e) => [e.role, e.org, e.dates, e.bullets.length]);
   assert.deepEqual(jobs, [["Elementary Teacher", "Northwind Co.", "June 2026 – Present", 1], ["Server", "Olive Garden", "September 2025 – Present", 1]]);
+});
+
+test("a high-schooler's school, GPA and graduation", () => {
+  const d = rulesParse("Jordan Lee\njordan@x.com | Plano, TX\n\nEDUCATION\nPlano Senior High School, Plano, TX\nExpected graduation May 2027, GPA 3.9\n");
+  const hs = highSchoolEducation(d)!;
+  assert.equal(schoolName(hs.org), "Plano Senior High School");
+  assert.equal(gpaOf(hs), "3.9");
+  assert.equal(graduationOf(hs.dates), "May 2027");
+  assert.equal(highSchoolEducation(rulesParse("A B\n\nEDUCATION\nUniversity of Texas, Austin, TX\nBS Biology — May 2027\nPlano Senior High School\n")), undefined);
 });

@@ -28,7 +28,7 @@ export function normalizeResumeText(raw: string): string {
     .replace(/(?<=\p{L})[´`](?=\p{L})/gu, "’") // "team´s" typed with the accent key
     .replace(GLYPH_BULLET, "• ")
     .split("\n")
-    .map((l) => l.replace(/ {2,}/g, " ").replace(/ *\t[ \t]*/g, "\t").trim())
+    .map((l) => l.replace(/(?<=\S) {3,}(?=\S)/g, "\t").replace(/ {2,}/g, " ").replace(/ *\t[ \t]*/g, "\t").trim())
     .filter((l) => l && !PAGE_MARK.test(l) && !RULE_LINE.test(l))
     .join("\n");
 }
@@ -73,7 +73,7 @@ export function headingOf(line: string): { heading: string; rest: string; contin
   if (!t || t.length > 140 || BULLET_RE.test(t)) return null;
   const continued = CONTINUED.test(t);
   t = t.replace(CONTINUED, "").trim();
-  const out = (head: string, rest: string) => ({ heading: isCaps(head) ? titleCase(head) : head, rest: rest.trim(), continued });
+  const out = (h: string, rest: string) => { const head = h.replace(/^[\s—–=*~•|:-]+|[\s—–=*~•|:-]+$/g, ""); return { heading: isCaps(head) ? titleCase(head) : head, rest: rest.trim(), continued }; };
   const colon = t.indexOf(":");
   if (colon > 0) {
     const head = t.slice(0, colon).trim();
@@ -262,6 +262,8 @@ const PHONE = /(?:\(?\+\d{1,3}\)?[\s.-]*)?(?:\(\d{2,4}\)|\b\d{2,4})[\s.-]*\d{3,4
 const LINK =
   /^(?:linkedin|github|gitlab|twitter|behance|dribbble|portfolio|website|web)\b|linkedin\.com|github\.com|https?:\/\/|www\.|^[\w-]+(?:\.[\w-]+)*\.(?:com|io|dev|me|net|org|co|ai|app|edu|xyz|page|site|tech|us|mx)(?:\/\S*)?$/i;
 const PLACE_ONLY = new RegExp(`^\\p{Lu}[\\p{L}.'’ -]*,\\s*${STATE}(?:\\s+\\d{5}(?:-\\d{4})?)?$`, "u"); // "Binghamton, NY 13902"
+// "Champaign IL": a US state code with no comma.
+const PLACE_NO_COMMA = /^\p{Lu}[\p{L}.'’ -]*\s(?:AL|AK|AZ|AR|CA|CO|CT|DE|DC|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)$/u;
 const STREET =
   /^(?:\d{1,6}[a-z]?\s+(?:[\p{L}\d.'’-]+\s+){0,5}(?:street|st|road|rd|avenue|ave|drive|dr|lane|ln|boulevard|blvd|court|ct|way|place|pl|circle|cir|parkway|pkwy|trail|terrace|highway|hwy|square|loop|hall)\.?(?:,?\s*(?:#|apt\.?|apartment|suite|ste\.?|unit|room)\s*[\w-]+)?|p\.?\s?o\.?\s+box\s+\d+|(?:calle|avenida|av\.|privada|cerrada)\s.+)$/iu;
 const ADDRESS_LABEL = /^(?:(?:home|permanent|school|campus|local|current|mailing)\s+)?address\s*:?\s*/i;
@@ -277,7 +279,7 @@ function readContact(doc: ResumeDoc, head: string[]): string[] {
   for (const line of head) {
     if (/^(resume|résumé|curriculum vitae|cv)$|^last updated\b/i.test(line)) continue;
     // Pieces split by separators; contact details run together with spaces ("Plano, TX  ana@example.com  817-555-0101") are pulled apart too.
-    const parts = line.split(/\s*[|•·\t]\s*|\s+[—–]\s+/).flatMap((p) => {
+    const parts = line.split(/\s*[|•·\t]\s*|\s+[—–]\s+|\s{2,}/).flatMap((p) => {
       const out: string[] = [];
       let rest = p;
       for (const re of [EMAIL, PHONE]) {
@@ -297,7 +299,7 @@ function readContact(doc: ResumeDoc, head: string[]): string[] {
       // The rest of the piece may only be a label or an icon: "Mobile: +1 555…", "📱 (+82) 10-…".
       else if (phone && /^\W*(?:phone|tel|cell|mobile|m|p)?\W*$/i.test(p.replace(phone, ""))) { c.phone ||= phone.trim(); contact = true; }
       else if (p.length <= 100 && LINK.test(p)) { c.links = c.links ? `${c.links} | ${p}` : p; contact = true; }
-      else if ((STREET.test(p) || PLACE_ONLY.test(p)) && p.length <= 60 && !NOT_A_PLACE.test(p)) { address.push(p); contact = true; }
+      else if ((STREET.test(p) || PLACE_ONLY.test(p) || (PLACE_NO_COMMA.test(p) && !!c.name)) && p.length <= 60 && !NOT_A_PLACE.test(p)) { address.push(p); contact = true; }
       else if (/^\((?:phone|email|address)[^)]*\)$/i.test(p)) contact = true; // "(phone removed for demo)"
       else left.push(p);
     }
@@ -463,7 +465,9 @@ export function rulesParse(text: string): ResumeDoc {
       entry.dates = entry.dates ? `${entry.dates} · ${line}` : line;
       return;
     }
-    if (strongWrap && continues(line, prevLine)) {
+    // "Store Manager" above "Dollar General — Reno, NV": a job title starting the next entry, not the end of the last bullet.
+    const titleAbovePlace = ROLE.test(line) && line.split(/\s+/).length <= 6 && /^(?:[\p{Lu}&(]\S*\s*)+$/u.test(line) && !hasDate(line) && !!next && !!readColumns(next, true).location;
+    if (strongWrap && !titleAbovePlace && continues(line, prevLine)) {
       bullet!.text += " " + line.replace(/\t+/g, " ");
       return;
     }
@@ -500,7 +504,7 @@ export function rulesParse(text: string): ResumeDoc {
       const col = readColumns(line, true);
       const text = [col.title, col.extra].filter(Boolean).join(" | ");
       // "Security Analyst Intern", "Bluebonnet Health — City, ST", "Jun 2026 – Aug 2026": a lone title line, then its org, then dates.
-      if (roleSlot && roleSlot === entry && !roleSlot.role && !roleSlot.dates && !roleSlot.location && roleSlot.bullets.length === 0 && !ROLE.test(text)) {
+      if (roleSlot && roleSlot === entry && !roleSlot.role && !roleSlot.dates && !roleSlot.location && roleSlot.bullets.length === 0 && (!ROLE.test(text) || (!!col.location && !roleSlot.location))) { // the line with the place is the org ("Dollar General — Reno, NV")
         [roleSlot.role, roleSlot.org, roleSlot.location] = [roleSlot.org, text, col.location];
         return;
       }
@@ -509,7 +513,7 @@ export function rulesParse(text: string): ResumeDoc {
       pending = comma.length === 2 && ROLE.test(comma[0]) !== ROLE.test(comma[1]) ? { org: ROLE.test(comma[0]) ? comma[1] : comma[0], role: ROLE.test(comma[0]) ? comma[0] : comma[1], location: col.location } : { org: text, location: col.location };
       return;
     }
-    if (continues(line, prevLine)) {
+    if (!titleAbovePlace && continues(line, prevLine)) {
       bullet!.text += " " + line.replace(/\t+/g, " ");
       return;
     }
@@ -774,6 +778,11 @@ export function primaryEducation(doc?: ResumeDoc): Entry | undefined {
   const college = (e: Entry) => !HIGH_SCHOOL.test(text(e)) && (UNIVERSITY.test(text(e)) || (COLLEGE_NAME.test(e.org) && (DEGREE_WORD.test(e.role) || DEGREE_HEAD.test(e.role))) || (!!e.org && DEGREE_HEAD.test(e.role) && !/certificate|diploma/i.test(e.role)));
   // A heading Remy didn't recognize ("school stuff:"): a college entry with a degree word anywhere still counts.
   return entries.find(college) || (doc?.sections || []).flatMap((s) => s.entries).find((e) => college(e) && DEGREE_WORD.test(e.role));
+}
+/** A high-schooler's school (setup test, Nov 26: "Plano Senior High School" came back empty): only when no college entry exists. */
+export function highSchoolEducation(doc?: ResumeDoc): Entry | undefined {
+  if (primaryEducation(doc)) return undefined;
+  return (doc?.sections || []).filter((s) => kindOf(s.heading) === "education").flatMap((s) => s.entries).find((e) => HIGH_SCHOOL.test(`${e.org} ${e.role}`));
 }
 const DEGREE_WORD = /\b(b\.?[sa]\.?|bachelor|bba|bfa|bsn|bsw|b\.?m\.?|associate|master|m\.?[sa]\.?|mba|major|undeclared|degree)\b/i;
 
