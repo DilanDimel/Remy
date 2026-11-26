@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, Loading, Sect, Segmented, T, success, tap } from "@/components/ui";
 import { Input } from "@/components/setup/common";
+import { connectGoogleCalendar } from "@/components/GoogleCalendar";
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
@@ -33,6 +34,7 @@ export default function AdminTeam() {
   const [task, setTask] = useState({ title: "", assignee: [] as string[], due: "" });
   const [ev, setEv] = useState({ title: "", date: "", time: "", who: "", assignees: [] as string[] });
   const [adding, setAdding] = useState(false);
+  const [askCal, setAskCal] = useState(false);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState("");
   const load = useCallback(() => api<Team>("GET", "/api/admin/team").then(setD).catch((e) => setErr(e.message)), []);
@@ -127,6 +129,19 @@ export default function AdminTeam() {
           <Button testID="button-cancel-meeting" kind="ghost" label="Cancel" onPress={() => setAdding(false)} flex />
         </View>
       ) : <Button testID="button-open-meeting" kind="ghost" label="Add a meeting" icon="plus" onPress={() => { tap(); setAdding(true); }} flex />}
+      {d.calendar.available && (
+        <View testID="team-gcal" style={card}>
+          <T kind="small">{d.calendar.connectedBy ? `Meetings go to the Remy team Google Calendar automatically, with who's going. Connected by ${first(d.calendar.connectedBy)}.` : "Connect the team's shared Google account and every meeting here appears on its Remy team calendar, with the headcount."}</T>
+          {d.calendar.connectedBy ? (askCal ? <>
+            <T kind="small" style={{ color: c.ink }}>Disconnect the team Google Calendar? The Remy team calendar will be deleted from that Google account.</T>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <Button testID="button-team-gcal-disconnect-confirm" label="Disconnect" busy={busy === "cal"} onPress={async () => { tap(); setBusy("cal"); setErr(""); try { setD((await api<{ team: Team }>("DELETE", "/api/admin/calendar")).team); setAskCal(false); success(); } catch (x: any) { setErr(x.message); } setBusy(""); }} flex />
+              <Button testID="button-team-gcal-cancel" kind="ghost" label="Keep it" onPress={() => setAskCal(false)} flex />
+            </View>
+          </> : <Button testID="button-team-gcal-disconnect" kind="ghost" label="Disconnect" onPress={() => { tap(); setAskCal(true); }} />)
+            : <Button testID="button-team-gcal" label="Connect Google Calendar" icon="book" busy={busy === "cal"} onPress={async () => { tap(); setBusy("cal"); setErr(""); try { if (await connectGoogleCalendar(true)) { await load(); success(); } } catch (x: any) { setErr(x.message); } setBusy(""); }} />}
+        </View>
+      )}
     </ScrollView>
   );
 }

@@ -9,11 +9,12 @@ import { go } from "@/lib/nav";
 import { useSession } from "@/lib/session";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
 import { CareerTime } from "@/components/CareerTime";
+import { GoogleCalendarCard } from "@/components/GoogleCalendar";
 
 // Calendar, the website's page (client/src/pages/Calendar.tsx) for a phone: Remy's line, what's coming up, the month
 // with a dot on busy days (tap a day for its items), and each item's details. Items you add or edit save to the same
-// `calendar` list; to-dos with a due date and the weekly career time show as on the website. Google Calendar's sync
-// settings and the career-time picker stay on the website for now.
+// `calendar` list; to-dos with a due date and the weekly career time show as on the website. The weekly career time
+// and Google Calendar's connect (GoogleCalendarCard) are at the bottom.
 const KINDS: CalItem["kind"][] = ["Deadline", "Event", "Task", "Interview", "Advising"];
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const clock = (t: string) => { const [h, m] = t.split(":").map(Number); return h === undefined || isNaN(h) ? t : `${h % 12 || 12}:${String(m || 0).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; };
@@ -147,8 +148,9 @@ export default function Calendar() {
           </Card>
         </View>
       )}
-      <T kind="small" style={{ marginTop: 16, marginHorizontal: 4 }}>Google Calendar sync and your weekly career time are set on the website's Calendar.</T>
-      <Button testID="button-calendar-website" kind="ghost" label="Open Calendar on the website" onPress={() => go("/calendar", "Calendar", { page: true })} style={{ marginTop: 8 }} />
+      <Sect title="Weekly career time" />
+      <Card testID="calendar-career-time"><CareerTime /></Card>
+      <View style={{ marginTop: 10 }}><GoogleCalendarCard /></View>
 
       {sel && <Detail it={sel} onClose={() => setSel(null)} onEdit={() => { setEdit(sel); setSel(null); }} onRemove={() => remove(sel)} />}
       {edit && <Editor it={edit} isNew={!ws.calendar.some((x) => x.id === edit.id)} onClose={() => setEdit(null)} onSave={async (it) => {
