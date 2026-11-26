@@ -12,7 +12,7 @@ import { r2Store } from "../platform/r2";
 import { abroad, inUS } from "./fit";
 import { fetchBoard, studentTitle, withDetail, type Raw } from "./sources";
 
-type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom" | "taleo" | "amazon" | "apple" | "schoolspring";
+type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom" | "taleo" | "amazon" | "apple" | "schoolspring" | "jobaps";
 export type CatalogBoard = { ats: Ats; slug: string; company: string };
 export const PARTS = 24;
 /** Text kept per posting: enough for its requirements and summary (an opening keeps up to 12,000 when saved). */
@@ -157,6 +157,22 @@ export function icimsJobs(xml: string): { url: string; title: string; posted?: s
   return [...xml.matchAll(/<loc>(https:\/\/[a-z0-9-]+\.icims\.com\/jobs\/\d+\/([^/<]+)\/job)<\/loc>(?:<lastmod>([^<]+)<\/lastmod>)?/gi)]
     .map((m) => ({ url: m[1], title: decodeURIComponent(m[2]).replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()), posted: m[3] }));
 }
+/** A JobAps RSS feed's postings (state civil-service boards: CT, DE, MD); the place is the item's "Work Location". */
+export function jobapsJobs(xml: string, state: string): { url: string; title: string; location: string; posted?: string; deadline?: string }[] {
+  const un = (s: string) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+  return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].map(([, it]) => {
+    const tag = (t: string) => un(it.match(new RegExp(`<${t}>([\\s\\S]*?)</${t}>`))?.[1] || "").trim();
+    const d = tag("description");
+    const field = (f: string) => htmlToText(d.match(new RegExp(`${f}:</strong>([\\s\\S]*?)</p>`))?.[1] || "").replace(/\s+/g, " ").trim();
+    const deadline = field("Filing Deadline").match(/(\d+)\/(\d+)\/(\d{4})/);
+    return {
+      url: tag("link"), title: tag("title").replace(/\s*-\s*#[\w-]+\s*$/, ""),
+      location: [field("Work Location").replace(/^[•\s]+|\.$/g, "").replace(/\s*•\s*/g, "; "), state].filter(Boolean).join(", "),
+      posted: Date.parse(tag("pubDate")) ? new Date(tag("pubDate")).toISOString() : undefined,
+      deadline: deadline ? `${deadline[3]}-${deadline[1].padStart(2, "0")}-${deadline[2].padStart(2, "0")}` : undefined,
+    };
+  }).filter((x) => x.url && x.title && !/internal (agency )?(employees )?only|for internal/i.test(x.title)); // current state staff only
+}
 /** A SuccessFactors career site's sitemap postings (".../job/Dallas-Consulting-Analyst-TX-75201/459314600/"). */
 export function sfJobs(xml: string): { url: string; title: string; posted?: string }[] {
   return [...xml.matchAll(/<loc>(https:\/\/[^<]+?\/job\/([^/<]+)\/\d+\/)<\/loc>(?:<lastmod>([^<]+)<\/lastmod>)?/g)]
@@ -280,6 +296,13 @@ export async function readBoard(b: CatalogBoard, read = fetchBoard): Promise<Raw
     // Career Site Builder lists every posting in its sitemap; the link holds place and title, the page the rest.
     const xml = await getPage(`https://${b.slug}/sitemap.xml`);
     return sfJobs(xml).map((x): Raw => ({ ...x, location: "", text: "", detail: async () => sfPosting(await getPage(x.url)) }));
+  }
+  if (b.ats === "jobaps") {
+    // JobAps' public RSS lists every open recruitment; the bulletin page carries schema.org JobPosting data.
+    const [code, state] = b.slug.split("|");
+    return jobapsJobs(await getPage(`https://www.jobapscloud.com/${code}/rss.asp`), state).map((x): Raw => ({
+      ...x, text: "", detail: async () => { const d = ldPosting(await getPage(x.url)); return { ...d, text: d.text.replace(/\\r\\n/g, "\n") }; },
+    }));
   }
   if (b.ats === "amazon") {
     // amazon.jobs' own search (robots.txt allows it); the board's slug is the search words ("intern", "new grad").
