@@ -1,8 +1,8 @@
 import type { ReactNode, RefObject } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View, type TextInputProps } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { Workspace } from "@shared/types";
-import { Button, Pill, Remy, T } from "@/components/ui";
+import type { Job, Workspace } from "@shared/types";
+import { Button, Logo, Pill, Remy, T } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
@@ -108,6 +108,28 @@ export function Nav({ note, onBack, next }: { note?: string; onBack?: () => void
       {!!note && <T kind="small">{note}</T>}
       {next}
       {onBack && <Button testID="button-setup-back" kind="ghost" label="Back" onPress={onBack} flex />}
+    </View>
+  );
+}
+
+/** Before the preferences step is saved Remy only knows the student's home and goal: the setup previews keep to their
+ *  state (or remote) and drop internships for a full-time goal. The website's beforePrefs (client/src/pages/Onboarding.tsx). */
+export function beforePrefs(w: Workspace, j: Job) {
+  const st = !w.profile.regions && (w.profile.location || "").match(/,\s*([A-Z]{2})\b/)?.[1];
+  if (st && j.location && !/remote/i.test(j.location) && !new RegExp(`\\b${st}\\b`).test(j.location)) return false;
+  return !!w.profile.opportunityTypes || !/full.?time|switch/i.test(w.profile.goal || "") || j.kind !== "internship";
+}
+
+/** One opening in a setup preview: the employer's real logo, the title and the company (the website's ob-pv rows). */
+export function Preview({ j }: { j: Job }) {
+  const { c } = useTheme();
+  return (
+    <View testID={`setup-preview-${j.id}`} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+      <Logo company={j.company} url={j.applyUrl} size={32} />
+      <View style={{ flex: 1 }}>
+        <T kind="small" numberOfLines={2} style={{ color: c.ink, fontFamily: font.bold }}>{j.title}</T>
+        <T kind="small" numberOfLines={1}>{j.company}</T>
+      </View>
     </View>
   );
 }

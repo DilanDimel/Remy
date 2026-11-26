@@ -15,7 +15,7 @@ import { api } from "@/lib/api";
 import { useJobs } from "@/lib/jobs";
 import { askRemy, go, openJobs, openResumeFix } from "@/lib/nav";
 import { greeting, visibleJobs } from "@/lib/next";
-import { useOwnerView, useRefreshAll, useSession } from "@/lib/session";
+import { useCanGo, useOwnerView, useRefreshAll, useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
 import { radius } from "@/lib/tokens";
 
@@ -42,12 +42,15 @@ export default function Home() {
   // "Since you were last here": the previous visit is read once per launch, and the new one saved.
   const since = useRef(ws?.settings.lastSeenAt || "").current;
   useEffect(() => { if (ws && (!since || Date.now() - Date.parse(since) > 30 * 60_000)) saveSettings({ lastSeenAt: new Date().toISOString() }).catch(() => {}); }, []);
-  const next = useMemo(() => (ws ? nextAction(ws, jobs, fits, { ownerView }) : null), [ws, jobs, fits, ownerView]);
+  const canGo = useCanGo();
+  const interviewOpen = canGo("/interview");
+  const next = useMemo(() => (ws ? nextAction(ws, jobs, fits, { ownerView, interviewOpen }) : null), [ws, jobs, fits, ownerView, interviewOpen]);
   if (!ws || !next) return <Loading />;
 
   const today = dayKey();
   const name = firstName(ws);
-  const steps = gettingStarted(ws);
+  // Steps on a locked page (Interview, Community for students) are left out, so the card can always be finished.
+  const steps = gettingStarted(ws).filter((s) => canGo(s.link));
   const doneSteps = steps.filter((s) => s.done).length;
   const current = steps.find((s) => !s.done);
   const from = since || new Date(Date.now() - 7 * 864e5).toISOString();
@@ -61,7 +64,7 @@ export default function Home() {
   const dots = weekDots(days);
   const roundDone = (["openings", "role", "forecast"] as const).every((k) => ws.game?.days?.[today]?.includes(k));
   // Owner view only, like the website ({ownerView && <RemyOffer />} in client/src/App.tsx): /api/remy/act is owners-only too.
-  const offer = ownerView ? offerFor(remyOffers(ws, today, new Date().getHours()).filter((o) => !gone.includes(o.id)), "/") : undefined;
+  const offer = ownerView ? offerFor(remyOffers(ws, today, new Date().getHours(), { interview: interviewOpen }).filter((o) => !gone.includes(o.id)), "/") : undefined;
 
   const todos = ws.tasks.filter((t) => !t.done || doneNow.includes(t.id)).sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999")).slice(0, 3);
   // New openings only: one already kept or passed is in Jobs, not "for you" again. Most matched skills first, like the website.
@@ -120,7 +123,7 @@ export default function Home() {
   const dueChip = (d: string) => {
     const n = daysFrom(d);
     const late = n !== null && n < 0, close = n !== null && n <= 2;
-    return <View style={{ borderRadius: radius.chip, paddingHorizontal: 9, height: 24, justifyContent: "center", backgroundColor: late ? c.errorBg : close ? c.foxSoft : c.surface2 }}><Text style={{ fontFamily: font.bold, fontSize: 12, color: late ? c.error : close ? c.foxDeep : c.mutedText }}>{n === 0 ? "Today" : n === 1 ? "Tomorrow" : shortDate(d)}</Text></View>;
+    return <View style={{ borderRadius: radius.chip, paddingHorizontal: 9, height: 24, justifyContent: "center", backgroundColor: late ? c.errorBg : close ? c.foxSoft : c.surface2 }}><Text style={{ fontFamily: font.bold, fontSize: 12, color: late ? c.error : close ? c.foxDeep : c.mutedText }}>{late ? `Overdue · ${shortDate(d)}` : n === 0 ? "Today" : n === 1 ? "Tomorrow" : shortDate(d)}</Text></View>;
   };
 
   return (

@@ -8,7 +8,7 @@ import { PinArt } from "@/components/PinArt";
 import { OUTFIT_NAME, type Outfit } from "@/components/scholarSvg";
 import { api } from "@/lib/api";
 import { go } from "@/lib/nav";
-import { useOwnerView, useSession } from "@/lib/session";
+import { useCanGo, useOwnerView, useSession } from "@/lib/session";
 import { font, useTheme, type Colors } from "@/lib/theme";
 
 // The moments the website shows when they happen (PinMoment.tsx and PathBoard's LevelUp), for the app: a new career pin
@@ -48,6 +48,7 @@ export function Moments() {
     if (!firstLevel && lv > best) next.push({ kind: "level", n: lv, fresh: WARDROBE.find(([, l]) => l > best && l <= lv)?.[0] || "" });
     if (next.length) { success(); setQueue((q) => [...q, ...next]); }
   }, [sig, owner]); // eslint-disable-line react-hooks/exhaustive-deps
+  const practice = useCanGo()("/interview"); // locked for students until Interview is released
   const m = queue[0];
   if (!m || !ws) return null;
   const close = () => setQueue((q) => q.slice(1));
@@ -60,8 +61,8 @@ export function Moments() {
         <Remy size={150} outfit="gown" />
         <T kind="title" style={{ textAlign: "center" }}>{offer ? `Your first offer${at}!` : `Your first interview${at}!`}</T>
         <T style={{ textAlign: "center" }}>{offer ? "You did this. Every resume line, every application and every interview led here. Take a breath, then ask me anything about the offer before you answer them."
-          : "That's what all the work was for. You earned the First interview pin. Want to practise the questions they'll likely ask?"}</T>
-        <Button testID={`button-big-moment-${m.big}`} kind="fox" label={offer ? "Look at the offer" : "Practise with Remy"} onPress={() => then(offer ? "/progress" : "/interview")} flex />
+          : `That's what all the work was for. You earned the First interview pin.${practice ? " Want to practice the questions they'll likely ask?" : " Add the date in Progress and Remy turns Home into a prep plan the two days before."}`}</T>
+        <Button testID={`button-big-moment-${m.big}`} kind="fox" label={offer ? "Look at the offer" : practice ? "Practice with Remy" : "Add the date"} onPress={() => then(offer || !practice ? "/progress" : "/interview")} flex />
         <Button testID="button-big-moment-rewards" kind="ghost" label="See my pins" onPress={() => then("/rewards")} flex />
       </Card>
     );

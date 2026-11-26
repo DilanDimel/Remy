@@ -3,18 +3,17 @@ import { Pressable, View } from "react-native";
 import type { Workspace } from "@shared/types";
 import { FIELD_GROUPS, FIELD_MAJORS, splitFieldList } from "@shared/fields";
 import { AUTH_OPTS, authChip } from "@shared/workAuth";
-import { guessYear } from "@shared/roads";
+import { defaultTypes, fieldFromMajor, guessYearFor, yearOptions } from "@shared/setupDefaults";
 import { Button, Icon, Pill, T } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useJobs } from "@/lib/jobs";
-import { useOwnerView, useSession } from "@/lib/session";
+import { useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
 import { Chips, Input, Nav, Q, Say, useSave } from "./common";
 import { LIMIT_OPTS } from "@shared/limits";
+import { regionOptions } from "@shared/regions";
 
 // The same choices as the website's Preferences step (client/src/pages/Onboarding.tsx).
-const YEAR_OPTS = ["First-year", "Sophomore", "Junior", "Senior", "Graduate student"];
-const REGION_OPTS = ["Fort Worth", "Dallas", "DFW area", "Houston", "Austin", "Anywhere in Texas", "Remote", "Anywhere in the US"];
 const TYPE_OPTS = ["Internships", "Full-time jobs", "Part-time / campus jobs", "Programs & insight days", "Events & networking", "Competitions"];
 const RELOC_OPTS = ["Yes", "For the right role", "No"];
 const TRIED_OPTS = ["Nothing yet", "Applied to a few", "Went to a career fair", "Talked to the career center", "Reached out to people"];
@@ -33,18 +32,22 @@ const UNSURE_NOTE = "No problem. Pick any that sound interesting, or none. Remy 
 export function Preferences({ onBack, scrollTop }: { onBack: () => void; scrollTop: () => void }) {
   const { ws, setWs } = useSession();
   const { c } = useTheme();
-  const owner = useOwnerView();
   const save = useSave();
   const { reload } = useJobs();
   const p = ws!.profile;
-  // Start from what the resume already says (graduation year, home city) instead of blanks, as owners see on the website.
-  const [year, setYear] = useState(p.classYear ? [p.classYear] : owner ? [guessYear(p.graduation)].filter(Boolean) : []);
+  // Start from what the resume already says (graduation year, home city) instead of blanks, as on the website.
+  // Only a year that is one of this path's choices counts, so a stale "Junior" never answers it for a high-schooler.
+  const [year, setYear] = useState([p.classYear, guessYearFor(p.path || "", p.graduation)].filter((y) => yearOptions(p.path).includes(y)).slice(0, 1));
   const [grad, setGrad] = useState(p.graduation);
   const [timeline, setTimeline] = useState(splitList(p.timeline || ""));
-  const [regions, setRegions] = useState(p.regions || !owner ? splitList(p.regions) : REGION_OPTS.filter((r) => r === (p.location || "").split(",")[0]!.trim()));
+  // The student's own city and state first ("Columbus" · "Anywhere in Ohio"), not only Texas places, preselected for everyone.
+  const regionOpts = regionOptions(p.location || "");
+  const [regions, setRegions] = useState(p.regions ? splitList(p.regions) : regionOpts.filter((r) => r === (p.location || "").split(",")[0]!.trim()));
   const [otherRegion, setOtherRegion] = useState("");
-  const [types, setTypes] = useState(p.opportunityTypes ? splitList(p.opportunityTypes) : ["Internships"]);
-  const [fields, setFields] = useState(splitFieldList(p.targetRoles));
+  const [types, setTypes] = useState(p.opportunityTypes ? splitList(p.opportunityTypes) : defaultTypes(p.goal, p.path));
+  const [fields, setFields] = useState(p.targetRoles ? splitFieldList(p.targetRoles) : fieldFromMajor(p.major));
+  // Grades for high school, two years for community college, no year question for work, trade or service paths.
+  const yearOpts = yearOptions(p.path);
   const [otherField, setOtherField] = useState("");
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
     const about = `${p.major || ""} ${p.goal || ""}`;
@@ -67,7 +70,7 @@ export function Preferences({ onBack, scrollTop }: { onBack: () => void; scrollT
   const allRegions = [...regions, ...splitList(otherRegion)];
   const allWorries = [...worries, worryText.trim()].filter(Boolean);
   const missing = (page === 0
-    ? [!year.length && "your year", !allFields.length && !unsure && "at least one field (or \"I'm not sure yet\")", !types.length && "what kinds of opportunities"]
+    ? [yearOpts.length && !year.length && "your year", !allFields.length && !unsure && "at least one field (or \"I'm not sure yet\")", !types.length && "what kinds of opportunities"]
     : []).filter(Boolean);
   const pageOne = () => ({ ...p, classYear: year[0] || "", graduation: grad.trim(), timeline: timeline.join(", "), opportunityTypes: types.join(", "), targetRoles: allFields.join(", ") });
   const run = async (f: () => Promise<void>) => { setBusy(true); setError(""); try { await f(); } catch (e: any) { setError(e.message); } setBusy(false); };
@@ -97,9 +100,9 @@ export function Preferences({ onBack, scrollTop }: { onBack: () => void; scrollT
         <T kind="muted">{page === 0 ? "What are you looking for? This decides which openings I show you, and anything that rules you out stays hidden." : "Almost there. Where should I look, and is there anything that would rule an opening out?"}</T>
       </Say>
       {page === 0 ? <>
-        <Q n={1} title="What year are you in?">
-          <Chips options={YEAR_OPTS} value={year} onChange={setYear} multi={false} testID="pref-year" />
-          <Input testID="input-pref-grad" label="Expected graduation" value={grad} onChangeText={setGrad} placeholder="e.g. May 2029" />
+        <Q n={1} title={yearOpts.length ? "What year are you in?" : "When did you finish school?"} optional={!yearOpts.length}>
+          {yearOpts.length > 0 && <Chips options={yearOpts} value={year} onChange={setYear} multi={false} testID="pref-year" />}
+          <Input testID="input-pref-grad" label={yearOpts.length ? "Expected graduation" : "Graduation"} value={grad} onChangeText={setGrad} placeholder="e.g. May 2029" />
         </Q>
         <Q n={2} title="Which fields or roles interest you?">
           <View style={{ borderRadius: 14, borderWidth: 1, borderColor: c.line, overflow: "hidden" }}>
@@ -133,7 +136,7 @@ export function Preferences({ onBack, scrollTop }: { onBack: () => void; scrollT
         </Q>
       </> : <>
         <Q n={5} title="Where should I look for you?">
-          <Chips options={REGION_OPTS} value={regions} onChange={setRegions} testID="pref-region" />
+          <Chips options={[...regionOpts, ...regions.filter((r) => !regionOpts.includes(r))]} value={regions} onChange={setRegions} testID="pref-region" />
           <Input testID="input-pref-region" value={otherRegion} onChangeText={setOtherRegion} placeholder="Somewhere else? e.g. Chicago" />
           <T kind="small">Open to relocating?</T>
           <Chips options={RELOC_OPTS} value={reloc} onChange={setReloc} multi={false} testID="pref-reloc" />

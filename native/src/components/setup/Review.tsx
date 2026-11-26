@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import { useJobs } from "@/lib/jobs";
 import { useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
-import { Input, Nav, useSave } from "./common";
+import { Input, Nav, Preview, beforePrefs, useSave } from "./common";
 import { AskCard } from "@/components/OfficeGuide";
 import { dayKey } from "@shared/daily";
 import { remyAsks, type Ask } from "@shared/remyAsks";
@@ -68,7 +68,7 @@ export function Review({ onBack, onNext }: { onBack: () => void; onNext: () => v
     setLooking(true);
     api<{ workspace: Workspace }>("POST", "/api/jobs/discover", {}).then((d) => { setWs(d.workspace); return reload(); }).catch(() => {}).finally(() => setLooking(false));
   }, []);
-  const first = jobs.filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false).slice(0, 3);
+  const first = jobs.filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false && beforePrefs(w, j)).slice(0, 3);
   const next = async () => {
     setBusy(true); setError("");
     try {
@@ -86,7 +86,7 @@ export function Review({ onBack, onNext }: { onBack: () => void; onNext: () => v
         <Card testID="first-matches" style={{ gap: 6 }}>
           {first.length ? <>
             <T style={{ fontFamily: font.bold }}>First openings that fit your resume</T>
-            {first.map((j) => <T key={j.id} kind="small" style={{ color: c.ink }}>{j.title} <T kind="small">at {j.company}</T></T>)}
+            {first.map((j) => <Preview key={j.id} j={j} />)}
             <T kind="small">Your next answers sharpen these.</T>
           </> : <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}><ActivityIndicator color={c.fox} /><T kind="small" style={{ flex: 1 }}>Remy is already checking employers' career sites for openings that fit your resume…</T></View>}
         </Card>
@@ -97,7 +97,7 @@ export function Review({ onBack, onNext }: { onBack: () => void; onNext: () => v
       </View>
       {/* What Remy read, as rows: tap one to fix it, so the step isn't nine open boxes in a long scroll. */}
       <View style={{ backgroundColor: c.surface, borderRadius: 16, borderWidth: 1, borderColor: c.line, overflow: "hidden" }} testID="profile-rows">
-        {FIELDS.map(([k, label, ph], i) => {
+        {FIELDS.filter(([k]) => !(k === "minors" && !p.minors && p.path === "high-school")).map(([k, label, ph], i) => {
           const warn = (k === "name" || k === "preferredName") && typing !== k ? nameConcern(String(p[k] || ""), k === "preferredName") : "";
           const name = (p.path && p.path !== "four-year" && OTHER_PATH[k]) || label;
           const value = String(p[k] ?? "").trim();

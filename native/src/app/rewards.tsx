@@ -14,7 +14,7 @@ import { SvgXml } from "react-native-svg";
 import { api } from "@/lib/api";
 import { brand } from "@/lib/tokens";
 import { go } from "@/lib/nav";
-import { useSession } from "@/lib/session";
+import { useCanGo, useSession } from "@/lib/session";
 import { font, useTheme, type Colors } from "@/lib/theme";
 
 // Rewards, the website's page (client/src/pages/Rewards.tsx), native: career pins, levels and titles, Remy's outfits and
@@ -30,7 +30,7 @@ const status = (p: PinState) => {
   return `${p.tier ? TIER_NAME[p.tier - 1] + " · " : ""}${p.n} / ${p.next} for ${TIER_NAME[p.tier]!.toLowerCase()}`;
 };
 
-function PinDetail({ p, onClose }: { p: PinState; onClose: () => void }) {
+function PinDetail({ p, onClose, soon }: { p: PinState; onClose: () => void; soon: boolean }) {
   const { c } = useTheme();
   const hidden = hiddenPin(p);
   return (
@@ -50,7 +50,8 @@ function PinDetail({ p, onClose }: { p: PinState; onClose: () => void }) {
           ))}
           {!hidden && p.tiers.length === 1 && <T kind="small">{p.xp[0] ? `Worth ${p.xp[0]} XP.` : "Its XP is counted with the step itself (see Levels)."}</T>}
           {p.tiers.length > 1 && <T kind="small">{`You have ${p.n} ${p.unit} so far.`}</T>}
-          {!hidden && p.next !== null && <Button testID="button-pin-go" label="Go do it" icon="arrow" onPress={() => { onClose(); router.back(); setTimeout(() => go(p.link), 250); }} flex />}
+          {!hidden && p.next !== null && (soon ? <View testID="pin-coming-soon"><T kind="small">Coming in a future update</T></View>
+            : <Button testID="button-pin-go" label="Go do it" icon="arrow" onPress={() => { onClose(); router.back(); setTimeout(() => go(p.link), 250); }} flex />)}
           <Button testID="button-pin-close" kind="ghost" label="Close" onPress={onClose} flex />
         </Pressable>
       </Pressable>
@@ -65,7 +66,9 @@ function Pins({ pins }: { pins: PinState[] }) {
   const [open, setOpen] = useState("");
   const [f, setF] = useState<PinKind | "all">("all");
   const list = pins.filter((p) => f === "all" || p.kind === f);
-  const near = pins.filter((p) => p.next !== null && !hiddenPin(p))
+  // A pin earned on a locked page (Interview, Community for students) says "Coming soon" and isn't suggested as next.
+  const canGo = useCanGo();
+  const near = pins.filter((p) => p.next !== null && !hiddenPin(p) && canGo(p.link))
     .map((p, i) => ({ p, r: p.tiers.length > 1 ? p.n / p.next! : 0, i })).sort((a, b) => b.r - a.r || a.i - b.i).slice(0, 3).map((x) => x.p);
   const shown = pins.find((p) => p.id === open);
   return (
@@ -87,14 +90,14 @@ function Pins({ pins }: { pins: PinState[] }) {
             style={({ pressed }) => ({ width: "31%", flexGrow: 1, alignItems: "center", gap: 6, paddingVertical: 14, paddingHorizontal: 6, borderRadius: 16, borderWidth: 1, borderColor: c.line, backgroundColor: pressed ? c.surface2 : c.surface })}>
             <PinArt p={p} size={52} />
             <Text numberOfLines={2} style={{ fontFamily: p.earned ? font.bold : font.semi, fontSize: 13, textAlign: "center", color: p.earned ? c.ink : c.mutedText }}>{hiddenPin(p) ? "???" : p.name}</Text>
-            {p.tiers.length > 1
+            {p.tiers.length > 1 && (p.earned || canGo(p.link))
               ? <View style={{ flexDirection: "row", gap: 4 }}>{p.tiers.map((_, i) => <View key={i} style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: p.tier > i ? [c.metalBronze, c.metalSilver, c.metalGold][i] : c.line }} />)}</View>
-              : <T kind="small" style={{ fontSize: 12 }}>{hiddenPin(p) ? "Secret" : p.earned ? "Earned" : "Not yet"}</T>}
+              : <T kind="small" style={{ fontSize: 12 }}>{hiddenPin(p) ? "Secret" : p.earned ? "Earned" : !canGo(p.link) ? "Coming soon" : "Not yet"}</T>}
           </Pressable>
         ))}
       </View>
       <T kind="small" style={{ marginTop: 12 }}>Craft pins grow from bronze to gold with real steps. Secret pins stay hidden until you find them.</T>
-      {shown && <PinDetail p={shown} onClose={() => setOpen("")} />}
+      {shown && <PinDetail p={shown} onClose={() => setOpen("")} soon={!canGo(shown.link)} />}
     </View>
   );
 }

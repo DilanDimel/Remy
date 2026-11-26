@@ -10,7 +10,7 @@ import { ScrollView } from "react-native-gesture-handler";
 import Svg, { Circle, Path, SvgXml } from "react-native-svg";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
 import { brand, light as lightTokens, radius } from "@/lib/tokens";
-import { useSession } from "@/lib/session";
+import { useRefreshAll, useSession } from "@/lib/session";
 import { OUTFITS, SCHOLAR_ICON, type Outfit } from "./scholarSvg";
 
 export const tap = () => { if (Platform.OS !== "web") Haptics.selectionAsync().catch(() => {}); };
@@ -186,9 +186,28 @@ export function Logo({ company, url, size = 40 }: { company: string; url?: strin
 }
 const initials = (name: string) => name.replace(/[^A-Za-z0-9 ]/g, " ").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
 
+/** How long a first load may spin before Remy says so (the website's boot and the app's web sheets use 25 s too, #526/#528). */
+const STUCK_MS = 25_000;
+
+/** The spinner while the account or the feature releases load. After 25 s it says the page isn't loading, with Try
+ *  again (asks for both again), instead of spinning for good when the server is slow or a first call failed. */
 export function Loading() {
   const { c } = useTheme();
-  return <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: c.bg }}><ActivityIndicator color={c.fox} /></View>;
+  const refreshAll = useRefreshAll();
+  const [stuck, setStuck] = useState(false);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setStuck(true), STUCK_MS); return () => clearTimeout(t); }, []);
+  const retry = async () => { setBusy(true); await refreshAll().catch(() => {}); setBusy(false); };
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: c.bg, padding: 24, gap: 12 }}>
+      {stuck ? <View testID="boot-stuck" style={{ alignItems: "center", gap: 10, maxWidth: 340 }}>
+        <Remy size={64} />
+        <T kind="h2" style={{ textAlign: "center" }}>This page isn't loading</T>
+        <T kind="muted" style={{ textAlign: "center" }}>Remy's page is taking longer than it should. Check your connection, then try again.</T>
+        <Button testID="button-boot-retry" label="Try again" onPress={retry} busy={busy} style={{ alignSelf: "center", paddingHorizontal: 28 }} />
+      </View> : <ActivityIndicator color={c.fox} />}
+    </View>
+  );
 }
 
 export function Sect({ title, right }: { title: string; right?: ReactNode }) {
