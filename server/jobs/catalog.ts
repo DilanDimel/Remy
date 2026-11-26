@@ -12,7 +12,7 @@ import { r2Store } from "../platform/r2";
 import { abroad, inUS } from "./fit";
 import { fetchBoard, studentTitle, withDetail, type Raw } from "./sources";
 
-type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom" | "taleo" | "amazon" | "apple";
+type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom" | "taleo" | "amazon" | "apple" | "schoolspring";
 export type CatalogBoard = { ats: Ats; slug: string; company: string };
 export const PARTS = 24;
 /** Text kept per posting: enough for its requirements and summary (an opening keeps up to 12,000 when saved). */
@@ -346,9 +346,9 @@ export type PartStats = { at: string; boards: number; reached: number; postings:
 const TEXAS = /\b(TX|Texas)\b/;
 export type Meta = { parts: Record<string, PartStats> };
 
-/** Reads every board in one part. Workable and Paylocity turn fast bursts away (HTTP 429), so each of them gets its own
+/** Reads every board in one part. Workable and Paylocity turn fast bursts away (HTTP 429), so each of them (and the other SLOW systems) gets its own
  *  lane, one board at a time. */
-const SLOW: Ats[] = ["workable", "paylocity", "icims", "successfactors"];
+const SLOW: Ats[] = ["workable", "paylocity", "icims", "successfactors", "schoolspring"];
 export async function readPart(p: number, boards = CATALOG, read = readBoard, pause: (ms: number) => Promise<unknown> = (ms) => new Promise((r) => setTimeout(r, ms))) {
   const mine = boards.filter((b) => partOf(b) === p);
   const kept: Raw[] = [];

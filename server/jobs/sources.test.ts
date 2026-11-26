@@ -301,3 +301,17 @@ test("a board's cached postings are downloaded once per fetch, then reused from 
   await q("DELETE FROM board_cache WHERE key = $1", [key]);
   assert.equal(await readBoardCache(key), undefined);
 });
+
+test("SchoolSpring by state: national site searched for one state, each opening keeps its own district", async () => {
+  const real = globalThis.fetch; const asked: string[] = [];
+  globalThis.fetch = (async (u: any) => {
+    asked.push(String(u));
+    return new Response(JSON.stringify({ value: { jobsList: [{ jobId: 7, title: "Math Tutor", employer: "Sumter School District", location: "Sumter, South Carolina", displayDate: "2026-11-20" }] } }), { status: 200 });
+  }) as any;
+  try {
+    const out = await fetchBoard({ ats: "schoolspring", slug: "www.schoolspring.com|South Carolina", company: "SchoolSpring" } as any, "", "");
+    assert.ok(asked.every((u) => u.includes("domainName=www.schoolspring.com") && u.includes("location=South+Carolina")));
+    assert.equal(out.length, 1, "the same opening found by several searches is listed once");
+    assert.deepEqual([out[0].company, out[0].location, out[0].url], ["Sumter School District", "Sumter, South Carolina", "https://www.schoolspring.com/?jobid=7"]);
+  } finally { globalThis.fetch = real; }
+});

@@ -305,14 +305,16 @@ async function eachQuery(queries: string[], read: (q: string) => Promise<Raw[]>)
   return res.flatMap((r) => (r.status === "fulfilled" ? r.value : [])).filter((r) => !seen.has(r.url) && seen.add(r.url));
 }
 // SchoolSpring (PowerSchool), used by districts such as Irving and Keller ISD: its public JSON API.
-// Board = the district's SchoolSpring host ("irvingisd.schoolspring.com").
+// Board = the district's SchoolSpring host ("irvingisd.schoolspring.com"), or the national site and a state
+// ("www.schoolspring.com|Ohio"), whose openings span many districts, so each keeps its own employer.
 async function schoolspring(b: Board): Promise<Raw[]> {
+  const [host, state] = b.slug.split("|");
   const raws = await eachQuery(SCHOOL_QUERIES, async (q) => {
-    const qs = new URLSearchParams({ domainName: b.slug, keyword: q, location: "", category: "", gradelevel: "", jobtype: "", organization: "", swLat: "", swLon: "", neLat: "", neLon: "", page: "1", size: "50", sortDateAscending: "false" });
+    const qs = new URLSearchParams({ domainName: host, keyword: q, location: state || "", category: "", gradelevel: "", jobtype: "", organization: "", swLat: "", swLon: "", neLat: "", neLon: "", page: "1", size: "50", sortDateAscending: "false" });
     const j = await getJson(`https://api.schoolspring.com/api/Jobs/GetPagedJobsWithSearch?${qs}`);
     return (j.value?.jobsList || []).map((x: any): Raw => ({
-      student: true, title: decodeEntities(String(x.title || "")), location: [decodeEntities(String(x.employer || "")), String(x.location || "")].filter(Boolean).join(", "),
-      url: `https://${b.slug}/?jobid=${x.jobId}`, text: "", posted: x.displayDate,
+      student: true, title: decodeEntities(String(x.title || "")), location: [state ? "" : decodeEntities(String(x.employer || "")), String(x.location || "")].filter(Boolean).join(", "),
+      url: `https://${host}/?jobid=${x.jobId}`, text: "", posted: x.displayDate, company: state && x.employer ? decodeEntities(String(x.employer)) : undefined,
       more: { kind: "schoolspring", url: `https://api.schoolspring.com/api/Jobs/${encodeURIComponent(x.jobId)}` },
     }));
   });
