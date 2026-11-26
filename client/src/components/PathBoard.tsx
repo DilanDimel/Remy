@@ -30,6 +30,7 @@ import { useAccess } from "./ComingSoon";
 import { PLACES, openPlaces, placeNow, type PlaceKey } from "@shared/places";
 import { canListen, speak, useVoice } from "../lib/voice";
 import { buildStops, money, stateOf, StopDetail, useFieldData, type Occ } from "./DailyPath";
+import { useMomentTurn } from "../lib/moments";
 
 const play = () => go("/path?play=1");
 
@@ -764,7 +765,8 @@ function LevelUp({ d }: { d: D }) {
     // the first visit only records where they are; after that, say it and offer any outfit this climb unlocked
     if (best) setUp({ n: d.lv.n, fresh: WARDROBE.find(([, l]) => l > best && l <= d.lv.n)?.[0] || "" });
   }, [d.lv.n, best]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!up) return null;
+  const turn = useMomentTurn("level", !!up);
+  if (!up || !turn) return null;
   const { n: shown, fresh } = up, after = nextOutfit(shown);
   const close = () => setUp(null);
   return (

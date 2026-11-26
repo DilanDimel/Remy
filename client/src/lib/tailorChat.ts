@@ -38,7 +38,16 @@ let session: TailorSession | null = null; // mutable; compared by identity acros
 let snap: TailorSession | null = null; // immutable copy the UI reads
 const listeners = new Set<() => void>();
 const openers = new Set<() => void>();
-const emit = () => { snap = session && { ...session, log: [...session.log] }; listeners.forEach((l) => l()); };
+// A reload ("Remy was updated. Reload", tester Nov 25) keeps a conversation that was waiting on the student's answer, so their
+// answers so far aren't lost. One mid-request (reading, working) can't be resumed and starts over.
+const KEY = "remy.tailor";
+const resumable = (x: TailorSession | null) => !!x && x.stage === "asking";
+try { const kept = JSON.parse(sessionStorage.getItem(KEY) || "null") as TailorSession | null; if (resumable(kept)) { session = kept; snap = { ...kept!, log: [...kept!.log] }; } } catch {}
+const emit = () => {
+  snap = session && { ...session, log: [...session.log] };
+  try { if (resumable(session)) sessionStorage.setItem(KEY, JSON.stringify(session)); else sessionStorage.removeItem(KEY); } catch {}
+  listeners.forEach((l) => l());
+};
 const say = (text: string, role: Msg["role"] = "remy") => { session!.log = [...session!.log, { role, text }]; };
 
 export function useTailorSession() {
