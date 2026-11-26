@@ -7,7 +7,7 @@ import { isNativeApp, NATIVE_AUTH_RETURN, openInBrowser } from "./native";
 // handed to our server, which verifies it and starts Remy's own cookie session.
 
 export type SupabaseProvider = "google" | "linkedin_oidc" | "apple" | "azure";
-type Intent = "signin" | "connect-linkedin";
+type Intent = "signin";
 const INTENT_KEY = "remy-auth-intent";
 
 let client: SupabaseClient | null = null;

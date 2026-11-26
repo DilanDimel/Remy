@@ -121,8 +121,8 @@ function SignIn() {
       {busy === via ? <Spinner /> : icon} Continue with {via === "Work/School Email" ? "Email" : via}
     </button>
   );
-  const anyReal = gis || codes || ["google", "linkedin_oidc", "apple", "azure", "email"].some((p) => providerOn(config, p as SupabaseProvider));
-  const ways = ["google", "linkedin_oidc", "apple", "azure"].filter((p) => providerOn(config, p as SupabaseProvider) || (p === "google" && gis)).length + (codes || providerOn(config, "email") ? 1 : 0);
+  const anyReal = gis || codes || ["google", "apple", "azure", "email"].some((p) => providerOn(config, p as SupabaseProvider));
+  const ways = ["google", "apple", "azure"].filter((p) => providerOn(config, p as SupabaseProvider) || (p === "google" && gis)).length + (codes || providerOn(config, "email") ? 1 : 0);
   return (
     <div className="landing-screen auth-stage">
       <div className="lp-beam" aria-hidden><span className="lp-beam-floor" /></div>
@@ -155,7 +155,6 @@ function SignIn() {
               sso("Google", <GoogleG />)
             )}
           </div>
-          {sso("LinkedIn", <LinkedInMark />)}
           {sso("Apple", <AppleMark />)}
           {sso("Microsoft", <MicrosoftMark />)}
           {!emailOpen && sso("Work/School Email", <MailMark />)}
@@ -183,8 +182,8 @@ function SignIn() {
               </form>
             )
           )}
-          {/* Tester, Nov 25: "what's the difference between LinkedIn and Google?" None: they only sign you in. */}
-          {ways > 1 && !sent && <p className="xs muted" style={{ textAlign: "center" }} data-testid="text-sso-same">They all work the same. Pick the account you use most.</p>}
+          {/* LinkedIn sign-in removed Nov 26 (Dilan): Google and email are enough. */}
+          {ways > 1 && !sent && <p className="xs muted" style={{ textAlign: "center" }} data-testid="text-sso-same">{ways === 2 ? "Both" : "They all"} work the same. Pick the account you use most.</p>}
           {!anyReal && <p className="small muted" style={{ textAlign: "center" }}><StatusChip label="Needs setup">Sign-in</StatusChip> No sign-in method is switched on for this server yet.</p>}
         </div>
         <div className="landing-foot">

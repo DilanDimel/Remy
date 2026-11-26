@@ -1143,18 +1143,6 @@ export async function registerRoutes(_server: Server, app: Express) {
     }
   });
 
-  // LinkedIn as a connector: the student approves on LinkedIn (via Supabase's
-  // LinkedIn OIDC provider). OIDC only shares name, email and photo, not work history.
-  app.post("/api/connect/linkedin", route(async (req, res, ctx) => {
-    const u = await verifySupabase(String(req.body?.accessToken || ""));
-    if (u.provider && u.provider !== "linkedin_oidc") bad("That consent wasn't from LinkedIn.");
-    ctx.ws.imports = ctx.ws.imports.filter((i) => i.kind !== "LinkedIn (connected)");
-    ctx.ws.imports.unshift({ id: uid("i"), kind: "LinkedIn (connected)", fileName: [u.name, u.email].filter(Boolean).join(" · ") || "LinkedIn account", at: nowIso(), label: "Live", factsAdded: 0 });
-    if (!ctx.ws.profile.name && u.name) ctx.ws.profile.name = u.name;
-    await ctx.save();
-    res.json(ctx.ws);
-  }));
-
   app.post("/api/auth/logout", async (req, res, next) => {
     try {
       await endSession(req, res);
