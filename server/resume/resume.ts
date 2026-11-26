@@ -132,7 +132,10 @@ const MON =
   "ene(?:ro)?|febrero|marzo|abril|mayo|junio|julio|ago(?:sto)?|sept?iembre|octubre|noviembre|dic(?:iembre)?)\\b\\.?";
 const SEASON = "\\b(?:summer|fall|spring|winter|autumn|verano|oto[ñn]o|primavera|invierno)";
 const YEAR = "\\b(?:19|20)\\d{2}\\b";
-const POINT = `(?:${MON}\\s*(?:\\d{1,2},?\\s+)?${YEAR}|${SEASON}\\s+${YEAR}|\\b\\d{1,2}\\/(?:19|20)\\d{2}\\b|${YEAR})`;
+// "May '27", "Fall ’26": a two-digit year after an apostrophe (11,041-resume test, Nov 26: 11% of student resumes lost
+// their major and graduation date to it).
+const YEAR2 = "['’‘]\\d{2}\\b";
+const POINT = `(?:${MON}\\s*(?:\\d{1,2},?\\s+)?${YEAR}|${MON}\\s*${YEAR2}|${SEASON}\\s+(?:${YEAR}|${YEAR2})|\\b\\d{1,2}\\/(?:19|20)\\d{2}\\b|${YEAR})`;
 const NOW = "\\b(?:present|current|now|today|actualidad|actual|presente)\\b";
 const SHORT = "\\b\\d{1,2}\\/\\d{2}\\b"; // "7/09", only inside a range
 const RANGE =
@@ -140,7 +143,7 @@ const RANGE =
   `|${MON}\\s*${YEAR}\\s+(?:${MON}\\s*${YEAR}|${NOW})` + // some PDFs lose the dash: "Sep. 2023 Mar. 2024"
   `|${SEASON}\\s+${YEAR}\\s*(?:and|&|,)\\s*${YEAR})`; // "Summer 2012 and 2013"
 const EXPECTED = `(?:\\b(?:expected|anticipated|graduat(?:ion|ing|ed)|class of|egreso)\\b|\\bgrad\\.)[^\\d\\n]{0,24}?${POINT}`;
-const DATE = `(?:${EXPECTED}|${RANGE}|${MON}\\s*${YEAR}|${SEASON}\\s+${YEAR}|\\b\\d{1,2}\\/(?:19|20)\\d{2}\\b)`;
+const DATE = `(?:${EXPECTED}|${RANGE}|${MON}\\s*(?:${YEAR}|${YEAR2})|${SEASON}\\s+(?:${YEAR}|${YEAR2})|\\b\\d{1,2}\\/(?:19|20)\\d{2}\\b)`;
 const DATE_ONLY = new RegExp(`^\\(?\\s*(?:${DATE}|${YEAR})\\s*\\)?$`, "i");
 const PAREN_DATE = new RegExp(`\\(\\s*((?:${DATE}|${YEAR}))\\s*\\)`, "i");
 const EXPECTED_ANY = new RegExp(EXPECTED, "i");
@@ -495,7 +498,13 @@ export function rulesParse(text: string): ResumeDoc {
     // "Org   City, ST" followed by "Role   Dates" (the classic layout)
     if (!hasDate(line) && next && !BULLET_RE.test(next) && !headingOf(next) && hasDate(next)) {
       const col = readColumns(line, true);
-      pending = { org: [col.title, col.extra].filter(Boolean).join(" | "), location: col.location };
+      const text = [col.title, col.extra].filter(Boolean).join(" | ");
+      // "Security Analyst Intern", "Bluebonnet Health — City, ST", "Jun 2026 – Aug 2026": a lone title line, then its org, then dates.
+      if (roleSlot && roleSlot === entry && !roleSlot.role && !roleSlot.dates && !roleSlot.location && roleSlot.bullets.length === 0 && ROLE.test(roleSlot.org) && !ROLE.test(text)) {
+        [roleSlot.role, roleSlot.org, roleSlot.location] = [roleSlot.org, text, col.location];
+        return;
+      }
+      pending = { org: text, location: col.location };
       return;
     }
     if (continues(line, prevLine)) {
@@ -864,7 +873,8 @@ export function graduationOf(dates: string): string {
   if (classOf) return `May ${classOf[1]}`;
   const d = dates.replace(/\(\s*(?:expected|anticipated)?\s*\)/gi, "").replace(/\b(expected|anticipated)\b(\s+graduation)?(\s+date)?:?\s*/i, "").replace(/^graduation(\s+date)?:?\s*/i, "").trim();
   const parts = d.split(/\s*(?:[–—]|\s-\s|\bto\b|\bhasta\b)\s*/i).filter(Boolean);
-  const last = parts[parts.length - 1] || "";
+  // "May. '27" → "May 2027", so every reader of the graduation date (class year, eligibility) sees a full year.
+  const last = (parts[parts.length - 1] || "").replace(/([A-Za-z])\.?\s*['’‘](\d{2})\b/, (_m, c, y) => `${c} ${+y > (new Date().getFullYear() % 100) + 10 ? 19 : 20}${y}`);
   return new RegExp(NOW, "i").test(last) ? "" : last;
 }
 

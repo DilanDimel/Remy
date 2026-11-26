@@ -685,3 +685,25 @@ test("graduation written as month/year counts its month", async () => {
   ws.profile.graduation = "Fall 2027";
   assert.deepEqual(gradDate(ws), { y: 2027, m: 12 });
 });
+
+test("fields (11,041-resume test, Nov 26): majors Remy didn't recognize now narrow to their own openings", () => {
+  const f = (major: string, title: string, postingText = "") => fieldMatch(student({ major }), job({ title, postingText }));
+  assert.equal(f("Welding Technology", "Welder Apprentice"), true);
+  assert.equal(f("Welding Technology", "Marketing Intern"), false);
+  assert.equal(f("Radiologic Technology", "Radiologic Technologist"), true);
+  assert.equal(f("Radiologic Technology", "Sales Internship (FL)"), false);
+  assert.equal(f("Animal Science", "Livestock Sales Intern"), true);
+  assert.equal(f("History", "Museum Intern"), true);
+  assert.equal(f("Spanish", "Bilingual Customer Service Representative"), true);
+  assert.equal(f("Fire Science", "Legal Assistant"), false, "fire and EMS aren't legal careers");
+  assert.equal(f("Criminal Justice", "Legal Assistant"), true);
+  assert.equal(f("Turfgrass Management", "Sales Development Representative"), false, "an X Management major isn't a business major");
+  assert.equal(f("Business & management", "Operations Analyst Intern"), true);
+  assert.equal(fieldMatch(student({ targetRoles: "HR" }), job({ title: "People Operations Intern" })), true);
+  assert.equal(fieldMatch(student({ targetRoles: "QA" }), job({ title: "QA Tester" })), true);
+});
+test("fields: a title that names no field is judged by its duties, as the search does", () => {
+  const hr = student({ targetRoles: "Human resources" });
+  assert.equal(fieldMatch(hr, job({ title: "Summer Intern 2027", postingText: "You will support recruiting and onboarding for our talent team." })), true);
+  assert.equal(fieldMatch(hr, job({ title: "Summer Intern 2027", postingText: "You will write Python code." })), false);
+});
