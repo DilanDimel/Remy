@@ -97,7 +97,7 @@ export default function Account() {
       <Sect title="Sources" />
       <Group>
         <Row first title="Resume" sub={ws.resume ? `${ws.resume.fileName || "Your resume"} · ${resumeAt}` : "Not uploaded"} left={<Icon name="doc" color={c.mutedText} />} onPress={() => { tap(); router.navigate("/resume"); }} testID="row-source-resume" />
-        <Row title="LinkedIn and other sources" sub="Import facts for Remy to suggest" left={<Icon name="you" color={c.mutedText} />} onPress={() => go("/accounts?tab=sources", "Account", { page: true })} testID="row-source-more" />
+        <Row title="LinkedIn and other sources" sub="Import facts for Remy to suggest" left={<Icon name="you" color={c.mutedText} />} onPress={() => { tap(); router.push("/sources" as any); }} testID="row-source-more" />
       </Group>
 
       <Sect title="Your data" />
