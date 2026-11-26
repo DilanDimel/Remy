@@ -8,6 +8,33 @@ import { useJobs } from "@/lib/jobs";
 import { useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
 import { Input, Nav, useSave } from "./common";
+import { AskCard } from "@/components/OfficeGuide";
+import { dayKey } from "@shared/daily";
+import { remyAsks, type Ask } from "@shared/remyAsks";
+
+/** Mismatches between the resume and the student's other sources (the website's CHECK_KINDS in Onboarding.tsx). */
+const CHECK_KINDS: Ask["kind"][] = ["conflict", "name", "profile", "facts"];
+
+/** One mismatch at a time with Remy's own question card, then Continue (tester, Nov 25: the review was too much reading). */
+function SetupChecks({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
+  const { ws } = useSession();
+  const asks = (ws ? remyAsks(ws, dayKey()) : []).filter((a) => CHECK_KINDS.includes(a.kind));
+  const [shown, setShown] = useState<Ask | null>(null);
+  const [total] = useState(asks.length);
+  const ask = shown || asks[0];
+  const left = asks.filter((a) => a.id !== ask?.id).length;
+  return (
+    <View style={{ flexGrow: 1, gap: 18 }} testID="setup-checks">
+      <View style={{ gap: 4 }}>
+        {!!ask && <T kind="small">{total - left} of {Math.max(total, total - left)}</T>}
+        <T kind="title">{ask ? "A few quick checks" : "That's everything"}</T>
+        <T kind="muted">{ask ? "Remy compared your resume with your other sources. Pick what's right and he fixes it." : "Thanks. Everything Remy uses now matches what you picked."}</T>
+      </View>
+      {!!ask && <AskCard key={ask.id} ask={ask} next={left} onAnswered={() => setShown(ask)} onNext={() => setShown(null)} />}
+      <Nav onBack={onBack} next={!ask || (shown && !left) ? <Button testID="button-ob-next-checks" label="Continue" icon="arrow" onPress={onNext} flex /> : undefined} />
+    </View>
+  );
+}
 
 // The website's review step shows ProfileForm without the preference fields (those come on the next step).
 const FIELDS: [keyof Profile, string, string?][] = [
@@ -31,7 +58,8 @@ export function Review({ onBack, onNext }: { onBack: () => void; onNext: () => v
   const [error, setError] = useState("");
   const dirty = JSON.stringify(p) !== JSON.stringify(w.profile);
   const unverified = w.resume?.doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets)).filter((b) => b.verified === false) || [];
-  const suggested = w.memory.filter((m) => m.status === "suggested");
+  const checks = ws ? remyAsks(ws, dayKey()).filter((a) => CHECK_KINDS.includes(a.kind)) : [];
+  const [checking, setChecking] = useState(false);
   // Value first: start the search from the resume alone, so real openings show before any more questions.
   const { jobs, fits, reload } = useJobs();
   const [looking, setLooking] = useState(false);
@@ -41,19 +69,17 @@ export function Review({ onBack, onNext }: { onBack: () => void; onNext: () => v
     api<{ workspace: Workspace }>("POST", "/api/jobs/discover", {}).then((d) => { setWs(d.workspace); return reload(); }).catch(() => {}).finally(() => setLooking(false));
   }, []);
   const first = jobs.filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false).slice(0, 3);
-  const fact = async (id: string, keep: boolean) => {
-    try { await save("memory", keep ? w.memory.map((m) => (m.id === id ? { ...m, status: "approved" as const } : m)) : w.memory.filter((m) => m.id !== id)); } catch (e: any) { setError(e.message); }
-  };
   const next = async () => {
     setBusy(true); setError("");
     try {
       // Edits typed above count as confirmed; a resume whose every line matched the file is confirmed too.
       if (dirty) await save("profile", p);
       if (w.resume && !w.resume.confirmedAt && !unverified.length) setWs(await api<Workspace>("PUT", "/api/resume/doc", { doc: w.resume.doc, confirm: true }));
-      onNext();
+      if (checks.length) setChecking(true); else onNext();
     } catch (e: any) { setError(e.message); }
     setBusy(false);
   };
+  if (checking) return <SetupChecks onBack={() => setChecking(false)} onNext={onNext} />;
   return (
     <View style={{ flexGrow: 1, gap: 18 }}>
       {(looking || first.length > 0) && (
@@ -66,8 +92,8 @@ export function Review({ onBack, onNext }: { onBack: () => void; onNext: () => v
         </Card>
       )}
       <View style={{ gap: 4 }}>
-        <T kind="title">Is this right?</T>
-        <T kind="muted">Tap anything that's off. Remy only uses what you confirm here.</T>
+        <T kind="title">Here's what I found</T>
+        <T kind="muted">Tap anything that's off, or fill in what's empty. Remy only uses what you confirm here.</T>
       </View>
       {/* What Remy read, as rows: tap one to fix it, so the step isn't nine open boxes in a long scroll. */}
       <View style={{ backgroundColor: c.surface, borderRadius: 16, borderWidth: 1, borderColor: c.line, overflow: "hidden" }} testID="profile-rows">
@@ -102,21 +128,6 @@ export function Review({ onBack, onNext }: { onBack: () => void; onNext: () => v
             : unverified.length ? `${unverified.length} line${unverified.length === 1 ? "" : "s"} couldn't be matched word for word to your file. You can fix them on the Resume tab.`
             : "Every bullet matches your original file word for word."}</T>
           {w.resume.parsedBy === "rules" && <T kind="small" style={{ color: c.foxDeep }} >Remy's AI reader was busy, so a simpler reader sorted your resume. The words are yours, but check on the Resume tab that each job has its own bullets and your degree line reads right.</T>}
-        </View>
-      )}
-      {suggested.length > 0 && (
-        <View style={{ gap: 8 }}>
-          <T kind="h2">Facts from your other sources</T>
-          {suggested.map((m) => (
-            <Card key={m.id} style={{ flexDirection: "row", gap: 10, alignItems: "center", padding: 12 }}>
-              <View style={{ flex: 1, gap: 2 }}>
-                <T kind="small" style={{ color: c.ink }}>{m.text}</T>
-                <T kind="small">{m.conflict ? `${m.conflict} Choose which is right on the website's setup, or remove it.` : m.source}</T>
-              </View>
-              {!m.conflict && <Button testID="button-approve-fact" kind="ghost" label="Keep" onPress={() => fact(m.id, true)} style={{ height: 38, paddingHorizontal: 14 }} />}
-              <Pressable testID="button-remove-fact" accessibilityLabel="Remove fact" hitSlop={10} onPress={() => fact(m.id, false)}><Icon name="x" size={20} color={c.mutedText} /></Pressable>
-            </Card>
-          ))}
         </View>
       )}
       <Nav note={error || undefined} onBack={onBack} next={<Button testID="button-ob-next-review" label="Looks right" icon="arrow" onPress={next} busy={busy} flex />} />

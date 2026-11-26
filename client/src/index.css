@@ -3657,6 +3657,13 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 .ask > p { margin: 0; }
 .ask-kick { font-size: var(--text-xs); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--fox-deep); }
 .ask-vs { display: grid; gap: 2px; }
+/* Setup asks the same questions one at a time (tester, Nov 25): bigger question, the answers as big buttons. */
+.setup-checks .ask { padding: 20px; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+.setup-checks .ask > p { font-size: 18px; font-weight: 700; color: var(--ink); }
+.setup-checks .ask-vs { gap: 6px; font-size: 15px; } /* both versions in full; the buttons below can be cut short */
+.setup-checks .ask-opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.setup-checks .ask-opts .btn-secondary, .setup-checks .ask-opts .btn-primary { min-height: 56px; font-size: 15px; white-space: normal; text-align: left; justify-content: flex-start; }
+.setup-checks .ask-opts .btn-ghost { grid-column: 1 / -1; justify-self: start; }
 .ask-vs > div { display: grid; grid-template-columns: 6.5em 1fr; gap: 8px; }
 .ask-vs span { color: var(--muted-text); }
 .ask-vs b { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }

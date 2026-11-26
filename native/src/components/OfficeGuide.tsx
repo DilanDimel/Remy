@@ -122,7 +122,7 @@ function NextAsk() {
 }
 
 /** One question with its answers; after a tap, what Remy did with Undo (the website's AskCard). */
-function AskCard({ ask, next, onAnswered, onNext }: { ask: Ask; next: number; onAnswered: () => void; onNext: () => void }) {
+export function AskCard({ ask, next, onAnswered, onNext }: { ask: Ask; next: number; onAnswered: () => void; onNext: () => void }) {
   const { ws, setWs } = useSession();
   const { c } = useTheme();
   const [busy, setBusy] = useState("");
