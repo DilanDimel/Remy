@@ -5,6 +5,7 @@ import type { Workspace } from "@shared/types";
 import { Button, Icon, T, success, tap } from "@/components/ui";
 import { api } from "@/lib/api";
 import { askRemy } from "@/lib/nav";
+import { useConfig } from "@/lib/config";
 import { useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
 import { radius } from "@/lib/tokens";
@@ -17,9 +18,18 @@ export type PlanStop = { key: string; title: string; sub: string; why?: string; 
 export function PlanStepSheet({ stop, onClose }: { stop: PlanStop; onClose: () => void }) {
   const { ws, setWs } = useSession();
   const { c } = useTheme();
+  const { config } = useConfig();
   const insets = useSafeAreaInsets();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [what, setWhat] = useState<{ known: boolean; what: string; why: string } | null>(null);
+  const [asking, setAsking] = useState(false);
+  // "What's that?" (tester, Nov 25: the FE exam): the website's WhatsThat, same answer, in place.
+  const explain = async () => {
+    tap(); setAsking(true); setErr("");
+    try { setWhat(await api("POST", "/api/terms/explain", { term: stop.title, field: ws?.profile.major })); } catch (e: any) { setErr(e.message); }
+    setAsking(false);
+  };
   const onList = !!ws?.tasks.some((t) => t.title === stop.title);
   const url = stop.verify && /^https?:\/\//.test(stop.verify) ? stop.verify : "";
   const addTask = async () => {
@@ -45,6 +55,9 @@ export function PlanStepSheet({ stop, onClose }: { stop: PlanStop; onClose: () =
             {url ? <Pressable testID="link-plan-verify" onPress={() => Linking.openURL(url)}><Text style={{ fontFamily: font.bold, fontSize: 15, color: c.fox }}>{url.replace(/^https?:\/\/(www\.)?/, "")}</Text></Pressable> : <T>{stop.verify}</T>}
           </View>
         )}
+        {!stop.items && config?.ai.available && (what
+          ? <View style={box} testID="whats-that-answer"><T kind="label">What it is</T>{what.known ? <><T>{what.what}</T>{!!what.why && <T kind="small">{what.why}</T>}</> : <T kind="small">Remy isn't sure what this one means. Your advisor or career center will know.</T>}</View>
+          : <Button testID="button-whats-that" kind="ghost" label="What's that?" busy={asking} flex onPress={explain} />)}
         {!!err && <T kind="small" style={{ color: c.error }}>{err}</T>}
         {!stop.items && <Button testID="button-plan-add-todo" label={onList ? "On your to-do list" : "Add to my to-dos"} icon={onList ? "check" : "plus"} disabled={onList} busy={busy} flex onPress={addTask} />}
         <Button testID="button-plan-ask" kind={stop.items ? "ink" : "ghost"} label="Ask Remy about it" icon="arrow" flex onPress={() => { tap(); onClose(); askRemy(stop.ask); }} />
