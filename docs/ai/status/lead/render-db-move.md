@@ -12,3 +12,5 @@ Runbook, once Dilan says go:
 5. Backups: Render's own daily backups and recovery replace most of the nightly R2 copy. The R2 backup now goes over Render's public bandwidth (5 GB free, then $0.15/GB), so consider weekly full copies only.
 
 Open: whether Supabase's Nov 28 restriction also blocks Auth (Dilan is asking on ticket SU-566464). If yes, sign-in needs Pro or another sign-in path before Nov 28, even after the move.
+
+No error pages during the switch (Dilan's rule): READ_ONLY=1 (server/platform/readOnly.ts) keeps pages and reads working, and every save under /api gets a 503 with a friendly "saving is paused for a few minutes" message. Order on DigitalOcean: DNS moves to DO first, still on Supabase. Then READ_ONLY=1 on DO and on Render (a rolling deploy, no downtime), then copy --replace, then DATABASE_URL set to DO and READ_ONLY removed in one rolling deploy. Render stays read-only until it's retired.
