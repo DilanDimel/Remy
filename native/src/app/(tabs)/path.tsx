@@ -14,6 +14,7 @@ import { PlanStepSheet, type PlanStop } from "@/components/PlanStepSheet";
 import { Button, Group, Icon, Loading, Remy, Row, Screen, Sect, T, success, tap, type IconName } from "@/components/ui";
 import { OUTFIT_NAME, type Outfit } from "@/components/scholarSvg";
 import { api } from "@/lib/api";
+import { useConfig } from "@/lib/config";
 import { askRemy, go, openResumeFix } from "@/lib/nav";
 import { useRefreshAll, useSession } from "@/lib/session";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
@@ -36,6 +37,9 @@ export default function PathTab() {
   const [err, setErr] = useState("");
   const [stop, setStop] = useState<Stop | null>(null);
   const guide = useOfficeGuide();
+  const { config } = useConfig();
+  const [building, setBuilding] = useState(false);
+  const [buildErr, setBuildErr] = useState("");
   if (!ws) return <Loading />;
   const g = ws.game || { weeks: {} };
   const saveGame = async (game: Workspace["game"]) => setWs(await api<Workspace>("PUT", "/api/ws/game", { value: game }));
@@ -71,8 +75,15 @@ export default function PathTab() {
   const wk = weekKey(), missions = weekMissions(ws, wk), done = doneThisWeek(ws, g, wk, counters(ws));
   const move = missions.find((m) => !done.includes(m.key));
 
-  // The plan's steps
+  // The plan's steps. Built here with the website's call (it opened the website before).
   const plan = ws.plan;
+  const knows = !!(ws.resume || ws.profile.major.trim() || ws.profile.targetRoles.trim()); // same rule as the server
+  const ai = config?.ai?.available !== false;
+  const build = async () => {
+    tap(); setBuilding(true); setBuildErr("");
+    try { setWs(await api<Workspace>("POST", "/api/ai/plan")); success(); } catch (e: any) { setBuildErr(e.message); }
+    setBuilding(false);
+  };
   const career = plan?.careers.find((x) => x.id === plan.chosenCareerId) || plan?.careers[0];
   const stops: Stop[] = [
     ...(career?.steps || []).slice(0, 5).map((s, i) => ({ key: "s" + i, title: s, sub: career ? `Step toward ${career.title}` : "Step", why: i === 0 && career?.what ? career.what : undefined, icon: "flag" as IconName, ask: `Help me with this step in my plan: ${s}` })),
@@ -193,11 +204,17 @@ export default function PathTab() {
       {plan ? <>
         <Sect title={career ? `Your plan · ${career.title}` : "Your plan"} />
         <Group>{stops.map((s, i) => <Row key={s.key} first={i === 0} title={s.title} sub={s.sub} left={<Icon name={s.icon} color={i === 0 ? c.fox : c.mutedText} />} onPress={() => openStop(s)} testID="row-path-step" />)}</Group>
+        <Button testID="button-refresh-path" kind="ghost" label={building ? "Remy is rebuilding your plan…" : "Refresh Remy's suggestions"} busy={building} disabled={!ai} onPress={build} style={{ marginTop: 8, alignSelf: "center", paddingHorizontal: 20 }} />
+        {!!buildErr && <T kind="small" style={{ color: c.error, textAlign: "center" }}>{buildErr}</T>}
       </> : (
         <View style={card}>
           <T kind="h2">Your plan</T>
-          <T kind="muted" style={{ marginTop: 4 }}>Remy builds it from your resume and what you want: the roles that fit and the steps to get there.</T>
-          <Button testID="button-build-path" label="Build my path" icon="arrow" onPress={() => go("/path", "My Path", { page: true })} style={{ marginTop: 12 }} />
+          <T kind="muted" style={{ marginTop: 4 }}>{knows ? "Remy builds it from your resume and what you want: the roles that fit and the steps to get there." : "Your plan is built from your resume and goals. Upload your resume, or add your major and the roles you want, first."}</T>
+          {building && <View style={{ flexDirection: "row", gap: 10, alignItems: "center", marginTop: 12 }}><Remy size={36} icon alive /><T kind="small" style={{ flex: 1 }}>Building suggestions from your resume and answers…</T></View>}
+          {knows ? <Button testID="button-build-path" label="Build my path" icon="arrow" busy={building} disabled={!ai} onPress={build} style={{ marginTop: 12 }} />
+            : <Button testID="button-build-path-resume" label="Upload your resume" icon="up" onPress={() => router.navigate("/resume")} style={{ marginTop: 12 }} />}
+          {!!buildErr && <T kind="small" style={{ marginTop: 8, color: c.error }}>{buildErr}</T>}
+          {!ai && <T kind="small" style={{ marginTop: 8, color: c.mutedText }}>Remy's suggestions are resting right now. Try again in a little while.</T>}
         </View>
       )}
 
