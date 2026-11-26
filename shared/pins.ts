@@ -29,7 +29,7 @@ const gapDays = (a: string, b: string) => Math.round((+new Date(b + "T12:00:00")
 export const PINS: Pin[] = [
   { id: "resume", kind: "first", name: "Resume ready", how: "Confirm your resume on the Resume page", link: "/resume", tiers: [1], xp: [0], count: (w) => (w.resume?.confirmedAt ? 1 : 0) },
   { id: "pitch", kind: "first", name: "Elevator pitch", how: "Save your 30-second pitch", link: "/interview", tiers: [1], xp: [30], count: (w) => (w.pitch?.text?.trim() ? 1 : 0) },
-  { id: "linkedin", kind: "first", name: "LinkedIn checked", how: "Upload your LinkedIn PDF for Remy to check", link: "/community", tiers: [1], xp: [30], count: (w) => (w.linkedin?.text ? 1 : 0) },
+  { id: "linkedin", kind: "first", name: "LinkedIn checked", how: "Upload your LinkedIn PDF for Remy to check", link: "/resume?tab=linkedin", tiers: [1], xp: [30], count: (w) => (w.linkedin?.text ? 1 : 0) },
   { id: "applied", kind: "first", name: "First application", how: "Send an application and mark it Applied", link: "/progress", tiers: [1], xp: [0], count: (w) => (counters(w).sent > 0 ? 1 : 0) },
   { id: "interview", kind: "first", name: "First interview", how: "Get an interview and mark it in Progress", link: "/progress", tiers: [1], xp: [0], count: (w) => (w.tracker.some(interviewed) ? 1 : 0) },
   { id: "offer", kind: "first", name: "First offer", how: "Get an offer and mark it in Progress", link: "/progress", tiers: [1], xp: [0], count: (w) => (w.tracker.some((t) => t.status === "Offer" || t.events.some((e) => e.status === "Offer")) ? 1 : 0) },

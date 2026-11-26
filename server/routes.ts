@@ -430,6 +430,9 @@ function fieldEmployers(ws: Workspace, directory: typeof EMPLOYERS) {
 
 /** The employers a search may read. Ones marked "preview" (new, being checked on the live site; Nov 21) are for owners in
  *  owner view only: never read for, or counted toward, a student (skeptic review: the "N employers in your field" gap note). */
+/** Interview is open for everyone once released, before that for owners in owner view (Admin → Feature releases). */
+const ivOpen = async (ctx: Ctx) => (await features.releases()).interview === "released" || (ctx.me.owner && ctx.ws.settings.ownerView !== false);
+const startsInterview = (a: ChatAction) => a.kind === "start" && a.what === "interview";
 const directoryFor = (_ctx: Ctx) => (inOwnerView() ? EMPLOYERS : EMPLOYERS.filter((e) => !e.preview));
 
 async function findOpenings(ctx: Ctx, named: string[] = [], opts: { background?: boolean } = {}) {
@@ -1884,7 +1887,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   // interviews a week; after that, or with no AI, the questions come from the posting and there's no rating.
   // Mock interviews: everyone once Interview is released (Admin → Beta → Feature releases), until then owners in owner view.
   const ownerIv = async (ctx: Ctx) => {
-    if ((await features.releases()).interview === "released") return;
+    if (await ivOpen(ctx)) return;
     if (!ctx.me.owner) bad("Mock interviews are coming in a future update.", 403);
     if (ctx.ws.settings.ownerView === false) bad("Mock interviews with Remy are only for owners right now.", 403);
   };
@@ -2390,7 +2393,9 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     for (const m of ctx.ws.chat) delete m.resumeProposal; // only the newest draft is kept
     ctx.ws.chat.push({ id: uid("m"), role: "user", text: message, at: nowIso(), page });
     // Owners: in-app actions are done now and shown with Undo; students still tap a button (no save/tailor for them yet).
-    const asked = chatActions(out.actions);
+    // Interview is locked for students until it's released: Remy doesn't open a page they can't use.
+    const ivShut = !(await ivOpen(ctx));
+    const asked = chatActions(out.actions).filter((a) => !(ivShut && startsInterview(a)));
     if (doer) addLoop(ctx.ws, (out as { followUp?: unknown }).followUp, today); // Remy asks about it later
     const { did, buttons, notes } = doer ? doActions(ctx.ws, asked, findJob, centralToday()) : { did: [], buttons: asked.filter((a) => ["task", "role", "open", "setting"].includes(a.kind)).slice(0, 2), notes: [] };
     ctx.ws.chat.push({ id: uid("m"), role: "assistant", text: notes.length ? `${reply}\n\n${notes.join(" ")}` : reply, at: nowIso(), page, memorySuggestions: (out.remember || []).slice(0, 3).map(String), actions: buttons, ...(did.length ? { did } : {}), ...(resumeProposal ? { resumeProposal } : {}) });
@@ -2425,6 +2430,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     if (!inOwnerView()) bad("This is only for owners right now.", 403);
     const [action] = chatActions([req.body?.action]);
     if (!action) bad("Remy can't do that one.");
+    if (startsInterview(action) && !(await ivOpen(ctx))) bad("Mock interviews are coming in a future update.", 403);
     const offerId = String(req.body?.offerId || "").slice(0, 160);
     const { did, buttons, notes } = doActions(ctx.ws, [action], findJob, centralToday());
     ctx.ws.chat.push({ id: uid("m"), role: "assistant", text: [did.length ? "On it." : "", ...notes].filter(Boolean).join(" ") || "Done.", at: nowIso(), page: "Remy", actions: buttons, ...(did.length ? { did } : {}) });

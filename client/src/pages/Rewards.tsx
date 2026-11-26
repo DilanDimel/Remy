@@ -10,6 +10,7 @@ import { TIER_NAME, pinsOf, type PinKind, type PinState } from "@shared/pins";
 import { useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { Modal, Remy } from "../components/common";
+import { useCanGo } from "../components/ComingSoon";
 import { OUTFITS } from "../components/scholar";
 import { OfficeThing } from "../components/PathBoard";
 import { stateOf } from "../components/DailyPath";
@@ -44,7 +45,7 @@ const status = (p: PinState) => {
   return `${p.tier ? TIER_NAME[p.tier - 1] + " · " : ""}${p.n} / ${p.next} for ${TIER_NAME[p.tier].toLowerCase()}`;
 };
 
-function PinDetail({ p, onClose }: { p: PinState; onClose: () => void }) {
+function PinDetail({ p, onClose, soon }: { p: PinState; onClose: () => void; soon: boolean }) {
   const hidden = p.kind === "secret" && !p.earned;
   return (
     <Modal title={hidden ? "A secret pin" : p.name} onClose={onClose}>
@@ -57,7 +58,8 @@ function PinDetail({ p, onClose }: { p: PinState; onClose: () => void }) {
         {!hidden && p.tiers.length === 1 && <p className="pm-faint">{p.xp[0] ? `Worth ${p.xp[0]} XP.` : "Its XP is counted with the step itself (see Levels and titles)."}</p>}
         {p.tiers.length > 1 && <p className="pm-faint">You have {p.n} {p.unit} so far.</p>}
         <div className="row">
-          {!hidden && p.next !== null && <button className="btn btn-primary" onClick={() => { onClose(); go(p.link); }} data-testid="button-pin-go">Go do it <ArrowRight size={15} /></button>}
+          {!hidden && p.next !== null && (soon ? <span className="small muted" data-testid="pin-coming-soon"><Lock size={13} /> Coming in a future update</span>
+            : <button className="btn btn-primary" onClick={() => { onClose(); go(p.link); }} data-testid="button-pin-go">Go do it <ArrowRight size={15} /></button>)}
           <button className="btn btn-ghost" onClick={onClose} data-testid="button-pin-close">Close</button>
         </div>
       </div>
@@ -70,13 +72,13 @@ const FILTERS: [Filter, string][] = [["all", "All"], ["first", "Firsts"], ["craf
 const hiddenPin = (p: PinState) => p.kind === "secret" && !p.earned;
 
 /** One pin in the case: the enamel pin itself, its name, and dots for the tiers reached. */
-function Medal({ p, onOpen }: { p: PinState; onOpen: () => void }) {
+function Medal({ p, onOpen, soon }: { p: PinState; onOpen: () => void; soon: boolean }) {
   return (
     <button className={"rw-medal" + (p.earned ? " got" : "")} onClick={onOpen} data-testid={`button-pin-${p.id}`} title={hiddenPin(p) ? p.hint : status(p)}>
       <PinArt p={p} size={58} />
       <b>{hiddenPin(p) ? "???" : p.name}</b>
-      {p.tiers.length > 1 ? <span className="rw-dots" aria-label={p.tier ? `${TIER_NAME[p.tier - 1]} reached` : "No tier yet"}>{p.tiers.map((_, i) => <i key={i} className={p.tier > i ? ["bronze", "silver", "gold"][i] : ""} />)}</span>
-        : <small>{hiddenPin(p) ? "Secret" : p.earned ? "Earned" : "Not yet"}</small>}
+      {p.tiers.length > 1 && !(soon && !p.earned) ? <span className="rw-dots" aria-label={p.tier ? `${TIER_NAME[p.tier - 1]} reached` : "No tier yet"}>{p.tiers.map((_, i) => <i key={i} className={p.tier > i ? ["bronze", "silver", "gold"][i] : ""} />)}</span>
+        : <small>{hiddenPin(p) ? "Secret" : p.earned ? "Earned" : soon ? "Coming soon" : "Not yet"}</small>}
     </button>
   );
 }
@@ -87,7 +89,9 @@ function Pins({ pins }: { pins: PinState[] }) {
   const [open, setOpen] = useState("");
   const [f, setF] = useState<Filter>("all");
   const list = pins.filter((p) => f === "all" || p.kind === f);
-  const near = pins.filter((p) => p.next !== null && !hiddenPin(p))
+  // A pin earned on a locked page (Interview, Community for students) says "Coming soon" and isn't suggested as next.
+  const canGo = useCanGo();
+  const near = pins.filter((p) => p.next !== null && !hiddenPin(p) && canGo(p.link))
     .map((p, i) => ({ p, r: p.tiers.length > 1 ? p.n / p.next! : 0, i })).sort((a, b) => b.r - a.r || a.i - b.i).slice(0, 3).map((x) => x.p);
   const shown = pins.find((p) => p.id === open);
   return (
@@ -95,7 +99,7 @@ function Pins({ pins }: { pins: PinState[] }) {
       <section className="rw-card rw-case" aria-label="Your pins">
         <div className="rw-card-head"><h3 className="pm-kicker dark">Your pin case <span className="rw-count">{pins.filter((p) => p.earned).length} of {pins.length}</span></h3>
           <div className="rw-filters" role="group" aria-label="Show">{FILTERS.map(([k, l]) => <button key={k} className={"chip" + (f === k ? " on" : "")} aria-pressed={f === k} onClick={() => setF(k)} data-testid={`button-pin-filter-${k}`}>{l}{k !== "all" && <span>{pins.filter((p) => p.kind === k && p.earned).length}/{pins.filter((p) => p.kind === k).length}</span>}</button>)}</div></div>
-        <div className="rw-medals">{list.map((p) => <Medal key={p.id} p={p} onOpen={() => setOpen(p.id)} />)}</div>
+        <div className="rw-medals">{list.map((p) => <Medal key={p.id} p={p} onOpen={() => setOpen(p.id)} soon={!canGo(p.link)} />)}</div>
       </section>
       <aside className="rw-card rw-near" aria-label="Closest to earning">
         <h3 className="pm-kicker dark">Closest to earning</h3>
@@ -105,7 +109,7 @@ function Pins({ pins }: { pins: PinState[] }) {
         <div className="rw-legend"><span><PinArt p={{ ...pins[0], id: "legend", tiers: [1, 2, 3], tier: 1, earned: true }} size={26} />Bronze</span><span><PinArt p={{ ...pins[0], id: "legend", tiers: [1, 2, 3], tier: 2, earned: true }} size={26} />Silver</span><span><PinArt p={{ ...pins[0], id: "legend", tiers: [1, 2, 3], tier: 3, earned: true }} size={26} />Gold</span></div>
         <p className="pm-faint">Craft pins grow from bronze to gold with real steps. Secret pins stay hidden until you find them.</p>
       </aside>
-      {shown && <PinDetail p={shown} onClose={() => setOpen("")} />}
+      {shown && <PinDetail p={shown} onClose={() => setOpen("")} soon={!canGo(shown.link)} />}
     </div>
   );
 }

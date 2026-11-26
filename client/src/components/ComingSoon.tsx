@@ -2,7 +2,7 @@
 // behind a "coming in a future update" card. It always shows today's Remy (the Scholar fox), even in the student view. Owners in owner view always get the working page.
 import type { ReactNode } from "react";
 import { Lock } from "lucide-react";
-import { accessOf, FEATURES, releasesOf } from "@shared/features";
+import { accessOf, featureAt, FEATURES, releasesOf } from "@shared/features";
 import { go } from "../lib/router";
 import { useOwnersOnly, useStore } from "../lib/store";
 
@@ -12,6 +12,12 @@ export function useAccess() {
   const ownerView = useOwnersOnly(); // the redesign release doesn't open owners-only features
   const r = releasesOf(config?.features);
   return (key: string) => accessOf(r, key, ownerView);
+}
+/** Can this person use the page a link opens? False for a locked or hidden feature (Interview, Community for students),
+ *  so suggestions, pins and buttons never send a student to a "coming soon" wall. */
+export function useCanGo() {
+  const access = useAccess();
+  return (link: string) => { const f = featureAt(link.split(/[?#]/)[0]); return !f || access(f.key) === "open"; };
 }
 
 export function ComingSoon({ feature, children }: { feature: string; children: ReactNode }) {

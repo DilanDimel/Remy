@@ -18,7 +18,7 @@ const daysBetween = (a: string, b: string) => Math.round((Date.parse(b.slice(0, 
 const when = (n: number) => (n === 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`);
 
 /** Every offer Remy could make now, most urgent first. `today` is the student's local day, YYYY-MM-DD. */
-export function remyOffers(ws: Pick<Workspace, "jobs" | "savedJobIds" | "hiddenJobIds" | "applications" | "tracker" | "calendar" | "resume" | "profile" | "settings" | "game" | "jobFeedback" | "steps" | "chat">, today: string, hour = 12): Offer[] {
+export function remyOffers(ws: Pick<Workspace, "jobs" | "savedJobIds" | "hiddenJobIds" | "applications" | "tracker" | "calendar" | "resume" | "profile" | "settings" | "game" | "jobFeedback" | "steps" | "chat">, today: string, hour = 12, o: { /** false while Interview is locked for this person (no "Practice now" into a locked page). */ interview?: boolean } = {}): Offer[] {
   if (quietOn(ws.settings, today)) return [];
   const seen = new Set(ws.settings.offersSeen || []);
   const out: Offer[] = [];
@@ -26,7 +26,7 @@ export function remyOffers(ws: Pick<Workspace, "jobs" | "savedJobIds" | "hiddenJ
   for (const c of ws.calendar.filter((x) => x.kind === "Interview" && x.date >= today && daysBetween(today, x.date) <= 3 && !(x.notes || "").startsWith(PREP_HEAD)))
     out.push({ id: `prep:${c.id}`, pages: ["/calendar"], text: `Want a one-page prep sheet for ${c.title}? Your pitch, your best stories and good questions to ask, right on the event.`, label: "Make it", action: { kind: "prep", calId: c.id } });
   // An interview today or tomorrow: practice it now.
-  for (const c of ws.calendar.filter((x) => x.kind === "Interview" && x.date >= today && daysBetween(today, x.date) <= 1)) {
+  if (o.interview !== false) for (const c of ws.calendar.filter((x) => x.kind === "Interview" && x.date >= today && daysBetween(today, x.date) <= 1)) {
     const job = c.linkedId ? ws.jobs.find((j) => j.id === c.linkedId) : ws.jobs.find((j) => c.title.toLowerCase().includes(j.company.toLowerCase()));
     out.push({ id: `iv:${c.id}`, pages: ["/", "/calendar", "/interview", "/progress"], text: `${/interview/i.test(c.title) ? c.title : `Your interview (${c.title})`} is ${when(daysBetween(today, c.date))}. Want a quick mock interview${job ? ` for ${job.company}` : ""} now?`, label: "Practice now", action: { kind: "start", what: "interview", ...(job ? { jobId: job.id } : {}) } });
   }

@@ -10,13 +10,14 @@ import { CAREER_QUEST_ON } from "@shared/game";
 import { useCompleting } from "../lib/completing";
 import { go } from "../lib/router";
 import { kindLabel, shortPlace, useJobs } from "../lib/jobs";
-import { Remy, StatusChip } from "../components/common";
+import { DueChip, Remy, StatusChip } from "../components/common";
 import { firstName } from "@shared/names";
 import { gettingStarted } from "@shared/progress";
 import { many, remyLine } from "@shared/homeLine";
 import { nextAction } from "@shared/nextAction";
 import { dailyStreak, dayKey, streakDays, weekDots } from "@shared/daily";
 import { OrgLogo } from "../components/OrgLogo";
+import { useCanGo } from "../components/ComingSoon";
 
 type Tab = "todos" | "events" | "opps";
 
@@ -74,9 +75,12 @@ export default function Home() {
     go("/progress?tab=todos");
   };
   // The rules live in shared/nextAction.ts, so the phone app suggests the same one thing.
-  const next = useMemo(() => nextAction(w, jobs, fits, { ownerView }), [w, jobs, fits, ownerView]);
+  const canGo = useCanGo();
+  const interviewOpen = canGo("/interview");
+  const next = useMemo(() => nextAction(w, jobs, fits, { ownerView, interviewOpen }), [w, jobs, fits, ownerView, interviewOpen]);
 
-  const starting = gettingStarted(w);
+  // Steps on a locked page (Interview, Community for students) are left out, so the card can always be finished.
+  const starting = gettingStarted(w).filter((x) => canGo(x.link));
   // Redesign stage 2 (owners first): a small celebration when a getting-started step gets done since the last visit.
   const doneNow = starting.filter((x) => x.done).length;
   const [cheer, setCheer] = useState(false);
@@ -110,7 +114,7 @@ export default function Home() {
           </div>
         )}
       </div>
-      {t.due && <span className="chip chip-plain">{fmtDate(t.due)}</span>}
+      {t.due && <DueChip due={t.due} done={t.done} />}
       <button className="icon-btn" onClick={() => setOpen(open === t.id ? "" : t.id)} aria-label="Details">{open === t.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>
     </div>
   );
@@ -201,7 +205,7 @@ export default function Home() {
         {starting.some((x) => !x.done) ? (
           // Getting started (audit 5C): the first five real steps sit where "This week" goes, until all are done.
           <div className="hero-side" data-testid="getting-started">
-            <div className="row-between"><span className="eyebrow">Getting started</span><span className="small" style={{ color: "rgba(255,255,255,.75)" }}>{starting.filter((x) => x.done).length} of 5</span></div>
+            <div className="row-between"><span className="eyebrow">Getting started</span><span className="small" style={{ color: "rgba(255,255,255,.75)" }}>{doneNow} of {starting.length}</span></div>
             {starting.map((x) => (
               <button key={x.label} className="row small start-row" style={{ width: "100%", textAlign: "left", gap: 10 }} onClick={() => go(x.link)} data-testid="getting-started-item" aria-label={`${x.label}${x.done ? " (done)" : ""}`}>
                 <span className={"start-box" + (x.done ? " done" : "")}>{x.done && <Check size={12} />}</span>

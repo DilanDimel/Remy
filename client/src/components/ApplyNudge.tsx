@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { CalItem, TrackItem, Workspace } from "@shared/types";
 import { rid, useStore } from "../lib/store";
 import { go } from "../lib/router";
+import { useCanGo } from "./ComingSoon";
 
 const DAY = 86_400_000;
 const ago = (iso?: string) => (iso ? (Date.now() - Date.parse(iso)) / DAY : 0);
@@ -11,6 +12,7 @@ const ago = (iso?: string) => (iso ? (Date.now() - Date.parse(iso)) / DAY : 0);
  *  "Follow up?" 2+ weeks after they applied with no news since. */
 export function ApplyNudge({ w }: { w: Workspace }) {
   const { save, run } = useStore();
+  const canMeet = useCanGo()("/community"); // people are saved on Community, locked for students until it's released
   // First, the most time-sensitive: an interview in the last week with no debrief yet.
   const today = new Date().toLocaleDateString("en-CA");
   const interview = w.calendar.find((c) => c.kind === "Interview" && c.date < today && ago(c.date + "T12:00:00") <= 7 && !c.debriefed);
@@ -19,7 +21,7 @@ export function ApplyNudge({ w }: { w: Workspace }) {
   // Only real meet-people events: saved from an event opening, or named like one ("Career fair", "Info session"); not
   // a study session added with the Calendar's default type (skeptic review).
   const MEET = /fair|career|info(rmation)? session|network|meet ?up|mixer|conference|expo|panel|summit|recruit|coffee chat|open house|reception|alumni/i;
-  const event = w.calendar.find((c) => c.kind === "Event" && c.date < today && ago(c.date + "T12:00:00") <= 7 && !c.debriefed && (!!c.linkedId || MEET.test(c.title)));
+  const event = canMeet && w.calendar.find((c) => c.kind === "Event" && c.date < today && ago(c.date + "T12:00:00") <= 7 && !c.debriefed && (!!c.linkedId || MEET.test(c.title)));
   if (event) return <MetAnyone key={event.id} w={w} c={event} />;
   const approvedAt = (t: TrackItem) => w.applications.find((a) => a.id === t.applicationId)?.versions.at(-1)?.at;
   const ask = w.tracker.find((t) => t.status === "Saved" && t.applicationId && ago(approvedAt(t)) >= 2 && !(t.askedAt && ago(t.askedAt) < 5));
@@ -61,8 +63,9 @@ function Debrief({ w, c }: { w: Workspace; c: CalItem }) {
   const { save, run } = useStore();
   const [how, setHow] = useState("");
   const [text, setText] = useState("");
-  const who = c.title.replace(/^interview:?\s*/i, "");
-  const thanksTask = { id: rid("t"), title: `Send a thank-you note for your ${who} interview (${c.date})`, why: "Two or three sentences within a day: thank them, mention one thing you discussed, restate your interest.", due: new Date().toLocaleDateString("en-CA"), category: "Connect" as const, done: false, source: `Interview debrief ${c.id}` };
+  const who = c.title.replace(/^interview( with)?:?\s*/i, "");
+  const day = new Date(c.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  const thanksTask = { id: rid("t"), title: `Send a thank-you note for your ${/interview/i.test(who) ? who.replace(/^(past|your|my)\s+/i, "") : `${who} interview`} (${day})`, why: "Two or three sentences within a day: thank them, mention one thing you discussed, restate your interest.", due: new Date().toLocaleDateString("en-CA"), category: "Connect" as const, done: false, source: `Interview debrief ${c.id}` };
   const finish = (note: string) => run(async () => {
     // Kept in its own field, not the event notes: those sync to Google Calendar and the .ics export, and a debrief is private.
     const full = [how, note].filter(Boolean).join(". ");
@@ -81,7 +84,7 @@ function Debrief({ w, c }: { w: Workspace; c: CalItem }) {
   };
   return (
     <section className="card card-pad stack-sm" data-testid="interview-debrief" style={{ borderLeft: "3px solid var(--fox)" }}>
-      <b className="small">How did your interview with {who} go? ({c.date})</b>
+      <b className="small">{/interview/i.test(who) ? `How did "${who}" go?` : `How did your interview with ${who} go?`} <span className="muted" style={{ fontWeight: 400 }}>({day})</span></b>
       {!how ? (
         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
           {["Went well", "Okay", "Rough"].map((k) => <button key={k} className="btn btn-secondary btn-sm" onClick={async () => { setHow(k); if (fresh && !w.tasks.some((x) => x.source === thanksTask.source)) setAdded(!!(await run(() => save("tasks", [thanksTask, ...w.tasks])))); }} data-testid={`button-debrief-${k.toLowerCase().replace(/\s/g, "-")}`}>{k}</button>)}

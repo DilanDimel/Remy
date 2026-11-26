@@ -15,10 +15,11 @@ export async function releases(): Promise<Releases> {
 export async function setRelease(by: string, key: string, state: string): Promise<Releases> {
   if (!FEATURES.some((f) => f.key === key)) throw Object.assign(new Error("No feature called that."), { status: 400 });
   if (!RELEASES.includes(state as Release)) throw Object.assign(new Error("Say owners, locked or released."), { status: 400 });
+  // Saved as chosen, but cached through releasesOf so a follower (Rewards follows the redesign) flips at once too.
   const next = { ...(await releases()), [key]: state as Release };
-  cache = { at: 0, r: next };
+  cache = { at: 0, r: releasesOf(next) };
   await q(`INSERT INTO site_settings (key, value, updated_by) VALUES ('features', $1, $2)
     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = now()`, [JSON.stringify(next), by]);
-  cache = { at: Date.now(), r: next };
-  return next;
+  cache = { at: Date.now(), r: releasesOf(next) };
+  return cache.r;
 }

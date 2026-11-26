@@ -12,13 +12,13 @@ export const daysFrom = (d: string, now = new Date()) => {
   const t = noon(d);
   return isNaN(t) ? null : Math.round((t - noon(now.toLocaleDateString("en-CA"))) / 86_400_000);
 };
-const fmtDay = (d: string) => { const dt = new Date(d.length === 10 ? d + "T12:00:00" : d); return isNaN(+dt) ? d : dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+const fmtDay = (d: string) => { const dt = new Date(d.length === 10 ? d + "T12:00:00" : d); return isNaN(+dt) ? d : dt.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(dt.getFullYear() === new Date().getFullYear() ? {} : { year: "numeric" }) }); };
 
 /** The interview in the next two days, which overrides everything else on Home. */
 export const interviewSoon = (w: Pick<Workspace, "calendar">, now = new Date()) =>
   w.calendar.find((c) => { const n = daysFrom(c.date, now); return c.kind === "Interview" && n !== null && n >= 0 && n <= 2; });
 
-export function nextAction(w: Workspace, jobs: Job[] | null | undefined, fits: Record<string, JobFit | undefined>, o: { ownerView: boolean; now?: Date }): NextAction {
+export function nextAction(w: Workspace, jobs: Job[] | null | undefined, fits: Record<string, JobFit | undefined>, o: { ownerView: boolean; now?: Date; /** false while Interview is locked for this person: prep points to Calendar instead. */ interviewOpen?: boolean }): NextAction {
   const now = o.now || new Date();
   const until = (d: string) => daysFrom(d, now);
   const interview = interviewSoon(w, now);
@@ -36,7 +36,7 @@ export function nextAction(w: Workspace, jobs: Job[] | null | undefined, fits: R
   }
   // An interview coming up (beyond the 2-day prep plan) beats a general suggestion.
   const soon = w.calendar.filter((c) => c.kind === "Interview" && (until(c.date) ?? -1) > 2 && (until(c.date) ?? 99) <= 21).sort((a, b) => a.date.localeCompare(b.date))[0];
-  if (soon) return { title: `${soon.title.replace(/^interview:?\s*/i, "Your interview with ")} is ${fmtDay(soon.date)}, in ${until(soon.date)} days`, why: "Start now: build two true stories from your resume and practice them out loud. Remy turns Home into a prep plan two days before.", link: "/interview#story-deck", cta: "Prepare stories" };
+  if (soon) return { title: `${soon.title.replace(/^interview( with)?:?\s*/i, "Your interview with ")} is ${fmtDay(soon.date)}, in ${until(soon.date)} days`, why: "Start now: build two true stories from your resume and practice them out loud. Remy turns Home into a prep plan two days before.", ...(o.interviewOpen === false ? { link: "/calendar", cta: "See it on Calendar" } : { link: "/interview#story-deck", cta: "Prepare stories" }) };
   // An opening counts only if it passes every filter (not hidden, in their places, eligible, still open).
   const fitsAll = (j: Job) => { const f = fits[j.id]; return !!f && !f.excluded && !f.closed && f.regionMatch !== false && f.eligibility !== "unlikely" && j.kind !== "event" && !w.hiddenJobIds.includes(j.id) && (!j.deadline || (until(j.deadline) ?? 1) >= 0); };
   // A plan step that names an opening the student can't or won't pursue anymore (hidden, closed, elsewhere, not eligible) is skipped.

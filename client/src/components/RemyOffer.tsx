@@ -8,6 +8,7 @@ import { api, useStore } from "../lib/store";
 import { useRoute } from "../lib/router";
 import { Remy, Spinner } from "./common";
 import { NextAsk, useAsks } from "./RemyAsk";
+import { useCanGo } from "./ComingSoon";
 
 // Where the offer goes: inside Remy's open panel (OfferSlot sits above his chat box), otherwise as a strip above the
 // page. It never floats over the page (Dilan, Nov 23: it covered the season banner and the resume list).
@@ -31,6 +32,7 @@ export function RemyOffer() {
   const [gone, setGone] = useState<string[]>([]); // hidden at once, before the save returns
   const slot = useSlot();
   const asks = useAsks();
+  const interview = useCanGo()("/interview");
   const [answeredOn, setAnsweredOn] = useState(""); // after an answer, its "done" card stays instead of an offer
   // Owners: Remy's open questions come first, one at a time (My Path asks in the office, AI memory lists them all).
   const askHere = path !== "/path" && path !== "/accounts";
@@ -38,7 +40,7 @@ export function RemyOffer() {
     const box = <div className={"remy-offer remy-ask-card fade-up" + (slot ? " docked" : "")} role="status" data-testid="remy-ask-card"><span className="remy-offer-face"><Remy size={40} mood="wave" /></span>{c}</div>;
     return slot ? createPortal(box, slot) : box;
   }} onAnswered={() => setAnsweredOn(path)} />;
-  const o = askHere && (asks.length || answeredOn === path) ? undefined : offerFor(remyOffers(ws!, dayKey(), new Date().getHours()).filter((x) => !gone.includes(x.id)), path);
+  const o = askHere && (asks.length || answeredOn === path) ? undefined : offerFor(remyOffers(ws!, dayKey(), new Date().getHours(), { interview }).filter((x) => !gone.includes(x.id)), path);
   if (!o) return ask || null;
   const doIt = async () => {
     setBusy(true);

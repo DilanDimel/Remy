@@ -619,7 +619,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .auth-go { min-height: 44px; }
 .auth-stage .landing-card .icon-btn { width: 44px; height: 44px; }
 .auth-stage .input { min-height: 44px; }
-.auth-link { display: inline-block; padding: 13px 2px; margin: -13px 0; }
+.auth-link { display: inline-block; padding: 13px 0; margin: -13px 0; }
 @media (max-width: 860px) {
   .auth-stage { align-items: center; }
   .auth-side { display: none; }
@@ -1606,6 +1606,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .pr-todo-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pr-todo i { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); }
 .pr-todo em { font-style: normal; font-size: var(--text-xs); color: var(--faint); font-weight: 700; }
+.pr-todo em.late { color: var(--error); }
 @media (max-width: 900px) { .pr-flow { grid-template-columns: repeat(5, 78%); overflow-x: auto; scroll-snap-type: x mandatory; } .pr-lane { scroll-snap-align: start; } .pr-cols { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 640px) { .pr-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 /* Owner Community (tabs redesign, Nov 22): faces, warmth bars. Reuses .op-pick/.op-card/.pr-cols. */
