@@ -7,10 +7,19 @@ import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 import { API_BASE } from "@/lib/api";
 import { isSiteDownload, shareSiteDownload } from "@/lib/files";
+import { Button, T } from "@/components/ui";
 import { useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
 
 const SITE = API_BASE || "https://remyai.org";
+
+/** The site shows Remy's loading screen (#splash in index.html) until it has a page. This tells the app when it's gone,
+ *  so a page that never gets there (the server is slow or down) can be told apart from one that is just loading. */
+const WATCH_SPLASH = `(function(){ if (window.__remyWatch) return; window.__remyWatch = setInterval(function(){
+  if (!document.getElementById("splash")) { clearInterval(window.__remyWatch); window.ReactNativeWebView.postMessage(JSON.stringify({ remyReady: true })); }
+}, 400); })(); true;`;
+/** How long a page may stay on the loading screen before the app says so instead of spinning on. */
+const GIVE_UP_MS = 25000;
 
 // The sheet's title follows the page the student moves to (Resume → Opportunities), using the website's own nav labels (client/src/App.tsx).
 const TITLES: Record<string, string> = { path: "My Path", resume: "Resume", opportunities: "Opportunities", interview: "Interview", community: "Community", calendar: "Calendar", progress: "Progress", settings: "Settings", accounts: "Account" };
@@ -49,6 +58,7 @@ export default function Web() {
   // Android draws its gesture bar over the bottom of the page: leave that much room so the last field isn't under it.
   const insets = useSafeAreaInsets();
   const web = useRef<any>(null); // the WebView, to tell the page how much of it the keyboard leaves visible
+  const stop = useRef<() => void>(() => {});
   const box = useRef<any>(null); // the sheet's View, measured to know where the page starts on screen
   useEffect(() => {
     if (Platform.OS !== "android") return;
@@ -57,6 +67,15 @@ export default function Web() {
     return () => a.remove();
   }, []);
   const [busy, setBusy] = useState(true);
+  const [stuck, setStuck] = useState(false); // the page hasn't shown anything for GIVE_UP_MS, or couldn't load at all
+  const [tries, setTries] = useState(0);
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    setStuck(false);
+    const t = setTimeout(() => setStuck(true), GIVE_UP_MS);
+    stop.current = () => clearTimeout(t);
+    return () => clearTimeout(t);
+  }, [tries]);
   const [pageTitle, setPageTitle] = useState<string>();
   // Whatever changed on the page (a confirmed resume, a new to-do) shows up when the sheet closes.
   useEffect(() => () => { refresh(); }, [refresh]);
@@ -73,6 +92,7 @@ export default function Web() {
   const onMessage = (e: WebViewMessageEvent) => {
     let m: unknown;
     try { m = JSON.parse(e.nativeEvent.data); } catch { return; }
+    if ((m as any)?.remyReady) { stop.current(); setStuck(false); return; }
     if (isSiteDownload(m)) shareSiteDownload(m).catch((err) => Alert.alert("Couldn't save the file", String(err?.message || err)));
   };
 
@@ -89,11 +109,20 @@ export default function Web() {
       ) }} />
       {Platform.OS === "web"
         ? <iframe src={SITE + safe} style={{ border: 0, width: "100%", height: "100%" }} title={title} />
-        : <WebView source={{ uri: SITE + safe }} sharedCookiesEnabled thirdPartyCookiesEnabled applicationNameForUserAgent="RemyApp" injectedJavaScriptBeforeContentLoaded={appTheme} onLoadEnd={() => setBusy(false)}
+        : <WebView source={{ uri: SITE + safe }} sharedCookiesEnabled thirdPartyCookiesEnabled applicationNameForUserAgent="RemyApp" injectedJavaScriptBeforeContentLoaded={appTheme} injectedJavaScript={WATCH_SPLASH} onLoadEnd={() => setBusy(false)}
+            onError={() => { setBusy(false); setStuck(true); }} onHttpError={(e) => { if (e.nativeEvent.statusCode >= 500) { setBusy(false); setStuck(true); } }}
             onNavigationStateChange={(s) => { const t = titleFor(s.url); if (t) setPageTitle(t); }}
             originWhitelist={["*"]} mediaCapturePermissionGrantType="grantIfSameHostElseDeny" onShouldStartLoadWithRequest={onNavigate} onOpenWindow={(e) => openOutside(e.nativeEvent.targetUrl)} onMessage={onMessage}
             ref={web}
             style={{ backgroundColor: c.bg }} />}
+      {stuck && Platform.OS !== "web" && (
+        <View testID="web-stuck" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: c.bg, alignItems: "center", justifyContent: "center", padding: 28, gap: 12 }}>
+          <T kind="h2" style={{ textAlign: "center" }}>This page isn't loading</T>
+          <T kind="muted" style={{ textAlign: "center" }}>Remy's page is taking longer than it should. Check your connection, then try again.</T>
+          <Button testID="button-web-retry" kind="fox" label="Try again" onPress={() => { setBusy(true); web.current?.reload(); setTries((n) => n + 1); }} />
+          <Button testID="button-web-close" kind="ghost" label="Close" onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))} />
+        </View>
+      )}
       {busy && Platform.OS !== "web" && <ActivityIndicator color={c.fox} style={{ position: "absolute", top: 24, alignSelf: "center" }} />}
     </View>
   );
