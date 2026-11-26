@@ -304,7 +304,7 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
       <input className="input" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://careers.example.com/job/…" aria-label="Posting link" data-testid="input-import-url" />
       {mode === "text" && <textarea className="textarea" style={{ minHeight: 160 }} value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste the full posting text" aria-label="Posting text" data-testid="input-import-text" />}
       <div className="row"><button className="btn btn-primary" onClick={submit} disabled={busy || !config?.ai.available || (mode === "url" ? !url : text.length < 150)} data-testid="button-import-submit">{busy ? <Spinner /> : <Sparkles size={16} />} {busy ? "Reading posting…" : "Import"}</button>
-        {!config?.ai.available && <span className="xs" style={{ color: "var(--amber)" }}>Importing needs AI, which isn't configured on this server.</span>}</div>
+        {!config?.ai.available && <span className="xs" style={{ color: "var(--warn)" }}>Importing needs AI, which isn't configured on this server.</span>}</div>
     </div>
   );
 }
@@ -321,7 +321,7 @@ function eligChip(f?: JobFit) {
 }
 
 /** The posting as readable lines, "Label: value" lines as a small table, long text behind "Show more". */
-function PostingText({ text }: { text: string }) {
+export function PostingText({ text }: { text: string }) {
   const [all, setAll] = useState(false);
   const lines = postingLines(text);
   const shown = all ? lines : lines.slice(0, 6);

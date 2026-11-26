@@ -148,7 +148,7 @@ function BetaAgreement() {
     <div className="landing-screen auth-stage">
       <div className="lp-beam" aria-hidden><span className="lp-beam-floor" /></div>
       <div className="landing-card fade-up terms-card" data-testid="beta-agreement">
-        <div className="terms-head"><Remy size={44} mood="wave" /><div><h1>Before you start <BetaBadge /></h1><p className="small muted">{BETA_TERMS_LEAD}</p></div></div>
+        <div className="terms-head"><Remy size={44} mood="wave" /><div><h1>Before you start <BetaBadge /></h1><p className="small muted">{BETA_TERMS_LEAD}</p></div><ThemeToggle /></div>
         <ol className="terms-list" tabIndex={0} aria-label="Beta terms" ref={list} onScroll={checkEnd}>
           {terms.map((t, i) => <li key={t}><b>{heads[i] || `Point ${i + 1}`}</b><span>{t}</span></li>)}
         </ol>

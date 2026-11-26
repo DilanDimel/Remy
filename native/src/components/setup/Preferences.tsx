@@ -10,13 +10,13 @@ import { useJobs } from "@/lib/jobs";
 import { useOwnerView, useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
 import { Chips, Input, Nav, Q, Say, useSave } from "./common";
+import { LIMIT_OPTS } from "@shared/limits";
 
 // The same choices as the website's Preferences step (client/src/pages/Onboarding.tsx).
 const YEAR_OPTS = ["First-year", "Sophomore", "Junior", "Senior", "Graduate student"];
 const REGION_OPTS = ["Fort Worth", "Dallas", "DFW area", "Houston", "Austin", "Anywhere in Texas", "Remote", "Anywhere in the US"];
 const TYPE_OPTS = ["Internships", "Full-time jobs", "Part-time / campus jobs", "Programs & insight days", "Events & networking", "Competitions"];
 const RELOC_OPTS = ["Yes", "For the right role", "No"];
-const LIMIT_OPTS = ["Needs to be paid", "Up to 15 hours a week", "Up to 20 hours a week", "No car (near transit or remote)", "Remote only", "Summers only"];
 const TRIED_OPTS = ["Nothing yet", "Applied to a few", "Went to a career fair", "Talked to the career center", "Reached out to people"];
 const WORRY_OPTS = ["No experience yet", "Not sure what I want", "Feeling behind", "Interviews", "My resume", "Talking to people"];
 /** The next few terms a student could start something, e.g. Spring 2027, Summer 2027, Fall 2027, Summer 2028. */
