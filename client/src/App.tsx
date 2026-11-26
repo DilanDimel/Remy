@@ -51,7 +51,7 @@ import Admin from "./pages/Admin";
 import type { ChatAction, Workspace } from "@shared/types";
 import { Celebrate } from "./components/Celebrate";
 import { RemyTour, tourAgain } from "./components/Tour";
-import { ComingSoon, useAccess } from "./components/ComingSoon";
+import { ComingSoon, useAccess, useCanGo } from "./components/ComingSoon";
 import { BETA_TERMS_LEAD, termsFor } from "@shared/beta";
 import { firstName, knownName } from "@shared/names";
 import { isNativeApp } from "./lib/native";
@@ -499,6 +499,9 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   const stage2 = useOwnerView(); // redesign stage 2: profile header + Activity tab, owners first
   const phone = useIsMobile(); // phones: "Remy noticed" is his message in the chat, not a card squeezing it (Dilan, Nov 25)
   const pg = stage2 && page === "Account" ? "Accounts" : page; // owners: Account had Home's intro (the nav label is "Account")
+  // A page that is still "Coming soon" for this student gets no intro or questions about using it.
+  const canGo = useCanGo();
+  const shut = (pg === "Interview" && !canGo("/interview")) || (pg === "Community" && !canGo("/community"));
   const [msg, setMsg] = useDraft("chat");
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{ text: string; reply: string } | null>(null); // owners: sent, not saved yet
@@ -632,12 +635,12 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
         {chat.length === 0 && !tailor && !busy && preview && (
           <div className="asst-intro" data-testid="assistant-welcome">
             {stage2 && <RemyToday onActivity={() => setView("activity")} />}
-            <div className="bubble bubble-ai">{INTRO[pg] || INTRO.Home}</div>
+            <div className="bubble bubble-ai">{shut ? "This part of Remy is coming in a future update. Ask me anything about your search meanwhile." : INTRO[pg] || INTRO.Home}</div>
             {stage2 && phone && <OfferSlot />}
             <p className="xs muted">I only use what's in your approved profile, and I never send anything for you.</p>
             <div className="asst-asks">
               <span className="xs muted">You could ask</span>
-              {[LOOKING, ...(STARTERS[pg] || STARTERS.Home)].map((s) => <button key={s} className="asst-ask" onClick={() => send(s)}>{s}</button>)}
+              {[LOOKING, ...(!shut && STARTERS[pg] || STARTERS.Home)].map((s) => <button key={s} className="asst-ask" onClick={() => send(s)}>{s}</button>)}
             </div>
           </div>
         )}
