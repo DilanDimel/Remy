@@ -54,7 +54,7 @@ export function LinkedInCoach() {
       <div className="stack-sm" style={{ gap: 4 }}>
         {basics.map((b) => (
           <div key={b.label} className="row small" style={{ flexWrap: "nowrap", alignItems: "flex-start", gap: 8 }}>
-            <span style={{ flex: "none", width: 16, marginTop: 2, color: b.ok ? "var(--success, #22a05a)" : b.ok === false ? "var(--amber)" : "var(--muted-text)" }}>{b.ok ? <Check size={14} /> : b.ok === false ? "!" : "?"}</span>
+            <span style={{ flex: "none", width: 16, marginTop: 2, color: b.ok ? "var(--success, #22a05a)" : b.ok === false ? "var(--warn)" : "var(--muted-text)" }}>{b.ok ? <Check size={14} /> : b.ok === false ? "!" : "?"}</span>
             <span><b>{b.label}</b>{!b.ok && <span className="muted"> · {b.tip}</span>}</span>
           </div>
         ))}
@@ -63,7 +63,7 @@ export function LinkedInCoach() {
         {tips.map((t) => (
           <div key={t.key} className="stack-sm" style={{ gap: 4 }} data-testid={`linkedin-tip-${t.key}`}>
             <span className="small row" style={{ gap: 8, flexWrap: "nowrap", alignItems: "flex-start" }}>
-              <span style={{ flex: "none", width: 16, marginTop: 2, color: t.ok ? "var(--success, #22a05a)" : "var(--amber)" }}>{t.ok ? <Check size={14} /> : "!"}</span>
+              <span style={{ flex: "none", width: 16, marginTop: 2, color: t.ok ? "var(--success, #22a05a)" : "var(--warn)" }}>{t.ok ? <Check size={14} /> : "!"}</span>
               <span><b>{t.title}</b> <span className="muted">{t.detail}</span></span>
             </span>
             {t.suggestion && <div className="row" style={{ gap: 8, flexWrap: "nowrap", marginLeft: 24 }}><span className="xs" style={{ flex: 1 }}>Try: “{t.suggestion}”</span><CopyButton text={t.suggestion} /></div>}

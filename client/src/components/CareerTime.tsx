@@ -3,7 +3,6 @@ import type { CalItem, Workspace } from "@shared/types";
 import { useStore } from "../lib/store";
 
 export const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const TIMES = ["08:00", "12:00", "16:00", "18:00", "19:00", "20:00", "21:00"];
 const ampm = (t: string) => { const [h, m] = t.split(":").map(Number); return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; };
 export const careerTimeLabel = (c: { day: number; time: string }) => `${DAYS[c.day]}s at ${ampm(c.time)}`;
 
@@ -32,9 +31,8 @@ export function CareerTime({ compact = false }: { compact?: boolean }) {
           <option value="">Pick a day</option>
           {DAYS.map((d, i) => <option key={d} value={i}>{d}s</option>)}
         </select>
-        <select className="select" style={{ width: "auto" }} value={c?.time ?? "19:00"} disabled={!c} onChange={(e) => c && set({ day: c.day, time: e.target.value })} aria-label="Time" data-testid="select-career-time">
-          {TIMES.map((t) => <option key={t} value={t}>{ampm(t)}</option>)}
-        </select>
+{/* Any time, not a list (tester, Nov 25: "like an alarm at 3:30pm"). Saved when the field is left, not on every keystroke. */}
+        <input type="time" className="input" style={{ width: "auto" }} key={c?.time} defaultValue={c?.time ?? "19:00"} step={300} disabled={!c} onBlur={(e) => c && /^\d\d:\d\d$/.test(e.target.value) && e.target.value !== c.time && set({ day: c.day, time: e.target.value })} aria-label="Time" data-testid="select-career-time" />
         {c && <button className="btn btn-ghost btn-sm" onClick={() => set(null)}>Remove</button>}
       </div>
     </div>

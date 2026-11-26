@@ -25,7 +25,7 @@ export function WhatsThat({ term, field }: { term: string; field?: string }) {
   return (
     <div className="row" style={{ gap: 8 }}>
       <button className="btn btn-ghost btn-sm" onClick={ask} disabled={busy} data-testid="button-whats-that">{busy ? <Spinner /> : <HelpCircle size={14} />} What's that?</button>
-      {err && <span className="xs" style={{ color: "var(--fox-deep)" }}>{err}</span>}
+      {err && <span className="xs" style={{ color: "var(--warn)" }}>{err}</span>}
     </div>
   );
 }
