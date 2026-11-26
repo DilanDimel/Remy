@@ -3,7 +3,7 @@
 //     npx tsx script/copy-database.ts --from sqlite:/data/data.db        (the old live-site file)
 //     npx tsx script/copy-database.ts --from postgres://user:pass@host/db (moving between Postgres hosts)
 // The target's tables are created by server/migrations first. Rows that already exist are left as they are,
-// so running it twice is safe. Between Postgres hosts every table in DB_SCHEMA is copied (parents before
+// so running it twice is safe (add --replace to empty the target first). Between Postgres hosts every table in DB_SCHEMA is copied (parents before
 // children), the id counters are moved past the copied ids, and each table's row count is checked.
 import Database from "better-sqlite3";
 import pg from "pg";
@@ -60,6 +60,15 @@ async function copyPostgres() {
   const order: string[] = [];
   const visit = (t: string) => { if (order.includes(t)) return; parents.set(t, parents.get(t) || new Set()); for (const p of parents.get(t)!) if (!order.includes(p)) visit(p); order.push(t); };
   names.forEach(visit);
+  // --replace empties the target first, so rows the migrations seed (e.g. team_tasks) and rows from an earlier run don't linger.
+  // It refuses when the target has more accounts than the source: that would mean the two URLs are swapped.
+  if (process.argv.includes("--replace")) {
+    const n = async (rows: Promise<any[]>) => Number((await rows)[0]?.n || 0);
+    if ((await n(q("SELECT COUNT(*)::int AS n FROM users"))) > (await n(src.query("SELECT COUNT(*)::int AS n FROM users").then((r) => r.rows)))) {
+      throw new Error("--replace refused: the target has more users than the source (are DATABASE_URL and --from swapped?)");
+    }
+    await q(`TRUNCATE ${order.filter((t) => t !== "schema_migrations").join(", ")} RESTART IDENTITY CASCADE`);
+  }
   let ok = true;
   for (const t of order) {
     if (!/^[a-z0-9_]+$/.test(t)) throw new Error(`unexpected table name ${t}`);
