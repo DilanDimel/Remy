@@ -1,7 +1,7 @@
 // Remy's employer catalog: what it keeps, how it reads a part, and that it lives in R2 (a fake store here). `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CATALOG, PARTS, allBoards, catalogPostings, catalogStats, catalogTick, csvRows, districtState, jazzList, ukgDescription, icimsJobs, ldPosting, sfJobs, sfPosting, keep, ldDescription, partOf, readBoard, readPart, resetCatalog, stapplyBoards, type CatalogBoard } from "./catalog";
+import { CATALOG, PARTS, allBoards, catalogPostings, catalogStats, catalogTick, csvRows, districtState, jazzList, ukgDescription, icimsJobs, ldPosting, sfJobs, sfPosting, keep, ldDescription, partOf, readBoard, readPart, resetCatalog, stapplyBoards, type CatalogBoard, jobapsJobs } from "./catalog";
 import { inUS } from "./fit";
 import { fetchBoard, type Raw } from "./sources";
 
@@ -208,4 +208,12 @@ test("Amazon and Apple career sites: title, place, link and text, each Apple rol
     assert.deepEqual([p[0].url, p[0].location, p[0].text], ["https://jobs.apple.com/en-us/details/200673612/data-internships", "Austin, United States; Cupertino, United States", "Work with data."]);
     assert.ok(inUS(p[0].location));
   } finally { globalThis.fetch = real; }
+});
+
+test("JobAps RSS: title without its number, place plus state, deadline, internal-only postings dropped", () => {
+  const item = (title: string, loc: string) => `<item><title>${title}\n</title><link>https://www.jobapscloud.com/MD/sup/BulPreview.asp?R1=26&amp;R2=1&amp;R3=1</link><pubDate>Wed, 25 Nov 2026 23:59:00 EST</pubDate>
+<description>&lt;p&gt;&lt;strong&gt;Filing Deadline:&lt;/strong&gt; 12/9/2026 11:59:00 PM&lt;/p&gt;&lt;p&gt;&lt;strong&gt;Work Location:&lt;/strong&gt; &lt;ul&gt;&lt;li&gt;${loc}&lt;/li&gt;&lt;/ul&gt;&lt;/p&gt;</description></item>`;
+  const out = jobapsJobs(item("Investment Intern - #261123-1317AR-001", "Baltimore City") + item("Clerk (Internal Agency Employees Only) - #26-2", "Annapolis"), "Maryland");
+  assert.equal(out.length, 1);
+  assert.deepEqual([out[0].title, out[0].location, out[0].deadline, out[0].url], ["Investment Intern", "Baltimore City, Maryland", "2026-12-09", "https://www.jobapscloud.com/MD/sup/BulPreview.asp?R1=26&R2=1&R3=1"]);
 });
