@@ -172,10 +172,10 @@ export function ResumeBuilder({ onDone, onCancel }: { onDone: () => void; onCanc
                 return (
                   <div key={x.id} className="stack-sm" data-testid="builder-bullet">
                     <div className="row">
-                      <FitTextarea className="textarea" style={{ minHeight: 56, flex: 1, ...(BLANK.test(x.text) ? { borderColor: "var(--amber)" } : {}) }} value={x.text} onChange={(e) => setText(e.target.value)} aria-label="Resume line" />
+                      <FitTextarea className="textarea" style={{ minHeight: 56, flex: 1, ...(BLANK.test(x.text) ? { borderColor: "var(--warn)" } : {}) }} value={x.text} onChange={(e) => setText(e.target.value)} aria-label="Resume line" />
                       <button className="icon-btn" aria-label="Delete line" onClick={() => set({ draft: { ...b.draft, [i.id]: b.draft![i.id].filter((y) => y.id !== x.id) } })}><Trash2 size={16} /></button>
                     </div>
-                    {BLANK.test(x.text) && <span className="xs" style={{ color: "var(--amber)" }}>Replace the [blank] with the real number, or delete it.</span>}
+                    {BLANK.test(x.text) && <span className="xs" style={{ color: "var(--warn)" }}>Replace the [blank] with the real number, or delete it.</span>}
                     {x.options.length > 1 && <div className="row" style={{ flexWrap: "wrap" }}>{x.options.map((o, n) => <button key={n} className={"chip " + (o === x.text ? "chip-student" : "chip-plain")} onClick={() => setText(o)}>Wording {n + 1}</button>)}</div>}
                     <span className="xs muted">From your words: “{x.source.slice(0, 160)}”</span>
                   </div>

@@ -120,7 +120,7 @@ export default function Home() {
   const dueChip = (d: string) => {
     const n = daysFrom(d);
     const late = n !== null && n < 0, close = n !== null && n <= 2;
-    return <View style={{ borderRadius: radius.chip, paddingHorizontal: 9, height: 24, justifyContent: "center", backgroundColor: late ? c.errorBg : close ? c.amberBg : c.surface2 }}><Text style={{ fontFamily: font.bold, fontSize: 12, color: late ? c.error : close ? c.amber : c.mutedText }}>{n === 0 ? "Today" : n === 1 ? "Tomorrow" : shortDate(d)}</Text></View>;
+    return <View style={{ borderRadius: radius.chip, paddingHorizontal: 9, height: 24, justifyContent: "center", backgroundColor: late ? c.errorBg : close ? c.foxSoft : c.surface2 }}><Text style={{ fontFamily: font.bold, fontSize: 12, color: late ? c.error : close ? c.foxDeep : c.mutedText }}>{n === 0 ? "Today" : n === 1 ? "Tomorrow" : shortDate(d)}</Text></View>;
   };
 
   return (

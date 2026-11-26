@@ -9,7 +9,7 @@ export function ConflictChoice({ fact }: { fact: MemoryFact }) {
     run(() => api<Workspace>("POST", `/api/memory/${fact.id}/resolve`, { right }), "Added to your to-dos").then((w) => w && setWs(w));
   return (
     <div className="stack-sm" style={{ gap: 6 }}>
-      <div className="xs" style={{ color: "var(--amber)" }}>Doesn't match: {fact.conflict}. Which is right?</div>
+      <div className="xs" style={{ color: "var(--warn)" }}>Doesn't match: {fact.conflict}. Which is right?</div>
       <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
         <button className="btn btn-secondary btn-sm" onClick={() => pick("resume")} data-testid="button-conflict-resume">My resume is right</button>
         <button className="btn btn-secondary btn-sm" onClick={() => pick("source")} data-testid="button-conflict-source">{source} is right</button>
