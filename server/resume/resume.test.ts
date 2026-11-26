@@ -214,3 +214,9 @@ test("a high-schooler's school, GPA and graduation", () => {
   assert.equal(graduationOf(hs.dates), "May 2027");
   assert.equal(highSchoolEducation(rulesParse("A B\n\nEDUCATION\nUniversity of Texas, Austin, TX\nBS Biology — May 2027\nPlano Senior High School\n")), undefined);
 });
+
+test("resume: college towns are places, not part of the employer", () => {
+  const doc = rulesParse("JANE DOE\njane@x.com\n\nEXPERIENCE\nSocial Media Coordinator\nNorthwind Industries — College Park, MD\nJune 2024 – Present\n• Ran posts\n\nTutor\nCascade Industries — State College, PA\n2022 – 2023\n• Tutored\n");
+  const es = doc.sections.flatMap((s) => s.entries).map((e) => [e.org, e.location]);
+  assert.deepEqual(es, [["Northwind Industries", "College Park, MD"], ["Cascade Industries", "State College, PA"]]);
+});

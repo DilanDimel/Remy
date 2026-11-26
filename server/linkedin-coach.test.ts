@@ -94,3 +94,10 @@ test("LinkedIn coach: a headline field of study the resume's major doesn't say i
   assert.equal(tips("Finance & BIS Student at TCU Neeley | Treasurer @ NABA").length, 0);
   assert.equal(tips("Treasurer @ NABA | Director of Travel").length, 0, "no field of study named");
 });
+
+test("linkedin: an organization named only in the headline is still missing from Experience", async () => {
+  const { linkedinGaps } = await import("@shared/linkedin");
+  const doc = { contact: { name: "Maya Lee" }, skills: [], sections: [{ heading: "Experience", entries: [{ id: "e1", role: "Analyst", org: "Riverside Partners", location: "", dates: "2025 – Present", bullets: [] }] }] } as any;
+  const li = pdf("Finance student at TCU | Analyst @ Riverside Partners");
+  assert.deepEqual(linkedinGaps(doc, li).map((g) => g.title), ["Analyst, Riverside Partners"]);
+});
