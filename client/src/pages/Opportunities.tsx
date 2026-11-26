@@ -321,7 +321,7 @@ function eligChip(f?: JobFit) {
 }
 
 /** The posting as readable lines, "Label: value" lines as a small table, long text behind "Show more". */
-function PostingText({ text }: { text: string }) {
+export function PostingText({ text }: { text: string }) {
   const [all, setAll] = useState(false);
   const lines = postingLines(text);
   const shown = all ? lines : lines.slice(0, 6);
