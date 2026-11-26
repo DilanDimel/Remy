@@ -65,3 +65,6 @@ export const orgInitials = (company: string) => {
   return words.slice(0, 2).map((x) => x[0]).join("").toUpperCase() || "•";
 };
 export { sameOrg } from "@shared/org";
+
+/** "San Jose; Seattle; New York" → "San Jose + 2 more", so a many-city posting never overflows its card. */
+export const shortPlace = (loc?: string, none = "Location not stated") => { const all = (loc || "").split(";").map((x) => x.replace(/,\s*United States$/, "").trim()).filter(Boolean); return !all.length ? none : all.length > 1 ? `${all[0]} + ${all.length - 1} more` : all[0]; };

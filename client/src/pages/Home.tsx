@@ -9,7 +9,7 @@ import { api, daysUntil, fmtDate, rid, useOwnerView, useStore } from "../lib/sto
 import { CAREER_QUEST_ON } from "@shared/game";
 import { useCompleting } from "../lib/completing";
 import { go } from "../lib/router";
-import { kindLabel, useJobs } from "../lib/jobs";
+import { kindLabel, shortPlace, useJobs } from "../lib/jobs";
 import { Remy, StatusChip } from "../components/common";
 import { firstName } from "@shared/names";
 import { gettingStarted } from "@shared/progress";
@@ -268,7 +268,7 @@ function JobRow({ j, why, open, onToggle, mono, matched, top }: { j: Job; why?: 
         <button style={{ textAlign: "left", padding: 0, fontWeight: 700 }} onClick={onToggle}>{j.title}</button>
         {mono ? (
           // Owners: the facts as small tags instead of a sentence (live, city, skills you already show, deadline).
-          <div className="job-tags"><StatusChip label={j.label} />{j.location && <span className="chip chip-plain">{j.location.split(/[,(]/)[0].trim()}</span>}{!!matched?.length && <span className="chip chip-plain">{matched[0]}{matched.length > 1 ? ` +${matched.length - 1}` : ""}</span>}{due}</div>
+          <div className="job-tags"><StatusChip label={j.label} />{j.location && <span className="chip chip-plain">{shortPlace(j.location.replace(/[,(][^;]*/g, ""))}</span>}{!!matched?.length && <span className="chip chip-plain">{matched[0]}{matched.length > 1 ? ` +${matched.length - 1}` : ""}</span>}{due}</div>
         ) : <div className="why">{why}</div>}
         {open && (
           <div className="stack-sm" style={{ marginTop: 8 }}>
