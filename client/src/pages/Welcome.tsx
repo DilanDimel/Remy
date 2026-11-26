@@ -122,6 +122,7 @@ function SignIn() {
     </button>
   );
   const anyReal = gis || codes || ["google", "linkedin_oidc", "apple", "azure", "email"].some((p) => providerOn(config, p as SupabaseProvider));
+  const ways = ["google", "linkedin_oidc", "apple", "azure"].filter((p) => providerOn(config, p as SupabaseProvider) || (p === "google" && gis)).length + (codes || providerOn(config, "email") ? 1 : 0);
   return (
     <div className="landing-screen auth-stage">
       <div className="lp-beam" aria-hidden><span className="lp-beam-floor" /></div>
@@ -182,6 +183,8 @@ function SignIn() {
               </form>
             )
           )}
+          {/* Tester, Nov 25: "what's the difference between LinkedIn and Google?" None: they only sign you in. */}
+          {ways > 1 && !sent && <p className="xs muted" style={{ textAlign: "center" }} data-testid="text-sso-same">They all work the same. Pick the account you use most.</p>}
           {!anyReal && <p className="small muted" style={{ textAlign: "center" }}><StatusChip label="Needs setup">Sign-in</StatusChip> No sign-in method is switched on for this server yet.</p>}
         </div>
         <div className="landing-foot">
