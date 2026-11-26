@@ -12,7 +12,7 @@ export function DidRows({ did, onUndo, undoTestID = "button-undo" }: { did?: Cha
   return (
     <View testID="chat-did" style={{ alignSelf: "flex-start", width: "92%", marginTop: 8, borderWidth: 1, borderColor: c.line, borderRadius: 16, backgroundColor: c.surface, overflow: "hidden" }}>
       {did.map((d, i) => {
-        const label = <Text numberOfLines={2} style={{ flexShrink: 1, fontFamily: d.undone ? font.body : font.bold, fontSize: 14, lineHeight: 19, color: d.undone ? c.mutedText : c.ink, textDecorationLine: d.undone ? "line-through" : "none" }}>{d.label}</Text>;
+        const label = <Text numberOfLines={3} style={{ flexShrink: 1, fontFamily: d.undone ? font.body : font.bold, fontSize: 14, lineHeight: 19, color: d.undone ? c.mutedText : c.ink, textDecorationLine: d.undone ? "line-through" : "none" }}>{d.label}</Text>;
         return (
           <View key={d.id} style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 48, paddingLeft: 12, paddingRight: 6, paddingVertical: 8, borderTopWidth: i ? 1 : 0, borderTopColor: c.line }}>
             <View style={{ width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: d.undone ? c.surface2 : c.fox }}>
