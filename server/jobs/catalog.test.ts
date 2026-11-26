@@ -1,7 +1,7 @@
 // Remy's employer catalog: what it keeps, how it reads a part, and that it lives in R2 (a fake store here). `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CATALOG, PARTS, allBoards, catalogPostings, catalogStats, catalogTick, csvRows, districtState, jazzList, ukgDescription, icimsJobs, ldPosting, sfJobs, sfPosting, keep, ldDescription, partOf, readPart, resetCatalog, stapplyBoards, type CatalogBoard } from "./catalog";
+import { CATALOG, PARTS, allBoards, catalogPostings, catalogStats, catalogTick, csvRows, districtState, jazzList, ukgDescription, icimsJobs, ldPosting, sfJobs, sfPosting, keep, ldDescription, partOf, readBoard, readPart, resetCatalog, stapplyBoards, type CatalogBoard } from "./catalog";
 import { inUS } from "./fit";
 import { fetchBoard, type Raw } from "./sources";
 
@@ -188,4 +188,24 @@ test("SuccessFactors: postings from the career site's sitemap, title, text and p
     [{ url: "https://jobs.x.com/job/Dallas-%280300%29-Consulting-Analyst-TX-75201/459314600/", title: "Dallas (0300) Consulting Analyst TX 75201", posted: "2026-11-21" }]);
   const page = '<meta itemprop="addressLocality" content="Dallas (0300-0005)"><meta itemprop="addressRegion" content="TX"><meta itemprop="addressCountry" content="US"><h1 id="job-title" itemprop="title">Consulting Analyst</h1><span itemprop="description" class="jobdescription"><p>Do the work</p></span></div><div>Apply</div>';
   assert.deepEqual(sfPosting(page), { title: "Consulting Analyst", text: "Do the work", location: "Dallas, TX, US" });
+});
+
+test("Amazon and Apple career sites: title, place, link and text, each Apple role once", async () => {
+  const real = globalThis.fetch;
+  const apple = { loaderData: { search: { totalRecords: 2, searchResults: [
+    { positionId: "200673612", transformedPostingTitle: "data-internships", postingTitle: "Data Internships", jobSummary: "Work with data.", locations: [{ name: "Austin", countryName: "United States of America" }] },
+    { positionId: "200673612", transformedPostingTitle: "data-internships", postingTitle: "Data Internships", jobSummary: "Work with data.", locations: [{ name: "Cupertino", countryName: "United States of America" }] },
+  ] } } };
+  globalThis.fetch = (async (url: string) => String(url).includes("amazon.jobs")
+    ? new Response(JSON.stringify({ hits: 1, jobs: [{ title: "Area Manager Intern", normalized_location: "Dallas, Texas, USA", job_path: "/en/jobs/1/area-manager-intern", description: "Lead a team.", basic_qualifications: "- Enrolled in a degree" }] }), { status: 200 })
+    : new Response(`<script>window.__staticRouterHydrationData = JSON.parse(${JSON.stringify(JSON.stringify(apple))});</script>`, { status: 200 })) as typeof fetch;
+  try {
+    const a = await readBoard({ ats: "amazon", slug: "intern", company: "Amazon" });
+    assert.deepEqual([a[0].title, a[0].location, a[0].url], ["Area Manager Intern", "Dallas, Texas, USA", "https://www.amazon.jobs/en/jobs/1/area-manager-intern"]);
+    assert.match(a[0].text, /Lead a team[\s\S]*Enrolled/);
+    const p = await readBoard({ ats: "apple", slug: "team=internships-STDNT-INTRN", company: "Apple" });
+    assert.equal(p.length, 1);
+    assert.deepEqual([p[0].url, p[0].location, p[0].text], ["https://jobs.apple.com/en-us/details/200673612/data-internships", "Austin, United States; Cupertino, United States", "Work with data."]);
+    assert.ok(inUS(p[0].location));
+  } finally { globalThis.fetch = real; }
 });

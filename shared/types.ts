@@ -676,8 +676,8 @@ export interface AppConfig {
   ai: { available: boolean; model: string; via: string; ownerTrial?: string };
   hosting: "preview" | "published" | "local";
   today: string;
-  /** Supabase Auth, when configured: public URL + publishable key, and which sign-in providers are switched on. */
-  supabase: { url: string; anonKey: string; providers: Record<string, boolean> } | null;
+  /** Buttons that use Remy's own Google sign-in (OWN_SIGNIN on the server). */
+  ownSignin?: { google: boolean; linkedin_oidc: boolean };
   /** School email verification: whether codes can be sent, and which domains count (e.g. tcu.edu). */
   schoolEmail: { ready: boolean; domains: string[] };
   /** Remy can email its own 6-digit sign-in codes (used instead of Supabase's sign-in links). */

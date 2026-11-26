@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import { fetch as streamFetch } from "expo/fetch";
+import { setOffline } from "./net";
 
 /** The Remy server. Phones talk to the live site; the web preview (used for screenshots) can point at a local one. */
 export const API_BASE = (process.env.EXPO_PUBLIC_API_URL || (Platform.OS === "web" ? "" : "https://remyai.org")).replace(/\/$/, "");
@@ -19,8 +20,10 @@ export async function api<T>(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
+    setOffline(true);
     throw new ApiError("Remy can't reach the internet right now. Check your connection and try again.", 0);
   }
+  setOffline(false);
   const text = await r.text();
   let data: any = null;
   try { data = text ? JSON.parse(text) : null; } catch { /* not JSON */ }

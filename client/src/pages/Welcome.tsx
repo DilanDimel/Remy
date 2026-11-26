@@ -3,7 +3,7 @@ import { api, useStore } from "../lib/store";
 import { ArrowLeft, Check } from "lucide-react";
 import { go, useRoute } from "../lib/router";
 import { Remy, Spinner, StatusChip } from "../components/common";
-import { providerOn, sendMagicLink, startOAuth, type SupabaseProvider } from "../lib/supabase";
+import { providerOn, startOAuth, type SsoProvider } from "../lib/signin";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { isNativeApp } from "../lib/native";
 import Landing2 from "./Landing2";
@@ -36,7 +36,7 @@ export function useGoogleButton(onCredential: (cred: string) => void) {
 }
 
 type Provider = "Google" | "LinkedIn" | "Apple" | "Microsoft" | "Work/School Email";
-const SB: Record<Exclude<Provider, "Work/School Email">, SupabaseProvider> = { Google: "google", LinkedIn: "linkedin_oidc", Apple: "apple", Microsoft: "azure" };
+const SB: Record<Exclude<Provider, "Work/School Email">, SsoProvider> = { Google: "google", LinkedIn: "linkedin_oidc", Apple: "apple", Microsoft: "azure" };
 
 /** Signed out: the landing page at /, the sign-in page at /signin.
  * The phone app has no landing page: it opens straight to sign-in (signing in creates the account). */
@@ -86,7 +86,7 @@ function SignIn() {
     if (r) setSession(r.me, r.workspace);
     setBusy("");
   });
-  // A button whose provider isn't switched on in Supabase opens a private guest workspace and says so,
+  // A button whose provider isn't switched on opens a private guest workspace and says so,
   // rather than pretending to sign in. Only switched-on providers are shown, so this is a fallback.
   const guest = async (via: Provider) => {
     if (config?.beta?.on) return toast(`${via} sign-in isn't switched on yet. Use another option above.`, true); // no guest workspaces in the invite-only beta
@@ -100,12 +100,12 @@ function SignIn() {
     const p = SB[via];
     if (!providerOn(config, p)) return guest(via);
     setBusy(via);
-    await run(() => startOAuth(config!, p)); // leaves the page on success
+    startOAuth(p); // leaves the page
     setBusy("");
   };
   const magicTo = async (to: string) => {
     setBusy("Work/School Email");
-    const ok = await run(() => (codes ? api("POST", "/api/auth/email/start", { email: to }) : sendMagicLink(config!, to)).then(() => true));
+    const ok = await run(() => api("POST", "/api/auth/email/start", { email: to }).then(() => true));
     if (ok) { setSent(to); setCode(""); toast(codes ? "Check your inbox for a 6-digit code" : "Check your inbox for a sign-in link"); }
     setBusy("");
   };
@@ -121,8 +121,8 @@ function SignIn() {
       {busy === via ? <Spinner /> : icon} Continue with {via === "Work/School Email" ? "Email" : via}
     </button>
   );
-  const anyReal = gis || codes || ["google", "linkedin_oidc", "apple", "azure", "email"].some((p) => providerOn(config, p as SupabaseProvider));
-  const ways = ["google", "linkedin_oidc", "apple", "azure"].filter((p) => providerOn(config, p as SupabaseProvider) || (p === "google" && gis)).length + (codes || providerOn(config, "email") ? 1 : 0);
+  const anyReal = gis || codes || ["google", "apple", "azure", "email"].some((p) => providerOn(config, p as SsoProvider));
+  const ways = ["google", "apple", "azure"].filter((p) => providerOn(config, p as SsoProvider) || (p === "google" && gis)).length + (codes || providerOn(config, "email") ? 1 : 0);
   return (
     <div className="landing-screen auth-stage">
       <div className="lp-beam" aria-hidden><span className="lp-beam-floor" /></div>
@@ -155,7 +155,6 @@ function SignIn() {
               sso("Google", <GoogleG />)
             )}
           </div>
-          {sso("LinkedIn", <LinkedInMark />)}
           {sso("Apple", <AppleMark />)}
           {sso("Microsoft", <MicrosoftMark />)}
           {!emailOpen && sso("Work/School Email", <MailMark />)}
@@ -183,8 +182,8 @@ function SignIn() {
               </form>
             )
           )}
-          {/* Tester, Nov 25: "what's the difference between LinkedIn and Google?" None: they only sign you in. */}
-          {ways > 1 && !sent && <p className="xs muted" style={{ textAlign: "center" }} data-testid="text-sso-same">They all work the same. Pick the account you use most.</p>}
+          {/* LinkedIn sign-in removed Nov 26 (Dilan): Google and email are enough. */}
+          {ways > 1 && !sent && <p className="xs muted" style={{ textAlign: "center" }} data-testid="text-sso-same">{ways === 2 ? "Both" : "They all"} work the same. Pick the account you use most.</p>}
           {!anyReal && <p className="small muted" style={{ textAlign: "center" }}><StatusChip label="Needs setup">Sign-in</StatusChip> No sign-in method is switched on for this server yet.</p>}
         </div>
         <div className="landing-foot">

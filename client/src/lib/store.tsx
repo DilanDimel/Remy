@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { AppConfig, Me, Workspace } from "@shared/types";
 import { redesignOut, releasesOf } from "@shared/features";
-import { finishSupabaseRedirect } from "./supabase";
 import { keepNewerJobFeedback } from "./jobFeedback";
 import { apiResult } from "./signals";
 import { trackDownload } from "./analytics";
@@ -207,18 +206,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setConfig(c);
     build.current = c.build;
     lastLoad.current = Date.now();
-    // Coming back from a Supabase sign-in or connector consent screen.
-    try {
-      const back = await finishSupabaseRedirect(c);
-      if (back?.intent === "signin") await api("POST", "/api/auth/supabase", { accessToken: back.accessToken }).catch((e) => { if (e?.code !== "beta") throw e; });
-      if (back?.intent === "connect-linkedin") {
-        await api("POST", "/api/connect/linkedin", { accessToken: back.accessToken });
-        toast("LinkedIn connected");
-      }
-      await back?.done();
-    } catch (e: any) {
-      toast(e?.message || "Sign-in didn't finish.", true);
-    }
+    // Coming back from Remy's own Google sign-in with a problem (server/routes.ts signinError).
+    const signinErr = new URLSearchParams(location.search).get("signin_error");
+    if (signinErr) { history.replaceState(null, "", location.pathname); toast(signinErr, true); }
     const m = await api<{ me: Me | null; workspace: Workspace | null; beta?: { blocked: boolean; email: string } }>("GET", "/api/me");
     if (m.beta?.blocked) setBetaBlocked(`${m.beta.email || "This account"} isn't on Remy's beta tester list yet. Remy is invite-only during the beta: apply with the form, then sign in with this same email once you're accepted.`);
     setMe(m.me);
