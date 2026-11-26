@@ -82,6 +82,10 @@ export function headingOf(line: string): { heading: string; rest: string; contin
     if (isHeadingPhrase(head, isCaps(head)) && (isCaps(head) || !rest)) return out(head, rest);
   }
   if (isHeadingPhrase(t, isCaps(t))) return out(t, "");
+  // A lone heading word with one typo ("employmnet", "EXPERIENCE" missing a letter) reads as the word it meant.
+  // A bare singular ("Certificate") is usually a detail line, not a heading.
+  const typo = /^\p{L}{7,}:?$/u.test(t) ? [...CORE].find((w) => { const f = fold(t).replace(/:$/, ""); return w.length >= 7 && w !== f + "s" && oneEdit(f, w); }) : undefined;
+  if (typo) return out(isCaps(t) ? typo.toUpperCase() : t[0] === t[0].toUpperCase() ? titleCase(typo) : typo, "");
   // A capitals heading with the section's first line after it, e.g. ADDITIONAL COURSEWORK “Welcome…”.
   const words = t.split(" ");
   let n = 0;
@@ -93,6 +97,15 @@ export function headingOf(line: string): { heading: string; rest: string; contin
     if (head.replace(/[^\p{L}]/gu, "").length >= 4 && isHeadingPhrase(head, true) && /^[“"'‘(\[\d]|^\p{Ll}/u.test(rest)) return out(head, rest);
   }
   return null;
+}
+
+/** a and b differ by one letter added, dropped, changed, or two neighbours swapped. */
+function oneEdit(a: string, b: string) {
+  if (a === b || Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  while (i < a.length && a[i] === b[i]) i++;
+  const [x, y] = [a.slice(i), b.slice(i)];
+  return x.slice(1) === y.slice(1) || x.slice(1) === y || x === y.slice(1) || (x[0] === y[1] && x[1] === y[0] && x.slice(2) === y.slice(2));
 }
 
 /** The capitals in a line's first column, when the rest of the line sits in another column. */
@@ -345,7 +358,8 @@ export function rulesParse(text: string): ResumeDoc {
 
   // Text copied from a PDF keeps its visual lines (bullets wrap onto the next line); Word text has one line
   // per paragraph, and a paragraph almost never starts in lower case.
-  const wrapped = lines.some((l) => /^\p{Ll}/u.test(l));
+  // An email or web address ("kalani@outlook.com", "linkedin.com/in/…") starting a line (or a lower-case heading) isn't a wrapped bullet.
+  const wrapped = lines.some((l) => /^\p{Ll}/u.test(l) && !/[@/]|\.\p{L}/u.test(l.split(/\s/)[0]) && !headingOf(l));
   const widths = lines.map((l) => l.length).filter((n) => n > 20).sort((a, b) => a - b);
   const fullWidth = widths.length ? widths[Math.floor(widths.length * 0.9)] : 100;
 

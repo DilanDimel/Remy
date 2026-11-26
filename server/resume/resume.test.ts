@@ -220,3 +220,12 @@ test("resume: college towns are places, not part of the employer", () => {
   const es = doc.sections.flatMap((s) => s.entries).map((e) => [e.org, e.location]);
   assert.deepEqual(es, [["Northwind Industries", "College Park, MD"], ["Cascade Industries", "State College, PA"]]);
 });
+
+test("a misspelled lone heading still starts its section, and an email line doesn't make plain lines wrap", () => {
+  const doc = rulesParse("Kalani Oyelaran\nkalani@outlook.com\n\nEDUCATION\nGeorgia State University\nBBA in Marketing\n\nemploymnet\nSocial Media Coordinator\nPrairie Health — Atlanta, GA\n2026 – Present\nWrote weekly email newsletters for a local bakery\nGrew a campus club's Instagram from 300 to 2,100 followers\n\nReferances\nAvailable on request");
+  const heads = doc.sections.map((s) => s.heading);
+  assert.ok(heads.includes("employment"), heads.join(" | "));
+  assert.ok(heads.includes("References"), heads.join(" | "));
+  const job = doc.sections.find((s) => s.heading === "employment")!.entries[0];
+  assert.deepEqual(job.bullets.map((b) => b.text), ["Wrote weekly email newsletters for a local bakery", "Grew a campus club's Instagram from 300 to 2,100 followers"]);
+});
