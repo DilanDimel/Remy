@@ -173,9 +173,10 @@ function SetupPreview({ shown, reading }: { shown: number; reading: boolean }) {
   const first = firstName(w);
   if (shown <= 2) {
     const sections = doc?.sections.filter((s) => s.entries.length) || [];
+    const read = sections.length + (doc?.skills.length ? 1 : 0); // Skills are kept apart from sections but shown as one
     return (
       <aside className="ob-pv" aria-label="What Remy is reading" data-testid="setup-preview">
-        <span className="ob-pv-h">{reading ? "Reading your resume" : doc ? `Remy read ${sections.length} section${sections.length === 1 ? "" : "s"}` : shown === 0 ? "Your workspace, so far" : "Your resume goes here"}</span>
+        <span className="ob-pv-h">{reading ? "Reading your resume" : doc ? `Remy read ${read} section${read === 1 ? "" : "s"}` : shown === 0 ? "Your workspace, so far" : "Your resume goes here"}</span>
         <div className={"ob-paper" + (reading ? " reading" : "") + (doc && !reading ? " read" : "")}>
           {doc && !reading ? (
             <>
@@ -544,7 +545,7 @@ function Preferences({ onBack }: { onBack: () => void }) {
   const [timeline, setTimeline] = useState(splitList(p.timeline || ""));
   // Places near the student (their city and state), not Texas for everyone: shared/regions.ts.
   const regionOpts = regionOptions(p.location || "");
-  const [regions, setRegions] = useState(p.regions || !owner ? splitList(p.regions) : regionOpts.filter((r) => r === (p.location || "").split(",")[0].trim()));
+  const [regions, setRegions] = useState(p.regions ? splitList(p.regions) : regionOpts.filter((r) => r === (p.location || "").split(",")[0].trim()));
   const [otherRegion, setOtherRegion] = useState("");
   const [types, setTypes] = useState(p.opportunityTypes ? splitList(p.opportunityTypes) : ["Internships"]);
   const [fields, setFields] = useState(splitFieldList(p.targetRoles));
