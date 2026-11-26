@@ -25,6 +25,8 @@ test("todayBrief: new openings, nearest deadline, what Remy did, next to-do", ()
     tasks: [{ id: "t", title: "Tailor resume", done: false }],
     aiLog: [{ id: "a", ok: true, purpose: "Parse resume", at: now.toISOString() }] };
   assert.deepEqual(todayBrief(w, now).map((r) => r.text), ["New opening: Analyst at PwC", "PwC application is due in 2 days", "I read your resume today", "Next up: Tailor resume"]);
+  // An interview or event isn't "due": it's just tomorrow.
+  assert.equal(todayBrief({ ...w, calendar: [{ id: "i", title: "Bank of America interview", date: "2026-11-24", kind: "Interview" }] } as never, now)[1].text, "Bank of America interview is tomorrow");
   assert.deepEqual(todayBrief(base, now), []);
   assert.equal(dayOf(now.toISOString()), "2026-11-23");
 });

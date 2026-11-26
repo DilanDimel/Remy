@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, Fragment } from "react";
+import { useCanGo } from "../components/ComingSoon";
 import { dreamWithoutOpenings } from "@shared/org";
 import { decodeEntities, postingField, postingLines } from "@shared/postingText";
 import { authKind } from "@shared/workAuth";
@@ -335,6 +336,7 @@ export function PostingText({ text }: { text: string }) {
 
 function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; fit?: JobFit; moved?: JobRanking; canRate: boolean; defaultOpen: boolean; showPassed: boolean }) {
   const keepPass = useOwnerView(); // redesign stage 3, owners first
+  const practice = useCanGo()("/interview"); // Interview is locked for students until it's released
   const { ws, save, setWs, run, config } = useStore();
   const w = ws!;
   const [open, setOpen] = useState(defaultOpen);
@@ -442,7 +444,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; 
           </dl>
           <div className="row" style={{ gap: 6 }}>
             <button className="btn btn-secondary btn-sm" onClick={recheck} disabled={!!busy} data-testid="button-recheck">{busy === "check" ? <Spinner /> : <RefreshCw size={14} />} Re-check it's still open</button>
-            {keepPass && !saved && j.kind !== "event" && <button className="btn btn-ghost btn-sm" onClick={() => go(`/interview?job=${j.id}`)} data-testid="button-mock-interview-details"><Mic size={14} /> Mock interview</button>}
+            {keepPass && practice && !saved && j.kind !== "event" && <button className="btn btn-ghost btn-sm" onClick={() => go(`/interview?job=${j.id}`)} data-testid="button-mock-interview-details"><Mic size={14} /> Mock interview</button>}
             <button className="btn btn-ghost btn-sm" onClick={explain} disabled={!!busy || !config?.ai.available || !w.resume}>{busy === "fit" ? <Spinner /> : <Sparkles size={14} />} Explain fit</button>
             {canRate && j.kind !== "event" ? (keepPass ? null : <Interest j={j} hidden={hidden} />) : <button className="btn btn-ghost btn-sm" onClick={() => save("hiddenJobIds", hidden ? w.hiddenJobIds.filter((x) => x !== j.id) : [...w.hiddenJobIds, j.id])}>{hidden ? "Show it again" : "Not interested"}</button>}
             {/* Only postings the student added can be removed; a live one would come back on the next search. */}
@@ -455,7 +457,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; 
         <ApplyLink j={j} />
         {keepPass && canRate && j.kind !== "event" ? <KeepPass j={j} saved={saved} hidden={hidden} onPass={swipeAway} onUndo={() => { leaving.current = false; setGone(false); }} /> : (
         <button className="btn btn-ghost btn-sm" onClick={() => save("savedJobIds", saved ? w.savedJobIds.filter((x) => x !== j.id) : [...w.savedJobIds, j.id])} data-testid="button-save-job">{saved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />} {saved ? "Saved" : "Save"}</button>)}
-        {keepPass && saved && j.kind !== "event" && <button className="btn btn-ghost btn-sm" onClick={() => go(`/interview?job=${j.id}`)} data-testid="button-mock-interview"><Mic size={14} /> Mock interview</button>}
+        {keepPass && practice && saved && j.kind !== "event" && <button className="btn btn-ghost btn-sm" onClick={() => go(`/interview?job=${j.id}`)} data-testid="button-mock-interview"><Mic size={14} /> Mock interview</button>}
         {j.deadline && <button className="btn btn-ghost btn-sm" onClick={addCal} disabled={onCal} data-testid="button-add-calendar"><CalendarPlus size={14} /> {onCal ? "On calendar" : "Add to calendar"}</button>}
         <button className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={() => setOpen((o) => !o)} data-testid="button-job-details">{open ? <ChevronUp size={14} /> : <ChevronDown size={14} />} Details</button>
       </div>

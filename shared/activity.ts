@@ -55,9 +55,9 @@ export function todayBrief(w: Pick<Workspace, "jobs" | "hiddenJobIds" | "calenda
   const fresh = w.jobs.filter((j) => (j.foundAt || "") > dayAgo && !w.hiddenJobIds.includes(j.id) && fitsYou(fits, j.id));
   if (fresh.length) rows.push({ kind: "new", text: fresh.length === 1 ? `New opening: ${fresh[0].title} at ${fresh[0].company}` : `${fresh.length} new openings since yesterday, like ${fresh[0].company}`, link: "/opportunities" });
   const inDays = (d: string) => Math.round((Date.parse(d + "T12:00:00") - Date.parse(today + "T12:00:00")) / 864e5);
-  const due = [...w.calendar.map((c) => ({ title: c.title, date: c.date })), ...w.tasks.filter((t) => !t.done && t.due).map((t) => ({ title: t.title, date: t.due! }))]
+  const due = [...w.calendar.map((c) => ({ title: c.title, date: c.date, due: !["Interview", "Event", "Advising"].includes(c.kind) })), ...w.tasks.filter((t) => !t.done && t.due).map((t) => ({ title: t.title, date: t.due!, due: true }))]
     .filter((x) => x.date && inDays(x.date.slice(0, 10)) >= 0 && inDays(x.date.slice(0, 10)) <= 7).sort((a, b) => a.date.localeCompare(b.date))[0];
-  if (due) { const n = inDays(due.date.slice(0, 10)); rows.push({ kind: "due", text: `${due.title} is due ${n === 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`}`, link: "/calendar" }); }
+  if (due) { const n = inDays(due.date.slice(0, 10)); rows.push({ kind: "due", text: `${due.title} is ${due.due ? "due " : ""}${n === 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`}`, link: "/calendar" }); }
   const did = w.aiLog.filter((x) => x.ok && x.at && dayOf(x.at) === today && !/^Assistant chat/i.test(x.purpose));
   if (did.length) rows.push({ kind: "did", text: did.length === 1 ? `I ${lower(didLabel(did[did.length - 1].purpose))} today` : `I did ${did.length} things for you today` });
   const next = w.tasks.find((t) => !t.done && t.title !== due?.title);

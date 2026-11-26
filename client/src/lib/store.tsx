@@ -356,7 +356,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 export const fmtDate = (d: string) => {
   if (!d) return "";
   const dt = new Date(d.length === 10 ? d + "T12:00:00" : d);
-  return isNaN(+dt) ? d : dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  // The year only when it isn't this year ("Dec 5", "Jan 10, 2027"), so dates read like a person wrote them.
+  return isNaN(+dt) ? d : dt.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(dt.getFullYear() === new Date().getFullYear() ? {} : { year: "numeric" }) });
 };
 /** Calendar days from today to a date: today 0, tomorrow 1 (noon-to-noon, so daylight saving can't shift it). */
 export const daysUntil = (d: string) => {

@@ -1,6 +1,7 @@
 // Owners (Nov 23): the moment a career pin (or a higher tier) is earned, anywhere in Remy, he says so once. The first
 // time this runs it only records the pins the student already has, so nobody gets a pile of pop-ups for old steps.
 import { useEffect, useState } from "react";
+import { useCanGo } from "./ComingSoon";
 import { TIER_NAME, newPins, pinsSeen, type PinState } from "@shared/pins";
 import { useStore } from "../lib/store";
 import { go } from "../lib/router";
@@ -55,15 +56,16 @@ function companyFor(w: Workspace, status: "Interview" | "Offer") {
  *  one next step that matters, instead of the small pin card. */
 function BigMoment({ kind, company, onClose }: { kind: "offer" | "interview"; company: string; onClose: () => void }) {
   const offer = kind === "offer", at = company ? ` ${offer ? "from" : "at"} ${company}` : "";
+  const practice = useCanGo()("/interview"); // locked for students until Interview is released
   return (
     <Modal title={offer ? `Your first offer${at}!` : `Your first interview${at}!`} onClose={onClose}>
       <div className="rw-big-moment" data-testid={`big-moment-${kind}`}>
         <div className="rw-confetti" aria-hidden="true">{Array.from({ length: 18 }, (_, i) => <i key={i} style={{ ["--a" as string]: `${i * 20}deg`, ["--d" as string]: `${(i % 3) * 0.12}s` }} />)}</div>
         <Remy size={150} mood="happy" outfit="gown" />
         <p>{offer ? <>You did this. Every resume line, every application and every interview led here. Take a breath, then ask me anything about the offer before you answer them.</>
-          : <>That's what all the work was for. You earned the <b>First interview</b> pin. Want to practise the questions they'll likely ask?</>}</p>
+          : <>That's what all the work was for. You earned the <b>First interview</b> pin.{practice ? " Want to practice the questions they'll likely ask?" : " Add the date in Progress and Remy turns Home into a prep plan the two days before."}</>}</p>
         <div className="row">
-          <button className="btn btn-primary" onClick={() => { onClose(); go(offer ? "/progress" : "/interview"); }} data-testid={`button-big-moment-${kind}`}>{offer ? "Look at the offer" : "Practise with Remy"}</button>
+          <button className="btn btn-primary" onClick={() => { onClose(); go(offer || !practice ? "/progress" : "/interview"); }} data-testid={`button-big-moment-${kind}`}>{offer ? "Look at the offer" : practice ? "Practice with Remy" : "Add the date"}</button>
           <button className="btn btn-ghost" onClick={() => { onClose(); go("/rewards"); }} data-testid="button-big-moment-rewards">See my pins</button>
         </div>
       </div>

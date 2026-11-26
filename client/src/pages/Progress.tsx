@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { Check, ChevronDown, ChevronUp, Inbox, Mail, Plus, Trash2, Wand2 } from "lucide-react";
 import type { HoursEntry, Job, Suggestion, Task, TrackItem, TrackStatus, Workspace } from "@shared/types";
-import { api, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
+import { api, daysUntil, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
 import { useJobs } from "../lib/jobs";
 import { useCompleting } from "../lib/completing";
 import { go, useRoute } from "../lib/router";
-import { Empty, Modal, Remy, Spinner, StatusChip } from "../components/common";
+import { DueChip, Empty, Modal, Remy, Spinner, StatusChip } from "../components/common";
 import { MIN_FOR_RATE, keptUntracked, replyStats } from "@shared/progress";
 import { scoreInterview } from "@shared/interview";
 import { OrgLogo } from "../components/OrgLogo";
 import { JobsSeg } from "./Opportunities";
+import { useCanGo } from "../components/ComingSoon";
 
 const STATUSES: TrackStatus[] = ["Saved", "Applied", "Received", "Heard back", "Interview", "Offer", "Rejected", "No reply", "Withdrawn"];
 const STATUS_HELP: Record<string, string> = {
@@ -104,7 +105,7 @@ function Recovery({ t }: { t: TrackItem }) {
 /** An interview: get its date on the calendar (which turns Home into a prep plan) and point to the Story deck. */
 function InterviewDate({ t }: { t: TrackItem }) {
   const { ws, save, run } = useStore();
-  const owner = useOwnerView();
+  const practice = useCanGo()("/interview"); // locked for students until Interview is released
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const add = () => run(() => save("calendar", [...ws!.calendar, { id: rid("cal"), title: `Interview: ${t.company}${t.role ? ` (${t.role})` : ""}`, date, time, kind: "Interview" as const, source: "From your applications", linkedId: t.id, notes: "" }]), "Interview added. Home will show a prep plan as it gets close");
@@ -117,8 +118,7 @@ function InterviewDate({ t }: { t: TrackItem }) {
           <input className="input" type="date" style={{ width: "auto" }} value={date} onChange={(e) => setDate(e.target.value)} aria-label="Interview date" data-testid="input-interview-date" />
           <input className="input" type="time" style={{ width: "auto" }} value={time} onChange={(e) => setTime(e.target.value)} aria-label="Interview time" />
           <button className="btn btn-primary btn-sm" disabled={!date} onClick={add} data-testid="button-interview-add">Add to calendar</button>
-          {owner ? <button className="btn btn-ghost btn-sm" onClick={() => go(t.jobId ? `/interview?job=${t.jobId}` : "/interview")} data-testid="button-interview-mock">Practice a mock interview</button>
-            : <button className="btn btn-ghost btn-sm" onClick={() => go("/interview")}>Build interview stories</button>}
+          {practice && <button className="btn btn-ghost btn-sm" onClick={() => go(t.jobId ? `/interview?job=${t.jobId}` : "/interview")} data-testid="button-interview-mock">Practice a mock interview</button>}
         </div>
       </div>
     </div>
@@ -282,7 +282,8 @@ function NextUp({ w }: { w: Workspace }) {
   const mail = w.suggestions.filter((s) => s.state === "open").slice(0, 3);
   // Nov 23 PM review: with no email waiting the left card was empty text and the page ended half way, so it offers
   // the paste box instead, and Next up shows four to-dos, one line each.
-  const todos = w.tasks.filter((t) => !t.done).slice(0, 4);
+  // Soonest (and overdue) first; to-dos with no date last.
+  const todos = w.tasks.filter((t) => !t.done).sort((a, b) => (a.due || "9").localeCompare(b.due || "9")).slice(0, 4);
   return (
     <div className="pr-cols">
       <div className="op-card">
@@ -295,7 +296,7 @@ function NextUp({ w }: { w: Workspace }) {
       </div>
       <div className="op-card">
         <div className="op-ch"><h3>Next up</h3><button className="op-link" onClick={() => go("/progress?tab=todos")} data-testid="button-progress-todos">All to-dos →</button></div>
-        {todos.length ? <ul className="pr-todo">{todos.map((t) => <li key={t.id} title={t.title}><i /><span className="pr-todo-t">{t.title}</span>{t.due && <em>{fmtDate(t.due)}</em>}</li>)}</ul> : <p className="small muted">No open to-dos.</p>}
+        {todos.length ? <ul className="pr-todo">{todos.map((t) => <li key={t.id} title={t.title}><i /><span className="pr-todo-t">{t.title}</span>{t.due && <em className={(daysUntil(t.due) ?? 0) < 0 ? "late" : undefined}>{(daysUntil(t.due) ?? 0) < 0 ? `Overdue · ${fmtDate(t.due)}` : fmtDate(t.due)}</em>}</li>)}</ul> : <p className="small muted">No open to-dos.</p>}
       </div>
     </div>
   );
@@ -461,7 +462,7 @@ function Todos() {
         <div key={t.id} className={"item todo-row" + (t.done && isFading(t.id) ? " completing" : "")} data-testid="row-todo">
           <button className="check" role="checkbox" aria-checked={t.done} onClick={() => { if (!t.done) mark(t.id); run(() => api<Workspace>("PATCH", `/api/tasks/${t.id}`, { done: !t.done }).then(setWs)); }} aria-label="Toggle done">{t.done && <Check size={13} />}</button>
           <div className="item-main"><strong className="small" style={{ textDecoration: t.done ? "line-through" : undefined }}>{t.title}</strong><div className="why">{t.why ? <>{t.why} · </> : null}<span className="faint">{t.source}</span></div></div>
-          {t.due && <span className="chip chip-plain">{fmtDate(t.due)}</span>}
+          {t.due && <DueChip due={t.due} done={t.done} />}
           <button className="icon-btn" onClick={() => save("tasks", w.tasks.filter((x) => x.id !== t.id))} aria-label="Delete to-do"><Trash2 size={15} /></button>
         </div>
       )) : <Empty title={doneCount ? "All caught up" : "No to-dos"} body={doneCount ? "Everything on your list is done." : "Add one above, or build your path to get suggestions."} />}

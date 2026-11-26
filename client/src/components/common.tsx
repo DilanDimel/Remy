@@ -4,7 +4,7 @@ import { Check, Copy, X } from "lucide-react";
 import type { Label } from "@shared/types";
 import { unlockedOutfits } from "@shared/game";
 import { pinColor, topPins } from "@shared/pins";
-import { useStore } from "../lib/store";
+import { daysUntil, fmtDate, useStore } from "../lib/store";
 import { scholarMarkup, startScholar } from "./scholar";
 
 export type RemyMood = "idle" | "wave" | "think" | "happy";
@@ -43,6 +43,13 @@ const LABEL_CLASS: Record<Label, string> = {
   "Needs verification": "chip-verify",
   "Student provided": "chip-student",
 };
+/** A to-do's due date: "Overdue · Nov 25", "Today", "Tomorrow" or the date, so a missed one stands out. */
+export function DueChip({ due, done }: { due: string; done?: boolean }) {
+  const d = done ? null : daysUntil(due);
+  const text = d === null ? fmtDate(due) : d < 0 ? `Overdue · ${fmtDate(due)}` : d === 0 ? "Today" : d === 1 ? "Tomorrow" : fmtDate(due);
+  return <span className={"chip " + (d !== null && d < 0 ? "chip-bad" : d !== null && d <= 1 ? "chip-setup" : "chip-plain")} data-testid="chip-due">{text}</span>;
+}
+
 export function StatusChip({ label, children }: { label: Label; children?: ReactNode }) {
   return (
     <span className={`chip ${LABEL_CLASS[label]}`} data-testid={`label-${label.replace(/\s/g, "-").toLowerCase()}`}>
