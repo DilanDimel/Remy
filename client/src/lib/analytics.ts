@@ -46,7 +46,7 @@ export function startAnalytics(me: Me, config: AppConfig | null) {
 
 /** A finished action (non-GET request that worked), named by its tidy path, e.g. "POST /api/resume/upload". */
 export function trackAction(method: string, url: string) {
-  if (method === "GET" || /^\/api\/(signals|client-error|admin|auth\/me)/.test(url)) return;
+  if (method === "GET" || /^\/api\/(signals|client-error|admin|team|auth\/me)/.test(url)) return;
   const name = `${method} ${tidyPath(url)}`;
   if (ph) ph.capture(name);
   else if (starting && queued.length < 50) queued.push([name]);
