@@ -119,6 +119,13 @@ export function claimCheck(
     if (opts.postingNumbersOk && opts.postingText && lc(opts.postingText).includes(n)) continue;
     if (!evNums.has(n) && !evNums.has(n.replace(/%$/, "")) && !ev.includes(n)) {
       add({ type: "number", term: raw, message: `The figure “${raw}” is not in your resume or approved facts.` });
+    } else if (opts.original !== undefined && !((opts.original + " " + (opts.entryContext || "")).match(/\$?\d+(?:[.,]\d+)*\+?(?:[kKmM%](?![A-Za-z]))?/g) || []).map(normNum).includes(n) && !/^20\d\d$/.test(n)) {
+      // A figure from elsewhere on the resume put on a new thing ("12 patients" → "across 12 states"; 11,029-resume test):
+      // it must come with the same word it has on the resume.
+      const next = lc(body.slice((m.index || 0) + m[0].length)).match(/^[\s-]*([a-z]{3,})/)?.[1];
+      const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (next && !new RegExp(`(?:${esc(lc(raw))}|${esc(n)})[\\s-]*(?:[a-z]+[\\s-]+){0,2}${esc(next.slice(0, 4))}`).test(ev))
+        add({ type: "number", term: `${raw} ${next}`, message: `Your resume has “${raw}”, but not as “${raw} ${next}”. Keep the figure with what it counted.` });
     }
   }
   const t = lc(body);
