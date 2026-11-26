@@ -10,9 +10,9 @@ import path from "node:path";
 import { htmlToText } from "../resume/parse";
 import { r2Store } from "../platform/r2";
 import { abroad, inUS } from "./fit";
-import { fetchBoard, studentTitle, withDetail, type Raw } from "./sources";
+import { collegeRole, eachQuery, fetchBoard, SCHOOL_QUERIES, studentTitle, withDetail, type Raw } from "./sources";
 
-type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom" | "taleo" | "amazon" | "apple" | "schoolspring" | "jobaps";
+type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom" | "taleo" | "amazon" | "apple" | "schoolspring" | "jobaps" | "edjoin";
 export type CatalogBoard = { ats: Ats; slug: string; company: string };
 export const PARTS = 24;
 /** Text kept per posting: enough for its requirements and summary (an opening keeps up to 12,000 when saved). */
@@ -304,6 +304,23 @@ export async function readBoard(b: CatalogBoard, read = fetchBoard): Promise<Raw
       ...x, text: "", detail: async () => { const d = ldPosting(await getPage(x.url)); return { ...d, text: d.text.replace(/\\r\\n/g, "\n") }; },
     }));
   }
+  if (b.ats === "edjoin") {
+    // EdJoin (California's school and college job board) answers its own search page with JSON; robots.txt allows all.
+    // The slug is a county ("Fresno"); each opening keeps its district, and the posting page has schema.org data.
+    const raws = await eachQuery(SCHOOL_QUERIES, async (q) => {
+      const qs = new URLSearchParams({ rows: "50", page: "1", sort: "postingDate", sortVal: "0", order: "desc", keywords: q, location: b.slug, searchType: "all", regions: "", jobTypes: "", days: "0", empType: "", catID: "0", onlineApps: "false", recruitmentCenterID: "0", stateID: "0", regionID: "0", districtID: "0", searchID: "0" });
+      return ((await getJson(`https://www.edjoin.org/Home/LoadJobs?${qs}`)).data || []).map((x: any): Raw => {
+        const url = `https://www.edjoin.org/Home/JobPosting/${x.postingID}`;
+        const ms = Number(String(x.postingDate || "").match(/\d+/)?.[0]);
+        return {
+          student: true, title: String(x.positionTitle || "").trim(), location: [x.city, x.stateName].filter(Boolean).join(", "), url, text: "",
+          company: String(x.districtName || "") || undefined, posted: ms ? new Date(ms).toISOString() : undefined,
+          detail: async () => ldPosting(await getPage(url)),
+        };
+      });
+    });
+    return raws.filter((r) => collegeRole(r.title) && !/internal (candidates|employees)|promotional only/i.test(r.title));
+  }
   if (b.ats === "amazon") {
     // amazon.jobs' own search (robots.txt allows it); the board's slug is the search words ("intern", "new grad").
     const jobs: any[] = [];
@@ -371,7 +388,7 @@ export type Meta = { parts: Record<string, PartStats> };
 
 /** Reads every board in one part. Workable and Paylocity turn fast bursts away (HTTP 429), so each of them (and the other SLOW systems) gets its own
  *  lane, one board at a time. */
-const SLOW: Ats[] = ["workable", "paylocity", "icims", "successfactors", "schoolspring"];
+const SLOW: Ats[] = ["workable", "paylocity", "icims", "successfactors", "schoolspring", "edjoin"];
 export async function readPart(p: number, boards = CATALOG, read = readBoard, pause: (ms: number) => Promise<unknown> = (ms) => new Promise((r) => setTimeout(r, ms))) {
   const mine = boards.filter((b) => partOf(b) === p);
   const kept: Raw[] = [];
