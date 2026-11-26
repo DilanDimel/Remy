@@ -31,10 +31,10 @@ export function PitchCard() {
       {(ws!.pitch || text) && <>
         <textarea className="textarea" style={{ minHeight: 120 }} value={text} onChange={(e) => setText(e.target.value)} maxLength={1200} aria-label="Your pitch" data-testid="input-pitch" />
         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-          <span className={"xs " + (words > 90 ? "" : "muted")} style={words > 90 ? { color: "var(--amber)" } : undefined}>{words} words · about {Math.round(words / 2.5)} seconds spoken{words > 90 ? ", a bit long" : ""}</span>
+          <span className={"xs " + (words > 90 ? "" : "muted")} style={words > 90 ? { color: "var(--warn)" } : undefined}>{words} words · about {Math.round(words / 2.5)} seconds spoken{words > 90 ? ", a bit long" : ""}</span>
           <button className="btn btn-ghost btn-sm" disabled={text === (ws!.pitch?.text || "")} onClick={() => save("pitch", { text, at: new Date().toISOString() }).catch(() => {})}>Save</button>
         </div>
-        {!/\b(interested in|looking for|hoping to|want to|I'd love to|next (summer|year)|this summer)\b/i.test(text) && <p className="xs" style={{ color: "var(--amber)" }} data-testid="pitch-no-target">Your pitch doesn't say what you want next. Add a line yourself, or add the roles you're interested in (Account → Profile) and write it again.</p>}
+        {!/\b(interested in|looking for|hoping to|want to|I'd love to|next (summer|year)|this summer)\b/i.test(text) && <p className="xs" style={{ color: "var(--warn)" }} data-testid="pitch-no-target">Your pitch doesn't say what you want next. Add a line yourself, or add the roles you're interested in (Account → Profile) and write it again.</p>}
         <PracticeOutLoud goal={[25, 35]} script={text} />
       </>}
     </section>

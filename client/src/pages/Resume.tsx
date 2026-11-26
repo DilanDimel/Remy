@@ -257,7 +257,7 @@ function BaseResume({ subParam }: { subParam: string | null }) {
                 <div key={b.id} className="row" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}>
                   <span style={{ marginTop: 9 }}>•</span>
                   <FitTextarea className="textarea" style={{ minHeight: 44 }} value={b.text} onChange={(x) => upd((d) => { const bb = d.sections[si].entries[ei].bullets[bi]; bb.text = x.target.value; })} aria-label="Bullet" data-testid="input-bullet" />
-                  {b.verified === false && <span title="Not found word-for-word in your file" style={{ color: "var(--amber)", marginTop: 8 }}><AlertTriangle size={16} /></span>}
+                  {b.verified === false && <span title="Not found word-for-word in your file" style={{ color: "var(--warn)", marginTop: 8 }}><AlertTriangle size={16} /></span>}
                   {textConcern(b.text) && <span title={textConcern(b.text)} role="img" aria-label={textConcern(b.text)} style={{ color: "var(--error)", marginTop: 8 }} data-testid="warn-bullet"><AlertTriangle size={16} /></span>}
                   <button className="icon-btn" onClick={() => upd((d) => { d.sections[si].entries[ei].bullets.splice(bi, 1); })} aria-label="Remove bullet"><Trash2 size={15} /></button>
                 </div>
@@ -860,7 +860,7 @@ function DownloadButtons({ a, v }: { a: Application; v: number }) {
     <div className="stack-sm">
       <div className="row"><span className="small" style={{ width: 92, fontWeight: 700 }}>Resume</span>{["docx", "pdf", "txt"].map((f) => <button key={f} className="btn btn-secondary btn-sm" onClick={() => dl("resume", f)} data-testid={`button-download-resume-${f}`}><Download size={13} /> {f.toUpperCase()}</button>)}</div>
       {ownWord && layout?.layout === "remy" && (
-        <div className="xs" style={{ color: "var(--amber)" }} data-testid="note-word-layout">
+        <div className="xs" style={{ color: "var(--warn)" }} data-testid="note-word-layout">
           {layout.reason === "missed"
             ? <>Heads up: this DOCX won't keep your own design. Remy couldn't find where {layout.missed!.length === 1 ? "this line goes" : "these lines go"} in your Word file: {layout.missed!.map((m) => `“${m.length > 80 ? m.slice(0, 80) + "…" : m}”`).join(", ")}{layout.more ? ` and ${layout.more} more` : ""}. So the DOCX uses Remy's clean one-column layout in your font. To keep your design, download Original on Base resume and make the change in Word.</>
             : <>Heads up: Remy couldn't open your Word file, so this DOCX uses Remy's clean one-column layout in your font, not your own design.</>}
@@ -937,7 +937,7 @@ function Library() {
           return (
             <div key={a.id} className="stack-sm" style={{ borderTop: "1px solid var(--line)", paddingTop: 12 }}>
               <div className="row-between"><div><span className="xs muted">{j?.company}</span><div><strong>{j?.title}</strong></div></div><span className="chip chip-live">v{v.v} · {fmtDate(v.at)}</span></div>
-              {a.staleReason && <span className="xs" style={{ color: "var(--amber)" }}>{a.staleReason}</span>}
+              {a.staleReason && <span className="xs" style={{ color: "var(--warn)" }}>{a.staleReason}</span>}
               <DownloadButtons a={a} v={v.v} />
             </div>
           );
