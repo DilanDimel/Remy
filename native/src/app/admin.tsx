@@ -6,14 +6,15 @@ import { Button, Loading, Remy, Sect, Segmented, T, success, tap } from "@/compo
 import { Input } from "@/components/setup/common";
 import { api } from "@/lib/api";
 import { useConfig } from "@/lib/config";
+import { router } from "expo-router";
 import { go } from "@/lib/nav";
 import { useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
 import { radius } from "@/lib/tokens";
 
 // Owners' dashboard, native for what an owner does from a phone (it opened the website's /admin): this week at a glance,
-// feature releases, "Let everyone in", errors and feedback to mark handled, and clock in/out. The board, calendar,
-// openings and system tabs stay on the website ("Full dashboard"). Same /api/admin calls as client/src/pages/Admin.tsx.
+// feature releases, "Let everyone in", errors and feedback to mark handled, and clock in/out. Board & calendar and System
+// are their own screens (admin-team, admin-system). Same /api/admin calls as client/src/pages/Admin.tsx.
 type Overview = { northWeek: number; northPrev: number; students: number; newWeek: number; activeWeek: number; activePrev: number; activeToday: number; openErrors: number; feedback: number; ai: { calls: number; failed: number; cost: number } };
 type OpenError = { message: string; kind: string; place: string; times: number; students: number; last: string; detail: string };
 type Errors = { open: OpenError[]; fixed: { message: string; kind: string }[]; feedback: { id: number; at: string; place: string; message: string; email: string }[] };
@@ -147,8 +148,11 @@ export default function Admin() {
           onPress={() => act("clock", async () => { setTeam(await api<Team>("POST", "/api/admin/clock", { action: team.clockedIn ? "out" : "in", note })); setNote(""); }, team.clockedIn ? "Clocked out" : "Clocked in")} flex />}
       </View>
 
-      <Button testID="button-admin-use" kind="ghost" label="Using Remy: the team's own use" icon="trend" onPress={() => { tap(); go("/admin?tab=team&view=use"); }} flex />
-      <Button testID="button-admin-full" kind="ghost" label="Full dashboard on the website" onPress={() => go("/admin", "Owners", { page: true })} flex />
+      <View style={{ gap: 8 }}>
+        <Button testID="button-admin-use" kind="ghost" label="Using Remy: the team's own use" icon="trend" onPress={() => { tap(); go("/admin?tab=team&view=use"); }} flex />
+        <Button testID="button-admin-team" kind="ghost" icon="list" label="Board & calendar" onPress={() => { tap(); router.push("/admin-team"); }} flex />
+        <Button testID="button-admin-system" kind="ghost" icon="zap" label="System" onPress={() => { tap(); router.push("/admin-system"); }} flex />
+      </View>
     </ScrollView>
   );
 }
