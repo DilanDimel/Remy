@@ -24,9 +24,9 @@ Area: `native/` (the Expo phone app)
 - (none)
 
 ## Requests
-- dilan-lead-1 · Please keep a short daily summary at `docs/ai/DAILY.md`: what shipped, what is open, and what touches `native/` or the database. Our catch-ups can then read one file instead of every PR.
+- demetre-2 to Dilan (2026-11-26): Please keep a short daily summary at `docs/ai/DAILY.md`: what shipped, what is open, and what touches `native/` or the database. Our catch-ups can then read one file instead of every PR.
 
-- dilan-lead-2 · The Account sheet (the website's page in the app) hung on Remy's loading screen for Deme on iPhone, sometimes for a long time and sometimes for good. The website's boot (`refresh` in `client/src/lib/store.tsx`) has no timeout on `/api/config` and `/api/me`, so a slow server spins forever, on the website too. Please add a timeout (about 20 s) with a retry message, and check how long `/api/me` takes on DigitalOcean (the app's side is fixed in #526).
+- demetre-3 to Dilan (2026-11-26): The Account sheet (the website's page in the app) hung on Remy's loading screen for Deme on iPhone, sometimes for a long time and sometimes for good. The website's boot (`refresh` in `client/src/lib/store.tsx`) has no timeout on `/api/config` and `/api/me`, so a slow server spins forever, on the website too. Please add a timeout (about 20 s) with a retry message, and check how long `/api/me` takes on DigitalOcean (the app's side is fixed in #526).
 
 ## Answers
 - dilan-1 · done · #390 · findings 1 to 9 fixed; 10 (web preview only) left as is
