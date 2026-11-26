@@ -277,10 +277,22 @@ label.row > input[type="checkbox"] { flex: none; margin-top: 3px; }
 .asst-card { border: 1px solid var(--line); border-radius: 14px; padding: 12px; background: var(--surface-2); }
 .remy-thinking { display: flex; align-items: center; gap: 10px; align-self: flex-start; }
 .remy-thinking .lp-typing { padding: 12px 14px; }
-/* Owners: what Remy did reads as a line under his reply, not a box. */
-.chat-did { max-width: 92%; display: flex; flex-direction: column; gap: 2px; padding-left: 4px; }
-.chat-did .small { padding: 2px 0 !important; }
-.chat-did svg { color: var(--fox); }
+/* What Remy did (Nov 26, Dilan: underlined links with loose ticks looked dodgy): one quiet card under his reply, a row per
+   thing done: orange tick, what changed (a chevron when it opens the page), Undo as a small text button. */
+.chat-did { align-self: flex-start; width: min(100%, 92%); display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
+.did-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 12px; min-height: 40px; font-size: var(--text-sm); line-height: 1.35; }
+.did-row + .did-row { border-top: 1px solid var(--line); }
+.did-tick { flex: none; width: 20px; height: 20px; border-radius: 999px; display: grid; place-items: center; background: var(--fox); color: var(--white); }
+.did-label { flex: 1; min-width: 0; text-align: left; font-weight: 600; color: var(--ink); }
+.did-open { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0; }
+.did-open:hover { color: var(--fox-deep); }
+.did-chev { flex: none; color: var(--muted-text); }
+.did-open:hover .did-chev { color: var(--fox-deep); }
+.did-undo { flex: none; padding: 4px 8px; margin: -4px -4px -4px 0; border-radius: 8px; font-size: var(--text-xs); font-weight: 700; color: var(--muted-text); }
+.did-undo:hover, .did-undo:focus-visible { background: var(--surface-2); color: var(--ink); }
+.did-row.is-undone .did-tick { background: var(--surface-2); color: var(--muted-text); }
+.did-row.is-undone .did-label { font-weight: 500; color: var(--muted-text); }
+.did-note { margin-left: 8px; font-size: var(--text-xs); text-decoration: none; }
 .tq { display: flex; flex-direction: column; gap: 10px; }
 .tq-done { flex-direction: row; align-items: flex-start; }
 .opening-strip { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(220px, 260px); gap: 10px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x proximity; }
@@ -982,10 +994,8 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
    like it looks on a big monitor; phones and big monitors stay at 100%. Screen-sized heights divide by the zoom. */
 :root { --app-zoom: 1; }
 @media (min-width: 1100px) and (max-width: 1699px) { :root { --app-zoom: .85; } }
-/* Tall screens (Dilan, Nov 26: pages should fill a 1920x1080 monitor): pages are laid out for the ~940px a laptop gets after
-   its 85% zoom, so a big screen zooms up to the same layout instead of leaving the bottom third blank. */
-@media (min-width: 1700px) and (min-height: 1000px) { :root { --app-zoom: 1.15; } }
-@media (min-width: 2240px) and (min-height: 1300px) { :root { --app-zoom: 1.5; } }
+/* Big monitors zoom up (Dilan, Nov 26) by the window's HEIGHT, set from main.tsx (fitZoom): never less than the ~940px
+   tall layout a 1440x800 laptop gets, so pages fill the screen and still fit it with no scrolling. */
 @supports (zoom: 1) {
   .shell, .ob { zoom: var(--app-zoom); }
   .shell { height: calc(100vh / var(--app-zoom)); height: calc(100dvh / var(--app-zoom)); }
@@ -1710,6 +1720,18 @@ ul[class] > li, ol[class] > li { max-width: none; }
 button.ms-text:hover { text-decoration: underline; text-underline-offset: 3px; }
 .redesign-2 .home-lists { gap: 16px; align-items: start; }
 .redesign-2 .home-lists > section { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 14px 14px 8px; }
+/* Home fits one screen whatever the to-dos say (Dilan, Nov 26): on desktop the page fills the window and the two lists take
+   the height that's left. Each list is a wrapping column with overflow hidden, so rows that don't fit move to a hidden
+   second column: whole rows only, never a cut-off one. Tall screens show more rows (up to six), short ones fewer. */
+.home-extra { display: contents; }
+@media (min-width: 1021px) {
+  .main > .page:has(.home-lists) { flex: 1 1 auto; min-height: 0; }
+  .page:has(.home-lists) > * { flex-shrink: 0; }
+  .page:has(.home-lists) > .home-lists { flex: 1 1 0; min-height: 220px; grid-auto-rows: minmax(0, 1fr); align-items: stretch; }
+  .home-lists > section { min-height: 0; overflow: hidden; display: flex; flex-direction: column; flex-wrap: wrap; align-content: flex-start; column-gap: 120px; }
+  .home-lists > section > * { width: 100%; }
+}
+@media (max-width: 1020px) { .home-extra { display: none; } }
 .redesign-2 .home-list-head { border-bottom: 0; padding-bottom: 4px; }
 .job-card.item { gap: 12px; padding: 10px; margin-bottom: 6px; border: 1px solid var(--line); border-radius: 16px; }
 .home-lists .job-card.item:first-of-type { border-top: 1px solid var(--line); }

@@ -1,12 +1,13 @@
 import { router } from "expo-router";
 import { HearIt } from "@/components/HearIt";
+import { DidRows } from "@/components/DidRows";
 import { useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { Workspace } from "@shared/types";
 import { dayKey } from "@shared/daily";
 import { officeSteps, type OfficeSpot, type OfficeStep } from "@shared/officeSteps";
 import { remyAsks, type Ask } from "@shared/remyAsks";
-import { Button, Icon, success, tap } from "@/components/ui";
+import { Button, success, tap } from "@/components/ui";
 import type { OfficeMark } from "@/components/Office";
 import { api } from "@/lib/api";
 import { useJobs } from "@/lib/jobs";
@@ -145,11 +146,7 @@ export function AskCard({ ask, next, onAnswered, onNext }: { ask: Ask; next: num
     return (
       <View testID="remy-ask-done" style={{ gap: 8 }}>
         <Text style={{ fontFamily: font.body, fontSize: 15.5, lineHeight: 22, color: c.ink }}>{done.text}{done.copy ? ` "${done.copy}"` : ""}</Text>
-        {d && <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Icon name={d.undone ? "undo" : "check"} size={16} color={d.undone ? c.faint : c.sage} />
-          <Text numberOfLines={2} style={{ flex: 1, fontFamily: font.body, fontSize: 13.5, color: c.mutedText, textDecorationLine: d.undone ? "line-through" : "none" }}>{d.label}</Text>
-          {!d.undone && <Pressable testID="button-ask-undo" hitSlop={8} onPress={undo}><Text style={{ fontFamily: font.bold, fontSize: 13.5, color: c.ink }}>Undo</Text></Pressable>}
-        </View>}
+        {m && d && <DidRows did={[d]} onUndo={undo} undoTestID="button-ask-undo" />}
         {!!err && <Text style={{ fontFamily: font.body, fontSize: 13, color: c.error }}>{err}</Text>}
         {next > 0 && <Button testID="button-ask-next" kind="ghost" label={`Next question · ${next} more`} onPress={() => { setDone(null); onNext(); }} style={small} />}
       </View>

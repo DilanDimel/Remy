@@ -6,6 +6,7 @@ import type { ChatAction, ChatDid, ChatMsg, Workspace } from "@shared/types";
 import { resumeDiff } from "@shared/resumeDiff";
 import { Icon, Remy, RemyRing, RichText, T, success, tap } from "@/components/ui";
 import { HearIt } from "@/components/HearIt";
+import { DidRows } from "@/components/DidRows";
 import { api, streamChat } from "@/lib/api";
 import { go } from "@/lib/nav";
 import { tidyPartial } from "@/lib/partial";
@@ -203,13 +204,7 @@ export default function RemyChat() {
         </View>
         {!me && m.id !== "live" && <View style={{ paddingLeft: 6, paddingTop: 2 }}><HearIt text={m.text} testID="button-chat-hear-it" /></View>}
         <Proposal m={m} />
-        {(m.did || []).map((d) => (
-          <View key={d.id} style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 4, paddingTop: 6 }}>
-            <Icon name={d.undone ? "undo" : "check"} size={16} color={d.undone ? c.faint : c.sage} />
-            <Text style={{ flex: 1, fontFamily: font.body, fontSize: 13.5, color: c.mutedText, textDecorationLine: d.undone ? "line-through" : "none" }} numberOfLines={2}>{d.label}</Text>
-            {!d.undone && <Pressable testID="button-undo" hitSlop={8} onPress={() => undo(m.id, d)} style={{ flexDirection: "row", alignItems: "center", gap: 3 }}><Icon name="undo" size={14} /><Text style={{ fontFamily: font.bold, fontSize: 13.5, color: c.ink }}>Undo</Text></Pressable>}
-          </View>
-        ))}
+        <DidRows did={m.did} onUndo={(d) => undo(m.id, d)} />
         {/* Buttons Remy offered under his reply: nothing happens until the student taps one. Done ones say so. */}
         {!!m.actions?.length && (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, paddingTop: 8, maxWidth: "92%" }}>

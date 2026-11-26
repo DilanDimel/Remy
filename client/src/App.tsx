@@ -661,7 +661,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
               );
             })()}
             {/* What Remy did from this reply (redesign stage 6, owners first), each with Undo. */}
-            <RemyDid m={m} card={!stage2} />
+            <RemyDid m={m} />
             {m.role !== "user" && m.id === chat[chat.length - 1]?.id && !busy && <QuickRate place="coach" id={"coach:" + m.id} label="Helpful?" />}
             {!!m.actions?.length && (
               <div className="row" style={{ gap: 6, maxWidth: "92%" }}>

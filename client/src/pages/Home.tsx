@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ApplyLink } from "../components/ApplyLink";
 import { SeasonCard } from "../components/SeasonCard";
 import { ApplyNudge } from "../components/ApplyNudge";
@@ -87,12 +87,12 @@ export default function Home() {
     if (before >= 0 && doneNow > before) { setCheer(true); const t = setTimeout(() => setCheer(false), 3500); return () => clearTimeout(t); }
   }, [doneNow]);
   const { isFading, mark } = useCompleting();
-  const todos = w.tasks.filter((t) => !t.done || isFading(t.id)).sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999")).slice(0, 3);
+  const todos = w.tasks.filter((t) => !t.done || isFading(t.id)).sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999")).slice(0, ownerView ? 6 : 3);
   // Only places the student chose (Opportunities can still show the rest).
   // Same rules as the Opportunities page: nothing it hides (not eligible, not in their fields, closed) shows here either.
   const active = (jobs || []).filter((j) => !w.hiddenJobIds.includes(j.id) && !fits[j.id]?.excluded && !fits[j.id]?.closed && fits[j.id]?.regionMatch !== false && (!j.deadline || (daysUntil(j.deadline) ?? 0) >= 0));
   const events = active.filter((j) => j.kind === "event").slice(0, 3);
-  const opps = active.filter((j) => j.kind !== "event").sort((a, b) => (fits[b.id]?.matched.length || 0) - (fits[a.id]?.matched.length || 0)).slice(0, 3);
+  const opps = active.filter((j) => j.kind !== "event").sort((a, b) => (fits[b.id]?.matched.length || 0) - (fits[a.id]?.matched.length || 0)).slice(0, ownerView ? 6 : 3);
   const toggleTask = (t: Task) => { if (!t.done) mark(t.id); return run(() => api<Workspace>("PATCH", `/api/tasks/${t.id}`, { done: !t.done }).then(setWs)); };
   const moreLink = tab === "todos" ? "/progress?tab=todos" : tab === "events" ? "/opportunities?kind=event" : "/opportunities?kind=jobs";
 
@@ -127,6 +127,8 @@ export default function Home() {
       ))}
     </div>
   );
+  // Desktop lists hold up to six and show only the rows that fit the screen (.home-lists in index.css); phones keep three.
+  const more = (i: number, row: ReactNode, key: string) => (i < 3 ? row : <div key={key} className="home-extra">{row}</div>);
   const jobRow = (j: Job, i = 0) => <JobRow key={j.id} j={j} why={fits[j.id]?.why} open={open === j.id} onToggle={() => setOpen(open === j.id ? "" : j.id)} mono={ownerView} matched={fits[j.id]?.matched} top={ownerView && i === 0 && j.kind !== "event"} />;
 
   return (
@@ -225,11 +227,11 @@ export default function Home() {
         <div className="home-lists" data-testid="home-lists">
           <section aria-labelledby="h-week">
             <div className="home-list-head"><h2 id="h-week">Coming up</h2>{/* Nov 23 PM review: it listed December to-dos under "This week" */}<a href="/progress?tab=todos" className="btn btn-ghost btn-sm">All to-dos <ArrowUpRight size={14} /></a></div>
-            {todos.length ? todos.map(todoRow) : noTodos}
+            {todos.length ? todos.map((t, i) => more(i, todoRow(t), t.id)) : noTodos}
           </section>
           <section aria-labelledby="h-opps">
             <div className="home-list-head"><h2 id="h-opps">Openings for you</h2><a href="/opportunities?kind=jobs" className="btn btn-ghost btn-sm">See all <ArrowUpRight size={14} /></a></div>
-            {opps.length ? opps.map(jobRow) : <p className="muted small" style={{ padding: "14px 0" }}>{jobs ? "Nothing here yet." : "Loading…"}</p>}
+            {opps.length ? opps.map((j, i) => more(i, jobRow(j, i), j.id)) : <p className="muted small" style={{ padding: "14px 0" }}>{jobs ? "Nothing here yet." : "Loading…"}</p>}
             {events.length > 0 && <><h3 className="home-list-sub">Events</h3>{events.map(jobRow)}</>}
           </section>
         </div>
