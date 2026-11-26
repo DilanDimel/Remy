@@ -12,7 +12,9 @@ const sectionOf = (heading: string) =>
     : /leader|activit|organi[sz]|involve|club|extracurric/i.test(heading) ? "Organizations" : "Experience";
 
 export function linkedinGaps(doc: ResumeDoc, li: string): LinkedInGap[] {
-  const hay = " " + norm(li) + " ";
+  // The headline doesn't count: "Intern @ Acme" there still leaves Acme missing from Experience (11,000-resume test, Nov 26).
+  const head = norm(parseLinkedin(li, [doc.contact.name]).headline || "");
+  const hay = " " + (head ? norm(li).replace(head, " ") : norm(li)) + " ";
   const out: LinkedInGap[] = [];
   for (const s of doc.sections) {
     if (/skill/i.test(s.heading)) continue;
