@@ -140,6 +140,8 @@ interface Store {
   me: Me | null;
   ws: Workspace | null;
   loading: boolean;
+  /** Why the first load failed (server down or unreachable); the app shows "This page isn't loading" instead of signing out. */
+  bootError: string;
   setWs: (w: Workspace) => void;
   setSession: (me: Me | null, ws: Workspace | null) => void;
   save: <K extends string>(section: K, value: unknown) => Promise<Workspace>;
@@ -178,6 +180,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   meRef.current = me;
   const [ws, setWsState] = useState<Workspace | null>(null);
   const [loading, setLoading] = useState(true);
+  const [bootError, setBootError] = useState("");
   const [betaBlocked, setBetaBlocked] = useState<string | null>(null);
   useEffect(() => {
     const on = (e: Event) => { setBetaBlocked(String((e as CustomEvent).detail || "")); setMe(null); setWsState(null); };
@@ -216,7 +219,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   useEffect(() => {
-    refresh().catch((e) => toast(e.message, true)).finally(() => setLoading(false));
+    // A failed first load used to fall through to the signed-out homepage; now it says so, with Try again.
+    refresh().catch((e) => setBootError(e.message || "Remy couldn't load.")).finally(() => setLoading(false));
   }, [refresh, toast]);
 
   // A tab left open goes stale: when the student comes back (or every 15 minutes while it stays open), load again.
@@ -328,10 +332,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Any workspace the app sets (an AI result, a search) is newer than a quiet refresh still on its way.
   const setWs = useCallback((w: Workspace) => { saveSeq.current++; setWsState((prev) => keepNewerJobFeedback(prev, w, meRef.current?.id || null, meRef.current?.id || null)); }, []);
   const value = useMemo<Store>(() => ({
-    config, me, ws, loading, toast, refresh, save, run, theme, setTheme,
+    config, me, ws, loading, bootError, toast, refresh, save, run, theme, setTheme,
     setWs, betaBlocked, clearBeta: () => setBetaBlocked(null),
     setSession: (m, w) => { setMe(m); setWsState(w); if (m) setBetaBlocked(null); },
-  }), [config, me, ws, loading, toast, refresh, save, run, theme, setTheme, setWs, betaBlocked]);
+  }), [config, me, ws, loading, bootError, toast, refresh, save, run, theme, setTheme, setWs, betaBlocked]);
 
   return (
     <Ctx.Provider value={value}>

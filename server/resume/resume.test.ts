@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Entry, ResumeDoc } from "@shared/types";
-import { gpaOf, graduationOf, majorsOf, minorsOf, nameCase, preCollegeIds, primaryEducation, rulesParse, schoolName, verifyAiDoc } from "./resume";
+import { gpaOf, graduationOf, highSchoolEducation, majorsOf, minorsOf, nameCase, preCollegeIds, primaryEducation, rulesParse, schoolName, verifyAiDoc } from "./resume";
 import { normalizeResumeText } from "./resume";
 
 let n = 0;
@@ -181,4 +181,36 @@ test("contact details lower down, or run together on one line", () => {
   const e = rulesParse("Ana Ruiz\nPlano, TX ana@example.com 817-555-0101\nEDUCATION\nExample University");
   assert.equal(e.contact.email, "ana@example.com");
   assert.equal(e.contact.phone, "817-555-0101");
+});
+
+test("two-digit years and a title line above its org", () => {
+  const doc = rulesParse("Avery Kim\navery@gmail.com\n\nEDUCATION\nUniversity of New Mexico, Albuquerque, NM\nBS Cybersecurity — Expected May. '28\n\nEXPERIENCE\nSecurity Analyst Intern\nBluebonnet Health — Albuquerque, NM\nJun. '26 – Aug. '26\n- Monitored alerts\n");
+  const e = primaryEducation(doc)!;
+  assert.equal(majorsOf(e), "Cybersecurity");
+  assert.equal(graduationOf(e.dates), "May 2028");
+  const job = doc.sections.find((s) => /experience/i.test(s.heading))!.entries;
+  assert.equal(job.length, 1);
+  assert.equal(job[0].role, "Security Analyst Intern");
+  assert.equal(job[0].org, "Bluebonnet Health");
+  assert.equal(job[0].dates, "Jun. '26 – Aug. '26");
+});
+
+test("field-named experience headings start a section", () => {
+  const doc = rulesParse("Sam Lee\nsam@x.com\n\nGraphic Design Experience\nDesigner\tSep 2015 – May 2016\nAcme Print — Towson, MD\n- Made logos\n\nManagement Experience\nShift Lead\tJun 2014 – Aug 2015\nCafe Uno — Towson, MD\n- Ran shifts\n");
+  assert.deepEqual(doc.sections.map((s) => s.heading), ["Graphic Design Experience", "Management Experience"]);
+});
+
+test("bullets that lost their dots and a role, org line stay with their job", () => {
+  const doc = rulesParse("Parker Romero\nparker@x.com\n\nWORK EXPERIENCE:\nElementary Teacher\nNorthwind Co. — Nashville, TN\nJune 2026 – Present\nTaught a 2nd grade class of 22 during student teaching\n\nServer, Olive Garden — Nashville, TN\nSeptember 2025 – Present\nClosed the store 3 nights a week\n");
+  const jobs = doc.sections[0].entries.map((e) => [e.role, e.org, e.dates, e.bullets.length]);
+  assert.deepEqual(jobs, [["Elementary Teacher", "Northwind Co.", "June 2026 – Present", 1], ["Server", "Olive Garden", "September 2025 – Present", 1]]);
+});
+
+test("a high-schooler's school, GPA and graduation", () => {
+  const d = rulesParse("Jordan Lee\njordan@x.com | Plano, TX\n\nEDUCATION\nPlano Senior High School, Plano, TX\nExpected graduation May 2027, GPA 3.9\n");
+  const hs = highSchoolEducation(d)!;
+  assert.equal(schoolName(hs.org), "Plano Senior High School");
+  assert.equal(gpaOf(hs), "3.9");
+  assert.equal(graduationOf(hs.dates), "May 2027");
+  assert.equal(highSchoolEducation(rulesParse("A B\n\nEDUCATION\nUniversity of Texas, Austin, TX\nBS Biology — May 2027\nPlano Senior High School\n")), undefined);
 });

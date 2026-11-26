@@ -157,3 +157,10 @@ test("claims (owners): a job simulation isn't a certification in a letter", () =
   assert.ok(!claimCheck(letter, ev).some((f) => /simulation/i.test(f.term))); // students unchanged until the team says so
   assert.ok(!claimCheck("I completed the J.P. Morgan Investment Banking Job Simulation on Forage.", ev, { owner: true }).some((f) => /simulation/i.test(f.term)));
 });
+
+test("claims: a resume figure put on something new is flagged", () => {
+  const ev = "Nurse Aide\n- Cared for 12 patients a shift\n- Trained 4 new hires";
+  assert.ok(claimCheck("Trained 4 new hires across 12 states", ev, { original: "Trained 4 new hires" }).some((f) => f.type === "number"));
+  assert.deepEqual(claimCheck("Cared for 12 patients each shift", ev, { original: "Cared for 12 patients a shift" }), []);
+  assert.deepEqual(claimCheck("Trained and onboarded 4 new hires", ev, { original: "Trained 4 new hires" }), []);
+});

@@ -1,11 +1,11 @@
 import { go, uiFlags } from "../lib/router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Check, ChevronDown, FileText, GraduationCap, Mail, Sparkles } from "lucide-react";
-import { PATHS, type Profile, type SetupFocus, type Workspace } from "@shared/types";
+import { PATHS, type Job, type Profile, type SetupFocus, type Workspace } from "@shared/types";
 import { FIELD_GROUPS, FIELD_MAJORS, splitFieldList } from "@shared/fields";
 import { AUTH_OPTS, authChip } from "@shared/workAuth";
 import { alreadyIn, fitsField, inField, setupReply, tappedResumeClaim } from "@shared/setupReply";
-import { guessYear } from "@shared/roads";
+import { defaultTypes, fieldFromMajor, guessYearFor, yearOptions } from "@shared/setupDefaults";
 import { api, FAR_ENOUGH_STEP, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
 import { AiUnavailableNote, BetaBadge, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
@@ -17,12 +17,14 @@ import { ResumeBuilder } from "../components/ResumeBuilder";
 import { LinkedInGuide } from "../components/LinkedInGuide";
 import { useGoogleCalendar } from "../components/GoogleCalendar";
 import { useIsMobile } from "../hooks/use-mobile";
+import { OrgLogo } from "../components/OrgLogo";
 import { LinkedInMark } from "./Welcome";
 import { CareerTime } from "../components/CareerTime";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { firstName } from "@shared/names";
 import { nameConcern } from "@shared/junk";
 import { LIMIT_OPTS } from "@shared/limits";
+import { regionOptions } from "@shared/regions";
 
 // Step numbers are stored in the workspace: 0 and 1 are the goal question (no focus yet) or the resume step; 2-5 follow.
 const STEPS = ["Your goal", "Your resume", "Review", "Preferences", "Questions", "Your plan"];
@@ -162,6 +164,15 @@ function SetupNotebook({ shown, back }: { shown: number; back: boolean }) {
   );
 }
 
+/** Before the preferences step is saved, Remy only knows the student's home and goal: keep the preview to their state
+ *  (or remote) and drop internships when they came for a full-time job (setup tests, Nov 26: Milan internships for a
+ *  San Antonio veteran). Once places and kinds are saved, the server's fit decides. */
+function beforePrefs(w: Workspace, j: Job) {
+  const st = !w.profile.regions && (w.profile.location || "").match(/,\s*([A-Z]{2})\b/)?.[1];
+  if (st && j.location && !/remote/i.test(j.location) && !new RegExp(`\\b${st}\\b`).test(j.location)) return false;
+  return !!w.profile.opportunityTypes || !/full.?time|switch/i.test(w.profile.goal || "") || j.kind !== "internship";
+}
+
 /** Owner setup's right side (Dilan, Nov 23): a live preview of what Remy is building from each step, so the screen
  *  isn't half empty. Resume steps show Remy reading the file; later steps show the first openings arriving. */
 function SetupPreview({ shown, reading }: { shown: number; reading: boolean }) {
@@ -172,9 +183,10 @@ function SetupPreview({ shown, reading }: { shown: number; reading: boolean }) {
   const first = firstName(w);
   if (shown <= 2) {
     const sections = doc?.sections.filter((s) => s.entries.length) || [];
+    const read = sections.length + (doc?.skills.length ? 1 : 0); // Skills are kept apart from sections but shown as one
     return (
       <aside className="ob-pv" aria-label="What Remy is reading" data-testid="setup-preview">
-        <span className="ob-pv-h">{reading ? "Reading your resume" : doc ? `Remy read ${sections.length} section${sections.length === 1 ? "" : "s"}` : shown === 0 ? "Your workspace, so far" : "Your resume goes here"}</span>
+        <span className="ob-pv-h">{reading ? "Reading your resume" : doc ? `Remy read ${read} section${read === 1 ? "" : "s"}` : shown === 0 ? "Your workspace, so far" : "Your resume goes here"}</span>
         <div className={"ob-paper" + (reading ? " reading" : "") + (doc && !reading ? " read" : "")}>
           {doc && !reading ? (
             <>
@@ -195,7 +207,7 @@ function SetupPreview({ shown, reading }: { shown: number; reading: boolean }) {
       </aside>
     );
   }
-  const matches = (jobs || []).filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false);
+  const matches = (jobs || []).filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false && beforePrefs(w, j));
   const looking = refreshing || !jobs;
   return (
     <aside className="ob-pv" aria-label="Your first openings" data-testid="setup-preview">
@@ -203,7 +215,7 @@ function SetupPreview({ shown, reading }: { shown: number; reading: boolean }) {
       <ul className="ob-pv-jobs">
         {matches.slice(0, 8).map((j, i) => (
           <li key={j.id} style={{ animationDelay: `${i * 160}ms` }} data-testid="setup-preview-job">
-            <span className="ob-pv-logo" aria-hidden>{j.company.slice(0, 1)}</span>
+            <OrgLogo company={j.company} url={j.applyUrl} className="ob-pv-logo" />
             <span><b>{j.title}</b><span>{j.company}{j.location ? ` · ${j.location}` : ""}</span></span>
           </li>
         ))}
@@ -451,7 +463,7 @@ export function ProfileForm({ onSaved, hidePrefs, draft, compact }: { onSaved?: 
   return (
     <div className="stack">
       <div className="grid-2">
-        {PROFILE_FIELDS.filter(([k]) => !(hidePrefs && PREF_KEYS.includes(k))).map(([k, label0, ph]) => {
+        {PROFILE_FIELDS.filter(([k]) => !(hidePrefs && PREF_KEYS.includes(k)) && !(k === "classYear" && !p.classYear && !yearOptions(p.path).length) && !(k === "minors" && !p.minors && p.path === "high-school")).map(([k, label0, ph]) => {
           const label = p.path && p.path !== "four-year" ? ({ major: "Program, trade or field", classYear: "Year (if in school)", graduation: "Expected finish date" } as Record<string, string>)[k] || label0 : label0;
           const v = String(p[k] ?? "");
           if (asRow(k, v, (k === "name" || k === "preferredName") ? nameConcern(v, k === "preferredName") || "" : "")) return <ProfileRow key={k} k={k} label={label} value={k === "path" ? PATHS.find(([x]) => x === v)?.[1] || v : v} onEdit={() => setEditing([...editing, k])} />;
@@ -471,7 +483,7 @@ export function ProfileForm({ onSaved, hidePrefs, draft, compact }: { onSaved?: 
             ) : k === "classYear" ? (
               <select className="select" value={p.classYear} onChange={(e) => setP({ ...p, classYear: e.target.value })} data-testid="select-class-year">
                 <option value="">Choose…</option>
-                {["First-year", "Sophomore", "Junior", "Senior", "Graduate student"].map((o) => <option key={o}>{o}</option>)}
+                {[...yearOptions(p.path), ...(p.classYear && !yearOptions(p.path).includes(p.classYear) ? [p.classYear] : [])].map((o) => <option key={o}>{o}</option>)}
               </select>
             ) : (
               <input className="input" maxLength={600} value={p[k] ?? ""} placeholder={ph} onChange={(e) => setP({ ...p, [k]: e.target.value })} onFocus={() => setTyping(k)} onBlur={() => setTyping("")} data-testid={`input-profile-${k}`} />
@@ -481,7 +493,8 @@ export function ProfileForm({ onSaved, hidePrefs, draft, compact }: { onSaved?: 
           );
         })}
       </div>
-      {asRow("goals", p.goals || "") ? <ProfileRow k="goals" label="Goals" value={p.goals} onEdit={() => setEditing([...editing, "goals"])} /> :
+      {/* Setup already asked "What you're working toward", so an empty Goals box isn't asked twice there. */}
+      {hidePrefs && !p.goals ? null : asRow("goals", p.goals || "") ? <ProfileRow k="goals" label="Goals" value={p.goals} onEdit={() => setEditing([...editing, "goals"])} /> :
       <label className="field"><span>Goals</span><textarea className="textarea" maxLength={600} value={p.goals} onChange={(e) => setP({ ...p, goals: e.target.value })} placeholder="What would a great next year look like?" data-testid="input-profile-goals" /></label>}
       {!draft && (<div className="row">
         <button className="btn btn-primary btn-sm" disabled={!dirty} onClick={async () => { const r = await run(() => save("profile", p), "Profile saved"); if (r) onSaved?.(); }} data-testid="button-save-profile">Save profile</button>
@@ -500,8 +513,6 @@ function ProfileRow({ k, label, value, onEdit }: { k: string; label: string; val
   );
 }
 
-const YEAR_OPTS = ["First-year", "Sophomore", "Junior", "Senior", "Graduate student"];
-const REGION_OPTS = ["Fort Worth", "Dallas", "DFW area", "Houston", "Austin", "Anywhere in Texas", "Remote", "Anywhere in the US"];
 const TYPE_OPTS = ["Internships", "Full-time jobs", "Part-time / campus jobs", "Programs & insight days", "Events & networking", "Competitions"];
 const RELOC_OPTS = ["Yes", "For the right role", "No"];
 /** The next few terms a student could start something, e.g. Spring 2027, Summer 2027, Fall 2027, Summer 2028. */
@@ -539,13 +550,18 @@ function Preferences({ onBack }: { onBack: () => void }) {
   const p = ws!.profile;
   const owner = useOwnerView();
   // Owners (Nov 23 review): start from what the resume already says (graduation year, home city) instead of blanks.
-  const [year, setYear] = useState(p.classYear ? [p.classYear] : owner ? [guessYear(p.graduation)].filter(Boolean) : []);
+  // Only a year that is one of this path's choices counts, so a stale "Junior" never answers it for a high-schooler.
+  const [year, setYear] = useState([p.classYear, guessYearFor(p.path || "", p.graduation)].filter((y) => yearOptions(p.path).includes(y)).slice(0, 1));
   const [grad, setGrad] = useState(p.graduation);
   const [timeline, setTimeline] = useState(splitList(p.timeline || ""));
-  const [regions, setRegions] = useState(p.regions || !owner ? splitList(p.regions) : REGION_OPTS.filter((r) => r === (p.location || "").split(",")[0].trim()));
+  // Places near the student (their city and state), not Texas for everyone: shared/regions.ts.
+  const regionOpts = regionOptions(p.location || "");
+  const [regions, setRegions] = useState(p.regions ? splitList(p.regions) : regionOpts.filter((r) => r === (p.location || "").split(",")[0].trim()));
   const [otherRegion, setOtherRegion] = useState("");
-  const [types, setTypes] = useState(p.opportunityTypes ? splitList(p.opportunityTypes) : ["Internships"]);
-  const [fields, setFields] = useState(splitFieldList(p.targetRoles));
+  const [types, setTypes] = useState(p.opportunityTypes ? splitList(p.opportunityTypes) : defaultTypes(p.goal, p.path));
+  const [fields, setFields] = useState(p.targetRoles ? splitFieldList(p.targetRoles) : fieldFromMajor(p.major));
+  // Grades for high school, two years for community college, no year question for work, trade or service paths.
+  const yearOpts = yearOptions(p.path);
   const [otherField, setOtherField] = useState("");
   // Field groups open like a dropdown: the ones with a pick, or that match the student's major or goal, start open.
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
@@ -571,7 +587,7 @@ function Preferences({ onBack }: { onBack: () => void }) {
   const allFields = [...fields, ...splitList(otherField)];
   // Two short screens: what you want, then where and the practical bits.
   const missing = (page === 0
-    ? [!year.length && "your year", !allFields.length && !unsure && "at least one field (or \"I'm not sure yet\")", !types.length && "what kinds of opportunities"]
+    ? [yearOpts.length && !year.length && "your year", !allFields.length && !unsure && "at least one field (or \"I'm not sure yet\")", !types.length && "what kinds of opportunities"]
     : []).filter(Boolean);
   const toPage = (n: number) => { setPage(n); window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); };
   // Page 1's picks are saved before page 2, so a refresh there doesn't lose them (the rest saves on "Save and continue").
@@ -619,8 +635,8 @@ function Preferences({ onBack }: { onBack: () => void }) {
       </div>
       <div className="stack-lg fade-up" key={page}>
         {page === 0 ? <>
-          <Q n={1}><strong>What year are you in?</strong><div className="pref-inline"><Chips options={YEAR_OPTS} value={year} onChange={setYear} multi={false} testid="pref-year" />
-            <label className="field" style={{ maxWidth: 260 }}><span className="xs muted">Expected graduation</span><input className="input" value={grad} onChange={(e) => setGrad(e.target.value)} placeholder="e.g. May 2029" data-testid="input-pref-grad" /></label></div></Q>
+          <Q n={1}>{yearOpts.length ? <strong>What year are you in?</strong> : <strong>When did you finish school? <span className="muted xs">(optional)</span></strong>}<div className="pref-inline">{yearOpts.length > 0 && <Chips options={yearOpts} value={year} onChange={setYear} multi={false} testid="pref-year" />}
+            <label className="field" style={{ maxWidth: 260 }}><span className="xs muted">{yearOpts.length ? "Expected graduation" : "Graduation"}</span><input className="input" value={grad} onChange={(e) => setGrad(e.target.value)} placeholder="e.g. May 2029" data-testid="input-pref-grad" /></label></div></Q>
           <Q n={2}><strong>Which fields or roles interest you?</strong>
             {!owner && <div className="stack-sm" style={{ gap: 6 }}>
               <button type="button" className="pref-chip pref-unsure" aria-pressed={unsure} onClick={() => setUnsure(!unsure)} data-testid="pref-unsure">I'm not sure yet</button>
@@ -657,7 +673,7 @@ function Preferences({ onBack }: { onBack: () => void }) {
             <span className="xs muted">Pick all that work. Leave empty if you're open to anything.</span></Q>
           </div>
         </> : <>
-          <Q n={5}><strong>Where should I look for you?</strong><Chips options={REGION_OPTS} value={regions} onChange={setRegions} testid="pref-region" />
+          <Q n={5}><strong>Where should I look for you?</strong><Chips options={[...regionOpts, ...regions.filter((r) => !regionOpts.includes(r))]} value={regions} onChange={setRegions} testid="pref-region" />
             <div className="pref-inline"><input className="input pref-grow" value={otherRegion} onChange={(e) => setOtherRegion(e.target.value)} placeholder="Somewhere else? e.g. Chicago" aria-label="Other regions" data-testid="input-pref-region" />
             <span className="xs muted">Open to relocating?</span><Chips options={RELOC_OPTS} value={reloc} onChange={setReloc} multi={false} testid="pref-reloc" /></div></Q>
           <div className="pref-pair">
@@ -723,7 +739,7 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
       )}
       <div className="stack-sm">
         <h2>Here's what I found</h2>
-        <p className="small muted">Tap Edit on anything that's off, or fill in what's empty (goals, GPA). Remy only uses what you confirm here.</p>
+        <p className="small muted">Tap Edit on anything that's off, or fill in what's empty. Remy only uses what you confirm here.</p>
       </div>
       <ProfileForm hidePrefs draft={profileDraft} compact />
       {atAlumniSchool(w) && !skipVerify && <SchoolVerify onSkip={() => setSkipVerify(true)} />}
@@ -890,7 +906,7 @@ function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: (tour?: 
   const w = ws!;
   const owner = useOwnerView();
   const { jobs, fits, refreshing } = useJobs();
-  const matches = (jobs || []).filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false);
+  const matches = (jobs || []).filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false && beforePrefs(w, j));
   const [busy, setBusy] = useState(false);
   // Owner view: an opening links into the workspace (finish setup, then open it) — they were dead text before.
   const openJob = async (id: string) => { await onFinish(false); go(`/opportunities?kind=all&id=${id}`); };

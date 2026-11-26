@@ -646,7 +646,7 @@ test("a posting with no graduation rule still says nothing limits class year", (
   assert.match(computeFit(student({ graduation: "May 2030" }), job({ eligibility: ["Strong Python skills"] }), "").eligibilityNote, /doesn't limit class year/);
 });
 
-test("owners: a 'New Grad' title is for graduates; an Underwriting Externship isn't nursing. Students: unchanged", async () => {
+test("owners: a 'New Grad' title is for graduates; an Underwriting Externship isn't nursing. Students too", async () => {
   const j = job({ kind: "program", title: "New Grad RN Residency" });
   const soph = student({ graduation: "May 2030", major: "Nursing", opportunityTypes: "Internships" } as any);
   const nurse = student({ major: "Nursing" } as any);
@@ -660,11 +660,12 @@ test("owners: a 'New Grad' title is for graduates; an Underwriting Externship is
     assert.equal(fieldMatch(nurse, job({ title: "Cath Lab Tech Extern" })), true);
     assert.equal(fieldMatch(nurse, under), false);
   });
-  assert.ok(!/new graduates/.test(computeFit(soph, j, "").eligibilityNote));
-  assert.equal(fieldMatch(nurse, under), true);
+  // Released to students (Nov 26): the same answers in student view.
+  assert.match(computeFit(soph, j, "").eligibilityNote, /new graduates/);
+  assert.equal(fieldMatch(nurse, under), false);
 });
 
-test("owners: an 'Emergency Management … or related field' degree list isn't 'You qualify' for a finance major. Students: unchanged", async () => {
+test("owners: an 'Emergency Management … or related field' degree list isn't 'You qualify' for a finance major. Students too", async () => {
   const fin = student({ graduation: "May 2029", major: "Finance & BIS", targetRoles: "Business & management", gpa: "3.8" } as any);
   const j = job({ title: "2027 Undergraduate Summer Internship - Emergency Management", eligibility: ["Must be an active student in a bachelor's degree program in Emergency Management, Public Administration, or related field.", "Current, cumulative GPA of 3.0 or higher"] });
   const ok = job({ eligibility: ["Must be pursuing a degree in Finance, Accounting, or a related field."] });
@@ -674,7 +675,13 @@ test("owners: an 'Emergency Management … or related field' degree list isn't '
     assert.match(f.eligibilityNote, /Emergency Management, Public Administration.*check yours counts/);
     assert.ok(!/check yours counts/.test(computeFit(fin, ok, "").eligibilityNote));
   });
-  assert.equal(computeFit(fin, j, "").checked, true);
+  assert.equal(computeFit(fin, j, "").checked, false); // students too (Nov 26)
+});
+
+test("nearby fields: sports majors see ticket sales and events, aviation majors see airport operations", () => {
+  assert.equal(fieldMatch(student({ major: "Sport Management" }), job({ title: "Marketing & Events Intern" })), true);
+  assert.equal(fieldMatch(student({ major: "Aviation Management" }), job({ title: "Ground Operations Intern" })), true);
+  assert.equal(fieldMatch(student({ major: "Aviation Management" }), job({ title: "Software Engineering Intern" })), false);
 });
 
 test("graduation written as month/year counts its month", async () => {
@@ -684,4 +691,36 @@ test("graduation written as month/year counts its month", async () => {
   assert.deepEqual(gradDate(ws), { y: 2026, m: 12 });
   ws.profile.graduation = "Fall 2027";
   assert.deepEqual(gradDate(ws), { y: 2027, m: 12 });
+});
+
+test("fields (11,041-resume test, Nov 26): majors Remy didn't recognize now narrow to their own openings", () => {
+  const f = (major: string, title: string, postingText = "") => fieldMatch(student({ major }), job({ title, postingText }));
+  assert.equal(f("Welding Technology", "Welder Apprentice"), true);
+  assert.equal(f("Welding Technology", "Marketing Intern"), false);
+  assert.equal(f("Radiologic Technology", "Radiologic Technologist"), true);
+  assert.equal(f("Radiologic Technology", "Sales Internship (FL)"), false);
+  assert.equal(f("Animal Science", "Livestock Sales Intern"), true);
+  assert.equal(f("History", "Museum Intern"), true);
+  assert.equal(f("Spanish", "Bilingual Customer Service Representative"), true);
+  assert.equal(f("Fire Science", "Legal Assistant"), false, "fire and EMS aren't legal careers");
+  assert.equal(f("Criminal Justice", "Legal Assistant"), true);
+  assert.equal(f("Turfgrass Management", "Sales Development Representative"), false, "an X Management major isn't a business major");
+  assert.equal(f("Business & management", "Operations Analyst Intern"), true);
+  assert.equal(fieldMatch(student({ targetRoles: "HR" }), job({ title: "People Operations Intern" })), true);
+  assert.equal(fieldMatch(student({ targetRoles: "QA" }), job({ title: "QA Tester" })), true);
+});
+test("fields: a title that names no field is judged by its duties, as the search does", () => {
+  const hr = student({ targetRoles: "Human resources" });
+  assert.equal(fieldMatch(hr, job({ title: "Summer Intern 2027", postingText: "You will support recruiting and onboarding for our talent team." })), true);
+  assert.equal(fieldMatch(hr, job({ title: "Summer Intern 2027", postingText: "You will write Python code." })), false);
+});
+
+test("class year follows the path, not a four-year degree", () => {
+  const today = new Date(2026, 10, 26);
+  const ws = (path: string, graduation: string) => ({ profile: { classYear: "", path, graduation }, resume: { rawText: "Plano Senior High School" } }) as any;
+  assert.equal(classYearOf(ws("community-college", "May 2027"), today), "Sophomore");
+  assert.equal(classYearOf(ws("community-college", "May 2028"), today), "First-year");
+  assert.equal(classYearOf(ws("high-school", "May 2027"), today), "");
+  assert.equal(classYearOf(ws("military", ""), today), "");
+  assert.equal(classYearOf(ws("four-year", "May 2027"), today), "Senior");
 });

@@ -11,5 +11,6 @@ export const QUANT = /\d|%|\$/;
 /** Coursework, honors and skills lines aren't achievement bullets. */
 /** `owner` (owners first, Nov 23): "Activities and Leadership" holds real roles (Treasurer, President), so its lines are
  *  judged like experience; a plain "Activities" list still isn't. */
-export const isListSection = (h: string, owner = false) =>
-  /educ|skill|course|honou?r|award|interest|certif|language|activit/i.test(h) && !(owner && /leader|involvement|experience/i.test(h));
+// A summary is a sentence or two, not achievement bullets: no verb, number or dates checks (11,029-resume test).
+export const isListSection = (h: string, owner = true) =>
+  /educ|skill|course|honou?r|award|interest|certif|licen[cs]e|language|activit|summary|profile|objective/i.test(h) && !(owner && /leader|involvement|experience/i.test(h));

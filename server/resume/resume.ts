@@ -28,7 +28,7 @@ export function normalizeResumeText(raw: string): string {
     .replace(/(?<=\p{L})[´`](?=\p{L})/gu, "’") // "team´s" typed with the accent key
     .replace(GLYPH_BULLET, "• ")
     .split("\n")
-    .map((l) => l.replace(/ {2,}/g, " ").replace(/ *\t[ \t]*/g, "\t").trim())
+    .map((l) => l.replace(/(?<=\S) {3,}(?=\S)/g, "\t").replace(/ {2,}/g, " ").replace(/ *\t[ \t]*/g, "\t").trim())
     .filter((l) => l && !PAGE_MARK.test(l) && !RULE_LINE.test(l))
     .join("\n");
 }
@@ -51,7 +51,7 @@ const WEAK = new Set(
 const MODIFIER = new Set(
   ("additional other others relevant related selected professional technical computer academic campus community personal key core work " +
     "laboral profesional academica academico adicional adicionales otros otras test extra career industry international athletic artistic " +
-    "artisticas musical creative military teaching summer class college customer graduate undergraduate student clinical healthcare nursing medical research lab laboratory engineering design areas me and of y e de del la las los en para").split(" "),
+    "artisticas musical creative military teaching summer class college customer graduate undergraduate student clinical healthcare nursing medical research lab laboratory engineering design areas management administrative executive freelance corporate legal retail hospitality government nonprofit sales marketing graphic security cyber practicum field culinary aviation construction me and of y e de del la las los en para").split(" "),
 );
 const headingWords = (s: string) => fold(s).split(/[\s&/+,]+/).map((w) => w.replace(/[^a-z]/g, "")).filter(Boolean);
 function isHeadingPhrase(s: string, caps: boolean) {
@@ -73,7 +73,7 @@ export function headingOf(line: string): { heading: string; rest: string; contin
   if (!t || t.length > 140 || BULLET_RE.test(t)) return null;
   const continued = CONTINUED.test(t);
   t = t.replace(CONTINUED, "").trim();
-  const out = (head: string, rest: string) => ({ heading: isCaps(head) ? titleCase(head) : head, rest: rest.trim(), continued });
+  const out = (h: string, rest: string) => { const head = h.replace(/^[\s—–=*~•|:-]+|[\s—–=*~•|:-]+$/g, ""); return { heading: isCaps(head) ? titleCase(head) : head, rest: rest.trim(), continued }; };
   const colon = t.indexOf(":");
   if (colon > 0) {
     const head = t.slice(0, colon).trim();
@@ -132,7 +132,10 @@ const MON =
   "ene(?:ro)?|febrero|marzo|abril|mayo|junio|julio|ago(?:sto)?|sept?iembre|octubre|noviembre|dic(?:iembre)?)\\b\\.?";
 const SEASON = "\\b(?:summer|fall|spring|winter|autumn|verano|oto[ñn]o|primavera|invierno)";
 const YEAR = "\\b(?:19|20)\\d{2}\\b";
-const POINT = `(?:${MON}\\s*(?:\\d{1,2},?\\s+)?${YEAR}|${SEASON}\\s+${YEAR}|\\b\\d{1,2}\\/(?:19|20)\\d{2}\\b|${YEAR})`;
+// "May '27", "Fall ’26": a two-digit year after an apostrophe (11,041-resume test, Nov 26: 11% of student resumes lost
+// their major and graduation date to it).
+const YEAR2 = "['’‘]\\d{2}\\b";
+const POINT = `(?:${MON}\\s*(?:\\d{1,2},?\\s+)?${YEAR}|${MON}\\s*${YEAR2}|${SEASON}\\s+(?:${YEAR}|${YEAR2})|\\b\\d{1,2}\\/(?:19|20)\\d{2}\\b|${YEAR})`;
 const NOW = "\\b(?:present|current|now|today|actualidad|actual|presente)\\b";
 const SHORT = "\\b\\d{1,2}\\/\\d{2}\\b"; // "7/09", only inside a range
 const RANGE =
@@ -140,7 +143,7 @@ const RANGE =
   `|${MON}\\s*${YEAR}\\s+(?:${MON}\\s*${YEAR}|${NOW})` + // some PDFs lose the dash: "Sep. 2023 Mar. 2024"
   `|${SEASON}\\s+${YEAR}\\s*(?:and|&|,)\\s*${YEAR})`; // "Summer 2012 and 2013"
 const EXPECTED = `(?:\\b(?:expected|anticipated|graduat(?:ion|ing|ed)|class of|egreso)\\b|\\bgrad\\.)[^\\d\\n]{0,24}?${POINT}`;
-const DATE = `(?:${EXPECTED}|${RANGE}|${MON}\\s*${YEAR}|${SEASON}\\s+${YEAR}|\\b\\d{1,2}\\/(?:19|20)\\d{2}\\b)`;
+const DATE = `(?:${EXPECTED}|${RANGE}|${MON}\\s*(?:${YEAR}|${YEAR2})|${SEASON}\\s+(?:${YEAR}|${YEAR2})|\\b\\d{1,2}\\/(?:19|20)\\d{2}\\b)`;
 const DATE_ONLY = new RegExp(`^\\(?\\s*(?:${DATE}|${YEAR})\\s*\\)?$`, "i");
 const PAREN_DATE = new RegExp(`\\(\\s*((?:${DATE}|${YEAR}))\\s*\\)`, "i");
 const EXPECTED_ANY = new RegExp(EXPECTED, "i");
@@ -259,6 +262,8 @@ const PHONE = /(?:\(?\+\d{1,3}\)?[\s.-]*)?(?:\(\d{2,4}\)|\b\d{2,4})[\s.-]*\d{3,4
 const LINK =
   /^(?:linkedin|github|gitlab|twitter|behance|dribbble|portfolio|website|web)\b|linkedin\.com|github\.com|https?:\/\/|www\.|^[\w-]+(?:\.[\w-]+)*\.(?:com|io|dev|me|net|org|co|ai|app|edu|xyz|page|site|tech|us|mx)(?:\/\S*)?$/i;
 const PLACE_ONLY = new RegExp(`^\\p{Lu}[\\p{L}.'’ -]*,\\s*${STATE}(?:\\s+\\d{5}(?:-\\d{4})?)?$`, "u"); // "Binghamton, NY 13902"
+// "Champaign IL": a US state code with no comma.
+const PLACE_NO_COMMA = /^\p{Lu}[\p{L}.'’ -]*\s(?:AL|AK|AZ|AR|CA|CO|CT|DE|DC|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)$/u;
 const STREET =
   /^(?:\d{1,6}[a-z]?\s+(?:[\p{L}\d.'’-]+\s+){0,5}(?:street|st|road|rd|avenue|ave|drive|dr|lane|ln|boulevard|blvd|court|ct|way|place|pl|circle|cir|parkway|pkwy|trail|terrace|highway|hwy|square|loop|hall)\.?(?:,?\s*(?:#|apt\.?|apartment|suite|ste\.?|unit|room)\s*[\w-]+)?|p\.?\s?o\.?\s+box\s+\d+|(?:calle|avenida|av\.|privada|cerrada)\s.+)$/iu;
 const ADDRESS_LABEL = /^(?:(?:home|permanent|school|campus|local|current|mailing)\s+)?address\s*:?\s*/i;
@@ -274,7 +279,7 @@ function readContact(doc: ResumeDoc, head: string[]): string[] {
   for (const line of head) {
     if (/^(resume|résumé|curriculum vitae|cv)$|^last updated\b/i.test(line)) continue;
     // Pieces split by separators; contact details run together with spaces ("Plano, TX  ana@example.com  817-555-0101") are pulled apart too.
-    const parts = line.split(/\s*[|•·\t]\s*|\s+[—–]\s+/).flatMap((p) => {
+    const parts = line.split(/\s*[|•·\t]\s*|\s+[—–]\s+|\s{2,}/).flatMap((p) => {
       const out: string[] = [];
       let rest = p;
       for (const re of [EMAIL, PHONE]) {
@@ -294,7 +299,7 @@ function readContact(doc: ResumeDoc, head: string[]): string[] {
       // The rest of the piece may only be a label or an icon: "Mobile: +1 555…", "📱 (+82) 10-…".
       else if (phone && /^\W*(?:phone|tel|cell|mobile|m|p)?\W*$/i.test(p.replace(phone, ""))) { c.phone ||= phone.trim(); contact = true; }
       else if (p.length <= 100 && LINK.test(p)) { c.links = c.links ? `${c.links} | ${p}` : p; contact = true; }
-      else if ((STREET.test(p) || PLACE_ONLY.test(p)) && p.length <= 60 && !NOT_A_PLACE.test(p)) { address.push(p); contact = true; }
+      else if ((STREET.test(p) || PLACE_ONLY.test(p) || (PLACE_NO_COMMA.test(p) && !!c.name)) && p.length <= 60 && !NOT_A_PLACE.test(p)) { address.push(p); contact = true; }
       else if (/^\((?:phone|email|address)[^)]*\)$/i.test(p)) contact = true; // "(phone removed for demo)"
       else left.push(p);
     }
@@ -348,7 +353,7 @@ export function rulesParse(text: string): ResumeDoc {
   let kind: Kind = "entries";
   let entry: Entry | null = null;
   let bullet: Bullet | null = null;
-  let pending: { org: string; location: string } | null = null; // org line waiting for its "role  dates" line
+  let pending: { org: string; location: string; role?: string } | null = null; // org line waiting for its "role  dates" line
   let roleSlot: Entry | null = null; // entry whose role may be on the next line
   let held: { date: string; location: string } | null = null; // dates or a place printed before their entry
   let group: (SkillLine & { loose?: boolean }) | null = null;
@@ -378,7 +383,7 @@ export function rulesParse(text: string): ResumeDoc {
     target.bullets.push(bullet);
   };
   const flushPending = () => {
-    if (pending) newEntry({ org: pending.org, location: pending.location });
+    if (pending) newEntry({ org: pending.org, location: pending.location, role: pending.role || "" });
     pending = null;
   };
   /** Whether a line is the rest of the bullet above it rather than something new. */
@@ -441,7 +446,7 @@ export function rulesParse(text: string): ResumeDoc {
     if (pending) {
       const col = readColumns(line, true);
       if (col.date) {
-        newEntry({ org: pending.org, location: pending.location || col.location, role: [col.title, col.extra].filter(Boolean).join(" | "), dates: col.date });
+        newEntry({ org: pending.org, location: pending.location || col.location, role: [col.title, col.extra].filter(Boolean).join(" | ") || pending.role || "", dates: col.date });
         pending = null;
         return;
       }
@@ -460,7 +465,9 @@ export function rulesParse(text: string): ResumeDoc {
       entry.dates = entry.dates ? `${entry.dates} · ${line}` : line;
       return;
     }
-    if (strongWrap && continues(line, prevLine)) {
+    // "Store Manager" above "Dollar General — Reno, NV": a job title starting the next entry, not the end of the last bullet.
+    const titleAbovePlace = ROLE.test(line) && line.split(/\s+/).length <= 6 && /^(?:[\p{Lu}&(]\S*\s*)+$/u.test(line) && !hasDate(line) && !!next && !!readColumns(next, true).location;
+    if (strongWrap && !titleAbovePlace && continues(line, prevLine)) {
       bullet!.text += " " + line.replace(/\t+/g, " ");
       return;
     }
@@ -495,10 +502,18 @@ export function rulesParse(text: string): ResumeDoc {
     // "Org   City, ST" followed by "Role   Dates" (the classic layout)
     if (!hasDate(line) && next && !BULLET_RE.test(next) && !headingOf(next) && hasDate(next)) {
       const col = readColumns(line, true);
-      pending = { org: [col.title, col.extra].filter(Boolean).join(" | "), location: col.location };
+      const text = [col.title, col.extra].filter(Boolean).join(" | ");
+      // "Security Analyst Intern", "Bluebonnet Health — City, ST", "Jun 2026 – Aug 2026": a lone title line, then its org, then dates.
+      if (roleSlot && roleSlot === entry && !roleSlot.role && !roleSlot.dates && !roleSlot.location && roleSlot.bullets.length === 0 && (!ROLE.test(text) || (!!col.location && !roleSlot.location))) { // the line with the place is the org ("Dollar General — Reno, NV")
+        [roleSlot.role, roleSlot.org, roleSlot.location] = [roleSlot.org, text, col.location];
+        return;
+      }
+      // "Server, Olive Garden — City, ST" then dates: the role and the org on one line.
+      const comma = text.split(", ");
+      pending = comma.length === 2 && ROLE.test(comma[0]) !== ROLE.test(comma[1]) ? { org: ROLE.test(comma[0]) ? comma[1] : comma[0], role: ROLE.test(comma[0]) ? comma[0] : comma[1], location: col.location } : { org: text, location: col.location };
       return;
     }
-    if (continues(line, prevLine)) {
+    if (!titleAbovePlace && continues(line, prevLine)) {
       bullet!.text += " " + line.replace(/\t+/g, " ");
       return;
     }
@@ -511,6 +526,13 @@ export function rulesParse(text: string): ResumeDoc {
       else roleSlot.role = text;
       roleSlot.location ||= col.location;
       roleSlot = null;
+      return;
+    }
+    // A bullet whose "•" was lost in the PDF ("Designed a 12-layer PCB for a CubeSat team" under a dated job): a sentence,
+    // mostly lower-case words, not a Title Case job title. It used to become an empty entry of its own.
+    const ws = line.replace(/\t+/g, " ").trim().split(/\s+/);
+    if (entry && entry.dates && (entry.role || entry.org) && !hasDate(line) && ws.length >= 4 && /^\p{Lu}/u.test(ws[0]) && ws.slice(1).filter((x) => /^\p{Ll}/u.test(x)).length >= Math.max(1, ws.slice(1).filter((x) => /^\p{Lu}/u.test(x)).length)) {
+      addBullet(line.replace(/\t+/g, " ").trim());
       return;
     }
     // A description written as a paragraph instead of bullets.
@@ -757,6 +779,11 @@ export function primaryEducation(doc?: ResumeDoc): Entry | undefined {
   // A heading Remy didn't recognize ("school stuff:"): a college entry with a degree word anywhere still counts.
   return entries.find(college) || (doc?.sections || []).flatMap((s) => s.entries).find((e) => college(e) && DEGREE_WORD.test(e.role));
 }
+/** A high-schooler's school (setup test, Nov 26: "Plano Senior High School" came back empty): only when no college entry exists. */
+export function highSchoolEducation(doc?: ResumeDoc): Entry | undefined {
+  if (primaryEducation(doc)) return undefined;
+  return (doc?.sections || []).filter((s) => kindOf(s.heading) === "education").flatMap((s) => s.entries).find((e) => HIGH_SCHOOL.test(`${e.org} ${e.role}`));
+}
 const DEGREE_WORD = /\b(b\.?[sa]\.?|bachelor|bba|bfa|bsn|bsw|b\.?m\.?|associate|master|m\.?[sa]\.?|mba|major|undeclared|degree)\b/i;
 
 /** "TEXAS CHRISTIAN UNIVERSITY (TCU) - FULL RIDE SCHOLARSHIP" → "Texas Christian University (TCU)". */
@@ -864,7 +891,8 @@ export function graduationOf(dates: string): string {
   if (classOf) return `May ${classOf[1]}`;
   const d = dates.replace(/\(\s*(?:expected|anticipated)?\s*\)/gi, "").replace(/\b(expected|anticipated)\b(\s+graduation)?(\s+date)?:?\s*/i, "").replace(/^graduation(\s+date)?:?\s*/i, "").trim();
   const parts = d.split(/\s*(?:[–—]|\s-\s|\bto\b|\bhasta\b)\s*/i).filter(Boolean);
-  const last = parts[parts.length - 1] || "";
+  // "May. '27" → "May 2027", so every reader of the graduation date (class year, eligibility) sees a full year.
+  const last = (parts[parts.length - 1] || "").replace(/([A-Za-z])\.?\s*['’‘](\d{2})\b/, (_m, c, y) => `${c} ${+y > (new Date().getFullYear() % 100) + 10 ? 19 : 20}${y}`);
   return new RegExp(NOW, "i").test(last) ? "" : last;
 }
 
