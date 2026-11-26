@@ -5,7 +5,6 @@ import type { Job, JobFit, Workspace } from "@shared/types";
 import { hasKeyword } from "../resume/ats";
 import { families, family } from "@shared/words";
 import { norm } from "../resume/parse";
-import { inOwnerView } from "../ai/ai";
 import { graduationOf, primaryEducation } from "../resume/resume";
 import { locationInMetros, metrosNamed } from "./metros";
 
@@ -256,6 +255,10 @@ export const chosenFieldText = (p: Pick<Workspace["profile"], "targetRoles" | "m
 /** true / false when the student named fields Remy recognizes; null when not.
  *  Only fields the student CHOSE (target roles, major) can rule a posting out. What they said they enjoy
  *  ("working with people") can make a posting match, but never hides one: an undecided student chose no field. */
+const NEAR: [RegExp, RegExp][] = [
+  [/sport|athletic|recreation/i, /marketing|sales|\bevents?\b|promotions|sponsor|partnerships|community relations|social media|guest services/i],
+  [/aviation|flight|aerospace|air traffic/i, /logistics|dispatch|operations|transportation|technician|mechanic|\bsafety\b|ground/i],
+];
 export function fieldMatch(ws: Workspace, job: Job): boolean | null {
   const p = ws.profile;
   const titlesFor = (s: string) => FIELD_TITLES.filter(([field]) => field.test(s)).map(([, title]) => title);
@@ -267,8 +270,10 @@ export function fieldMatch(ws: Workspace, job: Job): boolean | null {
   // A title that names no field ("Summer Intern 2027", "Associate") is judged by its duties, as the search does
   // (sources.ts discoverJobs): it used to be found for the student and then hidden as "not in your field".
   if (job.postingText && !FIELD_TITLES.some(([, t]) => t.test(job.title)) && [...chosen, ...liked].some((t) => t.test(duties(job.postingText!)))) return true;
-  // Students keep the old rule (any "extern" is nursing) until the owners-only fix is released.
-  if (!inOwnerView() && /nurs|\brn\b|\bbsn\b/i.test(`${chosenFieldText(p)} ${p.interests || ""}`) && /extern/i.test(job.title)) return true;
+  // Nearby fields where the student's own has few openings (jobs thread, Nov 26: team and airline jobs sit behind
+  // TeamWork Online and partner systems): sports majors start in ticket sales, marketing and events; aviation
+  // majors in airport operations, dispatch and logistics.
+  if (NEAR.some(([who, t]) => who.test(chosenFieldText(p)) && t.test(job.title))) return true;
   return chosen.length ? false : null;
 }
 
@@ -327,8 +332,7 @@ export function notEligible(ws: Workspace, job: Job, today = new Date()): string
   if (job.kind === "job" && !studentRole && months > 12 && degreeNeeded && !takesStudents)
     return `This job asks for a finished bachelor's degree, and you expect to finish in ${ws.profile.graduation || g!.y}.`;
   // "New Grad RN Residency", "Recent Graduate Program": for people who've finished, not a sophomore (Dilan, Nov 23).
-  // Owners only until Dilan releases it (Nov 23).
-  if (inOwnerView() && months > 12 && /\bnew[- ]grad(uate)?s?\b|\brecent (college )?grad(uate)?s?\b/i.test(job.title))
+  if (months > 12 && /\bnew[- ]grad(uate)?s?\b|\brecent (college )?grad(uate)?s?\b/i.test(job.title))
     return `This one is for new graduates, and you expect to finish in ${ws.profile.graduation || g!.y}.`;
   return "";
 }
@@ -373,9 +377,9 @@ export function relocateReason(ws: Workspace, title: string, company: string): s
   return hit.length ? "the title is in your field" : "";
 }
 
-export const FIT_RULES_VERSION = 22; // 22: fields from the 11,041-resume test: trades, imaging/respiratory/vet health, agriculture, humanities and languages, customer service, tech languages (Java, QA, DevOps); "X Management" majors aren't business; fire/EMS aren't legal; US metros everywhere (Census), not only Texas; plainer "why it fits" sentence. 21: field titles widened from the 1,000-resume test (Bookkeeper is accounting, PR is communications, a business major fits marketing/finance/HR/supply chain, criminal justice fits legal). 20: 20 (owners): a "…or related field" major list that shares nothing with the major is "check", not "You qualify"; "management" alone isn't a field word. 19: "New Grad" titles are for graduates; "externship" alone isn't nursing. 18: "degree conferred in 2025 or 2026" and "graduating in/by YYYY" are graduation rules. 17: out-of-area openings say why they're shown (relocation answer). 16: "Anywhere in Texas" means Texas, not anywhere (it switched location off). 15: "Microsoft Excel" is the resume's "Excel"; "Microsoft Office" is shown by its apps. 14: what a student enjoys never hides an opening, only fields they chose. 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
+export const FIT_RULES_VERSION = 23; // 23: Nov 23 owners-first fit fixes reach students (New Grad titles, externships, "…or related field" lists, "management" alone); nearby fields for sports and aviation. 22: 22: fields from the 11,041-resume test: trades, imaging/respiratory/vet health, agriculture, humanities and languages, customer service, tech languages (Java, QA, DevOps); "X Management" majors aren't business; fire/EMS aren't legal; US metros everywhere (Census), not only Texas; plainer "why it fits" sentence. 21: field titles widened from the 1,000-resume test (Bookkeeper is accounting, PR is communications, a business major fits marketing/finance/HR/supply chain, criminal justice fits legal). 20: 20 (owners): a "…or related field" major list that shares nothing with the major is "check", not "You qualify"; "management" alone isn't a field word. 19: "New Grad" titles are for graduates; "externship" alone isn't nursing. 18: "degree conferred in 2025 or 2026" and "graduating in/by YYYY" are graduation rules. 17: out-of-area openings say why they're shown (relocation answer). 16: "Anywhere in Texas" means Texas, not anywhere (it switched location off). 15: "Microsoft Excel" is the resume's "Excel"; "Microsoft Office" is shown by its apps. 14: what a student enjoys never hides an opening, only fields they chose. 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
 /** The version a verdict is saved under: owner view runs owners-only rules, so its verdicts are kept apart from students'. */
-export const fitVersion = () => FIT_RULES_VERSION + (inOwnerView() ? 1000 : 0);
+export const fitVersion = () => FIT_RULES_VERSION;
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const g = gradDate(ws);
   const year = classYearOf(ws);
@@ -462,7 +466,7 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   // Owners (Nov 23 PM review): "Must be in a degree program in Emergency Management, Public Administration, or related
   // field" showed "You qualify" to a finance student. A "…or related field" list that shares nothing with their major
   // isn't a firm no, but it isn't a yes either: it says so and asks them to check.
-  const looseList = !caution && inOwnerView() ? looseMajorList(ws, job) : "";
+  const looseList = !caution ? looseMajorList(ws, job) : "";
   if (looseList && eligibility === "likely") { eligibility = "check"; checked = false; note = `${note} It asks for a degree in ${looseList}, and your major is ${ws.profile.major.trim()}; check yours counts.`.trim(); }
   // Remy doesn't show what the student clearly can't apply for (they can still choose "Show anyway").
   if (eligibility === "unlikely") excluded = true;
@@ -497,7 +501,7 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const own = [...families(`${ws.profile.major} ${ws.profile.targetRoles}`)].filter((f) => f.length >= 4 && !GENERIC_TITLE_WORDS.has(f));
   const titleWords = families(job.title);
   // Owners: "management" alone ("Business & management") isn't the field of "Emergency Management" or "Risk Management".
-  const specific = own.some((f) => titleWords.has(f) && !(inOwnerView() && OWNER_GENERIC.has(f)));
+  const specific = own.some((f) => titleWords.has(f) && !OWNER_GENERIC.has(f));
   const score = Math.round(
     (specific ? 20 : field === true ? 6 : 0) +
     ({ likely: 40, check: 22, unknown: 18, unlikely: 0 } as const)[eligibility] +
