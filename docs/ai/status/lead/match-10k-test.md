@@ -9,3 +9,5 @@ discoverJobs (sources.ts, jobs thread's file, agreed): uses the whole chosen-fie
 Still thin (sent to the jobs thread): aviation (47% empty), sports (50%), real estate (19%), nursing (15%), education; rural states.
 
 App note for Demetre: `native/src/components/setup/Preferences.tsx` REGION_OPTS is Texas-only; it can use `regionOptions()` from `shared/regions.ts`. The fit sentence and metros are server-side, so the app gets them with no change.
+
+Resume reading, round 2 (Nov 26): on the 2,000 clean synthetic resumes, entries that were mostly empty went from 5.5% to 0.1%. Bullets whose "•" was lost become bullets, not their own entries; "Server, Olive Garden — City" + dates splits role and org; "Title" / "Org — City" / dates is one entry even when the title isn't a known role word; field-named headings ("Graphic Design Experience", "Management Experience") start a section. Real-set checks (LiveCareer etc.) showed no regressions; their own scraped format (no names, "Company Name － City" placeholders) is not what students upload.

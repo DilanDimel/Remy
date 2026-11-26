@@ -194,3 +194,14 @@ test("two-digit years and a title line above its org", () => {
   assert.equal(job[0].org, "Bluebonnet Health");
   assert.equal(job[0].dates, "Jun. '26 – Aug. '26");
 });
+
+test("field-named experience headings start a section", () => {
+  const doc = rulesParse("Sam Lee\nsam@x.com\n\nGraphic Design Experience\nDesigner\tSep 2015 – May 2016\nAcme Print — Towson, MD\n- Made logos\n\nManagement Experience\nShift Lead\tJun 2014 – Aug 2015\nCafe Uno — Towson, MD\n- Ran shifts\n");
+  assert.deepEqual(doc.sections.map((s) => s.heading), ["Graphic Design Experience", "Management Experience"]);
+});
+
+test("bullets that lost their dots and a role, org line stay with their job", () => {
+  const doc = rulesParse("Parker Romero\nparker@x.com\n\nWORK EXPERIENCE:\nElementary Teacher\nNorthwind Co. — Nashville, TN\nJune 2026 – Present\nTaught a 2nd grade class of 22 during student teaching\n\nServer, Olive Garden — Nashville, TN\nSeptember 2025 – Present\nClosed the store 3 nights a week\n");
+  const jobs = doc.sections[0].entries.map((e) => [e.role, e.org, e.dates, e.bullets.length]);
+  assert.deepEqual(jobs, [["Elementary Teacher", "Northwind Co.", "June 2026 – Present", 1], ["Server", "Olive Garden", "September 2025 – Present", 1]]);
+});
