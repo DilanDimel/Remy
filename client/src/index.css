@@ -1331,6 +1331,11 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .asst-avatar { position: relative; width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 50% 40%, var(--fox-soft), var(--surface-2)); box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--fox); }
 .asst-avatar::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; border: 2px solid var(--fox); opacity: 0; }
 .asst-avatar:has(.fox.think)::after { animation: remy-ring 1.4s ease-out infinite; }
+/* Remy in a round frame, one rule for every circle at every size (tester, Nov 25: ears or suit cut off in some circles,
+   because each circle sized him by hand). Head and shoulders fill the circle; the clip follows the circle, so the
+   rings drawn outside it (thinking, reaching out) still show. The app's RemyRing (native ui.tsx) uses the same numbers. */
+:is(.asst-avatar, .remy-dock-face, .remy-offer-face) { place-items: start center; }
+:is(.asst-avatar, .remy-dock-face, .remy-offer-face) > svg.fox { width: 84%; height: auto; margin-top: 6%; clip-path: circle(56.3% at 50% 47.2%); }
 @keyframes remy-ring { 0% { transform: scale(1); opacity: .7; } 100% { transform: scale(1.25); opacity: 0; } }
 .asst-avatar .fox.idle .fox-body { animation: fox-bob 3.4s ease-in-out infinite; }
 .asst-name { font-family: var(--font-display); font-size: 1.15rem; margin-top: 6px; }
@@ -1361,7 +1366,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 /* Panel closed: a small Remy waits at the top centre. */
 .main { position: relative; }
 .remy-dock { display: flex; align-items: center; border-radius: 50%; }
-.remy-dock-face { width: 46px; height: 46px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: var(--surface); box-shadow: 0 0 0 2px var(--fox), 0 6px 18px -8px rgba(0, 0, 0, .35); transition: transform .18s ease; }
+.remy-dock-face { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); box-shadow: 0 0 0 2px var(--fox), 0 6px 18px -8px rgba(0, 0, 0, .35); transition: transform .18s ease; }
 .remy-dock:hover .remy-dock-face { transform: translateY(-2px) scale(1.05); }
 .remy-dock-name { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { .asst-avatar::after, .act-row { animation: none !important; } }
@@ -1842,7 +1847,7 @@ html.redesign-2:has(.tour) .remy-offer { display: none; }
 @media (max-width: 560px) { .rm-paper { padding: 18px 16px; font-size: 13.5px; } }
 /* Closed-panel Remy sits in the top bar's right corner; a little smaller on phones. */
 .remy-dock-face { width: 44px; height: 44px; }
-@media (max-width: 760px) { .remy-dock-face { width: 38px; height: 38px; } .remy-dock-face .fox { width: 28px; height: auto; } }
+@media (max-width: 760px) { .remy-dock-face { width: 38px; height: 38px; } }
 .remy-dock-face .fox { animation: none; }
 .remy-dock-face .fox .fox-body { animation: fox-bob 3.4s ease-in-out infinite; }
 .rm-paper li, .rm-paper p { max-width: none; }
@@ -2797,9 +2802,6 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
   .redesign-2 .assistant { width: 100vw; left: 0; }
   .redesign-2 .asst-profile { padding: 10px 16px 8px; gap: 2px; }
   .redesign-2 .asst-avatar { width: 56px; height: 56px; }
-  .redesign-2 .asst-avatar > svg { width: 44px; height: auto; }
-  /* The Scholar fox's own rule (scholar.css, 80px) outranked the line above, so he sat off-centre and cut off in the 56px circle. */
-  .redesign-2 .asst-avatar > .fox.scholar { width: 53px; margin-top: 6px; }
   .redesign-2 .asst-name { margin-top: 2px; }
   .redesign-2 .asst-tabs { margin-top: 6px; }
 }
@@ -3854,8 +3856,6 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 @media (max-width: 760px) {
   .redesign-2 .asst-profile { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "face name tabs x" "face status tabs x" "clear clear clear clear"; align-items: center; column-gap: 10px; row-gap: 0; padding: 10px 12px; }
   .redesign-2 .asst-profile .asst-avatar { grid-area: face; width: 44px; height: 44px; }
-  .redesign-2 .asst-profile .asst-avatar > svg { width: 34px; }
-  .redesign-2 .asst-profile .asst-avatar > .fox.scholar { width: 42px; margin-top: 5px; }
   .redesign-2 .asst-name { grid-area: name; margin: 0; align-self: end; }
   .redesign-2 .asst-status { grid-area: status; align-self: start; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
   .redesign-2 .asst-status i { display: inline-block; margin-right: 5px; vertical-align: 1px; }
