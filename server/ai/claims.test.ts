@@ -163,3 +163,16 @@ test("claims: a resume figure put on something new is flagged", () => {
   assert.deepEqual(claimCheck("Cared for 12 patients each shift", ev, { original: "Cared for 12 patients a shift" }), []);
   assert.deepEqual(claimCheck("Trained and onboarded 4 new hires", ev, { original: "Trained 4 new hires" }), []);
 });
+
+test("letter naming the employer's own role, name or people isn't flagged as the student's claim", () => {
+  const ev = "Built a Python inventory tool for the campus bookstore.";
+  const types = (letter: string, company: string, title: string) =>
+    claimCheck(letter, ev, { allowedNames: [company, title], employer: company }).map((f) => `${f.type}:${f.term}`);
+  assert.deepEqual(types("I am applying for your internship role.", "Acme", "Software Intern - Hybrid"), []);
+  assert.deepEqual(types("I would love to join Playfly Sports this summer.", "Playﬂy Sports", "Sales Intern"), []);
+  assert.deepEqual(types("I have admired Adobe for years.", "Adobe", "Marketing Intern"), []);
+  assert.deepEqual(types("I enjoyed reading what TASTE's founder wrote.", "TASTE", "Intern"), []);
+  // Still flagged when it's about the student.
+  assert.ok(types("I was the founder of a startup.", "TASTE", "Intern").includes("title:founder"));
+  assert.ok(types("I am skilled in Adobe Photoshop.", "Acme", "Intern").some((t) => t.startsWith("skill:")));
+});

@@ -87,8 +87,11 @@ export function spelledOut(text: string, own: string): string {
 export function claimCheck(
   text: string,
   evidence: string,
-  opts: { allowedNames?: string[]; postingText?: string; original?: string; postingNumbersOk?: boolean; entryContext?: string; strict?: boolean; owner?: boolean } = {},
+  opts: { allowedNames?: string[]; postingText?: string; original?: string; postingNumbersOk?: boolean; entryContext?: string; strict?: boolean; owner?: boolean; employer?: string } = {},
 ): ClaimFlag[] {
+  // Ligatures and other compatibility forms ("Playﬂy") compare as plain letters.
+  text = text.normalize("NFKC"); evidence = evidence.normalize("NFKC");
+  if (opts.allowedNames) opts = { ...opts, allowedNames: opts.allowedNames.map((n) => n.normalize("NFKC")) };
   // An abbreviation spelled out is the same claim, not new detail.
   const spelled = spelledOut(text, evidence + " " + (opts.original || ""));
   if (spelled) { evidence += " " + spelled; if (opts.original !== undefined) opts = { ...opts, original: opts.original + " " + spelled }; }
@@ -273,8 +276,10 @@ export function claimCheck(
       });
     }
   }
+  const employer = lc((opts.employer || "").normalize("NFKC"));
   for (const term of SKILL_TERMS) {
-    if (hasTerm(t, term) && !hasTerm(ev, term)) {
+    // The employer's own name ("Adobe") isn't a skill claim.
+    if (hasTerm(t, term) && !hasTerm(ev, term) && !hasTerm(employer, term)) {
       const inPosting = opts.postingText && hasTerm(lc(opts.postingText), term);
       add({
         type: "skill",
@@ -288,8 +293,10 @@ export function claimCheck(
   for (const term of TITLE_TERMS) {
     if (hasTerm(t, term) && !hasTerm(ev, term)) {
       // "internship"/"analyst" are fine when naming the target role
-      const allowed = (opts.allowedNames || []).some((n) => hasTerm(lc(n), term));
-      if (!allowed) add({ type: "title", term, message: `The title/role word “${term}” does not appear in your background.` });
+      const allowed = (opts.allowedNames || []).some((n) => hasTerm(lc(n), term) || (term === "internship" && hasTerm(lc(n), "intern")));
+      // "TASTE's founder" / "your founder" names someone at the employer, not the student.
+      const theirs = employer && new RegExp(`(?:${employer.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}['’]s|your) ${term}\\b`).test(t);
+      if (!allowed && !theirs) add({ type: "title", term, message: `The title/role word “${term}” does not appear in your background.` });
     }
   }
   const allowed = (opts.allowedNames || []).map(lc);
