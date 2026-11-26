@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Award, FileCheck2, Sparkles, Target, X, type LucideIcon } from "lucide-react";
 import { Remy } from "./common";
 import { tourAgain, tourOn } from "./Tour";
+import { useMomentTurn } from "../lib/moments";
 import { useOwnersOnly, useOwnerView, useStore } from "../lib/store";
 
 /** The update's name, shown to students. One place, so a rename is one line. */
@@ -20,7 +21,7 @@ const NEW: [LucideIcon, string, string][] = [
 export function Beta2Welcome() {
   const { ws, save } = useStore();
   const released = useOwnerView(), owner = useOwnersOnly();
-  const show = released && !owner && !!ws?.onboarding.done && !ws.settings.beta2Seen && !tourOn(ws); // never on top of the tour
+  const show = useMomentTurn("beta2", released && !owner && !!ws?.onboarding.done && !ws.settings.beta2Seen && !tourOn(ws)); // never on top of the tour or another pop-up
   const close = () => save("settings", { beta2Seen: true }).catch(() => {});
   useEffect(() => {
     if (!show) return;
