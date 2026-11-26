@@ -17,7 +17,7 @@ import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
 import type { Me, Workspace } from "@shared/types";
 
 const WAIT = 30;
-type Sso = "google" | "linkedin_oidc";
+type Sso = "google";
 // Expo Go (testing) can't receive remy:// links, so its sign-in collects the result from the server instead.
 const expoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 const SSO: { id: Sso; label: string }[] = [{ id: "google", label: "Google" }]; // LinkedIn removed Nov 26 (Dilan): Google and email are enough
@@ -34,12 +34,6 @@ const GoogleMark = () => (
 
 /** First screen for anyone signed out: the welcome, then one email screen for new and returning people (the server
  *  makes the account on the first code), then the 6-digit code. Same words as the phone website's sign-up. */
-async function supabaseSession(sb: { url: string; anonKey: string }, code: string, verifier: string) {
-  const t = await fetch(`${sb.url}/auth/v1/token?grant_type=pkce`, { method: "POST", headers: { apikey: sb.anonKey, "Content-Type": "application/json" }, body: JSON.stringify({ auth_code: code, code_verifier: verifier }) });
-  const tok = await t.json().catch(() => ({}));
-  if (!t.ok || !tok.access_token) throw new Error(tok.error_description || tok.msg || "Sign-in didn't finish. Please try again.");
-  return api<{ me: Me; workspace: Workspace }>("POST", "/api/auth/supabase", { accessToken: tok.access_token });
-}
 
 export default function SignIn() {
   const { signedIn } = useSession();
@@ -69,25 +63,20 @@ export default function SignIn() {
     catch (e: any) { setErr(e.message); setCode(""); codeRef.current?.focus(); }
     setBusy(false);
   };
-  // Google and LinkedIn go through Supabase in the system browser sheet (Google refuses sign-in inside an app's web
-  // view), then come back on the app's own link with a one-time code (PKCE) that only this app can swap for the token our server checks, the same as the website's buttons.
+  // Google signs in on Remy's server in the system browser sheet (Google refuses sign-in inside an app's web view),
+  // then comes back on the app's own link with a one-time code (PKCE) that only this app can swap for a session.
   const sso = async (p: Sso) => {
-    const sb = config?.supabase;
-    const own = !!config?.ownSignin?.[p]; // Remy's own sign-in (no Supabase) once it's switched on for this button
-    if (!sb && !own) return;
+    if (!config?.ownSignin?.[p]) return;
     setSsoBusy(p); setErr("");
     try {
-      // Supabase returns to a remyai.org page that opens remy://auth: Android's Chrome won't follow a redirect
+      // Remy's server ends on a remyai.org page that opens remy://auth: Android's Chrome won't follow a redirect
       // straight into the app at the end of a long sign-in (after a phone prompt), but it will from a tap there.
       // Expo Go can't receive remy://, so there the page leaves the code with our server under a random key and
       // the app collects it (the code is useless without this app's verifier).
       const back = Linking.createURL("auth");
       const verifier = newVerifier();
       const key = expoGo ? newVerifier().replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40) : "";
-      const via = `${API_BASE || "https://remyai.org"}/api/auth/app-return${key ? `?state=${key}` : ""}`;
-      const start = own
-        ? `${API_BASE || "https://remyai.org"}/api/auth/oauth/${p === "google" ? "google" : "linkedin"}/start?app=1&challenge=${verifier}${key ? `&handoff=${key}` : ""}`
-        : `${sb!.url}/auth/v1/authorize?provider=${p}&redirect_to=${encodeURIComponent(via)}&code_challenge=${verifier}&code_challenge_method=plain`;
+      const start = `${API_BASE || "https://remyai.org"}/api/auth/oauth/google/start?app=1&challenge=${verifier}${key ? `&handoff=${key}` : ""}`;
       const session = WebBrowser.openAuthSessionAsync(start, back);
       let backUrl = "";
       if (key) {
@@ -109,19 +98,19 @@ export default function SignIn() {
         const { code, error } = parseReturn(backUrl);
         if (!code) throw new Error(error ? `Sign-in didn't finish: ${error}` : "Sign-in didn't finish. Please try again.");
         // The code is only good with the verifier this app kept, so it's swapped for the token here, not in the link.
-        const s = own ? await api<{ me: Me; workspace: Workspace }>("POST", "/api/auth/oauth/redeem", { code, verifier }) : await supabaseSession(sb!, code, verifier);
+        const s = await api<{ me: Me; workspace: Workspace }>("POST", "/api/auth/oauth/redeem", { code, verifier });
         success(); signedIn(s.me, s.workspace);
       }
     } catch (e: any) { setErr(e.message); }
     setSsoBusy("");
   };
-  const ssoOn = SSO.filter((s) => config?.ownSignin?.[s.id] || config?.supabase?.providers[s.id]);
+  const ssoOn = SSO.filter((s) => config?.ownSignin?.[s.id]);
   const ssoButtons = !!ssoOn.length && <>
     <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 4 }}>
       <View style={{ flex: 1, height: 1, backgroundColor: c.line }} /><T kind="small">or</T><View style={{ flex: 1, height: 1, backgroundColor: c.line }} />
     </View>
     {ssoOn.map((s) => (
-      <Pressable key={s.id} testID={`button-sso-${s.id === "google" ? "google" : "linkedin"}`} accessibilityRole="button" accessibilityLabel={`Continue with ${s.label}`} disabled={!!ssoBusy || busy}
+      <Pressable key={s.id} testID="button-sso-google" accessibilityRole="button" accessibilityLabel={`Continue with ${s.label}`} disabled={!!ssoBusy || busy}
         onPress={() => { tap(); sso(s.id); }}
         style={({ pressed }) => ({ height: 50, borderRadius: BUTTON_RADIUS, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, opacity: pressed ? 0.8 : 1 })}>
         {ssoBusy === s.id ? <ActivityIndicator color={c.ink} /> : <GoogleMark />}

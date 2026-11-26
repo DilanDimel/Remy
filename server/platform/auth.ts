@@ -88,52 +88,7 @@ export async function endSession(req: Request, res: Response) {
   clearSessionCookie(res);
 }
 
-// ---------- Supabase Auth ----------
-// The browser does the OAuth / magic-link hop with Supabase and sends us the
-// resulting access token; we ask Supabase who it belongs to before trusting it.
-export function supabaseConfig() {
-  const url = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
-  const anonKey = process.env.SUPABASE_ANON_KEY || "";
-  return url && anonKey ? { url, anonKey } : null;
-}
-let providerCache: { at: number; providers: Record<string, boolean> } | null = null;
-export async function supabaseProviders(): Promise<Record<string, boolean>> {
-  const cfg = supabaseConfig();
-  if (!cfg) return {};
-  if (providerCache && Date.now() - providerCache.at < 5 * 60_000) return providerCache.providers;
-  try {
-    const r = await fetch(`${cfg.url}/auth/v1/settings`, { headers: { apikey: cfg.anonKey }, signal: AbortSignal.timeout(4000) });
-    const j: any = await r.json();
-    const ext = j?.external || {};
-    const providers = { google: !!ext.google, linkedin_oidc: !!ext.linkedin_oidc, apple: !!ext.apple, azure: !!ext.azure, email: !!ext.email && !j?.disable_signup };
-    providerCache = { at: Date.now(), providers };
-    return providers;
-  } catch {
-    return providerCache?.providers || {};
-  }
-}
-export type SupabaseUser = { id: string; email: string; name: string; picture: string; provider: string };
-export async function verifySupabase(accessToken: string): Promise<SupabaseUser> {
-  const cfg = supabaseConfig();
-  if (!cfg) throw Object.assign(new Error("Sign-in isn't configured on this server (Needs setup)."), { status: 503 });
-  if (!accessToken) throw Object.assign(new Error("Missing sign-in token."), { status: 400 });
-  const r = await fetch(`${cfg.url}/auth/v1/user`, { headers: { apikey: cfg.anonKey, Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(8000) });
-  if (!r.ok) throw Object.assign(new Error("Supabase couldn't verify this sign-in. Please try again."), { status: 401 });
-  const u: any = await r.json();
-  // Google, LinkedIn and email links all confirm the address; an unconfirmed one (e.g. a password
-  // sign-up made straight against Supabase's API) could claim someone else's email.
-  if (u.email && !u.email_confirmed_at && !u.confirmed_at) throw Object.assign(new Error("Please confirm your email address, then sign in again."), { status: 401 });
-  const meta = u.user_metadata || {};
-  return {
-    id: String(u.id),
-    email: String(u.email || ""), // only the confirmed address: user_metadata is editable by the user
-    name: String(meta.full_name || meta.name || [meta.given_name, meta.family_name].filter(Boolean).join(" ") || ""),
-    picture: String(meta.avatar_url || meta.picture || ""),
-    provider: String(u.app_metadata?.provider || ""),
-  };
-}
-
-/** The phone app's Google/LinkedIn sign-in comes back here (an https page Supabase allows) and this page hands the
+/** The phone app's Google sign-in ends on this page (server/routes.ts, the oauth callback), which hands the
  *  one-time code to the app on remy://auth. Android's Chrome won't open an app link at the end of a long sign-in
  *  (after a phone prompt, say) unless the person taps something, so there's a button as well as the automatic try.
  *  Only code and error pass through; the code is useless without the secret the app kept (PKCE). */

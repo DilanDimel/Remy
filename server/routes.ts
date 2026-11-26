@@ -48,7 +48,7 @@ import * as signals from "./jobs/signals";
 import { acceptHtml } from "@shared/acceptEmail";
 import { recordError } from "./platform/admin";
 import { careersFor, futureFor, occupationDetails, officialFor } from "./jobs/future";
-import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase, appReturnPage, takeHandoff, readCookie } from "./platform/auth";
+import { endSession, googleClientId, identify, newGuest, startSession, verifyGoogle, appReturnPage, takeHandoff, readCookie } from "./platform/auth";
 import { authorizeUrl, finishOAuth, isProvider, newState, newTicket, oauthReady, ownSignin, redeemTicket, takeState, type OAuthProvider, type OAuthUser } from "./platform/oauth";
 import { aiExtractPosting, CLOSED_SIGNALS, docxPreviewHtml, fetchPublic, fileToText, htmlToText, norm, pdfStyle, scanText } from "./resume/parse";
 import { formatCheck, pdfLayout, withoutPersonal } from "./resume/format";
@@ -754,13 +754,11 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   app.get("/api/config", async (req, res) => {
     const host = String(req.headers.host || "");
-    const sb = supabaseConfig();
     const cfg: AppConfig = {
       googleClientId: googleClientId(),
       ai: aiStatus(),
       hosting: /localhost|127\.0\.0\.1/.test(host) ? "local" : req.header("x-visitor-id") ? "preview" : "published",
       today: centralToday(),
-      supabase: sb ? { ...sb, providers: await supabaseProviders() } : null,
       ownSignin: ownSignin(),
       schoolEmail: { ready: emailReady() || devCodes(), domains: ALUMNI_DOMAINS },
       emailCodes: emailReady() || devCodes(),
@@ -1014,22 +1012,6 @@ export async function registerRoutes(_server: Server, app: Express) {
     // Owners get the owner flag right away (as /api/me gives it), so setup opens in owner view without a reload.
     res.json({ me: (await admin.isOwner(me)) ? { ...me, owner: true } : me, workspace: ws });
   }
-  app.post("/api/auth/supabase", async (req, res) => {
-    try {
-      const u = await verifySupabase(String(req.body?.accessToken || ""));
-      await signIn(req, res, { id: "sb:" + u.id, kind: "supabase", email: u.email, name: u.name, picture: u.picture });
-    } catch (e: any) {
-      res.status(e?.status || 401).json({ message: e?.message || "Sign-in failed.", code: e?.code });
-    }
-  });
-
-  // The phone app's Google/LinkedIn sign-in lands here and is handed to the app (see appReturnPage).
-  app.get("/api/auth/app-return", (req, res) => {
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.setHeader("Cache-Control", "no-store");
-    res.setHeader("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'");
-    res.send(appReturnPage(req.query as Record<string, unknown>, /android/i.test(String(req.headers["user-agent"] || ""))));
-  });
   app.get("/api/auth/app-handoff", (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     res.json({ result: takeHandoff(String(req.query.state || "")) });
