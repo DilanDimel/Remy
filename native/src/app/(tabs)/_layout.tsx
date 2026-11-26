@@ -5,6 +5,7 @@ import { NativeTabs } from "expo-router/native-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Loading, RemyRing, tap } from "@/components/ui";
 import { Moments } from "@/components/Moments";
+import { BigUpgrade } from "@/components/BigUpgrade";
 import { gateRoute, useGate } from "@/lib/gate";
 import { aboveTabs, font, useTheme } from "@/lib/theme";
 import { shadow } from "@/lib/tokens";
@@ -85,6 +86,7 @@ export default function Tabs() {
       <OfflineBanner />
       {/* A new pin, a first interview or offer, or a new level: said once, the moment it happens (owners). */}
       <Moments />
+      <BigUpgrade />
     </View>
   );
 }
