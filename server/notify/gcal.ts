@@ -169,3 +169,23 @@ export function syncTeamSoon(load: () => Promise<CalItem[]>) {
     } catch (e: any) { console.error("Team Google Calendar sync failed:", e?.message); }
   }, 1500);
 }
+
+// ---------- connecting from the phone app ----------
+// The app opens Google's consent in the system browser sheet, which doesn't carry the app's sign-in. So the callback
+// only holds Google's code under a one-time ticket, and the app's own signed-in call (with that ticket) finishes it:
+// no one can hand someone else a link that connects their Google account to another Remy account.
+// shortcut: kept in this server's memory for 10 minutes (one server process); move to the database if we run several.
+type AppCode = { userId: string; code: string; tz: string; team?: string; exp: number };
+const appCodes = new Map<string, AppCode>();
+export function holdAppCode(v: Omit<AppCode, "exp">, now = Date.now()): string {
+  for (const [k, x] of appCodes) if (x.exp < now) appCodes.delete(k);
+  const ticket = crypto.randomBytes(24).toString("base64url");
+  appCodes.set(ticket, { ...v, exp: now + 10 * 60_000 });
+  return ticket;
+}
+/** One use only, and only by the account that started it. */
+export function takeAppCode(ticket: string, userId: string, now = Date.now()): AppCode | null {
+  const x = appCodes.get(ticket);
+  appCodes.delete(ticket);
+  return x && x.exp >= now && x.userId === userId ? x : null;
+}

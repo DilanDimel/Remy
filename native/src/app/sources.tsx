@@ -5,9 +5,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Me, Workspace } from "@shared/types";
 import { Button, Group, Icon, Row, Sect, T, success, tap } from "@/components/ui";
 import { Input } from "@/components/setup/common";
+import { GoogleCalendarCard } from "@/components/GoogleCalendar";
 import { api, apiForm } from "@/lib/api";
 import { useConfig } from "@/lib/config";
-import { go } from "@/lib/nav";
 import { canPickFiles, pickResume } from "@/lib/pick";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
@@ -17,7 +17,8 @@ const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: 
 
 /** Sources, native (it opened the website's Account → Sources): the resume, a LinkedIn PDF Remy reads for facts to
  *  suggest (POST /api/import/profile, the website's ProfileImport), the school email check (the website's
- *  SchoolVerify) and what was imported. Google Calendar's connect needs Google's web sign-in, so it stays on the website. */
+ *  SchoolVerify) and what was imported. Google Calendar connects
+ *  in Google's sign-in sheet (GoogleCalendarCard). */
 export default function Sources() {
   const { me, ws, setWs, refresh } = useSession();
   const { config } = useConfig();
@@ -55,7 +56,6 @@ export default function Sources() {
       <Group>
         <Row first title="Resume" sub={ws.resume ? `${ws.resume.fileName || "Your resume"} · ${day(ws.resume.uploadedAt)}` : "Not uploaded yet"} left={<Icon name="doc" color={c.mutedText} />} onPress={() => { router.back(); router.navigate("/resume"); }} testID="row-source-resume" />
         <Row title="LinkedIn" sub={linkedin ? `${linkedin.fileName} · ${day(linkedin.at)}` : "Not added yet"} left={<Icon name="you" color={c.mutedText} />} onPress={() => { tap(); setOpen(!open); }} testID="button-source-linkedin" />
-        <Row title="Google Calendar" sub="Connect it on the website" left={<Icon name="book" color={c.mutedText} />} onPress={() => go("/accounts?tab=sources", "Sources", { page: true })} testID="row-source-gcal" />
       </Group>
 
       {open && (
@@ -69,6 +69,8 @@ export default function Sources() {
       )}
       {!!note && <View style={[card, { marginTop: 10, borderColor: c.fox }]} testID="import-note"><T kind="small">{note}</T>
         <Button testID="button-import-memory" kind="ghost" label="Open Remy's memory" onPress={() => router.back()} style={{ height: 40 }} /></View>}
+
+      {config?.googleCalendar ? <><Sect title="Google Calendar" /><GoogleCalendarCard /></> : null}
 
       <Sect title="School email" />
       <View style={card} testID={verified ? "school-verified" : "school-verify"}>

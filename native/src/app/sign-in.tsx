@@ -1,6 +1,3 @@
-import Constants, { ExecutionEnvironment } from "expo-constants";
-import * as Linking from "expo-linking";
-import * as WebBrowser from "expo-web-browser";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
@@ -11,6 +8,7 @@ import { useGateRedirect } from "@/lib/gate";
 import { api, API_BASE } from "@/lib/api";
 import { useConfig } from "@/lib/config";
 import { newVerifier, parseReturn } from "@/lib/auth";
+import { handoffKey, openReturnSheet } from "@/lib/sheet";
 import { useSession } from "@/lib/session";
 import { brand } from "@/lib/tokens";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
@@ -19,7 +17,6 @@ import type { Me, Workspace } from "@shared/types";
 const WAIT = 30;
 type Sso = "google";
 // Expo Go (testing) can't receive remy:// links, so its sign-in collects the result from the server instead.
-const expoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 const SSO: { id: Sso; label: string }[] = [{ id: "google", label: "Google" }]; // LinkedIn removed Nov 26 (Dilan): Google and email are enough
 
 const GoogleMark = () => (
@@ -69,31 +66,9 @@ export default function SignIn() {
     if (!config?.ownSignin?.[p]) return;
     setSsoBusy(p); setErr("");
     try {
-      // Remy's server ends on a remyai.org page that opens remy://auth: Android's Chrome won't follow a redirect
-      // straight into the app at the end of a long sign-in (after a phone prompt), but it will from a tap there.
-      // Expo Go can't receive remy://, so there the page leaves the code with our server under a random key and
-      // the app collects it (the code is useless without this app's verifier).
-      const back = Linking.createURL("auth");
       const verifier = newVerifier();
-      const key = expoGo ? newVerifier().replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40) : "";
-      const start = `${API_BASE || "https://remyai.org"}/api/auth/oauth/google/start?app=1&challenge=${verifier}${key ? `&handoff=${key}` : ""}`;
-      const session = WebBrowser.openAuthSessionAsync(start, back);
-      let backUrl = "";
-      if (key) {
-        let closed = false;
-        session.finally(() => { closed = true; }).catch(() => {});
-        // Checks every second while the page is open, and a few more times once they're back in the app.
-        for (let i = 0, after = 0; i < 300 && after < 5 && !backUrl; i++) {
-          await new Promise((ok) => setTimeout(ok, 1000));
-          const h = await api<{ result: string | null }>("GET", `/api/auth/app-handoff?state=${key}` as `/api/${string}`).catch(() => ({ result: null }));
-          if (h.result) backUrl = `remy://auth?${h.result}`;
-          else if (closed) after++;
-        }
-        if (backUrl) Promise.resolve().then(() => WebBrowser.dismissBrowser()).catch(() => {});
-      } else {
-        const r = await session;
-        if (r.type === "success") backUrl = r.url;
-      }
+      const key = handoffKey();
+      const backUrl = await openReturnSheet(`${API_BASE || "https://remyai.org"}/api/auth/oauth/google/start?app=1&challenge=${verifier}${key ? `&handoff=${key}` : ""}`, key);
       if (backUrl) {
         const { code, error } = parseReturn(backUrl);
         if (!code) throw new Error(error ? `Sign-in didn't finish: ${error}` : "Sign-in didn't finish. Please try again.");

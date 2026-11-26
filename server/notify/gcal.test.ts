@@ -19,3 +19,14 @@ test("google calendar: refresh tokens are encrypted and round-trip", () => {
   assert.ok(!s.includes("refresh"));
   assert.equal(g.unseal(s), "1//refresh-token");
 });
+
+test("google calendar: an app's held code is one use, only for the account that started it, and expires", () => {
+  const t = g.holdAppCode({ userId: "u1", code: "4/abc", tz: "America/Chicago" }, 0);
+  assert.equal(g.takeAppCode(t, "u2", 1), null);
+  assert.equal(g.takeAppCode(t, "u1", 1), null); // the wrong account's try used it up
+  const t2 = g.holdAppCode({ userId: "u1", code: "4/abc", tz: "America/Chicago", team: "a@b.c" }, 0);
+  assert.equal(g.takeAppCode(t2, "u1", 1)?.team, "a@b.c");
+  assert.equal(g.takeAppCode(t2, "u1", 2), null);
+  const t3 = g.holdAppCode({ userId: "u1", code: "x", tz: "UTC" }, 0);
+  assert.equal(g.takeAppCode(t3, "u1", 11 * 60_000), null);
+});
