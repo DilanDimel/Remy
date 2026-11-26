@@ -249,7 +249,7 @@ export default function Landing2() {
             <div className="lk-top">
             <div>
             <h1>Find the jobs you can actually get.</h1>
-            <p className="lp2-lede">Tell Remy your year and major. It reads 180+ employers&rsquo; own career sites and shows what fits you.</p>
+            <p className="lp2-lede">Tell Remy your year and major. It checks 90,000+ employers&rsquo; own career sites and shows what fits you.</p>
             </div>
             <figure className="lk-remy" aria-hidden>
               <span className="lk-bubble">Hi, I&rsquo;m Remy. Tell me your year and major and I&rsquo;ll show you what fits.</span>
@@ -289,7 +289,7 @@ export default function Landing2() {
           <h2 id="what-h">What Remy does</h2>
           <div className="lp2-three rv">
             <div>
-              <span className="lk-num">01</span><h3>Openings you can actually get</h3><p>Remy reads 180+ employers&rsquo; own career sites and checks each posting against your year, field, location, start date and visa needs. Postings you can&rsquo;t apply to are hidden, and every opening says why it fits you.</p>
+              <span className="lk-num">01</span><h3>Openings you can actually get</h3><p>Remy checks 90,000+ employers&rsquo; own career sites and checks each posting against your year, field, location, start date and visa needs. Postings you can&rsquo;t apply to are hidden, and every opening says why it fits you.</p>
               <div className="lp-shot" aria-hidden>
                 <div className="lp-job"><div><b>{ex.title}</b><span>{ex.where}</span></div><span className="chip chip-live">You qualify</span></div>
                 <p className="lp-why">It&rsquo;s open to {ex.years} in {ex.field}. You&rsquo;re a {year} in {ex.field}.</p>
