@@ -8,6 +8,7 @@ import { shareFromServer } from "@/lib/files";
 import { go } from "@/lib/nav";
 import { useSession } from "@/lib/session";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
+import { CareerTime } from "@/components/CareerTime";
 
 // Calendar, the website's page (client/src/pages/Calendar.tsx) for a phone: Remy's line, what's coming up, the month
 // with a dot on busy days (tap a day for its items), and each item's details. Items you add or edit save to the same
@@ -192,6 +193,7 @@ function Detail({ it, onClose, onEdit, onRemove }: { it: CalItem; onClose: () =>
       <T style={{ color: c.ink }}>{longDate(it.date)}{it.time ? ` at ${clock(it.time)}` : " (all day)"}</T>
       <T kind="small">{it.kind} · {it.source}</T>
       {!!it.notes && <T kind="small" style={{ color: c.ink }}>{it.notes}</T>}
+      {it.id.startsWith("career-") && <CareerTime />}
       {!!err && <T kind="small" style={{ color: c.error }}>{err}</T>}
       {!it.id.startsWith("task-") && <Button testID="button-share-ics" label={it.id.startsWith("career-") ? "Add the weekly time to my calendar" : "Add to my phone's calendar"} onPress={ics} />}
       <Button testID="link-gcal" kind="ghost" label="Add to Google Calendar" onPress={() => Linking.openURL(gcalLink(it)).catch(() => setErr("Couldn't open Google Calendar."))} />

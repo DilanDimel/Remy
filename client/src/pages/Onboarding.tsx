@@ -18,8 +18,10 @@ import { useGoogleCalendar } from "../components/GoogleCalendar";
 import { useIsMobile } from "../hooks/use-mobile";
 import { LinkedInMark } from "./Welcome";
 import { CareerTime } from "../components/CareerTime";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { firstName } from "@shared/names";
 import { nameConcern } from "@shared/junk";
+import { LIMIT_OPTS } from "@shared/limits";
 
 // Step numbers are stored in the workspace: 0 and 1 are the goal question (no focus yet) or the resume step; 2-5 follow.
 const STEPS = ["Your goal", "Your resume", "Review", "Preferences", "Questions", "Your plan"];
@@ -86,6 +88,7 @@ export default function Onboarding() {
     <div className="ob">
       <div className="row-between" style={{ width: "100%", maxWidth: 740 }}>
         <span className="logo"><Remy size={26} /><span>Remy<b>.</b></span><BetaBadge /></span>
+        <ThemeToggle />
       </div>
       {!welcomeBack && (
         <div className="ob-progress-wrap">
@@ -134,7 +137,8 @@ function SetupNotebook({ shown, back }: { shown: number; back: boolean }) {
   ] as [string, string][]).filter(([, v]) => v && v.trim());
   return (
     <aside className="ob-note" aria-label="Your setup with Remy">
-      <span className="logo"><span>Remy<b>.</b></span><BetaBadge /></span>
+      {/* Light/dark stays in reach during setup (tester, Nov 25), as on the sign-in page. */}
+      <div className="row-between"><span className="logo"><span>Remy<b>.</b></span><BetaBadge /></span><ThemeToggle /></div>
       <div className="ob-note-remy">
         <Remy size={60} mood={shown === 5 ? "happy" : "wave"} />
         <p className="ob-note-say" aria-live="polite">{back ? "Welcome back. Pick up where you left off, or start over." : CHAPTERS[shown][1]}</p>
@@ -526,7 +530,6 @@ function Q({ n, children }: { n: number; children: ReactNode }) {
 
 /** Remy's quick questions: class year, where to look, what kinds of
  * opportunities and fields. Saved to the profile; Opportunities filters by them. */
-const LIMIT_OPTS = ["Needs to be paid", "Up to 15 hours a week", "Up to 20 hours a week", "No car (near transit or remote)", "Remote only", "Summers only"];
 const TRIED_OPTS = ["Nothing yet", "Applied to a few", "Went to a career fair", "Talked to the career center", "Reached out to people"];
 const WORRY_OPTS = ["No experience yet", "Not sure what I want", "Feeling behind", "Interviews", "My resume", "Talking to people"];
 

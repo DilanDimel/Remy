@@ -165,7 +165,7 @@ export function BulletFix({ b, kind, upd, onNext, autoFocus, compact }: { b: Bul
           </div>
         </>
       )}
-      {draft && draftFor !== b.text && <span className="xs" style={{ color: "var(--amber)" }}>This line changed since Remy drafted it. Draft again.</span>}
+      {draft && draftFor !== b.text && <span className="xs" style={{ color: "var(--warn)" }}>This line changed since Remy drafted it. Draft again.</span>}
       {draft && draftFor === b.text && !owner && (
         <>
           <span className="small"><b>New:</b> {draft}</span>

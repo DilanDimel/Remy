@@ -10,6 +10,7 @@ import { go } from "@/lib/nav";
 import { useSession } from "@/lib/session";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
 import { radius } from "@/lib/tokens";
+import { CareerTime } from "@/components/CareerTime";
 
 const now = () => new Date().toISOString();
 
@@ -87,6 +88,9 @@ export default function Account() {
           style={{ flex: 1, height: 46, borderRadius: BUTTON_RADIUS, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, paddingHorizontal: 12, fontFamily: font.body, fontSize: 15.5, color: c.ink }} />
         <Button testID="button-add-memory" label="Add" busy={busy === "add"} disabled={!adding.trim()} onPress={add} />
       </View>
+
+      <Sect title="Career time" />
+      <View style={card}><CareerTime intro /></View>
 
       <Sect title="Sources" />
       <Group>

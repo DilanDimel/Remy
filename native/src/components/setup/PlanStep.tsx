@@ -8,6 +8,7 @@ import { useJobs } from "@/lib/jobs";
 import { useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
 import { Nav, Say } from "./common";
+import { CareerTime } from "@/components/CareerTime";
 
 const shortDate = (d: string) => { const t = new Date(d.length === 10 ? d + "T12:00:00" : d); return isNaN(+t) ? d : t.toLocaleDateString("en-US", { month: "short", day: "numeric" }); };
 
@@ -67,6 +68,7 @@ export function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: (
           ))}
         </View>
       )}
+      <Card style={{ gap: 6 }}><T style={{ fontFamily: font.bold }}>When will you work on your career each week?</T><CareerTime intro /></Card>
       <Nav note={error || undefined} onBack={busy ? undefined : onBack}
         next={<>
           <Button testID="button-enter-workspace" label="Go to my Home" icon="arrow" onPress={finish} busy={finishing} disabled={busy} flex />
