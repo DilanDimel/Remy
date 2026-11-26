@@ -1,6 +1,6 @@
 import { go, uiFlags } from "../lib/router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Check, ChevronDown, FileText, GraduationCap, Mail, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, FileText, GraduationCap, Mail, Sparkles } from "lucide-react";
 import { PATHS, type Profile, type SetupFocus, type Workspace } from "@shared/types";
 import { FIELD_GROUPS, FIELD_MAJORS, splitFieldList } from "@shared/fields";
 import { AUTH_OPTS, authChip } from "@shared/workAuth";
@@ -11,7 +11,8 @@ import { reloadJobs, useJobs } from "../lib/jobs";
 import { AiUnavailableNote, BetaBadge, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
 import { ProfileImport, ResumeUpload } from "../components/Uploaders";
 import { atAlumniSchool, atTcu, SchoolVerify } from "../components/SchoolVerify";
-import { ConflictChoice } from "../components/ConflictChoice";
+import { AskCard, useAsks } from "../components/RemyAsk";
+import type { Ask } from "@shared/remyAsks";
 import { ResumeBuilder } from "../components/ResumeBuilder";
 import { LinkedInGuide } from "../components/LinkedInGuide";
 import { useGoogleCalendar } from "../components/GoogleCalendar";
@@ -697,11 +698,11 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
   const w = ws!;
   const profileDraft = useRef<Profile | null>(null);
   const unverified = w.resume?.doc.sections.flatMap((s) => s.entries.flatMap((e) => e.bullets)).filter((b) => b.verified === false) || [];
-  const suggested = w.memory.filter((m) => m.status === "suggested");
-  const setFact = (id: string, patch: any) => save("memory", w.memory.map((m) => (m.id === id ? { ...m, ...patch } : m)));
-  const removeFact = (id: string) => save("memory", w.memory.filter((m) => m.id !== id));
   const [skipVerify, setSkipVerify] = useState(false);
-  const phone = useIsMobile();
+  // Tester, Nov 25: this page "takes a lot of reading and editing". Remy now says what he found in short rows, then asks
+  // about each mismatch between the resume and LinkedIn (or the profile) one at a time.
+  const checks = useAsks().filter((a) => CHECK_KINDS.includes(a.kind));
+  const [checking, setChecking] = useState(false);
   // Value first: start the search from the resume alone, so real openings show before any more questions.
   const { jobs, fits } = useJobs();
   const [looking, setLooking] = useState(false);
@@ -711,6 +712,7 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
     api<{ workspace: Workspace }>("POST", "/api/jobs/discover", {}).then((d) => { setWs(d.workspace); return reloadJobs(); }).catch(() => {}).finally(() => setLooking(false));
   }, []);
   const first = (jobs || []).filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false).slice(0, 3);
+  if (checking) return <SetupChecks onBack={() => setChecking(false)} onNext={onNext} />;
   return (
     <div className="stack-lg">
       {(looking || first.length > 0) && (
@@ -720,10 +722,10 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
         </div>
       )}
       <div className="stack-sm">
-        <h2>Is this right?</h2>
-        <p className="small muted">Correct anything that's off. Remy only uses what you confirm here.</p>
+        <h2>Here's what I found</h2>
+        <p className="small muted">Tap Edit on anything that's off, or fill in what's empty (goals, GPA). Remy only uses what you confirm here.</p>
       </div>
-      <ProfileForm hidePrefs draft={profileDraft} compact={phone} />
+      <ProfileForm hidePrefs draft={profileDraft} compact />
       {atAlumniSchool(w) && !skipVerify && <SchoolVerify onSkip={() => setSkipVerify(true)} />}
       {w.resume && (
         <div className="stack-sm">
@@ -741,18 +743,6 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
           {w.resume.parsedBy === "rules" && <div className="notice notice-warn" data-testid="rules-parse-warning"><div>Remy's AI reader was busy, so a simpler reader sorted your resume. The words are yours, but check in Resume/CV that each job has its own bullets and your degree line reads right.</div></div>}
         </div>
       )}
-      {suggested.length > 0 && (
-        <div className="stack-sm">
-          <h3>Facts from your other sources</h3>
-          {suggested.map((m) => (
-            <div key={m.id} className="source-row" style={{ padding: 10 }}>
-              <div style={{ flex: 1 }} className="stack-sm"><div><div className="small">{m.text}</div><div className="xs muted">{m.source}</div></div>{m.conflict && <ConflictChoice fact={m} />}</div>
-              {!m.conflict && <button className="btn btn-secondary btn-sm" onClick={() => run(() => setFact(m.id, { status: "approved" }))} data-testid="button-approve-fact">Keep</button>}
-              <button className="icon-btn" onClick={() => run(() => removeFact(m.id))} aria-label="Remove fact"><Trash2 size={16} /></button>
-            </div>
-          ))}
-        </div>
-      )}
       <div className="row-between">
         <button className="btn btn-ghost" onClick={onBack}><ArrowLeft size={16} /> Back</button>
         <button className="btn btn-primary" onClick={async () => {
@@ -760,8 +750,35 @@ function Review({ onBack, onNext }: { onBack: () => void; onNext: () => void }) 
           // Edits typed above count as confirmed too; without this they were lost on "Looks right".
           if (profileDraft.current && !(await run(() => save("profile", profileDraft.current!)))) return;
           if (w.resume && !w.resume.confirmedAt && !unverified.length) await run(() => api<Workspace>("PUT", "/api/resume/doc", { doc: w.resume!.doc, confirm: true }).then(setWs));
-          onNext();
+          if (checks.length) setChecking(true); else onNext();
         }} data-testid="button-ob-next-review">Looks right <ArrowRight size={16} /></button>
+      </div>
+    </div>
+  );
+}
+
+/** Mismatches between the resume and the student's other sources: what setup asks about after "Looks right". */
+const CHECK_KINDS: Ask["kind"][] = ["conflict", "name", "profile", "facts"];
+
+/** One mismatch at a time, Remy's own question card (as on My Path): pick which is right, Remy fixes it, then the next. */
+function SetupChecks({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
+  const asks = useAsks().filter((a) => CHECK_KINDS.includes(a.kind));
+  const [shown, setShown] = useState<Ask | null>(null); // the answered one stays up (what Remy did, Undo) until Next
+  const total = useRef(asks.length);
+  const ask = shown || asks[0];
+  const left = asks.filter((a) => a.id !== ask?.id).length;
+  const at = total.current - left;
+  return (
+    <div className="stack-lg setup-checks" data-testid="setup-checks">
+      <div className="stack-sm">
+        {ask && <span className="xs muted" data-testid="text-check-count">{at} of {Math.max(total.current, at)}</span>}
+        <h2>{ask ? "A few quick checks" : "That's everything"}</h2>
+        <p className="small muted">{ask ? "Remy compared your resume with your other sources. Pick what's right and he fixes it." : "Thanks. Everything Remy uses now matches what you picked."}</p>
+      </div>
+      {ask && <AskCard key={ask.id} ask={ask} kicker={false} next={left} onAnswered={() => setShown(ask)} onNext={() => setShown(null)} />}
+      <div className="row-between">
+        <button className="btn btn-ghost" onClick={onBack}><ArrowLeft size={16} /> Back</button>
+        {(!ask || (shown && !left)) && <button className="btn btn-primary" onClick={onNext} data-testid="button-ob-next-checks">Continue <ArrowRight size={16} /></button>}
       </div>
     </div>
   );
