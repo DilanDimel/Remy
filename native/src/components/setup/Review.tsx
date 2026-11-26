@@ -97,7 +97,7 @@ export function Review({ onBack, onNext }: { onBack: () => void; onNext: () => v
       </View>
       {/* What Remy read, as rows: tap one to fix it, so the step isn't nine open boxes in a long scroll. */}
       <View style={{ backgroundColor: c.surface, borderRadius: 16, borderWidth: 1, borderColor: c.line, overflow: "hidden" }} testID="profile-rows">
-        {FIELDS.map(([k, label, ph], i) => {
+        {FIELDS.filter(([k]) => !(k === "minors" && !p.minors && p.path === "high-school")).map(([k, label, ph], i) => {
           const warn = (k === "name" || k === "preferredName") && typing !== k ? nameConcern(String(p[k] || ""), k === "preferredName") : "";
           const name = (p.path && p.path !== "four-year" && OTHER_PATH[k]) || label;
           const value = String(p[k] ?? "").trim();
