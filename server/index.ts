@@ -7,6 +7,7 @@ import { serveStatic } from "./static";
 import { createServer } from "node:http";
 import { flushDbBytes } from "./jobs/insights";
 import { compress } from "./platform/compress";
+import { readOnlyGate } from "./platform/readOnly";
 
 const app = express();
 app.disable("x-powered-by"); // don't advertise the server software
@@ -26,6 +27,8 @@ const UPLOADS = new Set(["/api/resume/upload", "/api/profile/photo", "/api/impor
 app.use((req, res, next) => (UPLOADS.has(req.path) ? jsonUpload : json)(req, res, next));
 
 app.use(express.urlencoded({ extended: false }));
+// During a database move: reads work, saves get a friendly "try again shortly" (server/platform/readOnly.ts).
+app.use(readOnlyGate);
 
 // One address: pages opened on the old *.onrender.com address move to PUBLIC_HOST (remyai.org), keeping the path,
 // query and any sign-in fragment. API calls aren't redirected, so scheduled jobs and open tabs keep working.
