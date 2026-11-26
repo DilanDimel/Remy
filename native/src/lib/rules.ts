@@ -1,7 +1,7 @@
 // The website's rules for who sees what, in one pure file so they can be tested without a phone.
 // The logic itself lives in shared/ (features, beta); this file only puts it in the website's order (client/src/App.tsx).
 import type { AppConfig, Me, Workspace } from "../../../shared/types";
-import { accessOf, appOut, redesignOut, releasesOf } from "../../../shared/features.ts";
+import { accessOf, appOut, featureAt, redesignOut, releasesOf } from "../../../shared/features.ts";
 import { termsFor } from "../../../shared/beta.ts";
 
 export type Status = "loading" | "signed-out" | "beta-blocked" | "ready" | "error";
@@ -17,6 +17,13 @@ export const redesignFor = (me: Me | null, ws: Workspace | null, config: AppConf
 /** One feature's state for this person: "open", "locked" (shown with a lock and the coming-soon card) or "hidden". */
 export const accessFor = (me: Me | null, ws: Workspace | null, config: AppConfig | null, key: string) =>
   accessOf(releasesOf(config?.features), key, ownersOnly(me, ws));
+
+/** Can this person use the page a link opens? False for a locked or hidden feature (Interview, Community for
+ *  students), so suggestions, pins and buttons never send a student to a "coming soon" wall (the website's useCanGo). */
+export const canGoFor = (me: Me | null, ws: Workspace | null, config: AppConfig | null, link: string) => {
+  const f = featureAt(link.split(/[?#]/)[0] || "");
+  return !f || accessFor(me, ws, config, f.key) === "open";
+};
 
 /** The phone app has its own switch in Admin → Beta → Feature releases (`app`, Owners only by default). Owners always
  *  get in, in either view, so they can switch to student view and check it; everyone else gets in once Dilan releases

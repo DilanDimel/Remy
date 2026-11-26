@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { accessFor, gateFor, redesignFor, themeOf } from "./rules.ts";
+import { accessFor, canGoFor, gateFor, redesignFor, themeOf } from "./rules.ts";
 import { BETA_TERMS_VERSION, OPEN_TERMS_VERSION } from "../../../shared/beta.ts";
 
 const me = (owner = false) => ({ id: "u1", email: "a@b.edu", owner }) as any;
@@ -50,4 +50,13 @@ test("theme follows the account, else the phone", () => {
   assert.equal(themeOf({ theme: "light", themeChosen: true }, true), "light");
   assert.equal(themeOf({ theme: "dark" }, false), "dark");
   assert.equal(themeOf(undefined, true), "dark");
+});
+
+test("canGo: students are never sent to a locked page; owners in owner view are", () => {
+  assert.equal(canGoFor(me(false), ws(), config(), "/interview?job=j1"), false);
+  assert.equal(canGoFor(me(false), ws(), config(), "/community"), false);
+  assert.equal(canGoFor(me(false), ws(), config({ features: { interview: "released" } }), "/interview"), true);
+  assert.equal(canGoFor(me(true), ws(), config(), "/interview"), true);
+  assert.equal(canGoFor(me(true), ws({}, { ownerView: false }), config(), "/interview"), false);
+  assert.equal(canGoFor(me(false), ws(), config(), "/resume?tab=base"), true);
 });

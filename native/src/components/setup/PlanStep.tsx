@@ -7,7 +7,7 @@ import { useConfig } from "@/lib/config";
 import { useJobs } from "@/lib/jobs";
 import { useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
-import { Nav, Say } from "./common";
+import { Nav, Preview, Say, beforePrefs } from "./common";
 import { CareerTime } from "@/components/CareerTime";
 
 const shortDate = (d: string) => { const t = new Date(d.length === 10 ? d + "T12:00:00" : d); return isNaN(+t) ? d : t.toLocaleDateString("en-US", { month: "short", day: "numeric" }); };
@@ -19,7 +19,7 @@ export function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: (
   const { c } = useTheme();
   const { jobs, fits, loading } = useJobs();
   const w = ws!;
-  const matches = jobs.filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false);
+  const matches = jobs.filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch !== false && beforePrefs(w, j));
   const [busy, setBusy] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [error, setError] = useState("");
@@ -44,7 +44,7 @@ export function PlanStep({ onBack, onFinish }: { onBack: () => void; onFinish: (
         {loading ? <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}><ActivityIndicator color={c.fox} /><T kind="small" style={{ flex: 1 }}>Remy is checking employers' career sites for openings that fit you…</T></View>
           : matches.length ? <>
             <T style={{ fontFamily: font.bold }}>{`Remy found ${matches.length} opening${matches.length === 1 ? "" : "s"} that fit you`}</T>
-            {matches.slice(0, 3).map((j) => <T key={j.id} kind="small" style={{ color: c.ink }}>{j.title} <T kind="small">at {j.company}</T></T>)}
+            {matches.slice(0, 3).map((j) => <Preview key={j.id} j={j} />)}
             <T kind="small">They're waiting on the Jobs tab.</T>
           </> : w.lastSearch && w.lastSearch.reached < w.lastSearch.scanned / 2 ? <>
             <T style={{ fontFamily: font.bold }}>Most employer career sites didn't answer just now</T>

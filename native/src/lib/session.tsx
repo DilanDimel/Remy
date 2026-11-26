@@ -3,7 +3,7 @@ import { AppState } from "react-native";
 import type { Me, Workspace } from "@shared/types";
 import { api, ApiError } from "./api";
 import { useConfig } from "./config";
-import { accessFor, ownersOnly, redesignFor, type Status } from "./rules";
+import { accessFor, canGoFor, ownersOnly, redesignFor, type Status } from "./rules";
 
 type Session = {
   status: Status; me: Me | null; ws: Workspace | null; error: string;
@@ -58,5 +58,7 @@ export const useOwnersOnly = () => { const { me, ws } = useSession(); return own
 export const useOwnerView = () => { const { me, ws } = useSession(); const { config } = useConfig(); return redesignFor(me, ws, config); };
 /** A feature's state for this person, from Admin → Beta → Feature releases: "open", "locked" or "hidden". */
 export const useAccess = () => { const { me, ws } = useSession(); const { config } = useConfig(); return (key: string) => accessFor(me, ws, config, key); };
+/** Can this person open the page a link goes to (not a locked Interview or Community)? */
+export const useCanGo = () => { const { me, ws } = useSession(); const { config } = useConfig(); return (link: string) => canGoFor(me, ws, config, link); };
 /** Pull to refresh: the account and the feature releases together. */
 export const useRefreshAll = () => { const { refresh } = useSession(); const { reload } = useConfig(); return () => Promise.all([refresh(), reload()]).then(() => {}); };
