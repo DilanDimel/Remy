@@ -405,6 +405,7 @@ function letterFlagsFor(ws: Workspace, app: Application, job: Job) {
     allowedNames: [job.company, job.title, job.location, job.dates, ws.profile.school, ws.profile.name, ws.profile.preferredName, ws.profile.classYear, ...job.requirements.map((r) => r.keyword)].filter(Boolean),
     postingText: [job.summary, job.dates, job.deadlineText, ...job.requirements.map((r) => r.quote), ...job.eligibility].filter(Boolean).join("\n"),
     postingNumbersOk: true,
+    employer: job.company,
     owner: inOwnerView(),
   }).filter((f) => {
     if (f.type !== "name") return true;
