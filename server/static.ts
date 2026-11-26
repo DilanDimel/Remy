@@ -6,6 +6,11 @@ import path from "node:path";
 // Every page the app routes (client/src/App.tsx); anything else gets a 404 status.
 export const PAGES = /^\/(|path|resume|opportunities|interview|community|calendar|progress|accounts|admin|signin|welcome|about|careers|policies|privacy|terms)\/?$/;
 
+/** Vite's /assets files have a content hash in their name, so browsers can keep them a year; everything else
+ * (index.html, icons, manifest) is re-checked each visit so a deploy shows up at once. */
+export const cacheFor = (file: string) =>
+  /[\\/]assets[\\/]/.test(file) ? "public, max-age=31536000, immutable" : "no-cache";
+
 export function serveStatic(app: Express) {
   const distPath = path.resolve(__dirname, "public");
   if (!fs.existsSync(distPath)) {
@@ -14,12 +19,13 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  app.use(express.static(distPath, { setHeaders: (res, file) => res.setHeader("Cache-Control", cacheFor(file)) }));
 
   // Remy's own pages get the app; anything else is a real 404 (search engines and link checkers can tell),
   // still showing the app so a mistyped link lands somewhere useful. Missing files and API paths get a plain 404.
   app.use("/{*path}", (req, res) => {
     const where = req.originalUrl.split(/[?#]/)[0]; // req.path is relative to this mount, so always "/"
+    res.setHeader("Cache-Control", "no-cache");
     if (PAGES.test(where)) return res.sendFile(path.resolve(distPath, "index.html"));
     if (where.startsWith("/api/")) return res.status(404).json({ message: "Not found." });
     if (/\.[a-z0-9]{2,5}$/i.test(where)) return res.status(404).type("text/plain").send("Not found");
