@@ -176,6 +176,11 @@ test("iCIMS: postings from the sitemap, place and text from the posting's JobPos
   const b = { ats: "icims" as const, slug: "careers-x", company: "X" };
   assert.equal((await keep(b, [raw("Houston, TX, US")])).length, 1);
   assert.equal((await keep(b, [raw("Toronto, ON, CA")])).length, 0);
+  // A Workday site that names a building or "2 Locations" instead of a city: the full posting decides.
+  const named = (listed: string, full: string) => ({ ...raw(full), location: listed });
+  assert.equal((await keep(b, [named("Medical Plaza North", "Houston, TX, US")])).length, 1);
+  assert.equal((await keep(b, [named("2 Locations", "London, UK")])).length, 0);
+  assert.equal((await keep(b, [{ ...named("Toronto, ON, Canada", "Houston, TX, US"), detail: async () => { throw new Error("read"); } }])).length, 0);
 });
 
 test("SuccessFactors: postings from the career site's sitemap, title, text and place from the page", () => {
