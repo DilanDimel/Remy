@@ -19,7 +19,7 @@ Career centers are stretched thin, and most job tools either spam students with 
 
 **Resume.** Reads a PDF or Word resume (or LinkedIn's Save-to-PDF) into a profile the student confirms. First-years with no resume can build one by tapping through a guided builder. An ATS check scores the resume the way hiring software reads it, and a review explains what to fix.
 
-**Opportunities.** Live student roles pulled straight from about 180 employers' own career sites (Workday, Greenhouse, Lever and others), plus federal roles from USAJOBS and the Labor Department's job search. Each opening says whether the student qualifies and why, and they can import any posting by link.
+**Opportunities.** Live student roles pulled straight from over 90,000 employers' own career sites (Workday, Greenhouse, Lever and others), plus federal roles from USAJOBS and the Labor Department's job search. Each opening says whether the student qualifies and why, and they can import any posting by link.
 
 **Tailoring and cover letters.** Remy suggests changes for a specific posting, shown as the original line next to the proposed one, with the posting quote that motivated it. The student accepts, edits or rejects each change. Downloads keep their Word file's fonts and layout.
 
