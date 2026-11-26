@@ -147,6 +147,7 @@ export default function Admin() {
           onPress={() => act("clock", async () => { setTeam(await api<Team>("POST", "/api/admin/clock", { action: team.clockedIn ? "out" : "in", note })); setNote(""); }, team.clockedIn ? "Clocked out" : "Clocked in")} flex />}
       </View>
 
+      <Button testID="button-admin-use" kind="ghost" label="Using Remy: the team's own use" icon="trend" onPress={() => { tap(); go("/admin?tab=team&view=use"); }} flex />
       <Button testID="button-admin-full" kind="ghost" label="Full dashboard on the website" onPress={() => go("/admin", "Owners", { page: true })} flex />
     </ScrollView>
   );

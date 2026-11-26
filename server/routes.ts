@@ -40,6 +40,7 @@ import { cleanTerm, readTermAnswer, TERM_SYSTEM, termPrompt, type TermAnswer } f
 import { inOwnerTrial, inOwnerView, runAiAs, aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, lastUsage, markAiAuthFailure, model } from "./ai/ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./ai/safety";
 import * as admin from "./platform/admin";
+import * as presence from "./platform/presence";
 import * as contrib from "./platform/contrib";
 import * as beta from "./platform/beta";
 import * as features from "./platform/features";
@@ -181,6 +182,8 @@ function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: 
       // PostHog AI cost per feature (numbers only): signed-in accounts, not with Do Not Track / Global Privacy Control.
       const track = me.kind === "guest" || me.kind === "visitor" || req.header("dnt") === "1" || req.header("sec-gpc") === "1" ? null : { distinctId: me.id, feature: `${req.method} ${req.route?.path || req.path}` };
       await runAiAs(trial || redesignOut(await features.releases()), () => fn(req, res, ctx) as Promise<unknown>, trial, track);
+      // Owners only: what they did, for Team & hours → Using Remy (route pattern only, never content).
+      if (me.owner && req.method !== "GET" && res.statusCode < 400) presence.action(me, req.method, String(req.route?.path || req.path)).catch(() => {});
     } catch (e: any) {
       if (e instanceof AiUnavailable) return res.status(503).json({ message: e.message, code: "ai-unavailable" });
       const status = e?.status || 500;
@@ -819,6 +822,16 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.send(f!.data);
   }));
   app.get("/api/admin/team", route(async (_req, res, ctx) => { res.json(await admin.team(owner(ctx))); }));
+  // Using Remy: how each owner uses Remy themselves (same rules for everyone, never students).
+  app.get("/api/admin/activity", route(async (_req, res, ctx) => { res.json(await presence.activity(owner(ctx))); }));
+  // One beat a minute from an owner who has Remy on screen and in use. No workspace load; non-owners store nothing.
+  app.post("/api/team/presence", async (req, res) => {
+    try {
+      const me = await identify(req);
+      if (me && allowLocal("presence:" + me.id, 90, 60 * 60_000)) await presence.beat(me, req.body);
+      res.json({ ok: true });
+    } catch { res.json({ ok: true }); }
+  });
   // Database space used against the plan's limit, per table (owners only).
   app.get("/api/admin/storage", route(async (_req, res, ctx) => { owner(ctx); await insights.flushDbBytes(); res.json({ ...(await storageReport()), workspaces: await insights.workspaceSizes(), transfer: await insights.dataTransfer(), backup: await backupStatus() }); }));
   // Who is connected to the database and which queries return the most rows: for tracing Supabase data transfer (owners only).
