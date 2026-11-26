@@ -5,7 +5,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Job, Workspace } from "@shared/types";
 import type { GameState } from "@shared/game";
 import { CARD_LABEL, CARD_XP, dailyStreak, dayKey, streakDays, weekDots, withCard, type DailyCard } from "@shared/daily";
-import { Button, Icon, Logo, Remy, T, success, tap } from "@/components/ui";
+import { Button, Chip, Icon, Logo, Remy, T, success, tap } from "@/components/ui";
+import { postingSkills } from "@shared/requirements";
 import { api } from "@/lib/api";
 import { useJobs } from "@/lib/jobs";
 import { shortPlace } from "@/lib/next";
@@ -113,7 +114,8 @@ function Openings({ jobs, onDone }: { jobs: Job[]; onDone: (said: string) => voi
       <Button testID="button-round-next" label="Next card" icon="arrow" flex onPress={() => onDone(kept ? `Kept ${kept} new opening${kept > 1 ? "s" : ""}` : `Sorted ${jobs.length} new openings`)} />
     </View>
   );
-  const why = fits[j.id]?.why;
+  const fit = fits[j.id], why = fit?.why;
+  const skills = postingSkills(j.requirements).slice(0, 5);
   return (
     <View style={{ gap: 12 }}>
       <Kind card="openings" />
@@ -125,6 +127,9 @@ function Openings({ jobs, onDone }: { jobs: Job[]; onDone: (said: string) => voi
         </View>
         <Text style={{ fontFamily: font.bold, fontSize: 18, lineHeight: 24, color: c.ink }}>{j.title}</Text>
         {!!why && <T kind="small">{why}</T>}
+        {/* Tester, Nov 25: why it fits belongs here, where the decision is made. The full opening is one tap away. */}
+        {skills.length > 0 && <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }} testID="round-skills">{skills.map((k) => <Chip key={k} text={fit?.matched?.includes(k) ? `✓ ${k}` : k} tone={fit?.matched?.includes(k) ? "live" : "plain"} />)}</View>}
+        <Pressable testID="button-round-more" onPress={() => { tap(); router.push({ pathname: "/job", params: { id: j.id } }); }}><Text style={{ fontFamily: font.bold, fontSize: 14, color: c.fox }}>Why it fits and more</Text></Pressable>
         {!!(j.applyUrl || j.sourceUrl) && <Pressable testID="link-round-posting" onPress={() => Linking.openURL((j.applyUrl || j.sourceUrl)!)}><Text style={{ fontFamily: font.bold, fontSize: 14, color: c.fox }}>See the posting</Text></Pressable>}
         <T kind="small" style={{ color: c.mutedText }}>{i + 1} of {jobs.length}</T>
       </View>

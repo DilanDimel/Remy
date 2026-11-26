@@ -2135,6 +2135,10 @@ button.dp-unit-head { width: 100%; border: 0; font: inherit; text-align: left; c
 .dp-job.fly-r { transform: translateX(110%) rotate(10deg); opacity: 0; }
 .dp-job.fly-l { transform: translateX(-110%) rotate(-10deg); opacity: 0; }
 .dp-job-co { display: flex; align-items: center; gap: 12px; }
+.dp-job-skills { display: flex; flex-wrap: wrap; gap: 6px; }
+/* The details scroll inside the card, so opening them never makes the page scroll (zero scroll at 1440x800). */
+.dp-job-more { max-height: 220px; overflow: auto; display: grid; gap: 6px; padding-right: 4px; }
+.dp-job .link-btn.dp-job-link { justify-self: start; }
 .dp-job-co b { display: block; font-size: var(--text-sm); }
 .dp-job-co span { font-size: var(--text-xs); color: var(--muted-text); }
 .dp-mono { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; font-weight: 800; background: var(--fox-soft); color: var(--fox-deep); flex: none; }
