@@ -22,6 +22,7 @@ export function go(path: string, title = "Remy", opts: { page?: boolean } = {}) 
   // Calendar is native too (More → Calendar, Progress's interview prompt).
   if (!opts.page && base === "/calendar" && !query) return router.push("/calendar" as any);
   // The mock interview is native (More → Interview, job cards, Remy's "start" link).
+  if (!opts.page && base.startsWith("/interview#")) return router.push("/prep" as any); // Home's "story deck" link
   if (!opts.page && base === "/interview") return router.push({ pathname: "/interview", params: q } as any);
   // Community is native too (More → Community, Home's "Did you meet anyone at …?").
   if (!opts.page && base === "/community") return router.push({ pathname: "/community", params: q } as any);
