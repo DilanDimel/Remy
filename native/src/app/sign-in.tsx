@@ -20,7 +20,7 @@ const WAIT = 30;
 type Sso = "google" | "linkedin_oidc";
 // Expo Go (testing) can't receive remy:// links, so its sign-in collects the result from the server instead.
 const expoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-const SSO: { id: Sso; label: string }[] = [{ id: "google", label: "Google" }, { id: "linkedin_oidc", label: "LinkedIn" }];
+const SSO: { id: Sso; label: string }[] = [{ id: "google", label: "Google" }]; // LinkedIn removed Nov 26 (Dilan): Google and email are enough
 
 const GoogleMark = () => (
   <Svg width={20} height={20} viewBox="0 0 48 48">
@@ -28,11 +28,6 @@ const GoogleMark = () => (
     <Path fill={brand.googleBlue} d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z" />
     <Path fill={brand.googleYellow} d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z" />
     <Path fill={brand.googleGreen} d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z" />
-  </Svg>
-);
-const LinkedInMark = () => (
-  <Svg width={20} height={20} viewBox="0 0 24 24">
-    <Path fill={brand.linkedin} d="M20.45 20.45h-3.56v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z" />
   </Svg>
 );
 
@@ -129,7 +124,7 @@ export default function SignIn() {
       <Pressable key={s.id} testID={`button-sso-${s.id === "google" ? "google" : "linkedin"}`} accessibilityRole="button" accessibilityLabel={`Continue with ${s.label}`} disabled={!!ssoBusy || busy}
         onPress={() => { tap(); sso(s.id); }}
         style={({ pressed }) => ({ height: 50, borderRadius: BUTTON_RADIUS, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, opacity: pressed ? 0.8 : 1 })}>
-        {ssoBusy === s.id ? <ActivityIndicator color={c.ink} /> : s.id === "google" ? <GoogleMark /> : <LinkedInMark />}
+        {ssoBusy === s.id ? <ActivityIndicator color={c.ink} /> : <GoogleMark />}
         <Text style={{ fontFamily: font.bold, fontSize: 16, color: c.ink }}>Continue with {s.label}</Text>
       </Pressable>
     ))}
@@ -180,7 +175,7 @@ export default function SignIn() {
     <Button testID="button-send-code" kind="fox" label="Send code" onPress={send} busy={busy} disabled={!/.+@.+\..+/.test(email.trim()) || !!ssoBusy} flex />
     {!!err && <T kind="small" style={{ color: c.error }}>{err}</T>}
     {ssoButtons}
-    <T kind="small" style={{ textAlign: "center" }}>Google, LinkedIn and email all work the same, so pick the account you use most. Already have an account? Use the same one and you'll pick up where you left off, on the website too.</T>
+    <T kind="small" style={{ textAlign: "center" }}>Google and email work the same, so pick the account you use most. Already have an account? Use the same one and you'll pick up where you left off, on the website too.</T>
   </>, <T kind="small" style={{ textAlign: "center" }}>By continuing you agree to Remy's {link("Terms", "/terms")} and {link("Privacy Policy", "/privacy")}.</T>, backBtn("welcome"));
 
   // The code: six boxes over one hidden field, so the phone's "from Messages/Mail" suggestion fills all six at once.

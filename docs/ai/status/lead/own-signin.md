@@ -8,3 +8,5 @@ What's in the first PR:
 - native/ (noted per the rule): `native/src/app/sign-in.tsx` opens Remy's start URL and redeems the code when `config.ownSignin` says so; Supabase path kept as is. Needs an OTA update to reach the app.
 
 Next: test live by opening /api/auth/oauth/google/start, set OWN_SIGNIN=google, LinkedIn keys, then remove Supabase (the LinkedIn "connect" in Account still uses Supabase and needs moving too).
+
+Nov 26, 1:15 PM CT, Dilan: no LinkedIn sign-in ("Continue with Google is enough"). Removed the LinkedIn button on the website (Welcome.tsx) and the app (native/src/app/sign-in.tsx, noted here per the rule), plus the unused LinkedIn "connect" path (/api/connect/linkedin and its return handler). oauth.ts keeps LinkedIn support, but it's off unless OWN_SIGNIN names it. People who used LinkedIn before sign in with Google or an email code at the same address (userByEmail).

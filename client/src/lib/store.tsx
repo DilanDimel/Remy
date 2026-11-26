@@ -214,10 +214,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       const back = await finishSupabaseRedirect(c);
       if (back?.intent === "signin") await api("POST", "/api/auth/supabase", { accessToken: back.accessToken }).catch((e) => { if (e?.code !== "beta") throw e; });
-      if (back?.intent === "connect-linkedin") {
-        await api("POST", "/api/connect/linkedin", { accessToken: back.accessToken });
-        toast("LinkedIn connected");
-      }
       await back?.done();
     } catch (e: any) {
       toast(e?.message || "Sign-in didn't finish.", true);
