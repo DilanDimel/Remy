@@ -15,3 +15,7 @@
   licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), plus the
   [NCES CIP 2020 to SOC 2018 crosswalk](https://nces.ed.gov/ipeds/cipcode/resources.aspx?y=56) (public domain), used to
   match job titles and majors to occupations (`server/jobs/soc.ts`). O*NET® is a trademark of USDOL/ETA.
+- `us-metros.json`: every U.S. metropolitan area (380) with its principal cities and the other incorporated places in its
+  counties, from the Census Bureau's [2023 CBSA delineation files](https://www.census.gov/geographies/reference-files/time-series/demo/metro-micro/delineation-files.html)
+  and [2020 place-by-county list](https://www2.census.gov/geo/docs/reference/codes2020/) (public domain). Each row is
+  `[metro title, principal "city|ST" names, other "place|ST" names]`; used to read "Columbus, OH" as the whole Columbus area (`server/jobs/metros.ts`).

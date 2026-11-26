@@ -41,6 +41,9 @@ const FIELD_SOC: Record<string, string[]> = {
   hospitality: ["11-9051", "11-9081", "13-1121", "35-1", "43-4081"],
   sports: ["27-202", "39-9031", "29-9091"],
   nonprofit: ["11-9151", "11-2033", "13-1131", "21-1"],
+  "customer service": ["43-4051", "43-4171", "41-2031"],
+  technician: ["47-2", "49-", "51-4", "53-3032"],
+  humanities: ["25-4", "27-3091", "19-3093", "19-3091", "25-1125"],
 };
 
 export type FutureOcc = { soc: string; title: string; change: number; openings: number | null; wage: number | null; education: string; aiShare: number | null; link: string };

@@ -23,6 +23,7 @@ import { ThemeToggle } from "../components/ThemeToggle";
 import { firstName } from "@shared/names";
 import { nameConcern } from "@shared/junk";
 import { LIMIT_OPTS } from "@shared/limits";
+import { regionOptions } from "@shared/regions";
 
 // Step numbers are stored in the workspace: 0 and 1 are the goal question (no focus yet) or the resume step; 2-5 follow.
 const STEPS = ["Your goal", "Your resume", "Review", "Preferences", "Questions", "Your plan"];
@@ -501,7 +502,6 @@ function ProfileRow({ k, label, value, onEdit }: { k: string; label: string; val
 }
 
 const YEAR_OPTS = ["First-year", "Sophomore", "Junior", "Senior", "Graduate student"];
-const REGION_OPTS = ["Fort Worth", "Dallas", "DFW area", "Houston", "Austin", "Anywhere in Texas", "Remote", "Anywhere in the US"];
 const TYPE_OPTS = ["Internships", "Full-time jobs", "Part-time / campus jobs", "Programs & insight days", "Events & networking", "Competitions"];
 const RELOC_OPTS = ["Yes", "For the right role", "No"];
 /** The next few terms a student could start something, e.g. Spring 2027, Summer 2027, Fall 2027, Summer 2028. */
@@ -542,7 +542,9 @@ function Preferences({ onBack }: { onBack: () => void }) {
   const [year, setYear] = useState(p.classYear ? [p.classYear] : owner ? [guessYear(p.graduation)].filter(Boolean) : []);
   const [grad, setGrad] = useState(p.graduation);
   const [timeline, setTimeline] = useState(splitList(p.timeline || ""));
-  const [regions, setRegions] = useState(p.regions || !owner ? splitList(p.regions) : REGION_OPTS.filter((r) => r === (p.location || "").split(",")[0].trim()));
+  // Places near the student (their city and state), not Texas for everyone: shared/regions.ts.
+  const regionOpts = regionOptions(p.location || "");
+  const [regions, setRegions] = useState(p.regions || !owner ? splitList(p.regions) : regionOpts.filter((r) => r === (p.location || "").split(",")[0].trim()));
   const [otherRegion, setOtherRegion] = useState("");
   const [types, setTypes] = useState(p.opportunityTypes ? splitList(p.opportunityTypes) : ["Internships"]);
   const [fields, setFields] = useState(splitFieldList(p.targetRoles));
@@ -657,7 +659,7 @@ function Preferences({ onBack }: { onBack: () => void }) {
             <span className="xs muted">Pick all that work. Leave empty if you're open to anything.</span></Q>
           </div>
         </> : <>
-          <Q n={5}><strong>Where should I look for you?</strong><Chips options={REGION_OPTS} value={regions} onChange={setRegions} testid="pref-region" />
+          <Q n={5}><strong>Where should I look for you?</strong><Chips options={[...regionOpts, ...regions.filter((r) => !regionOpts.includes(r))]} value={regions} onChange={setRegions} testid="pref-region" />
             <div className="pref-inline"><input className="input pref-grow" value={otherRegion} onChange={(e) => setOtherRegion(e.target.value)} placeholder="Somewhere else? e.g. Chicago" aria-label="Other regions" data-testid="input-pref-region" />
             <span className="xs muted">Open to relocating?</span><Chips options={RELOC_OPTS} value={reloc} onChange={setReloc} multi={false} testid="pref-reloc" /></div></Q>
           <div className="pref-pair">

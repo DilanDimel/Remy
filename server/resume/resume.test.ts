@@ -182,3 +182,15 @@ test("contact details lower down, or run together on one line", () => {
   assert.equal(e.contact.email, "ana@example.com");
   assert.equal(e.contact.phone, "817-555-0101");
 });
+
+test("two-digit years and a title line above its org", () => {
+  const doc = rulesParse("Avery Kim\navery@gmail.com\n\nEDUCATION\nUniversity of New Mexico, Albuquerque, NM\nBS Cybersecurity — Expected May. '28\n\nEXPERIENCE\nSecurity Analyst Intern\nBluebonnet Health — Albuquerque, NM\nJun. '26 – Aug. '26\n- Monitored alerts\n");
+  const e = primaryEducation(doc)!;
+  assert.equal(majorsOf(e), "Cybersecurity");
+  assert.equal(graduationOf(e.dates), "May 2028");
+  const job = doc.sections.find((s) => /experience/i.test(s.heading))!.entries;
+  assert.equal(job.length, 1);
+  assert.equal(job[0].role, "Security Analyst Intern");
+  assert.equal(job[0].org, "Bluebonnet Health");
+  assert.equal(job[0].dates, "Jun. '26 – Aug. '26");
+});

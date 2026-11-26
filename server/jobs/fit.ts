@@ -7,6 +7,7 @@ import { families, family } from "@shared/words";
 import { norm } from "../resume/parse";
 import { inOwnerView } from "../ai/ai";
 import { graduationOf, primaryEducation } from "../resume/resume";
+import { locationInMetros, metrosNamed } from "./metros";
 
 // Deterministic fit: eligibility (graduation window, class year), where the
 // student wants to work, what kinds of opportunities they asked for, and which
@@ -158,6 +159,9 @@ export function regionMatch(ws: Workspace, job: Job): boolean | null {
   if (wants.some((w) => Object.keys(METRO).some((k) => !STATE_NAMES.includes(k) && k !== "remote" && w.includes(k)))) wants = wants.filter((w) => !STATE_NAMES.includes(w));
   // "Austin, TX": a state right after a city labels that city; it doesn't mean the whole state.
   const isState = (w: string) => STATE_NAMES.includes(w) || new RegExp(`^(${STATE})$`, "i").test(w);
+  const codeOf = (w: string) => (STATE_NAMES.includes(w) ? STATE.split("|")[STATE_NAMES.indexOf(w)] : w.toUpperCase());
+  // ...and that state picks which metro the city is ("Columbus, OH", not Columbus, GA).
+  const stateAfter = new Map(wants.map((w, i) => [w, isState(wants[i + 1] || "") && !isState(w) ? codeOf(wants[i + 1]) : ""]));
   wants = wants.filter((w, i) => !(i > 0 && isState(w) && !isState(wants[i - 1])));
   // A state the student chose as a whole ("Anywhere in Texas") stays, even next to a metro or after a city.
   wants = [...wants, ...wholeStates];
@@ -171,6 +175,13 @@ export function regionMatch(ws: Workspace, job: Job): boolean | null {
   return wants.some((w) => {
     const key = Object.keys(METRO).find((k) => w.includes(k));
     if (key && key !== "remote" && elsewhere) return false;
+    // Any other U.S. metro: the whole area (suburbs with their state), from Census data (server/jobs/metros.ts).
+    if (!key && !isState(w)) {
+      const metros = metrosNamed(w, stateAfter.get(w) || undefined);
+      if (metros.length) return locationInMetros(job.location, metros) || (!states.length && loc.includes(w));
+    }
+    // "New York" and "Washington" are a state and a city: either counts (Jersey City, NJ for a "New York" student).
+    if (!key && isState(w) && locationInMetros(job.location, metrosNamed(w))) return true;
     // A state name also matches its abbreviation ("California" → "Glendale, CA").
     const a = STATE.split("|")[STATE_NAMES.indexOf(w)]?.toLowerCase() || (isState(w) ? w : undefined);
     return (key ? METRO[key] : a ? [w, `, ${a},`, `, ${a} `, `,${a} `] : [w]).some((needle) => loc.includes(needle));
@@ -185,37 +196,47 @@ const FIELDS: [RegExp, RegExp, string][] = [
   [/financ|bank|invest|m&a|capital|fintech|account|econ|wealth|cpa/i, /financ|bank|invest|m&a|merger|capital|equity|credit|analyst|account|bookkeep|audit|(?<!non-)tax|assurance|advisory|treasury|fp&a|valuation|trading|risk|wealth|asset|corporate development|strategy|\bbusiness/i, "finance"],
   [/quant|math|statistic|actuar|physics/i, /quant|research|trading|analyst|data|actuar|statistic|model/i, "quantitative"],
   // "marketing", not bare "market": "middle-market" and "capital markets" are finance words.
-  [/marketing|market research|brand|advertis|social media|public relations|\bpr\b|strategic communication/i, /marketing|market research|brand|growth|content|social|communication|advertis|creative|public relations|\bpr\b|digital|campaign/i, "marketing"],
+  [/marketing|market research|brand|advertis|social media|public relations|\bpr\b|strategic communication|\bseo\b|lead generation|digital media/i, /marketing|market research|brand|growth|content|social|communication|advertis|creative|public relations|\bpr\b|digital|campaign/i, "marketing"],
   [/sales|business development/i, /sales|business development|account (executive|manager)|partnerships|customer success/i, "sales"],
-  [/management|entrepreneur|business admin|\bbba\b|general business|startup/i, /business|operations|management|associate|analyst|strategy|project|program|leadership|rotational|marketing|financ|human resources|supply chain|sales|accounting|consult|brand/i, "business"],
+  [/customer service|customer support|call center|\bbpo\b|^\s*support\s*$|client services/i, /customer|support|service|call center|client|representative|help desk|success/i, "customer service"],
+  [/^\s*(?:business\s*(?:&|and)?\s*)?management\s*$|business\s*(?:&|and)?\s*management|management information|entrepreneur|business admin|\bbba\b|general business|startup|product manag/i, /business|operations|management|associate|analyst|strategy|project|program|leadership|rotational|marketing|financ|human resources|supply chain|sales|accounting|consult|brand|product/i, "business"],
   [/consult/i, /consult|strategy|analyst|advisory/i, "consulting"],
   [/human resources|\bhr\b|people|talent|recruit/i, /human resources|\bhr\b|people|talent|recruit/i, "human resources"],
   [/data|analytic|statistic/i, /data|analytic|insight|intelligence|research|quant|machine learning|software|developer/i, "data"],
   // Business information systems sits between business and tech: analyst, IT and fintech roles, not engineering.
   [/information systems|\bbis\b|\bmis\b|business analytics|fintech/i, /business analyst|systems analyst|information systems|\bit\b|information technology|technology|data analy\w*|data science|database|analytics|business intelligence|fintech|product|erp|\bsap\b|cyber|security analyst|digital|software|developer|web|help desk/i, "information systems"],
   // "Engineer" only with software context, so petroleum, safety or field engineering isn't read as software.
-  [/software|computer science|computer engineering|\bcs\b|developer|\btech\b|programming|information technology|cyber/i, /software|developer|programmer|(data|ml|machine learning|cloud|platform|back[- ]?end|front[- ]?end|full[- ]?stack|devops|security|network|systems|site reliability|qa|test|web|mobile|ai) engineer|machine learning|data|cyber|security|network|systems (analyst|administrator)|\bit\b|technology|cloud|technical/i, "software"],
+  [/software|computer science|computer engineering|\bcs\b|developer|\btech\b|programming|information technology|cyber|\bjava\b|python|javascript|\.net|\bphp\b|node\.?js|golang|\bruby\b|flutter|\bc\+\+|scala|\brust\b|android|\bios\b|devops|\bqa\b|quality assurance|software testing|automation testing|^\s*testing\s*$|sysadmin|systems administrat|network (administrat|security|engineer)|blockchain|hadoop|\betl\b|\bsql\b|database|unity|game (design|develop)|security analyst|information security/i, /software|developer|programmer|(data|ml|machine learning|cloud|platform|back[- ]?end|front[- ]?end|full[- ]?stack|devops|security|network|systems|site reliability|qa|test|web|mobile|ai) engineer|machine learning|data|cyber|security|network|systems (analyst|administrator)|\bit\b|technology|cloud|technical|\bqa\b|quality assurance|tester|testing|devops|database|game|unity|android|ios/i, "software"],
   [/mechanical|civil|electrical|industrial|aerospace|chemical|biomedical|manufacturing|petroleum|structural|\bengineering\b/i, /^(?!.*software).*(engineer|engineering|manufacturing|design|process|quality|field|technician|project|mechanical|\bcad\b|prototyp)/i, "engineering"],
   [/architect|construction|interior design|urban planning|landscape/i, /architect|construction|project|design|planning|estimat|field|site/i, "construction"],
-  [/supply chain|operations|logistics|transportation/i, /operations|supply|logistics|procurement|planning|transportation|warehouse|distribution/i, "operations"],
+  [/supply chain|operations|logistics|transportation|project manag|program manag|\bpmo\b|scrum/i, /operations|supply|logistics|procurement|planning|transportation|warehouse|distribution|project|program|scrum/i, "operations"],
+  [/weld|hvac|electrician|electrical technology|plumb|diesel|automotive|automobile|mechanic|carpent|machinist|machining|\bcdl\b|lineman|linework|construction trades|millwright|\btrades?\b/i, /weld|hvac|electrician|technician|mechanic|apprentice|plumb|maintenance|installer|machinist|fabricat|diesel|automotive|service tech|helper|operator|lineman|carpent|millwright|driver/i, "technician"],
   [/aviation|pilot|flight|aerospace|air traffic/i, /aviation|pilot|flight|airport|aircraft|aerospace|air operations|maintenance/i, "aviation"],
   [/real estate|property/i, /real estate|property|leasing|appraisal|acquisitions|capital markets|valuation|financ|investment|analyst/i, "real estate"],
-  [/health|pharma|biotech|medical|pre-?med|medicine|doctor|physician|dental|dentist|pharmacy|physical therapy|occupational therapy|\bpa\b|physician assistant|kinesiolog|nutrition|public health|pre-?health/i, /health|clinical|pharma|patient|medical|biotech|hospital|scribe|research assistant|lab|therapy|dental|pharmacy|care/i, "healthcare"],
+  [/health|pharma|biotech|medical|pre-?med|medicine|doctor|physician|dental|dentist|pharmacy|physical therapy|occupational therapy|\bpa\b|physician assistant|kinesiolog|nutrition|dietetic|public health|pre-?health|radiolog|sonograph|respiratory|medical assist|phlebotom|athletic training|speech|audiolog|optometr|veterinar|vet tech|surgical tech/i, /health|clinical|pharma|patient|medical|biotech|hospital|scribe|research assistant|lab|therap|dental|pharmacy|care|radiolog|imaging|x-ray|sonograph|technologist|phlebotom|veterinar/i, "healthcare"],
   // "Extern" as a word: a nurse extern is nursing, an "Underwriting Externship" isn't.
   [/nurs|\brn\b|\bbsn\b/i, /nurs|\brn\b|patient care|care (tech|assistant)|\bextern\b|clinical|\bcna\b|hospital|scribe|medical assistant/i, "nursing"],
   [/psycholog|social work|counsel|human services|sociolog|child development|family studies/i, /social work|case manag|counsel|mental health|behavior|psych|advocate|family|youth|human services|community|research assistant/i, "social work"],
-  [/biology|chemistry|physics|neuroscience|environmental science|geology|research|lab science|biochem/i, /research|lab|scientist|chemist|biolog|science|technician|field/i, "research"],
-  [/environment|sustainab|agricultur|ranch|conservation|energy|natural resources|wildlife|forestry/i, /environment|sustainab|energy|conservation|agricultur|ranch|wildlife|park|field|natural resources/i, "sustainability"],
+  [/biology|chemistry|physics|neuroscience|environmental science|geolog|research|lab science|biochem|meteorolog|atmospheric|astronom|oceanograph/i, /research|lab|scientist|chemist|biolog|science|technician|field|weather|meteorolog|forecast|climate|geolog/i, "research"],
+  [/environment|sustainab|agricultur|ranch|conservation|energy|natural resources|wildlife|forestry|animal science|agronom|horticult|viticult|enolog|turf|crop|soil|food science|\bag\b/i, /environment|sustainab|energy|conservation|agricultur|ranch|wildlife|park|field|natural resources|agronom|crop|farm|grain|livestock|animal|veterinar|harvest|vineyard|winery|cellar|turf|golf course|greenhouse|horticult|forest|timber|wildland|seed|food/i, "sustainability"],
   [/educat|teach/i, /teach|education|tutor|instruct|classroom|school|camp|youth/i, "education"],
-  [/\blaw\b|legal|pre-?law|paralegal|political science|government|public policy|international relations/i, /legal|\blaw\b|paralegal|clerk|policy|government|legislative|public affairs|compliance|court|advocacy|campaign|research|organizer/i, "legal"],
-  [/police|criminal justice|criminology|firefight|fire science|\bemt\b|paramedic|public safety|military|homeland security|corrections/i, /police|officer|fire|firefighter|emt|paramedic|dispatch|cadet|corrections|public safety|emergency|security|investigat|legal|\blaw\b|paralegal|court|clerk/i, "public safety"],
-  [/\bart\b|\barts\b|studio art|graphic design|design|fashion|photograph|animation|illustrat|museum|art history/i, /design|designer|creative|\bart\b|artist|studio|fashion|photograph|animation|illustrat|museum|gallery|visual/i, "design"],
+  [/\blaw\b|legal|pre-?law|paralegal|political science|government|public policy|international relations|advocate|attorney|lawyer/i, /legal|\blaw\b|paralegal|clerk|policy|government|legislative|public affairs|compliance|court|advocacy|campaign|research|organizer/i, "legal"],
+  [/police|criminal justice|criminology|corrections|homeland security/i, /police|officer|corrections|public safety|emergency|security|investigat|dispatch|cadet|probation|legal|\blaw\b|paralegal|court|clerk/i, "public safety"],
+  // Fire, EMS and the military aren't legal careers (Fire Science students were shown Legal Assistant first).
+  [/firefight|fire science|\bemt\b|paramedic|emergency medical|emergency management|military|public safety|rotc/i, /fire|firefighter|\bemt\b|paramedic|dispatch|cadet|emergency|public safety|rescue|wildland|officer|security|military/i, "public safety"],
+  [/\bart\b|(?<!culinary\s)\barts\b|studio art|graphic design|design|fashion|apparel|textile|photograph|animation|illustrat|museum|art history|artist/i, /design|designer|creative|\bart\b|artist|studio|fashion|apparel|merchandis|photograph|animation|illustrat|museum|gallery|visual/i, "design"],
   [/film|theat(er|re)|acting|actor|actress|perform|music|dance|entertainment|cinema/i, /film|production|theat|acting|music|dance|entertainment|performance|stage|studio|talent|video|audio/i, "entertainment"],
   [/journalis|english|creative writing|writing|communication|broadcast|media/i, /journalis|reporter|editor|writer|writing|content|media|broadcast|news|communications|copy|public relations|\bpr\b|marketing|social/i, "communications"],
-  [/hospitality|hotel|event|tourism|culinary|restaurant/i, /hospitality|hotel|event|guest|tourism|culinary|restaurant|food|venue|front desk/i, "hospitality"],
-  [/sport|athletic|recreation|exercise science|coaching/i, /sport|athletic|recreation|fitness|coach|team operations|ticket|stadium/i, "sports"],
+  [/hospitality|hotel|event|tourism|culinary|restaurant|\bchef|\bcook|food and beverage|baking|pastry|bartend/i, /hospitality|hotel|event|guest|tourism|culinary|restaurant|food|venue|front desk|chef|cook|kitchen|beverage|banquet|catering/i, "hospitality"],
+  [/sport|athletic|recreation|exercise science|coaching|fitness|personal train/i, /sport|athletic|recreation|fitness|coach|team operations|ticket|stadium|trainer|gym/i, "sports"],
+  [/histor(?!y of)|philosoph|anthropolog|archaeolog|classics|linguistic|spanish|french|german|chinese|japanese|arabic|portuguese|foreign language|modern languages|translation|interpret|sign language|\basl\b|librar|archiv|humanities|liberal arts/i, /museum|archiv|librar|curator|histor|research|writ|editor|translat|interpret|language|bilingual|teach|tutor|education|program|policy|communications|content/i, "humanities"],
   [/nonprofit|non-profit|ministry|religio|social impact|philanthrop/i, /nonprofit|program|volunteer|community|outreach|development|ministry|advocacy/i, "nonprofit"],
 ];
+// What the job itself involves: a posting's sentences minus benefits, "about us", equal-opportunity and
+// "any major" lines, which mention fields without being about the work (from Julio's relevance design).
+const NOT_DUTIES = /benefit|insurance|wellness|discount|equal opportunity|protected by law|about us|our (company|platform|mission)|any major|qualifications:|we provide|perks/i;
+export const duties = (text: string) => text.split(/(?<=[.!?])\s+|\n+/).filter((x) => !NOT_DUTIES.test(x)).join(" ");
+
 export const FIELD_TITLES: [RegExp, RegExp][] = FIELDS.map(([who, title]) => [who, title]);
 // The search word for each FIELD_TITLES row, in the same order.
 export const FIELD_SEARCH = FIELDS.map(([, , word]) => word);
@@ -238,6 +259,9 @@ export function fieldMatch(ws: Workspace, job: Job): boolean | null {
   // Conferences were found for the student's field already; their names ("NABA Convention") aren't job titles.
   if ((!chosen.length && !liked.length) || job.kind === "event") return null;
   if ([...chosen, ...liked].some((t) => t.test(job.title))) return true;
+  // A title that names no field ("Summer Intern 2027", "Associate") is judged by its duties, as the search does
+  // (sources.ts discoverJobs): it used to be found for the student and then hidden as "not in your field".
+  if (job.postingText && !FIELD_TITLES.some(([, t]) => t.test(job.title)) && [...chosen, ...liked].some((t) => t.test(duties(job.postingText!)))) return true;
   // Students keep the old rule (any "extern" is nursing) until the owners-only fix is released.
   if (!inOwnerView() && /nurs|\brn\b|\bbsn\b/i.test(`${chosenFieldText(p)} ${p.interests || ""}`) && /extern/i.test(job.title)) return true;
   return chosen.length ? false : null;
@@ -344,7 +368,7 @@ export function relocateReason(ws: Workspace, title: string, company: string): s
   return hit.length ? "the title is in your field" : "";
 }
 
-export const FIT_RULES_VERSION = 21; // 21: field titles widened from the 1,000-resume test (Bookkeeper is accounting, PR is communications, a business major fits marketing/finance/HR/supply chain, criminal justice fits legal). 20: 20 (owners): a "…or related field" major list that shares nothing with the major is "check", not "You qualify"; "management" alone isn't a field word. 19: "New Grad" titles are for graduates; "externship" alone isn't nursing. 18: "degree conferred in 2025 or 2026" and "graduating in/by YYYY" are graduation rules. 17: out-of-area openings say why they're shown (relocation answer). 16: "Anywhere in Texas" means Texas, not anywhere (it switched location off). 15: "Microsoft Excel" is the resume's "Excel"; "Microsoft Office" is shown by its apps. 14: what a student enjoys never hides an opening, only fields they chose. 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
+export const FIT_RULES_VERSION = 22; // 22: fields from the 11,041-resume test: trades, imaging/respiratory/vet health, agriculture, humanities and languages, customer service, tech languages (Java, QA, DevOps); "X Management" majors aren't business; fire/EMS aren't legal; US metros everywhere (Census), not only Texas; plainer "why it fits" sentence. 21: field titles widened from the 1,000-resume test (Bookkeeper is accounting, PR is communications, a business major fits marketing/finance/HR/supply chain, criminal justice fits legal). 20: 20 (owners): a "…or related field" major list that shares nothing with the major is "check", not "You qualify"; "management" alone isn't a field word. 19: "New Grad" titles are for graduates; "externship" alone isn't nursing. 18: "degree conferred in 2025 or 2026" and "graduating in/by YYYY" are graduation rules. 17: out-of-area openings say why they're shown (relocation answer). 16: "Anywhere in Texas" means Texas, not anywhere (it switched location off). 15: "Microsoft Excel" is the resume's "Excel"; "Microsoft Office" is shown by its apps. 14: what a student enjoys never hides an opening, only fields they chose. 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
 /** The version a verdict is saved under: owner view runs owners-only rules, so its verdicts are kept apart from students'. */
 export const fitVersion = () => FIT_RULES_VERSION + (inOwnerView() ? 1000 : 0);
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
@@ -445,8 +469,9 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
     if (hasKeyword(evidence, k)) matched.push(k);
     else gaps.push(k);
   }
+  const andList = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
   const why = matched.length
-    ? `You already show ${matched.slice(0, 3).join(", ")}${matched.length > 3 ? ` and ${matched.length - 3} more` : ""} — that's what this posting asks for.`
+    ? `Your resume already shows ${andList(matched.length > 3 ? [...matched.slice(0, 3), `${matched.length - 3} more`] : matched)}: ${gaps.length ? `${matched.length} of the ${skills.length} things this posting asks for` : skills.length === 1 ? "what this posting asks for" : `all ${skills.length} things this posting asks for`}.`
     : !skills.length ? (ws.resume ? "Remy couldn't read the skills this posting asks for. Open it to check, or tap Explain fit." : "Upload your resume and Remy will show how your experience lines up.")
     : ws.resume ? "This one would be a stretch for you right now: your resume doesn't show its main asks yet, but it's worth exploring." : "Upload your resume and Remy will show how your experience lines up.";
 
