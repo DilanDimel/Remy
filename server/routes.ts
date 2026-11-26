@@ -72,6 +72,7 @@ import { addLoop, MORE_TOOLS, moreContext, reachOut } from "./ai/remyTools";
 import { sendTexts, usPhone } from "./notify/texts";
 import { step } from "@shared/progress";
 import { conferencesFor } from "./jobs/conferences";
+import { iconUrl, logoDomainFor } from "./jobs/logo";
 import { competitionsFor, competitionsOpen } from "./jobs/competitions";
 import { trimOpenings } from "./resume/trim";
 import { pruneLogs, storageReport, trafficReport, warnIfNearLimit } from "./platform/storage";
@@ -753,6 +754,17 @@ export async function registerRoutes(_server: Server, app: Express) {
     startStream(res);
     for (let i = 1; i <= 5; i++) { streamLine(res, { n: i, at: Date.now() }); await new Promise((r) => setTimeout(r, 500)); }
     res.end();
+  });
+
+  // Company logo for an opening card (server/jobs/logo.ts): a redirect to the employer's icon, or 404 for initials.
+  // Public like the icons themselves (the phone app's <Image> sends no cookie); the server fetches only the employer's
+  // board page and "<name>.com", never a URL the caller gives.
+  app.get("/api/logo", async (req, res) => {
+    const company = String(req.query.company || "").slice(0, 120), url = String(req.query.url || "").slice(0, 600);
+    if (!company.trim() || !allowLocal("logo:" + clientIp(req), 300, 10 * 60_000)) return res.status(404).end();
+    const d = await logoDomainFor(company, url);
+    res.set("Cache-Control", `public, max-age=${d ? 7 * 86400 : 86400}`);
+    return d ? res.redirect(302, iconUrl(d)) : res.status(404).end();
   });
 
   app.get("/api/config", async (req, res) => {
