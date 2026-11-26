@@ -5,7 +5,8 @@
 // live openings, the student's plan and to-dos); nothing is invented to fill the map.
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ArrowRight, Award, BookOpen, Briefcase, CalendarRange, Check, Compass, Flag, Flame, Lock, Plus, Snowflake, Sparkles, TrendingDown, TrendingUp, Wrench, X, Zap } from "lucide-react";
-import type { Job, PathPlan, Workspace } from "@shared/types";
+import type { Job, JobFit, PathPlan, Workspace } from "@shared/types";
+import { postingSkills } from "@shared/requirements";
 import { NEED_LABEL, ROADS, roadFor, YEARS, yearNumber, type Road } from "@shared/roads";
 import { seasonFor, SEASON_SOURCE } from "@shared/seasons";
 import { levelOf, xpOf, type GameState } from "@shared/game";
@@ -16,6 +17,7 @@ import { useJobs } from "../lib/jobs";
 import { Remy, Spinner } from "./common";
 import { WhatsThat } from "./WhatsThat";
 import { OrgLogo } from "./OrgLogo";
+import { PostingText } from "../pages/Opportunities";
 
 export type Occ = { soc: string; title: string; change: number; openings: number | null; wage: number | null; education: string; aiShare: number | null; link: string };
 export type FutureData = { source: string; allJobsGrowth: number; fields: { field: string; growing: Occ[]; shrinking: Occ[]; total: number; fasterThanAverage: number }[] };
@@ -404,17 +406,18 @@ function CardShell({ kind, title, children }: { kind: DailyCard; title: string; 
 // Postings can list ten cities; the card shows the first and a count.
 const place = (loc: string) => { const all = (loc || "").split(";").map((x) => x.trim()).filter(Boolean); return all.length > 1 ? `${all[0]} +${all.length - 1} more` : all[0] || ""; };
 
-function OpeningsCard({ jobs, fits, put, onDone }: { jobs: Job[]; fits: Record<string, { score?: number; why?: string }>; put: (j: Job, body: object) => Promise<unknown>; onDone: (said: string) => void }) {
+function OpeningsCard({ jobs, fits, put, onDone }: { jobs: Job[]; fits: Record<string, JobFit | undefined>; put: (j: Job, body: object) => Promise<unknown>; onDone: (said: string) => void }) {
   const [i, setI] = useState(0);
   const [kept, setKept] = useState(0);
   const [fly, setFly] = useState<"" | "l" | "r">("");
+  const [more, setMore] = useState(false);
   const j = jobs[i];
   const act = async (keep: boolean) => {
     if (!j || fly) return;
     setFly(keep ? "r" : "l");
     await put(j, keep ? { rating: 5, keep: true } : { rating: 1, hide: true });
     if (keep) setKept((n) => n + 1);
-    setTimeout(() => { setFly(""); setI((n) => n + 1); }, 220);
+    setTimeout(() => { setFly(""); setMore(false); setI((n) => n + 1); }, 220);
   };
   // The arrow-key tip only where there's a keyboard and a mouse, not on a phone.
   const [keys] = useState(() => typeof matchMedia === "function" && matchMedia("(hover: hover) and (pointer: fine)").matches);
@@ -428,7 +431,8 @@ function OpeningsCard({ jobs, fits, put, onDone }: { jobs: Job[]; fits: Record<s
       <button className="btn btn-primary dp-wide" onClick={() => onDone(kept ? `Kept ${kept} new opening${kept > 1 ? "s" : ""}` : `Sorted ${jobs.length} new openings`)}>Next card <ArrowRight size={16} /></button>
     </CardShell>
   );
-  const why = fits[j.id]?.why;
+  const fit = fits[j.id], why = fit?.why;
+  const skills = postingSkills(j.requirements).slice(0, 5);
   return (
     <CardShell kind="openings" title="Keep the ones you'd really apply to">
       <div className="dp-swipe">
@@ -437,6 +441,14 @@ function OpeningsCard({ jobs, fits, put, onDone }: { jobs: Job[]; fits: Record<s
           <div className="dp-job-co"><OrgLogo key={j.id} company={j.company} url={j.applyUrl} className="dp-mono" text={(j.company || "?").slice(0, 2).toUpperCase()} /><div><b>{j.company || "An employer"}</b><span>{[place(j.location), j.format && !place(j.location).toLowerCase().includes(j.format.toLowerCase()) ? j.format : ""].filter(Boolean).join(" · ")}</span></div></div>
           <h3>{j.title}</h3>
           {why && <p>{why}</p>}
+          {/* Tester, Nov 25: why it fits belongs here, where the decision is made, not only on the employer's site. */}
+          {skills.length > 0 && <div className="dp-job-skills" data-testid="round-skills">{skills.map((k) => <span key={k} className={"chip " + (fit?.matched?.includes(k) ? "chip-live" : "chip-plain")}>{fit?.matched?.includes(k) ? "✓ " : ""}{k}</span>)}</div>}
+          {more && <div className="dp-job-more" data-testid="round-more">
+            {fit?.eligibilityNote && <p className="xs muted"><b>Eligibility: </b>{fit.eligibilityNote}</p>}
+            {fit?.gaps?.length ? <p className="xs muted"><b>Gaps: </b>{fit.gaps.slice(0, 3).join("; ")}</p> : null}
+            <PostingText text={j.postingText || j.summary} />
+          </div>}
+          {(j.postingText || j.summary || fit?.eligibilityNote) && <button type="button" className="link-btn dp-job-link" onClick={() => setMore(!more)} aria-expanded={more} data-testid="button-round-more">{more ? "Less" : "More about it"}</button>}
           {(j.applyUrl || j.sourceUrl) && <a className="dp-job-link" href={j.applyUrl || j.sourceUrl} target="_blank" rel="noreferrer">See the posting <ArrowRight size={14} /></a>}
           <span className="dp-job-n">{i + 1} of {jobs.length}{keys ? " · arrow keys work too" : ""}</span>
         </article>

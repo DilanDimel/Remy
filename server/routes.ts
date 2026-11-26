@@ -81,6 +81,7 @@ import * as services from "./platform/services";
 import { pruneOpenings, recordFound, recordCheck, listOpenings, openingsSummary } from "./jobs/openings";
 import { askedLength, keepAskedLength } from "./coach/outreachAsk";
 import { noUpgrade } from "./coach/noUpgrade";
+import { needsFullPosting, readFullPosting } from "./jobs/fullPosting";
 import { boardsFor, orderEmployers, preferMetros, pruneBoardCache, CAREERONESTOP, CATALOG_BOARD, discoverJobs, EMPLOYERS, isEmptyListing, refillEmpty, kindOf, USAJOBS } from "./jobs/sources";
 import { catalogStats, catalogTick } from "./jobs/catalog";
 import { emailReady, logEmail, sendEmail } from "./notify/email";
@@ -337,6 +338,15 @@ function fromResume(doc: ResumeDoc) {
 
 // ---------- deterministic fit (server/jobs/fit.ts) ----------
 const fitOf = (ws: Workspace, job: Job) => computeFit(ws, job, evidenceOf(ws));
+/** A snippet-only opening (tester, Nov 25: "couldn't read" it) gets its full posting read once, onto the student's
+ *  copy, and its fit redone. Used on Keep (in the background) and when tailoring starts (awaited). */
+async function fillFullPosting(job: Job, ws: Workspace) {
+  if (!needsFullPosting(job)) return false;
+  const got = await readFullPosting(job);
+  job.fullTextAt = nowIso();
+  if (got) { Object.assign(job, got); ws.fits[job.id] = fitOf(ws, job); }
+  return true;
+}
 
 // Openings that can't be applied to anymore. Checked on every read rather than cached in
 // fits, because a deadline passes and a link breaks without the student doing anything.
@@ -2607,6 +2617,17 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       // Keep (stage 3, owners first): rated and saved in the same edit.
       if (keep && !fresh.savedJobIds.includes(job!.id)) fresh.savedJobIds.push(job!.id);
     }));
+    const kept = keep ? findJob(ctx.ws, String(req.params.id)) : undefined;
+    if (kept && needsFullPosting(kept)) {
+      const id = kept.id, copy = { ...kept };
+      // After the answer, so Keep stays instant; the next load shows the fuller posting and fit.
+      readFullPosting(copy).then((got) => editWorkspace(ctx.me.id, (fresh) => {
+        const j = findJob(fresh, id);
+        if (!j || j.fullTextAt) return;
+        j.fullTextAt = nowIso();
+        if (got) { Object.assign(j, got); fresh.fits[id] = fitOf(fresh, j); }
+      })).catch((e) => console.error("full posting on keep failed", e?.message));
+    }
   }));
   // Literal route before /api/jobs/:id.
   app.delete("/api/jobs/interests", route(async (_req, res, ctx) => {
@@ -2630,8 +2651,11 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
   // ---------- applications (tailored resume + cover letter) ----------
   app.post("/api/applications", route(async (req, res, ctx) => {
     const jobId = String(req.body?.jobId || "");
-    if (!findJob(ctx.ws, jobId)) bad("Opening not found", 404);
+    const job = findJob(ctx.ws, jobId);
+    if (!job) bad("Opening not found", 404);
     let a = ctx.ws.applications.find((x) => x.jobId === jobId);
+    // Tailoring and the cover letter read the posting, so a snippet gets its full page first.
+    if (await fillFullPosting(job!, ctx.ws).catch(() => false) && a) await ctx.save();
     if (!a) {
       a = { id: uid("app"), jobId, createdAt: nowIso(), gaps: [], changes: [], letter: "", letterFlags: [], letterApproved: false, personalize: [], ats: [], versions: [] };
       ctx.ws.applications.unshift(a);
