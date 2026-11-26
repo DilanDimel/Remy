@@ -21,6 +21,8 @@ export function go(path: string, title = "Remy", opts: { page?: boolean } = {}) 
   if (!opts.page && base === "/accounts" && (!q.tab || q.tab === "memory")) return router.push("/account" as any);
   // Calendar is native too (More → Calendar, Progress's interview prompt).
   if (!opts.page && base === "/calendar" && !query) return router.push("/calendar" as any);
+  // The mock interview is native (More → Interview, job cards, Remy's "start" link).
+  if (!opts.page && base === "/interview") return router.push({ pathname: "/interview", params: q } as any);
   const tab = opts.page || query ? undefined : ({ jobs: "/jobs", "/opportunities": "/jobs", "/path": "/path", path: "/path" } as Record<string, string>)[base];
   if (tab) return router.navigate(tab as any);
   router.push({ pathname: "/web", params: { path: path.startsWith("/") ? path : "/" + path, title } });
