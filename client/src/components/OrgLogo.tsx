@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { logoFor } from "@shared/logos";
+import { logoSrc } from "@shared/logos";
 import { orgInitials } from "../lib/jobs";
 import { useOwnerView } from "../lib/store";
 
@@ -7,7 +7,7 @@ import { useOwnerView } from "../lib/store";
  *  and whenever there's none. `url` is the posting link, used when the company isn't one Remy already knows. */
 export function OrgLogo({ company, url, className = "job-mono", text }: { company: string; url?: string; className?: string; text?: string }) {
   const owner = useOwnerView();
-  const { src, sure } = owner ? logoFor(company, url) : { src: "", sure: false };
+  const { src, sure } = owner ? logoSrc(company, url) : { src: "", sure: false };
   const [size, setSize] = useState(0); // the loaded image's width; -1 = no logo
   const show = !!src && size > 0;
   return (

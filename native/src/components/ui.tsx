@@ -1,7 +1,8 @@
 import * as Haptics from "expo-haptics";
 import type { ReactNode } from "react";
 import type { JobFit } from "@shared/types";
-import { logoFor } from "@shared/logos";
+import { logoSrc } from "@shared/logos";
+import { API_BASE } from "@/lib/api";
 import { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Image, Platform, Pressable, RefreshControl, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -171,7 +172,7 @@ function LiveRemy({ xml, size }: { xml: string; size: number }) {
  *  when there's no logo: no domain, the image fails, or the favicon service answered an unknown domain with its 16 px globe. */
 export function Logo({ company, url, size = 40 }: { company: string; url?: string; size?: number }) {
   const { c } = useTheme();
-  const { src, sure } = logoFor(company, url || "");
+  const { src, sure } = logoSrc(company, url || "", API_BASE);
   const [bad, setBad] = useState(false);
   // Always a white tile, also in dark mode: a black logo (TPG) disappeared on the dark surface.
   const box = { width: size, height: size, borderRadius: radius.tile, backgroundColor: brand.white, borderWidth: 1, borderColor: c.line, alignItems: "center", justifyContent: "center", overflow: "hidden" } as const;
