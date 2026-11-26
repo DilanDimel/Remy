@@ -51,7 +51,7 @@ const WEAK = new Set(
 const MODIFIER = new Set(
   ("additional other others relevant related selected professional technical computer academic campus community personal key core work " +
     "laboral profesional academica academico adicional adicionales otros otras test extra career industry international athletic artistic " +
-    "artisticas musical creative military teaching summer class college customer graduate undergraduate student clinical healthcare nursing medical research lab laboratory engineering design areas me and of y e de del la las los en para").split(" "),
+    "artisticas musical creative military teaching summer class college customer graduate undergraduate student clinical healthcare nursing medical research lab laboratory engineering design areas management administrative executive freelance corporate legal retail hospitality government nonprofit sales marketing graphic security cyber practicum field culinary aviation construction me and of y e de del la las los en para").split(" "),
 );
 const headingWords = (s: string) => fold(s).split(/[\s&/+,]+/).map((w) => w.replace(/[^a-z]/g, "")).filter(Boolean);
 function isHeadingPhrase(s: string, caps: boolean) {
@@ -351,7 +351,7 @@ export function rulesParse(text: string): ResumeDoc {
   let kind: Kind = "entries";
   let entry: Entry | null = null;
   let bullet: Bullet | null = null;
-  let pending: { org: string; location: string } | null = null; // org line waiting for its "role  dates" line
+  let pending: { org: string; location: string; role?: string } | null = null; // org line waiting for its "role  dates" line
   let roleSlot: Entry | null = null; // entry whose role may be on the next line
   let held: { date: string; location: string } | null = null; // dates or a place printed before their entry
   let group: (SkillLine & { loose?: boolean }) | null = null;
@@ -381,7 +381,7 @@ export function rulesParse(text: string): ResumeDoc {
     target.bullets.push(bullet);
   };
   const flushPending = () => {
-    if (pending) newEntry({ org: pending.org, location: pending.location });
+    if (pending) newEntry({ org: pending.org, location: pending.location, role: pending.role || "" });
     pending = null;
   };
   /** Whether a line is the rest of the bullet above it rather than something new. */
@@ -444,7 +444,7 @@ export function rulesParse(text: string): ResumeDoc {
     if (pending) {
       const col = readColumns(line, true);
       if (col.date) {
-        newEntry({ org: pending.org, location: pending.location || col.location, role: [col.title, col.extra].filter(Boolean).join(" | "), dates: col.date });
+        newEntry({ org: pending.org, location: pending.location || col.location, role: [col.title, col.extra].filter(Boolean).join(" | ") || pending.role || "", dates: col.date });
         pending = null;
         return;
       }
@@ -500,11 +500,13 @@ export function rulesParse(text: string): ResumeDoc {
       const col = readColumns(line, true);
       const text = [col.title, col.extra].filter(Boolean).join(" | ");
       // "Security Analyst Intern", "Bluebonnet Health — City, ST", "Jun 2026 – Aug 2026": a lone title line, then its org, then dates.
-      if (roleSlot && roleSlot === entry && !roleSlot.role && !roleSlot.dates && !roleSlot.location && roleSlot.bullets.length === 0 && ROLE.test(roleSlot.org) && !ROLE.test(text)) {
+      if (roleSlot && roleSlot === entry && !roleSlot.role && !roleSlot.dates && !roleSlot.location && roleSlot.bullets.length === 0 && !ROLE.test(text)) {
         [roleSlot.role, roleSlot.org, roleSlot.location] = [roleSlot.org, text, col.location];
         return;
       }
-      pending = { org: text, location: col.location };
+      // "Server, Olive Garden — City, ST" then dates: the role and the org on one line.
+      const comma = text.split(", ");
+      pending = comma.length === 2 && ROLE.test(comma[0]) !== ROLE.test(comma[1]) ? { org: ROLE.test(comma[0]) ? comma[1] : comma[0], role: ROLE.test(comma[0]) ? comma[0] : comma[1], location: col.location } : { org: text, location: col.location };
       return;
     }
     if (continues(line, prevLine)) {
@@ -520,6 +522,13 @@ export function rulesParse(text: string): ResumeDoc {
       else roleSlot.role = text;
       roleSlot.location ||= col.location;
       roleSlot = null;
+      return;
+    }
+    // A bullet whose "•" was lost in the PDF ("Designed a 12-layer PCB for a CubeSat team" under a dated job): a sentence,
+    // mostly lower-case words, not a Title Case job title. It used to become an empty entry of its own.
+    const ws = line.replace(/\t+/g, " ").trim().split(/\s+/);
+    if (entry && entry.dates && (entry.role || entry.org) && !hasDate(line) && ws.length >= 4 && /^\p{Lu}/u.test(ws[0]) && ws.slice(1).filter((x) => /^\p{Ll}/u.test(x)).length >= Math.max(1, ws.slice(1).filter((x) => /^\p{Lu}/u.test(x)).length)) {
+      addBullet(line.replace(/\t+/g, " ").trim());
       return;
     }
     // A description written as a paragraph instead of bullets.
