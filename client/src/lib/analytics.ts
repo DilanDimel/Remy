@@ -51,7 +51,7 @@ export function trackAction(method: string, url: string) {
   if (ph) ph.capture(name);
   else if (starting && queued.length < 50) queued.push([name]);
   // Signing out: the next person on this computer starts as a stranger.
-  if (url === "/api/auth/logout") ph?.reset();
+  if (url === "/api/auth/logout") { ph?.reset(); try { sessionStorage.clear(); } catch {} } // incl. a half-finished Remy conversation
 }
 
 /** A named moment with a few plain values, e.g. track("rated", { place: "export", helpful: true }). */

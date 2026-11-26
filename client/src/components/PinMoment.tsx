@@ -6,6 +6,7 @@ import { useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { Modal, Remy } from "./common";
 import { tourOn } from "./Tour";
+import { useMomentTurn } from "../lib/moments";
 import { PinArt } from "../pages/Rewards";
 import type { Workspace } from "@shared/types";
 
@@ -22,7 +23,8 @@ export function PinMoment() {
     save("game", { ...(ws.game || { weeks: {} }), pins: { ...(ws.game?.pins || {}), ...pinsSeen(ws) } }).catch(() => {});
     if (!first) setShown(fresh);
   }, [sig, touring]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!shown.length) return null;
+  const turn = useMomentTurn("pin", shown.length > 0);
+  if (!turn) return null;
   // A first interview or first offer is the big one: its own celebration, ahead of any other new pins.
   const big = shown.find((x) => x.id === "offer") || shown.find((x) => x.id === "interview");
   if (big && ws) return <BigMoment kind={big.id as "offer" | "interview"} company={companyFor(ws, big.id === "offer" ? "Offer" : "Interview")} onClose={() => setShown([])} />;
