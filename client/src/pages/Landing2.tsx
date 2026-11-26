@@ -28,7 +28,9 @@ export function Top({ inside, what = "#what" }: { inside: boolean; what?: string
         <a className="hide-sm" href={what}>What Remy does</a>
         <a className="hide-sm" href="/about">About</a>
         <ThemeToggle className="lp2-theme" />
-        <a className="lp2-btn lp2-btn-sm" href={inside ? "/" : "/signin"} data-testid="button-lp-signin">{inside ? "Open my Remy" : "Sign in"}</a>
+        {/* Tester, Nov 25: desktop had only "Sign in", so "where do I create an account?" (phones have the bottom bar). */}
+        {!inside && <a className="lp2-btn lp2-btn-sm hide-sm" href="/signin" data-testid="button-lp-create">Create account</a>}
+        <a className={"lp2-btn lp2-btn-sm" + (inside ? "" : " lp2-btn-line")} href={inside ? "/" : "/signin"} data-testid="button-lp-signin">{inside ? "Open my Remy" : "Sign in"}</a>
       </nav>
     </header>
   );
@@ -65,7 +67,7 @@ function more(rows: [string, string, string, string, string, string, string, str
 const ALL_MAJORS = FIELD_GROUPS.flatMap(([, o]) => o);
 // Example cards for "Try it now": every one follows the picked major (and the opening follows the year), so nothing says "marketing" to a nursing student.
 const EXAMPLES: Record<string, Ex> = {
-  Marketing: { field: "marketing", intern: ["Marketing Intern, Summer 2027", "Dallas, TX · closes Jan 31"], grad: ["Marketing Coordinator, new grad", "Dallas, TX · closes Feb 28"], hidden: ["Senior Marketing Associate", "needs 3 years of experience"], step: ["Add how many followers the club's Instagram gained.", "That bullet has no number yet. A real figure makes it stand out."] },
+  Marketing: { field: "marketing", intern: ["Marketing Intern, Summer 2027", "Dallas, TX · closes Jan 31"], grad: ["Marketing Coordinator, new grad", "Dallas, TX · closes Feb 28"], hidden: ["Senior Marketing Associate", "needs 3 years of experience"], step: ["Add a result to \"Ran social media for the marketing club.\"", "That resume line says what you did, not what changed. A real number, like followers gained, makes it stand out."] },
   Finance: { field: "finance", intern: ["Finance Intern, Summer 2027", "Fort Worth, TX · closes Feb 14"], grad: ["Financial Analyst I, new grad", "Fort Worth, TX · closes Mar 15"], hidden: ["Senior Financial Analyst", "needs 4 years of experience"], step: ["Add the size of the budget you managed.", "That bullet has no dollar figure yet. A real number makes it stand out."] },
   Nursing: { field: "nursing", intern: ["Nursing Student Summer Program, 2027", "Fort Worth, TX · closes Feb 1"], grad: ["New Grad RN Residency", "Fort Worth, TX · closes Mar 1"], hidden: ["ICU Registered Nurse", "needs an RN license and 2 years of experience"], step: ["Add your clinical hours and units.", "Hospitals look for them first, and your resume doesn't list them yet."], first: ["Add your CPR or BLS card.", "Hospitals look for it first, and your resume doesn't list it yet."] },
   Engineering: { field: "engineering", intern: ["Engineering Intern, Summer 2027", "Austin, TX · closes Jan 15"], grad: ["Associate Engineer, new grad", "Austin, TX · closes Feb 15"], hidden: ["Senior Mechanical Engineer", "needs 5 years of experience"], step: ["Add what your class design project achieved.", "That bullet says what you built, not how well it worked. A real result makes it stand out."] },
