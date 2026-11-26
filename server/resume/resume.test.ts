@@ -15,6 +15,8 @@ test("majors: double majors and 'Majors:' lines are kept whole", () => {
   assert.equal(majorsOf(entry("Texas Christian University", "Bachelor of Science, Mathematics; Bachelor of Science, Physics")), "Mathematics, Physics");
   assert.equal(majorsOf(entry("Texas Christian University", "Bachelor of Business Administration", "", ["Majors: Entrepreneurship | Religion | Digital Culture and Data Analytics GPA: 3.7"])), "Entrepreneurship, Religion, Digital Culture and Data Analytics");
   assert.equal(majorsOf(entry("Texas Christian University", "Finance & BIS with Fintech Certification")), "Finance & BIS with Fintech Certification");
+  // A dot separator before the GPA ("Finance · GPA 3.6", found reading a scanned resume on remyai.org, Nov 25) isn't part of the major.
+  assert.equal(majorsOf(entry("Texas Christian University", "Bachelor of Business Administration, Finance · GPA 3.6")), "Finance");
 });
 test("majors: school name and capitals cleaned off; 'Class of' is a May graduation", () => {
   assert.equal(majorsOf(entry("TEXAS CHRISTIAN UNIVERSITY", "ENTREPRENEURSHIP AND INNOVATION NEELEY SCHOOL OF BUSINESS")), "Entrepreneurship and Innovation");
