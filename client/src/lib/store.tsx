@@ -6,6 +6,7 @@ import { keepNewerJobFeedback } from "./jobFeedback";
 import { apiResult } from "./signals";
 import { trackDownload } from "./analytics";
 import { saveFileNative } from "./native";
+import { loadFreshOnNextPage } from "./router";
 
 declare global {
   interface Window { __API_BASE__?: string; google?: any }
@@ -37,7 +38,12 @@ if (typeof window !== "undefined") {
 
 /** `onLine`, when given, reads a streamed answer (server/platform/stream.ts): each JSON line but the last goes to
  *  onLine; a line with `ws` is the result and one with `error` fails the call. A plain JSON answer works as usual. */
+let inFlight = 0; // requests (saves, Remy's streamed replies) still running: a quiet update waits for these
 export async function api<T = any>(method: string, url: string, body?: unknown, onLine?: (line: any) => void): Promise<T> {
+  inFlight++;
+  try { return await callApi<T>(method, url, body, onLine); } finally { inFlight--; }
+}
+async function callApi<T>(method: string, url: string, body?: unknown, onLine?: (line: any) => void): Promise<T> {
   if (API_BASE === "__UNRESOLVED__") throw new ApiError("Backend connection was not configured. Please reopen the app.", 0);
   const isForm = body instanceof FormData;
   const started = performance.now();
@@ -195,8 +201,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const build = useRef<string | undefined>(undefined);
   const saveSeq = useRef(0);
   const savingNow = useRef(0);
-  const [updated, setUpdated] = useState(false);
-  const dismissed = useRef<string | undefined>(undefined); // the newer build the bar already told them about
 
   const refresh = useCallback(async () => {
     const c = await api<AppConfig>("GET", "/api/config");
@@ -233,7 +237,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     lastLoad.current = Date.now();
     const c = await api<AppConfig>("GET", "/api/config").catch(() => null);
     if (c) {
-      if (build.current && c.build && c.build !== build.current && c.build !== dismissed.current) { dismissed.current = c.build; setUpdated(true); }
+      if (build.current && c.build && c.build !== build.current) loadFreshOnNextPage(() => !inFlight && !savingNow.current);
       setConfig((prev) => (prev && JSON.stringify(prev) === JSON.stringify(c) ? prev : c));
     }
     const m = await api<{ me: Me | null; workspace: Workspace | null }>("GET", "/api/me").catch(() => null);
@@ -345,13 +349,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       {(failed || slow) && (
         <div className={"save-status" + (failed ? " err" : "")} role="status" data-testid="save-status">
           {failed && !saving ? <>Couldn't save your last change. <button onClick={() => save(failed.section, failed.value).catch(() => {})}>Retry</button></> : "Saving…"}
-        </div>
-      )}
-      {updated && (
-        <div className="save-status update-bar" role="status" data-testid="update-bar">
-          Remy was updated. <button onClick={() => location.reload()} data-testid="button-reload">Reload</button>
-          {/* Tester, Nov 25: it wouldn't go away. "Later" hides it until the next update. */}
-          <button onClick={() => setUpdated(false)} data-testid="button-reload-later">Later</button>
         </div>
       )}
       <div className="toast-wrap" aria-live="polite">
