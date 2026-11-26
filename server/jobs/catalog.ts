@@ -9,10 +9,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { htmlToText } from "../resume/parse";
 import { r2Store } from "../platform/r2";
-import { inUS } from "./fit";
+import { abroad, inUS } from "./fit";
 import { fetchBoard, studentTitle, withDetail, type Raw } from "./sources";
 
-type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom";
+type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom" | "taleo";
 export type CatalogBoard = { ats: Ats; slug: string; company: string };
 export const PARTS = 24;
 /** Text kept per posting: enough for its requirements and summary (an opening keeps up to 12,000 when saved). */
@@ -35,7 +35,8 @@ export const partOf = (b: CatalogBoard) => {
 const sub = (s: string) => (/^[a-z0-9][a-z0-9-]*$/i.test(s) ? s : null);
 // Stapply's per-system company lists (name,slug,url). Each row's url gives the board in the form Remy's readers take.
 const STAPPLY = "https://storage.stapply.ai/jobs/v1";
-const STAPPLY_ATS: Record<Ats, (slug: string, url: string) => string | null> = {
+// Taleo boards are hand-picked in catalog-boards.tsv (Stapply lists Taleo Business Edition, which needs another reader).
+const STAPPLY_ATS: Partial<Record<Ats, (slug: string, url: string) => string | null>> = {
   greenhouse: (s) => s, lever: (s) => s, ashby: (s) => s, workable: (s) => s, recruitee: (s) => s, smartrecruiters: (s) => s,
   // https://23andme.wd5.myworkdayjobs.com/en-US/23 → "23andme|wd5|23"
   workday: (_, u) => { const m = u.match(/^https:\/\/([^./]+)\.(wd\d+)\.myworkdayjobs\.com\/(?:[a-z]{2}-[A-Z]{2}\/)?([^/?#]+)/); return m ? `${m[1]}|${m[2]}|${m[3]}` : null; },
@@ -89,7 +90,7 @@ export async function stapplyBoards(get = getText): Promise<CatalogBoard[]> {
         // Phenom's list is url,name,company_code,locale,country; the others are name,slug,url.
         if (ats === "phenom" && row[4] !== "us") continue;
         const [name, slug, url] = ats === "phenom" ? [row[1], row[0], row[0]] : row;
-        const board = slug && STAPPLY_ATS[ats](slug, url || "");
+        const board = slug && STAPPLY_ATS[ats]!(slug, url || "");
         if (board) out.push({ ats, slug: board, company: (name || "").trim() || board });
       }
     } catch (e) { console.warn(`catalog: Stapply ${ats} list failed: ${(e as Error).message}`); }
@@ -295,8 +296,9 @@ export async function keep(b: CatalogBoard, raws: Raw[]): Promise<Raw[]> {
   let details = 0;
   for (const r of raws) {
     if (out.length >= PER_BOARD) break;
-    // A posting listed without a place (iCIMS) gets it from its full posting.
-    if (!r.url || !(r.student || studentTitle(r.title)) || (r.location ? !inUS(r.location) : !r.detail)) continue;
+    // A posting listed without a clear place ("" on iCIMS, "Medical Plaza North" or "2 Locations" on Workday)
+    // gets it from its full posting; one in a named foreign place is skipped.
+    if (!r.url || !(r.student || studentTitle(r.title)) || (!inUS(r.location) && (!r.detail || abroad(r.location)))) continue;
     if (!r.text && r.detail) {
       if (details++ >= DETAILS_PER_BOARD) continue;
       try { const d = await r.detail(); r.text = d.text; if (d.location) r.location = d.location; if (d.title) r.title = d.title; } catch { continue; }
