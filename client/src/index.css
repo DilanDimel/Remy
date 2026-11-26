@@ -2834,6 +2834,10 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
   .redesign-2 :is(.op-link, [data-testid="button-toggle-ineligible"])::after { content: ""; position: absolute; inset: -10px -6px; }
   .redesign-2 .ps-tag::after { content: ""; position: absolute; inset: -8px -4px; }
   .redesign-2 button.ms-text { min-height: 32px; }
+  /* Small chips (pin filters, resume highlight keys, path chips) and the offer's close button: same invisible hit area. */
+  .redesign-2 :is(button.chip, .rm-key, a.ps-chip) { position: relative; }
+  .redesign-2 :is(button.chip, .rm-key, a.ps-chip)::after { content: ""; position: absolute; inset: -6px -2px; }
+  .redesign-2 .remy-offer-x::after { content: ""; position: absolute; inset: -10px; }
   .redesign-2 input[type="checkbox"] { min-width: 20px; min-height: 20px; }
   /* No hover on touch: the owners' dashboard shows what it would only reveal on hover. */
   .redesign-2 .adm-tip, .redesign-2 .adm-task-actions { opacity: 1; }
@@ -3355,6 +3359,11 @@ button.rw-item:not(:disabled) { cursor: pointer; }
   .b2-grid li { grid-template-columns: auto 1fr; column-gap: 10px; padding: 10px 12px; }
   .b2-grid li .b2-ic { grid-row: span 2; margin: 0; }
   .b2-actions .btn { flex: 1; }
+  /* Short phones (iPhone SE): the buttons stay on screen while the list scrolls under them. */
+  .modal.b2 { max-height: calc(100dvh - 32px); }
+  .b2-actions { position: sticky; bottom: -20px; margin: 0 -20px -20px; padding: 12px 20px 20px; background: var(--surface); border-top: 1px solid var(--line); }
+  .b2-head .asst-avatar { width: 52px; height: 52px; }
+  .b2-head h2 { font-size: 1.3rem; }
 }
 
 /* Keep and Pass on openings (owners, Demetre Nov 24): Keep pops, toasts can carry one button (Undo, See kept). */
@@ -3856,8 +3865,9 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 @media (max-width: 760px) {
   .redesign-2 .remy-offer:not(.docked) { width: calc(100% - 32px); margin: 4px auto 6px; padding: 10px 34px 10px 12px; gap: 10px; }
   .redesign-2 .remy-offer:not(.docked) .remy-offer-face { display: none; }
-  .redesign-2 .remy-offer:not(.docked) > .stack-sm { flex-wrap: nowrap; gap: 10px !important; }
-  .redesign-2 .remy-offer:not(.docked) .remy-offer-text { flex: 1 1 auto; min-width: 0; font-size: 13.5px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  /* The whole sentence shows (a 3-line cut hid what Remy offered to do), with the button under it, as in the app. */
+  .redesign-2 .remy-offer:not(.docked) > .stack-sm { flex-wrap: wrap; gap: 8px !important; }
+  .redesign-2 .remy-offer:not(.docked) .remy-offer-text { flex: 1 1 100%; min-width: 0; font-size: 13.5px; line-height: 1.35; }
   .redesign-2 .remy-offer:not(.docked) [data-testid="button-offer-not-now"] { display: none; }
   .redesign-2 .remy-offer:not(.docked) .remy-offer-kicker { font-size: 11px; }
   .redesign-2 .page-head h1[data-testid="text-greeting"] { font-size: 1.7rem; }
@@ -3885,7 +3895,11 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 .job-sheet .job-acts { position: sticky; bottom: 0; background: var(--surface); padding-top: 8px; }
 .modal:has(.job-sheet) > .row-between { flex-wrap: nowrap; align-items: flex-start; gap: 12px; }
 .modal:has(.job-sheet) > .row-between h2 { flex: 1; min-width: 0; font-size: 1.2rem; line-height: 1.25; }
-.job-sheet .job-top { flex-direction: row; align-items: center !important; }
+.job-sheet .job-top { flex-direction: row; align-items: center !important; flex-wrap: wrap; row-gap: 8px; }
+/* The sheet is narrow: details take the full width and the due date goes under them, so "· June–August" never starts a line. */
+.job-sheet .job-top > .stack-sm { flex: 1 1 calc(100% - 56px) !important; }
+.job-sheet .job-top > .chip { margin-left: 48px; }
+.job-sheet .job-top > .stack-sm > .row:first-child > .xs { flex-basis: 100%; }
 .job-sheet .job-card .job-why { display: block !important; -webkit-line-clamp: unset !important; overflow: visible !important; }
 /* Phone Applied (Progress): the stages stack as a list instead of a board that scrolls sideways; empty ones are one line. */
 @media (max-width: 760px) {
