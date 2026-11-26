@@ -172,7 +172,7 @@ export default function SignIn() {
     <Button testID="button-send-code" kind="fox" label="Send code" onPress={send} busy={busy} disabled={!/.+@.+\..+/.test(email.trim()) || !!ssoBusy} flex />
     {!!err && <T kind="small" style={{ color: c.error }}>{err}</T>}
     {ssoButtons}
-    <T kind="small" style={{ textAlign: "center" }}>Already have an account? Use the same email or the same Google or LinkedIn account and you'll pick up where you left off, on the website too.</T>
+    <T kind="small" style={{ textAlign: "center" }}>Google, LinkedIn and email all work the same, so pick the account you use most. Already have an account? Use the same one and you'll pick up where you left off, on the website too.</T>
   </>, <T kind="small" style={{ textAlign: "center" }}>By continuing you agree to Remy's {link("Terms", "/terms")} and {link("Privacy Policy", "/privacy")}.</T>, backBtn("welcome"));
 
   // The code: six boxes over one hidden field, so the phone's "from Messages/Mail" suggestion fills all six at once.
