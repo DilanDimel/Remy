@@ -36,6 +36,7 @@ import { checkFeedback, checkPlan, feedbackPrompt, planPrompt, rulesPlan } from 
 import { AI_CALLS_PER_INTERVIEW, pickProfile, weeklyLeft, type Interview, type IvMode } from "@shared/interview";
 import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, copyJobsBatch, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./platform/db";
 import { hospitalFirst } from "@shared/employer";
+import { cleanTerm, readTermAnswer, TERM_SYSTEM, termPrompt, type TermAnswer } from "./ai/term";
 import { inOwnerTrial, inOwnerView, runAiAs, aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, lastUsage, markAiAuthFailure, model } from "./ai/ai";
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./ai/safety";
 import * as admin from "./platform/admin";
@@ -284,6 +285,7 @@ const LINKEDIN = "LinkedIn profile (PDF)";
 type CareerExplain = { known?: boolean; what: string; day: string[]; entry: string[]; majors: string[]; startNow: string[]; downside: string };
 // shortcut: in-memory cache of job explanations, emptied on restart; move to the database if AI cost matters.
 const explained = new Map<string, CareerExplain>();
+const terms = new Map<string, TermAnswer>(); // "What's that?" answers, shared: they're about the term, not the student
 const approvedFacts = (ws: Workspace) => ws.memory.filter((m) => m.status === "approved").map((m) => m.text);
 // AI-read text that isn't in the file doesn't count as evidence until the student saves the resume as theirs.
 const evidenceOf = (ws: Workspace) =>
@@ -2160,6 +2162,19 @@ Sound like a real 20-year-old talking to a recruiter: contractions (I'm, I've), 
     }
     await ctx.save(); // keeps the AI log entry
     res.json({ title, ...about, official: officialFor(title) });
+  }));
+  // "What's that?" on a term on the student's path (the FE exam, SQL, a co-op): two plain sentences, asked once per term and field.
+  app.post("/api/terms/explain", route(async (req, res, ctx) => {
+    const { term, field } = cleanTerm(req.body?.term, req.body?.field);
+    if (!term) bad("Tell Remy which word to explain.");
+    const key = `${term}|${field}`.toLowerCase();
+    let about = terms.get(key);
+    if (!about) {
+      about = readTermAnswer(await withAi(ctx, "Explain a term", () => aiJson(TERM_SYSTEM, termPrompt(term, field), 400)));
+      if (about.known) { if (terms.size > 1000) terms.clear(); terms.set(key, about); }
+      await ctx.save(); // keeps the AI log entry
+    }
+    res.json({ term, ...about });
   }));
   app.post("/api/ai/plan", route(async (_req, res, ctx) => {
     if (!knowsStudent(ctx.ws)) bad(NEEDS_PROFILE, 409);

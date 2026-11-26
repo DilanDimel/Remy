@@ -72,6 +72,7 @@ const FEATURES: [string, string][] = [
   ["Remy chat", "e->>'purpose' = 'Assistant chat'"],
   ["Tailoring a resume and letter", "e->>'purpose' LIKE 'Tailor for %'"],
   ["Career explainer", "e->>'purpose' = 'Explain a career'"],
+  ["What's that? (terms)", "e->>'purpose' = 'Explain a term'"],
   ["Starting plan", "e->>'purpose' = 'Initial plan'"],
   ["Finding openings", "e->>'purpose' = 'Pick employers'"],
   ["Outreach drafts", "e->>'purpose' = 'Draft outreach'"],

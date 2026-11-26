@@ -14,6 +14,7 @@ import { api, rid, useOwnerView, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { Remy, Spinner } from "./common";
+import { WhatsThat } from "./WhatsThat";
 import { OrgLogo } from "./OrgLogo";
 
 export type Occ = { soc: string; title: string; change: number; openings: number | null; wage: number | null; education: string; aiShare: number | null; link: string };
@@ -279,6 +280,8 @@ export function StopDetail({ s, future, onPlay }: { s: Stop; future: FutureData 
       )}
       {s.kind === "skill" && <p className="dp-lead">{s.sub}. Remy's Posting X-ray and skill cards will show where it comes up in real openings near you.</p>}
       {s.kind === "step" && shortTitle(s) !== s.title && <p className="dp-lead">{s.title}.</p>}
+      {/* Unfamiliar words on the road (tester, Nov 25: "what's an FE exam?"): explained in place, on every stop that names one. */}
+      {(s.kind === "skill" || s.kind === "step" || s.kind === "cert") && <WhatsThat key={s.id} term={shortTitle(s)} field={w.profile.major} />}
       {s.kind === "season" && (() => { const se = seasonFor([w.profile.major, w.profile.targetRoles].join(" "))!; return (
         <>
           <p className="dp-lead">{se.open ? `It's ${se.label.toLowerCase()} internship season now (${se.window}).` : `${se.label} internships usually recruit ${se.window}. That's ${se.monthsUntil} month${se.monthsUntil === 1 ? "" : "s"} away.`} {se.note}</p>
