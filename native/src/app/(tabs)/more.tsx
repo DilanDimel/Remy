@@ -54,7 +54,7 @@ export default function More() {
         {/* The line keeps its height when it clears, so the rows below don't jump under a finger. */}
         <T kind="small" style={{ marginTop: 8, marginHorizontal: 4, minHeight: 18 }}>{note}</T>
         <Group style={{ marginTop: 12 }}>
-          <Row first title="Owners' dashboard" sub="Feature releases, beta and signals" left={<Icon name="list" color={c.mutedText} />} onPress={() => go("/admin", "Owners")} testID="row-admin" />
+          <Row first title="Owners' dashboard" sub="Feature releases, beta and signals" left={<Icon name="list" color={c.mutedText} />} onPress={() => router.push("/admin" as any)} testID="row-admin" />
         </Group>
       </>}
 
