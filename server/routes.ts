@@ -2549,9 +2549,9 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     // How many employers Remy reads for this student's field, so an empty list can say why honestly.
     const employers = fieldEmployers(ctx.ws, directoryFor(ctx)).length;
     mark("employers");
-    // Owners: one posting listed under two employer spellings shows once (Nov 23 test: RTX twice in For you).
+    // One posting listed under two employer spellings shows once (Nov 23 test: RTX twice in For you).
     const acted = (id: string) => ctx.ws.savedJobIds.includes(id) || ctx.ws.hiddenJobIds.includes(id) || !!ctx.ws.jobFeedback?.[id];
-    res.json({ jobs: inOwnerView() ? dropDuplicatePostings(jobs, acted).map(hospitalFirst) : jobs, fits, interest, interestEnabled: interestEnabled(), refreshing: searching.has(ctx.me.id), fieldEmployers: employers });
+    res.json({ jobs: dropDuplicatePostings(jobs, acted).map(hospitalFirst), fits, interest, interestEnabled: interestEnabled(), refreshing: searching.has(ctx.me.id), fieldEmployers: employers });
     mark("send");
     if (Date.now() - t0 > 2000 || process.env.OR_TIMING === "1") {
       let prev = t0;

@@ -155,8 +155,8 @@ export function claimCheck(
     if (!ev.includes(root.replace(/'/g, ""))  && !ev.includes(root)) add({ type: "title", term: m[0], message: `“${m[0]}” describes a degree or credential your resume doesn't show.` });
   }
   // A job simulation called a certification ("J.P. Morgan Job Simulation certification"): owners first, Nov 23 (a real
-  // letter said this while the resume says "Participant").
-  if (opts.owner) {
+  // letter said this while the resume says "Participant"). For everyone since Nov 26 (fixes skip owners-first).
+  {
     const m = body.match(/\b(?:job )?simulation\s+(?:certification|certificate)\b|\bcertifi\w*\s+(?:in|from)\s+(?:the\s+|a\s+)?[^.]{0,60}\bsimulation\b/i);
     if (m && !/simulation\s+(?:certification|certificate)|certifi\w*\s+(?:in|from)\s+[^.]{0,60}simulation/.test(ev)) add({ type: "title", term: m[0], message: `“${m[0]}”: your resume lists this as a job simulation you took part in, not a certification. Call it a simulation.` });
   }
