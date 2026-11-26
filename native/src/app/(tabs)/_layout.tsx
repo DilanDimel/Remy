@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Keyboard, Platform, Pressable, View } from "react-native";
+import { Keyboard, Platform, Pressable, Text, View } from "react-native";
 import { Redirect, router, usePathname } from "expo-router";
 import { NativeTabs } from "expo-router/native-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,6 +8,8 @@ import { Moments } from "@/components/Moments";
 import { gateRoute, useGate } from "@/lib/gate";
 import { aboveTabs, font, useTheme } from "@/lib/theme";
 import { shadow } from "@/lib/tokens";
+import { useOffline } from "@/lib/net";
+import { useOwnerView } from "@/lib/session";
 
 /** Remy isn't a tab: like the website, he is a floating fox button above the tab bar that opens his chat from any page.
  *  Not on My Path (he's in his office there) and not while the keyboard is up. */
@@ -21,6 +23,21 @@ function RemyButton({ hidden }: { hidden: boolean }) {
       style={({ pressed }) => [{ position: "absolute", right: 16, bottom, width: 56, height: 56, borderRadius: 28, backgroundColor: c.surface, borderWidth: 2, borderColor: c.fox, alignItems: "center", justifyContent: "center", overflow: "visible", transform: [{ scale: pressed ? 0.94 : 1 }] }, shadow.floating]}>
       <RemyRing size={52} bg={c.surface} />
     </Pressable>
+  );
+}
+
+/** A slim strip under the status bar while the last call couldn't reach Remy. It goes by itself once a call gets through.
+ *  Owners first: it's new. */
+function OfflineBanner() {
+  const { c } = useTheme();
+  const insets = useSafeAreaInsets();
+  const off = useOffline();
+  const owner = useOwnerView();
+  if (!off || !owner) return null;
+  return (
+    <View testID="banner-offline" accessibilityRole="alert" pointerEvents="none" style={{ position: "absolute", top: insets.top + 4, left: 16, right: 16, backgroundColor: c.ink, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12 }}>
+      <Text style={{ fontFamily: font.semi, fontSize: 13.5, color: c.onInk, textAlign: "center" }}>You're offline. Remy will try again when you pull down or tap something.</Text>
+    </View>
   );
 }
 
@@ -65,6 +82,7 @@ export default function Tabs() {
         </NativeTabs.Trigger>
       </NativeTabs>
       <RemyButton hidden={kb || path === "/path"} />
+      <OfflineBanner />
       {/* A new pin, a first interview or offer, or a new level: said once, the moment it happens (owners). */}
       <Moments />
     </View>

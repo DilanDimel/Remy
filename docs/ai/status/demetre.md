@@ -14,6 +14,8 @@ Area: `native/` (the Expo phone app)
 - Store build, Nov 24 (Deme OK'd): Scholar fox icon (dilan-3), resume upload from the phone (`expo-document-picker`, `pickResume` in `native/src/lib/pick.ts`, setup and Resume) and a screenshot in Send feedback (`expo-image-picker`). Older builds getting this code by update don't have the pickers, so the screens check `canPickFiles()`/`canPickImages()` and keep the website fallback. Android blocks RECORD_AUDIO and CAMERA until voice ships.
 - Beta Insider in the app (handoff P2.6, owners): `native/src/components/Insider.tsx` on Home, the website's offer after 3 days, the join questions and the two-weekly survey (`POST /api/insider`, `/api/insider/survey`); "Not now" hides it for a week on that phone.
 
+- Offline note (owners): `native/src/lib/net.ts` flips when `api()` can't connect; `OfflineBanner` in the tabs layout shows "You're offline" until a call gets through. No native module.
+
 ## Claims
 - (none)
 
