@@ -42,8 +42,15 @@ function scrollToHash(instant = false) {
   return true;
 }
 
+// A newer Remy is live: the next page change loads it fresh, with no Reload/Later bar (Dilan, Nov 25). `safe` says
+// nothing is mid-save or mid-reply; drafts (useDraft) and an open tailor conversation are kept in storage, so they survive.
+let freshLoad: (() => boolean) | null = null;
+let lastPage = location.pathname + location.search;
+export function loadFreshOnNextPage(safe: () => boolean) { freshLoad = safe; }
+
 export function go(to: string) {
   const url = clean(to);
+  if (freshLoad?.() && url.split("#")[0] !== location.pathname + location.search) { location.assign(url); return; }
   // Same page without a #part: drop a leftover #part so the page goes to the top (e.g. back to /resume?tab=prep).
   if (url === location.pathname + location.search && location.hash) history.replaceState(history.state, "", url);
   if (url !== location.pathname + location.search + location.hash) {
@@ -51,6 +58,7 @@ export function go(to: string) {
     history.replaceState({ ...history.state, y: scrollY() }, "");
     history.pushState(null, "", url);
   }
+  lastPage = location.pathname + location.search;
   window.dispatchEvent(new Event(CHANGE));
   if (!scrollToHash()) scrollTo(0);
 }
@@ -58,6 +66,7 @@ export function go(to: string) {
 /** Changes the address without adding a Back step (for redirects). */
 export function replaceRoute(to: string) {
   history.replaceState(null, "", clean(to));
+  lastPage = location.pathname + location.search;
   window.dispatchEvent(new Event(CHANGE));
 }
 
@@ -70,6 +79,10 @@ export function startRouter() {
   if (scrollToHash(true)) setTimeout(() => scrollToHash(true), 700);
   history.scrollRestoration = "manual";
   window.addEventListener("popstate", () => {
+    // Back/Forward to another page (not a #section on this one) loads the new build too; the address is already that page.
+    const now = location.pathname + location.search, moved = now !== lastPage;
+    lastPage = now;
+    if (moved && freshLoad?.()) { location.reload(); return; }
     // A same-page #link (the landing page's "Jump to" pills) also fires popstate: go to that section, not the top.
     if (history.state?.y == null && scrollToHash()) return;
     const y = history.state?.y || 0;
