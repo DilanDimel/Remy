@@ -217,3 +217,19 @@ test("JobAps RSS: title without its number, place plus state, deadline, internal
   assert.equal(out.length, 1);
   assert.deepEqual([out[0].title, out[0].location, out[0].deadline, out[0].url], ["Investment Intern", "Baltimore City, Maryland", "2026-12-09", "https://www.jobapscloud.com/MD/sup/BulPreview.asp?R1=26&R2=1&R3=1"]);
 });
+
+test("EdJoin: a county's search, each opening with its district and date; high-school and internal-only roles dropped", async () => {
+  const real = globalThis.fetch; const asked: string[] = [];
+  globalThis.fetch = (async (u: any) => {
+    asked.push(String(u));
+    return new Response(JSON.stringify({ data: [
+      { postingID: 1, positionTitle: "High School Tutor", city: "Fresno", stateName: "California", districtName: "Central Unified School District", postingDate: "/Date(1795478400000)/" },
+      { postingID: 2, positionTitle: "Student Intern (Internal Candidates Only)", city: "Fresno", stateName: "California", districtName: "Central Unified School District" },
+    ] }), { status: 200 });
+  }) as any;
+  try {
+    const out = await readBoard({ ats: "edjoin", slug: "Fresno", company: "EdJoin" } as CatalogBoard);
+    assert.ok(asked.length > 1 && asked.every((u) => u.startsWith("https://www.edjoin.org/Home/LoadJobs?") && u.includes("location=Fresno")));
+    assert.deepEqual(out.map((r) => [r.title, r.company, r.location, r.url, r.posted]), [["High School Tutor", "Central Unified School District", "Fresno, California", "https://www.edjoin.org/Home/JobPosting/1", "2026-11-24T00:00:00.000Z"]]);
+  } finally { globalThis.fetch = real; }
+});

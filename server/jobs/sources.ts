@@ -271,7 +271,7 @@ async function usajobs(field: string, region: string): Promise<Raw[]> {
 const SCHOOL_STUDENT = /\b(tutors?|student (worker|observer)s?|interns?(hip)?|summer|lifeguards?|water safety|after[- ]?school|substitute teachers?|guest teachers?|camp)\b/i;
 // Districts also post internships for their own high schoolers.
 const HIGH_SCHOOLER = /\b(for )?high school students?\b|\bhs students?\b/i;
-const collegeRole = (title: string) => SCHOOL_STUDENT.test(title) && !HIGH_SCHOOLER.test(title);
+export const collegeRole = (title: string) => SCHOOL_STUDENT.test(title) && !HIGH_SCHOOLER.test(title);
 export function applitrackPostings(js: string, slug: string, city: string): Raw[] {
   // The page is many document.write('...') calls with script between them; keep only the written HTML.
   const html = js.replace(/'\);[\s\S]*?document\.write\('/g, "").replace(/\\'/g, "'").replace(/\\"/g, '"').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
@@ -296,9 +296,9 @@ async function applitrack(b: Board): Promise<Raw[]> {
   return applitrackPostings(new TextDecoder("windows-1252").decode(await r.arrayBuffer()), slug, city || "");
 }
 // School-district search words: student roles are rare, so search for them instead of paging every opening.
-const SCHOOL_QUERIES = ["tutor", "intern", "student", "substitute", "summer", "lifeguard", "after school"];
+export const SCHOOL_QUERIES = ["tutor", "intern", "student", "substitute", "summer", "lifeguard", "after school"];
 /** Runs each search; one failed search is skipped, but if every one fails the site is down (not "no openings"). */
-async function eachQuery(queries: string[], read: (q: string) => Promise<Raw[]>): Promise<Raw[]> {
+export async function eachQuery(queries: string[], read: (q: string) => Promise<Raw[]>): Promise<Raw[]> {
   const seen = new Set<string>();
   const res = await Promise.allSettled(queries.map(read));
   if (res.every((r) => r.status === "rejected")) throw (res[0] as PromiseRejectedResult).reason;
