@@ -6,7 +6,7 @@ Area: `native/` (the Expo phone app)
 ## Working on now
 - App test fixes and the `app` release switch (dilan-1, dilan-2; owners only): "Let's fix them" opens Remy's fixes (`openResumeFix` in `native/src/lib/nav.ts`, Resume reads `fix`), the offer card shows in owner view only, the office question sends at once, My Path's "Add a real number" opens the fixes, job details hide "Not stated" deadlines and gaps the chips already show, the Keep toast says "Kept. See kept", Jobs' title is Opportunities, the Tailor picker shows 3 lines and the place. `appOpenFor` reads `features.app` (owners always in), with a rules test. Finding 10 is web preview only and not changed.
 - Shared AI system v2 adopted (Nov 24): every session starts with `npm run ai:brief -- --me Demetre`, requests are answered below, claims before touching files outside `native/`.
-- Preview: de17f525 (main 329977e: #476 to #509, incl. Google sign-in on Remy's own server and no Supabase), 2026-11-26. Needs no new build: expo-audio is guarded by `canSpeak()`.
+- Preview: 29cd30af (main 08099d5, #512 and #513), 2026-11-26. Before that de17f525 (main 329977e: #476 to #509, incl. Google sign-in on Remy's own server and no Supabase), 2026-11-26. Needs no new build: expo-audio is guarded by `canSpeak()`.
 - Database work (backups, gzip, `student_jobs`) is Dilan's side now; it moved to DigitalOcean on Nov 25, so nothing of it is open on my side.
 - Work authorization in the app's setup (dilan-5): `Preferences.tsx` uses `AUTH_OPTS`/`authChip` from `shared/workAuth.ts`, optional, the website's hint text; old answers are kept as they are.
 - Office guide in the app (owners; the website's #408 and quick questions #370): `native/src/components/OfficeGuide.tsx` (`useOfficeGuide`, `GuideBanner`, native `AskCard`) reads `officeSteps` and `remyAsks` from `shared/`, POSTs `/api/remy/act` and `/api/remy/ask`; numbers and glow on the room in `Office.tsx`, filing cabinet in `officeRoom.ts`; follows the `guide` switch in owner view. The banner sits under the room on phones; the season is one slim row while it's on.
@@ -18,11 +18,15 @@ Area: `native/` (the Expo phone app)
 
 - Big Upgrade welcome in the app (shown to students only once owners release the redesign; owners never see it): `native/src/components/BigUpgrade.tsx`, mounted in the tabs layout, shares `settings.beta2Seen` with the website; one "Got it" button because the tour isn't in the app. Animated Remy: the app already blinks and moves Remy in the office, so no more is planned; voice waits for a build.
 
+- Website sheets in the app (`native/src/app/web.tsx`, Account's Edit/Sources/Delete and other web pages) no longer spin forever: if the site's loading screen is still up after 25 s, or the page errors, the sheet says so with Try again and Close. Reported by Deme on iPhone (Account stuck on Remy's loading screen). Cause on the server side not found; the website's own boot has no timeout on `/api/config` and `/api/me` (for the lead).
+
 ## Claims
 - (none)
 
 ## Requests
 - dilan-lead-1 · Please keep a short daily summary at `docs/ai/DAILY.md`: what shipped, what is open, and what touches `native/` or the database. Our catch-ups can then read one file instead of every PR.
+
+- dilan-lead-2 · The Account sheet (the website's page in the app) hung on Remy's loading screen for Deme on iPhone, sometimes for a long time and sometimes for good. The website's boot (`refresh` in `client/src/lib/store.tsx`) has no timeout on `/api/config` and `/api/me`, so a slow server spins forever, on the website too. Please add a timeout (about 20 s) with a retry message, and check how long `/api/me` takes on DigitalOcean (the app's side is fixed in #526).
 
 ## Answers
 - dilan-1 · done · #390 · findings 1 to 9 fixed; 10 (web preview only) left as is
