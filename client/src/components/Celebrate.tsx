@@ -3,6 +3,7 @@ import { useOwnerView, useStore } from "../lib/store";
 import { go } from "../lib/router";
 import { milestones } from "@shared/progress";
 import { Remy } from "./common";
+import { useMomentTurn } from "../lib/moments";
 
 const SAY: Record<string, string> = {
   "Resume ready": "Your resume is confirmed. Every tailored version starts from it now.",
@@ -40,8 +41,10 @@ export function Celebrate() {
     // Owners: a first interview has its own big moment (PinMoment.tsx), so this toast stays quiet for it.
     if (fresh && !(owner && fresh === "Interviewing" && ws.game?.pins)) setNow({ label: fresh, done: done.size });
   }, [ws]);
-  useEffect(() => { if (!now) return; const t = setTimeout(() => setNow(null), 7000); return () => clearTimeout(t); }, [now]);
-  if (!now) return null;
+  const turn = useMomentTurn("celebrate", !!now);
+  // The 7 seconds start when it's actually on screen, not while it waits its turn.
+  useEffect(() => { if (!now || !turn) return; const t = setTimeout(() => setNow(null), 7000); return () => clearTimeout(t); }, [now, turn]);
+  if (!now || !turn) return null;
   if (now.moment === "rejected") return (
     <div className="celebrate" role="status" aria-live="polite" data-testid="comfort">
       <Remy size={40} mood="think" />
