@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { Pill, T, tap } from "@/components/ui";
+import { T, tap } from "@/components/ui";
 import { shift } from "@/lib/clock";
 import { useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
@@ -29,12 +29,18 @@ export function CareerTime({ intro = false }: { intro?: boolean }) {
   return (
     <View testID="career-time" style={{ gap: 10 }}>
       {intro && <T kind="small">A set time each week makes it easier to follow through than waiting for a reminder. 45 minutes is plenty. It shows on your Remy calendar.</T>}
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-        {DAYS.map((d, i) => <Pill key={d} label={d} on={ct?.day === i} onPress={() => set(ct?.day === i ? null : { day: i, time: ct?.time || "19:00" })} testID={`pill-career-day-${i}`} />)}
+      {/* One even row of seven, so "Sat" never wraps alone on a narrow phone. */}
+      <View style={{ flexDirection: "row", gap: 4 }}>
+        {DAYS.map((d, i) => { const on = ct?.day === i; return (
+          <Pressable key={d} testID={`pill-career-day-${i}`} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => { tap(); set(on ? null : { day: i, time: ct?.time || "19:00" }); }}
+            style={{ flex: 1, height: 36, borderRadius: 18, backgroundColor: on ? c.ink : c.surface2, alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ fontFamily: font.semi, fontSize: 13, color: on ? c.onInk : c.ink }}>{d}</Text>
+          </Pressable>
+        ); })}
       </View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
         {step(-60, "button-career-hour-down")}{step(-5, "button-career-min-down")}
-        <Text testID="text-career-time" style={{ flex: 1, textAlign: "center", fontFamily: font.bold, fontSize: 18, color: ct ? c.ink : c.faint }}>{ct ? label(ct.time) : "Pick a day"}</Text>
+        <Text testID="text-career-time" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={{ flex: 1, textAlign: "center", fontFamily: font.bold, fontSize: 18, color: ct ? c.ink : c.faint }}>{ct ? label(ct.time) : "Pick a day"}</Text>
         {step(5, "button-career-min-up")}{step(60, "button-career-hour-up")}
       </View>
     </View>
