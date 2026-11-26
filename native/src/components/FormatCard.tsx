@@ -1,4 +1,4 @@
-// Format check in the app (owners first, Nov 25, 2026): the website's findings as a phone card, and the three clean
+// Format check in the app (Nov 25, 2026; students since #467): the website's findings as a phone card, and the three clean
 // formats as a sheet of big rows, each opening its PDF in the phone's viewer before the student picks it.
 import { useEffect, useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
@@ -7,7 +7,7 @@ import type { FormatFinding, ResumeLayout, ResumeLook, Workspace } from "@shared
 import { Button, Icon, T, success, tap } from "@/components/ui";
 import { api } from "@/lib/api";
 import { shareFromServer } from "@/lib/files";
-import { useOwnersOnly, useSession } from "@/lib/session";
+import { useOwnerView, useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
 import { radius } from "@/lib/tokens";
 
@@ -19,7 +19,7 @@ const LOOKS: { id: ResumeLook; name: string; why: string }[] = [
 ];
 
 export function FormatCard() {
-  const owner = useOwnersOnly();
+  const owner = useOwnerView(); // released to students with the website (#467)
   const { ws, setWs } = useSession();
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
