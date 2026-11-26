@@ -16,6 +16,8 @@ Area: `native/` (the Expo phone app)
 
 - Offline note (owners): `native/src/lib/net.ts` flips when `api()` can't connect; `OfflineBanner` in the tabs layout shows "You're offline" until a call gets through. No native module.
 
+- Big Upgrade welcome in the app (shown to students only once owners release the redesign; owners never see it): `native/src/components/BigUpgrade.tsx`, mounted in the tabs layout, shares `settings.beta2Seen` with the website; one "Got it" button because the tour isn't in the app. Animated Remy: the app already blinks and moves Remy in the office, so no more is planned; voice waits for a build.
+
 ## Claims
 - (none)
 
