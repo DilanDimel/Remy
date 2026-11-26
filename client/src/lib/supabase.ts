@@ -21,11 +21,17 @@ function sb(cfg: NonNullable<AppConfig["supabase"]>) {
 const returnUrl = () => (isNativeApp ? NATIVE_AUTH_RETURN : `${location.origin}/`);
 
 export function providerOn(config: AppConfig | null, p: SupabaseProvider | "email") {
-  return !!config?.supabase?.providers[p];
+  return !!(ownOn(config, p) || config?.supabase?.providers[p]);
 }
+// Google and LinkedIn sign-in that Remy runs itself (no Supabase), once switched on for that button.
+const ownOn = (config: AppConfig | null, p: string) => !!(config?.ownSignin as Record<string, boolean> | undefined)?.[p];
 
 /** Leaves the page for the provider's consent screen; comes back to returnUrl(). */
 export async function startOAuth(config: AppConfig, provider: SupabaseProvider, intent: Intent = "signin") {
+  if (intent === "signin" && ownOn(config, provider) && !isNativeApp) {
+    location.href = `/api/auth/oauth/${provider === "google" ? "google" : "linkedin"}/start`;
+    return;
+  }
   try { localStorage.setItem(INTENT_KEY, intent); } catch {}
   const { data, error } = await sb(config.supabase!).auth.signInWithOAuth({
     provider,

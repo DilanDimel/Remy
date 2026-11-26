@@ -207,6 +207,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setConfig(c);
     build.current = c.build;
     lastLoad.current = Date.now();
+    // Coming back from Remy's own Google/LinkedIn sign-in with a problem (server/routes.ts signinError).
+    const signinErr = new URLSearchParams(location.search).get("signin_error");
+    if (signinErr) { history.replaceState(null, "", location.pathname); toast(signinErr, true); }
     // Coming back from a Supabase sign-in or connector consent screen.
     try {
       const back = await finishSupabaseRedirect(c);

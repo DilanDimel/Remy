@@ -39,6 +39,13 @@ const LinkedInMark = () => (
 
 /** First screen for anyone signed out: the welcome, then one email screen for new and returning people (the server
  *  makes the account on the first code), then the 6-digit code. Same words as the phone website's sign-up. */
+async function supabaseSession(sb: { url: string; anonKey: string }, code: string, verifier: string) {
+  const t = await fetch(`${sb.url}/auth/v1/token?grant_type=pkce`, { method: "POST", headers: { apikey: sb.anonKey, "Content-Type": "application/json" }, body: JSON.stringify({ auth_code: code, code_verifier: verifier }) });
+  const tok = await t.json().catch(() => ({}));
+  if (!t.ok || !tok.access_token) throw new Error(tok.error_description || tok.msg || "Sign-in didn't finish. Please try again.");
+  return api<{ me: Me; workspace: Workspace }>("POST", "/api/auth/supabase", { accessToken: tok.access_token });
+}
+
 export default function SignIn() {
   const { signedIn } = useSession();
   const { config } = useConfig();
@@ -71,7 +78,8 @@ export default function SignIn() {
   // view), then come back on the app's own link with a one-time code (PKCE) that only this app can swap for the token our server checks, the same as the website's buttons.
   const sso = async (p: Sso) => {
     const sb = config?.supabase;
-    if (!sb) return;
+    const own = !!config?.ownSignin?.[p]; // Remy's own sign-in (no Supabase) once it's switched on for this button
+    if (!sb && !own) return;
     setSsoBusy(p); setErr("");
     try {
       // Supabase returns to a remyai.org page that opens remy://auth: Android's Chrome won't follow a redirect
@@ -82,7 +90,10 @@ export default function SignIn() {
       const verifier = newVerifier();
       const key = expoGo ? newVerifier().replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40) : "";
       const via = `${API_BASE || "https://remyai.org"}/api/auth/app-return${key ? `?state=${key}` : ""}`;
-      const session = WebBrowser.openAuthSessionAsync(`${sb.url}/auth/v1/authorize?provider=${p}&redirect_to=${encodeURIComponent(via)}&code_challenge=${verifier}&code_challenge_method=plain`, back);
+      const start = own
+        ? `${API_BASE || "https://remyai.org"}/api/auth/oauth/${p === "google" ? "google" : "linkedin"}/start?app=1&challenge=${verifier}${key ? `&handoff=${key}` : ""}`
+        : `${sb!.url}/auth/v1/authorize?provider=${p}&redirect_to=${encodeURIComponent(via)}&code_challenge=${verifier}&code_challenge_method=plain`;
+      const session = WebBrowser.openAuthSessionAsync(start, back);
       let backUrl = "";
       if (key) {
         let closed = false;
@@ -103,16 +114,13 @@ export default function SignIn() {
         const { code, error } = parseReturn(backUrl);
         if (!code) throw new Error(error ? `Sign-in didn't finish: ${error}` : "Sign-in didn't finish. Please try again.");
         // The code is only good with the verifier this app kept, so it's swapped for the token here, not in the link.
-        const t = await fetch(`${sb.url}/auth/v1/token?grant_type=pkce`, { method: "POST", headers: { apikey: sb.anonKey, "Content-Type": "application/json" }, body: JSON.stringify({ auth_code: code, code_verifier: verifier }) });
-        const tok = await t.json().catch(() => ({}));
-        if (!t.ok || !tok.access_token) throw new Error(tok.error_description || tok.msg || "Sign-in didn't finish. Please try again.");
-        const s = await api<{ me: Me; workspace: Workspace }>("POST", "/api/auth/supabase", { accessToken: tok.access_token });
+        const s = own ? await api<{ me: Me; workspace: Workspace }>("POST", "/api/auth/oauth/redeem", { code, verifier }) : await supabaseSession(sb!, code, verifier);
         success(); signedIn(s.me, s.workspace);
       }
     } catch (e: any) { setErr(e.message); }
     setSsoBusy("");
   };
-  const ssoOn = SSO.filter((s) => config?.supabase?.providers[s.id]);
+  const ssoOn = SSO.filter((s) => config?.ownSignin?.[s.id] || config?.supabase?.providers[s.id]);
   const ssoButtons = !!ssoOn.length && <>
     <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 4 }}>
       <View style={{ flex: 1, height: 1, backgroundColor: c.line }} /><T kind="small">or</T><View style={{ flex: 1, height: 1, backgroundColor: c.line }} />

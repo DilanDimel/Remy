@@ -48,7 +48,8 @@ import * as signals from "./jobs/signals";
 import { acceptHtml } from "@shared/acceptEmail";
 import { recordError } from "./platform/admin";
 import { careersFor, futureFor, occupationDetails, officialFor } from "./jobs/future";
-import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase, appReturnPage, takeHandoff } from "./platform/auth";
+import { endSession, googleClientId, identify, newGuest, startSession, supabaseConfig, supabaseProviders, verifyGoogle, verifySupabase, appReturnPage, takeHandoff, readCookie } from "./platform/auth";
+import { authorizeUrl, finishOAuth, isProvider, newState, newTicket, oauthReady, ownSignin, redeemTicket, takeState, type OAuthProvider, type OAuthUser } from "./platform/oauth";
 import { aiExtractPosting, CLOSED_SIGNALS, docxPreviewHtml, fetchPublic, fileToText, htmlToText, norm, pdfStyle, scanText } from "./resume/parse";
 import { formatCheck, pdfLayout, withoutPersonal } from "./resume/format";
 import {
@@ -760,6 +761,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       hosting: /localhost|127\.0\.0\.1/.test(host) ? "local" : req.header("x-visitor-id") ? "preview" : "published",
       today: centralToday(),
       supabase: sb ? { ...sb, providers: await supabaseProviders() } : null,
+      ownSignin: ownSignin(),
       schoolEmail: { ready: emailReady() || devCodes(), domains: ALUMNI_DOMAINS },
       emailCodes: emailReady() || devCodes(),
       googleCalendar: gcal.gcalReady(),
@@ -992,7 +994,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   });
 
   // Signs a verified account in: a guest workspace in progress moves into a brand-new account.
-  async function signIn(req: Request, res: Response, me: Me) {
+  async function openAccount(req: Request, res: Response, me: Me) {
     if (!(await beta.emailAllowed(me.email))) throw beta.betaError(me.email); // before any account or session is made
     const prev = await identify(req);
     await ensureUser(me);
@@ -1005,6 +1007,10 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!ws.profile.applicationEmail) ws.profile.applicationEmail = me.email;
     await saveWorkspace(me.id, ws);
     await startSession(res, me.id);
+    return ws;
+  }
+  async function signIn(req: Request, res: Response, me: Me) {
+    const ws = await openAccount(req, res, me);
     // Owners get the owner flag right away (as /api/me gives it), so setup opens in owner view without a reload.
     res.json({ me: (await admin.isOwner(me)) ? { ...me, owner: true } : me, workspace: ws });
   }
@@ -1027,6 +1033,71 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.get("/api/auth/app-handoff", (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     res.json({ result: takeHandoff(String(req.query.state || "")) });
+  });
+  // Remy's own Google/LinkedIn sign-in (server/platform/oauth.ts): the provider proves the email, and the account
+  // already using that email (made through Supabase, an email code or Google) opens, or a new one is made.
+  const signinBase = (req: Request) => {
+    const host = String(req.headers.host || "");
+    return /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host) ? `http://${host}` : `https://${process.env.PUBLIC_HOST || "remyai.org"}`;
+  };
+  const OAUTH_COOKIE = "__Host-remy_oauth";
+  const oauthUser = (p: OAuthProvider, u: OAuthUser): Me => ({ id: (p === "google" ? "g:" : "li:") + u.sub, kind: p === "google" ? "google" : "supabase", email: u.email, name: u.name, picture: u.picture });
+  const signinError = (res: Response, msg: string) => res.redirect(302, `/?signin_error=${encodeURIComponent(msg.slice(0, 300))}`);
+  // ?app=1&challenge=… is the phone app (opened in the system browser sheet); handoff=… is Expo Go's collect key.
+  app.get("/api/auth/oauth/:provider/start", (req, res) => {
+    const p = String(req.params.provider);
+    if (!isProvider(p) || !oauthReady(p)) return signinError(res, "That sign-in isn't set up yet. Use email sign-in instead.");
+    const base = signinBase(req);
+    if (!base.endsWith("//" + req.headers.host)) return res.redirect(302, base + req.originalUrl); // the callback and its cookie live on one host
+    const challenge = String(req.query.challenge || "");
+    const app = req.query.app === "1" && /^[A-Za-z0-9._~-]{43,128}$/.test(challenge) ? { challenge, handoff: String(req.query.handoff || "") } : undefined;
+    const state = newState(p, app);
+    if (!app) res.setHeader("Set-Cookie", `${OAUTH_COOKIE}=${state}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=600`);
+    res.setHeader("Cache-Control", "no-store");
+    res.redirect(302, authorizeUrl(p, `${base}/api/auth/oauth/${p}/callback`, state));
+  });
+  app.get("/api/auth/oauth/:provider/callback", async (req, res) => {
+    const p = String(req.params.provider);
+    const state = String(req.query.state || "");
+    const st = isProvider(p) ? takeState(state, p) : null;
+    res.setHeader("Cache-Control", "no-store");
+    const appFail = (msg: string) => {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'");
+      res.send(appReturnPage({ error: msg, ...(st?.app?.handoff ? { state: st.app.handoff } : {}) }, /android/i.test(String(req.headers["user-agent"] || ""))));
+    };
+    if (!st || !isProvider(p)) return signinError(res, "That sign-in took too long or was already used. Please try again.");
+    // A browser sign-in must come back to the browser that started it, so no one can sign someone else in to their account.
+    if (!st.app && readCookie(req, OAUTH_COOKIE) !== state) return signinError(res, "Sign-in didn't finish in this browser. Please try again.");
+    if (!st.app) res.setHeader("Set-Cookie", `${OAUTH_COOKIE}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0`);
+    const declined = String(req.query.error_description || req.query.error || "");
+    if (declined || !req.query.code) return st.app ? appFail(declined || "cancelled") : signinError(res, "Sign-in was cancelled. Please try again.");
+    try {
+      const u = await finishOAuth(p, String(req.query.code), `${signinBase(req)}/api/auth/oauth/${p}/callback`);
+      const me = (await userByEmail(u.email)) || oauthUser(p, u);
+      if (st.app) {
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.setHeader("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'");
+        const q: Record<string, string> = { code: newTicket(me, st.app.challenge) };
+        if (st.app.handoff) q.state = st.app.handoff;
+        return res.send(appReturnPage(q, /android/i.test(String(req.headers["user-agent"] || ""))));
+      }
+      await openAccount(req, res, me);
+      res.redirect(302, "/");
+    } catch (e: any) {
+      if (st.app) return appFail(e?.message || "Sign-in failed.");
+      signinError(res, e?.message || "Sign-in failed. Please try again.");
+    }
+  });
+  // The phone app swaps its one-time code (and the secret only it has) for a Remy session.
+  app.post("/api/auth/oauth/redeem", async (req, res) => {
+    try {
+      const me = redeemTicket(String(req.body?.code || ""), String(req.body?.verifier || ""));
+      if (!me) throw Object.assign(new Error("Sign-in didn't finish. Please try again."), { status: 401 });
+      await signIn(req, res, me);
+    } catch (e: any) {
+      res.status(e?.status || 401).json({ message: e?.message || "Sign-in failed.", code: e?.code });
+    }
   });
   // Email sign-in with a 6-digit code Remy sends itself: works on any device (a link only works in the browser that
   // asked for it) and isn't held to Supabase's shared hourly email limit. The code proves the student owns the email,
