@@ -15,15 +15,17 @@ import { CareerTime } from "@/components/CareerTime";
 const now = () => new Date().toISOString();
 
 /** Account, native (it opened the website's /accounts in a sheet): who you are, Remy's memory (approve, remove or add
- *  what he keeps in mind, the website's AI memory tab), your sources, and your data. Editing the profile itself and
- *  deleting the account still open the website's pages, where those flows live. */
+ *  what he keeps in mind, the website's AI memory tab), your sources, and your data, with the profile editor (/profile)
+ *  and Delete everything native too. */
 export default function Account() {
-  const { me, ws, setWs } = useSession();
+  const { me, ws, setWs, signOut } = useSession();
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const [adding, setAdding] = useState("");
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
+  const [confirm, setConfirm] = useState(false);
+  const [gone, setGone] = useState("");
   if (!ws) return null;
   const p = ws.profile;
   const suggested = ws.memory.filter((m) => m.status === "suggested");
@@ -52,7 +54,7 @@ export default function Account() {
         <View style={{ flex: 1, minWidth: 0 }}><T kind="h2" numberOfLines={1}>{p.name || "Your account"}</T><T kind="small" numberOfLines={1}>{me?.email}</T></View>
       </View>
 
-      <Sect title="Profile" right={<Pressable testID="button-edit-profile" hitSlop={8} onPress={() => { tap(); go("/accounts?tab=profile", "Account", { page: true }); }}><Text style={{ fontFamily: font.bold, fontSize: 14, color: c.fox }}>Edit</Text></Pressable>} />
+      <Sect title="Profile" right={<Pressable testID="button-edit-profile" hitSlop={8} onPress={() => { tap(); router.push("/profile" as any); }}><Text style={{ fontFamily: font.bold, fontSize: 14, color: c.fox }}>Edit</Text></Pressable>} />
       <Group>
         <Row first title="School" sub={p.school || "Not added"} testID="row-profile-school" />
         <Row title="Major and year" sub={[p.major, p.classYear].filter(Boolean).join(" · ") || "Not added"} testID="row-profile-major" />
@@ -101,8 +103,30 @@ export default function Account() {
       <Sect title="Your data" />
       <Group>
         <Row first title="Download my data" sub="Everything Remy keeps, as a file" left={<Icon name="up" color={c.mutedText} />} onPress={download} right={busy === "data" ? <T kind="small">Preparing…</T> : undefined} testID="row-download-data" />
-        <Row title="Delete everything" sub="Your account and all its data, for good" left={<Icon name="x" color={c.error} />} onPress={() => go("/accounts?tab=data", "Account", { page: true })} testID="row-delete-account" />
+        <Row title="Delete everything" sub="Your account and all its data, for good" left={<Icon name="x" color={c.error} />} onPress={() => { tap(); setConfirm(!confirm); }} testID="row-delete-account" />
       </Group>
+      {/* The website's DeleteModal, as a card under the row: what goes, then one red button. */}
+      {confirm && (
+        <View style={[card, { marginTop: 10, borderColor: c.error }]} testID="delete-confirm">
+          <T style={{ fontFamily: font.bold }}>Delete everything?</T>
+          <T kind="small">This permanently deletes your resume, applications, approved versions, memory, tracker, calendar, verified school email, your sign-in record and your Remy account (name, email, photo), deletes the "Remy" calendar from your Google Calendar if you connected it, then signs you out. Remy keeps nothing that identifies you. Files saved on your phone aren't affected.</T>
+          <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+            <Pressable testID="button-confirm-delete" accessibilityRole="button" disabled={busy === "delete"} onPress={async () => {
+              tap(); setBusy("delete"); setErr("");
+              try {
+                const r = await api<{ deleted: boolean; loginRemoved: boolean; calendarRemoved: boolean }>("DELETE", "/api/ws");
+                const left = [!r.loginRemoved && "your sign-in record couldn't be removed automatically (email the Remy team and we'll remove it)", !r.calendarRemoved && "Google wouldn't let Remy delete its calendar, so delete \"Remy\" in Google Calendar yourself"].filter(Boolean);
+                if (left.length) { setGone(`Your Remy data was deleted, but ${left.join(", and ")}.`); setTimeout(signOut, 6000); } else await signOut();
+              } catch (e: any) { setErr(e.message); }
+              setBusy("");
+            }} style={{ height: 44, paddingHorizontal: 16, borderRadius: BUTTON_RADIUS, backgroundColor: c.error, alignItems: "center", justifyContent: "center", opacity: busy === "delete" ? 0.7 : 1 }}>
+              <Text style={{ fontFamily: font.bold, fontSize: 15, color: c.onFox }}>{busy === "delete" ? "Deleting…" : "Delete permanently"}</Text>
+            </Pressable>
+            <Button testID="button-cancel-delete" kind="ghost" label="Cancel" onPress={() => setConfirm(false)} style={{ height: 44 }} />
+          </View>
+          {!!gone && <T kind="small" style={{ color: c.foxDeep }}>{gone}</T>}
+        </View>
+      )}
       {!!err && <T kind="small" style={{ color: c.error, marginTop: 10 }}>{err}</T>}
     </ScrollView>
   );
