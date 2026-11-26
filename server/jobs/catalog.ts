@@ -1,5 +1,5 @@
 // Remy's employer catalog: about 80,000 companies' public job boards (Greenhouse, Lever, Ashby, Workable, Recruitee,
-// SmartRecruiters, Workday, Oracle, BambooHR, Breezy, JazzHR, Paylocity, Rippling, UKG, ADP, iCIMS, SuccessFactors, and school districts on AppliTrack), read a 24th at a time on each hourly sweep, so every board is read about once a day.
+// SmartRecruiters, Workday, Oracle, BambooHR, Breezy, JazzHR, Paylocity, Rippling, UKG, ADP, iCIMS, SuccessFactors, and school districts on AppliTrack, plus Amazon's and Apple's own career sites), read a 24th at a time on each hourly sweep, so every board is read about once a day.
 // Only US postings with a student-level title are kept, with their text, so a search needs no extra reads.
 // Each part is one sealed file in the R2 bucket (catalog/part-N); a search reads them from memory. Nothing touches
 // Supabase, which keeps the free plan's data transfer flat however many employers Remy reads.
@@ -12,7 +12,7 @@ import { r2Store } from "../platform/r2";
 import { abroad, inUS } from "./fit";
 import { fetchBoard, studentTitle, withDetail, type Raw } from "./sources";
 
-type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom" | "taleo";
+type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom" | "taleo" | "amazon" | "apple";
 export type CatalogBoard = { ats: Ats; slug: string; company: string };
 export const PARTS = 24;
 /** Text kept per posting: enough for its requirements and summary (an opening keeps up to 12,000 when saved). */
@@ -280,6 +280,39 @@ export async function readBoard(b: CatalogBoard, read = fetchBoard): Promise<Raw
     // Career Site Builder lists every posting in its sitemap; the link holds place and title, the page the rest.
     const xml = await getPage(`https://${b.slug}/sitemap.xml`);
     return sfJobs(xml).map((x): Raw => ({ ...x, location: "", text: "", detail: async () => sfPosting(await getPage(x.url)) }));
+  }
+  if (b.ats === "amazon") {
+    // amazon.jobs' own search (robots.txt allows it); the board's slug is the search words ("intern", "new grad").
+    const jobs: any[] = [];
+    for (let offset = 0; offset < 300; offset += 100) {
+      const j = await getJson(`https://www.amazon.jobs/en/search.json?base_query=${slug}&normalized_country_code%5B%5D=USA&result_limit=100&offset=${offset}`);
+      jobs.push(...(j.jobs || []));
+      if (jobs.length >= (j.hits || 0) || !(j.jobs || []).length) break;
+    }
+    return jobs.map((x: any): Raw => ({
+      title: String(x.title || ""), location: String(x.normalized_location || x.location || ""), url: `https://www.amazon.jobs${x.job_path}`,
+      text: htmlToText([x.description, x.basic_qualifications, x.preferred_qualifications].filter(Boolean).join("<br><br>")), posted: x.posted_date,
+    }));
+  }
+  if (b.ats === "apple") {
+    // jobs.apple.com's search page carries its results as JSON; the slug is the search's query ("team=internships-STDNT-INTRN").
+    const out: Raw[] = [];
+    let listed = 0;
+    for (let page = 1; page <= 5; page++) {
+      const m = (await getPage(`https://jobs.apple.com/en-us/search?${b.slug}&location=united-states-USA&page=${page}`)).match(/window\.__staticRouterHydrationData = JSON\.parse\(("(?:[^"\\]|\\.)*")\)/);
+      const s = m ? JSON.parse(JSON.parse(m[1])).loaderData?.search : null;
+      const rows: any[] = s?.searchResults || [];
+      listed += rows.length;
+      for (const x of rows) {
+        const url = `https://jobs.apple.com/en-us/details/${x.positionId}/${x.transformedPostingTitle}`;
+        const places = (x.locations || []).map((l: any) => (l.countryName === "United States of America" ? (l.name === "United States" ? "United States" : `${l.name}, United States`) : `${l.name}, ${l.countryName}`)).join("; ");
+        const seen = out.find((r) => r.url === url); // a role comes back once per city: one opening, every city
+        if (seen) { seen.location += `; ${places}`; continue; }
+        out.push({ title: String(x.postingTitle || ""), location: places, url, text: String(x.jobSummary || ""), posted: x.postDateInGMT });
+      }
+      if (!rows.length || listed >= (s?.totalRecords || 0)) break;
+    }
+    return out;
   }
   if (b.ats === "applitrack") {
     // The job list names buildings, not places; the district's home page has its address ("Houston, TX 77032").
