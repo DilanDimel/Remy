@@ -1725,13 +1725,27 @@ button.ms-text:hover { text-decoration: underline; text-underline-offset: 3px; }
    second column: whole rows only, never a cut-off one. Tall screens show more rows (up to six), short ones fewer. */
 .home-extra { display: contents; }
 @media (min-width: 1021px) {
-  .main > .page:has(.home-lists) { flex: 1 1 auto; min-height: 0; }
-  .page:has(.home-lists) > * { flex-shrink: 0; }
   .page:has(.home-lists) > .home-lists { flex: 1 1 0; min-height: 220px; grid-auto-rows: minmax(0, 1fr); align-items: stretch; }
   .home-lists > section { min-height: 0; overflow: hidden; display: flex; flex-direction: column; flex-wrap: wrap; align-content: flex-start; column-gap: 120px; }
   .home-lists > section > * { width: 100%; }
 }
 @media (max-width: 1020px) { .home-extra { display: none; } }
+/* One screen, every page (Dilan, Nov 26): on desktop, pages with a long list or document fill the window and only that
+   list scrolls, inside its own panel; the title, tabs and filters stay put. Home: the lists show what fits (above).
+   Opportunities: the openings column. Resume: the resume view (resume, file or formats). Phones scroll as usual. */
+@media (min-width: 1021px) {
+  .main > .page:is(:has(.home-lists), :has(.op-cols), :has(.r1-grid)) { flex: 1 1 auto; min-height: 0; }
+  .page:is(:has(.home-lists), :has(.op-cols), :has(.r1-grid)) > * { flex-shrink: 0; }
+}
+@media (min-width: 1101px) {
+  .page > .op-cols { flex: 1 1 0; min-height: 0; grid-template-rows: minmax(0, 1fr); align-items: stretch; }
+  .op-cols > .stack, .op-cols > .op-rail { min-height: 0; overflow-y: auto; overscroll-behavior: contain; position: static; padding: 2px 6px 16px 2px; margin: -2px -6px 0 -2px; }
+  .page > .stack:has(> .r1 > .r1-grid), .page > .stack > .r1:has(> .r1-grid) { flex: 1 1 0; min-height: 0; }
+  .r1 > :not(.r1-grid) { flex-shrink: 0; }
+  .r1 > .r1-grid { flex: 1 1 0; min-height: 0; grid-template-rows: minmax(0, 1fr); align-items: stretch; }
+  .r1-grid > * { min-height: 0; overflow-y: auto; overscroll-behavior: contain; position: static; }
+  .r1-grid > .r1-view { padding: 0 4px 16px 0; }
+}
 .redesign-2 .home-list-head { border-bottom: 0; padding-bottom: 4px; }
 .job-card.item { gap: 12px; padding: 10px; margin-bottom: 6px; border: 1px solid var(--line); border-radius: 16px; }
 .home-lists .job-card.item:first-of-type { border-top: 1px solid var(--line); }
@@ -3114,6 +3128,21 @@ button.rw-item:not(:disabled) { cursor: pointer; }
   .rw-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
 }
 .rw .tabs .tab { white-space: nowrap; flex-shrink: 0; }
+/* Short laptop windows (Dilan, Nov 26: one screen at 1280x720 too): tighter outfits/office tiles, the streak rules in two
+   columns, Account's profile rows a little closer. Desktop only; tall windows and phones keep the roomy sizes. */
+@media (min-width: 1021px) and (max-height: 790px) {
+  .rw-wardrobe { gap: 8px; }
+  .rw-card { padding: 10px 14px; gap: 8px; }
+  .rw-item { padding: 5px 4px; gap: 1px; }
+  .rw .rw-grid.items .rw-art { height: 40px; }
+  .rw .rw-grid.items .rw-art .ps-thing { width: 38px; height: 34px; }
+  .rw .rw-grid.items { grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 6px; }
+  .rw-streak { grid-template-columns: minmax(200px, .7fr) 2fr; }
+  .rw-rules { grid-template-columns: 1fr 1fr; gap: 8px 16px; }
+  .rw-rules p { font-size: var(--text-xs); }
+  .ac-three .ac-f { padding: 2px 0; }
+  .ac-three.card-pad { padding-top: 12px; padding-bottom: 12px; }
+}
 /* Pin case and levels, round 2 (Demetre, Nov 24) */
 .rw-case .rw-card-head { flex-wrap: wrap; gap: 8px; }
 .rw-count { margin-left: 6px; color: var(--muted-text); letter-spacing: 0; }
@@ -3130,6 +3159,13 @@ button.rw-item:not(:disabled) { cursor: pointer; }
 .rw-medal b { font-size: var(--text-sm); font-weight: 750; line-height: 1.2; }
 .rw-medal:not(.got) b { color: var(--muted-text); font-weight: 650; }
 .rw-medal small { font-size: var(--text-xs); color: var(--muted-text); }
+/* Short laptop windows (1280x720, 1366x768; Dilan, Nov 26): smaller medals, more to a row, so the case fits one screen. */
+@media (min-width: 1021px) and (max-height: 790px) {
+  .rw-medals { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 2px; }
+  .rw-medal { padding: 6px 4px; gap: 4px; }
+  .rw-medal .rw-pin { zoom: .76; }
+  .rw-medal b { font-size: var(--text-xs); }
+}
 .rw-dots { display: flex; gap: 4px; }
 .rw-dots i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--line); }
 .rw-dots i.bronze { background: var(--metal-bronze); border-color: var(--metal-bronze); }
