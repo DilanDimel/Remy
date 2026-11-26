@@ -150,11 +150,10 @@ test("pitch speech: contractions and a school's initials are not new names", () 
   for (const fake of ["UBS", "BFD", "CUB", "LCR"]) assert.ok(claimCheck(`Last year, I worked at ${fake}.`, ev2, school).some((f) => f.term === fake), fake);
 });
 
-test("claims (owners): a job simulation isn't a certification in a letter", () => {
+test("claims: a job simulation isn't a certification in a letter", () => {
   const ev = "J.P. Morgan Investment Banking Job Simulation — Forage\nParticipant\nCERTIFICATIONS\nMicrosoft Office Specialist: Excel & PowerPoint";
   const letter = "I hold a Microsoft Office Specialist certification in Excel and PowerPoint and a J.P. Morgan Investment Banking Job Simulation certification.";
-  assert.ok(claimCheck(letter, ev, { owner: true }).some((f) => /simulation/i.test(f.term)));
-  assert.ok(!claimCheck(letter, ev).some((f) => /simulation/i.test(f.term))); // students unchanged until the team says so
+  assert.ok(claimCheck(letter, ev).some((f) => /simulation/i.test(f.term))); // students too (a fix, Nov 26)
   assert.ok(!claimCheck("I completed the J.P. Morgan Investment Banking Job Simulation on Forage.", ev, { owner: true }).some((f) => /simulation/i.test(f.term)));
 });
 
