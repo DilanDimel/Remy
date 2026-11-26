@@ -779,6 +779,11 @@ export function primaryEducation(doc?: ResumeDoc): Entry | undefined {
   // A heading Remy didn't recognize ("school stuff:"): a college entry with a degree word anywhere still counts.
   return entries.find(college) || (doc?.sections || []).flatMap((s) => s.entries).find((e) => college(e) && DEGREE_WORD.test(e.role));
 }
+/** A high-schooler's school (setup test, Nov 26: "Plano Senior High School" came back empty): only when no college entry exists. */
+export function highSchoolEducation(doc?: ResumeDoc): Entry | undefined {
+  if (primaryEducation(doc)) return undefined;
+  return (doc?.sections || []).filter((s) => kindOf(s.heading) === "education").flatMap((s) => s.entries).find((e) => HIGH_SCHOOL.test(`${e.org} ${e.role}`));
+}
 const DEGREE_WORD = /\b(b\.?[sa]\.?|bachelor|bba|bfa|bsn|bsw|b\.?m\.?|associate|master|m\.?[sa]\.?|mba|major|undeclared|degree)\b/i;
 
 /** "TEXAS CHRISTIAN UNIVERSITY (TCU) - FULL RIDE SCHOLARSHIP" → "Texas Christian University (TCU)". */

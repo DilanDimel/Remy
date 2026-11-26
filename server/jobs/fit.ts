@@ -59,14 +59,19 @@ export function classYearOf(ws: Workspace, today = new Date()): Year | "Graduate
   if (/soph/.test(said)) return "Sophomore";
   if (/junior/.test(said)) return "Junior";
   if (/senior/.test(said)) return "Senior";
+  // Freshman-to-senior only fits a four-year degree (setup tests, Nov 26): a 2-year student graduating next May isn't a
+  // "Senior", and a high-schooler's "Senior High School" or a veteran's dates say nothing about college standing.
+  const path = ws.profile.path || "";
+  if (path && path !== "four-year" && path !== "community-college") return "";
   const text = ws.resume?.rawText || "";
-  const s = text.match(STANDING);
+  const s = path === "community-college" ? null : text.match(STANDING);
   const named = (s?.[1] || s?.[2] || s?.[3])?.toLowerCase();
   if (named) return named.startsWith("f") ? "First-year" : (named[0].toUpperCase() + named.slice(1)) as Year;
   const g = gradDate(ws);
   if (!g) return "";
   // Academic year ends in May: months until graduation → years remaining.
   const yearsLeft = Math.ceil(((g.y * 12 + g.m) - (today.getFullYear() * 12 + today.getMonth() + 1)) / 12);
+  if (path === "community-college") return yearsLeft >= 2 ? "First-year" : yearsLeft >= 0 ? "Sophomore" : "";
   return yearsLeft >= 4 ? "First-year" : yearsLeft === 3 ? "Sophomore" : yearsLeft === 2 ? "Junior" : yearsLeft >= 0 ? "Senior" : "";
 }
 

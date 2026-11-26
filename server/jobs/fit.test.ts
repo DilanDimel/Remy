@@ -707,3 +707,13 @@ test("fields: a title that names no field is judged by its duties, as the search
   assert.equal(fieldMatch(hr, job({ title: "Summer Intern 2027", postingText: "You will support recruiting and onboarding for our talent team." })), true);
   assert.equal(fieldMatch(hr, job({ title: "Summer Intern 2027", postingText: "You will write Python code." })), false);
 });
+
+test("class year follows the path, not a four-year degree", () => {
+  const today = new Date(2026, 10, 26);
+  const ws = (path: string, graduation: string) => ({ profile: { classYear: "", path, graduation }, resume: { rawText: "Plano Senior High School" } }) as any;
+  assert.equal(classYearOf(ws("community-college", "May 2027"), today), "Sophomore");
+  assert.equal(classYearOf(ws("community-college", "May 2028"), today), "First-year");
+  assert.equal(classYearOf(ws("high-school", "May 2027"), today), "");
+  assert.equal(classYearOf(ws("military", ""), today), "");
+  assert.equal(classYearOf(ws("four-year", "May 2027"), today), "Senior");
+});

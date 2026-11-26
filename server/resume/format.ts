@@ -44,6 +44,39 @@ export async function pdfLayout(buf: Buffer): Promise<ResumeLayout | null> {
   return { pages: pdf.numPages, photo, columns: beside >= 8, bodySize, margin };
 }
 
+/** The same layout read from a Word file (most student uploads that aren't PDFs used to get no format check at all).
+ *  Pages come from Word's own count (docProps/app.xml); a file that never stored it is estimated from its words. */
+export async function docxLayout(buf: Buffer): Promise<ResumeLayout | null> {
+  const { default: JSZip } = await import("jszip");
+  const zip = await JSZip.loadAsync(buf);
+  const xml = await zip.file("word/document.xml")?.async("string");
+  if (!xml) return null;
+  const app = (await zip.file("docProps/app.xml")?.async("string")) || "";
+  const styles = (await zip.file("word/styles.xml")?.async("string")) || "";
+  const text = (x: string) => [...x.matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g)].map((m) => m[1]).join("");
+  const words = text(xml.replace(/<\/w:p>/g, " </w:p>").replace(/<w:t(?:\s[^>]*)?>/g, (m) => m + " ")).split(/\s+/).filter(Boolean).length;
+  const stored = +(app.match(/<Pages>(\d+)<\/Pages>/)?.[1] || 0);
+  const pages = stored || Math.max(1, Math.ceil(words / 600)); // shortcut: ~600 words a page when Word didn't store a count
+  // A headshot: an image 0.6-3 in wide (914,400 EMU an inch), about as tall as it is wide.
+  const photo = [...xml.matchAll(/<wp:extent cx="(\d+)" cy="(\d+)"/g)].some(([, cx, cy]) => { const w = +cx / 914400, r = +cy / +cx; return w >= 0.6 && w <= 3 && r >= 0.7 && r <= 1.6; });
+  // Side-by-side text: Word columns, or a layout table with real sentences in two cells of the same row, many times over.
+  const rows = [...xml.matchAll(/<w:tr[ >][\s\S]*?<\/w:tr>/g)].filter(([r]) => [...r.matchAll(/<w:tc>[\s\S]*?<\/w:tc>/g)].filter(([c]) => text(c).length > 25).length >= 2).length;
+  const columns = /<w:cols [^>]*w:num="([2-9])"/.test(xml) || rows >= 4;
+  // The size most letters are set in (half-points), from each run's own size or the document default.
+  const base = +(styles.match(/<w:docDefaults>[\s\S]*?<w:sz w:val="(\d+)"/)?.[1] || 22);
+  const bySize = new Map<number, number>();
+  for (const [r] of xml.matchAll(/<w:r[ >][\s\S]*?<\/w:r>/g)) {
+    const n = text(r).length;
+    if (!n) continue;
+    const sz = +(r.match(/<w:sz w:val="(\d+)"/)?.[1] || base) / 2;
+    bySize.set(sz, (bySize.get(sz) || 0) + n);
+  }
+  const bodySize = [...bySize].sort((a, b) => b[1] - a[1])[0]?.[0] || base / 2;
+  const mar = xml.match(/<w:pgMar [^>]*>/)?.[0] || "";
+  const side = (k: string) => +(mar.match(new RegExp(`w:${k}="(\\d+)"`))?.[1] || 1440) / 20; // twips → points
+  return { pages, photo, columns, bodySize, margin: Math.round(Math.min(side("left"), side("right"))) };
+}
+
 // Only as a label ("Gender: Male"), so "Gender Studies" or "religion reporter" isn't flagged.
 const PERSONAL = /(^|\n|\|)\s*(date of birth|birth ?date|birthday|d\.o\.b\.?|marital status|nationality|gender|sex|religion|ethnicity|ssn|passport (?:no|number))\s*[:：-]/i;
 const SUMMARY = /^(professional |career |executive )?(summary|profile|objective|about me|career objective|personal statement|summary of qualifications|qualifications summary)$/i;
