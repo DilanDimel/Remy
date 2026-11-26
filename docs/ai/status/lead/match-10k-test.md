@@ -20,3 +20,5 @@ Resume reading, round 2 (Nov 26): on the 2,000 clean synthetic resumes, entries 
 ## Round 7 (Nov 26): real AI rewrite test
 - 100 synthetic resumes through the live tailoring route on Haiku 5.5: $0.18 total. 18 bullet rewrites, 0 invented facts, mostly small; 83 got no changes. 100 letters, 15 flags.
 - Fixed the letter false positives (claims.ts `employer` option): employer name as a skill (Adobe), "internship" for an Intern title, "TASTE's founder", ligature company names (NFKC).
+- Round 7b: tailoring prompt rules (no padding/keyword tags/role tack-ons, never weaker, objective only to the opening's exact title). Re-run of 100: $0.16, 12 changes (was 18), no padded ones left; letter flags 3 (was 15).
+- Found by the run, parser (next PR): a misspelled lowercase heading ("employmnet") isn't read as a heading; unbulleted lines under an entry merge into one bullet.
