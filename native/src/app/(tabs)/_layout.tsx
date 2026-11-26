@@ -3,7 +3,7 @@ import { Keyboard, Platform, Pressable, View } from "react-native";
 import { Redirect, router, usePathname } from "expo-router";
 import { NativeTabs } from "expo-router/native-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Loading, Remy, tap } from "@/components/ui";
+import { Loading, RemyRing, tap } from "@/components/ui";
 import { Moments } from "@/components/Moments";
 import { gateRoute, useGate } from "@/lib/gate";
 import { aboveTabs, font, useTheme } from "@/lib/theme";
@@ -19,7 +19,7 @@ function RemyButton({ hidden }: { hidden: boolean }) {
   return (
     <Pressable testID="button-remy" accessibilityRole="button" accessibilityLabel="Ask Remy" onPress={() => { tap(); router.push("/remy"); }} hitSlop={6}
       style={({ pressed }) => [{ position: "absolute", right: 16, bottom, width: 56, height: 56, borderRadius: 28, backgroundColor: c.surface, borderWidth: 2, borderColor: c.fox, alignItems: "center", justifyContent: "center", overflow: "visible", transform: [{ scale: pressed ? 0.94 : 1 }] }, shadow.floating]}>
-      <Remy size={46} icon />
+      <RemyRing size={52} bg={c.surface} />
     </Pressable>
   );
 }

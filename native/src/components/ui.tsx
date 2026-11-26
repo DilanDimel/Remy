@@ -114,6 +114,18 @@ export function Remy({ size = 64, icon, outfit, alive }: { size?: number; icon?:
   return <SvgXml xml={xml} width={size} height={size * 222 / 200} accessibilityLabel="Remy the fox, your career coach" />;
 }
 
+/** Remy in a round frame, the same at every size and as the website's circles (index.css): head and shoulders at 84%
+ *  of the circle, 6% down, cut by the circle. Before (tester, Nov 25), each circle sized the head-only icon by hand and
+ *  his ears stuck out of some. */
+export function RemyRing({ size, bg }: { size: number; bg?: string }) {
+  const { c } = useTheme();
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 2, overflow: "hidden", alignItems: "center", backgroundColor: bg ?? c.foxSoft }}>
+      <View style={{ marginTop: size * 0.06 }}><Remy size={size * 0.84} /></View>
+    </View>
+  );
+}
+
 // Closed eyes: the pupils (ry 7) go flat and the catchlights (r 1.8) go away. Those values only appear on the eyes.
 export const blinkXml = (xml: string) => xml.replace(/ry="7"/g, 'ry="0.9"').replace(/r="1\.8"/g, 'r="0"');
 

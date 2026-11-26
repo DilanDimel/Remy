@@ -4,7 +4,7 @@ import { Alert, Animated, Easing, FlatList, Keyboard, LayoutAnimation, Platform,
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ChatAction, ChatDid, ChatMsg, Workspace } from "@shared/types";
 import { resumeDiff } from "@shared/resumeDiff";
-import { Icon, Remy, RichText, T, success, tap } from "@/components/ui";
+import { Icon, Remy, RemyRing, RichText, T, success, tap } from "@/components/ui";
 import { HearIt } from "@/components/HearIt";
 import { api, streamChat } from "@/lib/api";
 import { go } from "@/lib/nav";
@@ -240,7 +240,7 @@ export default function RemyChat() {
     <View style={{ flex: 1, backgroundColor: c.bg, paddingBottom: Platform.OS === "ios" ? kbH : 0 }}>
       {/* A sheet on iOS (no status bar to clear, room for the grabber); full screen on Android. */}
       <View style={{ paddingTop: Platform.OS === "ios" ? 14 : insets.top + 8, paddingHorizontal: 16, paddingBottom: 10, flexDirection: "row", alignItems: "center", gap: 10, borderBottomWidth: 1, borderColor: c.line }}>
-        <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.foxSoft, alignItems: "center", justifyContent: "center", overflow: "hidden" }}><Remy size={38} icon /></View>
+        <RemyRing size={44} />
         <View style={{ flex: 1 }}><Text style={{ fontFamily: font.display, fontSize: 18, color: c.ink }}>Remy</Text><T kind="small">Your career coach</T></View>
         {ws.chat.length > 0 && !busy && (
           <Pressable testID="button-clear-chat" accessibilityRole="button" accessibilityLabel="Clear chat" hitSlop={10} onPress={() => { tap(); clearChat(); }}
