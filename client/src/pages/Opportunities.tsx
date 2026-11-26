@@ -8,7 +8,7 @@ import type { Job, JobCheck, JobFit, JobInterestReason, JobRanking, Workspace } 
 import { api, daysUntil, fmtDate, rid, useDraft, useOwnerView, useStore } from "../lib/store";
 import { ApplyLink } from "../components/ApplyLink";
 import { go } from "../lib/router";
-import { kindLabel, reloadJobs, sameOrg, useJobs } from "../lib/jobs";
+import { kindLabel, reloadJobs, sameOrg, shortPlace, useJobs } from "../lib/jobs";
 import { shortTitle } from "@shared/org";
 import { screeningFor } from "@shared/screening";
 import { postingSkills, skillsIn } from "@shared/requirements";
@@ -237,7 +237,6 @@ function OppLine({ visible, any, fits }: { visible: Job[]; any: boolean; fits: R
 }
 
 // Owners: a posting listing four cities reads "West Palm Beach, FL + 3 more" (hover shows them all).
-const shortPlace = (loc?: string) => { const all = (loc || "").split(";").map((x) => x.replace(/,\s*United States$/, "").trim()).filter(Boolean); return !all.length ? "Location not stated" : all.length > 1 ? `${all[0]} + ${all.length - 1} more` : all[0]; };
 
 /** Owners: where their search stands and the deadlines coming up, beside the list. */
 function OppRail({ jobs }: { jobs: Job[] }) {

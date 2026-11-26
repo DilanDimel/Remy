@@ -983,6 +983,10 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
    like it looks on a big monitor; phones and big monitors stay at 100%. Screen-sized heights divide by the zoom. */
 :root { --app-zoom: 1; }
 @media (min-width: 1100px) and (max-width: 1699px) { :root { --app-zoom: .85; } }
+/* Tall screens (Dilan, Nov 26: pages should fill a 1920x1080 monitor): pages are laid out for the ~940px a laptop gets after
+   its 85% zoom, so a big screen zooms up to the same layout instead of leaving the bottom third blank. */
+@media (min-width: 1700px) and (min-height: 1000px) { :root { --app-zoom: 1.15; } }
+@media (min-width: 2240px) and (min-height: 1300px) { :root { --app-zoom: 1.5; } }
 @supports (zoom: 1) {
   .shell, .ob { zoom: var(--app-zoom); }
   .shell { height: calc(100vh / var(--app-zoom)); height: calc(100dvh / var(--app-zoom)); }

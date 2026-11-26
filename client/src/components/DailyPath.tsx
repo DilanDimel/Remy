@@ -13,7 +13,7 @@ import { levelOf, xpOf, type GameState } from "@shared/game";
 import { CARD_LABEL, CARD_XP, dailyStreak, dayKey, streakDays, weekDots, withCard, type DailyCard } from "@shared/daily";
 import { api, rid, useOwnerView, useStore } from "../lib/store";
 import { go } from "../lib/router";
-import { useJobs } from "../lib/jobs";
+import { shortPlace, useJobs } from "../lib/jobs";
 import { Remy, Spinner } from "./common";
 import { WhatsThat } from "./WhatsThat";
 import { OrgLogo } from "./OrgLogo";
@@ -404,7 +404,7 @@ function CardShell({ kind, title, children }: { kind: DailyCard; title: string; 
 }
 
 // Postings can list ten cities; the card shows the first and a count.
-const place = (loc: string) => { const all = (loc || "").split(";").map((x) => x.trim()).filter(Boolean); return all.length > 1 ? `${all[0]} +${all.length - 1} more` : all[0] || ""; };
+const place = (loc: string) => shortPlace(loc, "");
 
 function OpeningsCard({ jobs, fits, put, onDone }: { jobs: Job[]; fits: Record<string, JobFit | undefined>; put: (j: Job, body: object) => Promise<unknown>; onDone: (said: string) => void }) {
   const [i, setI] = useState(0);
