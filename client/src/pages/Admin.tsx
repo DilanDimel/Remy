@@ -2,9 +2,10 @@ import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "rea
 import { FEATURES, RELEASES, releasesOf, type Release } from "@shared/features";
 import { AlertTriangle, ArrowLeft, ArrowRight, BarChart3, Briefcase, Check, KanbanSquare, Server, Plus, RotateCcw, Trash2, UserCheck, Users } from "lucide-react";
 import { api, fmtDate, useStore } from "../lib/store";
-import { useRoute } from "../lib/router";
+import { go, useRoute } from "../lib/router";
 import { BetaBadge, CopyButton, Empty, Modal, Remy, Rich, Spinner } from "../components/common";
 import { acceptDraft, acceptHtml } from "@shared/acceptEmail";
+import type { OwnerActivity, OwnerUse } from "@shared/types";
 import { WhatsNew } from "../components/WhatsNew";
 import { ThemeToggle } from "../components/ThemeToggle";
 
@@ -102,7 +103,7 @@ export default function Admin() {
         {tab === "beta" && <BetaTab />}
         {tab === "system" && <SystemTab />}
         {tab === "openings" && <OpeningsTab />}
-        {(tab === "board" || tab === "team") && <TeamTab tab={tab} />}
+        {tab === "team" && query.get("view") === "use" ? <UsingRemy /> : (tab === "board" || tab === "team") && <TeamTab tab={tab} />}
       </main>
     </div>
   );
@@ -1201,6 +1202,7 @@ function TeamTab({ tab }: { tab: "board" | "team" }) {
       <div className="adm-head">
         <div><h1 className="adm-hello">Team &amp; hours</h1><p className="adm2-say"><b>{line}</b>{working.length ? ` ${working.map((m) => m.name.split(" ")[0]).join(" and ")} ${working.length === 1 ? "is" : "are"} working now.` : ""}</p></div>
         <div className="row adm2-clock">
+          <UseSwitch use={false} />
           <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder={d.clockedIn ? `Working since ${when(d.clockedIn)}: what on?` : "What are you working on? (optional)"} aria-label="Note" data-testid="input-clock-note" />
           <button className="btn btn-ghost btn-sm" onClick={() => setPanel("past")} data-testid="button-open-past">Add time you forgot</button>
           <button className={"btn btn-sm " + (d.clockedIn ? "btn-secondary" : "btn-primary")} onClick={async () => { if (await send("POST", "/api/admin/clock", { action: d.clockedIn ? "out" : "in", note }, d.clockedIn ? "Clocked out" : "Clocked in")) setNote(""); }} data-testid="button-clock">{d.clockedIn ? "Clock out" : "Clock in"}</button>
@@ -1300,4 +1302,92 @@ function TeamTab({ tab }: { tab: "board" | "team" }) {
 function More<T>({ items, render, step = 20 }: { items: T[]; render: (x: T) => ReactNode; step?: number }) {
   const [n, setN] = useState(step);
   return <>{items.slice(0, n).map(render)}{items.length > n && <button className="btn btn-ghost btn-sm" style={{ justifySelf: "start" }} onClick={() => setN(n + step)} data-testid="button-show-more">Show {Math.min(step, items.length - n)} more</button>}</>;
+}
+
+/** Team & hours has two views: hours worked (building Remy) and Using Remy (using it like a student). */
+function UseSwitch({ use }: { use: boolean }) {
+  return (
+    <div className="seg ou-seg" role="group" aria-label="Team view">
+      <button aria-pressed={!use} onClick={() => go("/admin?tab=team")} data-testid="button-view-hours">Hours worked</button>
+      <button aria-pressed={use} onClick={() => go("/admin?tab=team&view=use")} data-testid="button-view-use">Using Remy</button>
+    </div>
+  );
+}
+
+const hm = (min: number) => (min < 60 ? `${min} min` : `${(min / 60).toFixed(1)} h`);
+const hmLong = (min: number) => (min < 60 ? `${min} m` : `${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60} m` : ""}`);
+const DEVICE_NAME: Record<string, string> = { desktop: "on a computer", phone: "on a phone", app: "in the app" };
+
+/** Using Remy (server/platform/presence.ts): each owner's own use of Remy, same rules for everyone, never students. */
+function UsingRemy() {
+  const { query } = useRoute();
+  const [d] = useLoad<OwnerActivity>("/api/admin/activity");
+  if (!d) return <div className="row"><Spinner /> Loading…</div>;
+  const ppl = d.people;
+  const daysUsed = (p: OwnerUse) => p.perDay.filter(Boolean).length;
+  const sel = ppl.find((p) => p.email === query.get("person")) || ppl.find((p) => p.me) || ppl[0];
+  const total = ppl.reduce((x, p) => x + p.minutes, 0);
+  const met = ppl.filter((p) => daysUsed(p) >= d.goalDays).length;
+  const topAreas = Object.entries(ppl.flatMap((p) => p.areas).reduce((o, a) => ((o[a.name] = (o[a.name] || 0) + a.minutes), o), {} as Record<string, number>)).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([n]) => n);
+  const line = !total ? "Nobody has used Remy yet this week." : `${met} of ${ppl.length} owners used Remy on ${d.goalDays}+ days this week.`;
+  const after = total ? ` ${hm(total)} together${topAreas.length ? `; most on ${topAreas.join(" and ")}` : ""}.` : " Counting starts as soon as owners open Remy.";
+  const byDay = d.days.map((_, i) => ppl.reduce((x, p) => x + p.perDay[i], 0));
+  const dayTop = Math.max(1, ...byDay), selTop = Math.max(1, ...(sel?.perDay || [])), areaTop = Math.max(1, ...(sel?.areas.map((a) => a.minutes) || []));
+  const short = (k: string, i: number) => (i === 6 ? "Today" : day(k).split(",")[0]);
+  const seen = (p: OwnerUse) => (!p.lastSeen ? "Not seen yet" : Date.now() - +new Date(p.lastSeen) < 3 * 60_000 ? "Online now" : `Last seen ${ago(p.lastSeen)}`);
+  const devBar = (p: OwnerUse) => {
+    const all = Math.max(1, p.minutes);
+    return <span className="ou-dev" role="img" aria-label={`${p.name}: computer ${p.devices.desktop} min, phone ${p.devices.phone} min, app ${p.devices.app} min`}><i style={{ width: `${(100 * p.devices.desktop) / all}%` }} /><i style={{ width: `${(100 * p.devices.phone) / all}%` }} /><i style={{ width: `${(100 * p.devices.app) / all}%` }} /></span>;
+  };
+  const change = (p: OwnerUse) => { const x = p.minutes - p.prevMinutes; return <span className={"xs ou-chg " + (x > 0 ? "pass" : x < 0 ? "bad" : "muted")}>{x > 0 ? "▲" : x < 0 ? "▼" : "="} {x ? hm(Math.abs(x)) : "same"}</span>; };
+  const wTop = Math.max(1, ...ppl.flatMap((p) => p.weeks));
+  return (
+    <div className="adm2 adm2-full adm2-fixed ou-view">
+      <div className="adm-head">
+        <div><h1 className="adm-hello">Team &amp; hours</h1><p className="adm2-say"><b>{line}</b>{after}</p></div>
+        <UseSwitch use />
+      </div>
+      <div className="adm2-row adm2-row-sys">
+        <section className="adm2-card" data-testid="use-everyone">
+          <div className="adm2-h"><h3>Who uses Remy</h3><span className="xs muted ou-legend">{day(d.days[0]).split(", ").slice(1).join(" ")} to today · <i className="ou-k0" />Computer <i className="ou-k1" />Phone <i className="ou-k2" />App</span></div>
+          <div className="ou-people">
+            <div className="ou-row ou-th xs muted" aria-hidden><span /><span>Owner</span><span>Active</span><span>Days used</span><span className="ou-wide">Where</span><span className="ou-wide ou-areas">Most time on</span><span className="ou-wide">8 weeks</span><span>Change</span></div>
+            {ppl.map((p) => (
+              <button key={p.email} className="ou-row" aria-pressed={p.email === sel?.email} onClick={() => { go(`/admin?tab=team&view=use&person=${encodeURIComponent(p.email)}`); if (matchMedia("(max-width: 1199px)").matches) setTimeout(() => document.querySelector(".ou-detail")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50); }} data-testid={`use-${p.email.split("@")[0]}`}>
+                <Avatar m={{ email: p.email, name: p.name, founder: false, addedBy: "", addedAt: null }} size={32} />
+                <span className="adm2-pn"><b>{p.name}</b><small className={seen(p) === "Online now" ? "pass" : ""}>{seen(p)}</small></span>
+                <b className="adm2-num">{hm(p.minutes)}</b>
+                <span className="ou-days" role="img" aria-label={`${p.name} used Remy on ${daysUsed(p)} of the last 7 days`}>{p.perDay.map((m, i) => <i key={i} className={m ? "on" : ""} />)}<small className={daysUsed(p) >= d.goalDays ? "pass" : "muted"}>{daysUsed(p)} of 7{daysUsed(p) >= d.goalDays ? " ✓" : ""}</small></span>
+                <span className="ou-wide">{devBar(p)}</span>
+                <span className="ou-wide xs muted ou-areas">{p.areas.slice(0, 2).map((a) => a.name.replace("Owners' dashboard", "Dashboard")).join(", ") || "–"}</span>
+                <span className="ou-wide adm2-mini" aria-hidden>{p.weeks.map((w, i) => <i key={i} className={w ? (i === 7 ? "ou-now" : "") : "z"} style={{ height: `${Math.max(2, (w / wTop) * 22)}px` }} />)}</span>
+                {change(p)}
+              </button>
+            ))}
+          </div>
+          <div className="adm2-h adm2-push ou-byday"><h3>Team, by day</h3><span className="xs muted">active time, all owners</span></div>
+          <div className="adm2-cols ou-byday" role="img" aria-label={`Team active time: ${d.days.map((k, i) => `${day(k)} ${hm(byDay[i])}`).join(", ")}`}>
+            {d.days.map((k, i) => <div key={k}><small className="adm2-colv">{byDay[i] ? hm(byDay[i]) : ""}</small><i className={i === 6 ? "over" : ""} style={{ height: `${Math.max(2, (byDay[i] / dayTop) * 64)}px` }} /><small>{short(k, i)}</small></div>)}
+          </div>
+          <p className="adm2-foot xs"><span><b>Same rules for everyone. Goal: {d.goalDays} days a week.</b> Counts only while Remy is on screen and in use. No recordings, no typing, never students.</span></p>
+        </section>
+        {sel && (
+          <section className="adm2-card ou-detail" data-testid="use-detail">
+            <div className="adm2-h"><span className="row" style={{ gap: 10 }}><Avatar m={{ email: sel.email, name: sel.name, founder: false, addedBy: "", addedAt: null }} size={36} /><span className="adm2-pn"><b>{sel.name}</b><small>{seen(sel)}{sel.lastDevice && sel.lastSeen ? `, ${DEVICE_NAME[sel.lastDevice] || ""}` : ""}</small></span></span><span className="xs muted">last 7 days</span></div>
+            <div className="adm2-nums ou-nums"><div><b>{hm(sel.minutes)}</b><span>active time</span></div><div><b>{sel.visits}</b><span>visits</span></div><div><b>{sel.visits ? hm(Math.round(sel.minutes / sel.visits)) : "–"}</b><span>per visit</span></div></div>
+            <div className="adm2-cols ou-selcols" role="img" aria-label={`${sel.name} per day: ${d.days.map((k, i) => `${day(k)} ${hm(sel.perDay[i])}`).join(", ")}`}>
+              {d.days.map((k, i) => <div key={k}><i className={i === 6 ? "over" : ""} style={{ height: `${Math.max(2, (sel.perDay[i] / selTop) * 56)}px` }} /><small>{short(k, i)}</small></div>)}
+            </div>
+            <h4 className="ou-sh">Most time on</h4>
+            <div className="adm2-bars">{sel.areas.slice(0, 5).map((a) => <div key={a.name} className="adm2-bar ou-bar"><span>{a.name}</span><div><i style={{ width: `${(100 * a.minutes) / areaTop}%` }} /></div><b>{hmLong(a.minutes)}</b></div>)}{!sel.areas.length && <span className="xs muted">Nothing this week yet.</span>}</div>
+            {sel.did.length > 0 && <><h4 className="ou-sh">Did this week</h4><div className="ou-chips">{sel.did.slice(0, 5).map((x) => <span key={x.label}><b>{x.n}</b> {x.label}</span>)}</div></>}
+            {sel.notOpened.length > 0 && <><h4 className="ou-sh">Not opened in 30 days</h4><div className="ou-chips ou-no">{sel.notOpened.slice(0, 5).map((x) => <span key={x}>{x}</span>)}</div></>}
+            <h4 className="ou-sh">Like a student vs. owners' dashboard</h4>
+            <span className="ou-split" aria-hidden><i style={{ width: `${sel.minutes ? (100 * (sel.minutes - sel.dashboard)) / sel.minutes : 0}%` }} /><i style={{ width: `${sel.minutes ? (100 * sel.dashboard) / sel.minutes : 0}%` }} /></span>
+            <span className="xs muted">Like a student {hm(sel.minutes - sel.dashboard)} · Dashboard {hm(sel.dashboard)}</span>
+          </section>
+        )}
+      </div>
+    </div>
+  );
 }

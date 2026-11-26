@@ -701,3 +701,23 @@ export interface HoursEntry {
   date: string; // YYYY-MM-DD
   note?: string;
 }
+
+/** "Using Remy" (Admin → Team & hours): one owner's own use of Remy over the last 7 days. Minutes are active minutes. */
+export interface OwnerUse {
+  email: string;
+  name: string;
+  me: boolean;
+  minutes: number;
+  prevMinutes: number; // the 7 days before
+  perDay: number[]; // 7 days, oldest first, matching OwnerActivity.days
+  visits: number;
+  lastSeen: string | null;
+  lastDevice: string | null;
+  devices: { desktop: number; phone: number; app: number };
+  areas: { name: string; minutes: number }[];
+  dashboard: number; // minutes on the owners' dashboard (the rest is using Remy like a student)
+  weeks: number[]; // 8 weeks of minutes, oldest first, the last is these 7 days
+  did: { label: string; n: number }[];
+  notOpened: string[]; // student areas not opened in 30 days
+}
+export interface OwnerActivity { days: string[]; goalDays: number; people: OwnerUse[] }

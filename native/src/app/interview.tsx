@@ -1,4 +1,4 @@
-import { Redirect, useLocalSearchParams } from "expo-router";
+import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,7 +21,7 @@ import { radius } from "@/lib/tokens";
 // Mock interview, native (it opened the website's /interview; client/src/components/MockInterview.tsx): Remy plans
 // questions from the posting and the student's resume (POST /api/interviews), asks one at a time, rates each answer
 // with their own words as proof, and ends on a scorecard. Answers are typed here; the website's mic needs the
-// browser's speech recognition. The prep kit (stories, pitch, questions) stays on the website for now.
+// browser's speech recognition. The prep kit (stories, pitch, questions) is app/prep.tsx.
 const KIND: Record<string, string> = { warmup: "Warm-up", posting: "From the posting", resume: "Your resume", work_sample: "Work sample", pressure: "Pressure", yours: "Your turn" };
 const short = (t: string) => t.split(/ [-–(]|, /)[0];
 type View_ = { id: string; qi: number; fb: boolean } | null;
@@ -29,8 +29,8 @@ type View_ = { id: string; qi: number; fb: boolean } | null;
 export default function InterviewScreen() {
   const { ws } = useSession();
   const owner = useOwnerView();
-  // Before the redesign the website's Interview page is the story deck and pitch, which have no native screen yet.
-  if (ws && !owner) return <Redirect href={{ pathname: "/web", params: { path: "/interview", title: "Interview" } } as any} />;
+  // Before the redesign the website's Interview page is the story deck and pitch: the app's prep kit.
+  if (ws && !owner) return <Redirect href={"/prep" as any} />;
   return ws ? <Mock /> : null;
 }
 
@@ -140,7 +140,7 @@ function Mock() {
       <T kind="small" style={{ textAlign: "center" }}>{planned ? (planned.source === "ai" ? "Remy rates each answer" : "Questions from the posting · no rating") : left ? `Uses 1 of your ${left} left this week` : "AI interviews are used up this week: questions from the posting, no rating"}</T>
     </>}
     {last && <Button testID="button-last-practice" kind="ghost" label={`Last practice: ${last.company} · see it`} onPress={() => setView({ id: last.id, qi: last.questions.length, fb: false })} />}
-    <Button testID="button-interview-kit" kind="ghost" label="Stories, pitch and questions to expect" onPress={() => go("/interview", "Interview", { page: true })} />
+    <Button testID="button-interview-kit" kind="ghost" label="Stories, pitch and questions to expect" onPress={() => router.push("/prep" as any)} />
   </>);
 }
 

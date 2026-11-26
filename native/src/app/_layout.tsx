@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ConfigProvider } from "@/lib/config";
+import { usePresence } from "@/lib/presence";
 import { JobsProvider } from "@/lib/jobs";
 import { SessionProvider } from "@/lib/session";
 import { ThemeProvider, useTheme } from "@/lib/theme";
@@ -14,6 +15,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function Root() {
   const { c, dark } = useTheme();
+  usePresence(); // owners only: Team & hours → Using Remy
   const sheet = { presentation: "modal", headerShown: true, headerTintColor: c.fox, headerStyle: { backgroundColor: c.surface }, headerTitleStyle: { color: c.ink } } as const;
   return (
     <>
@@ -46,7 +48,10 @@ function Root() {
         <Stack.Screen name="profile" options={{ ...sheet, title: "Edit profile" }} />
         <Stack.Screen name="sources" options={{ ...sheet, title: "Sources" }} />
         <Stack.Screen name="interview" options={{ ...sheet, title: "Interview" }} />
+        <Stack.Screen name="prep" options={{ ...sheet, title: "Interview prep" }} />
         <Stack.Screen name="community" options={{ ...sheet, title: "Community" }} />
+        <Stack.Screen name="admin" options={{ ...sheet, title: "Owners' dashboard" }} />
+        <Stack.Screen name="use" options={{ ...sheet, title: "Using Remy" }} />
         <Stack.Screen name="email" options={{ ...sheet, title: "Email updates" }} />
         <Stack.Screen name="hours" options={{ ...sheet, title: "Hours" }} />
       </Stack>
