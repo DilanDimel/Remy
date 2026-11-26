@@ -1,0 +1,11 @@
+Resume-to-openings test, 11,029 resumes (Dilan, Nov 26: "find 10000 resumes unique different... test each person to make sure their jobs match them"). Real public resume sets (ResumeAtlas, LiveCareer, Djinni, Indeed IT, datasetmaster; 9,000+ across 50+ industries) plus 2,000 hard synthetic ones (trades, military, career changers, international, sparse, grad students, community college). Nothing is committed: data and the harness live outside the repo (scratchpad + `.matchtest/`, git-excluded). Each resume goes through `rulesParse` → profile → `discoverJobs` → `computeFit` → ranker, offline, no AI spend. Relevance is judged by O*NET SOC minor group (`shared/soc.ts`).
+
+Before → after (all 11,029): empty Opportunities 11.8% → 2.2%; average openings shown 5.4 → 14.5; shown openings in the chosen area 69% → 74% (city choosers 87% → 93%); top-5 has a relevant opening 56% → 58%.
+
+Fixes in this PR: `server/jobs/metros.ts` + `server/data/us-metros.json` (Census CBSA 2023, 380 metros, 9,149 places) so "near Denver" or "Anywhere in Ohio" work outside Texas; 20+ fields added or widened in FIELDS (trades, imaging/respiratory/vet health, agriculture, humanities and languages, customer service, Java/QA/DevOps…); "X Management" majors aren't business; fire/EMS aren't legal; HR/IT students no longer have every found opening hidden (short field words); full-time seekers no longer get their 25 slots filled with internships that are then hidden; generic titles judged by their duties; plainer "why it fits" sentence; setup city choices follow the student's own state (`shared/regions.ts`). Resume reading: two-digit years ("May '27") kept the major and graduation (11% of student resumes lost them); a title line above its org line ("Intern" / "Org — City" / dates) is one entry. FIT_RULES_VERSION 22.
+
+discoverJobs (sources.ts, jobs thread's file, agreed): uses the whole chosen-field text, skips wrong-kind openings before the 25 cap, `duties` moved to fit.ts.
+
+Still thin (sent to the jobs thread): aviation (47% empty), sports (50%), real estate (19%), nursing (15%), education; rural states.
+
+App note for Demetre: `native/src/components/setup/Preferences.tsx` REGION_OPTS is Texas-only; it can use `regionOptions()` from `shared/regions.ts`. The fit sentence and metros are server-side, so the app gets them with no change.

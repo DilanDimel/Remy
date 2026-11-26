@@ -6,7 +6,7 @@ import { htmlToText } from "../resume/parse";
 import { postingLines } from "@shared/postingText";
 import { topSkills } from "@shared/requirements";
 import { uid } from "../platform/ids";
-import { abroad, COUNTRY_IN_TEXT, FIELD_SEARCH, FIELD_TITLES, regionMatch, chosenFieldText, relocateReason } from "./fit";
+import { abroad, COUNTRY_IN_TEXT, FIELD_SEARCH, FIELD_TITLES, regionMatch, chosenFieldText, relocateReason, typeMatch, duties } from "./fit";
 import { q, q1 } from "../platform/sql";
 import { r2Get, r2Put } from "../platform/r2";
 import { interestEnabled, preferenceAdjustment } from "./ranking";
@@ -71,10 +71,8 @@ const EARLY = /\b(junior|trainee|(?:teaching|research|marketing|legal|administra
 const SENIOR = /\b(senior|sr\.?|staff|principal|lead|manager|director|head of|vp|vice president|professor|ii|iii|iv)\b/i;
 /** A title a student could hold: early-career words, and not senior unless it's an internship, co-op or new-grad role. */
 export const studentTitle = (title: string) => EARLY.test(title) && !(SENIOR.test(title) && !/intern|co-?op|new grad|student/i.test(title));
-// What the job itself involves: a posting's sentences minus benefits, "about us", equal-opportunity and
-// "any major" lines, which mention fields without being about the work (from Julio's relevance design).
-const NOT_DUTIES = /benefit|insurance|wellness|discount|equal opportunity|protected by law|about us|our (company|platform|mission)|any major|qualifications:|we provide|perks/i;
-export const duties = (text: string) => text.split(/(?<=[.!?])\s+|\n+/).filter((x) => !NOT_DUTIES.test(x)).join(" ");
+// What the job itself involves: `duties` (fit.ts, which also reads it for generic titles).
+export { duties };
 // Roles meant for graduate students, skipped for undergraduates.
 const GRAD_LEVEL = /\b(graduate intern(ship)?|intern,?\s*graduate|mba|ph\.?\s?d|doctoral|postdoc|post-doc|master'?s|graduate student|j\.?d\.?|law student|law clerk|medical student|residency program|school psycholog\w*|diagnostician|licensed specialist)\b/i;
 
@@ -545,12 +543,16 @@ export function refillEmpty(jobs: Job[], found: Job[]): Job[] {
   });
 }
 /** Scans boards in parallel and returns early-career postings that suit the student. */
-export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, enabled = interestEnabled()): Promise<{ jobs: Job[]; scanned: number; reached: string[] }> {
+export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, enabled = interestEnabled(), read = cachedBoard): Promise<{ jobs: Job[]; scanned: number; reached: string[] }> {
   // Only fields the student chose narrow the search (see chosenFieldText): "working with people" isn't the HR field.
   const fields = chosenFieldText(ws.profile).toLowerCase().split(/[,;/]+/).map((x) => x.trim()).filter((x) => x.length > 2);
-  const titleFits = FIELD_TITLES.filter(([field]) => field.test(fields.join(" "))).map(([, title]) => title);
+  // The same text fieldMatch (fit.ts) reads, so what's found is what the field check keeps: short fields like "HR" or
+  // "IT" fell out of `fields` (3+ letters), so nothing narrowed the search and every opening found was then hidden as
+  // "not in the fields you chose" (11,041-resume test, Nov 26: 25 of 25 for every HR student).
+  const chosen = chosenFieldText(ws.profile);
+  const titleFits = FIELD_TITLES.filter(([field]) => field.test(chosen)).map(([, title]) => title);
   // Workday needs a search word; use the student's first field ("finance").
-  const field = FIELD_SEARCH.find((_, k) => FIELD_TITLES[k][0].test(fields.join(" "))) || "";
+  const field = FIELD_SEARCH.find((_, k) => FIELD_TITLES[k][0].test(chosen)) || "";
   const undergrad = !/grad/i.test(ws.profile.classYear);
   // An opening saved with no posting text (title-only boards before Nov 19, 2026) counts as unknown, so it's read again
   // and the caller fills its text in place (refillEmpty) instead of keeping a card that can't say why it fits.
@@ -562,7 +564,7 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, e
     while (i < boards.length) {
       const b = boards[i++];
       let raws: Raw[] = [];
-      try { raws = await cachedBoard(b, field, ws.profile.regions || ws.profile.location || ""); } catch { continue; }
+      try { raws = await read(b, field, ws.profile.regions || ws.profile.location || ""); } catch { continue; }
       if (!raws.length) continue;
       reached.push(b.company);
       let details = 0, outsideReads = 0;
@@ -574,6 +576,9 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, e
       for (const r of ordered) {
         if (!r.url || known.has(r.url) || (!r.student && !studentTitle(r.title))) continue;
         if (undergrad && GRAD_LEVEL.test(r.title)) continue;
+        // Not the kind they asked for (an internship for someone who wants a full-time job): computeFit would hide it,
+        // so it mustn't take one of the 25 places a kind they want could have had.
+        if (typeMatch(ws, { kind: kindOf(r.title), title: r.title } as Job) === false) continue;
         // A country in the title ("Key Account Trainee – Iberia (España y Portugal)") means abroad, even when the location is vague.
         if (COUNTRY_IN_TEXT.test(r.title)) continue; // a country in the title ("Analyst - Germany"); regions and cities don't count
         // A title in another field is skipped; a generic one ("Summer Intern") is judged by its duties below.
@@ -628,7 +633,7 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, e
   for (const f of found) {
     const n = perCompany.get(f.job.company) || 0;
     if (n >= 4 || jobs.length >= limit) continue;
-    if (fields.length && f.rel === 0 && found.some((x) => x.rel > 0)) continue;
+    if ((fields.length || titleFits.length) && f.rel === 0 && found.some((x) => x.rel > 0)) continue;
     perCompany.set(f.job.company, n + 1);
     jobs.push({ ...f.job, eligibility: eligibilityFrom(f.text), requirements: requirementsFrom(f.text), summary: postingLines(f.text).join("\n").slice(0, 420), postingText: f.text.slice(0, 12000) });
   }
