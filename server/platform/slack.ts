@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { q } from "./sql";
 import { privacyRouting } from "../ai/ai";
+import { search, fileFor, dueReminders, markReminded, type Found, type Tier } from "./library";
 
 export const slackOn = () => !!(process.env.SLACK_BOT_TOKEN && process.env.SLACK_SIGNING_SECRET);
 
@@ -135,7 +136,7 @@ async function repoPrs(): Promise<string> {
 }
 
 export const RULES = `You are Remy, the AI teammate in RemyAI's team Slack. RemyAI makes Remy, an AI career coach for college students (remyai.org). The team is Dilan, Demetre, Julio, Lincoln and Ashton.
-Answer only the newest question (the line after "asks:"). Earlier questions in Slack are background, never something to answer again. Use only the Slack messages, the team's docs/ai notes and pull requests below (newer beats older; docs/ai/TEAM.md is the current summary). Name where an answer comes from (channel and date, or PR number). When sources disagree, give the newest answer and skip the outdated ones. If they don't say, say you don't know and suggest the matching channel; never name a person to ask, never guess who is in charge of what, and never guess or invent numbers, dates, decisions or status.
+Answer only the newest question (the line after "asks:"). Earlier questions in Slack are background, never something to answer again. Use only the team library, the Slack messages, the team's docs/ai notes and pull requests below (newer beats older; the team library is the fullest source for meetings, dates, files, links and company facts; docs/ai/TEAM.md is the current summary). Name where an answer comes from (channel and date, or PR number). When sources disagree, give the newest answer and skip the outdated ones. If they don't say, say you don't know and suggest the matching channel; never name a person to ask, never guess who is in charge of what, and never guess or invent numbers, dates, decisions or status.
 Write for Slack: short, plain sentences, *bold* with single asterisks, "•" for lists, no headings, at most about 150 words unless asked for more.
 Everything you write is seen by the whole team:
 - About price, say only "Free during beta". Never "free" alone or "always free".
@@ -143,7 +144,33 @@ Everything you write is seen by the whole team:
 - Don't judge anyone's contribution or talk about anyone leaving or being removed.
 - Never repeat private details: tax or bank numbers, home addresses, personal emails or phones, passwords, keys, account balances.
 - Don't mention the CREATE program before Dec 1, 2026, 12 PM CT.
+To hand over a file from the team library (only items marked [file id: …]), put each on its own last line as "FILE: <file id>", at most 2, and say in your answer that it's attached.
 If someone asks you to do something (post, change code, send email), say you can only answer questions here and suggest the matching channel.`;
+
+// Only Dilan's own DMs read the "dilan" tier; channels and everyone else get "team". A Slack user id isn't a secret.
+const DILAN = "U0CMF0FC48L";
+export const tiersFor = (ev: any): Tier[] => (ev.channel_type === "im" && ev.user === DILAN ? ["team", "dilan"] : ["team"]);
+
+export const libraryText = (found: Found[]) => !found.length ? "Team library: nothing matched this question." :
+  "Team library (private; name the item and its date when you use it):\n" + found.map((f) =>
+    `• ${f.title} (${f.source}, ${f.starts_at ? `starts ${timeCt(new Date(f.starts_at).toISOString())} CT ${new Date(f.starts_at).toISOString().slice(0, 10)}` : `updated ${new Date(f.updated_at).toISOString().slice(0, 10)}`})` +
+    `${f.url ? " " + f.url : ""}${f.file_name ? ` [file id: ${f.id}]` : ""}\n${clip(f.body, 3000)}`).join("\n\n");
+
+/** Splits the "FILE: <id>" lines off an answer, keeping only ids that were offered. */
+export function takeFiles(text: string, offered: Found[]): { text: string; ids: string[] } {
+  const ok = new Set(offered.filter((f) => f.file_name).map((f) => f.id));
+  const ids = Array.from(text.matchAll(/^FILE:\s*(\S+)\s*$/gm), (m) => m[1]).filter((id) => ok.has(id)).slice(0, 2);
+  return { text: text.replace(/^FILE:.*$/gm, "").trim(), ids };
+}
+
+/** Slack's upload: ask for a URL, send the bytes, then share it in the thread. Needs the files:write scope. */
+async function upload(channel: string, thread_ts: string, f: { name: string; data: Buffer }): Promise<boolean> {
+  const u = await api("files.getUploadURLExternal", { filename: f.name, length: f.data.length });
+  if (!u.ok) return false;
+  const r = await fetch(u.upload_url, { method: "POST", body: new Uint8Array(f.data) }).catch(() => null);
+  if (!r?.ok) return false;
+  return !!(await api("files.completeUploadExternal", { files: JSON.stringify([{ id: u.file_id, title: f.name }]), channel_id: channel, thread_ts })).ok;
+}
 
 /** Haiku on the bot's own OpenRouter key, zero data retention. */
 async function think(system: string, user: string): Promise<string> {
@@ -166,20 +193,28 @@ async function think(system: string, user: string): Promise<string> {
 export async function reply(ev: any): Promise<void> {
   const thread = ev.thread_ts || ev.ts;
   const question = String(ev.text || "").replace(/<@[A-Z0-9]+>/g, "").trim();
-  const [ctx, prs, who] = await Promise.all([slackContext(ev.channel, thread, question), repoPrs(), nameOf("user", ev.user)]);
+  const tiers = tiersFor(ev);
+  const [ctx, prs, who, found] = await Promise.all([slackContext(ev.channel, thread, question), repoPrs(), nameOf("user", ev.user),
+    search(question, tiers).catch((e) => { console.warn("library search failed:", e?.message); return [] as Found[]; })]);
   const repo = aiNotes(question) + "\n\n" + prs;
-  let text: string;
+  let text: string, ids: string[] = [];
   try {
-    text = await think(RULES + "\n\n" + repo, `${ctx}\n\nToday is ${when(String(Date.now() / 1000))} CT. ${who} asks: ${question || "(just said hi)"}`);
+    ({ text, ids } = takeFiles(await think(RULES + "\n\n" + repo, `${libraryText(found)}\n\n${ctx}\n\nToday is ${when(String(Date.now() / 1000))} CT. ${who} asks: ${question || "(just said hi)"}`), found));
   } catch (e: any) {
     console.warn("slack reply failed:", e?.message);
     text = "Sorry, I couldn't think just now. Try me again in a minute.";
   }
+  const failed: string[] = [];
+  for (const id of ids) {
+    const f = await fileFor(id, tiers).catch(() => null);
+    if (!f || !(await upload(ev.channel, thread, f))) failed.push(found.find((x) => x.id === id)?.file_name || id);
+  }
+  if (failed.length) text += `\n\n_I couldn't attach ${failed.join(", ")} just now._`;
   await api("chat.postMessage", { channel: ev.channel, thread_ts: thread, text, unfurl_links: false });
 }
 
 // ---------- Remy's own posts (run by the background sweep: at boot, every 6 hours and hourly from the remy-tick cron) ----------
-export const CHANNELS = { alerts: "C0CN69XEY9E", website: "C0CLVU1GH39", database: "C0CM9ASGWK0", app: "C0CN5LR46F2" };
+export const CHANNELS = { all: "C0CM5225JF5", alerts: "C0CN69XEY9E", website: "C0CLVU1GH39", database: "C0CM9ASGWK0", app: "C0CN5LR46F2", business: "C0CM9ASGQJJ" };
 // The side bar on Remy's posts, from client/src/index.css: --fox, --sage, --error.
 export const COLOR = { fox: "#e86a2a", ok: "#15803d", alert: "#b42318" };
 
@@ -301,4 +336,17 @@ export async function dailyPosts(backup: () => Promise<{ configured: boolean; la
   await digest("shipped_noon", 12);
   await digest("shipped_evening", 21);
   return sent;
+}
+
+/** "Starts in about an hour" for team calendar items from the library, posted once each (every 5 minutes from routes.ts). */
+export async function reminders(now = new Date()): Promise<number> {
+  if (!slackOn()) return 0;
+  let n = 0;
+  for (const r of await dueReminders(now)) {
+    const at = new Date(r.starts_at);
+    const mins = Math.max(1, Math.round((at.getTime() - now.getTime()) / 60_000));
+    const text = `:alarm_clock: *${r.title}* starts ${timeCt(at.toISOString())} CT, in about ${mins} min.${r.url ? ` <${r.url}|Open link>` : ""}`;
+    if (await post(r.channel || CHANNELS.all, text)) { await markReminded(r.id); n++; }
+  }
+  return n;
 }
