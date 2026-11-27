@@ -101,6 +101,9 @@ test("home tab, /bug and the Ask Remy shortcut", async () => {
   process.env.SLACK_BOT_TOKEN = "xoxb-test"; process.env.SLACK_SIGNING_SECRET = "s";
   const calls: any[] = [];
   globalThis.fetch = (async (url: any, init: any) => {
+    if (String(url).includes("api.github.com")) return new Response(JSON.stringify(String(url).includes("state=open")
+      ? [{ number: 7, title: "Open thing", html_url: "https://x/7" }]
+      : [{ number: 9, title: "Fix the save button on My Path", html_url: "https://x/9", merged_at: new Date().toISOString() }]));
     calls.push({ method: String(url).split("/").pop(), ...Object.fromEntries(new URLSearchParams(String(init?.body || ""))) });
     return new Response(JSON.stringify({ ok: true }));
   }) as any;
@@ -109,12 +112,17 @@ test("home tab, /bug and the Ask Remy shortcut", async () => {
     assert.equal(calls.length, 1); // no history copy for the Home tab
     assert.equal(calls[0].method, "views.publish");
     assert.equal(calls[0].user_id, "U9");
-    assert.deepEqual(JSON.parse(calls[0].view), HOME);
+    const view = JSON.parse(calls[0].view);
+    assert.equal(view.type, "home");
+    assert.equal(view.blocks[0].text.text, HOME.blocks[0].text.text);
+    assert.match(calls[0].view, /#9> Fix the save button/); // shipped in the last 24 hours
+    assert.match(calls[0].view, /#7> Open thing/); // open pull requests
     await onEvent({ type: "app_home_opened", tab: "messages", user: "U9", channel: "D9" });
     assert.equal(calls.length, 1);
 
     assert.match((await command({ command: "/bug", text: "", user_id: "U1" })).text, /Tell me what broke/);
     assert.match((await command({ command: "/bug", text: "Save does nothing", user_id: "U1" })).text, new RegExp(CHANNELS.website));
+    assert.match(JSON.parse(calls[calls.length - 1].attachments)[0].text, /may be related:_\n• <https:\/\/x\/9\|#9>/);
     assert.match((await command({ command: "/bug", text: "app: crashes on sign in", user_id: "U1" })).text, new RegExp(CHANNELS.app));
     const [web, app] = calls.slice(1);
     assert.equal(web.channel, CHANNELS.website);
