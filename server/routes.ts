@@ -76,6 +76,7 @@ import { sendTexts, usPhone } from "./notify/texts";
 import { step } from "@shared/progress";
 import { conferencesFor } from "./jobs/conferences";
 import { iconUrl, logoDomainFor } from "./jobs/logo";
+import { opLabel, opType } from "@shared/opportunityType";
 import { competitionsFor, competitionsOpen } from "./jobs/competitions";
 import { trimOpenings } from "./resume/trim";
 import { pruneLogs, storageReport, trafficReport, warnIfBackupStale, warnIfNearLimit } from "./platform/storage";
@@ -2400,9 +2401,9 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
     const history = ctx.ws.chat.slice(-12).map((m) => `${m.role === "user" ? "Student" : "Assistant"}: ${m.text}`).join("\n");
     // The openings shown on Opportunities (not hidden as a poor fit), so Remy can answer "which should I apply to?".
     const found = allJobs(ctx.ws).map((j) => ({ j, f: ctx.ws.fits[j.id] })).filter(({ f }) => f && !f.excluded).sort((a, b) => (b.f.score ?? 0) - (a.f.score ?? 0)).slice(0, 8)
-      .map(({ j, f }) => `${doer ? `[id:${j.id}] ` : ""}${j.title} — ${j.company} (${j.location}${j.deadline ? `, closes ${j.deadline}` : ""}; ${f.eligibility === "likely" && f.checked ? "student meets the rules it states" : f.eligibility === "unlikely" ? "student doesn't qualify" : "nothing found that rules the student out; check eligibility"})`).join("; ");
+      .map(({ j, f }) => `${doer ? `[id:${j.id}] ` : ""}${j.title} — ${j.company} (${opLabel(opType(j).type)}; ${j.location}${j.deadline ? `, closes ${j.deadline}` : ""}; ${f.eligibility === "likely" && f.checked ? "student meets the rules it states" : f.eligibility === "unlikely" ? "student doesn't qualify" : "nothing found that rules the student out; check eligibility"})`).join("; ");
     // Owners: every other opening by id too, so "save the Samsung one" works for openings outside the top 8.
-    const others = doer ? allJobs(ctx.ws).filter((j) => !found.includes(`[id:${j.id}]`)).slice(0, 80).map((j) => `[id:${j.id}] ${j.title} at ${j.company}`).join("; ") : "";
+    const others = doer ? allJobs(ctx.ws).filter((j) => !found.includes(`[id:${j.id}]`)).slice(0, 80).map((j) => `[id:${j.id}] ${j.title} at ${j.company} (${opLabel(opType(j).type)})`).join("; ") : "";
     const apps = ctx.ws.applications.map((a) => { const j = findJob(ctx.ws, a.jobId); return `${doer ? `[id:${a.jobId}] ` : ""}${j?.company} ${j?.title}: ${a.versions.length ? "approved v" + a.versions.length : a.generatedAt ? "draft" : "not started"}`; }).join("; ");
     // Everything else Remy knows, so the student never has to repeat themselves.
     const today = centralToday();

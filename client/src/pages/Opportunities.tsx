@@ -7,10 +7,11 @@ import { authKind } from "@shared/workAuth";
 import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, BookmarkCheck, CalendarPlus, Check, X, ChevronDown, ChevronUp, Link2, MapPin, Mic, RefreshCw, Search, Sparkles, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
 import { openingRanker, reasonLine } from "@shared/order";
 import type { Job, JobCheck, JobFit, JobInterestReason, JobRanking, Workspace } from "@shared/types";
-import { api, daysUntil, fmtDate, rid, useDraft, useOwnerView, useStore } from "../lib/store";
+import { api, daysUntil, fmtDate, rid, useDraft, useOwnerView, useOwnersOnly, useStore } from "../lib/store";
 import { ApplyLink } from "../components/ApplyLink";
 import { go } from "../lib/router";
 import { kindLabel, reloadJobs, sameOrg, shortPlace, useJobs } from "../lib/jobs";
+import { OP_TYPES, opLabel, opType, type OpType } from "@shared/opportunityType";
 import { shortTitle } from "@shared/org";
 import { screeningFor } from "@shared/screening";
 import { postingSkills, skillsIn } from "@shared/requirements";
@@ -19,13 +20,15 @@ import { Empty, Modal, Remy, Spinner, StatusChip, WorkingSteps } from "../compon
 import { useIsMobile } from "../hooks/use-mobile";
 import { OrgLogo } from "../components/OrgLogo";
 
-type Kind = "all" | "jobs" | "campus" | "event";
-const matchKind = (j: Job, k: Kind) => k === "all" || (k === "event" ? j.kind === "event" : k === "campus" ? j.kind === "campus" : ["job", "internship", "program"].includes(j.kind));
+type Kind = "all" | "jobs" | OpType;
+// Campus jobs include student-worker jobs filed as internships ("Student Worker ... Internship"), for everyone.
+const matchKind = (j: Job, k: Kind) => k === "all" || (k === "jobs" ? !["campus", "event"].includes(opType(j).type) : opType(j).type === k);
 
 export default function Opportunities({ query }: { query: URLSearchParams }) {
   const { ws, setWs, run, toast } = useStore();
   const w = ws!;
   const owner = useOwnerView(); // tabs redesign (Nov 22), owners first
+  const byType = useOwnersOnly(); // tabs per kind of opening (Nov 27): brand-new, owners in owner view only
   const { jobs, fits, interest, interestEnabled, needsProfile, refreshing, fieldEmployers } = useJobs();
   // Remy's employer list is mostly business, tech and engineering; for other fields it says so instead of blaming filters.
   // An undecided student has no field, so "few employers hire in your field" would be untrue for them.
@@ -131,8 +134,11 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
       {finding && <div className="notice small fade-up"><Remy size={28} mood="think" /><div className="stack-sm"><span>Remy is reading live job boards from employers that fit {w.profile.targetRoles || "your interests"}{w.profile.regions ? ` in ${w.profile.regions}` : ""}.</span><WorkingSteps steps={["Picking employers that fit you", "Reading their career sites", "Keeping internships and entry-level roles", "Ranking by how well they fit"]} every={3500} /></div></div>}
       {showImport && <ImportPanel onDone={() => setShowImport(false)} />}
       <div className="row-between opp-filters">
-        <div className="seg" role="group" aria-label="Category">
-          {([["all", "All", "All"], ["jobs", "Jobs & internships", "Jobs"], ["campus", "Campus jobs", "Campus"], ["event", "Events", "Events"]] as [Kind, string, string][]).map(([k, l, short]) => (
+        <div className={"seg" + (byType ? " opp-types" : "")} role="group" aria-label="Category">
+          {(byType
+            // Brand-new (Nov 27), owners first: a tab per kind of opening (shared/opportunityType.ts), empty kinds left out.
+            ? ([["all", "All", "All"], ...OP_TYPES.map((o) => [o.type, o.label, o.label])] as [Kind, string, string][]).filter(([k]) => k === "all" || k === kind || counted.some((j) => matchKind(j, k)))
+            : ([["all", "All", "All"], ["jobs", "Jobs & internships", "Jobs"], ["campus", "Campus jobs", "Campus"], ["event", "Events", "Events"]] as [Kind, string, string][])).map(([k, l, short]) => (
             <button key={k} aria-pressed={kind === k} onClick={() => setKind(k)} aria-label={l} data-testid={`filter-${k}`}><span className="opp-kind-long">{l}</span><span className="opp-kind-short" aria-hidden>{short}</span>{owner && <em className="op-n">{counted.filter((j) => matchKind(j, k)).length}</em>}</button>
           ))}
         </div>
@@ -337,6 +343,7 @@ export function PostingText({ text }: { text: string }) {
 
 function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; fit?: JobFit; moved?: JobRanking; canRate: boolean; defaultOpen: boolean; showPassed: boolean }) {
   const keepPass = useOwnerView(); // redesign stage 3, owners first
+  const byType = useOwnersOnly(); // kind tag (Nov 27), owners first
   const practice = useCanGo()("/interview"); // Interview is locked for students until it's released
   const { ws, save, setWs, run, config } = useStore();
   const w = ws!;
@@ -382,11 +389,12 @@ function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; 
   if (gone) return null;
   // Pay as the posting states it (shared/pay.ts), owners first like the app (#552).
   const pay = keepPass ? jobPay(j) : "";
+  const type = opType(j); // what kind of opening, and the posting's words that say so
   const due = j.deadline && d !== null && d >= 0 && d <= 14 ? `closes ${fmtDate(j.deadline)}` : "";
   if (phone && !sheet) return (
     <button className="job-row" onClick={() => setSheet(true)} id={"job-" + j.id} data-testid="job-row">
       <OrgLogo company={j.company} url={j.applyUrl} />
-      <span className="job-row-main"><b>{shortTitle(j.title, j.company)}</b><span>{[j.company, kindLabel[j.kind], due || shortPlace(j.location), pay].filter(Boolean).join(" · ")}</span></span>
+      <span className="job-row-main"><b>{shortTitle(j.title, j.company)}</b><span>{[j.company, byType ? opLabel(type.type) : kindLabel[j.kind], due || shortPlace(j.location), pay].filter(Boolean).join(" · ")}</span></span>
       {eligChip(fit)}
     </button>
   );
@@ -396,7 +404,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; 
       <div className="row-between job-top" style={{ alignItems: "flex-start" }}>
         <OrgLogo company={j.company} url={j.applyUrl} />
         <div className="stack-sm" style={{ minWidth: 0, flex: 1 }}>
-          <div className="row"><span className="xs muted">{j.company} · {kindLabel[j.kind]}</span><StatusChip label={j.label} />{eligChip(fit)}</div>
+          <div className="row"><span className="xs muted">{j.company}{byType ? "" : ` · ${kindLabel[j.kind]}`}</span>{byType && <span className="op-type" title={type.why ? `Remy: ${type.why}` : undefined} data-testid="job-type">{opLabel(type.type)}{type.why && <em> · {type.why}</em>}</span>}<StatusChip label={j.label} />{eligChip(fit)}</div>
           <h3 title={shortTitle(j.title, j.company) !== j.title ? j.title : undefined}>{shortTitle(j.title, j.company)}</h3>
           <div className="row small muted"><span className="row" style={{ gap: 4 }} title={j.location}><MapPin size={14} style={{ flex: "none" }} />{keepPass ? shortPlace(j.location) : j.location || "Location not stated"}</span>{j.dates && <span>· {j.dates}</span>}{pay && <span data-testid="job-pay">· Pay: {pay}</span>}</div>
         </div>

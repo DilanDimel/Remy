@@ -5,13 +5,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Swipeable, { SwipeDirection } from "react-native-gesture-handler/ReanimatedSwipeable";
 import type { Job, JobFit } from "@shared/types";
 import { shortTitle } from "@shared/org";
+import { OP_TYPES, opLabel, opType, type OpType } from "@shared/opportunityType";
 import { Button, Chip, FitBadge, Icon, Loading, Logo, Pill, Screen, Sect, T, success, tap } from "@/components/ui";
 import { useJobs } from "@/lib/jobs";
 import { Tracker } from "../progress";
 import { go } from "@/lib/nav";
 import { jobPay } from "@/lib/pay";
 import { deadlineChip, jobsLine, kindLabel, passedJobs, shortPlace, upcomingEvents, visibleJobs } from "@/lib/next";
-import { useRefreshAll, useSession } from "@/lib/session";
+import { useOwnersOnly, useRefreshAll, useSession } from "@/lib/session";
 import { BUTTON_RADIUS, aboveTabs, font, useTheme } from "@/lib/theme";
 import { radius } from "@/lib/tokens";
 
@@ -26,13 +27,16 @@ export function JobCard({ j, fit, children, onPress }: { j: Job; fit?: JobFit; c
   const due = deadlineChip(j.deadline);
   const pay = jobPay(j);
   const showPay = j.kind !== "event"; // everyone, like the website
+  const byType = useOwnersOnly(); // kind of opening with its reason (Nov 27), owners first like the website
+  const type = opType(j);
   return (
     <Pressable testID="card-job" onPress={onPress} accessibilityRole="button" accessibilityLabel={`${j.title}, ${j.company}`}
       style={({ pressed }) => ({ backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.line, padding: 14, gap: 10, opacity: pressed ? 0.92 : 1 })}>
       <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
         <Logo company={j.company} url={j.applyUrl} size={44} />
         <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-          <Text numberOfLines={1} style={{ fontFamily: font.semi, fontSize: 13, color: c.mutedText }}>{j.company} · {kindLabel[j.kind]}</Text>
+          <Text numberOfLines={1} style={{ fontFamily: font.semi, fontSize: 13, color: c.mutedText }}>{j.company} · {byType ? opLabel(type.type) : kindLabel[j.kind]}</Text>
+          {byType && !!type.why && <Text testID="job-type-why" numberOfLines={1} style={{ fontFamily: font.semi, fontSize: 12.5, color: c.foxDeep }}>{type.why}</Text>}
           <Text numberOfLines={2} style={{ fontFamily: font.bold, fontSize: 16.5, lineHeight: 21, color: c.ink }}>{shortTitle(j.title, j.company)}</Text>
           <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 13.5, color: c.mutedText }}>{shortPlace(j.location)}{j.dates ? ` · ${j.dates}` : ""}</Text>
         </View>
@@ -63,6 +67,8 @@ export default function Jobs() {
   // A Keep counts in Kept straight away, before the server answers.
   const [keptNow, setKeptNow] = useState<Record<string, true>>({});
   const [filter, setFilter] = useState<Filter>("new");
+  const byType = useOwnersOnly(); // "For you" by kind of opening (Nov 27), owners first
+  const [kind, setKind] = useState<OpType | "all">("all");
   const [leaving, setLeaving] = useState<Record<string, true>>({});
   const [limit, setLimit] = useState(PAGE);
   useEffect(() => setLimit(PAGE), [filter]);
@@ -79,7 +85,8 @@ export default function Jobs() {
   // A Pass counts in Passed straight away; only a card being brought back leaves it.
   const passed = [...passedJobs(ws, jobs).filter((j) => !leaving[j.id]), ...(last && !last.kept && !ws.hiddenJobIds.includes(last.job.id) ? [last.job] : [])];
   const fresh = all.filter((j) => !gone[j.id] && !ws.savedJobIds.includes(j.id) && !ws.jobFeedback?.[j.id]);
-  const shown = filter === "kept" ? kept : filter === "passed" ? passed : filter === "events" ? events : fresh;
+  const forYou = byType && kind !== "all" ? fresh.filter((j) => opType(j).type === kind) : fresh;
+  const shown = filter === "kept" ? kept : filter === "passed" ? passed : filter === "events" ? events : forYou;
   const onRefresh = async () => { setRefreshing(true); await Promise.all([reload(), refreshAll()]); setRefreshing(false); };
   const decide = async (j: Job, yes: boolean) => {
     if (yes) success(); else tap();
@@ -132,6 +139,14 @@ export default function Jobs() {
       {events.length > 0 && <Pill testID="filter-events" label={`Events · ${events.length}`} on={filter === "events"} onPress={() => setFilter("events")} />}
     </ScrollView>
   );
+  // Kinds of opening inside For you, only those that have some (owners first).
+  const kinds = byType && filter === "new" ? OP_TYPES.filter((o) => o.type !== "event" && fresh.some((j) => opType(j).type === o.type)) : [];
+  const kindRow = kinds.length > 1 && (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8, marginHorizontal: -16 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}>
+      <Pill testID="type-all" label="All kinds" on={kind === "all"} onPress={() => setKind("all")} />
+      {kinds.map((o) => <Pill key={o.type} testID={`type-${o.type}`} label={`${o.label} · ${fresh.filter((j) => opType(j).type === o.type).length}`} on={kind === o.type} onPress={() => setKind(o.type)} />)}
+    </ScrollView>
+  );
   const empty = (
     <View style={{ paddingVertical: 24, alignItems: "center", gap: 8 }}>
       <T kind="h2">{loading ? "Finding openings…" : filter === "kept" ? "Nothing saved yet" : filter === "passed" ? "Nothing passed" : filter === "events" ? "No events right now" : "You're all caught up"}</T>
@@ -147,6 +162,7 @@ export default function Jobs() {
       <T kind="display" style={{ marginTop: 8 }}>Opportunities</T>
       {!!line && <T kind="muted" style={{ marginTop: 4 }}>{line}</T>}
       {filters}
+      {kindRow}
       {!!err && <T kind="small" style={{ color: c.error, marginTop: 8 }}>{err}</T>}
       {filter === "applied" ? <View style={{ marginTop: 8 }}><Tracker ws={ws} /></View> : shown.length ? <>
         <Sect title={filter === "kept" ? "Saved" : filter === "passed" ? "Passed" : filter === "events" ? "Events and competitions" : `${shown.length} for you`} />
