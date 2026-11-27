@@ -272,7 +272,7 @@ export async function syncTopics(topics = TOPICS, call = api): Promise<number> {
 export const plainTopic = (t: string) => t.replace(/<[^|>]+\|([^>]+)>/g, "$1").replace(/<([^>]+)>/g, "$1").replace(/&amp;/g, "&").trim();
 
 /** Deletes Remy's own "set the channel topic" notices (one bad night repeated them every 5 minutes). */
-export async function clearTopicNotices(topics = TOPICS, call = api): Promise<number> {
+export async function clearTopicNotices(topics = TOPICS, call = api, wait = (ms: number) => new Promise((r) => setTimeout(r, ms))): Promise<number> {
   if (!slackOn()) return 0;
   const me = (await call("auth.test", {})).user_id;
   let gone = 0;
@@ -280,7 +280,17 @@ export async function clearTopicNotices(topics = TOPICS, call = api): Promise<nu
     let cursor = "";
     do {
       const h = await call("conversations.history", { channel, limit: 200, ...(cursor ? { cursor } : {}) });
-      for (const m of h.messages || []) if (m.subtype === "channel_topic" && m.user === me && (await call("chat.delete", { channel, ts: m.ts })).ok) gone++;
+      for (const m of h.messages || []) {
+        if (m.subtype !== "channel_topic" || m.user !== me) continue;
+        // chat.delete allows about 50 a minute: pace it, and wait out a rate limit instead of skipping the message.
+        for (let tries = 0; tries < 5; tries++) {
+          const r = await call("chat.delete", { channel, ts: m.ts });
+          if (r.ok) gone++;
+          if (r.error !== "ratelimited") break;
+          await wait(20000);
+        }
+        await wait(1300);
+      }
       cursor = h.response_metadata?.next_cursor || "";
     } while (cursor);
   }

@@ -182,6 +182,20 @@ test("topics: Slack's stored link format counts as the same topic, and Remy's to
   };
   assert.equal(await syncTopics({ A: "remyai.org on desktop & phone" }, call), 0);
   assert.ok(!calls.includes("conversations.setTopic"));
-  assert.equal(await clearTopicNotices({ A: "x" }, call), 1);
+  assert.equal(await clearTopicNotices({ A: "x" }, call, async () => {}), 1);
   assert.deepEqual(calls.filter((c) => c.startsWith("delete")), ["delete:1"]);
+});
+
+test("topics: a rate-limited delete waits and tries the same message again", async () => {
+  process.env.SLACK_BOT_TOKEN = "xoxb-test"; process.env.SLACK_SIGNING_SECRET = "s";
+  let deletes = 0;
+  const waits: number[] = [];
+  const call = async (method: string) => {
+    if (method === "auth.test") return { ok: true, user_id: "UREMY" };
+    if (method === "conversations.history") return { ok: true, messages: [{ ts: "1", subtype: "channel_topic", user: "UREMY" }] };
+    return ++deletes === 1 ? { ok: false, error: "ratelimited" } : { ok: true };
+  };
+  assert.equal(await clearTopicNotices({ A: "x" }, call, async (ms) => { waits.push(ms); }), 1);
+  assert.equal(deletes, 2);
+  assert.ok(waits[0] >= 10000);
 });
