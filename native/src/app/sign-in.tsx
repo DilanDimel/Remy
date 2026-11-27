@@ -134,7 +134,7 @@ export default function SignIn() {
     <T kind="display" style={{ textAlign: "center" }}>Get started with Remy</T>
     <T kind="muted" style={{ textAlign: "center" }}>Free during beta. New or back, enter your email and Remy sends a 6-digit code.</T>
     <TextInput testID="input-email" autoFocus style={{ height: 54, borderRadius: BUTTON_RADIUS, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, paddingHorizontal: 16, fontFamily: font.body, fontSize: 17, color: c.ink, marginTop: 8 }}
-      placeholder="you@school.edu" placeholderTextColor={c.faint} autoCapitalize="none" autoComplete="email" keyboardType="email-address" textContentType="emailAddress"
+      placeholder="Your email" placeholderTextColor={c.faint} autoCapitalize="none" autoComplete="email" keyboardType="email-address" textContentType="emailAddress"
       value={email} onChangeText={setEmail} onSubmitEditing={() => /.+@.+\..+/.test(email.trim()) && send()} returnKeyType="send" />
     <Button testID="button-send-code" kind="fox" label="Send code" onPress={send} busy={busy} disabled={!/.+@.+\..+/.test(email.trim()) || !!ssoBusy} flex />
     {!!err && <T kind="small" style={{ color: c.error }}>{err}</T>}

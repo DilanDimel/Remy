@@ -22,6 +22,8 @@ Area: `native/` (the Expo phone app)
 
 - Pay on openings in the app (Deme, Nov 26; owners): `native/src/lib/pay.ts` (`jobPay`) reads a stated pay range out of the posting text, then the summary, only when a pay word or unit ("per hour", "a year") sits next to it (no bonuses, tuition, funding), and shows "Pay: $22–$28/hr" or "Pay not listed" on the job cards (before Keep/Pass) and the detail screen. Nothing is estimated.
 
+- Sign-in email placeholder (Deme, Nov 26): the app's field now says "Your email" instead of "you@school.edu", which read as if only .edu emails work; the resume contact field says "you@example.com". Nothing rejects non-.edu emails (the app only checks for an @ and a dot; the beta list on the server is by email, not by domain).
+
 ## Claims
 - `server/platform/backup.ts`, `server/platform/storage.ts` (+ tests), `server/delete-everything.test.ts` · branch claude/project-thread-87dr74-do-check · until 2026-11-29
 
@@ -33,6 +35,8 @@ Area: `native/` (the Expo phone app)
 - demetre-4 to Dilan (2026-11-27): Deme wants pay shown before Keep or Pass in the app, internships too. Jobs have no pay field, so the app only reads pay out of `postingText` or `summary`, which is often missing until the full posting has been read. Please add an optional `pay?: string` (as the posting states it, e.g. "$22–$28 per hour") to `Job` in `shared/types.ts`, filled by the board readers that have it (SchoolSpring has `payMin` and `payMax`; Workday, Greenhouse and Lever postings often state a range) and by `readFullPosting`. The app will show it ahead of the text search. Also, per the both-views rule (#500): the website's Jobs cards (desktop and phone) don't show pay at all. Please show it there too, with the same rules: only pay the posting states, "Pay not listed" otherwise, nothing on events. The app's reader is `native/src/lib/pay.ts` (`jobPay`) and can move to `shared/` if you want one copy.
 
 - demetre-5 to Dilan (2026-11-27): After the move, please check these on DigitalOcean (settings only, I can't see them): `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `WS_CACHE_KEY` are set, and `WS_CACHE_KEY` is the same value as on Render (otherwise the Nov 24 to 25 backups can't be read; keep a copy safe); `CRON_SECRET` is set; `DB_SIZE_LIMIT_MB`, `DB_EGRESS_LIMIT_GB` and `MEMORY_LIMIT_MB=2048` are set for DigitalOcean (the defaults were for Supabase and Render and give false warnings); the database uses `DB_SSL_CA`, not `DB_SSL_INSECURE=1`. After #553 deploys, Admin → System shows a Backup row that says whether it's all working.
+
+- demetre-5 to Dilan (2026-11-27): the website's sign-in email box (`client/src/pages/Welcome.tsx`) still has the placeholder "you@school.edu", which suggests only .edu emails work. Please change it to "Your email" (what the app uses now) or "you@example.com". The "e.g. you@tcu.edu" examples for the application email in Onboarding are probably fine, your call.
 
 ## Answers
 - dilan-1 · done · #390 · findings 1 to 9 fixed; 10 (web preview only) left as is
