@@ -2,6 +2,7 @@
 // when saves start failing. DB_SIZE_LIMIT_MB is the plan's database limit (default 500, Supabase's free plan in 2026).
 import { q, q1, schema } from "./sql";
 import { recordError } from "./admin";
+import { r2Ready } from "./r2";
 
 export const limitMb = () => {
   const n = Number(process.env.DB_SIZE_LIMIT_MB);
@@ -40,6 +41,24 @@ export async function warnIfNearLimit(): Promise<boolean> {
   console.warn(message);
   const already = await q1("SELECT 1 FROM error_reports WHERE place = 'storage' AND at > now() - interval '1 day'");
   if (!already) await recordError("server", "storage", message, `Largest tables: ${r.tables.slice(0, 4).map((t) => `${t.name} ${t.mb} MB`).join(", ")}`);
+  return true;
+}
+
+/** Run by the sweep: backups that aren't set up on this server (no R2 keys) or haven't run for 36 hours get one warning
+ *  a day on the owners' Errors page. A new server can lose the R2 settings silently, and backups would just stop. */
+export async function warnIfBackupStale(): Promise<boolean> {
+  let message = "";
+  if (!r2Ready()) message = "Backups are not running: this server has no R2 settings (R2_ACCOUNT_ID, R2_BUCKET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, WS_CACHE_KEY)";
+  else {
+    const r = await q1("SELECT EXTRACT(EPOCH FROM now() - value::timestamptz)::float AS s FROM site_settings WHERE key = 'backup_last_at'");
+    // The sweep runs the backup just before this check, so no record at all means no backup has ever finished.
+    if (!r) message = "No database backup has finished yet";
+    else if (Number(r.s) > 36 * 3600) message = `The last database backup was ${Math.round(Number(r.s) / 3600)} hours ago`;
+  }
+  if (!message) return false;
+  console.warn(message);
+  const already = await q1("SELECT 1 FROM error_reports WHERE place = 'backup' AND at > now() - interval '1 day'");
+  if (!already) await recordError("server", "backup", message, "Admin → System shows the last backup. Restore with npm run restore-backup.");
   return true;
 }
 

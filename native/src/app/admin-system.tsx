@@ -15,7 +15,7 @@ type Services = {
   ai: { available: false } | { available: true; error?: string; label?: string; account?: { left: number; bought: number; spent: number } | null; usage?: number | null; limit?: number | null; remaining?: number | null; usageDaily?: number | null; usageWeekly?: number | null; usageMonthly?: number | null };
   aiChain: { available: boolean; model: string; via: string; ownerTrial?: string };
 };
-type Storage = { usedMb: number; limitMb: number; percent: number; tables: { name: string; mb: number; rows: number }[]; workspaces: { n: number; avg_kb: number; max_kb: number; p90_kb: number }; transfer: { monthMb: number; limitGb: number; days: { day: string; mb: number }[] } };
+type Storage = { usedMb: number; limitMb: number; percent: number; tables: { name: string; mb: number; rows: number }[]; workspaces: { n: number; avg_kb: number; max_kb: number; p90_kb: number }; transfer: { monthMb: number; limitGb: number; days: { day: string; mb: number }[] }; backup?: { configured: boolean; lastAt: string | null; lastFull: string | null } };
 type Overview = { ai: { calls: number; failed: number }; texts?: { mode: "twilio" | "test"; recent: unknown[] }; emails?: { ready: boolean; reminders: number; digest: number; digestsWeek: number; nudges?: { sent: number; yes: number } } };
 type Mode = "off" | "copy" | "owners" | "everyone";
 type JobsMove = { mode: Mode; accounts: number; copied: number; left: number; differ: number; skipped: number; jobsInWorkspaces: number; jobsInTable: number };
@@ -32,6 +32,10 @@ const ASK: Partial<Record<Mode, string>> = {
 };
 const money = (n?: number | null) => (n == null ? "—" : `$${n.toFixed(2)}`);
 
+const backupAgo = (iso: string) => {
+  const m = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
+  return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
+};
 export default function AdminSystem() {
   const { me } = useSession();
   const { c } = useTheme();
@@ -61,7 +65,8 @@ export default function AdminSystem() {
   // The account balance is what runs out (every key draws from it); the live key's own cap is a second limit.
   const aiLeft = ai?.account ? Math.min(ai.account.left, ai.remaining ?? Infinity) : ai?.remaining ?? null;
   const aiLow = !!ai && ((!!ai.account && ai.account.left < 2) || (ai.limit != null && ai.remaining != null && ai.remaining < ai.limit * 0.2));
-  const watch = [tp >= 80 && "data transfer is over the plan", s.percent >= 80 && "the database is almost full", memP >= 0.8 && "memory is almost full", aiLow && "AI money is running low"].filter(Boolean) as string[];
+  const backupLate = !!s.backup && (!s.backup.configured || !s.backup.lastAt || Date.now() - new Date(s.backup.lastAt).getTime() > 36 * 3_600_000);
+  const watch = [backupLate && "nightly backups aren't running", tp >= 80 && "data transfer is over the plan", s.percent >= 80 && "the database is almost full", memP >= 0.8 && "memory is almost full", aiLow && "AI money is running low"].filter(Boolean) as string[];
   const maxDay = Math.max(1, ...s.transfer.days.map((x) => x.mb));
   const dayLimit = (s.transfer.limitGb * 1024) / 30;
   const card = { backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.line, padding: 16, gap: 10 } as const;
@@ -125,6 +130,12 @@ export default function AdminSystem() {
         <View style={card}>
           {(all ? s.tables : s.tables.slice(0, 5)).map((t) => <Line key={t.name} a={t.name} b={`${t.mb} MB`} z={`${t.rows.toLocaleString()} rows`} />)}
           {all ? <T kind="small" style={{ color: c.mutedText }}>{s.workspaces.n} accounts stored · 90% under {s.workspaces.p90_kb} KB · largest {s.workspaces.max_kb} KB. Started {new Date(d.server.startedAt).toLocaleString()}.</T> : null}
+          {s.backup ? (
+            <View testID="system-backup">
+              <Line a="Backup" b={!s.backup.configured ? "not set up" : s.backup.lastAt ? backupAgo(s.backup.lastAt) : "none yet"}
+                z={!s.backup.configured ? "no R2 settings" : s.backup.lastFull ? `full copy ${s.backup.lastFull}` : ""} />
+            </View>
+          ) : null}
           {s.tables.length > 5 ? <Button testID="button-all-tables" kind="ghost" label={all ? "Show fewer" : `All ${s.tables.length}`} onPress={() => { tap(); setAll(!all); }} flex /> : null}
         </View>
       </>
