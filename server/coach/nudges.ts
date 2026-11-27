@@ -1,7 +1,6 @@
 import type { Job, Workspace } from "@shared/types";
 import { firstName } from "@shared/names";
 import { quietOn } from "@shared/remyOffers";
-import { isOwner } from "../platform/admin";
 import { loadWorkspace, recentStudents, saveSections, uid } from "../platform/db";
 import { emailReady, logEmail, sendEmail } from "../notify/email";
 import { brandEmail, opening, para } from "../notify/layout";
@@ -85,14 +84,12 @@ export function answerNudge(list: Nudge[] | undefined, id: string, answer: "yes"
 }
 
 /** The background run (after the openings search): one email per student who is due. Only students who opened Remy
- *  since `activeSince` (14 days, the proposal's rule) and finished setup.
- *  OWNERS ONLY while the redesign is tested: no student gets one until Dilan releases it. */
+ *  since `activeSince` (14 days, the proposal's rule) and finished setup. Released to students (Dilan, Nov 26). */
 export async function sendNudges(activeSince: string, send: typeof sendEmail = sendEmail, now = new Date()) {
   if (send === sendEmail && !emailReady()) return 0;
   const host = process.env.PUBLIC_HOST || "remyai.org";
   let sent = 0;
   for (const u of await recentStudents(activeSince, true)) {
-    if (!(await isOwner({ kind: u.kind as "google", email: u.email }))) continue;
     const ws = await loadWorkspace(u.id);
     const job = nudgeFor(ws, now);
     if (!job) continue;

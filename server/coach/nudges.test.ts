@@ -62,7 +62,7 @@ test("answerNudge records the first answer only", () => {
   assert.equal(answerNudge(list, "nope", "yes", "t"), null);
 });
 
-test("sendNudges: owners only while testing, active in the window, and remembered so it isn't sent twice", async () => {
+test("sendNudges: every active student, active in the window, and remembered so it isn't sent twice", async () => {
   for (const [id, email, visit] of [["nd-owner", "owner@nudge.test", "2026-11-20"], ["nd-student", "student@nudge.test", "2026-11-20"], ["nd-idle-owner", "owner@nudge.test", "2026-10-01"]] as const) {
     await ensureUser({ id, kind: "supabase", email, name: "", picture: "" });
     const w = ws();
@@ -71,13 +71,13 @@ test("sendNudges: owners only while testing, active in the window, and remembere
   }
   const to: string[] = [];
   const fake = async (addr: string) => { to.push(addr); };
-  assert.equal(await sendNudges("2026-11-08", fake, now), 1);
-  assert.deepEqual(to, ["owner@nudge.test"], "a real student gets nothing");
+  assert.equal(await sendNudges("2026-11-08", fake, now), 2);
+  assert.deepEqual(to.sort(), ["owner@nudge.test", "student@nudge.test"], "students get them too; the idle one doesn't");
   const saved = await loadWorkspace("nd-owner");
   assert.equal(saved.nudges?.[0].jobId, "b");
   assert.match(saved.emails?.[0].subject || "", /Finance Intern fits you/, "Remy remembers the email he sent");
   assert.equal(await sendNudges("2026-11-08", fake, now), 0, "weekly: not again right away");
-  assert.equal((await loadWorkspace("nd-student")).nudges, undefined);
+  assert.equal((await loadWorkspace("nd-student")).nudges?.length, 1);
 });
 
 test("overnight drafts: top fresh fits without an application; the email then offers the draft instead of redoing it", async () => {
