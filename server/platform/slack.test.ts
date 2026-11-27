@@ -53,6 +53,8 @@ test("rules: team-visible wording rules are in Remy's instructions", () => {
   assert.match(RULES, /Free during beta/);
   assert.match(RULES, /title or role/);
   assert.match(RULES, /CREATE/);
+  assert.match(RULES, /newest question/);
+  assert.match(RULES, /never name a person to ask/);
 });
 
 test("notes: Remy reads docs/ai from disk, team facts first, lead entries matched to the question", () => {
