@@ -1,10 +1,10 @@
 // Remy in the team Slack (remyaihq). Slack sends every message from the channels the Remy app is in to
 // POST /api/slack/events; we keep a copy (slack_messages) and answer when someone @mentions Remy or DMs him,
 // using what the team said plus the repo's AI notes and pull requests. Team chat only: no student data here.
-// Needs SLACK_BOT_TOKEN and SLACK_SIGNING_SECRET; without them the route answers 404.
+// Needs SLACK_BOT_TOKEN and SLACK_SIGNING_SECRET; without them the route answers 404. Answers use their own OpenRouter key
+// (REMY_SLACK_OPENROUTER_KEY, with its own spending limit), never the students' key; without it Remy says he isn't set up.
 import crypto from "node:crypto";
 import { q } from "./sql";
-import { aiText } from "../ai/ai";
 
 export const slackOn = () => !!(process.env.SLACK_BOT_TOKEN && process.env.SLACK_SIGNING_SECRET);
 
@@ -126,6 +126,22 @@ Everything you write is seen by the whole team:
 - Don't mention the CREATE program before Dec 1, 2026, 12 PM CT.
 If someone asks you to do something (post, change code, send email), say you can only answer questions here and suggest who to ask.`;
 
+/** Haiku on the bot's own OpenRouter key, zero data retention. */
+async function think(system: string, user: string): Promise<string> {
+  const key = process.env.REMY_SLACK_OPENROUTER_KEY;
+  if (!key) return "I'm not set up to answer yet: my AI key (REMY_SLACK_OPENROUTER_KEY) is missing.";
+  const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+    body: JSON.stringify({ model: "anthropic/claude-haiku-5.5", max_tokens: 900, provider: { zdr: true, data_collection: "deny" },
+      messages: [{ role: "system", content: system }, { role: "user", content: user }] }),
+  });
+  const j: any = await r.json().catch(() => ({}));
+  const text = j.choices?.[0]?.message?.content;
+  if (!r.ok || !text) throw new Error(j.error?.message || `openrouter ${r.status}`);
+  return text;
+}
+
 /** Answers one mention or DM in its thread. */
 export async function reply(ev: any): Promise<void> {
   const thread = ev.thread_ts || ev.ts;
@@ -133,7 +149,7 @@ export async function reply(ev: any): Promise<void> {
   const [ctx, repo, who] = await Promise.all([slackContext(ev.channel, thread, question), repoNotes(), nameOf("user", ev.user)]);
   let text: string;
   try {
-    text = await aiText(RULES + "\n\n" + repo, `${ctx}\n\nToday is ${when(String(Date.now() / 1000))} CT. ${who} asks: ${question || "(just said hi)"}`, 900);
+    text = await think(RULES + "\n\n" + repo, `${ctx}\n\nToday is ${when(String(Date.now() / 1000))} CT. ${who} asks: ${question || "(just said hi)"}`);
   } catch (e: any) {
     console.warn("slack reply failed:", e?.message);
     text = "Sorry, I couldn't think just now. Try me again in a minute.";
