@@ -42,11 +42,55 @@ async function get(url: string): Promise<{ text: string; finalUrl: string; block
   } catch { return null; }
 }
 
+/** The employer's own logo image on its applicant-system page, when the board shows one (Greenhouse, Lever, Ashby,
+ *  Workable, JazzHR). Their cards had letters because these boards never link the employer's site (Dilan, Nov 27). */
+export function logoOnBoard(html: string): string {
+  const pats = [
+    /https:\/\/[a-z0-9-]*recruiting\.cdn\.greenhouse\.io\/external_greenhouse_job_boards\/logos\/[^"'\s<>]+/i,
+    /https:\/\/lever-client-logos\.s3[^"'\s<>]+/i,
+    /"logoSquareImageUrl":"(https:\/\/app\.ashbyhq\.com\/api\/images\/[^"]+)"/,
+    /"logoWordmarkImageUrl":"(https:\/\/app\.ashbyhq\.com\/api\/images\/[^"]+)"/,
+    /https:\/\/[a-z0-9]+\.cloudfront\.net\/accounts\/[0-9a-f-]+\/192x192\/[^"'\s<>]+/i,
+    /(?:https:)?\/\/s3\.amazonaws\.com\/resumator\/customer_[^"'\s<>]+\/logos\/[^"'\s<>]+/i,
+  ];
+  for (const p of pats) {
+    const m = html.match(p);
+    if (m) { const u = (m[1] || m[0]).replace(/&amp;/g, "&"); return u.startsWith("//") ? "https:" + u : u; }
+  }
+  return "";
+}
+
+/** The page that shows the employer's logo for a posting link on a board that has one. */
+export function logoPage(url: string): string {
+  let u: URL;
+  try { u = new URL(url); } catch { return ""; }
+  if (u.hostname === "apply.workable.com") return url;
+  if (u.hostname.endsWith(".applytojob.com")) return `https://${u.hostname}/apply`;
+  if (u.hostname.endsWith(".bamboohr.com")) return `https://${u.hostname}/careers/company-info`;
+  return boardPage(url);
+}
+
+/** A federal agency's site from its initials ("Securities and Exchange Commission" → sec.gov), for USAJOBS postings. */
+export function govGuesses(company: string): string[] {
+  const words = (c: string) => c.replace(/[^A-Za-z ]/g, " ").split(/\s+/).filter((w) => w && !/^(of|and|the|for|on|in|u|s)$/i.test(w));
+  const ini = (c: string) => words(c).map((w) => w[0]).join("").toLowerCase();
+  return [...new Set([ini(company.replace(/^(U\.?S\.?\s+)?Department of (the )?/i, "")), ini(company)])].filter((x) => x.length >= 2 && x.length <= 6).map((x) => x + ".gov");
+}
+
 /** The favicon service answers an unknown domain with a 404 and its globe, so only a 200 is a real icon. */
 async function hasIcon(domain: string): Promise<boolean> {
   try {
     const r = await fetch(iconUrl(domain), { signal: AbortSignal.timeout(5000) });
     return r.ok;
+  } catch { return false; }
+}
+const host = (url: string) => { try { return new URL(url).hostname; } catch { return ""; } };
+/** A board's logo link answers with a real image (not an error page or a 1 px placeholder). */
+async function isImage(src: string): Promise<boolean> {
+  try {
+    const r = await fetch(src, { signal: AbortSignal.timeout(6000) });
+    // S3 serves Lever's and BambooHR's logos as octet-stream; an <img> still shows them.
+    return r.ok && /^(image\/|application\/octet-stream)/.test(r.headers.get("content-type") || "") && Number(r.headers.get("content-length") || 1000) > 200;
   } catch { return false; }
 }
 export const iconUrl = (domain: string) => `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`;
@@ -65,6 +109,10 @@ export function pageNames(html: string, company: string, label = ""): boolean {
   const w = nameWords(company);
   // The whole name ("cainwatters"), or the domain's own name when it's one whole word of the company's ("prolific").
   const needle = label && label !== w.join("") && w.includes(label) && label.length >= 4 ? label : w.join("").slice(0, 12);
+  const t = title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/&amp;/g, "&").split(/[^a-z0-9]+/).join("");
+  // Only the first word ("advanced.com" for Advanced Agrilytics) isn't enough: the page must name another of its words too.
+  const others = w.filter((x) => x !== label && x.length >= 3);
+  if (needle === label && others.length && !others.some((x) => t.includes(x))) return false;
   return !!w.length && title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/&amp;/g, "&").split(/[^a-z0-9]+/).join("").includes(needle);
 }
 
@@ -72,18 +120,26 @@ async function find(company: string, url: string): Promise<string> {
   // A known employer, or the posting's own site when it's named like the company (an aggregator's site isn't).
   const direct = logoDomain(company, url);
   if (direct && (KNOWN(company) || domainFits(direct, company))) return direct;
-  const board = boardPage(url);
-  if (board) {
-    const page = await get(board);
-    const d = page && siteFromBoard(page.text, company);
-    if (d && (await hasIcon(d))) return d;
+  const board = boardPage(url), logoAt = logoPage(url);
+  const page = board ? await get(board) : null;
+  const d = page && siteFromBoard(page.text, company);
+  if (d && (await hasIcon(d))) return d;
+  if (logoAt) {
+    const lp = logoAt === board ? page : await get(logoAt);
+    const img = lp ? (lp.text.match(/"logoUrl":"(https:[^"]+)"/)?.[1].replace(/\\\//g, "/") || logoOnBoard(lp.text)) : "";
+    if (img && (await isImage(img))) return img;
+  }
+  if (/(^|\.)usajobs\.gov$/.test(host(url)) || /\b(department|administration|commission|agency|bureau)\b/i.test(company)) {
+    for (const g of govGuesses(company)) if (await hasIcon(g)) return g;
   }
   const w = nameWords(company);
-  const guesses = [...new Set([w.join(""), w[0] && w[0].length >= 4 ? w[0] : "", w.length > 1 ? w.slice(0, 2).join("") : ""].filter((x) => x && x.length >= 3 && x.length <= 40))].map((x) => x + ".com");
-  for (const g of guesses.slice(0, 2)) {
+  const guesses = [...new Set([w.join(""), w[0] && w[0].length >= 4 ? w[0] : "", w.length > 1 ? w.slice(0, 2).join("") : ""].filter((x) => x && x.length >= 3 && x.length <= 40))].map((x) => x + ".com").slice(0, 2);
+  // A one-word school name ("Baylor Careers") lives on .edu.
+  if (w.length === 1 && w[0].length >= 4) guesses.push(w[0] + ".edu");
+  for (const g of guesses) {
     const page = await get(`https://${g}/`);
-    // Big employers' sites turn bots away; a long full-name domain ("goldmansachs.com") with a real icon is theirs.
-    if (page?.blocked && g === w.join("") + ".com" && w.join("").length >= 8) { if (await hasIcon(g)) return g; continue; }
+    // Big employers' sites turn bots away or time out (boisecascade.com); a long full-name domain ("goldmansachs.com") with a real icon is theirs.
+    if ((!page || page.blocked) && g === w.join("") + ".com" && w.join("").length >= 8) { if (await hasIcon(g)) return g; continue; }
     if (!page || !pageNames(page.text, company, g.replace(/\.com$/, ""))) continue;
     let d = g;
     try { d = baseDomain(new URL(page.finalUrl).hostname); } catch { /* keep the guess */ }
@@ -92,7 +148,7 @@ async function find(company: string, url: string): Promise<string> {
   return "";
 }
 
-/** The employer's web domain for its logo, or "" for initials. Cached a week per company (a miss for a day). */
+/** The employer's web domain for its logo (or its logo's own https link from its job board), or "" for initials. Cached a week per company (a miss for a day). */
 export async function logoDomainFor(company: string, url = ""): Promise<string> {
   const key = orgKey(company || "");
   if (!key) return "";
