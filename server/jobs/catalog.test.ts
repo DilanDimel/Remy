@@ -261,3 +261,14 @@ test("ApplicantPro: site id from the board page, then its JSON job list with pla
     assert.ok(asked[1].startsWith("https://casscountynd.applicantpro.com/core/jobs/18343?getParams="));
   } finally { globalThis.fetch = real; }
 });
+
+test("PageUp RSS: student titles only, full text from the feed, a bare city counted as US, a foreign place kept foreign", async () => {
+  const real = globalThis.fetch; const asked: string[] = [];
+  const item = (title: string, loc: string) => `<item><link>https://careers.pageuppeople.com/1151/cw/en-us/job/1</link><title>${title}</title><pubDate>Wed, 25 Nov 2026 17:00:00 Z</pubDate><job:description>&lt;p&gt;Help students.&lt;/p&gt;</job:description><job:location>${loc}</job:location></item>`;
+  globalThis.fetch = (async (u: any) => { asked.push(String(u)); return new Response(`<rss><channel>${item("Student Assistant", "Denton")}${item("Dean of Engineering", "Denton")}${item("Research Intern", "Australia|Sydney")}</channel></rss>`, { status: 200 }); }) as any;
+  try {
+    const out = await readBoard({ ats: "pageup", slug: "1151/cw/en-us", company: "UNT" } as CatalogBoard);
+    assert.equal(asked[0], "https://careers.pageuppeople.com/1151/cw/en-us/rss");
+    assert.deepEqual(out.map((r) => [r.title, r.location, r.text]), [["Student Assistant", "Denton, United States", "Help students."], ["Research Intern", "Sydney, Australia", "Help students."]]);
+  } finally { globalThis.fetch = real; }
+});
