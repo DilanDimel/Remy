@@ -54,6 +54,9 @@ function Root() {
         <Stack.Screen name="use" options={{ ...sheet, title: "Using Remy" }} />
         <Stack.Screen name="admin-team" options={{ ...sheet, title: "Board & calendar" }} />
         <Stack.Screen name="admin-system" options={{ ...sheet, title: "System" }} />
+        <Stack.Screen name="admin-hours" options={{ ...sheet, title: "Team & hours" }} />
+        <Stack.Screen name="admin-openings" options={{ ...sheet, title: "Openings" }} />
+        <Stack.Screen name="admin-students" options={{ ...sheet, title: "Students" }} />
         <Stack.Screen name="email" options={{ ...sheet, title: "Email updates" }} />
         <Stack.Screen name="hours" options={{ ...sheet, title: "Hours" }} />
       </Stack>

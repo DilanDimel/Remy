@@ -150,7 +150,10 @@ export default function Admin() {
 
       <View style={{ gap: 8 }}>
         <Button testID="button-admin-use" kind="ghost" label="Using Remy: the team's own use" icon="trend" onPress={() => { tap(); go("/admin?tab=team&view=use"); }} flex />
+        <Button testID="button-admin-students" kind="ghost" icon="you" label="Students" onPress={() => { tap(); router.push("/admin-students"); }} flex />
+        <Button testID="button-admin-hours" kind="ghost" icon="flame" label="Team & hours" onPress={() => { tap(); router.push("/admin-hours"); }} flex />
         <Button testID="button-admin-team" kind="ghost" icon="list" label="Board & calendar" onPress={() => { tap(); router.push("/admin-team"); }} flex />
+        <Button testID="button-admin-openings" kind="ghost" icon="jobs" label="Openings" onPress={() => { tap(); router.push("/admin-openings"); }} flex />
         <Button testID="button-admin-system" kind="ghost" icon="zap" label="System" onPress={() => { tap(); router.push("/admin-system"); }} flex />
       </View>
     </ScrollView>
