@@ -59,6 +59,8 @@ test("library: pushed items are checked; files only from what was offered; only 
   assert.deepEqual(askedFiles("When is the call?", found), []);
   const more: any[] = [{ id: "file:erin", title: "2026 11 25 erin and team summary", file_name: "erin.md" }, { id: "file:dilan", title: "dilan studio (team photos)", file_name: "dilan-studio.jpg" }];
   assert.deepEqual(askedFiles("Send me the team photos.", more), ["file:dilan"]); // not the notes that only share "team"
+  more.push({ id: "file:demetre", title: "demetre studio (team photos)", file_name: "demetre-studio.jpg" });
+  assert.deepEqual(askedFiles("Send me the team photos.", more), ["file:dilan", "file:demetre"]); // every photo, not one
   assert.equal(tidy("Instagram: *https://instagram.com/coachremyai* now"), "Instagram: <https://instagram.com/coachremyai> now");
   assert.equal(tidy("From the daily summary (docs/ai/DAILY.md, Nov 26)."), "From the daily summary (our notes, Nov 26).");
   assert.equal(tidy("Here's the certificate, dated Nov 20 (team library, legal folder)."), "Here's the certificate, dated Nov 20.");

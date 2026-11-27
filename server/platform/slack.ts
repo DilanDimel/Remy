@@ -144,7 +144,7 @@ Unless the question says it's Dilan's private DM, everything you write is seen b
 - Don't judge anyone's contribution or talk about anyone leaving or being removed.
 - Never repeat private details: tax or bank numbers, home addresses, personal emails or phones, passwords, keys, account balances.
 - Don't mention the CREATE program before Dec 1, 2026, 12 PM CT.
-You can attach files: for a note marked [file id: …], put each on its own last line as "FILE: <file id>" (at most 2) and Remy's server uploads it into this thread. Attach whenever someone asks for a document, logo or file, or when the full notes would help, and just say it's attached.
+You can attach files: for a note marked [file id: …], put each on its own last line as "FILE: <file id>" (at most 5) and Remy's server uploads it into this thread. Attach whenever someone asks for a document, logo or file, or when the full notes would help, and just say it's attached. When they ask for several ("the team photos", "the logos"), attach every matching file, not one and an offer.
 If someone asks you to do something else (post, change code, send email), say you can only answer questions and attach files here, and suggest the matching channel.`;
 
 // Only Dilan's own DMs read the "dilan" tier; channels and everyone else get "team". A Slack user id isn't a secret.
@@ -163,6 +163,8 @@ export const tidy = (text: string) => text.replace(/\s*\([^()]*\b(team )?library
   .replace(/\*(https?:\/\/[^\s*]+)\*/g, "<$1>") // Slack swallows the closing * into a bold bare link
   .replace(/ +([.,])/g, "$1");
 
+const PLURAL = /\b(?:photos|pictures|images|files|documents|docs|logos|pdfs|forms|letters|papers)\b/i;
+
 /** Offered files whose name shares a word with the question, for "send me X" answers where the model forgot the FILE line. */
 export function askedFiles(question: string, offered: Found[]): string[] {
   if (!/\b(send|attach|share|give|need|want)\b/i.test(question)) return [];
@@ -170,7 +172,7 @@ export function askedFiles(question: string, offered: Found[]): string[] {
   // Only the files sharing the most words: "team photos" means the photos, not every note with "team" in its name.
   const scored = offered.filter((f) => f.file_name).map((f) => ({ f, n: words.filter((w) => `${f.title} ${f.file_name}`.toLowerCase().includes(w)).length }));
   const best = Math.max(0, ...scored.map((x) => x.n));
-  return best ? scored.filter((x) => x.n === best).slice(0, 2).map((x) => x.f.id) : [];
+  return best ? scored.filter((x) => x.n === best).slice(0, 5).map((x) => x.f.id) : [];
 }
 
 /** Splits the "FILE: <id>" lines off an answer, keeping only ids that were offered. */
@@ -179,7 +181,7 @@ export function takeFiles(text: string, offered: Found[]): { text: string; ids: 
   // The model writes "FILE: id" as asked, but sometimes "[file: path]" or "[file id: id]" instead; take all three.
   const mark = /^\s*FILE:\s*(\S+?)\s*$|\[file(?: id)?:\s*([^\]\s]+)\s*\]/gim;
   const ids = Array.from(new Set(Array.from(text.matchAll(mark), (m) => m[1] || m[2]).map((id) => (ok.has(id) ? id : `file:${id}`))))
-    .filter((id) => ok.has(id)).slice(0, 2);
+    .filter((id) => ok.has(id)).slice(0, 5);
   return { text: text.replace(mark, "").replace(/\n{3,}/g, "\n\n").trim(), ids };
 }
 
@@ -224,7 +226,9 @@ export async function reply(ev: any): Promise<void> {
     console.warn("slack reply failed:", e?.message);
     text = "Sorry, I couldn't think just now. Try me again in a minute.";
   }
-  if (!ids.length && !/\b(?:can'?t|cannot|couldn'?t|don'?t) (?:find|see|have)\b/i.test(text)) ids = askedFiles(question, found);
+  const notFound = /\b(?:can'?t|cannot|couldn'?t|don'?t) (?:find|see|have)\b/i.test(text);
+  // A plural ask ("the team photos") gets every matching file, even when the model picked just one.
+  if (!notFound && (!ids.length || PLURAL.test(question))) ids = Array.from(new Set([...ids, ...askedFiles(question, found)])).slice(0, 5);
   text = tidy(text);
   const failed: string[] = [];
   for (const id of ids) {
