@@ -382,7 +382,7 @@ export async function keep(b: CatalogBoard, raws: Raw[]): Promise<Raw[]> {
   return out;
 }
 
-export type PartStats = { at: string; boards: number; reached: number; postings: number; kept: number; texas?: number };
+export type PartStats = { at: string; boards: number; reached: number; postings: number; kept: number; texas?: number; rssMb?: number };
 const TEXAS = /\b(TX|Texas)\b/;
 export type Meta = { parts: Record<string, PartStats> };
 
@@ -438,10 +438,12 @@ async function tick(store: NonNullable<ReturnType<typeof r2Store>>, read: typeof
   // A part where most boards failed (an outage on our side) keeps its last good copy and is tried again next hour.
   if (stats.reached < stats.boards / 3) { console.warn(`catalog: part ${p} reached only ${stats.reached}/${stats.boards}, kept the old copy`); return null; }
   await store.put(`catalog/part-${p}`, kept);
+  // Memory after this part is loaded, kept in R2 so it survives redeploys (DigitalOcean's logs don't).
+  stats.rssMb = Math.round(process.memoryUsage().rss / 1e6);
   m.parts[p] = stats;
   await store.put("catalog/meta", m);
   parts.set(p, { at: stats.at, raws: kept });
-  console.log(`catalog: part ${p} kept ${stats.kept} (${stats.texas} in Texas) from ${stats.reached}/${stats.boards} boards; memory ${Math.round(process.memoryUsage().rss / 1e6)} MB`);
+  console.log(`catalog: part ${p} kept ${stats.kept} (${stats.texas} in Texas) from ${stats.reached}/${stats.boards} boards; memory ${stats.rssMb} MB`);
   return stats;
 }
 
@@ -478,6 +480,7 @@ export async function catalogStats(store = r2Store()) {
     studentLevel: all.reduce((n, s) => n + s.kept, 0),
     texas: all.reduce((n, s) => n + (s.texas || 0), 0),
     oldest: all.map((s) => s.at).sort()[0] || null,
+    peakMb: Math.max(0, ...all.map((s) => s.rssMb || 0)) || null,
   };
 }
 
