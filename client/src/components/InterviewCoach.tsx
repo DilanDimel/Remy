@@ -9,13 +9,13 @@ import { drillsLeft, pickProfile, practiced, STAR_PARTS, starParts, WEEKLY_DRILL
 import { jobQuestions } from "@shared/jobInterview";
 import { BANK, bankField, fieldLabel } from "@shared/questionBank";
 import { PROFILES } from "@shared/interviewRubric";
-import { CHECKS, COMMON, coachDone, coverage, isReady, KINDS, LESSON_NEXT, LESSON_TITLE, LESSONS, pitchParts, shortQ, STAR_LEGEND, starExample, STEPS, type Lesson, type Step } from "@shared/interviewCoach";
+import { CHECKS, COMMON, coachDone, coverage, interviewPlan, isReady, KINDS, localDay, pitchSlots, spoken, LESSON_NEXT, LESSON_TITLE, LESSONS, pitchParts, shortQ, STAR_LEGEND, starExample, STEPS, type Lesson, type Step } from "@shared/interviewCoach";
 import { api, useStore } from "../lib/store";
 import { go, useRoute } from "../lib/router";
 import { hush, say } from "../lib/voice";
 import { Remy } from "./common";
 import { RemyAskInline } from "./RemyAskInline";
-import { PitchCard } from "./PitchCard";
+import { firstName } from "@shared/names";
 import { StoryDeck } from "./StoryDeck";
 import { Answer, MockInterview } from "./MockInterview";
 import { useInterviewJobs } from "./JobInterview";
@@ -31,7 +31,7 @@ export function InterviewCoach() {
   const mocks = (w.interviews || []).filter((x) => x.finishedAt).length;
   const done = coachDone(w);
   const open = (s: Step) => go(`/interview?step=${s}`);
-  if (step === "mock") return <MockInterview top={<Stepper step="mock" done={done} open={open} />} />;
+  if (step === "mock") return <MockInterview top={<><Stepper step="mock" done={done} open={open} /><PlanCard /></>} />;
   return (
     <div className="ivc ivco" data-testid="interview-coach">
       <div className="ivc-head"><div style={{ minWidth: 0 }}><h1>Interview</h1><p className="ivc-say" data-testid="interview-line">{line(step, done, w)}</p></div></div>
@@ -82,6 +82,7 @@ function Home({ done, open, learned, ready, drills, mocks }: { done: Record<Step
   ];
   return (
     <>
+      <PlanCard />
       <div className="ivco-home">
         <section className="ivc-card ivco-next" data-testid="coach-next">
           <span className="ivc-kick">Up next · Step {STEPS.indexOf(next) + 1}, {next.label}</span>
@@ -156,12 +157,65 @@ function Build({ next }: { next: () => void }) {
           <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "on" : ""} onClick={() => setTab(id)} data-testid={`build-tab-${id}`}><b>{l}</b><small>{s}</small></button>))}</div>
         <span className="small muted" data-testid="story-coverage">{stories.length ? `Your stories answer ${cov} of the ${COMMON.length} most common story questions.` : "4 stories answer most “tell me about a time” questions."}</span>
       </div>
-      {tab === "pitch" ? <PitchCard /> : <StoryDeck />}
+      {tab === "pitch" ? <PitchSlots /> : <StoryDeck />}
       <div className="row-between" style={{ gap: 8 }}>
         <RemyAskInline page="Interview" placeholder="Ask Remy about your pitch or stories…" starters={tab === "pitch" ? ["Does my pitch sound natural?", "How do I make it shorter?"] : ["Which story is strongest?", "What if I don't have a number?"]} />
       </div>
       {w.pitch?.text && stories.filter(isReady).length >= 4 && <div className="row"><button className="btn btn-primary" onClick={next} data-testid="button-build-next">Next: practice</button></div>}
     </div>
+  );
+}
+
+// The pitch in four slots (mockup "Build"): each filled from a named profile or resume line, each editable.
+function PitchSlots() {
+  const { ws, save, toast } = useStore();
+  const w = ws!;
+  const filled = pitchSlots(w, firstName(w));
+  const [slots, setSlots] = useState(filled.map((f) => f[1]));
+  const [busy, setBusy] = useState(false);
+  const text = slots.map((x) => x.trim()).filter(Boolean).join(" ");
+  const { words, secs } = spoken(text);
+  const changed = text !== (w.pitch?.text || "");
+  const keep = async () => { setBusy(true); await save("pitch", { text, at: new Date().toISOString(), slots: slots.map((x) => x.trim()) }).then(() => toast("Pitch saved")).catch(() => {}); setBusy(false); };
+  return (
+    <section className="ivc-card stack-sm" data-testid="pitch-slots">
+      <div className="row-between" style={{ gap: 8 }}><h3 style={{ margin: 0 }}>Your 30-second pitch</h3><span className="xs muted">Every line comes from your resume or profile. Change any words so it sounds like you.</span></div>
+      {w.pitch?.text && !w.pitch.slots && <p className="small muted" style={{ margin: 0 }}>Your saved pitch: “{w.pitch.text}”</p>}
+      {filled.map(([label, , from], i) => (
+        <div key={label} className="ivco-pslot">
+          <b className="small">{label}</b>
+          <div style={{ minWidth: 0 }}>
+            <textarea className="input" rows={2} value={slots[i]} placeholder={i === 2 ? "One thing you did and what came of it" : label} aria-label={label}
+              onChange={(e) => setSlots(slots.map((x, k) => (k === i ? e.target.value : x)))} data-testid={`pitch-slot-${i}`} />
+            <span className="xs muted">{slots[i] !== filled[i][1] || from === "Your words" ? "Your words" : from ? `From ${from}` : "Not on your resume yet. Add one thing you did and what came of it."}</span>
+          </div>
+        </div>))}
+      <div className="row-between" style={{ gap: 8 }}>
+        <span className={"small " + (secs > 40 ? "" : "muted")} data-testid="pitch-length">{words} words · about {secs} seconds spoken{secs > 40 ? ". Try to get it under 35." : ""}</span>
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn btn-ghost btn-sm" disabled={!text} onClick={() => void say(text)} data-testid="button-hear-my-pitch"><Volume2 size={14} /> Hear it</button>
+          <button className="btn btn-primary btn-sm" disabled={!text || !changed || busy} onClick={keep} data-testid="button-save-pitch">{w.pitch?.text && !changed ? "Saved" : "Save"}</button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// A real interview coming (an application at Interview, with its date when Remy knows it): pitch, 3 questions, one mock.
+function PlanCard() {
+  const w = useStore().ws!;
+  const plan = interviewPlan(w, localDay());
+  if (!plan) return null;
+  const to = (k: string) => go(k === "pitch" ? "/interview?step=build" : k === "practice" ? "/interview?step=practice" : `/interview?step=mock${plan.jobId ? `&job=${plan.jobId}` : ""}`);
+  return (
+    <section className="ivc-card ivco-plan" data-testid="interview-plan">
+      <div className="ivco-plan-head"><Remy size={56} mood="happy" /><div style={{ minWidth: 0 }}>
+        <b>{plan.when ? `Your ${plan.company} interview is ${plan.when}.` : `You have an interview with ${plan.company}.`}</b>
+        <p className="small muted" style={{ margin: 0 }}>I made a 3-day plan to get you ready. Tap a day to start.</p></div></div>
+      <div className="ivco-plan-days">{plan.days.map((d) => (
+        <button key={d.key} className={d.done ? "done" : ""} onClick={() => to(d.key)} data-testid={`plan-${d.key}`}>
+          <span className="xs muted">{d.day}</span><b className="small">{d.done ? <Check size={14} className="ok" /> : null}{d.title}</b></button>))}</div>
+    </section>
   );
 }
 

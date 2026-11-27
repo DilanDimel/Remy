@@ -122,3 +122,25 @@ test("coach Practice: 20 rated tries a week, the four story parts, and practiced
   assert.equal(practiced({ ratings: [r("context", 3), r("ownership", 4), r("outcomes", 3)] }), false);
   assert.deepEqual(drillQuestion("Tell me about a time you led a team.", "generic").criteria.every((c) => ["context", "ownership", "outcomes", "reflection"].includes(c)), true);
 });
+
+test("coach pitch slots: only profile and resume facts, saved slots win; the 3-day plan fits the days left", async () => {
+  const { pitchSlots, spoken, interviewPlan } = await import("@shared/interviewCoach");
+  const w: any = { profile: { school: "TCU", classYear: "Sophomore", major: "Finance", targetRoles: "Investment Banking Analyst, Analyst" },
+    resume: { doc: { sections: [{ heading: "Experience", entries: [{ role: "Treasurer", org: "Finance Club", bullets: [{ text: "Ran meetings" }, { text: "Built a budget tracker that found $1,200." }] }] }] } } };
+  const s = pitchSlots(w, "Jordan");
+  assert.deepEqual(s.map((x) => x[1]), ["Hi, I'm Jordan, a sophomore at TCU.", "I study Finance.", "As Treasurer at Finance Club, I built a budget tracker that found $1,200.", "I'm looking for an internship as an Investment Banking Analyst."]);
+  assert.equal(s[2][2], "Resume · Treasurer, Finance Club");
+  w.pitch = { text: "Hi. I study Finance.", at: "t", slots: ["Hi.", "I study Finance.", "", ""] };
+  assert.equal(pitchSlots(w, "Jordan")[0][1], "Hi.");
+  w.pitch.text = "Something Remy drafted.";
+  assert.equal(pitchSlots(w, "Jordan")[0][1], "Hi, I'm Jordan, a sophomore at TCU."); // stale slots ignored
+  assert.deepEqual(spoken("one two three four five"), { words: 5, secs: 2 });
+  const base: any = { tracker: [{ id: "t1", company: "Deloitte", role: "Analyst", status: "Interview" }], calendar: [], drills: [], interviews: [] };
+  assert.equal(interviewPlan({ ...base, tracker: [] }, "2026-11-27"), null);
+  assert.deepEqual(interviewPlan(base, "2026-11-27")!.days.map((d) => d.day), ["Today", "Tomorrow", "Sunday"]);
+  const far = interviewPlan({ ...base, calendar: [{ kind: "Interview", date: "2026-12-03", linkedId: "t1" }] }, "2026-11-27")!;
+  assert.deepEqual(far.days.map((d) => d.day), ["Monday", "Tuesday", "Wednesday"]);
+  assert.match(far.when, /Thursday, Dec 3/);
+  const soon = interviewPlan({ ...base, calendar: [{ kind: "Interview", date: "2026-11-28", linkedId: "t1" }], pitch: { text: "x" } }, "2026-11-27")!;
+  assert.deepEqual(soon.days.map((d) => [d.day, d.done]), [["Today", true], ["Today", false], ["Today", false]]);
+});
