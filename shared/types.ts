@@ -626,6 +626,10 @@ export interface Workspace {
   settings: {
     /** "system" follows the device (the default). */
     theme: "system" | "light" | "dark";
+    /** The language Remy talks in (shared/i18n.ts LANGUAGES code); unset or "auto" = the device's language. */
+    language?: string;
+    /** The device's language, as the website or app last saw it ("es"), for "Match my device". */
+    deviceLanguage?: string;
     /** Owners only: false = use Remy like a student (no owner features). Default on. */
     ownerView?: boolean;
     /** The student's fixed weekly time for career work (day 0 = Sunday, time "HH:MM"); null = removed. */

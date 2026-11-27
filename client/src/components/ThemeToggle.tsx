@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
 import { useStore, type Theme } from "../lib/store";
+import { useT } from "../lib/i18n";
 
 const LABEL: Record<Theme, string> = { system: "Match my device", light: "Light", dark: "Dark" };
 
@@ -25,10 +26,11 @@ export function ThemeToggle({ className = "icon-btn", label = false }: { classNa
 /** The three choices side by side, for settings pages. */
 export function ThemeChoice() {
   const { theme, setTheme } = useStore();
+  const tr = useT();
   return (
     <div className="seg" role="group" aria-label="Theme">
       {(["system", "light", "dark"] as const).map((t) => (
-        <button key={t} aria-pressed={theme === t} onClick={() => setTheme(t)} data-testid={`button-theme-${t}`}>{LABEL[t]}</button>
+        <button key={t} aria-pressed={theme === t} onClick={() => setTheme(t)} data-testid={`button-theme-${t}`}>{tr(LABEL[t])}</button>
       ))}
     </div>
   );

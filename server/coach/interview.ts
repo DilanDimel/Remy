@@ -1,3 +1,4 @@
+import type { Lang } from "@shared/i18n";
 // Owners (Nov 23, Julio's interview coach in Remy): Remy designs the mock interview from the posting and the student's
 // own record, and rates each answer against the scoring guide. Prompts and the checks on what the AI returns live
 // here; the routes are in server/routes.ts (/api/interviews). Nothing the AI says is kept unless it passes a check:
@@ -65,7 +66,7 @@ export function rulesPlan(job: Job, doc: ResumeDoc | undefined, pitch: string, s
     YOURS(profile)];
 }
 
-export function feedbackPrompt(profile: ProfileId, q: IvQuestion, answer: string, before?: IvAnswer): [string, string] {
+export function feedbackPrompt(profile: ProfileId, q: IvQuestion, answer: string, before?: IvAnswer, lang?: Lang): [string, string] {
   const ids = [...new Set([...q.criteria, ...PROFILES[profile].criteria])].slice(0, 14) as CriterionId[];
   return [
     `You are Remy, a warm, honest interview coach for a college student. Rate ONE answer from a mock interview against the scoring guide.
@@ -73,7 +74,7 @@ Rate only criteria this answer actually shows; skip the rest (not heard is not a
 Never judge accent, filler words, pauses, nerves, personality or looks. Don't assume facts they didn't say.
 Students answer in every style: lazy or one-line, vague, rambling, off-topic, joking, overconfident or bragging, negative about a past boss, made-up sounding, or refusing ("I don't know", "pass"). Coach each one kindly and directly: if it doesn't answer the question, say so plainly in "sharpen"; if it is vague, ask for one real example; if it rambles, ask for the point first. Always return "sharpen".
 "landed": the best thing they said, as an exact quote, and why it works (one sentence). Only something an interviewer would really like: never a brag, a complaint, a joke, a refusal or the question repeated back. If nothing works yet, leave "landed" empty.
-Write every note in English, even if the answer is in another language (then suggest answering in English).
+${lang && lang.code !== "en" ? `The student reads tips in ${lang.english}: write every "note", the "why" and the "sharpen" title in ${lang.english}. Quotes stay exactly as they said them. Write "example" in English, since the real interview is in English.` : "Write every note in English, even if the answer is in another language (then suggest answering in English)."}
 "sharpen": the single most useful fix as a short title, plus "example": how they could say it, using ONLY facts already in their answer (no new numbers, names or results). If the answer has no facts to reuse, "example" is a short fill-in frame with [brackets] for what they should add, like "Last semester I [what you did], and [what happened]."${before ? `\nThis is a second try. Their first try and Remy's tip are given; rate "feedback_iteration" if the guide has it.` : ""}`,
     `QUESTION: ${q.q}${q.table ? `\nPRACTICE TABLE: ${q.table.map((r) => r.join(" | ")).join(" / ")}` : ""}\n\nSCORING GUIDE:\n${ids.map((id) => `${id}: ${CRITERIA[id].label}. Levels: ${CRITERIA[id].anchors.map((a, i) => `${i + 1}) ${a}`).join(" ")}`).join("\n")}${before ? `\n\nFIRST TRY: ${before.text}\nREMY'S TIP THEN: ${before.sharpen?.title || ""}` : ""}\n\nTHEIR ANSWER: ${answer}\n\nReturn {"ratings":[{"criterion":"","level":1,"quote":"","note":""}],"landed":{"quote":"","why":""},"sharpen":{"title":"","example":""}}`,
   ];
