@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { onEvent, slackContext, verifySlack, RULES, aiNotes, dailyPosts, shippedSince, mergedPosts, channelsFor, CHANNELS, COLOR, command, interact, HOME } from "./slack";
+import { onEvent, slackContext, verifySlack, RULES, aiNotes, dailyPosts, shippedSince, mergedPosts, channelsFor, CHANNELS, COLOR, command, interact, HOME, syncTopics } from "./slack";
 
 test("signature: Slack's v0 HMAC passes; wrong secret, edited body or old timestamp fail", () => {
   const body = Buffer.from('{"type":"event_callback"}');
@@ -156,4 +156,16 @@ test("home tab, /bug and the Ask Remy shortcut", async () => {
   } finally {
     globalThis.fetch = realFetch; process.env = env;
   }
+});
+
+test("topics: Remy puts a changed channel topic back and leaves a matching one alone", async () => {
+  process.env.SLACK_BOT_TOKEN = "xoxb-test"; process.env.SLACK_SIGNING_SECRET = "s";
+  const calls: string[] = [];
+  const current: Record<string, string> = { A: "old words", B: "right" };
+  const call = async (method: string, body: any) => {
+    calls.push(`${method}:${body.channel}`);
+    return method === "conversations.info" ? { ok: true, channel: { topic: { value: current[body.channel] } } } : { ok: true };
+  };
+  assert.equal(await syncTopics({ A: "right", B: "right" }, call), 1);
+  assert.deepEqual(calls, ["conversations.info:A", "conversations.setTopic:A", "conversations.info:B"]);
 });

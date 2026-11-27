@@ -251,6 +251,23 @@ export async function post(channel: string, text: string, color = COLOR.fox): Pr
   return !!(await api("chat.postMessage", { channel, attachments, unfurl_links: false })).ok;
 }
 
+// Channel topics Remy keeps in place itself (Dilan, Nov 27: "Slack is fully managed by Remy"). Edit here, not in Slack.
+export const TOPICS: Record<string, string> = {
+  [CHANNELS.website]: "remyai.org on desktop and phone · Merged PRs post here within minutes, recap 9 PM CT · Drop screenshots of anything that looks off",
+};
+
+/** Puts each channel's topic back to TOPICS when it differs. Needs the channels:manage scope; returns how many changed. */
+export async function syncTopics(topics = TOPICS, call = api): Promise<number> {
+  if (!slackOn()) return 0;
+  let changed = 0;
+  for (const [channel, topic] of Object.entries(topics)) {
+    const info = await call("conversations.info", { channel });
+    if (!info.ok || info.channel?.topic?.value === topic) continue;
+    if ((await call("conversations.setTopic", { channel, topic })).ok) changed++;
+  }
+  return changed;
+}
+
 /** Something needs someone now (backups stopped, database nearly full): one line in #alerts. */
 export const alert = (text: string) => post(CHANNELS.alerts, `:rotating_light: ${text}`, COLOR.alert).catch(() => false);
 

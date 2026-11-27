@@ -49,6 +49,7 @@ oauth_config:
       - users:read
       - channels:join
       - pins:write
+      - channels:manage
       - commands
       - files:write
 settings:
