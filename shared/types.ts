@@ -221,6 +221,8 @@ export interface Job {
   checks: JobCheck[];
   origin: "imported" | "manual";
   postingText?: string;
+  /** Pay as the posting states it ("$22.50–$28.00/hr"), from the board's own pay fields or the posting text (shared/pay.ts). */
+  pay?: string;
   /** When Remy last tried to read the full posting page (server/jobs/fullPosting.ts), so it is read once. */
   fullTextAt?: string;
 }
