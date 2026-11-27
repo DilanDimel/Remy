@@ -1,0 +1,1 @@
+Admin errors cleanup (Nov 26, first scan with the lead AI key): GET /api/admin/errors now also returns place_list (every page an error hit). No longer reported: the quiet /api/config new-version check failing during a deploy, and in-app browsers' own scripts (iabjs://, e.g. "Java object is gone").

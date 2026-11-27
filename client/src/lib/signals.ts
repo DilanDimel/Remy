@@ -30,6 +30,8 @@ export function apiResult(method: string, url: string, status: number, ms: numbe
   const where = `${method} ${tidyPath(url)}`;
   if (url.startsWith("/api/signals") || url.startsWith("/api/client-error")) return;
   if (status >= 200 && status < 300) trackAction(method, url);
+  // The quiet "is there a new version?" check fails during every deploy; the student never sees it.
+  if (status === 0 && url === "/api/config") return;
   if (status === 0) problem(where, "Request didn't reach Remy (network dropped or server restarting)");
   else if (status >= 500) problem(where, `Request failed (${status})`);
   // AI answers (tailoring, coach, plans, searches) normally take a while; only flag them when far slower than usual.
@@ -53,7 +55,8 @@ export function startSignals() {
   if (started) return;
   started = true;
   // A browser extension's own crash (crypto wallets, ad blockers) isn't Remy's problem.
-  const extension = (x: unknown) => /(chrome|moz|safari-web)-extension:\/\//.test(String(x || ""));
+  // Same for in-app browsers' own scripts (Instagram/Facebook "iabjs://") when the student closes them mid-load.
+  const extension = (x: unknown) => /((chrome|moz|safari-web)-extension|iabjs):\/\//.test(String(x || ""));
   addEventListener("error", (e) => {
     const ev = e as ErrorEvent;
     if (extension(ev.filename) || extension(ev.error?.stack)) return;
