@@ -16,6 +16,8 @@ import { api } from "@/lib/api";
 import { useJobs } from "@/lib/jobs";
 import { go } from "@/lib/nav";
 import { useOwnerView, useSession } from "@/lib/session";
+import { Coach, Stepper } from "@/components/InterviewCoach";
+import type { Step } from "@shared/interviewCoach";
 import { font, useTheme } from "@/lib/theme";
 import { radius } from "@/lib/tokens";
 
@@ -31,8 +33,21 @@ export default function InterviewScreen() {
   const { ws } = useSession();
   const owner = useOwnerView();
   // Before the redesign the website's Interview page is the story deck and pitch: the app's prep kit.
+  const params = useLocalSearchParams<{ step?: string; job?: string; start?: string }>();
+  const { c } = useTheme();
+  const insets = useSafeAreaInsets();
   if (ws && !owner) return <Redirect href={"/prep" as any} />;
-  return ws ? <Mock /> : null;
+  if (!ws) return null;
+  // Owners (Nov 27): the step-by-step coach; Remy's "mock interview for this job" links still open the mock.
+  const step = (["learn", "build", "practice", "mock"].includes(params.step || "") ? params.step : params.job || params.start ? "mock" : null) as Step | null;
+  if (step === "mock") return <Mock top={<Stepper step="mock" />} />;
+  return (
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView testID="interview-coach" keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 14 }}>
+        <Coach step={step} Answer={Answer} />
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
 }
 
 function useCard() {
@@ -40,7 +55,7 @@ function useCard() {
   return { backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.line, padding: 16, gap: 10 } as const;
 }
 
-function Mock() {
+function Mock({ top }: { top?: React.ReactNode }) {
   const { ws, setWs } = useSession();
   const { jobs: all, fits } = useJobs();
   const { c } = useTheme();
@@ -78,6 +93,7 @@ function Mock() {
   const scroll = (children: React.ReactNode) => (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView testID="mock-interview" keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 14 }}>
+        {top}
         <Quota left={left} />
         {children}
         {!!err && <T kind="small" style={{ color: c.error }}>{err}</T>}
