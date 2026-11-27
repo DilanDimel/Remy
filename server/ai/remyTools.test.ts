@@ -85,6 +85,22 @@ test("Remy reaches out: a promised question on its day, else the weekly check-in
   assert.equal(reachOut(ws, "2026-12-03", "t6"), WEEKLY_CHECKIN);
 });
 
+test("Remy speaks first after setup, once, from the student's own best fit, before they've written anything", async () => {
+  const { reachOut } = await import("./remyTools");
+  const ws = emptyWorkspace();
+  ws.profile.preferredName = "Maya";
+  assert.equal(reachOut(ws, TODAY, "t"), ""); // setup not done
+  ws.onboarding.done = true;
+  ws.jobs = [{ ...job("j1"), deadline: "2026-12-05" }, { ...job("j2"), company: "Old Co", deadline: "2026-11-01" }];
+  const fit = (score: number) => ({ at: "t", by: "rules", eligibility: "likely", eligibilityNote: "", matched: [], gaps: [], score }) as any;
+  ws.fits = { j1: fit(80), j2: fit(95) };
+  const said = reachOut(ws, TODAY, "t1");
+  assert.match(said, /^Hi Maya\. I read your resume and found 1 internship that fits you\. The best one is Finance Intern at Q2, due /);
+  assert.deepEqual(ws.chat.at(-1)!.replies, ["Tailor my resume for Q2", "Why does it fit me?"]);
+  assert.equal(ws.remyHello, TODAY);
+  assert.equal(reachOut(ws, "2026-11-24", "t2"), ""); // once
+});
+
 test("quiet week stops offers, check-ins and opening emails, and undoes; a passed career fair gets one 'who did you meet?'", async () => {
   const { reachOut } = await import("./remyTools");
   const { remyOffers } = await import("@shared/remyOffers");

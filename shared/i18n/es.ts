@@ -23,6 +23,7 @@ export const ES: Record<string, string> = {
   "Good morning": "Buenos días",
   "Good afternoon": "Buenas tardes",
   "Good evening": "Buenas noches",
+  "Hey": "Hola",
   "day streak": "días seguidos",
   "Best {n}": "Récord {n}",
   "Your best yet": "Tu mejor racha",

@@ -1,5 +1,6 @@
 // Small helpers for Home and Jobs. Remy's "one thing" is shared with the website now: shared/nextAction.ts.
 import type { Job, JobFit, Workspace } from "../../../shared/types";
+import { greetingFor } from "@shared/greeting";
 
 export const daysUntil = (iso: string, now = new Date()) => {
   const t = Date.parse(iso + "T12:00:00");
@@ -21,8 +22,7 @@ export function upcomingEvents(w: Pick<Workspace, "hiddenJobIds">, jobs: Job[], 
 }
 
 export function greeting(d = new Date()) {
-  const h = d.getHours();
-  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  return greetingFor(d.getHours());
 }
 
 

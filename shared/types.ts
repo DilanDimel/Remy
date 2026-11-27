@@ -463,6 +463,8 @@ export interface ChatMsg {
   at: string;
   page?: string;
   memorySuggestions?: string[];
+  /** Taps under Remy's message that send these words as the student's reply (his first message after setup). Shown only while it's his latest message. */
+  replies?: string[];
   /** Buttons under a reply; nothing happens until the student taps one. */
   actions?: ChatAction[];
   /** A resume change Remy drafted from the student's chat message (redesign stage 3): shown as before → after with
@@ -596,6 +598,8 @@ export interface Workspace {
   loops?: { id: string; ask: string; on: string; askedAt?: string }[];
   /** Owners (#6): day (YYYY-MM-DD) Remy last started his weekly check-in in chat. Server-written. */
   remyCheckin?: string;
+  /** The day Remy wrote his first message after setup (owners first, server/ai/remyTools.ts firstHello), so it's sent once. */
+  remyHello?: string;
   /** Owners (Julio's interview coach): mock interviews, newest last, at most 20. Server-written (/api/interviews). */
   interviews?: import("./interview").Interview[];
   /** Match emails Remy sent (server/coach/nudges.ts) and the student's Yes / Not now. Server-written. */
