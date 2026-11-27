@@ -7,6 +7,7 @@ import type { Job, ResumeDoc, Story } from "@shared/types";
 import { CRITERIA, PROFILES, type CriterionId, type ProfileId } from "@shared/interviewRubric";
 import { checkRatings, saidIt, type IvAnswer, type IvKind, type IvQuestion } from "@shared/interview";
 import { jobQuestions } from "@shared/jobInterview";
+import { BANK, bankField, companyFacts, fieldLabel } from "@shared/questionBank";
 import { STORY_PARTS, storyFor } from "@shared/stories";
 
 const KINDS: IvKind[] = ["warmup", "posting", "resume", "work_sample", "pressure", "yours"];
@@ -17,14 +18,17 @@ export type PlanInput = { job: Job; profile: ProfileId; resume: string; stories:
 
 export function planPrompt({ job, profile, resume, stories, pitch }: PlanInput): [string, string] {
   const ready = stories.filter((x) => STORY_PARTS.every((p) => x[p]));
+  const field = bankField(job.title, profile), co = companyFacts(job.company || "");
+  const published = [...(co?.asks || []), ...BANK[field].map((b) => b.q)].slice(0, 8);
   return [
     `You are Remy, a friendly career coach running a mock job interview for a college student. Design the interview for THIS opening, the way an interviewer at the company would run it.
 Return 6 to 8 questions in order: first a warm-up (kind "warmup", like "Tell me about yourself and why this role"), then 4 to 6 core questions, last "What questions do you have for us?" (kind "yours").
 Core question kinds: "posting" (built on a duty or requirement in the posting; put its exact words in "from"), "resume" (about one real line on their resume; put that exact line in "from"), "pressure" (a mistake, conflict or setback), and, when the job's own skills call for it, ONE "work_sample": a short realistic task with a small practice table in "table" (a header row and up to 5 rows of short cells) that is clearly made up for practice.
 "hint": one short nudge using ONLY their resume, stories or pitch (which story or line to use), or empty.
 "criteria": 2 to 4 ids from the SCORING GUIDE that the question lets the student show; together the core questions should cover every id.
-Never claim to know the company's real interview questions, values or people. Never ask about age, family, health, religion, nationality, disability or other personal matters. Plain, spoken English; each question under 40 words.`,
-    `OPENING: ${job.title} at ${job.company}\nPOSTING:\n${s([job.summary, ...(job.requirements || []).map((r) => r.quote), job.postingText].filter(Boolean).join("\n"), 5000)}\n\nSCORING GUIDE (${PROFILES[profile].label}):\n${criteriaList(profile)}\n\nTHEIR RESUME:\n${resume.slice(0, 4000) || "(none)"}\n\nTHEIR STORIES:\n${ready.map((x) => `- ${x.title}: ${x.situation} ${x.action} ${x.result}`).join("\n").slice(0, 2000) || "(none yet)"}\n\nTHEIR PITCH: ${pitch || "(none yet)"}\n\nReturn {"questions":[{"kind":"","q":"","from":"","hint":"","table":[],"criteria":[]}]}`,
+You may use up to 2 PUBLISHED QUESTIONS as core questions (kind "posting" with an empty "from", or "pressure"), reworded to fit this opening. If WHAT THE COMPANY SAYS is given, match that interview format.
+Never claim to know the company's real interview questions, values or people, and never say the company asks a question. Never ask about age, family, health, religion, nationality, disability or other personal matters. Plain, spoken English; each question under 40 words.`,
+    `OPENING: ${job.title} at ${job.company}\nPOSTING:\n${s([job.summary, ...(job.requirements || []).map((r) => r.quote), job.postingText].filter(Boolean).join("\n"), 5000)}\n\nSCORING GUIDE (${PROFILES[profile].label}):\n${criteriaList(profile)}\n\nPUBLISHED QUESTIONS (common in ${fieldLabel(field, PROFILES[profile].label)} interviews, from university career-office guides${co?.asks ? " and the company's own careers site" : ""}):\n${published.map((q) => `- ${q}`).join("\n") || "(none)"}${co ? `\n\nWHAT THE COMPANY SAYS ABOUT ITS INTERVIEWS (its own careers site): ${co.note}` : ""}\n\nTHEIR RESUME:\n${resume.slice(0, 4000) || "(none)"}\n\nTHEIR STORIES:\n${ready.map((x) => `- ${x.title}: ${x.situation} ${x.action} ${x.result}`).join("\n").slice(0, 2000) || "(none yet)"}\n\nTHEIR PITCH: ${pitch || "(none yet)"}\n\nReturn {"questions":[{"kind":"","q":"","from":"","hint":"","table":[],"criteria":[]}]}`,
   ];
 }
 
