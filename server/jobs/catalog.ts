@@ -13,7 +13,7 @@ import { r2Store } from "../platform/r2";
 import { abroad, inUS } from "./fit";
 import { collegeRole, eachQuery, fetchBoard, SCHOOL_QUERIES, studentTitle, withDetail, type Raw } from "./sources";
 
-type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom" | "taleo" | "amazon" | "apple" | "schoolspring" | "jobaps" | "edjoin" | "nystate" | "applicantpro";
+type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom" | "taleo" | "amazon" | "apple" | "schoolspring" | "jobaps" | "edjoin" | "nystate" | "applicantpro" | "pageup";
 export type CatalogBoard = { ats: Ats; slug: string; company: string };
 export const PARTS = 24;
 /** Text kept per posting: enough for its requirements and summary (an opening keeps up to 12,000 when saved). */
@@ -45,6 +45,8 @@ const STAPPLY_ATS: Partial<Record<Ats, (slug: string, url: string) => string | n
   oracle: (_, u) => { const m = u.match(/^https:\/\/([^/]+\.oraclecloud\.com)\/hcmUI\/CandidateExperience\/[^/]+\/sites\/([^/?#]+)/); return m ? `${m[1]}|${m[2]}` : null; },
   // Mid-size employers: subdomains (bamboohr, breezy, jazzhr's applytojob), a Rippling board name, a Paylocity company GUID.
   bamboohr: sub, breezy: sub, jazzhr: sub, rippling: sub, applicantpro: sub,
+  // PageUp (colleges and universities): "873/cw/en-us"; only US-English sites.
+  pageup: (s) => (/^\d+\/cw\/en-us$/i.test(s) ? s.toLowerCase() : null),
   paylocity: (s) => (/^[0-9a-f-]{36}$/i.test(s) ? s : null),
   // School districts: https://www.applitrack.com/aldineisd/onlineapp → "aldineisd"
   applitrack: (_, u) => sub(u.match(/applitrack\.com\/([^/]+)\/onlineapp/i)?.[1] || ""),
@@ -347,6 +349,22 @@ export async function readBoard(b: CatalogBoard, read = fetchBoard): Promise<Raw
       };
     });
   }
+  if (b.ats === "pageup") {
+    // PageUp career sites (many universities) publish an RSS feed with each job's full text and place ("Southern California|Northridge").
+    // Only student-level titles are unpacked. These are US-English sites, so a bare city ("Denton") is taken as US.
+    const base = `https://careers.pageuppeople.com/${b.slug}`;
+    const xml = await getPage(`${base}/rss`);
+    const out: Raw[] = [];
+    for (const [, it] of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
+      const tag = (t: string) => htmlToText(it.match(new RegExp(`<${t}>([\\s\\S]*?)</${t}>`))?.[1]?.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&") || "").trim();
+      const title = tag("title");
+      if (!studentTitle(title)) continue;
+      const place = tag("job:location").split("|").map((x) => x.trim()).filter(Boolean).reverse().join(", ");
+      const location = inUS(place) || abroad(place) ? place : [place, "United States"].filter(Boolean).join(", ");
+      out.push({ title, url: tag("link"), location, text: tag("job:description"), posted: Date.parse(tag("pubDate")) ? new Date(tag("pubDate")).toISOString() : undefined });
+    }
+    return out;
+  }
   if (b.ats === "nystate") {
     // StateJobsNY lists every public vacancy on one page (no robots.txt; the site's terms don't limit reading it).
     // Boards split it by county ("statejobs.ny.gov|Albany", "...|Clinton;Wayne") so each stays under the 12-a-board cap.
@@ -443,7 +461,7 @@ export type Meta = { parts: Record<string, PartStats> };
 
 /** Reads every board in one part. Workable and Paylocity turn fast bursts away (HTTP 429), so each of them (and the other SLOW systems) gets its own
  *  lane, one board at a time. */
-const SLOW: Ats[] = ["workable", "paylocity", "icims", "successfactors", "schoolspring", "edjoin", "nystate"];
+const SLOW: Ats[] = ["workable", "paylocity", "icims", "successfactors", "schoolspring", "edjoin", "nystate", "pageup"];
 export async function readPart(p: number, boards = CATALOG, read = readBoard, pause: (ms: number) => Promise<unknown> = (ms) => new Promise((r) => setTimeout(r, ms))) {
   const mine = boards.filter((b) => partOf(b) === p);
   const kept: Raw[] = [];
