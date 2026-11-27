@@ -71,11 +71,11 @@ export async function search(question: string, tiers: Tier[], limit = 12): Promi
     `SELECT ${cols} FROM team_library, to_tsquery('english', $1) query
      WHERE NOT pinned AND tier = ANY($2) AND tsv @@ query ORDER BY ts_rank(tsv, query) DESC, updated_at DESC LIMIT $3`,
     [words.join(" | "), tiers, limit]) : [];
-  // Long notes outrank short file entries ("remy fox"), so the best-matching files always come along too.
+  // Long notes outrank short file entries ("remy fox"), so files come along too, ranked by their title first.
   const files = words.length ? await q(
     `SELECT ${cols} FROM team_library, to_tsquery('english', $1) query
      WHERE NOT pinned AND file_name IS NOT NULL AND tier = ANY($2) AND tsv @@ query AND NOT (id = ANY($3))
-     ORDER BY ts_rank(tsv, query) DESC LIMIT 4`, [words.join(" | "), tiers, hits.map((h: any) => h.id)]) : [];
+     ORDER BY ts_rank(to_tsvector('english', title), query) DESC, ts_rank(tsv, query) DESC LIMIT 4`, [words.join(" | "), tiers, hits.map((h: any) => h.id)]) : [];
   return [...pinned, ...hits, ...files] as Found[];
 }
 
