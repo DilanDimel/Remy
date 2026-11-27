@@ -16,7 +16,7 @@ import { api } from "@/lib/api";
 import { useJobs } from "@/lib/jobs";
 import { go } from "@/lib/nav";
 import { useOwnerView, useSession } from "@/lib/session";
-import { Coach, Stepper } from "@/components/InterviewCoach";
+import { Coach, PlanCard, Stepper } from "@/components/InterviewCoach";
 import type { Step } from "@shared/interviewCoach";
 import { font, useTheme } from "@/lib/theme";
 import { radius } from "@/lib/tokens";
@@ -40,7 +40,7 @@ export default function InterviewScreen() {
   if (!ws) return null;
   // Owners (Nov 27): the step-by-step coach; Remy's "mock interview for this job" links still open the mock.
   const step = (["learn", "build", "practice", "mock"].includes(params.step || "") ? params.step : params.job || params.start ? "mock" : null) as Step | null;
-  if (step === "mock") return <Mock top={<Stepper step="mock" />} />;
+  if (step === "mock") return <Mock top={<><Stepper step="mock" /><PlanCard /></>} />;
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView testID="interview-coach" keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 14 }}>
