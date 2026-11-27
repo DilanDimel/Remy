@@ -36,7 +36,8 @@ export function apiResult(method: string, url: string, status: number, ms: numbe
   else if (status >= 500) problem(where, `Request failed (${status})`);
   // AI answers (tailoring, coach, plans, searches) normally take a while; only flag them when far slower than usual.
   else {
-    const limit = /\/(ai|assistant|chat|discover|tailor|builder|generate|audit|fit|explain|import|classify|followup|resume\/upload|resume\/text)\b/.test(url) ? 45_000 : 8000;
+    // Owners' reports add up the whole database, so they get longer too.
+    const limit = /\/(ai|assistant|chat|discover|tailor|builder|generate|audit|fit|explain|import|classify|followup|brief|bullet-draft|resume\/upload|resume\/text)\b/.test(url) ? 45_000 : url.startsWith("/api/admin/") ? 20_000 : 8000;
     if (ms > limit) problem(where, `Slow: took over ${limit / 1000} seconds`);
   }
 }
