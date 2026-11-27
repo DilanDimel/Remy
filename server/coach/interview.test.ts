@@ -75,3 +75,15 @@ test("Remy's planned interview: shape checked, 'from' must be in the posting, hi
     "Sales went up but cash flow almost halved.", "generic", (t) => !/90%/.test(t));
   assert.equal(fb.ratings.length, 1); assert.equal(fb.landed, undefined); assert.deepEqual(fb.sharpen, { title: "Say the number" });
 });
+
+test("an answer too short to rate still gets Remy's take: their words, what the question wants, a fill-in frame", async () => {
+  const { thinAnswerTip } = await import("./interview");
+  const q = (kind: any) => ({ kind, q: "Tell me about a time you led a team.", criteria: [] });
+  const core = thinAnswerTip(q("posting"), "a lot");
+  assert.match(core.title, /^“a lot” is too short/);
+  assert.match(core.title, /one real example/);
+  assert.match(core.example!, /\[what you did\]/);
+  assert.match(thinAnswerTip(q("yours"), "no").title, /ask at least one question/);
+  assert.match(thinAnswerTip(q("warmup"), "idk").title, /who you are/);
+  assert.match(thinAnswerTip(q("pressure"), "").title, /^That one was too short/);
+});
