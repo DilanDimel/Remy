@@ -724,3 +724,23 @@ test("class year follows the path, not a four-year degree", () => {
   assert.equal(classYearOf(ws("military", ""), today), "");
   assert.equal(classYearOf(ws("four-year", "May 2027"), today), "Senior");
 });
+
+test("events and competitions rank by field words, a close sign-up date and early-student fit", async () => {
+  const { eventSignals } = await import("./fit");
+  const ev = (title: string, extra: Record<string, unknown> = {}) => ({ id: "e", kind: "event", title, company: "Org", location: "Dallas, TX", format: "In person", dates: "", deadline: "", deadlineText: "", eligibility: [], requirements: [], summary: "", applyUrl: "", sourceUrl: "", sourceName: "", label: "Live", checkedAt: "", checks: [], origin: "imported", ...extra }) as any;
+  const today = new Date("2026-12-01T12:00:00Z");
+  const fin = student({ classYear: "Sophomore", major: "Finance", targetRoles: "investment banking" });
+  assert.equal(eventSignals(fin, { ...ev("x"), kind: "job" } as any, today).bonus, 0);
+  const field = eventSignals(fin, ev("Investment banking case competition"), today);
+  assert.ok(field.bonus >= 9 && /names your field/.test(field.why));
+  assert.equal(eventSignals(fin, ev("Poultry science expo"), today).bonus, 0);
+  const soon = eventSignals(fin, ev("Poultry science expo", { deadline: "2026-12-08" }), today);
+  assert.equal(soon.bonus, 10);
+  assert.match(soon.why, /closes in 7 days/);
+  assert.equal(eventSignals(fin, ev("Poultry science expo", { deadline: "2027-03-01" }), today).bonus, 0);
+  assert.equal(eventSignals(fin, ev("Poultry science expo", { summary: "Open to first-year students, no experience needed." }), today).bonus, 6);
+  const near = computeFit(fin, ev("Investment banking case competition", { deadline: "2099-01-01" }), "");
+  const far = computeFit(fin, ev("Poultry science expo"), "");
+  assert.ok(near.score! > far.score!);
+  assert.doesNotMatch(far.why, /Upload your resume/);
+});

@@ -378,8 +378,29 @@ export function relocateReason(ws: Workspace, title: string, company: string): s
   return hit.length ? "the title is in your field" : "";
 }
 
-export const FIT_RULES_VERSION = 23; // 23: Nov 23 owners-first fit fixes reach students (New Grad titles, externships, "…or related field" lists, "management" alone); nearby fields for sports and aviation. 22: 22: fields from the 11,041-resume test: trades, imaging/respiratory/vet health, agriculture, humanities and languages, customer service, tech languages (Java, QA, DevOps); "X Management" majors aren't business; fire/EMS aren't legal; US metros everywhere (Census), not only Texas; plainer "why it fits" sentence. 21: field titles widened from the 1,000-resume test (Bookkeeper is accounting, PR is communications, a business major fits marketing/finance/HR/supply chain, criminal justice fits legal). 20: 20 (owners): a "…or related field" major list that shares nothing with the major is "check", not "You qualify"; "management" alone isn't a field word. 19: "New Grad" titles are for graduates; "externship" alone isn't nursing. 18: "degree conferred in 2025 or 2026" and "graduating in/by YYYY" are graduation rules. 17: out-of-area openings say why they're shown (relocation answer). 16: "Anywhere in Texas" means Texas, not anywhere (it switched location off). 15: "Microsoft Excel" is the resume's "Excel"; "Microsoft Office" is shown by its apps. 14: what a student enjoys never hides an opening, only fields they chose. 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
+export const FIT_RULES_VERSION = 24; // 24: events, conferences and competitions rank by the student's field words, a close sign-up date and early-student fit. 23: Nov 23 owners-first fit fixes reach students (New Grad titles, externships, "…or related field" lists, "management" alone); nearby fields for sports and aviation. 22: 22: fields from the 11,041-resume test: trades, imaging/respiratory/vet health, agriculture, humanities and languages, customer service, tech languages (Java, QA, DevOps); "X Management" majors aren't business; fire/EMS aren't legal; US metros everywhere (Census), not only Texas; plainer "why it fits" sentence. 21: field titles widened from the 1,000-resume test (Bookkeeper is accounting, PR is communications, a business major fits marketing/finance/HR/supply chain, criminal justice fits legal). 20: 20 (owners): a "…or related field" major list that shares nothing with the major is "check", not "You qualify"; "management" alone isn't a field word. 19: "New Grad" titles are for graduates; "externship" alone isn't nursing. 18: "degree conferred in 2025 or 2026" and "graduating in/by YYYY" are graduation rules. 17: out-of-area openings say why they're shown (relocation answer). 16: "Anywhere in Texas" means Texas, not anywhere (it switched location off). 15: "Microsoft Excel" is the resume's "Excel"; "Microsoft Office" is shown by its apps. 14: what a student enjoys never hides an opening, only fields they chose. 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
 /** The version a verdict is saved under: owner view runs owners-only rules, so its verdicts are kept apart from students'. */
+/** Events, conferences and competitions have no skills list or class-year rule, so they used to share one flat score.
+ *  This ranks them by what Remy can check: the student's own field words in the name or summary, a sign-up date that
+ *  is close (so the one you must act on this month comes before the one in spring), and first- and second-years for
+ *  events that say they welcome beginners. Nothing here hides an event. */
+export function eventSignals(ws: Workspace, job: Job, today = new Date()): { bonus: number; why: string } {
+  if (job.kind !== "event") return { bonus: 0, why: "" };
+  const p = ws.profile;
+  const words = [...families(`${p.major} ${p.targetRoles} ${p.interests}`)].filter((f) => f.length >= 4 && !GENERIC_TITLE_WORDS.has(f));
+  const text = families(`${job.title} ${job.summary}`);
+  const hit = words.filter((f) => text.has(f));
+  const reasons: string[] = [];
+  let bonus = 0;
+  if (hit.length) { bonus += Math.min(12, 6 + 3 * hit.length); reasons.push("it names your field"); }
+  const left = /^\d{4}-\d\d-\d\d/.test(job.deadline) ? Math.ceil((Date.parse(job.deadline.slice(0, 10) + "T12:00:00Z") - today.getTime()) / 86_400_000) : null;
+  if (left !== null && left >= 0 && left <= 60) { bonus += left <= 14 ? 10 : left <= 30 ? 6 : 3; reasons.push(left === 0 ? "sign-up closes today" : `sign-up closes in ${left} day${left === 1 ? "" : "s"}`); }
+  const year = classYearOf(ws, today);
+  if ((year === "First-year" || year === "Sophomore") && /\b(first[- ]year|freshm[ae]n|sophomores?|all majors|no experience|beginners?)\b/i.test(`${job.title} ${job.summary} ${job.eligibility.join(" ")}`)) { bonus += 6; reasons.push("it welcomes early students"); }
+  const what = /competition|challenge|hackathon|case/i.test(job.title) ? "competition" : "event";
+  return { bonus, why: reasons.length ? `This ${what} ranks higher because ${reasons.join(" and ")}.` : "" };
+}
+
 export const fitVersion = () => FIT_RULES_VERSION;
 export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
   const g = gradDate(ws);
@@ -480,7 +501,8 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
     else gaps.push(k);
   }
   const andList = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
-  const why = matched.length
+  const ev = eventSignals(ws, job);
+  const why = job.kind === "event" && !skills.length ? (ev.why || "Remy found this for your field. Open it to check the date and how to sign up.") : matched.length
     ? `Your resume already shows ${andList(matched.length > 3 ? [...matched.slice(0, 3), `${matched.length - 3} more`] : matched)}: ${gaps.length ? `${matched.length} of the ${skills.length} things this posting asks for` : skills.length === 1 ? "what this posting asks for" : `all ${skills.length} things this posting asks for`}.`
     : !skills.length ? (ws.resume ? "Remy couldn't read the skills this posting asks for. Open it to check, or tap Explain fit." : "Upload your resume and Remy will show how your experience lines up.")
     : ws.resume ? "This one would be a stretch for you right now: your resume doesn't show its main asks yet, but it's worth exploring." : "Upload your resume and Remy will show how your experience lines up.";
@@ -511,6 +533,7 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
       (type === true ? 10 : type === false ? -10 : 0) +
       (job.label === "Live" ? 5 : 0) +
       // Discovery days and insight programs are built for first-years and sophomores (NABA: EY, PwC).
+      ev.bonus +
       (job.kind === "program" && (year === "First-year" || year === "Sophomore") ? 12 : 0),
   );
   return { at: new Date().toISOString(), by: "rules", v: fitVersion(), eligibility, eligibilityNote: note, checked, ...(hidden ? { hidden } : {}), matched, gaps, why, excluded, score, regionMatch: region, ...(region === false && relocateReason(ws, job.title, job.company) ? { relocate: relocateReason(ws, job.title, job.company) } : {}), typeMatch: type };
