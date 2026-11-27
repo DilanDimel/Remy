@@ -744,3 +744,16 @@ test("events and competitions rank by field words, a close sign-up date and earl
   assert.ok(near.score! > far.score!);
   assert.doesNotMatch(far.why, /Upload your resume/);
 });
+
+test("resume degree and roles make an opening match when no field was chosen, and never hide one", async () => {
+  const { fieldMatch } = await import("./fit");
+  const ws = student({ major: "Undecided", targetRoles: "" });
+  (ws as any).resume = { doc: { contact: {}, skills: [], sections: [
+    { id: "s1", heading: "Education", entries: [{ id: "e1", org: "Texas Christian University", role: "Bachelor of Business Administration in Accounting", location: "", dates: "2027", bullets: [] }] },
+    { id: "s2", heading: "Experience", entries: [{ id: "e2", org: "Local CPA", role: "Tax Intern", location: "", dates: "2026", bullets: [] }] },
+  ] } };
+  const job = (title: string) => ({ id: "j", kind: "internship", title, company: "X", location: "", format: "", dates: "", deadline: "", deadlineText: "", eligibility: [], requirements: [], summary: "", applyUrl: "", sourceUrl: "", sourceName: "", label: "Live", checkedAt: "", checks: [], origin: "imported" }) as any;
+  assert.equal(fieldMatch(ws, job("Audit Intern")), true);
+  assert.equal(fieldMatch(ws, job("Wildlife Biology Intern")), null);
+  assert.equal(fieldMatch(student({ major: "Undecided" }), job("Audit Intern")), null);
+});
