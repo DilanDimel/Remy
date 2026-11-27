@@ -1594,7 +1594,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .pr-mini { min-width: 0; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 8px; align-items: center; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
 /* Company logos on opening tiles (owners). White tile in both themes so dark logos (Nike, BlackRock) stay visible; a
    16px icon stays at its own size so it isn't blurred. */
-.redesign-2 .org-logo { background: var(--white); box-shadow: inset 0 0 0 1px var(--line); }
+.org-logo { background: var(--white); box-shadow: inset 0 0 0 1px var(--line); }
 .org-logo img { width: 66%; height: 66%; object-fit: contain; }
 .org-logo-sm img { width: 16px; height: 16px; }
 .pr-mini .job-mono { margin-top: 0; width: 28px; height: 28px; border-radius: 8px; font-size: var(--text-xs); letter-spacing: 0; }

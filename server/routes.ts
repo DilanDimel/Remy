@@ -830,7 +830,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!company.trim() || !allowLocal("logo:" + clientIp(req), 300, 10 * 60_000)) return res.status(404).end();
     const d = await logoDomainFor(company, url);
     res.set("Cache-Control", `public, max-age=${d ? 7 * 86400 : 86400}`);
-    return d ? res.redirect(302, iconUrl(d)) : res.status(404).end();
+    return d ? res.redirect(302, d.startsWith("https://") ? d : iconUrl(d)) : res.status(404).end();
   });
 
   app.get("/api/config", async (req, res) => {

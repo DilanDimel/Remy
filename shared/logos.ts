@@ -234,8 +234,8 @@ export function logoFor(company: string, url = ""): { src: string; sure: boolean
 
 /** The words of a company name that matter ("Cain Watters & Associates, LLC" → ["cain", "watters"]). */
 export function nameWords(company: string): string[] {
-  return company.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/&/g, " ").split(/[^a-z0-9]+/)
-    .filter((w) => w && !/^(inc|llc|llp|ltd|corp|corporation|company|co|the|and|of|group|associates|holdings|usa|us|plc|lp|pllc|pc|na)$/.test(w));
+  return company.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/&/g, " ").split(/[^a-z0-9]+/).filter(Boolean)
+    .filter((w, i, all) => !(i === all.length - 1 && i > 0 && /^(careers|jobs|website|recruiting|hiring)$/.test(w)) && !/^(inc|llc|llp|ltd|corp|corporation|company|co|the|and|of|group|associates|holdings|usa|us|plc|lp|pllc|pc|na)$/.test(w));
 }
 
 /** The registrable part of a host ("careers.acme.co.uk" → "acme.co.uk"). */
