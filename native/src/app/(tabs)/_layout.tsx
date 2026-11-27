@@ -11,6 +11,7 @@ import { aboveTabs, font, useTheme } from "@/lib/theme";
 import { shadow } from "@/lib/tokens";
 import { useOffline } from "@/lib/net";
 import { useOwnerView } from "@/lib/session";
+import { useDeviceLanguage, useT } from "@/lib/lang";
 
 /** Remy isn't a tab: like the website, he is a floating fox button above the tab bar that opens his chat from any page.
  *  Not on My Path (he's in his office there) and not while the keyboard is up. */
@@ -46,6 +47,8 @@ export default function Tabs() {
   const gate = useGate();
   const { c } = useTheme();
   const path = usePathname();
+  const t = useT();
+  useDeviceLanguage();
   // Android: the window shrinks for the keyboard, so the tab bar would sit on top of the keys; hide it meanwhile.
   const [kb, setKb] = useState(false);
   useEffect(() => {
@@ -63,23 +66,23 @@ export default function Tabs() {
       <NativeTabs tintColor={c.fox} backgroundColor={c.surface} iconColor={{ default: c.mutedText, selected: c.fox }} minimizeBehavior="onScrollDown" labelStyle={{ default: { fontFamily: font.semi, color: c.mutedText }, selected: { fontFamily: font.semi, color: c.fox } }} labelVisibilityMode="labeled" indicatorColor={c.foxSoft} hidden={kb && Platform.OS === "android"}>
         <NativeTabs.Trigger name="index">
           <NativeTabs.Trigger.Icon sf={{ default: "house", selected: "house.fill" }} md="home" />
-          <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label>{t("Home")}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="path">
           <NativeTabs.Trigger.Icon sf={{ default: "safari", selected: "safari.fill" }} md="explore" />
-          <NativeTabs.Trigger.Label>My Path</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label>{t("My Path")}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="resume">
           <NativeTabs.Trigger.Icon sf={{ default: "doc.text", selected: "doc.text.fill" }} md="description" />
-          <NativeTabs.Trigger.Label>Resume</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label>{t("Resume")}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="jobs">
           <NativeTabs.Trigger.Icon sf={{ default: "briefcase", selected: "briefcase.fill" }} md="work" />
-          <NativeTabs.Trigger.Label>Jobs</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label>{t("Jobs")}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="more">
           <NativeTabs.Trigger.Icon sf={{ default: "ellipsis.circle", selected: "ellipsis.circle.fill" }} md="menu" />
-          <NativeTabs.Trigger.Label>More</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label>{t("More")}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       </NativeTabs>
       <RemyButton hidden={kb || path === "/path"} />

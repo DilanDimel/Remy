@@ -4069,3 +4069,8 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 /* "Terms of use" starts a new part: one line above the label, none between it and its first section. */
 .doc-body > h2.eyebrow { margin-top: 0; padding-top: 28px; border-top: 1px solid var(--line); }
 .doc-body > h2.eyebrow + .info-sec { border-top: 0; padding-top: 6px; }
+
+/* Language picker (owners first, Nov 27): the "Another language" grid in the first-visit question. */
+.lang-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.lang-grid .btn { flex-direction: column; align-items: flex-start; height: auto; padding: 10px 12px; gap: 2px; }
+.lang-grid small { font-weight: 500; color: var(--muted-text); }
