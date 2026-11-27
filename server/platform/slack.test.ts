@@ -2,7 +2,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { onEvent, slackContext, verifySlack, RULES, aiNotes, dailyPosts, shippedSince, CHANNELS, COLOR, command, interact, HOME } from "./slack";
+import { onEvent, slackContext, verifySlack, RULES, aiNotes, dailyPosts, shippedSince, CHANNELS, COLOR, command, interact, HOME, postGuides, GUIDES, GUIDES_VERSION } from "./slack";
+import { q } from "./sql";
 
 test("signature: Slack's v0 HMAC passes; wrong secret, edited body or old timestamp fail", () => {
   const body = Buffer.from('{"type":"event_callback"}');
@@ -79,6 +80,7 @@ test("daily posts: backup check from 6 AM CT and a Shipped digest from noon, eac
     return new Response(JSON.stringify({ ok: true }));
   }) as any;
   const backup = async () => ({ configured: true, lastAt: "2026-11-27T08:10:00Z", lastFull: "2026-11-23" });
+  await q(`INSERT INTO site_settings (key, value, updated_by) VALUES ('slack_guides', $1, 'test') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [GUIDES_VERSION]);
   try {
     assert.deepEqual(await dailyPosts(backup, new Date("2026-11-27T10:00:00Z")), []); // 4 AM CT: nothing due
     assert.deepEqual(await dailyPosts(backup, new Date("2026-11-27T19:00:00Z")), ["backup", "shipped_noon"]); // 1 PM CT
@@ -129,6 +131,30 @@ test("home tab, /bug and the Ask Remy shortcut", async () => {
     assert.equal(asked[0].channel, "C1");
     assert.equal(asked[0].ts, "1.2");
     assert.match(asked[0].text, /deploy failed\?/);
+  } finally {
+    globalThis.fetch = realFetch; process.env = env;
+  }
+});
+
+test("channel guides: posted and pinned from Remy once, old pins removed", async () => {
+  const realFetch = globalThis.fetch, env = { ...process.env };
+  process.env.SLACK_BOT_TOKEN = "xoxb-test"; process.env.SLACK_SIGNING_SECRET = "s";
+  await q("DELETE FROM site_settings WHERE key = 'slack_guides'");
+  const calls: any[] = [];
+  let n = 0;
+  globalThis.fetch = (async (url: any, init: any) => {
+    calls.push({ method: String(url).split("/").pop(), ...Object.fromEntries(new URLSearchParams(String(init?.body || ""))) });
+    return new Response(JSON.stringify({ ok: true, ts: `1.${++n}` }));
+  }) as any;
+  try {
+    assert.equal(await postGuides(), GUIDES.length);
+    assert.equal(calls.filter((c) => c.method === "chat.postMessage").length, GUIDES.length);
+    assert.equal(calls.filter((c) => c.method === "pins.add").length, GUIDES.length);
+    assert.deepEqual(calls.filter((c) => c.method === "pins.remove").map((c) => c.timestamp), GUIDES.map((g) => g.old));
+    const alerts = calls.find((c) => c.method === "chat.postMessage" && c.channel === CHANNELS.alerts);
+    assert.equal(JSON.parse(alerts.attachments)[0].color, COLOR.alert);
+    for (const g of GUIDES) assert.doesNotMatch(g.text, /free AI|always free|CEO|founder/i);
+    assert.equal(await postGuides(), 0); // already done for this version
   } finally {
     globalThis.fetch = realFetch; process.env = env;
   }

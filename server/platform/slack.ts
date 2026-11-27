@@ -179,14 +179,46 @@ export async function reply(ev: any): Promise<void> {
 }
 
 // ---------- Remy's own posts (run by the background sweep: at boot, every 6 hours and hourly from the remy-tick cron) ----------
-export const CHANNELS = { alerts: "C0CN69XEY9E", website: "C0CLVU1GH39", database: "C0CM9ASGWK0", app: "C0CN5LR46F2" };
+export const CHANNELS = { alerts: "C0CN69XEY9E", website: "C0CLVU1GH39", database: "C0CM9ASGWK0", app: "C0CN5LR46F2", all: "C0CM5225JF5", business: "C0CM9ASGQJJ", social: "C0CN5KRR4HW" };
 // The side bar on Remy's posts, from client/src/index.css: --fox, --sage, --error.
 export const COLOR = { fox: "#e86a2a", ok: "#15803d", alert: "#b42318" };
 
 export async function post(channel: string, text: string, color = COLOR.fox): Promise<boolean> {
-  if (!slackOn()) return false;
+  return !!(await send(channel, text, color)).ok;
+}
+async function send(channel: string, text: string, color: string): Promise<{ ok?: boolean; ts?: string }> {
+  if (!slackOn()) return {};
   const attachments = JSON.stringify([{ color, text, fallback: text, mrkdwn_in: ["text"] }]);
-  return !!(await api("chat.postMessage", { channel, attachments, unfurl_links: false })).ok;
+  return api("chat.postMessage", { channel, attachments, unfurl_links: false });
+}
+
+// ---------- Each channel's pinned "What goes here" card, from Remy (once per GUIDES_VERSION) ----------
+export const GUIDES_VERSION = "v1";
+export const GUIDES: { channel: string; text: string; old?: string }[] = [
+  { channel: CHANNELS.all, old: "1795744851.005339", text: ":fox_face: *What goes here: #all-remyai*\nTeam-wide news and the daily rhythm.\n• 7:07 AM CT every day: morning brief (what shipped, what's next, numbers)\n• Sunday 6 PM CT: weekly recap\n• Anything that affects everyone: meetings, deadlines, big decisions\n\nEverything else: #website, #app, #database, #business, #social. Site down or backups stopped: #alerts (keep its notifications on). Ask me anything with @Remy." },
+  { channel: CHANNELS.website, old: "1795744851.411769", text: ":fox_face: *What goes here: #website*\nremyai.org on desktop and phone.\n• 12 PM and 9 PM CT: what shipped, posted by me\n• Something looks off? `/bug` and what you saw (which page, phone or desktop), or drop a screenshot\n• Design ideas and questions about the site\n\nOutages go in #alerts." },
+  { channel: CHANNELS.app, old: "1795744851.825439", text: ":fox_face: *What goes here: #app*\nThe Remy phone app.\n• Monday 9 AM CT: weekly app update (what changed, what's next, store status)\n• App bugs: `/bug app` and what broke, with the phone model\n• Builds to test and feedback on them" },
+  { channel: CHANNELS.database, old: "1795744852.174719", text: ":fox_face: *What goes here: #database*\nData, backups and how Remy stores things.\n• 6 AM CT daily: backup check, posted by me (green when it's fine)\n• A heads-up before any database change goes live\n• Questions about data, sign-in or storage" },
+  { channel: CHANNELS.business, old: "1795744852.552579", text: ":fox_face: *What goes here: #business*\nThe company side: meetings, programs, paperwork.\n• Monday 9 AM CT: the week ahead (meetings, deadlines, open to-dos)\n• Notes after a meeting, in a thread\n• Keep passwords, bank details and ID numbers out of Slack" },
+  { channel: CHANNELS.social, old: "1795744852.977119", text: ":fox_face: *What goes here: #social*\nMarketing and posts.\n• Monday and Thursday 10 AM CT: post plan and how the last posts did\n• Drafts for review before anything goes public\n• Ideas, clips and screenshots worth posting\n\nPricing wording is always \"Free during beta\"." },
+  { channel: CHANNELS.alerts, old: "1795744850.620259", text: ":rotating_light: *What goes here: #alerts*\nOnly things that need someone now: site down, a failed deploy, backups stopped, the database nearly full.\n• I post these as soon as they happen\n• React :white_check_mark: when you're on it and reply in the thread with what you found\n• Normal chat goes in #website, #app or #database\n\nKeep notifications on for this one." },
+];
+/** Posts and pins each channel's card from Remy and unpins the old one, once per GUIDES_VERSION. */
+export async function postGuides(): Promise<number> {
+  if (!slackOn()) return 0;
+  const key = "slack_guides";
+  if ((await q("SELECT 1 FROM site_settings WHERE key = $1 AND value = $2", [key, GUIDES_VERSION])).length) return 0;
+  let n = 0;
+  for (const g of GUIDES) {
+    const { ok, ts } = await send(g.channel, g.text, g.channel === CHANNELS.alerts ? COLOR.alert : COLOR.fox);
+    if (!ok || !ts) continue;
+    n++;
+    await api("pins.add", { channel: g.channel, timestamp: ts });
+    if (g.old) await api("pins.remove", { channel: g.channel, timestamp: g.old });
+  }
+  if (n) await q(`INSERT INTO site_settings (key, value, updated_by) VALUES ($1, $2, 'slack')
+                  ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = now()`, [key, GUIDES_VERSION]);
+  return n;
 }
 
 /** Something needs someone now (backups stopped, database nearly full): one line in #alerts. */
@@ -272,5 +304,6 @@ export async function dailyPosts(backup: () => Promise<{ configured: boolean; la
   });
   await digest("shipped_noon", 12);
   await digest("shipped_evening", 21);
+  if (await postGuides()) sent.push("guides");
   return sent;
 }
