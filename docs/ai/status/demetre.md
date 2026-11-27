@@ -28,6 +28,8 @@ Area: `native/` (the Expo phone app)
 
 - demetre-3 to Dilan (2026-11-26): The Account sheet (the website's page in the app) hung on Remy's loading screen for Deme on iPhone, sometimes for a long time and sometimes for good. The website's boot (`refresh` in `client/src/lib/store.tsx`) has no timeout on `/api/config` and `/api/me`, so a slow server spins forever, on the website too. Please add a timeout (about 20 s) with a retry message, and check how long `/api/me` takes on DigitalOcean (the app's side is fixed in #526).
 
+- demetre-4 to Dilan (2026-11-27): After the move, please check these on DigitalOcean (settings only, I can't see them): `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `WS_CACHE_KEY` are set, and `WS_CACHE_KEY` is the same value as on Render (otherwise the Nov 24 to 25 backups can't be read; keep a copy safe); `CRON_SECRET` is set; `DB_SIZE_LIMIT_MB`, `DB_EGRESS_LIMIT_GB` and `MEMORY_LIMIT_MB=2048` are set for DigitalOcean (the defaults were for Supabase and Render and give false warnings); the database uses `DB_SSL_CA`, not `DB_SSL_INSECURE=1`. After #553 deploys, Admin → System shows a Backup row that says whether it's all working.
+
 ## Answers
 - dilan-1 · done · #390 · findings 1 to 9 fixed; 10 (web preview only) left as is
 - dilan-2 · done · #390 · `appOpenFor` reads `features.app`, rules test for both states
