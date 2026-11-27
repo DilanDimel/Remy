@@ -158,13 +158,19 @@ export const libraryText = (found: Found[]) => !found.length ? "Background notes
 
 /** Drops mentions of where the notes live ("team library", which the team can't open) that the model writes anyway. */
 export const tidy = (text: string) => text.replace(/\s*\([^()]*\b(team )?library\b[^()]*\)/gi, "")
-  .replace(/\b(?:in|from|under) (?:the|our) team library\b/gi, "in our notes").replace(/\bthe team library\b/gi, "our notes").replace(/ +([.,])/g, "$1");
+  .replace(/\b(?:in|from|under) (?:the|our) team library\b/gi, "in our notes").replace(/\bthe team library\b/gi, "our notes")
+  .replace(/`?\b[\w-]+(?:\/[\w.-]+)+\.(?:md|json|ts|tsx|pdf|txt)\b`?/g, "our notes") // file paths the team can't open
+  .replace(/\*(https?:\/\/[^\s*]+)\*/g, "<$1>") // Slack swallows the closing * into a bold bare link
+  .replace(/ +([.,])/g, "$1");
 
 /** Offered files whose name shares a word with the question, for "send me X" answers where the model forgot the FILE line. */
 export function askedFiles(question: string, offered: Found[]): string[] {
   if (!/\b(send|attach|share|give|need|want)\b/i.test(question)) return [];
   const words = (question.toLowerCase().match(/[a-z0-9]{3,}/g) || []).filter((w) => !["send", "attach", "share", "give", "need", "want", "the", "our", "please", "file", "copy", "remy"].includes(w));
-  return offered.filter((f) => f.file_name && words.some((w) => `${f.title} ${f.file_name}`.toLowerCase().includes(w))).slice(0, 2).map((f) => f.id);
+  // Only the files sharing the most words: "team photos" means the photos, not every note with "team" in its name.
+  const scored = offered.filter((f) => f.file_name).map((f) => ({ f, n: words.filter((w) => `${f.title} ${f.file_name}`.toLowerCase().includes(w)).length }));
+  const best = Math.max(0, ...scored.map((x) => x.n));
+  return best ? scored.filter((x) => x.n === best).slice(0, 2).map((x) => x.f.id) : [];
 }
 
 /** Splits the "FILE: <id>" lines off an answer, keeping only ids that were offered. */
@@ -218,7 +224,7 @@ export async function reply(ev: any): Promise<void> {
     console.warn("slack reply failed:", e?.message);
     text = "Sorry, I couldn't think just now. Try me again in a minute.";
   }
-  if (!ids.length) ids = askedFiles(question, found);
+  if (!ids.length && !/\b(?:can'?t|cannot|couldn'?t|don'?t) (?:find|see|have)\b/i.test(text)) ids = askedFiles(question, found);
   text = tidy(text);
   const failed: string[] = [];
   for (const id of ids) {
@@ -226,7 +232,7 @@ export async function reply(ev: any): Promise<void> {
     if (!f || !(await upload(ev.channel, thread, f))) failed.push(found.find((x) => x.id === id)?.file_name || id);
   }
   if (failed.length) text += `\n\n_I couldn't attach ${failed.join(", ")} just now._`;
-  else if (!ids.length && /\battach/i.test(text)) text += "\n\n_I couldn't find that file to attach, sorry._"; // never claim a file that isn't there
+  else if (!ids.length && /\b(?:attached|attaching)\b/i.test(text)) text += "\n\n_I couldn't find that file to attach, sorry._"; // never claim a file that isn't there
   await api("chat.postMessage", { channel: ev.channel, thread_ts: thread, text, unfurl_links: false });
 }
 
