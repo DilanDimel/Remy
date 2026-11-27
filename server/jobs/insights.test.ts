@@ -13,7 +13,7 @@ test("insights: data transfer adds up per day and month", async () => {
   assert.equal(t.monthMb, 5);
   assert.equal(t.days.length, 1);
   assert.equal(t.days[0].mb, 5);
-  assert.equal(t.limitGb, 5);
+  assert.equal(t.limitGb, 250);
 });
 
 process.env.OWNER_EMAILS = "founder@insights.test";

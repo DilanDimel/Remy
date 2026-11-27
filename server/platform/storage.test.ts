@@ -8,7 +8,7 @@ import { q } from "./sql";
 test("the report lists Remy's tables with sizes, and the whole database against the limit", async () => {
   const r = await storageReport();
   assert.ok(r.usedMb > 0);
-  assert.equal(r.limitMb, 500);
+  assert.equal(r.limitMb, 10240);
   for (const t of ["workspaces", "board_cache", "checked_openings", "files"]) assert.ok(r.tables.some((x) => x.name === t), t);
 });
 

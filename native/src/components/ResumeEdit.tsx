@@ -109,7 +109,7 @@ export function ContactDates({ doc, todo, onClose }: { doc: ResumeDoc; todo: Rev
     <Sheet title="Contact and dates" sub="Employers look for these first" onClose={onClose} testID="sheet-contact-dates">
       <View style={box}>
         <Field label="Name" value={contact.name} onChange={set("name")} testID="input-contact-name" />
-        <Field label="Email" value={contact.email} onChange={set("email")} testID="input-contact-email" keyboard="email-address" placeholder="you@school.edu" />
+        <Field label="Email" value={contact.email} onChange={set("email")} testID="input-contact-email" keyboard="email-address" placeholder="you@example.com" />
         <Field label="Phone" value={contact.phone} onChange={set("phone")} testID="input-contact-phone" keyboard="phone-pad" placeholder="(555) 201-4410" />
         <Field label="City, state" value={contact.location} onChange={set("location")} testID="input-contact-location" placeholder="Dallas, TX" />
         <Field label="LinkedIn or website" value={contact.links} onChange={set("links")} testID="input-contact-links" keyboard="url" placeholder="linkedin.com/in/you" />

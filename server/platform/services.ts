@@ -10,7 +10,7 @@ export function serverNow() {
   return {
     commit: (process.env.RENDER_GIT_COMMIT || "").slice(0, 7), branch: process.env.RENDER_GIT_BRANCH || "",
     instance: process.env.RENDER_INSTANCE_ID || "", startedAt: new Date(started).toISOString(),
-    uptimeMin: Math.round((Date.now() - started) / 60_000), memoryMb: Math.round(m.rss / 1048576), memoryLimitMb: Number(process.env.MEMORY_LIMIT_MB) || 512, node: process.version,
+    uptimeMin: Math.round((Date.now() - started) / 60_000), memoryMb: Math.round(m.rss / 1048576), memoryLimitMb: Number(process.env.MEMORY_LIMIT_MB) || 2048, node: process.version,
   };
 }
 

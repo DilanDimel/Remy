@@ -1,12 +1,12 @@
 // How much of the database's space Remy uses, so the team sees the free plan's limit coming instead of finding out
-// when saves start failing. DB_SIZE_LIMIT_MB is the plan's database limit (default 500, Supabase's free plan in 2026).
+// when saves start failing. DB_SIZE_LIMIT_MB is the plan's database limit (default 10240: the DigitalOcean database "remy-db" has 10 GiB of storage, Nov 2026).
 import { q, q1, schema } from "./sql";
 import { recordError } from "./admin";
 import { r2Ready } from "./r2";
 
 export const limitMb = () => {
   const n = Number(process.env.DB_SIZE_LIMIT_MB);
-  return Number.isFinite(n) && n > 0 ? n : 500;
+  return Number.isFinite(n) && n > 0 ? n : 10240;
 };
 const mb = (bytes: number) => Math.round((bytes / 1_048_576) * 10) / 10;
 
