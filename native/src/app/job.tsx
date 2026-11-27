@@ -11,7 +11,7 @@ import { useJobs } from "@/lib/jobs";
 import { go } from "@/lib/nav";
 import { jobPay } from "@/lib/pay";
 import { deadlineChip, kindLabel, shortPlace } from "@/lib/next";
-import { useOwnersOnly, useSession } from "@/lib/session";
+import { useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
 
 const rid = (p = "") => p + Math.random().toString(36).slice(2, 10);
@@ -31,7 +31,7 @@ export default function JobDetail() {
   const fit = fits[j.id];
   const due = deadlineChip(j.deadline);
   const pay = jobPay(j);
-  const showPay = useOwnersOnly() && j.kind !== "event"; // new: owners first
+  const showPay = j.kind !== "event"; // everyone, like the website
   const saved = ws.savedJobIds.includes(j.id);
   const decided = saved || !!ws.jobFeedback?.[j.id];
   const skills = postingSkills(j.requirements).slice(0, 6);
