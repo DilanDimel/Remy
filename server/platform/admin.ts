@@ -37,7 +37,7 @@ async function log(actor: string, action: string, detail = "") {
 // Long enough for a whole "Send feedback" note (the box takes 1,000 characters); browser errors are shorter anyway.
 const MESSAGE_MAX = 1000;
 /** Errors thrown by a visitor's browser extension (crypto wallets, ad blockers), not by Remy. */
-export const fromExtension = (stack: string) => /(chrome|moz|safari-web)-extension:\/\//.test(stack || "");
+export const fromExtension = (stack: string) => /((chrome|moz|safari-web)-extension|iabjs):\/\//.test(stack || ""); // also in-app browsers' own scripts
 /** Saves an error a student hit. Kept 60 days. */
 /** Saves a report; returns its id (a feedback screenshot is stored under it), or undefined if it couldn't be saved. */
 export async function recordError(kind: "browser" | "server" | "feedback", place: string, message: string, detail = "", userId = ""): Promise<number | undefined> {
@@ -192,7 +192,7 @@ export async function overview() {
 // ---------- errors ----------
 export async function errors() {
   const open = await q(
-    `SELECT message, kind, MIN(place) AS place, COUNT(DISTINCT place)::int AS places, COUNT(*)::int AS times, COUNT(DISTINCT NULLIF(user_id, ''))::int AS students, MAX(at) AS last, MIN(at) AS first,
+    `SELECT message, kind, MIN(place) AS place, COUNT(DISTINCT place)::int AS places, STRING_AGG(DISTINCT place, ', ') AS place_list, COUNT(*)::int AS times, COUNT(DISTINCT NULLIF(user_id, ''))::int AS students, MAX(at) AS last, MIN(at) AS first,
             (SELECT detail FROM error_reports d WHERE d.message = e.message AND d.kind = e.kind ORDER BY at DESC LIMIT 1) AS detail
      FROM error_reports e WHERE fixed_at IS NULL AND kind <> 'feedback' AND at > now() - interval '30 days' GROUP BY message, kind ORDER BY MAX(at) DESC LIMIT 30`,
   );
