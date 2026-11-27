@@ -36,6 +36,8 @@ oauth_config:
       - im:history
       - chat:write
       - users:read
+      - channels:join
+      - pins:write
 settings:
   event_subscriptions:
     request_url: https://remyai.org/api/slack/events
