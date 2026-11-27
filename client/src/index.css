@@ -2992,6 +2992,13 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 .ivco-sent.right { border-color: var(--sage); box-shadow: 0 0 0 1px var(--sage) inset; } .ivco-sent.wrong { border-color: var(--amber); }
 .ivco-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; margin-top: 4px; } .ivco-legend span { display: flex; gap: 8px; align-items: center; color: var(--muted-text); }
 .ivco-pitch { display: grid; gap: 8px; }
+.ivco-pslot { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 14px; align-items: start; padding: 10px 0; border-top: 1px solid var(--line); }
+.ivco-pslot:first-of-type { border-top: 0; } .ivco-pslot > b { padding-top: 10px; } .ivco-pslot textarea { width: 100%; resize: vertical; min-height: 0; font-size: var(--text-base); }
+.ivco-plan { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 2fr); gap: 16px; align-items: center; padding: 12px 16px; background: var(--fox-soft); border-color: transparent; }
+.ivco-plan-head { display: flex; gap: 14px; align-items: center; }
+.ivco-plan-days { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ivco-plan-days button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 8px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); text-align: center; cursor: pointer; color: var(--ink); }
+.ivco-plan-days button b { display: inline-flex; gap: 4px; align-items: center; } .ivco-plan-days button.done { background: var(--sage-bg); border-color: transparent; }
 .ivco-slot { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 12px; align-items: center; padding: 10px 14px; border-radius: 14px; background: var(--surface-2); }
 .ivco-check { display: grid; gap: 8px; padding: 12px 16px; border-radius: 16px; background: var(--fox-soft); }
 .ivco-build { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
@@ -3021,7 +3028,7 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 @media (max-width: 690px) {
   .ivco-steps { gap: 4px; } .ivco-st { flex-direction: column; gap: 4px; padding: 8px 4px; text-align: center; } .ivco-st small { display: none; } .ivco-st b { font-size: var(--text-xs); line-height: 1.2; overflow-wrap: anywhere; } .ivco-st > span:last-child { max-width: 100%; }
   .ivco-next { padding: 16px; } .ivco-next-row > :first-child { display: none; } .ivco-lesson { padding: 14px; }
-  .ivco-slot { grid-template-columns: minmax(0, 1fr); gap: 2px; } .ivco-legend { grid-template-columns: minmax(0, 1fr); } .ivco-meter { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ivco-slot, .ivco-pslot, .ivco-plan { grid-template-columns: minmax(0, 1fr); gap: 2px; } .ivco-pslot > b { padding-top: 0; } .ivco-plan { gap: 12px; } .ivco-legend { grid-template-columns: minmax(0, 1fr); } .ivco-meter { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ivco-tabs { width: 100%; } .ivco-tabs button { flex: 1; }
 }
 @container ivc (max-width: 760px) { .ivc-grid { grid-template-columns: minmax(0, 1fr); } }

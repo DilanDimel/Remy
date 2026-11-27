@@ -3,11 +3,13 @@ import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { Workspace } from "@shared/types";
 import { drillsLeft, pickProfile, practiced, STAR_PARTS, starParts, WEEKLY_DRILLS, type Drill } from "@shared/interview";
-import { CHECKS, COMMON, coachDone, isReady, KINDS, LESSON_NEXT, LESSON_TITLE, LESSONS, pitchParts, shortQ, STAR_LEGEND, starExample, STEPS, type Lesson, type Step } from "@shared/interviewCoach";
+import { CHECKS, COMMON, coachDone, interviewPlan, isReady, KINDS, localDay, pitchSlots, spoken, LESSON_NEXT, LESSON_TITLE, LESSONS, pitchParts, shortQ, STAR_LEGEND, starExample, STEPS, type Lesson, type Step } from "@shared/interviewCoach";
 import { jobQuestions } from "@shared/jobInterview";
 import { BANK, bankField, fieldLabel } from "@shared/questionBank";
 import { PROFILES } from "@shared/interviewRubric";
 import { hospitalFirst } from "@shared/employer";
+import { firstName } from "@shared/names";
+import { Input } from "@/components/setup/common";
 import { Button, Group, Icon, Remy, Row, T, success, tap } from "@/components/ui";
 import { AskRemyRow } from "@/components/AskRemyRow";
 import { HearIt } from "@/components/HearIt";
@@ -76,6 +78,7 @@ function Home() {
     ["Mock interviews", mocks ? `${mocks} done` : "None yet", mocks > 0],
   ];
   return <>
+    <PlanCard />
     <View testID="coach-next" style={card}>
       <Text style={kick(c)}>Up next · Step {STEPS.indexOf(next) + 1}, {next.label}</Text>
       <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}><Remy size={56} icon /><T kind="h2" style={{ flex: 1 }}>{h}</T></View>
@@ -157,12 +160,71 @@ function Build() {
       <T kind="h2">Your pitch first, then your stories</T>
       <T kind="small">I only use facts from your resume and ask you for the rest. 4 stories answer most “tell me about a time” questions.</T>
     </View>
+    <PitchSlots />
     <Group>
-      <Row first testID="build-tab-pitch" title="30-second pitch" sub={w.pitch?.text ? "Ready" : "Start here"} onPress={() => router.push({ pathname: "/prep", params: { tab: "pitch" } } as any)} />
-      <Row testID="build-tab-stories" title="Interview stories" sub={`${ready} of 4 ready`} onPress={() => router.push({ pathname: "/prep", params: { tab: "stories" } } as any)} />
+      <Row first testID="build-tab-stories" title="Interview stories" sub={`${ready} of 4 ready`} onPress={() => router.push({ pathname: "/prep", params: { tab: "stories" } } as any)} />
     </Group>
     {!!w.pitch?.text && ready >= 4 && <Button testID="button-build-next" label="Next: practice" icon="arrow" onPress={() => open("practice")} flex />}
   </>;
+}
+
+// The pitch in four slots, each filled from a named profile or resume line, each editable (website: PitchSlots).
+function PitchSlots() {
+  const { ws, setWs } = useSession();
+  const { c } = useTheme();
+  const card = useCard();
+  const w = ws!;
+  const filled = pitchSlots(w, firstName(w));
+  const [slots, setSlots] = useState(filled.map((f) => f[1]));
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const text = slots.map((x) => x.trim()).filter(Boolean).join(" ");
+  const { words, secs } = spoken(text);
+  const changed = text !== (w.pitch?.text || "");
+  const keep = async () => {
+    tap(); setBusy(true); setErr("");
+    try { setWs(await api<Workspace>("PUT", "/api/ws/pitch", { value: { text, at: new Date().toISOString(), slots: slots.map((x) => x.trim()) } })); success(); } catch (e: any) { setErr(e.message); }
+    setBusy(false);
+  };
+  return (
+    <View testID="pitch-slots" style={card}>
+      <T kind="label">Your 30-second pitch</T>
+      <T kind="small">Every line comes from your resume or profile. Change any words so it sounds like you.</T>
+      {!!w.pitch?.text && !w.pitch.slots && <T kind="small">Your saved pitch: “{w.pitch.text}”</T>}
+      {filled.map(([label, , from], i) => (
+        <View key={label} style={{ gap: 4 }}>
+          <Input testID={`pitch-slot-${i}`} label={label} value={slots[i]} multiline placeholder={i === 2 ? "One thing you did and what came of it" : label}
+            onChangeText={(v) => setSlots(slots.map((x, k) => (k === i ? v : x)))} />
+          <T kind="small">{slots[i] !== filled[i][1] || from === "Your words" ? "Your words" : from ? `From ${from}` : "Not on your resume yet. Add one thing you did and what came of it."}</T>
+        </View>))}
+      <T kind="small" style={{ color: secs > 40 ? c.ink : c.mutedText }}>{words} words · about {secs} seconds spoken{secs > 40 ? ". Try to get it under 35." : ""}</T>
+      <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+        {!!text && <HearIt text={text} testID="button-hear-my-pitch" />}
+        <Button testID="button-save-pitch" label={w.pitch?.text && !changed ? "Saved" : "Save"} busy={busy} disabled={!text || !changed} onPress={keep} flex />
+      </View>
+      {!!err && <T kind="small" style={{ color: c.error }}>{err}</T>}
+    </View>
+  );
+}
+
+/** A real interview coming: pitch, 3 practice questions, one full mock, spread over the days before it (website: PlanCard). */
+export function PlanCard() {
+  const w = useSession().ws!;
+  const { c } = useTheme();
+  const card = useCard();
+  const plan = interviewPlan(w, localDay());
+  if (!plan) return null;
+  const to = (k: string) => { tap(); router.setParams({ step: k === "pitch" ? "build" : k, ...(k === "mock" && plan.jobId ? { job: plan.jobId } : {}) } as any); };
+  return (
+    <View testID="interview-plan" style={[card, { backgroundColor: c.foxSoft, borderColor: c.foxSoft }]}>
+      <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}><Remy size={44} icon />
+        <View style={{ flex: 1, gap: 2 }}><T style={{ fontFamily: font.bold }}>{plan.when ? `Your ${plan.company} interview is ${plan.when}.` : `You have an interview with ${plan.company}.`}</T>
+          <T kind="small">I made a 3-day plan to get you ready. Tap a day to start.</T></View></View>
+      <Group>{plan.days.map((d, i) => (
+        <Row key={d.key} first={i === 0} testID={`plan-${d.key}`} title={d.title} sub={d.day} onPress={() => to(d.key)}
+          right={d.done ? <Icon name="check" size={18} color={c.sage} /> : undefined} />))}</Group>
+    </View>
+  );
 }
 
 function Practice({ Answer }: { Answer: AnswerBox }) {
