@@ -68,7 +68,8 @@ export function ApplyNudge() {
   );
 }
 
-const card = (c: ReturnType<typeof useTheme>["c"]) => ({ marginTop: 14, backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.line, borderLeftWidth: 3, borderLeftColor: c.fox, padding: 14, gap: 10 }) as const;
+const card = (c: ReturnType<typeof useTheme>["c"]) => ({ marginTop: 14, backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: `${c.fox}59`, // light orange edge all round, no thick left bar (Dilan, Nov 27)
+  padding: 14, gap: 10 }) as const;
 const small = { height: 40, paddingHorizontal: 14 } as const;
 
 /** After an interview: one tap first, and each answer does something (a thank-you to-do, a note for next time, or the

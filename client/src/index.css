@@ -1072,7 +1072,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
   /* each tab is its own button (Dilan, Nov 27: loose underlined cells, then one grey block, both looked off); an odd last tab takes the full row */
   .tabs { display: grid; grid-template-columns: 1fr 1fr; overflow: visible; gap: 8px; padding: 0; border: 0; -webkit-mask-image: none; mask-image: none; }
   .tab { white-space: normal; text-align: center; justify-content: center; line-height: 1.25; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
-  .tab[aria-selected="true"] { background: var(--fox-soft); color: var(--fox-deep); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fox) 40%, transparent); }
+  .tab[aria-selected="true"] { background: var(--fox-soft); color: var(--fox-deep); border-color: color-mix(in srgb, var(--fox) 55%, var(--line)); box-shadow: none; }
   .tabs > .tab:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
 .pick-more-phone { display: none; }
@@ -1542,8 +1542,8 @@ ul[class] > li, ol[class] > li { max-width: none; }
 /* Owner Opportunities (tabs redesign, Nov 22): Remy's line, a peach "Remy's pick", list + rail, filter counts. */
 .op-say { font-size: var(--text-lg); color: var(--muted-text); margin: 6px 0 0; letter-spacing: -.01em; }
 .op-say b { color: var(--ink); font-weight: 700; }
-/* Remy's line under a page title sits in its own note with an orange edge, not as loose grey text (Dilan, Nov 27) */
-.op-say, .remy-line { width: fit-content; max-width: min(100%, 72ch); padding: 8px 14px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--fox); border-radius: 12px; font-size: var(--text-base); line-height: 1.4; color: var(--muted-text); }
+/* Remy's line under a page title sits in its own note, not as loose grey text (Dilan, Nov 27). Rounded boxes never get a thick coloured left edge: the whole border takes a light tint instead. */
+.op-say, .remy-line { width: fit-content; max-width: min(100%, 72ch); padding: 8px 14px; background: var(--surface); border: 1px solid color-mix(in srgb, var(--fox) 35%, var(--line)); border-radius: 12px; font-size: var(--text-base); line-height: 1.4; color: var(--muted-text); }
 .op-n { font-style: normal; font-weight: 600; opacity: .6; margin-left: 5px; }
 .op-pick { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; background: var(--fox-soft); border-radius: 20px; padding: 18px 20px; }
 .op-pick-main { display: grid; gap: 2px; min-width: 0; }
@@ -1645,7 +1645,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 /* Owner Interview rethink (Nov 22): Remy runs a mock interview; the prep kit sits underneath. */
 .mi-room { padding: 22px 24px; }
 /* Peach is for Remy's one highlight per page (Dilan, Nov 22: "you don't need to use it everywhere"). Other treatments: */
-.op-accent { border-left: 4px solid var(--fox); }
+.op-accent { border-color: color-mix(in srgb, var(--fox) 35%, var(--line)); }
 .op-pick.op-quiet { background: var(--surface); border: 1px solid var(--line); }
 .mi-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .mi-rows li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
@@ -1666,7 +1666,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .mi-bar i { height: 6px; border-radius: 99px; background: var(--surface-2); }
 .mi-bar i.d { background: var(--fox-deep); } .mi-bar i.on { background: var(--fox); }
 .mi-ask { font-size: clamp(1.25rem, 2.6vw, 1.75rem); font-weight: 800; letter-spacing: -.02em; line-height: 1.25; margin: 4px 0; }
-.mi-hint { background: var(--surface-2); border-radius: 14px; padding: 10px 14px; border-left: 3px solid var(--fox); }
+.mi-hint { background: var(--surface-2); border-radius: 14px; padding: 10px 14px; border: 1px solid color-mix(in srgb, var(--fox) 35%, var(--line)); }
 .mi-room [data-testid="practice-out-loud"] > .btn { align-self: flex-start; }
 .mi-seat { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 16px; align-items: start; }
 .mi-remy { display: grid; justify-items: center; gap: 4px; padding-top: 4px; }
@@ -1884,7 +1884,7 @@ html.redesign-2:has(.tour) .remy-offer { display: none; }
 .r1-grid { grid-template-columns: 1fr; }
 .r1-view .pdf-preview { height: min(1250px, 150vh); }
 .r1-hint { margin: -6px 0 0; }
-.r1-over { display: grid; gap: 6px; padding: 10px 14px; border: 1px solid var(--line); border-left: 3px solid var(--fox); border-radius: var(--radius); }
+.r1-over { display: grid; gap: 6px; padding: 10px 14px; border: 1px solid color-mix(in srgb, var(--fox) 35%, var(--line)); border-radius: var(--radius); }
 .r1-over-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .r1-over-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
 .r1-over-list li > span { min-width: 0; overflow-wrap: anywhere; }
@@ -1922,7 +1922,7 @@ html.redesign-2:has(.tour) .remy-offer { display: none; }
 .fmt-option-head { flex-wrap: nowrap; gap: 8px; }
 .fmt-preview { display: block; height: clamp(200px, calc(100vh - 500px), 680px); width: auto; max-width: 100%; margin: 0 auto; aspect-ratio: 8.5 / 11; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); object-fit: contain; }
 .fmt-loading { background: var(--surface-2, var(--line)); }
-.fmt-strip { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid var(--line); border-left: 3px solid var(--error); border-radius: var(--radius); }
+.fmt-strip { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid color-mix(in srgb, var(--error) 40%, var(--line)); border-radius: var(--radius); }
 @media (max-width: 690px) { .fmt-grid { grid-template-columns: 1fr; } }
 .r1-side-card > .card, .r1-side-card .card { border: 0; padding: 0; box-shadow: none; background: none; }
 .rm-side-review { max-height: none; overflow: visible; position: static; }
@@ -3302,7 +3302,7 @@ button.rw-item:not(:disabled) { cursor: pointer; }
 
 /* Owners: Remy reaching out first stands out (Dilan, Nov 23: "a central feature, make it more obvious"). An orange
    edge, his face with a soft ring, a live dot and a kicker, and a small entrance. No peach fill, no dark band. */
-.redesign-2 .remy-offer { box-shadow: inset 3px 0 0 var(--fox), var(--shadow); border-color: color-mix(in srgb, var(--fox) 35%, var(--line)); padding: 12px 40px 12px 14px; gap: 12px; animation: offer-in .55s cubic-bezier(.2, .9, .3, 1.15) both; }
+.redesign-2 .remy-offer { box-shadow: var(--shadow); border-color: color-mix(in srgb, var(--fox) 35%, var(--line)); padding: 12px 40px 12px 14px; gap: 12px; animation: offer-in .55s cubic-bezier(.2, .9, .3, 1.15) both; }
 .redesign-2 .remy-offer.docked { background: var(--surface); }
 .remy-offer-face { position: relative; flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: var(--surface-2); animation: fox-hop .8s ease .45s 1 both; }
 .remy-offer-face::after { content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid var(--fox); opacity: 0; animation: remy-ring 1.6s ease-out .5s 3; }
@@ -3807,6 +3807,8 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 .ask-opts, .ask-foot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .ask-foot > .chat-did { flex: 1 1 200px; }
 .remy-offer.remy-ask-card { align-items: flex-start; }
+/* the question card has no corner X, so it does not keep the 40px the X needs: even padding on both sides */
+.remy-offer.remy-ask-card, .redesign-2 .remy-offer.remy-ask-card, .redesign-2 .remy-offer.remy-ask-card:not(.docked) { padding-right: 14px; padding-left: 14px; }
 .remy-offer.remy-ask-card > .ask { flex: 1; }
 .remy-offer.remy-ask-card.docked > .remy-offer-face { display: none; }
 .ac-wait .ask { width: 100%; }
@@ -3989,10 +3991,10 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 .cal-day[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
 .cal-day[aria-pressed="true"] small, .cal-day[aria-pressed="true"].today b { color: inherit; }
 .cal-agenda { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.cal-ag { display: grid; gap: 2px; width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-left: 4px solid var(--plum); border-radius: 12px; background: var(--surface); color: var(--ink); }
+.cal-ag { display: grid; gap: 2px; width: 100%; text-align: left; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--ag, var(--plum)) 45%, var(--line)); border-radius: 12px; background: var(--surface); color: var(--ink); }
 .cal-ag span { font-size: 12.5px; color: var(--muted-text); }
-.cal-ag.Deadline { border-left-color: var(--warn); }
-.cal-ag.Interview { border-left-color: var(--sage); }
+.cal-ag.Deadline { --ag: var(--warn); }
+.cal-ag.Interview { --ag: var(--sage); }
 .cal-week-strip > .row-between { flex-wrap: nowrap; } .cal-week-strip > .row-between h2 { font-size: 1.1rem; white-space: nowrap; }
 .cal-week-strip > .row-between .row { flex-wrap: nowrap; gap: 2px; }
 @media (max-width: 360px) { .cal-week-strip > .row-between h2 { font-size: 1rem; } .cal-week-strip > .row-between .btn-sm { padding-inline: 6px; } }

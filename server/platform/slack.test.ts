@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { onEvent, slackContext, verifySlack, RULES, aiNotes, dailyPosts, shippedSince, CHANNELS, COLOR, command, interact, HOME } from "./slack";
+import { onEvent, slackContext, verifySlack, RULES, aiNotes, dailyPosts, shippedSince, mergedPosts, channelsFor, CHANNELS, COLOR, command, interact, HOME } from "./slack";
 
 test("signature: Slack's v0 HMAC passes; wrong secret, edited body or old timestamp fail", () => {
   const body = Buffer.from('{"type":"event_callback"}');
@@ -64,7 +64,7 @@ test("notes: Remy reads docs/ai from disk, team facts first, lead entries matche
   assert.ok(aiNotes("x", 5000).length < 20_000);
 });
 
-test("daily posts: backup check from 6 AM CT and a Shipped digest from noon, each once a day", async () => {
+test("daily posts: backup check from 6 AM CT and a Shipped recap from 9 PM, each once a day", async () => {
   const realFetch = globalThis.fetch, env = { ...process.env };
   process.env.SLACK_BOT_TOKEN = "xoxb-test"; process.env.SLACK_SIGNING_SECRET = "s";
   const posted: any[] = [];
@@ -81,8 +81,9 @@ test("daily posts: backup check from 6 AM CT and a Shipped digest from noon, eac
   const backup = async () => ({ configured: true, lastAt: "2026-11-27T08:10:00Z", lastFull: "2026-11-23" });
   try {
     assert.deepEqual(await dailyPosts(backup, new Date("2026-11-27T10:00:00Z")), []); // 4 AM CT: nothing due
-    assert.deepEqual(await dailyPosts(backup, new Date("2026-11-27T19:00:00Z")), ["backup", "shipped_noon"]); // 1 PM CT
-    assert.deepEqual(await dailyPosts(backup, new Date("2026-11-27T20:00:00Z")), []); // already sent today
+    assert.deepEqual(await dailyPosts(backup, new Date("2026-11-27T19:00:00Z")), ["backup"]); // 1 PM CT
+    assert.deepEqual(await dailyPosts(backup, new Date("2026-11-28T03:30:00Z")), ["shipped_evening"]); // 9:30 PM CT
+    assert.deepEqual(await dailyPosts(backup, new Date("2026-11-28T04:00:00Z")), []); // already sent today
     assert.equal(posted[0].channel, CHANNELS.database);
     assert.match(posted[0].text, /Backup check\*: last copy Fri 2:10 AM CT, last full copy 2026-11-23/);
     assert.equal(posted[0].color, COLOR.ok);
@@ -91,6 +92,21 @@ test("daily posts: backup check from 6 AM CT and a Shipped digest from noon, eac
     assert.match(posted[1].text, /#9> Fix the jobs page on phones/);
     assert.doesNotMatch(posted[1].text, /#8/);
     assert.deepEqual(await shippedSince("2026-11-28T00:00:00Z", [{ number: 9, merged_at: "2026-11-27T15:00:00Z" }]), []);
+
+    // Each merge goes to the channels it touches, oldest first, once.
+    const list = [
+      { number: 12, title: "App fix", html_url: "https://x/12", merged_at: "2026-11-28T04:02:00Z" },
+      { number: 11, title: "Web and app fix", html_url: "https://x/11", merged_at: "2026-11-28T04:01:00Z" },
+      { number: 7, title: "Old", html_url: "https://x/7", merged_at: "2026-11-27T01:00:00Z" },
+    ];
+    const files: Record<number, string[]> = { 11: ["client/src/App.tsx", "native/src/app/remy.tsx"], 12: ["native/src/lib/x.ts"] };
+    const before = posted.length;
+    assert.equal(await mergedPosts(new Date("2026-11-28T04:05:00Z"), list, async (n) => files[n]), 2);
+    assert.deepEqual(posted.slice(before).map((p) => [p.channel, p.text.match(/#\d+/)?.[0]]),
+      [[CHANNELS.website, "#11"], [CHANNELS.app, "#11"], [CHANNELS.app, "#12"]]);
+    assert.equal(await mergedPosts(new Date("2026-11-28T04:10:00Z"), list, async (n) => files[n]), 0);
+    assert.deepEqual(channelsFor(["server/migrations/025_x.sql"]), [CHANNELS.database]);
+    assert.deepEqual(channelsFor(["docs/ai/status/lead/x.md"]), [CHANNELS.website]);
   } finally {
     globalThis.fetch = realFetch; process.env = env;
   }

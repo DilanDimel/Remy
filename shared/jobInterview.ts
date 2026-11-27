@@ -17,6 +17,16 @@ const BEHAVIOR: [RegExp, string, RegExp][] = [
   [/time management|deadline|prioriti|organiz|multitask/i, "had too much to do at once. How did you decide what came first?", /\b(schedul\w*|organiz\w*|coordinat\w*|while|deadline\w*|balanc\w*)\b/i],
   [/customer|client|patient|guest/i, "helped a difficult customer or client.", /\b(customer\w*|client\w*|patient\w*|guest\w*)\b/i],
   [/adapt|fast-paced|ambigu|learn quickly|change/i, "had to learn something new fast.", /\b(learn\w*|new|adapt\w*|fast)\b/i],
+  // Soft skills read as "How have you used creativity?" without these (interview test lab, Nov 27: 1,393 of 16,000).
+  [/creativ|innovat/i, "came up with a new idea or a new way to do something. What happened?", /\b(creat\w*|design\w*|idea\w*|launch\w*|started|new)\b/i],
+  [/resilien|persever|goal-driven|grit/i, "kept going after a setback or a no. What did you do next?", /\b(despite|again|recover\w*|turned|improv\w*)\b/i],
+  [/curio|eager to learn|self-starter|initiative|proactive/i, "taught yourself something nobody asked you to learn. What did you do with it?", /\b(taught|self|research\w*|learn\w*|built)\b/i],
+  [/patience|flexib|empath/i, "had to stay patient with someone who was struggling. What did you do?", /\b(tutor\w*|help\w*|support\w*|taught|care\w*)\b/i],
+  [/reliab|dependab|punctual|work ethic/i, "people were counting on you to get something done. How did you make sure you did?", /\b(every|weekly|daily|shift\w*|zero)\b/i],
+  [/safety/i, "noticed something unsafe. What did you do?", /\b(safety|safe|incident\w*|hazard\w*)\b/i],
+  [/confidential|discret|privacy/i, "handled private or sensitive information. How did you keep it safe?", /\b(confidential\w*|records?|privacy|HIPAA)\b/i],
+  [/classroom|behavior management/i, "kept a group of students on track when it got hard. What did you do?", /\b(tutor\w*|class\w*|students?|taught|lesson\w*)\b/i],
+  [/^research$/i, "researched a question and had to explain what you found. Walk me through it.", /\b(research\w*|survey\w*|stud(y|ied)|analy\w*)\b/i],
 ];
 
 /** Likely questions for one opening, most job-specific first, ending with the student's own questions for them. */
@@ -39,7 +49,9 @@ export function jobQuestions(job: Pick<Job, "company" | "title" | "requirements"
     const tip = line ? "Use this line from your resume: say the situation, what you did, and how it turned out." : "Nothing on your resume shows this yet. Think of a class, project, job or club where you did it.";
     // Say who the posting serves: a nurse extern helps patients, not customers.
     const who = /patient/i.test(k) ? "patient or a worried family member" : /guest/i.test(k) ? "guest" : "customer or client";
-    out.push(beh ? { q: `Tell me about a time you ${beh[1].replace("customer or client", who)}`, why, line, tip } : { q: `How have you used ${k}? Walk me through a specific example.`, why, line, tip });
+    const q = beh ? `Tell me about a time you ${beh[1].replace("customer or client", who)}` : `How have you used ${k}? Walk me through a specific example.`;
+    if (out.some((x) => x.q === q)) continue; // "problem solving" and "analytical" ask the same thing
+    out.push({ q, why, line, tip });
   }
   out.push({ q: "What questions do you have for us?", why: "Usually the last question.", tip: "Have two ready: what a good first month looks like, and what the team is working on now." });
   return out;

@@ -775,7 +775,11 @@ export async function registerRoutes(_server: Server, app: Express) {
     catch (e: any) { res.status(500).json({ message: e?.message || "Couldn't save." }); }
   });
   // Team meeting reminders from the library, checked every 5 minutes (the sweep is hourly at best).
-  setInterval(() => { slack.reminders().catch((e) => console.error("slack reminders failed", e?.message)); }, 5 * 60_000).unref();
+  // Also each merged PR to #website, #app or #database.
+  setInterval(() => {
+    slack.reminders().catch((e) => console.error("slack reminders failed", e?.message));
+    slack.mergedPosts().catch((e) => console.error("slack merged posts failed", e?.message));
+  }, 5 * 60_000).unref();
 
   // The team Slack's Remy app (server/platform/slack.ts): Slack signs each event; we answer within 3 s and work after.
   app.post("/api/slack/events", (req, res) => {

@@ -136,31 +136,34 @@ async function repoPrs(): Promise<string> {
 }
 
 export const RULES = `You are Remy, the AI teammate in RemyAI's team Slack. RemyAI makes Remy, an AI career coach for college students (remyai.org). The team is Dilan, Demetre, Julio, Lincoln and Ashton.
-Answer only the newest question (the line after "asks:"). Earlier questions in Slack are background, never something to answer again. Use only the team library, the Slack messages, the team's docs/ai notes and pull requests below (newer beats older; the team library is the fullest source for meetings, dates, files, links and company facts; docs/ai/TEAM.md is the current summary). Name where an answer comes from (channel and date, or PR number). When sources disagree, give the newest answer and skip the outdated ones. If they don't say, say you don't know and suggest the matching channel; never name a person to ask, never guess who is in charge of what, and never guess or invent numbers, dates, decisions or status.
+Answer only the newest question (the line after "asks:"). Earlier questions in Slack are background, never something to answer again. Use only the background notes, the Slack messages, the team's docs/ai notes and pull requests below (newer beats older; the background notes are the fullest source for meetings, dates, files, links and company facts; docs/ai/TEAM.md is the current summary). Name where an answer comes from by its plain name and date (like "Erin call notes, Nov 25", a channel and date, or a PR number). The team can't see the background notes, so never say "team library", never write a file path, folder or file id, and never tell people to go look somewhere: give the answer or attach the file. When sources disagree, give the newest answer and skip the outdated ones. If they don't say, say you don't know and suggest the matching channel; never name a person to ask, never guess who is in charge of what, and never guess or invent numbers, dates, decisions or status.
 Write for Slack: short, plain sentences, *bold* with single asterisks, "•" for lists, no headings, at most about 150 words unless asked for more.
-Everything you write is seen by the whole team:
+Unless the question says it's Dilan's private DM, everything you write is seen by the whole team:
 - About price, say only "Free during beta". Never "free" alone or "always free".
 - Don't name anyone's title or role (no CEO, COO or similar), and don't discuss ownership, equity or splits.
 - Don't judge anyone's contribution or talk about anyone leaving or being removed.
 - Never repeat private details: tax or bank numbers, home addresses, personal emails or phones, passwords, keys, account balances.
 - Don't mention the CREATE program before Dec 1, 2026, 12 PM CT.
-To hand over a file from the team library (only items marked [file id: …]), put each on its own last line as "FILE: <file id>", at most 2, and say in your answer that it's attached.
-If someone asks you to do something (post, change code, send email), say you can only answer questions here and suggest the matching channel.`;
+You can attach files: for a note marked [file id: …], put each on its own last line as "FILE: <file id>" (at most 2) and Remy's server uploads it into this thread. Attach whenever someone asks for a document, logo or file, or when the full notes would help, and just say it's attached.
+If someone asks you to do something else (post, change code, send email), say you can only answer questions and attach files here, and suggest the matching channel.`;
 
 // Only Dilan's own DMs read the "dilan" tier; channels and everyone else get "team". A Slack user id isn't a secret.
 const DILAN = "U0CMF0FC48L";
 export const tiersFor = (ev: any): Tier[] => (ev.channel_type === "im" && ev.user === DILAN ? ["team", "dilan"] : ["team"]);
 
-export const libraryText = (found: Found[]) => !found.length ? "Team library: nothing matched this question." :
-  "Team library (private; name the item and its date when you use it):\n" + found.map((f) =>
+export const libraryText = (found: Found[]) => !found.length ? "Background notes: nothing matched this question." :
+  "Background notes (not visible to the team; cite by plain name and date, never by path or id):\n" + found.map((f) =>
     `• ${f.title} (${f.source}, ${f.starts_at ? `starts ${timeCt(new Date(f.starts_at).toISOString())} CT ${new Date(f.starts_at).toISOString().slice(0, 10)}` : `updated ${new Date(f.updated_at).toISOString().slice(0, 10)}`})` +
     `${f.url ? " " + f.url : ""}${f.file_name ? ` [file id: ${f.id}]` : ""}\n${clip(f.body, 3000)}`).join("\n\n");
 
 /** Splits the "FILE: <id>" lines off an answer, keeping only ids that were offered. */
 export function takeFiles(text: string, offered: Found[]): { text: string; ids: string[] } {
   const ok = new Set(offered.filter((f) => f.file_name).map((f) => f.id));
-  const ids = Array.from(text.matchAll(/^FILE:\s*(\S+)\s*$/gm), (m) => m[1]).filter((id) => ok.has(id)).slice(0, 2);
-  return { text: text.replace(/^FILE:.*$/gm, "").trim(), ids };
+  // The model writes "FILE: id" as asked, but sometimes "[file: path]" or "[file id: id]" instead; take all three.
+  const mark = /^\s*FILE:\s*(\S+?)\s*$|\[file(?: id)?:\s*([^\]\s]+)\s*\]/gim;
+  const ids = Array.from(new Set(Array.from(text.matchAll(mark), (m) => m[1] || m[2]).map((id) => (ok.has(id) ? id : `file:${id}`))))
+    .filter((id) => ok.has(id)).slice(0, 2);
+  return { text: text.replace(mark, "").replace(/\n{3,}/g, "\n\n").trim(), ids };
 }
 
 /** Slack's upload: ask for a URL, send the bytes, then share it in the thread. Needs the files:write scope. */
@@ -199,7 +202,7 @@ export async function reply(ev: any): Promise<void> {
   const repo = aiNotes(question) + "\n\n" + prs;
   let text: string, ids: string[] = [];
   try {
-    ({ text, ids } = takeFiles(await think(RULES + "\n\n" + repo, `${libraryText(found)}\n\n${ctx}\n\nToday is ${when(String(Date.now() / 1000))} CT. ${who} asks: ${question || "(just said hi)"}`), found));
+    ({ text, ids } = takeFiles(await think(RULES + "\n\n" + repo, `${libraryText(found)}\n\n${ctx}\n\nToday is ${when(String(Date.now() / 1000))} CT.${tiers.includes("dilan") ? " This is Dilan's private DM: share anything in the notes with him in full, including the EIN and other private numbers, and attach private files he asks for." : ""} ${who} asks: ${question || "(just said hi)"}`), found));
   } catch (e: any) {
     console.warn("slack reply failed:", e?.message);
     text = "Sorry, I couldn't think just now. Try me again in a minute.";
@@ -237,7 +240,7 @@ export const HOME = {
     { type: "divider" },
     md("*How to use me*\n• *@Remy* in any channel, or DM me: ask anything about Remy or the team\n• *`/bug`* what broke: logs it in #website (start with `app` for #app)\n• *⋮ on any message → Ask Remy about this*: I explain it or help in its thread"),
     md("*Where things go*\n• #all-remyai: everyone, decisions, the morning brief\n• #website, #app, #database: work on each part\n• #business, #social: partners, mentors, posts\n• #alerts: site down or backups stopped. Keep its notifications on."),
-    md("*When I post*\n• 6 AM CT: backup check in #database\n• 12 PM and 9 PM CT: what shipped, in #website\n• Any time: warnings in #alerts"),
+    md("*When I post*\n• 6 AM CT: backup check in #database\n• Each merged PR within minutes, in #website, #app or #database\n• 9 PM CT: a recap of what shipped, in #website\n• Any time: warnings in #alerts"),
     { type: "context", elements: [{ type: "mrkdwn", text: "<https://remyai.org|remyai.org> · Start here: the canvas in #all-remyai" }] },
   ],
 };
@@ -295,16 +298,57 @@ const ct = (d: Date) => {
 };
 const timeCt = (iso: string) => new Date(iso).toLocaleString("en-US", { timeZone: "America/Chicago", weekday: "short", hour: "numeric", minute: "2-digit" });
 
+const GH = "https://api.github.com/repos/DilanDimel/Remy";
+const closedPrs = () => fetch(`${GH}/pulls?state=closed&per_page=50&sort=updated&direction=desc`, { headers: { accept: "application/vnd.github+json" } })
+  .then((r) => (r.ok ? r.json() : [])).catch(() => []);
+/** A PR's changed file paths, or null when GitHub doesn't answer. */
+const prFiles = (n: number): Promise<string[] | null> => fetch(`${GH}/pulls/${n}/files?per_page=100`, { headers: { accept: "application/vnd.github+json" } })
+  .then((r) => (r.ok ? r.json() : null)).then((j) => (Array.isArray(j) ? j.map((f: any) => String(f.filename)) : null)).catch(() => null);
+
+/** Where a merged PR is announced: #app for native/, #database for migrations and database code, #website for the rest. */
+export function channelsFor(files: string[]): string[] {
+  const out = new Set<string>();
+  for (const f of files) {
+    if (f.startsWith("native/")) out.add(CHANNELS.app);
+    else if (f.startsWith("server/migrations/") || /^server\/platform\/(storage|db|backup|persist|studentJobs)/.test(f)) out.add(CHANNELS.database);
+    else if (/^(client|shared|server)\//.test(f)) out.add(CHANNELS.website);
+  }
+  return out.size ? Array.from(out) : [CHANNELS.website]; // docs and tooling only: #website
+}
+
+/** Each merged PR, posted within about 5 minutes (routes.ts timer) to the channels it touches. The newest merge time
+ *  posted is kept in site_settings, so a restart never posts twice; the first run starts from the last Shipped digest. */
+export async function mergedPosts(now = new Date(), list?: any[], filesOf = prFiles): Promise<number> {
+  if (!slackOn()) return 0;
+  const key = "slack_merged_cursor";
+  let since: string | undefined = (await q("SELECT value FROM site_settings WHERE key = $1", [key]))[0]?.value;
+  if (!since) {
+    const last = (await q("SELECT updated_at FROM site_settings WHERE key LIKE 'slack_post_shipped%' ORDER BY updated_at DESC LIMIT 1"))[0]?.updated_at;
+    since = (last ? new Date(last) : now).toISOString();
+  }
+  const prs = (Array.isArray(list) ? list : await closedPrs()).filter((p: any) => p.merged_at && p.merged_at > since!)
+    .sort((a: any, b: any) => a.merged_at.localeCompare(b.merged_at));
+  let n = 0;
+  for (const p of prs) {
+    const files = await filesOf(p.number);
+    if (!files) break; // GitHub didn't answer: this PR and the rest go next run
+    for (const ch of channelsFor(files)) await post(ch, `:white_check_mark: *Merged* <${p.html_url}|#${p.number}> ${p.title}`, COLOR.ok);
+    await q(`INSERT INTO site_settings (key, value, updated_by) VALUES ($1, $2, 'slack')
+             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [key, p.merged_at]);
+    n++;
+  }
+  return n;
+}
+
 /** "Shipped" lines: pull requests merged after `since` (ISO), newest first. */
 export async function shippedSince(since: string, list?: any[]): Promise<string[]> {
-  const prs = list ?? await fetch("https://api.github.com/repos/DilanDimel/Remy/pulls?state=closed&per_page=50&sort=updated&direction=desc", { headers: { accept: "application/vnd.github+json" } })
-    .then((r) => (r.ok ? r.json() : [])).catch(() => []);
+  const prs = list ?? await closedPrs();
   return (Array.isArray(prs) ? prs : []).filter((p: any) => p.merged_at && p.merged_at > since).sort((a: any, b: any) => b.merged_at.localeCompare(a.merged_at))
     .map((p: any) => `• <${p.html_url}|#${p.number}> ${p.title}`);
 }
 
-/** The daily posts that are due and not sent yet: #database backup check from 6 AM CT, #website "Shipped" digests from
- *  12 PM and 9 PM CT. Each slot is remembered in site_settings, so a restart or an extra cron call can't post it twice.
+/** The daily posts that are due and not sent yet: #database backup check from 6 AM CT, the #website "Shipped" recap
+ *  from 9 PM CT. Each slot is remembered in site_settings, so a restart or an extra cron call can't post it twice.
  *  shortcut: the cron is hourly, so a post lands within the hour after its time; add a finer timer if that matters. */
 export async function dailyPosts(backup: () => Promise<{ configured: boolean; lastAt: string | null; lastFull: string | null }>, now = new Date()): Promise<string[]> {
   if (!slackOn()) return [];
@@ -329,12 +373,11 @@ export async function dailyPosts(backup: () => Promise<{ configured: boolean; la
   });
   const digest = (slot: string, from: number) => once(slot, hour >= from, async () => {
     const last = (await q("SELECT updated_at FROM site_settings WHERE key LIKE 'slack_post_shipped%' ORDER BY updated_at DESC LIMIT 1"))[0]?.updated_at;
-    const since = last ? new Date(last).toISOString() : new Date(now.getTime() - 12 * 3600_000).toISOString();
+    const since = last ? new Date(last).toISOString() : new Date(now.getTime() - 24 * 3600_000).toISOString();
     const lines = await shippedSince(since);
-    return lines.length ? { channel: CHANNELS.website, text: `:fox_face: *Shipped since ${timeCt(since)} CT* (${lines.length})\n${lines.slice(0, 15).join("\n")}` } : null; // nothing new: stay quiet
+    return lines.length ? { channel: CHANNELS.website, text: `:fox_face: *Today's recap: shipped since ${timeCt(since)} CT* (${lines.length})\n${lines.slice(0, 15).join("\n")}` } : null; // nothing new: stay quiet
   });
-  await digest("shipped_noon", 12);
-  await digest("shipped_evening", 21);
+  await digest("shipped_evening", 21); // each merge is also posted within minutes (mergedPosts)
   return sent;
 }
 
