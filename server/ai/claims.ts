@@ -42,6 +42,8 @@ const LEADERSHIP: [RegExp, string, string][] = [
   [/\bspearhead(ed|s|ing)?\b/i, "spearhead", "spearheaded something"],
   [/\bheaded\b/i, "head", "headed something"],
 ];
+// Digit form of each number word, so "a team of five" is the resume's "team of 5" (AI test, Nov 27: 1 in 5 pitches held back for this).
+const WORD_DIGIT: Record<string, string> = { two: "2", three: "3", four: "4", five: "5", six: "6", seven: "7", eight: "8", nine: "9", ten: "10", eleven: "11", twelve: "12", fifteen: "15", twenty: "20", thirty: "30", forty: "40", fifty: "50" };
 const NUMBER_WORDS = /\b(two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|hundred|hundreds|thousand|thousands|million|millions|dozen|dozens)\b/gi;
 // "graduate" alone is left out ("as I graduate in 2029" is not a credential claim).
 const CREDENTIALS = /\b(master'?s|mba|ph\.?\s?d|doctoral|doctorate)(?:[- ](?:level|degree|course|program))?\b|\b(graduate)[- ](?:level|degree|course|program)\b|\b(certifi)ed\b|\b(licens)ed\b|\b(accredit)ed\b/gi;
@@ -166,7 +168,7 @@ export function claimCheck(
   // Numbers written as words ("a team of five", "thirty percent").
   for (const m of body.matchAll(NUMBER_WORDS)) {
     const w = lc(m[0]);
-    if (hasTerm(ev, w) || (opts.postingNumbersOk && opts.postingText && hasTerm(lc(opts.postingText), w))) continue;
+    if (hasTerm(ev, w) || (WORD_DIGIT[w] && evNums.has(WORD_DIGIT[w])) || (opts.postingNumbersOk && opts.postingText && hasTerm(lc(opts.postingText), w))) continue;
     add({ type: "number", term: m[0], message: `The amount “${m[0]}” is not in your resume or approved facts.` });
   }
   // Degrees and credentials ("master's-level", "MBA", "certified").
@@ -310,7 +312,9 @@ export function claimCheck(
     }
   }
   for (const term of TITLE_TERMS) {
-    if (hasTerm(t, term) && !hasTerm(ev, term)) {
+    // An intern held an internship: the same claim either way.
+    const same = term === "internship" ? "intern" : term === "intern" ? "internship" : "";
+    if (hasTerm(t, term) && !hasTerm(ev, term) && !(same && hasTerm(ev, same))) {
       // "internship"/"analyst" are fine when naming the target role
       const allowed = (opts.allowedNames || []).some((n) => hasTerm(lc(n), term) || (term === "internship" && hasTerm(lc(n), "intern")));
       // "TASTE's founder" / "your founder" names someone at the employer, not the student.
@@ -319,10 +323,12 @@ export function claimCheck(
     }
   }
   const allowed = (opts.allowedNames || []).map(lc);
-  for (const sentence of body.split(/(?<=[.!?])\s+|\n+/)) {
+  for (const sentence of body.split(/(?<=[.!?]["'”’)\]]?)\s+|\n+/)) {
     for (const m of sentence.matchAll(/\b([A-Z][a-zA-Z&'-]*(?:\.[A-Z])*\.?(?:\s+(?:of|and|&|for|the)?\s*[A-Z][a-zA-Z&'-]*(?:\.[A-Z])*)*)/g)) {
       let words = m[1].replace(/[.]$/, "").trim().split(/\s+/);
-      if (m.index === 0) words = words.slice(1); // sentence-initial capital is not a name signal
+      // A sentence-initial capital is not a name signal, also when the sentence opens a quote, bracket or a colon's
+      // list ('say: "Then…"', "[Fill in…]"). shortcut: a one-word name right after an opening quote isn't checked.
+      if (/^[\s"'“‘(\[]*$/.test(sentence.slice(0, m.index!)) || /(?::\s*|["“‘(\[])\s*$/.test(sentence.slice(0, m.index!))) words = words.slice(1);
       while (words.length && /^(of|and|&|for|the)$/i.test(words[0])) words = words.slice(1);
       const phrase = words.join(" ");
       if (!phrase || (words.length === 1 && (STOP_CAPS.has(phrase) || phrase.length < 3))) continue;
