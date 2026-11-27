@@ -41,6 +41,14 @@ export default function Home() {
   const [doneNow, setDoneNow] = useState<string[]>([]); // to-dos ticked here, kept in the list for a moment
   // "Since you were last here": the previous visit is read once per launch, and the new one saved.
   const since = useRef(ws?.settings.lastSeenAt || "").current;
+  // Owners first (Nov 27): Remy speaks first after setup, like the website's useRemyReachOut. His words wait in his
+  // chat, and the "Ask Remy" button shows a dot (app/(tabs)/_layout.tsx).
+  const reached = useRef(false);
+  useEffect(() => {
+    if (!ws || !ownerView || reached.current || !ws.onboarding.done) return;
+    reached.current = true;
+    api<{ said: string; ws?: Workspace }>("POST", "/api/remy/reachout").then((r) => { if (r.said && r.ws) setWs(r.ws); }).catch(() => {});
+  }, [ws ? 1 : 0, ownerView]);
   useEffect(() => { if (ws && (!since || Date.now() - Date.parse(since) > 30 * 60_000)) saveSettings({ lastSeenAt: new Date().toISOString() }).catch(() => {}); }, []);
   const canGo = useCanGo();
   const interviewOpen = canGo("/interview");

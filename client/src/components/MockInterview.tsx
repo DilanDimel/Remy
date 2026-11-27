@@ -18,6 +18,7 @@ import { StoryDeck } from "./StoryDeck";
 import { PitchCard } from "./PitchCard";
 import { QuickRate } from "./QuickRate";
 import { Remy, Spinner } from "./common";
+import { RemyAskInline } from "./RemyAskInline";
 
 const KIND: Record<string, string> = { warmup: "Warm-up", posting: "From the posting", resume: "Your resume", work_sample: "Work sample", pressure: "Pressure", yours: "Your turn" };
 const short = (t: string) => t.split(/ [-–(]|, /)[0];
@@ -79,6 +80,7 @@ export function MockInterview() {
   return (
     <div className="ivc" data-testid="mock-interview">
       <Head say={<><b>{tracked ? `You have an interview with ${tracked.company}.` : job ? `Your ${job.company} interview could come any week.` : "Interviews come fast once you apply."}</b> {job ? "I'll build this one from their posting and your resume, so it feels like the real thing." : "Save an opening and I'll interview you for it."}</>} left={left} />
+      <RemyAskInline page="Interview" placeholder="Ask Remy about your interview…" starters={job ? [`What will ${job.company} ask me?`, "How do I answer “tell me about yourself”?"] : ["How do I get ready for my first interview?", "What should I ask the interviewer?"]} />
       {!job ? (
         <section className="ivc-card stack-sm">
           <span className="ivc-kick">Mock interview</span>
@@ -314,6 +316,7 @@ function Scorecard({ iv, again, practice }: { iv: Interview; again: () => void; 
   return (
     <div className="ivc" data-testid="mock-score">
       <Head say={<><b>{sc.answered ? `${sc.overall !== null && sc.overall >= 60 ? "Solid run" : "Good practice"} for ${iv.company}.` : "Nothing answered yet."}</b> {strongest ? `${strongest.label} is your strongest part.` : ""} {sc.next ? "One skill to work on before the real one." : ""}</>} left={weeklyLeft(ws!.interviews)} />
+      <RemyAskInline page="Interview" placeholder="Ask Remy about this practice…" starters={["How do I make my weakest answer better?", "What should I practice next?"]} />
       <div className="ivc-grid">
         <section className="ivc-card stack-sm" style={{ gap: 14 }}>
           <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start", flexWrap: "nowrap", gap: 12 }}>

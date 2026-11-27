@@ -136,7 +136,7 @@ async function repoPrs(): Promise<string> {
 }
 
 export const RULES = `You are Remy, the AI teammate in RemyAI's team Slack. RemyAI makes Remy, an AI career coach for college students (remyai.org). The team is Dilan, Demetre, Julio, Lincoln and Ashton.
-Answer only the newest question (the line after "asks:"). Earlier questions in Slack are background, never something to answer again. Use only the background notes, the Slack messages, the team's docs/ai notes and pull requests below (newer beats older; the background notes are the fullest source for meetings, dates, files, links and company facts; docs/ai/TEAM.md is the current summary). Name where an answer comes from by its plain name and date (like "Erin call notes, Nov 25", a channel and date, or a PR number). The team can't see the background notes, so never say "team library", never write a file path, folder or file id, and never tell people to go look somewhere: give the answer or attach the file. When sources disagree, give the newest answer and skip the outdated ones. If they don't say, say you don't know and suggest the matching channel; never name a person to ask, never guess who is in charge of what, and never guess or invent numbers, dates, decisions or status.
+Answer only the newest question (the line after "asks:"). Earlier questions in Slack are background, never something to answer again. Use only the background notes, the Slack messages, the team's docs/ai notes and pull requests below (newer beats older; the background notes are the fullest source for meetings, dates, files, links and company facts; docs/ai/TEAM.md is the current summary). Name where an answer comes from by its plain name and date (like "Erin call notes, Nov 25", a channel and date, or a PR number). The team can't see the background notes or where they are kept, so never name a library, file path, folder or file id, and never tell people to go look somewhere: give the answer or attach the file. When sources disagree, give the newest answer and skip the outdated ones. If they don't say, say you don't know and suggest the matching channel; never name a person to ask, never guess who is in charge of what, and never guess or invent numbers, dates, decisions or status.
 Write for Slack: short, plain sentences, *bold* with single asterisks, "•" for lists, no headings, at most about 150 words unless asked for more.
 Unless the question says it's Dilan's private DM, everything you write is seen by the whole team:
 - About price, say only "Free during beta". Never "free" alone or "always free".
@@ -155,6 +155,17 @@ export const libraryText = (found: Found[]) => !found.length ? "Background notes
   "Background notes (not visible to the team; cite by plain name and date, never by path or id):\n" + found.map((f) =>
     `• ${f.title} (${f.source}, ${f.starts_at ? `starts ${timeCt(new Date(f.starts_at).toISOString())} CT ${new Date(f.starts_at).toISOString().slice(0, 10)}` : `updated ${new Date(f.updated_at).toISOString().slice(0, 10)}`})` +
     `${f.url ? " " + f.url : ""}${f.file_name ? ` [file id: ${f.id}]` : ""}\n${clip(f.body, 3000)}`).join("\n\n");
+
+/** Drops mentions of where the notes live ("team library", which the team can't open) that the model writes anyway. */
+export const tidy = (text: string) => text.replace(/\s*\([^()]*\b(team )?library\b[^()]*\)/gi, "")
+  .replace(/\b(?:in|from|under) (?:the|our) team library\b/gi, "in our notes").replace(/\bthe team library\b/gi, "our notes").replace(/ +([.,])/g, "$1");
+
+/** Offered files whose name shares a word with the question, for "send me X" answers where the model forgot the FILE line. */
+export function askedFiles(question: string, offered: Found[]): string[] {
+  if (!/\b(send|attach|share|give|need|want)\b/i.test(question)) return [];
+  const words = (question.toLowerCase().match(/[a-z0-9]{3,}/g) || []).filter((w) => !["send", "attach", "share", "give", "need", "want", "the", "our", "please", "file", "copy", "remy"].includes(w));
+  return offered.filter((f) => f.file_name && words.some((w) => `${f.title} ${f.file_name}`.toLowerCase().includes(w))).slice(0, 2).map((f) => f.id);
+}
 
 /** Splits the "FILE: <id>" lines off an answer, keeping only ids that were offered. */
 export function takeFiles(text: string, offered: Found[]): { text: string; ids: string[] } {
@@ -207,6 +218,8 @@ export async function reply(ev: any): Promise<void> {
     console.warn("slack reply failed:", e?.message);
     text = "Sorry, I couldn't think just now. Try me again in a minute.";
   }
+  if (!ids.length) ids = askedFiles(question, found);
+  text = tidy(text);
   const failed: string[] = [];
   for (const id of ids) {
     const f = await fileFor(id, tiers).catch(() => null);

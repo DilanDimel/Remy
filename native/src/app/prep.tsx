@@ -9,6 +9,7 @@ import { jobQuestions } from "@shared/jobInterview";
 import { hospitalFirst } from "@shared/employer";
 import { Button, Group, Icon, Remy, Row, Segmented, T, success, tap } from "@/components/ui";
 import { Input } from "@/components/setup/common";
+import { AskRemyRow } from "@/components/AskRemyRow";
 import { HearIt } from "@/components/HearIt";
 import { api } from "@/lib/api";
 import { useConfig } from "@/lib/config";
@@ -34,6 +35,7 @@ export default function Prep() {
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView testID="interview-kit" keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 14 }}>
+        <AskRemyRow asks={["How do I answer “tell me about yourself”?", "What should I ask the interviewer?"]} />
         <Segmented testID="kit-tab" value={tab} onChange={(t) => { tap(); setTab(t); }} options={[{ key: "stories", label: "Stories" }, { key: "pitch", label: "Pitch" }, { key: "questions", label: "Questions" }]} />
         {tab === "stories" ? <Stories /> : tab === "pitch" ? <Pitch /> : <Questions />}
       </ScrollView>

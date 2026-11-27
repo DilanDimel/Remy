@@ -10,6 +10,7 @@ import { speechFeedback } from "@shared/speech";
 import { STORY_PARTS } from "@shared/stories";
 import { Button, Group, Icon, Remy, Row, Segmented, T, success, tap } from "@/components/ui";
 import { Input } from "@/components/setup/common";
+import { AskRemyRow } from "@/components/AskRemyRow";
 import { HearIt, canSpeak, hush, say } from "@/components/HearIt";
 import { api } from "@/lib/api";
 import { useJobs } from "@/lib/jobs";
@@ -92,6 +93,7 @@ function Mock() {
   const ready = (w.stories || []).filter((s) => STORY_PARTS.every((p) => s[p])).length;
   return scroll(<>
     <T kind="muted"><Text style={{ fontFamily: font.bold, color: c.ink }}>{tracked ? `You have an interview with ${tracked.company}.` : job ? `Your ${job.company} interview could come any week.` : "Interviews come fast once you apply."}</Text> {job ? "I'll build this one from their posting and your resume, so it feels like the real thing." : "Save an opening and I'll interview you for it."}</T>
+    <AskRemyRow asks={job ? [`What will ${job.company} ask me?`, "How do I answer “tell me about yourself”?"] : ["How do I get ready for my first interview?", "What should I ask the interviewer?"]} />
     {!job ? (
       <View style={card}><T kind="h2">Save an opening and I'll interview you for it</T><T kind="small">I plan the questions from the posting itself, so the practice matches the real thing.</T>
         <Button testID="button-mock-find-jobs" label="Find openings" icon="arrow" onPress={() => go("jobs")} /></View>

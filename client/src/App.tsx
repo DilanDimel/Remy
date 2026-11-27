@@ -5,18 +5,18 @@ import {
   Award, BarChart3, Briefcase, CalendarDays, ChevronsLeft, ChevronsRight, Compass, FileText, Home as HomeIcon, Menu, Send,
   Check, Gauge, Info, Mic, Minus, ShieldCheck, UserCog, Users,
   ImagePlus, MessageCircle, MessageSquare, Search, ArrowRight, ChevronDown, Square,
-  Lock,
+  Lock, History, Trash2,
 } from "lucide-react";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { canListen, speak, useVoice } from "./lib/voice";
 import { StoreProvider, api, daysUntil, fmtDate, rid, useDraft, useOwnerView, useOwnersOnly, useStore, type Theme } from "./lib/store";
 import { CAREER_QUEST_ON } from "@shared/game";
 import { resumeDiff } from "@shared/resumeDiff";
-import { activityDays, dayOf, todayBrief } from "@shared/activity";
+import { activityDays, dayOf, didToday, todayBrief } from "@shared/activity";
 import { useJobs } from "./lib/jobs";
 import { go, replaceRoute, useRoute } from "./lib/router";
 const PUBLIC = new Set(["/", "/signin", "/welcome", "/about", "/policies", "/privacy", "/terms"]);
-import { BetaBadge, Modal, Remy, Rich, Spinner, StatusChip } from "./components/common";
+import { BetaBadge, Modal, Remy, Rich, Spinner } from "./components/common";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { QuickRate } from "./components/QuickRate";
 import { WhatsNew } from "./components/WhatsNew";
@@ -257,14 +257,15 @@ function Shell() {
       return () => clearTimeout(t);
     }
   }, [flyIn]);
-  useEffect(() => { if (isMobileNow() || path.startsWith("/path")) setAsstPage(null); }, [path]);
+  useEffect(() => { if (isMobileNow() || path.startsWith("/path") || path.startsWith("/interview")) setAsstPage(null); }, [path]);
   const w = ws as Workspace;
   // Remy stays open on every page until the student minimizes him. On small screens the
   // panel would cover the page, so there he starts minimized as the docked fox button.
   const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 1020px)").matches;
   // Owners on My Path talk to Remy inside his office (PathBoard.tsx), so his panel stays closed there unless something
   // (a tailoring conversation) asks for it.
-  const inOffice = ownerView && path.startsWith("/path");
+  // Interview (Dilan, Nov 27), for everyone: Remy is built into the page (RemyAskInline), so the panel closes there too.
+  const inOffice = (ownerView && path.startsWith("/path")) || path.startsWith("/interview");
   const asstOpen = inOffice ? asstPage === true : asstPage ?? (isMobile ? false : w.settings.assistantOpen);
   const setAsst = (open: boolean) => {
     setAsstPage(open);
@@ -335,7 +336,7 @@ function Shell() {
         <div className="topbar">
           <div className={"crumb" + (current.path === "/" ? " home" : "")}><span className="crumb-root">Remy › </span><b data-short={t(PHONE_NAME[current.label] || current.label)}>{t(current.label)}</b></div>
           <div style={{ marginLeft: "auto" }} className="row">
-            {!asstOpen && !ownerView && (
+            {!asstOpen && !ownerView && !inOffice && (
               <button className="btn btn-secondary btn-sm hide-sm" onClick={() => setAsst(true)} data-testid="button-open-assistant">
                 <Remy size={18} /> Open Remy
               </button>
@@ -345,6 +346,7 @@ function Shell() {
             {!asstOpen && ownerView && !inOffice && (
               <button className="remy-dock" onClick={() => setAsst(true)} data-testid="button-open-assistant" aria-label="Open Remy" title="Ask Remy">
                 <span className="remy-dock-face"><Remy size={36} mood="idle" /></span>
+                <span className="remy-dock-name">Ask Remy</span>
               </button>
             )}
           </div>
@@ -366,7 +368,7 @@ function Shell() {
       </nav>
       {!asstOpen && !inOffice && (
         <button className="asst-fab fade-up" onClick={() => setAsst(true)} data-testid="button-fab-assistant" aria-label="Open Remy">
-          <Remy size={30} mood="wave" /> <span className="hide-sm">Remy</span>
+          <Remy size={30} mood="wave" /> <span>Ask Remy</span>
         </button>
       )}
       {more && (
@@ -456,21 +458,26 @@ function RemyActivity() {
 }
 
 /** Empty chat (owners): Remy opens with what happened today instead of waiting to be asked. */
-const TODAY_ICO = { new: Search, due: CalendarDays, did: Check, next: ArrowRight } as const;
-function RemyToday({ onActivity }: { onActivity: () => void }) {
+/** Owners: today's news (new openings, a deadline, the next to-do) as one opener in Remy's words, and how many things
+ *  he did today (shown on the Activity button instead of a card). Nov 27: the Today card made the panel too busy. */
+function useToday() {
   const { ws } = useStore();
   const { jobs, fits } = useJobs();
   const rows = todayBrief({ ...ws!, jobs: jobs || ws!.jobs }, new Date(), fits);
   const first = firstName(ws!);
   const h = new Date().getHours();
+  const said = rows.filter((r) => r.kind !== "did").slice(0, 2).map((r) => r.text.replace(/\.$/, "")).join(". ");
+  return { line: said ? `${h >= 22 || h < 4 ? "Hey" : h < 12 ? "Morning" : h < 18 ? "Hi" : "Evening"}${first ? `, ${first}` : ""}. ${said}. Want help with it?` : "", did: didToday(ws!) };
+}
+
+/** Remy's taps: the first is the one he'd pick (orange), the rest wait under "Something else". Each sends its words. */
+function AskChips({ asks, more = [], send }: { asks: string[]; more?: string[]; send: (s: string) => void }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="asst-today" data-testid="remy-today">
-      <b className="asst-today-h">{h < 12 ? "Morning" : h < 18 ? "Hi" : "Evening"}{first ? `, ${first}` : ""}. {rows.length ? "Here's today:" : "Quiet day so far. Nothing new since yesterday."}</b>
-      {rows.map((r) => {
-        const Ico = TODAY_ICO[r.kind];
-        const click = r.kind === "did" ? onActivity : r.link ? () => go(r.link!) : undefined;
-        return <button key={r.kind} className="act-row act-btn" onClick={click} disabled={!click} data-testid={`button-today-${r.kind}`}><span className={"act-ico" + (r.kind === "did" ? " done" : "")}><Ico size={13} /></span><span className="grow">{r.text}</span>{click && <ArrowRight size={13} className="act-chev" />}</button>;
-      })}
+    <div className="asst-chips" data-testid="remy-chips">
+      {asks.map((s, i) => <button key={s} className={"asst-chip" + (i === 0 ? " go" : "")} onClick={() => send(s)} data-testid="button-remy-chip">{s}</button>)}
+      {open && more.map((s) => <button key={s} className="asst-chip" onClick={() => send(s)} data-testid="button-remy-chip">{s}</button>)}
+      {!open && more.length > 0 && <button className="asst-more" onClick={() => setOpen(true)} aria-expanded={false} data-testid="button-remy-more">Something else <ChevronDown size={13} /></button>}
     </div>
   );
 }
@@ -503,8 +510,8 @@ const STARTERS: Record<string, string[]> = {
 
 function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () => void; flyIn: boolean }) {
   const { ws, setWs, run, save, config, theme, setTheme, toast } = useStore();
-  const preview = true; // Remy's page-specific opening line, released to everyone Nov 21 (was owners only)
-  const stage2 = useOwnerView(); // redesign stage 2: profile header + Activity tab, owners first
+  const stage2 = useOwnerView(); // redesign stage 2: streaming, Activity, Today's news, owners first
+  const today = useToday();
   const phone = useIsMobile(); // phones: "Remy noticed" is his message in the chat, not a card squeezing it (Dilan, Nov 25)
   const pg = stage2 && page === "Account" ? "Accounts" : page; // owners: Account had Home's intro (the nav label is "Account")
   // A page that is still "Coming soon" for this student gets no intro or questions about using it.
@@ -598,6 +605,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
     return run(() => save("profile", { ...ws!.profile, targetRoles: [...roles, a.title].join(", ") }), `Remy will look for ${a.title} openings too`);
   };
   const [view, setView] = useState<"chat" | "activity">("chat");
+  const starters = [...(!shut && STARTERS[pg] || STARTERS.Home), LOOKING];
   const [clearing, setClearing] = useState(false); // two taps: Clear chat, then Yes, clear it
   const clearChat = async () => {
     setClearing(false);
@@ -613,54 +621,25 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   };
   return (
     <>
-      {stage2 ? (<>
-      <div className="asst-profile">
-        <button className="asst-x" onClick={onMinimize} aria-label="Minimize Remy" title="Minimize Remy" data-testid="button-close-assistant"><Minus size={16} /></button>
-        <div className="asst-avatar"><Remy size={58} mood={mood} className={flyIn ? "fly-in" : ""} /></div>
-        <b className="asst-name">Remy</b>
-        <span className={"xs asst-status" + (config?.ai.available ? " on" : "")}><i />{config?.ai.available ? "Ready to help" : "AI off on this server"}</span>
-        <div className="seg asst-tabs" role="tablist" aria-label="Remy">
-          <button role="tab" aria-selected={view === "chat"} aria-pressed={view === "chat"} onClick={() => setView("chat")} data-testid="tab-remy-chat">Chat</button>
-          <button role="tab" aria-selected={view === "activity"} aria-pressed={view === "activity"} onClick={() => setView("activity")} data-testid="tab-remy-activity">Activity</button>
+      {/* One slim row for everyone (Nov 27, Dilan: "I don't know where to look"): Remy, then small icons. */}
+      <div className="asst-top">
+        <span className="asst-face"><Remy size={40} mood={mood} className={flyIn ? "fly-in" : ""} /></span>
+        <div className="asst-who"><b>Remy</b><span className={"xs asst-status" + (config?.ai.available ? " on" : "")}><i />{config?.ai.available ? "Here for you" : "AI off on this server"}</span></div>
+        <div className="asst-acts">
+          {view === "chat" && chat.length > 0 && <button className="asst-icon" onClick={() => setClearing(true)} aria-label="Clear chat" title="Clear chat" data-testid="button-clear-chat"><Trash2 size={16} /></button>}
+          {stage2 && <button className="asst-icon" onClick={() => setView(view === "chat" ? "activity" : "chat")} aria-pressed={view === "activity"} aria-label={view === "chat" ? "What Remy did" : "Back to chat"} title={view === "chat" ? "What Remy did" : "Back to chat"} data-testid="tab-remy-activity"><History size={16} />{today.did > 0 && view === "chat" && <span className="asst-badge">{today.did}</span>}</button>}
+          <button className="asst-icon" onClick={onMinimize} aria-label="Minimize Remy" title="Minimize Remy" data-testid="button-close-assistant"><Minus size={16} /></button>
         </div>
-        {view === "chat" && chat.length > 0 && (clearing
-          ? <span className="xs row" style={{ gap: 6, justifyContent: "center" }}>Clear the whole chat? <button className="btn btn-ghost btn-sm" onClick={clearChat} data-testid="button-clear-chat-yes">Yes, clear it</button><button className="btn btn-ghost btn-sm" onClick={() => setClearing(false)}>Keep</button></span>
-          : <button className="btn btn-ghost btn-sm xs" onClick={() => setClearing(true)} data-testid="button-clear-chat">Clear chat</button>)}
       </div>
-      </>) : (<>
-      <div className="asst-head">
-        <Remy size={34} mood={mood} className={flyIn ? "fly-in" : ""} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 800 }}>Remy</div>
-          <div className="xs muted">Your AI coach</div>
-        </div>
-        {config?.ai.available ? <StatusChip label="Live">Live AI</StatusChip> : <StatusChip label="Needs setup">AI off</StatusChip>}
-        <button className="btn btn-secondary btn-sm" onClick={onMinimize} aria-label="Minimize Remy" title="Minimize Remy" data-testid="button-close-assistant"><Minus size={15} /><span className="hide-sm">Minimize</span></button>
-      </div>
-      </>)}
+      {clearing && <div className="asst-confirm xs">Clear the whole chat? <button className="btn btn-ghost btn-sm" onClick={clearChat} data-testid="button-clear-chat-yes">Yes, clear it</button><button className="btn btn-ghost btn-sm" onClick={() => setClearing(false)}>Keep</button></div>}
       {stage2 && view === "activity" ? <div className="asst-body"><RemyActivity /></div> : <>
       <div className="asst-body">
-        {chat.length === 0 && !tailor && !busy && preview && (
+        {chat.length === 0 && !tailor && !busy && (
+          // One message from Remy and two taps; the rest under "Something else" (Nov 27: 9 things before the box was too many).
           <div className="asst-intro" data-testid="assistant-welcome">
-            {stage2 && <RemyToday onActivity={() => setView("activity")} />}
-            <div className="bubble bubble-ai">{shut ? "This part of Remy is coming in a future update. Ask me anything about your search meanwhile." : INTRO[pg] || INTRO.Home}</div>
+            <div className="bubble bubble-ai">{shut ? "This part of Remy is coming in a future update. Ask me anything about your search meanwhile." : stage2 && pg === "Home" && today.line ? today.line : INTRO[pg] || INTRO.Home}</div>
             {stage2 && phone && <OfferSlot />}
-            <p className="xs muted">I only use what's in your approved profile, and I never send anything for you.</p>
-            <div className="asst-asks">
-              <span className="xs muted">You could ask</span>
-              {[LOOKING, ...(!shut && STARTERS[pg] || STARTERS.Home)].map((s) => <button key={s} className="asst-ask" onClick={() => send(s)}>{s}</button>)}
-            </div>
-          </div>
-        )}
-        {chat.length === 0 && !tailor && !busy && !preview && (
-          // Empty chat: a welcome in the middle of the panel instead of one bubble under a blank space.
-          <div className="asst-welcome" data-testid="assistant-welcome">
-            <Remy size={56} mood="wave" />
-            <b>Hi, I'm Remy.</b>
-            <p className="small muted">I can explain recommendations, help you think through choices and suggest next steps. I only use what's in your approved profile, and I never send anything for you.</p>
-            <div className="stack-sm">
-              {[LOOKING, ...(STARTERS[page] || STARTERS.Home)].map((s) => <button key={s} className="btn btn-secondary btn-sm asst-starter" onClick={() => send(s)}>{s}</button>)}
-            </div>
+            <AskChips asks={starters.slice(0, 2)} more={starters.slice(2)} send={send} />
           </div>
         )}
         {chat.slice(-30).map((m) => (
@@ -690,7 +669,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
             })()}
             {/* What Remy did from this reply (redesign stage 6, owners first), each with Undo. */}
             <RemyDid m={m} />
-            {m.role !== "user" && m.id === chat[chat.length - 1]?.id && !busy && <QuickRate place="coach" id={"coach:" + m.id} label="Helpful?" />}
+            {m.role !== "user" && m.id === chat[chat.length - 1]?.id && !busy && (m.replies?.length ? <AskChips asks={m.replies} send={send} /> : <QuickRate place="coach" id={"coach:" + m.id} label="Helpful?" />)}
             {!!m.actions?.length && (
               <div className="row" style={{ gap: 6, maxWidth: "92%" }}>
                 {m.actions.map((a, i) => isDone(a)
@@ -738,14 +717,8 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
             <div ref={tailorEnd} />
           </div>
         )}
-        {chat.length === 1 && !busy && !tailor && (
-          <div className="stack-sm">
-            {(STARTERS[page] || STARTERS.Home).map((s) => (
-              <button key={s} className="btn btn-secondary btn-sm" style={{ justifyContent: "flex-start", whiteSpace: "normal", textAlign: "left", height: "auto", padding: "8px 12px" }} onClick={() => send(s)}>{s}</button>
-            ))}
-          </div>
-        )}
-        {stage2 && phone && !(chat.length === 0 && !tailor && !busy && preview) && <OfferSlot />}
+        {chat.length === 1 && !busy && !tailor && !chat[0].replies?.length && <AskChips asks={starters.slice(0, 2)} more={starters.slice(2)} send={send} />}
+        {stage2 && phone && !(chat.length === 0 && !tailor && !busy) && <OfferSlot />}
         <div ref={end} />
       </div>
       {stage2 && !phone && <OfferSlot />}
@@ -756,7 +729,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
           value={msg}
           onChange={(e) => { setMsg(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px"; }}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(msg); } }}
-          placeholder={tailor?.stage === "reading" ? "Remy is reading the posting…" : asking ? "Answer Remy… (or type skip)" : config?.ai.available ? (stage2 ? "Ask Remy anything…" : "Ask Remy anything… (Shift+Enter for a new line)") : "AI needs setup on this server"}
+          placeholder={tailor?.stage === "reading" ? "Remy is reading the posting…" : asking ? "Answer Remy… (or type skip)" : config?.ai.available ? "Ask Remy anything…" : "AI needs setup on this server"}
           disabled={(!config?.ai.available && !asking) || tailor?.stage === "reading"}
           aria-label="Message Remy"
           data-testid="input-chat"
@@ -764,6 +737,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
         {stage2 && canListen && config?.ai.available && !asking && <button type="button" className={"btn " + (voice.on ? "btn-primary remy-listening" : "btn-secondary")} onClick={voice.toggle} disabled={busy} aria-label={voice.on ? "Stop listening" : "Talk to Remy"} aria-pressed={voice.on} data-testid="button-chat-mic">{voice.on ? <Square size={16} /> : <Mic size={16} />}</button>}
         <button className="btn btn-primary" disabled={(busy && !asking) || !msg.trim() || tailor?.stage === "reading"} aria-label="Send" data-testid="button-send-chat"><Send size={16} /></button>
       </form>
+      {chat.length === 0 && <p className="asst-hint">Remy only uses your approved profile and never sends anything for you.</p>}
       </>}
     </>
   );

@@ -1,6 +1,7 @@
 import type { ChatDid, Job, MoreAction, TrackStatus, Workspace } from "@shared/types";
 import { uid } from "../platform/ids";
 import { PREP_HEAD, quietOn } from "@shared/remyOffers";
+import { firstName } from "@shared/names";
 
 // Owners (Nov 23, Dilan: "every feature on the website connected to the AI"): the rest of what a student can do on
 // the site, done by Remy from chat with Undo. Builds on server/ai/chatDo.ts (save, tailor, to-dos, name, theme…).
@@ -342,10 +343,43 @@ export function addLoop(ws: Workspace, raw: any, today: string) {
 
 export const WEEKLY_CHECKIN = "Quick weekly check-in, 2 minutes: did you apply anywhere this week? Any news, like an interview, an offer or a no? And is anything stressing you? Tell me in your own words and I'll update your board, calendar and to-dos.";
 
-/** At most one message Remy starts himself when the student opens the app: a question he promised to ask, else the
- *  weekly check-in. Returns the text pushed into chat, or "" when there's nothing to say. */
+const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
+/** Owners first (Nov 27, "get more students to ask Remy"): Remy's first message after setup, so nobody faces an empty
+ *  chat. Built only from what Remy already worked out (stored fits, the resume), no AI call, so it can't invent anything.
+ *  It ends with taps that start a real step. Once per student; never after they've written to him themselves. */
+export function firstHello(ws: Workspace, today: string): { text: string; replies: string[] } | null {
+  if (ws.remyHello || !ws.onboarding.done || ws.chat.some((m) => m.role === "user")) return null;
+  const first = firstName(ws);
+  const hi = first ? `Hi ${first}.` : "Hi.";
+  const fits = ws.jobs.filter((j) => {
+    const f = ws.fits[j.id];
+    return f && !f.excluded && !f.closed && !f.hidden && f.eligibility !== "unlikely" && f.regionMatch !== false && j.kind !== "event"
+      && !ws.hiddenJobIds.includes(j.id) && (!j.deadline || j.deadline.slice(0, 10) >= today);
+  }).sort((a, b) => (ws.fits[b.id].score ?? 0) - (ws.fits[a.id].score ?? 0));
+  if (fits.length) {
+    const best = fits[0];
+    const noun = fits.filter((j) => j.kind === "internship").length > fits.length / 2 ? "internship" : "opening";
+    const due = best.deadline ? `, due ${dayLabel(best.deadline.slice(0, 10)).replace(/^\w+, /, "")}` : "";
+    const tailor = `Tailor my resume for ${best.company}`;
+    return {
+      text: `${hi} I read your resume and found ${plural(fits.length, noun)} that fit${fits.length === 1 ? "s" : ""} you. The best one is ${best.title} at ${best.company}${due}. Want me to tailor your resume for it?`,
+      replies: [tailor.length <= 44 ? tailor : "Tailor my resume for it", fits.length > 1 ? `Show me all ${fits.length}` : "Why does it fit me?"],
+    };
+  }
+  if (ws.resume) return { text: `${hi} I read your resume. Want me to go through it with you and fix the weakest lines first? Nothing changes until you say yes.`, replies: ["Fix my resume with me", "Find openings for me"] };
+  return null;
+}
+
+/** At most one message Remy starts himself when the student opens the app: his first hello after setup, a question he
+ *  promised to ask, else the weekly check-in. Returns the text pushed into chat, or "" when there's nothing to say. */
 export function reachOut(ws: Workspace, today: string, nowIso: string): string {
   if (quietOn(ws.settings, today)) return "";
+  const hello = firstHello(ws, today);
+  if (hello) {
+    ws.remyHello = today;
+    ws.chat.push({ id: uid("m"), role: "assistant", text: hello.text, at: nowIso, page: "Remy", replies: hello.replies });
+    return hello.text;
+  }
   const loops = (ws.loops ||= []);
   // A career fair or networking event that just passed: ask who they met (once), so Remy can add them to Community.
   const fair = ws.calendar.find((c) => /fair|network|meetup|mixer|info(rmation)? session/i.test(c.title) && c.date < today && daysApart(c.date, today) <= 3 && !loops.some((l) => l.id === `met:${c.id}`));
