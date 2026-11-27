@@ -176,3 +176,11 @@ test("letter naming the employer's own role, name or people isn't flagged as the
   assert.ok(types("I was the founder of a startup.", "TASTE", "Intern").includes("title:founder"));
   assert.ok(types("I am skilled in Adobe Photoshop.", "Acme", "Intern").some((t) => t.startsWith("skill:")));
 });
+
+test("AI test, Nov 27: a number spelled out, an intern's internship, and quoted coaching lines are not new claims", () => {
+  assert.deepEqual(claimCheck("I captained a team of five.", "Captained a team of 5"), []);
+  assert.equal(claimCheck("I captained a team of seven.", "Captained a team of 5").length, 1);
+  assert.deepEqual(claimCheck("I did a finance internship at KPMG.", "Finance Intern, KPMG"), []);
+  assert.deepEqual(claimCheck("Start with the goal: 'The project was X.' Then say what you did.", "x"), []);
+  assert.ok(claimCheck("I worked at Goldman Sachs.", "Barista").length > 0);
+});

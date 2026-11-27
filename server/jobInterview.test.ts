@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { jobQuestions } from "@shared/jobInterview";
 import { pickProfile } from "@shared/interview";
+import { boilerplate, topSkills } from "@shared/requirements";
 import { BANK, SOURCES, COMPANIES, companyFacts } from "@shared/questionBank";
 
 const doc = { contact: {} as any, skills: [{ id: "k", label: "", items: "Excel, PowerPoint" }], sections: [{ id: "s", heading: "Experience", entries: [{ id: "e", org: "Chick-fil-A", role: "", location: "", dates: "", bullets: [
@@ -71,4 +72,18 @@ test("real finance-board titles get their scoring guide (98 public postings, Nov
   assert.equal(pickProfile({ title: "Intern - Controllership & Tax" }), "accounting");
   assert.equal(pickProfile({ title: "Business Valuation Intern - Summer 2027" }), "banking");
   assert.equal(pickProfile({ title: "Syntax Researcher" }), "generic");
+});
+
+test("posting boilerplate (scam warnings, benefits, company history, team blurbs) never becomes a requirement or question", () => {
+  const junk = [
+    "If you suspect that you've been contacted by a scammer, we recommend you cease all communication with the individual.",
+    "Variable incentives may also be offered. Information about employee benefits offered in the US can be found at https://example.com",
+    "Facilities The Facilities team delivers a high level of corporate services to our offices, including project management.",
+    "A World-Changing Company Palantir builds the world’s leading software for data-driven decisions and operations.",
+  ];
+  for (const s of junk) assert.ok(boilerplate(s), s);
+  assert.ok(!boilerplate("Excellent verbal, written and interpersonal communication skills."));
+  assert.deepEqual(topSkills(junk, 5), []);
+  const qs = jobQuestions({ company: "Palantir", title: "Analyst", requirements: [{ id: "r", keyword: "communication", quote: junk[0] }] });
+  assert.ok(!qs.some((q) => q.from === "posting"), qs.map((q) => q.q).join(" | "));
 });

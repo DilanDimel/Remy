@@ -101,10 +101,17 @@ export function postingSkills(requirements: { keyword: string; quote: string }[]
   return out.slice(0, 15);
 }
 
+/** Posting text that isn't about the job: scam warnings, benefits and EEO lines, company history and team blurbs. Real
+ *  postings (98, Nov 27) turned Palantir's "contacted by a scammer ... cease all communication" into a communication
+ *  question and HPE's benefits link into an HTML one. */
+const BOILERPLATE = /\b(?:scam\w*|fraud\w*|phishing|verify and apply|equal (?:employment )?opportunity|equitable access|reasonable accommodation|employee benefits|benefits (?:offered|package)|variable incentives|https?:\/\/|\d+-year history|network consists of|world['’]?s leading|world-changing)|\bthe [\w&,\- ]{2,40} team (?:delivers|provides|builds|maintains|works across|partners with)\b/i;
+export const boilerplate = (s: string) => BOILERPLATE.test(s);
+
 /** Up to `n` skills a posting's text names, most specific first, each with the sentence it came from. */
 export function topSkills(sentences: string[], n: number): { keyword: string; quote: string }[] {
   const found: { keyword: string; quote: string; r: number }[] = [];
   for (const s of sentences) {
+    if (boilerplate(s)) continue;
     if (DEGREE.test(s) && skillsIn(s).every(isField)) continue;
     for (const k of skillsIn(s)) if (!(DEGREE.test(s) && isField(k)) && !found.some((f) => f.keyword.toLowerCase() === k.toLowerCase())) found.push({ keyword: k, quote: s, r: Math.min(...k.split(" or ").map((x) => rank.get(x) ?? 999)) });
   }

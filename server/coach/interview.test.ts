@@ -87,3 +87,15 @@ test("an answer too short to rate still gets Remy's take: their words, what the 
   assert.match(thinAnswerTip(q("warmup"), "idk").title, /who you are/);
   assert.match(thinAnswerTip(q("pressure"), "").title, /^That one was too short/);
 });
+
+test("AI test, Nov 27: no praise for an answer Remy rated Not yet; blanks and 'one or two sentences' aren't claims", async () => {
+  const { checkFeedback } = await import("./interview");
+  const answer = "Ha, the only thing that ever went wrong was when the coffee machine broke. Total disaster.";
+  const ok = (t: string) => !/\btwo\b|Fill/.test(t); // stands in for the honesty check, which flags number words and new names
+  const raw = (level: number) => ({ ratings: [{ criterion: "answer_focus", level, quote: "the coffee machine broke", note: "x" }], landed: { quote: "the coffee machine broke", why: "funny" },
+    sharpen: { title: "Pick a real moment", example: "Say what went wrong in one or two sentences: [Fill in the moment], then what you did." } });
+  const bad = checkFeedback(raw(1), answer, "generic", ok);
+  assert.equal(bad.landed, undefined);
+  assert.ok(bad.sharpen?.example);
+  assert.ok(checkFeedback(raw(2), answer, "generic", ok).landed);
+});

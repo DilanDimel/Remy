@@ -91,12 +91,17 @@ export function thinAnswerTip(q: IvQuestion, answer: string): NonNullable<IvAnsw
   return { title: `${lead} Answer with one real example: the situation, what you did, and what happened.`, example: "At [place or class], [the situation]. I [what you did], and [what happened because of it]." };
 }
 
+// The honesty check reads an example without its coaching parts: "[what you did]" blanks and "in one or two
+// sentences" are instructions, not claimed facts (AI test, Nov 27: 23% of examples were dropped for these).
+const coachingOnly = (t: string) => t.replace(/\[[^\]]*\]/g, " ").replace(/\b(?:one|two|three)(?: or (?:two|three))? (?:sentences?|minutes?|seconds?|parts?|things|examples?|questions?|points?)\b/gi, " ");
 /** What survives of the AI's feedback: quote-backed ratings, a real "landed" quote, and wording that passes `ok`. */
 export function checkFeedback(raw: any, answer: string, profile: ProfileId, ok: (t: string) => boolean): Pick<IvAnswer, "ratings" | "landed" | "sharpen"> {
+  const ratings = checkRatings(raw?.ratings, answer, profile);
   const lq = s(raw?.landed?.quote, 300), why = s(raw?.landed?.why, 240), title = s(raw?.sharpen?.title, 160), example = s(raw?.sharpen?.example, 400);
   return {
-    ratings: checkRatings(raw?.ratings, answer, profile),
-    ...(lq && why && saidIt(lq, answer) ? { landed: { quote: lq, why } } : {}),
-    ...(title ? { sharpen: { title, ...(example && ok(example) ? { example } : {}) } } : {}),
+    ratings,
+    // Praise only when Remy also heard something at least "Getting there" (AI test, Nov 27: most bad answers got praise).
+    ...(lq && why && saidIt(lq, answer) && ratings.some((r) => r.level >= 2) ? { landed: { quote: lq, why } } : {}),
+    ...(title ? { sharpen: { title, ...(example && ok(coachingOnly(example)) ? { example } : {}) } } : {}),
   };
 }
