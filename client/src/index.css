@@ -214,10 +214,11 @@ label.row > input[type="checkbox"] { flex: none; margin-top: 3px; }
 
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
 .tab { padding: 10px 12px; font-weight: 700; font-size: var(--text-sm); color: var(--muted-text); border-bottom: 2px solid transparent; border-radius: 0; white-space: nowrap; }
-.tab[aria-selected="true"] { color: var(--plum); border-bottom-color: var(--fox); }
+.tab[aria-selected="true"] { color: var(--fox-deep); border-bottom-color: var(--fox); }
 .seg { display: inline-flex; max-width: 100%; background: var(--lav-2); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 2px; }
 .seg button { padding: 6px 12px; border-radius: 9px; font-size: var(--text-sm); font-weight: 700; color: var(--muted-text); white-space: nowrap; }
-.seg button[aria-pressed="true"], .seg button[aria-selected="true"] { background: var(--surface); color: var(--plum); box-shadow: var(--shadow); }
+/* the picked option is Remy orange (Dilan, Nov 27: white-on-grey looked unfinished) */
+.seg button[aria-pressed="true"], .seg button[aria-selected="true"] { background: var(--fox-soft); color: var(--fox-deep); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fox) 40%, transparent); }
 
 .empty { text-align: center; padding: 36px 20px; color: var(--muted-text); display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--fox); animation: spin 0.8s linear infinite; }
@@ -1071,7 +1072,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
   /* tabs become a boxed switch (Dilan, Nov 27: loose underlined cells looked unfinished); an odd last tab takes the full row */
   .tabs { display: grid; grid-template-columns: 1fr 1fr; overflow: visible; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 12px; background: var(--lav-2); -webkit-mask-image: none; mask-image: none; }
   .tab { white-space: normal; text-align: center; justify-content: center; line-height: 1.25; border: 0; border-radius: 9px; }
-  .tab[aria-selected="true"] { background: var(--surface); box-shadow: var(--shadow); }
+  .tab[aria-selected="true"] { background: var(--fox-soft); color: var(--fox-deep); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fox) 40%, transparent); }
   .tabs > .tab:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
 .pick-more-phone { display: none; }
@@ -1541,6 +1542,8 @@ ul[class] > li, ol[class] > li { max-width: none; }
 /* Owner Opportunities (tabs redesign, Nov 22): Remy's line, a peach "Remy's pick", list + rail, filter counts. */
 .op-say { font-size: var(--text-lg); color: var(--muted-text); margin: 6px 0 0; letter-spacing: -.01em; }
 .op-say b { color: var(--ink); font-weight: 700; }
+/* Remy's line under a page title sits in its own note with an orange edge, not as loose grey text (Dilan, Nov 27) */
+.op-say, .remy-line { width: fit-content; max-width: min(100%, 72ch); padding: 8px 14px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--fox); border-radius: 12px; font-size: var(--text-base); line-height: 1.4; color: var(--muted-text); }
 .op-n { font-style: normal; font-weight: 600; opacity: .6; margin-left: 5px; }
 .op-pick { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; background: var(--fox-soft); border-radius: 20px; padding: 18px 20px; }
 .op-pick-main { display: grid; gap: 2px; min-width: 0; }
@@ -3970,7 +3973,7 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 @media (max-width: 760px) {
   .redesign-2 .res-tabs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 12px; background: var(--lav-2); }
   .redesign-2 .res-tabs .tab { justify-content: center; text-align: center; border: 0; border-radius: 9px; }
-  .redesign-2 .res-tabs .tab[aria-selected="true"] { background: var(--surface); box-shadow: var(--shadow); }
+  .redesign-2 .res-tabs .tab[aria-selected="true"] { background: var(--fox-soft); color: var(--fox-deep); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fox) 40%, transparent); }
   .redesign-2 .rm-coach { position: fixed !important; top: auto !important; left: 8px !important; right: 8px; width: auto !important; bottom: calc(72px + env(safe-area-inset-bottom)); max-height: 55vh; overflow-y: auto; z-index: 60; }
   .redesign-2 .rm-coach-mark { scroll-margin-top: 72px; }
 }

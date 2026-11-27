@@ -271,8 +271,8 @@ export function Segmented<K extends string>({ options, value, onChange, testID }
         const on = o.key === value;
         return (
           <Pressable key={o.key} testID={`${testID}-${o.key}`} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={o.label} onPress={() => { if (!on) { tap(); onChange(o.key); } }}
-            style={{ flex: 1, minHeight: 38, paddingHorizontal: 6, paddingVertical: 4, borderRadius: BUTTON_RADIUS - 2, alignItems: "center", justifyContent: "center", backgroundColor: on ? c.surface : "transparent", borderWidth: on ? 1 : 0, borderColor: c.line }}>
-            <Text style={{ textAlign: "center", fontFamily: on ? font.bold : font.semi, fontSize: 14, color: on ? c.ink : c.mutedText }}>{o.label}</Text>
+            style={{ flex: 1, minHeight: 38, paddingHorizontal: 6, paddingVertical: 4, borderRadius: BUTTON_RADIUS - 2, alignItems: "center", justifyContent: "center", backgroundColor: on ? c.foxSoft : "transparent", borderWidth: on ? 1 : 0, borderColor: c.fox }}>
+            <Text style={{ textAlign: "center", fontFamily: on ? font.bold : font.semi, fontSize: 14, color: on ? c.foxDeep : c.mutedText }}>{o.label}</Text>
           </Pressable>
         );
       })}
