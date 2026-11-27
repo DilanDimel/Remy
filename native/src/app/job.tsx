@@ -11,7 +11,7 @@ import { useJobs } from "@/lib/jobs";
 import { go } from "@/lib/nav";
 import { jobPay } from "@/lib/pay";
 import { deadlineChip, kindLabel, shortPlace } from "@/lib/next";
-import { useSession } from "@/lib/session";
+import { useOwnersOnly, useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
 
 const rid = (p = "") => p + Math.random().toString(36).slice(2, 10);
@@ -31,6 +31,7 @@ export default function JobDetail() {
   const fit = fits[j.id];
   const due = deadlineChip(j.deadline);
   const pay = jobPay(j);
+  const showPay = useOwnersOnly() && j.kind !== "event"; // new: owners first
   const saved = ws.savedJobIds.includes(j.id);
   const decided = saved || !!ws.jobFeedback?.[j.id];
   const skills = postingSkills(j.requirements).slice(0, 6);
@@ -72,7 +73,7 @@ export default function JobDetail() {
           </View>
         </View>
         <T kind="muted">{shortPlace(j.location)}{j.format && !(j.location || "").toLowerCase().includes(j.format.toLowerCase()) ? ` · ${j.format}` : ""}{j.dates ? ` · ${j.dates}` : ""}</T>
-        {j.kind !== "event" && <T kind={pay ? "body" : "muted"} style={pay ? { fontFamily: font.bold } : undefined}>{pay ? `Pay: ${pay}` : "Pay not listed"}</T>}
+        {showPay && <T kind={pay ? "body" : "muted"} style={pay ? { fontFamily: font.bold } : undefined}>{pay ? `Pay: ${pay}` : "Pay not listed"}</T>}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
           <Chip text={j.label} tone={j.label === "Live" ? "live" : "plain"} />
           <FitBadge fit={fit} />
