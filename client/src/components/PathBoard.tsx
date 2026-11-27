@@ -13,7 +13,7 @@ import { pinColor, pinsOf, topPins } from "@shared/pins";
 import { CHEST_XP, RARE, chestPrize, rareOwned, welcomeBack } from "@shared/chest";
 import { prepChain } from "@shared/prep";
 import { dailyQuests, seasonOf } from "@shared/path";
-import { api, useStore } from "../lib/store";
+import { api, useOwnersOnly, useStore } from "../lib/store";
 import type { Workspace } from "@shared/types";
 import { go } from "../lib/router";
 import { Modal, Remy, Rich, Spinner } from "./common";
@@ -201,6 +201,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   const [mood, setMood] = useState<"idle" | "wave" | "think">("idle");
   // On My Path his side panel is closed (App.tsx): you talk to him here, and he answers in the room.
   const { config, setWs, run, toast } = useStore();
+  const talkOn = useOwnersOnly(); // talking to Remy out loud is owners only for now: ElevenLabs credits
   const [q, setQ] = useState(""), [busy, setBusy] = useState(false), [said, setSaid] = useState<{ q: string; id?: string; live?: string } | null>(null);
   const busyRef = useRef(false), saidRef = useRef(said), guideRef = useRef(g.on);
   saidRef.current = said; guideRef.current = g.on;
@@ -395,7 +396,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
               </select>}
             <form className="ps-ask" onSubmit={(e) => { e.preventDefault(); ask(); }}>
               <input className="input" value={q} onChange={(e) => setQ(e.target.value)} disabled={!aiOn || busy} placeholder={aiOn ? "Ask me anything…" : "Remy's chat is off on this server"} aria-label="Ask Remy" data-testid="input-office-ask" />
-              {canListen && aiOn && <button type="button" className={"btn btn-sm " + (voice.on ? "btn-primary remy-listening" : "btn-secondary")} onClick={voice.toggle} disabled={busy} aria-label={voice.on ? "Stop listening" : "Talk to Remy"} aria-pressed={voice.on} data-testid="button-office-mic">{voice.on ? <Square size={16} /> : <Mic size={16} />}</button>}
+              {canListen && aiOn && talkOn && <button type="button" className={"btn btn-sm " + (voice.on ? "btn-primary remy-listening" : "btn-secondary")} onClick={voice.toggle} disabled={busy} aria-label={voice.on ? "Stop listening" : "Talk to Remy"} aria-pressed={voice.on} data-testid="button-office-mic">{voice.on ? <Square size={16} /> : <Mic size={16} />}</button>}
               <button className="btn btn-secondary btn-sm" disabled={!aiOn || busy || !q.trim()} data-testid="button-office-ask">Ask</button>
             </form>
           </div>
@@ -419,7 +420,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
             : <span className="pm-faint">{nextItem ? `Level ${nextItem[2]} adds a ${nextItem[1].toLowerCase()}` : "Fully furnished"}</span>}</span>
         {!g.on && <form className="ps-ask" onSubmit={(e) => { e.preventDefault(); ask(); }}>
             <input className="input" value={q} onChange={(e) => setQ(e.target.value)} disabled={!aiOn || busy} placeholder={aiOn ? "Ask Remy anything about your path…" : "Remy's chat is off on this server"} aria-label="Ask Remy" data-testid="input-office-ask" />
-            {canListen && aiOn && <button type="button" className={"btn btn-sm " + (voice.on ? "btn-primary remy-listening" : "btn-secondary")} onClick={voice.toggle} disabled={busy} aria-label={voice.on ? "Stop listening" : "Talk to Remy"} aria-pressed={voice.on} data-testid="button-office-mic">{voice.on ? <Square size={16} /> : <Mic size={16} />}</button>}
+            {canListen && aiOn && talkOn && <button type="button" className={"btn btn-sm " + (voice.on ? "btn-primary remy-listening" : "btn-secondary")} onClick={voice.toggle} disabled={busy} aria-label={voice.on ? "Stop listening" : "Talk to Remy"} aria-pressed={voice.on} data-testid="button-office-mic">{voice.on ? <Square size={16} /> : <Mic size={16} />}</button>}
             <button className="btn btn-primary btn-sm" disabled={!aiOn || busy || !q.trim()} data-testid="button-office-ask">Ask</button>
         </form>}
         {!g.on && <button className="btn btn-ghost btn-sm ps-again" onClick={g.start} data-testid="button-hello-again">Walk me through it</button>}</div>

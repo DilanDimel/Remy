@@ -544,6 +544,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
   const lastAi = [...chat].reverse().find((m) => m.role !== "user")?.id;
   // Owners: talk to Remy. A message you said out loud gets its answer read back.
   const talked = useRef<string | null>(null);
+  const talkOn = useOwnersOnly(); // talking to Remy (his answer read back) is owners only for now: ElevenLabs credits
   const voice = useVoice(setMsg, (t) => { talked.current = lastAi || ""; send(t); }, (m) => toast(m, true));
   useEffect(() => {
     if (talked.current === null || !lastAi || lastAi === talked.current || busy) return;
@@ -734,7 +735,7 @@ function Assistant({ page, onMinimize, flyIn }: { page: string; onMinimize: () =
           aria-label="Message Remy"
           data-testid="input-chat"
         />
-        {stage2 && canListen && config?.ai.available && !asking && <button type="button" className={"btn " + (voice.on ? "btn-primary remy-listening" : "btn-secondary")} onClick={voice.toggle} disabled={busy} aria-label={voice.on ? "Stop listening" : "Talk to Remy"} aria-pressed={voice.on} data-testid="button-chat-mic">{voice.on ? <Square size={16} /> : <Mic size={16} />}</button>}
+        {stage2 && talkOn && canListen && config?.ai.available && !asking && <button type="button" className={"btn " + (voice.on ? "btn-primary remy-listening" : "btn-secondary")} onClick={voice.toggle} disabled={busy} aria-label={voice.on ? "Stop listening" : "Talk to Remy"} aria-pressed={voice.on} data-testid="button-chat-mic">{voice.on ? <Square size={16} /> : <Mic size={16} />}</button>}
         <button className="btn btn-primary" disabled={(busy && !asking) || !msg.trim() || tailor?.stage === "reading"} aria-label="Send" data-testid="button-send-chat"><Send size={16} /></button>
       </form>
       {chat.length === 0 && <p className="asst-hint">Remy only uses your approved profile and never sends anything for you.</p>}

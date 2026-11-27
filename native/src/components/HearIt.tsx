@@ -8,6 +8,7 @@ import { API_BASE } from "@/lib/api";
 import { font } from "@/lib/tokens";
 import { useTheme } from "@/lib/theme";
 import { tap } from "@/components/ui";
+import { useOwnersOnly } from "@/lib/session";
 
 export const canSpeak = () => Platform.OS === "web" || !!requireOptionalNativeModule("ExpoAudio");
 
@@ -55,8 +56,9 @@ export function HearIt({ text, testID = "button-hear-it" }: { text: string; test
   const [state, setState] = useState<"idle" | "loading" | "playing">("idle");
   const [err, setErr] = useState("");
   const live = useRef(state); live.current = state;
+  const owners = useOwnersOnly(); // Remy's voice is owners only for now (Dilan, Nov 27: ElevenLabs credits)
   useEffect(() => () => { if (live.current !== "idle") hush(); }, []); // leaving the screen stops him
-  if (!canSpeak() || !text.trim()) return null;
+  if (!owners || !canSpeak() || !text.trim()) return null;
   const press = async () => {
     tap(); setErr("");
     if (state !== "idle") { hush(); setState("idle"); return; }
