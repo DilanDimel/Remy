@@ -42,6 +42,8 @@ test("library: pushed items are checked; files only from what was offered; only 
 
   const offered: any[] = [{ id: "file:llc", file_name: "llc.pdf" }, { id: "note", file_name: null }];
   assert.deepEqual(takeFiles("Here it is.\nFILE: file:llc\nFILE: note\nFILE: file:ein", offered), { text: "Here it is.", ids: ["file:llc"] });
+  assert.deepEqual(takeFiles("Notes below.\n\n[file: llc]", offered), { text: "Notes below.", ids: ["file:llc"] });
+  assert.deepEqual(takeFiles("See [file id: file:llc] here.", offered).ids, ["file:llc"]);
 
   assert.deepEqual(tiersFor({ channel_type: "im", user: "U0CMF0FC48L" }), ["team", "dilan"]);
   assert.deepEqual(tiersFor({ channel_type: "im", user: "U999" }), ["team"]);
