@@ -60,8 +60,25 @@ const lc = (s: string) => s.toLowerCase();
 export function unsaidWords(text: string, said: string) {
   const own = families(said);
   const said_ = (w: string) => w.split("-").every((p) => !p || own.has(family(p)));
-  return [...new Set((lc(text).match(/[a-z][a-z-]{3,}/g) || []).filter((w) => !STOP.has(w) && !LIGHT.has(w) && !REWORD.test(w) && !said_(w)))];
+  return [...new Set([...(lc(text).match(/[a-z][a-z-]{3,}/g) || []).filter((w) => !STOP.has(w) && !LIGHT.has(w) && !REWORD.test(w) && !said_(w)), ...newOtherWords(text, said)])];
 }
+// Words in scripts other than Latin (Chinese, Arabic, Korean, Hindi, Russian…) and Vietnamese syllables, which the
+// checks above (a to z) can't see. Chinese and Japanese have no spaces, so their text is compared two characters at a time.
+const VIET = /[ăđơư]|[\u0306\u0309\u031b\u0323]/u;
+const VIET_STOP = new Set("va cua cac nhung cho voi trong duoc la mot da tai de nguoi khi tu den".split(" "));
+export function otherWords(text: string): Set<string> {
+  const t = text.normalize("NFKD").toLowerCase();
+  const out = new Set<string>();
+  for (const w of t.match(/[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}]+|[^\P{L}\p{sc=Latin}\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}](?:[^\P{L}\p{sc=Latin}]|\p{M})*/gu) || []) {
+    const f = w.replace(/\p{M}/gu, "");
+    if (/^[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}]+$/u.test(f)) for (let i = 0; i + 1 < f.length; i++) out.add(f.slice(i, i + 2));
+    else if (f.length > 1) out.add(f);
+  }
+  if (VIET.test(t)) for (const w of t.replace(/\p{M}/gu, "").match(/\p{sc=Latin}+/gu) || []) if (w.length > 1 && !VIET_STOP.has(w)) out.add(w);
+  return out;
+}
+const newOtherWords = (text: string, said: string) => { const own = otherWords(said); return [...otherWords(text)].filter((w) => !own.has(w)); };
+
 const normNum = (s: string) => s.replace(/[,$+\s]/g, "").replace(/[.]+$/, "").replace(/k$/i, "000").toLowerCase();
 
 function hasTerm(hay: string, term: string) {
@@ -253,6 +270,7 @@ export function claimCheck(
     const stem = (w: string) => w.split("-").map(family).join("-");
     const evStems = new Set((lc(evidence + " " + (opts.postingText || "")).match(/[a-z][a-z-]{3,}/g) || []).map(stem));
     const novel = Array.from(new Set((t.match(/[a-z][a-z-]{4,}/g) || []).filter((w) => !STOP.has(w) && !LIGHT.has(w) && !REWORD.test(w) && !evStems.has(stem(w)))));
+    novel.push(...newOtherWords(body, evidence + " " + (opts.postingText || "")));
     const outcome = body.match(OUTCOME);
     const newOutcome = outcome && !lc(opts.original).includes(lc(outcome[0]));
     // Detail added relative to THIS entry (the bullet, its siblings, role and org).
@@ -261,6 +279,7 @@ export function claimCheck(
     const localStems = new Set((local.match(/[a-z][a-z-]{3,}/g) || []).map(stem));
     // Rewording verbs ("collaborated", "modeled", "analyzed") restate what the student did; they aren't new facts.
     const added = Array.from(new Set((t.match(/[a-z][a-z-]{3,}/g) || []).filter((w) => !STOP.has(w) && !LIGHT.has(w) && !REWORD.test(w) && !localStems.has(stem(w)))));
+    added.push(...newOtherWords(body, opts.original + " " + (opts.entryContext || "")));
     if (added.length >= 3 && novel.length < 3 && !newOutcome) {
       add({
         type: "scope",

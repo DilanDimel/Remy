@@ -1,3 +1,4 @@
+import { sectionKind } from "./langs";
 import type { AtsScore, Job, ResumeDoc } from "@shared/types";
 import { family, families } from "@shared/words";
 import { isSkillKeyword, plainEnglish, skillsIn } from "@shared/requirements";
@@ -42,12 +43,17 @@ export function atsScore(doc: ResumeDoc, keywords: string[] | null, against: str
   ]);
 
   const has = (re: RegExp) => headings.some((h) => re.test(h));
+  // A heading in another language ("Experiencia laboral", "工作经历"): Remy reads it, but US employers' systems look for the English word.
+  const renameTip = (kind: "experience" | "education", word: string) => {
+    const h = doc.sections.find((s) => sectionKind(s.heading) === kind)?.heading;
+    return h ? `Your "${h}" section is there, but US employers' systems look for the English word. Rename the heading "${word}".` : "";
+  };
   const entries = doc.sections.filter((s) => !(owner ? /skill|interest|language|certif|licen[cs]e|award|honou?r|course|summary|profile|objective/i : /skill|interest|language/i).test(s.heading)).flatMap((s) => s.entries.map((e) => ({ ...e, section: s.heading })));
   const undated = entries.filter((e) => !/\d{4}|present|['’‘]\d{2}\b/i.test(e.dates)); // "Jun. '26" has a date
   const dated = entries.length - undated.length;
   const structure = cat("Sections & structure", 20, [
-    item(has(/experience|employment|work/), 6, "Standard \"Experience\" section.", "Add a section titled exactly \"Experience\" — ATS parsers look for that word."),
-    item(has(/education/), 5, "Standard \"Education\" section.", "Add an \"Education\" section with school, degree and expected graduation."),
+    item(has(/experience|employment|work/), 6, "Standard \"Experience\" section.", renameTip("experience", "Experience") || "Add a section titled exactly \"Experience\" — ATS parsers look for that word."),
+    item(has(/education/), 5, "Standard \"Education\" section.", renameTip("education", "Education") || "Add an \"Education\" section with school, degree and expected graduation."),
     item(doc.skills.length > 0 || has(/skill/), 4, "Skills section found.", "Add a plain \"Skills\" line (comma-separated tools and skills); parsers read it first."),
     item(entries.length > 0 && dated === entries.length, 5, "Every entry has dates.", `${undated.length} entr${undated.length === 1 ? "y is" : "ies are"} missing dates — add month and year to each.`, entries.length ? dated / entries.length : 0, undated.map((e) => `${e.section}: ${[e.role, e.org].filter(Boolean).join(", ") || e.bullets[0]?.text.slice(0, 60) || "untitled entry"}`)),
   ]);
