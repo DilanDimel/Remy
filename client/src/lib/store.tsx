@@ -254,8 +254,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => {
     const visible = () => document.visibilityState === "visible";
-    const onBack = () => { if (visible() && Date.now() - lastLoad.current > 5 * 60_000) softRefresh().catch(() => {}); };
-    const t = setInterval(() => { if (visible() && Date.now() - lastLoad.current > 15 * 60_000) softRefresh().catch(() => {}); }, 60_000);
+    // A deploy is noticed within about 2 minutes (only the small config is read), so the next page change loads it.
+    let lastBuildCheck = Date.now();
+    const checkBuild = () => {
+      if (!visible() || Date.now() - lastBuildCheck < 2 * 60_000) return;
+      lastBuildCheck = Date.now();
+      api<AppConfig>("GET", "/api/config").then((c) => {
+        if (build.current && c.build && c.build !== build.current) loadFreshOnNextPage(() => !inFlight && !savingNow.current);
+      }).catch(() => {});
+    };
+    const onBack = () => { if (visible() && Date.now() - lastLoad.current > 5 * 60_000) softRefresh().catch(() => {}); else checkBuild(); };
+    const t = setInterval(() => { if (visible() && Date.now() - lastLoad.current > 15 * 60_000) softRefresh().catch(() => {}); else checkBuild(); }, 60_000);
     document.addEventListener("visibilitychange", onBack);
     window.addEventListener("focus", onBack);
     return () => { clearInterval(t); document.removeEventListener("visibilitychange", onBack); window.removeEventListener("focus", onBack); };
