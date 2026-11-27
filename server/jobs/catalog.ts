@@ -13,7 +13,7 @@ import { r2Store } from "../platform/r2";
 import { abroad, inUS } from "./fit";
 import { collegeRole, eachQuery, fetchBoard, SCHOOL_QUERIES, studentTitle, withDetail, type Raw } from "./sources";
 
-type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom" | "taleo" | "amazon" | "apple" | "schoolspring" | "jobaps" | "edjoin" | "nystate" | "applicantpro" | "pageup";
+type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom" | "taleo" | "amazon" | "apple" | "schoolspring" | "jobaps" | "edjoin" | "nystate" | "applicantpro" | "pageup" | "jobvite";
 export type CatalogBoard = { ats: Ats; slug: string; company: string };
 export const PARTS = 24;
 /** Text kept per posting: enough for its requirements and summary (an opening keeps up to 12,000 when saved). */
@@ -44,7 +44,7 @@ const STAPPLY_ATS: Partial<Record<Ats, (slug: string, url: string) => string | n
   // https://ebwg.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX → "ebwg.fa.us2.oraclecloud.com|CX"
   oracle: (_, u) => { const m = u.match(/^https:\/\/([^/]+\.oraclecloud\.com)\/hcmUI\/CandidateExperience\/[^/]+\/sites\/([^/?#]+)/); return m ? `${m[1]}|${m[2]}` : null; },
   // Mid-size employers: subdomains (bamboohr, breezy, jazzhr's applytojob), a Rippling board name, a Paylocity company GUID.
-  bamboohr: sub, breezy: sub, jazzhr: sub, rippling: sub, applicantpro: sub,
+  bamboohr: sub, breezy: sub, jazzhr: sub, rippling: sub, applicantpro: sub, jobvite: sub,
   // PageUp (colleges and universities): "873/cw/en-us"; only US-English sites.
   pageup: (s) => (/^\d+\/cw\/en-us$/i.test(s) ? s.toLowerCase() : null),
   paylocity: (s) => (/^[0-9a-f-]{36}$/i.test(s) ? s : null),
@@ -177,6 +177,12 @@ export function jobapsJobs(xml: string, state: string): { url: string; title: st
       deadline: deadline ? `${deadline[3]}-${deadline[1].padStart(2, "0")}-${deadline[2].padStart(2, "0")}` : undefined,
     };
   }).filter((x) => x.url && x.title && !/internal (agency )?(employees )?only|for internal/i.test(x.title)); // current state staff only
+}
+/** A Jobvite career page's openings: each row's title link and its place ("Carol Stream,\n Illinois"). */
+export function jobviteJobs(html: string, slug: string): { url: string; title: string; location: string }[] {
+  return [...html.matchAll(/<td class="jv-job-list-name">\s*<a href="(\/[^"]+\/job\/[A-Za-z0-9]+)">([^<]+)<\/a>\s*<\/td>\s*<td class="jv-job-list-location">([\s\S]*?)<\/td>/g)]
+    .filter((m) => m[1].startsWith(`/${slug}/`))
+    .map((m) => ({ url: `https://jobs.jobvite.com${m[1]}`, title: htmlToText(m[2]).trim(), location: htmlToText(m[3]).replace(/\s+/g, " ").replace(/\s+,/g, ",").trim() }));
 }
 /** StateJobsNY's public vacancy table: one row per opening with its agency, county, posted and deadline dates. */
 export function nyJobs(html: string): { url: string; title: string; county: string; location: string; company: string; posted?: string; deadline?: string }[] {
@@ -348,6 +354,10 @@ export async function readBoard(b: CatalogBoard, read = fetchBoard): Promise<Raw
         detail: async () => { const d = ldPosting(await getPage(`${x.jobUrl || `${base}/jobs/${x.id}`}.html`)); return { ...d, text: /^Pay:/.test(d.text) ? d.text : withPay(pay, d.text) }; },
       };
     });
+  }
+  if (b.ats === "jobvite") {
+    // Jobvite career pages (jobs.jobvite.com/<company>/jobs; no robots.txt): a table of title links and places; the posting has schema.org data.
+    return jobviteJobs(await getPage(`https://jobs.jobvite.com/${b.slug}/jobs`), b.slug).map((x): Raw => ({ ...x, text: "", detail: async () => ldPosting(await getPage(x.url)) }));
   }
   if (b.ats === "pageup") {
     // PageUp career sites (many universities) publish an RSS feed with each job's full text and place ("Southern California|Northridge").
