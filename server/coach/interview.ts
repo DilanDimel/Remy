@@ -85,6 +85,11 @@ const STUDENT_TOP: Partial<Record<CriterionId, string>> = {
 };
 const anchorsFor = (id: CriterionId) => CRITERIA[id].anchors.map((a, i) => (i === 3 && STUDENT_TOP[id]) || a);
 
+/** A Practice-step question, rated on the four parts of a story (and the job's own skills, which feedbackPrompt adds). */
+export function drillQuestion(q: string, profile: ProfileId): IvQuestion {
+  return { kind: "posting", q, criteria: pick(profile, ["context", "ownership", "outcomes", "reflection"]) };
+}
+
 export function feedbackPrompt(profile: ProfileId, q: IvQuestion, answer: string, before?: IvAnswer, lang?: Lang): [string, string] {
   const ids = [...new Set([...q.criteria, ...PROFILES[profile].criteria])].slice(0, 14) as CriterionId[];
   return [

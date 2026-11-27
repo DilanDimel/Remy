@@ -24,7 +24,7 @@ const KIND: Record<string, string> = { warmup: "Warm-up", posting: "From the pos
 const short = (t: string) => t.split(/ [-–(]|, /)[0];
 type View = { id: string; qi: number; fb: boolean } | null;
 
-export function MockInterview() {
+export function MockInterview({ top }: { top?: React.ReactNode } = {}) {
   const { ws, setWs, run } = useStore();
   const w = ws!;
   const { mine, jobs: listed } = useInterviewJobs();
@@ -62,7 +62,7 @@ export function MockInterview() {
     const id = known ? asked : job?.id;
     // Only Remy's "start" link plans right away; a card's link just picks the opening.
     if (id) { setPick(id); if (start) void plan(id); }
-    replaceRoute("/interview");
+    replaceRoute(top ? "/interview?step=mock" : "/interview");
   }, [asked]);
 
   if (iv && view) return <Room iv={iv} view={view} setView={setView} />;
@@ -80,7 +80,8 @@ export function MockInterview() {
   return (
     <div className="ivc" data-testid="mock-interview">
       <Head say={<><b>{tracked ? `You have an interview with ${tracked.company}.` : job ? `Your ${job.company} interview could come any week.` : "Interviews come fast once you apply."}</b> {job ? "I'll build this one from their posting and your resume, so it feels like the real thing." : "Save an opening and I'll interview you for it."}</>} left={left} />
-      <RemyAskInline page="Interview" placeholder="Ask Remy about your interview…" starters={job ? [`What will ${job.company} ask me?`, "How do I answer “tell me about yourself”?"] : ["How do I get ready for my first interview?", "What should I ask the interviewer?"]} />
+      {top}
+      {!top && <RemyAskInline page="Interview" placeholder="Ask Remy about your interview…" starters={job ? [`What will ${job.company} ask me?`, "How do I answer “tell me about yourself”?"] : ["How do I get ready for my first interview?", "What should I ask the interviewer?"]} />}
       {!job ? (
         <section className="ivc-card stack-sm">
           <span className="ivc-kick">Mock interview</span>
@@ -137,18 +138,31 @@ export function MockInterview() {
           </div>
         </div>
       )}
-      <div className={"ivc-prep" + (planned ? " ivc-hide-phone" : "")} data-testid="interview-kit">
+      {top ? <Ready jobs={jobs} pick={job?.id} setPick={setPick} /> : <div className={"ivc-prep" + (planned ? " ivc-hide-phone" : "")} data-testid="interview-kit">
         {kitTiles.map((t) => (
           <div key={t.id} className={kit === t.id ? "on" : ""}><span><b>{t.label}</b><small>{t.n}</small></span>
             <button className="ivc-link" aria-expanded={kit === t.id} onClick={() => setKit(kit === t.id ? null : t.id)} data-testid={`kit-${t.id}`}>{kit === t.id ? "Close" : `${t.act} →`}</button></div>
         ))}
         {last && !kit && <div><span><b>Last practice</b><small>{new Date(last.startedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {last.company} · {scoreInterview(last).answered} of {last.questions.length} answered</small></span>
           <button className="ivc-link" onClick={() => setView({ id: last.id, qi: last.questions.length, fb: false })} data-testid="button-last-practice">See it →</button></div>}
-      </div>
+      </div>}
       {kit === "stories" && <StoryDeck />}
       {kit === "pitch" && <PitchCard />}
       {kit === "questions" && <JobInterview />}
     </div>
+  );
+}
+/** Coach (Mock step): how ready they are for each company: pitch, stories, practice. Tapping one picks it. */
+function Ready({ jobs, pick, setPick }: { jobs: Workspace["jobs"]; pick?: string; setPick: (id: string) => void }) {
+  const w = useStore().ws!;
+  const ready = (w.stories || []).filter((s) => STORY_PARTS.every((p) => s[p])).length;
+  const tried = (id: string) => (w.drills || []).filter((d) => d.jobId === id).length;
+  return (
+    <div className="ivco-ready" data-testid="mock-ready">{jobs.slice(0, 3).map((j) => (
+      <button key={j.id} className={"ivc-card ivco-co" + (j.id === pick ? " on" : "")} onClick={() => setPick(j.id)} aria-pressed={j.id === pick} data-testid="mock-company">
+        <span style={{ minWidth: 0 }}><b>{j.company}</b><small>{short(j.title)}{w.tracker.some((t) => t.jobId === j.id && t.status === "Interview") ? " · interview coming" : ""}</small></span>
+        <span className="xs muted">Pitch {w.pitch?.text ? "ready" : "not yet"} · {ready} of 4 stories · {tried(j.id)} practiced</span>
+      </button>))}</div>
   );
 }
 const CRITERIA_LABEL = (p: string) => ({ banking: "banking", sales: "sales", quant: "quant", software: "software", design: "design", marketing: "marketing", cybersecurity: "security", consulting: "consulting", investment_research: "investing", accounting: "accounting", legal: "legal", manufacturing: "manufacturing", aerospace: "engineering", research: "research", healthcare: "clinical", education: "teaching", hospitality: "hospitality", public_policy: "policy" } as Record<string, string>)[p] || "job";
@@ -210,7 +224,7 @@ function Room({ iv, view, setView }: { iv: Interview; view: NonNullable<View>; s
 const Speech = typeof window !== "undefined" ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null;
 
 /** Say it or type it; what Remy heard stays editable, and nothing is sent until "Send my answer". */
-function Answer({ initial, hint, onSend, skip, stop, last }: { initial: string; hint?: string; onSend: (text: string, secs: number, fillers: number) => Promise<void>; skip: () => void; stop: () => void; last: boolean }) {
+export function Answer({ initial, hint, onSend, skip, stop, last }: { initial: string; hint?: string; onSend: (text: string, secs: number, fillers: number) => Promise<void>; skip: () => void; stop: () => void; last: boolean }) {
   const [text, setText] = useState(initial);
   const [on, setOn] = useState(false);
   const [secs, setSecs] = useState(0);
