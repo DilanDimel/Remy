@@ -1069,9 +1069,9 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
   /* every page on a phone: thumb-sized controls, all tabs visible (no sideways scrolling), slogans off the first screen */
   .btn, .seg button, .tab, .input, .select, select { min-height: 44px; }
   .icon-btn { width: 44px; height: 44px; }
-  /* tabs become a boxed switch (Dilan, Nov 27: loose underlined cells looked unfinished); an odd last tab takes the full row */
-  .tabs { display: grid; grid-template-columns: 1fr 1fr; overflow: visible; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 12px; background: var(--lav-2); -webkit-mask-image: none; mask-image: none; }
-  .tab { white-space: normal; text-align: center; justify-content: center; line-height: 1.25; border: 0; border-radius: 9px; }
+  /* each tab is its own button (Dilan, Nov 27: loose underlined cells, then one grey block, both looked off); an odd last tab takes the full row */
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; overflow: visible; gap: 8px; padding: 0; border: 0; -webkit-mask-image: none; mask-image: none; }
+  .tab { white-space: normal; text-align: center; justify-content: center; line-height: 1.25; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
   .tab[aria-selected="true"] { background: var(--fox-soft); color: var(--fox-deep); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fox) 40%, transparent); }
   .tabs > .tab:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
@@ -1801,10 +1801,10 @@ html.redesign-2:has(.tour) .remy-offer { display: none; }
   .redesign-2 .hero2.has-track .hero2-track { border-left: 0; border-top: 1px solid color-mix(in srgb, var(--fox-deep) 16%, transparent); }
   .redesign-2 .hero2-bubble p { max-width: calc(100% - 90px); }
 }
-/* Owner phones: up to four tabs sit in one row (the 2x2 grid underlined just one cell; Progress, Nov 23 review). */
+/* Owner phones: up to three tabs sit in one row; four or more use the two-column grid so long words like "Applications" are not split. */
 @media (max-width: 640px) {
-  .redesign-2 .tabs:not(:has(> :nth-child(5))) { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: auto; }
-  .redesign-2 .tabs:not(:has(> :nth-child(5))) .tab { text-align: center; padding-left: 4px; padding-right: 4px; }
+  .redesign-2 .tabs:not(:has(> :nth-child(4))) { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; }
+  .redesign-2 .tabs:not(:has(> :nth-child(4))) .tab { text-align: center; padding-left: 4px; padding-right: 4px; }
 }
 /* Owner desktop: the big page title already names the page, so the "Remy › Page" bar goes (60 px back at the top).
    It stays when it holds Remy's face (panel closed) and on phones. */
