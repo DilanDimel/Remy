@@ -57,6 +57,10 @@ test("library: pushed items are checked; files only from what was offered; only 
   assert.deepEqual(askedFiles("Send me our LLC certificate of filing.", found), ["file:llc"]);
   assert.deepEqual(askedFiles("Send me the Remy fox logo.", found), ["file:fox"]);
   assert.deepEqual(askedFiles("When is the call?", found), []);
+  const more: any[] = [{ id: "file:erin", title: "2026 11 25 erin and team summary", file_name: "erin.md" }, { id: "file:dilan", title: "dilan studio (team photos)", file_name: "dilan-studio.jpg" }];
+  assert.deepEqual(askedFiles("Send me the team photos.", more), ["file:dilan"]); // not the notes that only share "team"
+  assert.equal(tidy("Instagram: *https://instagram.com/coachremyai* now"), "Instagram: <https://instagram.com/coachremyai> now");
+  assert.equal(tidy("From the daily summary (docs/ai/DAILY.md, Nov 26)."), "From the daily summary (our notes, Nov 26).");
   assert.equal(tidy("Here's the certificate, dated Nov 20 (team library, legal folder)."), "Here's the certificate, dated Nov 20.");
   assert.equal(tidy("Your EIN is in the team library under company docs."), "Your EIN is in our notes under company docs.");
 
