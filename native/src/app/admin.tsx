@@ -11,6 +11,7 @@ import { go } from "@/lib/nav";
 import { useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
 import { radius } from "@/lib/tokens";
+import { greetingFor } from "@shared/greeting";
 
 // Owners' dashboard, native for what an owner does from a phone (it opened the website's /admin): this week at a glance,
 // feature releases, "Let everyone in", errors and feedback to mark handled, and clock in/out. Board & calendar and System
@@ -24,7 +25,7 @@ type Beta = { open: boolean };
 const RELEASE_NAME: Record<Release, string> = { owners: "Owners", locked: "Locked", released: "Everyone" };
 const plural = (n: number, one: string) => `${n} ${n === 1 ? one : one + "s"}`;
 const ago = (iso: string) => { const m = Math.round((Date.now() - new Date(iso).getTime()) / 60_000); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
-const greeting = () => { const h = Number(new Date().toLocaleString("en-US", { hour: "numeric", hourCycle: "h23", timeZone: "America/Chicago" })); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; };
+const greeting = () => { const h = Number(new Date().toLocaleString("en-US", { hour: "numeric", hourCycle: "h23", timeZone: "America/Chicago" })); return greetingFor(h); };
 
 export default function Admin() {
   const { me } = useSession();

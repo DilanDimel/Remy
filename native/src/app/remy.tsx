@@ -4,7 +4,7 @@ import { Alert, Animated, Easing, FlatList, Keyboard, LayoutAnimation, Platform,
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ChatAction, ChatDid, ChatMsg, Workspace } from "@shared/types";
 import { resumeDiff } from "@shared/resumeDiff";
-import { Icon, Remy, RemyRing, RichText, T, success, tap } from "@/components/ui";
+import { Icon, RemyRing, RichText, T, success, tap } from "@/components/ui";
 import { HearIt } from "@/components/HearIt";
 import { DidRows } from "@/components/DidRows";
 import { api, streamChat } from "@/lib/api";
@@ -73,7 +73,26 @@ function Proposal({ m }: { m: ChatMsg }) {
   );
 }
 
-const QUICK = ["What should I do today?", "Which opening fits me best?", "Help me with my resume"];
+// Calmer chat (Dilan, Nov 27, "I don't know where to look"): one opener, two taps, and "Something else".
+const QUICK = ["What should I do today?", "Which opening fits me best?"];
+
+/** Two taps under Remy's words (the first in orange) and "Something else", which opens the box. */
+function Chips({ asks, send, more }: { asks: string[]; send: (q: string) => void; more: () => void }) {
+  const { c } = useTheme();
+  return (
+    <View testID="remy-chips" style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingTop: 4, maxWidth: "92%" }}>
+      {asks.map((q, i) => (
+        <Pressable key={q} testID="button-quick-reply" accessibilityRole="button" onPress={() => send(q)}
+          style={({ pressed }) => ({ minHeight: 36, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, justifyContent: "center", borderWidth: 1, borderColor: i ? c.line : c.fox, backgroundColor: i ? (pressed ? c.surface2 : c.surface) : c.fox, opacity: pressed ? 0.85 : 1 })}>
+          <Text style={{ fontFamily: font.semi, fontSize: 13.5, color: i ? c.ink : c.onFox }}>{q}</Text>
+        </Pressable>
+      ))}
+      <Pressable testID="button-remy-more" accessibilityRole="button" onPress={() => { tap(); more(); }} style={{ minHeight: 36, paddingHorizontal: 6, justifyContent: "center" }}>
+        <Text style={{ fontFamily: font.semi, fontSize: 13.5, color: c.mutedText, textDecorationLine: "underline" }}>Something else</Text>
+      </Pressable>
+    </View>
+  );
+}
 
 /** "Remy is writing": three dots that rise and fade in turn, so a slow first word never looks stuck. */
 function TypingDots({ color, bg, line }: { color: string; bg: string; line: string }) {
@@ -121,6 +140,7 @@ export default function RemyChat() {
   // Keeps the newest message in view: Android closes the keyboard on send and resizes the window, which left the
   // list scrolled up to older messages while Remy's reply came in off screen.
   const list = useRef<FlatList<ChatMsg>>(null);
+  const input = useRef<React.ComponentRef<typeof TextInput>>(null);
   const sending = useRef(false);
   const toBottom = () => requestAnimationFrame(() => list.current?.scrollToOffset({ offset: 0, animated: true }));
   const finish = () => {
@@ -205,6 +225,8 @@ export default function RemyChat() {
         {!me && m.id !== "live" && <View style={{ paddingLeft: 6, paddingTop: 2 }}><HearIt text={m.text} testID="button-chat-hear-it" /></View>}
         <Proposal m={m} />
         <DidRows did={m.did} onUndo={(d) => undo(m.id, d)} />
+        {/* His first message after setup ends with taps that send your answer (server/ai/remyTools.ts firstHello). */}
+        {!me && !!m.replies?.length && !busy && msgs[0]?.id === m.id && <Chips asks={m.replies} send={send} more={() => input.current?.focus()} />}
         {/* Buttons Remy offered under his reply: nothing happens until the student taps one. Done ones say so. */}
         {!!m.actions?.length && (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, paddingTop: 8, maxWidth: "92%" }}>
@@ -236,7 +258,7 @@ export default function RemyChat() {
       {/* A sheet on iOS (no status bar to clear, room for the grabber); full screen on Android. */}
       <View style={{ paddingTop: Platform.OS === "ios" ? 14 : insets.top + 8, paddingHorizontal: 16, paddingBottom: 10, flexDirection: "row", alignItems: "center", gap: 10, borderBottomWidth: 1, borderColor: c.line }}>
         <RemyRing size={44} />
-        <View style={{ flex: 1 }}><Text style={{ fontFamily: font.display, fontSize: 18, color: c.ink }}>Remy</Text><T kind="small">Your career coach</T></View>
+        <View style={{ flex: 1 }}><Text style={{ fontFamily: font.display, fontSize: 18, color: c.ink }}>Remy</Text><T kind="small">Here for you</T></View>
         {ws.chat.length > 0 && !busy && (
           <Pressable testID="button-clear-chat" accessibilityRole="button" accessibilityLabel="Clear chat" hitSlop={10} onPress={() => { tap(); clearChat(); }}
             style={{ paddingHorizontal: 12, height: 32, borderRadius: 16, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, justifyContent: "center" }}>
@@ -251,16 +273,16 @@ export default function RemyChat() {
       {/* The inverted list already flips its empty view back (scale -1 on Android, scaleY -1 on iOS). A transform here replaces that, which mirrored this text on Android. */}
       <FlatList ref={list} inverted data={msgs} keyExtractor={(m) => m.id} renderItem={({ item }) => bubble(item)} contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12 }} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" onTouchStart={() => Keyboard.dismiss()} style={{ flex: 1 }}
         ListHeaderComponent={busy && !shown ? <TypingDots color={c.mutedText} bg={c.surface} line={c.line} /> : undefined}
-        ListEmptyComponent={<View style={{ paddingTop: 40, alignItems: "center", gap: 8 }}><Remy size={92} /><T kind="h2">Ask Remy anything</T><T kind="muted" style={{ textAlign: "center" }}>About jobs, your resume, interviews or what to do next. Remy only uses what you've told it.</T></View>} />
+        ListEmptyComponent={<View testID="remy-empty" style={{ paddingTop: 12, gap: 10 }}>
+          <View style={{ maxWidth: "84%", alignSelf: "flex-start", backgroundColor: c.surface, borderRadius: 20, borderBottomLeftRadius: 6, paddingHorizontal: 15, paddingVertical: 11, borderWidth: 1, borderColor: c.line }}>
+            <Text style={{ fontFamily: font.body, fontSize: 15.5, lineHeight: 22, color: c.ink }}>Hi, I'm Remy. I can find openings, fix your resume or get you ready for an interview. What do you want help with?</Text>
+          </View>
+          {!text && !busy && <Chips asks={QUICK} send={send} more={() => input.current?.focus()} />}
+        </View>} />
       {!!err && <T kind="small" style={{ color: c.error, paddingHorizontal: 18, paddingBottom: 6 }}>{err}</T>}
-      {/* Starters (only for an empty chat, like the website) wrap instead of running off the edge. */}
-      {!text && !busy && !ws.chat.length && (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 14, paddingTop: 4, paddingBottom: 8 }}>
-          {QUICK.map((q) => <Pressable key={q} testID="button-quick-reply" onPress={() => send(q)} style={{ minHeight: 36, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, justifyContent: "center" }}><Text style={{ fontFamily: font.semi, fontSize: 13.5, color: c.ink }}>{q}</Text></Pressable>)}
-        </View>
-      )}
+      {!ws.chat.length && <T kind="small" style={{ textAlign: "center", paddingHorizontal: 18, paddingBottom: 2 }}>Remy only uses your approved profile and never sends anything for you.</T>}
       <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, marginHorizontal: 12, marginTop: 4, marginBottom: kb ? 8 : insets.bottom + 10, paddingLeft: 18, paddingRight: 5, paddingVertical: 5, minHeight: 50, borderRadius: 25, borderCurve: "continuous", backgroundColor: c.surface, borderWidth: 1, borderColor: text.trim() ? c.fox + "55" : c.line, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 3 }}>
-        <TextInput testID="input-chat" value={text} onChangeText={setText} placeholder="Ask Remy anything" placeholderTextColor={c.faint} multiline maxLength={2000}
+        <TextInput ref={input} testID="input-chat" value={text} onChangeText={setText} placeholder="Ask Remy anything" placeholderTextColor={c.faint} multiline maxLength={2000}
           returnKeyType="send" submitBehavior="blurAndSubmit" onSubmitEditing={() => send(text)} enablesReturnKeyAutomatically selectionColor={c.fox}
           style={{ flex: 1, alignSelf: "center", fontFamily: font.body, fontSize: 16, lineHeight: 21, color: c.ink, maxHeight: 120, paddingTop: 9, paddingBottom: 9 }} />
         <Pressable testID="button-send" accessibilityLabel="Send" disabled={!text.trim() || busy} onPress={() => send(text)} hitSlop={6}

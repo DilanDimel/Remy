@@ -48,6 +48,10 @@ export function activityDays(w: Pick<Workspace, "chat" | "aiLog" | "jobs" | "app
 
 export interface TodayRow { kind: "new" | "due" | "did" | "next"; text: string; link?: string }
 /** What Remy opens the empty chat with: new openings in the last day, the nearest deadline, what he did today, the next to-do. */
+// What Remy did for the student today (not counting chat replies).
+const doneToday = (w: Pick<Workspace, "aiLog">, today: string) => w.aiLog.filter((x) => x.ok && x.at && dayOf(x.at) === today && !/^Assistant chat/i.test(x.purpose));
+export const didToday = (w: Pick<Workspace, "aiLog">, now = new Date()) => doneToday(w, dayOf(now.toISOString())).length;
+
 export function todayBrief(w: Pick<Workspace, "jobs" | "hiddenJobIds" | "calendar" | "tasks" | "aiLog">, now = new Date(), fits: Fits = {}): TodayRow[] {
   const today = dayOf(now.toISOString());
   const dayAgo = new Date(now.getTime() - 864e5).toISOString();
@@ -58,7 +62,7 @@ export function todayBrief(w: Pick<Workspace, "jobs" | "hiddenJobIds" | "calenda
   const due = [...w.calendar.map((c) => ({ title: c.title, date: c.date, due: !["Interview", "Event", "Advising"].includes(c.kind) })), ...w.tasks.filter((t) => !t.done && t.due).map((t) => ({ title: t.title, date: t.due!, due: true }))]
     .filter((x) => x.date && inDays(x.date.slice(0, 10)) >= 0 && inDays(x.date.slice(0, 10)) <= 7).sort((a, b) => a.date.localeCompare(b.date))[0];
   if (due) { const n = inDays(due.date.slice(0, 10)); rows.push({ kind: "due", text: `${due.title} is ${due.due ? "due " : ""}${n === 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`}`, link: "/calendar" }); }
-  const did = w.aiLog.filter((x) => x.ok && x.at && dayOf(x.at) === today && !/^Assistant chat/i.test(x.purpose));
+  const did = doneToday(w, today);
   if (did.length) rows.push({ kind: "did", text: did.length === 1 ? `I ${lower(didLabel(did[did.length - 1].purpose))} today` : `I did ${did.length} things for you today` });
   const next = w.tasks.find((t) => !t.done && t.title !== due?.title);
   if (next) rows.push({ kind: "next", text: `Next up: ${next.title}`, link: "/" });

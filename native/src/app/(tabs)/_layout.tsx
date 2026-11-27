@@ -10,7 +10,7 @@ import { gateRoute, useGate } from "@/lib/gate";
 import { aboveTabs, font, useTheme } from "@/lib/theme";
 import { shadow } from "@/lib/tokens";
 import { useOffline } from "@/lib/net";
-import { useOwnerView } from "@/lib/session";
+import { useOwnerView, useSession } from "@/lib/session";
 import { useDeviceLanguage, useT } from "@/lib/lang";
 
 /** Remy isn't a tab: like the website, he is a floating fox button above the tab bar that opens his chat from any page.
@@ -18,12 +18,19 @@ import { useDeviceLanguage, useT } from "@/lib/lang";
 function RemyButton({ hidden }: { hidden: boolean }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
+  const { ws } = useSession();
+  const t = useT();
   if (hidden) return null;
   const bottom = aboveTabs(insets.bottom);
+  // Nov 27: the fox alone didn't read as a button, so it says "Ask Remy"; a dot when he wrote first and waits for you.
+  const last = ws?.chat[ws.chat.length - 1];
+  const waiting = last?.role === "assistant" && !!last.replies?.length;
   return (
-    <Pressable testID="button-remy" accessibilityRole="button" accessibilityLabel="Ask Remy" onPress={() => { tap(); router.push("/remy"); }} hitSlop={6}
-      style={({ pressed }) => [{ position: "absolute", right: 16, bottom, width: 56, height: 56, borderRadius: 28, backgroundColor: c.surface, borderWidth: 2, borderColor: c.fox, alignItems: "center", justifyContent: "center", overflow: "visible", transform: [{ scale: pressed ? 0.94 : 1 }] }, shadow.floating]}>
-      <RemyRing size={52} bg={c.surface} />
+    <Pressable testID="button-remy" accessibilityRole="button" accessibilityLabel={waiting ? "Remy wrote to you" : "Ask Remy"} onPress={() => { tap(); router.push("/remy"); }} hitSlop={6}
+      style={({ pressed }) => [{ position: "absolute", right: 16, bottom, height: 52, borderRadius: 26, paddingLeft: 3, paddingRight: 16, gap: 8, flexDirection: "row", backgroundColor: c.surface, borderWidth: 2, borderColor: c.fox, alignItems: "center", overflow: "visible", transform: [{ scale: pressed ? 0.94 : 1 }] }, shadow.floating]}>
+      <RemyRing size={44} bg={c.surface} />
+      <Text style={{ fontFamily: font.bold, fontSize: 15, color: c.ink }}>{t("Ask Remy")}</Text>
+      {waiting && <View testID="remy-waiting-dot" style={{ position: "absolute", top: -2, left: 34, width: 12, height: 12, borderRadius: 6, backgroundColor: c.fox, borderWidth: 2, borderColor: c.surface }} />}
     </Pressable>
   );
 }
