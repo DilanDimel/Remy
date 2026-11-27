@@ -87,3 +87,15 @@ test("posting boilerplate (scam warnings, benefits, company history, team blurbs
   const qs = jobQuestions({ company: "Palantir", title: "Analyst", requirements: [{ id: "r", keyword: "communication", quote: junk[0] }] });
   assert.ok(!qs.some((q) => q.from === "posting"), qs.map((q) => q.q).join(" | "));
 });
+
+test("the AI mock plan sees the published questions and the company's own note, and is told not to claim the company asks them", async () => {
+  const { planPrompt } = await import("./coach/interview");
+  const job = (company: string, title: string) => ({ id: "j", company, title, requirements: [] }) as any;
+  const [sys, user] = planPrompt({ job: job("McKinsey & Company", "Business Analyst Intern"), profile: "generic", resume: "", stories: [], pitch: "" });
+  assert.match(sys, /never say the company asks a question/);
+  assert.ok(user.includes(COMPANIES.find((c) => c.src === "mckinsey")!.asks![0]));
+  assert.match(user, /WHAT THE COMPANY SAYS ABOUT ITS INTERVIEWS \(its own careers site\): McKinsey says/);
+  const [, audit] = planPrompt({ job: job("Q2", "Audit Intern"), profile: "accounting", resume: "", stories: [], pitch: "" });
+  assert.ok(audit.includes(BANK.accounting[0].q));
+  assert.ok(!audit.includes("WHAT THE COMPANY SAYS"));
+});
