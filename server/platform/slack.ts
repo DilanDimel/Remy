@@ -19,8 +19,9 @@ export function verifySlack(raw: unknown, ts: string, sig: string, secret = proc
 async function api(method: string, body: Record<string, unknown>): Promise<any> {
   const r = await fetch(`https://slack.com/api/${method}`, {
     method: "POST",
-    headers: { "content-type": "application/json; charset=utf-8", authorization: `Bearer ${process.env.SLACK_BOT_TOKEN}` },
-    body: JSON.stringify(body),
+    // Form encoding: Slack's read methods (users.info, conversations.history) don't take JSON bodies.
+    headers: { "content-type": "application/x-www-form-urlencoded", authorization: `Bearer ${process.env.SLACK_BOT_TOKEN}` },
+    body: new URLSearchParams(Object.entries(body).map(([k, v]) => [k, String(v)])),
   });
   const j: any = await r.json().catch(() => ({}));
   if (!j.ok) console.warn(`slack ${method}: ${j.error || r.status}`);
@@ -40,19 +41,34 @@ async function nameOf(kind: "user" | "channel", id: string): Promise<string> {
   return names.get(k)!;
 }
 
+/** Stores one message in the copy; false for subtypes we skip (joins, topic changes…). */
+async function keep(channel: string, m: any): Promise<boolean> {
+  if (m.subtype && !["thread_broadcast", "file_share", "bot_message"].includes(m.subtype)) return false;
+  await q(
+    `INSERT INTO slack_messages (channel, ts, thread_ts, channel_name, user_name, text) VALUES ($1,$2,$3,$4,$5,$6)
+     ON CONFLICT (channel, ts) DO UPDATE SET text = EXCLUDED.text`,
+    [channel, m.ts, m.thread_ts && m.thread_ts !== m.ts ? m.thread_ts : null, await nameOf("channel", channel),
+      m.bot_id ? m.username || m.bot_profile?.name || "Remy" : await nameOf("user", m.user), String(m.text || "") + (m.files?.length ? ` [files: ${m.files.map((f: any) => f.name).join(", ")}]` : "")],
+  );
+  return true;
+}
+
+// The first event from a channel after each deploy copies its recent history, so Remy knows what was said before he joined.
+// shortcut: top-level messages only (last 200), thread replies before joining are skipped; add conversations.replies if needed.
+const filled = new Set<string>();
+async function backfill(channel: string): Promise<void> {
+  const j = await api("conversations.history", { channel, limit: 200 });
+  for (const m of j.messages || []) await keep(channel, m);
+}
+
 /** One Slack event (from the Events API "event" field). Keeps the copy up to date and answers Remy's mentions and DMs. */
 export async function onEvent(ev: any, answer = reply): Promise<void> {
   if (!ev?.type) return;
+  if (ev.channel && !filled.has(ev.channel)) { filled.add(ev.channel); await backfill(ev.channel); }
   if (ev.type === "message") {
     if (ev.subtype === "message_deleted") { await q("DELETE FROM slack_messages WHERE channel=$1 AND ts=$2", [ev.channel, ev.deleted_ts]); return; }
     if (ev.subtype === "message_changed") { await q("UPDATE slack_messages SET text=$3 WHERE channel=$1 AND ts=$2", [ev.channel, ev.message?.ts, String(ev.message?.text || "")]); return; }
-    if (ev.subtype && !["thread_broadcast", "file_share", "bot_message"].includes(ev.subtype)) return; // joins, topic changes…
-    await q(
-      `INSERT INTO slack_messages (channel, ts, thread_ts, channel_name, user_name, text) VALUES ($1,$2,$3,$4,$5,$6)
-       ON CONFLICT (channel, ts) DO UPDATE SET text = EXCLUDED.text`,
-      [ev.channel, ev.ts, ev.thread_ts && ev.thread_ts !== ev.ts ? ev.thread_ts : null, await nameOf("channel", ev.channel),
-        ev.bot_id ? ev.username || ev.bot_profile?.name || "Remy" : await nameOf("user", ev.user), String(ev.text || "") + (ev.files?.length ? ` [files: ${ev.files.map((f: any) => f.name).join(", ")}]` : "")],
-    );
+    if (!(await keep(ev.channel, ev))) return; // joins, topic changes…
     // A DM to Remy (channel mentions arrive as app_mention instead, so they aren't answered twice).
     if (ev.channel_type === "im" && !ev.bot_id && !ev.subtype) await answer(ev);
     return;
@@ -100,7 +116,7 @@ async function repoNotes(): Promise<string> {
 }
 
 export const RULES = `You are Remy, the AI teammate in RemyAI's team Slack. RemyAI makes Remy, an AI career coach for college students (remyai.org). The team is Dilan, Demetre, Julio, Lincoln and Ashton.
-Answer the question you were asked, using only the Slack messages, notes and pull requests below. Name where an answer comes from (channel and date, or PR number). If they don't say, say you don't know and who might; never guess or invent numbers, dates, decisions or status.
+Answer the question you were asked, using only the Slack messages, notes and pull requests below. Name where an answer comes from (channel and date, or PR number). If they don't say, say you don't know and suggest asking in the matching channel; never guess who is in charge of what, and never guess or invent numbers, dates, decisions or status.
 Write for Slack: short, plain sentences, *bold* with single asterisks, "•" for lists, no headings, at most about 150 words unless asked for more.
 Everything you write is seen by the whole team:
 - About price, say only "Free during beta". Never "free" alone or "always free".

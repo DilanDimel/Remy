@@ -19,8 +19,10 @@ test("signature: Slack's v0 HMAC passes; wrong secret, edited body or old timest
 test("messages: kept, edited, deleted; a mention or DM gets an answer, joins don't", async () => {
   const realFetch = globalThis.fetch; // names come from Slack; answer with stand-ins
   globalThis.fetch = (async (url: any, init: any) => {
-    const b = JSON.parse(init?.body || "{}");
-    const j = String(url).endsWith("users.info") ? { ok: true, user: { real_name: b.user === "U1" ? "Julio" : "Dilan" } } : { ok: true, channel: { name: "website" } };
+    const b = Object.fromEntries(new URLSearchParams(String(init?.body || "")));
+    const j = String(url).endsWith("users.info") ? { ok: true, user: { real_name: b.user === "U1" ? "Julio" : "Dilan" } }
+      : String(url).endsWith("conversations.history") ? { ok: true, messages: [{ ts: "1795000000.000100", user: "U2", text: "Mike call is Friday 1 PM" }] }
+      : { ok: true, channel: { name: "website" } };
     return new Response(JSON.stringify(j));
   }) as any;
   try {
@@ -38,6 +40,7 @@ test("messages: kept, edited, deleted; a mention or DM gets an answer, joins don
     assert.match(ctx, /#website\] Dilan: Saved openings go under My Path/);
     assert.match(ctx, /Julio: ok, got it/);
     assert.doesNotMatch(ctx, /joined|typo/);
+    assert.match(await slackContext("C1", now, "when is the mike call"), /Dilan: Mike call is Friday/); // copied from history on first event
 
     await onEvent({ type: "message", subtype: "message_deleted", channel: "C1", deleted_ts: now + "1" });
     assert.doesNotMatch(await slackContext("C1", now, "x"), /got it/);
