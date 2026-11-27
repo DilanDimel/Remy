@@ -140,12 +140,24 @@ export class AiUnavailable extends Error {
 // Free models often return almost-JSON: trailing commas, comments, smart quotes.
 // Repair those before giving up, so one stray comma doesn't fail a whole request.
 function repairJson(s: string) {
-  return s
+  return rawBreaksEscaped(s
     .replace(/[\u201C\u201D]/g, '"')
     .replace(/^\s*\/\/.*$/gm, "")
-    .replace(/,\s*([}\]])/g, "$1");
+    .replace(/,\s*([}\]])/g, "$1"));
 }
-function extractJson(text: string): any {
+/** A verbatim quote copied from a PDF keeps its line breaks raw inside a JSON string, which JSON.parse refuses
+ *  (live error, Nov 27: a LinkedIn import failed twice with "not valid JSON"). Escape them inside strings only. */
+function rawBreaksEscaped(s: string) {
+  let out = "", inStr = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (inStr && ch === "\\") { out += ch + (s[++i] ?? ""); continue; }
+    if (ch === '"') inStr = !inStr;
+    out += inStr && ch === "\n" ? "\\n" : inStr && ch === "\r" ? "" : inStr && ch === "\t" ? "\\t" : ch;
+  }
+  return out;
+}
+export function extractJson(text: string): any {
   const cleaned = text.replace(/^```(?:json)?/im, "").replace(/```\s*$/m, "").trim();
   const s = cleaned.indexOf("{");
   const e = cleaned.lastIndexOf("}");
