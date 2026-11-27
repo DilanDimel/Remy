@@ -4,6 +4,8 @@
 // Needs SLACK_BOT_TOKEN and SLACK_SIGNING_SECRET; without them the route answers 404. Answers use their own OpenRouter key
 // (REMY_SLACK_OPENROUTER_KEY, with its own spending limit), never the students' key; without it Remy says he isn't set up.
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { q } from "./sql";
 
 export const slackOn = () => !!(process.env.SLACK_BOT_TOKEN && process.env.SLACK_SIGNING_SECRET);
@@ -94,29 +96,42 @@ export async function slackContext(channel: string, thread: string, question: st
   ].filter(Boolean).join("\n\n");
 }
 
-// The repo is public, so the AI notes and pull requests are read without a key, cached 10 minutes.
-let notes = { at: 0, text: "" };
-async function repoNotes(): Promise<string> {
-  if (Date.now() - notes.at < 10 * 60_000) return notes.text;
-  const raw = (p: string) => fetch(`https://raw.githubusercontent.com/DilanDimel/Remy/main/${p}`).then((r) => (r.ok ? r.text() : "")).catch(() => "");
+// What the team's AIs know: docs/ai on disk (the deployed copy of main, refreshed by every merge) plus GitHub's PR list.
+// The top files always go in; the per-thread entries in status/lead/ are ranked by the question's words, up to ~60k chars.
+const AI_DIR = path.join(process.cwd(), "docs", "ai");
+const read = (f: string) => { try { return fs.readFileSync(path.join(AI_DIR, f), "utf8"); } catch { return ""; } };
+export function aiNotes(question: string, budget = 60_000): string {
+  const words = Array.from(new Set(question.toLowerCase().match(/[a-z0-9][a-z0-9.-]{3,}/g) || []));
+  const top = ["TEAM.md", "CONTEXT.md", "DECISIONS.md", "DAILY.md", "status/lead.md", "status/demetre.md", "status/julio.md"];
+  let lead: string[] = [];
+  try { lead = fs.readdirSync(path.join(AI_DIR, "status", "lead")).filter((f) => f.endsWith(".md")).map((f) => "status/lead/" + f); } catch {}
+  const hits = (t: string) => words.reduce((n, w) => n + (t.toLowerCase().split(w).length - 1), 0);
+  const ranked = lead.map((f) => ({ f, t: read(f) })).map((x) => ({ ...x, n: hits(x.f + " " + x.t) })).filter((x) => x.n > 0).sort((x, y) => y.n - x.n);
+  const out: string[] = [];
+  let left = budget;
+  for (const { f, t } of [...top.map((f) => ({ f, t: read(f) })), ...ranked]) {
+    if (!t || left <= 0) continue;
+    const part = `docs/ai/${f}:\n${clip(t, Math.min(left, 12_000))}`;
+    out.push(part);
+    left -= part.length;
+  }
+  return out.join("\n\n");
+}
+
+// The repo is public, so pull requests are read without a key, cached 10 minutes.
+let prList = { at: 0, text: "" };
+async function repoPrs(): Promise<string> {
+  if (Date.now() - prList.at < 10 * 60_000) return prList.text;
   const prs = (state: string) => fetch(`https://api.github.com/repos/DilanDimel/Remy/pulls?state=${state}&per_page=20&sort=updated&direction=desc`, { headers: { accept: "application/vnd.github+json" } })
     .then((r) => (r.ok ? r.json() : [])).catch(() => []) as Promise<any[]>;
-  const [context, daily, open, closed] = await Promise.all([raw("docs/ai/CONTEXT.md"), raw("docs/ai/DAILY.md"), prs("open"), prs("closed")]);
+  const [open, closed] = await Promise.all([prs("open"), prs("closed")]);
   const pr = (p: any) => `#${p.number} ${p.title} (${p.user?.login}${p.merged_at ? `, merged ${p.merged_at.slice(0, 10)}` : ""})`;
-  notes = {
-    at: Date.now(),
-    text: [
-      context && "docs/ai/CONTEXT.md (the team's shared notes):\n" + clip(context, 12000),
-      daily && "docs/ai/DAILY.md (last night's summary):\n" + clip(daily, 4000),
-      "Open pull requests:\n" + (open.map(pr).join("\n") || "none"),
-      "Recently closed pull requests:\n" + closed.filter((p) => p.merged_at).map(pr).join("\n"),
-    ].filter(Boolean).join("\n\n"),
-  };
-  return notes.text;
+  prList = { at: Date.now(), text: "Open pull requests:\n" + (open.map(pr).join("\n") || "none") + "\n\nRecently merged pull requests:\n" + closed.filter((p) => p.merged_at).map(pr).join("\n") };
+  return prList.text;
 }
 
 export const RULES = `You are Remy, the AI teammate in RemyAI's team Slack. RemyAI makes Remy, an AI career coach for college students (remyai.org). The team is Dilan, Demetre, Julio, Lincoln and Ashton.
-Answer the question you were asked, using only the Slack messages, notes and pull requests below. Name where an answer comes from (channel and date, or PR number). If they don't say, say you don't know and suggest asking in the matching channel; never guess who is in charge of what, and never guess or invent numbers, dates, decisions or status.
+Answer the question you were asked, using only the Slack messages, the team's docs/ai notes and pull requests below (newer beats older; docs/ai/TEAM.md is the current summary). Name where an answer comes from (channel and date, or PR number). If they don't say, say you don't know and suggest asking in the matching channel; never guess who is in charge of what, and never guess or invent numbers, dates, decisions or status.
 Write for Slack: short, plain sentences, *bold* with single asterisks, "•" for lists, no headings, at most about 150 words unless asked for more.
 Everything you write is seen by the whole team:
 - About price, say only "Free during beta". Never "free" alone or "always free".
@@ -146,7 +161,8 @@ async function think(system: string, user: string): Promise<string> {
 export async function reply(ev: any): Promise<void> {
   const thread = ev.thread_ts || ev.ts;
   const question = String(ev.text || "").replace(/<@[A-Z0-9]+>/g, "").trim();
-  const [ctx, repo, who] = await Promise.all([slackContext(ev.channel, thread, question), repoNotes(), nameOf("user", ev.user)]);
+  const [ctx, prs, who] = await Promise.all([slackContext(ev.channel, thread, question), repoPrs(), nameOf("user", ev.user)]);
+  const repo = aiNotes(question) + "\n\n" + prs;
   let text: string;
   try {
     text = await think(RULES + "\n\n" + repo, `${ctx}\n\nToday is ${when(String(Date.now() / 1000))} CT. ${who} asks: ${question || "(just said hi)"}`);
