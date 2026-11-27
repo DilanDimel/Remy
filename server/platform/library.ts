@@ -14,7 +14,8 @@ export type Item = {
 export type Found = { id: string; source: string; title: string; body: string; url: string; tier: Tier; file_name: string | null; starts_at: string | null; updated_at: string };
 
 const MAX_FILE = 5 * 1024 * 1024;
-const fileKey = (id: string) => `library/${id}`;
+// R2 signs the raw path, and ":" would need escaping, so swap it for "~" (never in an id, so no clashes).
+const fileKey = (id: string) => `library/${id.replace(/:/g, "~")}`;
 
 /** Checks one pushed item; the reason it's refused, or "". */
 export function badItem(it: any): string {
