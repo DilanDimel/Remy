@@ -4,6 +4,7 @@ import path from "node:path";
 import type { Job, Requirement, Workspace } from "@shared/types";
 import { htmlToText } from "../resume/parse";
 import { postingLines } from "@shared/postingText";
+import { payLine, payOf, withPay } from "@shared/pay";
 import { topSkills } from "@shared/requirements";
 import { uid } from "../platform/ids";
 import { abroad, COUNTRY_IN_TEXT, FIELD_SEARCH, FIELD_TITLES, regionMatch, chosenFieldText, relocateReason, typeMatch, duties } from "./fit";
@@ -129,8 +130,7 @@ async function readMore(m: More): Promise<{ text: string; location?: string }> {
     }
     case "schoolspring": {
       const d = (await getJson(m.url)).value?.jobInfo || {};
-      const pay = d.payMin && d.payMax ? `Pay: $${d.payMin}–$${d.payMax} ${d.salaryCode || ""}` : "";
-      return { text: [htmlToText(String(d.jobDescription || "")), d.requirements && d.requirements !== "None" ? htmlToText(String(d.requirements)) : "", pay, d.shiftType ? `Schedule: ${d.shiftType}` : ""].filter(Boolean).join("\n") };
+      return { text: [payLine(d.payMin, d.payMax, d.salaryCode), htmlToText(String(d.jobDescription || "")), d.requirements && d.requirements !== "None" ? htmlToText(String(d.requirements)) : "", d.shiftType ? `Schedule: ${d.shiftType}` : ""].filter(Boolean).join("\n") };
     }
     case "taleo":
       return { text: taleoDescription(await (await fetch(m.url, { headers: { "user-agent": BROWSER_UA }, signal: AbortSignal.timeout(8000) })).text()) };
@@ -262,7 +262,7 @@ async function usajobs(field: string, region: string): Promise<Raw[]> {
     student: true, nearby: true,
     title: String(x.PositionTitle || ""), company: String(x.OrganizationName || x.DepartmentName || "U.S. federal government"),
     location: String(x.PositionLocationDisplay || ""), url: String(x.PositionURI), posted: x.PublicationStartDate, deadline: String(x.ApplicationCloseDate || "").slice(0, 10),
-    text: [x.UserArea?.Details?.JobSummary, x.QualificationSummary, x.UserArea?.Details?.Education, x.UserArea?.Details?.Requirements].filter(Boolean).join("\n"),
+    text: [payLine(x.PositionRemuneration?.[0]?.MinimumRange, x.PositionRemuneration?.[0]?.MaximumRange, x.PositionRemuneration?.[0]?.RateIntervalCode), x.UserArea?.Details?.JobSummary, x.QualificationSummary, x.UserArea?.Details?.Education, x.UserArea?.Details?.Requirements].filter(Boolean).join("\n"),
   }));
 }
 // Frontline AppliTrack, the job board many Texas school districts use. Board = "district|City, ST".
@@ -398,11 +398,12 @@ export async function fetchBoard(b: Board, field: string, region = ""): Promise<
     const j = await getJson(`https://api.lever.co/v0/postings/${encodeURIComponent(b.slug)}?mode=json`);
     return (Array.isArray(j) ? j : []).map((x: any) => ({
       title: String(x.text || ""), location: [x.categories?.location, x.workplaceType === "remote" ? "Remote" : ""].filter(Boolean).join(" · "), url: String(x.hostedUrl || x.applyUrl || ""),
-      text: [x.descriptionPlain, ...(x.lists || []).map((l: any) => `${l.text}: ${htmlToText(String(l.content || ""))}`), x.additionalPlain].filter(Boolean).join("\n"), posted: x.createdAt ? new Date(x.createdAt).toISOString() : undefined,
+      text: [payLine(x.salaryRange?.min, x.salaryRange?.max, x.salaryRange?.interval), x.descriptionPlain, ...(x.lists || []).map((l: any) => `${l.text}: ${htmlToText(String(l.content || ""))}`), x.additionalPlain].filter(Boolean).join("\n"), posted: x.createdAt ? new Date(x.createdAt).toISOString() : undefined,
     }));
   }
-  const j = await getJson(`https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(b.slug)}`);
-  return (j.jobs || []).map((x: any) => ({ title: String(x.title || ""), location: [x.location, x.isRemote ? "Remote" : ""].filter(Boolean).join(" · "), url: String(x.jobUrl || x.applyUrl || ""), text: String(x.descriptionPlain || htmlToText(String(x.descriptionHtml || ""))), posted: x.publishedAt }));
+  const j = await getJson(`https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(b.slug)}?includeCompensation=true`);
+  return (j.jobs || []).map((x: any) => ({ title: String(x.title || ""), location: [x.location, x.isRemote ? "Remote" : ""].filter(Boolean).join(" · "), url: String(x.jobUrl || x.applyUrl || ""),
+    text: withPay(x.compensation?.compensationTierSummary ? `Pay: ${String(x.compensation.compensationTierSummary).split(" • ")[0]}` : "", String(x.descriptionPlain || htmlToText(String(x.descriptionHtml || "")))), posted: x.publishedAt }));
 }
 function decodeEntities(s: string) {
   return s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
@@ -539,7 +540,7 @@ export function refillEmpty(jobs: Job[], found: Job[]): Job[] {
     if (!old) return true;
     old.checkedAt = f.checkedAt; // read again: tried once, whatever came back
     if (!f.postingText) return false;
-    Object.assign(old, { postingText: f.postingText, summary: f.summary, requirements: f.requirements, eligibility: f.eligibility, location: f.location !== "Not stated" ? f.location : old.location });
+    Object.assign(old, { postingText: f.postingText, pay: f.pay, summary: f.summary, requirements: f.requirements, eligibility: f.eligibility, location: f.location !== "Not stated" ? f.location : old.location });
     return false;
   });
 }
@@ -636,7 +637,7 @@ export async function discoverJobs(ws: Workspace, boards: Board[], limit = 25, e
     if (n >= 4 || jobs.length >= limit) continue;
     if ((fields.length || titleFits.length) && f.rel === 0 && found.some((x) => x.rel > 0)) continue;
     perCompany.set(f.job.company, n + 1);
-    jobs.push({ ...f.job, eligibility: eligibilityFrom(f.text), requirements: requirementsFrom(f.text), summary: postingLines(f.text).join("\n").slice(0, 420), postingText: f.text.slice(0, 12000) });
+    jobs.push({ ...f.job, eligibility: eligibilityFrom(f.text), requirements: requirementsFrom(f.text), summary: postingLines(f.text).join("\n").slice(0, 420), postingText: f.text.slice(0, 12000), pay: payOf(f.text) || undefined });
   }
   return { jobs, scanned: boards.length, reached };
 }

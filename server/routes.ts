@@ -1,4 +1,5 @@
 import { postingSkills } from "@shared/requirements";
+import { payOf } from "@shared/pay";
 import type { Express, NextFunction, Request, Response } from "express";
 import type { Server } from "node:http";
 import crypto from "node:crypto";
@@ -2598,7 +2599,7 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
       applyUrl: url ? finalUrl : "", sourceUrl: url ? finalUrl : "", sourceName: url ? new URL(finalUrl).hostname : "Pasted by student",
       label: url ? "Live" : "Student provided", checkedAt: nowIso().slice(0, 10),
       checks: url ? [{ at: nowIso(), httpStatus: status, result: closed ? "closed-signal" : "reachable", note: closed ? "Page text suggests applications are closed." : "Page was readable when imported." }] : [],
-      origin: "imported", postingText: text.slice(0, 15000),
+      origin: "imported", postingText: text.slice(0, 15000), pay: payOf(text) || undefined,
     };
     if (!job.requirements.length) bad("The AI couldn't find requirements quoted from this posting. Try pasting the full posting text.", 422);
     ctx.ws.jobs.unshift(job);
