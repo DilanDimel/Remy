@@ -1,6 +1,6 @@
 # Database plan: from demo storage to a real database
 
-Status: proposal for the team (Oct 2026). Nothing here is built yet.
+Status: proposal for the team (Oct 2026), partly done since. Production now runs on DigitalOcean Managed Postgres (not Supabase), rate limits are in `rate_limits`, and saved openings moved to `student_jobs` (migration 020). The current tables are listed in `docs/CODEMAP.md`.
 
 ## Today
 - Postgres: Supabase in production (`DATABASE_URL`, tables in their own `remy` schema), PGlite (Postgres inside Node) locally and in tests. Migrations in `server/migrations/` run once each at startup.

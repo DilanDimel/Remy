@@ -1,5 +1,7 @@
 # Architecture
 
+How the pieces fit together. For every folder, module, route and table, see [`CODEMAP.md`](CODEMAP.md).
+
 ## How a request flows
 
 1. **Browser.** `client/src/main.tsx` mounts `App.tsx`, which wraps everything in `StoreProvider` (`lib/store.tsx`). The store loads `/api/config`, `/api/me` and the student's workspace, and exposes `api()`, `save()` and `download()`. Pages read state with `useStore()`; `lib/router.ts` is a small router (`go`, `useRoute`).

@@ -1,6 +1,6 @@
 # Development
 
-How to run, test, deploy and configure Remy. The team-facing overview is the root `README.md`; the rules for changes are in `CLAUDE.md`.
+How to run, test, deploy and configure Remy. The overview is the root `README.md`, every folder and module is in `docs/CODEMAP.md`; the rules for changes are in `CLAUDE.md`.
 
 ## Folders
 
@@ -35,13 +35,15 @@ The in-app "What's new" list is one file per note in `shared/news/` (types and h
 
 ## Deploy
 
-Render deploys `main` automatically (`render.yaml`): `npm ci && npm run build`, then `node dist/index.cjs`. Merging a pull request is a deploy, so keep `main` green. The live service is `remy-virginia` in Render's Virginia region, next to the Supabase database (us-east-1); it moved from `offer-ready` in Oregon on Nov 24, 2026, which cut signed-in requests from about 200-380 ms to 15-70 ms. Its settings come from the `remy-server-env` environment group, so change secrets there. Health check: `/api/config`. Never add a disk (it turns off zero-downtime deploys). An hourly Cloudflare Worker cron (`remy-tick`) calls `/api/cron/tick` for reminders and cleanup.
+DigitalOcean App Platform deploys `main` automatically (app `remy`, New York, 2 GB instance with `NODE_OPTIONS=--max-old-space-size=1536`): `npm ci && npm run build`, then `node dist/index.cjs`, with health checks on `/api/config` and automatic rollback if a new version fails them. Merging a pull request is a deploy, so keep `main` green. The database is DigitalOcean Managed Postgres (`remy-db`, PostgreSQL 17); the workspace cache, voice lines, team library and nightly backups are in Cloudflare R2. Cloudflare also sits in front of remyai.org, and its hourly Worker cron (`remy-tick`) calls `/api/cron/tick` for reminders and cleanup.
+
+The site moved to DigitalOcean on Nov 25-26, 2026. The Render service is suspended and Supabase is no longer used (sign-in is Remy's own Google and email codes); `render.yaml` and the `RENDER_*` variables are kept only until that history is cleaned up.
 
 Android test builds: push a branch named `app-release/<version>` and the APK is published as a GitHub release.
 
 ## Configuration
 
-Secrets live in the Render dashboard (environment group `remy-server-env`), never in the repo.
+Secrets live in the DigitalOcean app's settings (or a local `.env`), never in the repo.
 
 | Variable | Purpose |
 |---|---|
@@ -51,9 +53,10 @@ Secrets live in the Render dashboard (environment group `remy-server-env`), neve
 | `OR_AI_CHAIN_OWNERS` | Separate chain for owners' accounts (trial models) |
 | `OR_AI_TAILOR_CHAIN` | Optional stronger chain for resume tailoring only |
 | `OR_AI_DAILY_BUDGET` | Site-wide AI requests per 24 hours (default 1500) |
-| `DATABASE_URL`, `DB_SCHEMA`, `DB_SSL_CA_FILE` | Postgres connection (schema defaults to `remy`). Unset: PGlite in `OR_DB_PATH` or in memory |
+| `DATABASE_URL`, `DB_SCHEMA`, `DB_SSL_CA` / `DB_SSL_CA_FILE` | Postgres connection (schema defaults to `remy`). Unset: PGlite in `OR_DB_PATH` or in memory |
 | `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `WS_CACHE_KEY` | Encrypted workspace cache in a private Cloudflare R2 bucket, kept across deploys (`server/platform/r2.ts`). Unset: memory only |
-| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Supabase Auth (the publishable key is public by design) |
+| `GOOGLE_SIGNIN_CLIENT_ID`, `GOOGLE_SIGNIN_CLIENT_SECRET` | Remy's own Google sign-in (`server/platform/oauth.ts`; falls back to the `GCAL_*` client). Email sign-in codes need only outgoing mail |
+| `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET` | Optional LinkedIn sign-in |
 | `ELEVENLABS_API_KEY` | Remy's speaking voice (Arthur) for read-aloud, `server/ai/voice.ts`. Lines are cached in memory and R2. Unset: Remy doesn't read out loud (no robot browser voice) |
 | `OWNER_EMAILS` | Founders' emails; owners see owner view and the Owners' dashboard |
 | `RESEND_SMTP_URL`, `SMTP_URL`, `MAIL_FROM`, `MAIL_REPLY_TO` | Outgoing mail (Resend first, Gmail fallback) |
@@ -64,8 +67,8 @@ Secrets live in the Render dashboard (environment group `remy-server-env`), neve
 | `GCAL_CLIENT_ID`, `GCAL_CLIENT_SECRET` | Google Calendar connection |
 | `CRON_SECRET` | Shared secret for the hourly tick (same value as the `CRON_SECRET` secret on the `remy-tick` Cloudflare Worker) |
 | `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, `REMY_SLACK_OPENROUTER_KEY` (the bot's own AI key, separate from students'), `REMY_TEAM_NOTES` (team-only facts the bot reads; never in the repo) | The team Slack's Remy app (`docs/slack-app.md`). Without them `/api/slack/events` is off. Its private team library (`server/platform/library.ts`) is filled by the lead AI's nightly sync through `POST /api/team/library` with `REMY_AI_KEY`; files are sealed in R2 |
-| `RENDER_API_KEY` | Owners' dashboard deploy and health panel |
+| `RENDER_API_KEY` | Old: Render deploys on the owners' Services panel (unused since the move) |
 
-`grep -oh "process.env.[A-Z_0-9]*" server/*.ts | sort -u` lists every variable the server reads.
+`grep -rhoE "process\.env\.[A-Z_0-9]+" server --include=*.ts | sort -u` lists every variable the server reads.
 
 Anything unset turns its feature off with a "coming soon" or "needs setup" message instead of failing.
