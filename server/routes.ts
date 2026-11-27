@@ -2021,7 +2021,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       iv.aiCalls++;
       try {
         const [sys, user] = feedbackPrompt(iv.profile, q, text, before, langOf(await talkLanguage(ctx.me, ctx.ws)));
-        Object.assign(answer, checkFeedback(await withAi(ctx, "Mock interview feedback", () => aiJson(sys, user, 1500)), text, iv.profile, ivOk(ctx, text)));
+        Object.assign(answer, checkFeedback(await withAi(ctx, "Mock interview feedback", () => aiJson(sys, user, 1500)), text, iv.profile, ivOk(ctx, `${text}\n${iv.title} at ${iv.company}`)));
       } catch { /* the answer is saved either way; Remy's take just doesn't show this time */ }
     }
     if (!answer.sharpen && text.split(/\s+/).length < 5) answer.sharpen = thinAnswerTip(q, text);

@@ -60,3 +60,10 @@ test("practice (review cases): '&', '-' and '.' names count when said; 'looks li
   const more = script + " " + "and also I want to add a lot of my own words here about why I care about this so much and what I hope to do next year".repeat(1);
   assert.equal(speechFeedback(more, 30, script).recited, 0);
 });
+
+test("a job title as the interest reads as a kind of role, not 'interested in public affairs intern'", () => {
+  const next = (interests: string) => plainParts({ ...profile, interests }).next;
+  assert.equal(next("Public Affairs Intern"), "I'm interested in public affairs internships.");
+  assert.equal(next("Data Analyst, Software Engineer Intern"), "I'm interested in data analyst roles and software engineer internships.");
+  assert.equal(next("Finance, Consulting"), "I'm interested in finance and consulting.");
+});
