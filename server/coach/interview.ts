@@ -70,17 +70,33 @@ export function rulesPlan(job: Job, doc: ResumeDoc | undefined, pitch: string, s
     YOURS(profile)];
 }
 
+// Julio's level-4 anchors are written for experienced hires ("acknowledges attribution limits"), so a student's best
+// answer never reached Strong (interview test lab, Nov 27: 0 of 43 strong answers). The prompt uses student-level 4s
+// for the criteria most answers touch; the catalog itself is unchanged.
+const STUDENT_TOP: Partial<Record<CriterionId, string>> = {
+  context: "Sets up the situation briefly with the one detail that matters (a number, a deadline, who was involved).",
+  ownership: "Makes clear exactly what they did themselves, step by step, and credits others where it's due.",
+  outcomes: "Says what happened with something concrete (a number, a before and after, someone's reaction) and ties it to the goal.",
+  reflection: "Says what they learned and something they now do differently because of it.",
+  answer_focus: "Answers the question directly up front and stays on it.",
+  clear_structure: "Easy to follow from start to finish, ending on a clear point.",
+  decision_tradeoffs: "Names the options they weighed, why they picked one, and what they gave up.",
+  problem_framing: "States the goal, what made it hard, and what they needed to find out first.",
+};
+const anchorsFor = (id: CriterionId) => CRITERIA[id].anchors.map((a, i) => (i === 3 && STUDENT_TOP[id]) || a);
+
 export function feedbackPrompt(profile: ProfileId, q: IvQuestion, answer: string, before?: IvAnswer, lang?: Lang): [string, string] {
   const ids = [...new Set([...q.criteria, ...PROFILES[profile].criteria])].slice(0, 14) as CriterionId[];
   return [
     `You are Remy, a warm, honest interview coach for a college student. Rate ONE answer from a mock interview against the scoring guide.
 Rate only criteria this answer actually shows; skip the rest (not heard is not a low score). For each rating give the level 1-4 whose description fits best, an EXACT quote of 4 to 25 words copied from the answer, and a one-line note in plain words.
 Never judge accent, filler words, pauses, nerves, personality or looks. Don't assume facts they didn't say.
+If they tell an unsafe, dishonest, rule-breaking or privacy-breaking action as a success, rate the criteria it touches 1 and name it plainly in "sharpen".
 Students answer in every style: lazy or one-line, vague, rambling, off-topic, joking, overconfident or bragging, negative about a past boss, made-up sounding, or refusing ("I don't know", "pass"). Coach each one kindly and directly: if it doesn't answer the question, say so plainly in "sharpen"; if it is vague, ask for one real example; if it rambles, ask for the point first. Always return "sharpen".
 "landed": the best thing they said, as an exact quote, and why it works (one sentence). Only something an interviewer would really like: never a brag, a complaint, a joke, a refusal or the question repeated back. If nothing works yet, leave "landed" empty.
 ${lang && lang.code !== "en" ? `The student reads tips in ${lang.english}: write every "note", the "why" and the "sharpen" title in ${lang.english}. Quotes stay exactly as they said them. Write "example" in English, since the real interview is in English.` : "Write every note in English, even if the answer is in another language (then suggest answering in English)."}
 "sharpen": the single most useful fix as a short title, plus "example": how they could say it, using ONLY facts already in their answer (no new numbers, names or results). If the answer has no facts to reuse, "example" is a short fill-in frame with [brackets] for what they should add, like "Last semester I [what you did], and [what happened]."${before ? `\nThis is a second try. Their first try and Remy's tip are given; rate "feedback_iteration" if the guide has it.` : ""}`,
-    `QUESTION: ${q.q}${q.table ? `\nPRACTICE TABLE: ${q.table.map((r) => r.join(" | ")).join(" / ")}` : ""}\n\nSCORING GUIDE:\n${ids.map((id) => `${id}: ${CRITERIA[id].label}. Levels: ${CRITERIA[id].anchors.map((a, i) => `${i + 1}) ${a}`).join(" ")}`).join("\n")}${before ? `\n\nFIRST TRY: ${before.text}\nREMY'S TIP THEN: ${before.sharpen?.title || ""}` : ""}\n\nTHEIR ANSWER: ${answer}\n\nReturn {"ratings":[{"criterion":"","level":1,"quote":"","note":""}],"landed":{"quote":"","why":""},"sharpen":{"title":"","example":""}}`,
+    `QUESTION: ${q.q}${q.table ? `\nPRACTICE TABLE: ${q.table.map((r) => r.join(" | ")).join(" / ")}` : ""}\n\nSCORING GUIDE:\n${ids.map((id) => `${id}: ${CRITERIA[id].label}. Levels: ${anchorsFor(id).map((a, i) => `${i + 1}) ${a}`).join(" ")}`).join("\n")}${before ? `\n\nFIRST TRY: ${before.text}\nREMY'S TIP THEN: ${before.sharpen?.title || ""}` : ""}\n\nTHEIR ANSWER: ${answer}\n\nReturn {"ratings":[{"criterion":"","level":1,"quote":"","note":""}],"landed":{"quote":"","why":""},"sharpen":{"title":"","example":""}}`,
   ];
 }
 

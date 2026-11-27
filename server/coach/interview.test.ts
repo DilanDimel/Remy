@@ -99,3 +99,11 @@ test("AI test, Nov 27: no praise for an answer Remy rated Not yet; blanks and 'o
   assert.ok(bad.sharpen?.example);
   assert.ok(checkFeedback(raw(2), answer, "generic", ok).landed);
 });
+
+test("scoring prompt grades students against student-level 4s and calls out unsafe stories (interview persona test)", async () => {
+  const { feedbackPrompt } = await import("./interview");
+  const [sys, user] = feedbackPrompt("generic", { kind: "posting", q: "Tell me about a time you fixed a mistake.", criteria: ["outcomes", "reflection"] } as any, "I caught a shipping error at work and fixed it before the order went out.");
+  assert.match(user, /4\) Says what they learned and something they now do differently/);
+  assert.doesNotMatch(user, /acknowledges attribution limits/);
+  assert.match(sys, /unsafe, dishonest/);
+});
