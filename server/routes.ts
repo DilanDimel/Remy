@@ -76,7 +76,7 @@ import { conferencesFor } from "./jobs/conferences";
 import { iconUrl, logoDomainFor } from "./jobs/logo";
 import { competitionsFor, competitionsOpen } from "./jobs/competitions";
 import { trimOpenings } from "./resume/trim";
-import { pruneLogs, storageReport, trafficReport, warnIfNearLimit } from "./platform/storage";
+import { pruneLogs, storageReport, trafficReport, warnIfBackupStale, warnIfNearLimit } from "./platform/storage";
 import { backupIfDue, backupStatus } from "./platform/backup";
 import { jobsReport, setJobsMode } from "./platform/studentJobs";
 import * as insights from "./jobs/insights";
@@ -711,7 +711,8 @@ export async function registerRoutes(_server: Server, app: Express) {
       // A 24th of the employer catalog's boards each run, into R2 (never Supabase); each board about once a day.
       catalogTick().then((p) => { if (p) console.log(`catalog: read ${p.reached}/${p.boards} boards, ${p.postings} postings, kept ${p.kept}`); }).catch((e) => console.error("catalog read failed", e?.message)),
       warnIfNearLimit().catch((e) => console.error("storage check failed", e?.message)),
-      backupIfDue().then((b) => { if (b) console.log(`backup: ${b.kind} copy, ${b.rows} rows`); }).catch((e) => console.error("backup failed", e?.message)),
+      backupIfDue().then((b) => { if (b) console.log(`backup: ${b.kind} copy, ${b.rows} rows`); }).catch((e) => console.error("backup failed", e?.message))
+        .then(() => warnIfBackupStale()).catch((e) => console.error("backup check failed", e?.message)),
       pruneLogs().catch((e) => console.error("log cleanup failed", e?.message)),
       // student_jobs switch on: check the copied accounts (redo any that differ), then copy the next few.
       jobsReport(true).then(() => copyJobsBatch()).then((n) => { if (n) console.log(`student_jobs: copied ${n} accounts`); }).catch((e) => console.error("student_jobs copy failed", e?.message)),
@@ -3404,19 +3405,17 @@ Return JSON:
   }));
   // Deletes everything Remy stores about the student — workspace, files, AI usage,
   // sessions and the account record — and signs them out.
-  // Supabase sign-ins also have a login record (email, name, Google id) in Supabase Auth; a narrow database
-  // function (<schema>.delete_login, set up in Supabase) removes it too.
+  // Sign-in no longer goes through Supabase (Google and email codes run on Remy's own server, and the database moved to
+  // DigitalOcean on Nov 25), so there is no separate login record to remove: the account row above was all of it. The
+  // old call to a Supabase-only database function (<schema>.delete_login) failed on the new database and told every
+  // email or LinkedIn student "your sign-in record couldn't be removed". `loginRemoved` stays in the answer, always
+  // true, because app builds already on phones read it.
   app.delete("/api/ws", route(async (req, res, ctx) => {
     // The Remy calendar in their Google account goes first, while Remy still has access to delete it.
     const calendarRemoved = await gcal.disconnect(ctx.me.id);
     await deleteAccount(ctx.me.id);
-    let loginRemoved = ctx.me.kind !== "supabase";
-    if (!loginRemoved) {
-      try { await q(`SELECT ${schema}.delete_login($1::uuid)`, [ctx.me.id.slice(3)]); loginRemoved = true; }
-      catch (e: any) { console.error("Couldn't remove the Supabase login record:", e?.message); }
-    }
     await endSession(req, res);
-    res.json({ deleted: true, loginRemoved, calendarRemoved });
+    res.json({ deleted: true, loginRemoved: true, calendarRemoved });
   }));
 
   // An /api address that doesn't exist answers "not found", not the web page.

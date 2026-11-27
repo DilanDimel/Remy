@@ -156,7 +156,7 @@ function Applications({ emailReady, onList }: { emailReady: boolean; onList: (li
   return (
     <section className="adm-card stack-sm" data-testid="beta-applications">
       <div className="row-between"><h3>Applications from the form ({all.length})</h3><span className="xs muted">Updates every 20 seconds</span></div>
-      {!data.hookReady && <p className="small notice notice-warn">The form isn't connected yet: set OR_BETA_HOOK_SECRET on Render and add the script from docs/beta-form-hook.gs to the form.</p>}
+      {!data.hookReady && <p className="small notice notice-warn">The form isn't connected yet: set OR_BETA_HOOK_SECRET in the app's settings on DigitalOcean and add the script from docs/beta-form-hook.gs to the form.</p>}
       {all.length > 0 && (
         <div className="small muted stack-sm">
           {(["stuck", "goal", "source"] as const).map((k) => <span key={k}><b>{k === "stuck" ? "Stuck on" : k === "goal" ? "Wants" : "Heard from"}:</b> {tally(k).map(([v, n]) => `${v} (${n})`).join(" · ")}</span>)}
@@ -433,7 +433,7 @@ function FunnelCard() {
 
 type Outcomes = { applied: number; answered: number; interviews: number; offers: number; applied_tailored: number; answered_tailored: number; students_applying: number; students_rating: number; ratings: number; students: number };
 /** What Remy is for: applications that got answers, interviews and offers, across real students (team left out). */
-type Storage = { usedMb: number; limitMb: number; percent: number; tables: { name: string; mb: number; rows: number }[]; workspaces: { n: number; avg_kb: number; max_kb: number; p90_kb: number }; transfer: { monthMb: number; limitGb: number; days: { day: string; mb: number }[] } };
+type Storage = { usedMb: number; limitMb: number; percent: number; tables: { name: string; mb: number; rows: number }[]; workspaces: { n: number; avg_kb: number; max_kb: number; p90_kb: number }; transfer: { monthMb: number; limitGb: number; days: { day: string; mb: number }[] }; backup?: { configured: boolean; lastAt: string | null; lastFull: string | null } };
 type Opening = { url: string; title: string; company: string; kind: string; location: string; industry: string; career_path: string; source_name: string; deadline: string; first_seen: string; last_seen: string; times_seen: number; last_checked: string | null; check_result: string | null };
 type OpeningsData = { summary: { total: number; closed: number; unchecked: number; companies: number; keepDays: number; byIndustry: { industry: string; n: number }[]; byPath: { career_path: string; n: number }[] }; openings: Opening[]; catalog?: { employers: number; partsRead: number; reached: number; studentLevel: number; oldest: string | null } | null };
 /** Every public posting Remy found or re-checked (Demetre's checked-openings record). No student data. */
@@ -527,7 +527,8 @@ function SystemTab() {
   const keyName = !ai?.label ? "" : ai.label.startsWith("sk-") ? `…${ai.label.slice(-3)}` : ai.label;
   const keyLine = ai ? `key ${keyName ? `"${keyName}"` : "in use"}: ${money(ai.usage)} used${ai.limit != null ? ` of its ${money(ai.limit)} cap` : ""}` : "";
   const dot = (warn: boolean) => <span className={"adm2-dot" + (warn ? " warn" : "")} aria-label={warn ? "needs a look" : "fine"} />;
-  const watch = [tp >= 80 && "database transfer is over the free plan", s.percent >= 80 && "the database is almost full", memP >= 0.8 && "memory is almost full", aiLow && "AI money is running low"].filter(Boolean) as string[];
+  const backupLate = !!s.backup && (!s.backup.configured || !s.backup.lastAt || Date.now() - new Date(s.backup.lastAt).getTime() > 36 * 3_600_000);
+  const watch = [backupLate && "nightly backups aren't running", tp >= 80 && "database transfer is over the free plan", s.percent >= 80 && "the database is almost full", memP >= 0.8 && "memory is almost full", aiLow && "AI money is running low"].filter(Boolean) as string[];
   const maxDay = Math.max(1, ...s.transfer.days.map((x) => x.mb));
   const dayLimit = (s.transfer.limitGb * 1024) / 30;
   const refresh = () => { reload("Up to date"); reloadS(); };
@@ -538,7 +539,7 @@ function SystemTab() {
         <button className="btn btn-ghost btn-sm" onClick={refresh} data-testid="button-system-refresh"><RotateCcw size={14} /> Refresh</button>
       </div>
       <div className="adm2-tiles">
-        <div className="adm2-tile"><strong>Up</strong>{dot(false)}<span className="adm2-tl">Server (Render)</span><span className="adm2-ts">version {d.server.commit || "local"} · running {up}</span></div>
+        <div className="adm2-tile"><strong>Up</strong>{dot(false)}<span className="adm2-tl">Server (DigitalOcean)</span><span className="adm2-ts">version {d.server.commit || "local"} · running {up}</span></div>
         <div className="adm2-tile"><strong>{d.server.memoryMb} MB</strong>{dot(memP >= 0.8)}<span className="adm2-tl">Memory in use</span><span className="adm2-ts">of {d.server.memoryLimitMb} MB on the plan</span></div>
         <div className="adm2-tile" data-testid="system-ai-money"><strong>{ai ? (aiLeft != null ? money(aiLeft) : "No cap") : "—"}</strong>{dot(!!aiLow)}<span className="adm2-tl">AI money left</span><span className="adm2-ts">{!ai ? (d.ai.available && d.ai.error) || "OPENROUTER_API_KEY isn't set" : ai.account ? `OpenRouter balance: ${money(ai.account.spent)} spent of ${money(ai.account.bought)} · ${keyLine}` : `Only this key's cap; add OPENROUTER_MANAGEMENT_KEY for the account balance · ${keyLine}`}</span></div>
         <div className="adm2-tile"><strong>{s.percent}%</strong>{dot(s.percent >= 80)}<span className="adm2-tl">Database space</span><span className="adm2-ts">{s.usedMb} of {s.limitMb} MB · avg account {s.workspaces.avg_kb} KB</span></div>
@@ -551,9 +552,14 @@ function SystemTab() {
               {s.transfer.days.map((x) => <div key={x.day} title={`${x.day.slice(5)}: ${x.mb} MB`}><i className={x.mb > dayLimit ? "over" : ""} style={{ height: `${Math.max(2, (x.mb / maxDay) * 80)}px` }} /><small>{Number(x.day.slice(8))}</small></div>)}
             </div>
           )}
-          <p className="adm2-note"><b>Orange days read more than the free plan allows per day ({Math.round(dayLimit)} MB).</b> Every page a student opens reads their account, so account size drives this. It's Remy's own count; Supabase → Usage → Egress has the billed number.</p>
+          <p className="adm2-note"><b>Orange days read more than the free plan allows per day ({Math.round(dayLimit)} MB).</b> Every page a student opens reads their account, so account size drives this. It's Remy's own count of what the server reads from the database; DigitalOcean doesn't bill it by the gigabyte, so raise DB_EGRESS_LIMIT_GB if this limit no longer means anything.</p>
           <div className="adm2-h"><h3>Biggest tables</h3><button className="btn btn-ghost btn-sm" onClick={() => setTables(true)} data-testid="button-all-tables">All {s.tables.length} <ArrowRight size={14} /></button></div>
           <div className="adm2-list">{s.tables.slice(0, 5).map((t) => <div key={t.name}><code>{t.name}</code><b>{t.mb} MB</b><span>{t.rows.toLocaleString()} rows</span></div>)}</div>
+          {s.backup && (
+            <div className="adm2-list" data-testid="system-backup">
+              <div><span>{dot(backupLate)} Backup</span><b>{!s.backup.configured ? "not set up" : s.backup.lastAt ? ago(s.backup.lastAt) : "none yet"}</b><span>{!s.backup.configured ? "no R2 settings" : s.backup.lastFull ? `last full copy ${s.backup.lastFull}` : ""}</span></div>
+            </div>
+          )}
         </section>
         <div className="adm2-col">
           <section className="adm2-card" data-testid="system-ai">
@@ -573,12 +579,11 @@ function SystemTab() {
                 {o.emails.nudges && <div><span>Match emails (owners)</span><b>{o.emails.nudges.sent} sent · {o.emails.nudges.yes} Yes</b></div>}
               </div>
             )}
-            {o?.emails && !o.emails.ready && <span className="xs muted">Set SMTP_URL on Render to send reminders and digests.</span>}
+            {o?.emails && !o.emails.ready && <span className="xs muted">Set SMTP_URL in the app's settings on DigitalOcean to send reminders and digests.</span>}
             {o?.texts && <div className="adm2-list"><div><span>Urgent texts</span><b>{o.texts.mode === "test" ? "test mode: nothing is sent" : `Twilio · ${o.texts.recent.length} recent`}</b></div></div>}
             <div className="adm2-links">
-              <a className="btn btn-ghost btn-sm" href="https://dashboard.render.com" target="_blank" rel="noreferrer">Render ↗</a>
+              <a className="btn btn-ghost btn-sm" href="https://cloud.digitalocean.com/apps" target="_blank" rel="noreferrer">DigitalOcean ↗</a>
               <a className="btn btn-ghost btn-sm" href="https://openrouter.ai/settings/credits" target="_blank" rel="noreferrer">OpenRouter credits ↗</a>
-              <a className="btn btn-ghost btn-sm" href="https://supabase.com/dashboard" target="_blank" rel="noreferrer">Supabase usage ↗</a>
             </div>
           </section>
         </div>
@@ -588,7 +593,7 @@ function SystemTab() {
         <Modal title="Tables, server and messages" onClose={() => setTables(false)}>
           <div className="adm2-list">{s.tables.map((t) => <div key={t.name}><code>{t.name}</code><b>{t.mb} MB</b><span>{t.rows.toLocaleString()} rows</span></div>)}</div>
           <p className="xs muted">{s.workspaces.n} accounts stored · 90% under {s.workspaces.p90_kb} KB · largest {s.workspaces.max_kb} KB. Live version {d.server.commit || "local build"}{d.server.branch ? ` from ${d.server.branch}` : ""}, started {new Date(d.server.startedAt).toLocaleString()}.</p>
-          {dep?.deploys ? dep.deploys.map((x, i) => <div key={i} className="row-between small"><span><b>{x.status}</b> · {x.message || x.commit}</span><span className="xs muted">{x.createdAt ? ago(x.createdAt) : ""}</span></div>) : <p className="xs muted">{dep?.error || "Deploy history needs a Render API key (RENDER_API_KEY), which is off on purpose; check dashboard.render.com for deploys."}</p>}
+          {dep?.deploys ? dep.deploys.map((x, i) => <div key={i} className="row-between small"><span><b>{x.status}</b> · {x.message || x.commit}</span><span className="xs muted">{x.createdAt ? ago(x.createdAt) : ""}</span></div>) : <p className="xs muted">{dep?.error || "Deploys now run on DigitalOcean: check cloud.digitalocean.com/apps for the deploy history."}</p>}
           {o?.texts?.recent.length ? <ul className="stack-sm small">{o.texts.recent.map((x) => <li key={x.at + x.to}><span className="muted">{fmtDate(x.at.slice(0, 10))} to {x.to}{x.mode === "test" ? " (test)" : ""}:</span> {x.body}</li>)}</ul> : null}
         </Modal>
       )}
@@ -672,7 +677,7 @@ type Waiting = { applications: { status: string }[] };
 /** Remy's one thing for the owner right now: the first rule that fires, most urgent first. */
 function oneThing(d: Overview, s: Storage | null, steps: [string, number][]): { key: string; title: string; body: string; big?: string; sub?: string; href: string; cta: string } | null {
   const tp = s ? Math.round((100 * s.transfer.monthMb) / 1024 / s.transfer.limitGb) : 0;
-  if (s && tp >= 80) return { key: `transfer-${tp >= 100 ? "over" : "near"}`, title: `Database transfer is at ${tp}% of the free plan.`, body: `Students read ${(s.transfer.monthMb / 1024).toFixed(1)} GB this month against Supabase's ${s.transfer.limitGb} GB. Check Supabase → Usage before it gets billed or slowed down.`, big: `${tp}%`, sub: `of ${s.transfer.limitGb} GB`, href: "/admin?tab=system", cta: "Open System" };
+  if (s && tp >= 80) return { key: `transfer-${tp >= 100 ? "over" : "near"}`, title: `Database transfer is at ${tp}% of the free plan.`, body: `Students read ${(s.transfer.monthMb / 1024).toFixed(1)} GB this month against the ${s.transfer.limitGb} GB limit set for it (DB_EGRESS_LIMIT_GB). DigitalOcean doesn't bill database transfer by the gigabyte, so this is a load signal; raise the limit if it no longer fits.`, big: `${tp}%`, sub: `of ${s.transfer.limitGb} GB`, href: "/admin?tab=system", cta: "Open System" };
   if (s && s.percent >= 80) return { key: "space", title: `The database is ${s.percent}% full.`, body: `${s.usedMb} of ${s.limitMb} MB used. The biggest table is ${s.tables[0]?.name || "workspaces"}.`, big: `${s.percent}%`, sub: "full", href: "/admin?tab=system", cta: "Open System" };
   if (d.openErrors) return { key: `errors-${d.openErrors}`, title: `${plural(d.openErrors, "error")} students hit ${d.openErrors === 1 ? "is" : "are"} open.`, body: "Look at what happened, fix it, then mark it fixed so the count stays honest.", big: String(d.openErrors), sub: "open", href: "/admin?tab=errors", cta: "Open errors" };
   if (d.feedback) return { key: `feedback-${d.feedback}`, title: `${plural(d.feedback, "student")} sent feedback.`, body: "Read it while it's fresh; it's the clearest signal of what to fix next.", big: String(d.feedback), sub: "new", href: "/admin?tab=errors", cta: "Read feedback" };
