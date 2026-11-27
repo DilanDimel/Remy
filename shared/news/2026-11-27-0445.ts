@@ -1,7 +1,7 @@
 import type { NewsNote } from "../news";
 
 export default {
-  kind: "New",
-  title: "More university jobs",
-  body: "Openings now include student jobs, assistantships and entry-level roles from universities like the Cal State campuses, Florida, Michigan State, Wisconsin–Madison and Virginia Tech, plus Virginia and Arizona state jobs.",
+  kind: "Fixed",
+  title: "Tidier tabs and switches on phones",
+  body: "On a phone, page tabs now sit in a box like a switch, and buttons like Match my device, Light and Dark wrap their words instead of getting cut off. Settings with a long dropdown move it under the label so nothing gets squeezed.",
 } satisfies NewsNote;

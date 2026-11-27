@@ -56,6 +56,8 @@ import { ComingSoon, useAccess, useCanGo } from "./components/ComingSoon";
 import { BETA_TERMS_LEAD, termsFor } from "@shared/beta";
 import { firstName, knownName } from "@shared/names";
 import { isNativeApp } from "./lib/native";
+import { useDeviceLanguage, useT } from "./lib/i18n";
+import { FirstLanguage } from "./components/LanguageChoice";
 
 // feature: a key in shared/features.ts; owners release it (or lock it with a teaser) from Admin → Beta.
 const NAV: { path: string; label: string; icon: typeof HomeIcon; feature?: string }[] = [
@@ -275,6 +277,8 @@ function Shell() {
   const access = useAccess();
   const locked = (n: { feature?: string }) => !!n.feature && access(n.feature) === "locked";
   const nav = NAV.filter((n) => !n.feature || access(n.feature) !== "hidden");
+  const t = useT();
+  useDeviceLanguage();
   const current = path.startsWith("/accounts") ? ACCOUNTS : nav.find((n) => (n.path === "/" ? path === "/" : path.startsWith(n.path))) || NAV[0];
   const pendingReview = w.applications.reduce((s, a) => s + a.changes.filter((c) => c.status === "pending").length, 0);
   const openSuggestions = w.suggestions.filter((s) => s.state === "open").length;
@@ -306,9 +310,9 @@ function Shell() {
           </button>
         </div>
         {nav.map((n) => (
-          <a key={n.path} href={n.path} className="nav-item" aria-current={current.path === n.path ? "page" : undefined} title={n.label} data-testid={`nav-${n.label.toLowerCase().replace(/[^a-z]/g, "")}`}>
+          <a key={n.path} href={n.path} className="nav-item" aria-current={current.path === n.path ? "page" : undefined} title={t(n.label)} data-testid={`nav-${n.label.toLowerCase().replace(/[^a-z]/g, "")}`}>
             <n.icon size={19} />
-            <span className="nav-label">{n.label}</span>
+            <span className="nav-label">{t(n.label)}</span>
             {n.path === "/resume" && pendingReview > 0 && <span className="count">{pendingReview}</span>}
             {n.path === "/progress" && openSuggestions > 0 && <span className="count">{openSuggestions}</span>}
             {locked(n) && <Lock size={14} className="nav-lock" aria-label="Coming soon" />}
@@ -317,7 +321,7 @@ function Shell() {
         {/* Career quest: owners only while it's tested (Dilan, Nov 19); a big release later. */}
         {CAREER_QUEST_ON && ownerView && ws && <GameSidebar w={ws} />}
         {/* Open access (Nov 24): feedback one click away on every page, not only in the account menu (phones: More). */}
-        <div className="side-news">{(ownerView || config?.beta?.open) && <button className="nav-item" onClick={() => setFeedback(true)} title="Tell the Remy team what's confusing or broken" data-testid="nav-feedback"><MessageSquare size={19} /><span className="nav-label">Send feedback</span></button>}<WhatsNew /><a className="nav-item" href="/welcome" title="Remy's homepage" data-testid="nav-homepage"><Info size={19} /><span className="nav-label">Remy homepage</span></a></div>
+        <div className="side-news">{(ownerView || config?.beta?.open) && <button className="nav-item" onClick={() => setFeedback(true)} title="Tell the Remy team what's confusing or broken" data-testid="nav-feedback"><MessageSquare size={19} /><span className="nav-label">{t("Send feedback")}</span></button>}<WhatsNew /><a className="nav-item" href="/welcome" title="Remy's homepage" data-testid="nav-homepage"><Info size={19} /><span className="nav-label">{t("Remy homepage")}</span></a></div>
         <OwnerTools />
         <ProfileMenu initials={initials} active={path.startsWith("/accounts")} />
       </aside>
@@ -325,10 +329,11 @@ function Shell() {
       <Celebrate />
       {ownerView && <PinMoment />}
       <Beta2Welcome />
+      <FirstLanguage />
       <RemyTour />
       <main className="main" id="main">
         <div className="topbar">
-          <div className={"crumb" + (current.path === "/" ? " home" : "")}><span className="crumb-root">Remy › </span><b data-short={PHONE_NAME[current.label] || current.label}>{current.label}</b></div>
+          <div className={"crumb" + (current.path === "/" ? " home" : "")}><span className="crumb-root">Remy › </span><b data-short={t(PHONE_NAME[current.label] || current.label)}>{t(current.label)}</b></div>
           <div style={{ marginLeft: "auto" }} className="row">
             {!asstOpen && !ownerView && (
               <button className="btn btn-secondary btn-sm hide-sm" onClick={() => setAsst(true)} data-testid="button-open-assistant">
@@ -354,10 +359,10 @@ function Shell() {
         {NAV.filter((n) => TABS.includes(n.path)).map((n) => (
           <a key={n.path} href={n.path} aria-current={tabOf(current.path) === n.path ? "page" : undefined}>
             <n.icon size={19} />
-            {PHONE_NAME[n.label] || n.label}
+            {t(PHONE_NAME[n.label] || n.label)}
           </a>
         ))}
-        <a href="#" onClick={(e) => { e.preventDefault(); setMore(true); }} aria-current={!TABS.includes(tabOf(current.path)) ? "page" : undefined} data-testid="mobile-more"><Menu size={19} />More</a>
+        <a href="#" onClick={(e) => { e.preventDefault(); setMore(true); }} aria-current={!TABS.includes(tabOf(current.path)) ? "page" : undefined} data-testid="mobile-more"><Menu size={19} />{t("More")}</a>
       </nav>
       {!asstOpen && !inOffice && (
         <button className="asst-fab fade-up" onClick={() => setAsst(true)} data-testid="button-fab-assistant" aria-label="Open Remy">
@@ -365,19 +370,19 @@ function Shell() {
         </button>
       )}
       {more && (
-        <Modal title="More" onClose={() => setMore(false)}>
+        <Modal title={t("More")} onClose={() => setMore(false)}>
           {/* Phones (Dilan, Nov 25): a bottom sheet with the other pages as tiles, in side bar order, then help and about. */}
           <div className="more-sheet">
             <div className="more-tiles">
               {[...nav.filter((n) => !TABS.includes(tabOf(n.path))), ACCOUNTS].map((n) => (
-                <button key={n.path} className="more-tile" aria-current={current.path === n.path ? "page" : undefined} onClick={() => { setMore(false); go(n.path); }} data-testid={`more-${n.label.toLowerCase().replace(/[^a-z]/g, "")}`}><n.icon size={21} /><span>{n.label}</span>{locked(n) && <Lock size={13} className="nav-lock" aria-label="Coming soon" />}</button>
+                <button key={n.path} className="more-tile" aria-current={current.path === n.path ? "page" : undefined} onClick={() => { setMore(false); go(n.path); }} data-testid={`more-${n.label.toLowerCase().replace(/[^a-z]/g, "")}`}><n.icon size={21} /><span>{t(n.label)}</span>{locked(n) && <Lock size={13} className="nav-lock" aria-label="Coming soon" />}</button>
               ))}
             </div>
             <WhatsNew />
-            <button className="nav-item" onClick={() => { setMore(false); setFeedback(true); }} data-testid="more-feedback"><Send size={19} />Send feedback</button>
-            <button className="nav-item" onClick={() => { setMore(false); tourAgain(save); go("/"); }} data-testid="mobile-tour"><Compass size={19} />Show me around again</button>
-            <a className="nav-item" href="/welcome" data-testid="more-homepage"><HomeIcon size={19} />Remy homepage</a>
-            <button className="nav-item" onClick={() => { setMore(false); go("/about"); }} data-testid="more-about"><Info size={19} />About Remy</button>
+            <button className="nav-item" onClick={() => { setMore(false); setFeedback(true); }} data-testid="more-feedback"><Send size={19} />{t("Send feedback")}</button>
+            <button className="nav-item" onClick={() => { setMore(false); tourAgain(save); go("/"); }} data-testid="mobile-tour"><Compass size={19} />{t("Show me around again")}</button>
+            <a className="nav-item" href="/welcome" data-testid="more-homepage"><HomeIcon size={19} />{t("Remy homepage")}</a>
+            <button className="nav-item" onClick={() => { setMore(false); go("/about"); }} data-testid="more-about"><Info size={19} />{t("About Remy")}</button>
             <button className="nav-item" onClick={() => { setMore(false); go("/policies"); }} data-testid="more-policies"><ShieldCheck size={19} />Privacy & terms</button>
             {me?.owner ? <OwnerTools onDone={() => setMore(false)} /> : null}
           </div>

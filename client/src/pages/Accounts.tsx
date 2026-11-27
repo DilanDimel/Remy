@@ -17,6 +17,8 @@ import { ThemeChoice } from "../components/ThemeToggle";
 import { CareerTime } from "../components/CareerTime";
 import { ProfilePhoto } from "../components/ProfilePhoto";
 import { knownName } from "@shared/names";
+import { LanguageCard } from "../components/LanguageChoice";
+import { useT } from "../lib/i18n";
 
 type Tab = "profile" | "sources" | "memory" | "settings" | "data";
 
@@ -26,10 +28,11 @@ export default function Accounts({ query }: { query: URLSearchParams }) {
   const owner = useOwnerView();
   const waiting = ws!.memory.filter((m) => m.status === "suggested").length;
   const say = ownerSay(tab, ws!);
+  const t = useT();
   const tabs = (
       <div className="tabs" role="tablist">
         {([["profile", "Profile"], ["sources", "Connected sources"], ["memory", "AI memory"], ["settings", "Appearance & alerts"], ["data", "Account & data"]] as [Tab, string][]).map(([k, l]) => (
-          <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => go(`/accounts?tab=${k}`)} data-testid={`tab-accounts-${k}`}>{l}{owner && k === "memory" && waiting > 0 && <span className="ac-count" data-testid="count-memory-waiting">{waiting}</span>}</button>
+          <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => go(`/accounts?tab=${k}`)} data-testid={`tab-accounts-${k}`}>{t(l)}{owner && k === "memory" && waiting > 0 && <span className="ac-count" data-testid="count-memory-waiting">{waiting}</span>}</button>
         ))}
       </div>
   );
@@ -38,7 +41,7 @@ export default function Accounts({ query }: { query: URLSearchParams }) {
       <div className="page-head">
         <div>
           <span className="eyebrow">Accounts</span>
-          <h1><span className="title-slogan">Your profile, sources and memory.</span><span className="title-plain">Account</span></h1>
+          <h1><span className="title-slogan">{t("Your profile, sources and memory.")}</span><span className="title-plain">{t("Account")}</span></h1>
           <p className="op-say" data-testid="text-account-say"><b>{say[0]}</b> {say[1]}</p>
         </div>
       </div>
@@ -180,6 +183,7 @@ function Settings() {
   const toggle = (k: keyof typeof s.notify) => save("settings", { notify: { ...s.notify, [k]: !s.notify[k] } });
   return (
     <div className="grid-2 acc-settings" style={{ alignItems: "start" }}>
+      <LanguageCard />
       <div className="card card-pad stack">
         <h3>Theme</h3>
         <ThemeChoice />
@@ -488,35 +492,39 @@ function Switch({ on, onChange, label, testid }: { on: boolean; onChange: () => 
 function OwnerSettings() {
   const { ws, save } = useStore();
   const s = ws!.settings;
+  const t = useT();
   const toggle = (k: keyof typeof s.notify) => save("settings", { notify: { ...s.notify, [k]: !s.notify[k] } });
   return (
     <div className="ac-grid ac-grid-even">
       <div className="stack">
         <div className="card card-pad stack-sm">
-          <h3>Look and feel</h3>
+          <h3>{t("Look and feel")}</h3>
           <ThemeChoice />
           <div className="ac-set">
-            <div><div><b>Keep Remy open</b><small>His panel stays beside every page. You can always minimize him.</small></div><Switch on={s.assistantOpen} onChange={() => save("settings", { assistantOpen: !s.assistantOpen })} label="Keep Remy open" testid="toggle-assistant-open" /></div>
+            <div><div><b>{t("Keep Remy open")}</b><small>{t("His panel stays beside every page. You can always minimize him.")}</small></div><Switch on={s.assistantOpen} onChange={() => save("settings", { assistantOpen: !s.assistantOpen })} label={t("Keep Remy open")} testid="toggle-assistant-open" /></div>
           </div>
         </div>
         <div className="card card-pad stack-sm">
-          <div className="row-between"><h3>Weekly career time</h3><span className="xs muted">Remy plans around it</span></div>
-          <p className="small muted" style={{ margin: 0 }}>45 minutes a week is plenty. Your weekly digest arrives then too.</p>
+          <div className="row-between"><h3>{t("Weekly career time")}</h3><span className="xs muted">{t("Remy plans around it")}</span></div>
+          <p className="small muted" style={{ margin: 0 }}>{t("45 minutes a week is plenty. Your weekly digest arrives then too.")}</p>
           <CareerTime compact />
         </div>
       </div>
+      <div className="stack">
+      <LanguageCard />
       <div className="card card-pad stack-sm">
-        <div className="row-between"><h3>How Remy reaches you</h3></div>
+        <div className="row-between"><h3>{t("How Remy reaches you")}</h3></div>
         <div className="ac-set">
-          <div><div><b>Deadline reminders</b><small>Email 3 days before and on the day</small></div><Switch on={s.notify.deadlines} onChange={() => toggle("deadlines")} label="Deadline reminder emails" testid="toggle-deadlines" /></div>
-          <div><div><b>Weekly digest</b><small>New openings and deadlines, on your career-time day</small></div><Switch on={s.notify.weeklyPlan} onChange={() => toggle("weeklyPlan")} label="Weekly digest email" testid="toggle-weeklyPlan" /></div>
-          <div><div><b>Openings that fit you</b><small>An email with a Yes button that starts tailoring</small></div>
-            <select className="select ac-select" value={s.nudges || "weekly"} onChange={(e) => save("settings", { nudges: e.target.value as "daily" | "weekly" | "off" })} aria-label="Emails about openings that fit you" data-testid="select-nudges">
-              <option value="daily">At most daily</option><option value="weekly">At most weekly</option><option value="off">Off</option>
+          <div><div><b>{t("Deadline reminders")}</b><small>{t("Email 3 days before and on the day")}</small></div><Switch on={s.notify.deadlines} onChange={() => toggle("deadlines")} label={t("Deadline reminder emails")} testid="toggle-deadlines" /></div>
+          <div><div><b>{t("Weekly digest")}</b><small>{t("New openings and deadlines, on your career-time day")}</small></div><Switch on={s.notify.weeklyPlan} onChange={() => toggle("weeklyPlan")} label={t("Weekly digest email")} testid="toggle-weeklyPlan" /></div>
+          <div><div><b>{t("Openings that fit you")}</b><small>{t("An email with a Yes button that starts tailoring")}</small></div>
+            <select className="select ac-select" value={s.nudges || "weekly"} onChange={(e) => save("settings", { nudges: e.target.value as "daily" | "weekly" | "off" })} aria-label={t("Emails about openings that fit you")} data-testid="select-nudges">
+              <option value="daily">{t("At most daily")}</option><option value="weekly">{t("At most weekly")}</option><option value="off">{t("Off")}</option>
             </select></div>
         </div>
         <UrgentTexts />
-        <p className="xs muted" style={{ margin: 0 }}>Emails go to your application email, or your sign-in email if you haven't added one.</p>
+        <p className="xs muted" style={{ margin: 0 }}>{t("Emails go to your application email, or your sign-in email if you haven't added one.")}</p>
+      </div>
       </div>
     </div>
   );
