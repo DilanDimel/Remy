@@ -10,7 +10,7 @@ import { jobQuestions } from "@shared/jobInterview";
 import { BANK, bankField, fieldLabel } from "@shared/questionBank";
 import { PROFILES } from "@shared/interviewRubric";
 import { CHECKS, COMMON, coachDone, coverage, interviewPlan, isReady, KINDS, localDay, pitchSlots, spoken, LESSON_NEXT, LESSON_TITLE, LESSONS, pitchParts, shortQ, STAR_LEGEND, starExample, STEPS, type Lesson, type Step } from "@shared/interviewCoach";
-import { api, useStore } from "../lib/store";
+import { api, useOwnersOnly, useStore } from "../lib/store";
 import { go, useRoute } from "../lib/router";
 import { hush, say } from "../lib/voice";
 import { Remy } from "./common";
@@ -102,6 +102,7 @@ function Home({ done, open, learned, ready, drills, mocks }: { done: Record<Step
 // ---------- Learn ----------
 function Learn({ learned, next }: { learned: Lesson[]; next: () => void }) {
   const { ws, save, toast } = useStore();
+  const owners = useOwnersOnly(); // Remy's voice is owners only for now (Dilan, Nov 27: ElevenLabs credits)
   const [at, setAt] = useState(Math.max(0, LESSONS.findIndex((l) => !learned.includes(l))));
   const [pick, setPick] = useState<number | null>(null);
   const lesson = LESSONS[at];
@@ -123,7 +124,7 @@ function Learn({ learned, next }: { learned: Lesson[]; next: () => void }) {
     const parts = pitchParts(major, ws!.profile.classYear);
     const text = parts.map((p) => p[1]).join(" ");
     body = <div className="ivco-pitch">{parts.map(([l, t]) => <div key={l} className="ivco-slot"><b className="small">{l}</b><span>{t}</span></div>)}
-      <div className="row" style={{ gap: 8 }}><button className="btn btn-ghost btn-sm" onClick={() => void say(text, { onError: (why) => toast(why, true) })} data-testid="button-hear-pitch"><Volume2 size={14} /> Hear it</button><span className="xs muted">An example. You'll build yours from your resume next.</span></div></div>;
+      <div className="row" style={{ gap: 8 }}>{owners && <button className="btn btn-ghost btn-sm" onClick={() => void say(text, { onError: (why) => toast(why, true) })} data-testid="button-hear-pitch"><Volume2 size={14} /> Hear it</button>}<span className="xs muted">An example. You'll build yours from your resume next.</span></div></div>;
   }
   const ok = pick === check.right || (pick === null && learned.includes(lesson));
   return (
@@ -169,6 +170,7 @@ function Build({ next }: { next: () => void }) {
 // The pitch in four slots (mockup "Build"): each filled from a named profile or resume line, each editable.
 function PitchSlots() {
   const { ws, save, toast } = useStore();
+  const owners = useOwnersOnly(); // Remy's voice is owners only for now (Dilan, Nov 27: ElevenLabs credits)
   const w = ws!;
   const filled = pitchSlots(w, firstName(w));
   const [slots, setSlots] = useState(filled.map((f) => f[1]));
@@ -193,7 +195,7 @@ function PitchSlots() {
       <div className="row-between" style={{ gap: 8 }}>
         <span className={"small " + (secs > 40 ? "" : "muted")} data-testid="pitch-length">{words} words · about {secs} seconds spoken{secs > 40 ? ". Try to get it under 35." : ""}</span>
         <div className="row" style={{ gap: 8 }}>
-          <button className="btn btn-ghost btn-sm" disabled={!text} onClick={() => void say(text, { onError: (why) => toast(why, true) })} data-testid="button-hear-my-pitch"><Volume2 size={14} /> Hear it</button>
+          {owners && <button className="btn btn-ghost btn-sm" disabled={!text} onClick={() => void say(text, { onError: (why) => toast(why, true) })} data-testid="button-hear-my-pitch"><Volume2 size={14} /> Hear it</button>}
           <button className="btn btn-primary btn-sm" disabled={!text || !changed || busy} onClick={keep} data-testid="button-save-pitch">{w.pitch?.text && !changed ? "Saved" : "Save"}</button>
         </div>
       </div>

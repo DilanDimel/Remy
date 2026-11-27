@@ -15,7 +15,7 @@ import { HearIt, canSpeak, hush, say } from "@/components/HearIt";
 import { api } from "@/lib/api";
 import { useJobs } from "@/lib/jobs";
 import { go } from "@/lib/nav";
-import { useOwnerView, useSession } from "@/lib/session";
+import { useOwnerView, useOwnersOnly, useSession } from "@/lib/session";
 import { Coach, PlanCard, Stepper } from "@/components/InterviewCoach";
 import type { Step } from "@shared/interviewCoach";
 import { font, useTheme } from "@/lib/theme";
@@ -183,8 +183,9 @@ function Room({ iv, view, setView, setErr }: { iv: Interview; view: NonNullable<
   const qi = Math.max(0, view.qi);
   const real = iv.mode === "real";
   const q = iv.questions[qi];
+  const owners = useOwnersOnly(); // Remy's voice is owners only for now (ElevenLabs credits)
   // "Like the real thing": the interviewer asks out loud. Stops when the question changes or the screen closes.
-  useEffect(() => { if (!real || !q || view.fb || !canSpeak()) return; say(q.q, () => {}).catch(() => {}); return () => hush(); }, [qi, view.fb]);
+  useEffect(() => { if (!owners || !real || !q || view.fb || !canSpeak()) return; say(q.q, () => {}).catch(() => {}); return () => hush(); }, [qi, view.fb]);
   if (qi >= n) return <Scorecard iv={iv} again={() => setView(null)} practice={(i, fb) => setView({ id: iv.id, qi: i, fb: !!fb })} />;
   const a = iv.answers.find((x) => x.qi === qi);
   const next = async (to: number) => {

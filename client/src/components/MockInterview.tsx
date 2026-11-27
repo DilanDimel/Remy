@@ -11,7 +11,7 @@ import { jobQuestions } from "@shared/jobInterview";
 import { STORY_PARTS } from "@shared/stories";
 import { speechFeedback } from "@shared/speech";
 import { hush, micProblem, say } from "../lib/voice";
-import { api, useStore } from "../lib/store";
+import { api, useOwnersOnly, useStore } from "../lib/store";
 import { replaceRoute, useRoute } from "../lib/router";
 import { useInterviewJobs, JobInterview } from "./JobInterview";
 import { StoryDeck } from "./StoryDeck";
@@ -271,13 +271,15 @@ export function Answer({ initial, hint, onSend, skip, stop, last }: { initial: s
 /** Reads the question out loud in Remy's voice (the browser's own voice if his isn't available). */
 function ReadAloud({ text, auto }: { text: string; auto?: boolean }) {
   const { toast } = useStore();
+  const owners = useOwnersOnly(); // Remy's voice is owners only for now (Dilan, Nov 27: ElevenLabs credits)
   const [playing, setPlaying] = useState(false);
   // An auto read the browser blocks before any click just stays quiet; a click that can't play says why.
   const read = (fromClick: boolean) => say(text, { onStart: () => setPlaying(true), onEnd: () => setPlaying(false), onError: (why) => { if (fromClick) toast(why, true); } });
   // "Like the real thing": the interviewer asks out loud, as in Julio's voice interview. Stops when the question changes.
-  useEffect(() => { if (!auto) return; read(false); return () => { hush(); setPlaying(false); }; }, [text, auto]);
+  useEffect(() => { if (!auto || !owners) return; read(false); return () => { hush(); setPlaying(false); }; }, [text, auto, owners]);
   useEffect(() => () => { hush(); }, []);
   const stop = () => { hush(); setPlaying(false); };
+  if (!owners) return null;
   return <button className="btn btn-ghost btn-sm" style={{ flex: "none" }} onClick={() => (playing ? stop() : read(true))} aria-pressed={playing} data-testid="button-read-aloud">{playing ? <><Square size={14} /> Stop</> : <><Volume2 size={14} /> Hear it</>}</button>;
 }
 
