@@ -176,3 +176,63 @@ export async function reply(ev: any): Promise<void> {
   }
   await api("chat.postMessage", { channel: ev.channel, thread_ts: thread, text, unfurl_links: false });
 }
+
+// ---------- Remy's own posts (run by the background sweep: at boot, every 6 hours and hourly from the remy-tick cron) ----------
+export const CHANNELS = { alerts: "C0CN69XEY9E", website: "C0CLVU1GH39", database: "C0CM9ASGWK0" };
+
+export async function post(channel: string, text: string): Promise<boolean> {
+  if (!slackOn()) return false;
+  return !!(await api("chat.postMessage", { channel, text, unfurl_links: false })).ok;
+}
+
+/** Something needs someone now (backups stopped, database nearly full): one line in #alerts. */
+export const alert = (text: string) => post(CHANNELS.alerts, `:rotating_light: ${text}`).catch(() => false);
+
+const ct = (d: Date) => {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit" })
+    .formatToParts(d).map((x) => [x.type, x.value]));
+  return { day: `${p.year}-${p.month}-${p.day}`, hour: Number(p.hour) };
+};
+const timeCt = (iso: string) => new Date(iso).toLocaleString("en-US", { timeZone: "America/Chicago", weekday: "short", hour: "numeric", minute: "2-digit" });
+
+/** "Shipped" lines: pull requests merged after `since` (ISO), newest first. */
+export async function shippedSince(since: string, list?: any[]): Promise<string[]> {
+  const prs = list ?? await fetch("https://api.github.com/repos/DilanDimel/Remy/pulls?state=closed&per_page=50&sort=updated&direction=desc", { headers: { accept: "application/vnd.github+json" } })
+    .then((r) => (r.ok ? r.json() : [])).catch(() => []);
+  return prs.filter((p: any) => p.merged_at && p.merged_at > since).sort((a: any, b: any) => b.merged_at.localeCompare(a.merged_at))
+    .map((p: any) => `• <${p.html_url}|#${p.number}> ${p.title}`);
+}
+
+/** The daily posts that are due and not sent yet: #database backup check from 6 AM CT, #website "Shipped" digests from
+ *  12 PM and 9 PM CT. Each slot is remembered in site_settings, so a restart or an extra cron call can't post it twice.
+ *  shortcut: the cron is hourly, so a post lands within the hour after its time; add a finer timer if that matters. */
+export async function dailyPosts(backup: () => Promise<{ configured: boolean; lastAt: string | null; lastFull: string | null }>, now = new Date()): Promise<string[]> {
+  if (!slackOn()) return [];
+  const { day, hour } = ct(now);
+  const sent: string[] = [];
+  const once = async (slot: string, due: boolean, make: () => Promise<{ channel: string; text: string } | null>) => {
+    const key = `slack_post_${slot}`;
+    if (!due || (await q("SELECT 1 FROM site_settings WHERE key = $1 AND value = $2", [key, day])).length) return;
+    const m = await make();
+    if (m && !(await post(m.channel, m.text))) return; // Slack said no: try again next run
+    await q(`INSERT INTO site_settings (key, value, updated_by) VALUES ($1, $2, 'slack')
+             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = now()`, [key, day]);
+    if (m) sent.push(slot);
+  };
+  await once("backup", hour >= 6, async () => {
+    const b = await backup();
+    const text = !b.configured ? ":warning: *Backup check*: backups aren't set up on this server (no R2 settings)."
+      : !b.lastAt ? ":warning: *Backup check*: no backup has finished yet."
+      : `:white_check_mark: *Backup check*: last copy ${timeCt(b.lastAt)} CT${b.lastFull ? `, last full copy ${b.lastFull}` : ""}.`;
+    return { channel: CHANNELS.database, text };
+  });
+  const digest = (slot: string, from: number) => once(slot, hour >= from, async () => {
+    const last = (await q("SELECT updated_at FROM site_settings WHERE key LIKE 'slack_post_shipped%' ORDER BY updated_at DESC LIMIT 1"))[0]?.updated_at;
+    const since = last ? new Date(last).toISOString() : new Date(now.getTime() - 12 * 3600_000).toISOString();
+    const lines = await shippedSince(since);
+    return lines.length ? { channel: CHANNELS.website, text: `:fox_face: *Shipped since ${timeCt(since)} CT* (${lines.length})\n${lines.slice(0, 15).join("\n")}` } : null; // nothing new: stay quiet
+  });
+  await digest("shipped_noon", 12);
+  await digest("shipped_evening", 21);
+  return sent;
+}
