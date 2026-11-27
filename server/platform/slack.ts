@@ -7,6 +7,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { q } from "./sql";
+import { privacyRouting } from "../ai/ai";
 
 export const slackOn = () => !!(process.env.SLACK_BOT_TOKEN && process.env.SLACK_SIGNING_SECRET);
 
@@ -150,12 +151,13 @@ async function think(system: string, user: string): Promise<string> {
   const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model: "anthropic/claude-haiku-5.5", max_tokens: 900, provider: { zdr: true, data_collection: "deny" },
+    // Same routing as students' AI (zero-retention Bedrock); thinking off, or it can eat the whole token budget and leave no text.
+    body: JSON.stringify({ model: "anthropic/claude-haiku-5.5", max_tokens: 1500, reasoning: { enabled: false }, provider: privacyRouting("anthropic/claude-haiku-5.5"),
       messages: [{ role: "system", content: system }, { role: "user", content: user }] }),
   });
   const j: any = await r.json().catch(() => ({}));
   const text = j.choices?.[0]?.message?.content;
-  if (!r.ok || !text) throw new Error(j.error?.message || `openrouter ${r.status}`);
+  if (!r.ok || !text) throw new Error(j.error?.message || `openrouter ${r.status} finish=${j.choices?.[0]?.finish_reason}`);
   return text;
 }
 
