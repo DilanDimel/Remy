@@ -100,6 +100,7 @@ import { q, q1, schema } from "./platform/sql";
 import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./resume/docs";
 import { pageGuide } from "./ai/pageGuide";
 import { posthogConfig } from "./platform/posthog";
+import { aiKeyMe } from "./platform/aiKey";
 
 // Email domains whose owners count as students of the partner school (TCU).
 const ALUMNI_DOMAINS = (process.env.OR_ALUMNI_EMAIL_DOMAINS || "tcu.edu").split(",").map((d) => d.trim().toLowerCase()).filter(Boolean);
@@ -166,9 +167,11 @@ function route(fn: H, opts: { create?: boolean; serial?: boolean } = {}): (req: 
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const ip = clientIp(req);
-      let me = await identify(req);
+      const ai = aiKeyMe(req.header("authorization"), req.method, req.path);
+      if (ai === "denied") return res.status(403).json({ message: "The lead AI's key only reads the owners' board." });
+      let me = ai || (await identify(req));
       // Founding Cohort beta: only accepted emails and the team get past here; no new guest workspaces.
-      if (me && !(await beta.meAllowed(me))) return res.status(403).json({ message: beta.betaError(me.email).message, code: "beta" });
+      if (me && !ai && !(await beta.meAllowed(me))) return res.status(403).json({ message: beta.betaError(me.email).message, code: "beta" });
       if (!me) {
         if (!opts.create) return res.status(401).json({ message: "Please sign in to continue." });
         if (await beta.betaOn()) return res.status(403).json({ message: "Remy is invite-only during the beta. Apply to be a beta tester, then sign in with the email you applied with.", code: "beta" });
