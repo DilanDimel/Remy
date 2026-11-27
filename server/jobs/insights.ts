@@ -13,7 +13,7 @@ export async function dataTransfer() {
   const days = await q("SELECT day, db_bytes FROM usage_daily ORDER BY day DESC LIMIT 14");
   const total = await q1("SELECT COALESCE(SUM(db_bytes), 0)::bigint AS b FROM usage_daily WHERE day LIKE $1", [month + "%"]);
   const mb = (b: unknown) => Math.round(Number(b) / 104857.6) / 10;
-  return { monthMb: mb(total?.b), limitGb: Number(process.env.DB_EGRESS_LIMIT_GB) || 5, days: days.map((d) => ({ day: String(d.day), mb: mb(d.db_bytes) })).reverse() };
+  return { monthMb: mb(total?.b), limitGb: Number(process.env.DB_EGRESS_LIMIT_GB) || 250, days: days.map((d) => ({ day: String(d.day), mb: mb(d.db_bytes) })).reverse() };
 }
 import { studentsOnly } from "../platform/admin";
 
