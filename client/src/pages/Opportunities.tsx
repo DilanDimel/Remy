@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, Fragment } from "react";
 import { useCanGo } from "../components/ComingSoon";
 import { dreamWithoutOpenings } from "@shared/org";
 import { decodeEntities, postingField, postingLines } from "@shared/postingText";
+import { jobPay } from "@shared/pay";
 import { authKind } from "@shared/workAuth";
 import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, BookmarkCheck, CalendarPlus, Check, X, ChevronDown, ChevronUp, Link2, MapPin, Mic, RefreshCw, Search, Sparkles, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
 import { openingRanker, reasonLine } from "@shared/order";
@@ -379,11 +380,13 @@ function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; 
     setBusy("");
   };
   if (gone) return null;
+  // Pay as the posting states it (shared/pay.ts), owners first like the app (#552).
+  const pay = keepPass ? jobPay(j) : "";
   const due = j.deadline && d !== null && d >= 0 && d <= 14 ? `closes ${fmtDate(j.deadline)}` : "";
   if (phone && !sheet) return (
     <button className="job-row" onClick={() => setSheet(true)} id={"job-" + j.id} data-testid="job-row">
       <OrgLogo company={j.company} url={j.applyUrl} />
-      <span className="job-row-main"><b>{shortTitle(j.title, j.company)}</b><span>{[j.company, kindLabel[j.kind], due || shortPlace(j.location)].filter(Boolean).join(" · ")}</span></span>
+      <span className="job-row-main"><b>{shortTitle(j.title, j.company)}</b><span>{[j.company, kindLabel[j.kind], due || shortPlace(j.location), pay].filter(Boolean).join(" · ")}</span></span>
       {eligChip(fit)}
     </button>
   );
@@ -395,7 +398,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; 
         <div className="stack-sm" style={{ minWidth: 0, flex: 1 }}>
           <div className="row"><span className="xs muted">{j.company} · {kindLabel[j.kind]}</span><StatusChip label={j.label} />{eligChip(fit)}</div>
           <h3 title={shortTitle(j.title, j.company) !== j.title ? j.title : undefined}>{shortTitle(j.title, j.company)}</h3>
-          <div className="row small muted"><span className="row" style={{ gap: 4 }} title={j.location}><MapPin size={14} style={{ flex: "none" }} />{keepPass ? shortPlace(j.location) : j.location || "Location not stated"}</span>{j.dates && <span>· {j.dates}</span>}</div>
+          <div className="row small muted"><span className="row" style={{ gap: 4 }} title={j.location}><MapPin size={14} style={{ flex: "none" }} />{keepPass ? shortPlace(j.location) : j.location || "Location not stated"}</span>{j.dates && <span>· {j.dates}</span>}{pay && <span data-testid="job-pay">· Pay: {pay}</span>}</div>
         </div>
         {j.deadline && <span className={"chip " + (d !== null && d < 0 ? "chip-bad" : d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d < 0 ? "Deadline passed" : `Due ${fmtDate(j.deadline)}${d === 0 ? " · today" : d !== null ? ` · ${d}d` : ""}`}</span>}
       </div>

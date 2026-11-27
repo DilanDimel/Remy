@@ -8,6 +8,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { htmlToText } from "../resume/parse";
+import { payLine, withPay } from "@shared/pay";
 import { r2Store } from "../platform/r2";
 import { abroad, inUS } from "./fit";
 import { collegeRole, eachQuery, fetchBoard, SCHOOL_QUERIES, studentTitle, withDetail, type Raw } from "./sources";
@@ -141,7 +142,9 @@ export function ldPosting(html: string): { text: string; location: string } {
       if (!d?.description) continue;
       const location = [d.jobLocation].flat().map((l: any) => l?.address).filter(Boolean)
         .map((a: any) => [a.addressLocality, a.addressRegion, a.addressCountry].filter((v) => v && v !== "UNAVAILABLE").join(", ")).filter(Boolean).join("; ");
-      return { text: htmlToText(String(d.description)), location };
+      // schema.org pay: baseSalary { value: { minValue, maxValue, value, unitText: "HOUR" } }
+      const v = d.baseSalary?.value || {};
+      return { text: withPay(payLine(v.minValue ?? v.value, v.maxValue, v.unitText), htmlToText(String(d.description))), location };
     } catch {}
   }
   return { text: "", location: "" };
@@ -315,7 +318,8 @@ export async function readBoard(b: CatalogBoard, read = fetchBoard): Promise<Raw
         return {
           student: true, title: String(x.positionTitle || "").trim(), location: [x.city, x.stateName].filter(Boolean).join(", "), url, text: "",
           company: String(x.districtName || "") || undefined, posted: ms ? new Date(ms).toISOString() : undefined,
-          detail: async () => ldPosting(await getPage(url)),
+          // The list's own pay ("SingleRate", or "PayRangeFrom" to "PayRangeTo"; the dropdown says "Per Hour" and the like).
+          detail: async () => { const d = ldPosting(await getPage(url)); return { ...d, text: /^Pay:/.test(d.text) ? d.text : withPay(payLine(x.SingleRate || x.PayRangeFrom, x.PayRangeTo, x.SingleRateDropdown || x.PayRangeDropdown), d.text) }; },
         };
       });
     });
