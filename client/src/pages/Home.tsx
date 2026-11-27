@@ -1,3 +1,4 @@
+import { useT } from "../lib/i18n";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ApplyLink } from "../components/ApplyLink";
 import { SeasonCard } from "../components/SeasonCard";
@@ -33,6 +34,7 @@ function greeting() {
 }
 
 export default function Home() {
+  const t = useT();
   const { ws, save, run, setWs } = useStore();
   const ownerView = useOwnerView();
   const w = ws!;
@@ -122,11 +124,11 @@ export default function Home() {
   const rated = Object.values(w.jobFeedback || {}).filter((f) => f.createdAt && dayKey(new Date(f.createdAt)) === dayKey()).length;
   const noTodos = !ownerView ? <p className="muted small" style={{ padding: "14px 0" }}>No open to-dos. Your plan in My Path can suggest a few.</p> : (
     <div data-testid="home-quests">
-      <p className="muted small" style={{ margin: "10px 0 2px" }}>No to-dos yet. Today's quests from My Path:</p>
-      {([["Keep or pass 3 openings", `${Math.min(3, rated)}/3`, "/opportunities"], ["Decode one job", w.game?.days?.[dayKey()]?.includes("role") ? "1/1" : "0/1", "/path?play=1"]] as const).map(([t, n, link]) => (
-        <div key={t} className="item todo-row">
-          <div className="item-main"><b>{t}</b><div className="why">{n} today · counts toward your season</div></div>
-          <button className="btn btn-secondary btn-sm" onClick={() => go(link)} data-testid="button-home-quest">Go <ArrowRight size={14} /></button>
+      <p className="muted small" style={{ margin: "10px 0 2px" }}>{t("No to-dos yet. Today's quests from My Path:")}</p>
+      {([[t("Keep or pass 3 openings"), `${Math.min(3, rated)}/3`, "/opportunities"], [t("Decode one job"), w.game?.days?.[dayKey()]?.includes("role") ? "1/1" : "0/1", "/path?play=1"]] as const).map(([q, n, link]) => (
+        <div key={q} className="item todo-row">
+          <div className="item-main"><b>{q}</b><div className="why">{t("{n} today · counts toward your season", { n })}</div></div>
+          <button className="btn btn-secondary btn-sm" onClick={() => go(link)} data-testid="button-home-quest">{t("Go")} <ArrowRight size={14} /></button>
         </div>
       ))}
     </div>
@@ -139,8 +141,8 @@ export default function Home() {
     <>
       <div className="page-head">
         <div>
-          <span className="eyebrow">Home</span>
-          <h1 data-testid="text-greeting">{greeting()}{name ? `, ${name}` : ""}.</h1>
+          <span className="eyebrow">{t("Home")}</span>
+          <h1 data-testid="text-greeting">{t(greeting())}{name ? `, ${name}` : ""}.</h1>
           {!ownerView && <p className="hide-phone">Here's the one thing worth doing next, and a few things that matter this week.</p>}
           {ownerView && <p className="remy-line" data-testid="remy-line">{remyLine({ day: dayKey(), hour: new Date().getHours(), interviewSoon: !!interview, cheer, done: doneNow, total: starting.length, newJobs, deadlines: soon, pending: w.applications.filter((a) => a.changes.some((c) => c.status === "pending")).length })}</p>}
         </div>
@@ -154,9 +156,9 @@ export default function Home() {
               {/* grey until today's round is done, then it catches fire */}
               <Flame size={22} className="streak-flame" fill={today ? "currentColor" : "none"} aria-label={today ? "Today's round is done" : "Today's round isn't done yet"} data-testid="home-streak-flame" />
               <span className="streak-num">{st.days}</span>
-              <span className="streak-lab"><b>day streak</b>{st.best > st.days ? `Best ${st.best}` : st.days ? "Your best yet" : "Start today"}</span>
+              <span className="streak-lab"><b>{t("day streak")}</b>{st.best > st.days ? t("Best {n}", { n: st.best }) : st.days ? t("Your best yet") : t("Start today")}</span>
               <span className="streak-dots" aria-label="This week of your streak">{weekDots(g, undefined, true).map((d) => <i key={d.key} className={d.status} title={new Date(d.key + "T12:00:00").toLocaleDateString(undefined, { weekday: "long" }) + (d.status === "done" ? ": done" : d.status === "today" ? ": today" : d.status === "future" ? ": coming up" : "")}>{d.label}</i>)}</span>
-              <button className={"btn btn-sm " + (today ? "btn-secondary" : "btn-primary")} onClick={() => go(today ? "/path" : "/path?play=1")} data-testid="button-todays-round">{today ? "Done for today" : "Today's round"}</button>
+              <button className={"btn btn-sm " + (today ? "btn-secondary" : "btn-primary")} onClick={() => go(today ? "/path" : "/path?play=1")} data-testid="button-todays-round">{today ? t("Done for today") : t("Today's round")}</button>
             </div>
           );
         })()}
@@ -170,7 +172,7 @@ export default function Home() {
           <div className="hero2-bubble">
             {/* a small drawing on a tilted sheet, picked from where the button goes */}
             {(() => { const Art = nextArt(next.link, !!interview); return <span className="hero2-art" aria-hidden="true"><Art size={44} strokeWidth={1.75} /><i><Check size={16} strokeWidth={3} /></i></span>; })()}
-            <span className="hero2-label">{cheer ? "Remy: nice, that's done. Next up" : "Remy says: your one thing right now"}</span>
+            <span className="hero2-label">{cheer ? t("Remy: nice, that's done. Next up") : t("Remy says: your one thing right now")}</span>
             <h2 data-testid="text-next-action">{next.title}</h2>
             <p>{next.why}</p>
             <div className="hero2-go">
@@ -180,7 +182,7 @@ export default function Home() {
           </div>
           {starting.some((x) => !x.done) && (
             <div className="hero2-track" data-testid="getting-started">
-              <div className="hero2-track-head"><span>Getting started</span><span>{doneNow}/{starting.length}</span></div>
+              <div className="hero2-track-head"><span>{t("Getting started")}</span><span>{doneNow}/{starting.length}</span></div>
               <ol aria-label={`${doneNow} of ${starting.length} getting-started steps done`}>
                 {starting.map((x, i) => { const cur = !x.done && x === starting.find((y) => !y.done); return (
                   <li key={x.label} className={x.done ? "done" : cur ? "cur" : ""}>
@@ -205,7 +207,7 @@ export default function Home() {
         {starting.some((x) => !x.done) ? (
           // Getting started (audit 5C): the first five real steps sit where "This week" goes, until all are done.
           <div className="hero-side" data-testid="getting-started">
-            <div className="row-between"><span className="eyebrow">Getting started</span><span className="small" style={{ color: "rgba(255,255,255,.75)" }}>{doneNow} of {starting.length}</span></div>
+            <div className="row-between"><span className="eyebrow">{t("Getting started")}</span><span className="small" style={{ color: "rgba(255,255,255,.75)" }}>{doneNow} of {starting.length}</span></div>
             {starting.map((x) => (
               <button key={x.label} className="row small start-row" style={{ width: "100%", textAlign: "left", gap: 10 }} onClick={() => go(x.link)} data-testid="getting-started-item" aria-label={`${x.label}${x.done ? " (done)" : ""}`}>
                 <span className={"start-box" + (x.done ? " done" : "")}>{x.done && <Check size={12} />}</span>
@@ -230,29 +232,29 @@ export default function Home() {
         // Look polish A (owners first, Nov 22): this week's to-dos and the best openings side by side, nothing behind tabs.
         <div className="home-lists" data-testid="home-lists">
           <section aria-labelledby="h-week">
-            <div className="home-list-head"><h2 id="h-week">Coming up</h2>{/* Nov 23 PM review: it listed December to-dos under "This week" */}<a href="/progress?tab=todos" className="btn btn-ghost btn-sm">All to-dos <ArrowUpRight size={14} /></a></div>
+            <div className="home-list-head"><h2 id="h-week">{t("Coming up")}</h2>{/* Nov 23 PM review: it listed December to-dos under "This week" */}<a href="/progress?tab=todos" className="btn btn-ghost btn-sm">{t("All to-dos")} <ArrowUpRight size={14} /></a></div>
             {todos.length ? todos.map((t, i) => more(i, todoRow(t), t.id)) : noTodos}
           </section>
           <section aria-labelledby="h-opps">
-            <div className="home-list-head"><h2 id="h-opps">Openings for you</h2><a href="/opportunities?kind=jobs" className="btn btn-ghost btn-sm">See all <ArrowUpRight size={14} /></a></div>
-            {opps.length ? opps.map((j, i) => more(i, jobRow(j, i), j.id)) : <p className="muted small" style={{ padding: "14px 0" }}>{jobs ? "Nothing here yet." : "Loading…"}</p>}
-            {events.length > 0 && <><h3 className="home-list-sub">Events</h3>{events.map(jobRow)}</>}
+            <div className="home-list-head"><h2 id="h-opps">{t("Openings for you")}</h2><a href="/opportunities?kind=jobs" className="btn btn-ghost btn-sm">{t("See all")} <ArrowUpRight size={14} /></a></div>
+            {opps.length ? opps.map((j, i) => more(i, jobRow(j, i), j.id)) : <p className="muted small" style={{ padding: "14px 0" }}>{jobs ? t("Nothing here yet.") : t("Loading…")}</p>}
+            {events.length > 0 && <><h3 className="home-list-sub">{t("Events")}</h3>{events.map(jobRow)}</>}
           </section>
         </div>
       ) : (
       <section className="card card-pad">
         <div className="row-between" style={{ marginBottom: 8 }}>
           <div className="seg" role="group" aria-label="Show">
-            {([["todos", "To-Dos"], ["events", "Events"], ["opps", "Opportunities"]] as [Tab, string][]).map(([k, l]) => (
+            {([["todos", t("To-Dos")], ["events", "Events"], ["opps", t("Opportunities")]] as [Tab, string][]).map(([k, l]) => (
               <button key={k} aria-pressed={tab === k} onClick={() => { setTab(k); setOpen(""); }} data-testid={`tab-home-${k}`}>{l}</button>
             ))}
           </div>
-          <a href={moreLink} className="btn btn-ghost btn-sm" data-testid="link-view-more">View more <ArrowUpRight size={14} /></a>
+          <a href={moreLink} className="btn btn-ghost btn-sm" data-testid="link-view-more">{t("View more")} <ArrowUpRight size={14} /></a>
         </div>
         {tab === "todos" && (todos.length ? todos.map(todoRow) : noTodos)}
         {tab !== "todos" && ((tab === "events" ? events : opps).length ? (tab === "events" ? events : opps).map((j) => (
           jobRow(j)
-        )) : <p className="muted small" style={{ padding: "14px 0" }}>{jobs ? "Nothing here yet." : "Loading…"}</p>)}
+        )) : <p className="muted small" style={{ padding: "14px 0" }}>{jobs ? t("Nothing here yet.") : t("Loading…")}</p>)}
       </section>
       )}
       <ApplyNudge w={w} />
@@ -264,8 +266,9 @@ export default function Home() {
 }
 
 function JobRow({ j, why, open, onToggle, mono, matched, top }: { j: Job; why?: string; open: boolean; onToggle: () => void; mono?: boolean; matched?: string[]; top?: boolean }) {
+  const t = useT();
   const d = daysUntil(j.deadline);
-  const due = j.deadline && <span className={"chip " + (d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d >= 0 ? (d === 0 ? "Due today" : `${d}d left`) : fmtDate(j.deadline)}</span>;
+  const due = j.deadline && <span className={"chip " + (d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d >= 0 ? (d === 0 ? t("Due today") : t("{d}d left", { d })) : fmtDate(j.deadline)}</span>;
   return (
     <div className={"item" + (mono ? " job-card" : "") + (top ? " top" : "")}>
       {mono && <OrgLogo company={j.company} url={j.applyUrl} />}
@@ -282,8 +285,8 @@ function JobRow({ j, why, open, onToggle, mono, matched, top }: { j: Job; why?: 
             <span className="small row"><MapPin size={14} /> {j.location}</span>
             <span className="small">{j.deadlineText}</span>
             <div className="row">
-              <button className="btn btn-primary btn-sm" onClick={() => go(`/opportunities?kind=${j.kind === "event" ? "event" : "jobs"}&id=${j.id}`)}>Details</button>
-              {j.kind !== "event" && <button className="btn btn-secondary btn-sm" onClick={() => go(`/resume?tab=tailor&job=${j.id}`)}>Tailor resume</button>}
+              <button className="btn btn-primary btn-sm" onClick={() => go(`/opportunities?kind=${j.kind === "event" ? "event" : "jobs"}&id=${j.id}`)}>{t("Details")}</button>
+              {j.kind !== "event" && <button className="btn btn-secondary btn-sm" onClick={() => go(`/resume?tab=tailor&job=${j.id}`)}>{t("Tailor resume")}</button>}
               <ApplyLink j={j} className="btn btn-ghost btn-sm" testid="link-apply-home" />
             </div>
           </div>

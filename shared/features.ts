@@ -23,6 +23,9 @@ export const FEATURES: Feature[] = [
   // Competitions and challenges (Nov 24, Demetre): Remy finds case, trading, hackathon and pitch competitions for the
   // student's field and lists them with their openings (server/jobs/competitions.ts). No page.
   { key: "competitions", label: "Competitions and challenges in Opportunities", path: "", release: "owners", teaser: "" },
+  // Remy in the student's language (Nov 27, Dilan): the language picker, Spanish screens, and Remy's chat and interview
+  // tips in any of 12 languages (shared/i18n.ts). No page.
+  { key: "languages", label: "Remy in your language (12 languages, Spanish screens)", path: "", release: "owners", teaser: "" },
   { key: "rewards", label: "Rewards", path: "/rewards", release: "owners", teaser: "Everything you can earn in Remy, in one place.", follows: "redesign" },
 ];
 

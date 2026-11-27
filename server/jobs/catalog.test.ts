@@ -1,7 +1,7 @@
 // Remy's employer catalog: what it keeps, how it reads a part, and that it lives in R2 (a fake store here). `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CATALOG, PARTS, allBoards, catalogPostings, catalogStats, catalogTick, csvRows, districtState, jazzList, ukgDescription, icimsJobs, ldPosting, sfJobs, sfPosting, keep, ldDescription, partOf, readBoard, readPart, resetCatalog, stapplyBoards, type CatalogBoard, jobapsJobs, nyJobs, nyPosting } from "./catalog";
+import { CATALOG, PARTS, allBoards, catalogPostings, catalogStats, catalogTick, csvRows, districtState, jazzList, ukgDescription, icimsJobs, ldPosting, sfJobs, sfPosting, keep, ldDescription, partOf, readBoard, readPart, resetCatalog, stapplyBoards, type CatalogBoard, jobapsJobs, nyJobs, nyPosting, jobviteJobs } from "./catalog";
 import { inUS } from "./fit";
 import { fetchBoard, type Raw } from "./sources";
 
@@ -271,4 +271,10 @@ test("PageUp RSS: student titles only, full text from the feed, a bare city coun
     assert.equal(asked[0], "https://careers.pageuppeople.com/1151/cw/en-us/rss");
     assert.deepEqual(out.map((r) => [r.title, r.location, r.text]), [["Student Assistant", "Denton, United States", "Help students."], ["Research Intern", "Sydney, Australia", "Help students."]]);
   } finally { globalThis.fetch = real; }
+});
+
+test("Jobvite: table rows to title, link and place; links to another company's page ignored", () => {
+  const row = (href: string, title: string) => `<tr><td class="jv-job-list-name">\n<a href="${href}">${title}</a>\n</td>\n<td class="jv-job-list-location">\n\n Carol Stream,\n Illinois\n </td></tr>`;
+  assert.deepEqual(jobviteJobs(row("/castlemetals/job/ojNsAfwS", "Summer Intern") + row("/other/job/x1", "Intern"), "castlemetals"),
+    [{ url: "https://jobs.jobvite.com/castlemetals/job/ojNsAfwS", title: "Summer Intern", location: "Carol Stream, Illinois" }]);
 });

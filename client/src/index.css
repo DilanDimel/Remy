@@ -215,7 +215,7 @@ label.row > input[type="checkbox"] { flex: none; margin-top: 3px; }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
 .tab { padding: 10px 12px; font-weight: 700; font-size: var(--text-sm); color: var(--muted-text); border-bottom: 2px solid transparent; border-radius: 0; white-space: nowrap; }
 .tab[aria-selected="true"] { color: var(--plum); border-bottom-color: var(--fox); }
-.seg { display: inline-flex; background: var(--lav-2); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 2px; }
+.seg { display: inline-flex; max-width: 100%; background: var(--lav-2); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 2px; }
 .seg button { padding: 6px 12px; border-radius: 9px; font-size: var(--text-sm); font-weight: 700; color: var(--muted-text); white-space: nowrap; }
 .seg button[aria-pressed="true"], .seg button[aria-selected="true"] { background: var(--surface); color: var(--plum); box-shadow: var(--shadow); }
 
@@ -984,6 +984,8 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
   /* thumb-sized controls */
   .btn-sm { min-height: 44px; }
   .seg button { min-height: 40px; }
+  /* longer words (Spanish "Igual que mi dispositivo") wrap inside their button instead of pushing the last one out */
+  .seg button { flex: 1 1 auto; min-width: min-content; white-space: normal; line-height: 1.2; text-align: center; }
   .src-link, a.xs { display: inline-block; padding: 12px 2px; margin: -12px 0; }
   .hero-side button { min-height: 44px; }
   /* room under the last card so the chat button never sits on it */
@@ -1066,8 +1068,11 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
   /* every page on a phone: thumb-sized controls, all tabs visible (no sideways scrolling), slogans off the first screen */
   .btn, .seg button, .tab, .input, .select, select { min-height: 44px; }
   .icon-btn { width: 44px; height: 44px; }
-  .tabs { display: grid; grid-template-columns: 1fr 1fr; overflow: visible; gap: 0; padding-right: 0; -webkit-mask-image: none; mask-image: none; }
-  .tab { white-space: normal; text-align: left; line-height: 1.25; }
+  /* tabs become a boxed switch (Dilan, Nov 27: loose underlined cells looked unfinished); an odd last tab takes the full row */
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; overflow: visible; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 12px; background: var(--lav-2); -webkit-mask-image: none; mask-image: none; }
+  .tab { white-space: normal; text-align: center; justify-content: center; line-height: 1.25; border: 0; border-radius: 9px; }
+  .tab[aria-selected="true"] { background: var(--surface); box-shadow: var(--shadow); }
+  .tabs > .tab:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
 .pick-more-phone { display: none; }
 @media (max-width: 640px) {
@@ -3660,10 +3665,13 @@ button.adm2-bar:hover span { text-decoration: underline; }
 /* Appearance & alerts */
 .ac-set { display: flex; flex-direction: column; }
 .ac-set > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 11px 0; border-top: 1px solid var(--line); }
+/* a wide control (a long dropdown option in any language) moves under its label instead of squeezing it to one word per line */
+.ac-set > div:has(> .ac-select) { display: flex; flex-wrap: wrap; justify-content: space-between; }
+.ac-set > div:has(> .ac-select) > :first-child { flex: 1 1 180px; min-width: 0; }
 .ac-set > div:first-child { border-top: 0; }
 .ac-set b { display: block; font-size: var(--text-sm); font-weight: 750; }
 .ac-set small { display: block; font-size: var(--text-xs); color: var(--muted-text); margin-top: 2px; }
-.ac-select { width: auto; }
+.ac-select { width: auto; max-width: 100%; }
 html.redesign-2 input.ac-sw, .ac-sw { appearance: none; -webkit-appearance: none; width: 42px; height: 24px; border-radius: 99px; background: var(--line); position: relative; flex-shrink: 0; cursor: pointer; margin: 0; transition: background .15s; }
 html.redesign-2 input.ac-sw::before { content: none; }
 .ac-sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow); transition: left .15s; }
@@ -4069,3 +4077,8 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 /* "Terms of use" starts a new part: one line above the label, none between it and its first section. */
 .doc-body > h2.eyebrow { margin-top: 0; padding-top: 28px; border-top: 1px solid var(--line); }
 .doc-body > h2.eyebrow + .info-sec { border-top: 0; padding-top: 6px; }
+
+/* Language picker (owners first, Nov 27): the "Another language" grid in the first-visit question. */
+.lang-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.lang-grid .btn { flex-direction: column; align-items: flex-start; height: auto; padding: 10px 12px; gap: 2px; }
+.lang-grid small { font-weight: 500; color: var(--muted-text); }

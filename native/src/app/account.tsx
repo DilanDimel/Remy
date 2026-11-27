@@ -11,6 +11,39 @@ import { useSession } from "@/lib/session";
 import { BUTTON_RADIUS, font, useTheme } from "@/lib/theme";
 import { radius } from "@/lib/tokens";
 import { CareerTime } from "@/components/CareerTime";
+import { hasScreens, langOf, LANGUAGES } from "@shared/i18n";
+import { myDevice, useLang, useT } from "@/lib/lang";
+import { useAccess } from "@/lib/session";
+
+/** Language (owners first, the `languages` switch): "Match my device" by default, or one of 12 languages. */
+function Language() {
+  const { ws, saveSettings } = useSession();
+  const { c } = useTheme();
+  const t = useT();
+  const code = useLang();
+  const [open, setOpen] = useState(false);
+  if (useAccess()("languages") !== "open" || !ws) return null;
+  const chosen = ws.settings.language || "auto";
+  const device = langOf(myDevice());
+  const name = (k: string) => (k === "auto" ? t("Match my device ({name})", { name: device.name }) : langOf(k).name);
+  const pick = (k: string) => { setOpen(false); saveSettings({ language: k }).catch(() => {}); };
+  return (
+    <>
+      <Sect title={t("Language")} />
+      <Group>
+        <Row first title={t("Remy talks to you in")} sub={name(chosen)} right={<Icon name="chev" color={c.mutedText} />} onPress={() => setOpen(!open)} testID="row-language" />
+        {open && ["auto", ...LANGUAGES.map((l) => l.code)].map((k) => (
+          <Row key={k} title={name(k)} sub={k !== "auto" && langOf(k).name !== langOf(k).english ? langOf(k).english : undefined} right={chosen === k ? <Icon name="check" color={c.fox} /> : undefined} onPress={() => pick(k)} testID={`row-language-${k}`} />
+        ))}
+      </Group>
+      <T kind="small" style={{ marginHorizontal: 4, marginTop: 8 }}>
+        {code !== "en" && !hasScreens(code)
+          ? `Screens stay in English for now. Remy's chat and interview tips come in ${langOf(code).english}.`
+          : t("Your resume, letters and emails to employers stay in English, which US employers expect. Interview practice stays in English, like the real interview.")}
+      </T>
+    </>
+  );
+}
 
 const now = () => new Date().toISOString();
 
@@ -60,6 +93,8 @@ export default function Account() {
         <Row title="Major and year" sub={[p.major, p.classYear].filter(Boolean).join(" · ") || "Not added"} testID="row-profile-major" />
         <Row title="What you're looking for" sub={p.targetRoles || "Not added"} testID="row-profile-roles" />
       </Group>
+
+      <Language />
 
       <Sect title={`Remy's memory · ${approved.length}`} />
       <T kind="small" style={{ marginHorizontal: 4, marginBottom: 10 }}>What Remy keeps in mind when he helps you. Remove anything that's wrong.</T>
