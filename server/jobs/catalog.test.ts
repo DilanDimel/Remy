@@ -116,6 +116,7 @@ test("catalogTick: one part per run into the store, skipped while fresh; searche
   assert.equal(all.length, first!.kept + second!.kept);
   const s = await catalogStats(store);
   assert.equal(s?.partsRead, 2);
+  assert.ok((s?.peakMb || 0) > 0, "memory after each part is kept with it, so it survives a redeploy");
   assert.equal((await catalogPostings(store)).length, all.length); // already in memory
   assert.equal(s?.employers, CATALOG.length);
 });
