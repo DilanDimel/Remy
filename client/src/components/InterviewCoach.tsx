@@ -101,7 +101,7 @@ function Home({ done, open, learned, ready, drills, mocks }: { done: Record<Step
 
 // ---------- Learn ----------
 function Learn({ learned, next }: { learned: Lesson[]; next: () => void }) {
-  const { ws, save } = useStore();
+  const { ws, save, toast } = useStore();
   const [at, setAt] = useState(Math.max(0, LESSONS.findIndex((l) => !learned.includes(l))));
   const [pick, setPick] = useState<number | null>(null);
   const lesson = LESSONS[at];
@@ -123,7 +123,7 @@ function Learn({ learned, next }: { learned: Lesson[]; next: () => void }) {
     const parts = pitchParts(major, ws!.profile.classYear);
     const text = parts.map((p) => p[1]).join(" ");
     body = <div className="ivco-pitch">{parts.map(([l, t]) => <div key={l} className="ivco-slot"><b className="small">{l}</b><span>{t}</span></div>)}
-      <div className="row" style={{ gap: 8 }}><button className="btn btn-ghost btn-sm" onClick={() => void say(text)} data-testid="button-hear-pitch"><Volume2 size={14} /> Hear it</button><span className="xs muted">An example. You'll build yours from your resume next.</span></div></div>;
+      <div className="row" style={{ gap: 8 }}><button className="btn btn-ghost btn-sm" onClick={() => void say(text, { onError: (why) => toast(why, true) })} data-testid="button-hear-pitch"><Volume2 size={14} /> Hear it</button><span className="xs muted">An example. You'll build yours from your resume next.</span></div></div>;
   }
   const ok = pick === check.right || (pick === null && learned.includes(lesson));
   return (
@@ -193,7 +193,7 @@ function PitchSlots() {
       <div className="row-between" style={{ gap: 8 }}>
         <span className={"small " + (secs > 40 ? "" : "muted")} data-testid="pitch-length">{words} words · about {secs} seconds spoken{secs > 40 ? ". Try to get it under 35." : ""}</span>
         <div className="row" style={{ gap: 8 }}>
-          <button className="btn btn-ghost btn-sm" disabled={!text} onClick={() => void say(text)} data-testid="button-hear-my-pitch"><Volume2 size={14} /> Hear it</button>
+          <button className="btn btn-ghost btn-sm" disabled={!text} onClick={() => void say(text, { onError: (why) => toast(why, true) })} data-testid="button-hear-my-pitch"><Volume2 size={14} /> Hear it</button>
           <button className="btn btn-primary btn-sm" disabled={!text || !changed || busy} onClick={keep} data-testid="button-save-pitch">{w.pitch?.text && !changed ? "Saved" : "Save"}</button>
         </div>
       </div>

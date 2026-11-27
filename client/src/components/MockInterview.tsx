@@ -273,7 +273,7 @@ function ReadAloud({ text, auto }: { text: string; auto?: boolean }) {
   const { toast } = useStore();
   const [playing, setPlaying] = useState(false);
   // An auto read the browser blocks before any click just stays quiet; a click that can't play says why.
-  const read = (fromClick: boolean) => say(text, { onStart: () => setPlaying(true), onEnd: () => setPlaying(false), onError: () => { if (fromClick) toast("Remy's voice couldn't play. Check your sound is on and your phone isn't on silent, then try again.", true); } });
+  const read = (fromClick: boolean) => say(text, { onStart: () => setPlaying(true), onEnd: () => setPlaying(false), onError: (why) => { if (fromClick) toast(why, true); } });
   // "Like the real thing": the interviewer asks out loud, as in Julio's voice interview. Stops when the question changes.
   useEffect(() => { if (!auto) return; read(false); return () => { hush(); setPlaying(false); }; }, [text, auto]);
   useEffect(() => () => { hush(); }, []);

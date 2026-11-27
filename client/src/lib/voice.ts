@@ -38,6 +38,7 @@ export function useVoice(partial: (t: string) => void, done: (t: string) => void
 /** Plain words for reading aloud: no markdown, bullets or links. */
 export const spoken = (md: string) => md.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/[*_`#>]/g, "").replace(/^\s*[•-]\s*/gm, "").replace(/\s+/g, " ").trim();
 
+/** onError gets plain words for the person (why Remy stayed quiet). */
 type Events = { onStart?: () => void; onEnd?: () => void; onError?: (why: string) => void };
 // Played through Web Audio, not an <audio> element: iPhones (Safari and the app's web view) refused the MP3 as a blob
 // source ("no supported source"). Phones also only allow sound that starts on a tap, and Remy's voice arrives a moment
@@ -95,8 +96,11 @@ export async function say(text: string, ev: Events = {}) {
   } catch (e) {
     if (mine !== turn) return;
     current = null;
-    // No robot fallback (Dilan, Nov 25): say why it stayed quiet, and log it for the owners' Errors page.
-    ev.onError?.((e as Error)?.name || "voice");
+    // No robot fallback (Dilan, Nov 25): say why it stayed quiet, in plain words.
+    // The server saying no (voice off or out of credits = 503, too many this hour = 429) is expected: its own message, no error log.
+    const refused = (e as any)?.status === 503 || (e as any)?.status === 429;
+    ev.onError?.(refused ? (e as Error).message : "Remy's voice couldn't play. Check your sound is on and your phone isn't on silent, then try again.");
+    if (refused) return;
     const err = new Error(`${(e as Error)?.message || e}${got}${ctx ? ` [audio ${ctx.state}]` : ""}`);
     import("../components/ErrorBoundary").then((m) => m.reportClientError("voice", err)).catch(() => {});
   }
