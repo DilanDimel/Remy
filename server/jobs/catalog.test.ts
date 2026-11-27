@@ -1,7 +1,7 @@
 // Remy's employer catalog: what it keeps, how it reads a part, and that it lives in R2 (a fake store here). `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CATALOG, PARTS, allBoards, catalogPostings, catalogStats, catalogTick, csvRows, districtState, jazzList, ukgDescription, icimsJobs, ldPosting, sfJobs, sfPosting, keep, ldDescription, partOf, readBoard, readPart, resetCatalog, stapplyBoards, type CatalogBoard, jobapsJobs } from "./catalog";
+import { CATALOG, PARTS, allBoards, catalogPostings, catalogStats, catalogTick, csvRows, districtState, jazzList, ukgDescription, icimsJobs, ldPosting, sfJobs, sfPosting, keep, ldDescription, partOf, readBoard, readPart, resetCatalog, stapplyBoards, type CatalogBoard, jobapsJobs, nyJobs, nyPosting, jobviteJobs } from "./catalog";
 import { inUS } from "./fit";
 import { fetchBoard, type Raw } from "./sources";
 
@@ -233,4 +233,48 @@ test("EdJoin: a county's search, each opening with its district and date; high-s
     assert.ok(asked.length > 1 && asked.every((u) => u.startsWith("https://www.edjoin.org/Home/LoadJobs?") && u.includes("location=Fresno")));
     assert.deepEqual(out.map((r) => [r.title, r.company, r.location, r.url, r.posted]), [["High School Tutor", "Central Unified School District", "Fresno, California", "https://www.edjoin.org/Home/JobPosting/1", "2026-11-24T00:00:00.000Z"]]);
   } finally { globalThis.fetch = real; }
+});
+
+test("StateJobsNY: table rows to openings with agency and county; the vacancy page gives pay, the job's own city and text", () => {
+  const row = (id: string, title: string) => `<tr class="odd">\n<td>${id}</td>\n<td><a title="${title}" href="vacancyDetailsView.cfm?id=${id}">${title}</a></td>\n<td>NS</td>\n<td>11&#x2f;25&#x2f;26</td>\n<td>12&#x2f;09&#x2f;26</td>\n<td>Taxation and Finance, Department of</td>\n<td>Albany</td>\n</tr>`;
+  const out = nyJobs(row("229700", "Tax Technician Trainee 1") + row("229701", "Student Assistant &amp; Aide"));
+  assert.deepEqual(out[0], { url: "https://statejobs.ny.gov/public/vacancyDetailsView.cfm?id=229700", title: "Tax Technician Trainee 1", county: "Albany", location: "Albany County, New York", company: "Taxation and Finance, Department of", posted: "2026-11-25", deadline: "2026-12-09" });
+  assert.equal(out[1].title, "Student Assistant & Aide");
+  const r = (k: string, v: string) => `<p class="row"><span class="leftCol"><a href="/h" class="help"></a> ${k} </span><span class="rightCol">${v}</span> </p>`;
+  const d = nyPosting(r("Salary Range", "From $47,000 to $52,000 Annually") + r("City", "Albany") + r("Duties Description", "Review returns.<br />Answer calls.") + r("City", "Contact Town"));
+  assert.equal(d.location, "Albany, NY");
+  assert.match(d.text, /^Pay: \$47000–\$52000 per year\nDuties Description\nReview returns\./);
+});
+
+test("ApplicantPro: site id from the board page, then its JSON job list with place and pay", async () => {
+  const real = globalThis.fetch; const asked: string[] = [];
+  globalThis.fetch = (async (u: any) => {
+    asked.push(String(u));
+    if (String(u).endsWith("/jobs/")) return new Response("<script>var domain_id = '18343';</script>", { status: 200 });
+    if (String(u).includes("/core/jobs/18343?")) return new Response(JSON.stringify({ data: { jobs: [{ id: 7, title: "Summer Intern", city: "Fargo", abbreviation: "ND", iso3: "USA", startDateRef: "Sep 29, 2026", minSalary: "16", maxSalary: "18", payTypeFrame: "per hour", jobUrl: "https://casscountynd.applicantpro.com/jobs/7" }] } }), { status: 200 });
+    return new Response(`<script type="application/ld+json">${JSON.stringify({ "@type": "JobPosting", description: "<p>Help the county.</p>" })}</script>`, { status: 200 });
+  }) as any;
+  try {
+    const [r] = await readBoard({ ats: "applicantpro", slug: "casscountynd", company: "Cass County" } as CatalogBoard);
+    assert.deepEqual([r.title, r.location, r.url], ["Summer Intern", "Fargo, ND, US", "https://casscountynd.applicantpro.com/jobs/7"]);
+    assert.match((await r.detail!()).text, /^Pay: \$16–\$18 per hour\nHelp the county\./);
+    assert.ok(asked[1].startsWith("https://casscountynd.applicantpro.com/core/jobs/18343?getParams="));
+  } finally { globalThis.fetch = real; }
+});
+
+test("PageUp RSS: student titles only, full text from the feed, a bare city counted as US, a foreign place kept foreign", async () => {
+  const real = globalThis.fetch; const asked: string[] = [];
+  const item = (title: string, loc: string) => `<item><link>https://careers.pageuppeople.com/1151/cw/en-us/job/1</link><title>${title}</title><pubDate>Wed, 25 Nov 2026 17:00:00 Z</pubDate><job:description>&lt;p&gt;Help students.&lt;/p&gt;</job:description><job:location>${loc}</job:location></item>`;
+  globalThis.fetch = (async (u: any) => { asked.push(String(u)); return new Response(`<rss><channel>${item("Student Assistant", "Denton")}${item("Dean of Engineering", "Denton")}${item("Research Intern", "Australia|Sydney")}</channel></rss>`, { status: 200 }); }) as any;
+  try {
+    const out = await readBoard({ ats: "pageup", slug: "1151/cw/en-us", company: "UNT" } as CatalogBoard);
+    assert.equal(asked[0], "https://careers.pageuppeople.com/1151/cw/en-us/rss");
+    assert.deepEqual(out.map((r) => [r.title, r.location, r.text]), [["Student Assistant", "Denton, United States", "Help students."], ["Research Intern", "Sydney, Australia", "Help students."]]);
+  } finally { globalThis.fetch = real; }
+});
+
+test("Jobvite: table rows to title, link and place; links to another company's page ignored", () => {
+  const row = (href: string, title: string) => `<tr><td class="jv-job-list-name">\n<a href="${href}">${title}</a>\n</td>\n<td class="jv-job-list-location">\n\n Carol Stream,\n Illinois\n </td></tr>`;
+  assert.deepEqual(jobviteJobs(row("/castlemetals/job/ojNsAfwS", "Summer Intern") + row("/other/job/x1", "Intern"), "castlemetals"),
+    [{ url: "https://jobs.jobvite.com/castlemetals/job/ojNsAfwS", title: "Summer Intern", location: "Carol Stream, Illinois" }]);
 });

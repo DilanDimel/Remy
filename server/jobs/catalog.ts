@@ -13,7 +13,7 @@ import { r2Store } from "../platform/r2";
 import { abroad, inUS } from "./fit";
 import { collegeRole, eachQuery, fetchBoard, SCHOOL_QUERIES, studentTitle, withDetail, type Raw } from "./sources";
 
-type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom" | "taleo" | "amazon" | "apple" | "schoolspring" | "jobaps" | "edjoin";
+type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom" | "taleo" | "amazon" | "apple" | "schoolspring" | "jobaps" | "edjoin" | "nystate" | "applicantpro" | "pageup" | "jobvite";
 export type CatalogBoard = { ats: Ats; slug: string; company: string };
 export const PARTS = 24;
 /** Text kept per posting: enough for its requirements and summary (an opening keeps up to 12,000 when saved). */
@@ -44,7 +44,9 @@ const STAPPLY_ATS: Partial<Record<Ats, (slug: string, url: string) => string | n
   // https://ebwg.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX → "ebwg.fa.us2.oraclecloud.com|CX"
   oracle: (_, u) => { const m = u.match(/^https:\/\/([^/]+\.oraclecloud\.com)\/hcmUI\/CandidateExperience\/[^/]+\/sites\/([^/?#]+)/); return m ? `${m[1]}|${m[2]}` : null; },
   // Mid-size employers: subdomains (bamboohr, breezy, jazzhr's applytojob), a Rippling board name, a Paylocity company GUID.
-  bamboohr: sub, breezy: sub, jazzhr: sub, rippling: sub,
+  bamboohr: sub, breezy: sub, jazzhr: sub, rippling: sub, applicantpro: sub, jobvite: sub,
+  // PageUp (colleges and universities): "873/cw/en-us"; only US-English sites.
+  pageup: (s) => (/^\d+\/cw\/en-us$/i.test(s) ? s.toLowerCase() : null),
   paylocity: (s) => (/^[0-9a-f-]{36}$/i.test(s) ? s : null),
   // School districts: https://www.applitrack.com/aldineisd/onlineapp → "aldineisd"
   applitrack: (_, u) => sub(u.match(/applitrack\.com\/([^/]+)\/onlineapp/i)?.[1] || ""),
@@ -175,6 +177,35 @@ export function jobapsJobs(xml: string, state: string): { url: string; title: st
       deadline: deadline ? `${deadline[3]}-${deadline[1].padStart(2, "0")}-${deadline[2].padStart(2, "0")}` : undefined,
     };
   }).filter((x) => x.url && x.title && !/internal (agency )?(employees )?only|for internal/i.test(x.title)); // current state staff only
+}
+/** A Jobvite career page's openings: each row's title link and its place ("Carol Stream,\n Illinois"). */
+export function jobviteJobs(html: string, slug: string): { url: string; title: string; location: string }[] {
+  return [...html.matchAll(/<td class="jv-job-list-name">\s*<a href="(\/[^"]+\/job\/[A-Za-z0-9]+)">([^<]+)<\/a>\s*<\/td>\s*<td class="jv-job-list-location">([\s\S]*?)<\/td>/g)]
+    .filter((m) => m[1].startsWith(`/${slug}/`))
+    .map((m) => ({ url: `https://jobs.jobvite.com${m[1]}`, title: htmlToText(m[2]).trim(), location: htmlToText(m[3]).replace(/\s+/g, " ").replace(/\s+,/g, ",").trim() }));
+}
+/** StateJobsNY's public vacancy table: one row per opening with its agency, county, posted and deadline dates. */
+export function nyJobs(html: string): { url: string; title: string; county: string; location: string; company: string; posted?: string; deadline?: string }[] {
+  const day = (s: string) => { const m = s.match(/(\d+)\/(\d+)\/(\d+)/); return m ? `20${m[3].slice(-2)}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}` : undefined; };
+  return [...html.matchAll(/<tr[^>]*>\s*<td>(\d+)<\/td>\s*<td><a[^>]*>([^<]+)<\/a><\/td>\s*<td>[^<]*<\/td>\s*<td>([^<]*)<\/td>\s*<td>([^<]*)<\/td>\s*<td>([^<]*)<\/td>\s*<td>([^<]*)<\/td>/g)]
+    .map(([, id, title, posted, deadline, agency, c]) => {
+      const county = htmlToText(c).trim();
+      return {
+        url: `https://statejobs.ny.gov/public/vacancyDetailsView.cfm?id=${id}`, title: htmlToText(title).trim(), county,
+        location: [county && !/determined/i.test(county) ? `${county} County` : "", "New York"].filter(Boolean).join(", "),
+        company: htmlToText(agency).trim() || "State of New York", posted: day(htmlToText(posted)), deadline: day(htmlToText(deadline)),
+      };
+    });
+}
+// The vacancy page is one 750 KB list shared by every county board, so a part reads it once.
+let nyPage: { at: number; html: Promise<string> } | undefined;
+/** A StateJobsNY vacancy page: its labelled rows (Salary Range, City, Duties Description...) as pay, place and text. */
+export function nyPosting(html: string): { text: string; location: string } {
+  const row: Record<string, string> = {};
+  for (const m of html.matchAll(/<span class="leftCol">(?:<a[^>]*><\/a>)?\s*([^<]+?)\s*<\/span>\s*<span class="rightCol">([\s\S]*?)<\/span>\s*<\/p>/g)) row[m[1]] ??= htmlToText(m[2]).trim();
+  const pay = row["Salary Range"]?.match(/\$([\d,.]+)\s*to\s*\$([\d,.]+)\s*(\w+)/);
+  const text = ["Duties Description", "Minimum Qualifications", "Additional Comments"].filter((k) => row[k]).map((k) => `${k}\n${row[k]}`).join("\n\n");
+  return { text: pay ? withPay(payLine(pay[1].replace(/,/g, ""), pay[2].replace(/,/g, ""), pay[3]), text) : text, location: [row.City, "NY"].filter(Boolean).join(", ") };
 }
 /** A SuccessFactors career site's sitemap postings (".../job/Dallas-Consulting-Analyst-TX-75201/459314600/"). */
 export function sfJobs(xml: string): { url: string; title: string; posted?: string }[] {
@@ -307,6 +338,54 @@ export async function readBoard(b: CatalogBoard, read = fetchBoard): Promise<Raw
       ...x, text: "", detail: async () => { const d = ldPosting(await getPage(x.url)); return { ...d, text: d.text.replace(/\\r\\n/g, "\n") }; },
     }));
   }
+  if (b.ats === "applicantpro") {
+    // ApplicantPro (many counties, cities and small employers): the board page names its site id, and the board's own
+    // script reads the open list as JSON from /core/jobs/<id> (robots.txt only closes /admin, /stats and internal jobs).
+    const base = `https://${b.slug}.applicantpro.com`;
+    const id = (await getPage(`${base}/jobs/`)).match(/domain_id\s*=\s*'(\d+)'/)?.[1];
+    if (!id) return [];
+    const j = await getJson(`${base}/core/jobs/${id}?getParams=${encodeURIComponent('{"isInternal":0}')}`);
+    return (j.data?.jobs || []).map((x: any): Raw => {
+      const pay = payLine(x.minSalary, x.maxSalary, x.payTypeFrame || x.payType);
+      return {
+        title: String(x.title || "").trim(), url: String(x.jobUrl || `${base}/jobs/${x.id}`), text: "",
+        location: [x.city, x.abbreviation, x.iso3 === "USA" ? "US" : x.iso3].filter(Boolean).join(", "),
+        posted: Date.parse(x.startDateRef) ? new Date(x.startDateRef).toISOString() : undefined,
+        detail: async () => { const d = ldPosting(await getPage(`${x.jobUrl || `${base}/jobs/${x.id}`}.html`)); return { ...d, text: /^Pay:/.test(d.text) ? d.text : withPay(pay, d.text) }; },
+      };
+    });
+  }
+  if (b.ats === "jobvite") {
+    // Jobvite career pages (jobs.jobvite.com/<company>/jobs; no robots.txt): a table of title links and places; the posting has schema.org data.
+    return jobviteJobs(await getPage(`https://jobs.jobvite.com/${b.slug}/jobs`), b.slug).map((x): Raw => ({ ...x, text: "", detail: async () => ldPosting(await getPage(x.url)) }));
+  }
+  if (b.ats === "pageup") {
+    // PageUp career sites (many universities) publish an RSS feed with each job's full text and place ("Southern California|Northridge").
+    // Only student-level titles are unpacked. These are US-English sites, so a bare city ("Denton") is taken as US.
+    const base = `https://careers.pageuppeople.com/${b.slug}`;
+    const xml = await getPage(`${base}/rss`);
+    const out: Raw[] = [];
+    for (const [, it] of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
+      const tag = (t: string) => htmlToText(it.match(new RegExp(`<${t}>([\\s\\S]*?)</${t}>`))?.[1]?.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&") || "").trim();
+      const title = tag("title");
+      if (!studentTitle(title)) continue;
+      const place = tag("job:location").split("|").map((x) => x.trim()).filter(Boolean).reverse().join(", ");
+      const location = inUS(place) || abroad(place) ? place : [place, "United States"].filter(Boolean).join(", ");
+      out.push({ title, url: tag("link"), location, text: tag("job:description"), posted: Date.parse(tag("pubDate")) ? new Date(tag("pubDate")).toISOString() : undefined });
+    }
+    return out;
+  }
+  if (b.ats === "nystate") {
+    // StateJobsNY lists every public vacancy on one page (no robots.txt; the site's terms don't limit reading it).
+    // Boards split it by county ("statejobs.ny.gov|Albany", "...|Clinton;Wayne") so each stays under the 12-a-board cap.
+    // shortcut: a county missing from every board's list is skipped; add it to catalog-boards.tsv if NY adds one.
+    if (!nyPage || Date.now() - nyPage.at > 3_600_000) nyPage = { at: Date.now(), html: getPage("https://statejobs.ny.gov/public/vacancyTable.cfm") };
+    const counties = new Set(b.slug.split("|")[1]?.split(";"));
+    const html = await nyPage.html.catch((e) => { nyPage = undefined; throw e; });
+    return nyJobs(html).filter((x) => counties.has(x.county)).map(({ county: _, ...x }): Raw => ({
+      ...x, text: "", detail: async () => nyPosting(await getPage(x.url)),
+    }));
+  }
   if (b.ats === "edjoin") {
     // EdJoin (California's school and college job board) answers its own search page with JSON; robots.txt allows all.
     // The slug is a county ("Fresno"); each opening keeps its district, and the posting page has schema.org data.
@@ -392,7 +471,7 @@ export type Meta = { parts: Record<string, PartStats> };
 
 /** Reads every board in one part. Workable and Paylocity turn fast bursts away (HTTP 429), so each of them (and the other SLOW systems) gets its own
  *  lane, one board at a time. */
-const SLOW: Ats[] = ["workable", "paylocity", "icims", "successfactors", "schoolspring", "edjoin"];
+const SLOW: Ats[] = ["workable", "paylocity", "icims", "successfactors", "schoolspring", "edjoin", "nystate", "pageup"];
 export async function readPart(p: number, boards = CATALOG, read = readBoard, pause: (ms: number) => Promise<unknown> = (ms) => new Promise((r) => setTimeout(r, ms))) {
   const mine = boards.filter((b) => partOf(b) === p);
   const kept: Raw[] = [];
