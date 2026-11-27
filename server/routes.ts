@@ -33,7 +33,7 @@ import { checkedInterviewDate, zoneIn } from "./coach/interviewDate";
 import { briefMessages, briefPrompt, cleanBrief, skillOriginQuestion } from "./coach/brief";
 import { betterLetter, keptFixes, letterFixPrompt, rewriteFixPrompt } from "./ai/tailorFix";
 import { BUZZ, assemblePitch, type PitchParts } from "./coach/pitch";
-import { checkFeedback, checkPlan, feedbackPrompt, planPrompt, rulesPlan } from "./coach/interview";
+import { checkFeedback, checkPlan, feedbackPrompt, planPrompt, rulesPlan, thinAnswerTip } from "./coach/interview";
 import { AI_CALLS_PER_INTERVIEW, pickProfile, weeklyLeft, type Interview, type IvMode } from "@shared/interview";
 import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, copyJobsBatch, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./platform/db";
 import { hospitalFirst } from "@shared/employer";
@@ -1982,6 +1982,7 @@ export async function registerRoutes(_server: Server, app: Express) {
         Object.assign(answer, checkFeedback(await withAi(ctx, "Mock interview feedback", () => aiJson(sys, user, 1500)), text, iv.profile, ivOk(ctx, text)));
       } catch { /* the answer is saved either way; Remy's take just doesn't show this time */ }
     }
+    if (!answer.sharpen && text.split(/\s+/).length < 5) answer.sharpen = thinAnswerTip(q, text);
     if (before) iv.retries++;
     iv.answers = [...iv.answers.filter((a) => a.qi !== qi), answer].sort((a, b) => a.qi - b.qi);
     await ctx.save();
