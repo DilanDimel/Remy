@@ -240,7 +240,7 @@ export const HOME = {
     { type: "divider" },
     md("*How to use me*\n• *@Remy* in any channel, or DM me: ask anything about Remy or the team\n• *`/bug`* what broke: logs it in #website (start with `app` for #app)\n• *⋮ on any message → Ask Remy about this*: I explain it or help in its thread"),
     md("*Where things go*\n• #all-remyai: everyone, decisions, the morning brief\n• #website, #app, #database: work on each part\n• #business, #social: partners, mentors, posts\n• #alerts: site down or backups stopped. Keep its notifications on."),
-    md("*When I post*\n• 6 AM CT: backup check in #database\n• 12 PM and 9 PM CT: what shipped, in #website\n• Any time: warnings in #alerts"),
+    md("*When I post*\n• 6 AM CT: backup check in #database\n• Each merged PR within minutes, in #website, #app or #database\n• 9 PM CT: a recap of what shipped, in #website\n• Any time: warnings in #alerts"),
     { type: "context", elements: [{ type: "mrkdwn", text: "<https://remyai.org|remyai.org> · Start here: the canvas in #all-remyai" }] },
   ],
 };
@@ -298,16 +298,57 @@ const ct = (d: Date) => {
 };
 const timeCt = (iso: string) => new Date(iso).toLocaleString("en-US", { timeZone: "America/Chicago", weekday: "short", hour: "numeric", minute: "2-digit" });
 
+const GH = "https://api.github.com/repos/DilanDimel/Remy";
+const closedPrs = () => fetch(`${GH}/pulls?state=closed&per_page=50&sort=updated&direction=desc`, { headers: { accept: "application/vnd.github+json" } })
+  .then((r) => (r.ok ? r.json() : [])).catch(() => []);
+/** A PR's changed file paths, or null when GitHub doesn't answer. */
+const prFiles = (n: number): Promise<string[] | null> => fetch(`${GH}/pulls/${n}/files?per_page=100`, { headers: { accept: "application/vnd.github+json" } })
+  .then((r) => (r.ok ? r.json() : null)).then((j) => (Array.isArray(j) ? j.map((f: any) => String(f.filename)) : null)).catch(() => null);
+
+/** Where a merged PR is announced: #app for native/, #database for migrations and database code, #website for the rest. */
+export function channelsFor(files: string[]): string[] {
+  const out = new Set<string>();
+  for (const f of files) {
+    if (f.startsWith("native/")) out.add(CHANNELS.app);
+    else if (f.startsWith("server/migrations/") || /^server\/platform\/(storage|db|backup|persist|studentJobs)/.test(f)) out.add(CHANNELS.database);
+    else if (/^(client|shared|server)\//.test(f)) out.add(CHANNELS.website);
+  }
+  return out.size ? Array.from(out) : [CHANNELS.website]; // docs and tooling only: #website
+}
+
+/** Each merged PR, posted within about 5 minutes (routes.ts timer) to the channels it touches. The newest merge time
+ *  posted is kept in site_settings, so a restart never posts twice; the first run starts from the last Shipped digest. */
+export async function mergedPosts(now = new Date(), list?: any[], filesOf = prFiles): Promise<number> {
+  if (!slackOn()) return 0;
+  const key = "slack_merged_cursor";
+  let since: string | undefined = (await q("SELECT value FROM site_settings WHERE key = $1", [key]))[0]?.value;
+  if (!since) {
+    const last = (await q("SELECT updated_at FROM site_settings WHERE key LIKE 'slack_post_shipped%' ORDER BY updated_at DESC LIMIT 1"))[0]?.updated_at;
+    since = (last ? new Date(last) : now).toISOString();
+  }
+  const prs = (Array.isArray(list) ? list : await closedPrs()).filter((p: any) => p.merged_at && p.merged_at > since!)
+    .sort((a: any, b: any) => a.merged_at.localeCompare(b.merged_at));
+  let n = 0;
+  for (const p of prs) {
+    const files = await filesOf(p.number);
+    if (!files) break; // GitHub didn't answer: this PR and the rest go next run
+    for (const ch of channelsFor(files)) await post(ch, `:white_check_mark: *Merged* <${p.html_url}|#${p.number}> ${p.title}`, COLOR.ok);
+    await q(`INSERT INTO site_settings (key, value, updated_by) VALUES ($1, $2, 'slack')
+             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [key, p.merged_at]);
+    n++;
+  }
+  return n;
+}
+
 /** "Shipped" lines: pull requests merged after `since` (ISO), newest first. */
 export async function shippedSince(since: string, list?: any[]): Promise<string[]> {
-  const prs = list ?? await fetch("https://api.github.com/repos/DilanDimel/Remy/pulls?state=closed&per_page=50&sort=updated&direction=desc", { headers: { accept: "application/vnd.github+json" } })
-    .then((r) => (r.ok ? r.json() : [])).catch(() => []);
+  const prs = list ?? await closedPrs();
   return (Array.isArray(prs) ? prs : []).filter((p: any) => p.merged_at && p.merged_at > since).sort((a: any, b: any) => b.merged_at.localeCompare(a.merged_at))
     .map((p: any) => `• <${p.html_url}|#${p.number}> ${p.title}`);
 }
 
-/** The daily posts that are due and not sent yet: #database backup check from 6 AM CT, #website "Shipped" digests from
- *  12 PM and 9 PM CT. Each slot is remembered in site_settings, so a restart or an extra cron call can't post it twice.
+/** The daily posts that are due and not sent yet: #database backup check from 6 AM CT, the #website "Shipped" recap
+ *  from 9 PM CT. Each slot is remembered in site_settings, so a restart or an extra cron call can't post it twice.
  *  shortcut: the cron is hourly, so a post lands within the hour after its time; add a finer timer if that matters. */
 export async function dailyPosts(backup: () => Promise<{ configured: boolean; lastAt: string | null; lastFull: string | null }>, now = new Date()): Promise<string[]> {
   if (!slackOn()) return [];
@@ -332,12 +373,11 @@ export async function dailyPosts(backup: () => Promise<{ configured: boolean; la
   });
   const digest = (slot: string, from: number) => once(slot, hour >= from, async () => {
     const last = (await q("SELECT updated_at FROM site_settings WHERE key LIKE 'slack_post_shipped%' ORDER BY updated_at DESC LIMIT 1"))[0]?.updated_at;
-    const since = last ? new Date(last).toISOString() : new Date(now.getTime() - 12 * 3600_000).toISOString();
+    const since = last ? new Date(last).toISOString() : new Date(now.getTime() - 24 * 3600_000).toISOString();
     const lines = await shippedSince(since);
-    return lines.length ? { channel: CHANNELS.website, text: `:fox_face: *Shipped since ${timeCt(since)} CT* (${lines.length})\n${lines.slice(0, 15).join("\n")}` } : null; // nothing new: stay quiet
+    return lines.length ? { channel: CHANNELS.website, text: `:fox_face: *Today's recap: shipped since ${timeCt(since)} CT* (${lines.length})\n${lines.slice(0, 15).join("\n")}` } : null; // nothing new: stay quiet
   });
-  await digest("shipped_noon", 12);
-  await digest("shipped_evening", 21);
+  await digest("shipped_evening", 21); // each merge is also posted within minutes (mergedPosts)
   return sent;
 }
 
