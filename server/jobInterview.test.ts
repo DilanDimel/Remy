@@ -24,3 +24,11 @@ test("a posting about patients asks about a patient, not a customer", () => {
   assert.ok(qs.some((x) => /difficult patient/.test(x.q)), qs.map((x) => x.q).join(" | "));
   assert.ok(!qs.some((x) => /customer/.test(x.q)));
 });
+
+test("soft skills become real questions, and two skills that ask the same thing ask it once (interview test lab)", () => {
+  const qs = jobQuestions({ company: "Q2", title: "Analyst", requirements: [req("creativity"), req("problem solving"), req("analytical"), req("resilience")] });
+  const mid = qs.slice(1, -1).map((x) => x.q);
+  assert.ok(!mid.some((q) => /How have you used (creativity|resilience)/.test(q)), mid.join(" | "));
+  assert.equal(new Set(mid).size, mid.length);
+  assert.equal(mid.filter((q) => /solved a problem/.test(q)).length, 1);
+});
