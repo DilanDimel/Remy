@@ -68,7 +68,7 @@ async function backfill(channel: string): Promise<void> {
 /** One Slack event (from the Events API "event" field). Keeps the copy up to date and answers Remy's mentions and DMs. */
 export async function onEvent(ev: any, answer = reply): Promise<void> {
   if (!ev?.type) return;
-  if (ev.type === "app_home_opened") { if (ev.tab === "home") await api("views.publish", { user_id: ev.user, view: JSON.stringify(HOME) }); return; }
+  if (ev.type === "app_home_opened") { if (ev.tab === "home") await api("views.publish", { user_id: ev.user, view: JSON.stringify(await homeView()) }); return; }
   if (ev.channel && !filled.has(ev.channel)) { filled.add(ev.channel); await backfill(ev.channel); }
   if (ev.type === "message") {
     if (ev.subtype === "message_deleted") { await q("DELETE FROM slack_messages WHERE channel=$1 AND ts=$2", [ev.channel, ev.deleted_ts]); return; }
@@ -242,6 +242,29 @@ export const HOME = {
   ],
 };
 
+let backupStatus: (() => Promise<{ configured: boolean; lastAt: string | null; lastFull: string | null }>) | undefined;
+/** The Home tab: the guide above plus what's live now (last backup, what shipped in 24 hours, open pull requests). */
+export async function homeView(now = new Date(), open?: any[]): Promise<typeof HOME> {
+  const [b, shipped, prs] = await Promise.all([
+    backupStatus?.().catch(() => null) ?? null,
+    shippedSince(new Date(now.getTime() - 24 * 3600_000).toISOString()).catch(() => [] as string[]),
+    open ?? fetch("https://api.github.com/repos/DilanDimel/Remy/pulls?state=open&per_page=20", { headers: { accept: "application/vnd.github+json" } })
+      .then((r) => (r.ok ? r.json() : [])).catch(() => []),
+  ]);
+  const prList: any[] = Array.isArray(prs) ? prs : [];
+  const backup = !b ? "not checked yet" : !b.lastAt ? ":warning: no backup has finished yet" : `:white_check_mark: last copy ${timeCt(b.lastAt)} CT`;
+  const openLines = prList.slice(0, 8).map((p) => `• <${p.html_url}|#${p.number}> ${p.title}`);
+  const live = [
+    { type: "divider" },
+    { type: "header", text: { type: "plain_text", text: "Right now" } },
+    md(`*Backup:* ${backup}`),
+    md(`*Shipped in the last 24 hours* (${shipped.length})\n${shipped.slice(0, 8).join("\n") || "Nothing yet today."}`),
+    md(`*Open pull requests* (${prList.length})\n${openLines.join("\n") || "None open."}`),
+  ];
+  const blocks = [...HOME.blocks];
+  return { ...HOME, blocks: [...blocks.slice(0, -1), ...live, blocks[blocks.length - 1]] as any };
+}
+
 /** /bug <what broke>: posts it in #website (or #app when it starts with "app") and answers only the sender. */
 export async function command(body: Record<string, string>): Promise<{ response_type: "ephemeral"; text: string }> {
   const text = String(body.text || "").trim();
@@ -250,7 +273,11 @@ export async function command(body: Record<string, string>): Promise<{ response_
   const app = /^app\b[:\s-]*/i.test(text);
   const what = app ? text.replace(/^app\b[:\s-]*/i, "") : text;
   const channel = app ? CHANNELS.app : CHANNELS.website;
-  const ok = await post(channel, `:beetle: *Bug* from <@${body.user_id}>: ${what}`, COLOR.alert);
+  // Recent merges whose titles share a word with the report: often the change that caused it.
+  const words = new Set(what.toLowerCase().match(/[a-z]{4,}/g) || []);
+  const recent = (await shippedSince(new Date(Date.now() - 72 * 3600_000).toISOString()).catch(() => [] as string[]))
+    .filter((l) => (l.toLowerCase().match(/[a-z]{4,}/g) || []).some((w) => words.has(w))).slice(0, 3);
+  const ok = await post(channel, `:beetle: *Bug* from <@${body.user_id}>: ${what}${recent.length ? `\n_Recent changes that may be related:_\n${recent.join("\n")}` : ""}`, COLOR.alert);
   return { response_type: "ephemeral", text: ok ? `Logged in <#${channel}>. Thanks!` : "I couldn't post that just now. Try again in a minute." };
 }
 
@@ -272,7 +299,7 @@ const timeCt = (iso: string) => new Date(iso).toLocaleString("en-US", { timeZone
 export async function shippedSince(since: string, list?: any[]): Promise<string[]> {
   const prs = list ?? await fetch("https://api.github.com/repos/DilanDimel/Remy/pulls?state=closed&per_page=50&sort=updated&direction=desc", { headers: { accept: "application/vnd.github+json" } })
     .then((r) => (r.ok ? r.json() : [])).catch(() => []);
-  return prs.filter((p: any) => p.merged_at && p.merged_at > since).sort((a: any, b: any) => b.merged_at.localeCompare(a.merged_at))
+  return (Array.isArray(prs) ? prs : []).filter((p: any) => p.merged_at && p.merged_at > since).sort((a: any, b: any) => b.merged_at.localeCompare(a.merged_at))
     .map((p: any) => `• <${p.html_url}|#${p.number}> ${p.title}`);
 }
 
@@ -281,6 +308,7 @@ export async function shippedSince(since: string, list?: any[]): Promise<string[
  *  shortcut: the cron is hourly, so a post lands within the hour after its time; add a finer timer if that matters. */
 export async function dailyPosts(backup: () => Promise<{ configured: boolean; lastAt: string | null; lastFull: string | null }>, now = new Date()): Promise<string[]> {
   if (!slackOn()) return [];
+  backupStatus = backup; // the Home tab shows it too
   const { day, hour } = ct(now);
   const sent: string[] = [];
   const once = async (slot: string, due: boolean, make: () => Promise<{ channel: string; text: string; color?: string } | null>) => {
