@@ -173,3 +173,23 @@ export function listenFor(p: ProfileId) {
   const w = PROFILES[p].weights as Record<Dimension, number>;
   return (Object.keys(w) as Dimension[]).filter((d) => w[d] > 0).sort((a, b) => w[b] - w[a]).slice(0, 3).map((d) => ({ label: dimensionLabel(d, p), weight: w[d] }));
 }
+
+/** Practice drills (the coach's Practice step): one question, one answer, Remy's take, try again. Newest last, at most 60. */
+export interface Drill extends Omit<IvAnswer, "qi"> { id: string; q: string; jobId?: string; tries: number;
+  /** When Remy rated a try (each counts toward the weekly limit), at most the last 20. */
+  rated: string[]; }
+export const WEEKLY_DRILLS = 20;
+export function drillsLeft(drills: Pick<Drill, "rated">[] | undefined, now = Date.now()) {
+  const used = (drills || []).flatMap((d) => d.rated || []).filter((t) => now - Date.parse(t) < 7 * 864e5).length;
+  return Math.max(0, WEEKLY_DRILLS - used);
+}
+/** The four parts of a strong story answer, from Remy's ratings: heard (Solid or better), thin, or missing. */
+export const STAR_PARTS = [["context", "Situation"], ["ownership", "Your part"], ["outcomes", "Result"], ["reflection", "Lesson"]] as const;
+export function starParts(ratings: IvRating[]) {
+  return STAR_PARTS.map(([id, label]) => {
+    const r = ratings.find((x) => x.criterion === id);
+    return { id, label, state: !r || r.level <= 1 ? "missing" as const : r.level === 2 ? "thin" as const : "heard" as const };
+  });
+}
+/** A drill counts as practiced once Remy heard all four parts. */
+export const practiced = (d: Pick<Drill, "ratings">) => starParts(d.ratings).every((p) => p.state === "heard");

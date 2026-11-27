@@ -33,8 +33,8 @@ import { checkedInterviewDate, zoneIn } from "./coach/interviewDate";
 import { briefMessages, briefPrompt, cleanBrief, skillOriginQuestion } from "./coach/brief";
 import { betterLetter, keptFixes, letterFixPrompt, rewriteFixPrompt } from "./ai/tailorFix";
 import { BUZZ, assemblePitch, type PitchParts } from "./coach/pitch";
-import { checkFeedback, checkPlan, feedbackPrompt, planPrompt, rulesPlan, thinAnswerTip } from "./coach/interview";
-import { AI_CALLS_PER_INTERVIEW, pickProfile, weeklyLeft, type Interview, type IvMode } from "@shared/interview";
+import { checkFeedback, checkPlan, drillQuestion, feedbackPrompt, planPrompt, rulesPlan, thinAnswerTip } from "./coach/interview";
+import { AI_CALLS_PER_INTERVIEW, drillsLeft, pickProfile, weeklyLeft, type Drill, type Interview, type IvMode } from "@shared/interview";
 import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, copyJobsBatch, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./platform/db";
 import { hospitalFirst } from "@shared/employer";
 import { cleanTerm, readTermAnswer, TERM_SYSTEM, termPrompt, type TermAnswer } from "./ai/term";
@@ -1225,7 +1225,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   });
 
   // ---------- simple app-owned sections ----------
-  const SECTIONS = ["profile", "settings", "tasks", "calendar", "tracker", "savedJobIds", "hiddenJobIds", "memory", "outreach", "onboarding", "started", "plan", "contacts", "builder", "pitch", "hours", "game"] as const;
+  const SECTIONS = ["profile", "settings", "tasks", "calendar", "tracker", "savedJobIds", "hiddenJobIds", "memory", "outreach", "onboarding", "started", "plan", "contacts", "builder", "pitch", "hours", "game", "coach"] as const;
   // The shape each section must have, so one malformed save can't break later requests.
   // Objects keep unknown extra fields (loose) but every field the server relies on is checked.
   const str = (max = 600) => z.string().max(max);
@@ -1254,6 +1254,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     plan: z.looseObject({ nextAction: z.looseObject({ title: str(300), why: str(2000), link: str(300) }), careers: z.array(z.looseObject({ id: str(120), title: str(300) })).max(20), skills: z.array(z.looseObject({ id: str(120), name: str(300) })).max(30), academic: z.array(z.looseObject({ id: str(120), term: str(100) })).max(20) }),
     contacts: z.array(z.looseObject({ id: str(120), name: str(200), title: str(300), org: str(300), email: str(320), why: str(2000), tags: z.array(str(120)).max(30), label: str(40), met: str(200).optional(), metOn: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/).optional() })).max(1000),
     pitch: z.object({ text: str(1200), at: str(40) }),
+    coach: z.object({ learned: z.array(z.enum(["asks", "star", "pitch"])).max(3) }),
     hours: z.array(z.object({ id: str(120), activity: str(120), hours: z.number().min(0).max(168), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), note: str(500).optional() })).max(2000),
     // Career quest: per week (Monday date) the starting counts and the missions finished; at most two years kept.
     game: z.object({ weeks: z.record(z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.object({ base: z.record(str(20), z.number().int().min(0).max(100000)), done: z.array(str(20)).max(12), missions: z.array(str(20)).max(5).optional() })).refine((r) => Object.keys(r).length <= 110, "too many weeks"), bestLevel: z.number().int().min(1).max(5).optional(),
@@ -2034,6 +2035,30 @@ export async function registerRoutes(_server: Server, app: Express) {
     await ownerIv(ctx);
     const iv = ivOf(ctx, String(req.params.id));
     if (!iv.finishedAt && iv.answers.length) { iv.finishedAt = nowIso(); ctx.ws.game = markDay(ctx.ws.game || { weeks: {} }, centralToday()); }
+    await ctx.save();
+    res.json(ctx.ws);
+  }));
+  // The coach's Practice step: one question at a time with Remy's take (20 rated answers a week), then "Try again".
+  app.post("/api/interviews/drill", route(async (req, res, ctx) => {
+    await ownerIv(ctx);
+    const qText = String(req.body?.q || "").trim().slice(0, 400) || bad("Pick a question to practice.");
+    const text = String(req.body?.text || "").trim().slice(0, 4000) || bad("Say or type your answer first.");
+    const job = req.body?.jobId ? findJob(ctx.ws, String(req.body.jobId)) : undefined;
+    const profile = job ? pickProfile(job) : "generic";
+    const q = drillQuestion(qText, profile);
+    const drills = (ctx.ws.drills ||= []);
+    const before = drills.find((d) => d.q === qText);
+    const d: Drill = { id: before?.id || uid("dr"), q: qText, ...(job ? { jobId: job.id } : {}), tries: (before?.tries || 0) + 1, rated: before?.rated || [], text, at: nowIso(), ratings: [],
+      secs: Math.max(0, Math.min(1800, Math.round(Number(req.body?.secs) || 0))), fillers: Math.max(0, Math.min(500, Math.round(Number(req.body?.fillers) || 0))) };
+    if (aiStatus().available && drillsLeft(drills) > 0 && text.split(/\s+/).length >= 5) {
+      try {
+        const [sys, user] = feedbackPrompt(profile, q, text, before ? { ...before, qi: 0 } : undefined, langOf(await talkLanguage(ctx.me, ctx.ws)));
+        Object.assign(d, checkFeedback(await withAi(ctx, "Interview practice feedback", () => aiJson(sys, user, 1500)), text, profile, ivOk(ctx, `${text}\n${job ? `${job.title} at ${job.company}` : ""}`)));
+        d.rated = [...d.rated, d.at].slice(-20);
+      } catch { /* saved either way; Remy's take just doesn't show this time */ }
+    }
+    if (!d.sharpen && text.split(/\s+/).length < 5) d.sharpen = thinAnswerTip(q, text);
+    ctx.ws.drills = [...drills.filter((x) => x.q !== qText), d].slice(-60);
     await ctx.save();
     res.json(ctx.ws);
   }));

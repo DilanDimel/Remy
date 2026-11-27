@@ -107,3 +107,18 @@ test("scoring prompt grades students against student-level 4s and calls out unsa
   assert.doesNotMatch(user, /acknowledges attribution limits/);
   assert.match(sys, /unsafe, dishonest/);
 });
+
+test("coach Practice: 20 rated tries a week, the four story parts, and practiced only when all four are heard", async () => {
+  const { drillsLeft, starParts, practiced, WEEKLY_DRILLS } = await import("@shared/interview");
+  const { drillQuestion } = await import("./interview");
+  const now = Date.parse("2026-11-27T12:00:00Z");
+  const old = "2026-11-10T12:00:00Z", recent = "2026-11-26T12:00:00Z";
+  assert.equal(drillsLeft([{ rated: [old, recent, recent] }, { rated: [recent] }], now), WEEKLY_DRILLS - 3);
+  assert.equal(drillsLeft(undefined, now), WEEKLY_DRILLS);
+  const r = (criterion: string, level: number) => ({ criterion, level, quote: "x", note: "" }) as any;
+  const parts = starParts([r("context", 3), r("ownership", 2), r("outcomes", 1)]);
+  assert.deepEqual(parts.map((p) => p.state), ["heard", "thin", "missing", "missing"]);
+  assert.equal(practiced({ ratings: [r("context", 3), r("ownership", 4), r("outcomes", 3), r("reflection", 3)] }), true);
+  assert.equal(practiced({ ratings: [r("context", 3), r("ownership", 4), r("outcomes", 3)] }), false);
+  assert.deepEqual(drillQuestion("Tell me about a time you led a team.", "generic").criteria.every((c) => ["context", "ownership", "outcomes", "reflection"].includes(c)), true);
+});

@@ -1,14 +1,14 @@
 import { StoryDeck } from "../components/StoryDeck";
 import { PitchCard } from "../components/PitchCard";
-import { MockInterview } from "../components/MockInterview";
+import { InterviewCoach } from "../components/InterviewCoach";
 import { useOwnerView } from "../lib/store";
 import { RemyAskInline } from "../components/RemyAskInline";
 
 /** Interview prep (Dilan, Nov 19: its own place in the left bar, not a Resume tab): true stories from the resume,
  *  practiced out loud, and a 30-second pitch. The LinkedIn coach stays with the resume. */
 export default function Interview() {
-  const forJob = useOwnerView(); // redesign stage 3 (owners first): questions tied to the job they're applying for
-  if (forJob) return <MockInterview />; // owners: the coach draws its own head (quota, Remy's line for each step)
+  // Owners (Nov 27): the step-by-step coach (Learn, Build, Practice, Mock interviews), components/InterviewCoach.tsx.
+  if (useOwnerView()) return <InterviewCoach />;
   return (
     <>
       <div className="page-head">

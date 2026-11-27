@@ -602,6 +602,10 @@ export interface Workspace {
   remyHello?: string;
   /** Owners (Julio's interview coach): mock interviews, newest last, at most 20. Server-written (/api/interviews). */
   interviews?: import("./interview").Interview[];
+  /** Owners (interview coach): single-question practice drills, newest last, at most 60. Server-written (/api/interviews/drill). */
+  drills?: import("./interview").Drill[];
+  /** Owners (interview coach): lessons finished in the Learn step. */
+  coach?: { learned: ("asks" | "star" | "pitch")[] };
   /** Match emails Remy sent (server/coach/nudges.ts) and the student's Yes / Not now. Server-written. */
   nudges?: { id: string; jobId: string; at: string; answer?: "yes" | "later"; answeredAt?: string }[];
   /** Owners: emails Remy sent this student (subject and kind), newest last, at most 30, so Remy's chat knows what
