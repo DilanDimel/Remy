@@ -3,6 +3,7 @@ import { dropDates, skillGroupName, skillParts, splitList } from "@shared/words"
 import { aiJson } from "../ai/ai";
 import { uid } from "../platform/ids";
 import { fold, norm } from "./parse";
+import { englishMajor, foreignDegreeField, isPresent, MONTHS, sectionKind } from "./langs";
 
 // Resume text → ResumeDoc. Two readers share the same clean-up and checks: the
 // AI reader (checked word-for-word against the file) and a rules-based reader,
@@ -53,10 +54,11 @@ const MODIFIER = new Set(
     "laboral profesional academica academico adicional adicionales otros otras test extra career industry international athletic artistic " +
     "artisticas musical creative military teaching summer class college customer graduate undergraduate student clinical healthcare nursing medical research lab laboratory engineering design areas management administrative executive freelance corporate legal retail hospitality government nonprofit sales marketing graphic security cyber practicum field culinary aviation construction me and of y e de del la las los en para").split(" "),
 );
-const headingWords = (s: string) => fold(s).split(/[\s&/+,]+/).map((w) => w.replace(/[^a-z]/g, "")).filter(Boolean);
+const headingWords = (s: string) => fold(s).split(/[\s&/+,]+/).map((w) => w.replace(/[^\p{L}]/gu, "")).filter(Boolean);
 function isHeadingPhrase(s: string, caps: boolean) {
   const words = headingWords(s);
   if (!words.length || words.length > 6 || /\d/.test(s)) return false;
+  if (sectionKind(s)) return true; // "Formación académica", "教育背景", "Kinh nghiệm làm việc"
   if (!words.every((w) => CORE.has(w) || WEAK.has(w) || MODIFIER.has(w))) return false;
   return words.some((w) => CORE.has(w)) || (words.some((w) => WEAK.has(w)) && (caps || words.length > 1));
 }
@@ -132,7 +134,8 @@ function kindOf(heading: string): Kind {
   if (/\b(skills?|habilidades|competenc\w*|proficienc\w*|aptitudes|languages?|idiomas)\b/.test(w)) return "skills";
   if (/\b(summary|resumen|profile|perfil|objective|objetivo|introduction|about)\b/.test(w)) return "summary";
   if (/\b(education|educacion|formacion|academics|schooling)\b|academic (background|history)|^school\b/.test(w)) return "education";
-  return "entries";
+  const k = sectionKind(heading);
+  return k === "skills" || k === "languages" ? "skills" : k === "summary" ? "summary" : k === "education" ? "education" : "entries";
 }
 
 function titleCase(s: string) {
@@ -142,14 +145,17 @@ function titleCase(s: string) {
 // ---------- dates and locations ----------
 const MON =
   "\\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?|" +
-  "ene(?:ro)?|febrero|marzo|abril|mayo|junio|julio|ago(?:sto)?|sept?iembre|octubre|noviembre|dic(?:iembre)?)\\b\\.?";
+  "ene(?:ro)?|febrero|marzo|abril|mayo|junio|julio|ago(?:sto)?|sept?iembre|octubre|noviembre|dic(?:iembre)?|" +
+  // French, Portuguese, Tagalog, Haitian Creole and Vietnamese ("Th9 2023", "tháng 9 2023").
+  "janv(?:ier)?|f[ée]vr(?:ier)?|avr(?:il)?|mai|juin|juil(?:let)?|ao[uû]t|d[ée]c(?:embre)?|janeiro|fevereiro|fev|mar[çc]o|maio|junho|julho|setembro|set|outubro|out|novembro|dezembro|dez|" +
+  "peb(?:rero)?|hun(?:yo)?|hul(?:yo)?|setyembre|okt(?:ubre)?|nob(?:yembre)?|dis(?:yembre)?|janvye|fevriye|mas|jen|jiy(?:e)?|me|des|septanm|oktob|novanm|desanm|th(?:áng)?\\s?(?:1[0-2]|[1-9]))\\b\\.?";
 const SEASON = "\\b(?:summer|fall|spring|winter|autumn|verano|oto[ñn]o|primavera|invierno)";
 const YEAR = "\\b(?:19|20)\\d{2}\\b";
 // "May '27", "Fall ’26": a two-digit year after an apostrophe (11,041-resume test, Nov 26: 11% of student resumes lost
 // their major and graduation date to it).
 const YEAR2 = "['’‘]\\d{2}\\b";
 const POINT = `(?:${MON}\\s*(?:\\d{1,2},?\\s+)?${YEAR}|${MON}\\s*${YEAR2}|${SEASON}\\s+(?:${YEAR}|${YEAR2})|\\b\\d{1,2}\\/(?:19|20)\\d{2}\\b|${YEAR})`;
-const NOW = "\\b(?:present|current|now|today|actualidad|actual|presente)\\b";
+const NOW = "\\b(?:present|current|now|today|actualidad|actual|presente|aujourd'hui|actuel(?:le)?|en cours|atual(?:mente)?|kasalukuyan|hi[eệ]n t[aạ]i|jodi a)\\b";
 const SHORT = "\\b\\d{1,2}\\/\\d{2}\\b"; // "7/09", only inside a range
 const RANGE =
   `(?:(?:${POINT}|${MON}|${SHORT})\\s*(?:[–—-]+|\\bto\\b|\\buntil\\b|\\ba\\b|\\bhasta\\b)\\s*(?:${NOW}|${POINT}|${SHORT})` +
@@ -628,8 +634,13 @@ for (const [k, names] of Object.entries({
   jul: "july julio", aug: "august ago agosto", sep: "sept september septiembre setiembre", oct: "october octubre",
   nov: "november noviembre", dec: "december dic diciembre", present: "current now today presente actual actualidad",
 })) for (const n of names.split(" ")) MONTH_KEY[n] = k;
+MONTHS.forEach((names, i) => { for (const n of names) MONTH_KEY[n] ??= ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"][i]; });
+// Chinese and Japanese have no spaces between words, so a run of their characters is read two characters at a time.
+const HAN = /^[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}]+$/u;
+const pairs = (t: string) => (t.length < 3 || !HAN.test(t) ? [t] : [...t].slice(1).map((c, i) => t[i] + c));
 /** Words and numbers, with month names and "present" spelled one way. */
-const tokens = (s: string) => (fold(s).match(/[a-z]+|\d+/g) || []).map((t) => MONTH_KEY[t] || t).filter((t) => t.length > 1 || /\d/.test(t));
+const tokens = (s: string) => (fold(s).match(/[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}]+|[^\P{L}\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}]+|\d+/gu) || [])
+  .flatMap(pairs).map((t) => MONTH_KEY[t] || t).filter((t) => t.length > 1 || /\d/.test(t) || HAN.test(t));
 const supported = (field: string, have: Set<string>) => tokens(field).every((t) => have.has(t));
 
 /** Builds the ResumeDoc from the AI's JSON, keeping only what the file supports. */
@@ -780,7 +791,7 @@ export function resumeToText(doc: ResumeDoc, opts: { verifiedOnly?: boolean } = 
 }
 
 // ---------- profile facts from the resume ----------
-const UNIVERSITY = /universit|college|institute of technology|polytechnic|school of (business|law|engineering|medicine)|universidad|instituto tecnol[oó]gico|polit[eé]cnic/i;
+const UNIVERSITY = /universit|college|institute of technology|polytechnic|school of (business|law|engineering|medicine)|universidad|instituto tecnol[oó]gico|polit[eé]cnic|unibersidad|inivèsite|đại học|大学|대학교|جامعة|विश्वविद्यालय|университет/iu;
 const COLLEGE_NAME = /institut|academ|hochschule|augstskola|\btech\b|\bschool\b|universi|politec/i;
 const HIGH_SCHOOL = /high school|secondary school|preparatoria|\bprepa\b|bachillerato|secundaria|lyc[eé]e/i;
 
@@ -789,7 +800,7 @@ export function primaryEducation(doc?: ResumeDoc): Entry | undefined {
   const entries = (doc?.sections || []).filter((s) => kindOf(s.heading) === "education").flatMap((s) => s.entries);
   const text = (e: Entry) => `${e.org} ${e.role}`;
   // Schools named without "University" or "College" (Virginia Tech, Riga Institute of…, Hochschule…) count when the entry names a degree.
-  const college = (e: Entry) => !HIGH_SCHOOL.test(text(e)) && (UNIVERSITY.test(text(e)) || (COLLEGE_NAME.test(e.org) && (DEGREE_WORD.test(e.role) || DEGREE_HEAD.test(e.role))) || (!!e.org && DEGREE_HEAD.test(e.role) && !/certificate|diploma/i.test(e.role)));
+  const college = (e: Entry) => !HIGH_SCHOOL.test(text(e)) && (UNIVERSITY.test(text(e)) || (COLLEGE_NAME.test(e.org) && (DEGREE_WORD.test(e.role) || DEGREE_HEAD.test(e.role))) || (!!e.org && DEGREE_HEAD.test(e.role) && !/certificate|diploma/i.test(e.role)) || (!!e.org && foreignDegreeField(e.role) !== null));
   // A heading Remy didn't recognize ("school stuff:"): a college entry with a degree word anywhere still counts.
   return entries.find(college) || (doc?.sections || []).flatMap((s) => s.entries).find((e) => college(e) && DEGREE_WORD.test(e.role));
 }
@@ -822,6 +833,8 @@ const DEGREE_HEAD = /^(?:(?:professional|honou?rs|joint|dual|double)\s+)?(?:(?:b
 const DEGREE_FIELD: Record<string, string> = { bsn: "Nursing", msn: "Nursing", bsw: "Social Work", msw: "Social Work", mba: "Business Administration", bba: "Business Administration", macc: "Accounting", bsed: "Education", med: "Education", bfa: "Fine Arts", mfa: "Fine Arts", mph: "Public Health", mpa: "Public Administration", bm: "Music" };
 /** The field in one piece of a degree line, and whether it only came from the degree's own name ("Bachelor of Social Work"). */
 function degreeField(p: string): { field: string; named: boolean } {
+  const foreign = foreignDegreeField(p);
+  if (foreign !== null) return { field: foreign, named: !foreign };
   const m = p.match(DEGREE_HEAD);
   if (!m) return { field: p, named: false };
   const sep = p.match(/\s+in\s+|\s*[,:]\s+|\s+[-–—]\s+/);
@@ -907,7 +920,7 @@ export function graduationOf(dates: string): string {
   const parts = d.split(/\s*(?:[–—]|\s-\s|\bto\b|\bhasta\b)\s*/i).filter(Boolean);
   // "May. '27" → "May 2027", so every reader of the graduation date (class year, eligibility) sees a full year.
   const last = (parts[parts.length - 1] || "").replace(/([A-Za-z])\.?\s*['’‘](\d{2})\b/, (_m, c, y) => `${c} ${+y > (new Date().getFullYear() % 100) + 10 ? 19 : 20}${y}`);
-  return new RegExp(NOW, "i").test(last) ? "" : last;
+  return new RegExp(NOW, "i").test(last) || isPresent(last) ? "" : last;
 }
 
 // Skills and tools a resume shows: everything on a "Skills"-type line, plus

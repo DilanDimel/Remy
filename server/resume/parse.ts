@@ -254,7 +254,7 @@ const decodeHtml = (s: string) =>
 
 /** Lower-case with accents and ligatures folded away ("Física" → "fisica"). */
 export const fold = (s: string) => s.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase();
-export const norm = (s: string) => fold(s).replace(/[^a-z0-9$%]+/g, "");
+export const norm = (s: string) => fold(s).replace(/[^\p{L}0-9$%]+/gu, "");
 
 // ---------- public page fetch (posting import, link re-checks) ----------
 const BLOCKED = [/(^|\.)linkedin\.com$/i, /(^|\.)joinhandshake\.com$/i, /(^|\.)handshake\.com$/i, /(^|\.)stellic\.com$/i, /(^|\.)my\.tcu\.edu$/i];

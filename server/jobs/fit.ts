@@ -1,4 +1,5 @@
 import { authKind } from "@shared/workAuth";
+import { englishMajor } from "../resume/langs";
 import { sameEmployer } from "@shared/org";
 import { postingSkills } from "@shared/requirements";
 import type { Job, JobFit, Workspace } from "@shared/types";
@@ -250,7 +251,7 @@ const studentAdded = (job: Job) => job.origin === "imported" && !/job board|rese
 /** The fields a student CHOSE, as text: their target roles and their major. "Undecided" isn't a field, and what
  *  they said they enjoy (profile.interests, e.g. "working with people") isn't a choice of field either. */
 export const chosenFieldText = (p: Pick<Workspace["profile"], "targetRoles" | "major">) =>
-  [p.targetRoles, /undecided|undeclared|exploring|not sure/i.test(p.major || "") ? "" : p.major].join(" ");
+  [p.targetRoles, /undecided|undeclared|exploring|not sure/i.test(p.major || "") ? "" : [p.major, englishMajor(p.major || "")].filter(Boolean).join(", ")].join(" ");
 
 /** true / false when the student named fields Remy recognizes; null when not.
  *  Only fields the student CHOSE (target roles, major) can rule a posting out. What they said they enjoy
