@@ -57,7 +57,7 @@ test("rules: team-visible wording rules are in Remy's instructions", () => {
 
 test("notes: Remy reads docs/ai from disk, team facts first, lead entries matched to the question", () => {
   const n = aiNotes("digitalocean move");
-  assert.match(n, /^docs\/ai\/TEAM\.md:/);
+  assert.match(n, /docs\/ai\/TEAM\.md:/);
   assert.match(n, /docs\/ai\/status\/lead\/digitalocean-move\.md/);
   assert.ok(aiNotes("x", 5000).length < 20_000);
 });

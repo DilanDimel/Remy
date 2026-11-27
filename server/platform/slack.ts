@@ -115,7 +115,9 @@ export function aiNotes(question: string, budget = 60_000): string {
     out.push(part);
     left -= part.length;
   }
-  return out.join("\n\n");
+  // Team-only facts (business dates, mentors…) stay out of the public repo, in an encrypted env var on DigitalOcean.
+  const team = process.env.REMY_TEAM_NOTES;
+  return [team && "Team-only notes (current):\n" + clip(team, 8000), ...out].filter(Boolean).join("\n\n");
 }
 
 // The repo is public, so pull requests are read without a key, cached 10 minutes.

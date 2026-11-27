@@ -2,4 +2,4 @@ Team Slack Remy app (Nov 27): `server/platform/slack.ts` + `POST /api/slack/even
 
 Nov 27 01:20 UTC: Remy is live in the team Slack (keys on DigitalOcean, events verified, invited to all six channels, test answer worked). Follow-up PR: copies each channel's recent history on the first event after a deploy (he couldn't see pre-join messages), sends Slack calls form-encoded, and stops guessing who is in charge of what.
 
-Nov 27 01:50 UTC: Remy now reads docs/ai from the deployed copy (TEAM.md, CONTEXT.md, DECISIONS.md, status files, and status/lead entries matched to the question, ~60k chars) plus open and merged PRs. New docs/ai/TEAM.md holds short team-safe facts; the lead keeps it current. Project memory is NOT synced (it has private and ownership details).
+Nov 27 01:50 UTC: Remy now reads docs/ai from the deployed copy (TEAM.md, CONTEXT.md, DECISIONS.md, status files, and status/lead entries matched to the question, ~60k chars) plus open and merged PRs. New docs/ai/TEAM.md holds short public-safe facts; team-only facts go in the REMY_TEAM_NOTES env var on DigitalOcean (repo is public). Project memory is NOT synced (it has private and ownership details).

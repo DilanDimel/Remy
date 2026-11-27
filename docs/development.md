@@ -63,7 +63,7 @@ Secrets live in the Render dashboard (environment group `remy-server-env`), neve
 | `COS_USER_ID`, `COS_TOKEN` | CareerOneStop job search |
 | `GCAL_CLIENT_ID`, `GCAL_CLIENT_SECRET` | Google Calendar connection |
 | `CRON_SECRET` | Shared secret for the hourly tick (same value as the `CRON_SECRET` secret on the `remy-tick` Cloudflare Worker) |
-| `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, `REMY_SLACK_OPENROUTER_KEY` (the bot's own AI key, separate from students') | The team Slack's Remy app (`docs/slack-app.md`). Without them `/api/slack/events` is off |
+| `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, `REMY_SLACK_OPENROUTER_KEY` (the bot's own AI key, separate from students'), `REMY_TEAM_NOTES` (team-only facts the bot reads; never in the repo) | The team Slack's Remy app (`docs/slack-app.md`). Without them `/api/slack/events` is off |
 | `RENDER_API_KEY` | Owners' dashboard deploy and health panel |
 
 `grep -oh "process.env.[A-Z_0-9]*" server/*.ts | sort -u` lists every variable the server reads.
