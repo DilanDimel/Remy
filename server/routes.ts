@@ -42,6 +42,7 @@ import { inOwnerTrial, inOwnerView, runAiAs, aiJson, aiStatus, AiUnavailable, la
 import { CHAT_RULES, CRISIS, CRISIS_REPLY, chatActions } from "./ai/safety";
 import * as admin from "./platform/admin";
 import * as presence from "./platform/presence";
+import * as slack from "./platform/slack";
 import * as contrib from "./platform/contrib";
 import * as beta from "./platform/beta";
 import * as features from "./platform/features";
@@ -745,6 +746,16 @@ export async function registerRoutes(_server: Server, app: Express) {
     const before = lastSweep;
     sweep();
     res.status(202).json({ ok: true, started: true, lastFinished: before || null });
+  });
+
+  // The team Slack's Remy app (server/platform/slack.ts): Slack signs each event; we answer within 3 s and work after.
+  app.post("/api/slack/events", (req, res) => {
+    if (!slack.slackOn()) return res.status(404).json({ message: "Not found." });
+    if (!slack.verifySlack(req.rawBody, String(req.header("x-slack-request-timestamp") || ""), String(req.header("x-slack-signature") || ""))) return res.status(401).end();
+    if (req.body?.type === "url_verification") return res.json({ challenge: req.body.challenge });
+    res.status(200).end();
+    if (req.header("x-slack-retry-num") || !allowLocal("slack-events", 600, 60 * 60_000)) return; // Slack retries what we already got
+    slack.onEvent(req.body?.event).catch((e) => console.warn("slack event failed:", e?.message));
   });
 
   // ---------- config + identity ----------
