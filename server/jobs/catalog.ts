@@ -13,7 +13,7 @@ import { r2Store } from "../platform/r2";
 import { abroad, inUS } from "./fit";
 import { collegeRole, eachQuery, fetchBoard, SCHOOL_QUERIES, studentTitle, withDetail, type Raw } from "./sources";
 
-type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom" | "taleo" | "amazon" | "apple" | "schoolspring" | "jobaps" | "edjoin";
+type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom" | "taleo" | "amazon" | "apple" | "schoolspring" | "jobaps" | "edjoin" | "nystate";
 export type CatalogBoard = { ats: Ats; slug: string; company: string };
 export const PARTS = 24;
 /** Text kept per posting: enough for its requirements and summary (an opening keeps up to 12,000 when saved). */
@@ -176,6 +176,29 @@ export function jobapsJobs(xml: string, state: string): { url: string; title: st
     };
   }).filter((x) => x.url && x.title && !/internal (agency )?(employees )?only|for internal/i.test(x.title)); // current state staff only
 }
+/** StateJobsNY's public vacancy table: one row per opening with its agency, county, posted and deadline dates. */
+export function nyJobs(html: string): { url: string; title: string; county: string; location: string; company: string; posted?: string; deadline?: string }[] {
+  const day = (s: string) => { const m = s.match(/(\d+)\/(\d+)\/(\d+)/); return m ? `20${m[3].slice(-2)}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}` : undefined; };
+  return [...html.matchAll(/<tr[^>]*>\s*<td>(\d+)<\/td>\s*<td><a[^>]*>([^<]+)<\/a><\/td>\s*<td>[^<]*<\/td>\s*<td>([^<]*)<\/td>\s*<td>([^<]*)<\/td>\s*<td>([^<]*)<\/td>\s*<td>([^<]*)<\/td>/g)]
+    .map(([, id, title, posted, deadline, agency, c]) => {
+      const county = htmlToText(c).trim();
+      return {
+        url: `https://statejobs.ny.gov/public/vacancyDetailsView.cfm?id=${id}`, title: htmlToText(title).trim(), county,
+        location: [county && !/determined/i.test(county) ? `${county} County` : "", "New York"].filter(Boolean).join(", "),
+        company: htmlToText(agency).trim() || "State of New York", posted: day(htmlToText(posted)), deadline: day(htmlToText(deadline)),
+      };
+    });
+}
+// The vacancy page is one 750 KB list shared by every county board, so a part reads it once.
+let nyPage: { at: number; html: Promise<string> } | undefined;
+/** A StateJobsNY vacancy page: its labelled rows (Salary Range, City, Duties Description...) as pay, place and text. */
+export function nyPosting(html: string): { text: string; location: string } {
+  const row: Record<string, string> = {};
+  for (const m of html.matchAll(/<span class="leftCol">(?:<a[^>]*><\/a>)?\s*([^<]+?)\s*<\/span>\s*<span class="rightCol">([\s\S]*?)<\/span>\s*<\/p>/g)) row[m[1]] ??= htmlToText(m[2]).trim();
+  const pay = row["Salary Range"]?.match(/\$([\d,.]+)\s*to\s*\$([\d,.]+)\s*(\w+)/);
+  const text = ["Duties Description", "Minimum Qualifications", "Additional Comments"].filter((k) => row[k]).map((k) => `${k}\n${row[k]}`).join("\n\n");
+  return { text: pay ? withPay(payLine(pay[1].replace(/,/g, ""), pay[2].replace(/,/g, ""), pay[3]), text) : text, location: [row.City, "NY"].filter(Boolean).join(", ") };
+}
 /** A SuccessFactors career site's sitemap postings (".../job/Dallas-Consulting-Analyst-TX-75201/459314600/"). */
 export function sfJobs(xml: string): { url: string; title: string; posted?: string }[] {
   return [...xml.matchAll(/<loc>(https:\/\/[^<]+?\/job\/([^/<]+)\/\d+\/)<\/loc>(?:<lastmod>([^<]+)<\/lastmod>)?/g)]
@@ -307,6 +330,17 @@ export async function readBoard(b: CatalogBoard, read = fetchBoard): Promise<Raw
       ...x, text: "", detail: async () => { const d = ldPosting(await getPage(x.url)); return { ...d, text: d.text.replace(/\\r\\n/g, "\n") }; },
     }));
   }
+  if (b.ats === "nystate") {
+    // StateJobsNY lists every public vacancy on one page (no robots.txt; the site's terms don't limit reading it).
+    // Boards split it by county ("statejobs.ny.gov|Albany", "...|Clinton;Wayne") so each stays under the 12-a-board cap.
+    // shortcut: a county missing from every board's list is skipped; add it to catalog-boards.tsv if NY adds one.
+    if (!nyPage || Date.now() - nyPage.at > 3_600_000) nyPage = { at: Date.now(), html: getPage("https://statejobs.ny.gov/public/vacancyTable.cfm") };
+    const counties = new Set(b.slug.split("|")[1]?.split(";"));
+    const html = await nyPage.html.catch((e) => { nyPage = undefined; throw e; });
+    return nyJobs(html).filter((x) => counties.has(x.county)).map(({ county: _, ...x }): Raw => ({
+      ...x, text: "", detail: async () => nyPosting(await getPage(x.url)),
+    }));
+  }
   if (b.ats === "edjoin") {
     // EdJoin (California's school and college job board) answers its own search page with JSON; robots.txt allows all.
     // The slug is a county ("Fresno"); each opening keeps its district, and the posting page has schema.org data.
@@ -392,7 +426,7 @@ export type Meta = { parts: Record<string, PartStats> };
 
 /** Reads every board in one part. Workable and Paylocity turn fast bursts away (HTTP 429), so each of them (and the other SLOW systems) gets its own
  *  lane, one board at a time. */
-const SLOW: Ats[] = ["workable", "paylocity", "icims", "successfactors", "schoolspring", "edjoin"];
+const SLOW: Ats[] = ["workable", "paylocity", "icims", "successfactors", "schoolspring", "edjoin", "nystate"];
 export async function readPart(p: number, boards = CATALOG, read = readBoard, pause: (ms: number) => Promise<unknown> = (ms) => new Promise((r) => setTimeout(r, ms))) {
   const mine = boards.filter((b) => partOf(b) === p);
   const kept: Raw[] = [];
