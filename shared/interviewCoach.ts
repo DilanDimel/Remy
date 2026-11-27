@@ -74,3 +74,57 @@ export function pitchParts(major: string, classYear: string): [string, string][]
   const year = (classYear || "").toLowerCase();
   return [["Who you are", "Hi, I'm Jordan,"], ["What you study", `a ${[ex.subject, year].filter(Boolean).join(" ") || "college"} student.`], ["One real thing you did", `This fall I ${ex.did}.`], ["What you want next", `I'm looking for a ${year === "senior" ? "full-time role" : "summer internship"}${ex.subject ? ` in ${ex.subject}` : ""}.`]];
 }
+
+// ---------- Build: the pitch in four slots ----------
+export const PITCH_SLOTS = ["Who you are", "What you study", "One real thing you did", "What you want next"] as const;
+const an = (w: string) => (/^[aeiou]/i.test(w) ? "an" : "a");
+/** Words and seconds spoken (about 150 words a minute). */
+export const spoken = (text: string) => { const words = text.trim() ? text.trim().split(/\s+/).length : 0; return { words, secs: Math.round(words / 2.5) }; };
+
+/** The four slots, each filled only from a named profile or resume line (never invented); [label, words, where from]. */
+export function pitchSlots(w: Pick<Workspace, "profile" | "resume" | "pitch">, name: string): [string, string, string][] {
+  const p = w.profile;
+  const year = (p.classYear || "").trim().toLowerCase();
+  const who = name ? `Hi, I'm ${name}${p.school ? year ? `, ${an(year)} ${year} at ${p.school}` : ` from ${p.school}` : ""}.` : "";
+  const study = p.major ? `I study ${p.major.trim()}.` : "";
+  // The first experience line that starts with what they did, with its role and organization as read from the file.
+  // A line that starts with a verb-like word, preferring one with a number in it (the most concrete result).
+  const lines = (w.resume?.doc?.sections || []).filter((s) => !/education|skill|award|honor|certif|course/i.test(s.heading))
+    .flatMap((s) => s.entries).filter((e) => e.role && e.org && !e.unverified?.length)
+    .flatMap((e) => e.bullets.filter((b) => b.verified !== false && /^[A-Z][a-z]+\s+\S+\s+\S+/.test(b.text.trim())).map((b) => ({ e, t: b.text.trim().replace(/[.;]+$/, "") })));
+  const pick = lines.find((x) => /\d/.test(x.t)) || lines[0];
+  const entry = pick?.e, bullet = pick?.t;
+  const did = entry && bullet ? `As ${entry.role} at ${entry.org}, I ${bullet[0].toLowerCase()}${bullet.slice(1)}.` : "";
+  const role = (p.targetRoles || "").split(/[,;]/)[0].trim();
+  const kind = year === "senior" ? "a full-time role" : "an internship";
+  const next = `I'm looking for ${kind}${role ? ` as ${an(role)} ${role}` : ""}.`;
+  const filled: [string, string][] = [[who, "Profile · name, school, year"], [study, "Profile · major"], [did, entry ? `Resume · ${entry.role}, ${entry.org}` : ""], [next, role ? "Profile · roles you want" : "Profile · class year"]];
+  // Saved slots count only while they still make up the saved pitch (Remy's "Draft my pitch" saves text alone).
+  const saved = w.pitch?.slots && w.pitch.slots.filter(Boolean).join(" ") === w.pitch.text ? w.pitch.slots : undefined;
+  return PITCH_SLOTS.map((l, i) => [l, saved?.[i] ?? filled[i][0], saved?.[i] !== undefined && saved[i] !== filled[i][0] ? "Your words" : filled[i][1]]);
+}
+
+// ---------- Mock interviews: the 3-day plan before a real interview ----------
+export interface PlanDay { key: "pitch" | "practice" | "mock"; title: string; day: string; done: boolean }
+export interface InterviewPlan { company: string; role: string; jobId?: string; date?: string; when: string; days: PlanDay[] }
+const addDays = (d: string, n: number) => new Date(Date.parse(d + "T12:00:00Z") + n * 864e5).toISOString().slice(0, 10);
+const between = (a: string, b: string) => Math.round((Date.parse(b + "T12:00:00Z") - Date.parse(a + "T12:00:00Z")) / 864e5);
+const dayWord = (d: string, today: string) => { const n = between(today, d); return n === 0 ? "Today" : n === 1 ? "Tomorrow" : new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" }); };
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** When an application is at Interview: today the pitch, then 3 practice questions, then one full mock, spread over
+ *  the days before the interview date if there is one (all on the day itself when it's today). today is YYYY-MM-DD. */
+export function interviewPlan(w: Pick<Workspace, "calendar" | "tracker" | "pitch" | "drills" | "interviews">, today: string): InterviewPlan | null {
+  const cal = w.calendar.filter((c) => c.kind === "Interview" && c.date >= today && w.tracker.some((t) => t.id === c.linkedId)).sort((a, b) => a.date.localeCompare(b.date))[0];
+  const t = cal ? w.tracker.find((x) => x.id === cal.linkedId)! : w.tracker.find((x) => x.status === "Interview");
+  if (!t) return null;
+  const d = cal ? between(today, cal.date) : 3;
+  const start = d > 3 ? addDays(cal!.date, -3) : today, slots = Math.max(1, Math.min(3, d));
+  const mocked = (w.interviews || []).some((x) => x.finishedAt && (x.jobId && x.jobId === t.jobId || norm(x.company) === norm(t.company)));
+  const days: PlanDay[] = ([["pitch", "Your 30-second pitch", !!w.pitch?.text], ["practice", "3 practice questions", (w.drills || []).filter(practiced).length >= 3], ["mock", `One full ${t.company} mock`, mocked]] as const)
+    .map(([key, title, done], i) => ({ key, title, done, day: dayWord(addDays(start, Math.min(i, slots - 1)), today) }));
+  const when = cal ? (d === 0 ? "today" : d === 1 ? "tomorrow" : new Date(cal.date + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" })) : "";
+  return { company: t.company, role: t.role, jobId: t.jobId, date: cal?.date, when, days };
+}
+/** The student's own calendar day, YYYY-MM-DD. */
+export const localDay = (now = new Date()) => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;

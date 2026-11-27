@@ -572,7 +572,7 @@ export interface Workspace {
   lastDigest?: string;
   lastDigestAt?: string;
   /** The student's 30-second pitch (Remy's draft, then their edits). */
-  pitch?: { text: string; at: string };
+  pitch?: { text: string; at: string; /** The four slots of the coach's pitch builder (shared/interviewCoach.ts), as the student left them. */ slots?: string[] };
   /** Career quest (owners only while tested): each week's starting counts and the missions finished (shared/game.ts). */
   game?: { weeks: Record<string, { base: Record<string, number>; done: string[]; missions?: string[] }>; bestLevel?: number;
     /** Daily path (stage 7, owners first): cards finished per local day (shared/daily.ts), roles learned, rest weekdays. */
