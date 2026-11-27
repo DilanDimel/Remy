@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { onEvent, slackContext, verifySlack, RULES } from "./slack";
+import { onEvent, slackContext, verifySlack, RULES, aiNotes } from "./slack";
 
 test("signature: Slack's v0 HMAC passes; wrong secret, edited body or old timestamp fail", () => {
   const body = Buffer.from('{"type":"event_callback"}');
@@ -53,4 +53,11 @@ test("rules: team-visible wording rules are in Remy's instructions", () => {
   assert.match(RULES, /Free during beta/);
   assert.match(RULES, /title or role/);
   assert.match(RULES, /CREATE/);
+});
+
+test("notes: Remy reads docs/ai from disk, team facts first, lead entries matched to the question", () => {
+  const n = aiNotes("digitalocean move");
+  assert.match(n, /docs\/ai\/TEAM\.md:/);
+  assert.match(n, /docs\/ai\/status\/lead\/digitalocean-move\.md/);
+  assert.ok(aiNotes("x", 5000).length < 20_000);
 });
