@@ -3897,7 +3897,7 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
   .redesign-2 .crumb b { font-size: 0; }
   .redesign-2 .crumb b::after { content: attr(data-short); font-size: 24px; font-weight: 800; letter-spacing: -.02em; color: var(--ink); }
   .redesign-2 .crumb.home b::after { content: none; }
-  .redesign-2 :is(.page-head, .pm-head) h1:not([data-testid="text-greeting"]) { display: none; }
+  .redesign-2 :is(.page-head, .pm-head, .ivc-head) h1:not([data-testid="text-greeting"]) { display: none; }
   .redesign-2 .page { padding-top: 4px; }
 }
 .modal-back:has(.more-sheet, .job-sheet) { align-items: flex-end; padding: 0; }
