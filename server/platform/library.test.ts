@@ -20,6 +20,12 @@ test("library: tiers keep Dilan-only items out of channels; words find items; re
   assert.deepEqual(team.map((f) => f.id).sort(), ["cal:mike", "file:llc", "file:old"]); // the meeting is pinned, always read
   assert.ok(!team.some((f) => f.id === "file:ein"));
   assert.ok((await search("LLC EIN letter", ["team", "dilan"])).some((f) => f.id === "file:ein"));
+  // A short file entry still comes along when many longer notes match better.
+  await putItems("memory", Array.from({ length: 14 }, (_, i) => ({ id: `memory:n${i}`, title: `Remy logo note ${i}`, body: "remy logo remy logo remy fox logo colours", tier: "team" as const })), true);
+  await putItems("logos", [{ id: "file:fox", title: "remy fox", body: "Image: remy fox", tier: "team", file_name: "remy-fox.png" }], true);
+  assert.ok((await search("Send me the Remy fox logo", ["team"])).some((f) => f.id === "file:fox"));
+  await putItems("memory", [], true);
+  await putItems("logos", [], true);
 
   assert.deepEqual(await putItems("files", [{ id: "file:llc", title: "RemyAI LLC Certificate of Filing", tier: "team", file_name: "llc.pdf" }], true), { saved: 1, removed: 2 });
   assert.deepEqual((await listItems()).map((r) => r.id).sort(), ["cal:mike", "file:llc"]);

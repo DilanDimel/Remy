@@ -226,6 +226,7 @@ export async function reply(ev: any): Promise<void> {
     if (!f || !(await upload(ev.channel, thread, f))) failed.push(found.find((x) => x.id === id)?.file_name || id);
   }
   if (failed.length) text += `\n\n_I couldn't attach ${failed.join(", ")} just now._`;
+  else if (!ids.length && /\battach/i.test(text)) text += "\n\n_I couldn't find that file to attach, sorry._"; // never claim a file that isn't there
   await api("chat.postMessage", { channel: ev.channel, thread_ts: thread, text, unfurl_links: false });
 }
 
