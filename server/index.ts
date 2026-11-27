@@ -26,7 +26,7 @@ const jsonUpload = express.json({ limit: "7mb", verify: keepRaw });
 const UPLOADS = new Set(["/api/resume/upload", "/api/profile/photo", "/api/import/profile", "/api/feedback"]);
 app.use((req, res, next) => (UPLOADS.has(req.path) ? jsonUpload : json)(req, res, next));
 
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: false, verify: keepRaw })); // raw kept for Slack's signed slash commands
 // During a database move: reads work, saves get a friendly "try again shortly" (server/platform/readOnly.ts).
 app.use(readOnlyGate);
 

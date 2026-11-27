@@ -67,6 +67,7 @@ async function backfill(channel: string): Promise<void> {
 /** One Slack event (from the Events API "event" field). Keeps the copy up to date and answers Remy's mentions and DMs. */
 export async function onEvent(ev: any, answer = reply): Promise<void> {
   if (!ev?.type) return;
+  if (ev.type === "app_home_opened") { if (ev.tab === "home") await api("views.publish", { user_id: ev.user, view: JSON.stringify(HOME) }); return; }
   if (ev.channel && !filled.has(ev.channel)) { filled.add(ev.channel); await backfill(ev.channel); }
   if (ev.type === "message") {
     if (ev.subtype === "message_deleted") { await q("DELETE FROM slack_messages WHERE channel=$1 AND ts=$2", [ev.channel, ev.deleted_ts]); return; }
@@ -178,15 +179,52 @@ export async function reply(ev: any): Promise<void> {
 }
 
 // ---------- Remy's own posts (run by the background sweep: at boot, every 6 hours and hourly from the remy-tick cron) ----------
-export const CHANNELS = { alerts: "C0CN69XEY9E", website: "C0CLVU1GH39", database: "C0CM9ASGWK0" };
+export const CHANNELS = { alerts: "C0CN69XEY9E", website: "C0CLVU1GH39", database: "C0CM9ASGWK0", app: "C0CN5LR46F2" };
+// The side bar on Remy's posts, from client/src/index.css: --fox, --sage, --error.
+export const COLOR = { fox: "#e86a2a", ok: "#15803d", alert: "#b42318" };
 
-export async function post(channel: string, text: string): Promise<boolean> {
+export async function post(channel: string, text: string, color = COLOR.fox): Promise<boolean> {
   if (!slackOn()) return false;
-  return !!(await api("chat.postMessage", { channel, text, unfurl_links: false })).ok;
+  const attachments = JSON.stringify([{ color, text, fallback: text, mrkdwn_in: ["text"] }]);
+  return !!(await api("chat.postMessage", { channel, attachments, unfurl_links: false })).ok;
 }
 
 /** Something needs someone now (backups stopped, database nearly full): one line in #alerts. */
-export const alert = (text: string) => post(CHANNELS.alerts, `:rotating_light: ${text}`).catch(() => false);
+export const alert = (text: string) => post(CHANNELS.alerts, `:rotating_light: ${text}`, COLOR.alert).catch(() => false);
+
+// ---------- Remy's Home tab, /bug and the "Ask Remy about this" message shortcut ----------
+const md = (text: string) => ({ type: "section", text: { type: "mrkdwn", text } });
+export const HOME = {
+  type: "home",
+  blocks: [
+    { type: "header", text: { type: "plain_text", text: ":fox_face: Hi, I'm Remy" } },
+    md("I'm the team's AI teammate. I read our channels, the repo's AI notes and open pull requests, so you can ask me what's going on."),
+    { type: "divider" },
+    md("*How to use me*\n• *@Remy* in any channel, or DM me: ask anything about Remy or the team\n• *`/bug`* what broke: logs it in #website (start with `app` for #app)\n• *⋮ on any message → Ask Remy about this*: I explain it or help in its thread"),
+    md("*Where things go*\n• #all-remyai: everyone, decisions, the morning brief\n• #website, #app, #database: work on each part\n• #business, #social: partners, mentors, posts\n• #alerts: site down or backups stopped. Keep its notifications on."),
+    md("*When I post*\n• 6 AM CT: backup check in #database\n• 12 PM and 9 PM CT: what shipped, in #website\n• Any time: warnings in #alerts"),
+    { type: "context", elements: [{ type: "mrkdwn", text: "<https://remyai.org|remyai.org> · Start here: the canvas in #all-remyai" }] },
+  ],
+};
+
+/** /bug <what broke>: posts it in #website (or #app when it starts with "app") and answers only the sender. */
+export async function command(body: Record<string, string>): Promise<{ response_type: "ephemeral"; text: string }> {
+  const text = String(body.text || "").trim();
+  if (body.command !== "/bug") return { response_type: "ephemeral", text: "I don't know that command." };
+  if (!text) return { response_type: "ephemeral", text: "Tell me what broke, like `/bug Save button does nothing on My Path`. Start with `app` for the phone app." };
+  const app = /^app\b[:\s-]*/i.test(text);
+  const what = app ? text.replace(/^app\b[:\s-]*/i, "") : text;
+  const channel = app ? CHANNELS.app : CHANNELS.website;
+  const ok = await post(channel, `:beetle: *Bug* from <@${body.user_id}>: ${what}`, COLOR.alert);
+  return { response_type: "ephemeral", text: ok ? `Logged in <#${channel}>. Thanks!` : "I couldn't post that just now. Try again in a minute." };
+}
+
+/** Interactivity (Slack sends it as a form field "payload"): the "Ask Remy about this" message shortcut. */
+export async function interact(p: any, answer = reply): Promise<void> {
+  if (p?.type !== "message_action" || p.callback_id !== "ask_remy" || !p.message) return;
+  await answer({ channel: p.channel?.id, ts: p.message.ts, thread_ts: p.message.thread_ts, user: p.user?.id,
+    text: `Explain this message and help with it: "${clip(String(p.message.text || ""), 2000)}"` });
+}
 
 const ct = (d: Date) => {
   const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit" })
@@ -210,11 +248,11 @@ export async function dailyPosts(backup: () => Promise<{ configured: boolean; la
   if (!slackOn()) return [];
   const { day, hour } = ct(now);
   const sent: string[] = [];
-  const once = async (slot: string, due: boolean, make: () => Promise<{ channel: string; text: string } | null>) => {
+  const once = async (slot: string, due: boolean, make: () => Promise<{ channel: string; text: string; color?: string } | null>) => {
     const key = `slack_post_${slot}`;
     if (!due || (await q("SELECT 1 FROM site_settings WHERE key = $1 AND value = $2", [key, day])).length) return;
     const m = await make();
-    if (m && !(await post(m.channel, m.text))) return; // Slack said no: try again next run
+    if (m && !(await post(m.channel, m.text, m.color))) return; // Slack said no: try again next run
     await q(`INSERT INTO site_settings (key, value, updated_by) VALUES ($1, $2, 'slack')
              ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = now()`, [key, day]);
     if (m) sent.push(slot);
@@ -224,7 +262,7 @@ export async function dailyPosts(backup: () => Promise<{ configured: boolean; la
     const text = !b.configured ? ":warning: *Backup check*: backups aren't set up on this server (no R2 settings)."
       : !b.lastAt ? ":warning: *Backup check*: no backup has finished yet."
       : `:white_check_mark: *Backup check*: last copy ${timeCt(b.lastAt)} CT${b.lastFull ? `, last full copy ${b.lastFull}` : ""}.`;
-    return { channel: CHANNELS.database, text };
+    return { channel: CHANNELS.database, text, color: b.lastAt ? COLOR.ok : COLOR.alert };
   });
   const digest = (slot: string, from: number) => once(slot, hour >= from, async () => {
     const last = (await q("SELECT updated_at FROM site_settings WHERE key LIKE 'slack_post_shipped%' ORDER BY updated_at DESC LIMIT 1"))[0]?.updated_at;

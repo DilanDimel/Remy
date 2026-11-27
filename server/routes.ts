@@ -764,6 +764,20 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (req.header("x-slack-retry-num") || !allowLocal("slack-events", 600, 60 * 60_000)) return; // Slack retries what we already got
     slack.onEvent(req.body?.event).catch((e) => console.warn("slack event failed:", e?.message));
   });
+  // /bug (slash command) and the "Ask Remy about this" shortcut: same signature check, form-encoded bodies.
+  const slackSigned = (req: any) => slack.slackOn() && slack.verifySlack(req.rawBody, String(req.header("x-slack-request-timestamp") || ""), String(req.header("x-slack-signature") || ""));
+  app.post("/api/slack/commands", async (req, res) => {
+    if (!slackSigned(req)) return res.status(slack.slackOn() ? 401 : 404).end();
+    if (!allowLocal("slack-commands", 120, 60 * 60_000)) return res.json({ response_type: "ephemeral", text: "Too many at once. Try again soon." });
+    res.json(await slack.command(req.body || {}).catch(() => ({ response_type: "ephemeral" as const, text: "Something went wrong. Try again." })));
+  });
+  app.post("/api/slack/interact", (req, res) => {
+    if (!slackSigned(req)) return res.status(slack.slackOn() ? 401 : 404).end();
+    res.status(200).end();
+    if (!allowLocal("slack-interact", 120, 60 * 60_000)) return;
+    let p: any; try { p = JSON.parse(String(req.body?.payload || "")); } catch { return; }
+    slack.interact(p).catch((e) => console.warn("slack shortcut failed:", e?.message));
+  });
 
   // ---------- config + identity ----------
   /** Which version of Remy this server runs, so a tab left open can offer "Remy was updated. Reload". Render's commit id,

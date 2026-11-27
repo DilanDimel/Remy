@@ -17,14 +17,25 @@ Remy answers questions in the team Slack (remyaihq.slack.com). Mention `@Remy` i
 display_information:
   name: Remy
   description: RemyAI's team AI. Ask about anything the team said or shipped.
-  background_color: "#e8642c"
+  background_color: "#161616"
 features:
   bot_user:
     display_name: Remy
     always_online: true
   app_home:
+    home_tab_enabled: true
     messages_tab_enabled: true
     messages_tab_read_only_enabled: false
+  slash_commands:
+    - command: /bug
+      url: https://remyai.org/api/slack/commands
+      description: Log something that broke (#website, or #app if it starts with "app")
+      usage_hint: "[app] what broke"
+  shortcuts:
+    - name: Ask Remy about this
+      type: message
+      callback_id: ask_remy
+      description: Remy explains this message or helps in its thread
 oauth_config:
   scopes:
     bot:
@@ -38,6 +49,7 @@ oauth_config:
       - users:read
       - channels:join
       - pins:write
+      - commands
 settings:
   event_subscriptions:
     request_url: https://remyai.org/api/slack/events
@@ -46,9 +58,15 @@ settings:
       - message.channels
       - message.groups
       - message.im
+      - app_home_opened
+  interactivity:
+    is_enabled: true
+    request_url: https://remyai.org/api/slack/interact
   org_deploy_enabled: false
   socket_mode_enabled: false
   token_rotation_enabled: false
 ```
+
+Also: a **Home tab** (how to use Remy, where things go, when he posts), **`/bug`** (posts in #website, or #app when the text starts with "app"), and the **Ask Remy about this** message shortcut (⋮ on a message). Remy's own posts carry a coloured side bar: orange (`--fox`), green when the backup check is fine (`--sage`), red for alerts and bugs (`--error`). App icon: the fox (`client/public/icon-512.png`), background `#161616`.
 
 Cost: one Haiku call per question (about 1 to 3 cents with the context it reads). Limit: 600 Slack events an hour.
