@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { onEvent, slackContext, verifySlack, RULES, aiNotes } from "./slack";
+import { onEvent, slackContext, verifySlack, RULES, aiNotes, dailyPosts, shippedSince, CHANNELS } from "./slack";
 
 test("signature: Slack's v0 HMAC passes; wrong secret, edited body or old timestamp fail", () => {
   const body = Buffer.from('{"type":"event_callback"}');
@@ -62,4 +62,32 @@ test("notes: Remy reads docs/ai from disk, team facts first, lead entries matche
   assert.match(n, /docs\/ai\/TEAM\.md:/);
   assert.match(n, /docs\/ai\/status\/lead\/digitalocean-move\.md/);
   assert.ok(aiNotes("x", 5000).length < 20_000);
+});
+
+test("daily posts: backup check from 6 AM CT and a Shipped digest from noon, each once a day", async () => {
+  const realFetch = globalThis.fetch, env = { ...process.env };
+  process.env.SLACK_BOT_TOKEN = "xoxb-test"; process.env.SLACK_SIGNING_SECRET = "s";
+  const posted: any[] = [];
+  globalThis.fetch = (async (url: any, init: any) => {
+    if (String(url).includes("api.github.com")) return new Response(JSON.stringify([
+      { number: 9, title: "Fix the jobs page on phones", html_url: "https://x/9", merged_at: "2026-11-27T15:00:00Z" },
+      { number: 8, title: "Closed without merging", html_url: "https://x/8", merged_at: null },
+    ]));
+    posted.push(Object.fromEntries(new URLSearchParams(String(init?.body || ""))));
+    return new Response(JSON.stringify({ ok: true }));
+  }) as any;
+  const backup = async () => ({ configured: true, lastAt: "2026-11-27T08:10:00Z", lastFull: "2026-11-23" });
+  try {
+    assert.deepEqual(await dailyPosts(backup, new Date("2026-11-27T10:00:00Z")), []); // 4 AM CT: nothing due
+    assert.deepEqual(await dailyPosts(backup, new Date("2026-11-27T19:00:00Z")), ["backup", "shipped_noon"]); // 1 PM CT
+    assert.deepEqual(await dailyPosts(backup, new Date("2026-11-27T20:00:00Z")), []); // already sent today
+    assert.equal(posted[0].channel, CHANNELS.database);
+    assert.match(posted[0].text, /Backup check\*: last copy Fri 2:10 AM CT, last full copy 2026-11-23/);
+    assert.equal(posted[1].channel, CHANNELS.website);
+    assert.match(posted[1].text, /#9> Fix the jobs page on phones/);
+    assert.doesNotMatch(posted[1].text, /#8/);
+    assert.deepEqual(await shippedSince("2026-11-28T00:00:00Z", [{ number: 9, merged_at: "2026-11-27T15:00:00Z" }]), []);
+  } finally {
+    globalThis.fetch = realFetch; process.env = env;
+  }
 });

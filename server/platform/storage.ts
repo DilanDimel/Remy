@@ -3,6 +3,7 @@
 import { q, q1, schema } from "./sql";
 import { recordError } from "./admin";
 import { r2Ready } from "./r2";
+import { alert } from "./slack";
 
 export const limitMb = () => {
   const n = Number(process.env.DB_SIZE_LIMIT_MB);
@@ -40,7 +41,10 @@ export async function warnIfNearLimit(): Promise<boolean> {
   const message = `Database is ${r.percent}% full (${r.usedMb} of ${r.limitMb} MB)`;
   console.warn(message);
   const already = await q1("SELECT 1 FROM error_reports WHERE place = 'storage' AND at > now() - interval '1 day'");
-  if (!already) await recordError("server", "storage", message, `Largest tables: ${r.tables.slice(0, 4).map((t) => `${t.name} ${t.mb} MB`).join(", ")}`);
+  if (!already) {
+    await recordError("server", "storage", message, `Largest tables: ${r.tables.slice(0, 4).map((t) => `${t.name} ${t.mb} MB`).join(", ")}`);
+    await alert(`${message}. Admin → Database shows the largest tables.`);
+  }
   return true;
 }
 
@@ -58,7 +62,10 @@ export async function warnIfBackupStale(): Promise<boolean> {
   if (!message) return false;
   console.warn(message);
   const already = await q1("SELECT 1 FROM error_reports WHERE place = 'backup' AND at > now() - interval '1 day'");
-  if (!already) await recordError("server", "backup", message, "Admin → System shows the last backup. Restore with npm run restore-backup.");
+  if (!already) {
+    await recordError("server", "backup", message, "Admin → System shows the last backup. Restore with npm run restore-backup.");
+    await alert(`${message}. Admin → System shows the last backup.`);
+  }
   return true;
 }
 

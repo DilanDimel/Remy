@@ -718,6 +718,8 @@ export async function registerRoutes(_server: Server, app: Express) {
       warnIfNearLimit().catch((e) => console.error("storage check failed", e?.message)),
       backupIfDue().then((b) => { if (b) console.log(`backup: ${b.kind} copy, ${b.rows} rows`); }).catch((e) => console.error("backup failed", e?.message))
         .then(() => warnIfBackupStale()).catch((e) => console.error("backup check failed", e?.message)),
+      // Remy's daily team Slack posts (backup check, "Shipped" digests); nothing without the Slack keys.
+      slack.dailyPosts(backupStatus).then((s) => { if (s.length) console.log(`slack posts: ${s.join(", ")}`); }).catch((e) => console.error("slack posts failed", e?.message)),
       pruneLogs().catch((e) => console.error("log cleanup failed", e?.message)),
       // student_jobs switch on: check the copied accounts (redo any that differ), then copy the next few.
       jobsReport(true).then(() => copyJobsBatch()).then((n) => { if (n) console.log(`student_jobs: copied ${n} accounts`); }).catch((e) => console.error("student_jobs copy failed", e?.message)),
