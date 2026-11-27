@@ -245,3 +245,19 @@ test("StateJobsNY: table rows to openings with agency and county; the vacancy pa
   assert.equal(d.location, "Albany, NY");
   assert.match(d.text, /^Pay: \$47000–\$52000 per year\nDuties Description\nReview returns\./);
 });
+
+test("ApplicantPro: site id from the board page, then its JSON job list with place and pay", async () => {
+  const real = globalThis.fetch; const asked: string[] = [];
+  globalThis.fetch = (async (u: any) => {
+    asked.push(String(u));
+    if (String(u).endsWith("/jobs/")) return new Response("<script>var domain_id = '18343';</script>", { status: 200 });
+    if (String(u).includes("/core/jobs/18343?")) return new Response(JSON.stringify({ data: { jobs: [{ id: 7, title: "Summer Intern", city: "Fargo", abbreviation: "ND", iso3: "USA", startDateRef: "Sep 29, 2026", minSalary: "16", maxSalary: "18", payTypeFrame: "per hour", jobUrl: "https://casscountynd.applicantpro.com/jobs/7" }] } }), { status: 200 });
+    return new Response(`<script type="application/ld+json">${JSON.stringify({ "@type": "JobPosting", description: "<p>Help the county.</p>" })}</script>`, { status: 200 });
+  }) as any;
+  try {
+    const [r] = await readBoard({ ats: "applicantpro", slug: "casscountynd", company: "Cass County" } as CatalogBoard);
+    assert.deepEqual([r.title, r.location, r.url], ["Summer Intern", "Fargo, ND, US", "https://casscountynd.applicantpro.com/jobs/7"]);
+    assert.match((await r.detail!()).text, /^Pay: \$16–\$18 per hour\nHelp the county\./);
+    assert.ok(asked[1].startsWith("https://casscountynd.applicantpro.com/core/jobs/18343?getParams="));
+  } finally { globalThis.fetch = real; }
+});
