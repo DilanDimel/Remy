@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { onEvent, slackContext, verifySlack, RULES, aiNotes, dailyPosts, shippedSince, CHANNELS } from "./slack";
+import { onEvent, slackContext, verifySlack, RULES, aiNotes, dailyPosts, shippedSince, CHANNELS, COLOR, command, interact, HOME } from "./slack";
 
 test("signature: Slack's v0 HMAC passes; wrong secret, edited body or old timestamp fail", () => {
   const body = Buffer.from('{"type":"event_callback"}');
@@ -73,7 +73,9 @@ test("daily posts: backup check from 6 AM CT and a Shipped digest from noon, eac
       { number: 9, title: "Fix the jobs page on phones", html_url: "https://x/9", merged_at: "2026-11-27T15:00:00Z" },
       { number: 8, title: "Closed without merging", html_url: "https://x/8", merged_at: null },
     ]));
-    posted.push(Object.fromEntries(new URLSearchParams(String(init?.body || ""))));
+    const b = Object.fromEntries(new URLSearchParams(String(init?.body || "")));
+    const [a] = JSON.parse(b.attachments); // posts go out with Remy's coloured side bar
+    posted.push({ ...b, text: a.text, color: a.color });
     return new Response(JSON.stringify({ ok: true }));
   }) as any;
   const backup = async () => ({ configured: true, lastAt: "2026-11-27T08:10:00Z", lastFull: "2026-11-23" });
@@ -83,10 +85,50 @@ test("daily posts: backup check from 6 AM CT and a Shipped digest from noon, eac
     assert.deepEqual(await dailyPosts(backup, new Date("2026-11-27T20:00:00Z")), []); // already sent today
     assert.equal(posted[0].channel, CHANNELS.database);
     assert.match(posted[0].text, /Backup check\*: last copy Fri 2:10 AM CT, last full copy 2026-11-23/);
+    assert.equal(posted[0].color, COLOR.ok);
     assert.equal(posted[1].channel, CHANNELS.website);
+    assert.equal(posted[1].color, COLOR.fox);
     assert.match(posted[1].text, /#9> Fix the jobs page on phones/);
     assert.doesNotMatch(posted[1].text, /#8/);
     assert.deepEqual(await shippedSince("2026-11-28T00:00:00Z", [{ number: 9, merged_at: "2026-11-27T15:00:00Z" }]), []);
+  } finally {
+    globalThis.fetch = realFetch; process.env = env;
+  }
+});
+
+test("home tab, /bug and the Ask Remy shortcut", async () => {
+  const realFetch = globalThis.fetch, env = { ...process.env };
+  process.env.SLACK_BOT_TOKEN = "xoxb-test"; process.env.SLACK_SIGNING_SECRET = "s";
+  const calls: any[] = [];
+  globalThis.fetch = (async (url: any, init: any) => {
+    calls.push({ method: String(url).split("/").pop(), ...Object.fromEntries(new URLSearchParams(String(init?.body || ""))) });
+    return new Response(JSON.stringify({ ok: true }));
+  }) as any;
+  try {
+    await onEvent({ type: "app_home_opened", tab: "home", user: "U9", channel: "D9" });
+    assert.equal(calls.length, 1); // no history copy for the Home tab
+    assert.equal(calls[0].method, "views.publish");
+    assert.equal(calls[0].user_id, "U9");
+    assert.deepEqual(JSON.parse(calls[0].view), HOME);
+    await onEvent({ type: "app_home_opened", tab: "messages", user: "U9", channel: "D9" });
+    assert.equal(calls.length, 1);
+
+    assert.match((await command({ command: "/bug", text: "", user_id: "U1" })).text, /Tell me what broke/);
+    assert.match((await command({ command: "/bug", text: "Save does nothing", user_id: "U1" })).text, new RegExp(CHANNELS.website));
+    assert.match((await command({ command: "/bug", text: "app: crashes on sign in", user_id: "U1" })).text, new RegExp(CHANNELS.app));
+    const [web, app] = calls.slice(1);
+    assert.equal(web.channel, CHANNELS.website);
+    assert.match(JSON.parse(web.attachments)[0].text, /Bug\* from <@U1>: Save does nothing/);
+    assert.equal(app.channel, CHANNELS.app);
+    assert.match(JSON.parse(app.attachments)[0].text, /Bug\* from <@U1>: crashes on sign in/);
+
+    const asked: any[] = [];
+    await interact({ type: "message_action", callback_id: "ask_remy", channel: { id: "C1" }, user: { id: "U2" }, message: { ts: "1.2", text: "deploy failed?" } }, async (ev) => { asked.push(ev); });
+    await interact({ type: "block_actions" }, async (ev) => { asked.push(ev); });
+    assert.equal(asked.length, 1);
+    assert.equal(asked[0].channel, "C1");
+    assert.equal(asked[0].ts, "1.2");
+    assert.match(asked[0].text, /deploy failed\?/);
   } finally {
     globalThis.fetch = realFetch; process.env = env;
   }
