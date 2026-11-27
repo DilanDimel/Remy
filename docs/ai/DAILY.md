@@ -2,7 +2,7 @@
 
 Written by the lead AI at the 11 PM Central watch run.
 
-## Shipped today (81 PRs)
+## Shipped today (80 PRs)
 
 - **Sign-in and hosting:** #506, #507, #509 Remy's own Google and email-code sign-in, Supabase removed. #510 privacy page names DigitalOcean. #553, #557 DigitalOcean follow-ups (Delete everything, backup status, plan limits). #559 open tabs notice a new deploy.
 - **Job catalog:** #504, #508, #515, #516, #517, #519, #522, #550, #578, #579, #580, #581, #583 many more employers, states, schools, universities and hospitals. #520 right company logos. #521, #530 openings fit more kinds of students. #554, #572 pay on job cards (website and app).
