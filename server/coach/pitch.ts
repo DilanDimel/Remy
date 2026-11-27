@@ -13,6 +13,10 @@ const listOf = (s: string) => { const xs = s.split(/\s*[,;]\s*/).map((x) => x.tr
 
 const sentence = (t: string) => { const x = t.replace(/\s+/g, " ").trim(); return !x ? "" : /[.!]$/.test(x) ? x : x.replace(/[?,;:]+$/, "") + "."; };
 
+// A job title reads as a kind of role: "Public Affairs Intern" → "public affairs internships" (AI test, Nov 27:
+// 31% of pitches ended "I'm interested in public affairs intern.").
+const ROLE_END = /\b(intern|analyst|engineer|developer|designer|assistant|associate|specialist|coordinator|technician|consultant|representative|manager|accountant|scientist|nurse|teacher|apprentice|trainee)s?$/i;
+const roleWords = (x: string) => (/\binterns?$/i.test(x) ? x.replace(/\binterns?$/i, (m) => (m[0] === "I" ? "Internships" : "internships")) : ROLE_END.test(x) ? `${x.replace(/s$/, "")} roles` : x);
 /** Plain, true fallbacks built only from what the student told Remy. */
 export function plainParts(p: PitchProfile): PitchParts {
   const year = p.classYear && !/^(other|not sure)/i.test(p.classYear) ? p.classYear.toLowerCase() : "";
@@ -21,7 +25,7 @@ export function plainParts(p: PitchProfile): PitchParts {
     hello: p.name ? `Hi, I'm ${p.name}.` : "Hi, nice to meet you.",
     study,
     // Setup asks which roles they're curious about, so "interested in", not "looking for".
-    next: p.interests ? `I'm interested in ${listOf(p.interests.replace(/[.]+$/, ""))}.` : "",
+    next: p.interests ? `I'm interested in ${listOf(p.interests.replace(/[.]+$/, "").split(/\s*[,;]\s*/).map(roleWords).join(", "))}.` : "",
   };
 }
 
