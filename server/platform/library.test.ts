@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { putItems, search, badItem, dueReminders, markReminded, listItems } from "./library";
-import { takeFiles, tiersFor, libraryText } from "./slack";
+import { takeFiles, tiersFor, libraryText, tidy, askedFiles } from "./slack";
 import { aiAllowed } from "./aiKey";
 
 test("library: tiers keep Dilan-only items out of channels; words find items; replace drops what's gone", async () => {
@@ -44,6 +44,13 @@ test("library: pushed items are checked; files only from what was offered; only 
   assert.deepEqual(takeFiles("Here it is.\nFILE: file:llc\nFILE: note\nFILE: file:ein", offered), { text: "Here it is.", ids: ["file:llc"] });
   assert.deepEqual(takeFiles("Notes below.\n\n[file: llc]", offered), { text: "Notes below.", ids: ["file:llc"] });
   assert.deepEqual(takeFiles("See [file id: file:llc] here.", offered).ids, ["file:llc"]);
+  // The model sometimes forgets the FILE line for a plain "send me X", and names the library anyway.
+  const found: any[] = [{ id: "file:llc", title: "RemyAI LLC Certificate of Filing", file_name: "llc.pdf" }, { id: "file:fox", title: "remy fox", file_name: "remy-fox.png" }];
+  assert.deepEqual(askedFiles("Send me our LLC certificate of filing.", found), ["file:llc"]);
+  assert.deepEqual(askedFiles("Send me the Remy fox logo.", found), ["file:fox"]);
+  assert.deepEqual(askedFiles("When is the call?", found), []);
+  assert.equal(tidy("Here's the certificate, dated Nov 20 (team library, legal folder)."), "Here's the certificate, dated Nov 20.");
+  assert.equal(tidy("Your EIN is in the team library under company docs."), "Your EIN is in our notes under company docs.");
 
   assert.deepEqual(tiersFor({ channel_type: "im", user: "U0CMF0FC48L" }), ["team", "dilan"]);
   assert.deepEqual(tiersFor({ channel_type: "im", user: "U999" }), ["team"]);
