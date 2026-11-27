@@ -1,0 +1,1 @@
+Server errors (recordError kind "server") now also go to PostHog error tracking as `$exception` (distinct_id remy-server, place + first 300 chars of the message, no user id), so any Claude thread can read them through the PostHog connector without an owner session. They still land in error_reports for Admin → Errors.
