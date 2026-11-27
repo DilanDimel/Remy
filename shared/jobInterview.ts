@@ -2,7 +2,7 @@
 // posting's own requirements (no AI). Each question says which line of the posting it comes from and which resume
 // line could answer it, or that none does yet.
 import type { Job, ResumeDoc } from "./types";
-import { isSkill, isSkillKeyword } from "./requirements";
+import { boilerplate, isSkill, isSkillKeyword } from "./requirements";
 import { skillProof } from "./words";
 import { pickProfile } from "./interview";
 import { PROFILES } from "./interviewRubric";
@@ -64,7 +64,7 @@ export function jobQuestions(job: Pick<Job, "company" | "title" | "requirements"
   for (const r of job.requirements || []) {
     if (out.length > max - Math.min(extra.length, 2)) break;
     const k = r.keyword.trim();
-    if (!k || !isSkill(k) || !isSkillKeyword(k) || seen.has(k.toLowerCase())) continue;
+    if (!k || !isSkill(k) || !isSkillKeyword(k) || seen.has(k.toLowerCase()) || boilerplate(r.quote)) continue; // openings saved before the filter
     seen.add(k.toLowerCase());
     const why = `The posting asks for: “${r.quote}”`;
     const beh = BEHAVIOR.find(([re]) => re.test(k));
