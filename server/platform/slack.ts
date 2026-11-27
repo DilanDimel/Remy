@@ -136,31 +136,34 @@ async function repoPrs(): Promise<string> {
 }
 
 export const RULES = `You are Remy, the AI teammate in RemyAI's team Slack. RemyAI makes Remy, an AI career coach for college students (remyai.org). The team is Dilan, Demetre, Julio, Lincoln and Ashton.
-Answer only the newest question (the line after "asks:"). Earlier questions in Slack are background, never something to answer again. Use only the team library, the Slack messages, the team's docs/ai notes and pull requests below (newer beats older; the team library is the fullest source for meetings, dates, files, links and company facts; docs/ai/TEAM.md is the current summary). Name where an answer comes from (channel and date, or PR number). When sources disagree, give the newest answer and skip the outdated ones. If they don't say, say you don't know and suggest the matching channel; never name a person to ask, never guess who is in charge of what, and never guess or invent numbers, dates, decisions or status.
+Answer only the newest question (the line after "asks:"). Earlier questions in Slack are background, never something to answer again. Use only the background notes, the Slack messages, the team's docs/ai notes and pull requests below (newer beats older; the background notes are the fullest source for meetings, dates, files, links and company facts; docs/ai/TEAM.md is the current summary). Name where an answer comes from by its plain name and date (like "Erin call notes, Nov 25", a channel and date, or a PR number). The team can't see the background notes, so never say "team library", never write a file path, folder or file id, and never tell people to go look somewhere: give the answer or attach the file. When sources disagree, give the newest answer and skip the outdated ones. If they don't say, say you don't know and suggest the matching channel; never name a person to ask, never guess who is in charge of what, and never guess or invent numbers, dates, decisions or status.
 Write for Slack: short, plain sentences, *bold* with single asterisks, "•" for lists, no headings, at most about 150 words unless asked for more.
-Everything you write is seen by the whole team:
+Unless the question says it's Dilan's private DM, everything you write is seen by the whole team:
 - About price, say only "Free during beta". Never "free" alone or "always free".
 - Don't name anyone's title or role (no CEO, COO or similar), and don't discuss ownership, equity or splits.
 - Don't judge anyone's contribution or talk about anyone leaving or being removed.
 - Never repeat private details: tax or bank numbers, home addresses, personal emails or phones, passwords, keys, account balances.
 - Don't mention the CREATE program before Dec 1, 2026, 12 PM CT.
-To hand over a file from the team library (only items marked [file id: …]), put each on its own last line as "FILE: <file id>", at most 2, and say in your answer that it's attached.
-If someone asks you to do something (post, change code, send email), say you can only answer questions here and suggest the matching channel.`;
+You can attach files: for a note marked [file id: …], put each on its own last line as "FILE: <file id>" (at most 2) and Remy's server uploads it into this thread. Attach whenever someone asks for a document, logo or file, or when the full notes would help, and just say it's attached.
+If someone asks you to do something else (post, change code, send email), say you can only answer questions and attach files here, and suggest the matching channel.`;
 
 // Only Dilan's own DMs read the "dilan" tier; channels and everyone else get "team". A Slack user id isn't a secret.
 const DILAN = "U0CMF0FC48L";
 export const tiersFor = (ev: any): Tier[] => (ev.channel_type === "im" && ev.user === DILAN ? ["team", "dilan"] : ["team"]);
 
-export const libraryText = (found: Found[]) => !found.length ? "Team library: nothing matched this question." :
-  "Team library (private; name the item and its date when you use it):\n" + found.map((f) =>
+export const libraryText = (found: Found[]) => !found.length ? "Background notes: nothing matched this question." :
+  "Background notes (not visible to the team; cite by plain name and date, never by path or id):\n" + found.map((f) =>
     `• ${f.title} (${f.source}, ${f.starts_at ? `starts ${timeCt(new Date(f.starts_at).toISOString())} CT ${new Date(f.starts_at).toISOString().slice(0, 10)}` : `updated ${new Date(f.updated_at).toISOString().slice(0, 10)}`})` +
     `${f.url ? " " + f.url : ""}${f.file_name ? ` [file id: ${f.id}]` : ""}\n${clip(f.body, 3000)}`).join("\n\n");
 
 /** Splits the "FILE: <id>" lines off an answer, keeping only ids that were offered. */
 export function takeFiles(text: string, offered: Found[]): { text: string; ids: string[] } {
   const ok = new Set(offered.filter((f) => f.file_name).map((f) => f.id));
-  const ids = Array.from(text.matchAll(/^FILE:\s*(\S+)\s*$/gm), (m) => m[1]).filter((id) => ok.has(id)).slice(0, 2);
-  return { text: text.replace(/^FILE:.*$/gm, "").trim(), ids };
+  // The model writes "FILE: id" as asked, but sometimes "[file: path]" or "[file id: id]" instead; take all three.
+  const mark = /^\s*FILE:\s*(\S+?)\s*$|\[file(?: id)?:\s*([^\]\s]+)\s*\]/gim;
+  const ids = Array.from(new Set(Array.from(text.matchAll(mark), (m) => m[1] || m[2]).map((id) => (ok.has(id) ? id : `file:${id}`))))
+    .filter((id) => ok.has(id)).slice(0, 2);
+  return { text: text.replace(mark, "").replace(/\n{3,}/g, "\n\n").trim(), ids };
 }
 
 /** Slack's upload: ask for a URL, send the bytes, then share it in the thread. Needs the files:write scope. */
@@ -199,7 +202,7 @@ export async function reply(ev: any): Promise<void> {
   const repo = aiNotes(question) + "\n\n" + prs;
   let text: string, ids: string[] = [];
   try {
-    ({ text, ids } = takeFiles(await think(RULES + "\n\n" + repo, `${libraryText(found)}\n\n${ctx}\n\nToday is ${when(String(Date.now() / 1000))} CT. ${who} asks: ${question || "(just said hi)"}`), found));
+    ({ text, ids } = takeFiles(await think(RULES + "\n\n" + repo, `${libraryText(found)}\n\n${ctx}\n\nToday is ${when(String(Date.now() / 1000))} CT.${tiers.includes("dilan") ? " This is Dilan's private DM: share anything in the notes with him in full, including the EIN and other private numbers, and attach private files he asks for." : ""} ${who} asks: ${question || "(just said hi)"}`), found));
   } catch (e: any) {
     console.warn("slack reply failed:", e?.message);
     text = "Sorry, I couldn't think just now. Try me again in a minute.";
