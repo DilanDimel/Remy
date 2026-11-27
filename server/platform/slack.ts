@@ -262,10 +262,29 @@ export async function syncTopics(topics = TOPICS, call = api): Promise<number> {
   let changed = 0;
   for (const [channel, topic] of Object.entries(topics)) {
     const info = await call("conversations.info", { channel });
-    if (!info.ok || info.channel?.topic?.value === topic) continue;
+    if (!info.ok || plainTopic(info.channel?.topic?.value || "") === plainTopic(topic)) continue;
     if ((await call("conversations.setTopic", { channel, topic })).ok) changed++;
   }
   return changed;
+}
+
+/** Slack stores "remyai.org" as "<http://remyai.org|remyai.org>"; compare what people see. */
+export const plainTopic = (t: string) => t.replace(/<[^|>]+\|([^>]+)>/g, "$1").replace(/<([^>]+)>/g, "$1").replace(/&amp;/g, "&").trim();
+
+/** Deletes Remy's own "set the channel topic" notices (one bad night repeated them every 5 minutes). */
+export async function clearTopicNotices(topics = TOPICS, call = api): Promise<number> {
+  if (!slackOn()) return 0;
+  const me = (await call("auth.test", {})).user_id;
+  let gone = 0;
+  for (const channel of Object.keys(topics)) {
+    let cursor = "";
+    do {
+      const h = await call("conversations.history", { channel, limit: 200, ...(cursor ? { cursor } : {}) });
+      for (const m of h.messages || []) if (m.subtype === "channel_topic" && m.user === me && (await call("chat.delete", { channel, ts: m.ts })).ok) gone++;
+      cursor = h.response_metadata?.next_cursor || "";
+    } while (cursor);
+  }
+  return gone;
 }
 
 /** Something needs someone now (backups stopped, database nearly full): one line in #alerts. */

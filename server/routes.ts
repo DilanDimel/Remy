@@ -782,6 +782,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     slack.mergedPosts().catch((e) => console.error("slack merged posts failed", e?.message));
     slack.syncTopics().catch((e) => console.error("slack topics failed", e?.message));
   }, 5 * 60_000).unref();
+  slack.clearTopicNotices().then((n) => n && console.log(`slack: deleted ${n} topic notices`)).catch((e) => console.error("slack topic cleanup failed", e?.message));
 
   // The team Slack's Remy app (server/platform/slack.ts): Slack signs each event; we answer within 3 s and work after.
   app.post("/api/slack/events", (req, res) => {

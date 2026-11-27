@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { onEvent, slackContext, verifySlack, RULES, aiNotes, dailyPosts, shippedSince, mergedPosts, channelsFor, CHANNELS, COLOR, command, interact, HOME, syncTopics } from "./slack";
+import { onEvent, slackContext, verifySlack, RULES, aiNotes, dailyPosts, shippedSince, mergedPosts, channelsFor, CHANNELS, COLOR, command, interact, HOME, syncTopics, clearTopicNotices } from "./slack";
 
 test("signature: Slack's v0 HMAC passes; wrong secret, edited body or old timestamp fail", () => {
   const body = Buffer.from('{"type":"event_callback"}');
@@ -168,4 +168,20 @@ test("topics: Remy puts a changed channel topic back and leaves a matching one a
   };
   assert.equal(await syncTopics({ A: "right", B: "right" }, call), 1);
   assert.deepEqual(calls, ["conversations.info:A", "conversations.setTopic:A", "conversations.info:B"]);
+});
+
+test("topics: Slack's stored link format counts as the same topic, and Remy's topic notices get deleted", async () => {
+  process.env.SLACK_BOT_TOKEN = "xoxb-test"; process.env.SLACK_SIGNING_SECRET = "s";
+  const calls: string[] = [];
+  const call = async (method: string, body: any) => {
+    calls.push(method === "chat.delete" ? `delete:${body.ts}` : method);
+    if (method === "auth.test") return { ok: true, user_id: "UREMY" };
+    if (method === "conversations.info") return { ok: true, channel: { topic: { value: "<http://remyai.org|remyai.org> on desktop &amp; phone" } } };
+    if (method === "conversations.history") return { ok: true, messages: [{ ts: "1", subtype: "channel_topic", user: "UREMY" }, { ts: "2", subtype: "channel_topic", user: "UDILAN" }, { ts: "3", user: "UREMY" }] };
+    return { ok: true };
+  };
+  assert.equal(await syncTopics({ A: "remyai.org on desktop & phone" }, call), 0);
+  assert.ok(!calls.includes("conversations.setTopic"));
+  assert.equal(await clearTopicNotices({ A: "x" }, call), 1);
+  assert.deepEqual(calls.filter((c) => c.startsWith("delete")), ["delete:1"]);
 });
