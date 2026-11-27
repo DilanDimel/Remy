@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Story, StoryPart, Workspace } from "@shared/types";
 import { otherExperience, STORY_ASK, STORY_PARTS } from "@shared/stories";
@@ -251,8 +251,8 @@ function Questions() {
   const q = qs[Math.min(i, qs.length - 1)];
   return <>
     <View testID="job-interview" style={card}>
-      <T kind="h2">Questions {job.company} will likely ask</T>
-      <T kind="small">{!mine.length && "Top match for you until you save or tailor for an opening. "}Picked from the {job.title} posting. Answer out loud with your real stories.</T>
+      <T kind="h2">Questions to expect for this role</T>
+      <T kind="small">{!mine.length && "Top match for you until you save or tailor for an opening. "}From the {job.title} posting and published interview guides. Answer out loud with your real stories.</T>
       {jobs.length > 1 && <Pressable testID="select-interview-job" accessibilityRole="button" onPress={() => { tap(); setPicking(!picking); }} style={{ flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: c.line, borderRadius: 12, padding: 12 }}>
         <View style={{ flex: 1 }}><T kind="small">Opening</T><T style={{ fontFamily: font.semi }} numberOfLines={1}>{job.company}: {job.title}</T></View>
         <T kind="small" style={{ color: c.foxDeep, fontFamily: font.bold }}>{picking ? "Close" : "Change"}</T>
@@ -263,6 +263,7 @@ function Questions() {
       <Text style={{ fontFamily: font.bold, fontSize: 12, letterSpacing: 0.6, textTransform: "uppercase", color: c.foxDeep }}>Question {Math.min(i, qs.length - 1) + 1} of {qs.length}</Text>
       <Text style={{ fontFamily: font.display, fontSize: 21, lineHeight: 27, color: c.ink }}>{q.q}</Text>
       <T kind="small">{q.why}</T>
+      {!!q.source && <Pressable testID="link-question-source" accessibilityRole="link" onPress={() => Linking.openURL(q.source!.url)}><T kind="small" style={{ textDecorationLine: "underline" }}>Source: {q.source.name}</T></Pressable>}
       {!!q.line && <T kind="small" style={{ color: c.ink }}>Your line: “{q.line}”</T>}
       <T kind="small" style={{ color: c.ink }}>{q.tip}</T>
       <Timer key={q.q} goal={[45, 120]} label="Answer out loud" />

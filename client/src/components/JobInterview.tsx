@@ -50,8 +50,8 @@ export function JobInterview() {
     return (
       <section className="op-card stack-sm" data-testid="job-interview">
         <span className="op-kick">Practice set · {job.company}</span>
-        <h2 className="iv-title">Questions {job.company} will likely ask</h2>
-        <p className="small muted">{!mine.length && "Top match for you until you save or tailor for an opening. "}Picked from the {job.title} posting. Answer out loud with your real stories.</p>
+        <h2 className="iv-title">Questions to expect for this role</h2>
+        <p className="small muted">{!mine.length && "Top match for you until you save or tailor for an opening. "}From the {job.title} posting and published interview guides. Each one says where it comes from. Answer out loud with your real stories.</p>
         {picker}
         <div className="iv-play">
         <ol className="iv-steps">{qs.map((x, n) => (
@@ -61,6 +61,7 @@ export function JobInterview() {
           <span className="op-kick">Question {i + 1} of {qs.length}</span>
           <b className="iv-q-t">{q.q}</b>
           <span className="small muted">{q.why}</span>
+          {q.source && <span className="xs muted">Source: <a href={q.source.url} target="_blank" rel="noreferrer" style={{ color: "inherit", textDecoration: "underline" }} data-testid="link-question-source">{q.source.name}</a></span>}
           {q.line && <span className="small" data-testid="job-question-line">Your line: “{q.line}”</span>}
           <span className="small">{q.tip}</span>
           <PracticeOutLoud key={q.q} goal={[45, 120]} label="Answer out loud" />
@@ -72,9 +73,9 @@ export function JobInterview() {
   }
   return (
     <section className="card card-pad stack-sm" data-testid="job-interview">
-      <h3 className="row"><Briefcase size={18} /> Questions {job.company} may ask</h3>
+      <h3 className="row"><Briefcase size={18} /> Questions to expect for this role</h3>
       {picker}
-      <p className="xs muted">{!mine.length && "Top matches for you until you save or tailor for an opening. "}From the {job.title} posting's own requirements. Every job is different, so practice these out loud with your real stories.</p>
+      <p className="xs muted">{!mine.length && "Top matches for you until you save or tailor for an opening. "}From the {job.title} posting and published interview guides, each with its source. Every job is different, so practice these out loud with your real stories.</p>
       {qs.map((q, i) => (
         <div key={q.q} className="card card-pad stack-sm" style={{ boxShadow: "none", padding: 10 }} data-testid="job-question">
           <button className="row-between small" style={{ textAlign: "left", gap: 8, flexWrap: "nowrap" }} onClick={() => setOpen(open === i ? null : i)} aria-expanded={open === i}>
@@ -82,6 +83,7 @@ export function JobInterview() {
           </button>
           {open === i && <>
             <span className="xs muted">{q.why}</span>
+            {q.source && <span className="xs muted">Source: <a href={q.source.url} target="_blank" rel="noreferrer" style={{ color: "inherit", textDecoration: "underline" }} data-testid="link-question-source">{q.source.name}</a></span>}
             {q.line && <span className="xs" data-testid="job-question-line">Your line: “{q.line}”</span>}
             <span className="xs">{q.tip}</span>
             <PracticeOutLoud goal={[45, 120]} label="Answer out loud" />

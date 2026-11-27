@@ -75,7 +75,7 @@ export function MockInterview() {
   const kitTiles: { id: "stories" | "pitch" | "questions"; n: string; label: string; act: string }[] = [
     { id: "stories", n: stories.length ? `${ready.length} of ${stories.length} ready for “tell me about a time”` : "Your answers to “tell me about a time”", label: "Stories", act: !stories.length ? "Find my stories" : ready.length < stories.length ? "Finish one" : "Review" },
     { id: "pitch", n: w.pitch?.text ? "Ready · it's your warm-up answer" : "Not written yet · your warm-up answer", label: "30-second pitch", act: w.pitch?.text ? "Practice" : "Write it" },
-    { id: "questions", n: `${job ? jobQuestions(job, w.resume?.doc).length : 0} from this posting, with your resume line for each`, label: "Questions to expect", act: "See them" },
+    { id: "questions", n: `${job ? jobQuestions(job, w.resume?.doc).length : 0} from this posting and published interview guides, each with its source`, label: "Questions to expect", act: "See them" },
   ];
   return (
     <div className="ivc" data-testid="mock-interview">

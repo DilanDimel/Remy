@@ -4,8 +4,14 @@
 import type { Job, ResumeDoc } from "./types";
 import { isSkill, isSkillKeyword } from "./requirements";
 import { skillProof } from "./words";
+import { pickProfile } from "./interview";
+import { PROFILES } from "./interviewRubric";
+import { BANK, SOURCES, bankField, companyFacts, fieldLabel, type Source } from "./questionBank";
 
-export type JobQuestion = { q: string; why: string; line?: string; tip: string };
+/** `from` says where the question comes from, so nothing claims more than we know: "posting" (its own words),
+ *  "company" (the employer's own careers page), "role" (a career office's published list for this kind of job),
+ *  "always" (asked almost everywhere). `source` is the page it came from. */
+export type JobQuestion = { q: string; why: string; line?: string; tip: string; from?: "posting" | "company" | "role" | "always"; source?: Source };
 
 // [the requirement, the question, resume lines that could answer it]
 const BEHAVIOR: [RegExp, string, RegExp][] = [
@@ -29,17 +35,34 @@ const BEHAVIOR: [RegExp, string, RegExp][] = [
   [/^research$/i, "researched a question and had to explain what you found. Walk me through it.", /\b(research\w*|survey\w*|stud(y|ied)|analy\w*)\b/i],
 ];
 
+const STORY_TIP = "Answer with one real example: the situation, what you did, and how it turned out.";
+const KNOW_TIP = "This one checks what you know. Say it in plain words, give one place you used it, and say how you'd find out what you don't know.";
+
 /** Likely questions for one opening, most job-specific first, ending with the student's own questions for them. */
 export function jobQuestions(job: Pick<Job, "company" | "title" | "requirements">, doc?: ResumeDoc, max = 5): JobQuestion[] {
   const lines = (doc?.sections || []).flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => b.text))).filter((t) => t.trim());
   const skillLines = [...lines, ...(doc?.skills || []).map((k) => k.items)];
+  const co = companyFacts(job.company);
   const out: JobQuestion[] = [{
-    q: `Why ${job.company}, and why this ${job.title} role?`, why: "Asked in almost every interview.",
+    q: `Why ${job.company}, and why this ${job.title} role?`, why: co ? `Asked in almost every interview. ${co.note}` : "Asked in almost every interview.",
     tip: `Name one real thing about ${job.company} (what they do, a person you talked to, a project) and connect it to something you've done.`,
+    from: "always", ...(co ? { source: SOURCES[co.src] } : {}),
   }];
+  // Researched questions: ones the company itself lists, then ones career offices list for this kind of role.
+  const profile = pickProfile(job), field = bankField(job.title, profile);
+  const extra: JobQuestion[] = [
+    ...(co?.asks || []).slice(0, 1).map((q): JobQuestion => ({ q, why: `${job.company} lists this question on its own careers site.`, tip: STORY_TIP, from: "company", source: SOURCES[co!.src] })),
+    ...BANK[field].slice(0, 2).map((b): JobQuestion => {
+      // A story question gets the resume line that could answer it, the same way posting questions do.
+      const beh = b.kind === "story" ? BEHAVIOR.find(([re]) => re.test(b.q)) : undefined;
+      const line = beh ? lines.find((l) => beh[2].test(l)) : undefined;
+      return { q: b.q, why: `Common in ${fieldLabel(field, PROFILES[profile].label)} interviews, from a published interview guide.`, line,
+        tip: line ? "Use this line from your resume: say the situation, what you did, and how it turned out." : b.kind === "story" ? STORY_TIP : KNOW_TIP, from: "role", source: SOURCES[b.src] };
+    }),
+  ];
   const seen = new Set<string>();
   for (const r of job.requirements || []) {
-    if (out.length > max) break;
+    if (out.length > max - Math.min(extra.length, 2)) break;
     const k = r.keyword.trim();
     if (!k || !isSkill(k) || !isSkillKeyword(k) || seen.has(k.toLowerCase())) continue;
     seen.add(k.toLowerCase());
@@ -51,8 +74,9 @@ export function jobQuestions(job: Pick<Job, "company" | "title" | "requirements"
     const who = /patient/i.test(k) ? "patient or a worried family member" : /guest/i.test(k) ? "guest" : "customer or client";
     const q = beh ? `Tell me about a time you ${beh[1].replace("customer or client", who)}` : `How have you used ${k}? Walk me through a specific example.`;
     if (out.some((x) => x.q === q)) continue; // "problem solving" and "analytical" ask the same thing
-    out.push({ q, why, line, tip });
+    out.push({ q, why, line, tip, from: "posting" });
   }
-  out.push({ q: "What questions do you have for us?", why: "Usually the last question.", tip: "Have two ready: what a good first month looks like, and what the team is working on now." });
+  for (const x of extra) if (!out.some((y) => y.q.toLowerCase() === x.q.toLowerCase())) out.push(x);
+  out.push({ q: "What questions do you have for us?", why: "Usually the last question.", tip: "Have two ready: what a good first month looks like, and what the team is working on now.", from: "always" });
   return out;
 }
