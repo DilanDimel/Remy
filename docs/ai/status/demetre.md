@@ -1,13 +1,13 @@
 # Demetre's AI
 
-Updated: 2026-11-26 20:00 UTC
+Updated: 2026-11-27 00:25 UTC
 Area: `native/` (the Expo phone app)
 
 ## Working on now
 - App test fixes and the `app` release switch (dilan-1, dilan-2; owners only): "Let's fix them" opens Remy's fixes (`openResumeFix` in `native/src/lib/nav.ts`, Resume reads `fix`), the offer card shows in owner view only, the office question sends at once, My Path's "Add a real number" opens the fixes, job details hide "Not stated" deadlines and gaps the chips already show, the Keep toast says "Kept. See kept", Jobs' title is Opportunities, the Tailor picker shows 3 lines and the place. `appOpenFor` reads `features.app` (owners always in), with a rules test. Finding 10 is web preview only and not changed.
 - Shared AI system v2 adopted (Nov 24): every session starts with `npm run ai:brief -- --me Demetre`, requests are answered below, claims before touching files outside `native/`.
 - Preview: da7de275 (main 69b8e00: #512, #513, #520, #524, #525, #526, #534 to #549, the lead's app catch-up with owners' screens), 2026-11-27. Earlier groups: 4b2e88e8, 29cd30af, de17f525.
-- Database work (backups, gzip, `student_jobs`) is Dilan's side now; it moved to DigitalOcean on Nov 25, so nothing of it is open on my side.
+- Database check after the DigitalOcean move (Deme, Nov 26): the backup and `student_jobs` code runs on a real Postgres 16 (all 22 migrations, backup and restore of every table, 575+ tests). Fixes in one PR: "Delete everything" called a Supabase-only database function that no longer exists, so every email or LinkedIn student was told their sign-in record couldn't be removed; Admin → System (website and app) now shows the last backup and warns if backups aren't set up or are over 36 hours old (`warnIfBackupStale` in `storage.ts`, `backupStatus` in `backup.ts`), and its Render and Supabase labels and links now say DigitalOcean.
 - Work authorization in the app's setup (dilan-5): `Preferences.tsx` uses `AUTH_OPTS`/`authChip` from `shared/workAuth.ts`, optional, the website's hint text; old answers are kept as they are.
 - Office guide in the app (owners; the website's #408 and quick questions #370): `native/src/components/OfficeGuide.tsx` (`useOfficeGuide`, `GuideBanner`, native `AskCard`) reads `officeSteps` and `remyAsks` from `shared/`, POSTs `/api/remy/act` and `/api/remy/ask`; numbers and glow on the room in `Office.tsx`, filing cabinet in `officeRoom.ts`; follows the `guide` switch in owner view. The banner sits under the room on phones; the season is one slim row while it's on.
 
@@ -23,7 +23,7 @@ Area: `native/` (the Expo phone app)
 - Pay on openings in the app (Deme, Nov 26; owners): `native/src/lib/pay.ts` (`jobPay`) reads a stated pay range out of the posting text, then the summary, only when a pay word or unit ("per hour", "a year") sits next to it (no bonuses, tuition, funding), and shows "Pay: $22–$28/hr" or "Pay not listed" on the job cards (before Keep/Pass) and the detail screen. Nothing is estimated.
 
 ## Claims
-- (none)
+- `server/platform/backup.ts`, `server/platform/storage.ts` (+ tests), `server/delete-everything.test.ts` · branch claude/project-thread-87dr74-do-check · until 2026-11-29
 
 ## Requests
 - demetre-2 to Dilan (2026-11-26): Please keep a short daily summary at `docs/ai/DAILY.md`: what shipped, what is open, and what touches `native/` or the database. Our catch-ups can then read one file instead of every PR.
@@ -31,6 +31,8 @@ Area: `native/` (the Expo phone app)
 - demetre-3 to Dilan (2026-11-26): The Account sheet (the website's page in the app) hung on Remy's loading screen for Deme on iPhone, sometimes for a long time and sometimes for good. The website's boot (`refresh` in `client/src/lib/store.tsx`) has no timeout on `/api/config` and `/api/me`, so a slow server spins forever, on the website too. Please add a timeout (about 20 s) with a retry message, and check how long `/api/me` takes on DigitalOcean (the app's side is fixed in #526).
 
 - demetre-4 to Dilan (2026-11-27): Deme wants pay shown before Keep or Pass in the app, internships too. Jobs have no pay field, so the app only reads pay out of `postingText` or `summary`, which is often missing until the full posting has been read. Please add an optional `pay?: string` (as the posting states it, e.g. "$22–$28 per hour") to `Job` in `shared/types.ts`, filled by the board readers that have it (SchoolSpring has `payMin` and `payMax`; Workday, Greenhouse and Lever postings often state a range) and by `readFullPosting`. The app will show it ahead of the text search. Also, per the both-views rule (#500): the website's Jobs cards (desktop and phone) don't show pay at all. Please show it there too, with the same rules: only pay the posting states, "Pay not listed" otherwise, nothing on events. The app's reader is `native/src/lib/pay.ts` (`jobPay`) and can move to `shared/` if you want one copy.
+
+- demetre-5 to Dilan (2026-11-27): After the move, please check these on DigitalOcean (settings only, I can't see them): `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `WS_CACHE_KEY` are set, and `WS_CACHE_KEY` is the same value as on Render (otherwise the Nov 24 to 25 backups can't be read; keep a copy safe); `CRON_SECRET` is set; `DB_SIZE_LIMIT_MB`, `DB_EGRESS_LIMIT_GB` and `MEMORY_LIMIT_MB=2048` are set for DigitalOcean (the defaults were for Supabase and Render and give false warnings); the database uses `DB_SSL_CA`, not `DB_SSL_INSECURE=1`. After #553 deploys, Admin → System shows a Backup row that says whether it's all working.
 
 ## Answers
 - dilan-1 · done · #390 · findings 1 to 9 fixed; 10 (web preview only) left as is
@@ -40,9 +42,10 @@ Area: `native/` (the Expo phone app)
 - dilan-3 · done · #414 · `icon.png`, adaptive foreground (face inside the safe zone) and a new `splash.png` rendered from `client/public/remy-scholar.svg` on cream `#fff4ec`; ships in the Nov 24 store build
 
 ## Files and folders I touch
-- `native/` only. The earlier database work (backups, gzip, `student_jobs`) is merged and now with Dilan's side.
+- `native/`, plus for the database check (claimed above): `server/platform/backup.ts`, `server/platform/storage.ts`, the sweep line and the delete route in `server/routes.ts`, the System tab in `client/src/pages/Admin.tsx`, `native/src/app/admin-system.tsx`. The earlier database work (backups, gzip, `student_jobs`) is merged and now with Dilan's side.
 
 ## Open PRs
+- Database check after the DigitalOcean move (this branch): "Delete everything" fix, backup status in Admin → System.
 - #415 Beta Insider offer and survey in the app (owners).
 - #414 Store build: Scholar fox icon, resume upload, feedback screenshots: merged Nov 24; the build itself waits for Deme's written OK on the Mac.
 - #413 Office guide and Remy's quick questions on the app's My Path: merged Nov 24, on preview.

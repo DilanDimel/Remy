@@ -7,7 +7,7 @@
 // backup/full/YYYY-MM-DD and backup/daily/YYYY-MM-DD. 8 full and 31 daily copies are kept. Restore with
 // `npm run restore-backup` (script/restore-backup.ts).
 import { q, q1, schema } from "./sql";
-import { r2Store } from "./r2";
+import { r2Ready, r2Store } from "./r2";
 import { deleteAccount, idHash } from "./db";
 
 export type Store = { put: (name: string, value: unknown) => Promise<void>; get: (name: string) => Promise<any>; del: (name: string) => Promise<void> };
@@ -85,9 +85,13 @@ async function runBackup(store: Store, kind: "full" | "daily", since: string | n
   return { kind, rows: Object.values(b.tables).reduce((n, r) => n + r.length, 0) };
 }
 
-/** For the owners' Storage page: when the last backup and the last full copy ran. */
+/** For the owners' System page: are backups set up (R2 keys on this server), when the last copy was made (ISO time,
+ *  taken from the database's own clock) and the day of the last full copy. Without the R2_* and WS_CACHE_KEY settings
+ *  backupIfDue does nothing and says nothing, which is why this shows it: a new host (the DigitalOcean move) can lose
+ *  those settings without any error. */
 export async function backupStatus() {
-  return { lastAt: (await setting("backup_last_at")) || null, lastFull: (await setting("backup_last_full")) || null };
+  const at = await q1(`SELECT to_char(value::timestamptz AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS t FROM site_settings WHERE key = 'backup_last_at'`).catch(() => undefined);
+  return { configured: r2Ready(), lastAt: (at?.t as string) || null, lastFull: (await setting("backup_last_full")) || null };
 }
 
 /** The copies to restore, oldest first: the newest full copy on or before `day`, then each daily copy after it. */
