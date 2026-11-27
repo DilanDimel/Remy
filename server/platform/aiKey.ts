@@ -5,9 +5,11 @@ import type { Me } from "@shared/types";
 
 export const AI_ME: Me = { id: "lead-ai", kind: "google", email: "lead-ai@remyai.org", name: "Remy's lead AI", picture: "", owner: true };
 
-/** GET on any owners' route except feedback screenshots (they can show a student's resume), plus "Mark fixed". */
+/** GET on any owners' route except feedback screenshots (they can show a student's resume), plus "Mark fixed" and the
+ *  team library its nightly sync fills (server/platform/library.ts). */
 export function aiAllowed(method: string, path: string) {
-  return (method === "GET" && path.startsWith("/api/admin/") && !path.endsWith("/screenshot")) || (method === "POST" && path === "/api/admin/errors/fix");
+  return (method === "GET" && path.startsWith("/api/admin/") && !path.endsWith("/screenshot")) || (method === "POST" && path === "/api/admin/errors/fix")
+    || ((method === "GET" || method === "POST") && path === "/api/team/library");
 }
 
 /** AI_ME for a request carrying the key on an allowed route, "denied" for the key on any other route, else null. */

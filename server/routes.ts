@@ -100,7 +100,8 @@ import { q, q1, schema } from "./platform/sql";
 import { letterDocx, letterPdf, resumeDocx, resumePdf, resumeTxt } from "./resume/docs";
 import { pageGuide } from "./ai/pageGuide";
 import { posthogConfig } from "./platform/posthog";
-import { aiKeyMe } from "./platform/aiKey";
+import { aiKeyMe, AI_ME } from "./platform/aiKey";
+import * as library from "./platform/library";
 
 // Email domains whose owners count as students of the partner school (TCU).
 const ALUMNI_DOMAINS = (process.env.OR_ALUMNI_EMAIL_DOMAINS || "tcu.edu").split(",").map((d) => d.trim().toLowerCase()).filter(Boolean);
@@ -754,6 +755,25 @@ export async function registerRoutes(_server: Server, app: Express) {
     sweep();
     res.status(202).json({ ok: true, started: true, lastFinished: before || null });
   });
+
+  // Remy's private team library (server/platform/library.ts), filled only by the lead AI's nightly sync with its key.
+  // Not route(): no workspace or student session here, just the key.
+  const libraryKey = (req: any) => aiKeyMe(req.header("authorization"), req.method, req.path) === AI_ME;
+  app.get("/api/team/library", async (req, res) => {
+    if (!libraryKey(req)) return res.status(404).json({ message: "Not found." });
+    res.json({ items: await library.listItems() });
+  });
+  app.post("/api/team/library", async (req, res) => {
+    if (!libraryKey(req)) return res.status(404).json({ message: "Not found." });
+    const { source, items, replace } = req.body || {};
+    if (typeof source !== "string" || !/^[a-z0-9-]{1,40}$/.test(source) || !Array.isArray(items) || items.length > 500) return res.status(400).json({ message: "Send { source, items: [...up to 500], replace? }." });
+    const bad = items.map(library.badItem).find(Boolean);
+    if (bad) return res.status(400).json({ message: bad });
+    try { res.json(await library.putItems(source, items, replace === true)); }
+    catch (e: any) { res.status(500).json({ message: e?.message || "Couldn't save." }); }
+  });
+  // Team meeting reminders from the library, checked every 5 minutes (the sweep is hourly at best).
+  setInterval(() => { slack.reminders().catch((e) => console.error("slack reminders failed", e?.message)); }, 5 * 60_000).unref();
 
   // The team Slack's Remy app (server/platform/slack.ts): Slack signs each event; we answer within 3 s and work after.
   app.post("/api/slack/events", (req, res) => {
