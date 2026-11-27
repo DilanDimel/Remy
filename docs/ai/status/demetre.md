@@ -24,7 +24,7 @@ Area: `native/` (the Expo phone app)
 
 - Sign-in email placeholder (Deme, Nov 26): the app's field now says "Your email" instead of "you@school.edu", which read as if only .edu emails work; the resume contact field says "you@example.com". Nothing rejects non-.edu emails (the app only checks for an @ and a dot; the beta list on the server is by email, not by domain).
 
-- Event and competition matching (Deme, Nov 27): `eventSignals` in `server/jobs/fit.ts` ranks conferences, events and competitions by the student's field words, a sign-up date within 60 days, and early-student wording, and gives each a plain "why" (before: one flat score and an "upload your resume" line). `FIT_RULES_VERSION` 24 so saved fits refresh. No hiding, no new route or type; website and app both read `fit.score` and `fit.why`, so both change.
+- Event and competition matching (Deme, Nov 27): `eventSignals` in `server/jobs/fit.ts` ranks conferences, events and competitions by the student's field words, a sign-up date within 60 days, and early-student wording, and gives each a plain "why" (before: one flat score and an "upload your resume" line). `resumeFieldText` lets the resume's degree line and recent roles make an opening match when the student chose no field (never hides). `FIT_RULES_VERSION` 25 so saved fits refresh. No hiding, no new route or type; website and app both read `fit.score` and `fit.why`, so both change.
 
 ## Claims
 - `server/platform/backup.ts`, `server/platform/storage.ts` (+ tests), `server/delete-everything.test.ts` · branch claude/project-thread-87dr74-do-check · until 2026-11-29
