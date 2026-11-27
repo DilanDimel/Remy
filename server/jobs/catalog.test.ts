@@ -1,7 +1,7 @@
 // Remy's employer catalog: what it keeps, how it reads a part, and that it lives in R2 (a fake store here). `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CATALOG, PARTS, allBoards, catalogPostings, catalogStats, catalogTick, csvRows, districtState, jazzList, ukgDescription, icimsJobs, ldPosting, sfJobs, sfPosting, keep, ldDescription, partOf, readBoard, readPart, resetCatalog, stapplyBoards, type CatalogBoard, jobapsJobs } from "./catalog";
+import { CATALOG, PARTS, allBoards, catalogPostings, catalogStats, catalogTick, csvRows, districtState, jazzList, ukgDescription, icimsJobs, ldPosting, sfJobs, sfPosting, keep, ldDescription, partOf, readBoard, readPart, resetCatalog, stapplyBoards, type CatalogBoard, jobapsJobs, nyJobs, nyPosting } from "./catalog";
 import { inUS } from "./fit";
 import { fetchBoard, type Raw } from "./sources";
 
@@ -233,4 +233,15 @@ test("EdJoin: a county's search, each opening with its district and date; high-s
     assert.ok(asked.length > 1 && asked.every((u) => u.startsWith("https://www.edjoin.org/Home/LoadJobs?") && u.includes("location=Fresno")));
     assert.deepEqual(out.map((r) => [r.title, r.company, r.location, r.url, r.posted]), [["High School Tutor", "Central Unified School District", "Fresno, California", "https://www.edjoin.org/Home/JobPosting/1", "2026-11-24T00:00:00.000Z"]]);
   } finally { globalThis.fetch = real; }
+});
+
+test("StateJobsNY: table rows to openings with agency and county; the vacancy page gives pay, the job's own city and text", () => {
+  const row = (id: string, title: string) => `<tr class="odd">\n<td>${id}</td>\n<td><a title="${title}" href="vacancyDetailsView.cfm?id=${id}">${title}</a></td>\n<td>NS</td>\n<td>11&#x2f;25&#x2f;26</td>\n<td>12&#x2f;09&#x2f;26</td>\n<td>Taxation and Finance, Department of</td>\n<td>Albany</td>\n</tr>`;
+  const out = nyJobs(row("229700", "Tax Technician Trainee 1") + row("229701", "Student Assistant &amp; Aide"));
+  assert.deepEqual(out[0], { url: "https://statejobs.ny.gov/public/vacancyDetailsView.cfm?id=229700", title: "Tax Technician Trainee 1", county: "Albany", location: "Albany County, New York", company: "Taxation and Finance, Department of", posted: "2026-11-25", deadline: "2026-12-09" });
+  assert.equal(out[1].title, "Student Assistant & Aide");
+  const r = (k: string, v: string) => `<p class="row"><span class="leftCol"><a href="/h" class="help"></a> ${k} </span><span class="rightCol">${v}</span> </p>`;
+  const d = nyPosting(r("Salary Range", "From $47,000 to $52,000 Annually") + r("City", "Albany") + r("Duties Description", "Review returns.<br />Answer calls.") + r("City", "Contact Town"));
+  assert.equal(d.location, "Albany, NY");
+  assert.match(d.text, /^Pay: \$47000–\$52000 per year\nDuties Description\nReview returns\./);
 });
