@@ -2,6 +2,7 @@ import { StoryDeck } from "../components/StoryDeck";
 import { PitchCard } from "../components/PitchCard";
 import { MockInterview } from "../components/MockInterview";
 import { useOwnerView } from "../lib/store";
+import { RemyAskInline } from "../components/RemyAskInline";
 
 /** Interview prep (Dilan, Nov 19: its own place in the left bar, not a Resume tab): true stories from the resume,
  *  practiced out loud, and a 30-second pitch. The LinkedIn coach stays with the resume. */
@@ -17,7 +18,7 @@ export default function Interview() {
           <p className="hide-phone">True stories from your resume for "Tell me about a time when…", and a 30-second pitch for career fairs and coffee chats.</p>
         </div>
       </div>
-      <div className="stack-lg"><StoryDeck /><PitchCard /></div>
+      <div className="stack-lg"><RemyAskInline page="Interview" placeholder="Ask Remy about interviews…" starters={["How do I answer “tell me about yourself”?", "What should I ask the interviewer?"]} /><StoryDeck /><PitchCard /></div>
     </>
   );
 }

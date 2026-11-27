@@ -19,6 +19,7 @@ import { nextAction } from "@shared/nextAction";
 import { dailyStreak, dayKey, streakDays, weekDots } from "@shared/daily";
 import { OrgLogo } from "../components/OrgLogo";
 import { useCanGo } from "../components/ComingSoon";
+import { greetingFor } from "@shared/greeting";
 
 type Tab = "todos" | "events" | "opps";
 
@@ -28,10 +29,7 @@ const nextArt = (link: string, interview: boolean) => interview || link.startsWi
 // A rough time for the one thing, so it feels small (owners).
 const etaFor = (link: string, interview: boolean) => interview ? "about 15 min" : link === "/resume?tab=base" ? "about 4 min · unlocks Tailor" : link.startsWith("/resume?tab=tailor") ? "about 5 min" : link.startsWith("/interview") ? "about 10 min" : link.startsWith("/opportunities") ? "about 2 min" : "";
 
-function greeting() {
-  const h = new Date().getHours();
-  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
-}
+const greeting = () => greetingFor(new Date().getHours());
 
 export default function Home() {
   const t = useT();

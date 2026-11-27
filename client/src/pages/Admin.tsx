@@ -8,6 +8,7 @@ import { acceptDraft, acceptHtml } from "@shared/acceptEmail";
 import type { OwnerActivity, OwnerUse } from "@shared/types";
 import { WhatsNew } from "../components/WhatsNew";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { greetingFor } from "@shared/greeting";
 
 // The owners' dashboard (server/platform/admin.ts). Numbers about use, errors students hit, and the team's
 // own board, meetings, hours and activity. Never anything a student wrote.
@@ -668,7 +669,7 @@ function Kpi({ n, label, prev, note }: { n: number | string; label: string; prev
 
 const greeting = () => {
   const h = Number(new Date().toLocaleString("en-US", { hour: "numeric", hourCycle: "h23", timeZone: "America/Chicago" }));
-  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  return greetingFor(h);
 };
 const pct = (x?: { cohort: number; back: number }) => (x && x.cohort ? `${Math.round((100 * x.back) / x.cohort)}%` : "–");
 const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? one : many}`;
