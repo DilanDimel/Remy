@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { Check, Volume2 } from "lucide-react";
 import type { Story, Workspace } from "@shared/types";
-import { drillsLeft, pickProfile, practiced, starParts, WEEKLY_DRILLS, type Drill } from "@shared/interview";
+import { drillsLeft, pickProfile, practiced, STAR_PARTS, starParts, WEEKLY_DRILLS, type Drill } from "@shared/interview";
 import { jobQuestions } from "@shared/jobInterview";
 import { BANK, bankField, fieldLabel } from "@shared/questionBank";
 import { PROFILES } from "@shared/interviewRubric";
@@ -111,7 +111,7 @@ function Home({ done, open, learned, ready, drills, mocks }: { done: Record<Step
       <div className="ivco-home">
         <section className="ivc-card ivco-next" data-testid="coach-next">
           <span className="ivc-kick">Up next · Step {STEPS.indexOf(next) + 1}, {next.label}</span>
-          <div className="ivco-next-row"><Remy size={72} mood="happy" /><div style={{ minWidth: 0 }}><h2 className="ivc-h2">{h}</h2><p className="muted" style={{ margin: 0 }}>{p}</p></div></div>
+          <div className="ivco-next-row"><Remy size={112} mood="happy" /><div style={{ minWidth: 0 }}><h2 className="ivc-h2">{h}</h2><p className="muted" style={{ margin: 0 }}>{p}</p></div></div>
           <div className="row" style={{ gap: 8 }}><button className="btn btn-primary" onClick={() => open(next.id)} data-testid="button-coach-next">{b}</button></div>
         </section>
         <section className="ivc-card" data-testid="coach-built">
@@ -176,7 +176,7 @@ function Learn({ learned, next }: { learned: Lesson[]; next: () => void }) {
       </div>
       <div className="row-between" style={{ gap: 8 }}>
         <button className="btn btn-ghost" onClick={() => move(at - 1)} disabled={at === 0} data-testid="button-lesson-back">Back</button>
-        <button className={"btn " + (ok ? "btn-primary" : "btn-secondary")} onClick={() => move(at + 1)} data-testid="button-lesson-next">{at === 2 ? "Next: build your pitch" : `Next: ${titles[LESSONS[at + 1]].split(":")[0].toLowerCase()}`}</button>
+        <button className={"btn " + (ok ? "btn-primary" : "btn-secondary")} onClick={() => move(at + 1)} data-testid="button-lesson-next">{["Next: STAR stories", "Next: the 30-second pitch", "Next: build your pitch"][at]}</button>
       </div>
     </section>
   );
@@ -250,6 +250,9 @@ function Practice() {
           {take && drill && <p className="small muted" style={{ margin: 0 }}>You said{drill.secs ? ` (${drill.secs} seconds)` : ""}: “{drill.text.length > 220 ? drill.text.slice(0, 220) + "…" : drill.text}”</p>}
         </section>
         {take && drill && <DrillTake d={drill} again={() => setTake(false)} next={nextQ} />}
+        {!take && <section className="ivc-card stack-sm" style={{ gap: 8 }} data-testid="practice-listen"><p className="ivc-label" style={{ margin: 0 }}>I listen for all four parts</p>
+          <div className="ivco-meter">{STAR_PARTS.map(([id, label]) => <span key={id} className="missing">{label}</span>)}</div>
+          <p className="xs muted" style={{ margin: 0 }}>Hear all four and this question gets a check. About a minute out loud is plenty.</p></section>}
         {!take && <RemyAskInline page="Interview" placeholder="Ask Remy about this question…" starters={["Is my answer too long?", "Give me another example"]} />}
       </div>
     </div>
