@@ -12,9 +12,9 @@ import { radius } from "@/lib/tokens";
 // working, hours this week / total / last 8 weeks, team hours per day, clock in/out, time you forgot, teammates, time
 // entries and activity. Same /api/admin calls.
 type Member = { email: string; name: string; founder: boolean };
-type Entry = { id: string; member: string; start_at: string; end_at: string | null; note: string; source?: "clock" | "pr"; ref?: string; ai_cost?: number };
+type Entry = { id: string; member: string; start_at: string; end_at: string | null; note: string; source?: "clock" | "pr" | "auto"; ref?: string; ai_cost?: number };
 type Act = { id: number; at: string; actor: string; action: string; detail: string };
-type Team = { me: string; members: Member[]; tasks: { assignee: string; status: string }[]; hours: { member: string; hours: number; week: number }[]; weeks: { member: string; week: string; hours: number }[]; entries: Entry[]; activity: Act[]; clockedIn: string | null };
+type Team = { me: string; members: Member[]; tasks: { assignee: string; status: string }[]; hours: { member: string; hours: number; week: number; auto?: number }[]; weeks: { member: string; week: string; hours: number }[]; entries: Entry[]; activity: Act[]; clockedIn: string | null };
 const chi = (iso: string | number) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
 const day = (d: string) => new Date(d + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -118,6 +118,7 @@ export default function AdminHours() {
               <View style={{ alignItems: "flex-end" }}>
                 <Text style={{ fontFamily: font.bold, fontSize: 16, color: c.ink }}>{h?.week || 0} h</Text>
                 <T kind="small">{h?.hours || 0} h total</T>
+                {h?.auto ? <T kind="small">{h.auto} h auto, estimated</T> : null}
               </View>
             </View>
             <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
@@ -163,10 +164,10 @@ export default function AdminHours() {
         {d.entries.slice(0, entries).map((e) => (
           <View key={e.id} testID="time-entry" style={[card, { flexDirection: "row", alignItems: "center", gap: 10 }]}>
             <View style={{ flex: 1, gap: 2 }}>
-              <T kind="small" style={{ color: c.ink }}><Text style={{ fontFamily: font.bold }}>{nameOf(e.member)}</Text>: {when(e.start_at)} to {e.end_at ? when(e.end_at) : "still working"}{e.end_at ? ` · ${((+new Date(e.end_at) - +new Date(e.start_at)) / 3600_000).toFixed(1)} h` : ""}</T>
+              <T kind="small" style={{ color: c.ink }}><Text style={{ fontFamily: font.bold }}>{nameOf(e.member)}</Text>: {when(e.start_at)} to {e.end_at ? when(e.end_at) : "still working"}{e.end_at ? ` · ${((+new Date(e.end_at) - +new Date(e.start_at)) / 3600_000).toFixed(1)} h` : ""}{e.source === "auto" ? " · auto, estimated" : ""}</T>
               {e.note ? <T kind="small">{e.note}{e.source === "pr" ? ` (from PR${e.ai_cost ? `, $${e.ai_cost.toFixed(2)} AI` : ""})` : ""}</T> : null}
             </View>
-            {e.member === d.me && e.end_at ? <Pressable testID={`button-remove-entry-${e.id}`} accessibilityRole="button" accessibilityLabel="Remove this entry" onPress={() => send("e" + e.id, "DELETE", `/api/admin/hours/${e.id}`, undefined, "Entry removed")} style={{ padding: 4 }}><T kind="small">Remove</T></Pressable> : null}
+            {e.member === d.me && e.end_at && e.source !== "auto" ? <Pressable testID={`button-remove-entry-${e.id}`} accessibilityRole="button" accessibilityLabel="Remove this entry" onPress={() => send("e" + e.id, "DELETE", `/api/admin/hours/${e.id}`, undefined, "Entry removed")} style={{ padding: 4 }}><T kind="small">Remove</T></Pressable> : null}
           </View>
         ))}
         {!d.entries.length && <T kind="small">No hours logged yet.</T>}

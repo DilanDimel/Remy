@@ -724,7 +724,9 @@ export async function registerRoutes(_server: Server, app: Express) {
       cleanupOld(30).then((n) => { if (n) console.log(`cleanup: removed ${n} idle guest accounts`); }).catch((e) => console.error("cleanup failed", e?.message)),
       cleanupLimits().catch((e) => console.error("rate limit cleanup failed", e?.message)),
       // Hours and AI cost from merged PRs (docs/ai/), onto the owners' Team & hours tab.
-      admin.people().then((m) => contrib.importMergedPrs(m, admin.logAction)).catch((e) => console.error("PR hours import failed", e?.message)),
+      // Then estimated hours from commits, PRs and Claude threads (docs/ai/hours/), shown as "auto, estimated".
+      admin.people().then((m) => contrib.importMergedPrs(m, admin.logAction).catch((e) => console.error("PR hours import failed", e?.message))
+        .then(() => contrib.syncAutoHours(m)).catch((e) => console.error("estimated hours failed", e?.message))),
       // One after the other: both write a student's openings, so they must not run at the same time.
       backgroundOpenings().catch((e) => console.error("background openings failed", e?.message))
         .then(() => backgroundRechecks()).catch((e) => console.error("background rechecks failed", e?.message))

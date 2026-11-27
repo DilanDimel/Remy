@@ -30,11 +30,11 @@ type TeamTask = { id: string; title: string; assignee: string; due: string; note
 type Answer = "yes" | "maybe" | "no";
 type TeamEvent = { id: string; title: string; date: string; time: string; who: string; notes: string; created_by: string; assignees: string; rsvps: Record<string, Answer> };
 type Member = { email: string; name: string; founder: boolean; addedBy: string; addedAt: string | null };
-type Entry = { id: string; member: string; start_at: string; end_at: string | null; note: string; source?: "clock" | "pr"; ref?: string; ai_cost?: number };
+type Entry = { id: string; member: string; start_at: string; end_at: string | null; note: string; source?: "clock" | "pr" | "auto"; ref?: string; ai_cost?: number };
 /** docs/ai/ status files and requests between AIs (server/platform/contrib.ts). */
 type AiTeam = { people: { name: string; updated: string; workingOn: string[]; claims: { paths: string[]; branch: string; until: string }[] }[]; requests: { id: string; from: string; to: string; date: string; text: string; state: string; pr: string; overdue: boolean; noProof: boolean }[] };
 type Team = {
-  me: string; members: Member[]; tasks: TeamTask[]; events: TeamEvent[]; hours: { member: string; hours: number; week: number }[]; weeks: { member: string; week: string; hours: number }[];
+  me: string; members: Member[]; tasks: TeamTask[]; events: TeamEvent[]; hours: { member: string; hours: number; week: number; auto?: number }[]; weeks: { member: string; week: string; hours: number }[];
   entries: Entry[]; ai?: AiTeam; activity: { id: number; at: string; actor: string; action: string; detail: string }[]; clockedIn: string | null;
   calendar: { available: boolean; connectedBy: string; connectedAt: string | null };
 };
@@ -1226,7 +1226,7 @@ function TeamTab({ tab }: { tab: "board" | "team" }) {
                   <Avatar m={m} size={32} />
                   <span className="adm2-pn"><b>{m.name}{m.email === d.me && <span className="xs muted"> (you)</span>}{now && <span className="chip chip-live">Working now</span>}</b><small>{last ? `${last.action.toLowerCase()}, ${ago(last.at)}` : "no activity yet"}</small>{aiLine(m) && <small className="adm-ellipsis" title={aiLine(m)} data-testid={`ai-status-${m.email.split("@")[0]}`}>{aiLine(m)}</small>}</span>
                   <b className="adm2-num">{h?.week || 0} h</b>
-                  <span className="adm2-num muted">{h?.hours || 0} h</span>
+                  <span className="adm2-num muted" title={h?.auto ? `${h.auto} h of it auto, estimated` : undefined}>{h?.hours || 0} h</span>
                   <span className="adm2-mini" role="img" aria-label={`${m.name}: hours per week for the last 8 weeks`}>
                     {mondays.map((w) => { const n = d.weeks.find((x) => x.member === m.email && x.week === w)?.hours || 0; return <i key={w} title={`Week of ${day(w)}: ${n} h`} className={n ? "" : "z"} style={{ height: `${Math.max(2, (n / top) * 22)}px` }} />; })}
                   </span>
@@ -1278,10 +1278,10 @@ function TeamTab({ tab }: { tab: "board" | "team" }) {
               <div key={e.id} className="adm-row">
                 <Avatar m={who(e.member)} size={26} />
                 <div className="grow stack-sm" style={{ gap: 2 }}>
-                  <span className="small"><b>{nameOf(e.member)}</b>: {when(e.start_at)} to {e.end_at ? when(e.end_at) : <span className="pass">still working</span>}{e.end_at && <span className="muted"> · {((+new Date(e.end_at) - +new Date(e.start_at)) / 3600_000).toFixed(1)} h</span>}</span>
+                  <span className="small"><b>{nameOf(e.member)}</b>: {when(e.start_at)} to {e.end_at ? when(e.end_at) : <span className="pass">still working</span>}{e.end_at && <span className="muted"> · {((+new Date(e.end_at) - +new Date(e.start_at)) / 3600_000).toFixed(1)} h</span>}{e.source === "auto" && <span className="muted" title="Estimated from commits, PRs and Claude threads (docs/ai/hours). Clocked time always wins."> · auto, estimated</span>}</span>
                   {e.note && <span className="xs muted">{e.source === "pr" ? <a href={`https://github.com/DilanDimel/Remy/pull/${e.ref?.replace("pr:", "")}`} target="_blank" rel="noreferrer">{e.note}</a> : e.note}{e.source === "pr" && <> (from PR{e.ai_cost ? `, $${e.ai_cost.toFixed(2)} AI` : ""})</>}</span>}
                 </div>
-                {e.member === d.me && e.end_at && <button className="icon-btn" onClick={() => send("DELETE", `/api/admin/hours/${e.id}`, undefined, "Entry removed")} aria-label="Remove this entry" data-testid={`button-remove-entry-${e.id}`}><Trash2 size={14} /></button>}
+                {e.member === d.me && e.end_at && e.source !== "auto" && <button className="icon-btn" onClick={() => send("DELETE", `/api/admin/hours/${e.id}`, undefined, "Entry removed")} aria-label="Remove this entry" data-testid={`button-remove-entry-${e.id}`}><Trash2 size={14} /></button>}
               </div>
             )} />
             {!d.entries.length && <p className="small muted">No hours logged yet.</p>}

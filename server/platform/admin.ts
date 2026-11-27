@@ -234,7 +234,8 @@ export async function team(me: string) {
     q("SELECT * FROM team_events WHERE date >= to_char(now() - interval '30 days', 'YYYY-MM-DD') ORDER BY date, time"),
     q(
       `SELECT member, ROUND((SUM(EXTRACT(EPOCH FROM (COALESCE(end_at, now()) - start_at))) / 3600)::numeric, 1)::float AS hours,
-              ROUND((COALESCE(SUM(EXTRACT(EPOCH FROM (COALESCE(end_at, now()) - start_at))) FILTER (WHERE start_at > now() - interval '7 days'), 0) / 3600)::numeric, 1)::float AS week
+              ROUND((COALESCE(SUM(EXTRACT(EPOCH FROM (COALESCE(end_at, now()) - start_at))) FILTER (WHERE start_at > now() - interval '7 days'), 0) / 3600)::numeric, 1)::float AS week,
+              ROUND((COALESCE(SUM(EXTRACT(EPOCH FROM (end_at - start_at))) FILTER (WHERE source = 'auto'), 0) / 3600)::numeric, 1)::float AS auto
        FROM time_entries GROUP BY member ORDER BY member`,
     ),
     q("SELECT id, member, start_at, end_at, note, source, ref, ai_cost::float AS ai_cost FROM time_entries ORDER BY start_at DESC LIMIT 60"),
@@ -366,7 +367,7 @@ export async function logPast(me: string, b: any) {
   if (h <= 0) throw bad("The end has to come after the start.");
   if (h > 16) throw bad("One entry can be at most 16 hours. Split longer stretches into several.");
   if (+end > Date.now() + 60_000) throw bad("Only past time can be logged. Use Clock in for now.");
-  const clash = await q1("SELECT id FROM time_entries WHERE member = $1 AND start_at < $3 AND COALESCE(end_at, now()) > $2", [me, start.toISOString(), end.toISOString()]);
+  const clash = await q1("SELECT id FROM time_entries WHERE member = $1 AND source <> 'auto' AND start_at < $3 AND COALESCE(end_at, now()) > $2", [me, start.toISOString(), end.toISOString()]);
   if (clash) throw bad("That overlaps time you already logged.", 409);
   await q("INSERT INTO time_entries (id, member, start_at, end_at, note) VALUES ($1, $2, $3, $4, $5)", [uid("tm"), me, start.toISOString(), end.toISOString(), cut(b?.note, 300)]);
   await log(me, "Logged past time", `${h.toFixed(1)} h${b?.note ? `: ${cut(b.note, 120)}` : ""}`);
@@ -374,7 +375,7 @@ export async function logPast(me: string, b: any) {
 
 /** Removes one of the owner's own finished entries (a mistake). Nobody can remove someone else's time. */
 export async function removeEntry(me: string, id: string) {
-  const row = await q1("SELECT start_at, end_at FROM time_entries WHERE id = $1 AND member = $2 AND end_at IS NOT NULL", [id, me]);
+  const row = await q1("SELECT start_at, end_at FROM time_entries WHERE id = $1 AND member = $2 AND end_at IS NOT NULL AND source <> 'auto'", [id, me]);
   if (!row) throw bad("Only your own finished entries can be removed.", 404);
   await q("DELETE FROM time_entries WHERE id = $1", [id]);
   await log(me, "Removed time entry", `${((+new Date(row.end_at) - +new Date(row.start_at)) / 3600_000).toFixed(1)} h`);
