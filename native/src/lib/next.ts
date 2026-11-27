@@ -1,6 +1,6 @@
 // Small helpers for Home and Jobs. Remy's "one thing" is shared with the website now: shared/nextAction.ts.
 import type { Job, JobFit, Workspace } from "../../../shared/types";
-import { greetingFor } from "@shared/greeting";
+import { greetingFor } from "../../../shared/greeting.ts";
 
 export const daysUntil = (iso: string, now = new Date()) => {
   const t = Date.parse(iso + "T12:00:00");
