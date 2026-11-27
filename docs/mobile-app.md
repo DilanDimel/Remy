@@ -22,9 +22,10 @@ The apps in `ios/` and `android/` are [Capacitor](https://capacitorjs.com) shell
 
 ## One-time setup (team)
 
-1. **Supabase:** Authentication → URL Configuration → Redirect URLs → add `org.remyai.app://auth`. Until you do this, social sign-in in the app falls back to the site URL and finishes in the browser instead of the app.
-2. **Apple:** an Apple Developer account ($99/year). In Xcode (`npm run app:ios`), choose the team under Signing & Capabilities, then Product → Archive → upload to App Store Connect.
-3. **Google Play:** a Play Console account ($25 one-time). In Android Studio (`npm run app:android`): Build → Generate Signed App Bundle, then upload the `.aab`. Keep the upload key safe and never commit it.
+Sign-in needs no outside setup: Supabase is no longer used, and the shells use remyai.org's own Google sign-in and the 6-digit email code.
+
+1. **Apple:** an Apple Developer account ($99/year). In Xcode (`npm run app:ios`), choose the team under Signing & Capabilities, then Product → Archive → upload to App Store Connect.
+2. **Google Play:** a Play Console account ($25 one-time). In Android Studio (`npm run app:android`): Build → Generate Signed App Bundle, then upload the `.aab`. Keep the upload key safe and never commit it.
 
 ## Building and releasing
 

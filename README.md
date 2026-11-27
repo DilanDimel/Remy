@@ -2,7 +2,7 @@
 
 **An AI career coach for college students.** Remy is a fox who helps students go from "I don't know what I want to do" to an offer: he figures out where they stand, shows them the road ahead in their field, finds real openings, and gets their resume, cover letters and interviews ready, without ever inventing a single thing about them.
 
-Built by RemyAI LLC, starting with students at TCU. Live at [remyai.org](https://remyai.org).
+Built by RemyAI LLC. Live at [remyai.org](https://remyai.org), Free during beta.
 
 ## Why it exists
 
@@ -31,27 +31,67 @@ Career centers are stretched thin, and most job tools either spam students with 
 
 **Emails and texts.** Reminders, a weekly digest and sign-in codes by email, and optional text reminders.
 
-**Owners' dashboard.** For the team: sign-up funnel and outcomes, errors and feedback, the beta list, server health and deploys, storage use, and a small team of AI helpers that suggest work for the board.
+**Owners' dashboard.** For the team: sign-up funnel and outcomes, errors and feedback, the beta list, feature releases, server health and deploys, storage use, and team hours.
 
 ## How it's built
 
 ```
- Browser / iPhone / Android app
-            |
-   React + Vite front end  (client/)
-            |   /api
-   Express server  (server/)  ----  AI providers (OpenRouter, Gemini)
-            |                  ----  employer career sites, USAJOBS, BLS
-   Postgres on Supabase        ----  Supabase Auth, Resend email, Google Calendar
+ Desktop website · phone website · iPhone and Android app (native/)
+                         |
+        React + Vite front end (client/)   Expo app (native/)
+                         |   /api/...  (same server for both)
+        Express server (server/)  ----  AI: Claude and Gemini through OpenRouter, zero data retention
+                         |         ----  employer career sites, USAJOBS, CareerOneStop, BLS, O*NET
+        PostgreSQL (DigitalOcean)  ----  Google sign-in, email codes (Resend), Google Calendar, Cloudflare R2
 ```
 
-- **One TypeScript codebase.** `client/` is the React app, `server/` is the Express API, and `shared/` holds the types and logic both sides use.
-- **AI with guardrails.** Every model call goes through one place that tries providers in order and enforces daily budgets. Every rewrite then passes a rules-based claim checker before the student sees it.
-- **Data.** Each student's workspace lives in Postgres on Supabase. Public job postings are cached in a shared table with no student data.
-- **Mobile.** The iPhone and Android apps are thin Capacitor shells around the live site, so every web update ships to phones at once.
-- **Hosting.** Render runs the server and deploys every merge to `main`. GitHub Actions runs the type checks and 400+ tests on every change.
+- **One TypeScript codebase.** `client/` is the React website (desktop and phone), `server/` is the Express API, `shared/` holds the types and logic both sides use, and `native/` is the Expo (React Native) phone app that talks to the same API.
+- **AI with guardrails.** Every model call goes through one place (`server/ai/ai.ts`) that tries providers in order, enforces daily budgets and uses zero-data-retention providers only. Every rewrite then passes a rules-based claim checker (`server/ai/claims.ts`) before the student sees it.
+- **Sign-in.** Remy's own Google sign-in and 6-digit email codes, with a secure session cookie. No outside auth service.
+- **Data.** Each student's workspace lives in PostgreSQL (DigitalOcean Managed Postgres), with an encrypted cache in Cloudflare R2 and nightly backups. Public job postings are kept in a shared table with no student data.
+- **Hosting.** DigitalOcean App Platform builds and deploys every merge to `main`, with health checks and automatic rollback. Cloudflare sits in front of remyai.org and runs the hourly background tick.
+- **Checks.** GitHub Actions runs the type check, the client/server contract check, 700+ server tests and the AI teamwork rules on every pull request.
 
-More detail is in [`docs/architecture.md`](docs/architecture.md). Setup, tests and configuration are in [`docs/development.md`](docs/development.md).
+### Languages
+
+Counted by lines of code in the repo (Nov 27, 2026, about 75,000 lines, not counting docs or generated files):
+
+| Language | Share | Where |
+|---|---|---|
+| TypeScript | 54% | server, shared logic, scripts, tests |
+| TypeScript + React (TSX) | 39% | website pages and components, the native app's screens |
+| CSS (Tailwind + tokens) | 6% | `client/src/index.css` and component styles |
+| SQL | 0.5% | `server/migrations/` |
+| Other | under 1% | GitHub Actions YAML, Gradle/Java and Swift for the app shells, one Apps Script file |
+
+Main frameworks: React 18, Vite 7, Tailwind 3, Radix UI, Express 5 on Node, Expo 58 with expo-router and React Native 0.88 (React 19) for the app, PGlite for local and test databases, `node:test` through `tsx`.
+
+## Run it
+
+Needs Node 20 or newer.
+
+```bash
+npm ci
+npm run dev                                         # website + API on http://localhost:5000
+npm run check && npm run check:contract && npm test # what CI runs
+```
+
+With no settings the app still runs on an in-memory database, and AI features say "needs setup". The phone app runs from `native/` (`cd native && npm ci && npx expo start`). Full setup, tests, deploy and configuration are in [`docs/development.md`](docs/development.md).
+
+## Where things are
+
+| Folder | What's in it |
+|---|---|
+| `client/` | The website: pages, components, the store that talks to the API |
+| `server/` | The API, grouped by area: `platform/` `ai/` `resume/` `jobs/` `coach/` `notify/`, plus `migrations/` |
+| `shared/` | Types and pure logic used by the website, the server and the app; `shared/news/` is the What's new list |
+| `native/` | The Expo phone app (owners preview for now) |
+| `ios/` `android/` `mobile/` | The older Capacitor app shells around the live site |
+| `script/` | Build, contract, resume, persistence and AI-teamwork checks |
+| `docs/` | Development, architecture, the [code map](docs/CODEMAP.md), app notes, and `docs/ai/` |
+| `docs/ai/` | Shared context for every AI that works on Remy: current status, decisions, each person's status file |
+
+Every folder, module, route and table is described in [`docs/CODEMAP.md`](docs/CODEMAP.md). How a request flows is in [`docs/architecture.md`](docs/architecture.md). Rules for changes are in [`CLAUDE.md`](CLAUDE.md) (also read by other AI tools through `AGENTS.md`).
 
 ## Copyright and license
 

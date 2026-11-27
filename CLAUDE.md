@@ -1,6 +1,6 @@
 # Working on Remy
 
-Remy is an AI career coach for college students (remyai.org). `README.md` is the product overview. `docs/development.md` has how to run, test, deploy and configure it, and `docs/architecture.md` has the folder layout and how the code fits together.
+Remy is an AI career coach for college students (remyai.org). `README.md` is the product overview. `docs/development.md` has how to run, test, deploy and configure it, `docs/architecture.md` has how the code fits together, and `docs/CODEMAP.md` maps every folder, module, route and table (update it when you add or remove one).
 
 ## Other AIs work here too
 
@@ -8,7 +8,7 @@ Run `npm run ai:brief` (or read `docs/ai/CONTEXT.md`, `docs/ai/DECISIONS.md`, ev
 
 ## Before you push
 
-Run these; CI runs the first three and Render deploys whatever lands on `main`.
+Run these; CI runs the first three and DigitalOcean deploys whatever lands on `main`.
 
 ```bash
 npm run check && npm run check:contract && npm test
@@ -28,7 +28,7 @@ CI also runs `npm run check:ai` (owned files, claims, status file; see `docs/ai/
 - **Client calls the server only through** `api()`, `save()` and `download()` in `client/src/lib/store.tsx`, with literal `/api/...` URLs so the contract check can read them. Shared shapes live in `shared/types.ts`.
 - **New `/api` route:** add it in `server/routes.ts` next to related routes, put the logic in the matching `server/<area>/` file (see `docs/architecture.md`), and add a `*.test.ts` beside it.
 - **Database change:** add the next numbered file in `server/migrations/`. Never edit a migration that has shipped.
-- **Secrets** go in the Render dashboard or a local `.env`, never in the repo.
+- **Secrets** go in the DigitalOcean app settings or a local `.env`, never in the repo.
 - **What's new:** every PR that changes what people see adds a short, plain note as a new file `shared/news/YYYY-MM-DD-HHMM.ts` (UTC date and time now, `owners: true` while it's owners-only; copy the newest one). Drop `owners` when the team releases it.
 - Keep existing `data-testid` attributes and add one to each new button or input.
 
