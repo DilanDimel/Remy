@@ -9,8 +9,9 @@ import { Button, Chip, FitBadge, Icon, Loading, Logo, Pill, Screen, Sect, T, suc
 import { useJobs } from "@/lib/jobs";
 import { Tracker } from "../progress";
 import { go } from "@/lib/nav";
+import { jobPay } from "@/lib/pay";
 import { deadlineChip, jobsLine, kindLabel, passedJobs, shortPlace, upcomingEvents, visibleJobs } from "@/lib/next";
-import { useRefreshAll, useSession } from "@/lib/session";
+import { useOwnersOnly, useRefreshAll, useSession } from "@/lib/session";
 import { BUTTON_RADIUS, aboveTabs, font, useTheme } from "@/lib/theme";
 import { radius } from "@/lib/tokens";
 
@@ -23,6 +24,8 @@ const PAGE = 40;
 export function JobCard({ j, fit, children, onPress }: { j: Job; fit?: JobFit; children?: React.ReactNode; onPress?: () => void }) {
   const { c } = useTheme();
   const due = deadlineChip(j.deadline);
+  const pay = jobPay(j);
+  const showPay = useOwnersOnly() && j.kind !== "event"; // new: owners first
   return (
     <Pressable testID="card-job" onPress={onPress} accessibilityRole="button" accessibilityLabel={`${j.title}, ${j.company}`}
       style={({ pressed }) => ({ backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.line, padding: 14, gap: 10, opacity: pressed ? 0.92 : 1 })}>
@@ -39,6 +42,7 @@ export function JobCard({ j, fit, children, onPress }: { j: Job; fit?: JobFit; c
         <FitBadge fit={fit} />
         {due && <Chip text={due.text} tone={due.tone} testID="chip-deadline" />}
       </View>
+      {showPay && <Text testID="text-job-pay" style={{ fontFamily: pay ? font.bold : font.body, fontSize: 14.5, color: pay ? c.ink : c.mutedText }}>{pay ? `Pay: ${pay}` : "Pay not listed"}</Text>}
       {!!fit?.why && <Text numberOfLines={3} style={{ fontFamily: font.body, fontSize: 14, lineHeight: 20, color: c.ink }}><Text style={{ fontFamily: font.bold }}>Why it fits you: </Text>{fit.why}</Text>}
       {children}
     </Pressable>
