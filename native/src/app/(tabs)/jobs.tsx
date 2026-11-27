@@ -11,7 +11,7 @@ import { Tracker } from "../progress";
 import { go } from "@/lib/nav";
 import { jobPay } from "@/lib/pay";
 import { deadlineChip, jobsLine, kindLabel, passedJobs, shortPlace, upcomingEvents, visibleJobs } from "@/lib/next";
-import { useOwnersOnly, useRefreshAll, useSession } from "@/lib/session";
+import { useRefreshAll, useSession } from "@/lib/session";
 import { BUTTON_RADIUS, aboveTabs, font, useTheme } from "@/lib/theme";
 import { radius } from "@/lib/tokens";
 
@@ -25,7 +25,7 @@ export function JobCard({ j, fit, children, onPress }: { j: Job; fit?: JobFit; c
   const { c } = useTheme();
   const due = deadlineChip(j.deadline);
   const pay = jobPay(j);
-  const showPay = useOwnersOnly() && j.kind !== "event"; // new: owners first
+  const showPay = j.kind !== "event"; // everyone, like the website
   return (
     <Pressable testID="card-job" onPress={onPress} accessibilityRole="button" accessibilityLabel={`${j.title}, ${j.company}`}
       style={({ pressed }) => ({ backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.line, padding: 14, gap: 10, opacity: pressed ? 0.92 : 1 })}>
