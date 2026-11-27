@@ -41,8 +41,9 @@ export const fromExtension = (stack: string) => /(chrome|moz|safari-web)-extensi
 /** Saves an error a student hit. Kept 60 days. */
 /** Saves a report; returns its id (a feedback screenshot is stored under it), or undefined if it couldn't be saved. */
 export async function recordError(kind: "browser" | "server" | "feedback", place: string, message: string, detail = "", userId = ""): Promise<number | undefined> {
-  // Server errors also go to PostHog error tracking, so they can be read without an owner session (place + message only).
-  if (kind === "server") capture({ event: "$exception", distinct_id: "remy-server", properties: { $exception_list: [{ type: "ServerError", value: cut(message, 300), mechanism: { handled: true } }], place: cut(place, 200), $process_person_profile: false } });
+  // Every report (server, browser, feedback) also goes to PostHog as "remy_report", so the lead AI can read and fix
+  // them without an owner session. Kind, page and message only: no user id, no email, no screenshot.
+  capture({ event: "remy_report", distinct_id: "remy-server", properties: { kind, place: cut(place, 200), message: cut(message, MESSAGE_MAX), $process_person_profile: false } });
   try {
     const r = await q1("INSERT INTO error_reports (kind, place, message, detail, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING id", [kind, cut(place, 200), cut(message, MESSAGE_MAX), cut(detail, 2000), cut(userId, 80)]);
     if (Math.random() < 0.02) {

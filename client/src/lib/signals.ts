@@ -57,6 +57,7 @@ export function startSignals() {
   addEventListener("error", (e) => {
     const ev = e as ErrorEvent;
     if (extension(ev.filename) || extension(ev.error?.stack)) return;
+    if (/ResizeObserver loop/.test(String(ev.message))) return; // a harmless browser warning, not a crash
     problem(location.pathname, `Page error: ${String(ev.message || "unknown")}`);
   });
   addEventListener("unhandledrejection", (e) => {
@@ -71,7 +72,8 @@ export function startSignals() {
     const el = (e.target as Element | null)?.closest("button, a, [role=button], [data-testid], input, label") || (e.target as Element | null);
     const now = Date.now();
     last = el === last.el && now - last.t < 1000 ? { el, n: last.n + 1, t: now } : { el, n: 1, t: now };
-    if (last.n === 3 && el) {
+    // A triple-click that selects text (reading or copying) is not a rage click.
+    if (last.n === 3 && el && !String(getSelection?.() || "")) {
       // Only the developer-given id or the tag name: never visible text or aria-labels, which can hold what a student wrote.
       const id = el.getAttribute("data-testid") || el.tagName.toLowerCase();
       count(`rage:${tidyPath(location.pathname)}:${id.slice(0, 40)}`);
