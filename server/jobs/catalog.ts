@@ -13,7 +13,7 @@ import { r2Store } from "../platform/r2";
 import { abroad, inUS } from "./fit";
 import { collegeRole, eachQuery, fetchBoard, SCHOOL_QUERIES, studentTitle, withDetail, type Raw } from "./sources";
 
-type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom" | "taleo" | "amazon" | "apple" | "schoolspring" | "jobaps" | "edjoin" | "nystate";
+type Ats = "greenhouse" | "lever" | "ashby" | "workable" | "recruitee" | "smartrecruiters" | "workday" | "oracle" | "bamboohr" | "breezy" | "jazzhr" | "paylocity" | "rippling" | "applitrack" | "ukg" | "adp" | "icims" | "successfactors" | "phenom" | "taleo" | "amazon" | "apple" | "schoolspring" | "jobaps" | "edjoin" | "nystate" | "applicantpro";
 export type CatalogBoard = { ats: Ats; slug: string; company: string };
 export const PARTS = 24;
 /** Text kept per posting: enough for its requirements and summary (an opening keeps up to 12,000 when saved). */
@@ -44,7 +44,7 @@ const STAPPLY_ATS: Partial<Record<Ats, (slug: string, url: string) => string | n
   // https://ebwg.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX → "ebwg.fa.us2.oraclecloud.com|CX"
   oracle: (_, u) => { const m = u.match(/^https:\/\/([^/]+\.oraclecloud\.com)\/hcmUI\/CandidateExperience\/[^/]+\/sites\/([^/?#]+)/); return m ? `${m[1]}|${m[2]}` : null; },
   // Mid-size employers: subdomains (bamboohr, breezy, jazzhr's applytojob), a Rippling board name, a Paylocity company GUID.
-  bamboohr: sub, breezy: sub, jazzhr: sub, rippling: sub,
+  bamboohr: sub, breezy: sub, jazzhr: sub, rippling: sub, applicantpro: sub,
   paylocity: (s) => (/^[0-9a-f-]{36}$/i.test(s) ? s : null),
   // School districts: https://www.applitrack.com/aldineisd/onlineapp → "aldineisd"
   applitrack: (_, u) => sub(u.match(/applitrack\.com\/([^/]+)\/onlineapp/i)?.[1] || ""),
@@ -329,6 +329,23 @@ export async function readBoard(b: CatalogBoard, read = fetchBoard): Promise<Raw
     return jobapsJobs(await getPage(`https://www.jobapscloud.com/${code}/rss.asp`), state).map((x): Raw => ({
       ...x, text: "", detail: async () => { const d = ldPosting(await getPage(x.url)); return { ...d, text: d.text.replace(/\\r\\n/g, "\n") }; },
     }));
+  }
+  if (b.ats === "applicantpro") {
+    // ApplicantPro (many counties, cities and small employers): the board page names its site id, and the board's own
+    // script reads the open list as JSON from /core/jobs/<id> (robots.txt only closes /admin, /stats and internal jobs).
+    const base = `https://${b.slug}.applicantpro.com`;
+    const id = (await getPage(`${base}/jobs/`)).match(/domain_id\s*=\s*'(\d+)'/)?.[1];
+    if (!id) return [];
+    const j = await getJson(`${base}/core/jobs/${id}?getParams=${encodeURIComponent('{"isInternal":0}')}`);
+    return (j.data?.jobs || []).map((x: any): Raw => {
+      const pay = payLine(x.minSalary, x.maxSalary, x.payTypeFrame || x.payType);
+      return {
+        title: String(x.title || "").trim(), url: String(x.jobUrl || `${base}/jobs/${x.id}`), text: "",
+        location: [x.city, x.abbreviation, x.iso3 === "USA" ? "US" : x.iso3].filter(Boolean).join(", "),
+        posted: Date.parse(x.startDateRef) ? new Date(x.startDateRef).toISOString() : undefined,
+        detail: async () => { const d = ldPosting(await getPage(`${x.jobUrl || `${base}/jobs/${x.id}`}.html`)); return { ...d, text: /^Pay:/.test(d.text) ? d.text : withPay(pay, d.text) }; },
+      };
+    });
   }
   if (b.ats === "nystate") {
     // StateJobsNY lists every public vacancy on one page (no robots.txt; the site's terms don't limit reading it).
