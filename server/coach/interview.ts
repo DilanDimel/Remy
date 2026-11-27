@@ -71,10 +71,22 @@ export function feedbackPrompt(profile: ProfileId, q: IvQuestion, answer: string
     `You are Remy, a warm, honest interview coach for a college student. Rate ONE answer from a mock interview against the scoring guide.
 Rate only criteria this answer actually shows; skip the rest (not heard is not a low score). For each rating give the level 1-4 whose description fits best, an EXACT quote of 4 to 25 words copied from the answer, and a one-line note in plain words.
 Never judge accent, filler words, pauses, nerves, personality or looks. Don't assume facts they didn't say.
+Students answer in every style: lazy or one-line, vague, rambling, off-topic, joking, overconfident or bragging, negative about a past boss, made-up sounding, or refusing ("I don't know", "pass"). Coach each one kindly and directly: if it doesn't answer the question, say so plainly in "sharpen"; if it is vague, ask for one real example; if it rambles, ask for the point first. Always return "sharpen".
 "landed": the best thing they said, as an exact quote, and why it works (one sentence).
-"sharpen": the single most useful fix as a short title, plus "example": how they could say it, using ONLY facts already in their answer (no new numbers, names or results).${before ? `\nThis is a second try. Their first try and Remy's tip are given; rate "feedback_iteration" if the guide has it.` : ""}`,
+"sharpen": the single most useful fix as a short title, plus "example": how they could say it, using ONLY facts already in their answer (no new numbers, names or results). If the answer has no facts to reuse, "example" is a short fill-in frame with [brackets] for what they should add, like "Last semester I [what you did], and [what happened]."${before ? `\nThis is a second try. Their first try and Remy's tip are given; rate "feedback_iteration" if the guide has it.` : ""}`,
     `QUESTION: ${q.q}${q.table ? `\nPRACTICE TABLE: ${q.table.map((r) => r.join(" | ")).join(" / ")}` : ""}\n\nSCORING GUIDE:\n${ids.map((id) => `${id}: ${CRITERIA[id].label}. Levels: ${CRITERIA[id].anchors.map((a, i) => `${i + 1}) ${a}`).join(" ")}`).join("\n")}${before ? `\n\nFIRST TRY: ${before.text}\nREMY'S TIP THEN: ${before.sharpen?.title || ""}` : ""}\n\nTHEIR ANSWER: ${answer}\n\nReturn {"ratings":[{"criterion":"","level":1,"quote":"","note":""}],"landed":{"quote":"","why":""},"sharpen":{"title":"","example":""}}`,
   ];
+}
+
+/** Remy's take on an answer too short to rate (under 5 words, like "a lot" or "idk"), without AI: what the question
+ *  wants and a fill-in frame. Shown in place of "I couldn't rate this one". */
+export function thinAnswerTip(q: IvQuestion, answer: string): NonNullable<IvAnswer["sharpen"]> {
+  const said = s(answer, 40);
+  const lead = said ? `“${said}” is too short for an interviewer to go on.` : "That one was too short for an interviewer to go on.";
+  if (q.kind === "yours") return { title: `${lead} Always ask at least one question back.`, example: "What does a strong first month look like in this role, and what is the team working on right now?" };
+  if (q.kind === "warmup") return { title: `${lead} Say who you are, one thing you've done, and why this role.`, example: "I'm a [year] studying [major]. Last [semester or summer] I [one thing you did], and that's why [this role] interests me." };
+  if (q.kind === "work_sample") return { title: `${lead} Walk through it out loud: what you'd look at first, what you notice, and what you'd do next.`, example: "First I'd look at [one column], because [why]. I notice [one thing], so next I'd [one step]." };
+  return { title: `${lead} Answer with one real example: the situation, what you did, and what happened.`, example: "At [place or class], [the situation]. I [what you did], and [what happened because of it]." };
 }
 
 /** What survives of the AI's feedback: quote-backed ratings, a real "landed" quote, and wording that passes `ok`. */
