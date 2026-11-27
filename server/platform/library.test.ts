@@ -22,7 +22,9 @@ test("library: tiers keep Dilan-only items out of channels; words find items; re
   assert.ok((await search("LLC EIN letter", ["team", "dilan"])).some((f) => f.id === "file:ein"));
   // A short file entry still comes along when many longer notes match better.
   await putItems("memory", Array.from({ length: 14 }, (_, i) => ({ id: `memory:n${i}`, title: `Remy logo note ${i}`, body: "remy logo remy logo remy fox logo colours", tier: "team" as const })), true);
-  await putItems("logos", [{ id: "file:fox", title: "remy fox", body: "Image: remy fox", tier: "team", file_name: "remy-fox.png" }], true);
+  // ...and when longer files (meeting notes saying "Remy" a lot) match too: titles rank first.
+  await putItems("logos", [{ id: "file:fox", title: "remy fox", body: "Image: remy fox", tier: "team", file_name: "remy-fox.png" },
+    ...Array.from({ length: 5 }, (_, i) => ({ id: `file:meet${i}`, title: `meeting summary ${i}`, body: "remy remy send logo remy remy", tier: "team" as const, file_name: `m${i}.md` }))], true);
   assert.ok((await search("Send me the Remy fox logo", ["team"])).some((f) => f.id === "file:fox"));
   await putItems("memory", [], true);
   await putItems("logos", [], true);
