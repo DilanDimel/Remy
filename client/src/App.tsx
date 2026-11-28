@@ -201,6 +201,18 @@ function SlowLoading({ failed }: { failed?: boolean }) {
   );
 }
 
+/** "You're offline" while the device has no connection, like the app's note (Demetre, Nov 26). Everyone sees it. */
+function OfflineNote() {
+  const [off, setOff] = useState(() => typeof navigator !== "undefined" && navigator.onLine === false);
+  useEffect(() => {
+    const on = () => setOff(false), down = () => setOff(true);
+    addEventListener("online", on); addEventListener("offline", down);
+    return () => { removeEventListener("online", on); removeEventListener("offline", down); };
+  }, []);
+  if (!off) return null;
+  return <div className="offline-note" role="status" data-testid="banner-offline">You're offline. Remy will save again once you're back.</div>;
+}
+
 function isMobileNow() {
   return typeof window !== "undefined" && window.matchMedia("(max-width: 1020px)").matches;
 }
@@ -303,6 +315,7 @@ function Shell() {
 
   return (
     <div className={`shell ${collapsed ? "nav-collapsed" : ""} ${asstOpen ? "asst-open" : ""}`}>
+      <OfflineNote />
       <aside className="sidebar" aria-label="Main navigation">
         <div className="brand">
           <span className="logo"><Remy size={26} /><span className="logo-text">Remy<b>.</b></span><BetaBadge /></span>

@@ -41,3 +41,18 @@ test("card reasons: plain facts only (place, title in the field, skills shown, d
   assert.deepEqual(reasonLine(w, { title: "Finance Intern", company: "JPMorgan Chase & Co.", location: "Plano, TX", format: "" } as any, fit), ["In your area", "Title in your field", "You show 2 of 3 skills", "Dream employer"]);
   assert.deepEqual(reasonLine(w, { title: "Claims Intern", company: "EyeCare Partners", location: "Plano, TX", format: "" } as any, { ...fit, matched: [], gaps: [] }), ["In your area"], "EY isn't EyeCare; no skills known → no skills claim");
 });
+
+test("an event's sign-up countdown ranks from today's date, and a closed one sinks", async () => {
+  const { eventTiming } = await import("../shared/order");
+  const now = new Date("2026-12-01T12:00:00Z");
+  const ev = (deadline: string) => ({ kind: "event" as const, deadline });
+  assert.equal(eventTiming(ev("2026-12-08"), now), 10);
+  assert.equal(eventTiming(ev("2026-12-25"), now), 6);
+  assert.equal(eventTiming(ev("2027-01-20"), now), 3);
+  assert.equal(eventTiming(ev("2027-06-01"), now), 0);
+  assert.equal(eventTiming(ev("2026-11-20"), now), -40);
+  assert.equal(eventTiming(ev(""), now), 0);
+  assert.equal(eventTiming({ kind: "internship", deadline: "2026-12-08" }, now), 0);
+  // The same event a week later still ranks right: nothing is saved.
+  assert.equal(eventTiming(ev("2026-12-08"), new Date("2026-12-09T12:00:00Z")), -40);
+});
