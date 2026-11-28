@@ -796,7 +796,8 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .nav-collapsed .brand { flex-direction: column; padding: 4px 0 14px; }
 /* Remy's preference questions */
 .pref-q { display: flex; gap: 14px; align-items: flex-start; }
-.pref-n { flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--fox); color: var(--white); display: grid; place-items: center; font-weight: 800; font-size: 13px; }
+/* Question numbers are gone (Dilan, Nov 27); .pref-why is the one line under each question. */
+.pref-why { line-height: 1.4; }
 .pref-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .pref-chip { border: 1.5px solid var(--line); background: var(--bg); border-radius: 999px; padding: 7px 14px; font-weight: 600; font-size: 13.5px; color: var(--ink); }
 .pref-chip:hover { border-color: var(--ink); }
@@ -957,7 +958,6 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .pref-group.open .pref-group-head svg { transform: rotate(180deg); }
 .pref-group-body { padding: 4px 14px 14px; background: var(--surface); }
 /* contrast (walkthrough stage 4): kept last so they win over the original chip and number styles above */
-.pref-n { background: var(--fox-700); color: var(--white); }
 .pref-chip[aria-pressed="true"] { color: var(--fox-800); }
 [data-theme="dark"] .pref-chip[aria-pressed="true"] { color: #ffb48a; }
 /* the dark landing hero keeps its own light-peach selected tab in both themes */
@@ -4165,3 +4165,43 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
   .opp-filters .seg.opp-types::-webkit-scrollbar { display: none; }
   .opp-filters .seg.opp-types button { flex: 0 0 auto; white-space: nowrap; padding: 0 12px; }
 }
+/* Sign-in and setup on the front page's paper (Dilan, Nov 27: "not continuous with the rest of the website"). Same for
+   students and owners: paper and grid with a soft orange glow instead of the black stage, a warm band at the top of
+   each step, orange chips on hover and when picked, an orange Continue, and an orange step list. Tokens only. */
+.auth-stage, .ob, .ob-owner {
+  --ob-grid: color-mix(in srgb, var(--ink) 5%, transparent);
+  color: var(--ink);
+  background-color: var(--bg);
+  background-image: radial-gradient(40% 45% at 92% 0%, var(--fox-soft), transparent 70%), radial-gradient(35% 40% at 0% 100%, var(--fox-soft), transparent 70%), linear-gradient(var(--ob-grid) 1px, transparent 1px), linear-gradient(90deg, var(--ob-grid) 1px, transparent 1px);
+  background-size: auto, auto, 32px 32px, 32px 32px;
+  background-attachment: fixed;
+}
+.auth-stage .lp-beam { display: none; }
+.auth-side-h, .auth-steps b, .ob > .row-between .logo { color: var(--ink); }
+.auth-steps span, .ob-progress-label { color: var(--muted-text); }
+.ob-progress-label b { color: var(--ink); }
+.auth-steps li::before { color: var(--fox-deep); background: var(--fox-soft); border-color: color-mix(in srgb, var(--fox) 45%, var(--line)); }
+.auth-side .lp-award { background: var(--surface); border-color: var(--line); color: var(--ink); }
+.auth-stage .landing-card, .ob .ob-card, .ob-owner .ob-card { border: 1px solid var(--line); box-shadow: var(--shadow), 0 30px 70px -40px color-mix(in srgb, var(--fox) 45%, transparent); }
+.ob .ob-card, .ob-owner .ob-card { background: linear-gradient(to bottom, color-mix(in srgb, var(--fox-soft) 75%, var(--surface)), var(--surface) 110px); }
+.ob .ob-progress span { background: var(--line); }
+.ob .ob-progress li.on span { background: var(--fox); box-shadow: none; }
+.ob-note, .ob-note-foot { background: var(--surface); }
+.ob-note-foot { box-shadow: 0 -10px 10px -6px var(--surface); }
+.ob-chapters li { padding: 6px 8px; border-radius: 10px; }
+.ob-chapters li:not(:last-child)::after { left: 20px; }
+.ob-chapters li.now { background: var(--fox-soft); color: var(--fox-deep); }
+.ob-chapters li.now .ob-dot { border-color: var(--fox); color: var(--fox-deep); }
+.ob .pref-chip:hover, .ob-owner .pref-chip:hover, .auth-stage .pref-chip:hover { border-color: var(--fox); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fox) 18%, transparent); }
+.ob .pref-chip[aria-pressed="true"], .ob-owner .pref-chip[aria-pressed="true"] { border-color: var(--fox); background: var(--fox-soft); color: var(--fox-deep); font-weight: 700; }
+.ob .btn-primary, .ob-owner .btn-primary { background: var(--fox-700); border-color: var(--fox-700); color: var(--white); }
+.ob .btn-primary:hover:not(:disabled), .ob-owner .btn-primary:hover:not(:disabled) { background: var(--fox-800); border-color: var(--fox-800); }
+.ob .remy-prompt, .ob-owner .remy-prompt { background: var(--surface); border: 1px solid var(--line); }
+.ob .conn-row, .ob-owner .conn-row { background: var(--surface); }
+.ob .input, .ob .textarea, .ob .select, .ob-owner .input, .ob-owner .textarea, .ob-owner .select { border: 1.5px solid var(--line); background: var(--surface); }
+.ob .input:focus, .ob .textarea:focus, .ob-owner .input:focus, .ob-owner .textarea:focus { border-color: var(--fox); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fox) 16%, transparent); outline: none; }
+.ob-owner .ob-card [data-testid=input-answer] { min-height: 96px; }
+.pref-q { padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+/* Edit on "Check my notes": the box opens in the row's own cell, with Save and Cancel under it. */
+.ob-card .field .row .btn-sm { min-height: 32px; }
+@media (max-width: 640px) { .pref-q { padding: 0; border: 0; background: none; } }
