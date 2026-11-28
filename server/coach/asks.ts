@@ -6,7 +6,7 @@ import { uid } from "../platform/ids";
 // Remy does the fix himself; nothing about the resume's words changes here (that stays Accept / Edit / Skip), and
 // nothing is sent. Undo puts back exactly what the answer touched, nothing else.
 
-type Snap = { facts: Record<string, MemoryFact | null>; tasks: Record<string, Task | null>; profile: Record<string, string>; checks?: Workspace["profileChecks"] };
+type Snap = { facts: Record<string, MemoryFact | null>; tasks: Record<string, Task | null>; profile: Record<string, string>; checks?: Workspace["profileChecks"]; stale?: Record<string, string>; later?: Record<string, string> };
 const addDays = (d: string, n: number) => new Date(Date.parse(d + "T12:00:00Z") + n * 864e5).toISOString().slice(0, 10);
 
 /** Applies the answer. Returns what Remy says, a line to copy (when there is one) and the Undo record. */
@@ -86,6 +86,34 @@ export function answerAsk(ws: Workspace, ask: Ask, body: { answer?: unknown; kee
       text = kept && dropped ? `Saved ${kept} and left out ${dropped}.` : kept ? `Saved ${kept === 1 ? "it" : `all ${kept}`}. I'll use ${kept === 1 ? "it" : "them"} from now on.` : "Left them out. I won't use them.";
       label = `Saved ${kept} fact${kept === 1 ? "" : "s"}${dropped ? `, left out ${dropped}` : ""}`;
     }
+  } else if (ask.kind === "avoid") {
+    const company = ask.text.match(/openings at (.+)\. Should I/)![1];
+    if (answer === "avoid") {
+      keepProfile("avoid");
+      ws.profile.avoid = [ws.profile.avoid, company].filter((x) => x?.trim()).join(", ");
+      ws.fits = {}; // openings are re-checked, and the avoid list hides theirs (server/jobs/fit.ts notWanted)
+      text = `Done. I won't show you ${company}${/s$/i.test(company) ? "'" : "'s"} openings. You can take them off your avoid list in Preferences.`;
+      label = `Leaving ${company} out`;
+    } else if (answer === "keep") {
+      snap.later = { ...(ws.settings.asksLater || {}) };
+      ws.settings.asksLater = { ...ws.settings.asksLater, [ask.id]: addDays(today, 365) };
+      text = `Got it, I'll keep showing ${company}.`;
+      label = `Kept showing ${company}`;
+    }
+  } else if (ask.kind === "stale") {
+    const ids = ask.id.slice("stale:".length).split(",");
+    if (answer === "keep") {
+      snap.stale = {};
+      for (const a of ws.applications.filter((x) => ids.includes(x.id) && x.staleReason)) { snap.stale[a.id] = a.staleReason!; a.staleReason = undefined; }
+      text = ids.length === 1 ? "Got it, that version stays as it is." : "Got it, those versions stay as they are.";
+      label = "Kept your approved versions";
+    } else if (answer === "review") {
+      const id = uid("t");
+      keepTask(id);
+      ws.tasks.unshift({ id, title: ids.length === 1 ? "Review your tailored version" : `Review your ${ids.length} tailored versions`, why: "You changed your resume after approving them. Open each one, check it still fits, and approve it again or regenerate it.", due: addDays(today, 2), category: "Apply", done: false, source: "Remy's question", link: "/resume?tab=tailor" });
+      text = "I added a to-do to review them in the next two days.";
+      label = "Added: review your tailored versions";
+    }
   }
   if (!text) return { text: "That answer doesn't fit this question." };
   return { text, copy, did: { id: uid("d"), kind: "ask", ref: ask.id, label, old: JSON.stringify(snap), link: "/accounts?tab=memory" } };
@@ -108,6 +136,9 @@ export function undoAsk(ws: Workspace, d: ChatDid) {
   ws.tasks = put(ws.tasks, s.tasks);
   Object.assign(ws.profile, s.profile || {});
   if (s.checks) ws.profileChecks = s.checks;
+  for (const [id, why] of Object.entries(s.stale || {})) { const a = ws.applications.find((x) => x.id === id); if (a) a.staleReason = why; }
+  if (s.later) ws.settings.asksLater = s.later;
+  if ("avoid" in (s.profile || {})) ws.fits = {};
 }
 
 /** Row 14: a to-do whose thing really happened ticks itself, and Remy says so in his chat with Undo. */

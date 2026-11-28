@@ -4214,3 +4214,4 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 .pt-lane p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted-text); max-width: none; }
 .pt-lane .pt-lane-try { color: var(--ink); background: var(--fox-soft); border-radius: 8px; padding: 8px 10px; }
 .pt-lane .btn { justify-self: start; }
+.ob-note-remy { position: relative; } .ob-note-mute { position: absolute; top: 0; right: 0; }

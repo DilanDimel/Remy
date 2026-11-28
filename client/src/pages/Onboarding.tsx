@@ -1,13 +1,13 @@
 import { go, uiFlags } from "../lib/router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Check, ChevronDown, FileText, GraduationCap, Mail, Mic, Sparkles, Square } from "lucide-react";
-import { canListen, useVoice } from "../lib/voice";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, FileText, GraduationCap, Mail, Mic, Sparkles, Square, Volume2, VolumeX } from "lucide-react";
+import { canListen, useNarration, useVoice } from "../lib/voice";
 import { PATHS, type Job, type Profile, type SetupFocus, type Workspace } from "@shared/types";
 import { FIELD_GROUPS, FIELD_MAJORS, splitFieldList } from "@shared/fields";
 import { AUTH_OPTS, authChip } from "@shared/workAuth";
 import { alreadyIn, fitsField, inField, setupReply, tappedResumeClaim } from "@shared/setupReply";
 import { defaultTypes, fieldFromMajor, guessYearFor, yearOptions } from "@shared/setupDefaults";
-import { api, FAR_ENOUGH_STEP, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
+import { api, FAR_ENOUGH_STEP, fmtDate, rid, useOwnersOnly, useOwnerView, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
 import { AiUnavailableNote, BetaBadge, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
 import { ProfileImport, ResumeUpload } from "../components/Uploaders";
@@ -128,6 +128,9 @@ const CHAPTERS: [string, string][] = [
 /** Owner setup's side panel: Remy, the chapters, and every fact the student has given so far (all of it from them). */
 function SetupNotebook({ shown, back }: { shown: number; back: boolean }) {
   const { ws } = useStore();
+  // Owners first (a new feature): Remy reads each chapter's line aloud; the speech bubble is the caption.
+  const voice = useNarration(useOwnersOnly());
+  voice.useLine(back ? null : CHAPTERS[shown][1]);
   const w = ws!;
   const p = w.profile;
   const transcript = w.imports.find((i) => i.kind === TRANSCRIPT);
@@ -148,6 +151,7 @@ function SetupNotebook({ shown, back }: { shown: number; back: boolean }) {
       <div className="row-between"><span className="logo"><span>Remy<b>.</b></span><BetaBadge /></span><ThemeToggle /></div>
       <div className="ob-note-remy">
         <Remy size={60} mood={shown === 5 ? "happy" : "wave"} />
+        {voice.allowed && <button type="button" className="icon-btn ob-note-mute" onClick={voice.toggle} aria-pressed={!voice.muted} aria-label={voice.muted ? "Turn Remy's voice on" : "Mute Remy"} title={voice.muted ? "Turn Remy's voice on" : "Mute Remy"} data-testid="button-setup-voice">{voice.muted ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>}
         <p className="ob-note-say" aria-live="polite">{back ? "Welcome back. Pick up where you left off, or start over." : CHAPTERS[shown][1]}</p>
       </div>
       <ol className="ob-chapters" aria-label={`Chapter ${shown + 1} of ${CHAPTERS.length}: ${CHAPTERS[shown][0]}`}>

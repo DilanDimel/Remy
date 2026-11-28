@@ -7,7 +7,7 @@ import { quietOn } from "./remyOffers";
 // Path, the strip or chat card on other pages, AI memory) and does the fix himself with Undo (server/coach/asks.ts).
 // Pure and cheap: no AI call, no extra database read.
 
-export type AskKind = "conflict" | "name" | "profile" | "facts";
+export type AskKind = "conflict" | "name" | "profile" | "facts" | "avoid" | "stale";
 export interface Ask {
   id: string;
   kind: AskKind;
@@ -33,7 +33,24 @@ const clip = (s: string, n = 40) => (s.length > n ? s.slice(0, n - 1).trimEnd() 
 
 /** Every open question, most important first. `today` is the student's day, YYYY-MM-DD. Snoozed ones are left out
  *  unless `all` (the answer route looks a question up even when it was put off). */
-export function remyAsks(ws: Pick<Workspace, "memory" | "tasks" | "profileChecks" | "settings">, today: string, all = false): Ask[] {
+/** Employers the student marked "Not for me" twice or more and hasn't already told Remy to avoid (Nov 28: Keep/Pass
+ *  feeds the avoid list, but only after the student says yes). Most passes first. */
+export function passedEmployers(ws: Pick<Workspace, "jobFeedback" | "profile">): { company: string; n: number }[] {
+  const n = new Map<string, number>();
+  for (const f of Object.values(ws.jobFeedback || {})) {
+    const c = f?.context?.job?.company?.trim();
+    if (c && f.rating <= 2 && (!f.reason || f.reason === "company")) n.set(c, (n.get(c) || 0) + 1);
+  }
+  const avoid = (ws.profile.avoid || "").toLowerCase().split(/[,;]+/).map((x) => x.trim());
+  return [...n].filter(([c, k]) => k >= 2 && !avoid.includes(c.toLowerCase())).map(([company, k]) => ({ company, n: k })).sort((a, b) => b.n - a.n);
+}
+
+/** Tailored versions the student approved before changing their resume or profile, not sent yet (no tracker status past Saved). */
+export function staleApps(ws: Pick<Workspace, "applications" | "tracker">) {
+  return ws.applications.filter((a) => a.staleReason && a.versions.length && !ws.tracker.some((t) => (t.applicationId === a.id || t.jobId === a.jobId) && t.status !== "Saved"));
+}
+
+export function remyAsks(ws: Pick<Workspace, "memory" | "tasks" | "profileChecks" | "settings" | "jobFeedback" | "profile" | "applications" | "tracker" | "jobs">, today: string, all = false): Ask[] {
   if (!all && quietOn(ws.settings, today)) return [];
   const out: Ask[] = [];
   for (const m of ws.memory.filter((x) => x.conflict)) {
@@ -57,6 +74,16 @@ export function remyAsks(ws: Pick<Workspace, "memory" | "tasks" | "profileChecks
       text: srcs.length === 1 && srcs[0] === "setup" ? `In setup you tapped ${n} I suggested. True for you?`
         : srcs.length === 1 ? `I read your ${srcs[0]} and found ${n} I didn't know. True?` : `I found ${n} about you I'm not sure of yet. True?`,
       options: [], items: facts.map((f) => ({ id: f.id, text: f.text })) });
+  }
+  const passed = passedEmployers(ws)[0];
+  if (passed) out.push({ id: `avoid:${passed.company.toLowerCase()}`, kind: "avoid", text: `You passed on ${passed.n} openings at ${passed.company}. Should I stop showing you their openings?`,
+    options: [{ key: "avoid", label: `Yes, leave ${clip(passed.company, 28)} out` }, { key: "keep", label: "No, keep showing them" }] });
+  const stale = staleApps(ws);
+  if (stale.length) {
+    const cos = [...new Set(stale.map((a) => ws.jobs.find((j) => j.id === a.jobId)?.company).filter(Boolean))] as string[];
+    out.push({ id: `stale:${stale.map((a) => a.id).join(",")}`, kind: "stale",
+      text: `You changed your resume after approving ${stale.length === 1 ? "a tailored version" : `${stale.length} tailored versions`}${cos.length ? ` (${cos.slice(0, 3).join(", ")})` : ""}. ${stale.length === 1 ? "It still uses" : "They still use"} your old resume. Want to look again before you send ${stale.length === 1 ? "it" : "them"}?`,
+      options: [{ key: "review", label: "Remind me to review" }, { key: "keep", label: "They're fine as they are" }] });
   }
   if (all) return out;
   const later = ws.settings.asksLater || {};
