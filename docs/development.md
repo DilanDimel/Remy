@@ -24,6 +24,7 @@ npm run check            # TypeScript
 npm run check:contract   # every client API call matches a real server route, colours follow the palette
 npm test                 # server unit tests (server/*.test.ts)
 npm run check:resume     # resume reading against fixtures, no server or AI key needed
+npm run check:transcript # transcript reading on 480 generated transcripts (TRANSCRIPT_CASES=1000 for the full 12,000)
 npm run check:persist    # builds, restarts on a throwaway database, confirms nothing is lost
 ```
 

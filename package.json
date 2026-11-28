@@ -11,6 +11,7 @@
     "check": "tsc",
     "check:contract": "tsx script/contract.ts",
     "check:resume": "tsx script/resume-check.ts",
+    "check:transcript": "tsx script/transcript-check.ts",
     "check:persist": "npm run build && tsx script/persist.ts",
     "test": "tsx --test server/*.test.ts server/*/*.test.ts script/*.test.ts",
     "check:ai": "tsx script/ai.ts check",

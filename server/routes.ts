@@ -12,7 +12,7 @@ import type {
   Application, AppConfig, BulletChange, ChatAction, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, ResumeLook, ResumeStyle, Suggestion, TrackStatus, Workspace, Story, StoryPart } from "@shared/types";
 import { PATHS } from "@shared/types";
 import { INSIDER_AFTER_DAYS, INSIDER_SURVEY, insiderEligible, insiderSurveyDue, termsFor } from "@shared/beta";
-import { TRANSCRIPT_READER, numbersPrinted } from "./resume/transcript";
+import { TRANSCRIPT_WINDOW, isScanned, numbersPrinted, readerSystem, transcriptGrounded, transcriptText } from "./resume/transcript";
 import { NAME_CHECK, firstName, fullerName, knownName, nameUnsure, sameName } from "@shared/names";
 import { PROFILE_CHECK_FIELDS, remyAsks } from "@shared/remyAsks";
 import { answerAsk, tickDone } from "./coach/asks";
@@ -1821,9 +1821,9 @@ export async function registerRoutes(_server: Server, app: Express) {
     const transcript = /transcript/i.test(kind);
     const out = await withAi(ctx, `Import ${kind}`, () =>
       aiJson<{ facts: { text: string; category: MemoryFact["category"]; quote: string; conflict?: string; notOnResume?: boolean }[] }>(
-        (transcript ? TRANSCRIPT_READER + " " : "") + "You extract factual statements about a student from their own exported profile text. Only include facts stated in the text, in its own words: never add a skill level (proficient, skilled, expert, strong, fluent) the text doesn't state, so a bare skills list stays a list. Keep each fact short and specific. Include a verbatim supporting quote. If a fact disagrees with the student's resume or profile (a different major, school, title, employer or dates), say how in \"conflict\" in plain words, e.g. \"Your resume says Finance & BIS\"; otherwise leave it empty. Name each source (\"your resume says…\", \"your setup answers say…\"); never write \"you said\" about the profile, because parts of it are filled in automatically. " + (ctx.ws.tasks.some((t) => t.source === NAME_CHECK) ? "Ignore name differences: Remy asks the student about their name separately." : "The profile name may come from the sign-in account, so for a different name say \"your sign-in account is under …\".") + " Something missing from the resume is not a conflict: instead set \"notOnResume\": true for experience, skills, certifications, awards or activities the resume doesn't mention.",
-        `Source: ${kind}\nRESUME AND PROFILE (for spotting disagreements only):\n${profileSummary(ctx.ws)}\n${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org, e.dates].filter(Boolean).join(", ")).join("; ")).join("\n") : "(no resume)"}\n\nReturn {"facts":[{"text":"","category":"background|goal|preference|skill|experience|constraint|other","quote":"exact words","conflict":"","notOnResume":false}]} with at most ${transcript ? 25 : 15} facts.\n\nTEXT:\n"""${raw.slice(0, transcript ? 40000 : 12000)}"""`,
-        transcript ? 5000 : 3000,
+        readerSystem(transcript, ctx.ws.tasks.some((t) => t.source === NAME_CHECK)),
+        `Source: ${kind}\nRESUME AND PROFILE (for spotting disagreements only):\n${profileSummary(ctx.ws)}\n${ctx.ws.resume ? ctx.ws.resume.doc.sections.map((s) => s.heading + ": " + s.entries.map((e) => [e.role, e.org, e.dates].filter(Boolean).join(", ")).join("; ")).join("\n") : "(no resume)"}\n\nReturn {"facts":[{"text":"","category":"background|goal|preference|skill|experience|constraint|other","quote":"exact words","conflict":"","notOnResume":false}]} with at most ${transcript ? 30 : 15} facts.\n\nTEXT:\n"""${transcript ? transcriptText(raw).slice(0, TRANSCRIPT_WINDOW) : raw.slice(0, 12000)}"""`,
+        transcript ? 8000 : 3000,
       ),
     );
     // Adding the same account again replaces what the last copy said (it may have been the wrong file).
@@ -1838,7 +1838,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     const disputed = (out.facts || []).filter((f2) => f2.conflict).map((f2) => f2.text.match(/\bat ([A-Z][\w&.'-]*(?:\s+[A-Z][\w&.'-]*)*)/)?.[1] || "")
       .filter((org) => org && !norm(ctx.ws.profile.school || "").includes(norm(org)) && !norm(org).includes(norm(ctx.ws.profile.school || "x")));
     for (const f2 of out.facts || []) {
-      if (f2.quote && !n.includes(norm(f2.quote).slice(0, 80))) continue; // drop anything not grounded in the text
+      if (f2.quote && !n.includes(norm(f2.quote).slice(0, 80)) && !(transcript && transcriptGrounded(String(f2.text || ""), String(f2.quote), raw))) continue; // drop anything not grounded in the text
       f2.text = noUpgrade(String(f2.text || ""), raw);
       if (transcript && !numbersPrinted(f2.text, raw)) continue; // a GPA or credit total not printed on the transcript
       // Quoted from the student's own document, so it's kept without a yes/no for each (Dilan, Nov 27); they can edit or
@@ -1859,7 +1859,10 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.post("/api/import/profile", uploadFile, route(async (req, res, ctx) => {
     const kind = String(req.body?.kind || "Other");
     const f = (req as any).file as Express.Multer.File | undefined;
-    const raw = f ? await fileToText(f.buffer, f.originalname, f.mimetype) : String(req.body?.text || "");
+    let raw = f ? await fileToText(f.buffer, f.originalname, f.mimetype) : String(req.body?.text || "");
+    // A scanned or photographed transcript has no text: the AI reads the page images, as it does for resumes.
+    if (f && /transcript/i.test(kind) && isScanned(raw)) raw = await withAi(ctx, "Read scanned transcript", () => scanText(f.buffer, "transcript")).catch(() => raw);
+    if (f && /transcript/i.test(kind) && isScanned(raw)) bad("Remy couldn't read that PDF. It may be a blurry scan or photo. Download your unofficial transcript as a PDF from your school's student portal and upload that.");
     if (raw.trim().length < 40) bad("Add a file or paste at least a few lines of profile text.");
     const added = await importProfile(ctx, kind, raw, f?.originalname || "Pasted text");
     res.json({ workspace: ctx.ws, added });

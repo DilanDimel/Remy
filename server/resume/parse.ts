@@ -39,11 +39,12 @@ export async function fileToText(buf: Buffer, name: string, mime: string): Promi
 
 /** A scanned or photographed PDF (no text layer): the AI reads the page images and writes out the words exactly as
  *  they are, nothing added. "" when it isn't a resume or can't be read. The student still checks it ("Looks right"). */
-export async function scanText(buf: Buffer): Promise<string> {
-  const out = await aiText(
-    "You copy the text of a scanned resume. Write every word exactly as printed, top to bottom, one line per printed line, headings on their own line, each bullet as \"- text\". Read side columns after the main column. Never add, reword, fix or guess words; skip anything you can't read. No commentary. If the file is not a resume or has no readable text, answer only NOT_A_RESUME.",
-    [{ type: "text", text: "Copy this resume's text." }, { type: "file", file: { filename: "resume.pdf", file_data: "data:application/pdf;base64," + buf.toString("base64") } }],
-    4000,
+export async function scanText(buf: Buffer, what: "resume" | "transcript" = "resume"): Promise<string> {
+  const out = await aiText(what === "transcript"
+    ? "You copy the text of a scanned college transcript. Write every word and number exactly as printed, top to bottom, one line per printed row, keeping each course's code, title, grade and credits on one line. When terms are printed side by side, copy the left column's terms first, then the right. Never add, reword, fix, work out or guess anything; skip what you can't read. No commentary. If the file is not a transcript or has no readable text, answer only NOT_A_RESUME."
+    : "You copy the text of a scanned resume. Write every word exactly as printed, top to bottom, one line per printed line, headings on their own line, each bullet as \"- text\". Read side columns after the main column. Never add, reword, fix or guess words; skip anything you can't read. No commentary. If the file is not a resume or has no readable text, answer only NOT_A_RESUME.",
+    [{ type: "text", text: `Copy this ${what}'s text.` }, { type: "file", file: { filename: `${what}.pdf`, file_data: "data:application/pdf;base64," + buf.toString("base64") } }],
+    what === "transcript" ? 8000 : 4000,
   );
   return /NOT_A_RESUME/.test(out) ? "" : out.replace(/^```\w*\n?|```$/g, "").trim();
 }
@@ -103,12 +104,16 @@ export async function pdfStyle(buf: Buffer): Promise<ResumeStyle | null> {
 export function dropRunningLines(pages: string[][]): string[][] {
   if (pages.length < 2) return pages;
   const key = (l: string) => l.replace(/\d+/g, "#").replace(/\s+/g, " ").trim().toLowerCase();
-  const edges = (lines: string[]) => [...lines.slice(0, 2), ...lines.slice(-2)];
-  const seen = new Map<string, number>();
-  for (const lines of pages) for (const k of new Set(edges(lines).filter((l) => l.length <= 100 && !/^[•●▪◦*–-]/.test(l)).map(key))) seen.set(k, (seen.get(k) || 0) + 1);
-  const running = new Set([...seen].filter(([, n]) => n === pages.length).map(([k]) => k));
+  // Headers and footers are counted apart: two table rows that only differ in numbers ("HIST-2116 … 97 3.00",
+  // "HIST-2117 … 76 3.00") can end one page and start the next, and must not be taken for a running line.
+  const running = (edge: (lines: string[]) => string[]) => {
+    const seen = new Map<string, number>();
+    for (const lines of pages) for (const k of new Set(edge(lines).filter((l) => l.length <= 100 && !/^[•●▪◦*–-]/.test(l)).map(key))) seen.set(k, (seen.get(k) || 0) + 1);
+    return new Set([...seen].filter(([, n]) => n === pages.length).map(([k]) => k));
+  };
+  const heads = running((lines) => lines.slice(0, 2)), feet = running((lines) => lines.slice(-2));
   return pages.map((lines, p) =>
-    lines.filter((l, k) => !(running.has(key(l)) && (k >= lines.length - 2 || (p > 0 && k < 2)))),
+    lines.filter((l, k) => !((feet.has(key(l)) && k >= lines.length - 2) || (heads.has(key(l)) && p > 0 && k < 2))),
   );
 }
 
