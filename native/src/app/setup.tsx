@@ -40,9 +40,9 @@ export default function Setup() {
       <Dots shown={shown} right={shown === 0 && !welcomeBack ? <Text testID="button-sign-out" accessibilityRole="button" onPress={signOut} style={{ fontFamily: font.semi, fontSize: 14, color: c.mutedText, paddingVertical: 6, paddingLeft: 12 }}>Sign out</Text> : undefined} />
       <View style={{ flexGrow: 1 }}>{welcomeBack ? <WelcomeBack onContinue={() => setWelcomeBack(false)} onRestart={async () => { await save("onboarding", { ...w.onboarding, step: 1, answers: [], questions: [], targets: [] }); setWelcomeBack(false); }} />
         : shown === 0 ? <Goal />
-        : shown === 1 ? <ResumeStep onBack={() => save("onboarding", { ...w.onboarding, focus: undefined })} onNext={() => setStep(2)} />
+        : shown === 1 ? <ResumeStep onBack={() => save("onboarding", { ...w.onboarding, focus: undefined })} onNext={() => setStep(2)} onExplore={() => setStep(3)} />
         : shown === 2 ? <Review onBack={() => setStep(1)} onNext={() => setStep(3)} />
-        : shown === 3 ? <Preferences onBack={() => setStep(2)} scrollTop={top} />
+        : shown === 3 ? <Preferences onBack={() => setStep(w.resume ? 2 : 1)} scrollTop={top} />
         : shown === 4 ? <Questions onBack={() => setStep(3)} onNext={() => setStep(5)} />
         : <PlanStep onBack={() => setStep(4)} onFinish={finish} />}</View>
     </Page>

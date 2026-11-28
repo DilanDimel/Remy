@@ -94,6 +94,7 @@ test("Remy speaks first after setup, once, from the student's own best fit, befo
   ws.jobs = [{ ...job("j1"), deadline: "2026-12-05" }, { ...job("j2"), company: "Old Co", deadline: "2026-11-01" }];
   const fit = (score: number) => ({ at: "t", by: "rules", eligibility: "likely", eligibilityNote: "", matched: [], gaps: [], score }) as any;
   ws.fits = { j1: fit(80), j2: fit(95) };
+  ws.resume = { fileName: "r.pdf", doc: { sections: [] } } as any;
   const said = reachOut(ws, TODAY, "t1");
   assert.match(said, /^Hi Maya\. I read your resume and found 1 internship that fits you\. The best one is Finance Intern at Q2, due /);
   assert.deepEqual(ws.chat.at(-1)!.replies, ["Tailor my resume for Q2", "Why does it fit me?"]);
@@ -166,4 +167,17 @@ test("remove a to-do or contact, stop a role, note on a board card, rest days: a
   for (const d of [...r.did, ...r2.did].reverse()) assert.equal(undoDid(ws, d), null);
   assert.equal(JSON.stringify({ t: ws.tasks, c: ws.contacts, r: ws.profile.targetRoles, n: ws.tracker[0].notes, g: ws.game?.restDays || [] }), before);
   assert.deepEqual(chatActions([{ kind: "restDays", days: [0, 1, 2, 3] }, { kind: "cardNote", trackId: "t1", note: "" }]), []);
+});
+
+test("Remy's first hello without a resume says the matches came from the major, year and places (Explore for now)", async () => {
+  const { firstHello } = await import("./remyTools");
+  const ws = emptyWorkspace();
+  ws.profile.preferredName = "Maya";
+  ws.onboarding.done = true;
+  ws.jobs = [{ ...job("j1"), deadline: "2026-12-05" }];
+  ws.fits = { j1: { at: "t", by: "rules", eligibility: "likely", eligibilityNote: "", matched: [], gaps: [], score: 80 } as any };
+  const hello = firstHello(ws, TODAY)!;
+  assert.doesNotMatch(hello.text, /read your resume/);
+  assert.match(hello.text, /^Hi Maya\. From your major, year and the places you chose, I found 1 internship that could fit you\./);
+  assert.match(hello.text, /Add your resume/);
 });

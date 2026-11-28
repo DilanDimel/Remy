@@ -67,12 +67,15 @@ export function Preferences({ onBack, scrollTop }: { onBack: () => void; scrollT
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const allFields = [...fields, ...splitList(otherField)];
+  // Exploring without a resume (the website's rule, Dilan Nov 28): major, year and a place are required for rough matches.
+  const noResume = !ws!.resume;
+  const [major, setMajor] = useState(p.major || "");
   const allRegions = [...regions, ...splitList(otherRegion)];
   const allWorries = [...worries, worryText.trim()].filter(Boolean);
   const missing = (page === 0
-    ? [yearOpts.length && !year.length && "your year", !allFields.length && !unsure && "at least one field (or \"I'm not sure yet\")", !types.length && "what kinds of opportunities"]
-    : []).filter(Boolean);
-  const pageOne = () => ({ ...p, classYear: year[0] || "", graduation: grad.trim(), timeline: timeline.join(", "), opportunityTypes: types.join(", "), targetRoles: allFields.join(", ") });
+    ? [noResume && !major.trim() && "your major", yearOpts.length && !year.length && "your year", !allFields.length && !unsure && "at least one field (or \"I'm not sure yet\")", !types.length && "what kinds of opportunities"]
+    : [noResume && !allRegions.length && "at least one place"]).filter(Boolean);
+  const pageOne = () => ({ ...p, ...(noResume ? { major: major.trim() } : {}), classYear: year[0] || "", graduation: grad.trim(), timeline: timeline.join(", "), opportunityTypes: types.join(", "), targetRoles: allFields.join(", ") });
   const run = async (f: () => Promise<void>) => { setBusy(true); setError(""); try { await f(); } catch (e: any) { setError(e.message); } setBusy(false); };
   // Page 1's picks are saved before page 2, so coming back later doesn't lose them.
   const nextPage = () => run(async () => {
@@ -101,6 +104,7 @@ export function Preferences({ onBack, scrollTop }: { onBack: () => void; scrollT
       </Say>
       {page === 0 ? <>
         <Q n={1} title={yearOpts.length ? "What year are you in?" : "When did you finish school?"} optional={!yearOpts.length}>
+          {noResume && <Input testID="input-pref-major" label="Your major" value={major} onChangeText={setMajor} maxLength={120} placeholder="e.g. Finance, Nursing, Undecided" />}
           {yearOpts.length > 0 && <Chips options={yearOpts} value={year} onChange={setYear} multi={false} testID="pref-year" />}
           <Input testID="input-pref-grad" label={yearOpts.length ? "Expected graduation" : "Graduation"} value={grad} onChangeText={setGrad} placeholder="e.g. May 2029" />
         </Q>

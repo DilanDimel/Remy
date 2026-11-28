@@ -12,7 +12,7 @@ import { Tracker } from "../progress";
 import { go } from "@/lib/nav";
 import { jobPay } from "@/lib/pay";
 import { deadlineChip, jobsLine, kindLabel, passedJobs, shortPlace, upcomingEvents, visibleJobs } from "@/lib/next";
-import { useOwnersOnly, useRefreshAll, useSession } from "@/lib/session";
+import { useAccess, useOwnersOnly, useRefreshAll, useSession } from "@/lib/session";
 import { BUTTON_RADIUS, aboveTabs, font, useTheme } from "@/lib/theme";
 import { radius } from "@/lib/tokens";
 
@@ -29,6 +29,9 @@ export function JobCard({ j, fit, children, onPress }: { j: Job; fit?: JobFit; c
   const showPay = j.kind !== "event"; // everyone, like the website
   const byType = useOwnersOnly(); // kind of opening with its reason (Nov 27), owners first like the website
   const type = opType(j);
+  // Explore for now (owners first, like the website): without a resume, a match is rough, and says why.
+  const { ws } = useSession();
+  const rough = useAccess()("explore") === "open" && !ws?.resume;
   return (
     <Pressable testID="card-job" onPress={onPress} accessibilityRole="button" accessibilityLabel={`${j.title}, ${j.company}`}
       style={({ pressed }) => ({ backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.line, padding: 14, gap: 10, opacity: pressed ? 0.92 : 1 })}>
@@ -43,11 +46,12 @@ export function JobCard({ j, fit, children, onPress }: { j: Job; fit?: JobFit; c
       </View>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         <Chip text={j.label} tone={j.label === "Live" ? "live" : "plain"} testID={`label-${j.label.replace(/\s/g, "-").toLowerCase()}`} />
-        <FitBadge fit={fit} />
+        {rough && fit && !fit.closed ? <Chip text="Rough match" tone="plain" testID="chip-rough" /> : <FitBadge fit={fit} />}
         {due && <Chip text={due.text} tone={due.tone} testID="chip-deadline" />}
       </View>
       {showPay && <Text testID="text-job-pay" style={{ fontFamily: pay ? font.bold : font.body, fontSize: 14.5, color: pay ? c.ink : c.mutedText }}>{pay ? `Pay: ${pay}` : "Pay not listed"}</Text>}
-      {!!fit?.why && <Text numberOfLines={3} style={{ fontFamily: font.body, fontSize: 14, lineHeight: 20, color: c.ink }}><Text style={{ fontFamily: font.bold }}>Why it fits you: </Text>{fit.why}</Text>}
+      {rough && fit ? <Text testID="job-rough" numberOfLines={3} style={{ fontFamily: font.body, fontSize: 14, lineHeight: 20, color: c.ink }}><Text style={{ fontFamily: font.bold }}>Rough match: </Text>Remy picked it from your major, year and the places you chose. Add your resume to see how your experience matches this role.</Text>
+      : !!fit?.why && <Text numberOfLines={3} style={{ fontFamily: font.body, fontSize: 14, lineHeight: 20, color: c.ink }}><Text style={{ fontFamily: font.bold }}>Why it fits you: </Text>{fit.why}</Text>}
       {children}
     </Pressable>
   );

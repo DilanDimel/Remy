@@ -48,7 +48,7 @@ export function reasonLine(w: Workspace, job: Job, fit: JobFit | undefined, owne
   const goal = [...new Set(`${w.profile.targetRoles} ${w.profile.major}`.toLowerCase().split(/[^a-z&]+/).filter((x) => x.length > 3 && !GENERIC.test(x) && !(owner && /^(management|manager|operations|services?)$/.test(x))))];
   if (goal.some((x) => new RegExp(`\\b${x}`, "i").test(job.title))) out.push("Title in your field");
   const total = fit.matched.length + fit.gaps.length;
-  if (total > 0) out.push(`You show ${fit.matched.length} of ${total} skills`);
+  if (total > 0 && w.resume) out.push(`You show ${fit.matched.length} of ${total} skills`);
   if ((w.profile.dreamEmployers || "").split(/[,;]+/).map((d) => d.trim()).filter((d) => d.length > 1).some((d) => sameEmployer(d, job.company))) out.push("Dream employer");
   return out.filter(Boolean);
 }

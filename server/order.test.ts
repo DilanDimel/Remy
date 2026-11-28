@@ -38,6 +38,9 @@ test("card reasons: plain facts only (place, title in the field, skills shown, d
   const w = emptyWorkspace();
   Object.assign(w.profile, { regions: "DFW area", targetRoles: "Finance, Investment banking", major: "Finance", dreamEmployers: "J.P. Morgan, EY" });
   const fit = { regionMatch: true, matched: ["Excel", "Financial modeling"], gaps: ["SQL"] } as any;
+  const job1 = { title: "Finance Intern", company: "JPMorgan Chase & Co.", location: "Plano, TX", format: "" } as any;
+  assert.deepEqual(reasonLine(w, job1, fit), ["In your area", "Title in your field", "Dream employer"], "no resume yet → no skills claim (Explore for now)");
+  w.resume = { fileName: "r.pdf", doc: { sections: [] } } as any;
   assert.deepEqual(reasonLine(w, { title: "Finance Intern", company: "JPMorgan Chase & Co.", location: "Plano, TX", format: "" } as any, fit), ["In your area", "Title in your field", "You show 2 of 3 skills", "Dream employer"]);
   assert.deepEqual(reasonLine(w, { title: "Claims Intern", company: "EyeCare Partners", location: "Plano, TX", format: "" } as any, { ...fit, matched: [], gaps: [] }), ["In your area"], "EY isn't EyeCare; no skills known → no skills claim");
 });

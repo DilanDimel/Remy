@@ -26,6 +26,9 @@ export const FEATURES: Feature[] = [
   // Remy in the student's language (Nov 27, Dilan): the language picker, Spanish screens, and Remy's chat and interview
   // tips in any of 12 languages (shared/i18n.ts). No page.
   { key: "languages", label: "Remy in your language (12 languages, Spanish screens)", path: "", release: "owners", teaser: "" },
+  // Explore for now (Nov 28, Julio's user testing): a student without their resume handy finishes setup with their major,
+  // year and city and sees rough matches; Home and Opportunities ask for the resume to show how their experience fits. No page.
+  { key: "explore", label: "Explore for now: start without a resume (rough matches)", path: "", release: "owners", teaser: "" },
   { key: "rewards", label: "Rewards", path: "/rewards", release: "owners", teaser: "Everything you can earn in Remy, in one place.", follows: "redesign" },
 ];
 
