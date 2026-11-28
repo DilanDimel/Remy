@@ -113,7 +113,7 @@ export default function Jobs() {
   const open = (j: Job) => { tap(); router.push({ pathname: "/job", params: { id: j.id } }); };
 
   const toast = last && (
-    <View style={{ position: "absolute", left: 16, right: 84, bottom: aboveTabs(insets.bottom), flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.ink, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 16 }} testID="toast-undo">
+    <View style={{ position: "absolute", left: insets.left + 16, right: insets.right + 84, bottom: aboveTabs(insets.bottom), flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.ink, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 16 }} testID="toast-undo">
       {/* Handoff 09's words: "Kept. See kept" and "Passed. Undo" (Undo works after Keep too). */}
       <Text style={{ flex: 1, fontFamily: font.semi, fontSize: 14.5, color: c.onInk }} numberOfLines={1}>{last.kept ? "Saved." : "Passed."}</Text>
       {last.kept && <Pressable testID="button-see-kept" hitSlop={10} onPress={() => { tap(); setFilter("kept"); }}><Text style={{ fontFamily: font.bold, fontSize: 14.5, color: c.onInk }}>See saved</Text></Pressable>}
