@@ -43,7 +43,7 @@ Root files: `package.json` (all scripts), `tsconfig.json` (aliases `@/*` → `cl
 | Phone app (new) | `native/`, its own screens and native design, calling `https://remyai.org/api/...` and importing `../shared` | `eas update --branch preview` after a merge (owners only until the team releases it) |
 | Phone app (old shell) | `ios/`, `android/`, `mobile/` (Capacitor) | Loads the live site, so it follows every deploy |
 
-All three use the same server routes, the same `shared/types.ts` shapes and the same rules (`shared/features.ts`, `shared/beta.ts`, `shared/nextAction.ts`, `shared/path.ts`...), so a fix in `shared/` reaches all of them. Owner view versus student view is `useOwnerView()` on the website, `appOpenFor`/rules in `native/src/lib/rules.ts` in the app, and `isOwner` on the server.
+All three use the same server routes, the same `shared/types.ts` shapes and the same rules (`shared/features.ts`, `shared/beta.ts`, `shared/storyEntry.ts`, `shared/nextAction.ts`, `shared/path.ts`...), so a fix in `shared/` reaches all of them. Owner view versus student view is `useOwnerView()` on the website, `appOpenFor`/rules in `native/src/lib/rules.ts` in the app, and `isOwner` on the server.
 
 ## client/ (the website)
 
@@ -66,7 +66,7 @@ client/src/hooks/                   useIsMobile, useToast
 - `lib/native.ts`: Capacitor-only behaviour (downloads, links); does nothing on the web.
 - `lib/analytics.ts` (PostHog), `lib/signals.ts` (automatic problem signals), `lib/presence.ts` (owner activity), `lib/i18n.ts` (languages), `lib/voice.ts` (Remy reading aloud), `lib/news.ts` (What's new), `lib/tailorChat.ts`, `lib/jobs.ts`, `lib/wordPdf.ts`.
 
-**Key components:** Remy's panel and coaching (`RemyAsk`, `RemyOffer`, `RemyDid`, `WhatsThat`, `Tour`), resume (`ResumeReal`, `ResumeBuilder`, `ResumeReview`, `ResumeMarkup`, `AtsCard`, `AtsXray`, `FormatCheck`, `WordPreview`), path and game (`PathBoard`, `DailyPath`, `RoadCard`, `SeasonCard`, `Game`, `Places`, `PinMoment`, `Celebrate`), interviews (`JobInterview`, `MockInterview`, `InterviewCoach`, `PracticeOutLoud`, `StoryDeck`, `PitchCard`), plus `GoogleCalendar`, `LinkedInCoach`, `SchoolVerify`, `OrgLogo`, `WhatsNew`, `ThemeToggle`, `ErrorBoundary`. Remy's drawing and office styles live in `scholar.ts`, `scholar.css`, `office.css`.
+**Key components:** Remy's panel and coaching (`RemyAsk`, `RemyOffer`, `RemyDid`, `WhatsThat`, `Tour`), resume (`ResumeReal`, `ResumeBuilder`, `StoryEntry` (add an experience from a story), `ResumeReview`, `ResumeMarkup`, `AtsCard`, `AtsXray`, `FormatCheck`, `WordPreview`), path and game (`PathBoard`, `DailyPath`, `RoadCard`, `SeasonCard`, `Game`, `Places`, `PinMoment`, `Celebrate`), interviews (`JobInterview`, `MockInterview`, `InterviewCoach`, `PracticeOutLoud`, `StoryDeck`, `PitchCard`), plus `GoogleCalendar`, `LinkedInCoach`, `SchoolVerify`, `OrgLogo`, `WhatsNew`, `ThemeToggle`, `ErrorBoundary`. Remy's drawing and office styles live in `scholar.ts`, `scholar.css`, `office.css`.
 
 ## server/ (the API)
 
@@ -108,7 +108,7 @@ server/*.test.ts     tests of routes and shared/ logic; feature tests sit beside
 - `tailorFix.ts` (one repair pass), `bulletDraft.ts` (checks one improved bullet), `chatDo.ts` and `remyTools.ts` (actions Remy can take from chat, with undo), `pageGuide.ts` (what each page shows, so Remy can explain it), `streamReply.ts`, `term.ts`, `voice.ts` (ElevenLabs voice, cached).
 
 ### server/resume/
-`parse.ts` (PDF/Word by file bytes), `resume.ts` (text → `ResumeDoc`), `ats.ts` (suggestions from the resume itself, no AI), `format.ts` (format check), `builder.ts` (guided builder, student's own words only), `docxEdit.ts` (edit only changed bullets inside the student's Word file), `pdfTwin.ts` and `twinDocx.ts` (keep a PDF resume's look in PDF and Word), `docs.ts` (page geometry), `langs.ts` (resume words in other languages), `transcript.ts` (transcript reader instructions; GPA and credits must be printed on the transcript), `trim.ts` (keeps saved lists small).
+`parse.ts` (PDF/Word by file bytes), `resume.ts` (text → `ResumeDoc`), `ats.ts` (suggestions from the resume itself, no AI), `format.ts` (format check), `builder.ts` (guided builder, student's own words only; also drafts lines for one experience told as a story, `POST /api/resume/story`), `docxEdit.ts` (edit only changed bullets inside the student's Word file), `pdfTwin.ts` and `twinDocx.ts` (keep a PDF resume's look in PDF and Word), `docs.ts` (page geometry), `langs.ts` (resume words in other languages), `transcript.ts` (transcript reader instructions; GPA and credits must be printed on the transcript), `trim.ts` (keeps saved lists small).
 
 ### server/jobs/
 `sources.ts` (live openings from Greenhouse, Lever, Ashby, Workday, SmartRecruiters and more, plus USAJOBS and CareerOneStop), `catalog.ts` (about 80,000 employers' public boards), `openings.ts` (shared checked-openings table), `fit.ts` (deterministic eligibility and fit), `ranking.ts`, `dedupe.ts`, `fullPosting.ts`, `soc.ts` and `metros.ts` (occupation codes and metro areas), `future.ts` (10-year outlook), `logo.ts`, `competitions.ts`, `conferences.ts`, `signals.ts`, `insights.ts` (funnel and outcomes for owners).
@@ -128,7 +128,7 @@ All under `/api`, defined in `server/routes.ts`. Groups by count: `admin` (36), 
 | Start-up | `GET /api/config`, `GET /api/me` |
 | Sign-in | `POST /api/auth/email/start`, `/email/verify`, `/google`, `/guest`, `/logout`, `GET /api/auth/oauth/:provider/start` and `/callback`, `POST /api/auth/oauth/redeem`, `GET /api/auth/app-handoff` (app sign-in) |
 | Workspace | `PUT /api/ws/:section` (save one section), `DELETE /api/ws`, `GET /api/export/data`, memory (`/api/memory/...`) |
-| Resume | `/api/resume/...` (upload, review, tailor, export), `/api/builder/...` |
+| Resume | `/api/resume/...` (upload, review, tailor, export, story), `/api/builder/...` |
 | Jobs | `/api/jobs/...`, `/api/import`, `/api/applications/...`, `/api/careers`, `/api/occupation`, `/api/future`, `/api/logo` |
 | Remy and AI | `/api/ai/...`, `/api/chat/...`, `/api/remy/...`, `/api/voice`, `/api/nudges`, `/api/checkin`, `/api/stories`, `/api/interviews/...` |
 | Calendar | `/api/calendar/...`, `/api/calendar.ics`, `/api/reminders` |

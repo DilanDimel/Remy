@@ -1,6 +1,7 @@
 // Redesign stage 3 (owners first, Nov 21, 2026): the base resume as ONE page, no steps. Dilan: "it needs to show
 // everyone's resume accurately to how it looks", "we just need to tell Remy what to add and not add, and it will change
 // it and show you how it looks", "everything should just be there", ATS back, no Evidence Passport.
+import { StoryEntry } from "./StoryEntry";
 import { useState, type ReactNode } from "react";
 import { Download, FileText } from "lucide-react";
 import type { ResumeDoc, ResumeStyle, Workspace } from "@shared/types";
@@ -88,6 +89,7 @@ export function ResumeOnePage({ doc, upd, dirty, onSave, onReplace, onEditByHand
       )}
       {!formats && <FormatStrip onFormats={() => setFormats(true)} />}
       {!formats && <p className="small muted r1-hint hide-phone">Want to change something? Just tell Remy in the chat, like "add Tableau to my skills" or "remove the coursework line". He shows you the change first.</p>}
+      {!formats && <StoryEntry upd={upd} />}
       <div className="r1-grid">
         <section className="r1-view">
           <div className="seg r1-tabs" role="group" aria-label="Show">

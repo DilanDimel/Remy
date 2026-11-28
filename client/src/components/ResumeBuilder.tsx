@@ -1,10 +1,11 @@
 import { FitTextarea } from "./FitTextarea";
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Mic, Plus, Square, Trash2 } from "lucide-react";
 import type { BuilderItem, ResumeBuilder as Builder, Workspace } from "@shared/types";
 import { api, rid, useStore } from "../lib/store";
 import { Remy, Spinner } from "./common";
 import { nameConcern } from "@shared/junk";
+import { canListen, useVoice } from "../lib/voice";
 
 // The buttons a student taps. Labels are what freshmen recognize as "experience".
 const GROUPS: [string, [string, string][]][] = [
@@ -27,6 +28,24 @@ function start(w: Workspace, email: string): Builder {
     step: 0, items: [], skills: [],
     basics: { name: p.name, email: p.email || email, phone: "", city: p.location, school: p.school, major: p.major, graduation: p.graduation, classYear: p.classYear, gpa: p.gpa || "", highSchool: "", highSchoolYear: "" },
   };
+}
+
+/** What the student did there, told their own way (Julio's user testing, Nov 27: "a sentence or two" read as "write
+ *  the resume line yourself"). Long is fine, typed or said; Remy turns it into one or two lines on the last step. */
+export function StoryBox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { toast } = useStore();
+  const [base, setBase] = useState("");
+  const join = (t: string) => [base.trim(), t.trim()].filter(Boolean).join(" ");
+  const voice = useVoice((t) => onChange(join(t)), (t) => onChange(join(t)), (m) => toast(m, true));
+  return (
+    <label className="field"><span className="small">What did you do there? Tell me the whole story, in your own words. Long is fine: I'll turn it into one or two resume lines.</span>
+      <FitTextarea className="textarea" style={{ minHeight: 120 }} value={value} onChange={(e) => onChange(e.target.value)} maxLength={4000} placeholder="What a normal day looked like, what you worked on, anything that changed because of you…" data-testid="input-card-about" />
+      {canListen && <span className="row" style={{ flexWrap: "wrap" }}>
+        <button type="button" className={"btn btn-sm " + (voice.on ? "btn-primary remy-listening" : "btn-secondary")} onClick={() => { if (!voice.on) setBase(value); voice.toggle(); }} aria-pressed={voice.on} aria-label={voice.on ? "Stop listening" : "Say it instead of typing"} data-testid="button-card-about-mic">{voice.on ? <Square size={14} /> : <Mic size={14} />} {voice.on ? "Listening…" : "Say it"}</button>
+        <span className="xs muted">Your browser turns your words into text here. I only use what you say.</span>
+      </span>}
+    </label>
+  );
 }
 
 /** "Build my resume with Remy" for students with no resume or LinkedIn. Every line comes from what they say here. */
@@ -135,7 +154,7 @@ export function ResumeBuilder({ onDone, onCancel }: { onDone: () => void; onCanc
                   <input className="input" value={i.start} onChange={(e) => item(i.id, { start: e.target.value })} placeholder="Start (e.g. Jun 2024)" />
                   <input className="input" value={i.end} onChange={(e) => item(i.id, { end: e.target.value })} placeholder="End (or Present)" />
                 </div>
-                <textarea className="textarea" value={i.about} onChange={(e) => item(i.id, { about: e.target.value })} placeholder="What did you do there? A sentence or two is fine." data-testid="input-card-about" />
+                <StoryBox value={i.about} onChange={(about) => item(i.id, { about })} />
               </>)}
             </div>
           ))}

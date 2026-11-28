@@ -17,6 +17,7 @@ import { go, replaceRoute } from "../lib/router";
 import { useJobs } from "../lib/jobs";
 import { AiUnavailableNote, Empty, Modal, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
 import { resumeDiff, wordDiff } from "@shared/resumeDiff";
+import { StoryEntry } from "../components/StoryEntry";
 import { ResumeBuilder } from "../components/ResumeBuilder";
 import { ResumeUpload } from "../components/Uploaders";
 import { AtsCard } from "../components/AtsCard";
@@ -239,6 +240,7 @@ function BaseResume({ subParam }: { subParam: string | null }) {
         </div>
       </div>
 
+      <StoryEntry upd={upd} />
       {doc.sections.map((s, si) => (
         <div key={s.id} className="card card-pad stack">
           <div className="row-between">
