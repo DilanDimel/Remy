@@ -172,7 +172,7 @@ Never edit a migration that has shipped; add the next number.
 Imported by the website, the server and the app (`@shared/*`, `../shared` in native). No DOM and no Node APIs, so every file runs everywhere and is tested from `server/*.test.ts`.
 
 - **Model:** `types.ts` (every shape), `news.ts` + `news/*.ts` (What's new, one file per note, about 450), `i18n.ts` + `i18n/es.ts` (languages).
-- **Rules:** `features.ts` (feature releases), `beta.ts` (terms version), `limits.ts`, `workAuth.ts`, `names.ts`, `junk.ts`.
+- **Rules:** `features.ts` (feature releases), `beta.ts` (terms version), `limits.ts`, `workAuth.ts`, `names.ts`, `junk.ts`, `inAppBrowser.ts` (Instagram/Facebook/TikTok built-in browsers, where Google sign-in is blocked).
 - **Career content:** `roads.ts` and `roads-business.ts`, `roads-engineering.ts`, `roads-health.ts` (field roads from official sources), `seasons.ts` (recruiting timing), `fields.ts`, `regions.ts`, `screening.ts`, `requirements.ts`, `questionBank.ts` (interview questions with sources), `interviewRubric.ts`, `interviewCoach.ts`, `interview.ts`, `jobInterview.ts`, `prep.ts`.
 - **Jobs logic:** `order.ts`, `roleMatch.ts`, `opportunityType.ts`, `employer.ts`, `org.ts`, `pay.ts` (only what a posting states), `postingText.ts`, `logos.ts`, `words.ts`.
 - **Resume logic:** `bullets.ts`, `markup.ts`, `review.ts`, `resumeDiff.ts`, `linkedin.ts`.

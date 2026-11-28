@@ -10,11 +10,13 @@ const queued: [string, Record<string, unknown>?][] = [];
 
 const dnt = () => typeof navigator !== "undefined" && (navigator.doNotTrack === "1" || (window as any).doNotTrack === "1" || (navigator as any).globalPrivacyControl === true);
 
-/** Signed-in, published site only. Loaded lazily so it never slows the first page. */
-export function startAnalytics(me: Me, config: AppConfig | null) {
+/** Published site only. Signed-out visitors (e.g. from an ad) are anonymous until they sign in, then joined to their
+ *  account by identify(). Loaded lazily so it never slows the first page. */
+export function startAnalytics(me: Me | null, config: AppConfig | null) {
   const key = config?.posthog?.key;
-  if (ph && ph.get_distinct_id() !== me.id) ph.identify(me.id, { owner: !!me.owner }); // signed in again as someone else
-  if (ph || starting || !key || config?.hosting !== "published" || me.kind === "guest" || me.kind === "visitor" || dnt()) return;
+  const visitor = !me || me.kind === "visitor";
+  if (ph && me && !visitor && ph.get_distinct_id() !== me.id) { ph.identify(me.id, { owner: !!me.owner }); if (me.owner) ph.stopSessionRecording(); } // just signed in, or as someone else; the team is never recorded
+  if (ph || starting || !key || config?.hosting !== "published" || me?.kind === "guest" || dnt()) return;
   starting = true;
   // The full bundle carries replay and error capture, so no PostHog scripts load from outside (only settings JSON).
   import("posthog-js/dist/module.full.no-external").then(({ default: posthog }) => {
@@ -29,16 +31,17 @@ export function startAnalytics(me: Me, config: AppConfig | null) {
       respect_dnt: true,
       disable_surveys: true,
       // The team is never recorded; their events still count (filtered out in PostHog as test accounts).
-      disable_session_recording: !!me.owner,
+      disable_session_recording: !!me?.owner,
       session_recording: { maskAllInputs: true, maskTextSelector: "*", blockSelector: "img, canvas, video, [data-ph-block]" },
-      // Page addresses only, never what's after "?" (search words, sign-in codes).
+      // Page addresses only, never what's after "?" (search words, sign-in codes). Ad tags (utm_*, fbclid) still
+      // arrive: PostHog reads them into their own properties before this runs.
       before_send: (e) => {
         if (!e) return e;
         for (const k of ["$current_url", "$referrer", "$pathname"]) if (typeof e.properties?.[k] === "string") e.properties[k] = String(e.properties[k]).split("?")[0].split("#")[0];
         return e;
       },
     });
-    posthog.identify(me.id, { owner: !!me.owner });
+    if (me && !visitor) posthog.identify(me.id, { owner: !!me.owner });
     ph = posthog;
     for (const [name, props] of queued.splice(0)) posthog.capture(name, props);
   }).catch(() => { starting = false; });
