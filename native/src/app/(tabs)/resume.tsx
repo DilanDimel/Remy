@@ -7,7 +7,7 @@ import { CATS, issues, ranges, toolsRegex, type Cat } from "@shared/markup";
 import { reviewResume, type BulletRef } from "@shared/review";
 import { isListSection } from "@shared/bullets";
 import { Button, Icon, Loading, Remy, Screen, Sect, T, success, tap } from "@/components/ui";
-import { ContactDates, EditLine } from "@/components/ResumeEdit";
+import { ContactDates, EditLine, StoryEntry } from "@/components/ResumeEdit";
 import { FormatCard } from "@/components/FormatCard";
 import { api, apiForm } from "@/lib/api";
 import { canPickFiles, pickResume } from "@/lib/pick";
@@ -145,6 +145,7 @@ export default function Resume() {
   const [fix, setFix] = useState<number | null>(null);
   const [edit, setEdit] = useState<{ id: string; text: string; where: string } | null>(null);
   const [contactOpen, setContactOpen] = useState(false);
+  const [story, setStory] = useState(false); // "Add an experience": tell the story, Remy drafts the lines
   // The resume shows its top part until opened, so the tab isn't one long scroll (Dilan, Nov 25).
   const [whole, setWhole] = useState(false);
   const doc = ws?.resume?.doc;
@@ -274,6 +275,7 @@ export default function Resume() {
         )}
       </View>
 
+      <Button testID="button-add-experience" kind="ghost" label="Add an experience" icon="plus" flex onPress={() => { tap(); setStory(true); }} style={{ marginTop: 8 }} />
       <Button testID="button-resume-whole" kind="ghost" label={whole ? "Show less" : "Show the whole resume"} flex onPress={() => setWhole(!whole)} style={{ marginTop: 8 }} />
       <Button testID="button-tailor" label="Tailor my resume for an opening" icon="arrow" flex onPress={() => go("/resume?tab=tailor", "Tailor")} style={{ marginTop: 14 }} />
     </Screen>
@@ -282,6 +284,9 @@ export default function Resume() {
     </Modal>
     <Modal visible={!!edit} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setEdit(null)}>
       {edit && <EditLine {...edit} onClose={() => setEdit(null)} />}
+    </Modal>
+    <Modal visible={story} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setStory(false)}>
+      {story && <StoryEntry onClose={() => setStory(false)} />}
     </Modal>
     <Modal visible={contactOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setContactOpen(false)}>
       {contactOpen && <ContactDates doc={doc} todo={review.todo} onClose={() => setContactOpen(false)} />}

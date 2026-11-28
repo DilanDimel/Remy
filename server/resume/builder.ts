@@ -4,16 +4,14 @@ import type { BuilderBullet, BuilderItem, ResumeBuilder, ResumeDoc, Section } fr
 import { aiJson } from "../ai/ai";
 import { claimCheck } from "../ai/claims";
 import { uid } from "../platform/ids";
+import { SECTION_OF } from "@shared/storyEntry";
 
-/** Which resume section each button feeds. Languages and certificates become skill lines instead. */
-const SECTION_OF: Record<string, string> = {
-  job: "Experience", internship: "Experience", care: "Experience", family: "Experience", hustle: "Experience",
-  club: "Leadership & Activities", sports: "Leadership & Activities", faith: "Leadership & Activities", arts: "Leadership & Activities", greek: "Leadership & Activities",
-  volunteer: "Community Service", project: "Projects", research: "Projects", award: "Honors & Awards",
-};
 const ORDER = ["Education", "Experience", "Leadership & Activities", "Community Service", "Projects", "Honors & Awards"];
 const SKILL_LINES: Record<string, string> = { language: "Languages", certificate: "Certifications" };
 export const FOLLOWUP_BUDGET = 10;
+/** How many resume lines Remy drafts for one experience (Julio's user testing, Nov 27: students tell the whole story and
+ *  Remy writes one or two lines; a job or internship may get a third when the story holds three different things). */
+export const lineCap = (kind: string) => (kind === "job" || kind === "internship" ? 3 : 2);
 
 const BLANK = /\[[^\]]*\]/g;
 export const hasBlank = (s: string) => /\[[^\]]*\]/.test(s);
@@ -43,7 +41,7 @@ export function ruleBullets(item: BuilderItem): BuilderBullet[] {
     .split(/(?<=[.!?])\s+|\n+|\.\s*\.+/)
     .map((s) => s.replace(/^[\s\-•.]+|[\s.]+$/g, "").replace(/^I\s+/i, ""))
     .filter((s) => s.split(/\s+/).length >= 3)
-    .slice(0, 4)
+    .slice(0, lineCap(item.kind))
     .map((s) => ({ id: uid("bb"), text: upperFirst(s), options: [], source: s }));
 }
 
@@ -85,7 +83,7 @@ Never ask for something they already said. Plain, friendly words a freshman unde
 export async function aiDraft(b: ResumeBuilder): Promise<Record<string, BuilderBullet[]>> {
   const r = await aiJson<{ items: { id: string; bullets: { options: string[]; source: string }[] }[] }>(
     `You write resume bullets for a college student, using ONLY what they said. Never add a number, title, organization, award, tool, skill or result they didn't give.
-For each item write 1-3 bullets (up to 4 for a job or internship). Each bullet starts with a strong action verb, past tense unless it's ongoing, no "I", under 25 words.
+For each item write 1-2 bullets (up to 3 for a job or internship, only when the story holds 3 different things they did). Students often tell the whole story in their own words, sometimes spoken: keep the parts that show what they did and what changed because of them, and leave the rest out. Each bullet starts with a strong action verb, past tense unless it's ongoing, no "I", under 25 words.
 Give 2-3 "options": different wordings of the SAME facts. "source" is the exact words from the student's answer the bullet is based on (copied, not paraphrased).
 If a number would make a bullet stronger but the student didn't give one, put a blank in square brackets for them to fill, like "[how many customers a shift?]". Never guess the number.
 Do not say "led", "managed" or "supervised" unless the student did. Plain, specific words beat buzzwords.
@@ -107,7 +105,7 @@ A shorter true bullet is always better than a longer padded one.`,
         return options.length ? { id: uid("bb"), text: options[0], options, source } : null;
       })
       .filter(Boolean) as BuilderBullet[];
-    out[item.id] = bullets.length ? bullets.slice(0, 4) : ruleBullets(item);
+    out[item.id] = bullets.length ? bullets.slice(0, lineCap(item.kind)) : ruleBullets(item);
   }
   return out;
 }
@@ -156,3 +154,11 @@ export function buildDoc(b: ResumeBuilder): ResumeDoc {
     skills: skillLines,
   };
 }
+
+/** One experience told as a story, outside the builder (the app's "Tell the story" screen): the same draft and honesty
+ *  check as the builder, for a single item. */
+export const storyBuilder = (item: BuilderItem, classYear: string, major: string): ResumeBuilder => ({
+  step: 0, items: [item], skills: [],
+  basics: { name: "", email: "", phone: "", city: "", school: "", major, graduation: "", classYear, gpa: "", highSchool: "", highSchoolYear: "" },
+});
+

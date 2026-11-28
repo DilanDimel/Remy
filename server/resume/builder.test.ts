@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { BuilderItem, ResumeBuilder } from "@shared/types";
-import { bulletFlags, buildDoc, FOLLOWUP_BUDGET, hasBlank, ruleBullets, ruleFollowups } from "./builder";
+import { bulletFlags, buildDoc, FOLLOWUP_BUDGET, hasBlank, lineCap, ruleBullets, ruleFollowups, storyBuilder } from "./builder";
 
 const item = (o: Partial<BuilderItem>): BuilderItem => ({ id: o.kind || "x", kind: "job", stage: "college", org: "", role: "", start: "", end: "", city: "", about: "", followups: [], ...o });
 const builder = (classYear: string, items: BuilderItem[]): ResumeBuilder => ({
@@ -48,4 +48,19 @@ test("builder without AI: bullets are the student's own sentences; follow-ups st
   const qs = ruleFollowups([...many, lang]);
   assert.ok(qs.length <= FOLLOWUP_BUDGET);
   assert.ok(!qs.some((q) => q.itemId === "l")); // nothing to ask about a language
+});
+
+test("builder: a long internship story gets at most 3 lines, a club at most 2 (Julio's user testing)", () => {
+  const story = "I pulled sales numbers every Monday. I found double counted returns in one region. I built the slides for the monthly review. I sat in on the planning calls with my manager. I cleaned up the forecast template.";
+  assert.equal(ruleBullets(item({ kind: "internship", about: story })).length, 3);
+  assert.equal(ruleBullets(item({ kind: "club", about: story })).length, 2);
+  assert.equal(lineCap("job"), 3);
+  assert.equal(lineCap("volunteer"), 2);
+});
+
+test("story: storyBuilder carries the student's year and major and only the one item", () => {
+  const b = storyBuilder(cfa, "Sophomore", "Finance");
+  assert.deepEqual(b.items, [cfa]);
+  assert.equal(b.basics.major, "Finance");
+  assert.equal(b.basics.classYear, "Sophomore");
 });
