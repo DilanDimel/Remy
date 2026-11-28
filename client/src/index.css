@@ -521,7 +521,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .lp [id], #beta-terms { scroll-margin-top: 72px; }
 @media (prefers-reduced-motion: reduce) { .rv, .lp-steps.rv:not(.in) li { opacity: 1; transform: none; } }
 /* phone: chip rows scroll sideways instead of stacking; tighter spacing so the example shows sooner */
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   .lp-hero { padding-top: 12px; padding-bottom: 36px; gap: 24px; }
   .lp-hero h1 { font-size: clamp(2.3rem, 9.5vw, 3rem); }
   .lp-hero-copy { gap: 14px; }
@@ -592,7 +592,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
   .lp-beam-line { left: 50%; height: 48%; top: -6%; }
   .lp-beam-floor { left: 50%; top: 44%; width: 520px; height: 260px; }
 }
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   .lp-dark { padding-top: 24px; padding-bottom: 48px; }
   .lp-bento-sec { padding-top: 44px; }
   .lp-tile { padding: 20px; border-radius: 20px; }
@@ -625,7 +625,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
   .auth-side { display: none; }
 }
 /* iPhones zoom into any text box under 16px and stay zoomed: keep inputs at 16px on phones */
-@media (max-width: 640px) { .input, .textarea, .select { font-size: 16px; } }
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) { .input, .textarea, .select { font-size: 16px; } }
 /* readability fixes from the contrast audit (Nov 5): every landing text at least 4.5:1 in light and dark */
 .lp-ex-tag, .lp-foot-bottom, .lp-old, .lp-todo.done { color: var(--muted-text); }
 .lp-jump b, .lp-live .pref-chip[aria-pressed="true"] { color: var(--fox-800); }
@@ -648,7 +648,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 [data-theme="dark"] .terms-check:has(input:checked) { background: rgba(232, 106, 42, .14); }
 .terms-check input { width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--fox-deep); }
 .terms-go { width: 100%; justify-content: center; }
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   .auth-stage:has(.terms-card) { padding: 12px; }
   .auth-stage .terms-card { max-height: calc(100dvh - 24px); padding: 18px 16px 14px; }
   .terms-head h1 { font-size: 1.25rem; }
@@ -670,7 +670,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .ob .ob-progress li.on span { background: var(--fox); box-shadow: 0 0 10px rgba(232, 106, 42, .6); }
 .ob .ob-progress em { display: none; }
 .conn-soon { margin: 2px 2px 0; }
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   .ob { padding: 18px 12px 40px; gap: 14px; }
   .ob .ob-card { padding: 18px 16px; }
   .pref-chip { min-height: 44px; }
@@ -787,7 +787,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .li-btn.primary { background: var(--linkedin); color: var(--white); }
 .li-menu { position: absolute; right: 12px; bottom: -4px; display: flex; flex-direction: column; gap: 2px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.12); }
 .li-menu span { display: flex; align-items: center; gap: 5px; padding: 4px 8px; white-space: nowrap; }
-@media (max-width: 720px) { .li-step { grid-template-columns: 1fr; } }
+@media (max-width: 720px), (pointer: coarse) and (max-height: 500px) { .li-step { grid-template-columns: 1fr; } }
 .conn-badge { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 800; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); color: var(--muted-text); border: 1px solid var(--line); white-space: nowrap; }
 .conn-badge.busy { background: var(--fox-soft); color: var(--fox-deep); border-color: transparent; }
 .conn-badge.busy .spinner { width: 12px; height: 12px; }
@@ -826,7 +826,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .ob-progress em { font-style: normal; font-size: 12px; color: var(--faint); }
 .ob-progress li.on em { color: var(--muted-text); }
 .ob-progress li[aria-current] em { color: var(--ink); font-weight: 700; }
-@media (max-width: 600px) { .ob-progress li:not([aria-current]) em { visibility: hidden; } }
+@media (max-width: 600px), (pointer: coarse) and (max-height: 500px) { .ob-progress li:not([aria-current]) em { visibility: hidden; } }
 .source-row { display: flex; align-items: center; gap: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .source-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--lav); color: var(--plum); display: grid; place-items: center; flex-shrink: 0; }
 .dropzone { border: 1.5px dashed var(--faint); border-radius: 14px; padding: 26px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; background: var(--surface-2); cursor: pointer; }
@@ -903,7 +903,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
   .hero { grid-template-columns: 1fr; }
   .pipeline { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-@media (max-width: 760px) {
+@media (max-width: 760px), (pointer: coarse) and (max-height: 500px) {
   .shell, .shell.asst-open, .shell.nav-collapsed { grid-template-columns: minmax(0, 1fr); }
   .sidebar { display: none; }
   .mobile-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; background: var(--surface); border-top: 1px solid var(--line); justify-content: space-around; padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
@@ -939,7 +939,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .road.road-long li { grid-template-columns: 20px 1fr; align-items: start; }
 .road.road-long li i { grid-row: span 2; }
 .road.road-long li span { text-align: left; font-size: var(--text-sm); }
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   /* Home fits a phone: the next step and this week's to-dos on the first screen. */
   .hide-phone { display: none !important; }
   .hero { padding: 20px; gap: 14px; }
@@ -979,7 +979,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 /* buttons answer a tap (no page-wide entrance animation: an animated wrapper traps pop-up overlays inside it) */
 .btn:active:not(:disabled) { transform: scale(.97); }
 .btn, .seg button, .pref-chip { -webkit-tap-highlight-color: transparent; }
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   /* the breadcrumb bar already names the page */
   .page-head .eyebrow { display: none; }
   .page-head h1 { font-size: clamp(1.45rem, 6.5vw, 1.8rem); }
@@ -1019,7 +1019,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .opp-search { width: 200px; }
 .opp-phone-only { display: none; }
 .job-contact { padding: 0; }
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   .opp-actions { width: 100%; flex-wrap: nowrap; }
   .opp-phone-only { display: inline; }
   .opp-actions .btn { flex: 1; min-height: 44px; justify-content: center; }
@@ -1060,7 +1060,7 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
 .mobile-nav a[aria-current="page"] svg { color: var(--fox-light); }
 /* empty chat: centered welcome */
 .asst-body > .first-win:first-child { margin: auto 0; gap: 10px; }
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   /* every page on a phone: thumb-sized controls, all tabs visible (no sideways scrolling), slogans off the first screen */
   .btn, .seg button, .tab, .input, .select, select { min-height: 44px; }
   .icon-btn { width: 44px; height: 44px; }
@@ -1071,23 +1071,23 @@ mark { background: var(--fox-soft); color: inherit; border-radius: 3px; padding:
   .tabs > .tab:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
 .pick-more-phone { display: none; }
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   /* Tailor's opening picker: a short list on phones instead of a sideways strip */
   .opening-strip { grid-auto-flow: row; grid-auto-columns: auto; overflow: visible; padding-bottom: 0; }
   .opening-strip .pick-extra, .opening-strip .pick-more-wide { display: none; }
   .opening-strip .pick-more-phone { display: flex; }
 }
 .link-btn { min-height: 0; }
-@media (max-width: 640px) { .link-btn { min-height: 44px; } }
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) { .link-btn { min-height: 44px; } }
 .phone-only { display: none !important; }
-@media (max-width: 640px) { .phone-only { display: flex !important; } }
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) { .phone-only { display: flex !important; } }
 /* rows in styled lists (road steps, job lists, picks) use the card's full width; plain bullet text keeps the 72ch reading width */
 ul[class] > li, ol[class] > li { max-width: none; }
 .cred-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
 .cred { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 4px; }
 .cred p { margin: 0; max-width: none; }
 .phone-only-block { display: none !important; }
-@media (max-width: 640px) { .phone-only-block { display: block !important; } }
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) { .phone-only-block { display: block !important; } }
 
 /* Owners' menu in groups (Nov 7) */
 .adm-nav-group { display: grid; gap: 2px; margin-bottom: 10px; }
@@ -1148,7 +1148,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .season-card { flex-wrap: nowrap; }
 /* Phones (Nov 7): a to-do's title gets the full width; its date sits under it instead of in a narrow side column.
    The openings search gets its own row instead of being squeezed by the checkboxes. */
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   .todo-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 12px; row-gap: 6px; }
   .todo-row > .check { grid-column: 1; grid-row: 1; }
   .todo-row > .item-main { grid-column: 2; grid-row: 1; }
@@ -1179,7 +1179,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .story-chat { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; align-items: start; }
 .story-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; text-align: left; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: inherit; cursor: pointer; }
 .story-row:hover, .story-row.on { border-color: var(--fox); }
-@media (max-width: 760px) { .story-chat { grid-template-columns: 1fr; } }
+@media (max-width: 760px), (pointer: coarse) and (max-height: 500px) { .story-chat { grid-template-columns: 1fr; } }
 
 /* Opportunities (audit Nov 17, section 6): on every screen a closed card shows company, title, place, due date, one short
    "why it fits" and the buttons; skills, eligibility and gaps open with Details (they were always shown on laptops). */
@@ -1208,7 +1208,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .game-bar { height: 6px; border-radius: 3px; background: var(--line); margin: 9px 0 4px; overflow: hidden; }
 .game-bar > div { height: 6px; border-radius: 3px; background: linear-gradient(90deg, #ff922b, var(--fox)); }
 .game-missions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-@media (max-width: 700px) { .game-missions { grid-template-columns: 1fr; } }
+@media (max-width: 700px), (pointer: coarse) and (max-height: 500px) { .game-missions { grid-template-columns: 1fr; } }
 .game-mission { border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
 .game-mission.ok { border-color: #2f9e44; background: rgba(47, 158, 68, .06); }
 .game-ico { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--fox-soft); color: var(--fox); }
@@ -1235,7 +1235,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .step-bar .step-text { display: grid; gap: 1px; min-width: 0; }
 .decided-row { width: 100%; padding: 6px 0; border-top: 1px solid var(--line); background: none; color: inherit; cursor: pointer; }
 .decided-row:first-child { border-top: 0; }
-@media (max-width: 700px) {
+@media (max-width: 700px), (pointer: coarse) and (max-height: 500px) {
   .step-bar .step { flex-direction: column; gap: 4px; padding: 8px 6px; text-align: center; }
   .step-bar .step-text b { font-size: 12px; line-height: 1.2; }
   .step-bar .step-text .muted { display: none; }
@@ -1256,7 +1256,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .design-preview[data-theme="dark"] { --surface: #1c1c1c; --surface-2: #161616; }
 /* Job-type filters: short labels on phones so all four fit in one row. */
 .opp-kind-short, .dream-short { display: none; }
-@media (max-width: 560px) {
+@media (max-width: 560px), (pointer: coarse) and (max-height: 500px) {
   .design-preview .opp-filters .seg { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .design-preview .opp-filters .seg button { padding: 0 4px; }
   .design-preview .opp-kind-long { display: none; }
@@ -1347,7 +1347,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
   .hero2 { grid-template-columns: auto 1fr; }
   .hero2-steps { grid-column: 1 / -1; }
 }
-@media (max-width: 560px) {
+@media (max-width: 560px), (pointer: coarse) and (max-height: 500px) {
   .hero2 { grid-template-columns: 1fr; padding: 16px; }
   .hero2-remy svg { width: 64px; height: auto; }
   .hero2-bubble::before { display: none; }
@@ -1391,7 +1391,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .remy-dock-name { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--ink); }
 /* Phones (Nov 27): the face alone didn't read as a button, so it says "Ask Remy" there. */
 .remy-dock .remy-dock-name { display: none; }
-@media (max-width: 640px) { .remy-dock { gap: 6px; border-radius: 999px; } .remy-dock .remy-dock-face { width: 38px; height: 38px; } .remy-dock .remy-dock-name { display: inline; font-size: var(--text-xs); padding: 4px 10px; } }
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) { .remy-dock { gap: 6px; border-radius: 999px; } .remy-dock .remy-dock-face { width: 38px; height: 38px; } .remy-dock .remy-dock-name { display: inline; font-size: var(--text-xs); padding: 4px 10px; } }
 @media (prefers-reduced-motion: reduce) { .asst-avatar::after, .act-row { animation: none !important; } }
 /* One Remy at a time (stage 2): the Activity list starts at the top; with the panel open, Home's card drops its own fox;
    on desktop the corner button gives way to the top-centre avatar (phones keep the corner button). */
@@ -1447,7 +1447,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 /* Owners (Nov 24): a closed to-do shows one line of its reason, so three long to-dos still fit 1440x800; open shows two. */
 .redesign-2 .home-lists .todo-row:not(.open) .why { -webkit-line-clamp: 1; }
 /* Opportunities on a phone (owners): openings sooner. One-line dream employers, the "hiding" note as plain text, not a box. */
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   .redesign-2 [data-testid="dream-row"] { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
   .redesign-2 [data-testid="dream-row"] > .xs { display: none; } /* "Import it" repeats the Import button just above */
   .redesign-2 [data-testid="notice-filtered"] { background: none; border: 0; padding: 0; font-size: var(--text-xs); color: var(--muted-text); }
@@ -1464,7 +1464,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .example-star dd { margin: 0; }
 .example-pitch { margin: 0; line-height: 1.6; }
 .example-role { font-size: var(--text-lg); }
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   /* Tailor is the one main action; the rest share one compact row under it, all still visible */
   .redesign-2 .job-acts { gap: 6px; }
   .redesign-2 .job-acts > [data-testid="button-tailor-job"] { flex: 1 0 100%; justify-content: center; min-height: 42px; }
@@ -1486,7 +1486,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .tpick-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .tpick-text b, .tpick-text .xs { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tpick-go { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: var(--text-sm); white-space: nowrap; }
-@media (max-width: 640px) { .tpick-row .chip { display: none; } } /* the row keeps title, company and Tailor; the chip repeats Opportunities */
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) { .tpick-row .chip { display: none; } } /* the row keeps title, company and Tailor; the chip repeats Opportunities */
 .owner-tools { display: flex; align-items: center; gap: 6px; padding: 8px 4px 4px; }
 .owner-seg { flex: 1; }
 .owner-tools + .side-foot { margin-top: 0; }
@@ -1507,7 +1507,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .doc-top nav .doc-pill { padding: 7px 14px; border-radius: 999px; background: var(--fox-soft); color: var(--fox-deep); }
 .doc-top nav .doc-back { padding: 8px 14px; border-radius: 10px; background: var(--fox); color: var(--stage-deep); }
 .doc-top nav .doc-pill:hover, .doc-top nav .doc-back:hover { color: var(--stage-deep); background: var(--fox); }
-@media (max-width: 480px) { .doc-top nav { width: 100%; gap: 6px; justify-content: space-between; flex-wrap: nowrap; } .doc-top nav a { padding-inline: 9px; white-space: nowrap; font-size: 13px; } }
+@media (max-width: 480px), (pointer: coarse) and (max-height: 500px) { .doc-top nav { width: 100%; gap: 6px; justify-content: space-between; flex-wrap: nowrap; } .doc-top nav a { padding-inline: 9px; white-space: nowrap; font-size: 13px; } }
 .doc-head { max-width: 1120px; margin: 0 auto; padding: 48px 0 28px; }
 .doc-head h1 { font-size: clamp(2rem, 1.5rem + 2vw, 3rem); letter-spacing: -0.035em; line-height: 1.05; font-weight: 800; }
 .doc-head p { margin-top: 12px; max-width: 62ch; font-size: var(--text-lg); color: var(--muted-text); line-height: 1.5; }
@@ -1584,7 +1584,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .op-date small { display: block; font-size: var(--text-xs); font-weight: 800; text-transform: uppercase; color: var(--fox-deep); }
 .op-date b { font-size: 1.15rem; font-weight: 800; }
 @media (max-width: 1100px) { .op-cols { grid-template-columns: minmax(0, 1fr); } .op-rail { position: static; } }
-@media (max-width: 640px) { .op-pick { grid-template-columns: minmax(0, 1fr); padding: 16px; } .op-pick-mono { display: none; } }
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) { .op-pick { grid-template-columns: minmax(0, 1fr); padding: 16px; } .op-pick-mono { display: none; } }
 /* Owner Progress (tabs redesign, Nov 22): count tiles, lanes, and what's next. Reuses .op-card/.op-tile/.op-dl. */
 .pr-tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 .op-tile.pr-plain { background: var(--surface); border: 1px dashed var(--line); }
@@ -1615,7 +1615,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .pr-todo em { font-style: normal; font-size: var(--text-xs); color: var(--faint); font-weight: 700; }
 .pr-todo em.late { color: var(--error); }
 @media (max-width: 900px) { .pr-flow { grid-template-columns: repeat(5, 78%); overflow-x: auto; scroll-snap-type: x mandatory; } .pr-lane { scroll-snap-align: start; } .pr-cols { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 640px) { .pr-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) { .pr-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 /* Owner Community (tabs redesign, Nov 22): faces, warmth bars. Reuses .op-pick/.op-card/.pr-cols. */
 .cm-face { border-radius: 50%; }
 .cm-top { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 10px; align-items: center; }
@@ -1628,7 +1628,7 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .cm-guide { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); font-size: var(--text-sm); }
 .cm-guide dt { font-size: var(--text-xs); font-weight: 800; color: var(--fox-deep); padding-top: 2px; }
 .cm-guide dd { margin: 0; }
-@media (max-width: 640px) { .cm-alumni { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) { .cm-alumni { grid-template-columns: minmax(0, 1fr); } }
 /* Owner Interview: the job practice set is the peach highlight, like Home's Remy card; question rows stay plain cards. */
 .iv-stage { background: var(--fox-soft); border-radius: 20px; padding: 18px 20px; }
 .iv-stage h3 { font-size: var(--text-lg); }
@@ -1670,13 +1670,13 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .mi-seat { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 16px; align-items: start; }
 .mi-remy { display: grid; justify-items: center; gap: 4px; padding-top: 4px; }
 .mi-remy small { font-size: var(--text-xs); font-weight: 700; color: var(--fox-deep); text-align: center; }
-@media (max-width: 520px) { .mi-seat { grid-template-columns: 1fr; } .mi-remy { grid-auto-flow: column; justify-content: start; align-items: center; } .mi-remy svg { width: 44px; height: auto; } }
+@media (max-width: 520px), (pointer: coarse) and (max-height: 500px) { .mi-seat { grid-template-columns: 1fr; } .mi-remy { grid-auto-flow: column; justify-content: start; align-items: center; } .mi-remy svg { width: 44px; height: auto; } }
 .mi-score { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .mi-score .op-tile { background: var(--surface-2); }
 .mi-kit { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .mi-kit .op-tile { text-align: left; border: 1px solid transparent; cursor: pointer; color: inherit; }
 .mi-kit .op-tile.on { border-color: var(--fox); }
-@media (max-width: 520px) { .mi-room { padding: 16px; } .mi-plan li { grid-template-columns: 22px minmax(0, 1fr); padding: 7px 10px; } .mi-plan small { display: none; } .mi-kit .op-tile b { font-size: 1.15rem; } }
+@media (max-width: 520px), (pointer: coarse) and (max-height: 500px) { .mi-room { padding: 16px; } .mi-plan li { grid-template-columns: 22px minmax(0, 1fr); padding: 7px 10px; } .mi-plan small { display: none; } .mi-kit .op-tile b { font-size: 1.15rem; } }
 .iv-page > .card { border-radius: 20px; }
 .tl-owner .card { border-radius: 20px; }
 .tl-owner [data-testid="text-app-title"] { font-size: var(--text-xl); font-weight: 800; letter-spacing: -.01em; }
@@ -1685,12 +1685,12 @@ ul[class] > li, ol[class] > li { max-width: none; }
 .iv-star i { width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; font-style: normal; font-size: .68rem; font-weight: 800; background: var(--surface-2); color: var(--muted-text); }
 .iv-star i.d { background: var(--fox-soft); color: var(--fox-deep); }
 @media (max-width: 900px) { .iv-play { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 640px) { .iv-stage { padding: 16px; } }
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) { .iv-stage { padding: 16px; } }
 .cal-week { margin-top: 10px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 .cal-week .op-date { background: var(--surface); }
 /* "this-week", not "soon": the global .soon (Coming soon pages) made the date chip 640px tall. */
 .cal-week .op-date.this-week { border-color: var(--fox); }
-@media (max-width: 640px) { .redesign-2 .hero2-bubble p { max-width: none; } }
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) { .redesign-2 .hero2-bubble p { max-width: none; } }
 /* Owner Home, reference pass (Nov 22): streak card by the greeting, getting started inside the card, job cards, season band */
 .streak-peek { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); animation: soul-in .45s ease both; }
 .streak-peek > svg { color: var(--muted-text); flex: none; transition: color .3s; }
@@ -1783,7 +1783,7 @@ html.redesign-2:has(.tour) .remy-offer { display: none; }
   .redesign-2 .hero2.has-track { grid-template-columns: 1fr; }
   .hero2-track { border-left: 0; border-top: 1px solid color-mix(in srgb, var(--fox-deep) 16%, transparent); }
 }
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   .streak-peek { width: 100%; }
   .streak-dots { display: none; }
   .streak-peek .btn { margin-left: auto; }
@@ -1803,13 +1803,13 @@ html.redesign-2:has(.tour) .remy-offer { display: none; }
   .redesign-2 .hero2-bubble p { max-width: calc(100% - 90px); }
 }
 /* Owner phones: up to three tabs sit in one row; four or more use the two-column grid so long words like "Applications" are not split. */
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   .redesign-2 .tabs:not(:has(> :nth-child(4))) { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; }
   .redesign-2 .tabs:not(:has(> :nth-child(4))) .tab { text-align: center; padding-left: 4px; padding-right: 4px; }
 }
 /* Owner desktop: the big page title already names the page, so the "Remy › Page" bar goes (60 px back at the top).
    It stays when it holds Remy's face (panel closed) and on phones. */
-@media (min-width: 761px) {
+@media (min-width: 761px) and (min-height: 501px), (min-width: 761px) and (pointer: fine) {
   .redesign-2 .topbar:not(:has(.remy-dock)) { display: none; }
   .redesign-2 .topbar .crumb { visibility: hidden; }
 }
@@ -1823,7 +1823,7 @@ html.redesign-2:has(.tour) .remy-offer { display: none; }
 .pr-start p b { color: var(--ink); }
 .pr-start-row { display: flex; align-items: center; gap: 10px; }
 .pr-start-row .pr-mini-t { flex: 1; min-width: 0; }
-@media (max-width: 640px) { .pr-start-row { flex-wrap: wrap; } .pr-start-row .pr-mini-t { flex-basis: calc(100% - 50px); } }
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) { .pr-start-row { flex-wrap: wrap; } .pr-start-row .pr-mini-t { flex-basis: calc(100% - 50px); } }
 @keyframes soul-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes soul-pop { 0% { transform: scale(.6); } 70% { transform: scale(1.12); } 100% { transform: scale(1); } }
 @keyframes soul-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--fox) 45%, transparent); } 70% { box-shadow: 0 0 0 8px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
@@ -1857,7 +1857,7 @@ html.redesign-2:has(.tour) .remy-offer { display: none; }
 .rm-todo { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; padding-bottom: 10px; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }
 .rm-good { display: flex; flex-direction: column; gap: 3px; color: var(--sage); }
 @media (max-width: 1100px) { .rm-body { grid-template-columns: 1fr; } .rm-side { position: static; } }
-@media (max-width: 560px) { .rm-paper { padding: 16px 14px; font-size: 13px; } .rm-row { flex-wrap: wrap; gap: 0 10px; } }
+@media (max-width: 560px), (pointer: coarse) and (max-height: 500px) { .rm-paper { padding: 16px 14px; font-size: 13px; } .rm-row { flex-wrap: wrap; gap: 0 10px; } }
 
 /* Resume as one page (stage 3, owners first): the real resume big on the left, "Tell Remy" on the right, then
    Make it stronger and the ATS check on the same page. No steps. */
@@ -1877,7 +1877,7 @@ html.redesign-2:has(.tour) .remy-offer { display: none; }
 .r1-section > h3 { margin: 8px 0 0; }
 .r1-save { position: sticky; bottom: 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 14px; background: var(--stage); color: var(--paper); border-radius: var(--radius); z-index: 4; }
 @media (max-width: 1100px) { .r1-grid { grid-template-columns: 1fr; } .r1-side { position: static; } }
-@media (max-width: 640px) { .r1-view .pdf-preview { height: 80vh; } }
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) { .r1-view .pdf-preview { height: 80vh; } }
 .rm-plain .rm-body { grid-template-columns: 1fr; }
 
 /* Stage 3 revision (Dilan): no separate "Tell Remy" box (the chat does it), full-width resume, more room. */
@@ -1894,10 +1894,10 @@ html.redesign-2:has(.tour) .remy-offer { display: none; }
 .rm-paper { padding: 40px 48px; font-size: 14.5px; line-height: 1.6; max-width: 900px; }
 .rm-plain .rm-paper { margin: 0 auto; width: 100%; }
 .chat-proposal { display: flex; flex-direction: column; gap: 8px; max-width: 92%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
-@media (max-width: 560px) { .rm-paper { padding: 18px 16px; font-size: 13.5px; } }
+@media (max-width: 560px), (pointer: coarse) and (max-height: 500px) { .rm-paper { padding: 18px 16px; font-size: 13.5px; } }
 /* Closed-panel Remy sits in the top bar's right corner; a little smaller on phones. */
 .remy-dock-face { width: 44px; height: 44px; }
-@media (max-width: 760px) { .remy-dock-face { width: 38px; height: 38px; } }
+@media (max-width: 760px), (pointer: coarse) and (max-height: 500px) { .remy-dock-face { width: 38px; height: 38px; } }
 .remy-dock-face .fox { animation: none; }
 .remy-dock-face .fox .fox-body { animation: fox-bob 3.4s ease-in-out infinite; }
 .rm-paper li, .rm-paper p { max-width: none; }
@@ -1924,7 +1924,7 @@ html.redesign-2:has(.tour) .remy-offer { display: none; }
 .fmt-preview { display: block; height: clamp(200px, calc(100vh - 500px), 680px); width: auto; max-width: 100%; margin: 0 auto; aspect-ratio: 8.5 / 11; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); object-fit: contain; }
 .fmt-loading { background: var(--surface-2, var(--line)); }
 .fmt-strip { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid color-mix(in srgb, var(--error) 40%, var(--line)); border-radius: var(--radius); }
-@media (max-width: 690px) { .fmt-grid { grid-template-columns: 1fr; } }
+@media (max-width: 690px), (pointer: coarse) and (max-height: 500px) { .fmt-grid { grid-template-columns: 1fr; } }
 .r1-side-card > .card, .r1-side-card .card { border: 0; padding: 0; box-shadow: none; background: none; }
 .rm-side-review { max-height: none; overflow: visible; position: static; }
 .r1 .rm-paper { max-width: none; }
@@ -2013,7 +2013,7 @@ html.redesign-2:has(.tour) .remy-offer { display: none; }
 .lp2-foot { border-top: 1px solid var(--l2-line); padding: 28px 0 40px; display: flex; justify-content: space-between; gap: 16px 20px; flex-wrap: wrap; font-size: 13.5px; color: var(--l2-muted); }
 .lp2-foot nav { display: flex; gap: 8px 20px; flex-wrap: wrap; }
 .lp2-foot a:hover { color: var(--l2-ink); }
-@media (max-width: 720px) {
+@media (max-width: 720px), (pointer: coarse) and (max-height: 500px) {
   .lp2-w { padding: 0 16px; }
   .lp2-hero { padding-top: 40px; }
   .lp2-lede { font-size: 1.05rem; }
@@ -2252,7 +2252,7 @@ button.dp-unit-head { width: 100%; border: 0; font: inherit; text-align: left; c
   .dp-top, .dp-roadwrap { grid-template-columns: minmax(0, 1fr); }
   .dp-detail-col { position: static; }
 }
-@media (max-width: 600px) {
+@media (max-width: 600px), (pointer: coarse) and (max-height: 500px) {
   .dp-today { grid-template-columns: minmax(0, 1fr); padding: 22px; }
   .btn.dp-start { grid-row: auto; grid-column: 1; width: 100%; }
   .dp-stop { transform: translateX(calc(var(--off, 0) * 34px)); width: 170px; }
@@ -2325,7 +2325,7 @@ button.dp-unit-head { width: 100%; border: 0; font: inherit; text-align: left; c
 @media (max-width: 860px) {
   .pm-rows { grid-template-columns: minmax(0, 1fr); }
 }
-@media (max-width: 600px) {
+@media (max-width: 600px), (pointer: coarse) and (max-height: 500px) {
   .pm-row-btn { grid-template-columns: 34px minmax(0, 1fr) 64px; }
   .pm-growth { grid-template-columns: 1fr; }
   .pm-track { display: none; }
@@ -2629,7 +2629,7 @@ html[data-theme="dark"] .lk { color-scheme: dark; }
 .lk-occ span { font-size: 12.5px; color: var(--lk-muted); }
 .lk-note { max-width: none; margin-top: 16px !important; font-size: 12.5px; color: var(--lk-muted); }
 
-@media (max-width: 760px) {
+@media (max-width: 760px), (pointer: coarse) and (max-height: 500px) {
   .lk-hero { padding: 20px 0 44px; }
   .lk-top { grid-template-columns: 1fr; gap: 8px; }
   .lk-remy { order: -1; }
@@ -2644,7 +2644,7 @@ html[data-theme="dark"] .lk { color-scheme: dark; }
 }
 /* Short phone screens (in-app browsers like Instagram's are ~660px tall): Remy shrinks to a small face beside the
    bubble, under the headline, so the year/major box and "Show me my matches" fit on the first screen (Dilan, Nov 28). */
-@media (max-width: 760px) and (max-height: 860px) {
+@media (max-width: 760px) and (max-height: 860px), (pointer: coarse) and (max-height: 500px) and (max-height: 860px) {
   .lk-top { gap: 14px; }
   .lk-remy { order: 0; display: flex; align-items: center; gap: 10px; justify-items: initial; }
   .lk-bubble { flex: 1; max-width: none; margin: 0; padding: 10px 12px; }
@@ -2829,10 +2829,10 @@ html[data-theme="dark"] .lk { color-scheme: dark; }
   .adm-needs { border-left: 0; border-top: 1px solid color-mix(in srgb, var(--fox) 22%, transparent); }
   .adm-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 480px) { .adm-past { grid-template-columns: 1fr 1fr; } .adm-past > :first-child { grid-column: 1 / -1; } .adm-hero-main, .adm-needs { padding: 18px; } }
+@media (max-width: 480px), (pointer: coarse) and (max-height: 500px) { .adm-past { grid-template-columns: 1fr 1fr; } .adm-past > :first-child { grid-column: 1 / -1; } .adm-hero-main, .adm-needs { padding: 18px; } }
 .adm-main { overflow-x: clip; } /* the last sign-up bar's hidden tooltip pushed phones 4px wide */
 .adm-band-people > span { white-space: nowrap; }
-@media (max-width: 600px) { .adm-band { display: grid; gap: 12px; } .adm-band-n { border-right: 0; padding-right: 0; } .adm-band-btn { justify-self: start; } }
+@media (max-width: 600px), (pointer: coarse) and (max-height: 500px) { .adm-band { display: grid; gap: 12px; } .adm-band-n { border-right: 0; padding-right: 0; } .adm-band-btn { justify-self: start; } }
 
 /* Inside the Expo app's website sheet: the app has its own tab bar and Remy chat (client/src/lib/native.ts). */
 html.in-app-sheet .mobile-nav, html.in-app-sheet .topbar { display: none !important; }
@@ -2845,7 +2845,7 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 .redesign-2 .page-real .resume-paper { width: 100%; max-width: 816px; min-height: 1056px; padding: 72px; font-size: 14.67px; line-height: 1.3; border-radius: 2px; }
 .redesign-2 .page-real .resume-paper h4 { font-size: 1em; }
 .redesign-2 .page-real-key .changed { color: var(--stage-2); }
-@media (max-width: 690px) { .redesign-2 .page-real .resume-paper { min-height: 0; padding: 20px 16px !important; font-size: 12px !important; } }
+@media (max-width: 690px), (pointer: coarse) and (max-height: 500px) { .redesign-2 .page-real .resume-paper { min-height: 0; padding: 20px 16px !important; font-size: 12px !important; } }
 
 /* Every device (owners, Nov 23): phones, tablets, Safari, Chrome, Firefox. */
 @media (pointer: coarse) {
@@ -2864,7 +2864,7 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
   /* No hover on touch: the owners' dashboard shows what it would only reveal on hover. */
   .redesign-2 .adm-tip, .redesign-2 .adm-task-actions { opacity: 1; }
 }
-@media (max-width: 760px) {
+@media (max-width: 760px), (pointer: coarse) and (max-height: 500px) {
   /* Remy's panel takes the whole phone screen (it left a strip of page showing) with a smaller face, so the chat has room above the keyboard. */
   .redesign-2 .assistant { width: 100vw; left: 0; }
   .redesign-2 .asst-avatar { width: 56px; height: 56px; }
@@ -2876,7 +2876,7 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 /* My Path side panel: a line under the tabs, so rows scrolled under them read as scrolled, not cut off. */
 .redesign-2 .ps-side-head { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
 /* Phones: a pop-up's buttons stay pinned at its bottom (Save on "Add to calendar" sat below the fold on iPhone). */
-@media (max-width: 760px) {
+@media (max-width: 760px), (pointer: coarse) and (max-height: 500px) {
   .redesign-2 .modal > .row:last-child { position: sticky; bottom: -22px; margin: 0 -22px -22px; padding: 12px 22px 22px; background: var(--surface); border-top: 1px solid var(--line); }
 }
 /* Owners: Remy's question pinned under the line on the resume itself, one flagged line at a time (Nov 23). */
@@ -2896,7 +2896,7 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 .remy-offer.docked > .stack-sm { flex-direction: column !important; align-items: flex-start; }
 .remy-offer.docked > .stack-sm > .remy-offer-text { flex: none; }
 .remy-offer-x { position: absolute; top: 8px; right: 8px; padding: 4px; border-radius: 8px; color: var(--muted-text); }
-@media (max-width: 640px) { .remy-offer { width: calc(100% - 32px); margin-top: 12px; } }
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) { .remy-offer { width: calc(100% - 32px); margin-top: 12px; } }
 /* Owners: the menu link of a page Remy just changed glows for a moment (lib/remyDoes.ts). */
 @keyframes remy-touch { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 30%, 70% { box-shadow: 0 0 0 3px var(--fox); } }
 .remy-touched { animation: remy-touch 1.2s ease-in-out 2; border-radius: 10px; }
@@ -3041,7 +3041,7 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
   .ivco-drill { min-height: 0; overflow-y: auto; }
 }
 @container ivc (max-width: 760px) { .ivco-home, .ivco-practice { grid-template-columns: minmax(0, 1fr); } .ivco-kinds { grid-template-columns: minmax(0, 1fr); } .ivco-qlist { max-height: 220px; order: 2; } }
-@media (max-width: 690px) {
+@media (max-width: 690px), (pointer: coarse) and (max-height: 500px) {
   .ivco-steps { gap: 4px; } .ivco-st { flex-direction: column; gap: 4px; padding: 8px 4px; text-align: center; } .ivco-st small { display: none; } .ivco-st b { font-size: var(--text-xs); line-height: 1.2; overflow-wrap: anywhere; } .ivco-st > span:last-child { max-width: 100%; }
   .ivco-next { padding: 16px; } .ivco-next-row > :first-child { display: none; } .ivco-lesson { padding: 14px; }
   .ivco-slot, .ivco-pslot, .ivco-plan { grid-template-columns: minmax(0, 1fr); gap: 2px; } .ivco-pslot > b { padding-top: 0; } .ivco-plan { gap: 12px; } .ivco-legend { grid-template-columns: minmax(0, 1fr); } .ivco-meter { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -3050,7 +3050,7 @@ html.in-app-sheet .page { padding-bottom: calc(24px + env(safe-area-inset-bottom
 @container ivc (max-width: 760px) { .ivc-grid { grid-template-columns: minmax(0, 1fr); } }
 @container ivc (max-width: 520px) { .ivc-seat { grid-template-columns: minmax(0, 1fr); } .ivc-fox { display: none; } }
 @media (max-height: 760px) and (min-width: 1001px) { .ivc-hide-short { display: none; } }
-@media (max-width: 690px) {
+@media (max-width: 690px), (pointer: coarse) and (max-height: 500px) {
   .ivc { gap: 10px; }
   .ivc-head h1 { font-size: 1.6rem; }
   .ivc-say { font-size: var(--text-sm); margin-top: 2px; }
@@ -3091,7 +3091,7 @@ html.redesign-2 .cal-owner .cal-cell { min-height: clamp(56px, calc((100dvh - 33
 @media (max-width: 1100px) { .cal-owner { grid-template-columns: minmax(0, 1fr); } }
 /* Phones (Nov 23 PM review): "Refresh Remy's suggestions" beside the title squeezed "My Path" onto two lines and the
    subtitle into a column of single words. The button goes under the subtitle, and the office header row wraps cleanly. */
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   .pm-head { flex-direction: column; align-items: flex-start; }
   .ps-office > .pt-card-head { flex-wrap: wrap; row-gap: 2px; }
   .ps-office > .pt-card-head .ps-again { margin-left: auto; }
@@ -3214,7 +3214,7 @@ button.rw-item:not(:disabled) { cursor: pointer; }
 @media (max-width: 1100px) {
   .rw-pins { grid-template-columns: minmax(0, 1fr); }
 }
-@media (max-width: 760px) {
+@media (max-width: 760px), (pointer: coarse) and (max-height: 500px) {
   .rw-pins, .rw-levels, .rw-streak { grid-template-columns: minmax(0, 1fr); }
   .rw-ladder { grid-template-columns: minmax(0, 1fr); }
   .rw-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
@@ -3283,10 +3283,10 @@ button.rw-item:not(:disabled) { cursor: pointer; }
 .rw-lvnum { width: 52px; height: 52px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: var(--lv, var(--fox)); color: var(--white); font-style: normal; font-weight: 800; font-size: var(--text-xl); box-shadow: 0 3px 0 color-mix(in srgb, var(--lv, var(--fox)) 70%, var(--black)); }
 .rw-ladder.short { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .rw-ladder.short li { border: 1.5px dashed color-mix(in srgb, var(--lv, var(--line)) 40%, var(--line)); }
-@media (max-width: 760px) { .rw-ladder.short { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px), (pointer: coarse) and (max-height: 500px) { .rw-ladder.short { grid-template-columns: minmax(0, 1fr); } }
 .rw-grid.items { grid-template-columns: repeat(auto-fit, minmax(86px, 1fr)); }
 .rw-grid.outfits { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
-@media (max-width: 760px) { .rw-grid.outfits, .rw-grid.items { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); } }
+@media (max-width: 760px), (pointer: coarse) and (max-height: 500px) { .rw-grid.outfits, .rw-grid.items { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); } }
 /* Owners' What's new (Nov 23): a day-by-day timeline beside the selected note. Phones show the list, then the note. */
 .modal.wn { max-width: 900px; width: 100%; height: min(620px, 90vh); padding: 0; gap: 0; display: grid; grid-template-columns: 300px 1fr; overflow: hidden; border-radius: 20px; }
 .wn-left { display: flex; flex-direction: column; min-height: 0; background: var(--surface-2); border-right: 1px solid var(--line); }
@@ -3351,7 +3351,7 @@ button.rw-item:not(:disabled) { cursor: pointer; }
 .wn-pick svg { color: var(--fox); }
 .wn-pick b { font-size: var(--text-sm); line-height: 1.3; }
 .wn-pick span { margin-top: auto; font-size: var(--text-xs); color: var(--faint); }
-@media (max-width: 690px) {
+@media (max-width: 690px), (pointer: coarse) and (max-height: 500px) {
   .modal-back:has(.wn) { padding: 0; align-items: flex-end; }
   .modal.wn { display: flex; height: 94dvh; max-height: 94dvh; border-radius: 20px 20px 0 0; }
   .wn-left { width: 100%; border-right: 0; background: var(--surface); }
@@ -3439,7 +3439,7 @@ button.rw-item:not(:disabled) { cursor: pointer; }
 .b2-grid li > span:last-child { font-size: var(--text-sm); color: var(--muted-text); line-height: 1.45; }
 .b2-ic { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 10px; background: var(--fox-soft); color: var(--fox-deep); margin-bottom: 4px; }
 .b2-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
-@media (max-width: 560px) {
+@media (max-width: 560px), (pointer: coarse) and (max-height: 500px) {
   .modal.b2 { padding: 20px; gap: 14px; }
   .b2-head { gap: 12px; }
   .b2-head .asst-avatar { width: 64px; height: 64px; }
@@ -3659,7 +3659,7 @@ button.adm2-bar:hover span { text-decoration: underline; }
 .adm2-open { display: flex; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }
 .adm2-open:last-child { border-bottom: 0; }
 .adm2-open .adm-ellipsis { display: block; }
-@media (max-width: 690px) {
+@media (max-width: 690px), (pointer: coarse) and (max-height: 500px) {
   .adm2-h { flex-wrap: wrap; }
   .adm2-h h3 { white-space: nowrap; }
   [data-testid="openings-list"] .adm2-scroll { max-height: 60vh; }
@@ -3775,7 +3775,7 @@ html.redesign-2 input.ac-sw:checked, .ac-sw:checked { background: var(--ink); } 
 .ac-log li:first-child { border-top: 0; }
 .ac-log i { width: 8px; height: 8px; border-radius: 50%; background: var(--sage); } .ac-log i.x { background: var(--amber); }
 .ac-log em { font-style: normal; font-size: var(--text-xs); color: var(--faint); font-weight: 700; white-space: nowrap; }
-@media (max-width: 760px) {
+@media (max-width: 760px), (pointer: coarse) and (max-height: 500px) {
   .ac-grid-src, .ac-grid-mem, .ac-grid-even, .ac-top, .ac-id, .ac-three, .ac-srcs, .ac-facts, .ac-acts, .ac-danger { grid-template-columns: minmax(0, 1fr); }
   .ac-nudge { grid-template-columns: 36px minmax(0, 1fr); } .ac-nudge > .btn { grid-column: 1 / -1; justify-self: start; }
   .ac-wait > div { grid-template-columns: minmax(0, 1fr); }
@@ -3816,7 +3816,7 @@ button.adm2-stu:hover b { text-decoration: underline; }
 .adm2-steps span, .adm2-steps em { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .adm2-release .feat-row > div { white-space: normal; line-height: 1.25; }
 .adm2-release .feat-row .select { width: 215px !important; }
-@media (max-width: 690px) {
+@media (max-width: 690px), (pointer: coarse) and (max-height: 500px) {
   .adm-head:has(.adm2-headbtns) { flex-direction: column; align-items: flex-start; }
   .adm2-release .feat-row .select { width: 150px !important; }
 }
@@ -3959,7 +3959,7 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 .dp-role-end .btn.dp-wide { height: auto; min-height: 54px; }
 .dp-role-foot { margin: 0; font-size: var(--text-sm); color: var(--muted-text); font-weight: 600; }
 @media (max-width: 1100px) { .dp-round-body { grid-template-columns: minmax(0, 1fr); } .dp-side { display: none; } .dp-round.wide { max-width: 720px; } }
-@media (max-width: 600px) {
+@media (max-width: 600px), (pointer: coarse) and (max-height: 500px) {
   .dp-role { padding: 16px; gap: 12px; }
   .dp-role .dp-min { display: none; }
   .dp-role-head > :first-child { width: 60px; height: 60px; }
@@ -3976,7 +3976,7 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 
 /* Phone website (Dilan, Nov 25; mockups in project files phone-web/): the top bar names the page in big type next to
    Remy's face, so the page's own big title goes; More is a bottom sheet with the other pages as tiles. */
-@media (max-width: 760px) {
+@media (max-width: 760px), (pointer: coarse) and (max-height: 500px) {
   .redesign-2 .topbar { min-height: 56px; padding: 8px 16px; border-bottom: 0; }
   .redesign-2 .crumb .crumb-root { display: none; }
   .redesign-2 .crumb b { font-size: 0; }
@@ -3996,7 +3996,7 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 .more-tile .nav-lock { position: absolute; top: 10px; right: 10px; color: var(--faint); }
 .more-tile[aria-current="page"] { border-color: var(--fox); box-shadow: inset 0 0 0 1px var(--fox); }
 /* Phone sign-in: the homepage's light paper look, full screen, no dark stage around a card. */
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   .auth-stage:not(:has(.terms-card)) { background: var(--bg); color: var(--ink); padding: 0; align-items: stretch; }
   .auth-stage:not(:has(.terms-card)) .lp-beam { display: none; }
   .auth-stage:not(:has(.terms-card)) .landing-card { max-width: none; width: 100%; min-height: 100dvh; border: 0; border-radius: 0; box-shadow: none; background: var(--bg); display: flex; flex-direction: column; justify-content: center; padding: 16px 20px calc(24px + env(safe-area-inset-bottom)); }
@@ -4004,7 +4004,7 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 }
 /* Phone Home (Dilan, Nov 25 mockup): "Remy noticed" shrinks to a slim row, the greeting and Remy's one thing fit the
    first screen. Other pages get the same slim offer row. */
-@media (max-width: 760px) {
+@media (max-width: 760px), (pointer: coarse) and (max-height: 500px) {
   .redesign-2 .remy-offer:not(.docked) { width: calc(100% - 32px); margin: 4px auto 6px; padding: 10px 34px 10px 12px; gap: 10px; }
   .redesign-2 .remy-offer:not(.docked) .remy-offer-face { display: none; }
   /* The whole sentence shows (a 3-line cut hid what Remy offered to do), with the button under it, as in the app. */
@@ -4022,7 +4022,7 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 }
 /* Phone Jobs (Dilan, Nov 25): For you / Saved / Applied on top, short rows, an opening opens as a bottom sheet. */
 .jobs-seg { display: none; }
-@media (max-width: 760px) {
+@media (max-width: 760px), (pointer: coarse) and (max-height: 500px) {
   .redesign-2 .jobs-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; margin-bottom: 4px; }
   .redesign-2 .jobs-seg button { justify-content: center; }
 }
@@ -4044,14 +4044,14 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 .job-sheet .job-top > .stack-sm > .row:first-child > .xs { flex-basis: 100%; }
 .job-sheet .job-card .job-why { display: block !important; -webkit-line-clamp: unset !important; overflow: visible !important; }
 /* Phone Applied (Progress): the stages stack as a list instead of a board that scrolls sideways; empty ones are one line. */
-@media (max-width: 760px) {
+@media (max-width: 760px), (pointer: coarse) and (max-height: 500px) {
   .redesign-2 .pr-flow { grid-template-columns: minmax(0, 1fr); overflow: visible; }
   .redesign-2 .pr-lane > .pr-ghost { display: none; }
   .redesign-2 .pr-lane:not(:has(> :not(h4, .pr-ghost))) { padding: 8px 10px; }
 }
 /* Phone Resume (Dilan, Nov 25): My resume / Tailor as a segmented switch, and Remy's question about a line is a card
    pinned above the tab bar while the line he's fixing sits at the top of the screen. */
-@media (max-width: 760px) {
+@media (max-width: 760px), (pointer: coarse) and (max-height: 500px) {
   .redesign-2 .res-tabs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 12px; background: var(--lav-2); }
   .redesign-2 .res-tabs .tab { justify-content: center; text-align: center; border: 0; border-radius: 9px; }
   .redesign-2 .res-tabs .tab[aria-selected="true"] { background: var(--fox-soft); color: var(--fox-deep); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fox) 40%, transparent); }
@@ -4079,18 +4079,18 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 @media (max-width: 360px) { .cal-week-strip > .row-between h2 { font-size: 1rem; } .cal-week-strip > .row-between .btn-sm { padding-inline: 6px; } }
 /* Phone Remy chat (Dilan, Nov 25): a slim header (face, name, Chat/Activity, close) so the chat gets the screen, and
    "Remy noticed" sits in the chat as his message instead of a card that squeezed it. */
-@media (max-width: 760px) {
+@media (max-width: 760px), (pointer: coarse) and (max-height: 500px) {
   .redesign-2 .asst-body .remy-offer.docked { margin: 4px 0 0; max-width: 92%; box-shadow: none; }
   .redesign-2 .asst-body .remy-offer.docked .remy-offer-face { display: none; }
 }
 /* Phone first visit (Dilan, Nov 25): terms on the light paper look, About/Privacy with a light header and a
    swipeable "jump to" row, setup with one slim header (logo, thin step bar, Remy's one line). */
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   .auth-stage:has(.terms-card) { background: var(--bg); color: var(--ink); padding: 12px; }
   .auth-stage:has(.terms-card) .lp-beam { display: none; }
   .auth-stage:has(.terms-card) .terms-card { box-shadow: none; }
 }
-@media (max-width: 480px) {
+@media (max-width: 480px), (pointer: coarse) and (max-height: 500px) {
   .doc-top { flex-wrap: nowrap; padding: 12px 0; }
   .doc-top nav { width: auto; gap: 4px; }
   .doc-top nav .doc-pill { background: none; color: var(--ink); }
@@ -4113,7 +4113,7 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
   .ob-known { display: none; }
 }
 .signup-bar { display: none; }
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   .signup-bar { display: flex; gap: 10px; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; padding: 10px 16px calc(12px + env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--bg) 94%, transparent); border-top: 1px solid var(--line); backdrop-filter: blur(8px); transform: translateY(110%); transition: transform .25s ease; }
   .signup-bar.on { transform: none; }
   .signup-bar .btn { flex: 1; justify-content: center; min-height: 46px; }
@@ -4125,7 +4125,7 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 .conn-more > summary { cursor: pointer; list-style: none; display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 8px; min-height: 44px; }
 .conn-more > summary::-webkit-details-marker { display: none; }
 .conn-more-hint { display: none; grid-column: 1; text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--muted-text); }
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   .conn-more-hint { display: block; }
   .conn-more > summary::after { content: "+"; grid-column: 2; grid-row: 1 / span 2; font-size: 20px; color: var(--fox); }
   .conn-more[open] > summary::after { content: "\2013"; }
@@ -4136,11 +4136,11 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 .pf-row b { font-weight: 500; overflow-wrap: anywhere; }
 /* Phones (Dilan, Nov 25 review): no dead space. Pages end just above the tab bar (it was ~250px of empty paper),
    sections sit closer together, and nothing slides sideways. */
-@media (max-width: 760px) {
+@media (max-width: 760px), (pointer: coarse) and (max-height: 500px) {
   .page { padding-bottom: 16px; gap: 14px; }
   #main { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
 }
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   .rw .tabs .tab { white-space: normal; flex-shrink: 1; }
   .ps-side-seg { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); overflow: visible; }
   .ps-side-seg button { padding: 6px 2px; font-size: var(--text-xs); flex-direction: column; gap: 0; line-height: 1.2; min-width: 0; }
@@ -4169,12 +4169,12 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 .ask-inline-form { display: flex; gap: 8px; align-items: center; border: 1px solid var(--line); border-radius: 999px; padding: 4px 4px 4px 14px; background: var(--bg); }
 .ask-inline-form:focus-within { border-color: var(--ink); }
 .ask-inline-form input { flex: 1; min-width: 0; border: 0; background: transparent; outline: none; font-size: var(--text-sm); color: var(--ink); min-height: 36px; }
-@media (max-width: 640px) { .ask-inline { padding: 12px; gap: 10px; } .ask-inline-face { width: 34px; height: 34px; } }
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) { .ask-inline { padding: 12px; gap: 10px; } .ask-inline-face { width: 34px; height: 34px; } }
 
 /* Openings by kind (owners first, Nov 27): the kind tag on a card, and on phones the kind tabs scroll in one row. */
 .op-type { font-size: var(--text-xs); font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--ink); color: var(--surface); white-space: nowrap; }
 .op-type em { font-style: normal; font-weight: 600; opacity: .8; }
-@media (max-width: 560px) {
+@media (max-width: 560px), (pointer: coarse) and (max-height: 500px) {
   .opp-filters .seg.opp-types { display: flex; overflow-x: auto; scrollbar-width: none; }
   .opp-filters .seg.opp-types::-webkit-scrollbar { display: none; }
   .opp-filters .seg.opp-types button { flex: 0 0 auto; white-space: nowrap; padding: 0 12px; }
@@ -4218,7 +4218,7 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 .pref-q { padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 /* Edit on "Check my notes": the box opens in the row's own cell, with Save and Cancel under it. */
 .ob-card .field .row .btn-sm { min-height: 32px; }
-@media (max-width: 640px) { .pref-q { padding: 0; border: 0; background: none; } }
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) { .pref-q { padding: 0; border: 0; background: none; } }
 .pm-later { list-style: none; padding: 14px 4px 6px; font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted-text); }
 /* Explore mode on My Path (owners first): one card per field the student is trying. */
 .pt-lanes { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
@@ -4227,3 +4227,27 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 .pt-lane .pt-lane-try { color: var(--ink); background: var(--fox-soft); border-radius: 8px; padding: 8px 10px; }
 .pt-lane .btn { justify-self: start; }
 .ob-note-remy { position: relative; } .ob-note-mute { position: absolute; top: 0; right: 0; }
+
+/* ---- Short and sideways screens (foldables, Nov 28): phones held sideways and foldable cover screens keep the phone
+   layout (the phone queries above also match short touch screens), with these fixes on top. ---- */
+/* Sideways phones: the tabs move to a rail down the left side so the page keeps its height. */
+@media (pointer: coarse) and (max-height: 500px) and (min-width: 600px) {
+  .mobile-nav { top: 0; right: auto; width: calc(76px + env(safe-area-inset-left)); flex-direction: column; justify-content: center; gap: 2px; border-top: 0; border-right: 1px solid var(--line); padding: env(safe-area-inset-top) 4px env(safe-area-inset-bottom) calc(4px + env(safe-area-inset-left)); }
+  .shell { padding-left: calc(76px + env(safe-area-inset-left)); }
+  .page { padding-bottom: 32px; padding-right: calc(16px + env(safe-area-inset-right)); }
+  #main { padding-bottom: 24px; }
+  .asst-fab { bottom: 12px; }
+  .approve-bar.floating { bottom: 12px; }
+}
+/* Short phone screens (Flip cover, 360 x 400): Jobs puts the first openings on screen before the filters. */
+@media (max-width: 760px) and (max-height: 560px), (pointer: coarse) and (max-height: 500px) {
+  .page:has(> .opp-filters) { display: flex; flex-direction: column; }
+  .page:has(> .opp-filters) > * { order: 2; }
+  .page:has(> .opp-filters) > .jobs-seg, .page:has(> .opp-filters) > .page-head { order: 0; }
+  .page:has(> .opp-filters) > .op-cols, .page:has(> .opp-filters) > .stack:has(.job-card) { order: 1; }
+  .page:has(> .opp-filters) > .opp-filters { margin-top: 12px; }
+  [data-testid="openings-status"] { display: none; }
+  .page:has(> .opp-filters) .op-say { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+/* 320 px phones: the Jobs buttons drop their icons so "Find more openings" isn't cut off. */
+@media (max-width: 360px) { .opp-actions .btn svg { display: none; } }

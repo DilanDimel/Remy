@@ -27,7 +27,7 @@ function RemyButton({ hidden }: { hidden: boolean }) {
   const waiting = last?.role === "assistant" && !!last.replies?.length;
   return (
     <Pressable testID="button-remy" accessibilityRole="button" accessibilityLabel={waiting ? "Remy wrote to you" : "Ask Remy"} onPress={() => { tap(); router.push("/remy"); }} hitSlop={6}
-      style={({ pressed }) => [{ position: "absolute", right: 16, bottom, height: 52, borderRadius: 26, paddingLeft: 3, paddingRight: 16, gap: 8, flexDirection: "row", backgroundColor: c.surface, borderWidth: 2, borderColor: c.fox, alignItems: "center", overflow: "visible", transform: [{ scale: pressed ? 0.94 : 1 }] }, shadow.floating]}>
+      style={({ pressed }) => [{ position: "absolute", right: insets.right + 16, bottom, height: 52, borderRadius: 26, paddingLeft: 3, paddingRight: 16, gap: 8, flexDirection: "row", backgroundColor: c.surface, borderWidth: 2, borderColor: c.fox, alignItems: "center", overflow: "visible", transform: [{ scale: pressed ? 0.94 : 1 }] }, shadow.floating]}>
       <RemyRing size={44} bg={c.surface} />
       <Text style={{ fontFamily: font.bold, fontSize: 15, color: c.ink }}>{t("Ask Remy")}</Text>
       {waiting && <View testID="remy-waiting-dot" style={{ position: "absolute", top: -2, left: 34, width: 12, height: 12, borderRadius: 6, backgroundColor: c.fox, borderWidth: 2, borderColor: c.surface }} />}
@@ -43,7 +43,7 @@ function OfflineBanner() {
   const off = useOffline();
   if (!off) return null; // everyone, like the website (Nov 28)
   return (
-    <View testID="banner-offline" accessibilityRole="alert" pointerEvents="none" style={{ position: "absolute", top: insets.top + 4, left: 16, right: 16, backgroundColor: c.ink, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12 }}>
+    <View testID="banner-offline" accessibilityRole="alert" pointerEvents="none" style={{ position: "absolute", top: insets.top + 4, left: insets.left + 16, right: insets.right + 16, backgroundColor: c.ink, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12 }}>
       <Text style={{ fontFamily: font.semi, fontSize: 13.5, color: c.onInk, textAlign: "center" }}>You're offline. Remy will try again when you pull down or tap something.</Text>
     </View>
   );

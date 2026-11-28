@@ -50,10 +50,11 @@ export function useRemyReachOut(on: boolean) {
   const ready = !!ws?.onboarding.done;
   useEffect(() => {
     if (!on || !ready || reached) return;
+    // Short screens (Flip cover, phone sideways): the message waits in the chat instead of covering the page.
     const t = setTimeout(() => {
       if (reached) return;
       reached = true;
-      api<{ said: string; ws?: Workspace }>("POST", "/api/remy/reachout").then((r) => { if (r.said && r.ws) { setWs(r.ws); openRemy(); } }).catch(() => {});
+      api<{ said: string; ws?: Workspace }>("POST", "/api/remy/reachout").then((r) => { if (r.said && r.ws) { setWs(r.ws); if (!matchMedia("(max-height: 499px)").matches) openRemy(); } }).catch(() => {});
     }, 2500); // after the page has settled
     return () => clearTimeout(t);
   }, [on, ready]);

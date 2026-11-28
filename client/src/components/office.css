@@ -176,7 +176,7 @@ html:not([data-theme="dark"]) .ps-night, [data-theme="dark"] .ps-day { display: 
 .ps-fox:not(.sit) .fox.scholar .s-cuff { d: path("M-8 14 L8 14"); }
 .ps-scene .fox.scholar .s-arm > ellipse, .ps-scene .fox.scholar .s-toe { transform-box: fill-box; transform-origin: 50% 50%; transform: scale(1.22); }
 /* Phone My Path (Dilan, Nov 25): the office first, Remy's next step right under it with his tail pointing up at him. */
-@media (max-width: 760px) {
+@media (max-width: 760px), (pointer: coarse) and (max-height: 500px) {
   .redesign-2 .ps-office > .ps-talk { order: 1; margin: 6px 0 0; }
   .redesign-2 .ps-office > .ps-talk::after { top: -8.5px; bottom: auto; transform: translateX(-50%) rotate(225deg); }
   .redesign-2 .ps-season { grid-template-columns: minmax(0, 1fr); min-width: 0; }

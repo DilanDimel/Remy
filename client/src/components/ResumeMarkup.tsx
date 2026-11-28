@@ -11,6 +11,7 @@ import { BulletFix } from "./ResumeReview";
 import { Remy } from "./common";
 import { closeRemy } from "../lib/tailorChat";
 import { CATS, explain, issues, ranges, toolsRegex, type Cat } from "@shared/markup";
+import { PHONE_QUERY } from "../hooks/use-mobile";
 export { CATS, explain, issues, ranges, toolsRegex, type Cat, type Range } from "@shared/markup";
 
 // The look of the student's own file (font, size, margins Remy read from it), so the page looks like theirs.
@@ -84,7 +85,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
     if (!host || !el) return;
     const fit = () => {
       el.style.zoom = "";
-      if (!matchMedia("(min-width: 761px)").matches) return;
+      if (matchMedia(PHONE_QUERY).matches) return;
       const col = el.getBoundingClientRect().width / zoomOf(host);
       el.style.zoom = String(Math.min(1.25, col / PAGE_W));
     };
@@ -158,7 +159,8 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
     if (!pos || !walk || scrolledTo.current === cur!.b.id + walk.i) return;
     scrolledTo.current = cur!.b.id + walk.i;
     // Phones: the question is a card pinned above the tab bar, so bring the line itself up top instead.
-    (matchMedia("(max-width: 760px)").matches ? markEl.current : coach.current)?.scrollIntoView({ behavior: "smooth", block: matchMedia("(max-width: 760px)").matches ? "start" : "center" });
+    const phone = matchMedia(PHONE_QUERY).matches;
+    (phone ? markEl.current : coach.current)?.scrollIntoView({ behavior: "smooth", block: phone ? "start" : "center" });
   }, [pos, walk?.i]);
   const step = (d: number) => setWalk((w) => (w && w.i + d >= 0 && w.i + d < w.list.length ? { ...w, i: w.i + d } : null));
   const bullets = doc.sections.filter((s) => !isListSection(s.heading, true)).flatMap((s) => s.entries.flatMap((e) => e.bullets.map((b) => b.text))).filter((t) => t.trim());

@@ -1,17 +1,17 @@
 import * as React from "react"
 
-const MOBILE_BREAKPOINT = 768
+// Phone layout: narrow screens, plus phones held sideways and other short touch screens (foldable covers),
+// which are wide but have no room for the desktop sidebar. Keep in step with the CSS phone queries.
+export const PHONE_QUERY = "(max-width: 767px), (pointer: coarse) and (max-height: 500px)"
 
 export function useIsMobile() {
   const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)
 
   React.useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
-    const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-    }
+    const mql = window.matchMedia(PHONE_QUERY)
+    const onChange = () => setIsMobile(mql.matches)
     mql.addEventListener("change", onChange)
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    setIsMobile(mql.matches)
     return () => mql.removeEventListener("change", onChange)
   }, [])
 
