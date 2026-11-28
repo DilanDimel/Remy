@@ -833,7 +833,7 @@ type SideTab = "today" | "roles" | "skills" | "certs" | "forecast";
 /** The panel beside the office: today's quests, then your field's roles, skills, certifications and forecast.
  *  Office objects and Remy's walk-through switch it, so nothing opens far down the page. */
 function Side({ d, tab, setTab, open, setOpen }: { d: D; tab: SideTab; setTab: (t: SideTab) => void; open: string; setOpen: (s: string) => void }) {
-  const exploreOn = useOwnersOnly() && (!!d.w.onboarding.exploring || (d.w.profile.targetRoles || "").split(/,\s*/).filter(Boolean).length > 2);
+  const exploreOn = (!!d.w.onboarding.exploring || (d.w.profile.targetRoles || "").split(/,\s*/).filter(Boolean).length > 2);
   const jobs = d.careers?.[0]?.jobs || [];
   const avg = d.future?.allJobsGrowth ?? 0;
   const f0 = d.future?.fields[0];
