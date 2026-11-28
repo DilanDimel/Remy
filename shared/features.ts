@@ -28,7 +28,7 @@ export const FEATURES: Feature[] = [
   { key: "languages", label: "Remy in your language (12 languages, Spanish screens)", path: "", release: "owners", teaser: "" },
   // Explore for now (Nov 28, Julio's user testing): a student without their resume handy finishes setup with their major,
   // year and city and sees rough matches; Home and Opportunities ask for the resume to show how their experience fits. No page.
-  { key: "explore", label: "Explore for now: start without a resume (rough matches)", path: "", release: "owners", teaser: "" },
+  { key: "explore", label: "Explore for now: start without a resume (rough matches)", path: "", release: "released", teaser: "" },
   { key: "rewards", label: "Rewards", path: "/rewards", release: "owners", teaser: "Everything you can earn in Remy, in one place.", follows: "redesign" },
 ];
 

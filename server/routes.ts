@@ -2438,10 +2438,9 @@ Give 5 tasks (use real deadlines from KNOWN OPENINGS when relevant), 3 careers, 
   app.post("/api/voice", route(async (req, res, ctx) => {
     const text = forSpeech(String(req.body?.text || ""));
     if (!text) bad("Nothing to read.");
-    // Owners only for now (Dilan, Nov 27): ElevenLabs credits. Students never reach ElevenLabs.
-    if (!(await admin.isOwner(ctx.me))) return res.status(503).json({ message: "Remy's voice isn't available right now.", code: "voice-off" });
     if (!(await allow("voice:" + ctx.me.id, 60, 60 * 60_000))) bad("Remy has read a lot out loud this hour. Try again a bit later.", 429);
-    const out = await speech(text);
+    // Students hear only lines already made (the tour and setup lines, Dilan Nov 28): they never buy new ElevenLabs speech.
+    const out = await speech(text, fetch, !(await admin.isOwner(ctx.me)));
     if (!out) return res.status(503).json({ message: "Remy's voice isn't available right now.", code: "voice-off" });
     res.set({ "Content-Type": "audio/mpeg", "Cache-Control": "private, max-age=86400" }).send(out.mp3);
   }));

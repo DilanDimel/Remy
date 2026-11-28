@@ -24,10 +24,12 @@ const mem = new Map<string, Buffer>();
 const keyOf = (text: string) => `voice/${VOICE_ID}/${MODEL}/${crypto.createHash("sha256").update(text).digest("hex")}`;
 
 /** MP3 bytes of Remy saying `text`, plus whether it was already made (cached lines cost nothing). Null when unavailable. */
-export async function speech(text: string, f: typeof fetch = fetch): Promise<{ mp3: Buffer; cached: boolean } | null> {
+/** cacheOnly: only lines already made (students hear the fixed tour and setup lines owners have played; nothing new is bought). */
+export async function speech(text: string, f: typeof fetch = fetch, cacheOnly = false): Promise<{ mp3: Buffer; cached: boolean } | null> {
   const key = keyOf(text);
   const hit = mem.get(key) ?? (await r2Get(key).then((v) => (typeof v?.mp3 === "string" ? Buffer.from(v.mp3, "base64") : null)));
   if (hit) { remember(key, hit); return { mp3: hit, cached: true }; }
+  if (cacheOnly) return null;
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) return null;
   try {

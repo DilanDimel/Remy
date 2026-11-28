@@ -104,7 +104,7 @@ export function RemyTour() {
   const lastStep = useRef(-1); // a new step means the tour moves pages; the same step on another page means the student left
 
   const setStep = (to: number | "done") => { setN(to); save("settings", { tour: to }).catch(() => {}); };
-  // Owners first (a new feature): Remy reads each step aloud; the bubble's text is the caption.
+  // Remy reads each step aloud (released Nov 28); the bubble's text is the caption.
   const voice = useNarration(owner);
   // Finished or ended, the tour lands on My Path and Remy's walk-through takes over (Dilan, Nov 27).
   const end = () => {
