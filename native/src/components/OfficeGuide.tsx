@@ -155,6 +155,7 @@ export function AskCard({ ask, next, onAnswered, onNext }: { ask: Ask; next: num
   return (
     <View testID="remy-ask" style={{ gap: 10 }}>
       <Text style={{ fontFamily: font.body, fontSize: 15.5, lineHeight: 22, color: c.ink }}>{ask.text}</Text>
+      {!!ask.why && <Text testID="text-ask-why" style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: c.mutedText }}>{ask.why}</Text>}
       {ask.vs && <View style={{ gap: 6 }}>{ask.vs.map(([k, v]) => (
         <View key={k} style={{ flexDirection: "row", gap: 10, padding: 10, borderRadius: 10, backgroundColor: c.surface2 }}>
           <Text style={{ width: 82, fontFamily: font.semi, fontSize: 13, color: c.mutedText }}>{k}</Text>

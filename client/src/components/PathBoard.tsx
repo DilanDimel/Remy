@@ -5,6 +5,8 @@
 // has (DailyPath.tsx buildStops, shared/daily.ts, shared/game.ts, BLS via /api/careers and /api/future).
 import { plainSkill } from "@shared/plainSkills";
 import { exploreLanes } from "@shared/exploreLanes";
+import { personalTimeline } from "@shared/timeline";
+import { SEASON_SOURCE } from "@shared/seasons";
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as RMouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ArrowRight, Award, Briefcase, Check, Compass, DollarSign, Eye, Flame, Gift, Mic, Snowflake, Square, TrendingDown, TrendingUp, Wrench, X, Zap } from "lucide-react";
@@ -259,6 +261,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   const ask = async (said0?: string, spoken = false) => {
     const text = (said0 ?? q).trim();
     if (!text || busy) return;
+    if (guideRef.current) g.close(); // asking during the walk-through ends it, so his answer shows where he talks
     setQuip(null); setQ(""); setSaid({ q: text }); setBusy(true); busyRef.current = true;
     fox.moveTo("desk", "type"); setMood("think");
     const before = new Set(d.w.chat.map((m) => m.id));
@@ -383,24 +386,28 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
   const side = fx > 70 ? "l" : "r";
   const stars = [[578, 70], [636, 64], [704, 76], [748, 66], [764, 98], [690, 104], [596, 116], [728, 118], [654, 92]];
   const lit = [[576, 178], [584, 192], [600, 150], [604, 166], [599, 184], [638, 138], [648, 152], [640, 168], [650, 184], [678, 176], [686, 192], [718, 194]];
+  // His chat box and mic stay on screen during the walk-through too (Dilan, Nov 27: "what happened to the chat feature?").
+  const askForm = (
+    <form className="ps-ask" onSubmit={(e) => { e.preventDefault(); ask(); }}>
+      <input className="input" value={q} onChange={(e) => setQ(e.target.value)} disabled={!aiOn || busy} placeholder={aiOn ? "Ask Remy anything about your path…" : "Remy's chat is off on this server"} aria-label="Ask Remy" data-testid="input-office-ask" />
+      {canListen && aiOn && talkOn && <button type="button" className={"btn btn-sm " + (voice.on ? "btn-primary remy-listening" : "btn-secondary")} onClick={voice.toggle} disabled={busy} aria-label={voice.on ? "Stop listening" : "Talk to Remy"} aria-pressed={voice.on} data-testid="button-office-mic">{voice.on ? <Square size={16} /> : <Mic size={16} />}</button>}
+      <button className="btn btn-primary btn-sm" disabled={!aiOn || busy || !q.trim()} data-testid="button-office-ask">Ask</button>
+    </form>
+  );
   return (
     <section className="ps-office" aria-label="Remy's office" data-testid="path-office">
       {guideOn ? <>
       {/* Remy talks to you here, above his room, tail pointing at him (team meeting, Nov 24): one thing at a time, a button
           that does it, and his list of up to three. It never covers the room. The walk-through plays here too. */}
       <div className={"ps-talk" + (g.on ? " guide" : "")} style={{ "--tail": `${Math.min(94, Math.max(6, fx))}%` } as CSSProperties} aria-live="polite" data-testid="office-talk">
-        {g.on ? <div data-testid="path-guide" className="ps-talk-guide">{g.bubble}</div> : <>
+        {g.on ? <><div data-testid="path-guide" className="ps-talk-guide">{g.bubble}</div>{askForm}</> : <>
           <div className="ps-talk-top">
             <span className="pm-kicker">{place === "office" ? "Remy" : PLACES.find((p) => p.key === place)!.name}{step ? ` · ${steps.length > 1 ? `${steps.indexOf(step) + 1} of ${steps.length}` : "one thing"}` : ""}</span>
             {placesOn && <select className="ps-place-pick" value={placePick || ""} onChange={(e) => setPlacePick((e.target.value || null) as PlaceKey | null)} aria-label="Where Remy is" data-testid="select-office-place">
                 <option value="">Follow my day</option>
                 {PLACES.map((p) => <option key={p.key} value={p.key} disabled={!opened.has(p.key)}>{opened.has(p.key) ? p.name : `${p.name}: ${p.how.toLowerCase()}`}</option>)}
               </select>}
-            <form className="ps-ask" onSubmit={(e) => { e.preventDefault(); ask(); }}>
-              <input className="input" value={q} onChange={(e) => setQ(e.target.value)} disabled={!aiOn || busy} placeholder={aiOn ? "Ask me anything…" : "Remy's chat is off on this server"} aria-label="Ask Remy" data-testid="input-office-ask" />
-              {canListen && aiOn && talkOn && <button type="button" className={"btn btn-sm " + (voice.on ? "btn-primary remy-listening" : "btn-secondary")} onClick={voice.toggle} disabled={busy} aria-label={voice.on ? "Stop listening" : "Talk to Remy"} aria-pressed={voice.on} data-testid="button-office-mic">{voice.on ? <Square size={16} /> : <Mic size={16} />}</button>}
-              <button className="btn btn-secondary btn-sm" disabled={!aiOn || busy || !q.trim()} data-testid="button-office-ask">Ask</button>
-            </form>
+            {askForm}
           </div>
           {step?.ask ? <NextAsk kicker={false} />
             : <p className="ps-talk-say" data-testid="office-step">{step ? step.say : nextItem ? `You're all set for now. Level ${nextItem[2]} adds a ${nextItem[1].toLowerCase()} to my office.` : "You're all set for now. Ask me anything, or tap something in my office."}</p>}
@@ -420,11 +427,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
               {PLACES.map((p) => <option key={p.key} value={p.key} disabled={!opened.has(p.key)}>{opened.has(p.key) ? p.name : `${p.name}: ${p.how.toLowerCase()}`}</option>)}
             </select>
             : <span className="pm-faint">{nextItem ? `Level ${nextItem[2]} adds a ${nextItem[1].toLowerCase()}` : "Fully furnished"}</span>}</span>
-        {!g.on && <form className="ps-ask" onSubmit={(e) => { e.preventDefault(); ask(); }}>
-            <input className="input" value={q} onChange={(e) => setQ(e.target.value)} disabled={!aiOn || busy} placeholder={aiOn ? "Ask Remy anything about your path…" : "Remy's chat is off on this server"} aria-label="Ask Remy" data-testid="input-office-ask" />
-            {canListen && aiOn && talkOn && <button type="button" className={"btn btn-sm " + (voice.on ? "btn-primary remy-listening" : "btn-secondary")} onClick={voice.toggle} disabled={busy} aria-label={voice.on ? "Stop listening" : "Talk to Remy"} aria-pressed={voice.on} data-testid="button-office-mic">{voice.on ? <Square size={16} /> : <Mic size={16} />}</button>}
-            <button className="btn btn-primary btn-sm" disabled={!aiOn || busy || !q.trim()} data-testid="button-office-ask">Ask</button>
-        </form>}
+        {askForm}
         {!g.on && <button className="btn btn-ghost btn-sm ps-again" onClick={g.start} data-testid="button-hello-again">Walk me through it</button>}</div>
       </>}
       <div className="ps-roomwrap">
@@ -649,7 +652,7 @@ function useGuide(d: D, onField: (tab: SideTab, open?: string) => void) {
       <button className="btn btn-ghost btn-sm" onClick={close} data-testid="button-hello-skip">{step === steps.length - 1 ? "Done" : "Skip"}</button>
       {step < steps.length - 1 && <button className="btn btn-secondary btn-sm" onClick={() => go2(step + 1)} data-testid="button-hello-next">Next <ArrowRight size={14} /></button>}
     </div></>;
-  return { on, step, steps, start, bubble };
+  return { on, step, steps, start, bubble, close };
 }
 
 /** A stop's title without its aside: "Some students take the SIE (mostly for ...)" → "Some students take the SIE". */
@@ -892,26 +895,26 @@ function Side({ d, tab, setTab, open, setOpen }: { d: D; tab: SideTab; setTab: (
   );
 }
 
-/** Timeline (was "Forecast", which repeated the Roles list; Dilan, Nov 24): what's ahead from now to 2035, one stop per
- *  stage of college, with the next skill, the summer to aim for, the first job and the 2035 outlook for the field. */
+/** Timeline (was "Forecast", which repeated the Roles list; Dilan, Nov 24). Nov 27: "useless and not personalized",
+ *  so it's the student's own semesters and summers up to graduation (shared/timeline.ts): real dates, their field's
+ *  recruiting window, what to do now, then the 2035 outlook for the field (the forecast's numbers). */
 function Ahead({ d, jobs, avg }: { d: D; jobs: Occ[]; avg: number }) {
-  const now = new Date(), y = now.getFullYear(), p = d.w.profile;
+  const p = d.w.profile;
   const f0 = d.future?.fields[0];
-  const next = d.stops.find((s) => s.status !== "done" && (s.kind === "skill" || s.kind === "step") && s.year <= d.year) || d.stops.find((s) => s.status !== "done" && s.kind !== "role");
+  const next = d.stops.find((s) => s.status !== "done" && (s.kind === "skill" || s.kind === "step") && s.year <= d.year) || d.stops.find((s) => s.status !== "done" && s.kind === "skill");
+  const cert = d.stops.find((s) => s.kind === "cert" && s.status !== "done" && s.year < 5);
   const targets = (p.targetRoles || "").toLowerCase().split(/,\s*/).filter(Boolean);
-  const job = jobs.find((o) => targets.some((t) => t.split(/\s+/).every((wd) => o.title.toLowerCase().includes(wd.slice(0, 6))))) || [...jobs].sort((a, b) => (b.openings || 0) - (a.openings || 0))[0];
+  const exploring = !!d.w.onboarding.exploring || targets.length > 2;
+  const job = exploring ? undefined : jobs.find((o) => targets.some((t) => t.split(/\s+/).every((wd) => o.title.toLowerCase().includes(wd.slice(0, 6)))));
   const fast = [...(f0?.growing || jobs)].sort((a, b) => b.change - a.change)[0], slow = f0?.shrinking[0];
-  const grad = p.graduation?.trim() || (d.year < 5 ? String(y + 4 - d.year + (now.getMonth() > 6 ? 1 : 0)) : "");
-  const summer = ["", "Try a first internship, research or a project you can show.", "Land a first internship.", "The big internship summer. It often turns into a job offer.", "Start your first job, or a last internship that leads to one.", "Grow in your first job."][d.year];
-  const stops: { when: string; what: ReactNode }[] = [
-    { when: `Now · ${YEARS[d.year]}`, what: next ? <>Work on <b>{clip(next.title)}</b>.</> : <>You've covered this stage. Nice.</> },
-    ...(d.year < 5 ? [{ when: `Summer ${now.getMonth() > 6 ? y + 1 : y}`, what: <>{summer}</> }] : []),
-    ...(grad && d.year < 5 ? [{ when: `Graduation · ${grad}`, what: job ? <>First job: <b>{job.title.toLowerCase()}</b>{job.wage ? <>, {money(job.wage)} median</> : null}.</> : <>Your first job.</> }] : []),
-    { when: "By 2035", what: <>{f0 ? <><b>{f0.fasterThanAverage} of {f0.total}</b> jobs in your field grow faster than average (+{avg}%). </> : null}{fast ? <>Fastest: <b>{fast.title.toLowerCase()}</b> ({fast.change > 0 ? "+" : ""}{fast.change}%). </> : null}{slow ? <>Shrinking: {slow.title.toLowerCase()} ({slow.change}%).</> : null}</> },
-  ];
+  const stops = personalTimeline({ year: d.year, graduation: p.graduation, field: [p.major, p.targetRoles, d.road?.label].join(" "), next: next && clip(next.title), cert: cert && clip(cert.title), exploring,
+    job: job ? `${job.title.toLowerCase()}${job.wage ? `, ${money(job.wage)} median` : ""}` : undefined });
   return <>
-    <ol className="ps-tl" data-testid="path-timeline">{stops.map((s, i) => <li key={i} className={i ? "" : "now"}><b>{s.when}</b><p>{s.what}</p></li>)}</ol>
-    <p className="pm-src">Projections: {d.future?.source || "U.S. Bureau of Labor Statistics"}.</p>
+    <ol className="ps-tl" data-testid="path-timeline">
+      {stops.map((s, i) => <li key={i} className={s.now ? "now" : ""}><b>{s.when}</b><p>{s.what}</p></li>)}
+      <li><b>By 2035</b><p>{f0 ? <><b>{f0.fasterThanAverage} of {f0.total}</b> jobs in your field grow faster than average (+{avg}%). </> : null}{fast ? <>Fastest: <b>{fast.title.toLowerCase()}</b> ({fast.change > 0 ? "+" : ""}{fast.change}%). </> : null}{slow ? <>Shrinking: {slow.title.toLowerCase()} ({slow.change}%).</> : null}</p></li>
+    </ol>
+    <p className="pm-src">Recruiting months: <a href={SEASON_SOURCE} target="_blank" rel="noreferrer">Cornell Career Services</a>. Projections: {d.future?.source || "U.S. Bureau of Labor Statistics"}.</p>
   </>;
 }
 

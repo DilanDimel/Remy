@@ -34,6 +34,8 @@ export function AskCard({ ask, next = 0, kicker = true, onAnswered, onNext }: { 
     if (answerKey !== "later") { setDone({ id: ask.id, text: r.text, copy: r.copy, messageId: r.messageId }); onAnswered?.(); }
     setWs(r.ws);
   };
+  // Cards replace the buttons only when every card names an answer this question takes.
+  const picks = ask.vs?.every(([, , k]) => k && ask.options.some((o) => o.key === k)) ? new Set(ask.vs.map(([, , k]) => k!)) : null;
   if (done) {
     const m = ws!.chat.find((x) => x.id === done.messageId);
     return (
@@ -49,7 +51,13 @@ export function AskCard({ ask, next = 0, kicker = true, onAnswered, onNext }: { 
     <div className="ask" data-testid="remy-ask">
       {kicker && <span className="ask-kick">Remy · quick question</span>}
       <p>{ask.text}</p>
-      {ask.vs && <div className="ask-vs">{ask.vs.map(([k, v]) => <div key={k}><span>{k}</span><b>{v}</b></div>)}</div>}
+      {ask.why && <span className="ask-why" data-testid="text-ask-why">{ask.why}</span>}
+      {/* Side by side (Nov 27 mockup): each version on its own card with where it came from; tapping a card picks it. */}
+      {ask.vs && (picks ? <div className="ask-vs cards">{ask.vs.map(([k, v, key]) => (
+          <button key={k} className="ask-pick" disabled={!!busy} onClick={() => answer(key!)} data-testid={`button-ask-${key}`}>
+            <span className="ask-src">{k}</span><b>{v}</b>{busy === key && <Spinner />}
+          </button>))}</div>
+        : <div className="ask-vs">{ask.vs.map(([k, v]) => <div key={k}><span>{k}</span><b>{v}</b></div>)}</div>)}
       {ask.items && <div className="ask-list">{ask.items.map((it) => (
         <div key={it.id} className="ask-item"><span>{it.text}</span>
           <span className="ask-tg" role="group" aria-label={`Is this true: ${it.text}`}>
@@ -58,7 +66,7 @@ export function AskCard({ ask, next = 0, kicker = true, onAnswered, onNext }: { 
           </span></div>))}</div>}
       <div className="ask-opts">
         {ask.items ? <button className="btn btn-primary btn-sm" disabled={!!busy} onClick={() => answer("facts")} data-testid="button-ask-save">{busy === "facts" && <Spinner />}Save these</button>
-          : ask.options.map((o) => <button key={o.key} className="btn btn-secondary btn-sm" disabled={!!busy} onClick={() => answer(o.key)} data-testid={`button-ask-${o.key}`}>{busy === o.key && <Spinner />}{o.label}</button>)}
+          : ask.options.filter((o) => !picks?.has(o.key)).map((o) => <button key={o.key} className="btn btn-secondary btn-sm" disabled={!!busy} onClick={() => answer(o.key)} data-testid={`button-ask-${o.key}`}>{busy === o.key && <Spinner />}{o.label}</button>)}
         <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => answer("later")} data-testid="button-ask-later">Not now</button>
       </div>
     </div>

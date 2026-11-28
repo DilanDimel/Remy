@@ -12,8 +12,10 @@ export interface Ask {
   id: string;
   kind: AskKind;
   text: string;
-  /** The two sides that disagree, [label, value], shown under the question. */
-  vs?: [string, string][];
+  /** Why the answer matters, in one plain sentence (Dilan, Nov 27: "I don't even know what that means… why does it matter?"). */
+  why?: string;
+  /** The two sides that disagree, [label, value, option key it picks], shown side by side under the question. */
+  vs?: [string, string, string?][];
   /** One-tap answers (conflict, name, profile). */
   options: { key: string; label: string }[];
   /** Facts to confirm one by one (facts). */
@@ -23,6 +25,16 @@ export interface Ask {
 export const PROFILE_CHECK_FIELDS = ["school", "major", "minors", "gpa", "graduation", "location"] as const;
 const FIELD_NAME: Record<string, string> = { school: "school", major: "major", minors: "minor", gpa: "GPA", graduation: "graduation date", location: "location" };
 const SETUP_TAP = /^Tapped one of Remy's suggested answers/;
+const FIELD_WHY: Record<string, string> = {
+  school: "Remy uses your school to find alumni and openings only your school's students get.",
+  major: "Remy picks your openings and your path from your major, so it has to be right.",
+  minors: "Remy uses your minor to find openings that fit it.",
+  gpa: "Many internships set a minimum GPA. Remy uses yours to tell you which ones you qualify for.",
+  graduation: "Internships hire for a set graduation year, so this decides which openings fit you.",
+  location: "Remy looks for openings near where you are.",
+};
+/** "Unofficial transcript" → "unofficial transcript" in a sentence; names (LinkedIn, Handshake) keep their capitals. */
+const inSentence = (src: string) => (/^[A-Z][a-z]/.test(src) && !/linkedin|handshake/i.test(src) ? src[0].toLowerCase() + src.slice(1) : src);
 
 /** "LinkedIn profile (PDF) import" → "LinkedIn profile (PDF)" → short name "LinkedIn". */
 export const sourceOf = (source: string) => source.replace(/ import$/, "");
@@ -55,24 +67,28 @@ export function remyAsks(ws: Pick<Workspace, "memory" | "tasks" | "profileChecks
   const out: Ask[] = [];
   for (const m of ws.memory.filter((x) => x.conflict)) {
     const src = shortSource(m.source), mine = resumeSide(m.conflict!);
-    out.push({ id: `conflict:${m.id}`, kind: "conflict", text: `Your ${src} and your resume don't match. Which one is right?`,
-      vs: mine ? [[src, m.text], ["Resume", mine]] : [[src, m.text], ["Remy noticed", m.conflict!]],
+    out.push({ id: `conflict:${m.id}`, kind: "conflict", text: `Your ${inSentence(src)} and your resume don't match. Which one is right?`,
+      why: `Recruiters often read both side by side, so they should say the same thing. Remy uses the one you pick everywhere.`,
+      vs: mine ? [[src, m.text, "source"], ["Resume", mine, "resume"]] : [[src, m.text, "source"], ["Your resume", m.conflict!.replace(/^your resume says:?\s*/i, ""), "resume"]],
       options: [{ key: "resume", label: mine ? clip(`${mine} (resume)`) : "My resume" }, { key: "source", label: clip(`${m.text} (${src})`) }] });
   }
   const name = ws.tasks.find((t) => t.source === NAME_CHECK && !t.done);
   const names = name?.why.match(/under "([^"]+)".*says "([^"]+)"/);
   if (name && names) out.push({ id: `name:${name.id}`, kind: "name", text: "Your sign-in account and your resume use different names. Which one is you?",
-    vs: [["Account", names[1]], ["Resume", names[2]]], options: [{ key: "resume", label: clip(names[2]) }, { key: "account", label: clip(names[1]) }] });
+    why: "This is the name Remy puts on your resume, cover letters and emails to recruiters.",
+    vs: [["Account", names[1], "account"], ["Resume", names[2], "resume"]], options: [{ key: "resume", label: clip(names[2]) }, { key: "account", label: clip(names[1]) }] });
   for (const c of ws.profileChecks || [])
     out.push({ id: `profile:${c.field}`, kind: "profile", text: `Your resume and your profile disagree about your ${FIELD_NAME[c.field] || c.field}. Which is right?`,
-      vs: [["Resume", c.resume], ["Profile", c.profile]], options: [{ key: "resume", label: clip(c.resume) }, { key: "profile", label: clip(c.profile) }] });
+      why: FIELD_WHY[c.field],
+      vs: [["Resume", c.resume, "resume"], ["Profile", c.profile, "profile"]], options: [{ key: "resume", label: clip(c.resume) }, { key: "profile", label: clip(c.profile) }] });
   const facts = ws.memory.filter((m) => m.status === "suggested" && !m.conflict).slice(0, 6);
   if (facts.length) {
     const srcs = [...new Set(facts.map((f) => (SETUP_TAP.test(f.source) ? "setup" : shortSource(f.source))))];
     const n = facts.length === 1 ? "1 thing" : `${facts.length} things`;
     out.push({ id: `facts:${facts.map((f) => f.id).join(",")}`, kind: "facts",
       text: srcs.length === 1 && srcs[0] === "setup" ? `In setup you tapped ${n} I suggested. True for you?`
-        : srcs.length === 1 ? `I read your ${srcs[0]} and found ${n} I didn't know. True?` : `I found ${n} about you I'm not sure of yet. True?`,
+        : srcs.length === 1 ? `I read your ${inSentence(srcs[0])} and found ${n} I didn't know. True?` : `I found ${n} about you I'm not sure of yet. True?`,
+      why: "Remy only writes what you say is true, so a No keeps it out of your resume and messages.",
       options: [], items: facts.map((f) => ({ id: f.id, text: f.text })) });
   }
   const passed = passedEmployers(ws)[0];

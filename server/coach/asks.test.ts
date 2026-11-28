@@ -21,7 +21,7 @@ const did = (w: any, r: any) => { w.chat.push({ id: "m1", role: "assistant", tex
 test("Remy lists conflicts, the name, profile checks and new facts, most important first", () => {
   const a = remyAsks(ws(), T);
   assert.deepEqual(a.map((x) => x.kind), ["conflict", "name", "profile", "facts"]);
-  assert.deepEqual(a[0].vs, [["LinkedIn", "Summer Analyst at TBC Bank"], ["Resume", "Summer Intern at TBC Bank"]]);
+  assert.deepEqual(a[0].vs, [["LinkedIn", "Summer Analyst at TBC Bank", "source"], ["Resume", "Summer Intern at TBC Bank", "resume"]]);
   assert.deepEqual(a[3].items!.map((i) => i.id), ["f2", "f3"]);
   assert.match(a[3].text, /I read your LinkedIn and found 2 things/);
 });

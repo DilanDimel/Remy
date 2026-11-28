@@ -18,6 +18,7 @@ html:not([data-theme="dark"]) .ps-night, [data-theme="dark"] .ps-day { display: 
 .ps-place-pick { font: inherit; font-size: .8rem; font-weight: 600; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 2px 6px; max-width: 160px; }
 .ps-talk .ps-ask { flex: 1 1 200px; max-width: 340px; margin: 0 0 0 auto; }
 .ps-talk .ps-ask .input { height: 32px; padding-block: 4px; }
+.ps-talk.guide > .ps-ask { max-width: none; margin: 10px 0 0; } /* during the walk-through: the chat box gets its own full row under his line */
 .ps-talk-say { margin: 0; font-size: clamp(1rem, .55rem + .6vw, 1.2rem); font-weight: 650; line-height: 1.35; color: var(--ink); text-wrap: pretty; }
 .ps-talk .ask > p { font-size: var(--text-base); font-weight: 650; }
 .ps-talk-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
