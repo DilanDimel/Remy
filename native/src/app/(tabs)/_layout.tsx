@@ -10,7 +10,7 @@ import { gateRoute, useGate } from "@/lib/gate";
 import { aboveTabs, font, useTheme } from "@/lib/theme";
 import { shadow } from "@/lib/tokens";
 import { useOffline } from "@/lib/net";
-import { useOwnerView, useSession } from "@/lib/session";
+import { useSession } from "@/lib/session";
 import { useDeviceLanguage, useT } from "@/lib/lang";
 
 /** Remy isn't a tab: like the website, he is a floating fox button above the tab bar that opens his chat from any page.
@@ -41,8 +41,7 @@ function OfflineBanner() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const off = useOffline();
-  const owner = useOwnerView();
-  if (!off || !owner) return null;
+  if (!off) return null; // everyone, like the website (Nov 28)
   return (
     <View testID="banner-offline" accessibilityRole="alert" pointerEvents="none" style={{ position: "absolute", top: insets.top + 4, left: 16, right: 16, backgroundColor: c.ink, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12 }}>
       <Text style={{ fontFamily: font.semi, fontSize: 13.5, color: c.onInk, textAlign: "center" }}>You're offline. Remy will try again when you pull down or tap something.</Text>

@@ -388,8 +388,8 @@ function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; 
     setBusy("");
   };
   if (gone) return null;
-  // Pay as the posting states it (shared/pay.ts), owners first like the app (#552).
-  const pay = keepPass ? jobPay(j) : "";
+  // Pay as the posting states it (shared/pay.ts), for everyone like the app (#572); jobs say "Pay not listed" when it isn't.
+  const pay = jobPay(j);
   const type = opType(j); // what kind of opening, and the posting's words that say so
   const due = j.deadline && d !== null && d >= 0 && d <= 14 ? `closes ${fmtDate(j.deadline)}` : "";
   if (phone && !sheet) return (
@@ -407,7 +407,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; 
         <div className="stack-sm" style={{ minWidth: 0, flex: 1 }}>
           <div className="row"><span className="xs muted">{j.company}{byType ? "" : ` · ${kindLabel[j.kind]}`}</span>{byType && <span className="op-type" title={type.why ? `Remy: ${type.why}` : undefined} data-testid="job-type">{opLabel(type.type)}{type.why && <em> · {type.why}</em>}</span>}<StatusChip label={j.label} />{eligChip(fit)}</div>
           <h3 title={shortTitle(j.title, j.company) !== j.title ? j.title : undefined}>{shortTitle(j.title, j.company)}</h3>
-          <div className="row small muted"><span className="row" style={{ gap: 4 }} title={j.location}><MapPin size={14} style={{ flex: "none" }} />{keepPass ? shortPlace(j.location) : j.location || "Location not stated"}</span>{j.dates && <span>· {j.dates}</span>}{pay && <span data-testid="job-pay">· Pay: {pay}</span>}</div>
+          <div className="row small muted"><span className="row" style={{ gap: 4 }} title={j.location}><MapPin size={14} style={{ flex: "none" }} />{keepPass ? shortPlace(j.location) : j.location || "Location not stated"}</span>{j.dates && <span>· {j.dates}</span>}{j.kind !== "event" && <span data-testid="job-pay" style={pay ? { color: "var(--ink)", fontWeight: 700 } : undefined}>· {pay ? `Pay: ${pay}` : "Pay not listed"}</span>}</div>
         </div>
         {j.deadline && <span className={"chip " + (d !== null && d < 0 ? "chip-bad" : d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d < 0 ? "Deadline passed" : `Due ${fmtDate(j.deadline)}${d === 0 ? " · today" : d !== null ? ` · ${d}d` : ""}`}</span>}
       </div>
@@ -450,7 +450,8 @@ function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; 
           ); })()}
           <dl className="kv">
             <dt>Format</dt><dd>{j.format || "—"}</dd>
-            <dt>Deadline</dt><dd>{j.deadlineText || "Not stated"}</dd>
+            {/* A deadline the board doesn't give isn't shown, like the app (Demetre, Nov 24); a rolling one still is. */}
+            {!!j.deadlineText && !/^not stated/i.test(j.deadlineText) && <><dt>Deadline</dt><dd>{j.deadlineText}</dd></>}
             <dt>Source</dt><dd><a href={j.sourceUrl} target="_blank" rel="noreferrer" style={{ color: "var(--plum)" }}>{j.sourceName}</a></dd>
             <dt>Freshness</dt><dd>Checked {fmtDate(j.checkedAt)}{last ? ` · re-checked ${fmtDate(last.at)}: ${last.note}` : ""}</dd>
           </dl>
