@@ -201,6 +201,7 @@ Screens not yet rebuilt natively open the website in a signed-in sheet (`src/app
 | `build.ts` | `npm run build` | Vite builds the client, esbuild bundles the server to `dist/index.cjs` |
 | `contract.ts` | `npm run check:contract` | Every client API call has a real route; no raw colours outside `color-allowlist.json` |
 | `resume-check.ts` | `npm run check:resume` | Resume reading against fixtures, no server or AI |
+| `transcript-check.ts` | `npm run check:transcript` | Transcript reading on generated PDFs in 12 registrar layouts and 4 grade scales; `REMY_TRANSCRIPT_AI=1` also scores the real AI reader |
 | `persist.ts` | `npm run check:persist` | Builds, restarts on a throwaway database, checks nothing is lost |
 | `ai.ts` | `npm run ai:brief`, `npm run check:ai` | The AI team briefing and CI rules (owned files, claims, status files) |
 | `hours.ts` | `npm run hours:estimate` | Rebuilds `docs/ai/hours/estimated.json` from commits and PRs |
