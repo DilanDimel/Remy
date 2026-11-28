@@ -12,7 +12,7 @@ import type {
   Application, AppConfig, BulletChange, ChatAction, ClaimFlag, Job, JobCheck, JobFit, Me, MemoryFact, ResumeDoc, ResumeLook, ResumeStyle, Suggestion, TrackStatus, Workspace, Story, StoryPart } from "@shared/types";
 import { PATHS } from "@shared/types";
 import { INSIDER_AFTER_DAYS, INSIDER_SURVEY, insiderEligible, insiderSurveyDue, termsFor } from "@shared/beta";
-import { NAME_CHECK, firstName, knownName, nameUnsure, sameName } from "@shared/names";
+import { NAME_CHECK, firstName, fullerName, knownName, nameUnsure, sameName } from "@shared/names";
 import { PROFILE_CHECK_FIELDS, remyAsks } from "@shared/remyAsks";
 import { answerAsk, tickDone } from "./coach/asks";
 import { partialReply } from "./ai/streamReply";
@@ -35,7 +35,7 @@ import { betterLetter, keptFixes, letterFixPrompt, rewriteFixPrompt } from "./ai
 import { BUZZ, assemblePitch, type PitchParts } from "./coach/pitch";
 import { checkFeedback, checkPlan, drillQuestion, feedbackPrompt, planPrompt, rulesPlan, thinAnswerTip } from "./coach/interview";
 import { AI_CALLS_PER_INTERVIEW, drillsLeft, pickProfile, weeklyLeft, type Drill, type Interview, type IvMode } from "@shared/interview";
-import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, cleanupOld, copyJobsBatch, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./platform/db";
+import { editWorkspace, recentStudents, aiAllowed, checkSchoolCode, checkSigninCode, newSigninCode, userByEmail, accountsWithEmail, cleanupOld, copyJobsBatch, deleteFile, newSchoolCode, removeSchoolEmail, schoolEmailOwner, deleteAccount, ensureUser, getFile, hasWorkspace, loadWorkspace, nowIso, saveFile, saveSections, saveWorkspace, uid } from "./platform/db";
 import { hospitalFirst } from "@shared/employer";
 import { cleanTerm, readTermAnswer, TERM_SYSTEM, termPrompt, type TermAnswer } from "./ai/term";
 import { inOwnerTrial, inOwnerView, runAiAs, aiJson, aiStatus, AiUnavailable, lastUsedModel, lastCost, lastUsage, markAiAuthFailure, model } from "./ai/ai";
@@ -1347,6 +1347,13 @@ export async function registerRoutes(_server: Server, app: Express) {
         // Owner chests: a day's chest, once opened, keeps what it held.
         ...(v.chests || old.chests ? { chests: Object.fromEntries(Object.entries({ ...(v.chests || {}), ...(old.chests || {}) }).sort(([a], [b]) => a.localeCompare(b)).slice(-430)) } : {}) };
     }
+    // Setup answers only grow while the questions stay the same: a step change sent from a tab that hadn't seen the
+    // last answer yet (a fast Continue, a second tab) can't drop it. Starting over clears the questions too.
+    if (section === "onboarding") {
+      const v = value as Workspace["onboarding"], old = ctx.ws.onboarding;
+      if (old?.questions?.length && JSON.stringify(v.questions) === JSON.stringify(old.questions) && (v.answers?.length || 0) < old.answers.length)
+        value = { ...v, answers: old.answers };
+    }
     if (section === "profile") {
       const before = JSON.stringify(ctx.ws.profile);
       const p = { ...ctx.ws.profile };
@@ -1450,7 +1457,9 @@ export async function registerRoutes(_server: Server, app: Express) {
     // The profile name may only be the sign-in account's name (Google/LinkedIn), e.g. a borrowed or family account.
     // If the resume names someone else, ask the student which is right instead of picking one.
     const fromSignIn = (!!ctx.me.name && p.name === ctx.me.name) || ctx.ws.imports.some((i) => i.kind === "LinkedIn (connected)" && i.fileName.split(" · ")[0] === p.name);
-    if (now.name && p.name && fromSignIn && sameName(p.name, now.name) === false && !ctx.ws.tasks.some((t) => t.source === NAME_CHECK && (!t.done || t.why.includes(`"${now.name}"`))))
+    // The resume only adds middle names to the account's name: it's their full name, so use it (no question).
+    if (now.name && p.name && fromSignIn && fullerName(p.name, now.name)) p.name = now.name;
+    else if (now.name && p.name && fromSignIn && sameName(p.name, now.name) === false && !ctx.ws.tasks.some((t) => t.source === NAME_CHECK && (!t.done || t.why.includes(`"${now.name}"`))))
       ctx.ws.tasks.unshift({ id: uid("t"), title: "Which name should Remy use?", why: `Your sign-in account is under "${p.name}", but your resume says "${now.name}". Until you choose, Remy's coach won't call you by either name, and emails it drafts leave the name for you to fill in. If your resume's name is right, change it in Account → Profile (that ticks this off); if the account's name is right, tick this off.`, due: "", category: "Prepare", done: false, source: NAME_CHECK, link: "/accounts?tab=profile" });
     // A newer resume that matches the profile name answers the question.
     else if (now.name && p.name && sameName(p.name, now.name) === true) for (const t of ctx.ws.tasks) if (t.source === NAME_CHECK && !t.done) t.done = true;
@@ -1793,9 +1802,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       ),
     );
     // Adding the same account again replaces what the last copy said (it may have been the wrong file).
-    // Facts the student already approved stay approved if the new copy says them too.
     const source = kind.replace(/\s*\(.*\)$/, "");
-    const wasApproved = new Set(ctx.ws.memory.filter((m) => m.source === `${kind} import` && m.status === "approved").map((m) => norm(m.text)));
     ctx.ws.memory = ctx.ws.memory.filter((m) => m.source !== `${kind} import`);
     ctx.ws.tasks = ctx.ws.tasks.filter((t) => t.done || t.source !== `${source} check`);
     const n = norm(raw);
@@ -1808,7 +1815,9 @@ export async function registerRoutes(_server: Server, app: Express) {
     for (const f2 of out.facts || []) {
       if (f2.quote && !n.includes(norm(f2.quote).slice(0, 80))) continue; // drop anything not grounded in the text
       f2.text = noUpgrade(String(f2.text || ""), raw);
-      const ok = !f2.conflict && wasApproved.has(norm(f2.text.trim()));
+      // Quoted from the student's own document, so it's kept without a yes/no for each (Dilan, Nov 27); they can edit or
+      // remove it in Account. Only a fact that disagrees with the resume waits for their pick.
+      const ok = !f2.conflict;
       if (addFact(ctx.ws, f2.text, f2.category || "other", `${kind} import`, ok ? "approved" : "suggested", String(f2.conflict || ""))) added++;
       if (f2.notOnResume && !f2.conflict && ctx.ws.resume && !disputed.some((org) => f2.text.includes(org))) missing.push(f2.text.trim());
     }
@@ -3504,8 +3513,13 @@ Return JSON:
   // true, because app builds already on phones read it.
   app.delete("/api/ws", route(async (req, res, ctx) => {
     // The Remy calendar in their Google account goes first, while Remy still has access to delete it.
-    const calendarRemoved = await gcal.disconnect(ctx.me.id);
-    await deleteAccount(ctx.me.id);
+    // Every account with their sign-in email goes, so a new Google sign-in can't land in an older one.
+    let calendarRemoved = true;
+    for (const id of await accountsWithEmail(ctx.me.id)) {
+      const removed = await gcal.disconnect(id);
+      if (id === ctx.me.id) calendarRemoved = removed;
+      await deleteAccount(id);
+    }
     await endSession(req, res);
     res.json({ deleted: true, loginRemoved: true, calendarRemoved });
   }));

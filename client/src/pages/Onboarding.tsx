@@ -780,18 +780,20 @@ const CHECK_KINDS: Ask["kind"][] = ["conflict", "name", "profile", "facts"];
 function SetupChecks({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
   const asks = useAsks().filter((a) => CHECK_KINDS.includes(a.kind));
   const [shown, setShown] = useState<Ask | null>(null); // the answered one stays up (what Remy did, Undo) until Next
-  const total = useRef(asks.length);
-  const ask = shown || asks[0];
-  const left = asks.filter((a) => a.id !== ask?.id).length;
-  const at = total.current - left;
+  // Counted from the live list: checks answered here + the one showing + what's still waiting. A check that arrives
+  // while the student works (another source finished reading) adds to the total instead of repeating "3 of 4".
+  const [done, setDone] = useState<string[]>([]);
+  const ask = shown || asks.find((a) => !done.includes(a.id));
+  const left = asks.filter((a) => a.id !== ask?.id && !done.includes(a.id)).length;
+  const at = done.length + (shown ? 0 : 1);
   return (
     <div className="stack-lg setup-checks" data-testid="setup-checks">
       <div className="stack-sm">
-        {ask && <span className="xs muted" data-testid="text-check-count">{at} of {Math.max(total.current, at)}</span>}
+        {ask && <span className="xs muted" data-testid="text-check-count">{at} of {at + left}</span>}
         <h2>{ask ? "A few quick checks" : "That's everything"}</h2>
         <p className="small muted">{ask ? "Remy compared your resume with your other sources. Pick what's right and he fixes it." : "Thanks. Everything Remy uses now matches what you picked."}</p>
       </div>
-      {ask && <AskCard key={ask.id} ask={ask} kicker={false} next={left} onAnswered={() => setShown(ask)} onNext={() => setShown(null)} />}
+      {ask && <AskCard key={ask.id} ask={ask} kicker={false} next={left} onAnswered={() => { setShown(ask); setDone((d) => (d.includes(ask.id) ? d : [...d, ask.id])); }} onNext={() => setShown(null)} />}
       <div className="row-between">
         <button className="btn btn-ghost" onClick={onBack}><ArrowLeft size={16} /> Back</button>
         {(!ask || (shown && !left)) && <button className="btn btn-primary" onClick={onNext} data-testid="button-ob-next-checks">Continue <ArrowRight size={16} /></button>}
@@ -890,11 +892,11 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
           </div>
         </div>
       )}
-      {/* Not gated on "pending": if the last save hangs, the student can still move on (onNext saves the step). */}
+      {/* Waits for the last answer's save (it always ends: success or error), so a fast Continue can't skip it. */}
       {(!current || !qs.length) && !busy && (
         <div className="row-between">
-          <button className="btn btn-ghost" onClick={onBack}><ArrowLeft size={16} /> Back</button>
-          <button className="btn btn-primary" onClick={onNext} data-testid="button-ob-next-questions">Continue <ArrowRight size={16} /></button>
+          <button className="btn btn-ghost" disabled={!!pending} onClick={onBack}><ArrowLeft size={16} /> Back</button>
+          <button className="btn btn-primary" disabled={!!pending} onClick={onNext} data-testid="button-ob-next-questions">{pending ? "Saving your answer…" : <>Continue <ArrowRight size={16} /></>}</button>
         </div>
       )}
     </div>

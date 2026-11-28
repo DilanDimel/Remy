@@ -100,8 +100,8 @@ export function Questions({ onBack, onNext }: { onBack: () => void; onNext: () =
           <Button testID="button-skip-question" kind="ghost" label="Skip" onPress={() => submit("")} disabled={!!pending} flex />
         </View>
       ) : !busy && (
-        // Not gated on "pending": if the last save hangs, the student can still move on.
-        <Nav note={error || undefined} onBack={onBack} next={<Button testID="button-ob-next-questions" label="Continue" icon="arrow" onPress={onNext} flex />} />
+        // Waits for the last answer's save (it always ends), so a fast Continue can't skip it (website does the same).
+        <Nav note={error || undefined} onBack={onBack} next={<Button testID="button-ob-next-questions" label={pending ? "Saving your answer…" : "Continue"} icon="arrow" onPress={onNext} disabled={!!pending} flex />} />
       )}
     </View>
   );

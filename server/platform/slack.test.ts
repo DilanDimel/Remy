@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { onEvent, slackContext, verifySlack, RULES, aiNotes, dailyPosts, shippedSince, mergedPosts, channelsFor, CHANNELS, COLOR, command, interact, HOME, syncTopics, clearTopicNotices } from "./slack";
+import { q } from "./sql";
 
 test("signature: Slack's v0 HMAC passes; wrong secret, edited body or old timestamp fail", () => {
   const body = Buffer.from('{"type":"event_callback"}');
@@ -101,6 +102,9 @@ test("daily posts: backup check from 6 AM CT and a Shipped recap from 9 PM, each
     ];
     const files: Record<number, string[]> = { 11: ["client/src/App.tsx", "native/src/app/remy.tsx"], 12: ["native/src/lib/x.ts"] };
     const before = posted.length;
+    // The cursor otherwise starts at the real time of the evening post above, which is after these fixed dates.
+    await q(`INSERT INTO site_settings (key, value, updated_by) VALUES ('slack_merged_cursor', '2026-11-28T04:00:00Z', 'test')
+             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`);
     assert.equal(await mergedPosts(new Date("2026-11-28T04:05:00Z"), list, async (n) => files[n]), 2);
     assert.deepEqual(posted.slice(before).map((p) => [p.channel, p.text.match(/#\d+/)?.[0]]),
       [[CHANNELS.website, "#11"], [CHANNELS.app, "#11"], [CHANNELS.app, "#12"]]);

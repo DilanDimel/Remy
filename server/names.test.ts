@@ -27,3 +27,11 @@ test("an unanswered name check hides the name everywhere Remy shows or writes it
   assert.equal(firstName(ws({ preferredName: "Mari" })), "Mari");
   assert.equal(knownName(ws({ resumeName: "Dilan M. Desman" })), "Dilan Desman");
 });
+
+test("fullerName: the resume adding a middle name is the same person; other names aren't", async () => {
+  const { fullerName } = await import("@shared/names");
+  assert.equal(fullerName("Dilan Desman", "Dilan Dimel Desman"), true);
+  assert.equal(fullerName("Dilan Desman", "Dilan Desman"), false);
+  assert.equal(fullerName("Dilan Desman", "Jane Dimel Desman"), false);
+  assert.equal(fullerName("Dilan", "Dilan Dimel Desman"), false);
+});
