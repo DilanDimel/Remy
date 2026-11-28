@@ -361,6 +361,11 @@ export function firstHello(ws: Workspace, today: string): { text: string; replie
     const noun = fits.filter((j) => j.kind === "internship").length > fits.length / 2 ? "internship" : "opening";
     const due = best.deadline ? `, due ${dayLabel(best.deadline.slice(0, 10)).replace(/^\w+, /, "")}` : "";
     const tailor = `Tailor my resume for ${best.company}`;
+    // No resume yet (Explore for now): the matches came from the major, year and places, so Remy says that, not "I read your resume".
+    if (!ws.resume) return {
+      text: `${hi} From your major, year and the places you chose, I found ${plural(fits.length, noun)} that could fit you. The closest is ${best.title} at ${best.company}${due}. Add your resume and I'll show how your experience matches each one.`,
+      replies: ["Why does it fit me?", fits.length > 1 ? `Show me all ${fits.length}` : "What should I do first?"],
+    };
     return {
       text: `${hi} I read your resume and found ${plural(fits.length, noun)} that fit${fits.length === 1 ? "s" : ""} you. The best one is ${best.title} at ${best.company}${due}. Want me to tailor your resume for it?`,
       replies: [tailor.length <= 44 ? tailor : "Tailor my resume for it", fits.length > 1 ? `Show me all ${fits.length}` : "Why does it fit me?"],

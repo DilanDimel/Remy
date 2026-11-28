@@ -26,6 +26,8 @@ import { firstName } from "@shared/names";
 import { nameConcern } from "@shared/junk";
 import { LIMIT_OPTS } from "@shared/limits";
 import { regionHint, regionOptions } from "@shared/regions";
+import { Compass } from "lucide-react";
+import { useAccess } from "../components/ComingSoon";
 
 // Step numbers are stored in the workspace: 0 and 1 are the goal question (no focus yet) or the resume step; 2-5 follow.
 const STEPS = ["Your goal", "Your resume", "Review", "Preferences", "Questions", "Your plan"];
@@ -69,9 +71,9 @@ export default function Onboarding() {
         ) : (
           <>
             {step <= 1 && (!w.onboarding.focus || regoal) ? <FocusPick onPick={pick} />
-              : step <= 1 && <ResumeStep onBack={() => setRegoal(true)} onNext={() => setStep(2)} onBusy={setReading} />}
+              : step <= 1 && <ResumeStep onBack={() => setRegoal(true)} onNext={() => setStep(2)} onExplore={() => setStep(3)} onBusy={setReading} />}
             {step === 2 && <Review onBack={() => setStep(1)} onNext={() => setStep(3)} />}
-            {step === 3 && <Preferences onBack={() => setStep(2)} />}
+            {step === 3 && <Preferences onBack={() => setStep(w.resume ? 2 : 1)} />}
             {step === 4 && <Questions onBack={() => setStep(3)} onNext={() => setStep(5)} />}
             {step === 5 && <PlanStep onBack={() => setStep(4)} onFinish={finish} />}
           </>
@@ -330,7 +332,7 @@ function CalendarMark() {
 }
 
 /** Step 1: resume first (upload or build one), then the other accounts, each with its own row. */
-function ResumeStep({ onBack, onNext, onBusy }: { onBack: () => void; onNext: () => void; onBusy?: (reading: string) => void }) {
+function ResumeStep({ onBack, onNext, onExplore, onBusy }: { onBack: () => void; onNext: () => void; onExplore: () => void; onBusy?: (reading: string) => void }) {
   const { ws, me } = useStore();
   const first = firstName(ws!);
   const w = ws!;
@@ -344,6 +346,8 @@ function ResumeStep({ onBack, onNext, onBusy }: { onBack: () => void; onNext: ()
   const linkedin = w.imports.find((i) => /linkedin/i.test(i.kind));
   const gc = useGoogleCalendar();
   const phone = useIsMobile();
+  // Explore for now (owners first, Julio's user testing Nov 27): no resume handy, so setup continues with major, year and city.
+  const explore = useAccess()("explore") === "open" && !w.resume;
   if (page === "build" && !w.resume) return <ResumeBuilder onDone={onNext} onCancel={() => setPage("")} />;
   if (page === "linkedin") return <LinkedInGuide onDone={() => setPage("")} />;
   // Handshake is used by most colleges; the TCU account and Stellic only exist at TCU.
@@ -374,6 +378,13 @@ function ResumeStep({ onBack, onNext, onBusy }: { onBack: () => void; onNext: ()
             <span className="conn-ico" aria-hidden><Sparkles size={18} /></span>
             <div className="grow"><b>No resume yet? Build one with Remy</b><span>Most freshmen start here. A few taps and short answers, about 10 minutes. Only what you say goes on it.</span></div>
             <button className="btn btn-primary btn-sm" onClick={() => setPage("build")} data-testid="button-build-resume">{w.builder ? "Continue building" : "Build my resume"}</button>
+          </div>
+        )}
+        {explore && (
+          <div className="conn-row" data-testid="row-explore-now">
+            <span className="conn-ico" aria-hidden><Compass size={18} /></span>
+            <div className="grow"><b>Don't have it with you? Explore for now</b><span>Tell Remy your major, year and city and see rough matches. Add your resume later to see how your experience fits each one.</span></div>
+            <button className="btn btn-secondary btn-sm" onClick={onExplore} disabled={busy} data-testid="button-explore-now">Explore for now</button>
           </div>
         )}
       </div>
@@ -424,7 +435,7 @@ function ResumeStep({ onBack, onNext, onBusy }: { onBack: () => void; onNext: ()
       <p className="xs muted">Remy never asks for your passwords. <a className="auth-link" href="/policies">How Remy handles your information</a></p>
       <div className="row-between">
         <button className="btn btn-ghost" onClick={onBack} disabled={busy} data-testid="button-ob-back-resume"><ArrowLeft size={16} /> Back</button>
-        <span className="xs muted grow" style={{ textAlign: "right" }}>{!w.resume && "Add your resume, or build one, to continue."}</span>
+        <span className="xs muted grow" style={{ textAlign: "right" }}>{!w.resume && (explore ? "Add your resume, build one, or explore for now." : "Add your resume, or build one, to continue.")}</span>
         <button className="btn btn-primary" onClick={onNext} disabled={!w.resume || busy} data-testid="button-ob-next-sources">Continue <ArrowRight size={16} /></button>
       </div>
     </div>
@@ -598,14 +609,18 @@ function Preferences({ onBack }: { onBack: () => void }) {
   const [worries, setWorries] = useState(splitList(p.worries || ""));
   const [worryText, setWorryText] = useState("");
   const allFields = [...fields, ...splitList(otherField)];
+  // Exploring without a resume (Dilan, Nov 28): major, year and a place are required, since they are what rough matches use.
+  const noResume = !ws!.resume;
+  const [major, setMajor] = useState(p.major || "");
+  const allRegions = [...regions, ...splitList(otherRegion)];
   // Two short screens: what you want, then where and the practical bits.
   const missing = (page === 0
-    ? [yearOpts.length && !year.length && "your year", !allFields.length && !unsure && "at least one field (or \"I'm not sure yet\")", !types.length && "what kinds of opportunities"]
-    : []).filter(Boolean);
+    ? [noResume && !major.trim() && "your major", yearOpts.length && !year.length && "your year", !allFields.length && !unsure && "at least one field (or \"I'm not sure yet\")", !types.length && "what kinds of opportunities"]
+    : [noResume && !allRegions.length && "at least one place"]).filter(Boolean);
   const toPage = (n: number) => { setPage(n); window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); };
   // Page 1's picks are saved before page 2, so a refresh there doesn't lose them (the rest saves on "Save and continue").
   const nextPage = async () => {
-    const r = await run(() => save("profile", { ...p, classYear: year[0] || "", graduation: grad.trim(), timeline: timeline.join(", "), opportunityTypes: types.join(", "), targetRoles: allFields.join(", ") }));
+    const r = await run(() => save("profile", { ...p, ...(noResume ? { major: major.trim() } : {}), classYear: year[0] || "", graduation: grad.trim(), timeline: timeline.join(", "), opportunityTypes: types.join(", "), targetRoles: allFields.join(", ") }));
     // "I'm not sure yet" lives with setup, not the profile.
     const o = r && unsure !== !!ws!.onboarding.exploring ? await run(() => save("onboarding", { ...ws!.onboarding, exploring: unsure })) : r;
     if (r && o) toPage(1);
@@ -613,10 +628,11 @@ function Preferences({ onBack }: { onBack: () => void }) {
   const submit = async () => {
     const r = await run(() => save("profile", {
       ...p,
+      ...(noResume ? { major: major.trim() } : {}),
       classYear: year[0] || "",
       graduation: grad.trim(),
       timeline: timeline.join(", "),
-      regions: [...regions, ...splitList(otherRegion)].join(", "),
+      regions: allRegions.join(", "),
       opportunityTypes: types.join(", "),
       targetRoles: allFields.join(", "),
       workAuth: auth[0] || (authChip(p.workAuth).length ? "" : p.workAuth),
@@ -648,6 +664,8 @@ function Preferences({ onBack }: { onBack: () => void }) {
       </div>
       <div className="stack-lg fade-up" key={page}>
         {page === 0 ? <>
+          {noResume && <Q why="Without a resume, your major is how I find openings that fit."><strong>What's your major?</strong>
+            <input className="input" style={{ maxWidth: 360 }} value={major} onChange={(e) => setMajor(e.target.value)} maxLength={120} placeholder="e.g. Finance, Nursing, Undecided" aria-label="Your major" data-testid="input-pref-major" /></Q>}
           <Q why="So I suggest what fits your year, not a senior's.">{!yearOpen ? <span className="row" style={{ gap: 8 }}><strong data-testid="text-pref-year">{/grade/.test(year[0]) ? "You're in" : "You're a"} {year[0].toLowerCase()}{grad.trim() ? `, finishing ${grad.trim()}` : ""}.</strong><button type="button" className="btn btn-ghost btn-sm" onClick={() => setYearOpen(true)} data-testid="button-pref-year-change">Change</button></span> : <>{yearOpts.length ? <strong>What year are you in?</strong> : <strong>When did you finish school? <span className="muted xs">(optional)</span></strong>}<div className="pref-inline">{yearOpts.length > 0 && <Chips options={yearOpts} value={year} onChange={setYear} multi={false} testid="pref-year" />}
             <label className="field" style={{ maxWidth: 260 }}><span className="xs muted">{yearOpts.length ? "Expected graduation" : "Graduation"}</span><input className="input" value={grad} onChange={(e) => setGrad(e.target.value)} placeholder="e.g. May 2029" data-testid="input-pref-grad" /></label></div></>}</Q>
           <Q why="These decide which openings I search for first."><strong>Which fields or roles interest you?</strong>

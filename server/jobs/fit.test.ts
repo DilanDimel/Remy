@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Job, Workspace } from "@shared/types";
-import { abroad, chosenFieldText, classYearOf, computeFit, dealbreaker, FIELD_TITLES, fieldMatch, gradDate, planJobs, regionMatch, typeMatch } from "./fit";
+import { abroad, chosenFieldText, classYearOf, computeFit, dealbreaker, FIELD_TITLES, fieldMatch, gradDate, NO_RESUME_WHY, planJobs, regionMatch, typeMatch } from "./fit";
 import { dreamWithoutOpenings } from "../../shared/org";
 import { FIELD_GROUPS } from "@shared/fields";
 import { runAiAs } from "../ai/ai";
@@ -769,4 +769,11 @@ test("resume degree and roles make an opening match when no field was chosen, an
   assert.equal(fieldMatch(ws, job("Audit Intern")), true);
   assert.equal(fieldMatch(ws, job("Wildlife Biology Intern")), null);
   assert.equal(fieldMatch(student({ major: "Undecided" }), job("Audit Intern")), null);
+});
+
+test("explore for now: without a resume the match still works, and the line asks for the resume (Julio's testing)", () => {
+  const ws = student({ major: "Finance", targetRoles: "Finance", classYear: "Sophomore", regions: "Dallas" });
+  const f = computeFit(ws, job({}), "");
+  assert.equal(f.why, NO_RESUME_WHY);
+  assert.equal(f.excluded, false);
 });

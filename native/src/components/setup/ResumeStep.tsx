@@ -5,18 +5,20 @@ import { Button, Card, Chip, Icon, T } from "@/components/ui";
 import { api, apiForm } from "@/lib/api";
 import { canPickFiles, pickResume } from "@/lib/pick";
 import { go } from "@/lib/nav";
-import { useSession } from "@/lib/session";
+import { useAccess, useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
 import { Input, Nav, Say } from "./common";
 
 /** Setup's resume step: a PDF or Word file from the phone (`POST /api/resume/upload`, builds from Nov 24 on), or pasted
  *  text (`POST /api/resume/text`). Building a resume with Remy, and uploading on older builds, open the website's setup
  *  in the sheet, which refreshes the account when it closes. */
-export function ResumeStep({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
+export function ResumeStep({ onBack, onNext, onExplore }: { onBack: () => void; onNext: () => void; onExplore: () => void }) {
   const { ws, setWs } = useSession();
   const { c } = useTheme();
   const w = ws!;
   const r = w.resume;
+  // Explore for now (owners first, the website's option; Julio's user testing Nov 27): no resume handy, continue with major, year and city.
+  const explore = useAccess()("explore") === "open" && !r;
   // With a file picker, the paste box waits behind a button so the step fits on one screen.
   const [paste, setPaste] = useState(!r && !canPickFiles());
   const [text, setText] = useState("");
@@ -72,8 +74,14 @@ export function ResumeStep({ onBack, onNext }: { onBack: () => void; onNext: () 
         <T style={{ fontFamily: font.bold }}>{files ? "No resume yet? Build one with Remy" : r ? "Upload a file instead" : "Upload a file, or build one with Remy"}</T>
         <T kind="small" style={{ color: c.ink }}>{files ? "Most freshmen start here: a few taps and short answers, and only what you say goes on it. Opens the website's setup here." : r ? "PDF or Word. Opens the website's setup here; you come back when you close it." : "No resume yet? Most freshmen start here: a few taps and short answers, and only what you say goes on it. PDF and Word uploads open the website's setup here."}</T>
       </Card>
+      {explore && (
+        <Card testID="button-explore-now" onPress={onExplore} style={{ gap: 4 }}>
+          <T style={{ fontFamily: font.bold }}>Don't have it with you? Explore for now</T>
+          <T kind="small" style={{ color: c.ink }}>Tell Remy your major, year and city and see rough matches. Add your resume later to see how your experience fits each one.</T>
+        </Card>
+      )}
       <T kind="small">Remy never asks for your passwords. LinkedIn, your transcript and your school email can be added on the website later.</T>
-      <Nav note={error || (!r ? "Add your resume to continue." : undefined)} onBack={onBack}
+      <Nav note={error || (!r ? (explore ? "Add your resume, or explore for now." : "Add your resume to continue.") : undefined)} onBack={onBack}
         next={<Button testID="button-ob-next-sources" label="Continue" icon="arrow" onPress={onNext} disabled={!r || busy} flex />} />
     </View>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, Fragment } from "react";
-import { useCanGo } from "../components/ComingSoon";
+import { useAccess, useCanGo } from "../components/ComingSoon";
 import { dreamWithoutOpenings } from "@shared/org";
 import { decodeEntities, postingField, postingLines } from "@shared/postingText";
 import { jobPay } from "@shared/pay";
@@ -30,6 +30,8 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const owner = useOwnerView(); // tabs redesign (Nov 22), owners first
   const byType = useOwnersOnly(); // tabs per kind of opening (Nov 27): brand-new, owners in owner view only
   const { jobs, fits, interest, interestEnabled, needsProfile, refreshing, fieldEmployers } = useJobs();
+  // Explore for now (owners first): without a resume, matches are rough (major, year, places), and say so.
+  const rough = useAccess()("explore") === "open" && !w.resume;
   // Remy's employer list is mostly business, tech and engineering; for other fields it says so instead of blaming filters.
   // An undecided student has no field, so "few employers hire in your field" would be untrue for them.
   const noField = !w.profile.targetRoles.trim() && (!w.profile.major.trim() || /undecided|undeclared|not sure|exploring/i.test(w.profile.major));
@@ -107,6 +109,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   return (
     <>
       {needsProfile && <div className="notice" data-testid="needs-profile">{needsProfile}</div>}
+      {rough && <div className="notice row-between" data-testid="notice-rough"><span><b>Rough matches</b>, picked by your major, year and the places you chose. Add your resume to see how your experience matches each role.</span><button className="btn btn-secondary btn-sm" onClick={() => go("/resume?tab=base")} data-testid="button-rough-add-resume">Add your resume</button></div>}
       {role && <div className="notice row-between" data-testid="role-filter"><span>Showing {list.length} <b>{role}</b> opening{list.length === 1 ? "" : "s"}, from My Path.</span><button className="btn btn-ghost btn-sm" onClick={() => go("/opportunities")}>Show all openings</button></div>}
       {refreshing && <div className="notice" data-testid="openings-refreshing"><Spinner /> Remy is checking employers' career sites for new openings that fit you. They'll appear here in a moment.</div>}
       {owner && <JobsSeg at={savedOnly ? "saved" : "for"} onSaved={setSavedOnly} />}
@@ -348,6 +351,8 @@ function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; 
   const practice = useCanGo()("/interview"); // Interview is locked for students until it's released
   const { ws, save, setWs, run, config } = useStore();
   const w = ws!;
+  const rough = useAccess()("explore") === "open" && !w.resume;
+  const roughChip = rough && fit && !fit.closed ? <span className="chip chip-plain" title="Picked by your major, year and city. Add your resume to see how your experience matches." data-testid="chip-rough">Rough match</span> : null;
   const [open, setOpen] = useState(defaultOpen);
   // Phones (Dilan, Nov 25): a short row in the list; tapping it opens the whole card as a sheet from the bottom.
   const phone = useIsMobile() && keepPass;
@@ -396,7 +401,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; 
     <button className="job-row" onClick={() => setSheet(true)} id={"job-" + j.id} data-testid="job-row">
       <OrgLogo company={j.company} url={j.applyUrl} />
       <span className="job-row-main"><b>{shortTitle(j.title, j.company)}</b><span>{[j.company, byType ? opLabel(type.type) : kindLabel[j.kind], due || shortPlace(j.location), pay].filter(Boolean).join(" · ")}</span></span>
-      {eligChip(fit)}
+      {roughChip || eligChip(fit)}
     </button>
   );
   const addCal = () => run(() => save("calendar", [...w.calendar, { id: rid("cal"), title: `${j.company}: ${j.kind === "event" ? "event" : "deadline"}`, date: j.deadline, time: "", kind: j.kind === "event" ? "Event" : "Deadline", source: j.label === "Live" ? "From verified posting" : "From imported posting", linkedId: j.id, notes: j.deadlineText }]), "Added to your Remy calendar");
@@ -405,13 +410,15 @@ function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; 
       <div className="row-between job-top" style={{ alignItems: "flex-start" }}>
         <OrgLogo company={j.company} url={j.applyUrl} />
         <div className="stack-sm" style={{ minWidth: 0, flex: 1 }}>
-          <div className="row"><span className="xs muted">{j.company}{byType ? "" : ` · ${kindLabel[j.kind]}`}</span>{byType && <span className="op-type" title={type.why ? `Remy: ${type.why}` : undefined} data-testid="job-type">{opLabel(type.type)}{type.why && <em> · {type.why}</em>}</span>}<StatusChip label={j.label} />{eligChip(fit)}</div>
+          <div className="row"><span className="xs muted">{j.company}{byType ? "" : ` · ${kindLabel[j.kind]}`}</span>{byType && <span className="op-type" title={type.why ? `Remy: ${type.why}` : undefined} data-testid="job-type">{opLabel(type.type)}{type.why && <em> · {type.why}</em>}</span>}<StatusChip label={j.label} />{roughChip}{eligChip(fit)}</div>
           <h3 title={shortTitle(j.title, j.company) !== j.title ? j.title : undefined}>{shortTitle(j.title, j.company)}</h3>
           <div className="row small muted"><span className="row" style={{ gap: 4 }} title={j.location}><MapPin size={14} style={{ flex: "none" }} />{keepPass ? shortPlace(j.location) : j.location || "Location not stated"}</span>{j.dates && <span>· {j.dates}</span>}{j.kind !== "event" && <span data-testid="job-pay" style={pay ? { color: "var(--ink)", fontWeight: 700 } : undefined}>· {pay ? `Pay: ${pay}` : "Pay not listed"}</span>}</div>
         </div>
         {j.deadline && <span className={"chip " + (d !== null && d < 0 ? "chip-bad" : d !== null && d <= 7 ? "chip-setup" : "chip-plain")}>{d !== null && d < 0 ? "Deadline passed" : `Due ${fmtDate(j.deadline)}${d === 0 ? " · today" : d !== null ? ` · ${d}d` : ""}`}</span>}
       </div>
-      {fit && <p className="small job-why"><strong>Why it fits you: </strong>{fit.why}</p>}
+      {fit && (rough
+        ? <p className="small job-why" data-testid="job-rough"><strong>Rough match: </strong>Remy picked it from your major, year and the places you chose. Add your resume to see how your experience matches this role. <button type="button" className="op-link link-btn" onClick={() => go("/resume?tab=base")} data-testid="button-job-add-resume">Add your resume</button></p>
+        : <p className="small job-why"><strong>Why it fits you: </strong>{fit.why}</p>)}
       {(() => { const r = reasonLine(ws!, j, fit, keepPass); return r.length ? <p className="xs muted" data-testid="job-reasons">{r.join(" · ")}</p> : null; })()}
       {fit?.regionMatch === false && <p className="xs muted" data-testid="job-outside">Outside the places you chose{fit.relocate ? `, shown because ${fit.relocate}` : ""}.</p>}
       {(() => { const known = w.contacts.filter((c) => sameOrg(c.org, j.company)); return known.length > 0 && <button className="xs job-contact" style={{ textAlign: "left", color: "var(--fox)", fontWeight: 700 }} onClick={() => go("/community")} data-testid="job-known-contact">You know {known.map((c) => c.name).join(", ")} here: ask about the team before you apply →</button>; })()}
