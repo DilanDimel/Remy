@@ -84,7 +84,9 @@ export function setupReply(a: string, target: string | undefined, saved: boolean
     : "That's completely normal. My Path shows where your major can lead, and we'll figure it out together.";
   if (isNothing(a) && target === "avoid") return "Got it. Nothing added to your leave-out list.";
   if (saved && target && SAVED[target]) return SAVED[target];
-  return "Thanks. I saved that to your AI memory, and your plan will use it.";
+  // A coach answers what was said, not "saved" (Dilan, Nov 27). A long brain dump gets a fuller answer.
+  if (a.length > 160) return "Thank you, that's exactly what I need. I'll use all of it to choose your openings and shape your plan, and we'll talk it through on My Path.";
+  return "That helps. I'll keep it in mind for your openings and your plan.";
 }
 
 /** Optional Preferences fields the student left empty. Preferences comes right before the questions,

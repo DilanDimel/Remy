@@ -76,12 +76,13 @@ export function Chips({ options, value, onChange, multi = true, testID }: { opti
 }
 
 /** A numbered question with its answers under it (the website's `Q`). */
-export function Q({ n, title, optional, children }: { n?: number; title: string; optional?: boolean; children: ReactNode }) {
+/** No question numbers (Dilan, Nov 27: they confused him); `n` stays so callers don't change. */
+export function Q({ title, optional, children }: { n?: number; title: string; optional?: boolean; children: ReactNode }) {
   const { c } = useTheme();
   return (
     <View style={{ gap: 10 }}>
       <Text style={{ fontFamily: font.bold, fontSize: 16, color: c.ink }}>
-        {n ? <Text style={{ color: c.foxDeep }}>{n}. </Text> : null}{title}{optional ? <Text style={{ fontFamily: font.body, fontSize: 13.5, color: c.mutedText }}> (optional)</Text> : null}
+        {title}{optional ? <Text style={{ fontFamily: font.body, fontSize: 13.5, color: c.mutedText }}> (optional)</Text> : null}
       </Text>
       {children}
     </View>

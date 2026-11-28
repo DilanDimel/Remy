@@ -177,7 +177,7 @@ function SignIn() {
               <div className="notice notice-good fade-up" data-testid="magic-link-sent"><Check size={16} /><div>We sent a sign-in link to <strong>{sent}</strong>. Open it on this device to continue.</div></div>
             ) : (
               <form className="row fade-up" onSubmit={(e) => { e.preventDefault(); magic(); }}>
-                <input className="input" style={{ flex: 1, minWidth: 180 }} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@school.edu" autoComplete="email" autoCapitalize="none" aria-label="Email address" data-testid="input-magic-email" />
+                <input className="input" style={{ flex: 1, minWidth: 180 }} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your email" autoComplete="email" autoCapitalize="none" aria-label="Email address" data-testid="input-magic-email" />
                 <button className="btn btn-primary auth-go" disabled={!/.+@.+\..+/.test(email) || !!busy} data-testid="button-send-magic">{busy === "Work/School Email" ? <Spinner /> : null} {codes ? "Send code" : "Send link"}</button>
               </form>
             )

@@ -10,7 +10,7 @@ test("a long sentence for a search field isn't claimed as added to the search (G
   const a = "Get a full-time case manager job in Houston and start my MSW part-time.";
   assert.equal(fitsField("targetRoles", a), false);
   const r = setupReply(a, "targetRoles", false);
-  assert.match(r, /AI memory/);
+  assert.match(r, /in mind|what I need/);
   assert.doesNotMatch(r, /roles you're looking for/);
 });
 
@@ -43,7 +43,8 @@ test("no reply in any case makes a false promise", () => {
 });
 
 test("off-topic answer gets a neutral line, not 'That tells me a lot' (Jaylen, Nov 2)", () => {
-  assert.equal(setupReply("This spring for a campus job", "interests", false), "Thanks. I saved that to your AI memory, and your plan will use it.");
+  assert.equal(setupReply("This spring for a campus job", "interests", false), "That helps. I'll keep it in mind for your openings and your plan.");
+  assert.match(setupReply("x".repeat(200), "interests", false), /exactly what I need/);
 });
 
 test("skip and not-sure replies", () => {
@@ -106,7 +107,7 @@ test("answers that say something besides 'not sure' aren't treated as unsure", (
   assert.equal(fitsField("targetRoles", "Not sure about finance but love consulting"), false);
   assert.equal(fitsField("timeline", "not sure, maybe summer 2027"), false);
   assert.equal(fitsField("interests", "I love building things, unsure which industry"), true);
-  assert.match(setupReply("Not sure about finance but love consulting", "targetRoles", false), /AI memory/);
+  assert.match(setupReply("Not sure about finance but love consulting", "targetRoles", false), /in mind|what I need/);
 });
 
 test("'no', 'none', 'N/A' add nothing to a list, and the leave-out reply says so", () => {
