@@ -92,6 +92,7 @@ export function ResumeMarkup({ doc, onFix, plain = false, look, side, real, upd 
     fit();
     const ro = new ResizeObserver(fit);
     ro.observe(host);
+    ro.observe(el); // its column narrows when Remy's card moves beside it (open foldables)
     return () => ro.disconnect();
   }, [!!ownFile]);
   useEffect(() => { // taps inside the Word-file frame (ResumeReal) arrive as "rr-tap"

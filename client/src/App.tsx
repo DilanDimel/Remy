@@ -25,7 +25,7 @@ import { Avatar } from "./components/ProfilePhoto";
 import { useRemyDoes, useRemyReachOut } from "./lib/remyDoes";
 import { RemyDid } from "./components/RemyDid";
 import { OfferSlot, RemyOffer } from "./components/RemyOffer";
-import { useIsMobile } from "./hooks/use-mobile";
+import { MID_QUERY, useIsMobile, useMedia } from "./hooks/use-mobile";
 import { Insider } from "./components/Insider";
 import { RemyAway } from "./components/RemyAway";
 import { Beta2Welcome } from "./components/Beta2Welcome";
@@ -214,7 +214,7 @@ function OfflineNote() {
 }
 
 function isMobileNow() {
-  return typeof window !== "undefined" && window.matchMedia("(max-width: 1020px)").matches;
+  return typeof window !== "undefined" && window.matchMedia("(max-width: 1099px)").matches;
 }
 
 function Shell() {
@@ -273,7 +273,7 @@ function Shell() {
   const w = ws as Workspace;
   // Remy stays open on every page until the student minimizes him. On small screens the
   // panel would cover the page, so there he starts minimized as the docked fox button.
-  const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 1020px)").matches;
+  const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 1099px)").matches;
   // Owners on My Path talk to Remy inside his office (PathBoard.tsx), so his panel stays closed there unless something
   // (a tailoring conversation) asks for it.
   // Interview (Dilan, Nov 27), for everyone: Remy is built into the page (RemyAskInline), so the panel closes there too.
@@ -286,7 +286,11 @@ function Shell() {
   // A tailoring conversation opens Remy so the student can answer him.
   useEffect(() => { return onOpenRequest(() => setAsstPage(true)); }, []);
   useEffect(() => { return onCloseRequest(() => setAsstPage(false)); }, []);
-  const collapsed = w.settings.navCollapsed;
+  // Open foldables and small tablets (768 to 1,099 wide): the sidebar starts as icons so the page gets the room; the
+  // toggle still opens it for this visit without changing the saved desktop choice.
+  const mid = useMedia(MID_QUERY);
+  const [midOpen, setMidOpen] = useState(false);
+  const collapsed = mid ? !midOpen : w.settings.navCollapsed;
   const access = useAccess();
   const locked = (n: { feature?: string }) => !!n.feature && access(n.feature) === "locked";
   const nav = NAV.filter((n) => !n.feature || access(n.feature) !== "hidden");
@@ -319,7 +323,7 @@ function Shell() {
       <aside className="sidebar" aria-label="Main navigation">
         <div className="brand">
           <span className="logo"><Remy size={26} /><span className="logo-text">Remy<b>.</b></span><BetaBadge /></span>
-          <button className="icon-btn" onClick={() => save("settings", { navCollapsed: !collapsed })} aria-label={collapsed ? "Expand navigation" : "Collapse navigation"} data-testid="button-toggle-nav">
+          <button className="icon-btn" onClick={() => mid ? setMidOpen(!midOpen) : save("settings", { navCollapsed: !collapsed })} aria-label={collapsed ? "Expand navigation" : "Collapse navigation"} data-testid="button-toggle-nav">
             {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
           </button>
         </div>

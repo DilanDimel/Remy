@@ -19,6 +19,11 @@ const rid = (p = "") => p + Math.random().toString(36).slice(2, 10);
 /** One opening in full, the website's expanded job card: why it fits, what they look for, then Tailor / See the posting / Keep. */
 export default function JobDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  return <JobView id={id} />;
+}
+
+/** The opening itself; `inPane` is the right-hand pane beside the Jobs list on open foldables (no header, Pass stays put). */
+export function JobView({ id, inPane }: { id?: string; inPane?: boolean }) {
   const { ws, setWs } = useSession();
   const { jobs, fits, keep, pass } = useJobs();
   const { c } = useTheme();
@@ -27,7 +32,7 @@ export default function JobDetail() {
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
   const j = jobs.find((x) => x.id === id);
-  if (!ws || !j) return <View style={{ flex: 1, backgroundColor: c.bg, padding: 24 }}><Stack.Screen options={{ title: "Opening" }} /><T kind="muted">This opening isn't in your list any more.</T></View>;
+  if (!ws || !j) return <View style={{ flex: 1, backgroundColor: c.bg, padding: 24 }}>{!inPane && <Stack.Screen options={{ title: "Opening" }} />}<T kind="muted">This opening isn't in your list any more.</T></View>;
   const fit = fits[j.id];
   const due = deadlineChip(j.deadline);
   const pay = jobPay(j);
@@ -63,7 +68,7 @@ export default function JobDetail() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <Stack.Screen options={{ title: j.company }} />
+      {!inPane && <Stack.Screen options={{ title: j.company }} />}
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40, gap: 14 }}>
         <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
           <Logo company={j.company} url={j.applyUrl} size={56} />
@@ -94,7 +99,7 @@ export default function JobDetail() {
         {j.kind !== "event" && !decided && (
           <View style={{ flexDirection: "row", gap: 8 }}>
             <Button testID="button-keep" label="Keep" flex style={{ flex: 1 }} busy={busy === "keep"} onPress={() => run("keep", async () => { await keep(j); success(); })} />
-            <Button testID="button-pass" kind="ghost" label="Pass" flex style={{ flex: 1 }} busy={busy === "pass"} onPress={() => run("pass", async () => { await pass(j); router.back(); })} />
+            <Button testID="button-pass" kind="ghost" label="Pass" flex style={{ flex: 1 }} busy={busy === "pass"} onPress={() => run("pass", async () => { await pass(j); if (!inPane) router.back(); })} />
           </View>
         )}
         {saved && <T kind="small" style={{ color: c.sage }}>Kept. It waits under Kept on Jobs.</T>}
