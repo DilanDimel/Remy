@@ -61,37 +61,52 @@ export function ResumeUpload({ compact = false, onDone, onBusy, source }: { comp
   );
 }
 
-export function ProfileImport({ kind, hint, onDone, onBusy }: { kind: string; hint: string; onDone?: (added: number) => void; onBusy?: (busy: boolean) => void }) {
-  const { setWs, run, config } = useStore();
+export function ProfileImport({ kind, hint, onDone, onBusy, pdfOnly }: { kind: string; hint: string; onDone?: (added: number) => void; onBusy?: (busy: boolean) => void; pdfOnly?: boolean }) {
+  const { setWs, config } = useStore();
+  const pdf = pdfOnly ?? /transcript/i.test(kind); // a transcript is always a PDF, wherever it's added
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   useEffect(() => { onBusy?.(busy); }, [busy]);
   useEffect(() => () => onBusy?.(false), []);
   const [text, setText] = useState("");
   const file = useRef<HTMLInputElement>(null);
   const send = async (f?: File | null) => {
     setBusy(true);
+    setError("");
     const fd = new FormData();
     fd.append("kind", kind);
     if (f) fd.append("file", f);
     else fd.append("text", text);
-    const r = await run(() => api<{ workspace: Workspace; added: number }>("POST", "/api/import/profile", fd));
+    // One quiet retry: a long PDF can time out once and then read fine (Dilan's transcript, Nov 27).
+    let r: { workspace: Workspace; added: number } | undefined;
+    for (let i = 0; i < 2 && !r; i++) {
+      try { r = await api<{ workspace: Workspace; added: number }>("POST", "/api/import/profile", fd); }
+      catch (e: any) {
+        // A clear "what to do" instead of "Something went wrong"; limits and bad files aren't worth a retry.
+        if (i === 1 || e?.status === 429 || e?.status === 400) setError(e?.status === 400 || e?.status === 429 ? String(e?.message || "") : "I couldn't read that file. Download it again as a PDF and upload it here. If it still fails, it may be a scan: try a text PDF from your portal.");
+        if (e?.status === 429 || e?.status === 400) break;
+      }
+    }
     if (r) {
       setWs(r.workspace);
       setText("");
       onDone?.(r.added);
     }
+    if (file.current) file.current.value = "";
     setBusy(false);
   };
   // Upload is the main way in; pasting is the fallback (owner feedback, Nov 20: two equal buttons didn't say what to do).
+  // Transcripts are PDF only: nobody pastes a transcript (Dilan, Nov 27).
   return (
     <div className="stack-sm">
       <p className="xs muted">{hint}</p>
       <div className="row">
-        <button className="btn btn-primary btn-sm" disabled={busy || !config?.ai.available} onClick={() => file.current?.click()} data-testid="button-import-upload">{busy && <Spinner />} Upload PDF</button>
-        <input ref={file} type="file" accept=".pdf,.docx,.txt" hidden onChange={(e) => send(e.target.files?.[0])} />
+        <button className="btn btn-primary btn-sm" disabled={busy || !config?.ai.available} onClick={() => file.current?.click()} data-testid="button-import-upload">{busy && <Spinner />} {busy ? "Reading…" : "Upload PDF"}</button>
+        <input ref={file} type="file" accept={pdf ? ".pdf,application/pdf" : ".pdf,.docx,.txt"} hidden onChange={(e) => send(e.target.files?.[0])} />
       </div>
-      <textarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} placeholder="Or paste the text here…" aria-label={`${kind} text`} style={{ minHeight: 80 }} data-testid={`input-import-${kind.toLowerCase().replace(/\W/g, "")}`} />
-      {text.trim().length > 0 && <div className="row"><button className="btn btn-secondary btn-sm" disabled={busy || text.trim().length < 40 || !config?.ai.available} onClick={() => send()} data-testid={`button-import-${kind.toLowerCase().replace(/\W/g, "")}`}>{busy && <Spinner />} Read pasted text</button></div>}
+      {error && <p className="xs" role="alert" style={{ color: "var(--error)" }} data-testid="text-import-error">{error}</p>}
+      {!pdf && <textarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} placeholder="Or paste the text here…" aria-label={`${kind} text`} style={{ minHeight: 80 }} data-testid={`input-import-${kind.toLowerCase().replace(/\W/g, "")}`} />}
+      {!pdf && text.trim().length > 0 && <div className="row"><button className="btn btn-secondary btn-sm" disabled={busy || text.trim().length < 40 || !config?.ai.available} onClick={() => send()} data-testid={`button-import-${kind.toLowerCase().replace(/\W/g, "")}`}>{busy && <Spinner />} Read pasted text</button></div>}
     </div>
   );
 }
