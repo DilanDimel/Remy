@@ -6,7 +6,9 @@ import { ApplyNudge } from "../components/ApplyNudge";
 import { MissionBoard } from "../components/Game";
 import { ArrowRight, ArrowUpRight, Briefcase, CalendarCheck, Check, ChevronDown, ChevronUp, Compass, FileText, Flame, ListChecks, MapPin, Mic } from "lucide-react";
 import type { Job, Task, Workspace } from "@shared/types";
-import { api, daysUntil, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
+import { api, daysUntil, fmtDate, rid, useOwnerView, useOwnersOnly, useStore } from "../lib/store";
+import { useMedia } from "../hooks/use-mobile";
+import { openRemy } from "../lib/tailorChat";
 import { CAREER_QUEST_ON } from "@shared/game";
 import { useCompleting } from "../lib/completing";
 import { go } from "../lib/router";
@@ -137,6 +139,7 @@ export default function Home() {
 
   return (
     <>
+      <CoverGlance w={w} jobs={jobs || []} />
       <div className="page-head">
         <div>
           <span className="eyebrow">{t("Home")}</span>
@@ -295,5 +298,34 @@ function JobRow({ j, why, open, onToggle, mono, matched, top }: { j: Job; why?: 
         !!matched?.length && <span className="job-fit" title={`${many(matched.length, "skill")} from this posting are on your resume`}><b>{matched.length}</b>{matched.length === 1 ? "skill" : "skills"}</span>
       ) : <>{due}<button className="icon-btn" onClick={onToggle} aria-label="Details">{open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button></>}
     </div>
+  );
+}
+
+/** Cover screens (Galaxy Z Flip's 360 x 400 outside screen, other short phone screens), brand-new, owners first (Nov 28):
+ * one glance at what's next and one tap, before the rest of Home. */
+function CoverGlance({ w, jobs }: { w: Workspace; jobs: Job[] }) {
+  const t = useT();
+  const on = useMedia("(max-width: 760px) and (max-height: 560px)") && useOwnersOnly();
+  if (!on) return null;
+  const today = dayKey();
+  // The soonest date that matters: a calendar entry or a saved opening's deadline, today or later.
+  const next = [
+    ...w.calendar.filter((c) => c.date >= today).map((c) => ({ title: c.title, date: c.date, link: "/calendar" })),
+    ...jobs.filter((j) => w.savedJobIds.includes(j.id) && j.deadline && j.deadline >= today).map((j) => ({ title: `${j.company}: ${j.title}`, date: j.deadline, link: `/opportunities?id=${j.id}` })),
+  ].sort((a, b) => a.date.localeCompare(b.date))[0];
+  const roundDone = (["openings", "role", "forecast"] as const).every((c) => w.game?.days?.[today]?.includes(c));
+  const d = next ? daysUntil(next.date) : null;
+  return (
+    <section className="cover-glance" aria-label="At a glance" data-testid="cover-glance">
+      {next ? (
+        <button className="cg-row" onClick={() => go(next.link)} data-testid="cover-next">
+          <CalendarCheck size={20} /><span><small>{d === 0 ? t("Today") : d === 1 ? t("Tomorrow") : fmtDate(next.date)}</small><b>{next.title}</b></span>
+        </button>
+      ) : <p className="cg-row muted small">{t("Nothing due soon.")}</p>}
+      <button className="cg-row" onClick={() => go(roundDone ? "/path" : "/path?play=1")} data-testid="cover-round">
+        <Flame size={20} /><span><small>{t("Today's round")}</small><b>{roundDone ? t("Done for today") : t("Three quick cards")}</b></span>
+      </button>
+      <button className="btn btn-primary cg-ask" onClick={openRemy} data-testid="cover-ask"><Mic size={18} /> {t("Ask Remy")}</button>
+    </section>
   );
 }

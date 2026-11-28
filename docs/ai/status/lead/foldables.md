@@ -12,3 +12,8 @@ Dilan approved steps A, B and C of the foldables proposal (https://claude.ai/art
 - Jobs (Opportunities.tsx): `PickCtx` holds the one open opening for both the phone sheet and the right pane (`.op-split` / `.op-pane`, portal). Same pick survives fold/unfold. Follows the redesign switch (`useOwnerView`), like the phone rows. Viewport Segments set the gap on the fold in Chrome.
 - Resume line-by-line walk: `.rm-coach` becomes a sticky second column in the middle range (CSS); the paper re-fits via a ResizeObserver on the paper.
 - App: `TWO_PANE_W` 768 in ui.tsx; Jobs shows the list beside `JobView` (job.tsx, `inPane`); folding pushes `/job` for the picked opening. `Screen wide` raises the column cap to 1,200.
+
+## Step C: brand-new, owners first (useOwnersOnly on website and app)
+- Tabletop interview practice. Website `MockInterview.tsx` (Julio's area, he's credited): `(device-posture: folded) and (vertical-viewport-segments: 2)` → `.ivc-tabletop`, rows follow `env(viewport-segment-*)`. Tested in Chromium with CDP `Emulation.setDevicePostureOverride` + `setDeviceMetricsOverride({displayFeature})`; take screenshots with CDP `Page.captureScreenshot` (Playwright's screenshot resets the fold).
+- App `interview.tsx` + `src/lib/posture.ts` (`useTabletop`, expo-hinge ~58.0.2 added: NEW NATIVE BUILD needed before it works; old builds get null from the optional module, no crash). Heuristic: half-open hinge + wider-than-tall window; check on a real device.
+- Cover glance on Home (`CoverGlance`, short phone screens ≤560 tall): next date, today's round, Ask Remy; hides "Remy noticed" while it shows.
