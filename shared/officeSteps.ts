@@ -26,8 +26,9 @@ export function officeSteps(ws: Workspace, today: string, hour: number, fresh: n
   const asks = remyAsks(ws, today);
   const offer = (o: (typeof offers)[number], spot: OfficeSpot): OfficeStep => ({ id: o.id, spot, say: o.text, cta: o.label, action: o.action, offerId: o.id });
   const out: OfficeStep[] = [];
-  // A saved opening closing soon, or a dream employer hiring, beats everything.
-  const urgent = offers.find((o) => o.id.startsWith("close:") || o.id.startsWith("dream:"));
+  // An interview in the next few days with no prep sheet yet beats everything (Nov 28), then a saved opening closing
+  // soon or a dream employer hiring. The prep sheet lands on the Calendar event; it works whether or not Interview is open.
+  const urgent = offers.find((o) => o.id.startsWith("prep:")) || offers.find((o) => o.id.startsWith("close:") || o.id.startsWith("dream:"));
   if (urgent) out.push(offer(urgent, "computer"));
   if (asks.length) out.push({ id: "asks", spot: "notes", ask: true, cta: "", say: `I have ${asks.length === 1 ? "a quick question" : `${asks.length} quick questions`} about your account. They're in my notes.` });
   const fix = offers.find((o) => o.id.startsWith("fix:"));

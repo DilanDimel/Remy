@@ -24,3 +24,13 @@ test("open questions go to his notes", () => {
   const s = officeSteps(w, today, 12, 0);
   assert.ok(s.some((x) => x.spot === "notes" && x.ask));
 });
+
+test("an interview in the next days with no prep sheet comes first, on his computer (Nov 28)", () => {
+  const w = emptyWorkspace();
+  w.calendar = [{ id: "c1", title: "Acme interview", date: "2026-11-26", kind: "Interview" } as never];
+  const s = officeSteps(w, today, 12, 4);
+  assert.equal(s[0].spot, "computer");
+  assert.equal(s[0].id, "prep:c1");
+  assert.deepEqual(s[0].action, { kind: "prep", calId: "c1" });
+  assert.ok(!s.some((x) => x.id.startsWith("openings:")));
+});

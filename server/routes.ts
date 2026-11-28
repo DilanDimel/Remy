@@ -677,22 +677,24 @@ export async function registerRoutes(_server: Server, app: Express) {
   };
   // Overnight drafts (redesign stage 5b): between 1 and 6 am Central, a tailored resume and letter for the top 1 or 2
   // new openings that fit, for students active in the last 14 days. All changes stay pending: nothing is used until the
-  // student approves it. Once a night per student, at most 4 students a run (each draft is a few AI calls).
-  // OWNERS ONLY while the redesign is tested.
+  // student approves it. Once a night per student, at most 4 students a run (each draft is a few AI calls, about
+  // $0.001 each on Haiku). Everyone since Nov 28 (part of The Big Upgrade); students use the students' AI, owners their trial.
   const overnightDrafts = async () => {
     const hour = Number(new Date().toLocaleString("en-US", { timeZone: "America/Chicago", hour: "numeric", hour12: false })) % 24;
     if (hour < 1 || hour >= 6 || !aiStatus().available) return;
     const now = new Date();
+    const released = redesignOut(await features.releases());
     let n = 0;
     for (const u of await recentStudents(daysBefore(centralToday(), 14), true)) {
       if (n >= 4) break;
-      if (!(await admin.isOwner({ kind: u.kind as "google", email: u.email }))) continue;
+      const owner = await admin.isOwner({ kind: u.kind as "google", email: u.email });
+      if (!owner && !released) continue;
       const ws = await loadWorkspace(u.id);
       if (Date.now() - Date.parse(ws.overnightAt || "") < 20 * 60 * 60_000) continue;
       const picks = overnightPicks(ws, now);
       if (!picks.length) continue;
       n++;
-      const me = { id: u.id, kind: u.kind, email: u.email, name: "", picture: "", owner: true } as Me;
+      const me = { id: u.id, kind: u.kind, email: u.email, name: "", picture: "", owner } as Me;
       const ctx: Ctx = { me, ws, ip: "background", save: sectionSaver(me, ws) };
       ws.overnightAt = nowIso(); // a failed night waits for the next one instead of retrying every hour
       await ctx.save();
@@ -701,7 +703,7 @@ export async function registerRoutes(_server: Server, app: Express) {
         const a: Application = { id: uid("app"), jobId: job.id, createdAt: nowIso(), overnight: nowIso(), gaps: [], changes: [], letter: "", letterFlags: [], letterApproved: false, personalize: [], ats: [], versions: [] };
         ws.applications.unshift(a);
         try {
-          if (await runAiAs(true, () => tailorApplication(ctx, a, {}))) ws.applications = ws.applications.filter((x) => x.id !== a.id);
+          if (await runAiAs(true, () => tailorApplication(ctx, a, {}), owner)) ws.applications = ws.applications.filter((x) => x.id !== a.id);
           await ctx.save();
           console.log(`overnight draft: ${u.id} ${job.id}`);
         } catch (e: any) {

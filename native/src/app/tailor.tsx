@@ -71,7 +71,7 @@ export default function Tailor() {
     );
     return wrap(<>
       <T kind="muted">Pick an opening. Remy proposes changes from what's already on your resume, and you accept, edit or reject each one.</T>
-      {inProgress.length > 0 && <>{label("In progress")}{inProgress.map(({ x, j }) => row(j, x.versions.length ? `Approved v${x.versions.length}` : x.generatedAt ? `${x.changes.filter((ch) => ch.status === "pending").length} to review` : "Not drafted yet", () => router.setParams({ app: x.id }), "row-tailor-started"))}</>}
+      {inProgress.length > 0 && <>{label("In progress")}{inProgress.map(({ x, j }) => row(j, x.versions.length ? `Approved v${x.versions.length}` : x.generatedAt ? `${x.overnight ? "Remy's draft · " : ""}${x.changes.filter((ch) => ch.status === "pending").length} to review` : "Not drafted yet", () => router.setParams({ app: x.id }), "row-tailor-started"))}</>}
       {fresh.length > 0 && <>{label("Best fits")}{fresh.map((j) => row(j, "Start", () => router.setParams({ job: j.id }), "row-tailor-new"))}</>}
       {!inProgress.length && !fresh.length && <T kind="muted">No openings yet. Keep a few on Jobs and come back.</T>}
     </>);
