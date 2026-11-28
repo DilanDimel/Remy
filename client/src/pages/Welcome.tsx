@@ -7,6 +7,7 @@ import { providerOn, startOAuth, type SsoProvider } from "../lib/signin";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { isNativeApp } from "../lib/native";
 import Landing2 from "./Landing2";
+import { inAppBrowser } from "@shared/inAppBrowser";
 
 export function useGoogleButton(onCredential: (cred: string) => void) {
   const { config } = useStore();
@@ -79,7 +80,8 @@ function SignIn() {
   const [sent, setSent] = useState("");
   const [code, setCode] = useState("");
   const codes = !!config?.emailCodes;
-  const gis = !!config?.googleClientId;
+  const inApp = typeof navigator === "undefined" ? null : inAppBrowser(navigator.userAgent); // Google blocks sign-in in these
+  const gis = !!config?.googleClientId && !inApp;
   const google = useGoogleButton(async (credential) => {
     setBusy("google");
     const r = await run(() => api("POST", "/api/auth/google", { credential }));
@@ -122,7 +124,7 @@ function SignIn() {
     </button>
   );
   const anyReal = gis || codes || ["google", "apple", "azure", "email"].some((p) => providerOn(config, p as SsoProvider));
-  const ways = ["google", "apple", "azure"].filter((p) => providerOn(config, p as SsoProvider) || (p === "google" && gis)).length + (codes || providerOn(config, "email") ? 1 : 0);
+  const ways = ["google", "apple", "azure"].filter((p) => (p !== "google" || !inApp) && (providerOn(config, p as SsoProvider) || (p === "google" && gis))).length + (codes || providerOn(config, "email") ? 1 : 0);
   return (
     <div className="landing-screen auth-stage">
       <div className="lp-beam" aria-hidden><span className="lp-beam-floor" /></div>
@@ -144,7 +146,12 @@ function SignIn() {
         </div>
         <BetaNote onOther={() => { setSent(""); setEmail(""); setCode(""); }} />
         <div className="sso-list">
-          <div data-testid="google-signin">
+          {inApp && !sent && (
+            <div className="notice notice-info" role="note" data-testid="notice-in-app-browser">
+              <div><b>Opened from {inApp}?</b> Google sign-in doesn't work inside {inApp}'s browser, so use your email below. Prefer Google? Tap <b>{/Android/i.test(navigator.userAgent) ? "⋮" : "•••"}</b> and open this page in your browser.</div>
+            </div>
+          )}
+          {!inApp && <div data-testid="google-signin">
             {gis && google.state !== "failed" ? (
               <>
                 <div ref={google.ref} style={{ minHeight: 44, display: "flex", justifyContent: "center" }} />
@@ -154,7 +161,7 @@ function SignIn() {
             ) : (
               sso("Google", <GoogleG />)
             )}
-          </div>
+          </div>}
           {sso("Apple", <AppleMark />)}
           {sso("Microsoft", <MicrosoftMark />)}
           {!emailOpen && sso("Work/School Email", <MailMark />)}

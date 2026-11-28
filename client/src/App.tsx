@@ -106,8 +106,8 @@ function Root() {
   }, [loading, signedOut, path]);
   // Signed-in students: automatic signals for the owners (page visits, rage clicks, errors). Counts only.
   useEffect(() => { if (!loading && !signedOut) { startSignals(); countSignal("page:" + tidyPath(path)); } }, [loading, signedOut, path]);
-  // PostHog (lib/analytics.ts): signed-in only, masked, off with Do Not Track.
-  useEffect(() => { if (!loading && me) startAnalytics(me, config); }, [loading, me, config]);
+  // PostHog (lib/analytics.ts): visitors and students, masked, off with Do Not Track.
+  useEffect(() => { if (!loading) startAnalytics(me, config); }, [loading, me, config]);
   // Owners only: Team & hours → Using Remy (lib/presence.ts).
   useEffect(() => { if (!loading) startPresence(me); }, [loading, me]);
   // Owner styling has to live here, not in Shell: /about and /admin render outside Shell, so they'd otherwise
