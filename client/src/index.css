@@ -1746,6 +1746,8 @@ button.ms-text:hover { text-decoration: underline; text-underline-offset: 3px; }
 @media (min-width: 1101px) {
   .page > .op-cols { flex: 1 1 0; min-height: 0; grid-template-rows: minmax(0, 1fr); align-items: stretch; }
   .op-cols > .stack, .op-cols > .op-rail { min-height: 0; overflow-y: auto; overscroll-behavior: contain; position: static; padding: 2px 6px 16px 2px; margin: -2px -6px 0 -2px; }
+  /* Cards fade out at the panel's edges instead of being cut by a hard line while the list scrolls (Dilan, Nov 27). */
+  .op-cols > .stack { padding-top: 10px; -webkit-mask-image: linear-gradient(to bottom, transparent, var(--black) 12px, var(--black) calc(100% - 20px), transparent); mask-image: linear-gradient(to bottom, transparent, var(--black) 12px, var(--black) calc(100% - 20px), transparent); }
   .page > .stack:has(> .r1 > .r1-grid), .page > .stack > .r1:has(> .r1-grid) { flex: 1 1 0; min-height: 0; }
   .r1 > :not(.r1-grid) { flex-shrink: 0; }
   .r1 > .r1-grid { flex: 1 1 0; min-height: 0; grid-template-rows: minmax(0, 1fr); align-items: stretch; }

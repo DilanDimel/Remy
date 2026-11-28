@@ -17,3 +17,12 @@ export function regionOptions(location = ""): string[] {
   if (name === "Texas") return [...(own && !TEXAS_REGION_OPTS.some((o) => o.toLowerCase() === own.toLowerCase()) ? [own] : []), ...TEXAS_REGION_OPTS, ...EVERYWHERE];
   return [...(own ? [own] : []), `Anywhere in ${name}`, ...EVERYWHERE];
 }
+
+/** Under "Where should I look?": picking Fort Worth or Dallas alone now means only that city (Dilan, Nov 27), so say
+ *  how to get the whole area. "" when nothing needs saying. */
+export function regionHint(picked: string[]): string {
+  const p = picked.map((x) => x.toLowerCase());
+  if (p.some((x) => x.includes("dfw")) || (p.includes("fort worth") && p.includes("dallas"))) return "";
+  const city = picked.find((x) => /^(fort worth|dallas)$/i.test(x.trim()));
+  return city ? `Only ${city.trim()} itself. Pick DFW area to add Dallas, Fort Worth, Arlington, Irving and Plano.` : "";
+}
