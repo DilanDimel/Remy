@@ -4276,3 +4276,20 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
   .rm-body > .rm-coach { position: sticky !important; top: 12px !important; left: auto !important; width: auto !important; grid-column: 2; grid-row: 1; align-self: start; }
   .rm-body:has(> .rm-coach) > :not(.rm-coach):not(.rm-coach-mark):not(.rm-why) { grid-column: 1; }
 }
+/* Interview practice in tabletop mode (owners first, Nov 28): the phone half-open on a desk. Remy's question fills the
+   standing half and ends at the fold; your answer is on the half lying flat. The rows follow the fold Chrome reports. */
+.ivc-tabletop { position: fixed; inset: 0; z-index: 70; display: grid; background: var(--bg);
+  grid-template-rows: env(viewport-segment-height 0 0, 50dvh) calc(env(viewport-segment-top 0 1, 50dvh) - env(viewport-segment-bottom 0 0, 50dvh)) minmax(0, 1fr); }
+.ivc-tt-top { grid-row: 1; overflow-y: auto; display: flex; flex-direction: column; justify-content: flex-end; gap: 10px; padding: 16px 24px 18px; }
+.ivc-tt-top .ivc-ask { font-size: clamp(1.25rem, 3.2vw, 1.9rem); line-height: 1.25; margin: 0; }
+.ivc-tt-bottom { grid-row: 3; overflow-y: auto; padding: 18px 24px calc(16px + env(safe-area-inset-bottom)); }
+/* Cover-screen glance on Home (owners first, Nov 28): next date, today's round, Ask Remy, on the first short screen. */
+.cover-glance { display: grid; gap: 8px; margin-bottom: 16px; }
+.cg-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 10px 14px; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; color: var(--ink); }
+.cg-row svg { flex: none; color: var(--fox); }
+.cg-row span { display: grid; min-width: 0; }
+.cg-row small { color: var(--muted-text); font-size: var(--text-xs); }
+.cg-row b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cg-ask { min-height: 48px; justify-content: center; }
+/* With the glance showing, "Remy noticed" steps aside on that short screen: the glance's Ask Remy opens him. */
+.shell:has(.cover-glance) .remy-offer { display: none; }

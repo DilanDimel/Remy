@@ -1,6 +1,6 @@
 import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Workspace } from "@shared/types";
 import { CRITERIA } from "@shared/interviewRubric";
@@ -20,6 +20,7 @@ import { Coach, PlanCard, Stepper } from "@/components/InterviewCoach";
 import type { Step } from "@shared/interviewCoach";
 import { font, useTheme } from "@/lib/theme";
 import { radius } from "@/lib/tokens";
+import { useTabletop } from "@/lib/posture";
 
 // Mock interview, native (it opened the website's /interview; client/src/components/MockInterview.tsx): Remy plans
 // questions from the posting and the student's resume (POST /api/interviews), asks one at a time, rates each answer
@@ -184,6 +185,8 @@ function Room({ iv, view, setView, setErr }: { iv: Interview; view: NonNullable<
   const real = iv.mode === "real";
   const q = iv.questions[qi];
   const owners = useOwnersOnly(); // Remy's voice is owners only for now (ElevenLabs credits)
+  const tabletop = useTabletop() && owners; // brand-new (Nov 28): owners first
+  const insets = useSafeAreaInsets();
   // "Like the real thing": the interviewer asks out loud. Stops when the question changes or the screen closes.
   useEffect(() => { if (!owners || !real || !q || view.fb || !canSpeak()) return; say(q.q, () => {}).catch(() => {}); return () => hush(); }, [qi, view.fb]);
   if (qi >= n) return <Scorecard iv={iv} again={() => setView(null)} practice={(i, fb) => setView({ id: iv.id, qi: i, fb: !!fb })} />;
@@ -194,8 +197,7 @@ function Room({ iv, view, setView, setErr }: { iv: Interview; view: NonNullable<
     setView({ id: iv.id, qi: to, fb: false });
   };
   if (view.fb && a) return <Take iv={iv} a={a} retry={() => setView({ ...view, fb: false })} next={() => next(qi + 1)} />;
-  return (
-    <View testID="mock-room" style={card}>
+  const asked = (<>
       <View accessibilityLabel={`Question ${qi + 1} of ${n}`} style={{ flexDirection: "row", gap: 4 }}>{iv.questions.map((_, i) => <View key={i} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: i < qi ? c.sage : i === qi ? c.fox : c.line }} />)}</View>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
         <Text style={[kick(c), { flex: 1 }]} numberOfLines={2}>{KIND[q.kind]} · {qi + 1} of {n}</Text>
@@ -208,6 +210,8 @@ function Room({ iv, view, setView, setErr }: { iv: Interview; view: NonNullable<
         {q.table.map((r, i) => <View key={i} style={{ flexDirection: "row", borderTopWidth: 1, borderColor: c.line, backgroundColor: i === 0 ? c.surface2 : undefined }}>
           {r.map((cell, k) => <Text key={k} style={{ flex: 1, padding: 6, fontFamily: i === 0 ? font.bold : font.body, fontSize: 12.5, color: c.ink }}>{cell}</Text>)}</View>)}
       </View>}
+  </>);
+  const answer = (
       <Answer key={`${iv.id}-${qi}-${a?.at || ""}`} initial={a?.text || ""} hint={real ? undefined : q.hint} last={qi === n - 1}
         onSend={async (text, secs, fillers) => {
           setErr("");
@@ -215,6 +219,23 @@ function Room({ iv, view, setView, setErr }: { iv: Interview; view: NonNullable<
           success();
           if (real) await next(qi + 1); else setView({ ...view, qi, fb: true });
         }} skip={() => next(qi + 1)} stop={() => setView(null)} />
+  );
+  // Tabletop: Remy's question on the standing half, your answer on the half lying on the desk.
+  if (tabletop) return (
+    <Modal visible animationType="fade" supportedOrientations={["landscape", "portrait"]} onRequestClose={() => setView(null)}>
+      <View testID="mock-tabletop" style={{ flex: 1, backgroundColor: c.bg, paddingLeft: insets.left + 24, paddingRight: insets.right + 24 }}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end", gap: 10, paddingTop: insets.top + 16, paddingBottom: 20 }}>
+          <Remy size={56} />
+          {asked}
+        </ScrollView>
+        <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: 20, paddingBottom: insets.bottom + 16 }}>{answer}</ScrollView>
+      </View>
+    </Modal>
+  );
+  return (
+    <View testID="mock-room" style={card}>
+      {asked}
+      {answer}
     </View>
   );
 }

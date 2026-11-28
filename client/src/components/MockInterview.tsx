@@ -19,6 +19,7 @@ import { PitchCard } from "./PitchCard";
 import { QuickRate } from "./QuickRate";
 import { Remy, Spinner } from "./common";
 import { RemyAskInline } from "./RemyAskInline";
+import { useMedia } from "../hooks/use-mobile";
 
 const KIND: Record<string, string> = { warmup: "Warm-up", posting: "From the posting", resume: "Your resume", work_sample: "Work sample", pressure: "Pressure", yours: "Your turn" };
 const short = (t: string) => t.split(/ [-–(]|, /)[0];
@@ -179,6 +180,9 @@ function Head({ say, left }: { say: React.ReactNode; left: number }) {
 /** One practice: the question, your answer, Remy's take, and the scorecard at the end. */
 function Room({ iv, view, setView }: { iv: Interview; view: NonNullable<View>; setView: (v: View) => void }) {
   const { ws, setWs, run } = useStore();
+  // Tabletop (brand-new, owners first, Nov 28): a foldable half-open on a desk, fold across the middle. Chrome on Galaxy Z
+  // Fold and Pixel Fold reports it; the question goes on the standing half, the answer on the flat half.
+  const tabletop = useMedia("(device-posture: folded) and (vertical-viewport-segments: 2)") && useOwnersOnly();
   const n = iv.questions.length;
   if (view.qi < 0) view = { ...view, qi: 0 };
   if (view.qi >= n) return <Scorecard iv={iv} again={() => setView(null)} practice={(qi, fb) => setView({ id: iv.id, qi, fb: !!fb })} />;
@@ -191,15 +195,8 @@ function Room({ iv, view, setView }: { iv: Interview; view: NonNullable<View>; s
   const head = view.fb && a
     ? <><b>{a.landed ? "Good. Here's my take." : "Answer saved."}</b> {a.sharpen ? "One fix and this answer is ready for the real thing." : "On to the next one when you're ready."}</>
     : <><b>Question {view.qi + 1} of {n}.</b> Take your time. Nothing is sent until you say so.</>;
-  return (
-    <div className="ivc" data-testid="mock-interview">
-      <Head say={head} left={weeklyLeft(ws!.interviews)} />
-      {view.fb && a ? <Take iv={iv} a={a} retry={() => setView({ ...view, fb: false })} next={() => go(view.qi + 1)} /> : (
-        <section className="ivc-card" data-testid="mock-room">
-          <div className="ivc-bar" aria-label={`Question ${view.qi + 1} of ${n}`}>{iv.questions.map((_, i) => <i key={i} className={i < view.qi ? "d" : i === view.qi ? "on" : ""} />)}</div>
-          <div className="ivc-seat">
-            <div className="ivc-fox"><Remy size={76} mood={a ? "happy" : "think"} /><small>Remy · interviewer</small></div>
-            <div className="ivc-q">
+  const bar = <div className="ivc-bar" aria-label={`Question ${view.qi + 1} of ${n}`}>{iv.questions.map((_, i) => <i key={i} className={i < view.qi ? "d" : i === view.qi ? "on" : ""} />)}</div>;
+  const ask = (<>
               <div className="row" style={{ justifyContent: "space-between", gap: 8, flexWrap: "nowrap" }}>
                 <span className="ivc-kick">{KIND[q.kind]}{q.from ? ` · ${q.kind === "resume" ? "your line" : "from the posting"}: “${q.from}”` : ""}</span>
                 <ReadAloud text={q.q} auto={iv.mode === "real"} />
@@ -207,15 +204,34 @@ function Room({ iv, view, setView }: { iv: Interview; view: NonNullable<View>; s
               <p className="ivc-ask" data-testid="mock-question">“{q.q}”</p>
               {q.table && <div className="ivc-material"><b>Practice material</b> <span className="xs muted">· made up for this exercise</span>
                 <table><tbody>{q.table.map((r, i) => <tr key={i}>{r.map((c, k) => (i === 0 ? <th key={k}>{c}</th> : <td key={k}>{c}</td>))}</tr>)}</tbody></table></div>}
-              <Answer key={`${iv.id}-${view.qi}-${a?.at || ""}`} initial={a?.text || ""} hint={iv.mode === "coach" ? q.hint : undefined} onSend={async (text, secs, fillers) => {
+  </>);
+  const answer = <Answer key={`${iv.id}-${view.qi}-${a?.at || ""}`} initial={a?.text || ""} hint={iv.mode === "coach" ? q.hint : undefined} onSend={async (text, secs, fillers) => {
                 const next = await run(() => api<Workspace>("POST", `/api/interviews/${iv.id}/answer`, { qi: view.qi, text, secs, fillers }));
                 if (!next) return;
                 setWs(next);
                 if (iv.mode === "coach") setView({ ...view, fb: true }); else await go(view.qi + 1);
-              }} skip={() => go(view.qi + 1)} stop={() => setView(null)} last={view.qi === n - 1} />
+              }} skip={() => go(view.qi + 1)} stop={() => setView(null)} last={view.qi === n - 1} />;
+  return (
+    <div className="ivc" data-testid="mock-interview">
+      <Head say={head} left={weeklyLeft(ws!.interviews)} />
+      {view.fb && a ? <Take iv={iv} a={a} retry={() => setView({ ...view, fb: false })} next={() => go(view.qi + 1)} /> : (
+        tabletop ? (
+          <section className="ivc-tabletop" data-testid="mock-tabletop">
+            <div className="ivc-tt-top">{bar}<Remy size={56} mood={a ? "happy" : "think"} />{ask}</div>
+            <div className="ivc-tt-bottom">{answer}</div>
+          </section>
+        ) : (
+        <section className="ivc-card" data-testid="mock-room">
+          {bar}
+          <div className="ivc-seat">
+            <div className="ivc-fox"><Remy size={76} mood={a ? "happy" : "think"} /><small>Remy · interviewer</small></div>
+            <div className="ivc-q">
+              {ask}
+              {answer}
             </div>
           </div>
         </section>
+        )
       )}
     </div>
   );
