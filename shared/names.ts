@@ -7,6 +7,13 @@ export const NAME_CHECK = "Name check";
 const nameKey = (n: string) => n.normalize("NFD").replace(/\p{M}+/gu, "").toLowerCase().split(/[^\p{L}]+/u).filter((w) => w.length > 1).sort().join(" ");
 /** true/false when the two names can be compared, null when they can't (e.g. only initials). */
 export const sameName = (a: string, b: string): boolean | null => { const x = nameKey(a), y = nameKey(b); return x && y ? x === y : null; };
+/** The resume's name is the account's name plus middle names ("Dilan Desman" -> "Dilan Dimel Desman"): same first and
+ *  last name, more words in between. Then it's the same person's full name and Remy takes it without asking. */
+export const fullerName = (account: string, resume: string): boolean => {
+  const w = (n: string) => n.normalize("NFD").replace(/\p{M}+/gu, "").toLowerCase().split(/[^\p{L}]+/u).filter((x) => x.length > 1);
+  const a = w(account), r = w(resume);
+  return a.length >= 2 && r.length > a.length && r[0] === a[0] && r[r.length - 1] === a[a.length - 1] && a.every((x) => r.includes(x));
+};
 /** The resume names someone other than the profile, and the student hasn't answered "Which name should Remy use?" yet. */
 export const nameUnsure = (ws: Pick<Workspace, "profile" | "resume" | "tasks">) =>
   !ws.profile.preferredName && !!ws.resume?.doc.contact.name && sameName(ws.profile.name, ws.resume.doc.contact.name) === false && ws.tasks.some((t) => t.source === NAME_CHECK && !t.done);

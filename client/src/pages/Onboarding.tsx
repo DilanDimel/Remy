@@ -36,7 +36,7 @@ export default function Onboarding() {
   // The goal question is step 1; the saved step number (1-5) starts at the resume, so it shows one further along.
   const shown = step <= 1 ? (w.onboarding.focus ? 1 : 0) : Math.min(step, STEPS.length - 1);
   const ownerView = useOwnerView();
-  const [reading, setReading] = useState(false); // the resume step is reading a file (owner preview shows it live)
+  const [reading, setReading] = useState(""); // what the resume step is reading ("resume", "transcript"), shown live beside it
   // Coming back partway through: say so and let the student choose, instead of dropping them mid-step.
   // Owner view: skip it on a reload within the hour — it was showing even seconds after a refresh.
   const [welcomeBack, setWelcomeBack] = useState(() => {
@@ -175,7 +175,7 @@ function beforePrefs(w: Workspace, j: Job) {
 
 /** Owner setup's right side (Dilan, Nov 23): a live preview of what Remy is building from each step, so the screen
  *  isn't half empty. Resume steps show Remy reading the file; later steps show the first openings arriving. */
-function SetupPreview({ shown, reading }: { shown: number; reading: boolean }) {
+function SetupPreview({ shown, reading }: { shown: number; reading: string }) {
   const { ws } = useStore();
   const w = ws!;
   const { jobs, fits, refreshing } = useJobs();
@@ -186,7 +186,7 @@ function SetupPreview({ shown, reading }: { shown: number; reading: boolean }) {
     const read = sections.length + (doc?.skills.length ? 1 : 0); // Skills are kept apart from sections but shown as one
     return (
       <aside className="ob-pv" aria-label="What Remy is reading" data-testid="setup-preview">
-        <span className="ob-pv-h">{reading ? "Reading your resume" : doc ? `Remy read ${read} section${read === 1 ? "" : "s"}` : shown === 0 ? "Your workspace, so far" : "Your resume goes here"}</span>
+        <span className="ob-pv-h">{reading ? `Reading your ${reading}` : doc ? `Remy read ${read} section${read === 1 ? "" : "s"}` : shown === 0 ? "Your workspace, so far" : "Your resume goes here"}</span>
         <div className={"ob-paper" + (reading ? " reading" : "") + (doc && !reading ? " read" : "")}>
           {doc && !reading ? (
             <>
@@ -203,7 +203,7 @@ function SetupPreview({ shown, reading }: { shown: number; reading: boolean }) {
             <>{[70, 40, 92, 84, 60, 0, 48, 90, 76, 82, 0, 55, 88].map((n, i) => <i key={i} className={n ? "" : "sp"} style={{ width: `${n}%` }} />)}{reading && <em className="ob-scan" aria-hidden />}</>
           )}
         </div>
-        <p className="ob-pv-say" aria-live="polite">{reading ? "Pulling out your roles, dates and skills. Only what's on the page." : doc ? "I'll only ever use what's here, and what you tell me." : shown === 0 ? "Once I have your resume, I'll start looking for openings that fit." : "Upload it and watch me read it here."}</p>
+        <p className="ob-pv-say" aria-live="polite">{reading ? (reading === "transcript" ? "Pulling out your courses, credits and GPA. Only what's on the page." : "Pulling out your roles, dates and skills. Only what's on the page.") : doc ? "I'll only ever use what's here, and what you tell me." : shown === 0 ? "Once I have your resume, I'll start looking for openings that fit." : "Upload it and watch me read it here."}</p>
       </aside>
     );
   }
@@ -328,7 +328,7 @@ function CalendarMark() {
 }
 
 /** Step 1: resume first (upload or build one), then the other accounts, each with its own row. */
-function ResumeStep({ onNext, onBusy }: { onNext: () => void; onBusy?: (busy: boolean) => void }) {
+function ResumeStep({ onNext, onBusy }: { onNext: () => void; onBusy?: (reading: string) => void }) {
   const { ws, me } = useStore();
   const first = firstName(ws!);
   const w = ws!;
@@ -336,7 +336,8 @@ function ResumeStep({ onNext, onBusy }: { onNext: () => void; onBusy?: (busy: bo
   const ownerView = useOwnerView();
   const transcript = w.imports.find((i) => i.kind === TRANSCRIPT);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { onBusy?.(busy); }, [busy]);
+  const [reader, setReader] = useState("resume"); // which file is being read, so the side panel names the right one
+  useEffect(() => { onBusy?.(busy ? reader : ""); }, [busy, reader]);
   const [page, setPage] = useState<"" | "build" | "linkedin">("");
   const linkedin = w.imports.find((i) => /linkedin/i.test(i.kind));
   const gc = useGoogleCalendar();
@@ -365,7 +366,7 @@ function ResumeStep({ onNext, onBusy }: { onNext: () => void; onBusy?: (busy: bo
           {w.resume ? <span className="conn-badge done"><Check size={13} /> Added</span> : <span className="conn-badge">Needed</span>}
           {w.resume && <button className="btn btn-secondary btn-sm" onClick={() => setOpen(open === "resume" ? "" : "resume")} disabled={busy} aria-expanded={open === "resume"} data-testid="button-source-resume">{open === "resume" ? "Cancel" : "Replace"}</button>}
         </div>
-        {(open === "resume" || !w.resume) && <div className="conn-panel fade-up" data-testid={w.resume ? "resume-loaded" : undefined}><ResumeUpload compact={!!w.resume} onBusy={setBusy} onDone={() => setOpen("")} /></div>}
+        {(open === "resume" || !w.resume) && <div className="conn-panel fade-up" data-testid={w.resume ? "resume-loaded" : undefined}><ResumeUpload compact={!!w.resume} onBusy={(b) => { if (b) setReader("resume"); setBusy(b); }} onDone={() => setOpen("")} /></div>}
         {!w.resume && (
           <div className="conn-row" style={{ background: "var(--fox-soft)", borderColor: "transparent" }}>
             <span className="conn-ico" aria-hidden><Sparkles size={18} /></span>
@@ -408,11 +409,11 @@ function ResumeStep({ onNext, onBusy }: { onNext: () => void; onBusy?: (busy: bo
             {/* Owners: the transcript moved here from Settings (Dilan, Nov 22). Optional; facts wait for approval on the next step. */}
             <div className="conn-row">
               <span className="conn-ico" aria-hidden><GraduationCap size={18} /></span>
-              <div className="grow"><b>Unofficial transcript</b><span>{transcript ? `${transcript.fileName} · ${transcript.factsAdded} fact${transcript.factsAdded === 1 ? "" : "s"} to review on the next step` : "Courses and honors you choose to keep. Nothing is added until you approve it."}</span></div>
+              <div className="grow"><b>Unofficial transcript</b><span>{transcript ? `${transcript.fileName} · ${transcript.factsAdded} thing${transcript.factsAdded === 1 ? "" : "s"} added. Edit them in Account anytime.` : "Your courses, credits and GPA, so Remy knows what you've already taken."}</span></div>
               {transcript ? <span className="conn-badge done"><Check size={13} /> Added</span> : <span className="conn-badge">Optional</span>}
               <button className="btn btn-secondary btn-sm" onClick={() => setOpen(open === "transcript" ? "" : "transcript")} disabled={busy} aria-expanded={open === "transcript"} data-testid="button-source-transcript">{open === "transcript" ? "Close" : transcript ? "Add again" : "Add"}</button>
             </div>
-            {open === "transcript" && <div className="conn-panel fade-up"><ProfileImport kind={TRANSCRIPT} hint="Upload the PDF from your school's student portal, or paste it. You'll approve each fact on the next step." onBusy={setBusy} onDone={() => setOpen("")} /></div>}
+            {open === "transcript" && <div className="conn-panel fade-up"><ProfileImport kind={TRANSCRIPT} pdfOnly hint="Download your unofficial transcript as a PDF from your school's student portal, then upload it here." onBusy={(b) => { if (b) setReader("transcript"); setBusy(b); }} onDone={() => setOpen("")} /></div>}
             {!gc.available && <p className="xs muted conn-soon" data-testid="conn-soon">Coming soon: Google Calendar.</p>}
           </>
         ) : <p className="xs muted conn-soon" data-testid="conn-soon">Coming soon: {[...(gc.available ? [] : ["Google Calendar"]), ...soon.map(([, title]) => title)].join(", ")}.</p>}
@@ -780,18 +781,20 @@ const CHECK_KINDS: Ask["kind"][] = ["conflict", "name", "profile", "facts"];
 function SetupChecks({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
   const asks = useAsks().filter((a) => CHECK_KINDS.includes(a.kind));
   const [shown, setShown] = useState<Ask | null>(null); // the answered one stays up (what Remy did, Undo) until Next
-  const total = useRef(asks.length);
-  const ask = shown || asks[0];
-  const left = asks.filter((a) => a.id !== ask?.id).length;
-  const at = total.current - left;
+  // Counted from the live list: checks answered here + the one showing + what's still waiting. A check that arrives
+  // while the student works (another source finished reading) adds to the total instead of repeating "3 of 4".
+  const [done, setDone] = useState<string[]>([]);
+  const ask = shown || asks.find((a) => !done.includes(a.id));
+  const left = asks.filter((a) => a.id !== ask?.id && !done.includes(a.id)).length;
+  const at = done.length + (shown ? 0 : 1);
   return (
     <div className="stack-lg setup-checks" data-testid="setup-checks">
       <div className="stack-sm">
-        {ask && <span className="xs muted" data-testid="text-check-count">{at} of {Math.max(total.current, at)}</span>}
+        {ask && <span className="xs muted" data-testid="text-check-count">{at} of {at + left}</span>}
         <h2>{ask ? "A few quick checks" : "That's everything"}</h2>
         <p className="small muted">{ask ? "Remy compared your resume with your other sources. Pick what's right and he fixes it." : "Thanks. Everything Remy uses now matches what you picked."}</p>
       </div>
-      {ask && <AskCard key={ask.id} ask={ask} kicker={false} next={left} onAnswered={() => setShown(ask)} onNext={() => setShown(null)} />}
+      {ask && <AskCard key={ask.id} ask={ask} kicker={false} next={left} onAnswered={() => { setShown(ask); setDone((d) => (d.includes(ask.id) ? d : [...d, ask.id])); }} onNext={() => setShown(null)} />}
       <div className="row-between">
         <button className="btn btn-ghost" onClick={onBack}><ArrowLeft size={16} /> Back</button>
         {(!ask || (shown && !left)) && <button className="btn btn-primary" onClick={onNext} data-testid="button-ob-next-checks">Continue <ArrowRight size={16} /></button>}
@@ -890,11 +893,11 @@ function Questions({ onBack, onNext }: { onBack: () => void; onNext: () => void 
           </div>
         </div>
       )}
-      {/* Not gated on "pending": if the last save hangs, the student can still move on (onNext saves the step). */}
+      {/* Waits for the last answer's save (it always ends: success or error), so a fast Continue can't skip it. */}
       {(!current || !qs.length) && !busy && (
         <div className="row-between">
-          <button className="btn btn-ghost" onClick={onBack}><ArrowLeft size={16} /> Back</button>
-          <button className="btn btn-primary" onClick={onNext} data-testid="button-ob-next-questions">Continue <ArrowRight size={16} /></button>
+          <button className="btn btn-ghost" disabled={!!pending} onClick={onBack}><ArrowLeft size={16} /> Back</button>
+          <button className="btn btn-primary" disabled={!!pending} onClick={onNext} data-testid="button-ob-next-questions">{pending ? "Saving your answer…" : <>Continue <ArrowRight size={16} /></>}</button>
         </div>
       )}
     </div>

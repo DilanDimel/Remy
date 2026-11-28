@@ -20,17 +20,19 @@ function SetupChecks({ onBack, onNext }: { onBack: () => void; onNext: () => voi
   const { ws } = useSession();
   const asks = (ws ? remyAsks(ws, dayKey()) : []).filter((a) => CHECK_KINDS.includes(a.kind));
   const [shown, setShown] = useState<Ask | null>(null);
-  const [total] = useState(asks.length);
-  const ask = shown || asks[0];
-  const left = asks.filter((a) => a.id !== ask?.id).length;
+  // Counted from the live list, like the website: answered here + the one showing + what's still waiting.
+  const [done, setDone] = useState<string[]>([]);
+  const ask = shown || asks.find((a) => !done.includes(a.id));
+  const left = asks.filter((a) => a.id !== ask?.id && !done.includes(a.id)).length;
+  const at = done.length + (shown ? 0 : 1);
   return (
     <View style={{ flexGrow: 1, gap: 18 }} testID="setup-checks">
       <View style={{ gap: 4 }}>
-        {!!ask && <T kind="small">{total - left} of {Math.max(total, total - left)}</T>}
+        {!!ask && <T kind="small">{at} of {at + left}</T>}
         <T kind="title">{ask ? "A few quick checks" : "That's everything"}</T>
         <T kind="muted">{ask ? "Remy compared your resume with your other sources. Pick what's right and he fixes it." : "Thanks. Everything Remy uses now matches what you picked."}</T>
       </View>
-      {!!ask && <AskCard key={ask.id} ask={ask} next={left} onAnswered={() => setShown(ask)} onNext={() => setShown(null)} />}
+      {!!ask && <AskCard key={ask.id} ask={ask} next={left} onAnswered={() => { setShown(ask); setDone((d) => (d.includes(ask.id) ? d : [...d, ask.id])); }} onNext={() => setShown(null)} />}
       <Nav onBack={onBack} next={!ask || (shown && !left) ? <Button testID="button-ob-next-checks" label="Continue" icon="arrow" onPress={onNext} flex /> : undefined} />
     </View>
   );
