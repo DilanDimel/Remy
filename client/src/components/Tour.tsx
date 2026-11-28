@@ -103,10 +103,13 @@ export function RemyTour() {
   const lastStep = useRef(-1); // a new step means the tour moves pages; the same step on another page means the student left
 
   const setStep = (to: number | "done") => { setN(to); save("settings", { tour: to }).catch(() => {}); };
-  const next = () => {
-    if (i + 1 >= steps.length && owner && step?.path === "/path") setTimeout(() => window.dispatchEvent(new Event(PATH_WALK)), 50);
-    setStep(i + 1 >= steps.length ? "done" : i + 1);
+  // Finished or ended, the tour lands on My Path and Remy's walk-through takes over (Dilan, Nov 27).
+  const end = () => {
+    setStep("done");
+    if (path !== "/path") go("/path");
+    setTimeout(() => window.dispatchEvent(new Event(PATH_WALK)), path === "/path" ? 50 : 900);
   };
+  const next = () => { if (i + 1 >= steps.length) end(); else setStep(i + 1); };
 
   // Go to the step's page. If the student leaves it themselves (a nav link, a button, Remy's chat), the tour ends
   // instead of pulling them back.
@@ -158,7 +161,7 @@ export function RemyTour() {
   useEffect(() => { if (step && path === step.path) main.current?.focus({ preventScroll: true }); }, [i, path, !!step, !!rect, waited, missing]);
   useEffect(() => {
     if (!step) return;
-    const esc = (e: KeyboardEvent) => { if (e.key === "Escape" && !typing(e.target)) setStep("done"); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape" && !typing(e.target)) end(); };
     window.addEventListener("keydown", esc);
     return () => window.removeEventListener("keydown", esc);
   }, [!!step]);
@@ -209,7 +212,7 @@ export function RemyTour() {
         </div>
         <div className="tour-dots" aria-hidden="true">{steps.map((_, k) => <i key={k} className={k < i ? "done" : k === i ? "on" : ""} />)}</div>
         <div className="row" style={{ gap: 6 }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => setStep("done")} data-testid="tour-end"><X size={14} /> End tour</button>
+          <button className="btn btn-ghost btn-sm" onClick={end} data-testid="tour-end"><X size={14} /> End tour</button>
           <span style={{ flex: 1 }} />
           {i > 0 && <button className="btn btn-ghost btn-sm" onClick={() => setStep(i - 1)} data-testid="tour-back"><ArrowLeft size={14} /> Back</button>}
           {step.doIt && !missing

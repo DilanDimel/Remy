@@ -3,7 +3,9 @@
 // gives a reward at every level (Remy's outfits or a new thing for his office); quests and the week's big move come from
 // every tab; "Your field" (roles, skills, certifications) sits on the page. Every number comes from data Remy already
 // has (DailyPath.tsx buildStops, shared/daily.ts, shared/game.ts, BLS via /api/careers and /api/future).
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as RMouseEvent, type ReactNode } from "react";
+import { plainSkill } from "@shared/plainSkills";
+import { exploreLanes } from "@shared/exploreLanes";
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as RMouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ArrowRight, Award, Briefcase, Check, Compass, DollarSign, Eye, Flame, Gift, Mic, Snowflake, Square, TrendingDown, TrendingUp, Wrench, X, Zap } from "lucide-react";
 import { ROADS, roadFor, YEARS, yearNumber, NEED_LABEL } from "@shared/roads";
@@ -13,7 +15,7 @@ import { pinColor, pinsOf, topPins } from "@shared/pins";
 import { CHEST_XP, RARE, chestPrize, rareOwned, welcomeBack } from "@shared/chest";
 import { prepChain } from "@shared/prep";
 import { dailyQuests, seasonOf } from "@shared/path";
-import { api, useOwnersOnly, useStore } from "../lib/store";
+import { api, rid, useOwnersOnly, useStore } from "../lib/store";
 import type { Workspace } from "@shared/types";
 import { go } from "../lib/router";
 import { Modal, Remy, Rich, Spinner } from "./common";
@@ -541,7 +543,7 @@ function Office({ d, onField }: { d: D; onField: (tab: SideTab, open?: string) =
         {ring && <span className="ps-ring" style={at(ring[0], ring[1])} aria-hidden="true" />}
         {place === "office" && <>
         {/* Captions sit centred just above the thing they name, so the room reads as one system (Dilan, Nov 24). */}
-        <button className="ps-tag" style={at(139, 104)} onClick={() => onField("roles")} data-testid="button-office-books">{known ? `${known} job${known === 1 ? "" : "s"} decoded` : "Decode your first job"}</button>
+        <button className="ps-tag" style={at(139, 104)} onClick={() => onField("roles")} data-testid="button-office-books">{known ? `${known} job${known === 1 ? "" : "s"} explored` : "Read about a job"}</button>
         <button className={"ps-tag below" + (cert ? "" : " ghost")} style={at(110, 280)} onClick={() => onField("certs")} data-testid="button-office-cert">{cert ? "Certificate earned" : "First certificate"}</button>
         <button className={"ps-tag" + (resume ? "" : " ghost")} style={at(328, 84)} onClick={() => go("/resume")} data-testid="button-office-resume">{resume ? "Resume on file" : "Add your resume"}</button>
         <button className={"ps-tag" + (pins.length ? "" : " ghost")} style={at(472, 146)} onClick={() => go("/rewards")} data-testid="button-office-pins">{pins.length ? `${pinsOf(d.w).filter((p) => p.earned).length} pins` : "Earn your first pin"}</button>
@@ -585,13 +587,17 @@ function useGuide(d: D, onField: (tab: SideTab, open?: string) => void) {
   const byOpenings = [...jobs].sort((a, b) => (b.openings || 0) - (a.openings || 0));
   // "Financial analyst" should find BLS's "Financial and investment analysts": every word's stem must appear.
   const fits = (title: string) => targets.some((t) => t.split(/\s+/).every((wd) => title.toLowerCase().includes(wd.slice(0, 6))));
-  const target = jobs.find((o) => fits(o.title)), top = target || byOpenings[0];
+  // "Not sure yet" in setup, or several fields picked: Remy shows where the major leads, never "where you're headed" (Dilan, Nov 27).
+  const exploring = !!d.w.onboarding.exploring || targets.length > 2;
+  const target = exploring ? undefined : jobs.find((o) => fits(o.title)), top = target || byOpenings[0];
   const roles = byOpenings.filter((o) => o !== top).slice(0, 2);
   // Skills Remy's path suggested come first; without a path yet, this year's milestones from the road.
   const todo = d.stops.filter((s) => s.status !== "done" && (s.kind === "skill" || s.kind === "step"));
   const rank = (s: (typeof todo)[number]) => (s.kind === "skill" ? 0 : 2) + (s.year <= d.year ? 0 : 4) + (s.optional ? 3 : 0);
   const skills = [...todo].sort((a, b) => rank(a) - rank(b) || a.year - b.year).slice(0, 2);
-  const certs = d.stops.filter((s) => s.kind === "cert" && s.status !== "done").sort((a, b) => +!!a.optional - +!!b.optional).slice(0, 1);
+  // Only a certification worth doing now (Dilan, Nov 27: "why tell a sophomore about the Series 7?"); licences that come after hiring wait on the "later" shelf.
+  const certs = d.stops.filter((s) => s.kind === "cert" && s.status !== "done" && s.year < 5).sort((a, b) => a.year - b.year).slice(0, 1);
+  const laterCerts = d.stops.filter((s) => s.kind === "cert" && s.year === 5).length;
   const avg = d.future?.allJobsGrowth ?? 0, f0 = d.future?.fields[0];
   const fastest = [...jobs].sort((a, b) => b.change - a.change)[0];
   const qLeft = d.quests.filter((q) => q.n < q.of).length;
@@ -602,13 +608,13 @@ function useGuide(d: D, onField: (tab: SideTab, open?: string) => void) {
   const close = () => { markSeen(); setOn(false); setStep(0); onField("today"); };
   const steps: GuideStep[] = [
     { say: <><b>Hi{name ? ` ${name}` : ""}!</b> You're {who}, {yearWord}. {!top ? <>Tell me your major and I'll show you real pay and growth for your field out that window.</>
-        : <>{target ? "Out that window is where you're headed" : `Out that window: in ${d.road?.label.toLowerCase() || "your field"}, the most openings are for`} <b>{top.title.toLowerCase()}</b>{top.wage ? <>, {money(top.wage)} median</> : null}, {top.change > 0 ? "+" : ""}{top.change}% by 2035.{target ? null : <> Tell me the job you want and I'll put it here.</>}</>}</>,
+        : <>{target ? <>You told me you want <b>{top.title.toLowerCase()}</b>, so that's out the window</> : exploring ? <>You haven't picked a job yet, and that's fine. Out that window is one place {p.major ? "your major" : "your field"} can lead: <b>{top.title.toLowerCase()}</b></> : <>Out that window: in {d.road?.label.toLowerCase() || "your field"}, the most openings are for <b>{top.title.toLowerCase()}</b></>}{top.wage ? <>, {money(top.wage)} median pay</> : null}, {top.change > 0 ? "+" : ""}{top.change}% more jobs by 2035.{target ? null : exploring ? <> We'll try a few and see what you like.</> : <> Tell me the job you want and I'll put it here.</>}</>}</>,
       spot: "window", pose: "point", ring: [670, 118], tab: "roles", open: top?.soc },
-    { say: <>Every book on this shelf is a job you've decoded. {roles.length ? <>Your {p.major ? "major" : "field"} also leads to {and(roles.map((o) => shortRole(o.title).toLowerCase()))}.</> : null} The full list is on the right.</>,
+    { say: <>Each book on this shelf is a job, explained in plain words: what the day looks like, the pay and whether it's growing. {roles.length ? <>Your {p.major ? "major" : "field"} also leads to {and(roles.map((o) => shortRole(o.title).toLowerCase()))}.</> : null} Tap any one on the right to read about it.</>,
       spot: "shelf", pose: "point", face: -1, ring: [140, 140], tab: "roles" },
-    { say: skills.length ? <>What I'd work on now, while you're {asA}: {and(skills.map((s) => clip(s.title)))}.</> : <>You've covered this stage. Nice.</>,
+    { say: skills.length ? <>What I'd work on now, while you're {asA}: {and(skills.map((s) => clip(s.title)))}. {skills.map((s) => plainSkill(s.title) && `${clip(s.title)}: ${plainSkill(s.title)}.`).filter(Boolean).join(" ")}</> : <>You've covered this stage. Nice.</>,
       spot: "desk", pose: "type", ring: null, tab: "skills", open: skills[0]?.id },
-    { say: certs.length ? <>This frame is for your first certification. In your field, start with <b>{clip(certs[0].title)}</b>.</> : <>This frame is for a certification. Your field doesn't require one; projects matter more.</>,
+    { say: certs.length ? <>This frame is for your first certification. One you can earn now: <b>{clip(certs[0].title)}</b>. {certs[0].cred?.why}{laterCerts ? " The licences that come after you're hired are on the \"later\" shelf, so skip them for now." : ""}</> : <>This frame is for a certification. Nothing in your field needs one yet; projects matter more right now.</>,
       spot: "shelf", pose: "point-low", face: -1, ring: [76, 247], tab: "certs", open: certs[0]?.id },
     { say: <>On the right is what's ahead, from now to 2035. By then {f0 ? <><b>{f0.fasterThanAverage} of {f0.total}</b> jobs grow faster than average</> : "jobs in your field will look different"}{fastest ? <>, and the fastest is <b>{fastest.title.toLowerCase()}</b> ({fastest.change > 0 ? "+" : ""}{fastest.change}%)</> : null}.</>,
       spot: "window", pose: "point", ring: [670, 118], tab: "forecast" },
@@ -652,6 +658,39 @@ const shortRole = (t: string) => t.replace(/,.*$/, "").replace(/ and /g, " & ");
 
 
 /* ------------------------------------------------------------------ beside the trail */
+
+/** Explore mode (owners first, new): for a student still deciding, one lane per field they picked, in plain words, with
+ *  one 20-minute thing to try this week. Remy never picks the career for them. */
+function ExploreLanes({ d }: { d: D }) {
+  const { save, run } = useStore();
+  const w = d.w;
+  const lanes = exploreLanes([...(w.profile.targetRoles || "").split(/,\s*/), ...(w.profile.major || "").split(/,|&|\band\b|\bwith\b/)].map((x) => x.trim()).filter(Boolean));
+  if (!lanes.length) return null;
+  const add = (l: (typeof lanes)[number]) => {
+    const title = `Try ${l.label.toLowerCase()}: ${l.try}`.slice(0, 200);
+    if (w.tasks.some((t) => t.title === title)) return;
+    return run(() => save("tasks", [{ id: rid("t"), title, why: `You're still deciding, so this week you're trying ${l.label.toLowerCase()} for 20 minutes to see how it feels.`, due: "", category: "Explore", done: false, source: "Explore on My Path" }, ...w.tasks]), "Added to your list");
+  };
+  return (
+    <section className="pt-card" aria-label="Explore your options" data-testid="path-explore">
+      <div className="pt-card-head"><span className="pm-kicker dark">Still deciding? Try each one</span><span className="pm-faint">20 minutes each</span></div>
+      <p className="small muted" style={{ margin: 0 }}>You don't have to pick yet. Try one a week and notice which one you'd happily do again.</p>
+      <ul className="pt-lanes">
+        {lanes.map((l) => {
+          const listed = w.tasks.some((t) => t.title.startsWith(`Try ${l.label.toLowerCase()}:`));
+          return (
+            <li key={l.key} className="pt-lane" data-testid={`explore-lane-${l.key.replace(/\W+/g, "-")}`}>
+              <b>{l.label}</b>
+              <p>{l.plain}</p>
+              <p className="pt-lane-try"><b>Try this week:</b> {l.try}</p>
+              <button className="btn btn-secondary btn-sm" disabled={listed} onClick={() => add(l)} data-testid={`button-explore-add-${l.key.replace(/\W+/g, "-")}`}>{listed ? <><Check size={14} /> On your list</> : "Add to my list"}</button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
 
 function Quests({ d }: { d: D }) {
   const all = d.quests.every((q) => q.n >= q.of);
@@ -791,13 +830,14 @@ type SideTab = "today" | "roles" | "skills" | "certs" | "forecast";
 /** The panel beside the office: today's quests, then your field's roles, skills, certifications and forecast.
  *  Office objects and Remy's walk-through switch it, so nothing opens far down the page. */
 function Side({ d, tab, setTab, open, setOpen }: { d: D; tab: SideTab; setTab: (t: SideTab) => void; open: string; setOpen: (s: string) => void }) {
+  const exploreOn = useOwnersOnly() && (!!d.w.onboarding.exploring || (d.w.profile.targetRoles || "").split(/,\s*/).filter(Boolean).length > 2);
   const jobs = d.careers?.[0]?.jobs || [];
   const avg = d.future?.allJobsGrowth ?? 0;
   const f0 = d.future?.fields[0];
   const known = new Set((stateOf(d.w).known || []).map((k) => k.toLowerCase()));
   const mine = new Set((d.w.profile.targetRoles || "").toLowerCase().split(/,\s*/).filter(Boolean));
   const max = Math.max(10, ...jobs.map((o) => Math.abs(o.change)), ...(f0 ? [...f0.growing, ...f0.shrinking].map((o) => Math.abs(o.change)) : []));
-  const skills = d.stops.filter((s) => s.kind === "skill" || s.kind === "step").sort((a, b) => a.year - b.year), certs = d.stops.filter((s) => s.kind === "cert");
+  const skills = d.stops.filter((s) => s.kind === "skill" || s.kind === "step").sort((a, b) => a.year - b.year), certs = d.stops.filter((s) => s.kind === "cert").sort((a, b) => a.year - b.year);
   const row = (o: Occ) => <RoleRow key={o.soc} o={o} avg={avg} max={max} known={known.has(o.title.toLowerCase())} mine={mine.has(o.title.toLowerCase())} open={open === o.soc} onOpen={() => setOpen(open === o.soc ? "" : o.soc)} />;
   // the row Remy named scrolls into view inside the panel
   // (inside the panel only, so the page never jumps away from Remy's office on a phone)
@@ -818,7 +858,7 @@ function Side({ d, tab, setTab, open, setOpen }: { d: D; tab: SideTab; setTab: (
         </div>
       </header>
       <div className="ps-side-body">
-        {tab === "today" && <><Quests d={d} /><PrepOrMove d={d} /></>}
+        {tab === "today" && <>{exploreOn && <ExploreLanes d={d} />}<Quests d={d} /><PrepOrMove d={d} /></>}
         {tab !== "today" && <div className="ps-field-line">
           <span>Your field</span>
           <select className="input ps-select" value={d.road?.key || ""} onChange={(e) => { d.setKey(e.target.value); setOpen(""); }} aria-label="Field" data-testid="select-road">
@@ -832,8 +872,9 @@ function Side({ d, tab, setTab, open, setOpen }: { d: D; tab: SideTab; setTab: (
         </>}
         {(tab === "skills" || tab === "certs") && (
           <ul className="pm-rows">
-            {(tab === "skills" ? skills : certs).map((s) => (
-              <li key={s.id} className={"pm-row role" + (open === s.id ? " open" : "")}>
+            {(tab === "skills" ? skills : certs).map((s, i, all) => (<Fragment key={s.id}>
+              {tab === "certs" && s.year === 5 && all[i - 1]?.year !== 5 && <li className="pm-later" data-testid="text-certs-later">Later, after college: these come with a job, so nothing to do now</li>}
+              <li className={"pm-row role" + (open === s.id ? " open" : "")}>
                 <button className="pm-row-btn two" onClick={() => setOpen(open === s.id ? "" : s.id)} aria-expanded={open === s.id}>
                   <span className={"pm-ico" + (s.status === "done" ? " known" : "")}>{s.status === "done" ? <Check size={16} strokeWidth={3} /> : s.kind === "skill" ? <Wrench size={16} /> : s.kind === "step" ? <Compass size={16} /> : <Award size={16} />}</span>
                   <div className="pm-role-main"><b>{s.title}</b><small>{s.kind === "step" ? s.sub : `${s.kind === "cert" && s.cred ? NEED_LABEL[s.cred.need] : s.sub} · ${s.year === 5 ? "after college" : `usually ${YEARS[s.year].toLowerCase()}`}`}</small></div>
@@ -841,7 +882,7 @@ function Side({ d, tab, setTab, open, setOpen }: { d: D; tab: SideTab; setTab: (
                 </button>
                 {open === s.id && <div className="pm-row-detail"><StopDetail s={s} future={d.future} onPlay={play} /></div>}
               </li>
-            ))}
+            </Fragment>))}
             {!(tab === "skills" ? skills : certs).length && <p className="ps-none">Nothing here yet for this field. Build your path and Remy adds skills that fit you.</p>}
           </ul>
         )}

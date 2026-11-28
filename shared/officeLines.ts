@@ -41,10 +41,10 @@ export const QUOTES: Quote[] = [
 
 /** What he says when you tap a thing in the room. Keys match data-it on the office drawing. */
 export const TAPS: Record<string, string[]> = {
-  books: ["Each book is a job you decoded. I've read them all. Twice.", "Alphabetized by color. Don't tell anyone.", "One day this shelf will need a second shelf.", "Careful, that one's a first edition. Of your job search."],
+  books: ["Each book is a job, explained in plain words. I've read them all. Twice.", "Alphabetized by color. Don't tell anyone.", "One day this shelf will need a second shelf.", "Careful, that one's a first edition. Of your job search."],
   resume: ["Your resume, framed. Recruiters spend about seven seconds on one, so we make every second count.", "Numbers in bullets beat adjectives. Every time.", "I'd hang it in a museum. Or at least on a recruiter's desk."],
   pins: ["Every pin on this board is something you really did.", "I polish these on Sundays.", "The board has room. Lots of room."],
-  window: ["Out there is where you're headed.", "Nice view. Better with an offer letter.", "Sometimes I just stare out here and think about cover letters."],
+  window: ["Out there is everywhere your major can lead.", "Nice view. Better with an offer letter.", "Sometimes I just stare out here and think about cover letters."],
   sun: ["Sunlight: zero cost, full benefits.", "Good day to send one application.", "Vitamin D and a strong resume. All you need."],
   moon: ["The moon's out. So are the late-night applications.", "Even the moon takes nights off. Rest counts too.", "Fun fact: the moon has no job openings. I checked."],
   clock: ["It's {time}. Good time for one small step.", "Tick, tock. Deadlines don't wait, but you've got this.", "This clock runs on ambition. And one AA battery."],

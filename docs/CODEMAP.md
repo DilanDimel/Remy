@@ -176,7 +176,7 @@ Imported by the website, the server and the app (`@shared/*`, `../shared` in nat
 - **Career content:** `roads.ts` and `roads-business.ts`, `roads-engineering.ts`, `roads-health.ts` (field roads from official sources), `seasons.ts` (recruiting timing), `fields.ts`, `regions.ts`, `screening.ts`, `requirements.ts`, `questionBank.ts` (interview questions with sources), `interviewRubric.ts`, `interviewCoach.ts`, `interview.ts`, `jobInterview.ts`, `prep.ts`.
 - **Jobs logic:** `order.ts`, `roleMatch.ts`, `opportunityType.ts`, `employer.ts`, `org.ts`, `pay.ts` (only what a posting states), `postingText.ts`, `logos.ts`, `words.ts`.
 - **Resume logic:** `bullets.ts`, `markup.ts`, `review.ts`, `resumeDiff.ts`, `linkedin.ts`.
-- **Remy and the game:** `nextAction.ts`, `homeLine.ts`, `greeting.ts`, `officeLines.ts`, `officeSteps.ts`, `remyAsks.ts`, `remyOffers.ts`, `activity.ts`, `path.ts`, `daily.ts`, `game.ts`, `chest.ts`, `pins.ts`, `places.ts`, `progress.ts`, `calendarPlan.ts`, `checkin.ts`, `stories.ts`, `speech.ts`, `setupDefaults.ts`, `setupReply.ts`.
+- **Remy and the game:** `nextAction.ts`, `homeLine.ts`, `greeting.ts`, `officeLines.ts`, `officeSteps.ts`, `remyAsks.ts`, `remyOffers.ts`, `activity.ts`, `path.ts`, `daily.ts`, `game.ts`, `chest.ts`, `pins.ts`, `places.ts`, `progress.ts`, `calendarPlan.ts`, `checkin.ts`, `stories.ts`, `speech.ts`, `setupDefaults.ts`, `setupReply.ts`, `plainSkills.ts` (skills in plain words), `exploreLanes.ts` (My Path explore mode).
 - **Team tooling:** `aiStatus.ts` and `autoHours.ts` (read `docs/ai/` for `check:ai` and team hours), `acceptEmail.ts`.
 
 ## native/ (the Expo app)
