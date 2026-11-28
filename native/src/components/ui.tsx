@@ -19,15 +19,19 @@ export const success = () => { if (Platform.OS !== "web") Haptics.notificationAs
 /** A tab's page: scrolls, pulls to refresh, and leaves room for the status bar and the tab bar. */
 /** Widest a page's column gets (open foldables, iPhone Duo inner screen), plus its 16 pt sides. */
 export const MAX_W = 720;
+/** Two panes side by side (Jobs list beside the opening). */
+export const MAX_W_WIDE = 1200;
+/** From this width a screen has room for a list beside its detail: open foldables, iPhone Duo inside, tablets. */
+export const TWO_PANE_W = 768;
 
-export function Screen({ children, refreshing, onRefresh, scroll = true, style }: { children: ReactNode; refreshing?: boolean; onRefresh?: () => void; scroll?: boolean; style?: StyleProp<ViewStyle> }) {
+export function Screen({ children, refreshing, onRefresh, scroll = true, style, wide }: { children: ReactNode; refreshing?: boolean; onRefresh?: () => void; scroll?: boolean; style?: StyleProp<ViewStyle>; wide?: boolean }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   // Just enough room at the end for the last row to clear the floating fox. iPhone pages scroll under the glass tab bar;
   // Android's tab bar sits below the page, so it needs only the fox's height (180 left a screen of blank paper there).
   // Side insets keep cards out of iPhone Duo's side rail and Android camera cutouts when sideways; on open foldables the
   // column stays a readable width in the middle instead of stretching across both pages.
-  const pad = { paddingTop: insets.top + 8, paddingLeft: insets.left + 16, paddingRight: insets.right + 16, paddingBottom: Platform.OS === "ios" ? insets.bottom + 126 : 76, width: "100%" as const, maxWidth: MAX_W + insets.left + insets.right, alignSelf: "center" as const };
+  const pad = { paddingTop: insets.top + 8, paddingLeft: insets.left + 16, paddingRight: insets.right + 16, paddingBottom: Platform.OS === "ios" ? insets.bottom + 126 : 76, width: "100%" as const, maxWidth: (wide ? MAX_W_WIDE : MAX_W) + insets.left + insets.right, alignSelf: "center" as const };
   if (!scroll) return <View style={[{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top + 8, paddingLeft: insets.left, paddingRight: insets.right }, style]}>{children}</View>;
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>

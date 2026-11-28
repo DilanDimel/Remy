@@ -1,12 +1,13 @@
 import { useLocalSearchParams, router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Swipeable, { SwipeDirection } from "react-native-gesture-handler/ReanimatedSwipeable";
 import type { Job, JobFit } from "@shared/types";
 import { shortTitle } from "@shared/org";
 import { OP_TYPES, opLabel, opType, type OpType } from "@shared/opportunityType";
-import { Button, Chip, FitBadge, Icon, Loading, Logo, Pill, Screen, Sect, T, success, tap } from "@/components/ui";
+import { Button, Chip, FitBadge, Icon, Loading, Logo, Pill, Screen, Sect, T, TWO_PANE_W, success, tap } from "@/components/ui";
+import { JobView } from "../job";
 import { useJobs } from "@/lib/jobs";
 import { Tracker } from "../progress";
 import { go } from "@/lib/nav";
@@ -22,7 +23,7 @@ type Filter = "new" | "kept" | "applied" | "passed" | "events";
 const PAGE = 40;
 
 /** One opening, like the website's job card: logo, "company · kind", title, place, chips, and why it fits. */
-export function JobCard({ j, fit, children, onPress }: { j: Job; fit?: JobFit; children?: React.ReactNode; onPress?: () => void }) {
+export function JobCard({ j, fit, children, onPress, selected }: { j: Job; fit?: JobFit; children?: React.ReactNode; onPress?: () => void; selected?: boolean }) {
   const { c } = useTheme();
   const due = deadlineChip(j.deadline);
   const pay = jobPay(j);
@@ -33,8 +34,8 @@ export function JobCard({ j, fit, children, onPress }: { j: Job; fit?: JobFit; c
   const { ws } = useSession();
   const rough = useAccess()("explore") === "open" && !ws?.resume;
   return (
-    <Pressable testID="card-job" onPress={onPress} accessibilityRole="button" accessibilityLabel={`${j.title}, ${j.company}`}
-      style={({ pressed }) => ({ backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.line, padding: 14, gap: 10, opacity: pressed ? 0.92 : 1 })}>
+    <Pressable testID="card-job" onPress={onPress} accessibilityRole="button" accessibilityState={selected ? { selected: true } : undefined} accessibilityLabel={`${j.title}, ${j.company}`}
+      style={({ pressed }) => ({ backgroundColor: c.surface, borderRadius: radius.card, borderWidth: selected ? 2 : 1, borderColor: selected ? c.fox : c.line, padding: selected ? 13 : 14, gap: 10, opacity: pressed ? 0.92 : 1 })}>
       <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
         <Logo company={j.company} url={j.applyUrl} size={44} />
         <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
@@ -63,6 +64,12 @@ export default function Jobs() {
   const { jobs, fits, loading, error, reload, keep, pass, undo } = useJobs();
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
+  // Open foldables, iPhone Duo inside and tablets: the list on the left, the opening you tapped on the right (Nov 28).
+  const { width, height } = useWindowDimensions();
+  const two = width >= TWO_PANE_W;
+  const [pickId, setPickId] = useState<string | null>(null);
+  // Folding the phone keeps the opening you had open: it moves from the pane to its own screen.
+  useEffect(() => { if (!two && pickId) { router.push({ pathname: "/job", params: { id: pickId } }); setPickId(null); } }, [two]);
   // Keep / Pass feel instant: the card goes at once, the server catches up, and Undo stays up for a few seconds.
   const [gone, setGone] = useState<Record<string, true>>({});
   const [last, setLast] = useState<{ job: Job; kept: boolean } | null>(null);
@@ -110,7 +117,9 @@ export default function Jobs() {
     try { await undo(j, wasKept); setKeptNow(({ [j.id]: _, ...n }) => n); setGone(({ [j.id]: _, ...g }) => g); } catch (e: any) { setErr(e.message); }
     setLeaving(({ [j.id]: _, ...l }) => l);
   };
-  const open = (j: Job) => { tap(); router.push({ pathname: "/job", params: { id: j.id } }); };
+  const open = (j: Job) => { tap(); if (two) setPickId(j.id); else router.push({ pathname: "/job", params: { id: j.id } }); };
+  // The pane keeps the opening you picked while it's in this list, else the first one.
+  const paneId = two && filter !== "applied" ? (shown.some((j) => j.id === pickId) ? pickId : shown[0]?.id) : undefined;
 
   const toast = last && (
     <View style={{ position: "absolute", left: insets.left + 16, right: insets.right + 84, bottom: aboveTabs(insets.bottom), flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.ink, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 16 }} testID="toast-undo">
@@ -162,18 +171,18 @@ export default function Jobs() {
 
   return (
     <View style={{ flex: 1 }}>
-    <Screen refreshing={refreshing} onRefresh={onRefresh}>
+    <Screen refreshing={refreshing} onRefresh={onRefresh} wide={two}>
       <T kind="display" style={{ marginTop: 8 }}>Opportunities</T>
       {!!line && <T kind="muted" style={{ marginTop: 4 }}>{line}</T>}
       {filters}
       {kindRow}
       {!!err && <T kind="small" style={{ color: c.error, marginTop: 8 }}>{err}</T>}
-      {filter === "applied" ? <View style={{ marginTop: 8 }}><Tracker ws={ws} /></View> : shown.length ? <>
+      {filter === "applied" ? <View style={{ marginTop: 8 }}><Tracker ws={ws} /></View> : shown.length ? <View style={two ? { flexDirection: "row", gap: 16, alignItems: "flex-start" } : undefined}><View style={two ? { flex: 5, minWidth: 0 } : undefined}>
         <Sect title={filter === "kept" ? "Saved" : filter === "passed" ? "Passed" : filter === "events" ? "Events and competitions" : `${shown.length} for you`} />
         <View style={{ gap: 12 }}>
           {shown.slice(0, limit).map((j) => {
             const card = (
-              <JobCard key={j.id} j={j} fit={fits[j.id]} onPress={() => open(j)}>
+              <JobCard key={j.id} j={j} fit={fits[j.id]} onPress={() => open(j)} selected={paneId === j.id}>
                 {filter === "new" && j.kind !== "event" && <View style={{ flexDirection: "row", gap: 8 }}>
                   {small("Keep", () => decide(j, true), "button-keep", true)}
                   {small("Pass", () => decide(j, false), "button-pass")}
@@ -196,7 +205,9 @@ export default function Jobs() {
           })}
         </View>
         {shown.length > limit && <Button testID="button-show-more" kind="ghost" label={`Show ${Math.min(PAGE, shown.length - limit)} more`} onPress={() => setLimit((n) => n + PAGE)} style={{ marginTop: 12 }} flex />}
-      </> : empty}
+      </View>
+      {two && !!paneId && <View testID="job-pane" style={{ flex: 6, minWidth: 0, height: Math.max(420, height * 0.78), marginTop: 18, borderRadius: radius.card, borderWidth: 1, borderColor: c.line, overflow: "hidden" }}><JobView key={paneId} id={paneId} inPane /></View>}
+      </View> : empty}
     </Screen>
     {toast}
     </View>

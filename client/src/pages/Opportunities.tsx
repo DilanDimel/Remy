@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, Fragment } from "react";
+import { createContext, useContext, useEffect, useRef, useState, Fragment } from "react";
+import { createPortal } from "react-dom";
 import { useAccess, useCanGo } from "../components/ComingSoon";
 import { dreamWithoutOpenings } from "@shared/org";
 import { decodeEntities, postingField, postingLines } from "@shared/postingText";
@@ -17,10 +18,14 @@ import { screeningFor } from "@shared/screening";
 import { postingSkills, skillsIn } from "@shared/requirements";
 import { isRoleOpening } from "@shared/roleMatch";
 import { Empty, Modal, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
-import { useIsMobile } from "../hooks/use-mobile";
+import { MID_QUERY, useIsMobile, useMedia } from "../hooks/use-mobile";
 import { OrgLogo } from "../components/OrgLogo";
 
 type Kind = "all" | "jobs" | OpType;
+// The opening that's open: a phone's bottom sheet, or the right-hand pane on an open foldable or small tablet. One shared
+// pick, so folding or unfolding the phone keeps the same job open (foldables, Nov 28).
+type Pick = { id: string | null; set: (id: string | null) => void; pane: HTMLElement | null; shown?: string };
+const PickCtx = createContext<Pick | null>(null);
 // Campus jobs include student-worker jobs filed as internships ("Student Worker ... Internship"), for everyone.
 const matchKind = (j: Job, k: Kind) => k === "all" || (k === "jobs" ? !["campus", "event"].includes(opType(j).type) : opType(j).type === k);
 
@@ -39,6 +44,9 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   const field = w.profile.targetRoles || w.profile.major || "your field";
   const kind = (query.get("kind") as Kind) || "all";
   const focus = query.get("id");
+  const split = useMedia(MID_QUERY) && owner;
+  const [pickId, setPickId] = useState<string | null>(focus);
+  const [pane, setPane] = useState<HTMLElement | null>(null);
   // From My Path: only openings of that kind of job (same rule as the count there, shared/roleMatch.ts).
   const role = query.get("role") || "";
   // From Home's "New openings" / "Saved openings that closed": those cards come first.
@@ -212,7 +220,10 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
         </div>
       ));
         // Owners: the list beside a rail with their search counts and what closes soon; the season band closes the page.
-        return owner ? <><div className="op-cols"><div className="stack">{listBlock}</div><OppRail jobs={jobs || []} /></div></> : listBlock; // season band lives on Home only (it showed on both, Nov 23 review)
+        const pick: Pick = { id: pickId, set: setPickId, pane, shown: rest.some((j) => j.id === pickId) ? pickId! : rest[0]?.id };
+        // Open foldables and small tablets: the list on the left, the opening you tapped on the right (Mockup 1, Nov 28).
+        if (owner && split) return <PickCtx.Provider value={pick}><div className="op-cols op-split"><div className="stack">{listBlock}<OppRail jobs={jobs || []} /></div><div className="op-pane" ref={setPane} data-testid="job-pane" /></div></PickCtx.Provider>;
+        return <PickCtx.Provider value={pick}>{owner ? <><div className="op-cols"><div className="stack">{listBlock}</div><OppRail jobs={jobs || []} /></div></> : listBlock}</PickCtx.Provider>; // season band lives on Home only (it showed on both, Nov 23 review)
       })()}
     </>
   );
@@ -355,8 +366,12 @@ function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; 
   const roughChip = rough && fit && !fit.closed ? <span className="chip chip-plain" title="Picked by your major, year and city. Add your resume to see how your experience matches." data-testid="chip-rough">Rough match</span> : null;
   const [open, setOpen] = useState(defaultOpen);
   // Phones (Dilan, Nov 25): a short row in the list; tapping it opens the whole card as a sheet from the bottom.
-  const phone = useIsMobile() && keepPass;
-  const [sheet, setSheet] = useState(defaultOpen);
+  const pick = useContext(PickCtx);
+  const inPane = !!pick?.pane && keepPass; // list beside the job (open foldables)
+  const phone = (useIsMobile() && keepPass) || inPane;
+  const [ownSheet, setOwnSheet] = useState(defaultOpen);
+  const sheet = pick ? (inPane ? pick.shown === j.id : pick.id === j.id) : ownSheet;
+  const setSheet = (on: boolean) => pick ? pick.set(on ? j.id : null) : setOwnSheet(on);
   // Pass (Demetre, Nov 24): the card swipes aside and fades, then the gap closes, instead of vanishing when the server answers.
   const card = useRef<HTMLElement>(null);
   const [gone, setGone] = useState(false);
@@ -397,16 +412,17 @@ function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; 
   const pay = jobPay(j);
   const type = opType(j); // what kind of opening, and the posting's words that say so
   const due = j.deadline && d !== null && d >= 0 && d <= 14 ? `closes ${fmtDate(j.deadline)}` : "";
-  if (phone && !sheet) return (
-    <button className="job-row" onClick={() => setSheet(true)} id={"job-" + j.id} data-testid="job-row">
+  const row = (
+    <button className="job-row" onClick={() => setSheet(true)} id={"job-" + j.id} aria-current={inPane && sheet ? "true" : undefined} data-testid="job-row">
       <OrgLogo company={j.company} url={j.applyUrl} />
       <span className="job-row-main"><b>{shortTitle(j.title, j.company)}</b><span>{[j.company, byType ? opLabel(type.type) : kindLabel[j.kind], due || shortPlace(j.location), pay].filter(Boolean).join(" · ")}</span></span>
       {roughChip || eligChip(fit)}
     </button>
   );
+  if (phone && !sheet) return row;
   const addCal = () => run(() => save("calendar", [...w.calendar, { id: rid("cal"), title: `${j.company}: ${j.kind === "event" ? "event" : "deadline"}`, date: j.deadline, time: "", kind: j.kind === "event" ? "Event" : "Deadline", source: j.label === "Live" ? "From verified posting" : "From imported posting", linkedId: j.id, notes: j.deadlineText }]), "Added to your Remy calendar");
   const full = (
-    <article ref={card} id={"job-" + j.id} className={"card card-pad stack-sm job-card" + (open ? " open" : "")} style={defaultOpen ? { borderColor: "var(--plum)" } : undefined} data-testid="card-job">
+    <article ref={card} id={inPane ? undefined : "job-" + j.id} className={"card card-pad stack-sm job-card" + (open ? " open" : "")} style={defaultOpen ? { borderColor: "var(--plum)" } : undefined} data-testid="card-job">
       <div className="row-between job-top" style={{ alignItems: "flex-start" }}>
         <OrgLogo company={j.company} url={j.applyUrl} />
         <div className="stack-sm" style={{ minWidth: 0, flex: 1 }}>
@@ -484,6 +500,7 @@ function JobCard({ j, fit, moved, canRate, defaultOpen, showPassed }: { j: Job; 
       {last && open && <span className={"xs " + (last.result === "reachable" ? "pass" : "fail")} data-testid="text-last-check">Last re-check {new Date(last.at).toLocaleString()}: {last.result === "reachable" ? "reachable" : last.result === "closed-signal" ? "page suggests it's closed" : "couldn't reach"}{last.httpStatus ? ` (HTTP ${last.httpStatus})` : ""}</span>}
     </article>
   );
+  if (inPane) return <>{row}{createPortal(<div className="job-sheet">{full}</div>, pick!.pane!)}</>;
   return phone ? <Modal title={shortTitle(j.title, j.company)} onClose={() => setSheet(false)}><div className="job-sheet">{full}</div></Modal> : full;
 }
 
