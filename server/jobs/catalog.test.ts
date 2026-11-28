@@ -71,7 +71,7 @@ test("Stapply lists: each system's rows become boards Remy's readers take; repo 
     oracle: "name,slug,url\nEB,ebwg,https://ebwg.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX\n",
     bamboohr: "name,slug,url\nCoker Legal,cokerlegal,https://cokerlegal.bamboohr.com/careers\nBad,../x,https://x\n",
     paylocity: "name,slug,url\nCochran,96be65ce-a51e-4c4e-8db5-091703033567,https://recruiting.paylocity.com/Recruiting/Jobs/All/96be65ce-a51e-4c4e-8db5-091703033567\nBad,nope,https://x\n",
-    ukg: "name,slug,url\n2nd Swing,x,https://recruiting2.ultipro.com/NDS1000NDSW/JobBoard/0e836885-d812-4a6b-8037-9c1ca641e913\n",
+    ukg: "name,slug,url\n2nd Swing,x,https://recruiting2.ultipro.com/NDS1000NDSW/JobBoard/0e836885-d812-4a6b-8037-9c1ca641e913\nGameStop,y,https://gamestop.rec.pro.ukg.net/GAM1502GMSP/JobBoard/ae8509c9-9420-4e83-8b61-014deb2bb131\n",
     adp: "name,slug,url\nHansons,323017e4-7f2e-49e2-bca0-e798b69a8e90/19000101_000001,https://workforcenow.adp.com/x\nBad,nope,https://x\n",
     icims: "name,slug,url\n360care LLC,360care,https://careers-360care.icims.com\n",
     successfactors: "name,slug,url\nAdamed,adamed,https://jobs.adamed.com\nAmkor,amkor,https://career8.successfactors.com/career?company=amkor\n",
@@ -84,7 +84,7 @@ test("Stapply lists: each system's rows become boards Remy's readers take; repo 
     ["workday", "23andme|wd5|23", "23Andme"], ["oracle", "ebwg.fa.us2.oraclecloud.com|CX", "EB"],
     ["bamboohr", "cokerlegal", "Coker Legal"], ["paylocity", "96be65ce-a51e-4c4e-8db5-091703033567", "Cochran"],
     ["applitrack", "aldineisd", "Aldine ISD"],
-    ["ukg", "recruiting2|NDS1000NDSW|0e836885-d812-4a6b-8037-9c1ca641e913", "2nd Swing"], ["adp", "323017e4-7f2e-49e2-bca0-e798b69a8e90|19000101_000001", "Hansons"],
+    ["ukg", "recruiting2|NDS1000NDSW|0e836885-d812-4a6b-8037-9c1ca641e913", "2nd Swing"], ["ukg", "gamestop.rec.pro.ukg.net|GAM1502GMSP|ae8509c9-9420-4e83-8b61-014deb2bb131", "GameStop"], ["adp", "323017e4-7f2e-49e2-bca0-e798b69a8e90|19000101_000001", "Hansons"],
     ["icims", "careers-360care", "360care LLC"], ["phenom", "careers.browardhealth.org", "Broward Health"],
     ["successfactors", "jobs.adamed.com", "Adamed"],
   ]);

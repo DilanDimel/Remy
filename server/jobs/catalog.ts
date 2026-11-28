@@ -51,7 +51,8 @@ const STAPPLY_ATS: Partial<Record<Ats, (slug: string, url: string) => string | n
   // School districts: https://www.applitrack.com/aldineisd/onlineapp → "aldineisd"
   applitrack: (_, u) => sub(u.match(/applitrack\.com\/([^/]+)\/onlineapp/i)?.[1] || ""),
   // UKG (UltiPro): https://recruiting2.ultipro.com/NDS1000NDSW/JobBoard/0e83… → "recruiting2|NDS1000NDSW|0e83…"
-  ukg: (_, u) => { const m = u.match(/^https:\/\/(recruiting\d*)\.ultipro\.com\/([A-Za-z0-9]+)\/JobBoard\/([0-9a-f-]{36})/i); return m ? `${m[1]}|${m[2]}|${m[3]}` : null; },
+  // UKG's older host (recruiting2.ultipro.com → "recruiting2") or its newer one, kept whole ("gamestop.rec.pro.ukg.net").
+  ukg: (_, u) => { const m = u.match(/^https:\/\/(?:(recruiting\d*)\.ultipro\.com|([a-z0-9-]+\.rec\.pro\.ukg\.net))\/([A-Za-z0-9]+)\/JobBoard\/([0-9a-f-]{36})/i); return m ? `${m[1] || m[2]}|${m[3]}|${m[4]}` : null; },
   // ADP Workforce Now: "cid/ccId" → "cid|ccId"
   adp: (s) => (/^[0-9a-f-]{36}\/[0-9_]+$/i.test(s) ? s.replace("/", "|") : null),
   // iCIMS: https://careers-360care.icims.com → "careers-360care"
@@ -289,7 +290,7 @@ export async function readBoard(b: CatalogBoard, read = fetchBoard): Promise<Raw
   }
   if (b.ats === "ukg") {
     const [host, tenant, board] = b.slug.split("|");
-    const base = `https://${host}.ultipro.com/${tenant}/JobBoard/${board}`;
+    const base = `https://${host.includes(".") ? host : `${host}.ultipro.com`}/${tenant}/JobBoard/${board}`;
     const items: any[] = [];
     for (let skip = 0; skip < 300; skip += 100) { // newest first; a few hundred roles is plenty for student titles
       const r = await fetch(`${base}/JobBoardView/LoadSearchResults`, {
