@@ -28,6 +28,10 @@ test("no key → null (browser voice); with a key the line is made once, then se
   assert.deepEqual([...again!.mp3], [1, 2, 3]);
   assert.equal(calls.length, 1);
   assert.ok(calls[0].includes(VOICE_ID));
+  // Students (cacheOnly): a line already made is served, a new one is never bought.
+  assert.equal((await speech("Hello there.", fake, true))?.cached, true);
+  assert.equal(await speech("A brand new line.", fake, true), null);
+  assert.equal(calls.length, 1);
 
   const failing = (async () => new Response("quota", { status: 401 })) as unknown as typeof fetch;
   assert.equal(await speech("Something new.", failing), null);

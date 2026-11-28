@@ -7,7 +7,7 @@ import { FIELD_GROUPS, FIELD_MAJORS, splitFieldList } from "@shared/fields";
 import { AUTH_OPTS, authChip } from "@shared/workAuth";
 import { alreadyIn, fitsField, inField, setupReply, tappedResumeClaim } from "@shared/setupReply";
 import { defaultTypes, fieldFromMajor, guessYearFor, yearOptions } from "@shared/setupDefaults";
-import { api, FAR_ENOUGH_STEP, fmtDate, rid, useOwnersOnly, useOwnerView, useStore } from "../lib/store";
+import { api, FAR_ENOUGH_STEP, fmtDate, rid, useOwnerView, useStore } from "../lib/store";
 import { reloadJobs, useJobs } from "../lib/jobs";
 import { AiUnavailableNote, BetaBadge, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
 import { ProfileImport, ResumeUpload } from "../components/Uploaders";
@@ -128,8 +128,8 @@ const CHAPTERS: [string, string][] = [
 /** Owner setup's side panel: Remy, the chapters, and every fact the student has given so far (all of it from them). */
 function SetupNotebook({ shown, back }: { shown: number; back: boolean }) {
   const { ws } = useStore();
-  // Owners first (a new feature): Remy reads each chapter's line aloud; the speech bubble is the caption.
-  const voice = useNarration(useOwnersOnly());
+  // Remy reads each chapter's line aloud (released Nov 28); the speech bubble is the caption.
+  const voice = useNarration(true);
   voice.useLine(back ? null : CHAPTERS[shown][1]);
   const w = ws!;
   const p = w.profile;
