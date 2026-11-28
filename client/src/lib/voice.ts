@@ -109,3 +109,24 @@ export async function say(text: string, ev: Events = {}) {
 export function speak(md: string) {
   if (md) say(spoken(md));
 }
+
+// Recorded narration (owners first, Nov 27 proposal): Remy reads the tour's and setup's fixed lines aloud. The words
+// stay on screen as the caption. Each fixed line is made once and then served from the server's voice cache, so
+// replaying it costs nothing. Mute is remembered on this device.
+const NARRATION_KEY = "remy:narration";
+export function useNarration(allowed: boolean) {
+  const [muted, setMuted] = useState(() => { try { return localStorage.getItem(NARRATION_KEY) === "off"; } catch { return false; } });
+  const on = allowed && !muted;
+  const toggle = () => {
+    const next = !muted;
+    setMuted(next);
+    try { localStorage.setItem(NARRATION_KEY, next ? "off" : "on"); } catch {}
+    if (next) hush();
+  };
+  /** Reads `line` once each time it changes, while narration is on; stops when the screen goes away. */
+  const useLine = (line: string | null) => {
+    useEffect(() => { if (on && line) say(spoken(line)); }, [on, line]);
+    useEffect(() => () => hush(), []);
+  };
+  return { allowed, muted, toggle, useLine };
+}

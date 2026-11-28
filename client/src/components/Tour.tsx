@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { featureAt } from "@shared/features";
 import { useAccess } from "./ComingSoon";
-import { ArrowLeft, ArrowRight, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Volume2, VolumeX, X } from "lucide-react";
+import { hush, useNarration } from "../lib/voice";
 import type { Workspace } from "@shared/types";
 import { useOwnerView, useStore } from "../lib/store";
 import { go, useRoute } from "../lib/router";
@@ -103,9 +104,12 @@ export function RemyTour() {
   const lastStep = useRef(-1); // a new step means the tour moves pages; the same step on another page means the student left
 
   const setStep = (to: number | "done") => { setN(to); save("settings", { tour: to }).catch(() => {}); };
+  // Owners first (a new feature): Remy reads each step aloud; the bubble's text is the caption.
+  const voice = useNarration(owner);
   // Finished or ended, the tour lands on My Path and Remy's walk-through takes over (Dilan, Nov 27).
   const end = () => {
     setStep("done");
+    hush();
     if (path !== "/path") go("/path");
     setTimeout(() => window.dispatchEvent(new Event(PATH_WALK)), path === "/path" ? 50 : 900);
   };
@@ -166,6 +170,7 @@ export function RemyTour() {
     return () => window.removeEventListener("keydown", esc);
   }, [!!step]);
 
+  voice.useLine(step && path === step.path ? step.text : null);
   if (!step) return null;
   const shade = "rgba(12, 10, 8, 0.6)";
   // Moving to the step's page (or still looking for the spot): the page stays dimmed, so it doesn't flash bright between steps.
@@ -206,7 +211,9 @@ export function RemyTour() {
         <div className="row" style={{ gap: 10, alignItems: "flex-start" }}>
           <Remy size={38} mood="wave" />
           <div className="stack-sm" style={{ flex: 1, gap: 4 }}>
-            <div className="row-between"><b>{step.title}</b><span className="xs muted">{i + 1} of {steps.length}</span></div>
+            <div className="row-between"><b>{step.title}</b><span className="row" style={{ gap: 4 }}>
+              {voice.allowed && <button type="button" className="icon-btn" onClick={voice.toggle} aria-pressed={!voice.muted} aria-label={voice.muted ? "Turn Remy's voice on" : "Mute Remy"} title={voice.muted ? "Turn Remy's voice on" : "Mute Remy"} data-testid="button-tour-voice">{voice.muted ? <VolumeX size={15} /> : <Volume2 size={15} />}</button>}
+              <span className="xs muted">{i + 1} of {steps.length}</span></span></div>
             <p className="small" style={{ margin: 0 }} aria-live="polite">{text}</p>
           </div>
         </div>
