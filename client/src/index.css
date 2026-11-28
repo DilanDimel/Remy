@@ -4207,3 +4207,10 @@ button.adm2-stu { gap: 12px; border-radius: 0; }
 /* Edit on "Check my notes": the box opens in the row's own cell, with Save and Cancel under it. */
 .ob-card .field .row .btn-sm { min-height: 32px; }
 @media (max-width: 640px) { .pref-q { padding: 0; border: 0; background: none; } }
+.pm-later { list-style: none; padding: 14px 4px 6px; font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted-text); }
+/* Explore mode on My Path (owners first): one card per field the student is trying. */
+.pt-lanes { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.pt-lane { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.pt-lane p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted-text); max-width: none; }
+.pt-lane .pt-lane-try { color: var(--ink); background: var(--fox-soft); border-radius: 8px; padding: 8px 10px; }
+.pt-lane .btn { justify-self: start; }

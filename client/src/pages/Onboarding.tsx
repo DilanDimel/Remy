@@ -51,8 +51,8 @@ export default function Onboarding() {
   const setStep = (s: number) => save("onboarding", { ...w.onboarding, step: s });
   const finish = async (tour = true) => {
     uiFlags.flyIn = true;
-    // Setup ends on Home, where Remy's tutorial starts (it used to land on the page the student's goal pointed to).
-    go("/");
+    // The tour starts on Home; skipping it lands on My Path, where the tour would have ended (Dilan, Nov 27).
+    go(tour ? "/" : "/path");
     // Remy's tutorial starts now (set here so students who finished setup before it existed aren't surprised by it),
     // unless they skip it; "Show me around again" in the menu still starts it later.
     // New students after the release get setup and the tour, not the "Remy just got an update" card (Beta2Welcome).

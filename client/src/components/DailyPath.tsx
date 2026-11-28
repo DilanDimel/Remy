@@ -7,7 +7,8 @@ import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ArrowRight, Award, BookOpen, Briefcase, CalendarRange, Check, Compass, Flag, Flame, Lock, Plus, Snowflake, Sparkles, TrendingDown, TrendingUp, Wrench, X, Zap } from "lucide-react";
 import type { Job, JobFit, PathPlan, Workspace } from "@shared/types";
 import { postingSkills } from "@shared/requirements";
-import { NEED_LABEL, ROADS, roadFor, YEARS, yearNumber, type Road } from "@shared/roads";
+import { plainSkill } from "@shared/plainSkills";
+import { NEED_LABEL, ROADS, roadFor, starterCertsFor, YEARS, yearNumber, type Road } from "@shared/roads";
 import { seasonFor, SEASON_SOURCE } from "@shared/seasons";
 import { levelOf, xpOf, type GameState } from "@shared/game";
 import { CARD_LABEL, CARD_XP, dailyStreak, dayKey, streakDays, weekDots, withCard, type DailyCard } from "@shared/daily";
@@ -127,9 +128,13 @@ export function buildStops(w: Workspace, road: Road | undefined, careers: { fiel
   jobs.slice(0, 6).forEach((o, i) => push({ id: "role-" + o.soc, kind: "role", year: Math.min(3, 1 + Math.floor(i / 2)), title: o.title, sub: occFacts(o), occ: o, p: known.has(o.title.toLowerCase()) ? 1 : 0 }));
   road?.steps.forEach((s, i) => push({ id: "step-" + i, kind: "step", year: s.year, title: s.what, sub: s.optional ? "Optional · many people skip it" : `Usually ${YEARS[s.year].toLowerCase()}`, source: s.source, optional: s.optional, p: task(s.what)?.done ? 1 : task(s.what) ? 0.5 : 0 }));
   // Skills postings ask for, from the road file, plus the ones Remy's path suggested for this student.
-  const skills = [...(road?.skills || []).slice(0, 5)];
+  // Business fields whose road lists no skills (finance) still get the ones every posting asks for, so Remy suggests
+  // skills, not milestones like "take the SIE", as what to work on now (Dilan, Nov 27).
+  const skills = [...(road?.skills?.length ? road.skills : road && /financ|account|business|econ|market|manag|entrepreneur|real estate/i.test(road.key + " " + road.label) ? ["Microsoft Excel", "Excel financial models", "PowerPoint"] : []).slice(0, 5)];
   plan?.skills.filter((s) => !/cert|exam|licen/i.test(s.type) && !skills.some((k) => k.toLowerCase().includes(s.name.toLowerCase().slice(0, 8)))).slice(0, 2).forEach((s) => skills.push(s.name));
   skills.forEach((k, i) => push({ id: "skill-" + i, kind: "skill", year: Math.min(4, 2 + Math.floor(i / 2)), title: k, sub: road?.skills?.includes(k) ? "Entry-level postings in your field ask for it" : "Suggested for your direction", source: road?.skills?.includes(k) ? road?.skillsSource : undefined, p: task(`Learn: ${k}`)?.done ? 1 : task(`Learn: ${k}`) ? 0.5 : 0 }));
+  // Ones a student can earn now come first, in their own year; licences that come after hiring sit in "after college".
+  starterCertsFor(road).filter((c) => !road?.credentials.some((r) => r.name === c.name)).forEach((c, i) => push({ id: "cert-now-" + i, kind: "cert", year: Math.min(year, 4), title: c.name, sub: NEED_LABEL[c.need], cred: c, source: c.source, optional: true, p: task(`Look into: ${c.name}`)?.done ? 1 : task(`Look into: ${c.name}`) ? 0.5 : 0 }));
   road?.credentials.filter((c) => !/^No license needed/.test(c.name)).forEach((c, i) => push({ id: "cert-" + i, kind: "cert", year: credYear(c), title: c.name, sub: NEED_LABEL[c.need], cred: c, source: c.source, optional: c.need === "optional", p: task(`Look into: ${c.name}`)?.done ? 1 : task(`Look into: ${c.name}`) ? 0.5 : 0 }));
   const f0 = future?.fields[0];
   if (f0) push({ id: "forecast", kind: "forecast", year: Math.min(year, 4), title: `Where ${f0.field} is heading`, sub: `${f0.fasterThanAverage} of ${f0.total} jobs grow faster than average`, p: Math.min(1, forecastCards / 5) });
@@ -280,6 +285,7 @@ export function StopDetail({ s, future, onPlay }: { s: Stop; future: FutureData 
           {s.cred.when && <div className="dp-sect"><span>When</span><p>{s.cred.when}</p></div>}
         </>
       )}
+      {s.kind === "skill" && plainSkill(s.title) && <p className="dp-lead" data-testid="text-skill-plain">{shortTitle(s)}: {plainSkill(s.title)}.</p>}
       {s.kind === "skill" && <p className="dp-lead">{s.sub}. Remy's Posting X-ray and skill cards will show where it comes up in real openings near you.</p>}
       {s.kind === "step" && shortTitle(s) !== s.title && <p className="dp-lead">{s.title}.</p>}
       {/* Unfamiliar words on the road (tester, Nov 25: "what's an FE exam?"): explained in place, on every stop that names one. */}
