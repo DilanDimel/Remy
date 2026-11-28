@@ -319,6 +319,16 @@ export async function editWorkspace(userId: string, edit: (ws: Workspace) => voi
   primeJobs(userId, wrote); // after the commit
   return out;
 }
+/** This account plus every other signed-in account with the same sign-in email (an older Google or email-code sign-in
+ *  of the same student). "Delete my account" removes them all, or the next Google sign-in lands in the old one. */
+export async function accountsWithEmail(userId: string): Promise<string[]> {
+  const rows = await q(
+    `SELECT o.id FROM users u JOIN users o ON lower(o.email) = lower(u.email) AND o.kind IN ('google','supabase')
+     WHERE u.id = $1 AND u.kind IN ('google','supabase') AND coalesce(u.email, '') <> ''`,
+    [userId],
+  );
+  return [...new Set([userId, ...rows.map((r) => String(r.id))])];
+}
 export async function deleteAccount(userId: string) {
   const u = await q1("SELECT email, school_email FROM users WHERE id=$1", [userId]);
   const email = String(u?.email || "").trim().toLowerCase();
