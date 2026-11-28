@@ -49,8 +49,13 @@ test("'rising sophomores' means current first-years", () => {
   const f = computeFit(student({ classYear: "First-year" }), job({ eligibility: ["This program is for rising sophomores."] }), "");
   assert.equal(f.eligibility, "likely");
 });
-test("regions: DFW suburbs match Dallas, Europe doesn't, 'anywhere' doesn't filter", () => {
-  assert.equal(regionMatch(student({ regions: "Dallas" }), job({ location: "Irving, TX" })), true);
+test("regions: DFW suburbs match the DFW area (not Dallas alone), Europe doesn't, 'anywhere' doesn't filter", () => {
+  // Dilan, Nov 27: "Fort Worth" or "Dallas" alone is that city; "DFW area", or picking both, is the metro.
+  assert.equal(regionMatch(student({ regions: "Dallas" }), job({ location: "Irving, TX" })), false);
+  assert.equal(regionMatch(student({ regions: "Fort Worth" }), job({ location: "Dallas, TX" })), false);
+  assert.equal(regionMatch(student({ regions: "Fort Worth" }), job({ location: "Fort Worth, TX" })), true);
+  assert.equal(regionMatch(student({ regions: "DFW area" }), job({ location: "Irving, TX" })), true);
+  assert.equal(regionMatch(student({ regions: "Dallas, Fort Worth" }), job({ location: "Irving, TX" })), true);
   assert.equal(regionMatch(student({ regions: "Dallas, Fort Worth" }), job({ location: "Brussels, Belgium" })), false);
   assert.equal(regionMatch(student({ regions: "anywhere" }), job({ location: "Brussels, Belgium" })), null);
   assert.equal(regionMatch(student({ regions: "Remote" }), job({ location: "New York, NY", format: "Remote" })), true);
@@ -255,7 +260,8 @@ test("regions: a state after a city labels that city ('Fort Worth, TX' is not al
   const { regionMatch } = await import("./fit");
   const at = (regions: string, location: string) => { const ws = emptyWorkspace(); ws.profile.regions = regions; return regionMatch(ws, { location, format: "" } as any); };
   assert.equal(at("Fort Worth, TX", "Houston, TX"), false);
-  assert.equal(at("Fort Worth, TX", "Dallas, TX"), true);
+  assert.equal(at("Fort Worth, TX", "Dallas, TX"), false); // Fort Worth alone is the city (DFW area is the metro)
+  assert.equal(at("Fort Worth, TX", "Fort Worth, TX"), true);
   assert.equal(at("Austin, Texas", "Houston, TX"), false);
   assert.equal(at("Austin, Texas", "Austin, TX"), true);
   assert.equal(at("Texas, California", "Houston, TX"), true);
@@ -617,6 +623,7 @@ test("relocation answer: out-of-area openings are kept only for a reason the stu
   assert.equal(relocateReason(ws("For the right role"), "Global Risk Solutions Claims Internship", "Liberty Mutual"), "", "no reason: not shown");
   assert.match(relocateReason(ws("For the right role"), "Summer Analyst", "Bank of America"), /dream employer/);
   assert.match(relocateReason(ws("Yes"), "Claims Internship", "Liberty Mutual"), /open to relocating/);
+  assert.equal(relocateReason(ws("Yes"), "Claims Internship", "Liberty Mutual", "Bangalore, Karnataka, India"), "", "never abroad");
   // Skeptic review: dream names match the same employer only, and "with"/"certification" aren't field words.
   const dreams = (d: string) => ({ profile: { relocation: "For the right role", major: "Finance & BIS with Fintech Certification", targetRoles: "", dreamEmployers: d } }) as any;
   assert.equal(relocateReason(dreams("EY"), "Operations Intern", "Disney"), "");

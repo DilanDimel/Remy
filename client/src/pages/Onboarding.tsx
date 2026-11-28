@@ -24,7 +24,7 @@ import { ThemeToggle } from "../components/ThemeToggle";
 import { firstName } from "@shared/names";
 import { nameConcern } from "@shared/junk";
 import { LIMIT_OPTS } from "@shared/limits";
-import { regionOptions } from "@shared/regions";
+import { regionHint, regionOptions } from "@shared/regions";
 
 // Step numbers are stored in the workspace: 0 and 1 are the goal question (no focus yet) or the resume step; 2-5 follow.
 const STEPS = ["Your goal", "Your resume", "Review", "Preferences", "Questions", "Your plan"];
@@ -675,6 +675,7 @@ function Preferences({ onBack }: { onBack: () => void }) {
           </div>
         </> : <>
           <Q n={5}><strong>Where should I look for you?</strong><Chips options={[...regionOpts, ...regions.filter((r) => !regionOpts.includes(r))]} value={regions} onChange={setRegions} testid="pref-region" />
+            {regionHint(regions) && <p className="xs muted" data-testid="text-region-hint">{regionHint(regions)}</p>}
             <div className="pref-inline"><input className="input pref-grow" value={otherRegion} onChange={(e) => setOtherRegion(e.target.value)} placeholder="Somewhere else? e.g. Chicago" aria-label="Other regions" data-testid="input-pref-region" />
             <span className="xs muted">Open to relocating?</span><Chips options={RELOC_OPTS} value={reloc} onChange={setReloc} multi={false} testid="pref-reloc" /></div></Q>
           <div className="pref-pair">

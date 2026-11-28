@@ -31,3 +31,11 @@ test("regions: any US metro means its whole area, with the state picking the rig
   assert.equal(at("Dallas, Fort Worth", "Irving, TX"), true);
   assert.equal(at("Boston", "Remote"), true);
 });
+
+test("regionHint: Fort Worth or Dallas alone says how to get the whole area", async () => {
+  const { regionHint } = await import("@shared/regions");
+  assert.match(regionHint(["Fort Worth"]), /Only Fort Worth itself\. Pick DFW area/);
+  assert.equal(regionHint(["Fort Worth", "DFW area"]), "");
+  assert.equal(regionHint(["Fort Worth", "Dallas"]), "");
+  assert.equal(regionHint(["Houston"]), "");
+});

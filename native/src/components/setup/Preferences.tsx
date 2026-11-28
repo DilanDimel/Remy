@@ -11,7 +11,7 @@ import { useSession } from "@/lib/session";
 import { font, useTheme } from "@/lib/theme";
 import { Chips, Input, Nav, Q, Say, useSave } from "./common";
 import { LIMIT_OPTS } from "@shared/limits";
-import { regionOptions } from "@shared/regions";
+import { regionHint, regionOptions } from "@shared/regions";
 
 // The same choices as the website's Preferences step (client/src/pages/Onboarding.tsx).
 const TYPE_OPTS = ["Internships", "Full-time jobs", "Part-time / campus jobs", "Programs & insight days", "Events & networking", "Competitions"];
@@ -137,6 +137,7 @@ export function Preferences({ onBack, scrollTop }: { onBack: () => void; scrollT
       </> : <>
         <Q n={5} title="Where should I look for you?">
           <Chips options={[...regionOpts, ...regions.filter((r) => !regionOpts.includes(r))]} value={regions} onChange={setRegions} testID="pref-region" />
+          {!!regionHint(regions) && <T kind="small">{regionHint(regions)}</T>}
           <Input testID="input-pref-region" value={otherRegion} onChangeText={setOtherRegion} placeholder="Somewhere else? e.g. Chicago" />
           <T kind="small">Open to relocating?</T>
           <Chips options={RELOC_OPTS} value={reloc} onChange={setReloc} multi={false} testID="pref-reloc" />

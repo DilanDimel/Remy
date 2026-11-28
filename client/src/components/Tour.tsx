@@ -167,7 +167,7 @@ export function RemyTour() {
   const shade = "rgba(12, 10, 8, 0.6)";
   // Moving to the step's page (or still looking for the spot): the page stays dimmed, so it doesn't flash bright between steps.
   const looking = path !== step.path || (!rect && !missing && waited !== at) || (owner && rect && !missing && settled !== at);
-  if (looking) return <div className="tour" aria-hidden="true"><div className="tour-shade" style={{ inset: 0, background: shade }} /></div>;
+  if (looking) return <div className="tour" aria-hidden="true" onWheel={scrollUnder}><div className="tour-shade" style={{ inset: 0, background: shade }} /></div>;
   // The app is drawn at 85% on laptop-size screens (CSS zoom on .shell, which this sits inside): measured positions are
   // on-screen pixels, so they're divided by the zoom to land in the right place.
   const zoom = CSS.supports("zoom", "1") ? parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--app-zoom")) || 1 : 1;
@@ -186,7 +186,7 @@ export function RemyTour() {
     : { width: bw, left: Math.max(12, Math.min(r.left, vw - bw - 12)), top: below + bubbleH < vh - 12 ? below : Math.max(12, r.top - bubbleH - 14) };
   const text = missing && step.doIt ? step.text.replace(/(^| )Tap .*$/, "$1Once you have openings, you can do this right from here.") : step.text;
   return (
-    <div className="tour" role="dialog" aria-label={`Remy's tour, step ${i + 1} of ${steps.length}: ${step.title}`} data-testid="remy-tour">
+    <div className="tour" role="dialog" aria-label={`Remy's tour, step ${i + 1} of ${steps.length}: ${step.title}`} data-testid="remy-tour" onWheel={scrollUnder}>
       {/* Four panels dim everything around the spot. On explainer steps a clear cover keeps the spot from being clicked
           (so "Tailor resume" isn't started by accident); on do-it steps the spot is live. */}
       {r ? (
@@ -219,4 +219,15 @@ export function RemyTour() {
       </div>
     </div>
   );
+}
+
+/** The shade catches clicks, but the wheel goes on to the page under it (Dilan, Nov 27: scrolling froze the tour):
+ *  the nearest scrollable box under the pointer scrolls, whether it's the page or a panel like an opening's details. */
+function scrollUnder(e: { clientX: number; clientY: number; deltaX: number; deltaY: number }) {
+  const under = document.elementsFromPoint(e.clientX, e.clientY).find((n) => !n.closest(".tour"));
+  for (let n = under as HTMLElement | null; n; n = n.parentElement) {
+    const oy = getComputedStyle(n).overflowY;
+    if ((oy === "auto" || oy === "scroll") && n.scrollHeight > n.clientHeight) { n.scrollBy({ top: e.deltaY, left: e.deltaX }); return; }
+  }
+  (document.scrollingElement || document.documentElement).scrollBy({ top: e.deltaY, left: e.deltaX });
 }

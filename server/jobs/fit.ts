@@ -95,10 +95,13 @@ function requiredYears(text: string): { years: Set<Year>; definite: boolean; byC
 
 const DFW_CITIES = ["dallas", "fort worth", "arlington", "irving", "plano", "frisco", "richardson", "addison", "dfw", "las colinas", "grand prairie", "mckinney", "allen", "denton", "carrollton", "lewisville", "southlake", "westlake", "coppell", "garland", "mesquite", "grapevine", "flower mound", "euless", "bedford", "keller", "mansfield", "the colony", "prosper", "rockwall", "farmers branch", "north richland hills", "hurst", "haltom city", "cedar hill", "duncanville", "desoto", "lancaster", "wylie", "little elm"];
 const METRO: Record<string, string[]> = {
-  // Students who say Dallas or Fort Worth mean the whole metro.
-  "fort worth": DFW_CITIES,
-  dallas: DFW_CITIES,
+  // "DFW area" (and "Dallas-Fort Worth") is the whole metro; it comes first so it wins over the city names inside it.
+  // "Fort Worth" or "Dallas" alone means that city (Dilan, Nov 27: he picked Fort Worth only and got Dallas and Irving).
   dfw: DFW_CITIES,
+  "dallas-fort worth": DFW_CITIES,
+  "dallas fort worth": DFW_CITIES,
+  "fort worth": ["fort worth"],
+  dallas: ["dallas"],
   houston: ["houston"],
   austin: ["austin"],
   texas: ["texas", ", tx", " tx", "dallas", "fort worth", "houston", "austin", "san antonio", "irving", "plano"],
@@ -170,6 +173,8 @@ export function regionMatch(ws: Workspace, job: Job): boolean | null {
   wants = wants.filter((w, i) => !(i > 0 && isState(w) && !isState(wants[i - 1])));
   // A state the student chose as a whole ("Anywhere in Texas") stays, even next to a metro or after a city.
   wants = [...wants, ...wholeStates];
+  // Picking both Dallas and Fort Worth means the area between them too (Irving, Arlington).
+  if (wants.some((w) => w.includes("dallas")) && wants.some((w) => w.includes("fort worth"))) wants.push("dfw");
   const loc = ` ${job.location} ${job.format} `.toLowerCase();
   // Virtual and remote postings can be done from anywhere, so they match every region.
   // ...unless the posting names another country ("Virtual, BR", "Remote - Canada").
@@ -374,7 +379,9 @@ const GENERIC_TITLE_WORDS = new Set(["with", "and", "for", "certification", "cer
 /** Why an opening outside the student's places is still worth showing, from their own "Open to relocating?" answer
  *  (council, Nov 19): "Yes" keeps every one; "For the right role" keeps one with a reason they'd recognize (a dream
  *  employer, or a title in their own field words); "No" or no answer keeps them to their places (""). */
-export function relocateReason(ws: Workspace, title: string, company: string): string {
+export function relocateReason(ws: Workspace, title: string, company: string, location = ""): string {
+  // Open to moving means within the US: an opening abroad (Bangalore) is never "worth relocating for".
+  if (location && abroad(location)) return "";
   const r = (ws.profile.relocation || "").trim().toLowerCase();
   if (r === "yes") return "you're open to relocating";
   if (r !== "for the right role") return "";
@@ -387,7 +394,7 @@ export function relocateReason(ws: Workspace, title: string, company: string): s
   return hit.length ? "the title is in your field" : "";
 }
 
-export const FIT_RULES_VERSION = 25; // 25: the resume's degree line and recent roles can make an opening match when the student chose no field (never hide). 24: events, conferences and competitions rank by the student's field words, a close sign-up date and early-student fit. 23: Nov 23 owners-first fit fixes reach students (New Grad titles, externships, "…or related field" lists, "management" alone); nearby fields for sports and aviation. 22: 22: fields from the 11,041-resume test: trades, imaging/respiratory/vet health, agriculture, humanities and languages, customer service, tech languages (Java, QA, DevOps); "X Management" majors aren't business; fire/EMS aren't legal; US metros everywhere (Census), not only Texas; plainer "why it fits" sentence. 21: field titles widened from the 1,000-resume test (Bookkeeper is accounting, PR is communications, a business major fits marketing/finance/HR/supply chain, criminal justice fits legal). 20: 20 (owners): a "…or related field" major list that shares nothing with the major is "check", not "You qualify"; "management" alone isn't a field word. 19: "New Grad" titles are for graduates; "externship" alone isn't nursing. 18: "degree conferred in 2025 or 2026" and "graduating in/by YYYY" are graduation rules. 17: out-of-area openings say why they're shown (relocation answer). 16: "Anywhere in Texas" means Texas, not anywhere (it switched location off). 15: "Microsoft Excel" is the resume's "Excel"; "Microsoft Office" is shown by its apps. 14: what a student enjoys never hides an opening, only fields they chose. 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
+export const FIT_RULES_VERSION = 26; // 26: "Fort Worth" or "Dallas" alone is that city ("DFW area" is the metro); openings abroad are never "worth relocating for". 25: the resume's degree line and recent roles can make an opening match when the student chose no field (never hide). 24: events, conferences and competitions rank by the student's field words, a close sign-up date and early-student fit. 23: Nov 23 owners-first fit fixes reach students (New Grad titles, externships, "…or related field" lists, "management" alone); nearby fields for sports and aviation. 22: 22: fields from the 11,041-resume test: trades, imaging/respiratory/vet health, agriculture, humanities and languages, customer service, tech languages (Java, QA, DevOps); "X Management" majors aren't business; fire/EMS aren't legal; US metros everywhere (Census), not only Texas; plainer "why it fits" sentence. 21: field titles widened from the 1,000-resume test (Bookkeeper is accounting, PR is communications, a business major fits marketing/finance/HR/supply chain, criminal justice fits legal). 20: 20 (owners): a "…or related field" major list that shares nothing with the major is "check", not "You qualify"; "management" alone isn't a field word. 19: "New Grad" titles are for graduates; "externship" alone isn't nursing. 18: "degree conferred in 2025 or 2026" and "graduating in/by YYYY" are graduation rules. 17: out-of-area openings say why they're shown (relocation answer). 16: "Anywhere in Texas" means Texas, not anywhere (it switched location off). 15: "Microsoft Excel" is the resume's "Excel"; "Microsoft Office" is shown by its apps. 14: what a student enjoys never hides an opening, only fields they chose. 13: U.S.-citizens-only rule, license/major cautions, legal notices aren't skills. 12: avoid list matches whole words and required skills. 11: titles naming the student's own field words rank first. 10: jobs abroad aren't local, US towns with foreign names are. 9: "You qualify" only for a rule Remy checked; college-only and finished-degree rules; hidden-by-preference is its own line. 8: skills are the posting's own words ("Excel", not "Software Skills"). 7: skills match by word family, not their first 5 letters ("pivot tables" isn't Tableau). 6: "Arlington, VA" isn't DFW
 /** The version a verdict is saved under: owner view runs owners-only rules, so its verdicts are kept apart from students'. */
 /** Events, conferences and competitions have no skills list or class-year rule, so they used to share one flat score.
  *  This ranks them by what Remy can check: the student's own field words in the name or summary, a sign-up date that
@@ -545,7 +552,7 @@ export function computeFit(ws: Workspace, job: Job, evidence: string): JobFit {
       ev.bonus +
       (job.kind === "program" && (year === "First-year" || year === "Sophomore") ? 12 : 0),
   );
-  return { at: new Date().toISOString(), by: "rules", v: fitVersion(), eligibility, eligibilityNote: note, checked, ...(hidden ? { hidden } : {}), matched, gaps, why, excluded, score, regionMatch: region, ...(region === false && relocateReason(ws, job.title, job.company) ? { relocate: relocateReason(ws, job.title, job.company) } : {}), typeMatch: type };
+  return { at: new Date().toISOString(), by: "rules", v: fitVersion(), eligibility, eligibilityNote: note, checked, ...(hidden ? { hidden } : {}), matched, gaps, why, excluded, score, regionMatch: region, ...(region === false && relocateReason(ws, job.title, job.company, job.location) ? { relocate: relocateReason(ws, job.title, job.company, job.location) } : {}), typeMatch: type };
 }
 
 // "Summer 2026" offered in October 2026: a term that has already started or ended (the AI doesn't always know the date).

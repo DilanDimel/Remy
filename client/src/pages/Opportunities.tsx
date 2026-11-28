@@ -89,13 +89,14 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
   // Postings that definitely rule the student out are hidden; elsewhere-only ones too, if asked.
   // Owners (Nov 23 PM review): "All 21", 7 cards, "Hiding 10", "14 more outside DFW" didn't add up. With "Only where I
   // want to work" on, the tab counts and the hidden line count only your places, so cards + hidden = the tab count.
-  const inArea = (j: { id: string }) => !myRegions || fits[j.id]?.regionMatch !== false || !!fits[j.id]?.relocate;
+  // "Only where I want to work" means only there (Dilan, Nov 27): "Worth relocating for" shows once it's off.
+  const inArea = (j: { id: string }) => !myRegions || fits[j.id]?.regionMatch !== false;
   const ineligible = base.filter((j) => fits[j.id]?.excluded && (!owner || inArea(j)));
   // Outside the student's places with no reason from their relocation answer: behind the "N more" link.
-  const elsewhere = base.filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch === false && !fits[j.id]?.relocate);
+  const elsewhere = base.filter((j) => !fits[j.id]?.excluded && fits[j.id]?.regionMatch === false);
   const list = base
     .filter((j) => showIneligible || !fits[j.id]?.excluded)
-    .filter((j) => !myRegions || fits[j.id]?.regionMatch !== false || !!fits[j.id]?.relocate)
+    .filter(inArea)
     // The student's own places first, then "Worth relocating for" (their relocation answer), then other places (only
     // when they show all locations); pinned and ranked within each group, so a group never splits (skeptic review).
     .sort(compare(pinned));
@@ -145,7 +146,7 @@ export default function Opportunities({ query }: { query: URLSearchParams }) {
         <div className="row">
           <input className="input opp-search" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search openings" data-testid="input-search-jobs" />
           <label className={"row small" + (owner ? " hide-phone" : "")}><input type="checkbox" checked={savedOnly} onChange={(e) => setSavedOnly(e.target.checked)} data-testid="checkbox-saved-only" /> {owner ? `Kept only${w.savedJobIds.length ? ` (${w.savedJobIds.length})` : ""}` : "Saved only"}</label>
-          {regions && <label className="row small" title={`Your regions: ${regions}`}><input type="checkbox" checked={myRegions} onChange={(e) => setMyRegions(e.target.checked)} data-testid="checkbox-my-regions" /> Only where I want to work</label>}
+          {regions && <label className="row small" title={`Your regions: ${regions}`}><input type="checkbox" checked={myRegions} onChange={(e) => setMyRegions(e.target.checked)} data-testid="checkbox-my-regions" /> {regions.length <= 28 ? `Only ${regions}` : "Only where I want to work"}</label>}
           {w.hiddenJobIds.length > 0 && <label className="row small"><input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} /> Show ones I'm not interested in</label>}
         </div>
       </div>
