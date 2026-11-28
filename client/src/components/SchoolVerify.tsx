@@ -17,12 +17,21 @@ export function schoolVerified(me: Me | null, domains: string[]) {
 }
 
 /** "Verify your TCU email to see TCU alumni": email → 6-digit code → verified. Optional everywhere it's shown. */
+// Leaving to read the code (another app on a phone, which can reload this page) or to connect Google Calendar must
+// not lose the "we sent a code" step (Dilan, Nov 27: "do we lose any context?"). Kept for the code's 10 minutes.
+const SENT_KEY = "remy:school-code";
+export function pendingSchoolCode(): string {
+  try { const v = JSON.parse(localStorage.getItem(SENT_KEY) || "null"); return v && Date.now() - v.at < 10 * 60_000 ? String(v.email || "") : ""; } catch { return ""; }
+}
+const rememberSent = (email: string) => { try { if (email) localStorage.setItem(SENT_KEY, JSON.stringify({ email, at: Date.now() })); else localStorage.removeItem(SENT_KEY); } catch {} };
+
 export function SchoolVerify({ onSkip }: { onSkip?: () => void }) {
   const { me, ws, config, run, setSession } = useStore();
   const ownerView = useOwnerView();
   const domains = config?.schoolEmail.domains || ["tcu.edu"];
   const [email, setEmail] = useState("");
-  const [sentTo, setSentTo] = useState("");
+  const [sentTo, setSentToState] = useState(pendingSchoolCode);
+  const setSentTo = (e: string) => { rememberSent(e); setSentToState(e); };
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const verified = schoolVerified(me, domains);
@@ -35,6 +44,7 @@ export function SchoolVerify({ onSkip }: { onSkip?: () => void }) {
     return r;
   };
 
+  if (verified && sentTo) rememberSent("");
   if (verified) {
     return (
       <div className="conn-row" data-testid="school-verified">

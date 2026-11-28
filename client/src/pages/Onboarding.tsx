@@ -11,7 +11,7 @@ import { api, FAR_ENOUGH_STEP, fmtDate, rid, useOwnerView, useStore } from "../l
 import { reloadJobs, useJobs } from "../lib/jobs";
 import { AiUnavailableNote, BetaBadge, Remy, Spinner, StatusChip, WorkingSteps } from "../components/common";
 import { ProfileImport, ResumeUpload } from "../components/Uploaders";
-import { atAlumniSchool, atTcu, SchoolVerify } from "../components/SchoolVerify";
+import { atAlumniSchool, atTcu, pendingSchoolCode, SchoolVerify } from "../components/SchoolVerify";
 import { AskCard, useAsks } from "../components/RemyAsk";
 import type { Ask } from "@shared/remyAsks";
 import { ResumeBuilder } from "../components/ResumeBuilder";
@@ -340,7 +340,7 @@ function ResumeStep({ onBack, onNext, onExplore, onBusy }: { onBack: () => void;
   const { ws, me } = useStore();
   const first = firstName(ws!);
   const w = ws!;
-  const [open, setOpen] = useState<"" | "resume" | "school" | "transcript">(w.resume ? "" : "resume");
+  const [open, setOpen] = useState<"" | "resume" | "school" | "transcript">(w.resume ? (pendingSchoolCode() ? "school" : "") : "resume");
   const ownerView = useOwnerView();
   const transcript = w.imports.find((i) => i.kind === TRANSCRIPT);
   const [busy, setBusy] = useState(false);
@@ -394,7 +394,7 @@ function ResumeStep({ onBack, onNext, onExplore, onBusy }: { onBack: () => void;
       </div>
 
       {/* Phones (Dilan, Nov 25): the optional accounts fold into one row so the resume stays the one thing on screen. */}
-      <details className="conn-more" open={!phone}>
+      <details className="conn-more" open={!phone || open === "school"}>
       <summary className="eyebrow" data-testid="toggle-other-accounts">Other accounts · optional<span className="conn-more-hint">LinkedIn, school email, transcript</span></summary>
       <div className="stack-sm">
         <div className="conn-row">
@@ -418,7 +418,7 @@ function ResumeStep({ onBack, onNext, onExplore, onBusy }: { onBack: () => void;
           <span className="conn-ico gcal" aria-hidden><CalendarMark /></span>
           <div className="grow"><b>Google Calendar</b><span>Your deadlines and interviews in a separate “Remy” calendar. Remy can't see your other calendars, and deletes it the moment you delete your account.</span></div>
           {gc.connected ? <span className="conn-badge done"><Check size={13} /> Connected</span>
-            : gc.signedIn ? <button className="btn btn-secondary btn-sm" onClick={() => gc.connect("setup")} data-testid="button-source-gcal">Connect</button>
+            : gc.signedIn ? <button className="btn btn-secondary btn-sm" onClick={() => gc.connect("setup")} disabled={busy} title={busy ? "Wait for Remy to finish reading your file" : undefined} data-testid="button-source-gcal">Connect</button>
             : <span className="conn-badge">Sign in to connect</span>}
         </div>}
         {ownerView ? (
@@ -825,9 +825,10 @@ function SetupChecks({ onBack, onNext }: { onBack: () => void; onNext: () => voi
   return (
     <div className="stack-lg setup-checks" data-testid="setup-checks">
       <div className="stack-sm">
-        {ask && <span className="xs muted" data-testid="text-check-count">{at} of {at + left}</span>}
+        {ask && <span className="xs muted" data-testid="text-check-count">Quick check {at} of {at + left}</span>}
+        {ask && at + left > 1 && <span className="ask-seg" aria-hidden>{Array.from({ length: at + left }, (_, i) => <i key={i} className={i < at - 1 || (shown && i === at - 1) ? "d" : i === at - 1 ? "n" : ""} />)}</span>}
         <h2>{ask ? "A few quick checks" : "That's everything"}</h2>
-        <p className="small muted">{ask ? "Remy compared your resume with your other sources. Pick what's right and he fixes it." : "Thanks. Everything Remy uses now matches what you picked."}</p>
+        <p className="small muted">{ask ? "Remy compared your resume with your other sources. Tap the one that's right and he fixes it everywhere." : "Thanks. Everything Remy uses now matches what you picked."}</p>
       </div>
       {ask && <AskCard key={ask.id} ask={ask} kicker={false} next={left} onAnswered={() => { setShown(ask); setDone((d) => (d.includes(ask.id) ? d : [...d, ask.id])); }} onNext={() => setShown(null)} />}
       <div className="row-between">

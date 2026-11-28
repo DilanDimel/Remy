@@ -25,3 +25,13 @@ test("explore lanes: one per field the student picked, in their order, no duplic
   assert.ok(lanes.every((l) => l.try.length > 20));
   assert.deepEqual(exploreLanes(["Nursing"]), []);
 });
+
+test("certifications to earn now reach past finance: BIS, accounting, marketing; a student's second major counts", () => {
+  const names = (key: string, label: string, about = "") => starterCertsFor({ key, label }, about).map((c) => c.name).join(" | ");
+  assert.match(names("bis", "Business information systems"), /Power BI.*AWS|AWS.*Power BI/);
+  assert.match(names("accounting", "Accounting"), /QuickBooks/);
+  assert.match(names("marketing", "Marketing"), /HubSpot/);
+  assert.doesNotMatch(names("finance", "Finance", "Finance with a fintech certificate"), /AWS|Google IT/);
+  assert.match(names("finance", "Finance", "Finance and Business Information Systems"), /AWS/);
+  assert.doesNotMatch(names("nursing", "Nursing"), /Power BI|QuickBooks|HubSpot|AWS/);
+});
