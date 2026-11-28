@@ -741,11 +741,17 @@ test("events and competitions rank by field words, a close sign-up date and earl
   const field = eventSignals(fin, ev("Investment banking case competition"), today);
   assert.ok(field.bonus >= 9 && /names your field/.test(field.why));
   assert.equal(eventSignals(fin, ev("Poultry science expo"), today).bonus, 0);
+  // The sign-up countdown is ranked live in shared/order.ts (eventTiming), so it isn't saved in the fit's score or words.
   const soon = eventSignals(fin, ev("Poultry science expo", { deadline: "2026-12-08" }), today);
-  assert.equal(soon.bonus, 10);
-  assert.match(soon.why, /closes in 7 days/);
-  assert.equal(eventSignals(fin, ev("Poultry science expo", { deadline: "2027-03-01" }), today).bonus, 0);
+  assert.equal(soon.bonus, 0);
+  assert.doesNotMatch(soon.why, /closes/);
   assert.equal(eventSignals(fin, ev("Poultry science expo", { summary: "Open to first-year students, no experience needed." }), today).bonus, 6);
+  assert.equal(eventSignals(fin, ev("Poultry science expo", { summary: "Open to all majors." }), today).bonus, 0);
+  // No field chosen: the resume's degree line counts, and the reason says so.
+  const undecided = student({ classYear: "Sophomore", major: "Undecided", targetRoles: "" });
+  (undecided as any).resume = { doc: { contact: {}, skills: [], sections: [{ id: "s1", heading: "Education", entries: [{ id: "e1", org: "TCU", role: "Bachelor of Business Administration in Finance", location: "", dates: "2029", bullets: [] }] }] } };
+  const fromResume = eventSignals(undecided, ev("Finance case competition"), today);
+  assert.ok(fromResume.bonus > 0 && /matches your resume/.test(fromResume.why));
   const near = computeFit(fin, ev("Investment banking case competition", { deadline: "2099-01-01" }), "");
   const far = computeFit(fin, ev("Poultry science expo"), "");
   assert.ok(near.score! > far.score!);

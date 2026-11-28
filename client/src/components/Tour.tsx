@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { featureAt } from "@shared/features";
 import { useAccess } from "./ComingSoon";
-import { ArrowLeft, ArrowRight, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Volume2, VolumeX, X } from "lucide-react";
+import { hush, useNarration } from "../lib/voice";
 import type { Workspace } from "@shared/types";
 import { useOwnerView, useStore } from "../lib/store";
 import { go, useRoute } from "../lib/router";
@@ -103,10 +104,16 @@ export function RemyTour() {
   const lastStep = useRef(-1); // a new step means the tour moves pages; the same step on another page means the student left
 
   const setStep = (to: number | "done") => { setN(to); save("settings", { tour: to }).catch(() => {}); };
-  const next = () => {
-    if (i + 1 >= steps.length && owner && step?.path === "/path") setTimeout(() => window.dispatchEvent(new Event(PATH_WALK)), 50);
-    setStep(i + 1 >= steps.length ? "done" : i + 1);
+  // Owners first (a new feature): Remy reads each step aloud; the bubble's text is the caption.
+  const voice = useNarration(owner);
+  // Finished or ended, the tour lands on My Path and Remy's walk-through takes over (Dilan, Nov 27).
+  const end = () => {
+    setStep("done");
+    hush();
+    if (path !== "/path") go("/path");
+    setTimeout(() => window.dispatchEvent(new Event(PATH_WALK)), path === "/path" ? 50 : 900);
   };
+  const next = () => { if (i + 1 >= steps.length) end(); else setStep(i + 1); };
 
   // Go to the step's page. If the student leaves it themselves (a nav link, a button, Remy's chat), the tour ends
   // instead of pulling them back.
@@ -158,11 +165,12 @@ export function RemyTour() {
   useEffect(() => { if (step && path === step.path) main.current?.focus({ preventScroll: true }); }, [i, path, !!step, !!rect, waited, missing]);
   useEffect(() => {
     if (!step) return;
-    const esc = (e: KeyboardEvent) => { if (e.key === "Escape" && !typing(e.target)) setStep("done"); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape" && !typing(e.target)) end(); };
     window.addEventListener("keydown", esc);
     return () => window.removeEventListener("keydown", esc);
   }, [!!step]);
 
+  voice.useLine(step && path === step.path ? step.text : null);
   if (!step) return null;
   const shade = "rgba(12, 10, 8, 0.6)";
   // Moving to the step's page (or still looking for the spot): the page stays dimmed, so it doesn't flash bright between steps.
@@ -203,13 +211,15 @@ export function RemyTour() {
         <div className="row" style={{ gap: 10, alignItems: "flex-start" }}>
           <Remy size={38} mood="wave" />
           <div className="stack-sm" style={{ flex: 1, gap: 4 }}>
-            <div className="row-between"><b>{step.title}</b><span className="xs muted">{i + 1} of {steps.length}</span></div>
+            <div className="row-between"><b>{step.title}</b><span className="row" style={{ gap: 4 }}>
+              {voice.allowed && <button type="button" className="icon-btn" onClick={voice.toggle} aria-pressed={!voice.muted} aria-label={voice.muted ? "Turn Remy's voice on" : "Mute Remy"} title={voice.muted ? "Turn Remy's voice on" : "Mute Remy"} data-testid="button-tour-voice">{voice.muted ? <VolumeX size={15} /> : <Volume2 size={15} />}</button>}
+              <span className="xs muted">{i + 1} of {steps.length}</span></span></div>
             <p className="small" style={{ margin: 0 }} aria-live="polite">{text}</p>
           </div>
         </div>
         <div className="tour-dots" aria-hidden="true">{steps.map((_, k) => <i key={k} className={k < i ? "done" : k === i ? "on" : ""} />)}</div>
         <div className="row" style={{ gap: 6 }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => setStep("done")} data-testid="tour-end"><X size={14} /> End tour</button>
+          <button className="btn btn-ghost btn-sm" onClick={end} data-testid="tour-end"><X size={14} /> End tour</button>
           <span style={{ flex: 1 }} />
           {i > 0 && <button className="btn btn-ghost btn-sm" onClick={() => setStep(i - 1)} data-testid="tour-back"><ArrowLeft size={14} /> Back</button>}
           {step.doIt && !missing

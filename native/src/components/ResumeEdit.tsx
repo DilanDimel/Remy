@@ -3,6 +3,7 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, Tex
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ResumeDoc, Workspace } from "@shared/types";
 import type { ReviewItem } from "@shared/review";
+import { addStoryEntry } from "@shared/storyEntry";
 import { Button, Icon, T, success, tap } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/session";
@@ -122,6 +123,80 @@ export function ContactDates({ doc, todo, onClose }: { doc: ResumeDoc; todo: Rev
       )}
       {!!err && <T kind="small" style={{ color: c.error }}>{err}</T>}
       <Button testID="button-save-contact" label="Save" busy={busy} disabled={!changed} onPress={submit} flex />
+    </Sheet>
+  );
+}
+
+const KINDS: [string, string][] = [["internship", "Internship"], ["job", "Job"], ["club", "Club or team"], ["volunteer", "Volunteering"], ["project", "Project"]];
+
+/** Add an experience by telling the story (Julio's user testing, Nov 27: students know what they did but can't squeeze it
+ *  into two lines). The phone keyboard's own mic does the talking; Remy drafts 1-2 lines from only those words
+ *  (POST /api/resume/story, the builder's draft and honesty check), and the student keeps, edits or drops each one. */
+export function StoryEntry({ onClose }: { onClose: () => void }) {
+  const { c } = useTheme();
+  const save = useSaveDoc();
+  const [f, setF] = useState({ kind: "internship", org: "", role: "", start: "", end: "", city: "", story: "" });
+  const [lines, setLines] = useState<{ text: string; keep: boolean; source: string }[] | null>(null);
+  const [rules, setRules] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const set = (k: keyof typeof f) => (v: string) => setF((x) => ({ ...x, [k]: v }));
+  const draft = async () => {
+    tap(); setBusy(true); setErr("");
+    try {
+      const r = await api<{ lines: { text: string; source: string }[]; by: "ai" | "rules" }>("POST", "/api/resume/story", f);
+      setLines(r.lines.map((l) => ({ text: l.text, source: l.source, keep: true })));
+      setRules(r.by === "rules");
+    } catch (e: any) { setErr(e.message); }
+    setBusy(false);
+  };
+  const kept = (lines || []).filter((l) => l.keep && l.text.trim() && !/\[[^\]]*\]/.test(l.text));
+  const blanks = (lines || []).some((l) => l.keep && /\[[^\]]*\]/.test(l.text));
+  const add = async () => {
+    setBusy(true); setErr("");
+    try { await save((d) => { d.sections = addStoryEntry(d, f, kept.map((l) => l.text)).sections; }); onClose(); } catch (e: any) { setErr(e.message); }
+    setBusy(false);
+  };
+  return (
+    <Sheet title="Add an experience" sub="Tell the story. Remy writes the lines." onClose={onClose} testID="sheet-story-entry">
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        {KINDS.map(([k, label]) => {
+          const on = f.kind === k;
+          return <Pressable key={k} testID={`chip-story-${k}`} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => { tap(); set("kind")(k); }}
+            style={{ borderRadius: 16, paddingHorizontal: 12, height: 32, justifyContent: "center", backgroundColor: on ? c.ink : c.surface2 }}>
+            <Text style={{ fontFamily: font.semi, fontSize: 13.5, color: on ? c.onInk : c.ink }}>{label}</Text></Pressable>;
+        })}
+      </View>
+      <Field label="Where" value={f.org} onChange={set("org")} testID="input-story-org" placeholder="Company, club or place" />
+      <Field label="Your role" value={f.role} onChange={set("role")} testID="input-story-role" placeholder="e.g. Finance Intern" />
+      <View style={{ flexDirection: "row", gap: 10 }}>
+        <View style={{ flex: 1 }}><Field label="Start" value={f.start} onChange={set("start")} testID="input-story-start" placeholder="Jun 2026" /></View>
+        <View style={{ flex: 1 }}><Field label="End" value={f.end} onChange={set("end")} testID="input-story-end" placeholder="Aug 2026" /></View>
+      </View>
+      <Field label="What did you do there? The whole story is fine." value={f.story} onChange={(v) => { set("story")(v); setLines(null); }} testID="input-story-text" multiline placeholder="A normal day, what you worked on, anything that changed because of you…" />
+      <T kind="small" style={{ color: c.mutedText, marginTop: -6 }}>Rather talk? Tap the mic on your keyboard. Remy only uses what you say.</T>
+      {!lines && <Button testID="button-story-draft" label="Write my resume lines" icon="arrow" kind="fox" flex busy={busy} disabled={f.story.trim().length < 20 || !f.org.trim()} onPress={draft} />}
+      {lines && (
+        <View style={{ gap: 10 }} testID="story-lines">
+          <T kind="h2">Remy's lines</T>
+          {rules && <T kind="small" style={{ color: c.mutedText }}>Remy's writer wasn't available, so these are your own sentences, tidied up. Edit them however you like.</T>}
+          {!lines.length && <T kind="small">Remy couldn't find a full sentence to use. Add a little more about what you did.</T>}
+          {lines.map((l, i) => (
+            <View key={i} style={{ gap: 6, borderWidth: 1, borderColor: c.line, borderRadius: radius.card, padding: 12, backgroundColor: c.surface, opacity: l.keep ? 1 : 0.55 }} testID="story-line">
+              <TextInput testID="input-story-line" value={l.text} multiline onChangeText={(t) => setLines((x) => x!.map((y, n) => (n === i ? { ...y, text: t } : y)))}
+                style={{ fontFamily: font.semi, fontSize: 15, lineHeight: 21, color: c.ink, padding: 0 }} />
+              {/\[[^\]]*\]/.test(l.text) && <T kind="small" style={{ color: c.foxDeep }}>Replace the [blank] with the real number, or delete it.</T>}
+              {!!l.source && <T kind="small" style={{ color: c.mutedText }} numberOfLines={2}>From your words: "{l.source}"</T>}
+              <Pressable testID="button-story-keep" accessibilityRole="checkbox" accessibilityState={{ checked: l.keep }} hitSlop={6} onPress={() => { tap(); setLines((x) => x!.map((y, n) => (n === i ? { ...y, keep: !y.keep } : y))); }}>
+                <Text style={{ fontFamily: font.bold, fontSize: 13.5, color: l.keep ? c.sage : c.mutedText }}>{l.keep ? "✓ Keeping this line" : "Not using this line (tap to keep)"}</Text>
+              </Pressable>
+            </View>
+          ))}
+          <Button testID="button-story-add" label={`Add to my resume${kept.length ? ` (${kept.length} line${kept.length === 1 ? "" : "s"})` : ""}`} kind="fox" flex busy={busy} disabled={!kept.length || blanks} onPress={add} />
+          <Button testID="button-story-redo" kind="ghost" label="Change my story" flex onPress={() => setLines(null)} />
+        </View>
+      )}
+      {!!err && <T kind="small" style={{ color: c.error }}>{err}</T>}
     </Sheet>
   );
 }

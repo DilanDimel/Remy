@@ -63,7 +63,7 @@ import {
 import { atsChecks, claimCheck } from "./ai/claims";
 import { CHECKIN_KINDS, cleanCheckin } from "./coach/checkin";
 import { checkinProposals } from "@shared/checkin";
-import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleDraft, ruleFollowups, skillSuggestions } from "./resume/builder";
+import { aiDraft, aiFollowups, buildDoc, hasBlank, ruleBullets, ruleDraft, ruleFollowups, skillSuggestions, storyBuilder } from "./resume/builder";
 import { classYearOf, collegeStartOf, computeFit, FIELD_TITLES, fitVersion, planJobs, typeMatch } from "./jobs/fit";
 import { atsScore } from "./resume/ats";
 import { pastTerm } from "./jobs/fit";
@@ -1272,7 +1272,7 @@ export async function registerRoutes(_server: Server, app: Express) {
     builder: z.looseObject({
       step: z.number().int().min(0).max(20),
       basics: z.object(Object.fromEntries(["name", "email", "phone", "city", "school", "major", "graduation", "classYear", "gpa", "highSchool", "highSchoolYear"].map((k) => [k, str(200)]))),
-      items: z.array(z.looseObject({ id: str(120), kind: str(40), stage: z.enum(["high school", "college"]), org: str(200), role: str(200), start: str(40), end: str(40), city: str(120), about: str(2000), followups: z.array(z.object({ q: str(300), a: str(1000) })).max(4) })).max(30),
+      items: z.array(z.looseObject({ id: str(120), kind: str(40), stage: z.enum(["high school", "college"]), org: str(200), role: str(200), start: str(40), end: str(40), city: str(120), about: str(4000), followups: z.array(z.object({ q: str(300), a: str(1000) })).max(4) })).max(30),
       skills: z.array(str(80)).max(40),
       draft: z.record(z.string(), z.array(z.looseObject({ id: str(120), text: str(400), options: z.array(str(400)).max(4), source: str(2000) })).max(6)).optional(),
     }),
@@ -1728,6 +1728,24 @@ export async function registerRoutes(_server: Server, app: Express) {
     b.skillSuggestions = skillSuggestions(b);
     await ctx.save();
     res.json(ctx.ws);
+  }));
+  // One experience told as a story (the app's "Tell the story", Julio's user testing Nov 27): Remy drafts 1-2 lines with
+  // the builder's own draft and honesty check. Nothing is saved; the student picks lines and adds them with PUT /api/resume/doc.
+  app.post("/api/resume/story", route(async (req, res, ctx) => {
+    const s = (k: string, n: number) => String(req.body?.[k] || "").replace(/\s+/g, " ").trim().slice(0, n);
+    const story = String(req.body?.story || "").trim().slice(0, 4000);
+    if (story.length < 20) bad("Tell Remy a little more about what you did there.");
+    const kind = /^[a-z]{2,20}$/.test(s("kind", 20)) ? s("kind", 20) : "internship";
+    const item = { id: "story", kind, stage: "college" as const, org: s("org", 200), role: s("role", 200), start: s("start", 40), end: s("end", 40), city: s("city", 120), about: story, followups: [] };
+    let lines: ReturnType<typeof ruleBullets>, by: "ai" | "rules" = "ai";
+    try {
+      if (!aiStatus().available) throw new AiUnavailable();
+      lines = (await withAi(ctx, "Resume story draft", () => aiDraft(storyBuilder(item, ctx.ws.profile.classYear || "", ctx.ws.profile.major || "")))).story;
+    } catch (e) {
+      if ((e as any)?.status === 429) throw e;
+      lines = ruleBullets(item); by = "rules";
+    }
+    res.json({ lines, by });
   }));
   app.post("/api/builder/save", route(async (_req, res, ctx) => {
     const b = needBuilder(ctx);

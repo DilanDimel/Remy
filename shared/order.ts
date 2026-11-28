@@ -6,7 +6,16 @@ import type { Job, JobFit, JobRanking, Workspace } from "./types";
 
 const GENERIC = /^(intern|interns|internship|internships|student|students|engineer|engineering|analyst|associate|assistant|summer|entry|level|role|roles|jobs?|work|program|career|careers|position|and|the|for|with)$/i;
 
-export function openingRanker(w: Workspace, jobs: Job[], fits: Record<string, JobFit | undefined>, interest: Record<string, JobRanking | undefined> = {}, interestEnabled = true) {
+/** Events, conferences and competitions: a sign-up that closes soon ranks higher, and one that already closed sinks to
+ *  the bottom (it stays in the list). Worked out from today's date every time, so it never goes stale like a saved fit
+ *  would (Demetre's #614, moved here Nov 28). Jobs and internships: 0. */
+export function eventTiming(j: Pick<Job, "kind" | "deadline">, now = new Date()): number {
+  if (j.kind !== "event" || !/^\d{4}-\d\d-\d\d/.test(j.deadline || "")) return 0;
+  const left = Math.ceil((Date.parse(j.deadline.slice(0, 10) + "T12:00:00Z") - now.getTime()) / 86_400_000);
+  return left < 0 ? -40 : left <= 14 ? 10 : left <= 30 ? 6 : left <= 60 ? 3 : 0;
+}
+
+export function openingRanker(w: Workspace, jobs: Job[], fits: Record<string, JobFit | undefined>, interest: Record<string, JobRanking | undefined> = {}, interestEnabled = true, now = new Date()) {
   const regions = (w.profile.regions || "").trim();
   // Feedback loop: employers the student saved or applied to rise; ones they keep marking "Not interested" sink.
   const companyOf = (id: string) => jobs.find((j) => j.id === id)?.company;
@@ -20,6 +29,7 @@ export function openingRanker(w: Workspace, jobs: Job[], fits: Record<string, Jo
   const near = (j: Job) => home.some((h) => new RegExp(`\\b${h.replace(/[.*+?^${}()|[\]\\]/g, "")}\\b`, "i").test(j.location));
   const rank = (j: Job) => (fits[j.id]?.score ?? 0) + (near(j) ? 6 : 0) + (liked.has(j.company) ? 8 : 0) - Math.min(3, hiddenBy.get(j.company) || 0) * 5
     + 10 * specific.filter((x) => new RegExp(`\\b${x}`, "i").test(j.title)).length
+    + eventTiming(j, now)
     + (interest[j.id]?.adjustment || 0); // the student's own "More like this" / "Not for me" (server-side, explained on the card)
   const group = (j: Job) => (!regions || fits[j.id]?.regionMatch !== false ? 0 : fits[j.id]?.relocate ? 1 : 2);
   /** Sort order: group, then pinned (e.g. "new" from Home), then rank, then the soonest deadline. */

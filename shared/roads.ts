@@ -19,6 +19,16 @@ export type Road = { key: string; label: string; field: RegExp; credentials: Cre
   skills?: string[]; skillsSource?: string };
 export const NEED_LABEL: Record<CredentialNeed, string> = { required: "Required", job: "Comes with the job", depends: "Depends on the job", optional: "Optional" };
 
+/** Certifications a student can earn now, in any year (Dilan, Nov 27: "focus on certifications that matter right now",
+ *  not only finance licences that come after hiring). `now` puts them in the student's current year on My Path. */
+export const STARTER_CERTS: (Credential & { now: true; fields?: RegExp })[] = [
+  { now: true, name: "Microsoft Office Specialist: Excel", need: "optional", who: "Anyone. Internships in business, finance and accounting expect strong Excel.", why: "It proves the Excel skills most postings ask for, and it's a line on your resume this semester.", learn: "Formulas, tables, charts and cleaning up data in Excel.", when: "Anytime. Ask your school first: many business schools and career centers give the exam free.", source: "https://certiport.pearsonvue.com/Certifications/Microsoft/MOS/Overview" },
+  { now: true, name: "Google Project Management Certificate", need: "optional", who: "Anyone who runs projects: clubs, events, class teams, internships.", why: "Shows you can plan work, keep a team on track and finish on time, in any field.", learn: "Planning a project, schedules, budgets, risks and working with a team.", when: "Anytime, online at your own pace. Check whether your school gives free Coursera access first.", source: "https://grow.google/certificates/project-management/" },
+  { now: true, name: "Google Data Analytics Certificate", need: "optional", who: "Anyone who wants to work with numbers: finance, accounting, marketing, operations, information systems.", why: "Data skills show up in almost every business posting, and this teaches spreadsheets, SQL and charts from zero.", learn: "Cleaning data, spreadsheets, SQL, Tableau and telling a story with numbers.", when: "Anytime, online at your own pace. Check whether your school gives free Coursera access first.", source: "https://grow.google/certificates/data-analytics/" },
+  { now: true, fields: /financ|account|econ|invest|bank|fintech|wealth|actuar/i, name: "Bloomberg Market Concepts (BMC)", need: "optional", who: "Students heading toward finance, banking, investing or accounting.", why: "A short course on how markets work, and a common line on finance students' resumes.", learn: "Economics, currencies, fixed income and equities, using the Bloomberg Terminal.", when: "Anytime. If your school has Bloomberg Terminals, it's usually free there: ask your business school first.", source: "https://www.bloomberg.com/professional/product/bloomberg-for-education/" },
+];
+export const starterCertsFor = (road?: Pick<Road, "key" | "label">) => STARTER_CERTS.filter((c) => !c.fields || (!!road && c.fields.test(road.key + " " + road.label)));
+
 export const YEARS = ["", "First-year", "Sophomore", "Junior", "Senior", "After college"] as const;
 /** Class year from an expected graduation ("May 2029" in fall 2026 is a sophomore). "" when it can't tell. */
 export function guessYear(graduation = "", now = new Date()): string {
